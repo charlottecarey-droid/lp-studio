@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import { Logo } from "./Logo";
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [location] = useLocation();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -12,11 +14,14 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Route-based top nav — consistent across every marketing page so
+  // prospects can move between them without hunting.
   const navLinks = [
-    { label: "Use cases", href: "#use-cases" },
-    { label: "Features", href: "#features" },
-    { label: "Pricing", href: "#pricing" },
-    { label: "FAQ", href: "#faq" },
+    { label: "For Marketing", href: "/for-marketing", active: location === "/for-marketing" },
+    { label: "For Sales", href: "/for-sales", active: location === "/for-sales" },
+    { label: "Features", href: "/features", active: location === "/features" },
+    { label: "Compare", href: "/compare", active: location === "/compare" },
+    { label: "Pricing", href: "/pricing", active: location === "/pricing" },
   ];
 
   return (
@@ -31,7 +36,7 @@ export default function Navbar() {
     >
       <div className="max-w-[1180px] mx-auto px-6 h-16 flex items-center justify-between">
         <a
-          href="#"
+          href="/"
           className="flex items-center"
           style={{ color: "var(--ink)" }}
           aria-label="LP Studio — home"
@@ -48,8 +53,14 @@ export default function Navbar() {
               key={l.href}
               href={l.href}
               className="transition-colors"
+              style={{
+                color: l.active ? "var(--ink)" : "var(--ink-soft)",
+                fontWeight: l.active ? 600 : 400,
+              }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "var(--ink)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--ink-soft)")}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = l.active ? "var(--ink)" : "var(--ink-soft)";
+              }}
             >
               {l.label}
             </a>
@@ -108,8 +119,10 @@ export default function Navbar() {
               href={l.href}
               onClick={() => setMenuOpen(false)}
               className="transition-colors"
-              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--ink)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--ink-soft)")}
+              style={{
+                color: l.active ? "var(--ink)" : "var(--ink-soft)",
+                fontWeight: l.active ? 600 : 400,
+              }}
             >
               {l.label}
             </a>

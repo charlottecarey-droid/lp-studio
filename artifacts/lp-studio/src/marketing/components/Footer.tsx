@@ -1,23 +1,27 @@
 import { Logo } from "./Logo";
 
+// All in-page hashes target ids that actually exist on the new home —
+// see home.tsx (FeatureRow id="builder", id="generate", id="templates",
+// id="sales-console") plus the section ids on Integrations / Pricing /
+// FAQ. The legacy /#features, /#waitlist, /#testimonials hashes pointed
+// at sections that were cut in the homepage rewrite and are gone.
 const productLinks = [
-  { label: "Visual Builder", href: "/#features" },
-  { label: "AI Copy", href: "/#features" },
-  { label: "Brand System", href: "/#features" },
-  { label: "A/B Testing", href: "/#features" },
-  { label: "Integrations", href: "/#integrations" },
-  { label: "Use Cases", href: "/#use-cases" },
+  { label: "Visual Builder", href: "/#builder" },
+  { label: "AI Generation", href: "/#generate" },
+  { label: "For Marketing", href: "/for-marketing" },
+  { label: "For Sales", href: "/for-sales" },
+  { label: "Features", href: "/features" },
+  { label: "Compare", href: "/compare" },
 ];
 
 const pricingLinks = [
-  { label: "Plans & Pricing", href: "/#pricing" },
-  { label: "Get Early Access", href: "/#waitlist" },
+  { label: "Plans & Pricing", href: "/pricing" },
+  { label: "Start a workspace", href: "https://app.lpstudio.ai" },
   { label: "Contact Sales", href: "mailto:admin@lpstudio.ai?subject=LP%20Studio%20-%20Sales%20inquiry" },
 ];
 
 const companyLinks = [
   { label: "About", href: "mailto:admin@lpstudio.ai?subject=About%20LP%20Studio" },
-  { label: "Customers", href: "/#testimonials" },
   { label: "FAQ", href: "/#faq" },
   { label: "Careers", href: "mailto:admin@lpstudio.ai?subject=Careers%20at%20LP%20Studio" },
 ];

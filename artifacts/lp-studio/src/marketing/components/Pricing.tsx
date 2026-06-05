@@ -277,10 +277,21 @@ function formatPrice(t: Tier, billing: Billing): string {
   return `$${v}`;
 }
 
-export default function Pricing() {
+interface PricingProps {
+  /**
+   * Whether the "Compare every feature" map starts expanded. The dedicated
+   * /pricing page passes `true` so visitors who hit it specifically get the
+   * full breakdown straight away. Embedded on the homepage we leave it
+   * closed so the page stays scannable. The toggle button works the same
+   * either way.
+   */
+  defaultCompareOpen?: boolean;
+}
+
+export default function Pricing({ defaultCompareOpen = false }: PricingProps = {}) {
   const { ref, inView } = useInView();
   const [billing, setBilling] = useState<Billing>("annual");
-  const [compareOpen, setCompareOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(defaultCompareOpen);
 
   return (
     <section

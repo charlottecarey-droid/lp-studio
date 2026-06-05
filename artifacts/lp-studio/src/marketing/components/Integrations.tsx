@@ -31,6 +31,7 @@ const SCHEDULING_OPS: Integration[] = [
 ];
 
 const SIGNALS_ANALYTICS: Integration[] = [
+  { name: "RB2B",              color: "#0A8C5C", mark: Rb2bMark },
   { name: "Apollo",            color: "#5952FF", mark: ApolloMark },
   { name: "Google Analytics 4",color: "#F5B83E", mark: Ga4Mark },
 ];
@@ -41,91 +42,121 @@ const groups: { label: string; subtitle: string; items: Integration[] }[] = [
   { label: "Signals & analytics", subtitle: "Know who's on the page, push events to GA4",     items: SIGNALS_ANALYTICS },
 ];
 
-// ── Marks ────────────────────────────────────────────────────────────────
+// ── Brand marks ──────────────────────────────────────────────────────────
+// Inline SVG marks approximating each brand's actual logo shape, normalized
+// to 24×24 viewBox for visual consistency. Single-color so they tint to the
+// brand color the tile uses. Drawn from publicly recognizable logo
+// silhouettes — close enough to read as "the real brand" without copying
+// proprietary multi-color assets.
 
 function SalesforceMark({ color }: { color: string }) {
+  // Three-lobe cloud, flat bottom — Salesforce's signature mark
   return (
-    <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
       <path
-        d="M9 22c-3.3 0-6-2.7-6-6 0-3.1 2.5-5.7 5.5-6 .9-2.4 3.3-4 6-4 2.4 0 4.4 1.3 5.5 3.2.7-.3 1.4-.4 2.2-.4 3.3 0 6 2.7 6 6 0 .7-.1 1.4-.4 2.1.6.5 1 1.3 1 2.1 0 1.7-1.3 3-3 3H9z"
+        d="M10.2 6.1c.6-.7 1.5-1.1 2.5-1.1 1.3 0 2.5.7 3.1 1.8.4-.2.8-.3 1.3-.3 1.8 0 3.2 1.5 3.2 3.3 0 .4-.1.8-.2 1.1.7.3 1.2 1 1.2 1.9 0 1.1-.9 2-2 2-.3 0-.5 0-.8-.1-.5 1.1-1.6 1.9-2.9 1.9-.5 0-1-.1-1.4-.3-.5 1.1-1.7 1.9-3 1.9-1.3 0-2.5-.8-3-1.9-.3.1-.6.1-.9.1-1.7 0-3.1-1.4-3.1-3.1 0-1.1.6-2.1 1.5-2.6-.2-.5-.3-1-.3-1.5 0-2 1.6-3.6 3.5-3.6 1.2 0 2.2.5 2.8 1.4z"
         fill={color}
       />
     </svg>
   );
 }
 function MarketoMark({ color }: { color: string }) {
+  // Marketo's slanted-M with the trailing bullet point
   return (
-    <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-      <path d="M6 26 L6 6 L12 14 L18 6 L18 26" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="25" cy="16" r="3" fill={color} />
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M17.4 0v24L8.7 19.5V4.5z" fill={color} />
+      <path d="M7.05 18.6L4.2 17.1V7l2.85-1.5z" fill={color} fillOpacity="0.6" />
+      <path d="M2.7 15.3L1.05 14.4V9.6l1.65-.9z" fill={color} fillOpacity="0.4" />
     </svg>
   );
 }
 function SheetsMark({ color }: { color: string }) {
-  // Spreadsheet glyph: rounded rect with two row/column dividers.
+  // Google Sheets — dog-eared sheet with column/row grid
   return (
-    <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-      <rect x="5" y="4" width="22" height="24" rx="3" fill="none" stroke={color} strokeWidth="2.4"/>
-      <path d="M5 12 H27 M5 20 H27 M16 4 V28" stroke={color} strokeWidth="2"/>
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+        fill={color}
+      />
+      <path d="M14 2v6h6" fill="none" stroke="#fff" strokeWidth="1.4" />
+      <rect x="7.5" y="11.5" width="9" height="7" rx="0.5" fill="none" stroke="#fff" strokeWidth="1.2" />
+      <path d="M7.5 14.5h9 M7.5 17h9 M10.5 11.5v7 M13.5 11.5v7" stroke="#fff" strokeWidth="1.1" />
     </svg>
   );
 }
 function WebhookMark({ color }: { color: string }) {
-  // Three-node webhook glyph.
+  // webhook.org Y-shape with three terminal circles
   return (
-    <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-      <circle cx="8"  cy="22" r="3.4" fill={color}/>
-      <circle cx="24" cy="22" r="3.4" fill={color}/>
-      <circle cx="16" cy="7"  r="3.4" fill={color}/>
-      <path d="M10.5 20 L14 11 M18 11 L21.5 20 M11 22 H21" stroke={color} strokeWidth="2.2" strokeLinecap="round" fill="none"/>
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="6.5" r="2.6" fill={color} />
+      <circle cx="6" cy="18" r="2.6" fill={color} />
+      <circle cx="18" cy="18" r="2.6" fill={color} />
+      <path d="M12 8.5L7.2 16.2 M12 8.5l4.8 7.7 M7.6 18h8.8" stroke={color} strokeWidth="2" strokeLinecap="round" fill="none" />
     </svg>
   );
 }
 function ChiliPiperMark({ color }: { color: string }) {
+  // Stylized chili pepper — round bell at top tapering to a point
   return (
-    <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-      <rect x="4" y="7" width="24" height="20" rx="3" fill="none" stroke={color} strokeWidth="2.4"/>
-      <path d="M4 13 L28 13" stroke={color} strokeWidth="2.4"/>
-      <path d="M16 16 c-1 4 3 6 3 9" fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round"/>
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M14 4c0-1 .7-1.8 1.5-2 .4-.1.6.2.4.5-.4.6-.4 1.2.1 1.7s1.4.7 2.1.2c.3-.2.7 0 .6.4-.2 1.1-1.3 2-2.5 2-.2 0-.4 0-.6-.1-.3 1.6-1.3 3-2.7 3.8 2.1 1 3.6 3.1 3.6 5.5 0 3.4-2.7 6.1-6.1 6.1S4.3 19.4 4.3 16c0-4.7 4-9 9.7-12z"
+        fill={color}
+      />
     </svg>
   );
 }
 function AsanaMark({ color }: { color: string }) {
-  // Three-circle Asana-style cluster.
+  // Asana's three-dot cluster (top center + two lower outer)
   return (
-    <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-      <circle cx="16" cy="9"  r="4.5" fill={color}/>
-      <circle cx="9"  cy="21" r="4.5" fill={color}/>
-      <circle cx="23" cy="21" r="4.5" fill={color}/>
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="6.5" r="3.5" fill={color} />
+      <circle cx="6.5" cy="16" r="3.5" fill={color} />
+      <circle cx="17.5" cy="16" r="3.5" fill={color} />
     </svg>
   );
 }
 function ResendMark({ color }: { color: string }) {
-  // Envelope with motion line.
+  // Resend's wordmark "R" condensed into a glyph
   return (
-    <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-      <rect x="4" y="8" width="24" height="16" rx="2.5" fill="none" stroke={color} strokeWidth="2.4"/>
-      <path d="M4 10 L16 19 L28 10" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M5.5 4.5h7c2.5 0 4.5 2 4.5 4.5s-2 4.5-4.5 4.5h-2.5l5 6h-4l-4.5-5.5v5.5h-4v-15h2.5z M9.5 8v3h3c.8 0 1.5-.7 1.5-1.5S13.3 8 12.5 8z"
+        fill={color}
+      />
+    </svg>
+  );
+}
+function Rb2bMark({ color }: { color: string }) {
+  // RB2B is a wordmark in their branding; reduce to a compact monogram for
+  // tile placement — a rounded "R" with a small terminal dot signalling
+  // visitor identity / known-person resolution.
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M5 4h7.5c2.5 0 4.5 2 4.5 4.5s-2 4.5-4.5 4.5h-1.7l4.7 6h-3.5l-4.5-5.8V19H5V4zm3 3v3.5h4c1 0 1.7-.8 1.7-1.7S13 7 12 7H8z"
+        fill={color}
+      />
+      <circle cx="19" cy="19" r="2.4" fill={color} />
     </svg>
   );
 }
 function ApolloMark({ color }: { color: string }) {
-  // Radar / circle-with-blip — IP reveal.
+  // Apollo.io — geometric A with stacked tiers
   return (
-    <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-      <circle cx="16" cy="16" r="11" fill="none" stroke={color} strokeWidth="2.2"/>
-      <circle cx="16" cy="16" r="6"  fill="none" stroke={color} strokeWidth="2" opacity="0.5"/>
-      <circle cx="22" cy="11" r="2.6" fill={color}/>
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3L3 21h4l1.8-4h6.4l1.8 4h4z" fill={color} />
+      <path d="M10 13h4l-2-4.5z" fill="#fff" />
     </svg>
   );
 }
 function Ga4Mark({ color }: { color: string }) {
-  // Two ascending bars + dot.
+  // Google Analytics — three ascending columns, tallest on the right
   return (
-    <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
-      <rect x="5"  y="16" width="6" height="12" rx="2" fill={color} fillOpacity="0.55"/>
-      <rect x="14" y="8"  width="6" height="20" rx="2" fill={color}/>
-      <circle cx="26" cy="6" r="3" fill={color}/>
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="14" width="4.5" height="7" rx="2.25" fill={color} fillOpacity="0.55" />
+      <rect x="9.75" y="8" width="4.5" height="13" rx="2.25" fill={color} fillOpacity="0.78" />
+      <rect x="16.5" y="3" width="4.5" height="18" rx="2.25" fill={color} />
     </svg>
   );
 }
@@ -337,7 +368,7 @@ export default function Integrations() {
             Every form supports custom webhooks — most teams wire a new tool in under five minutes. New native integrations ship by request from beta customers.
           </span>
           <a
-            href="#waitlist"
+            href="mailto:admin@lpstudio.ai?subject=Integration%20request"
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-colors"
             style={{
               background: "var(--ink)",

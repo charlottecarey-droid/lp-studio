@@ -9,6 +9,17 @@
   --color-cream: var(--cream);
   --color-indigo-accent: var(--indigo);
   --color-coral-accent: var(--coral);
+  /* Lovable BuildSection design-system tokens — keep these so the ported
+     scroll-driven demo's bg-indigo / text-indigo / text-muted-foreground /
+     bg-sage utilities resolve to the LP Studio palette. */
+  --color-indigo: var(--indigo);
+  --color-coral: var(--coral);
+  --color-sage: var(--sage);
+  --color-gold: var(--gold);
+  --color-muted-foreground: var(--ink-mute);
+  --color-muted: var(--cream-2);
+  --color-card: var(--paper);
+  --color-border: var(--hairline);
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;

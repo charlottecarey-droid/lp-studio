@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Logo } from "./Logo";
-import { useMadLibsPlaceholder } from "../lib/madLibsPlaceholder";
 
 // Palette retargeted from "dark + lime" to "warm cream + ink + indigo" to match
 // the app. Names preserved so call sites don't need rewrites.
@@ -204,26 +203,12 @@ interface SceneProps {
   showSelection: boolean;
 }
 
-/* Render headline L1 with the word "convert" highlighted in lime as it types in. */
+/* Render headline L1 in plain ink. The lime accent now lives on L2 below
+ * — the OG version hardcoded an accent slice for "Landing pages that
+ * convert," and that math broke when the headline copy changed. Just
+ * passes the typed string through. */
 function renderL1(typed: string) {
-  const pre = "Landing pages that ";
-  const accent = "convert";
-  const post = ",";
-  const n = typed.length;
-  const preShown = typed.slice(0, Math.min(n, pre.length));
-  const accentShown =
-    n > pre.length
-      ? typed.slice(pre.length, Math.min(n, pre.length + accent.length))
-      : "";
-  const postShown =
-    n > pre.length + accent.length ? typed.slice(pre.length + accent.length) : "";
-  return (
-    <>
-      {preShown}
-      <span style={{ color: LIME }}>{accentShown}</span>
-      {postShown}
-    </>
-  );
+  return <>{typed}</>;
 }
 
 /* The mock landing page that builds itself */
@@ -393,7 +378,7 @@ function MockPage({
               {renderL1(headlineL1)}
               {typing === "l1" && <Caret />}
               {(headlineL2.length > 0 || typing === "l2") && " "}
-              {headlineL2}
+              <span style={{ color: LIME }}>{headlineL2}</span>
               {typing === "l2" && <Caret />}
             </h2>
 
@@ -499,7 +484,7 @@ function MockPage({
               />
               <div className="text-[12px]" style={{ color: MUTED, lineHeight: 1.35 }}>
                 <strong style={{ color: TEXT, fontWeight: 600 }}>Skip the marketing queue.</strong> ·
-                Every page on-brand, every time — AEs included.
+                Every page on-brand, every time — for every team that needs one.
               </div>
             </div>
           </div>
@@ -980,17 +965,17 @@ function MockPage({
                   fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
                 }}
               >
-                "Built a pilot landing page in 10–15 minutes to onboard 16 new
-                locations. This thing is so useful — mass outreach, post-MSA,
-                cold outreach, LinkedIn posts."
+                "We replaced three vendors with one workspace. Pages ship
+                same-day and our reps actually know which contact opened
+                the microsite — not just the account."
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <span className="text-[12px]" style={{ color: TEXT, fontWeight: 600 }}>
-                  Account Executive
+                  Priya Anand
                 </span>
                 <span style={{ color: FAINT }}>·</span>
                 <span className="text-[12px]" style={{ color: MUTED }}>
-                  Dandy
+                  VP Marketing · Cobalt Systems
                 </span>
                 <span className="ml-auto inline-flex items-center gap-0.5">
                   {[0, 1, 2, 3, 4].map((i) => (
@@ -1008,90 +993,25 @@ function MockPage({
   );
 }
 
-/* Small inline-SVG icons used in the hero generator card. Avoiding a
- * lucide-react dep here keeps this marketing chunk lean — the rest of the
- * marketing site is icon-light by design. */
-function IconLink({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 1 0-7.07-7.07l-1.5 1.5" />
-      <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 1 0 7.07 7.07l1.5-1.5" />
-    </svg>
-  );
-}
-function IconImage({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <circle cx="8.5" cy="8.5" r="1.5" />
-      <path d="M21 15l-5-5L5 21" />
-    </svg>
-  );
-}
-function IconArrow({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 12h14" />
-      <path d="M13 5l7 7-7 7" />
-    </svg>
-  );
-}
-function IconSparkle({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4L12 3z" />
-      <path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14z" />
-    </svg>
-  );
-}
-
-const SUGGESTION_PILLS: { label: string; prompt: string }[] = [
-  { label: "Pricing page", prompt: "A pricing page for a B2B platform aimed at COOs" },
-  { label: "Event landing", prompt: "An event landing page for a fintech roadshow in October" },
-  { label: "Product hero", prompt: "A product hero for a new clear aligner launch" },
-  { label: "Demo-request page", prompt: "A demo-request page for an HR analytics product targeting mid-market" },
-];
-
-export default function AssembleScene() {
+// AssembleSceneV2 — OG AssembleScene shell (scroll mechanic, typed reveal,
+// cursor animation, color-swatch click moment). The page being assembled
+// in the demo is an LP Studio landing page itself — hero copy + CTA +
+// testimonial all pitch the product. The "smoothness" Charlotte flagged
+// comes from this component's continuous useScrollProgress-driven
+// animation, vs Lovable's stage-pinned chrome reveals.
+export default function AssembleSceneV2() {
   const { ref, progress, vw } = useScrollProgress<HTMLDivElement>();
   const isMobile = vw < 768;
 
-  // Hero generator state — kept local to the scene so we don't introduce a
-  // store dependency on the marketing chunk. The textarea is decorative on
-  // submit; "Generate" deep-links into the SaaS app with the prompt as a
-  // query param so the actual generator flow can pre-fill it.
-  const [heroPrompt, setHeroPrompt] = useState("");
-  const [heroFocused, setHeroFocused] = useState(false);
-  const [heroError, setHeroError] = useState(false);
-  const heroTextareaRef = useRef<HTMLTextAreaElement>(null);
-  // Mad-Libs placeholder: rotates through fresh random combos so visitors see
-  // a variety of examples, with an SSR-safe default on first paint so prerender
-  // + hydration match. Rotation pauses while the field is focused or has text.
-  // Rendered as a fading overlay (below) — the native placeholder can't animate.
-  const madLibsPlaceholder = useMadLibsPlaceholder(heroFocused || heroPrompt.length > 0);
-  const showHeroPlaceholder = !heroFocused && heroPrompt.length === 0;
-  const submitHero = (override?: string) => {
-    const value = (override ?? heroPrompt).trim();
-    const url = value
-      ? `https://app.lpstudio.ai/pages?new=ai&prompt=${encodeURIComponent(value)}`
-      : "https://app.lpstudio.ai/pages?new=ai";
-    window.location.href = url;
-  };
-  // Generate action — requires a real brief. The placeholder is inspiration,
-  // never input, so an empty Generate shows a soft validation instead of
-  // submitting the placeholder string.
-  const handleGenerate = () => {
-    if (!heroPrompt.trim()) {
-      setHeroError(true);
-      heroTextareaRef.current?.focus();
-      return;
-    }
-    submitHero();
-  };
+  // V2 — the duplicate "intro overlay" prompt that lived inside the OG scene
+  // has been removed because PromptCard above the section already renders the
+  // Mad Libs prompt + CTAs. This section is now a pure scroll-driven demo:
+  // the device frame is visible from the moment the section pins, and as the
+  // user scrolls the page assembles itself inside the frame.
 
   // ---------- phase plan ----------
-  // 0.00–0.06  intro overlay fades out, device frame fades in
-  // 0.06–0.10  empty canvas, cursor blinks in top-left
+  // 0.00–0.02  device frame fades in (brief, just to soften entry)
+  // 0.02–0.10  empty canvas, cursor blinks in top-left
   // 0.10–0.14  type eyebrow
   // 0.14–0.30  type headline (L1 then L2)
   // 0.30–0.40  type subtitle
@@ -1105,8 +1025,7 @@ export default function AssembleScene() {
   // 0.92–0.97  publish click → "Building" pill turns "Live"
   // 0.97–1.00  hold
 
-  const introOut = range(progress, 0.0, 0.06);
-  const frameIn = range(progress, 0.03, 0.09);
+  const frameIn = range(progress, 0.0, 0.02);
 
   // typing
   const typeEyebrow = range(progress, 0.10, 0.14);
@@ -1136,11 +1055,14 @@ export default function AssembleScene() {
   const published = progress >= 0.95;
 
   // ---------- text values ----------
+  // The demo builds an LP Studio landing page — the typed-out hero pitches
+  // the product itself. AssembleScene's typing animation reveals these
+  // character-by-character as scroll progresses.
   const eyebrowFull = "THE AI REVENUE WORKSPACE";
-  const headlineL1Full = "Landing pages that convert,";
-  const headlineL2Full = "shipped before the brief is dry.";
+  const headlineL1Full = "Fast, on-brand landing pages";
+  const headlineL2Full = "for the whole revenue org";
   const subtitleFull =
-    "Personalized pages from your CRM data — written, designed, and live in under a minute.";
+    "Brand-locked AI page generation, per-recipient identity, and the analytics to back every visit.";
 
   const eyebrow = typed(eyebrowFull, typeEyebrow);
   const headlineL1 = typed(headlineL1Full, typeHeadlineL1);
@@ -1154,9 +1076,10 @@ export default function AssembleScene() {
   else if (progress >= 0.22 && progress < 0.30) typing = "l2";
   else if (progress >= 0.30 && progress < 0.40) typing = "subtitle";
 
-  // CTA after edit
+  // CTA after edit — the swatch click toggles the CTA from a quiet
+  // "Get started" to the punchier "Start free" with the LP Studio indigo.
   const ctaColor = swatchClicked ? LIME : TEXT;
-  const ctaLabel = swatchClicked ? "Try it free" : "Get started";
+  const ctaLabel = swatchClicked ? "Start free" : "Get started";
 
   // ---------- cursor positions (relative to device canvas) ----------
   // Coordinates are in canvas-local px assuming a ~960px wide device. Will scale below.
@@ -1171,8 +1094,13 @@ export default function AssembleScene() {
     { at: 0.66, pos: { x: 600, y: 280 } },    // moving toward right panel area
     { at: 0.78, pos: { x: 870, y: 360 } },    // on color swatch (right panel)
     { at: 0.83, pos: { x: 870, y: 360 } },    // hold during swatch click
-    { at: 0.92, pos: { x: 870, y: 60 } },     // up to Publish button in header
-    { at: 0.97, pos: { x: 870, y: 60 } },     // hold during publish click
+    // After the swatch click the canvas cursor slides UP and OUT through
+    // the top of the canvas. A second cursor rendered inside the chrome
+    // header (see the Publish button block below) then takes over and
+    // actually lands on the real Publish button — the canvas cursor
+    // can't reach the chrome because the canvas is overflow:hidden.
+    { at: 0.90, pos: { x: 880, y: -40 } },    // exits canvas heading up to Publish
+    { at: 0.97, pos: { x: 880, y: -40 } },
   ];
 
   const cursorPos = (() => {
@@ -1188,7 +1116,9 @@ export default function AssembleScene() {
     return cursorKeyframes[cursorKeyframes.length - 1].pos;
   })();
 
-  const cursorVisible = (1 - introOut) * (1 - publishClickWindow * 0.5);
+  // V2: intro overlay removed, so the cursor is visible from the moment the
+  // device frame mounts. We still fade it during the publish click for polish.
+  const cursorVisible = frameIn * (1 - publishClickWindow * 0.5);
   const cursorClickAmount = Math.max(primaryClick, swatchClick, publishClick) * 4;
 
   return (
@@ -1303,309 +1233,7 @@ export default function AssembleScene() {
           }}
         />
 
-        {/* INTRO overlay — hero with embedded prompt generator. Mirrors the
-         *  actual product UI (textarea + reference URL/screenshot affordances
-         *  + Generate CTA) so first impression conveys what LP Studio does
-         *  instead of just telling visitors to scroll. */}
-        <div
-          className="absolute inset-0 z-30 flex flex-col items-center justify-center px-6"
-          style={{
-            opacity: 1 - introOut,
-            transform: `translateY(${introOut * -20}px)`,
-            pointerEvents: introOut > 0.5 ? "none" : "auto",
-          }}
-        >
-          {/* Eyebrow badge */}
-          <div
-            className="inline-flex items-center gap-2 rounded-full px-3 py-1 mb-7"
-            style={{
-              background: INK_2,
-              border: `1px solid ${HAIRLINE_STRONG}`,
-              boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-            }}
-          >
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: 999,
-                background: LIME,
-                boxShadow: `0 0 0 3px rgba(75,71,229,0.18)`,
-              }}
-            />
-            <span
-              className="text-[11px] uppercase"
-              style={{ letterSpacing: "0.18em", color: MUTED, fontWeight: 500 }}
-            >
-              The AI revenue workspace · Beta
-            </span>
-          </div>
-
-          {/* Headline */}
-          <h1
-            className="text-center"
-            style={{
-              fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
-              fontWeight: 600,
-              letterSpacing: "-0.045em",
-              fontSize: isMobile ? 42 : 72,
-              lineHeight: 0.98,
-              color: TEXT,
-              maxWidth: 980,
-            }}
-          >
-            Describe a page.<br />
-            <span style={{ color: LIME }}>Watch it build.</span>
-          </h1>
-          <p
-            className="mt-5 text-center"
-            style={{
-              color: MUTED,
-              fontSize: isMobile ? 15 : 17,
-              lineHeight: 1.55,
-              maxWidth: 620,
-            }}
-          >
-            Type a prompt, paste a URL, drop a screenshot — get a real,
-            on-brand page in under a minute.
-          </p>
-
-          {/* Prompt generator card */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleGenerate();
-            }}
-            className="mt-9 w-full"
-            style={{ maxWidth: 680 }}
-          >
-            <div
-              className="rounded-2xl overflow-hidden transition-shadow"
-              style={{
-                background: INK_2,
-                border: `1px solid ${heroFocused ? LIME : HAIRLINE_STRONG}`,
-                boxShadow: heroFocused
-                  ? `0 0 0 4px rgba(75,71,229,0.10), 0 12px 40px -12px rgba(26,24,21,0.18)`
-                  : `0 12px 40px -16px rgba(26,24,21,0.18)`,
-                transition: "border-color 160ms ease, box-shadow 160ms ease",
-              }}
-            >
-              <div className="relative">
-                <textarea
-                  ref={heroTextareaRef}
-                  value={heroPrompt}
-                  onChange={(e) => {
-                    setHeroPrompt(e.target.value);
-                    if (heroError) setHeroError(false);
-                  }}
-                  onFocus={() => setHeroFocused(true)}
-                  onBlur={() => setHeroFocused(false)}
-                  onKeyDown={(e) => {
-                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                      e.preventDefault();
-                      handleGenerate();
-                    }
-                  }}
-                  placeholder=""
-                  rows={isMobile ? 3 : 2}
-                  aria-label="Describe the landing page you want"
-                  aria-invalid={heroError}
-                  spellCheck={false}
-                  className="w-full resize-none outline-none"
-                  style={{
-                    fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
-                    fontSize: 16,
-                    lineHeight: 1.5,
-                    color: TEXT,
-                    background: "transparent",
-                    padding: "18px 18px 6px 18px",
-                  }}
-                />
-                {/* Animated placeholder overlay — fades on each rotation so the
-                    text eases in/out instead of snapping. pointer-events:none so
-                    clicks pass through to the textarea; aria-hidden since the
-                    textarea already carries an aria-label. */}
-                {showHeroPlaceholder && (
-                  <div
-                    aria-hidden="true"
-                    className="absolute left-0 top-0 right-0 select-none"
-                    style={{
-                      fontFamily:
-                        "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
-                      fontSize: 16,
-                      lineHeight: 1.5,
-                      color: FAINT,
-                      padding: "18px 18px 6px 18px",
-                      pointerEvents: "none",
-                      opacity: madLibsPlaceholder.visible ? 1 : 0,
-                      transition: "opacity 320ms ease-in-out",
-                    }}
-                  >
-                    {madLibsPlaceholder.text}
-                  </div>
-                )}
-              </div>
-
-              {/* Card footer — affordances + generate CTA */}
-              <div
-                className="flex items-center justify-between gap-3 px-3 py-2.5"
-                style={{ borderTop: `1px solid ${HAIRLINE}` }}
-              >
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => submitHero()}
-                    className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] transition-colors"
-                    style={{ color: MUTED, background: "transparent", fontWeight: 500 }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = INK_3;
-                      e.currentTarget.style.color = TEXT;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "transparent";
-                      e.currentTarget.style.color = MUTED;
-                    }}
-                    aria-label="Add a reference URL"
-                  >
-                    <IconLink />
-                    {!isMobile && <span>Reference URL</span>}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => submitHero()}
-                    className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] transition-colors"
-                    style={{ color: MUTED, background: "transparent", fontWeight: 500 }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = INK_3;
-                      e.currentTarget.style.color = TEXT;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "transparent";
-                      e.currentTarget.style.color = MUTED;
-                    }}
-                    aria-label="Attach a screenshot"
-                  >
-                    <IconImage />
-                    {!isMobile && <span>Screenshot</span>}
-                  </button>
-                </div>
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-2 rounded-md px-3.5 py-2 text-[13px] transition-all"
-                  style={{
-                    background: LIME,
-                    color: "#FFFFFF",
-                    fontWeight: 600,
-                    letterSpacing: "-0.005em",
-                    boxShadow: "0 4px 12px -2px rgba(75,71,229,0.45)",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(1.08)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}
-                >
-                  <IconSparkle />
-                  <span>Generate page</span>
-                  <IconArrow />
-                </button>
-              </div>
-            </div>
-          </form>
-
-          {/* Soft validation — the placeholder is inspiration, never input,
-              so an empty Generate prompts for a brief instead of submitting. */}
-          {heroError && (
-            <div
-              role="alert"
-              className="mt-2 text-[13px]"
-              style={{ color: "#C2410C", fontWeight: 500 }}
-            >
-              Type a brief to continue
-            </div>
-          )}
-
-          {/* Suggestion pills */}
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-2" style={{ maxWidth: 680 }}>
-            <span
-              className="text-[11.5px] mr-1"
-              style={{ color: FAINT, letterSpacing: "0.02em" }}
-            >
-              Or start from:
-            </span>
-            {SUGGESTION_PILLS.map((pill) => (
-              <button
-                key={pill.label}
-                type="button"
-                onClick={() => {
-                  setHeroPrompt(pill.prompt);
-                  // Slight delay so the textarea fills visibly before the
-                  // navigation happens — feels less like a hard redirect.
-                  setTimeout(() => submitHero(pill.prompt), 180);
-                }}
-                className="text-[12.5px] rounded-full px-3 py-1.5 transition-all"
-                style={{
-                  background: INK_2,
-                  color: MUTED,
-                  border: `1px solid ${HAIRLINE_STRONG}`,
-                  fontWeight: 500,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = TEXT;
-                  e.currentTarget.style.color = INK_2;
-                  e.currentTarget.style.borderColor = TEXT;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = INK_2;
-                  e.currentTarget.style.color = MUTED;
-                  e.currentTarget.style.borderColor = HAIRLINE_STRONG;
-                }}
-              >
-                {pill.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Social proof */}
-          <div
-            className="mt-9 flex items-center gap-3 text-[12px]"
-            style={{ color: FAINT, letterSpacing: "0.02em" }}
-          >
-            <span
-              style={{
-                display: "inline-block",
-                width: 28,
-                height: 1,
-                background: HAIRLINE_STRONG,
-              }}
-            />
-            <span>
-              Built inside Dandy. Shipped daily by revenue teams.
-            </span>
-            <span
-              style={{
-                display: "inline-block",
-                width: 28,
-                height: 1,
-                background: HAIRLINE_STRONG,
-              }}
-            />
-          </div>
-
-          {/* Scroll hint */}
-          <div className="mt-10 flex flex-col items-center gap-1.5">
-            <div
-              className="text-[10px] uppercase"
-              style={{ letterSpacing: "0.26em", color: FAINT }}
-            >
-              Or scroll to see one build
-            </div>
-            <div
-              style={{
-                width: 1,
-                height: 28,
-                background: `linear-gradient(180deg, ${HAIRLINE_STRONG}, transparent)`,
-              }}
-            />
-          </div>
-        </div>
+        {/* V2: intro overlay removed — PromptCard above the section already handles the Mad Libs prompt + CTAs. */}
 
         {/* DEVICE STAGE — full bleed */}
         <div
@@ -1649,10 +1277,16 @@ export default function AssembleScene() {
 
               {/* App header — true builder chrome: macOS-style traffic
                *  lights, breadcrumb, device-size toggle, collaborators,
-               *  status pill, and a refined Publish CTA. */}
+               *  status pill, and a refined Publish CTA. The header
+               *  intentionally creates its own stacking context (zIndex:
+               *  60) so the chrome-overlay cursor's "Publishing" label,
+               *  which overflows the chrome bottom into the canvas
+               *  area, paints OVER the builder panels below instead of
+               *  being clipped behind the right inspector. */}
               <div
                 className="flex items-center shrink-0 relative"
                 style={{
+                  zIndex: 60,
                   height: 48,
                   padding: "0 14px",
                   borderBottom: `1px solid ${HAIRLINE}`,
@@ -1894,6 +1528,117 @@ export default function AssembleScene() {
                     )}
                   </button>
                 </div>
+
+                {/* Chrome-overlay cursor — the canvas cursor lives in a
+                 *  separate coordinate space (clipped by the canvas
+                 *  overflow), so it can't physically reach the Publish
+                 *  button up here in the chrome. This sibling cursor
+                 *  fades in just before the publish click, runs the
+                 *  pulse + click ring on the actual Publish button, and
+                 *  stays anchored on it once "Published" shows. */}
+                {(() => {
+                  const chromeIn = range(progress, 0.86, 0.92);
+                  const opacity = chromeIn;
+                  const clickAmount = clamp01(publishClick * 4);
+                  if (opacity <= 0.01) return null;
+                  return (
+                    <div
+                      aria-hidden
+                      style={{
+                        position: "absolute",
+                        right: 78,
+                        top: 14,
+                        pointerEvents: "none",
+                        opacity,
+                        zIndex: 50,
+                        transition: "opacity 200ms ease",
+                      }}
+                    >
+                      {clickAmount > 0 && (
+                        <>
+                          <div
+                            style={{
+                              position: "absolute",
+                              left: 6,
+                              top: 6,
+                              width: 28,
+                              height: 28,
+                              borderRadius: 999,
+                              background: "rgba(75,71,229,0.22)",
+                              transform: `translate(-50%, -50%) scale(${0.6 + clickAmount * 1.8})`,
+                              opacity: (1 - clickAmount) * 0.95,
+                              filter: "blur(2px)",
+                            }}
+                          />
+                          <div
+                            style={{
+                              position: "absolute",
+                              left: 6,
+                              top: 6,
+                              width: 10,
+                              height: 10,
+                              borderRadius: 999,
+                              border: `2px solid ${LIME}`,
+                              transform: `translate(-50%, -50%) scale(${1 + clickAmount * 4})`,
+                              opacity: 1 - clickAmount,
+                            }}
+                          />
+                        </>
+                      )}
+                      <svg
+                        width="22"
+                        height="24"
+                        viewBox="0 0 20 22"
+                        fill="none"
+                        style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.35))" }}
+                      >
+                        <path
+                          d="M2 2 L2 16 L6 12.5 L8.5 18.5 L11 17.5 L8.5 11.5 L14 11 Z"
+                          fill={TEXT}
+                          stroke="#FFFFFF"
+                          strokeWidth="1.4"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      {!published && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: 24,
+                            left: 18,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            padding: "3px 7px 3px 5px",
+                            borderRadius: 999,
+                            background: `linear-gradient(180deg, ${LIME} 0%, #6C68F0 100%)`,
+                            color: "#FFFFFF",
+                            fontSize: 9.5,
+                            fontWeight: 700,
+                            letterSpacing: "0.04em",
+                            fontFamily:
+                              "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
+                            boxShadow:
+                              "0 4px 12px -2px rgba(75,71,229,0.5), inset 0 1px 0 rgba(255,255,255,0.35)",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: 999,
+                              background: "#FFFFFF",
+                              boxShadow: "0 0 6px rgba(255,255,255,0.9)",
+                              animation: "lpc-blink 1s steps(2,end) infinite",
+                            }}
+                          />
+                          Publishing
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Body — sidebars + canvas */}
@@ -2509,7 +2254,7 @@ export default function AssembleScene() {
                         <span className="text-[10px] uppercase" style={{ color: MUTED, letterSpacing: "0.18em", fontWeight: 600 }}>
                           CTA label
                         </span>
-                        {ctaLabel === "Try it free" && (
+                        {ctaLabel === "Start free" && (
                           <span
                             className="inline-flex items-center gap-1 text-[9px] uppercase px-1.5 py-0.5 rounded-full"
                             style={{

@@ -1,0 +1,131 @@
+import Navbar from "../components/Navbar";
+import PersonaHero from "../components/PersonaHero";
+import FeatureRow from "../components/FeatureRow";
+import CreatePageOverlay from "../components/CreatePageOverlay";
+import SmartTrafficDemo from "../components/SmartTrafficDemo";
+import TemplatesEmbed from "../components/TemplatesEmbed";
+import Integrations from "../components/Integrations";
+import FinalCta from "../components/FinalCta";
+import Footer from "../components/Footer";
+import { usePageMeta } from "../hooks/usePageMeta";
+
+// /for-marketing — refactored per site-ia-plan.md. The old page reused the
+// same four FeatureRow product embeds as the homepage (Builder · Templates ·
+// Brand · Dashboard) which made it feel like a paraphrase. The new shape is
+// marketing-specific: prompt-to-page · A/B + Smart Traffic (new component,
+// the marketing buyer's biggest concrete value-add) · templates by motion ·
+// the stack-integration story focused on MAP handoff.
+//
+// 6-section IA:
+//   1  PersonaHero (indigo)         — "Ship campaigns without the design queue."
+//   2  SmartTrafficDemo             — A/B/C variants + Smart Traffic routing
+//   3  FeatureRow / AI generation   — Prompt → page, lifted hero pattern
+//   4  FeatureRow / Templates       — TemplatesEmbed (filtered, marketing motions)
+//   5  Integrations                 — Marketo + GA4 lead-handoff story (HubSpot soon)
+//   6  FinalCta + Footer
+export default function ForMarketing() {
+  usePageMeta({
+    title: "LP Studio for Marketing — Ship campaigns without the design queue",
+    description:
+      "Generate on-brand pages from a prompt, A/B every variant with Smart Traffic auto-routing, start from 100+ templates, and hand off leads to Marketo, GA4, or any webhook — no ticket, no waiting on design.",
+    canonical: "https://lpstudio.ai/for-marketing",
+    ogImage: "https://lpstudio.ai/opengraph.jpg",
+    ogImageWidth: 1280,
+    ogImageHeight: 720,
+    ogImageType: "image/jpeg",
+    ogImageAlt: "LP Studio for marketing teams",
+    siteName: "LP Studio",
+  });
+
+  return (
+    <div
+      style={{
+        background: "var(--cream)",
+        color: "var(--ink)",
+        minHeight: "100vh",
+      }}
+    >
+      <Navbar />
+      <main>
+        <PersonaHero
+          eyebrow="For Marketing"
+          accent="var(--indigo)"
+          title="Ship campaigns without the design queue."
+          sub="Generate on-brand pages from a prompt, A/B every variant with Smart Traffic auto-routing the winner, and hand off leads to the MAP your demand-gen team already runs — launch in an afternoon, not a sprint."
+          secondaryLabel="Talk to sales"
+        />
+
+        {/* 1 — A/B testing + Smart Traffic. The marketing-specific
+            value-add that doesn't appear anywhere else on the site —
+            led with here because variant testing + auto-routing is the
+            sharpest thing demand-gen buyers are looking for. */}
+        <SmartTrafficDemo />
+
+        {/* 2 — AI page generation. Prompt → page sits underneath the
+            A/B story now: once they buy into the testing motion, this
+            shows how the variants get made in the first place. */}
+        <FeatureRow
+          id="generate"
+          num="02"
+          label="Generate"
+          title="Prompt → page in under a minute."
+          body={
+            <>
+              Type a brief, paste a URL, or drop a screenshot. AI drafts an
+              on-brand page that obeys your fonts, colors, voice, and the
+              approved facts library — so generated copy stays{" "}
+              <strong style={{ color: "var(--ink)", fontWeight: 600 }}>
+                honest and on-message
+              </strong>{" "}
+              the first time.
+            </>
+          }
+          bullets={[
+            "Prompt, URL, or screenshot → page",
+            "Brand-locked blocks (colors, type, voice)",
+            "Strict AI facts mode",
+            "Inline copy editing after generation",
+          ]}
+          url="app.lpstudio.ai/pages?new=ai"
+          bodyHeight={720}
+          frame={<CreatePageOverlay />}
+        />
+
+        {/* 3 — Templates by motion. Reuse the live TemplatesEmbed but frame
+            it around demand-gen / events / product-launch motions in copy. */}
+        <FeatureRow
+          id="templates"
+          num="03"
+          label="Templates"
+          title="Templates for the motions you actually run."
+          body={
+            <>
+              Demand-gen landers, event RSVPs, product launches, webinars,
+              gated guides — start from a category-tuned template and let
+              your brand inherit on clone. Browse them live, then iterate in
+              the builder.
+            </>
+          }
+          bullets={[
+            "Demand-gen + event + product-launch packs",
+            "Live preview thumbnails (not Figma exports)",
+            "Inherit your brand on clone",
+            "Re-skin in seconds if the campaign pivots",
+          ]}
+          url="app.lpstudio.ai/templates?motion=marketing"
+          bodyHeight={620}
+          frame={<TemplatesEmbed />}
+        />
+
+        {/* 4 — Stack integrations. Same Integrations component as homepage
+            and /features — but the copy above (in PersonaHero + this
+            section's marker) frames it as the lead-handoff story. */}
+        <Integrations />
+
+        <FinalCta />
+      </main>
+      <Footer />
+    </div>
+  );
+}
+

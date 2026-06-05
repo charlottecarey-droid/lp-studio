@@ -2,6 +2,11 @@ import { Switch, Route } from "wouter";
 import "./marketing.css";
 
 import Home from "./pages/home";
+import Features from "./pages/features";
+import ForMarketing from "./pages/for-marketing";
+import ForSales from "./pages/for-sales";
+import ComparePage from "./pages/compare";
+import PricingPage from "./pages/pricing";
 import Privacy from "./pages/privacy";
 import Terms from "./pages/terms";
 import NotFound from "./pages/not-found";
@@ -21,6 +26,11 @@ export default function MarketingApp() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/features" component={Features} />
+      <Route path="/for-marketing" component={ForMarketing} />
+      <Route path="/for-sales" component={ForSales} />
+      <Route path="/compare" component={ComparePage} />
+      <Route path="/pricing" component={PricingPage} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
       <Route component={NotFound} />

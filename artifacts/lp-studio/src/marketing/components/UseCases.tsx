@@ -56,7 +56,7 @@ function AbmPreview({ accent }: { accent: string }) {
           <Pill bg="rgba(0,0,0,0)" fg="rgba(26,24,21,0.7)" label="See plan" border />
         </div>
       </div>
-      <Annotation accent={accent} label="Personalized for Acme · Sara Chen viewing now" />
+      <Annotation accent={accent} label="Personalized for Acme · Sarah Chen viewing now" />
     </Frame>
   );
 }
@@ -484,7 +484,7 @@ export default function UseCases() {
             className="mt-6 text-[17px] leading-[1.55]"
             style={{ color: "var(--ink-soft)", maxWidth: 580 }}
           >
-            Sales personalizes per account. Demand gen tests every variant. Product launches new pages. Success runs QBRs. Same brand. Same blocks. Same canvas. No design ticket required.
+            Sales personalizes per account. Demand gen tests every variant. Product launches new pages. Success runs QBRs. Same brand. Same blocks. Same canvas.
           </p>
         </div>
 

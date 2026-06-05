@@ -12,7 +12,7 @@ interface Faq {
 const faqs: Faq[] = [
   {
     q: "How fast can my team actually launch a page?",
-    a: "Most teams ship their first real page within an hour of getting access. Start from 60+ on-brand templates — including 25 industry-specific layouts for dental, healthcare, fitness, real estate, and professional services — let AI fill the copy, swap in your brand assets, and publish. No code, no design ticket, no waiting on marketing.",
+    a: "Most teams ship their first real page within an hour of getting access. Start from 100+ on-brand templates across SaaS, agency, fintech, healthcare, fitness, real estate, and professional services — let AI fill the copy, swap in your brand assets, and publish. No code, no design ticket, no waiting on marketing.",
     cat: "Product",
   },
   {
@@ -249,14 +249,15 @@ export default function FAQ() {
         </div>
 
         <p className="mt-10 text-[14.5px]" style={{ color: "var(--ink-soft)" }}>
-          Still curious?{" "}
+          Still have questions?{" "}
           <a
-            href="#waitlist"
+            href="https://app.lpstudio.ai"
             className="underline underline-offset-4 transition-colors"
             style={{ color: "var(--indigo)", textDecorationColor: "rgba(75, 71, 229, 0.4)" }}
           >
-            Get early access and we'll walk you through it live.
+            Start a free workspace
           </a>
+          {" "}— takes a minute, no credit card.
         </p>
       </div>
     </section>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 80" width="300" height="80" role="img" aria-label="LP Studio">
+  <defs><linearGradient id="lpwct" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F6F2E9"></stop><stop offset="1" stop-color="#EFE6D0"></stop></linearGradient></defs>
+  <g transform="translate(2,10) scale(0.6)">
+    <rect x="4" y="4" width="92" height="92" rx="26" fill="url(#lpwct)" stroke="#1A1815" stroke-opacity="0.08" stroke-width="1"></rect>
+    <text x="46.5" y="66" text-anchor="middle" font-family="&#39;DM Sans&#39;,&#39;Helvetica Neue&#39;,Arial,sans-serif" font-weight="700" font-size="46" letter-spacing="-3" fill="#4B47E5">LP</text>
+    <circle cx="71" cy="65" r="7" fill="#E26B4F"></circle>
+  </g>
+  <text x="78" y="50" font-family="&#39;DM Sans&#39;,&#39;Helvetica Neue&#39;,Arial,sans-serif" font-size="30" fill="#1A1815"><tspan font-weight="700" letter-spacing="-0.3">LP</tspan><tspan font-weight="500" letter-spacing="3.4" dx="10">STUDIO</tspan></text>
+</svg>

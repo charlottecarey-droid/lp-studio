@@ -189,7 +189,16 @@ const MarketingApp = lazy(() => import("@/marketing/MarketingApp"));
  * host (app.lpstudio.ai) can never be flipped into marketing mode — or the
  * reverse — via a query string.
  */
-const MARKETING_PATHS = new Set(["/", "/privacy", "/terms"]);
+const MARKETING_PATHS = new Set([
+  "/",
+  "/features",
+  "/for-marketing",
+  "/for-sales",
+  "/compare",
+  "/pricing",
+  "/privacy",
+  "/terms",
+]);
 
 function isMarketingHost(): boolean {
   if (typeof window === "undefined") return false;

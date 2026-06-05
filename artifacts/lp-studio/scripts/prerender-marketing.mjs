@@ -59,6 +59,11 @@ const DIST = path.resolve(ROOT, "dist", "public");
 
 const MARKETING_ROUTES = [
   { path: "/", outFile: "index.html" },
+  { path: "/features", outFile: "features/index.html" },
+  { path: "/for-marketing", outFile: "for-marketing/index.html" },
+  { path: "/for-sales", outFile: "for-sales/index.html" },
+  { path: "/compare", outFile: "compare/index.html" },
+  { path: "/pricing", outFile: "pricing/index.html" },
   { path: "/privacy", outFile: "privacy/index.html" },
   { path: "/terms", outFile: "terms/index.html" },
 ];

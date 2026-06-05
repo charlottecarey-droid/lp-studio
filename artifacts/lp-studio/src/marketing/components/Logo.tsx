@@ -1,35 +1,41 @@
-// LP Studio logo — inline SVG so the wordmark themes correctly on cream
-// and dark backgrounds without swapping image files. Three variants:
+// LP Studio logo — inline SVG so the mark themes correctly without swapping
+// image files. Mirrors the brand assets in /public/brand/ (which are the
+// canonical files for favicons, OG images, email signatures, etc.). Three
+// rendered variants:
 //
-//   • `icon`     — square cream-tile app icon (LP. with coral dot + STUDIO).
-//                  Matches the uploaded logo design exactly. Use as a
-//                  brand mark on dark sections, an avatar, or a favicon.
-//   • `wordmark` — horizontal lockup for inline placement (navbar, footer).
-//                  Renders the LP. mark plus "Studio" alongside it in a
-//                  letter-spaced sans, sized to fit a 32–44px line.
-//   • `mark`     — the LP. with coral dot only, no background. Use when
-//                  the surface already has its own card / pill chrome.
+//   • `icon` / `mark` — rounded-square brand mark only: indigo-gradient tile
+//                       with white LP letterform + coral dot. Use as an
+//                       avatar, favicon-style placement, or beside content
+//                       that already carries the brand name in text.
+//   • `wordmark`     — mark + horizontal "LP STUDIO" lockup beside it. The
+//                      default for nav / footer placements.
 //
-// All three render the indigo `LP`, the coral period dot, and the ink
-// `STUDIO` text using the same color palette as the rest of the marketing
-// site so they slot in without per-section overrides.
+// Tones:
+//   • `color` (default) — indigo gradient mark + dark ink wordmark text.
+//                         For cream / light surfaces.
+//   • `light`           — indigo gradient mark + cream wordmark text. For
+//                         dark surfaces (final CTA, sales console chrome).
+//   • `dark`            — monochrome ink mark (knocked-out LP + dot). Use
+//                         when a single-tone mark fits the surrounding
+//                         design better than the gradient.
+//
+// Per-render unique gradient IDs (useId) so multiple Logo instances on the
+// same page don't collide on the gradient `<defs>`.
 
+import { useId } from "react";
 import type { CSSProperties } from "react";
 
 const INDIGO = "#4B47E5";
+const INDIGO_LIGHT = "#6A66F0";
 const CORAL = "#E26B4F";
 const INK = "#1A1815";
-const CREAM_TILE = "#F4EAD9";
+const CREAM = "#F4EFE3";
 
 interface LogoProps {
   variant?: "icon" | "wordmark" | "mark";
   /** Height in pixels. Width scales to maintain aspect ratio. */
   height?: number;
-  /**
-   * Color of the "Studio" / "LP" text on dark surfaces. Defaults to the
-   * full-color palette; pass "light" to render a single-tone version that
-   * works on dark backgrounds.
-   */
+  /** Color treatment — see file header for tone semantics. */
   tone?: "color" | "light" | "dark";
   className?: string;
   style?: CSSProperties;
@@ -45,82 +51,126 @@ export function Logo({
   style,
   label = "LP Studio",
 }: LogoProps) {
-  if (variant === "icon") return <LogoIcon size={height} className={className} style={style} label={label} />;
-  if (variant === "mark") return <LogoMark height={height} tone={tone} className={className} style={style} label={label} />;
-  return <LogoWordmark height={height} tone={tone} className={className} style={style} label={label} />;
-}
-
-// ── icon ──────────────────────────────────────────────────────────────────
-
-function LogoIcon({
-  size,
-  className,
-  style,
-  label,
-}: {
-  size: number;
-  className?: string;
-  style?: CSSProperties;
-  label: string;
-}) {
+  if (variant === "icon" || variant === "mark") {
+    return (
+      <LogoMark
+        size={height}
+        tone={tone}
+        className={className}
+        style={style}
+        label={label}
+      />
+    );
+  }
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 240 240"
-      role="img"
-      aria-label={label}
-      xmlns="http://www.w3.org/2000/svg"
+    <LogoWordmark
+      height={height}
+      tone={tone}
       className={className}
       style={style}
-    >
-      <rect width="240" height="240" rx="52" fill={CREAM_TILE} />
-      <g fontFamily="'DM Sans','Helvetica Neue','Inter',Arial,sans-serif">
-        <text x="50" y="148" fontSize="110" fontWeight="800" letterSpacing="-4" fill={INDIGO}>LP</text>
-        <circle cx="178" cy="136" r="10.5" fill={CORAL} />
-        <text x="120" y="194" textAnchor="middle" fontSize="26" fontWeight="700" letterSpacing="6" fill={INK}>STUDIO</text>
-      </g>
-    </svg>
+      label={label}
+    />
   );
 }
 
-// ── mark (no background, LP with coral dot only) ──────────────────────────
+// ── mark (rounded-square LP + dot) ────────────────────────────────────────
 
 function LogoMark({
-  height,
+  size,
   tone,
   className,
   style,
   label,
 }: {
-  height: number;
+  size: number;
   tone: "color" | "light" | "dark";
   className?: string;
   style?: CSSProperties;
   label: string;
 }) {
-  const indigo = tone === "light" ? "#FFFFFF" : tone === "dark" ? INK : INDIGO;
-  const dot = tone === "light" ? CORAL : tone === "dark" ? CORAL : CORAL;
-  // viewBox sized so width ≈ 1.6 × height
+  const id = useId();
+  const gradientId = `lp-mark-grad-${id.replace(/:/g, "")}`;
+  const maskId = `lp-mark-mask-${id.replace(/:/g, "")}`;
+
+  if (tone === "dark") {
+    // Monochrome ink mark — knocked-out LP + dot using a mask.
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 100 100"
+        role="img"
+        aria-label={label}
+        xmlns="http://www.w3.org/2000/svg"
+        className={className}
+        style={{ display: "inline-block", verticalAlign: "middle", ...style }}
+      >
+        <mask id={maskId}>
+          <rect x="4" y="4" width="92" height="92" rx="26" fill="#fff" />
+          <text
+            x="46.5"
+            y="66"
+            textAnchor="middle"
+            fontFamily="'DM Sans','Helvetica Neue',Arial,sans-serif"
+            fontWeight="700"
+            fontSize="46"
+            letterSpacing="-3"
+            fill="#000"
+          >
+            LP
+          </text>
+          <circle cx="74" cy="62" r="5.5" fill="#000" />
+        </mask>
+        <rect
+          x="4"
+          y="4"
+          width="92"
+          height="92"
+          rx="26"
+          fill={INK}
+          mask={`url(#${maskId})`}
+        />
+      </svg>
+    );
+  }
+
+  // color + light — indigo gradient tile with white LP letterform + coral dot.
   return (
     <svg
-      height={height}
-      viewBox="0 0 144 88"
+      width={size}
+      height={size}
+      viewBox="0 0 100 100"
       role="img"
       aria-label={label}
       xmlns="http://www.w3.org/2000/svg"
       className={className}
       style={{ display: "inline-block", verticalAlign: "middle", ...style }}
     >
-      <g fontFamily="'DM Sans','Helvetica Neue','Inter',Arial,sans-serif">
-        <text x="0" y="70" fontSize="80" fontWeight="800" letterSpacing="-3" fill={indigo}>LP</text>
-        <circle cx="116" cy="62" r="7.5" fill={dot} />
-      </g>
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={INDIGO_LIGHT} />
+          <stop offset="1" stopColor={INDIGO} />
+        </linearGradient>
+      </defs>
+      <rect x="4" y="4" width="92" height="92" rx="26" fill={`url(#${gradientId})`} />
+      <text
+        x="46.5"
+        y="66"
+        textAnchor="middle"
+        fontFamily="'DM Sans','Helvetica Neue',Arial,sans-serif"
+        fontWeight="700"
+        fontSize="46"
+        letterSpacing="-3"
+        fill="#FFFFFF"
+      >
+        LP
+      </text>
+      <circle cx="71" cy="65" r="7" fill={CORAL} />
     </svg>
   );
 }
 
-// ── wordmark (horizontal lockup) ──────────────────────────────────────────
+// ── wordmark (horizontal mark + "LP STUDIO" lockup) ───────────────────────
 
 function LogoWordmark({
   height,
@@ -135,33 +185,65 @@ function LogoWordmark({
   style?: CSSProperties;
   label: string;
 }) {
-  const indigo = tone === "light" ? "#FFFFFF" : tone === "dark" ? INK : INDIGO;
-  const studio = tone === "light" ? "rgba(255,255,255,0.78)" : tone === "dark" ? INK : INK;
-  // Width is chosen so the lockup feels tight: LP. mark + Studio text.
+  const id = useId();
+  const gradientId = `lp-word-grad-${id.replace(/:/g, "")}`;
+
+  // Source viewBox is 300×80, so width auto-scales as height shrinks.
+  // Text color picks for the "LP STUDIO" lockup beside the mark:
+  //   color → dark ink on cream surfaces
+  //   light → cream on dark surfaces (matches lockup-wordmark-light.svg)
+  //   dark  → dark ink (same as color; the dark tone is rarely used for
+  //           wordmarks since the mark itself is the knocked-out variant)
+  const lpFill = tone === "light" ? CREAM : INK;
+  const studioFill =
+    tone === "light" ? "rgba(244,239,227,0.74)" : INK;
+
   return (
     <svg
       height={height}
-      viewBox="0 0 260 88"
+      viewBox="0 0 300 80"
       role="img"
       aria-label={label}
       xmlns="http://www.w3.org/2000/svg"
       className={className}
       style={{ display: "inline-block", verticalAlign: "middle", ...style }}
     >
-      <g fontFamily="'DM Sans','Helvetica Neue','Inter',Arial,sans-serif">
-        <text x="0" y="70" fontSize="80" fontWeight="800" letterSpacing="-3" fill={indigo}>LP</text>
-        <circle cx="116" cy="62" r="7.5" fill={CORAL} />
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={INDIGO_LIGHT} />
+          <stop offset="1" stopColor={INDIGO} />
+        </linearGradient>
+      </defs>
+      {/* Brand mark (rounded indigo tile + LP + dot) — scaled to lockup height */}
+      <g transform="translate(2,10) scale(0.6)">
+        <rect x="4" y="4" width="92" height="92" rx="26" fill={`url(#${gradientId})`} />
         <text
-          x="138"
-          y="62"
-          fontSize="22"
+          x="46.5"
+          y="66"
+          textAnchor="middle"
+          fontFamily="'DM Sans','Helvetica Neue',Arial,sans-serif"
           fontWeight="700"
-          letterSpacing="5"
-          fill={studio}
+          fontSize="46"
+          letterSpacing="-3"
+          fill="#FFFFFF"
         >
-          STUDIO
+          LP
         </text>
+        <circle cx="71" cy="65" r="7" fill={CORAL} />
       </g>
+      {/* LP STUDIO lockup */}
+      <text
+        x="78"
+        y="50"
+        fontFamily="'DM Sans','Helvetica Neue',Arial,sans-serif"
+        fontSize="30"
+        fill={lpFill}
+      >
+        <tspan fontWeight="700" letterSpacing="-0.3">LP</tspan>
+        <tspan fontWeight="500" letterSpacing="3.4" dx="10" fill={studioFill}>
+          STUDIO
+        </tspan>
+      </text>
     </svg>
   );
 }
