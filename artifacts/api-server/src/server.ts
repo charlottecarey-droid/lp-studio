@@ -27,6 +27,7 @@ import { startCustomDomainPoller } from "./lib/customDomainPoller";
 import { startEmailDomainPoller } from "./lib/emailDomainPoller";
 import { startBrandedSubdomainReconcilePoller } from "./lib/brandedSubdomainReconcilePoller";
 import { startBrandedEmailSubdomainPoller } from "./lib/brandedEmailSubdomainPoller";
+import { startMarketoSyncPoller } from "./lib/marketoSyncPoller";
 import { scheduleWorkflowSweep } from "./lib/workflowEngine";
 import { turnstileConfigured } from "./lib/turnstile";
 import { runAssetHealthCheck } from "./lib/assetHealthCheck";
@@ -603,6 +604,15 @@ const httpServer = app.listen(port, (err) => {
   // past the staleness threshold, reusing the wizard's deprovision path so no
   // Resend/Cloudflare resources leak. Production-only (see poller).
   startBrandedEmailSubdomainPoller();
+
+  // Task #950 — periodic scheduled Marketo lead sync. For every tenant whose
+  // Marketo connection is connected + sync-enabled, runs the bulk lead import
+  // on a fixed cadence (resuming from the cursor saved on the connection), so
+  // new/updated Marketo leads flow into the Sales Console without a manual
+  // "Sync". Per-tenant advisory-locked so instances don't double-import; each
+  // tenant fails closed + observable via marketo_sync_log. Runs in production
+  // OR when MARKETO_FAKE_MODE is set (see poller).
+  startMarketoSyncPoller();
 });
 
 // Keep a reference so SIGTERM handlers (if added later) can close cleanly.

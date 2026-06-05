@@ -30,6 +30,10 @@ args = "artifacts/dandy-insights-video: web"
 task = "workflow.run"
 args = "e2e"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "typecheck-api"
+
 [[workflows.workflow]]
 name = "artifacts/dandy-insights-video: web"
 author = "agent"
@@ -53,6 +57,17 @@ args = "pnpm --filter @workspace/lp-studio exec playwright test"
 [workflows.workflow.metadata]
 isValidation = true
 
+[[workflows.workflow]]
+name = "typecheck-api"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run typecheck"
+
+[workflows.workflow.metadata]
+isValidation = true
+
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
@@ -71,3 +86,15 @@ RESEND_FROM_EMAIL = "LP Studio <notifications@ent.meetdandy.com>"
 GOOGLE_REDIRECT_URI = "https://app.lpstudio.ai/api/auth/google/callback"
 DEPLOYMENT_TARGET_CNAME = "image-to-video-ccarey.replit.app"
 WILDCARD_TENANT_BASE_HOSTS = "lpstudio.ai,app.lpstudio.ai"
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 80
+
+[[ports]]
+localPort = 24565
+externalPort = 3000

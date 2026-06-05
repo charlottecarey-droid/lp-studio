@@ -78,6 +78,51 @@ interface MarketoLeadRecord {
   [key: string]: unknown;
 }
 
+/**
+ * Cross-run resume cursor for the scheduled lead sync (Task #950). Persisted
+ * into `marketo_connections.metadata.scheduledSync` so a scheduled import that
+ * is interrupted mid-run (process restart, deploy) resumes the in-flight list
+ * from Marketo's `nextPageToken` instead of re-scanning from the top. Cleared
+ * to null on successful completion.
+ */
+export type ScheduledSyncState = { listId: string; cursor: string } | null;
+
+const SCHEDULED_SYNC_META_KEY = "scheduledSync";
+
+/**
+ * Pure: read a resume cursor out of a connection's metadata jsonb. Returns null
+ * unless BOTH listId and cursor are present non-empty strings (fail closed to a
+ * full re-scan on any malformed/partial state).
+ */
+export function parseScheduledSyncState(metadata: unknown): ScheduledSyncState {
+  const meta = (metadata ?? {}) as { scheduledSync?: { listId?: unknown; cursor?: unknown } };
+  const s = meta[SCHEDULED_SYNC_META_KEY];
+  if (s && typeof s.listId === "string" && typeof s.cursor === "string" && s.listId && s.cursor) {
+    return { listId: s.listId, cursor: s.cursor };
+  }
+  return null;
+}
+
+/**
+ * Pure: given the ordered list set and a resume cursor, produce the import plan
+ * (which lists to visit, and the per-list starting cursor). When resuming we
+ * skip every list that comes before the saved one (those finished in a prior
+ * run; the import is idempotent so even an over-eager re-scan would be safe) and
+ * start the saved list from its stored cursor. If the saved list is gone (lists
+ * changed since the interrupted run) we fail closed to a full re-scan.
+ */
+export function planResume(
+  lists: { marketoId: string }[],
+  resume: ScheduledSyncState,
+): { listId: string; startCursor?: string }[] {
+  if (!resume) return lists.map((l) => ({ listId: l.marketoId }));
+  const idx = lists.findIndex((l) => l.marketoId === resume.listId);
+  if (idx === -1) return lists.map((l) => ({ listId: l.marketoId }));
+  return lists.slice(idx).map((l, i) =>
+    i === 0 ? { listId: l.marketoId, startCursor: resume.cursor } : { listId: l.marketoId },
+  );
+}
+
 export class MarketoService {
   // ─── AUTH / TOKEN ─────────────────────────────────────────────
 
@@ -675,6 +720,28 @@ export class MarketoService {
   }
 
   /**
+   * Merge (or clear) the scheduled-sync resume cursor in a connection's
+   * metadata jsonb. Read-modify-write so we don't clobber sibling metadata
+   * (e.g. activityTypeIds). Best-effort: a failure here only costs one run's
+   * worth of resume precision (the next run re-scans from the top, which is
+   * idempotent), so it must never abort the import.
+   */
+  private async writeScheduledSyncState(connectionId: number, state: ScheduledSyncState): Promise<void> {
+    try {
+      const [conn] = await db
+        .select({ metadata: marketoConnectionsTable.metadata })
+        .from(marketoConnectionsTable)
+        .where(eq(marketoConnectionsTable.id, connectionId));
+      const meta = { ...((conn?.metadata ?? {}) as Record<string, unknown>) };
+      if (state) meta[SCHEDULED_SYNC_META_KEY] = state;
+      else delete meta[SCHEDULED_SYNC_META_KEY];
+      await db.update(marketoConnectionsTable).set({ metadata: meta }).where(eq(marketoConnectionsTable.id, connectionId));
+    } catch (err) {
+      logger.warn({ err, connectionId }, "Marketo: failed to persist scheduled-sync resume cursor (non-fatal)");
+    }
+  }
+
+  /**
    * Bulk-import Marketo leads into sales_contacts, paginating over Marketo's
    * nextPageToken (no truncation) and persisting the cursor to
    * marketo_sync_log.lastCursor so a partial run can resume.
@@ -682,15 +749,32 @@ export class MarketoService {
    * Imports from the connection's cached static lists (marketo_lists). Records
    * a per-run audit row with processed/created/updated/skipped counts.
    *
-   * TODO(follow-up): scheduled incremental sync — resume from lastCursor +
-   * last-sync diff via a cron tick instead of a manual trigger.
+   * Modes (`opts`):
+   *   - syncType "manual" (default) — one-shot import, always starts from the
+   *     top of every static list; does not touch the connection's resume state.
+   *   - syncType "scheduled" + resume — the background poller (Task #950) path:
+   *     resumes the in-flight list from the cursor saved in
+   *     marketo_connections.metadata.scheduledSync, advances/clears that cursor
+   *     as it pages, and clears it on successful completion so the NEXT
+   *     scheduled run starts fresh. An interrupted run leaves the cursor in
+   *     place so the following run picks up where it left off.
    */
-  async importLeads(connectionId: number, tenantId: number): Promise<{ logId: number; processed: number; created: number; updated: number; skipped: number }> {
+  async importLeads(
+    connectionId: number,
+    tenantId: number,
+    opts: { syncType?: "manual" | "scheduled"; resume?: boolean } = {},
+  ): Promise<{ logId: number; processed: number; created: number; updated: number; skipped: number }> {
+    const syncType = opts.syncType ?? "manual";
+    const resume = opts.resume ?? false;
+
     const connection = await this.getConnectionForTenant(connectionId, tenantId);
     if (!connection) throw new Error(`Marketo connection ${connectionId} not found for tenant ${tenantId}`);
 
+    const resumeState = resume ? parseScheduledSyncState(connection.metadata) : null;
+
     const [log] = await db.insert(marketoSyncLogTable).values({
-      tenantId, connectionId, syncType: "manual", objectType: "leads", status: "running",
+      tenantId, connectionId, syncType, objectType: "leads", status: "running",
+      lastCursor: resumeState?.cursor ?? null,
     }).returning({ id: marketoSyncLogTable.id });
     const logId = log.id;
 
@@ -698,18 +782,23 @@ export class MarketoService {
     const fields = ["id", "email", "firstName", "lastName", "company", "title", "phone", "sfdcContactId", "sfdcAccountId", "sfdcLeadId", "leadScore"];
 
     try {
+      // Deterministic order so the resume plan (skip lists before the saved one,
+      // resume the saved one from its cursor) is stable across runs.
       const lists = await db
         .select({ marketoId: marketoListsTable.marketoId })
         .from(marketoListsTable)
         .where(and(
           eq(marketoListsTable.connectionId, connectionId),
           eq(marketoListsTable.listType, "static_list"),
-        ));
+        ))
+        .orderBy(marketoListsTable.marketoId);
 
-      for (const list of lists) {
-        let token: string | undefined;
+      const plan = planResume(lists, resumeState);
+
+      for (const step of plan) {
+        let token: string | undefined = step.startCursor;
         do {
-          const page = await this.getLeadsByListPage(connection, list.marketoId, token, fields);
+          const page = await this.getLeadsByListPage(connection, step.listId, token, fields);
           for (const lead of page.records) {
             processed++;
             const outcome = await this.applyImportedLead(lead, tenantId, connection.importUnlinkedLeads);
@@ -722,15 +811,27 @@ export class MarketoService {
           await db.update(marketoSyncLogTable).set({
             lastCursor: token ?? null, recordsProcessed: processed, recordsCreated: created, recordsUpdated: updated, recordsSkipped: skipped,
           }).where(eq(marketoSyncLogTable.id, logId));
+          // Cross-run resume cursor (scheduled mode only). While a list is still
+          // paging we record {listId, cursor}; once it drains (token undefined)
+          // we clear it — a crash between lists then safely restarts from the
+          // top (idempotent) rather than mid-list.
+          if (resume) {
+            await this.writeScheduledSyncState(connectionId, token ? { listId: step.listId, cursor: token } : null);
+          }
         } while (token);
       }
 
       await db.update(marketoSyncLogTable).set({
-        status: "completed", recordsProcessed: processed, recordsCreated: created, recordsUpdated: updated, recordsSkipped: skipped, completedAt: new Date(),
+        status: "completed", lastCursor: null, recordsProcessed: processed, recordsCreated: created, recordsUpdated: updated, recordsSkipped: skipped, completedAt: new Date(),
       }).where(eq(marketoSyncLogTable.id, logId));
       await db.update(marketoConnectionsTable).set({ lastSyncAt: new Date(), lastSyncError: null }).where(eq(marketoConnectionsTable.id, connectionId));
+      // Completed cleanly — clear any resume cursor so the next scheduled run
+      // starts from the top.
+      if (resume) await this.writeScheduledSyncState(connectionId, null);
     } catch (err) {
       logger.error({ err, connectionId }, "Marketo leads import failed");
+      // Note: in scheduled mode we deliberately LEAVE the resume cursor in place
+      // so the next poll resumes from where this run failed.
       await db.update(marketoSyncLogTable).set({ status: "failed", errorMessage: String(err), completedAt: new Date() }).where(eq(marketoSyncLogTable.id, logId));
       await db.update(marketoConnectionsTable).set({ lastSyncError: String(err) }).where(eq(marketoConnectionsTable.id, connectionId));
     }
