@@ -223,89 +223,73 @@ export function NewMicrositeModal({ open, onClose }: Props) {
         } : undefined;
       };
 
+      // ── Account-aware generation via the dedicated sales generator ───────
+      // When an account is selected, AI generation routes through
+      // /sales/accounts/:id/generate-microsite. That endpoint loads the
+      // account briefing/research, the targeted segment's preferred blocks
+      // (incl. Dandy Insights blocks), the brand image catalog, and stamps the
+      // row with mode='sales' + account_id + sfdc_account_id so the page shows
+      // up under the account — not as a generic landing page. It requires a
+      // segment, so account-mode generation always sends one. (We only fall
+      // back to the generic path when the tenant has no segments configured.)
+      const generateViaDedicated = async (opts: {
+        segmentId: string;
+        prompt: string;
+        templateId?: number;
+      }): Promise<number> => {
+        const res = await fetch(
+          `${API_BASE}/sales/accounts/${acctIdNum}/generate-microsite`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              segmentId: opts.segmentId,
+              audience: opts.segmentId,
+              ...(opts.prompt ? { prompt: opts.prompt } : {}),
+              ...(opts.templateId ? { templateId: opts.templateId } : {}),
+            }),
+          },
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Generation failed" }));
+          throw new Error((err as { error?: string }).error ?? "Generation failed");
+        }
+        const { page } = (await res.json()) as { page: { id: number } };
+        return page.id;
+      };
+
       if (mode === "ai") {
         if (!aiPrompt.trim()) throw new Error("Add a prompt for the AI.");
-        const tplIdForAi = aiTemplateId ? Number(aiTemplateId) : undefined;
-        const segmentContext = buildSegmentContext(aiSegmentId);
-        const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+
+        // Account selected → dedicated, account-aware generator. It requires a
+        // segment (enforced here and in canSubmit). Only when the tenant has
+        // zero segments configured do we fall back to the generic path so reps
+        // are never left at a dead end.
+        if (acctIdNum !== null && (aiSegmentId || segments.length > 0)) {
+          if (!aiSegmentId) {
+            throw new Error("Pick an audience segment to personalize this microsite for the account.");
+          }
+          pageId = await generateViaDedicated({
+            segmentId: aiSegmentId,
             prompt: aiPrompt.trim(),
-            ...(tplIdForAi ? { templateId: tplIdForAi } : {}),
-            ...(segmentContext ? { segmentContext } : {}),
-          }),
-        });
-        if (!genRes.ok) {
-          const err = await genRes.json().catch(() => ({ error: "AI generation failed" }));
-          throw new Error((err as { error?: string }).error ?? "AI generation failed");
-        }
-        const generated = (await genRes.json()) as {
-          title?: string;
-          slug?: string;
-          blocks?: unknown[];
-          strictMismatches?: unknown;
-          critiqueAnnotations?: unknown;
-        };
-        // Save the AI-generated page. If the user supplied a title, prefer
-        // theirs; otherwise fall back to the AI's suggestion.
-        const finalTitle = createdTitle || generated.title || "Untitled microsite";
-        const finalSlug = createdSlug || slugify(generated.slug || finalTitle);
-        const saveRes = await fetch(`${API_BASE}/lp/pages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: finalTitle,
-            slug: finalSlug,
-            blocks: Array.isArray(generated.blocks) ? generated.blocks : [],
-            status: "draft",
-          }),
-        });
-        if (!saveRes.ok) {
-          const err = await saveRes.json().catch(() => ({ error: "Could not save page" }));
-          throw new Error((err as { error?: string }).error ?? "Could not save page");
-        }
-        const page = (await saveRes.json()) as { id: number };
-        pageId = page.id;
-        createdTitle = finalTitle;
-        createdSlug = finalSlug;
-        // Task #254 — surface unapproved-stat warnings on the editor.
-        rememberStrictMismatches(pageId, generated.strictMismatches);
-        rememberCritiqueAnnotations(pageId, generated.critiqueAnnotations);
-      } else {
-        // Template / Blank mode — POST /lp/pages and let the server clone
-        // blocks from the template when fromTemplateId is set.
-        //
-        // Exception: when a real template is chosen AND the rep picked an
-        // audience segment, route through /lp/generate-page in template-rewrite
-        // mode so the AI lightly retunes the template's copy for that segment.
-        // Block structure (ids, types, layout, images, colors) is preserved
-        // verbatim — only human-readable text fields are rewritten.
-        if (!createdTitle) throw new Error("Give the microsite a name.");
-        if (!createdSlug) throw new Error("Slug is required.");
-
-        const tplSegmentContext = selectedTemplateId > 0
-          ? buildSegmentContext(templateSegmentId)
-          : undefined;
-
-        if (tplSegmentContext) {
-          // Synthesise a short prompt — the endpoint requires `prompt`, and
-          // it gives the AI a clear instruction alongside the segment data.
-          const synthPrompt =
-            `Tailor this template's copy for the ${tplSegmentContext.name} audience` +
-            (selectedAccount ? `, for ${selectedAccount.name}.` : ".");
+            templateId: aiTemplateId ? Number(aiTemplateId) : undefined,
+          });
+        } else {
+          // No account (or no segments configured) → generic generate-page.
+          const tplIdForAi = aiTemplateId ? Number(aiTemplateId) : undefined;
+          const segmentContext = buildSegmentContext(aiSegmentId);
           const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              prompt: synthPrompt,
-              templateId: selectedTemplateId,
-              segmentContext: tplSegmentContext,
+              prompt: aiPrompt.trim(),
+              ...(tplIdForAi ? { templateId: tplIdForAi } : {}),
+              ...(segmentContext ? { segmentContext } : {}),
             }),
           });
           if (!genRes.ok) {
-            const err = await genRes.json().catch(() => ({ error: "Template tailoring failed" }));
-            throw new Error((err as { error?: string }).error ?? "Template tailoring failed");
+            const err = await genRes.json().catch(() => ({ error: "AI generation failed" }));
+            throw new Error((err as { error?: string }).error ?? "AI generation failed");
           }
           const generated = (await genRes.json()) as {
             title?: string;
@@ -314,12 +298,16 @@ export function NewMicrositeModal({ open, onClose }: Props) {
             strictMismatches?: unknown;
             critiqueAnnotations?: unknown;
           };
+          // Save the AI-generated page. If the user supplied a title, prefer
+          // theirs; otherwise fall back to the AI's suggestion.
+          const finalTitle = createdTitle || generated.title || "Untitled microsite";
+          const finalSlug = createdSlug || slugify(generated.slug || finalTitle);
           const saveRes = await fetch(`${API_BASE}/lp/pages`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              title: createdTitle,
-              slug: createdSlug,
+              title: finalTitle,
+              slug: finalSlug,
               blocks: Array.isArray(generated.blocks) ? generated.blocks : [],
               status: "draft",
             }),
@@ -330,28 +318,110 @@ export function NewMicrositeModal({ open, onClose }: Props) {
           }
           const page = (await saveRes.json()) as { id: number };
           pageId = page.id;
+          createdTitle = finalTitle;
+          createdSlug = finalSlug;
           // Task #254 — surface unapproved-stat warnings on the editor.
           rememberStrictMismatches(pageId, generated.strictMismatches);
           rememberCritiqueAnnotations(pageId, generated.critiqueAnnotations);
-        } else {
-          const body: Record<string, unknown> = {
-            title: createdTitle,
-            slug: createdSlug,
-            status: "draft",
-          };
-          if (selectedTemplateId > 0) body.fromTemplateId = selectedTemplateId;
-          else body.blocks = [];
-          const res = await fetch(`${API_BASE}/lp/pages`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
+        }
+      } else {
+        // Template / Blank mode — POST /lp/pages and let the server clone
+        // blocks from the template when fromTemplateId is set.
+        if (!createdTitle) throw new Error("Give the microsite a name.");
+        if (!createdSlug) throw new Error("Slug is required.");
+
+        if (acctIdNum !== null && selectedTemplateId > 0 && templateSegmentId) {
+          // Account + real template + segment → dedicated, account-aware
+          // generator with the template as a fixed layout. The AI retunes the
+          // copy for the account/segment while the template's structure and
+          // images are preserved, AND the page is linked to the account.
+          const seg = segments.find(s => s.id === templateSegmentId);
+          const synthPrompt =
+            `Tailor this template's copy for the ${seg?.name ?? "selected"} audience` +
+            (selectedAccount ? `, for ${selectedAccount.name}.` : ".");
+          pageId = await generateViaDedicated({
+            segmentId: templateSegmentId,
+            prompt: synthPrompt,
+            templateId: selectedTemplateId,
           });
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: "Could not create page" }));
-            throw new Error((err as { error?: string }).error ?? "Could not create page");
+        } else {
+          // No account (or no segment): the generic create path.
+          //
+          // Exception: when a real template is chosen AND the rep picked an
+          // audience segment (without an account), route through
+          // /lp/generate-page in template-rewrite mode so the AI lightly
+          // retunes the template's copy for that segment. Block structure
+          // (ids, types, layout, images, colors) is preserved verbatim — only
+          // human-readable text fields are rewritten.
+          const tplSegmentContext = selectedTemplateId > 0
+            ? buildSegmentContext(templateSegmentId)
+            : undefined;
+
+          if (tplSegmentContext) {
+            // Synthesise a short prompt — the endpoint requires `prompt`, and
+            // it gives the AI a clear instruction alongside the segment data.
+            const synthPrompt =
+              `Tailor this template's copy for the ${tplSegmentContext.name} audience` +
+              (selectedAccount ? `, for ${selectedAccount.name}.` : ".");
+            const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                prompt: synthPrompt,
+                templateId: selectedTemplateId,
+                segmentContext: tplSegmentContext,
+              }),
+            });
+            if (!genRes.ok) {
+              const err = await genRes.json().catch(() => ({ error: "Template tailoring failed" }));
+              throw new Error((err as { error?: string }).error ?? "Template tailoring failed");
+            }
+            const generated = (await genRes.json()) as {
+              title?: string;
+              slug?: string;
+              blocks?: unknown[];
+              strictMismatches?: unknown;
+              critiqueAnnotations?: unknown;
+            };
+            const saveRes = await fetch(`${API_BASE}/lp/pages`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                title: createdTitle,
+                slug: createdSlug,
+                blocks: Array.isArray(generated.blocks) ? generated.blocks : [],
+                status: "draft",
+              }),
+            });
+            if (!saveRes.ok) {
+              const err = await saveRes.json().catch(() => ({ error: "Could not save page" }));
+              throw new Error((err as { error?: string }).error ?? "Could not save page");
+            }
+            const page = (await saveRes.json()) as { id: number };
+            pageId = page.id;
+            // Task #254 — surface unapproved-stat warnings on the editor.
+            rememberStrictMismatches(pageId, generated.strictMismatches);
+            rememberCritiqueAnnotations(pageId, generated.critiqueAnnotations);
+          } else {
+            const body: Record<string, unknown> = {
+              title: createdTitle,
+              slug: createdSlug,
+              status: "draft",
+            };
+            if (selectedTemplateId > 0) body.fromTemplateId = selectedTemplateId;
+            else body.blocks = [];
+            const res = await fetch(`${API_BASE}/lp/pages`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({ error: "Could not create page" }));
+              throw new Error((err as { error?: string }).error ?? "Could not create page");
+            }
+            const page = (await res.json()) as { id: number };
+            pageId = page.id;
           }
-          const page = (await res.json()) as { id: number };
-          pageId = page.id;
         }
       }
 
@@ -387,10 +457,19 @@ export function NewMicrositeModal({ open, onClose }: Props) {
     }
   }
 
+  // An account is actively selected (not the "no account" escape hatch).
+  const accountSelected = !noAccount && accountId !== "";
+
   const canSubmit =
     pathChosen &&
     !submitting &&
-    (mode === "ai" ? aiPrompt.trim().length > 0 : title.trim().length > 0 && slug.trim().length > 0);
+    (mode === "ai"
+      ? aiPrompt.trim().length > 0 &&
+        // Account-mode AI goes through the dedicated generator, which needs a
+        // segment. Require one when segments exist; allow through when the
+        // tenant has none (the generic path handles that fallback).
+        (!accountSelected || segments.length === 0 || aiSegmentId !== "")
+      : title.trim().length > 0 && slug.trim().length > 0);
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o && !submitting) onClose(); }}>
@@ -601,7 +680,12 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                 </div>
 
                 <div>
-                  <Label className="text-xs font-medium">Audience segment</Label>
+                  <Label className="text-xs font-medium">
+                    Audience segment
+                    {accountSelected && segments.length > 0 && (
+                      <span className="text-muted-foreground font-normal"> (required)</span>
+                    )}
+                  </Label>
                   <select
                     className="mt-1.5 w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                     value={aiSegmentId}
@@ -617,6 +701,11 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                   {!loadingData && segments.length === 0 && (
                     <p className="text-[11px] text-muted-foreground mt-1">
                       No segments defined yet. Add them in Brand Settings to tailor copy by audience.
+                    </p>
+                  )}
+                  {accountSelected && segments.length > 0 && !aiSegmentId && (
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Pick a segment so we can personalize this page for the account using its messaging and preferred blocks.
                     </p>
                   )}
                 </div>
