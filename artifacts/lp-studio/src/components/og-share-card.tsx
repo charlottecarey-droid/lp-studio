@@ -3,8 +3,8 @@
 // etc.). Used by BOTH the per-page SEO panel (BuilderEditor) and the tenant
 // "Default share card" panel (brand-settings) so the two surfaces stay in
 // lockstep. Pure presentational + a single upload call — no app-specific state.
-import { useEffect, useRef, useState } from "react";
-import { Loader2, AlertTriangle, Crop, ImageIcon } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, AlertTriangle, Crop, ImageIcon, Check, Undo2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 /** Canonical share-card dimensions the whole OG flow standardises on. Mirrors
@@ -127,12 +127,31 @@ export function isOffSpec(width: number | null, height: number | null): boolean 
   return Math.abs(width - OG_IMAGE_WIDTH) > 1 || Math.abs(height - OG_IMAGE_HEIGHT) > 1;
 }
 
+/** Canonicalise a URL to its absolute form so relative (`/api/storage/…`) and
+ *  absolute (`https://host/api/storage/…`) shapes of the SAME image compare
+ *  equal. Callsites differ on which shape they store, so identity tracking
+ *  (already-attempted / resized) must normalise or the undo escape hatch can
+ *  re-trigger an auto-resize. */
+function normalizeUrl(u: string): string {
+  const trimmed = u.trim();
+  if (!trimmed) return "";
+  try {
+    return new URL(trimmed, typeof window !== "undefined" ? window.location.origin : "http://localhost").href;
+  } catch {
+    return trimmed;
+  }
+}
+
 /**
- * Dimension warning + one-click center-crop resize. When the supplied image is
- * not 1200×630 it shows an amber warning and a "Resize to 1200×630" button. The
- * button fetches the current image bytes client-side and POSTs them to the
- * server resize endpoint (`/api/lp/og-image/resize`, sharp center-crop), then
- * calls `onResized` with the new served URL. Renders nothing when the image is
+ * Auto-resize + revert affordance for a share-card image. The moment an
+ * off-spec (not 1200×630) image appears — e.g. right after an upload, a pasted
+ * URL, or a picker selection — this fetches its bytes client-side and POSTs
+ * them to the server resize endpoint (`/api/lp/og-image/resize`, sharp
+ * center-crop), then calls `onResized` with the new served URL so every share
+ * image is correct by default. Once resized it shows a small confirmation with
+ * a one-click "Use original instead" escape hatch. If the automatic resize
+ * can't run (e.g. the source can't be fetched cross-origin) it falls back to
+ * the manual "Resize to 1200×630" button. Renders nothing when the image is
  * already on-spec, empty, or its dimensions can't be read.
  */
 export function OgDimensionWarning({
@@ -147,8 +166,81 @@ export function OgDimensionWarning({
   const { width, height, error } = useImageDimensions(imageUrl);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  // After a successful auto-resize, the (normalised) original URL we resized
+  // FROM and the resized result, so we can offer a one-click "use original"
+  // escape hatch and recognise the current image as our own resize output.
+  const [revert, setRevert] = useState<{ original: string; resized: string } | null>(null);
+  // Normalised URLs we've already auto-attempted — never retry automatically
+  // (prevents an undo→re-resize loop and avoids hammering the endpoint on
+  // repeated failures). Normalised so a relative original and its absolutised
+  // equivalent (some callsites canonicalise on revert) count as the same image.
+  const attempted = useRef<Set<string>>(new Set());
+  // Keep the latest onResized without churning the resize callback identity.
+  const onResizedRef = useRef(onResized);
+  useEffect(() => { onResizedRef.current = onResized; }, [onResized]);
+
   const url = (imageUrl ?? "").trim();
+  const urlKey = normalizeUrl(url);
+
+  const runResize = useCallback(async (sourceUrl: string) => {
+    setBusy(true);
+    setFailed(false);
+    try {
+      const resp = await fetch(sourceUrl, { credentials: "include" });
+      if (!resp.ok) throw new Error("fetch failed");
+      const blob = await resp.blob();
+      const fd = new FormData();
+      fd.append("file", blob, "og-source");
+      const res = await fetch(`${apiBase}/lp/og-image/resize`, { method: "POST", body: fd });
+      if (!res.ok) throw new Error("resize failed");
+      const { url: newUrl } = (await res.json()) as { url: string };
+      // Track by normalised identity so the undo banner recognises whatever
+      // shape the parent commits the new URL in (relative or absolutised).
+      setRevert({ original: normalizeUrl(sourceUrl), resized: normalizeUrl(newUrl) });
+      onResizedRef.current(newUrl);
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }, [apiBase]);
+
+  // Auto-resize off-spec images the moment they appear, unless we've already
+  // tried this exact image (which also covers the post-revert original).
+  useEffect(() => {
+    if (!urlKey || error) return;
+    if (!isOffSpec(width, height)) return;
+    if (attempted.current.has(urlKey)) return;
+    attempted.current.add(urlKey);
+    void runResize(url);
+  }, [url, urlKey, width, height, error, runResize]);
+
   if (!url) return null;
+
+  // Confirmation + "use original" escape hatch after an automatic resize.
+  if (revert && revert.resized === urlKey) {
+    return (
+      <div className="mt-1.5 space-y-1">
+        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">
+          <Check className="w-3 h-3 shrink-0" />
+          Auto-resized to {OG_IMAGE_WIDTH}×{OG_IMAGE_HEIGHT} for crisp link previews.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            const original = revert.original;
+            setRevert(null);
+            onResizedRef.current(original);
+          }}
+          className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded border border-input bg-background hover:bg-muted"
+        >
+          <Undo2 className="w-3 h-3" />
+          Use original instead
+        </button>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5 inline-flex items-center gap-1">
@@ -159,26 +251,18 @@ export function OgDimensionWarning({
   }
   if (!isOffSpec(width, height)) return null;
 
-  const handleResize = async () => {
-    setBusy(true);
-    setFailed(false);
-    try {
-      const resp = await fetch(url, { credentials: "include" });
-      if (!resp.ok) throw new Error("fetch failed");
-      const blob = await resp.blob();
-      const fd = new FormData();
-      fd.append("file", blob, "og-source");
-      const res = await fetch(`${apiBase}/lp/og-image/resize`, { method: "POST", body: fd });
-      if (!res.ok) throw new Error("resize failed");
-      const { url: newUrl } = (await res.json()) as { url: string };
-      onResized(newUrl);
-    } catch {
-      setFailed(true);
-    } finally {
-      setBusy(false);
-    }
-  };
+  // Mid auto-resize.
+  if (busy) {
+    return (
+      <p className="text-[10px] text-muted-foreground mt-1.5 inline-flex items-center gap-1">
+        <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+        Resizing to {OG_IMAGE_WIDTH}×{OG_IMAGE_HEIGHT}…
+      </p>
+    );
+  }
 
+  // Off-spec but not auto-resized (user reverted to the original, or the
+  // automatic attempt failed) — offer a manual resize as a fallback.
   return (
     <div className="mt-1.5 space-y-1">
       <p className="text-[10px] text-amber-600 dark:text-amber-400 inline-flex items-center gap-1">
@@ -187,12 +271,12 @@ export function OgDimensionWarning({
       </p>
       <button
         type="button"
-        onClick={handleResize}
+        onClick={() => runResize(url)}
         disabled={busy}
         className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded border border-input bg-background hover:bg-muted disabled:opacity-60"
       >
-        {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Crop className="w-3 h-3" />}
-        {busy ? "Resizing…" : `Resize to ${OG_IMAGE_WIDTH}×${OG_IMAGE_HEIGHT}`}
+        <Crop className="w-3 h-3" />
+        {`Resize to ${OG_IMAGE_WIDTH}×${OG_IMAGE_HEIGHT}`}
       </button>
       {failed && (
         <p className="text-[10px] text-red-600 dark:text-red-500">Couldn&apos;t resize this image. Try a different file.</p>
