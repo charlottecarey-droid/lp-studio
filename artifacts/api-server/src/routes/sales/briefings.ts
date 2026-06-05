@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { salesBriefingsTable, salesAccountsTable, lpBrandSettingsTable } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { callAIChat, AIChatError, aiErrorMessage, fetchWithTimeout } from "../../lib/ai-utils";
+import { slackService } from "../../lib/slack-service";
 
 const router = Router();
 
@@ -340,6 +341,21 @@ router.post("/accounts/:accountId/briefing", requireAuth, async (req, res): Prom
         status: "complete",
       }).returning();
     }
+
+    // Slack notifier (outbound-only): post a Block Kit "AI Briefing ready"
+    // message to the tenant's configured channel (fire-and-forget, gated on the
+    // per-event toggle). Never blocks the response.
+    slackService.getActiveConnection(tenantId).then(slackConn => {
+      if (slackConn && slackConn.eventToggles.ai_briefing !== false) {
+        const summary = typeof briefingData.summary === "string" ? briefingData.summary : null;
+        const msg = slackService.buildBriefingBlocks({
+          accountName: account.name,
+          summary,
+          generatedAt: new Date().toISOString(),
+        });
+        slackService.postMessage(tenantId, msg).catch(() => {/* non-blocking */});
+      }
+    }).catch(() => {/* non-blocking */});
 
     res.json(result);
   } catch (err) {

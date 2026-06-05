@@ -20,6 +20,7 @@ import {
   Wrench,
   LayoutTemplate,
   BookOpen,
+  Slack,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -171,6 +172,14 @@ function SettingsDropdown() {
             <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/marketo") ? "bg-accent" : ""}`}>
               <Cloud className="w-4 h-4 text-muted-foreground" />
               <span>Marketo</span>
+            </DropdownMenuItem>
+          </Link>
+        )}
+        {(hasPerm("settings") || user?.isAdmin) && (
+          <Link href="/sales/slack">
+            <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/slack") ? "bg-accent" : ""}`}>
+              <Slack className="w-4 h-4 text-muted-foreground" />
+              <span>Slack</span>
             </DropdownMenuItem>
           </Link>
         )}

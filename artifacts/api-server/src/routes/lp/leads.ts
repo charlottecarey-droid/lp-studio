@@ -18,6 +18,7 @@ import {
 import { syncLeadToSheets, syncLeadToMarketo, syncLeadToSalesforce } from "./integrations";
 import { appendGuestApplicationToSheet } from "./podcast-availability";
 import { sfdcService } from "../../lib/sfdc-service";
+import { slackService } from "../../lib/slack-service";
 import { renderTenantEmail } from "../../lib/tenantEmailRender";
 import { escapeHtml } from "../../lib/emailRender";
 import { platformFromAddress, platformReplyTo } from "../../lib/platformSender";
@@ -507,6 +508,24 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
         }
       } catch (err) {
         console.error("SFDC Lead creation error:", err);
+      }
+
+      // Slack notifier (outbound-only): post a Block Kit "New lead" message to
+      // the tenant's configured channel. Fire-and-forget — never blocks lead
+      // capture and swallows all errors. Gated on the per-event toggle.
+      try {
+        const slackConn = await slackService.getActiveConnection(pageTenantId);
+        if (slackConn && slackConn.eventToggles.form_submit !== false) {
+          const msg = slackService.buildNewLeadBlocks({
+            pageTitle: page.title,
+            pageSlug: page.slug,
+            fields: fields as Record<string, unknown>,
+            submittedAt: (lead.createdAt as Date).toISOString(),
+          });
+          await slackService.postMessage(pageTenantId, msg).catch(() => {});
+        }
+      } catch (err) {
+        console.error("Slack notify error for lead", lead.id, ":", err);
       }
     } catch (err) {
       console.error("Error processing lead notifications:", err);

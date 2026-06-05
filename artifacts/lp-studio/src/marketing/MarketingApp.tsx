@@ -9,6 +9,7 @@ import ComparePage from "./pages/compare";
 import PricingPage from "./pages/pricing";
 import Privacy from "./pages/privacy";
 import Terms from "./pages/terms";
+import ZapierDocs from "./pages/zapier";
 import NotFound from "./pages/not-found";
 
 /**
@@ -33,6 +34,7 @@ export default function MarketingApp() {
       <Route path="/pricing" component={PricingPage} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
+      <Route path="/docs/integrations/zapier" component={ZapierDocs} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -1,4 +1,4 @@
-import type { CSSProperties, ComponentType } from "react";
+import type { CSSProperties, ComponentType, MouseEvent } from "react";
 import { useInView } from "../hooks/useInView";
 
 // Marketing accuracy pass (May 2026): only integrations with real, shipped
@@ -13,6 +13,12 @@ interface Integration {
   name: string;
   color: string;
   mark: ComponentType<{ color: string }>;
+  // Lowercase status caption on the tile (defaults to "Shipped"). Used to
+  // distinguish a first-class integration from a positioning/no-backend tile.
+  tag?: string;
+  // When present, the tile is a link instead of a plain button (e.g. Zapier
+  // points at its docs page since there is no in-product backend).
+  href?: string;
 }
 
 // Salesforce is featured separately above the grid (bidirectional sync with
@@ -22,12 +28,14 @@ const LEAD_HANDOFF: Integration[] = [
   { name: "Marketo",      color: "#5C4C9F", mark: MarketoMark },
   { name: "Google Sheets",color: "#0F9D58", mark: SheetsMark },
   { name: "Webhooks",     color: "#1A1815", mark: WebhookMark },
+  { name: "Zapier",       color: "#FF4F00", mark: ZapierMark, tag: "Via webhooks", href: "/docs/integrations/zapier" },
 ];
 
 const SCHEDULING_OPS: Integration[] = [
   { name: "Chili Piper", color: "#E26B4F", mark: ChiliPiperMark },
   { name: "Asana",       color: "#F06A6A", mark: AsanaMark },
   { name: "Resend",      color: "#1A1815", mark: ResendMark },
+  { name: "Slack",       color: "#4A154B", mark: SlackMark },
 ];
 
 const SIGNALS_ANALYTICS: Integration[] = [
@@ -147,6 +155,28 @@ function ApolloMark({ color }: { color: string }) {
     <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M12 3L3 21h4l1.8-4h6.4l1.8 4h4z" fill={color} />
       <path d="M10 13h4l-2-4.5z" fill="#fff" />
+    </svg>
+  );
+}
+function SlackMark({ color }: { color: string }) {
+  // Slack's four-paddle hash mark, single-color so it tints to the tile color
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9 3.2a1.9 1.9 0 100 3.8h1.9V5.1A1.9 1.9 0 009 3.2zm0 5.1H3.9A1.9 1.9 0 103.9 12H9a1.9 1.9 0 100-3.7z" fill={color} fillOpacity="0.85" />
+      <path d="M20.8 10.2a1.9 1.9 0 10-3.8 0v1.9h1.9a1.9 1.9 0 001.9-1.9zm-5.1 0V5.1a1.9 1.9 0 10-3.8 0v5.1a1.9 1.9 0 103.8 0z" fill={color} />
+      <path d="M15 20.8a1.9 1.9 0 100-3.8h-1.9v1.9a1.9 1.9 0 001.9 1.9zm0-5.1h5.1a1.9 1.9 0 100-3.7H15a1.9 1.9 0 100 3.7z" fill={color} fillOpacity="0.85" />
+      <path d="M3.2 14a1.9 1.9 0 103.8 0v-1.9H5.1A1.9 1.9 0 003.2 14zm5.1 0v5.1a1.9 1.9 0 103.8 0V14a1.9 1.9 0 10-3.8 0z" fill={color} />
+    </svg>
+  );
+}
+function ZapierMark({ color }: { color: string }) {
+  // Zapier's six-spoke asterisk burst
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M14.4 12a8.6 8.6 0 01-.5 2.8 8.6 8.6 0 01-2.8.5h-.2a8.6 8.6 0 01-2.8-.5A8.6 8.6 0 017.6 12c0-.97.16-1.9.46-2.77A8.6 8.6 0 0110.9 8.7h.2c.97 0 1.9.16 2.77.46.3.87.46 1.8.46 2.77zM21.6 9.6h-5l3.5-3.5-2.2-2.2L14.4 7.4v-5h-3.2v5L7.7 3.9 5.5 6.1l3.5 3.5h-5v3.2h5l-3.5 3.5 2.2 2.2 3.5-3.5v5h3.2v-5l3.5 3.5 2.2-2.2-3.5-3.5h5z"
+        fill={color}
+      />
     </svg>
   );
 }
@@ -402,25 +432,21 @@ const tileBase: CSSProperties = {
   boxShadow: "0 1px 0 rgba(255,255,255,0.6) inset",
 };
 
-function IntegrationTile({ name, color, mark }: Integration) {
+function IntegrationTile({ name, color, mark, tag, href }: Integration) {
   const MarkComp = mark;
-  return (
-    <button
-      type="button"
-      className="group text-left"
-      style={tileBase}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "translateY(-1px)";
-        e.currentTarget.style.borderColor = `color-mix(in srgb, ${color} 40%, transparent)`;
-        e.currentTarget.style.boxShadow =
-          `0 1px 0 rgba(255,255,255,0.6) inset, 0 6px 14px -8px color-mix(in srgb, ${color} 50%, transparent)`;
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "translateY(0)";
-        e.currentTarget.style.borderColor = "var(--hairline)";
-        e.currentTarget.style.boxShadow = "0 1px 0 rgba(255,255,255,0.6) inset";
-      }}
-    >
+  const hoverIn = (e: MouseEvent<HTMLElement>) => {
+    e.currentTarget.style.transform = "translateY(-1px)";
+    e.currentTarget.style.borderColor = `color-mix(in srgb, ${color} 40%, transparent)`;
+    e.currentTarget.style.boxShadow =
+      `0 1px 0 rgba(255,255,255,0.6) inset, 0 6px 14px -8px color-mix(in srgb, ${color} 50%, transparent)`;
+  };
+  const hoverOut = (e: MouseEvent<HTMLElement>) => {
+    e.currentTarget.style.transform = "translateY(0)";
+    e.currentTarget.style.borderColor = "var(--hairline)";
+    e.currentTarget.style.boxShadow = "0 1px 0 rgba(255,255,255,0.6) inset";
+  };
+  const inner = (
+    <>
       <div
         className="shrink-0 inline-flex items-center justify-center"
         style={{
@@ -446,7 +472,7 @@ function IntegrationTile({ name, color, mark }: Integration) {
           {name}
         </div>
         <div className="text-[10.5px] uppercase mt-0.5" style={{ color: "var(--ink-mute)", letterSpacing: "0.14em", fontWeight: 600 }}>
-          Shipped
+          {tag ?? "Shipped"}
         </div>
       </div>
       <span
@@ -459,6 +485,32 @@ function IntegrationTile({ name, color, mark }: Integration) {
           boxShadow: `0 0 6px color-mix(in srgb, ${color} 50%, transparent)`,
         }}
       />
+    </>
+  );
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        className="group text-left"
+        style={tileBase}
+        onMouseEnter={hoverIn}
+        onMouseLeave={hoverOut}
+      >
+        {inner}
+      </a>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className="group text-left"
+      style={tileBase}
+      onMouseEnter={hoverIn}
+      onMouseLeave={hoverOut}
+    >
+      {inner}
     </button>
   );
 }

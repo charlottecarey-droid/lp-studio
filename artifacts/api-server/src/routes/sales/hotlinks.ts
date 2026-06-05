@@ -16,6 +16,7 @@ import { deriveCompanyName, derivePracticeCount } from "../../lib/businessCaseVa
 import { broadcastSignal } from "./signals";
 import { sfdcService } from "../../lib/sfdc-service";
 import { marketoService } from "../../lib/marketo-service";
+import { slackService } from "../../lib/slack-service";
 import { logger } from "../../lib/logger";
 import { resolveTenantSender } from "../../lib/tenantSender";
 
@@ -695,6 +696,23 @@ router.get("/resolve/:token", resolveLimiter, async (req, res): Promise<void> =>
             pageTitle: page.title,
             pageUrl: `/lp/${page.slug}`,
           }).catch(() => {/* non-blocking */});
+        }
+      }).catch(() => {/* non-blocking */});
+    }
+
+    // Slack notifier (outbound-only): post a Block Kit "Hot visit" message to
+    // the tenant's configured channel (fire-and-forget, gated on the per-event
+    // toggle). A known contact viewing a microsite is the trigger.
+    if (contact) {
+      slackService.getActiveConnection(page.tenantId).then(slackConn => {
+        if (slackConn && slackConn.eventToggles.hot_visit !== false) {
+          const msg = slackService.buildHotVisitBlocks({
+            contactName: `${contact.firstName} ${contact.lastName}`.trim(),
+            company,
+            pageTitle: page.title,
+            visitedAt: new Date().toISOString(),
+          });
+          slackService.postMessage(page.tenantId, msg).catch(() => {/* non-blocking */});
         }
       }).catch(() => {/* non-blocking */});
     }

@@ -33,6 +33,9 @@ export * from "./sfdcIntegration";
 // Marketo Integration (Phase 2 — bidirectional)
 export * from "./marketoIntegration";
 
+// Slack Notifier (outbound-only)
+export * from "./slackIntegration";
+
 // Multi-tenant identity tables
 export * from "./tenants";
 export * from "./appUsers";
