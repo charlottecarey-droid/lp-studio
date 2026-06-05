@@ -19,7 +19,8 @@ export interface InjectOptions {
   method: string;
   url: string;
   headers?: Record<string, string>;
-  /** JSON-serialized when an object; sent verbatim when a string. */
+  /** Sent verbatim when a Buffer (binary, e.g. multipart) or string;
+   *  JSON-serialized otherwise. */
   body?: unknown;
 }
 
@@ -38,16 +39,22 @@ export function inject(app: Express, opts: InjectOptions): Promise<InjectRespons
   req.method = opts.method;
   req.url = opts.url;
 
-  const bodyStr =
-    opts.body === undefined ? undefined : typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body);
+  const bodyBuf: Buffer | string | undefined =
+    opts.body === undefined
+      ? undefined
+      : Buffer.isBuffer(opts.body)
+        ? opts.body
+        : typeof opts.body === "string"
+          ? opts.body
+          : JSON.stringify(opts.body);
 
   // Node lowercases incoming header names; mirror that so express's
   // case-insensitive `req.header()`/cookie-parser lookups resolve correctly.
   const headers: Record<string, string> = { host: "127.0.0.1" };
   for (const [k, v] of Object.entries(opts.headers ?? {})) headers[k.toLowerCase()] = v;
-  if (bodyStr !== undefined) {
+  if (bodyBuf !== undefined) {
     if (!headers["content-type"]) headers["content-type"] = "application/json";
-    headers["content-length"] = String(Buffer.byteLength(bodyStr));
+    headers["content-length"] = String(Buffer.byteLength(bodyBuf));
   }
   req.headers = headers;
 
@@ -74,8 +81,16 @@ export function inject(app: Express, opts: InjectOptions): Promise<InjectRespons
       return res;
     }) as typeof res.end;
 
+    // The real HTTP parser sets `req.complete` once the message is fully
+    // received; we bypass it, so set it on stream end ourselves. Without this,
+    // multer/on-finished sees an "incomplete" request when the response
+    // finishes and rejects multipart uploads with "Request aborted".
+    req.on("end", () => {
+      req.complete = true;
+    });
+
     app(req as unknown as Request, res as unknown as Response);
-    if (bodyStr !== undefined) req.push(bodyStr);
+    if (bodyBuf !== undefined) req.push(bodyBuf);
     req.push(null);
   });
 }
