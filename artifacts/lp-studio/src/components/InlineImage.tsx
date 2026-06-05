@@ -5,7 +5,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ImagePicker } from "@/components/ImagePicker";
+import { ImagePicker, uploadImage } from "@/components/ImagePicker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -73,25 +73,20 @@ export function InlineImage({
     setUploadError(null);
     if (!file.type.startsWith("image/")) {
       setUploadError("Only image files are supported.");
+      setOpen(true);
       return;
     }
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/lp/upload-image", { method: "POST", body: fd });
-      if (!res.ok) {
-        // Fall back to data URL so the drop still works in dev/test env.
-        const reader = new FileReader();
-        reader.onload = () => onUpdate(typeof reader.result === "string" ? reader.result : "");
-        reader.readAsDataURL(file);
-        return;
-      }
-      const data = (await res.json()) as { url?: string };
-      if (data.url) onUpdate(data.url);
-    } catch {
-      const reader = new FileReader();
-      reader.onload = () => onUpdate(typeof reader.result === "string" ? reader.result : "");
-      reader.readAsDataURL(file);
+      // Use the same upload path + URL normalization as the "Replace" button
+      // (image picker) so dropped files are persisted to storage and the page
+      // references a real `/api/storage/...` URL — never an embedded base64
+      // blob. On failure we surface a visible error instead of silently
+      // substituting a data URL.
+      const serveUrl = await uploadImage(file);
+      onUpdate(serveUrl);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed. Please try again.");
+      setOpen(true);
     }
   };
 
