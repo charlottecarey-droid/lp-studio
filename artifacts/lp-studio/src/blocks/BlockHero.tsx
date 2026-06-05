@@ -57,7 +57,13 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
     [FOREST, "#ffffff", "#000000"],
   );
   const NAV_CTA_TEXT_COLOR = pickContrastingColor(FOREST, LIME, ["#ffffff", "#000000"]);
-  const bgExtended = ["black", "gradient", "muted", "light-gray"].includes(props.backgroundStyle ?? "")
+  // "dark" must resolve to the genuine charcoal preset (getBgStyle → #1a1a1a),
+  // NOT the brand-primary fallback below. For tenants whose primary color is
+  // light/near-white, painting a "dark" hero with var(--brand-primary) yields a
+  // light surface under white heading text → invisible (white-on-white). Routing
+  // "dark" through getBgStyle gives the charcoal background + white fg the preset
+  // is defined to use, keeping the heading legible regardless of brand primary.
+  const bgExtended = ["black", "gradient", "muted", "light-gray", "dark"].includes(props.backgroundStyle ?? "")
     ? getBgStyle(props.backgroundStyle)
     : undefined;
   const requestedSplit = props.layout === "split" || props.layout === "split-right";
@@ -241,7 +247,20 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
               )}
             </div>
           ) : (
-            <div className="max-w-7xl mx-auto w-full flex flex-col items-center text-center">{textContent}</div>
+            <div className="max-w-7xl mx-auto w-full flex flex-col items-center text-center">
+              {textContent}
+              {/* Centered heroes were text-only: renderMedia() was only called in
+                  the split branches, so a static-image (or video) hero with a
+                  centered layout silently dropped its media. Show the media here
+                  too, but only when there is EXPLICIT media — a non-empty
+                  imageUrl or a resolved video (mediaUrl). This deliberately
+                  excludes the imageUrl===undefined case so the
+                  undefined→/dandy-platform.webp fallback can't leak into generic
+                  centered heroes that intentionally have no image. */}
+              {props.heroType !== "none" && ((props.imageUrl?.trim() ?? "") !== "" || resolvedMedia !== "") && (
+                <motion.div {...mAnim} className="relative w-full max-w-4xl mt-12">{renderMedia()}</motion.div>
+              )}
+            </div>
           )}
           {childrenSlot && (
             <div

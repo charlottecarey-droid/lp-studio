@@ -44,7 +44,12 @@ export function BlockTrustBar({ props, brand, animationsEnabled = true, onFieldC
     onFieldChange({ ...props, items: next });
   };
   const bg = props.bgColor ?? "#F8FAF9";
-  const statColor = props.statColor ?? "var(--brand-primary)";
+  // The trust bar always sits on a light surface, so the stat numbers must use
+  // the contrast-guarded on-light heading token rather than raw brand-primary.
+  // resolveHeadingColor keeps brand-primary when it clears WCAG AA on the page
+  // background and otherwise steps down to a near-black ink — so a tenant whose
+  // primary is light/near-white gets legible stats instead of white-on-white.
+  const statColor = props.statColor ?? "var(--brand-heading-on-light)";
   const labelColor = props.labelColor ?? "#4A6358";
   const borderColor = props.borderColor ?? "#e2e8f0";
 
