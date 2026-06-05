@@ -599,6 +599,26 @@ export function getTemplateById(id: string): LPTemplate | undefined {
   return LP_TEMPLATES.find((t) => t.id === id);
 }
 
+// ─── DB-backed global template ids ────────────────────────────────────────────
+// Built-in flagship templates use string-slug ids (e.g. "video-hero"). Featured
+// homepage cards can also point at a database-backed global template (managed in
+// the superadmin "Templates" tab), which is identified by its numeric lp_pages
+// id. To carry both kinds through the same `template_id` string column / URL
+// params we encode a DB-backed global template as `global:<numericId>`.
+export const GLOBAL_TEMPLATE_PREFIX = "global:";
+
+export function encodeGlobalTemplateId(dbId: number): string {
+  return `${GLOBAL_TEMPLATE_PREFIX}${dbId}`;
+}
+
+// Returns the numeric lp_pages id for a `global:<id>` ref, or null if the id is
+// not a global ref (i.e. it's a built-in flagship slug or malformed).
+export function parseGlobalTemplateId(id: string): number | null {
+  if (!id.startsWith(GLOBAL_TEMPLATE_PREFIX)) return null;
+  const n = Number(id.slice(GLOBAL_TEMPLATE_PREFIX.length));
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 /**
  * Filter LP_TEMPLATES by tenant industry. Use this anywhere generic tenants
  * could otherwise see a Dandy/dental template card.

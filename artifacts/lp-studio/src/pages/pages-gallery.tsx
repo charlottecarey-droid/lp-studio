@@ -27,6 +27,7 @@ import {
 } from "./pages-gallery/types";
 import { ColumnsMenu } from "./pages-gallery/columns-menu";
 import {
+  clonePage,
   createPage,
   deletePage,
   fetchPages,
@@ -34,7 +35,7 @@ import {
   useRunningTests,
 } from "./pages-gallery/api";
 import { inferAudienceType, getTemplateBlocks, slugify } from "./pages-gallery/utils";
-import { getTemplateById } from "@/lib/templates";
+import { getTemplateById, parseGlobalTemplateId } from "@/lib/templates";
 import { ShareModalWrapper } from "./pages-gallery/share-modal-wrapper";
 import { CreateTestFromPageModal } from "./pages-gallery/create-test-from-page-modal";
 import { FiltersBar } from "./pages-gallery/filters-bar";
@@ -155,22 +156,33 @@ export default function PagesGallery() {
     url.searchParams.delete("template");
     window.history.replaceState({}, "", url.toString());
 
-    const tpl = getTemplateById(templateId);
-    if (!tpl) return; // unknown id → just show the gallery, no error state
+    // A featured card can point at a built-in flagship template (string slug)
+    // or a DB-backed global template (`global:<id>`). Global templates aren't
+    // bundled client-side, so we clone them server-side (the clone endpoint
+    // allows cross-tenant global templates); flagship templates clone from the
+    // bundled block config.
+    const globalDbId = parseGlobalTemplateId(templateId);
+    const tpl = globalDbId === null ? getTemplateById(templateId) : null;
+    if (globalDbId === null && !tpl) return; // unknown id → just show the gallery, no error state
 
     void (async () => {
       try {
+        if (globalDbId !== null) {
+          const page = await clonePage(globalDbId);
+          navigate(`/builder/${page.id}`);
+          return;
+        }
         const existingSlugs = new Set(pages.map((p) => p.slug));
-        let slug = slugify(tpl.name) || "page";
+        let slug = slugify(tpl!.name) || "page";
         if (existingSlugs.has(slug)) {
           let i = 2;
           while (existingSlugs.has(`${slug}-${i}`)) i++;
           slug = `${slug}-${i}`;
         }
         const page = await createPage({
-          title: tpl.name,
+          title: tpl!.name,
           slug,
-          blocks: getTemplateBlocks(tpl.id),
+          blocks: getTemplateBlocks(tpl!.id),
           status: "draft",
           segmentId: null,
           audienceType: null,

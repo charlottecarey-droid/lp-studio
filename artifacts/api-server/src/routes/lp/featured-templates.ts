@@ -79,6 +79,43 @@ router.get("/lp/featured-templates", async (_req, res): Promise<void> => {
   }
 });
 
+// GET /lp/global-templates/:id/preview — PUBLIC. Block JSON for a single
+// database-backed GLOBAL template (is_global=true AND is_template=true), so the
+// marketing homepage's preview iframe (and the superadmin editor's "Preview"
+// link) can render featured cards that point at a DB-backed global template
+// rather than a built-in flagship one. Only global templates are exposed here —
+// they are platform-shared starters already surfaced on the public homepage, so
+// serving their blocks anonymously is safe; tenant-owned templates are never
+// returned. Allowlisted in routes/index.ts (LP_PUBLIC) so it skips /lp/* auth.
+router.get("/lp/global-templates/:id/preview", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid template id" });
+    return;
+  }
+  try {
+    const r = await pool.query<{ id: number; title: string; blocks: unknown }>(
+      `SELECT id, title, blocks
+         FROM lp_pages
+        WHERE id = $1 AND is_template = true AND is_global = true`,
+      [id],
+    );
+    if (r.rowCount === 0) {
+      res.status(404).json({ error: "Template not found" });
+      return;
+    }
+    const row = r.rows[0];
+    res.json({
+      id: row.id,
+      title: row.title,
+      blocks: Array.isArray(row.blocks) ? row.blocks : [],
+    });
+  } catch (err) {
+    console.error("GET /lp/global-templates/:id/preview error:", String(err));
+    res.status(500).json({ error: "Failed to load template preview" });
+  }
+});
+
 // GET /admin/lp/featured-templates — superadmin. ALL rows, including disabled.
 router.get("/admin/lp/featured-templates", requireSuperadmin, async (_req, res): Promise<void> => {
   try {

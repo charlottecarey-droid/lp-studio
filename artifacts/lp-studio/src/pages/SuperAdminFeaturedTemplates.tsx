@@ -5,13 +5,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
   AlertTriangle, CheckCircle2, Loader2, RefreshCw, Plus, Trash2,
   ArrowUp, ArrowDown, ExternalLink,
 } from "lucide-react";
-import { LP_TEMPLATES } from "@/lib/templates";
+import { LP_TEMPLATES, encodeGlobalTemplateId, parseGlobalTemplateId } from "@/lib/templates";
 import { templateToBlocks } from "@/lib/block-types/block-registry";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -59,6 +59,31 @@ interface AdminEntry {
   sortOrder: number;
 }
 
+// A DB-backed global template (managed in the superadmin "Templates" tab),
+// fetched from /lp/templates/enriched. Featured cards can point at one of these
+// in addition to the built-in flagship LP_TEMPLATES. Identified to the picker /
+// preview / clone paths by the encoded `global:<id>` form.
+interface GlobalTemplate {
+  /** Encoded `global:<dbId>` ref used as the card's templateId. */
+  refId: string;
+  dbId: number;
+  name: string;
+  description: string;
+  thumbnailUrl: string;
+  blockCount: number;
+}
+
+interface EnrichedTemplate {
+  id: number;
+  title: string;
+  templateLabel?: string;
+  templateDescription?: string;
+  blockCount?: number;
+  thumbnailUrl?: string | null;
+  ogImage?: string;
+  isGlobal?: boolean;
+}
+
 let keySeq = 0;
 function nextKey(): string {
   keySeq += 1;
@@ -90,6 +115,7 @@ function blockCountFor(templateId: string): number {
 
 export default function SuperAdminFeaturedTemplates() {
   const [drafts, setDrafts] = useState<Draft[] | null>(null);
+  const [globals, setGlobals] = useState<GlobalTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,9 +136,42 @@ export default function SuperAdminFeaturedTemplates() {
     }
   }, []);
 
+  // Load DB-backed global templates so the picker can feature them alongside the
+  // built-in flagship templates. Best-effort: a failure just leaves the picker
+  // showing only the flagship list (still fully usable).
+  const loadGlobals = useCallback(async () => {
+    try {
+      const data: EnrichedTemplate[] = await apiFetch("/api/lp/templates/enriched");
+      const rows = (Array.isArray(data) ? data : [])
+        .filter((t) => t.isGlobal)
+        .map<GlobalTemplate>((t) => ({
+          refId: encodeGlobalTemplateId(t.id),
+          dbId: t.id,
+          name: t.templateLabel || t.title,
+          description: t.templateDescription || "",
+          thumbnailUrl: t.thumbnailUrl || t.ogImage || "",
+          blockCount: t.blockCount ?? 0,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      setGlobals(rows);
+    } catch {
+      setGlobals([]);
+    }
+  }, []);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadGlobals();
+  }, [load, loadGlobals]);
+
+  // Lookup helpers across both sources. A templateId is "known" if it's a
+  // built-in flagship slug or a `global:<id>` ref we successfully loaded.
+  const findGlobal = (templateId: string): GlobalTemplate | undefined => {
+    if (parseGlobalTemplateId(templateId) === null) return undefined;
+    return globals.find((g) => g.refId === templateId);
+  };
+  const isKnownTemplate = (templateId: string): boolean =>
+    LP_TEMPLATES.some((t) => t.id === templateId) || !!findGlobal(templateId);
 
   const update = (key: string, patch: Partial<Draft>) => {
     setSaved(false);
@@ -122,23 +181,30 @@ export default function SuperAdminFeaturedTemplates() {
   };
 
   // Picking an underlying template prefills any empty display fields from the
-  // template's own metadata (title/description/blocks) but never clobbers text
-  // the superadmin already entered.
+  // chosen template's own metadata (title/description/blocks/thumbnail) —
+  // resolved from whichever source the id came from (built-in flagship or
+  // DB-backed global) — but never clobbers text the superadmin already entered.
   const pickTemplate = (key: string, templateId: string) => {
     setSaved(false);
     const tpl = LP_TEMPLATES.find((t) => t.id === templateId);
+    const g = findGlobal(templateId);
+    const name = tpl?.name ?? g?.name ?? "";
+    const description = tpl?.description ?? g?.description ?? "";
+    const thumb = g?.thumbnailUrl ?? "";
+    const count = tpl ? blockCountFor(templateId) : (g?.blockCount ?? 0);
     setDrafts((prev) =>
       (prev ?? []).map((d) => {
         if (d.key !== key) return d;
         return {
           ...d,
           templateId,
-          title: d.title.trim() ? d.title : (tpl?.name ?? ""),
-          description: d.description.trim() ? d.description : (tpl?.description ?? ""),
+          title: d.title.trim() ? d.title : name,
+          description: d.description.trim() ? d.description : description,
+          thumbnailUrl: d.thumbnailUrl.trim() ? d.thumbnailUrl : thumb,
           blocksCount:
             d.blocksCount.trim() && d.blocksCount !== "0"
               ? d.blocksCount
-              : String(blockCountFor(templateId)),
+              : String(count),
         };
       }),
     );
@@ -280,9 +346,9 @@ export default function SuperAdminFeaturedTemplates() {
 
         {list.map((d, i) => {
           const previewHref = d.templateId
-            ? `${BASE}/preview/template/${d.templateId}`
+            ? `${BASE}/preview/template/${encodeURIComponent(d.templateId)}`
             : null;
-          const knownTemplate = LP_TEMPLATES.some((t) => t.id === d.templateId);
+          const knownTemplate = isKnownTemplate(d.templateId);
           return (
             <div
               key={d.key}
@@ -345,11 +411,24 @@ export default function SuperAdminFeaturedTemplates() {
                       <SelectValue placeholder="Pick a usable template…" />
                     </SelectTrigger>
                     <SelectContent>
-                      {LP_TEMPLATES.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {t.name}
-                        </SelectItem>
-                      ))}
+                      <SelectGroup>
+                        <SelectLabel>Flagship templates</SelectLabel>
+                        {LP_TEMPLATES.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            {t.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                      {globals.length > 0 && (
+                        <SelectGroup>
+                          <SelectLabel>Global templates</SelectLabel>
+                          {globals.map((g) => (
+                            <SelectItem key={g.refId} value={g.refId}>
+                              {g.name}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      )}
                     </SelectContent>
                   </Select>
                   <div className="flex items-center gap-2 text-[11px] text-muted-foreground">

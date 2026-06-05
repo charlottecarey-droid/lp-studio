@@ -1,14 +1,20 @@
 import { useParams } from "wouter";
 import { Suspense, useEffect, useState } from "react";
-import { LP_TEMPLATES } from "@/lib/templates";
+import { LP_TEMPLATES, parseGlobalTemplateId } from "@/lib/templates";
 import { templateToBlocks } from "@/lib/block-types/block-registry";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { DEFAULT_BRAND, getBrandStyleVars, fetchBrandConfig, type BrandConfig } from "@/lib/brand-config";
+
+const API_BASE = `${import.meta.env.BASE_URL?.replace(/\/$/, "") ?? ""}/api`;
 
 export default function TemplatePreview() {
   const params = useParams<{ templateId: string }>();
   const templateId = params.templateId ?? "";
   const template = LP_TEMPLATES.find((t) => t.id === templateId);
+  // A featured card can point at a DB-backed global template (`global:<id>`)
+  // instead of a built-in flagship one. Those blocks aren't bundled here, so we
+  // fetch them from the public preview endpoint (global templates only).
+  const globalDbId = parseGlobalTemplateId(templateId);
 
   // Render with the tenant's brand so blocks reading var(--brand-primary)
   // etc. resolve to the tenant's actual palette (matching the builder).
@@ -22,7 +28,43 @@ export default function TemplatePreview() {
     return () => { cancelled = true; };
   }, []);
 
-  if (!template) {
+  // Blocks for a DB-backed global template, fetched on demand. `null` = not
+  // loaded yet, `[]` (with notFound) = the id didn't resolve.
+  const [globalBlocks, setGlobalBlocks] = useState<unknown[] | null>(null);
+  const [globalNotFound, setGlobalNotFound] = useState(false);
+  useEffect(() => {
+    if (globalDbId === null) return;
+    let cancelled = false;
+    setGlobalBlocks(null);
+    setGlobalNotFound(false);
+    fetch(`${API_BASE}/lp/global-templates/${globalDbId}/preview`, { credentials: "include" })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        return res.json() as Promise<{ blocks: unknown[] }>;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setGlobalBlocks(Array.isArray(data.blocks) ? data.blocks : []);
+      })
+      .catch(() => {
+        if (!cancelled) { setGlobalNotFound(true); setGlobalBlocks([]); }
+      });
+    return () => { cancelled = true; };
+  }, [globalDbId]);
+
+  // Resolve the blocks to render: built-in flagship template, or the fetched
+  // DB-backed global template.
+  let blocks: unknown[] | null = null;
+  if (template) {
+    blocks = templateToBlocks(templateId) as unknown[];
+  } else if (globalDbId !== null) {
+    blocks = globalBlocks; // null while loading
+  }
+
+  // Unknown id (neither a built-in template nor a valid global ref) or a global
+  // ref that failed to resolve → not-found screen.
+  const notFound = (!template && globalDbId === null) || globalNotFound;
+  if (notFound) {
     return (
       <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#0A0A0A", color: "#fff", fontFamily: "Inter, system-ui, sans-serif" }}>
         <div style={{ textAlign: "center" }}>
@@ -33,13 +75,20 @@ export default function TemplatePreview() {
     );
   }
 
-  const blocks = templateToBlocks(templateId);
+  // DB-backed global template still loading.
+  if (blocks === null) {
+    return (
+      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#0A0A0A", color: "#fff", fontFamily: "Inter, system-ui, sans-serif" }}>
+        <div style={{ opacity: 0.5 }}>Loading preview…</div>
+      </div>
+    );
+  }
 
   return (
     <Suspense fallback={null}>
       <div style={getBrandStyleVars(brand)}>
         {blocks.map((block, i) => (
-          <BlockRenderer key={block.id ?? i} block={block as never} brand={brand} />
+          <BlockRenderer key={(block as { id?: string }).id ?? i} block={block as never} brand={brand} />
         ))}
       </div>
     </Suspense>

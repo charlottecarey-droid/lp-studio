@@ -10,7 +10,14 @@ The marketing homepage "templates" gallery (TemplatesEmbed.tsx, imported by mark
 - Superadmin: `GET`/`PUT /api/admin/lp/featured-templates` gated by requireSuperadmin (mounted under /admin/lp/*, bypasses the /lp/* guard). PUT replaces the whole list in one transaction.
 - Editor UI: SuperAdminFeaturedTemplates.tsx, wired as the "Homepage Featured" tab in SuperAdminPage.tsx (hash #featured-templates).
 
-**Why it matters:** the underlying-template-id MUST be a real, usable LP_TEMPLATES id (catalog in lp-studio/src/lib/templates.ts, ~12 ids) or the homepage preview iframe (`/preview/template/:id`) and clone handoff break. The editor's picker is a dropdown of the full LP_TEMPLATES catalog for exactly this reason; it warns on unknown ids.
+**Why it matters:** the underlying-template-id MUST resolve to usable blocks or the homepage preview iframe (`/preview/template/:id`) and clone handoff break. The editor's picker only offers valid ids and warns on unknown ones.
+
+**Two id kinds the picker offers:** (1) built-in flagship LP_TEMPLATES ids (string slugs, ~12; blocks bundled client-side); (2) DB-backed global templates encoded as `global:<numericLpPagesId>` via `encodeGlobalTemplateId`/`parseGlobalTemplateId` in lib/templates.ts. The editor loads globals from `GET /api/lp/templates/enriched` (filtered isGlobal). Resolution differs by kind:
+- Preview: built-ins render bundled blocks; `global:<id>` fetches `GET /api/lp/global-templates/:id/preview` — a PUBLIC endpoint (LP_PUBLIC pattern `/^\/lp\/global-templates\/\d+\/preview$/`) that serves blocks ONLY for `is_template=true AND is_global=true` rows (tenant templates never exposed). DB column is `is_template` (Drizzle field name is mangled in schema but SQL col is is_template).
+- Clone handoff (pages-gallery `?template=` effect): built-ins use createPage+getTemplateBlocks; `global:<id>` calls server `POST /lp/pages/:n/clone` (already allows cross-tenant global templates) then navigates to /builder/:id.
+- ALWAYS encodeURIComponent the id in `/preview/template/:id` URLs — `global:<id>` contains a colon.
+
+**Gotcha:** executeSql tool hits a STALE Helium DB that lacks the `is_template` column; verify global-template rows against the real Neon DB the app uses (NEON_DATABASE_URL), not executeSql.
 
 **Fallback:** TemplatesEmbed starts with its built-in TEMPLATES array, then replaces it on a successful non-empty fetch of `${APP_BASE}/api/lp/featured-templates`. Any failure/empty keeps the built-in list, so the section is never blank (also covers dev, where APP_BASE points at prod app.lpstudio.ai).
 

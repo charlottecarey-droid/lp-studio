@@ -45,6 +45,22 @@ export async function createPage(data: CreatePageData) {
   return res.json();
 }
 
+// Clone an existing page/template (including any cross-tenant global template)
+// into the caller's tenant. Used by the marketing homepage handoff when a
+// featured card points at a DB-backed global template (`global:<id>`).
+export async function clonePage(pageId: number): Promise<{ id: number }> {
+  const res = await fetch(`${API_BASE}/lp/pages/${pageId}/clone`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Failed to clone page" }));
+    throw new Error(err.error ?? "Failed to clone page");
+  }
+  return res.json();
+}
+
 export async function deletePage(id: number) {
   await fetch(`${API_BASE}/lp/pages/${id}`, { method: "DELETE" });
 }
