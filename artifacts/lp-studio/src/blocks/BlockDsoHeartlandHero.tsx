@@ -190,7 +190,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               fontFamily: DISPLAY_FONT,
               fontSize: "clamp(1.375rem, 3vw, 2rem)",
               fontWeight: 600,
-              color: PRIMARY,
+              color: p.statValueColor ?? PRIMARY,
               letterSpacing: "-0.02em",
               lineHeight: 1,
             }}
@@ -200,7 +200,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           <div
             style={{
               fontSize: "0.75rem",
-              color: MUTED_FG,
+              color: p.statLabelColor ?? MUTED_FG,
               marginTop: "0.25rem",
               textTransform: "uppercase",
               letterSpacing: "0.06em",

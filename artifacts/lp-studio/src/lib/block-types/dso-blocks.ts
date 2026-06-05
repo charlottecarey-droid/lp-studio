@@ -130,6 +130,10 @@ export interface DsoHeartlandHeroBlockProps {
   buttonColor?: string;
   /** Override for the email-capture submit button text color. Defaults to near-black. */
   buttonTextColor?: string;
+  /** Override for the stat value text color. Defaults to brand accent. */
+  statValueColor?: string;
+  /** Override for the stat label text color. Defaults to the muted gray. */
+  statLabelColor?: string;
   stickyHeader?: boolean;
   /** Optional nav links (label + href) shown in the header. */
   navLinks?: { label: string; href: string }[];

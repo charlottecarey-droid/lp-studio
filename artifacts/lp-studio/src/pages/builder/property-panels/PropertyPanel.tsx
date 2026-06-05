@@ -3126,6 +3126,24 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   <Input value={p.buttonTextColor ?? ""} onChange={e => onChange({ ...block, props: { ...p, buttonTextColor: e.target.value } })} placeholder="#0a1416" className="h-7 text-xs font-mono flex-1" />
                 </div>
               </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Stat value color</Label>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded border border-border overflow-hidden shrink-0" style={{ backgroundColor: p.statValueColor ?? "#C7E738" }}>
+                    <input type="color" value={p.statValueColor ?? "#C7E738"} onChange={e => onChange({ ...block, props: { ...p, statValueColor: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" />
+                  </div>
+                  <Input value={p.statValueColor ?? ""} onChange={e => onChange({ ...block, props: { ...p, statValueColor: e.target.value } })} placeholder="brand accent" className="h-7 text-xs font-mono flex-1" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Stat label color</Label>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded border border-border overflow-hidden shrink-0" style={{ backgroundColor: p.statLabelColor ?? "#7d8a8d" }}>
+                    <input type="color" value={p.statLabelColor ?? "#7d8a8d"} onChange={e => onChange({ ...block, props: { ...p, statLabelColor: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" />
+                  </div>
+                  <Input value={p.statLabelColor ?? ""} onChange={e => onChange({ ...block, props: { ...p, statLabelColor: e.target.value } })} placeholder="muted gray" className="h-7 text-xs font-mono flex-1" />
+                </div>
+              </div>
             </div>
           </div>
         );
