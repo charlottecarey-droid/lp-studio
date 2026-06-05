@@ -972,11 +972,14 @@ const BLOCK_PROP_SCHEMAS: Record<string, string> = {
 // We intentionally duplicate these shapes here rather than cross-importing
 // from the lp-studio package — the brand row is stored as JSON in
 // lp_brand_settings.config so the server only needs the read shape.
+// Claims may be plain strings (legacy data) or { text, approvedForAi }
+// objects authored in Brand Settings. Mixed shapes coexist in the same array.
+type BrandClaim = string | { text?: string; approvedForAi?: boolean };
 interface BrandProductLine {
   name?: string;
   description?: string;
   valueProps?: string[];
-  claims?: string[];
+  claims?: BrandClaim[];
   keywords?: string[];
 }
 interface BrandSegmentPersona {
@@ -1037,6 +1040,44 @@ function resolveBlockSchema(entry: BrandMicrositeBlockListEntry): string {
   return BLOCK_PROP_SCHEMAS[entry.type ?? ""] ?? "{ ...fields }";
 }
 
+// Coerce an arbitrary brand-config array into clean prompt strings. Brand
+// rows are JSON, so elements can be strings, { text } objects, or junk;
+// anything non-string-ish is dropped rather than crashing the prompt build.
+function toPromptStringList(values: unknown): string[] {
+  if (!Array.isArray(values)) return [];
+  const out: string[] = [];
+  for (const v of values) {
+    if (typeof v === "string") {
+      const t = v.trim();
+      if (t) out.push(t);
+    } else if (v && typeof v === "object" && typeof (v as { text?: unknown }).text === "string") {
+      const t = ((v as { text: string }).text).trim();
+      if (t) out.push(t);
+    }
+  }
+  return out;
+}
+
+// Claims carry an approval gate: { text, approvedForAi }. Only surface a claim
+// to the AI copywriter when it is not explicitly marked unapproved — pricing
+// claims like "$99" require human sign-off before appearing in generated copy.
+// Legacy plain-string claims are treated as approved.
+function toApprovedClaimList(claims: unknown): string[] {
+  if (!Array.isArray(claims)) return [];
+  const out: string[] = [];
+  for (const c of claims) {
+    if (typeof c === "string") {
+      const t = c.trim();
+      if (t) out.push(t);
+    } else if (c && typeof c === "object") {
+      const obj = c as { text?: unknown; approvedForAi?: unknown };
+      if (obj.approvedForAi === false) continue;
+      if (typeof obj.text === "string" && obj.text.trim()) out.push(obj.text.trim());
+    }
+  }
+  return out;
+}
+
 /**
  * Format productLines into a structured PRODUCT CATALOG section. Returns
  * empty string when no products are defined so the prompt stays clean for
@@ -1050,9 +1091,12 @@ function buildProductCatalogSection(productLines: BrandProductLine[] | undefined
   const blocks = valid.map(p => {
     const lines: string[] = [`• ${p.name!.trim()}`];
     if (p.description?.trim()) lines.push(`  Description: ${p.description.trim()}`);
-    if (p.valueProps?.length) lines.push(`  Value props: ${p.valueProps.filter(v => v?.trim()).join("; ")}`);
-    if (p.claims?.length) lines.push(`  Claims: ${p.claims.filter(c => c?.trim()).join("; ")}`);
-    if (p.keywords?.length) lines.push(`  Keywords: ${p.keywords.filter(k => k?.trim()).join(", ")}`);
+    const valueProps = toPromptStringList(p.valueProps);
+    if (valueProps.length) lines.push(`  Value props: ${valueProps.join("; ")}`);
+    const claims = toApprovedClaimList(p.claims);
+    if (claims.length) lines.push(`  Claims: ${claims.join("; ")}`);
+    const keywords = toPromptStringList(p.keywords);
+    if (keywords.length) lines.push(`  Keywords: ${keywords.join(", ")}`);
     return lines.join("\n");
   }).join("\n\n");
 
@@ -1100,10 +1144,8 @@ function buildSegmentSection(segment: BrandAudienceSegment | undefined): string 
   if (segment.uniqueContext?.trim()) {
     lines.push(`What makes this segment unique: ${segment.uniqueContext.trim()}`);
   }
-  if (segment.valueProps?.length) {
-    const vp = segment.valueProps.filter(v => v?.trim());
-    if (vp.length) lines.push(`Segment-specific value props: ${vp.join("; ")}`);
-  }
+  const vp = toPromptStringList(segment.valueProps);
+  if (vp.length) lines.push(`Segment-specific value props: ${vp.join("; ")}`);
 
   const validPersonas = (segment.personas ?? []).filter(p => p?.role?.trim());
   if (validPersonas.length) {
@@ -1248,7 +1290,7 @@ function buildSystemPrompt(
   // the legacy hardcoded `audience === "dso-*"` branches; any Dandy-specific
   // copy now lives in Dandy's seeded segment data and is only emitted when
   // Dandy is the active tenant.
-  const themes = (segment.valueProps ?? []).map(v => v?.trim()).filter(Boolean);
+  const themes = toPromptStringList(segment.valueProps);
   const audienceSection = [
     segment.description?.trim()
       ? `AUDIENCE: ${segment.description.trim()}`
