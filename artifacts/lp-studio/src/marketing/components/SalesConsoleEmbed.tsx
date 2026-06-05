@@ -222,6 +222,25 @@ export default function SalesConsoleEmbed() {
           70%  { box-shadow: 0 0 0 8px rgba(75,71,229,0.00), 0 1px 0 rgba(255,255,255,0.6) inset; }
           100% { box-shadow: 0 0 0 0 rgba(75,71,229,0.00), 0 1px 0 rgba(255,255,255,0.6) inset; }
         }
+        @media (max-width: 767px) {
+          .sc-tabs { display: none !important; }
+          .sc-actions {
+            width: 100% !important;
+            flex-wrap: wrap !important;
+            justify-content: flex-start !important;
+          }
+          .sc-quick { grid-template-columns: repeat(2, 1fr) !important; }
+          .sc-lists { grid-template-columns: 1fr !important; }
+          .sc-brief-panel {
+            position: relative !important;
+            top: auto !important;
+            right: auto !important;
+            left: auto !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin-top: 12px !important;
+          }
+        }
       `}</style>
 
       {/* Backdrop — click anywhere outside to close the briefing.
@@ -278,7 +297,7 @@ export default function SalesConsoleEmbed() {
               SALES CONSOLE
             </span>
           </span>
-          <div style={{ display: "flex", gap: 4 }}>
+          <div className="sc-tabs" style={{ display: "flex", gap: 4 }}>
             {TABS.map((t, i) => (
               <span
                 key={t.id}
@@ -382,6 +401,7 @@ export default function SalesConsoleEmbed() {
               justifyContent: "space-between",
               gap: 16,
               position: "relative",
+              flexWrap: "wrap",
             }}
           >
             <div>
@@ -407,7 +427,7 @@ export default function SalesConsoleEmbed() {
                 Here&apos;s what needs your attention today.
               </p>
             </div>
-            <div style={{ display: "flex", gap: 10, position: "relative" }}>
+            <div className="sc-actions" style={{ display: "flex", gap: 10, position: "relative" }}>
               <button
                 type="button"
                 style={{
@@ -599,6 +619,7 @@ export default function SalesConsoleEmbed() {
               Quick access
             </div>
             <div
+              className="sc-quick"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(4, 1fr)",
@@ -643,6 +664,7 @@ export default function SalesConsoleEmbed() {
 
           {/* Hot accounts + Live signals */}
           <div
+            className="sc-lists"
             style={{
               display: "grid",
               gridTemplateColumns: "1fr 1fr",
@@ -960,6 +982,7 @@ function LeaderRow({ initials, name, title }: { initials: string; name: string; 
 function AIBriefingPanel({ onClose }: { onClose: () => void }) {
   return (
     <div
+      className="sc-brief-panel"
       onClick={(e) => e.stopPropagation()}
       style={{
         position: "absolute",

@@ -1037,9 +1037,8 @@ function BrandVisual() {
         ].map((a) => (
           <div
             key={a.left}
+            className="grid grid-cols-[52px_1fr] sm:grid-cols-[70px_1fr_70px]"
             style={{
-              display: "grid",
-              gridTemplateColumns: "70px 1fr 70px",
               alignItems: "center",
               gap: 8,
               marginTop: 5,
@@ -1079,7 +1078,7 @@ function BrandVisual() {
               />
             </div>
             <span
-              className="font-mono uppercase"
+              className="font-mono uppercase hidden sm:inline"
               style={{
                 fontSize: 8.5,
                 color: "var(--ink-mute)",
@@ -1264,9 +1263,8 @@ function MarketingVisual() {
               {s.label}
             </div>
             <div
-              className="font-display"
+              className="font-display text-[14px] sm:text-[18px]"
               style={{
-                fontSize: 18,
                 fontWeight: 600,
                 letterSpacing: "-0.018em",
                 color: s.accent ? WHATS_INSIDE_INDIGO : "var(--ink)",
@@ -1298,7 +1296,9 @@ function MarketingVisual() {
               gap: 11,
             }}
           >
-            <VariantThumb kind={v.kind} active={v.winning} />
+            <div className="hidden sm:block" style={{ flexShrink: 0 }}>
+              <VariantThumb kind={v.kind} active={v.winning} />
+            </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div
                 style={{
@@ -1459,6 +1459,7 @@ function SalesVisual() {
     >
       {/* Account header */}
       <div
+        className="flex-wrap"
         style={{
           display: "flex",
           alignItems: "center",
@@ -1527,7 +1528,7 @@ function SalesVisual() {
           </div>
         </div>
         {/* Engagement gauge */}
-        <div style={{ flexShrink: 0, textAlign: "right" }}>
+        <div className="w-full sm:w-auto" style={{ flexShrink: 0, textAlign: "right" }}>
           <div
             className="font-mono uppercase"
             style={{
@@ -1915,6 +1916,9 @@ function CompareVisual() {
       url="app.lpstudio.ai/compare"
       status={{ label: "Updated · Jun 2026", color: "var(--ink-mute)", pulse: false }}
     >
+      {/* Table — horizontal scroll on mobile */}
+      <div style={{ overflowX: "auto" }}>
+      <div style={{ minWidth: 420 }}>
       {/* Column header row */}
       <div
         style={{
@@ -2048,6 +2052,19 @@ function CompareVisual() {
             ))}
           </div>
         ))}
+      </div>
+      </div>
+      </div>
+      <div
+        className="md:hidden mt-2 inline-flex items-center gap-1 font-mono uppercase"
+        style={{
+          fontSize: 9,
+          letterSpacing: "0.16em",
+          fontWeight: 700,
+          color: "var(--ink-faint)",
+        }}
+      >
+        Scroll →
       </div>
 
       {/* Where we win footer */}

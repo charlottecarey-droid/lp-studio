@@ -269,6 +269,11 @@ export default function BuilderEmbed() {
         fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
       }}
     >
+      <style>{`
+        @media (max-width: 767px) {
+          .be-side { display: none !important; }
+        }
+      `}</style>
       {/* Top bar */}
       <div
         style={{
@@ -360,6 +365,7 @@ export default function BuilderEmbed() {
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
         {/* Left — blocks library */}
         <div
+          className="be-side"
           style={{
             width: 230,
             flexShrink: 0,
@@ -978,6 +984,7 @@ export default function BuilderEmbed() {
 
         {/* Right — properties */}
         <div
+          className="be-side"
           style={{
             width: 270,
             flexShrink: 0,

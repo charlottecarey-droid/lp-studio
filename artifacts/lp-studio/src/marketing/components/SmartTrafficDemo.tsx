@@ -143,9 +143,8 @@ export default function SmartTrafficDemo() {
 
         {/* Variants row */}
         <div
+          className="grid grid-cols-1 md:grid-cols-3"
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
             gap: 16,
           }}
         >

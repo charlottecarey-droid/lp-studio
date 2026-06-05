@@ -16,10 +16,11 @@ export default function HeroScene() {
         overflow: "hidden",
       }}
     >
-      {/* Soft indigo orb behind hero — picks up the gradient on "Watch it build" */}
+      {/* Soft indigo orb behind hero — picks up the gradient on "Watch it build".
+          Hidden on mobile: it wastes CPU on phones for a decorative blur. */}
       <div
         aria-hidden
-        className="absolute pointer-events-none"
+        className="absolute pointer-events-none hidden md:block"
         style={{
           top: "-22%",
           left: "50%",
@@ -88,6 +89,9 @@ export default function HeroScene() {
             margin: "0 auto",
             maxWidth: 980,
             color: "var(--ink)",
+            // Lower the clamp floor (was 48px) so the headline never exceeds the
+            // viewport at 320px; desktop is unchanged (7.2vw still caps at 96px).
+            fontSize: "clamp(30px, 7.2vw, 96px)",
           }}
         >
           Describe a page.

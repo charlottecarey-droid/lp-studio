@@ -108,18 +108,18 @@ export default function PromptCard() {
               </div>
             </div>
 
-            {/* Footer — text-link affordances + Generate page button */}
+            {/* Footer — text-link affordances + Generate page button.
+                Stacks vertically below md so the input controls + Generate
+                button never crowd / overflow on phones. */}
             <div
+              className="flex flex-col items-stretch md:flex-row md:items-center md:justify-between"
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
                 gap: 10,
                 padding: "10px 12px",
                 borderTop: "1px solid var(--hairline)",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                 {[
                   {
                     label: "Reference URL",
@@ -172,7 +172,7 @@ export default function PromptCard() {
                   </button>
                 ))}
               </div>
-              <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+              <div className="flex flex-wrap items-center" style={{ gap: 6 }}>
                 {/* Secondary — subtle text-link affordance, no surface */}
                 <a
                   href="https://app.lpstudio.ai"

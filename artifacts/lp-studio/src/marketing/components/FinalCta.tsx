@@ -135,12 +135,10 @@ export default function FinalCta() {
 
         {/* CTAs */}
         <div
+          className="flex flex-col sm:flex-row sm:flex-wrap items-center sm:justify-center"
           style={{
-            display: "inline-flex",
             gap: 14,
-            justifyContent: "center",
             marginTop: 36,
-            flexWrap: "wrap",
           }}
         >
           <a

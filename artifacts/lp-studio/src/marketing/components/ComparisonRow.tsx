@@ -132,9 +132,11 @@ export default function ComparisonRow() {
               "0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 22px -14px rgba(26,24,21,0.10)",
           }}
         >
+          <div style={{ overflowX: "auto" }}>
           <table
             style={{
               width: "100%",
+              minWidth: 560,
               borderCollapse: "collapse",
               fontSize: 14,
             }}
@@ -204,6 +206,7 @@ export default function ComparisonRow() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
 
         <div

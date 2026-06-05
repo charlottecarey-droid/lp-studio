@@ -342,9 +342,11 @@ function CompareMatrix() {
               "0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 22px -14px rgba(26,24,21,0.10)",
           }}
         >
+          <div style={{ overflowX: "auto" }}>
           <table
             style={{
               width: "100%",
+              minWidth: 640,
               borderCollapse: "collapse",
               fontSize: 14,
             }}
@@ -488,7 +490,19 @@ function CompareMatrix() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
+        <p
+          className="md:hidden"
+          style={{
+            fontSize: 11.5,
+            color: "var(--ink-mute)",
+            margin: "12px 0 0",
+            textAlign: "center",
+          }}
+        >
+          Scroll the table horizontally to compare →
+        </p>
         <p
           style={{
             fontSize: 12.5,
@@ -538,10 +552,8 @@ function HeadToHead() {
             return (
             <div
               key={h.name}
+              className="grid grid-cols-1 md:grid-cols-[220px_1fr_1fr] gap-6 md:gap-7"
               style={{
-                display: "grid",
-                gridTemplateColumns: "220px 1fr 1fr",
-                gap: 28,
                 background: "var(--paper)",
                 border: "1px solid var(--hairline)",
                 borderLeft: `4px solid ${a.color}`,

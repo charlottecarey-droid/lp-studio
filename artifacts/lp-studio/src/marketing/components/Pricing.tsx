@@ -472,7 +472,7 @@ export default function Pricing({ defaultCompareOpen = false }: PricingProps = {
             >
               What you also get
             </div>
-            <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
               {ENTERPRISE_FEATURES.slice(1).map((f) => (
                 <li
                   key={f}
@@ -591,6 +591,10 @@ function FeatureMap() {
         boxShadow: "0 1px 0 rgba(255,255,255,0.6) inset",
       }}
     >
+      {/* Wrap the whole grid (header + body) so it scrolls horizontally on
+          mobile instead of overflowing the page. */}
+      <div className="overflow-x-auto">
+      <div style={{ minWidth: 640 }}>
       {/* Sticky header row with tier names + price reminders */}
       <div
         className="grid items-end px-5 py-4"
@@ -629,7 +633,7 @@ function FeatureMap() {
       </div>
 
       {/* Group + row body */}
-      <div className="overflow-x-auto">
+      <div>
         {FEATURE_MAP.map((group) => (
           <div key={group.label}>
             <div
@@ -736,6 +740,8 @@ function FeatureMap() {
             </svg>
           </a>
         </div>
+      </div>
+      </div>
       </div>
     </div>
   );

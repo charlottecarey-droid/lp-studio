@@ -1001,7 +1001,10 @@ function MockPage({
 // animation, vs Lovable's stage-pinned chrome reveals.
 export default function AssembleSceneV2() {
   const { ref, progress, vw } = useScrollProgress<HTMLDivElement>();
-  const isMobile = vw < 768;
+  // Collapse the 240 + 280 = 520px builder sidebars as soon as they would start
+  // crowding the 960px canvas (canvas + sidebars ≈ 1480px). 1100 keeps the
+  // scroll mechanic intact on tablets/phones without overlap.
+  const isMobile = vw < 1100;
 
   // V2 — the duplicate "intro overlay" prompt that lived inside the OG scene
   // has been removed because PromptCard above the section already renders the

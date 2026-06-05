@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useInView } from "../hooks/useInView";
 import ContactDetailModal, {
   type ContactDetail,
@@ -208,9 +208,22 @@ export function AnalyticsMock() {
   // so visitors immediately see the surface and learn that visit rows are
   // clickable. Closing it (×, Esc, backdrop) reveals the table; clicking
   // any other named row opens that contact instead.
+  // Initialize deterministically to the pre-opened desktop row so the first
+  // client render matches the prerendered desktop HTML (no hydration
+  // mismatch). The mobile suppression happens after mount in the effect below.
   const [openContact, setOpenContact] = useState<VisitRow | null>(
     VISITS[PREOPEN_INDEX] ?? null,
   );
+
+  // Don't auto-open the contact-detail modal on mobile — it covers the whole
+  // analytics surface on small screens, which is jarring on landing. Run this
+  // post-mount (not in the state initializer) to keep hydration markup
+  // identical to the desktop-prerendered HTML.
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setOpenContact(null);
+    }
+  }, []);
 
   return (
     <div
@@ -419,9 +432,8 @@ export function AnalyticsMock() {
 
       {/* Stat cards row */}
       <div
+        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6"
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(6, 1fr)",
           gap: 12,
           marginTop: 18,
         }}
@@ -521,7 +533,10 @@ export function AnalyticsMock() {
           </div>
         </div>
 
-        {/* Table */}
+        {/* Table — horizontally scrollable on small screens */}
+        <div style={{ position: "relative" }}>
+          <div style={{ overflowX: "auto" }}>
+            <div style={{ minWidth: 720 }}>
         <div
           style={{
             display: "grid",
@@ -769,6 +784,24 @@ export function AnalyticsMock() {
             </div>
           );
         })}
+            </div>
+          </div>
+          {/* Right-edge fade hint (mobile only) signalling more columns */}
+          <div
+            aria-hidden
+            className="md:hidden"
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: 40,
+              pointerEvents: "none",
+              background:
+                "linear-gradient(to right, transparent, var(--paper))",
+            }}
+          />
+        </div>
       </div>
 
       {/* Contact-detail modal — portal'd to document.body so it escapes the

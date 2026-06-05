@@ -1,0 +1,156 @@
+# Replit prompt — make the marketing-site UI mockups render well on mobile
+
+Hi! The new LP Studio marketing site (homepage at `/`, plus `/features`, `/for-marketing`, `/for-sales`, `/pricing`, `/compare`) reads great on desktop but the in-page UI mockups break on mobile — fixed-pixel browser-chrome wrappers overflow the viewport, multi-column dashboards squish unreadably, and modal overlays positioned with `right: 0` slide off-screen. Please do a full mobile-fix pass across the marketing components below.
+
+**Scope:** only `artifacts/lp-studio/src/marketing/**`. Do **not** touch the app shell, the in-product UI, or any backend code.
+
+---
+
+## Strategy (read this first)
+
+Most of the in-page mockups are decorative — they exist to make the marketing copy feel concrete. On mobile, fidelity matters less than legibility. So the default approach for each mockup should be **one of these three**, picked per-component:
+
+1. **Reflow responsively** — when the mock has a small number of elements that can stack into a single column (e.g. card grids, color-token rows, type pairings). Use Tailwind responsive prefixes (`md:`, `lg:`) and CSS Grid breakpoints. This is the preferred option when feasible.
+
+2. **Horizontal-scroll the chrome** — when the mock is genuinely table-shaped or dashboard-shaped (IdentityWedge analytics table, SalesConsoleEmbed dashboard, the Compare matrix on `/compare`). Wrap the inner content in `overflow-x: auto` with a fixed minimum width on the inner container, so a single-finger swipe reveals the rest. Add a faint right-edge gradient mask to telegraph that there's more.
+
+3. **Hide the chrome on mobile, show a simpler text/stat alternative** — when the mock is too complex to scale down meaningfully and the surrounding copy already carries the message (AssembleSceneV2 scroll demo, BuilderEmbed, AI Briefing modal pop-over). Use `hidden md:block` on the chrome wrapper, and add an `md:hidden` block above it that renders the same idea in 2–3 sentences with maybe an icon and a single stat. The marketing copy + a small text card is fine — don't try to recreate the chrome at a smaller size.
+
+**What MUST stay responsive at every breakpoint (320px and up):**
+- All headlines, subheads, body copy, bullet lists, CTA buttons
+- Navbar (already mostly fine — verify the mobile menu works)
+- Footer link grid (should collapse from 4 columns → 2 → 1)
+- Pricing tier cards (should stack 1-per-row on mobile)
+- FAQ accordion (already a single column, just verify the answer text wraps)
+- Hero headline + PromptCard input (text + button must reflow, but the Mad Libs animation can pause/freeze on small screens)
+- Use the `var(--cream)` body background everywhere; never let device-frame INK_2 leak out
+
+---
+
+## Components to fix, with specific guidance
+
+### 1. `HeroScene.tsx` + `PromptCard.tsx`
+
+- Headline currently sized with `clamp()` — confirm it doesn't blow past viewport at 320px
+- PromptCard: the prompt input + Generate button row should stack vertically on `<md`; suggestion chips should wrap to multiple lines, not horizontal-scroll
+- Drop the soft indigo orb on mobile (`md:block` it) — it eats CPU on small devices for negligible visual gain
+
+### 2. `AssembleSceneV2.tsx` (the big scroll-driven page-assembles demo)
+
+**Already works on mobile** — the component checks `vw < 768` and collapses the left/right builder sidebars to width 0 on small screens (line 1004 in AssembleSceneV2.tsx: `const isMobile = vw < 768`). The only adjustment needed:
+
+- **Raise the `isMobile` breakpoint** from `768` to a higher value so the sidebars collapse *as soon as they start overlapping the canvas*, not only at phone widths. The canvas is 960px internally; the two sidebars together take 240 + 280 = 520px. The device frame should hide sidebars when the viewport is narrower than roughly `canvas + sidebars + a little breathing room` — try `vw < 1100` and tune from there. The intent: by the time the sidebars would start visually crowding the canvas, they're already gone.
+- Do not replace the demo with a static poster — the scroll mechanic works fine without the sidebars.
+
+### 3. `UseCases.tsx` (4-card grid with mini page previews)
+
+- The outer grid is already `grid-cols-1 md:grid-cols-2` (line 491) — no change needed at the outer level.
+- Each card's `<Frame>` + `<BrowserBar>` mini-page-preview has fixed pixel padding/widths inside — let it scale down by replacing fixed `width` styles with `width: 100%` on the inner containers, and letting browser-bar segment widths use `flex: 1` instead of fixed px.
+- If any text inside the mini-previews becomes unreadably small below 480px, just hide that inner content (`hidden sm:block`) and show the card with title + bullets only.
+
+### 4. WhatsInside zigzag (inline in `home.tsx`, with `BrandVisual` / `MarketingVisual` / `SalesVisual` / `CompareVisual`)
+
+The zigzag rows already use `grid-cols-1 md:grid-cols-2` so the structure stacks. Issues are inside the visual cards:
+
+- **BrandVisual**: the 5-color palette row is `display:flex gap:6` — at 320px each chip ends up ~50px wide, fine. But the 2-column "Type pairing" grid (`gridTemplateColumns: "1fr 1fr"`) should become a single column below 480px (`grid-cols-1 xs:grid-cols-2`). The voice-axis dots row at the bottom has a 3-column layout (70px label / 1fr track / 70px label) — that should drop the labels and just show the track + a single inline label on small screens.
+- **MarketingVisual**: the stat strip is `grid-cols-3` — keep it 3 columns but shrink the numbers (fontSize 18→14). The variant rows have `gap: 11` between thumbnail + label + bar + percentage — on `<sm` this overflows. Either drop the variant thumbnail (`VariantThumb`) on mobile and let the label + bar carry the weight, or stack the bar UNDER the label.
+- **SalesVisual**: the account header has a 3-column layout (logo + name + engagement gauge). On mobile, drop the engagement gauge below the rest as a third row, or absorb it into a single-line stat.
+- **CompareVisual**: the table layout is `1fr 56px 44px 44px 44px` — on mobile that's untenable. Wrap the whole table in `overflow-x: auto` with `min-width: 420px` on the inner, and add a small "scroll →" hint chip below it on `<md`.
+
+Also: the section header spine line (the absolutely-positioned 1px vertical line at `left: -4`) only makes sense in the md+ zigzag layout — hide it on mobile (`hidden md:block`).
+
+The marker tile (the indigo 36×36 square with `01`/`02`/`03`/`04`) is positioned at `left: -22` from the text column — on mobile, where everything stacks, this marker overflows the viewport. Hide it on mobile (`hidden md:flex`) and use the small inline marker that's already in the design as the `md:hidden` fallback.
+
+### 5. `FeatureRow.tsx` (the wrapper for Builder / Generate / Templates / Sales Console embeds)
+
+This is the shared component — fix it once and all 4 FeatureRow embeds benefit. The current layout is text-on-one-side / browser-chrome-on-the-other. On mobile:
+
+- Stack vertically: text block first, then browser chrome below it
+- The browser chrome should be allowed to extend the full width of its container
+- Inside the chrome, the embed itself is the problem — see #6, #7, #8, #9 below
+
+### 6. `BuilderEmbed.tsx` (Northwind Summit visual editor)
+
+Way too dense for mobile. Strategy:
+
+- On mobile (`<md`), hide the left layers panel and the right properties panel — keep just the top chrome bar + the canvas in the middle.
+- The canvas content itself can stay, but the inner page mock (Northwind Summit) should let its blocks reflow to full-width.
+- If after stripping panels it still doesn't fit, replace the whole BuilderEmbed with a single static screenshot-style card on mobile that says "Visual builder" + a thumbnail.
+
+### 7. `TemplatesEmbed.tsx` (template grid + modal preview)
+
+- Template card grid: confirm it goes from 3 columns → 2 → 1 with breakpoints
+- The "preview template live" modal is probably overflowing on mobile — make it `inset-x-4 inset-y-12` (Tailwind) instead of fixed dimensions, so it always has some margin from the viewport edges
+- Inside the live preview, the embedded iframe / mock should be scrollable horizontally and vertically with `overflow: auto`
+
+### 8. `SalesConsoleEmbed.tsx` (Northwind sales dashboard with AI Briefing modal)
+
+The biggest current problem.
+
+- The top nav (Northwind / SALES CONSOLE / Accounts · Microsites · Activity · Contacts · Tools) needs to collapse on mobile. Hide the tabs on `<md` and show a single "Sales Console" label.
+- The "New microsite" + "Account briefing" + "New account" button row should wrap to 2 lines on mobile, not horizontal scroll
+- The accounts table at the bottom — wrap in `overflow-x: auto` with a min-width on the inner
+- The AI Briefing modal — currently `position: absolute; top: calc(100% + 10px); right: 0; width: 520px`. On mobile, that's wider than the viewport. Either:
+  - **Easy**: make the modal full-width on mobile (`width: 100%; right: 0; left: 0`)
+  - **Better**: on mobile, render the briefing inline (not as a popover) when expanded — drop the dropdown chrome and just show the briefing content below the button as a stacked card.
+
+### 9. `IdentityWedge.tsx` (Cobalt Systems analytics page mock + ContactDetailModal)
+
+- The analytics table (Contact / Source / Account / Location / Device / Scroll / Clicks / CTA / When) — wrap the table in `overflow-x: auto` with `min-width: 720px` on the inner table. Add a fade gradient at the right edge to hint at scroll.
+- The 6 StatCards row at the top is currently hardcoded `gridTemplateColumns: "repeat(6, 1fr)"` (around line 424). Change to a responsive grid: 2 columns on `<sm`, 3 on `sm`, 6 on `md+`. Either via Tailwind (`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6`) or by replacing the inline `gridTemplateColumns` with a responsive class.
+- ContactDetailModal: opens by default on mount (line 211 — `useState<VisitRow | null>(VISITS[PREOPEN_INDEX] ?? null)`). **Disable that initial-open state on mobile**: if `typeof window !== "undefined" && window.innerWidth < 768`, default to `null` instead. Keep the row click-to-open behavior so users can still see the modal if they want. Make the modal itself `inset-x-4 inset-y-12` so it fits.
+- Inside ContactDetailModal: the "AI Contact Brief" section has multi-column tables (metrics 4-up, etc.) — reduce to 2-up on mobile.
+
+### 10. `Integrations.tsx` (logo tile grid)
+
+- The outer layout already uses `grid grid-cols-12 gap-4 md:gap-6` with `md:col-span-9 grid grid-cols-2 md:grid-cols-4 gap-3` on the tile rows (lines 311, 334). So tiles render 2-per-row on mobile and 4-per-row on `md+`. Each group has 3 tiles, so on mobile you get a 2+1 layout per group — verify this looks intentional (the trailing single tile shouldn't look orphaned). If it does, switch the inner grid to `grid-cols-3 md:grid-cols-4` so all 3 tiles fit one row on mobile.
+- The featured Salesforce card above the grid uses `grid-cols-12` — make sure it stacks (logo + copy on top, demo embed below) on `<md` by reordering / col-span'ing.
+
+### 11. `Pricing.tsx`
+
+- Tier cards: already `grid grid-cols-1 md:grid-cols-3` (line 433) — stacks 1-per-row below `md`. Verify the card content (especially the 2-column bullet list at line 475, `grid grid-cols-2 gap-x-4 gap-y-1.5`) fits at 320px; if cramped, drop to a single column on `<sm`.
+- The expandable feature map header + rows use `gridTemplateColumns: "minmax(220px, 2fr) repeat(4, minmax(90px, 1fr))"` (lines 598, 655) — that's a fixed 5-column layout (label + 4 tier columns). On mobile, wrap this whole grid in `overflow-x: auto` with a `min-width: 640px` on the inner container so the table can scroll horizontally (same treatment as the IdentityWedge analytics table and the /compare matrix).
+
+### 12. `compare.tsx` (`/compare` page)
+
+- The big capability matrix is 5 columns (Capability / LP / Wf / Ub / Mu) × ~20 rows. Wrap it in `overflow-x: auto` with `min-width: 640px` on the inner, sticky-left first column if possible (sticky col is a nice-to-have, not required).
+- The head-to-head cards (vs Webflow / vs Unbounce / vs Mutiny) should stack 1-per-row on mobile (currently they may be 3-col).
+
+### 13. `SmartTrafficDemo.tsx` (on `/for-marketing`)
+
+- Three variant landing-page mockups side-by-side — on mobile, stack them 1-per-row. Each variant is its own mini-page so they're individually fine when given full width.
+- The Smart Traffic callout at the bottom is fine as-is.
+
+### 14. `FinalCta.tsx`, `Footer.tsx`, `Navbar.tsx`
+
+- Should mostly work already. Verify:
+  - Footer link grid collapses from `md:grid-cols-5` → 2 columns on mobile (it already has `grid-cols-2 md:grid-cols-5`)
+  - Navbar mobile menu opens correctly when toggled, links route, and "Get started" button is reachable
+  - FinalCta CTA buttons stack vertically on mobile (don't force them side-by-side)
+
+---
+
+## Acceptance criteria
+
+- [ ] Open `/`, `/features`, `/for-marketing`, `/for-sales`, `/pricing`, `/compare` in Chrome DevTools at 375×667 (iPhone SE-ish), 414×896 (iPhone Pro), and 768×1024 (iPad portrait). No horizontal scroll on the root `<body>` (page-level overflow). Within individual mockups, opt-in horizontal scroll is fine and expected per spec above.
+- [ ] No text overflows or gets cut off; no fixed pixel widths leak outside their container at any breakpoint
+- [ ] AssembleSceneV2 sidebars collapse before they visually overlap the canvas (verify by resizing slowly from 1400px → 320px — sidebars should disappear well before the canvas gets squeezed)
+- [ ] BuilderEmbed has the two side panels hidden on mobile
+- [ ] AI Briefing modal in SalesConsoleEmbed renders inline (or full-width) on mobile, not as an off-screen popover
+- [ ] All data tables (IdentityWedge visits, Compare matrix, Pricing feature map) are wrapped in horizontal-scroll containers with a visible scroll hint
+- [ ] Pricing tier cards stack 1-per-row on mobile
+- [ ] FAQ + Footer + Navbar all work and link to the right places
+- [ ] Run `pnpm typecheck` from `artifacts/lp-studio` — must come back clean
+- [ ] Take a screenshot of `/` on iPhone SE width and paste it in the PR — should look like a coherent marketing site, not a desktop screenshot zoomed out
+
+---
+
+## Things you should NOT do
+
+- Don't redesign the desktop layouts — they're fine
+- Don't touch the in-product app (anything outside `src/marketing/`)
+- Don't add new component dependencies (no react-responsive, no react-device-detect — Tailwind breakpoints + CSS media queries cover everything here)
+- Don't break SSR — the prerender script (`scripts/prerender-marketing.mjs`) bakes the desktop HTML at build time. Any responsive-only logic that uses `window.innerWidth` must guard for SSR with `typeof window !== "undefined"` and default to the desktop branch during prerender. Better: use CSS media queries (Tailwind responsive prefixes) wherever possible — they don't need a hydration cycle to apply.
+- Don't gate visibility with JS measurements when CSS can do it. Reach for `useState(window.innerWidth)` only when you actually need to change behavior (e.g. disabling the AssembleScene scroll listener on mobile, disabling the auto-open of ContactDetailModal).
+
+Thank you!

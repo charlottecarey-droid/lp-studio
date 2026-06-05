@@ -555,7 +555,7 @@ function PreviewModal({
             style={{
               flex: 1,
               minHeight: 380,
-              overflow: "hidden",
+              overflow: "auto",
               borderBottom: "1px solid var(--hairline)",
             }}
           >
@@ -610,6 +610,14 @@ export default function TemplatesEmbed() {
         fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
       }}
     >
+      <style>{`
+        @media (max-width: 1023px) {
+          .tpl-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+        @media (max-width: 639px) {
+          .tpl-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
       <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         {/* Header */}
         <div style={{ marginBottom: 18 }}>
@@ -751,6 +759,7 @@ export default function TemplatesEmbed() {
 
         {/* Grid */}
         <div
+          className="tpl-grid"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(3, 1fr)",

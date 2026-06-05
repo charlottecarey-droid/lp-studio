@@ -98,6 +98,7 @@ export default function ContactDetailModal({ contact, onClose }: Props) {
       aria-modal="true"
       aria-label={`${contact.name} — contact detail`}
       onClick={onClose}
+      className="px-4 py-12 sm:p-6"
       style={{
         position: "absolute",
         inset: 0,
@@ -108,7 +109,6 @@ export default function ContactDetailModal({ contact, onClose }: Props) {
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "center",
-        padding: "24px 24px",
         overflowY: "auto",
       }}
     >
@@ -433,9 +433,8 @@ export default function ContactDetailModal({ contact, onClose }: Props) {
 
           {/* Metric cards */}
           <div
+            className="grid grid-cols-2 md:grid-cols-4"
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
               gap: 12,
               marginTop: 16,
             }}
