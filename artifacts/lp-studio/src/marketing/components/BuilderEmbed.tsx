@@ -21,6 +21,15 @@ const HERO_BG =
 const VENUE_BG =
   "https://images.unsplash.com/photo-1501594907352-04cda38ebc29?q=80&w=1200&h=520&fit=crop";
 
+// Corner handles for the mobile-only "selected text" affordance over the hero
+// headline. Typed up front so the JSX map stays clean and type-safe.
+const HERO_HANDLE_POS: { key: string; style: React.CSSProperties }[] = [
+  { key: "tl", style: { top: -11, left: -11 } },
+  { key: "tr", style: { top: -11, right: -11 } },
+  { key: "bl", style: { bottom: -11, left: -11 } },
+  { key: "br", style: { bottom: -11, right: -11 } },
+];
+
 const AGENDA_DAYS: { day: string; items: [string, string][] }[] = [
   {
     day: "Day 01 · Mar 18",
@@ -273,6 +282,13 @@ export default function BuilderEmbed() {
         @media (max-width: 767px) {
           .be-side { display: none !important; }
           .be-hero-h1 { font-size: 34px !important; white-space: normal !important; }
+          .be-mobile-edit { display: inline-flex !important; }
+          .be-h1-wrap {
+            outline: 1.5px dashed rgba(124,120,246,0.95) !important;
+            outline-offset: 7px !important;
+            border-radius: 3px !important;
+          }
+          .be-h1-handle { display: block !important; }
         }
       `}</style>
       {/* Top bar */}
@@ -638,21 +654,158 @@ export default function BuilderEmbed() {
                   >
                     You&apos;re Invited
                   </div>
-                  <h1
-                    className="be-hero-h1"
-                    style={{
-                      fontFamily: "'EB Garamond', Georgia, serif",
-                      fontSize: 56,
-                      fontWeight: 500,
-                      lineHeight: 1,
-                      margin: 0,
-                      letterSpacing: "-0.01em",
-                      whiteSpace: "nowrap",
-                      color: "#f3f0ec",
-                    }}
+                  <span
+                    className="be-h1-wrap"
+                    style={{ position: "relative", display: "inline-block" }}
                   >
-                    Northwind Summit
-                  </h1>
+                    <h1
+                      className="be-hero-h1"
+                      style={{
+                        fontFamily: "'EB Garamond', Georgia, serif",
+                        fontSize: 56,
+                        fontWeight: 500,
+                        lineHeight: 1,
+                        margin: 0,
+                        letterSpacing: "-0.01em",
+                        whiteSpace: "nowrap",
+                        color: "#f3f0ec",
+                      }}
+                    >
+                      Northwind Summit
+                    </h1>
+                    {/* Mobile-only inline rich-text toolbar. On phones the
+                        side panels collapse, so this floats over the headline
+                        to show edits happen inline — no panel required. */}
+                    <span
+                      className="be-mobile-edit"
+                      aria-hidden="true"
+                      style={{
+                        display: "none",
+                        position: "absolute",
+                        left: "50%",
+                        bottom: "calc(100% + 14px)",
+                        transform: "translateX(-50%)",
+                        alignItems: "center",
+                        gap: 4,
+                        background: "#fff",
+                        border: "1px solid rgba(26,24,21,0.12)",
+                        borderRadius: 9,
+                        padding: "5px 7px",
+                        boxShadow:
+                          "0 12px 26px -10px rgba(26,24,21,0.5), 0 2px 6px -2px rgba(26,24,21,0.22)",
+                        whiteSpace: "nowrap",
+                        zIndex: 5,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 22,
+                          height: 22,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: 5,
+                          color: VIOLET,
+                          background: "color-mix(in srgb, #4B47E5 12%, #fff)",
+                        }}
+                      >
+                        <Icon name="type" size={13} />
+                      </span>
+                      <span
+                        style={{
+                          width: 22,
+                          height: 22,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: 5,
+                          color: "var(--ink-mute)",
+                        }}
+                      >
+                        <Icon name="pencil" size={13} />
+                      </span>
+                      <span
+                        style={{
+                          width: 1,
+                          height: 16,
+                          background: "rgba(26,24,21,0.12)",
+                        }}
+                      />
+                      {[
+                        { c: "#f3f0ec", active: true },
+                        { c: "#d8b97a", active: false },
+                        { c: "#c9f24a", active: false },
+                        { c: "#6C68F0", active: false },
+                      ].map((s) => (
+                        <span
+                          key={s.c}
+                          style={{
+                            width: 13,
+                            height: 13,
+                            borderRadius: 999,
+                            background: s.c,
+                            border: "1px solid rgba(26,24,21,0.15)",
+                            boxShadow: s.active
+                              ? `0 0 0 1.5px #fff, 0 0 0 3px ${VIOLET}`
+                              : undefined,
+                          }}
+                        />
+                      ))}
+                      <span
+                        style={{
+                          width: 1,
+                          height: 16,
+                          background: "rgba(26,24,21,0.12)",
+                        }}
+                      />
+                      <span
+                        style={{
+                          width: 22,
+                          height: 22,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: 5,
+                          color: "var(--ink-mute)",
+                        }}
+                      >
+                        <Icon name="link" size={13} />
+                      </span>
+                      {/* downward caret */}
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          left: "50%",
+                          transform: "translateX(-50%)",
+                          width: 0,
+                          height: 0,
+                          borderLeft: "5px solid transparent",
+                          borderRight: "5px solid transparent",
+                          borderTop: "6px solid #fff",
+                        }}
+                      />
+                    </span>
+                    {/* Mobile-only selection handles */}
+                    {HERO_HANDLE_POS.map((h) => (
+                      <span
+                        key={h.key}
+                        className="be-h1-handle"
+                        aria-hidden="true"
+                        style={{
+                          display: "none",
+                          position: "absolute",
+                          width: 7,
+                          height: 7,
+                          background: "#fff",
+                          border: `1.5px solid ${VIOLET}`,
+                          borderRadius: 2,
+                          zIndex: 4,
+                          ...h.style,
+                        }}
+                      />
+                    ))}
+                  </span>
                   <div
                     style={{
                       fontSize: 12,

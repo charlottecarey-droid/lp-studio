@@ -2003,11 +2003,24 @@ function CompareVisual() {
       url="app.lpstudio.ai/compare"
       status={{ label: "Updated · Jun 2026", color: "var(--ink-mute)", pulse: false }}
     >
-      {/* Table — horizontal scroll on mobile */}
-      <div style={{ overflowX: "auto" }}>
-      <div style={{ minWidth: 420 }}>
+      <style>{`
+        @media (max-width: 767px) {
+          .cmp-inner { min-width: 0 !important; }
+          .cmp-row {
+            grid-template-columns: 1fr 38px 30px 30px 30px !important;
+            gap: 2px !important;
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+          }
+          .cmp-lp { right: 108px !important; width: 38px !important; }
+        }
+      `}</style>
+      {/* Table — fits all four vendor columns on mobile (no horizontal scroll) */}
+      <div className="cmp-scroll" style={{ overflowX: "auto" }}>
+      <div className="cmp-inner" style={{ minWidth: 420 }}>
       {/* Column header row */}
       <div
+        className="cmp-row"
         style={{
           display: "grid",
           gridTemplateColumns: "1fr 56px 44px 44px 44px",
@@ -2088,6 +2101,7 @@ function CompareVisual() {
         {/* LP column highlight */}
         <div
           aria-hidden="true"
+          className="cmp-lp"
           style={{
             position: "absolute",
             top: 0,
@@ -2103,6 +2117,7 @@ function CompareVisual() {
         {rows.map((r, i) => (
           <div
             key={r.label}
+            className="cmp-row"
             style={{
               display: "grid",
               gridTemplateColumns: "1fr 56px 44px 44px 44px",
@@ -2141,17 +2156,6 @@ function CompareVisual() {
         ))}
       </div>
       </div>
-      </div>
-      <div
-        className="md:hidden mt-2 inline-flex items-center gap-1 font-mono uppercase"
-        style={{
-          fontSize: 9,
-          letterSpacing: "0.16em",
-          fontWeight: 700,
-          color: "var(--ink-faint)",
-        }}
-      >
-        Scroll →
       </div>
 
       {/* Where we win footer */}
