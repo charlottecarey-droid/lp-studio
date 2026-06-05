@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq, and, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { lpPagesTable, lpPageVisitsTable } from "@workspace/db";
+import { lpPagesTable, lpPageVisitsTable, salesLayoutDefaultsTable } from "@workspace/db";
 import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
 import { isDandyTenant } from "../../lib/planFeatures";
 import { isDandyGatedBuiltin } from "@workspace/one-pager-types/constants";
@@ -57,6 +57,95 @@ function buildAudienceContent(brand: SalesBrandContext): Record<Audience, Audien
         { icon: "Users", title: "Onsite and virtual training", description: "No downtime needed. We handle setup end to end, then get your teams up to speed fast with free onboarding and training." },
       ],
     },
+  };
+}
+
+interface PartnerFeature { title: string; desc: string; }
+interface PartnerStat { value: string; desc: string; }
+interface PartnerContent {
+  headline: string;
+  /** May contain a `{dso}` placeholder that is replaced with the prospect name. */
+  intro: string;
+  features: PartnerFeature[];
+  stats: PartnerStat[];
+  boldHeading: boolean;
+}
+
+/**
+ * Build the Partner Practices one-pager copy.
+ *
+ * Brand-aware and tenant-neutral: any product/partner reference interpolates
+ * the tenant's brandName, falling back to a neutral "we"/"our" voice. Never a
+ * literal "Dandy" for tenants without brand config. These are only the *defaults*
+ * — a tenant's saved Partner template layout (dandy_partner_template_layout)
+ * overrides each field in buildPartnerBlocks.
+ */
+function buildPartnerContent(brand: SalesBrandContext): PartnerContent {
+  const name = brand.brandName || "";
+  const possessive = name ? `${name}'s` : "our";
+  return {
+    headline: name
+      ? `Unlock the power of a smarter partnership with ${name}`
+      : "Unlock the power of a smarter partnership",
+    intro: name
+      ? `As {dso}'s newest preferred partner, ${name} is here to help your practice thrive — delivering smarter, faster, and more predictable outcomes while elevating both patient care and your bottom line.`
+      : `As {dso}'s newest preferred partner, we're here to help your practice thrive — delivering smarter, faster, and more predictable outcomes while elevating both patient care and your bottom line.`,
+    features: [
+      { title: "Increase predictability", desc: "Get real-time expert guidance for confident, accurate outcomes every time." },
+      { title: "Digitize every workflow", desc: "Adopt seamless digital workflows that save time and reduce friction across your teams." },
+      { title: "Access state-of-the-art quality", desc: "Deliver high-quality results with digital precision, premium materials, and unmatched consistency." },
+      { title: "Unlock partnership perks and preferred pricing", desc: "Contact the team below to access a tailored proposal with approved pricing." },
+    ],
+    stats: [
+      { value: "88%", desc: `say ${possessive} real-time support makes case management easier.` },
+      { value: "83%", desc: `say they have saved time using ${possessive} portal to manage their work.` },
+      { value: "67%", desc: `say ${possessive} technology gives them a competitive edge.` },
+    ],
+    boldHeading: true,
+  };
+}
+
+function asNonEmptyString(v: unknown): string | undefined {
+  return typeof v === "string" && v.trim().length > 0 ? v : undefined;
+}
+
+/**
+ * Overlay the tenant's saved Partner template layout (if any) onto the
+ * brand-aware defaults. Mirrors how the PDF generator reads
+ * `dandy_partner_template_layout` (partnerHeadline / partnerIntro /
+ * partnerFeatures / partnerStats + headerCfg.boldHeading).
+ */
+function applyPartnerLayout(base: PartnerContent, saved: Record<string, unknown> | null): PartnerContent {
+  if (!saved) return base;
+  const headerCfg = (saved.headerCfg ?? {}) as Record<string, unknown>;
+  const savedFeatures = Array.isArray(saved.partnerFeatures)
+    ? (saved.partnerFeatures as unknown[])
+        .map((f) => {
+          const obj = (f ?? {}) as Record<string, unknown>;
+          const title = asNonEmptyString(obj.title);
+          if (!title) return null;
+          return { title, desc: typeof obj.desc === "string" ? obj.desc : "" } as PartnerFeature;
+        })
+        .filter((f): f is PartnerFeature => f !== null)
+    : null;
+  const savedStats = Array.isArray(saved.partnerStats)
+    ? (saved.partnerStats as unknown[])
+        .map((s) => {
+          const obj = (s ?? {}) as Record<string, unknown>;
+          const value = asNonEmptyString(obj.value);
+          if (!value) return null;
+          return { value, desc: typeof obj.desc === "string" ? obj.desc : "" } as PartnerStat;
+        })
+        .filter((s): s is PartnerStat => s !== null)
+    : null;
+  return {
+    headline: asNonEmptyString(saved.partnerHeadline) ?? base.headline,
+    intro: asNonEmptyString(saved.partnerIntro) ?? base.intro,
+    features: savedFeatures && savedFeatures.length > 0 ? savedFeatures : base.features,
+    stats: savedStats && savedStats.length > 0 ? savedStats : base.stats,
+    // The Partner header "Bold heading" toggle: undefined/true keeps bold;
+    // only an explicit false flips to normal weight.
+    boldHeading: headerCfg.boldHeading === false ? false : true,
   };
 }
 
@@ -141,108 +230,202 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
     // meetdandy.com URL.
     const resolvedCtaUrl = ctaUrl || brandCtx.chilipiperUrl || brandCtx.defaultCtaUrl || "#";
 
-    const bottomHeadline = brandName
-      ? `Ready to partner with ${brandName}?`
-      : "Ready to start your pilot?";
+    // The Partner Practices template ("new-partner"/"partner2") builds a
+    // different block layout (hero + benefits + stats + CTA) from the pilot.
+    // Anything else falls through to the 90-Day Pilot layout below.
+    const isPartner = template === "new-partner" || template === "partner2";
 
-    const blocks = [
-      {
-        id: `one-pager-hero-${makeId()}`,
-        type: "one-pager-hero",
-        // Render the headline/body one notch smaller by default. The hero is a
-        // full-bleed band, so it gets NO paddingX (the band must reach the sheet
-        // edges); its internal padding handles the text inset instead.
-        blockSettings: HERO_SETTINGS,
-        props: {
-          partnerName: dsoName,
-          tagline: "Your custom partnership overview",
-          subtitle: content.subtitle,
-          sideImageUrl: sideImageUrl ?? "",
-          phone: phone ?? "",
+    let blocks: Array<{ id: string; type: string; blockSettings: Record<string, string>; props: Record<string, unknown> }>;
+
+    if (isPartner) {
+      // Pull the tenant's saved Partner template layout (copy + boldHeading) so
+      // the web page mirrors what the rep configured for the PDF. Best-effort:
+      // a missing/unreadable row just leaves the brand-aware defaults in place.
+      let savedPartner: Record<string, unknown> | null = null;
+      try {
+        const [row] = await db
+          .select({ config: salesLayoutDefaultsTable.config })
+          .from(salesLayoutDefaultsTable)
+          .where(
+            and(
+              eq(salesLayoutDefaultsTable.tenantId, tenantId),
+              eq(salesLayoutDefaultsTable.templateKey, "dandy_partner_template_layout"),
+            ),
+          )
+          .limit(1);
+        if (row?.config && typeof row.config === "object") {
+          savedPartner = row.config as Record<string, unknown>;
+        }
+      } catch (e) {
+        console.warn("[web-one-pager] failed to load partner layout default", e);
+      }
+
+      const partner = applyPartnerLayout(buildPartnerContent(brandCtx), savedPartner);
+      // Replace the {dso} placeholder (used in the Partner intro) with the
+      // prospect name, matching the PDF generator's substitution.
+      const partnerIntro = partner.intro.replace(/\{dso\}/g, dsoName);
+      const partnerCtaHeadline = brandName
+        ? `Ready to partner with ${brandName}?`
+        : "Ready to start the partnership?";
+
+      blocks = [
+        {
+          id: `one-pager-hero-${makeId()}`,
+          type: "one-pager-hero",
+          blockSettings: HERO_SETTINGS,
+          props: {
+            partnerName: dsoName,
+            headline: partner.headline,
+            tagline: "Your partnership overview",
+            subtitle: partnerIntro,
+            sideImageUrl: sideImageUrl ?? "",
+            phone: phone ?? "",
+            // Carry the saved "Bold heading" toggle onto the web hero so
+            // BlockOnePagerHero renders the matching weight.
+            boldHeading: partner.boldHeading,
+          },
         },
-      },
-      {
-        id: `benefits-grid-${makeId()}`,
-        type: "benefits-grid",
-        blockSettings: CONTENT_SETTINGS,
-        props: {
-          headline: "What to expect during your pilot",
-          columns: 3,
-          items: content.features,
+        {
+          id: `benefits-grid-${makeId()}`,
+          type: "benefits-grid",
+          blockSettings: CONTENT_SETTINGS,
+          props: {
+            headline: brandName ? `Why partner with ${brandName}` : "Why partner with us",
+            columns: partner.features.length === 4 ? 2 : 3,
+            items: partner.features.map((f) => ({
+              icon: "CheckCircle",
+              title: f.title,
+              description: f.desc,
+            })),
+          },
         },
-      },
-      {
-        id: `dso-meet-team-${makeId()}`,
-        type: "dso-meet-team",
-        blockSettings: CONTENT_SETTINGS,
-        props: {
-          eyebrow: "Your Dedicated Team",
-          headline: "Meet your contacts for training, support, and pilot check-ins.",
-          subheadline: "",
-          backgroundStyle: "dark",
-          members: teamMembers && teamMembers.length > 0
-            ? teamMembers
-            : [
-                { name: "Your Account Executive", role: "Enterprise Account Executive", email: "" },
-                { name: "Your Account Manager", role: "Account Manager", email: "" },
-              ],
+        {
+          id: `dso-stat-showcase-${makeId()}`,
+          type: "dso-stat-showcase",
+          blockSettings: CONTENT_SETTINGS,
+          props: {
+            eyebrow: "By the Numbers",
+            headline: "Results that speak for themselves.",
+            backgroundStyle: "dark",
+            stats: partner.stats.map((s) => ({ value: s.value, label: s.desc })),
+          },
         },
-      },
-      {
-        id: `dso-pilot-steps-${makeId()}`,
-        type: "dso-pilot-steps",
-        blockSettings: CONTENT_SETTINGS,
-        props: {
-          eyebrow: "Your Pilot",
-          headline: "90 days. No long-term commitment.",
-          subheadline: "Start small, prove the impact, then scale across your network.",
-          backgroundStyle: "muted",
-          steps: [
-            {
-              title: "Launch a Pilot",
-              subtitle: "Start with a handful of locations",
-              desc: `${brandName || "We"} ${brandName ? "handles" : "handle"} setup, onboard${brandName ? "s" : ""} your teams with hands-on training, and integrate${brandName ? "s" : ""} into existing workflows — no upfront investment, no disruption.`,
-              details: [
-                "Everything you need included from day one",
-                "Dedicated team manages change management",
-                "Teams trained and up to speed within days",
-              ],
-            },
-            {
-              title: "Validate Impact",
-              subtitle: "Measure results in 60–90 days",
-              desc: "Track efficiency gains, time recovered, and revenue lift in real time — proving ROI before you scale.",
-              details: [
-                "Live dashboard tracks pilot KPIs",
-                "Compare pilot locations vs. control group",
-                "Executive-ready reporting for leadership review",
-              ],
-            },
-            {
-              title: "Scale With Confidence",
-              subtitle: "Roll out across your organization",
-              desc: "Expand with the same standard, same playbook, and same results — predictable execution at scale.",
-              details: [
-                "Consistent onboarding across all locations",
-                "One standard across every location and team",
-                "Agreement ensures alignment at scale",
-              ],
-            },
-          ],
+        {
+          id: `bottom-cta-${makeId()}`,
+          type: "bottom-cta",
+          blockSettings: CONTENT_SETTINGS,
+          props: {
+            headline: partnerCtaHeadline,
+            subheadline: "Let's build a partnership that scales with your organization.",
+            ctaText: "Get Started",
+            ctaUrl: resolvedCtaUrl,
+          },
         },
-      },
-      {
-        id: `bottom-cta-${makeId()}`,
-        type: "bottom-cta",
-        blockSettings: CONTENT_SETTINGS,
-        props: {
-          headline: bottomHeadline,
-          subheadline: "Start a risk-free 90-day pilot. No long-term commitment required.",
-          ctaText: "Start Your Pilot",
-          ctaUrl: resolvedCtaUrl,
+      ];
+    } else {
+      const bottomHeadline = brandName
+        ? `Ready to partner with ${brandName}?`
+        : "Ready to start your pilot?";
+
+      blocks = [
+        {
+          id: `one-pager-hero-${makeId()}`,
+          type: "one-pager-hero",
+          // Render the headline/body one notch smaller by default. The hero is a
+          // full-bleed band, so it gets NO paddingX (the band must reach the sheet
+          // edges); its internal padding handles the text inset instead.
+          blockSettings: HERO_SETTINGS,
+          props: {
+            partnerName: dsoName,
+            tagline: "Your custom partnership overview",
+            subtitle: content.subtitle,
+            sideImageUrl: sideImageUrl ?? "",
+            phone: phone ?? "",
+          },
         },
-      },
-    ];
+        {
+          id: `benefits-grid-${makeId()}`,
+          type: "benefits-grid",
+          blockSettings: CONTENT_SETTINGS,
+          props: {
+            headline: "What to expect during your pilot",
+            columns: 3,
+            items: content.features,
+          },
+        },
+        {
+          id: `dso-meet-team-${makeId()}`,
+          type: "dso-meet-team",
+          blockSettings: CONTENT_SETTINGS,
+          props: {
+            eyebrow: "Your Dedicated Team",
+            headline: "Meet your contacts for training, support, and pilot check-ins.",
+            subheadline: "",
+            backgroundStyle: "dark",
+            members: teamMembers && teamMembers.length > 0
+              ? teamMembers
+              : [
+                  { name: "Your Account Executive", role: "Enterprise Account Executive", email: "" },
+                  { name: "Your Account Manager", role: "Account Manager", email: "" },
+                ],
+          },
+        },
+        {
+          id: `dso-pilot-steps-${makeId()}`,
+          type: "dso-pilot-steps",
+          blockSettings: CONTENT_SETTINGS,
+          props: {
+            eyebrow: "Your Pilot",
+            headline: "90 days. No long-term commitment.",
+            subheadline: "Start small, prove the impact, then scale across your network.",
+            backgroundStyle: "muted",
+            steps: [
+              {
+                title: "Launch a Pilot",
+                subtitle: "Start with a handful of locations",
+                desc: `${brandName || "We"} ${brandName ? "handles" : "handle"} setup, onboard${brandName ? "s" : ""} your teams with hands-on training, and integrate${brandName ? "s" : ""} into existing workflows — no upfront investment, no disruption.`,
+                details: [
+                  "Everything you need included from day one",
+                  "Dedicated team manages change management",
+                  "Teams trained and up to speed within days",
+                ],
+              },
+              {
+                title: "Validate Impact",
+                subtitle: "Measure results in 60–90 days",
+                desc: "Track efficiency gains, time recovered, and revenue lift in real time — proving ROI before you scale.",
+                details: [
+                  "Live dashboard tracks pilot KPIs",
+                  "Compare pilot locations vs. control group",
+                  "Executive-ready reporting for leadership review",
+                ],
+              },
+              {
+                title: "Scale With Confidence",
+                subtitle: "Roll out across your organization",
+                desc: "Expand with the same standard, same playbook, and same results — predictable execution at scale.",
+                details: [
+                  "Consistent onboarding across all locations",
+                  "One standard across every location and team",
+                  "Agreement ensures alignment at scale",
+                ],
+              },
+            ],
+          },
+        },
+        {
+          id: `bottom-cta-${makeId()}`,
+          type: "bottom-cta",
+          blockSettings: CONTENT_SETTINGS,
+          props: {
+            headline: bottomHeadline,
+            subheadline: "Start a risk-free 90-day pilot. No long-term commitment required.",
+            ctaText: "Start Your Pilot",
+            ctaUrl: resolvedCtaUrl,
+          },
+        },
+      ];
+    }
 
     const baseSlug = `onepager-${slugify(dsoName)}`;
     let finalSlug = baseSlug;

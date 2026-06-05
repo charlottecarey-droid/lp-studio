@@ -528,6 +528,10 @@ const SalesOnePager = () => {
   const [generating, setGenerating] = useState(false);
   const [template, setTemplate] = useState<Template>("roi");
   const [audience, setAudience] = useState<Audience>("executive");
+  // Templates whose web one-pager layout the server route can build. Keep in
+  // sync with the `isPartner`/pilot branches in api-server web-one-pager.ts.
+  const supportsWebLink =
+    template === "pilot" || template === "new-partner" || template === "partner2";
   const [phoneNumber, setPhoneNumber] = useState("");
   const [teamContacts, setTeamContacts] = useState<TeamContact[]>([
     { name: "", title: "", contactInfo: "" },
@@ -857,6 +861,7 @@ const SalesOnePager = () => {
         credentials: "include",
         body: JSON.stringify({
           dsoName: dsoName.trim(),
+          template,
           audience,
           phone: phoneNumber || undefined,
           ctaUrl: customLinkUrl || undefined,
@@ -1770,7 +1775,7 @@ const SalesOnePager = () => {
               </div>
             )}
 
-            <div className={`grid gap-3 ${template === "pilot" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>
+            <div className={`grid gap-3 ${supportsWebLink ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>
               <button
                 onClick={handleGenerate}
                 disabled={(template !== "agreement-summary" && !dsoName.trim()) || generating || generatingLink}
@@ -1784,7 +1789,7 @@ const SalesOnePager = () => {
                 Download PDF
               </button>
 
-              {template === "pilot" && (
+              {supportsWebLink && (
                 <button
                   onClick={handleGenerateLink}
                   disabled={!dsoName.trim() || generating || generatingLink}
@@ -1801,9 +1806,9 @@ const SalesOnePager = () => {
               )}
             </div>
 
-            {template !== "pilot" && (
+            {!supportsWebLink && (
               <p className="text-[11px] text-muted-foreground text-center -mt-2">
-                Shareable web links available on the 90-Day Pilot template.
+                Shareable web links available on the 90-Day Pilot and Partner Practices templates.
               </p>
             )}
 

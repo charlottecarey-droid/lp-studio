@@ -1,9 +1,15 @@
 ---
-name: Partner one-pager is PDF-only
-description: The Partner Practices sales one-pager has no web/block render path; it is jsPDF only.
+name: Partner one-pager render paths (PDF + web)
+description: The Partner Practices sales one-pager renders as jsPDF AND, now, as a shareable web one-pager.
 ---
-The Partner Practices template (editor key `partner`; rep generator keys `new-partner`/`partner2`) renders ONLY as a jsPDF document via `generateNewPartnerOnePager` (wrapper in `artifacts/lp-studio/src/pages/sales/sales-one-pager.tsx`, shared impl in `lib/one-pager-types/src/generators.ts`). The header title is drawn there.
+The Partner Practices template (editor key `partner`; rep generator keys `new-partner`/`partner2`) renders as a jsPDF document via `generateNewPartnerOnePager` (wrapper in `artifacts/lp-studio/src/pages/sales/sales-one-pager.tsx`, shared impl in `lib/one-pager-types/src/generators.ts`).
 
-**Why:** It is tempting (and a task once assumed this) that the partner one-pager flows through the web `one-pager-hero` block + `BlockOnePagerHero` + landing-page-viewer. It does NOT. The "Get Shareable Link" / web one-pager flow (`POST /api/sales/web-one-pager`, `artifacts/api-server/src/routes/sales/web-one-pager.ts`) is gated to the **pilot** template only, and that route always emits the pilot block layout regardless of the `template` field.
+It ALSO now supports a shareable web one-pager. `POST /api/sales/web-one-pager` (`artifacts/api-server/src/routes/sales/web-one-pager.ts`) branches on the `template` field: `new-partner`/`partner2` emit a partner block layout (`one-pager-hero` + `benefits-grid` + `dso-stat-showcase` + `bottom-cta`); everything else falls through to the 90-Day Pilot layout. The "Get Shareable Link" button is enabled for pilot + both partner templates (gated via `supportsWebLink`), and the client POST sends `template`.
 
-**How to apply:** To change what reps actually see/send for the partner one-pager (header weight, fonts, copy, layout), edit the jsPDF generator. The partner editor preview is also jsPDF (`doc.output("blob")`). Editor controls persist via `headerCfg`/`bodyCfg`/etc. in the `dandy_partner_template_layout` layout default, which the generator reads back through `opts.layoutOverrides`.
+**Why:** Originally the web route was pilot-only and always emitted pilot blocks regardless of `template`, so partner was PDF-only. That changed — the route now reads the tenant's saved partner layout and builds partner web blocks.
+
+**How to apply:**
+- The web partner hero carries the saved `headerCfg.boldHeading` toggle onto the `one-pager-hero` block (`boldHeading` prop; only an explicit `false` flips to normal weight). Partner copy (`partnerHeadline`/`partnerIntro`/`partnerFeatures`/`partnerStats`) is read from the `dandy_partner_template_layout` layout default and overlaid on brand-aware defaults; the `{dso}` placeholder in the intro is replaced with the prospect name.
+- Defaults are brand-neutral (interpolate `brandCtx.brandName`, never literal "Dandy"). Partner stats `{value,desc}` map to stat-showcase `{value,label}` (no short label exists, so the sentence lands in `label`).
+- To change the PDF, still edit the jsPDF generator. To change the web layout, edit the `isPartner` branch in `web-one-pager.ts`. Keep the client `supportsWebLink` list in sync with the route's accepted templates.
+- Tests: `webOnePager.partner.integration.test.ts` pins the partner block layout, brand-neutrality, `{dso}` fill, saved-layout overlay, and `boldHeading=false`.
