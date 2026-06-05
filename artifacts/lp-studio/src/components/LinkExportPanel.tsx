@@ -42,8 +42,18 @@ interface Destination {
   displayName: string;
   description: string;
   resultType: "file" | "message";
+  available: boolean;
   configured: boolean;
+  setupPath?: string;
   options: DestinationOption[];
+}
+
+// Human-readable place to connect a destination, derived from its setup path.
+function setupLocationLabel(setupPath?: string): string {
+  if (!setupPath) return "your workspace settings";
+  if (setupPath.startsWith("/sales/sfdc")) return "Sales → Salesforce";
+  if (setupPath.startsWith("/integrations")) return "Integrations";
+  return "your workspace settings";
 }
 
 interface Props {
@@ -285,18 +295,25 @@ export function LinkExportPanel({ pageId, contactIds, onError }: Props) {
               <div key={dest.id} className="rounded-lg border border-border bg-background p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-sm font-medium text-foreground">{dest.displayName}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-medium text-foreground">{dest.displayName}</div>
+                      {!dest.available && (
+                        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground bg-muted rounded px-1.5 py-0.5">
+                          Coming soon
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[11px] text-muted-foreground">{dest.description}</div>
-                    {!dest.configured && (
+                    {dest.available && !dest.configured && (
                       <div className="flex items-center gap-1.5 text-[11px] text-amber-600 mt-1">
-                        <AlertTriangle className="w-3 h-3" /> Not connected for this workspace.
+                        <AlertTriangle className="w-3 h-3" /> Not connected — set it up in {setupLocationLabel(dest.setupPath)} to enable.
                       </div>
                     )}
                   </div>
                   <Button
                     size="sm"
                     onClick={() => runExport(dest)}
-                    disabled={!dest.configured || rows.length === 0 || exportingId !== null || building}
+                    disabled={!dest.available || !dest.configured || rows.length === 0 || exportingId !== null || building}
                     className="gap-1.5 shrink-0"
                   >
                     {exportingId === dest.id
@@ -307,7 +324,7 @@ export function LinkExportPanel({ pageId, contactIds, onError }: Props) {
                     {dest.resultType === "file" ? "Download" : "Send"}
                   </Button>
                 </div>
-                {dest.configured && dest.options.length > 0 && (
+                {dest.available && dest.configured && dest.options.length > 0 && (
                   <div className="flex flex-col gap-2 mt-3">
                     {dest.options.map(o => (
                       <div key={o.key}>

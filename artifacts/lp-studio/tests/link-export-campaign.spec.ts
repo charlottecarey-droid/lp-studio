@@ -244,8 +244,8 @@ test.describe("Quick Campaign — generate links only", () => {
     await expect(dialog.getByText("Download CSV", { exact: true })).toBeVisible();
     await expect(dialog.getByText("Send to Google Sheet", { exact: true })).toBeVisible();
     await expect(dialog.getByText("Push to Marketo static list", { exact: true })).toBeVisible();
-    // Unconfigured destinations are surfaced but disabled.
-    await expect(dialog.getByText("Not connected for this workspace.").first()).toBeVisible();
+    // Unconfigured destinations are surfaced but disabled, with a "set it up" hint.
+    await expect(dialog.getByText(/Not connected — set it up in/).first()).toBeVisible();
 
     // ── CSV download (the only file-type, always-configured destination) ──
     const downloadBtn = dialog.getByRole("button", { name: "Download", exact: true });
@@ -339,7 +339,7 @@ test.describe("Quick Campaign — generate links only", () => {
       .locator("div.rounded-lg")
       .filter({ hasText: "Push to Marketo static list" });
     await expect(marketoCard).toHaveCount(1);
-    await expect(marketoCard.getByText("Not connected for this workspace.")).toHaveCount(0);
+    await expect(marketoCard.getByText(/Not connected — set it up in/)).toHaveCount(0);
 
     // Fill the required options (list id + REST field name) the wizard collects.
     await marketoCard.getByPlaceholder("e.g. 1042").fill("1042");

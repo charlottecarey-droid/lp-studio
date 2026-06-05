@@ -311,14 +311,34 @@ describe("Personalized link export flow", () => {
     const { sid } = await seedTenant();
     const res = await authed(sid, "GET", "/sales/link-export/destinations");
     expect(res.status).toBe(200);
-    const body = res.json as { destinations: Array<{ id: string; configured: boolean; resultType: string }> };
+    const body = res.json as { destinations: Array<{ id: string; configured: boolean; available: boolean; setupPath?: string; resultType: string }> };
     const csv = body.destinations.find(d => d.id === "csv");
     expect(csv).toBeTruthy();
     expect(csv!.configured).toBe(true);
+    expect(csv!.available).toBe(true);
     expect(csv!.resultType).toBe("file");
     // Sheets + Marketo are present but not configured for a bare tenant.
     expect(body.destinations.some(d => d.id === "google_sheets")).toBe(true);
     expect(body.destinations.some(d => d.id === "marketo")).toBe(true);
+
+    // Every destination named on the homepage promise is present.
+    const salesforce = body.destinations.find(d => d.id === "salesforce");
+    expect(salesforce).toBeTruthy();
+    expect(salesforce!.available).toBe(true);
+    expect(salesforce!.configured).toBe(false); // no SFDC connection for a bare tenant
+    expect(salesforce!.setupPath).toBe("/sales/sfdc");
+
+    const webhook = body.destinations.find(d => d.id === "webhook");
+    expect(webhook).toBeTruthy();
+    expect(webhook!.available).toBe(true);
+    expect(webhook!.configured).toBe(false); // no webhook configured for a bare tenant
+    expect(webhook!.setupPath).toBe("/integrations");
+
+    // HubSpot is named on the homepage but not shippable yet — gated "coming soon".
+    const hubspot = body.destinations.find(d => d.id === "hubspot");
+    expect(hubspot).toBeTruthy();
+    expect(hubspot!.available).toBe(false);
+    expect(hubspot!.configured).toBe(false);
   });
 
   it("streams a CSV file containing the personalized links", async () => {

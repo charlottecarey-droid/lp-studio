@@ -24,6 +24,8 @@ export interface LinkExportRow {
   company: string;
   title: string;
   link: string;
+  /** The contact's Salesforce record id, when synced — used by the Salesforce destination. */
+  salesforceId: string | null;
 }
 
 export interface BuildLinkRowsResult {
@@ -128,6 +130,7 @@ export async function buildLinkRows(args: {
         company: contact.accountId ? (accountNameById.get(contact.accountId) ?? "") : "",
         title: contact.title ?? "",
         link: `${host}/p/${created.token}`,
+        salesforceId: contact.salesforceId ?? null,
       };
     }
   }

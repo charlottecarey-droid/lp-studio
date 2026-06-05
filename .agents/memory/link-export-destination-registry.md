@@ -29,3 +29,12 @@ button would diverge from the registry.
   destination's `options` array; the wizard renders them and posts them under `options`.
 - Marketo link-field is validated against the instance schema BEFORE any record is sent
   (fail-closed) so one bad field name can't poison the whole createOrUpdate batch.
+- A destination can be `available:false` (named on the homepage promise but not shippable
+  yet → UI shows "coming soon"). `listDestinations` SKIPS the `isConfigured` probe when
+  `!available`. `setupPath` (e.g. "/sales/sfdc", "/integrations") drives the picker's "set
+  it up in {location}" hint. Salesforce link-push uses the SYNC connection (sfdc-service
+  getActiveConnection/updateContactField), NOT the lp_integrations provider="salesforce"
+  form-lead one; it needs `salesforceId` carried on LinkExportRow and skips unsynced rows.
+  The webhook destination is one signed JSON POST (HMAC-SHA256, assertPublicHttpsUrl SSRF
+  guard + redirect:"manual"); its credential (`signingSecret`) must be in encryption.ts
+  CREDENTIAL_FIELDS_BY_PROVIDER or it's stored plaintext.

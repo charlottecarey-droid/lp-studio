@@ -189,6 +189,7 @@ const CREDENTIAL_FIELDS_BY_PROVIDER: Record<string, string[]> = {
   slack: ["accessToken", "incomingWebhookUrl"],
   google_sheets: ["privateKey"],
   asana: ["pat"],
+  webhook: ["signingSecret"],
   // Add new providers here as integrations ship.
 };
 

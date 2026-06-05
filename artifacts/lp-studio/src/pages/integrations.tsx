@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, CheckCircle2, XCircle, ExternalLink, TableProperties, Zap, Cloud, ClipboardCheck } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, ExternalLink, TableProperties, Zap, Cloud, ClipboardCheck, Webhook } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const MASKED = "••••••••";
@@ -13,6 +13,7 @@ interface SheetsConfig { sheetId: string; serviceAccountEmail: string; privateKe
 interface MarketoConfig { munchkinId: string; clientId: string; clientSecret: string; }
 interface SalesforceConfig { instanceUrl: string; clientId: string; clientSecret: string; }
 interface AsanaConfig { pat: string; workspaceId: string; projectId: string; defaultAssigneeGid: string; }
+interface WebhookConfig { url: string; signingSecret: string; }
 
 type TestResult = { ok: boolean; title?: string; error?: string };
 
@@ -78,6 +79,13 @@ export function IntegrationsContent() {
   const [asanaTesting, setAsanaTesting] = useState(false);
   const [asanaResult, setAsanaResult] = useState<TestResult | null>(null);
 
+  // Webhook state (campaign link export, task #981)
+  const [webhook, setWebhook] = useState({ enabled: false, config: { url: "", signingSecret: "" } as WebhookConfig });
+  const [webhookSaving, setWebhookSaving] = useState(false);
+  const [webhookSaved, setWebhookSaved] = useState(false);
+  const [webhookTesting, setWebhookTesting] = useState(false);
+  const [webhookResult, setWebhookResult] = useState<TestResult | null>(null);
+
   const { user } = useAuth();
   const isAdmin = !!user?.isAdmin;
 
@@ -87,11 +95,13 @@ export function IntegrationsContent() {
       fetch("/api/lp/integrations/marketo").then(r => r.json()),
       fetch("/api/lp/integrations/salesforce").then(r => r.json()),
       fetch("/api/lp/integrations/asana").then(r => r.ok ? r.json() : { enabled: false, config: {} }).catch(() => ({ enabled: false, config: {} })),
-    ]).then(([s, m, sf, a]) => {
+      fetch("/api/lp/integrations/webhook").then(r => r.ok ? r.json() : { enabled: false, config: {} }).catch(() => ({ enabled: false, config: {} })),
+    ]).then(([s, m, sf, a, w]) => {
       setSheets({ enabled: s.enabled ?? false, config: { sheetId: "", serviceAccountEmail: "", privateKey: "", tabName: "Leads", ...(s.config ?? {}) } });
       setMarketo({ enabled: m.enabled ?? false, config: { munchkinId: "", clientId: "", clientSecret: "", ...(m.config ?? {}) } });
       setSf({ enabled: sf.enabled ?? false, config: { instanceUrl: "", clientId: "", clientSecret: "", ...(sf.config ?? {}) } });
       setAsana({ enabled: a.enabled ?? false, config: { pat: "", workspaceId: "", projectId: "", defaultAssigneeGid: "", ...(a.config ?? {}) } });
+      setWebhook({ enabled: w.enabled ?? false, config: { url: "", signingSecret: "", ...(w.config ?? {}) } });
     }).finally(() => setLoading(false));
   }, []);
 
@@ -147,10 +157,31 @@ export function IntegrationsContent() {
     setAsanaResult(await res.json()); setAsanaTesting(false);
   };
 
+  // Webhook handlers
+  const updateWebhook = (field: keyof WebhookConfig, value: string) => { setWebhook(s => ({ ...s, config: { ...s.config, [field]: value } })); setWebhookSaved(false); setWebhookResult(null); };
+  const saveWebhook = async () => {
+    setWebhookSaving(true); setWebhookResult(null);
+    const res = await fetch("/api/lp/integrations/webhook", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(webhook) });
+    setWebhookSaving(false);
+    if (!res.ok) {
+      // The backend rejects invalid URLs with 400 — never show a false "Saved!".
+      const err = await res.json().catch(() => ({ error: "Failed to save webhook settings." }));
+      setWebhookResult({ ok: false, error: err.error ?? "Failed to save webhook settings." });
+      return;
+    }
+    setWebhookSaved(true); setTimeout(() => setWebhookSaved(false), 3000);
+  };
+  const testWebhook = async () => {
+    setWebhookTesting(true); setWebhookResult(null);
+    const res = await fetch("/api/lp/integrations/webhook/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config: webhook.config }) });
+    setWebhookResult(await res.json()); setWebhookTesting(false);
+  };
+
   const sheetsReady = !!(sheets.config.sheetId && sheets.config.serviceAccountEmail && sheets.config.privateKey);
   const marketoReady = !!(marketo.config.munchkinId && marketo.config.clientId && marketo.config.clientSecret);
   const sfReady = !!(sf.config.instanceUrl && sf.config.clientId && sf.config.clientSecret);
   const asanaReady = !!(asana.config.pat && asana.config.workspaceId && asana.config.projectId);
+  const webhookReady = !!(webhook.config.url);
 
   if (loading) {
     return (
@@ -363,6 +394,56 @@ export function IntegrationsContent() {
           </div>
         </div>
         )}
+
+        {/* ── Webhook (campaign link export) ── */}
+        <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden" data-testid="webhook-integration-card">
+          <div className="flex items-center gap-4 px-6 py-5 border-b border-border">
+            <div className="w-10 h-10 rounded-xl bg-foreground/5 flex items-center justify-center shrink-0">
+              <Webhook className="w-5 h-5 text-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm">Webhook <span className="text-[10px] font-normal text-muted-foreground ml-1">Campaign link export</span></p>
+              <p className="text-xs text-muted-foreground">Push campaign recipients and their tokenized identity-reveal links to any HTTPS endpoint as a signed JSON POST.</p>
+            </div>
+            <Toggle checked={webhook.enabled} onChange={v => { setWebhook(s => ({ ...s, enabled: v })); setWebhookSaved(false); }} />
+          </div>
+          <div className="px-6 py-6 space-y-5">
+            <div className="rounded-xl bg-muted/50 border border-border px-4 py-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
+              <p className="font-semibold text-foreground text-[11px] uppercase tracking-wide mb-2">How it works</p>
+              <p>1. Enter the <strong>HTTPS endpoint</strong> that should receive the export. Internal / private hosts are rejected.</p>
+              <p>2. (Optional) Add a <strong>signing secret</strong>. We sign each request body with HMAC-SHA256 and send it as the <code className="bg-muted px-1 rounded">X-LPStudio-Signature</code> header so you can verify authenticity.</p>
+              <p>3. Pick <strong>Webhook</strong> as the destination when exporting campaign links.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Endpoint URL</Label>
+              <Input
+                value={webhook.config.url}
+                onChange={e => updateWebhook("url", e.target.value)}
+                placeholder="https://example.com/hooks/lp-studio"
+                className="font-mono text-sm h-9"
+                data-testid="webhook-url-input"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Signing secret <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input
+                type={webhook.config.signingSecret === MASKED ? "text" : "password"}
+                value={webhook.config.signingSecret}
+                onChange={e => updateWebhook("signingSecret", e.target.value)}
+                placeholder="whsec_..."
+                className="font-mono text-sm h-9"
+                data-testid="webhook-secret-input"
+              />
+            </div>
+            <TestBanner result={webhookResult} />
+            <SaveRow saving={webhookSaving} saved={webhookSaved} onSave={saveWebhook} testEl={
+              <Button variant="outline" size="sm" className="gap-2" disabled={webhookTesting || !webhookReady} onClick={testWebhook} data-testid="webhook-test-button">
+                {webhookTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                Send test
+              </Button>
+            } />
+          </div>
+        </div>
 
         {/* More coming soon */}
         <div className="rounded-2xl border border-dashed border-border px-6 py-8 text-center">

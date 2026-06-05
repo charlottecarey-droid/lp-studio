@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import { testSheetsConnection, type SheetsConfig } from "../../lib/google-sheets";
 import type { MarketoConfig, SalesforceConfig, LeadPayload } from "../../lib/notifications";
 import { decryptConfigCredentials, encryptConfigCredentials } from "../../lib/encryption";
+import { assertPublicHttpsUrl } from "../../lib/exportDestinations";
 
 const router = Router();
 const MASKED = "••••••••";
@@ -340,6 +341,103 @@ router.post("/_test/asana-calls/clear", async (_req, res): Promise<void> => {
   const { __clearRecordedAsanaCalls } = await import("../../lib/asana");
   __clearRecordedAsanaCalls();
   res.json({ ok: true });
+});
+
+// ─── Outbound webhook (campaign link export, task #981) ───────────────────────
+
+interface WebhookConfigShape {
+  url: string;
+  signingSecret?: string;
+}
+
+router.get("/lp/integrations/webhook", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const row = await getIntegration("webhook", tenantId);
+  if (!row) {
+    res.json({ enabled: false, config: { url: "", signingSecret: "" } });
+    return;
+  }
+  const cfg = row.config as WebhookConfigShape;
+  res.json({
+    enabled: row.enabled,
+    config: {
+      url: cfg.url ?? "",
+      signingSecret: cfg.signingSecret ? MASKED : "",
+    },
+  });
+});
+
+router.put("/lp/integrations/webhook", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const { enabled, config } = req.body as { enabled: boolean; config: WebhookConfigShape };
+  if (!config || typeof config !== "object") {
+    res.status(400).json({ error: "config is required" });
+    return;
+  }
+  // Validate the URL up front (https + public host) so a bad value can't be
+  // saved-then-fail at delivery time. Empty url is allowed (lets a tenant clear it).
+  if (config.url && config.url.trim()) {
+    try {
+      assertPublicHttpsUrl(config.url.trim());
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : "Invalid webhook URL" });
+      return;
+    }
+  }
+  const existing = await getIntegration("webhook", tenantId);
+  const existingCfg = (existing?.config ?? {}) as WebhookConfigShape;
+  const merged: WebhookConfigShape = {
+    url: config.url?.trim() ?? existingCfg.url ?? "",
+    signingSecret: config.signingSecret && config.signingSecret !== MASKED
+      ? config.signingSecret
+      : (existingCfg.signingSecret ?? ""),
+  };
+  await upsertIntegration("webhook", merged, enabled ?? false, tenantId);
+  res.json({ ok: true });
+});
+
+router.post("/lp/integrations/webhook/test", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const { config } = req.body as { config: WebhookConfigShape };
+  const existing = await getIntegration("webhook", tenantId);
+  const existingCfg = (existing?.config ?? {}) as WebhookConfigShape;
+  const secret = config.signingSecret === MASKED ? existingCfg.signingSecret : config.signingSecret;
+  let url: URL;
+  try {
+    url = assertPublicHttpsUrl(String(config.url ?? "").trim());
+  } catch (err) {
+    res.json({ ok: false, error: err instanceof Error ? err.message : "Invalid webhook URL" });
+    return;
+  }
+  const body = JSON.stringify({ event: "test", sentAt: new Date().toISOString(), message: "LP Studio webhook test" });
+  const headers: Record<string, string> = { "Content-Type": "application/json", "User-Agent": "LPStudio-Webhook/1" };
+  if (secret) {
+    const { createHmac } = await import("node:crypto");
+    headers["X-LPStudio-Signature"] = `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const resp = await fetch(url.toString(), { method: "POST", headers, body, redirect: "manual", signal: controller.signal });
+    if (resp.type === "opaqueredirect" || (resp.status >= 300 && resp.status < 400)) {
+      res.json({ ok: false, error: "Webhook endpoint returned a redirect, which is not allowed." });
+      return;
+    }
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => "");
+      res.json({ ok: false, error: `HTTP ${resp.status}${text ? ` ${text.slice(0, 200)}` : ""}` });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "AbortError") {
+      res.json({ ok: false, error: "Webhook request timed out after 15s." });
+      return;
+    }
+    res.json({ ok: false, error: String(err) });
+  } finally {
+    clearTimeout(timeout);
+  }
 });
 
 // ─── Sync helpers (called from leads.ts, tenantId derived from page) ──────────

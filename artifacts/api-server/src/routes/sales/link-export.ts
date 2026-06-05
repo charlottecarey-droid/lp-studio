@@ -62,6 +62,12 @@ router.post("/link-export/:destinationId", requirePermission("sales_campaigns"),
   const destinationId = String(req.params.destinationId);
   const destination = getDestination(destinationId);
   if (!destination) { res.status(404).json({ error: "Unknown export destination" }); return; }
+  // Gated "coming soon" destinations (available === false) are listed in the
+  // picker but can never run — reject explicitly rather than relying on isConfigured.
+  if (destination.available === false) {
+    res.status(400).json({ error: `${destination.displayName} isn't available yet.` });
+    return;
+  }
 
   const pageId = Number(req.body?.pageId);
   const contactIds: number[] = Array.isArray(req.body?.contactIds)
