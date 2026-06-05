@@ -16,6 +16,7 @@ const LAVENDER = "var(--tint-lavender)";
 export default function CreatePageOverlay() {
   return (
     <div
+      className="cpo-root"
       style={{
         height: "100%",
         background: "var(--cream)",
@@ -27,6 +28,23 @@ export default function CreatePageOverlay() {
         overflow: "hidden",
       }}
     >
+      {/* On mobile the side-by-side "modal → arrow → generated page" layout
+          can't fit, so it gets badly clipped. Below 720px we hide the arrow +
+          generated hero and let the Create New Page modal go full-width (the
+          optional "Pages to learn from" field is hidden to keep it inside the
+          fixed-height frame). Desktop is unchanged. */}
+      <style>{`
+        @media (max-width: 720px) {
+          .cpo-root { padding: 16px 14px !important; gap: 0 !important; }
+          .cpo-arrow, .cpo-hero { display: none !important; }
+          .cpo-modal {
+            min-width: 0 !important;
+            max-width: 100% !important;
+            flex: 1 1 100% !important;
+          }
+          .cpo-pages { display: none !important; }
+        }
+      `}</style>
       <CreateNewPageModal />
       <GenerateArrow />
       <GeneratedPageHero />
@@ -39,6 +57,7 @@ export default function CreatePageOverlay() {
 function CreateNewPageModal() {
   return (
     <div
+      className="cpo-modal"
       style={{
         flex: "0 1 460px",
         maxWidth: 460,
@@ -226,28 +245,30 @@ function CreateNewPageModal() {
         </div>
 
         {/* Pages to learn from */}
-        <FieldLabel style={{ marginTop: 14 }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <Icon name="link" size={12} style={{ color: "var(--ink-mute)" }} />
-            Pages to learn from{" "}
-            <span style={{ fontWeight: 400, color: "var(--ink-mute)" }}>
-              (optional, up to 5)
+        <div className="cpo-pages">
+          <FieldLabel style={{ marginTop: 14 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Icon name="link" size={12} style={{ color: "var(--ink-mute)" }} />
+              Pages to learn from{" "}
+              <span style={{ fontWeight: 400, color: "var(--ink-mute)" }}>
+                (optional, up to 5)
+              </span>
             </span>
-          </span>
-        </FieldLabel>
-        <div
-          style={{
-            border: "1px solid var(--hairline)",
-            borderRadius: 9,
-            padding: "9px 12px",
-            fontSize: 12,
-            fontFamily:
-              "ui-monospace, SFMono-Regular, 'Roboto Mono', Menlo, Monaco, Consolas, monospace",
-            color: "var(--ink-mute)",
-            background: "#fff",
-          }}
-        >
-          https://stripe.com{"   "}— paste a URL and press Enter
+          </FieldLabel>
+          <div
+            style={{
+              border: "1px solid var(--hairline)",
+              borderRadius: 9,
+              padding: "9px 12px",
+              fontSize: 12,
+              fontFamily:
+                "ui-monospace, SFMono-Regular, 'Roboto Mono', Menlo, Monaco, Consolas, monospace",
+              color: "var(--ink-mute)",
+              background: "#fff",
+            }}
+          >
+            https://stripe.com{"   "}— paste a URL and press Enter
+          </div>
         </div>
       </div>
 
@@ -303,6 +324,7 @@ function GenerateArrow() {
   return (
     <div
       aria-hidden="true"
+      className="cpo-arrow"
       style={{
         flex: "0 0 56px",
         display: "flex",
@@ -349,6 +371,7 @@ function GeneratedPageHero() {
 
   return (
     <div
+      className="cpo-hero"
       style={{
         flex: "0 1 440px",
         maxWidth: 440,

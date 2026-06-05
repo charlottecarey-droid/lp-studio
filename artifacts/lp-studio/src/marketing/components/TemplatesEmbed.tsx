@@ -178,23 +178,29 @@ function LivePreview({ url }: { url: string }) {
 function TemplateCard({
   template,
   onPreview,
+  interactive = true,
 }: {
   template: Template;
   onPreview: (t: Template) => void;
+  // On mobile the preview modal (live iframe) is a poor experience, so cards
+  // render as static, non-clickable proof. Defaults to interactive (desktop).
+  interactive?: boolean;
 }) {
+  // When non-interactive there are no hover handlers, so `hover` stays false
+  // and every hover-driven style below resolves to its resting state.
   const [hover, setHover] = useState(false);
   const color = CAT_COLOR[template.category] ?? CAT_COLOR_FALLBACK;
 
   return (
     <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      onClick={() => onPreview(template)}
+      onMouseEnter={interactive ? () => setHover(true) : undefined}
+      onMouseLeave={interactive ? () => setHover(false) : undefined}
+      onClick={interactive ? () => onPreview(template) : undefined}
       style={{
         background: "#fff",
         borderRadius: 14,
         overflow: "hidden",
-        cursor: "pointer",
+        cursor: interactive ? "pointer" : "default",
         transition: "transform .16s cubic-bezier(.16,1,.3,1), box-shadow .16s",
         transform: hover ? "translateY(-3px)" : "none",
         boxShadow: hover
@@ -625,6 +631,25 @@ export default function TemplatesEmbed() {
   // response keeps the built-in fallback, so the section is never blank.
   const [templates, setTemplates] = useState<Template[]>(TEMPLATES);
 
+  // SSR-safe mobile detection: default desktop (marketing is prerendered to
+  // desktop HTML), then flip after mount. On mobile we show only 3 cards and
+  // make them non-clickable (the live-iframe preview modal is a poor phone UX).
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const update = () => {
+      setIsMobile(mq.matches);
+      // Cards are non-interactive on mobile, so close any open preview to
+      // avoid a stale modal lingering after a resize down to phone width.
+      if (mq.matches) setOpen(null);
+    };
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  const visible = isMobile ? templates.slice(0, 3) : templates;
+
   useEffect(() => {
     let cancelled = false;
     fetch(`${APP_BASE}/api/lp/featured-templates`, { credentials: "omit" })
@@ -786,7 +811,7 @@ export default function TemplatesEmbed() {
                 padding: "1px 8px",
               }}
             >
-              {templates.length}
+              {visible.length}
             </span>
           </div>
           <span
@@ -811,13 +836,20 @@ export default function TemplatesEmbed() {
             gap: 16,
           }}
         >
-          {templates.map((t) => (
-            <TemplateCard key={t.id} template={t} onPreview={setOpen} />
+          {visible.map((t) => (
+            <TemplateCard
+              key={t.id}
+              template={t}
+              onPreview={setOpen}
+              interactive={!isMobile}
+            />
           ))}
         </div>
       </div>
 
-      {open && <PreviewModal template={open} onClose={() => setOpen(null)} />}
+      {open && !isMobile && (
+        <PreviewModal template={open} onClose={() => setOpen(null)} />
+      )}
     </div>
   );
 }

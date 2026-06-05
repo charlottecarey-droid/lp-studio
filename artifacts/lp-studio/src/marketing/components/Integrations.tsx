@@ -331,7 +331,7 @@ export default function Integrations() {
                   {g.subtitle}
                 </div>
               </div>
-              <div className="col-span-12 md:col-span-9 grid grid-cols-3 md:grid-cols-4 gap-3">
+              <div className="col-span-12 md:col-span-9 grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {g.items.map((it) => (
                   <IntegrationTile key={it.name} {...it} />
                 ))}

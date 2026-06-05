@@ -98,6 +98,7 @@ function Icon({ name, size = 16, style }: IconNamedProps) {
 function ScStat({ v, l, hot }: { v: string; l: string; hot?: boolean }) {
   return (
     <div
+      className="sc-stat"
       style={{
         flex: 1,
         background: "#fff",
@@ -224,6 +225,13 @@ export default function SalesConsoleEmbed() {
         }
         @media (max-width: 767px) {
           .sc-tabs { display: none !important; }
+          /* The settings cog + Marketing/Sales toggle overflow the top nav on
+             phones, pushing the toggle off-screen — hide them so the bar reads
+             cleanly as "Northwind · avatar". */
+          .sc-nav-extra { display: none !important; }
+          .sc-body { padding: 18px 14px 28px !important; }
+          .sc-stats { gap: 10px !important; }
+          .sc-stat { padding: 13px 12px !important; }
           .sc-actions {
             width: 100% !important;
             flex-wrap: wrap !important;
@@ -322,8 +330,11 @@ export default function SalesConsoleEmbed() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <Icon name="settings" size={16} style={{ color: "rgba(255,255,255,0.6)" }} />
+          <span className="sc-nav-extra" style={{ display: "inline-flex", color: "rgba(255,255,255,0.6)" }}>
+            <Icon name="settings" size={16} />
+          </span>
           <div
+            className="sc-nav-extra"
             style={{
               display: "flex",
               background: "rgba(0,0,0,0.25)",
@@ -384,6 +395,7 @@ export default function SalesConsoleEmbed() {
       {/* Body */}
       <div style={{ flex: 1, overflowY: "auto" }}>
         <div
+          className="sc-body"
           style={{
             maxWidth: 1180,
             margin: "0 auto",
@@ -531,7 +543,7 @@ export default function SalesConsoleEmbed() {
           </div>
 
           {/* Stat cards */}
-          <div style={{ display: "flex", gap: 16 }}>
+          <div className="sc-stats" style={{ display: "flex", gap: 16 }}>
             <ScStat v="302" l="Accounts" />
             <ScStat v="5" l="Hot (last 2 weeks)" hot />
             <ScStat v="3" l="Signals today" />
