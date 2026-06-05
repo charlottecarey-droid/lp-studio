@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import SuperAdminBlockCatalog from "./SuperAdminBlockCatalog";
 import SuperAdminTemplates from "./SuperAdminTemplates";
+import SuperAdminFeaturedTemplates from "./SuperAdminFeaturedTemplates";
 import SuperAdminAssetHealth from "./SuperAdminAssetHealth";
 import SuperAdminPlanConfig from "./SuperAdminPlanConfig";
 import SuperAdminNotifications from "./SuperAdminNotifications";
@@ -1224,10 +1225,11 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [domainHelp, setDomainHelp] = useState<DomainHelp | null>(null);
-  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "asset-health" | "plans" | "notifications" | "trial-phones" | "superadmins">(() => {
+  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "featured-templates" | "asset-health" | "plans" | "notifications" | "trial-phones" | "superadmins">(() => {
     if (typeof window !== "undefined") {
       if (window.location.hash === "#catalog") return "catalog";
       if (window.location.hash === "#templates") return "templates";
+      if (window.location.hash === "#featured-templates") return "featured-templates";
       if (window.location.hash === "#asset-health") return "asset-health";
       if (window.location.hash === "#plans") return "plans";
       if (window.location.hash === "#notifications") return "notifications";
@@ -1379,6 +1381,14 @@ export default function SuperAdminPage() {
             <LayoutTemplate className="w-3.5 h-3.5" /> Templates
           </button>
           <button
+            onClick={() => setTab("featured-templates")}
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
+              tab === "featured-templates" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <LayoutTemplate className="w-3.5 h-3.5" /> Homepage Featured
+          </button>
+          <button
             onClick={() => setTab("asset-health")}
             className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
               tab === "asset-health" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
@@ -1426,6 +1436,8 @@ export default function SuperAdminPage() {
           <SuperAdminBlockCatalog />
         ) : tab === "templates" ? (
           <SuperAdminTemplates />
+        ) : tab === "featured-templates" ? (
+          <SuperAdminFeaturedTemplates />
         ) : tab === "plans" ? (
           <SuperAdminPlanConfig />
         ) : tab === "notifications" ? (

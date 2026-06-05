@@ -50,6 +50,9 @@ export * from "./tenantWebhookSecrets";
 // SuperAdmin-configurable plan/pricing tiers
 export * from "./planConfig";
 
+// Superadmin-editable list of featured templates shown on the marketing homepage
+export * from "./featuredTemplates";
+
 // Trial phone gating (one free trial per SMS-verified phone number)
 export * from "./trialPhoneVerifications";
 // Audit trail for superadmin trial-phone releases

@@ -52,6 +52,7 @@ export const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "*",    pattern: /^\/lp\/rendered\// },       // GET/HEAD /lp/rendered/:slug — prerendered published HTML (task #364). MUST be `*`, not `"GET"`: bot user-agents (Slackbot health-pings, CDN cache-warmers, link-preview HEAD probes) hit this endpoint with HEAD before GET. A `method: "GET"` allowlist entry rejects HEAD with 401 from requireAuth, which silently turns previewers + bots into 401 responses while real browser GETs work — making the bug invisible in dev.
   { method: "GET",  pattern: /^\/lp\/public-pages$/ },    // GET /lp/public-pages?tag=… — tenant-scoped, published-only page list for the Story Hub block on published landing pages
   { method: "GET",  pattern: /^\/lp\/plan-config$/ },     // GET /lp/plan-config — public, live (SuperAdmin-editable) plan/pricing config for app billing/upgrade surfaces
+  { method: "GET",  pattern: /^\/lp\/featured-templates$/ }, // GET /lp/featured-templates — public, CORS; SuperAdmin-editable list of homepage featured templates (marketing site reads this, falls back to built-in list)
   { method: "GET",  pattern: /^\/sales\/resolve\// },     // GET /sales/resolve/:token — visited by contacts from email (no auth)
   { method: "GET",  pattern: /^\/sales\/track\// },        // GET /sales/track/click-hotlink, /sales/track/open — click/open tracking from emails
   { method: "*",    pattern: /^\/sales\/unsubscribe$/ },  // GET/POST /sales/unsubscribe — one-click unsubscribe links from emails

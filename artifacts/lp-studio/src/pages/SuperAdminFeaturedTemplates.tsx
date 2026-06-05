@@ -1,0 +1,457 @@
+import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertTriangle, CheckCircle2, Loader2, RefreshCw, Plus, Trash2,
+  ArrowUp, ArrowDown, ExternalLink,
+} from "lucide-react";
+import { LP_TEMPLATES } from "@/lib/templates";
+import { templateToBlocks } from "@/lib/block-types/block-registry";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+async function apiFetch(path: string, opts?: RequestInit) {
+  const res = await fetch(`${BASE}${path}`, {
+    ...opts,
+    credentials: "include",
+    headers: {
+      "content-type": "application/json",
+      ...(opts?.headers ?? {}),
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || String(res.status));
+  }
+  return res.json();
+}
+
+// One editable entry. blocksCount is held as a string so the input can be
+// cleared while editing (empty => 0 on save). `key` is a stable client-side id
+// for React list keys + reorder (rows have no DB id until first save, and after
+// a save-and-replace every id changes anyway).
+interface Draft {
+  key: string;
+  templateId: string;
+  title: string;
+  description: string;
+  thumbnailUrl: string;
+  category: string;
+  blocksCount: string;
+  enabled: boolean;
+}
+
+interface AdminEntry {
+  id: number;
+  templateId: string;
+  title: string;
+  description: string;
+  thumbnailUrl: string;
+  category: string;
+  blocksCount: number;
+  enabled: boolean;
+  sortOrder: number;
+}
+
+let keySeq = 0;
+function nextKey(): string {
+  keySeq += 1;
+  return `fh-${Date.now()}-${keySeq}`;
+}
+
+function toDraft(e: AdminEntry): Draft {
+  return {
+    key: nextKey(),
+    templateId: e.templateId,
+    title: e.title,
+    description: e.description,
+    thumbnailUrl: e.thumbnailUrl,
+    category: e.category,
+    blocksCount: String(e.blocksCount ?? 0),
+    enabled: e.enabled,
+  };
+}
+
+// Count the rendered blocks for a template so the editor can prefill the
+// blocks count when a superadmin picks a new underlying template.
+function blockCountFor(templateId: string): number {
+  try {
+    return templateToBlocks(templateId).length;
+  } catch {
+    return 0;
+  }
+}
+
+export default function SuperAdminFeaturedTemplates() {
+  const [drafts, setDrafts] = useState<Draft[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await apiFetch("/api/admin/lp/featured-templates");
+      const entries: AdminEntry[] = data?.templates ?? [];
+      setDrafts(entries.map(toDraft));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load");
+      setDrafts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const update = (key: string, patch: Partial<Draft>) => {
+    setSaved(false);
+    setDrafts((prev) =>
+      (prev ?? []).map((d) => (d.key === key ? { ...d, ...patch } : d)),
+    );
+  };
+
+  // Picking an underlying template prefills any empty display fields from the
+  // template's own metadata (title/description/blocks) but never clobbers text
+  // the superadmin already entered.
+  const pickTemplate = (key: string, templateId: string) => {
+    setSaved(false);
+    const tpl = LP_TEMPLATES.find((t) => t.id === templateId);
+    setDrafts((prev) =>
+      (prev ?? []).map((d) => {
+        if (d.key !== key) return d;
+        return {
+          ...d,
+          templateId,
+          title: d.title.trim() ? d.title : (tpl?.name ?? ""),
+          description: d.description.trim() ? d.description : (tpl?.description ?? ""),
+          blocksCount:
+            d.blocksCount.trim() && d.blocksCount !== "0"
+              ? d.blocksCount
+              : String(blockCountFor(templateId)),
+        };
+      }),
+    );
+  };
+
+  const addRow = () => {
+    setSaved(false);
+    const firstTpl = LP_TEMPLATES[0];
+    setDrafts((prev) => [
+      ...(prev ?? []),
+      {
+        key: nextKey(),
+        templateId: firstTpl?.id ?? "",
+        title: firstTpl?.name ?? "",
+        description: firstTpl?.description ?? "",
+        thumbnailUrl: "",
+        category: "",
+        blocksCount: String(firstTpl ? blockCountFor(firstTpl.id) : 0),
+        enabled: true,
+      },
+    ]);
+  };
+
+  const removeRow = (key: string) => {
+    setSaved(false);
+    setDrafts((prev) => (prev ?? []).filter((d) => d.key !== key));
+  };
+
+  const move = (key: string, dir: -1 | 1) => {
+    setSaved(false);
+    setDrafts((prev) => {
+      const list = [...(prev ?? [])];
+      const i = list.findIndex((d) => d.key === key);
+      if (i < 0) return list;
+      const j = i + dir;
+      if (j < 0 || j >= list.length) return list;
+      [list[i], list[j]] = [list[j], list[i]];
+      return list;
+    });
+  };
+
+  const save = async () => {
+    if (!drafts) return;
+    // Client-side guard: every row needs a real, usable template id so the
+    // preview iframe + clone handoff work on the homepage.
+    for (let i = 0; i < drafts.length; i++) {
+      const d = drafts[i];
+      if (!d.templateId) {
+        setError(`Card ${i + 1}: pick an underlying template`);
+        return;
+      }
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const payload = {
+        templates: drafts.map((d) => ({
+          templateId: d.templateId,
+          title: d.title,
+          description: d.description,
+          thumbnailUrl: d.thumbnailUrl,
+          category: d.category,
+          blocksCount: d.blocksCount.trim() === "" ? 0 : Number(d.blocksCount),
+          enabled: d.enabled,
+        })),
+      };
+      const data = await apiFetch("/api/admin/lp/featured-templates", {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      const entries: AdminEntry[] = data?.templates ?? [];
+      setDrafts(entries.map(toDraft));
+      setSaved(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading && drafts === null) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const list = drafts ?? [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold">Homepage Featured Templates</h2>
+          <p className="text-sm text-muted-foreground mt-0.5 max-w-2xl">
+            The template cards shown in the marketing homepage gallery. Pick any
+            usable template as the underlying preview/clone target, edit how each
+            card is presented, reorder, enable/disable, or add and remove cards.
+            The homepage falls back to its built-in list if this is empty.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button size="sm" variant="outline" onClick={load} disabled={loading || saving}>
+            <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+            Reload
+          </Button>
+          <Button size="sm" onClick={save} disabled={saving}>
+            {saving ? (
+              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+            )}
+            Save changes
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span className="break-words">{error}</span>
+        </div>
+      )}
+      {saved && !error && (
+        <div className="flex items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          Saved — the homepage now reflects this list.
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {list.length === 0 && (
+          <div className="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
+            No featured templates configured. The homepage is using its built-in
+            fallback list. Add a card to override it.
+          </div>
+        )}
+
+        {list.map((d, i) => {
+          const previewHref = d.templateId
+            ? `${BASE}/preview/template/${d.templateId}`
+            : null;
+          const knownTemplate = LP_TEMPLATES.some((t) => t.id === d.templateId);
+          return (
+            <div
+              key={d.key}
+              className="rounded-lg border bg-card p-4 space-y-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Card {i + 1}
+                  </span>
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Switch
+                      checked={d.enabled}
+                      onCheckedChange={(v) => update(d.key, { enabled: v })}
+                    />
+                    {d.enabled ? "Enabled" : "Hidden"}
+                  </label>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7"
+                    disabled={i === 0}
+                    onClick={() => move(d.key, -1)}
+                    title="Move up"
+                  >
+                    <ArrowUp className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7"
+                    disabled={i === list.length - 1}
+                    onClick={() => move(d.key, 1)}
+                    title="Move down"
+                  >
+                    <ArrowDown className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-destructive hover:text-destructive"
+                    onClick={() => removeRow(d.key)}
+                    title="Remove card"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Underlying template</Label>
+                  <Select
+                    value={knownTemplate ? d.templateId : undefined}
+                    onValueChange={(v) => pickTemplate(d.key, v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pick a usable template…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LP_TEMPLATES.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <code className="truncate">{d.templateId || "—"}</code>
+                    {previewHref && (
+                      <a
+                        href={previewHref}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-0.5 text-primary hover:underline shrink-0"
+                      >
+                        Preview <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                  {!knownTemplate && d.templateId && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-500">
+                      This id isn't in the current template catalog — preview and
+                      clone may not work. Pick one from the list.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Category</Label>
+                  <Input
+                    value={d.category}
+                    onChange={(e) => update(d.key, { category: e.target.value })}
+                    placeholder="e.g. Launch, Events, Marketing"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Title</Label>
+                  <Input
+                    value={d.title}
+                    onChange={(e) => update(d.key, { title: e.target.value })}
+                    placeholder="Card title"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Blocks count</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={d.blocksCount}
+                    onChange={(e) => update(d.key, { blocksCount: e.target.value })}
+                    placeholder="0"
+                  />
+                </div>
+
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label className="text-xs">Description</Label>
+                  <Textarea
+                    rows={2}
+                    value={d.description}
+                    onChange={(e) => update(d.key, { description: e.target.value })}
+                    placeholder="Short description shown on the card"
+                  />
+                </div>
+
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label className="text-xs">Thumbnail URL</Label>
+                  <div className="flex items-start gap-3">
+                    <Input
+                      value={d.thumbnailUrl}
+                      onChange={(e) => update(d.key, { thumbnailUrl: e.target.value })}
+                      placeholder="https://…"
+                    />
+                    {d.thumbnailUrl && (
+                      <img
+                        src={d.thumbnailUrl}
+                        alt=""
+                        className="h-10 w-16 rounded object-cover border shrink-0"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center justify-between pt-1">
+        <Button size="sm" variant="outline" onClick={addRow}>
+          <Plus className="w-3.5 h-3.5 mr-1.5" />
+          Add card
+        </Button>
+        <Button size="sm" onClick={save} disabled={saving}>
+          {saving ? (
+            <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+          ) : (
+            <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+          )}
+          Save changes
+        </Button>
+      </div>
+    </div>
+  );
+}

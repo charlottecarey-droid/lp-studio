@@ -20,17 +20,21 @@ interface Template {
   title: string;
   description: string;
   thumbnail: string;
-  category: "Marketing" | "Sales" | "Events" | "Story" | "Launch";
+  // Display category. The built-in list uses a small fixed set, but the
+  // superadmin-editable config can supply any string, so accept any value and
+  // fall back to a neutral accent color for unknown categories.
+  category: string;
   blocks: number;
 }
 
-const CAT_COLOR: Record<Template["category"], string> = {
+const CAT_COLOR: Record<string, string> = {
   Marketing: "#4B47E5",
   Sales: "#E26B4F",
   Events: "#C8923D",
   Story: "#6B9171",
   Launch: "#4B47E5",
 };
+const CAT_COLOR_FALLBACK = "#4B47E5";
 
 // Curated subset of LP_TEMPLATES (artifacts/lp-studio/src/lib/templates.ts).
 // IDs map 1:1 to /preview/template/:id (App.tsx mounts that route inside the
@@ -179,7 +183,7 @@ function TemplateCard({
   onPreview: (t: Template) => void;
 }) {
   const [hover, setHover] = useState(false);
-  const color = CAT_COLOR[template.category];
+  const color = CAT_COLOR[template.category] ?? CAT_COLOR_FALLBACK;
 
   return (
     <div
@@ -596,8 +600,49 @@ function PreviewModal({
   return createPortal(modal, document.body);
 }
 
+// Normalize a raw API entry into a Template, dropping anything missing the
+// fields the card actually needs to render + preview/clone.
+function toTemplate(raw: unknown): Template | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const id = typeof r.id === "string" ? r.id : "";
+  if (!id) return null;
+  return {
+    id,
+    title: typeof r.title === "string" ? r.title : "",
+    description: typeof r.description === "string" ? r.description : "",
+    thumbnail: typeof r.thumbnail === "string" ? r.thumbnail : "",
+    category: typeof r.category === "string" ? r.category : "",
+    blocks: typeof r.blocks === "number" ? r.blocks : 0,
+  };
+}
+
 export default function TemplatesEmbed() {
   const [open, setOpen] = useState<Template | null>(null);
+  // Start with the built-in list so the section renders instantly (and works
+  // when prerendered/offline), then replace it with the superadmin-editable
+  // config from the public endpoint once it resolves. Any failure or empty
+  // response keeps the built-in fallback, so the section is never blank.
+  const [templates, setTemplates] = useState<Template[]>(TEMPLATES);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${APP_BASE}/api/lp/featured-templates`, { credentials: "omit" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data || !Array.isArray(data.templates)) return;
+        const parsed = data.templates
+          .map(toTemplate)
+          .filter((t: Template | null): t is Template => t !== null);
+        if (parsed.length > 0) setTemplates(parsed);
+      })
+      .catch(() => {
+        /* keep built-in fallback */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div
@@ -741,7 +786,7 @@ export default function TemplatesEmbed() {
                 padding: "1px 8px",
               }}
             >
-              {TEMPLATES.length}
+              {templates.length}
             </span>
           </div>
           <span
@@ -766,7 +811,7 @@ export default function TemplatesEmbed() {
             gap: 16,
           }}
         >
-          {TEMPLATES.map((t) => (
+          {templates.map((t) => (
             <TemplateCard key={t.id} template={t} onPreview={setOpen} />
           ))}
         </div>

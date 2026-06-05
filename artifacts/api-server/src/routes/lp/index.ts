@@ -48,6 +48,7 @@ import podcastAvailabilityRouter from "./podcast-availability";
 import contentSeriesRouter from "./content-series";
 import renderedRouter from "./rendered";
 import planConfigRouter from "./plan-config";
+import featuredTemplatesRouter from "./featured-templates";
 import emailDomainRouter from "./email-domain";
 import brandedEmailSubdomainRouter from "./branded-email-subdomain";
 
@@ -62,6 +63,7 @@ router.use(trackingRouter);
 // can take over.
 router.use(renderedRouter);
 router.use(planConfigRouter);
+router.use(featuredTemplatesRouter);
 router.use(emailDomainRouter);
 router.use(brandedEmailSubdomainRouter);
 router.use(resultsRouter);
