@@ -36,6 +36,15 @@ interface PageMetaInput {
   metaDescription: string | null;
   /** lp_pages.og_image — absolute or relative URL; passed through verbatim. */
   ogImage: string | null;
+  /**
+   * Task #967 — resolved share-card dimensions. Emitted as
+   * og:image:width/height ONLY when BOTH are provided AND an image resolved.
+   * The OG cascade (`resolvePageOG`) reports these (1200×630) when an image is
+   * present; legacy callers that omit them keep today's behaviour (no
+   * dimension tags — a wrong size is worse than none).
+   */
+  ogImageWidth?: number | null;
+  ogImageHeight?: number | null;
   /** Slug used to build the canonical URL. */
   slug: string;
   /** Host (no scheme) used to build the canonical URL. */
@@ -270,9 +279,26 @@ export function injectPageMeta(html: string, meta: PageMetaInput): string {
         `<meta property="og:image:type" content="${escapeAttr(ogImageType)}" />`,
       );
     }
-    // og:image:alt mirrors the title — we don't know the tenant image's
-    // dimensions, so width/height are deliberately omitted (a wrong size
-    // is worse than none).
+    // Task #967 — og:image:width/height. Emitted only when the caller passes
+    // BOTH (the OG cascade reports 1200×630 whenever an image resolves). When
+    // omitted (legacy callers) we still skip them — a wrong size is worse than
+    // none. Positive, finite integers only.
+    const w = meta.ogImageWidth;
+    const h = meta.ogImageHeight;
+    if (typeof w === "number" && Number.isFinite(w) && w > 0 &&
+        typeof h === "number" && Number.isFinite(h) && h > 0) {
+      out = upsertHeadTag(
+        out,
+        /<meta[^>]+property=["']og:image:width["'][^>]*>/i,
+        `<meta property="og:image:width" content="${escapeAttr(String(Math.round(w)))}" />`,
+      );
+      out = upsertHeadTag(
+        out,
+        /<meta[^>]+property=["']og:image:height["'][^>]*>/i,
+        `<meta property="og:image:height" content="${escapeAttr(String(Math.round(h)))}" />`,
+      );
+    }
+    // og:image:alt mirrors the title.
     out = upsertHeadTag(
       out,
       /<meta[^>]+property=["']og:image:alt["'][^>]*>/i,

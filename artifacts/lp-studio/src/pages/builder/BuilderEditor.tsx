@@ -54,6 +54,7 @@ import { NestedChild, EmptyContainerSlot, TailDropSlot } from "./NestedChildren"
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { PropertyPanel } from "./property-panels/PropertyPanel";
 import { BuilderTopBar } from "@/components/layout/builder-top-bar";
+import { OgCharCount, OgDimensionWarning, ShareCardPreview } from "@/components/og-share-card";
 import { AdCopyDialog } from "@/components/builder/AdCopyDialog";
 import { LP_TEMPLATES, getTemplatesForIndustry } from "@/lib/templates";
 import { TiptapEditor } from "@/components/TiptapEditor";
@@ -3220,7 +3221,7 @@ export default function BuilderEditor() {
                     placeholder={title || "Page title for search engines"}
                     className="text-sm"
                   />
-                  <p className="text-[10px] text-muted-foreground mt-1">{metaTitle.length}/60 chars — ideal under 60</p>
+                  <OgCharCount value={metaTitle} kind="title" />
                 </div>
 
                 {/* Meta description */}
@@ -3234,7 +3235,7 @@ export default function BuilderEditor() {
                     rows={3}
                     className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background resize-none outline-none focus:ring-1 focus:ring-ring"
                   />
-                  <p className="text-[10px] text-muted-foreground mt-1">{metaDescription.length}/160 chars — ideal under 160</p>
+                  <OgCharCount value={metaDescription} kind="description" />
                 </div>
 
                 {/* OG Image */}
@@ -3271,12 +3272,25 @@ export default function BuilderEditor() {
                       <ImageIcon className="w-3.5 h-3.5" />
                     </Button>
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">Shown when shared on social media. Captures at 1200×630px.</p>
-                  {ogImage && (
-                    <div className="mt-2 rounded-md overflow-hidden border border-border aspect-video bg-muted">
-                      <img src={ogImage} alt="OG preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                    </div>
-                  )}
+                  <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">Shown when shared on social media. Best at 1200×630px.</p>
+                  <OgDimensionWarning
+                    imageUrl={ogImage}
+                    apiBase={API_BASE}
+                    onResized={url => {
+                      const full = url.startsWith("http") ? url : `${window.location.origin}${url}`;
+                      setOgImage(full);
+                      setTimeout(handleSave, 100);
+                    }}
+                  />
+                  <div className="mt-3">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Share preview</p>
+                    <ShareCardPreview
+                      title={metaTitle || title}
+                      description={metaDescription}
+                      imageUrl={ogImage}
+                      domain={micrositeDomain}
+                    />
+                  </div>
                   {ogPickerOpen && (
                     <div className="mt-2 border border-border rounded-md bg-background overflow-hidden">
                       <div className="flex items-center justify-between px-2 py-1.5 bg-muted/40 border-b border-border">

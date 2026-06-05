@@ -1204,6 +1204,39 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
+    // Task #967 — seed the Dandy tenant(s) with a "Default share card" (OG)
+    // title + image so every Dandy page that lacks a per-page override advertises
+    // the brand card to scrapers. We only set columns that are still NULL/empty
+    // so an admin edit via the brand-settings panel is never clobbered (the
+    // marker guard makes reboots no-ops anyway). Description is intentionally
+    // left unset — the cascade falls through to the page's own content, which is
+    // more specific than a generic tagline. The image is the exact 1200×630 card
+    // served from the marketing host. Targets both protected Dandy slugs.
+    await runStep("tenant og defaults dandy seed", async () => {
+    try {
+      const ogMarker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'tenant_og_defaults_dandy_seed_v1'`
+      );
+      if (ogMarker.rows.length === 0) {
+        await db.execute(sql`
+          UPDATE tenants
+             SET default_og_title = COALESCE(NULLIF(default_og_title, ''),
+                   'Meet Dandy | The Modern Operating System for Dentistry'),
+                 default_og_image_url = COALESCE(NULLIF(default_og_image_url, ''),
+                   'https://lpstudio.ai/dandy-og-card.png'),
+                 updated_at = now()
+           WHERE slug IN ('dandy', 'dandy-smb')
+        `);
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES ('tenant_og_defaults_dandy_seed_v1') ON CONFLICT DO NOTHING`
+        );
+        logger.info("tenant og defaults dandy seed applied");
+      }
+    } catch (ogErr) {
+      logger.error({ err: ogErr }, "tenant og defaults dandy seed failed (non-fatal)");
+    }
+    });
+
     // Durable self-heal for the block_catalog.ai_enabled column. Same
     // high-water-mark hazard as the notifications self-heal above: drizzle only
     // applies a journal entry whose `when` is GREATER than the max created_at

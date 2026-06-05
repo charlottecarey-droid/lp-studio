@@ -1593,6 +1593,17 @@ interface TenantSettingsPayload {
    */
   seoAllowIndexing: boolean;
   seoAllowFollowing: boolean;
+  /**
+   * Task #967 — tenant-level "Default share card" (OG) fields. These are
+   * COLUMNS on `tenants` (default_og_title/description/image_url), NOT keys in
+   * the `settings` JSONB, so they're read/written separately from the `||`
+   * merge above. They form the middle layer of the per-page OG cascade:
+   * page override → tenant default → page content → system fallback.
+   * `defaultOgTitle` supports the `{{page_title}}` token. Empty string = unset.
+   */
+  defaultOgTitle: string;
+  defaultOgDescription: string;
+  defaultOgImageUrl: string;
 }
 
 // Reserved microsite paths the vanity router must not shadow. Keep in sync
@@ -1677,8 +1688,15 @@ router.get("/tenant-settings", async (req, res): Promise<void> => {
   const tenantId = req.authUser?.tenantId;
   if (!tenantId) { res.status(400).json({ error: "No tenant in session" }); return; }
   try {
-    const r = await pool.query<{ plan: string | null; settings: Record<string, unknown> | null }>(
-      `SELECT plan, settings FROM tenants WHERE id = $1`,
+    const r = await pool.query<{
+      plan: string | null;
+      settings: Record<string, unknown> | null;
+      default_og_title: string | null;
+      default_og_description: string | null;
+      default_og_image_url: string | null;
+    }>(
+      `SELECT plan, settings, default_og_title, default_og_description, default_og_image_url
+         FROM tenants WHERE id = $1`,
       [tenantId],
     );
     if (!r.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
@@ -1708,6 +1726,9 @@ router.get("/tenant-settings", async (req, res): Promise<void> => {
       // backfilled) defaults to ALLOW, matching the prerender resolver.
       seoAllowIndexing: (settings.seo as { allowIndexing?: unknown } | undefined)?.allowIndexing !== false,
       seoAllowFollowing: (settings.seo as { allowFollowing?: unknown } | undefined)?.allowFollowing !== false,
+      defaultOgTitle: (r.rows[0].default_og_title ?? "").trim(),
+      defaultOgDescription: (r.rows[0].default_og_description ?? "").trim(),
+      defaultOgImageUrl: (r.rows[0].default_og_image_url ?? "").trim(),
     };
     res.json(payload);
   } catch (err) {
@@ -1771,7 +1792,46 @@ router.patch("/tenant-settings", async (req, res): Promise<void> => {
   if (typeof body?.seoAllowIndexing === "boolean") seoMerge.allowIndexing = body.seoAllowIndexing;
   if (typeof body?.seoAllowFollowing === "boolean") seoMerge.allowFollowing = body.seoAllowFollowing;
   const hasSeo = Object.keys(seoMerge).length > 0;
-  if (Object.keys(merge).length === 0 && !hasSeo) {
+
+  // Task #967 — "Default share card" OG columns. Validated + written as real
+  // columns (not JSONB). Each is independently optional; passing an empty
+  // string clears the column (the cascade then falls through to page content).
+  // Max lengths are generous (the editor warns at the OG sweet-spots but does
+  // not hard-block); the image URL must be http(s) or an /api/storage path.
+  const ogColUpdates: { col: string; value: string | null }[] = [];
+  if ("defaultOgTitle" in (body ?? {})) {
+    const raw = (body as { defaultOgTitle?: unknown }).defaultOgTitle;
+    if (typeof raw !== "string") { res.status(400).json({ error: "defaultOgTitle must be a string" }); return; }
+    const v = raw.trim();
+    if (v.length > 300) { res.status(400).json({ error: "defaultOgTitle must be max 300 characters" }); return; }
+    ogColUpdates.push({ col: "default_og_title", value: v || null });
+  }
+  if ("defaultOgDescription" in (body ?? {})) {
+    const raw = (body as { defaultOgDescription?: unknown }).defaultOgDescription;
+    if (typeof raw !== "string") { res.status(400).json({ error: "defaultOgDescription must be a string" }); return; }
+    const v = raw.trim();
+    if (v.length > 600) { res.status(400).json({ error: "defaultOgDescription must be max 600 characters" }); return; }
+    ogColUpdates.push({ col: "default_og_description", value: v || null });
+  }
+  if ("defaultOgImageUrl" in (body ?? {})) {
+    const raw = (body as { defaultOgImageUrl?: unknown }).defaultOgImageUrl;
+    if (typeof raw !== "string") { res.status(400).json({ error: "defaultOgImageUrl must be a string" }); return; }
+    const v = raw.trim();
+    if (v) {
+      const isStoragePath = v.startsWith("/api/storage/");
+      let isHttp = false;
+      try { const u = new URL(v); isHttp = u.protocol === "http:" || u.protocol === "https:"; } catch { isHttp = false; }
+      if (!isStoragePath && !isHttp) {
+        res.status(400).json({ error: "defaultOgImageUrl must be an https URL or an /api/storage path" });
+        return;
+      }
+      if (v.length > 2048) { res.status(400).json({ error: "defaultOgImageUrl is too long" }); return; }
+    }
+    ogColUpdates.push({ col: "default_og_image_url", value: v || null });
+  }
+  const hasOg = ogColUpdates.length > 0;
+
+  if (Object.keys(merge).length === 0 && !hasSeo && !hasOg) {
     res.status(400).json({ error: "No recognised settings to update" });
     return;
   }
@@ -1791,12 +1851,18 @@ router.patch("/tenant-settings", async (req, res): Promise<void> => {
     const params: unknown[] = hasSeo
       ? [JSON.stringify(merge), tenantId, JSON.stringify(seoMerge)]
       : [JSON.stringify(merge), tenantId];
+    // Append the OG column assignments with fresh positional params (the next
+    // index after whatever the seo/merge branch already consumed).
+    const ogSetClauses = ogColUpdates.map(({ col, value }) => {
+      params.push(value);
+      return `${col} = $${params.length}`;
+    });
+    const setClause = [`settings = ${settingsExpr}`, ...ogSetClauses, `updated_at = now()`].join(",\n              ");
     const r = await pool.query<{ plan: string | null; settings: Record<string, unknown> }>(
       `UPDATE tenants
-          SET settings = ${settingsExpr},
-              updated_at = now()
+          SET ${setClause}
         WHERE id = $2
-        RETURNING plan, settings`,
+        RETURNING plan, settings, default_og_title, default_og_description, default_og_image_url`,
       params,
     );
     if (!r.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
@@ -1826,6 +1892,9 @@ router.patch("/tenant-settings", async (req, res): Promise<void> => {
       vanityLinks,
       seoAllowIndexing: (settings.seo as { allowIndexing?: unknown } | undefined)?.allowIndexing !== false,
       seoAllowFollowing: (settings.seo as { allowFollowing?: unknown } | undefined)?.allowFollowing !== false,
+      defaultOgTitle: ((r.rows[0] as { default_og_title?: string | null }).default_og_title ?? "").trim(),
+      defaultOgDescription: ((r.rows[0] as { default_og_description?: string | null }).default_og_description ?? "").trim(),
+      defaultOgImageUrl: ((r.rows[0] as { default_og_image_url?: string | null }).default_og_image_url ?? "").trim(),
     } satisfies TenantSettingsPayload);
   } catch (err) {
     console.error("[admin] PATCH /tenant-settings error:", err);

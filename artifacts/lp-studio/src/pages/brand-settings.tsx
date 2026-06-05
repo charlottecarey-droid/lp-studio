@@ -20,7 +20,7 @@ import {
   SlidersHorizontal, LayoutGrid, Type, BookMarked, Sparkles, Trash2, ImageIcon,
   RotateCcw, MessageSquare, X, Plus, AlertTriangle, Package, ChevronDown, ChevronUp,
   Users, BarChart2, TableProperties, AlertCircle, UserSquare2, Upload, Globe,
-  CircleDashed, CheckCircle2, Check, Wand2, Code2, Camera, Mail,
+  CircleDashed, CheckCircle2, Check, Wand2, Code2, Camera, Mail, Share2,
 } from "lucide-react";
 import {
   DEFAULT_BRAND, fetchBrandConfig, saveBrandConfig,
@@ -41,6 +41,7 @@ import type {
   ImportedVoiceProfile, ImportedPhotographyProfile,
 } from "@/lib/brand-config";
 import { FONT_CATALOG, isSelfHostedFont, toFontFamilyValue } from "@/lib/font-catalog";
+import { OgCharCount, OgDimensionWarning, ShareCardPreview, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "@/components/og-share-card";
 import { getBgOptions, type BackgroundStyle, type BackgroundPresetLabels, type BackgroundPresetColors, BACKGROUND_PRESET_DISPLAY_NAMES, BACKGROUND_PRESET_DEFAULT_COLORS } from "@/lib/bg-styles";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { FormStylingPanel } from "@/components/FormStylingPanel";
@@ -2240,6 +2241,88 @@ export default function BrandSettings() {
     }
   }, [toast]);
 
+  // Task #967 — tenant-wide default "share card" (Open Graph) used as the
+  // fallback for any page that hasn't set its own. Stored as real tenant columns
+  // (not brand JSONB), so read/written via the admin /tenant-settings route.
+  const [ogDefaults, setOgDefaults] = useState<{ title: string; description: string; imageUrl: string }>({
+    title: "", description: "", imageUrl: "",
+  });
+  const [savingOgDefaults, setSavingOgDefaults] = useState(false);
+  const [uploadingOgImage, setUploadingOgImage] = useState(false);
+  const ogImageFileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${BASE}/api/admin/tenant-settings`, { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setOgDefaults({
+          title: typeof data.defaultOgTitle === "string" ? data.defaultOgTitle : "",
+          description: typeof data.defaultOgDescription === "string" ? data.defaultOgDescription : "",
+          imageUrl: typeof data.defaultOgImageUrl === "string" ? data.defaultOgImageUrl : "",
+        });
+      } catch { /* best-effort — panel simply starts empty */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleOgImageFilePick = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (ogImageFileInputRef.current) ogImageFileInputRef.current.value = "";
+    if (!file) return;
+    setUploadingOgImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/lp/upload", { method: "POST", body: formData });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Upload failed");
+      }
+      const data = await res.json();
+      setOgDefaults((prev) => ({ ...prev, imageUrl: `/api/storage${data.url}` }));
+      toast({ title: "Share image uploaded", description: "Click Save default share card to apply it." });
+    } catch (err) {
+      toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Please try again.", variant: "destructive" });
+    } finally {
+      setUploadingOgImage(false);
+    }
+  }, [toast]);
+
+  const handleSaveOgDefaults = async () => {
+    setSavingOgDefaults(true);
+    try {
+      const res = await fetch(`${BASE}/api/admin/tenant-settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          defaultOgTitle: ogDefaults.title,
+          defaultOgDescription: ogDefaults.description,
+          defaultOgImageUrl: ogDefaults.imageUrl,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Save failed");
+      }
+      const data = await res.json();
+      setOgDefaults({
+        title: typeof data.defaultOgTitle === "string" ? data.defaultOgTitle : "",
+        description: typeof data.defaultOgDescription === "string" ? data.defaultOgDescription : "",
+        imageUrl: typeof data.defaultOgImageUrl === "string" ? data.defaultOgImageUrl : "",
+      });
+      toast({ title: "Default share card saved", description: "Pages without their own share card now use this." });
+    } catch (err) {
+      toast({ title: "Save failed", description: err instanceof Error ? err.message : "Please try again.", variant: "destructive" });
+    } finally {
+      setSavingOgDefaults(false);
+    }
+  };
+
   // Sync the form's draft from the shared provider whenever it loads /
   // changes from elsewhere (e.g. the onboarding wizard's refreshBrand()).
   useEffect(() => {
@@ -3275,6 +3358,109 @@ export default function BrandSettings() {
                       Light surface · Primary color · Dark surface
                     </p>
                   </div>
+                </div>
+              </Card>
+
+              {/* SECTION 0.5 — DEFAULT SHARE CARD (Open Graph) */}
+              <Card className="p-6 flex flex-col gap-5 lg:col-span-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <Share2 className="w-4 h-4 text-primary" />
+                  <h2 className="font-display font-semibold text-lg">Default share card</h2>
+                </div>
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Shown when a landing page link is shared on social media or messaging apps. Used as the
+                  fallback for any page that hasn&apos;t set its own. Use <code className="px-1 rounded bg-muted">{"{{page_title}}"}</code> in
+                  the title to insert each page&apos;s name automatically.
+                </p>
+                <Separator />
+                <div className="grid lg:grid-cols-2 gap-6">
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Default title</Label>
+                      <Input
+                        value={ogDefaults.title}
+                        onChange={(e) => setOgDefaults((p) => ({ ...p, title: e.target.value }))}
+                        placeholder="e.g. {{page_title}} | Your Company"
+                      />
+                      <OgCharCount value={ogDefaults.title} kind="title" />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Default description</Label>
+                      <textarea
+                        value={ogDefaults.description}
+                        onChange={(e) => setOgDefaults((p) => ({ ...p, description: e.target.value }))}
+                        placeholder="Briefly describe your pages for link previews…"
+                        rows={3}
+                        className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background resize-none outline-none focus:ring-1 focus:ring-ring"
+                      />
+                      <OgCharCount value={ogDefaults.description} kind="description" />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Default image</Label>
+                      <input
+                        ref={ogImageFileInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        className="hidden"
+                        onChange={handleOgImageFilePick}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => ogImageFileInputRef.current?.click()}
+                          disabled={uploadingOgImage}
+                          className="gap-1.5 shrink-0"
+                        >
+                          {uploadingOgImage
+                            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…</>
+                            : <><Upload className="w-3.5 h-3.5" /> Upload image</>}
+                        </Button>
+                        {ogDefaults.imageUrl && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setOgDefaults((p) => ({ ...p, imageUrl: "" }))}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                      <div className="mt-3">
+                        <Label className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5 block">…or paste a URL</Label>
+                        <Input
+                          value={ogDefaults.imageUrl}
+                          onChange={(e) => setOgDefaults((p) => ({ ...p, imageUrl: e.target.value }))}
+                          placeholder="https://… or /api/storage/…"
+                        />
+                      </div>
+                      <OgDimensionWarning
+                        imageUrl={ogDefaults.imageUrl}
+                        onResized={(url) => setOgDefaults((p) => ({ ...p, imageUrl: url }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <Label className="text-sm font-medium">Share preview</Label>
+                    <ShareCardPreview
+                      title={ogDefaults.title.replace(/\{\{\s*page_title\s*\}\}/gi, "Example page")}
+                      description={ogDefaults.description}
+                      imageUrl={ogDefaults.imageUrl}
+                      domain={config.websiteUrl ?? null}
+                    />
+                    <p className="text-[10px] text-muted-foreground leading-relaxed max-w-[240px]">
+                      Best at {OG_IMAGE_WIDTH}×{OG_IMAGE_HEIGHT}px. The <code className="px-1 rounded bg-muted">{"{{page_title}}"}</code> token
+                      is shown here as a sample.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button onClick={handleSaveOgDefaults} disabled={savingOgDefaults} className="gap-2">
+                    {savingOgDefaults ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : "Save default share card"}
+                  </Button>
                 </div>
               </Card>
 

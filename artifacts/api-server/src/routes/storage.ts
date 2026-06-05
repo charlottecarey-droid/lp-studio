@@ -1,9 +1,11 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import multer from "multer";
+import sharp from "sharp";
 import OpenAI from "openai";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { tenantCanReadAcl, tenantIdFromAclOwner } from "../lib/objectAcl";
+import { OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "../lib/resolvePageOG";
 import { db, lpMediaTable, tenantsTable, pool } from "@workspace/db";
 import { asc, desc, eq, sql, ilike, and, count, or, inArray, type SQL } from "drizzle-orm";
 import { getTenantId, SESSION_COOKIE, type AuthUser } from "../middleware/requireAuth";
@@ -577,6 +579,51 @@ router.post("/lp/media/shared/upload", requireSuperadmin, (req: Request, res: Re
     } catch (error) {
       req.log.error({ err: error }, "Error uploading shared image");
       res.status(500).json({ error: "Upload failed" });
+    }
+  });
+});
+
+/**
+ * Task #967 — server-side sharp center-crop to the canonical OG share-card
+ * size (1200×630). The client uploads the raw image BYTES directly (multipart),
+ * so we never fetch an attacker-supplied URL server-side (no SSRF surface).
+ * The crop uses `fit: "cover", position: "centre"` — a sharp, lossless-quality
+ * center crop that fills the frame exactly without distortion — then uploads to
+ * object storage and returns the served URL plus the fixed dimensions.
+ *
+ * Body (multipart/form-data):
+ *   file: the source image (jpg/png/gif/webp/avif/heic/heif, max 30 MB)
+ *
+ * Response: { url, width: 1200, height: 630 }
+ */
+router.post("/lp/og-image/resize", (req: Request, res: Response) => {
+  imageUpload.single("file")(req, res, async (err) => {
+    if (err) {
+      const message = err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE"
+        ? "File too large. Maximum size is 30 MB."
+        : (err as Error).message ?? "Upload failed";
+      res.status(400).json({ error: message });
+      return;
+    }
+    // The resize endpoint is tenant-scoped — anonymous callers have no business
+    // generating share cards. getTenantId writes the 401/403 on failure.
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    if (!req.file) {
+      res.status(400).json({ error: "No file uploaded" });
+      return;
+    }
+    try {
+      const resized = await sharp(req.file.buffer)
+        .resize({ width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, fit: "cover", position: "centre" })
+        .png()
+        .toBuffer();
+      const servePath = await objectStorageService.uploadObjectEntity(resized, "image/png");
+      const serveUrl = `/api/storage${servePath}`;
+      res.json({ url: serveUrl, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT });
+    } catch (error) {
+      req.log.error({ err: error }, "Error resizing OG share-card image");
+      res.status(400).json({ error: "Could not process this image. Please try a different file." });
     }
   });
 });

@@ -32,6 +32,16 @@ export const tenantsTable = pgTable("tenants", {
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   status: text("status").notNull().default("active"),
+  // Task #967 — tenant-level default Open Graph / social share-card metadata.
+  // These are the TENANT DEFAULT layer of the per-page OG cascade resolved by
+  // api-server `resolvePageOG(pageId)`: per-page → tenant default → page
+  // content → system fallback. `defaultOgTitle` supports the {{page_title}}
+  // token (substituted with the page's own title at resolve time).
+  // `defaultOgImageUrl` must be a publicly fetchable absolute 1200×630 URL.
+  // All nullable → existing tenants keep falling straight through the cascade.
+  defaultOgTitle: text("default_og_title"),
+  defaultOgDescription: text("default_og_description"),
+  defaultOgImageUrl: text("default_og_image_url"),
   settings: jsonb("settings").default({}),
   // Legacy column kept for compatibility — currently unused (all rows are {}).
   metadata: jsonb("metadata").default({}),

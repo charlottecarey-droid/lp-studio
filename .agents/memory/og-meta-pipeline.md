@@ -45,5 +45,30 @@ caught it.
 - Use a small image. `public/opengraph.jpg` (1280x720, ~61KB) is the lpstudio
   OG; the 6.5MB `opengraph.png` made previews "rarely show" (scraper fetch
   timeouts). Don't reference it.
-- Width/height are emitted only when known (marketing controls its own file);
-  omitted for tenant images since a wrong size is worse than none.
+- Width/height are emitted only when known. `injectPageMeta` now accepts
+  optional `ogImageWidth`/`ogImageHeight` and emits `og:image:width/height` only
+  when BOTH are positive finite. Tenant pages now supply them via the cascade
+  resolver (below), so the page's own card and the tenant default both ship a
+  trustworthy 1200×630. Don't pass guessed sizes — a wrong size is worse than none.
+
+## Tenant OG cascade resolver (single source of truth)
+`api-server/src/lib/resolvePageOG.ts` (`resolveOGFields`) is the ONE place that
+decides a tenant page's title/description/image+dims. Cascade per field:
+per-page meta → tenant default (`tenants.default_og_title/description/image_url`,
+real columns NOT brand JSONB; `{{page_title}}` token substituted in the title) →
+page content (first block image) → system fallback. `triggerPublishedRender`
+calls it ONCE per page (selecting the 3 default_og_* cols in its existing tenant
+query) before `buildHtmlForHost`, feeding metaTitle/Description/ogImage+W/H.
+**Why a separate resolver:** the same cascade must hold at publish-render time
+AND at page-create pre-fill (`pages.ts` POST seeds empty meta via it). Keep all
+callers going through it — don't re-implement the precedence inline.
+
+## Tenant default share-card editing (brand-settings)
+The "Default share card" panel in `brand-settings.tsx` reads/writes the 3 tenant
+columns via `GET`/`PATCH /api/admin/tenant-settings` (admin-only), NOT
+`saveBrandConfig` — it has its OWN save button (`handleSaveOgDefaults`) separate
+from the main brand save. Per-page editor (BuilderEditor SEO panel) + this panel
+share `components/og-share-card.tsx` (char-count bands title 50-60/desc 110-160,
+1200×630 dimension warning + one-click `POST /lp/og-image/resize` sharp
+center-crop, ~240px live `ShareCardPreview`). Keep both surfaces on that shared
+module so they never drift.

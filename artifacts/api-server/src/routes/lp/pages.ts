@@ -3,7 +3,8 @@ import type { AuthUser } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, asc, and, or, desc } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
-import { lpPagesTable, lpPageReviewsTable, salesAccountsTable, lpTemplateUsageTable } from "@workspace/db";
+import { lpPagesTable, lpPageReviewsTable, salesAccountsTable, lpTemplateUsageTable, tenantsTable } from "@workspace/db";
+import { resolveOGFields } from "../../lib/resolvePageOG";
 import { sql } from "drizzle-orm";
 import { tenantRequiresReview } from "../../lib/tenantSettings";
 import { getTenantPlan } from "../../lib/planFeatures";
@@ -489,6 +490,47 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     }
   }
 
+  // Task #967 — pre-fill the per-page OG fields from the tenant-default cascade
+  // on create so a new page ships with its effective share-card values already
+  // visible (and editable) in the SEO panel, rather than appearing blank until
+  // the user touches them. Explicit overrides and template-source values still
+  // win; we only fill fields that are otherwise empty. Best-effort: a lookup
+  // failure leaves the fields empty (the publish-time resolver still cascades).
+  const effectiveBlocksForOg: unknown = (Array.isArray(blocks) && blocks.length > 0) ? blocks : sourceBlocks;
+  let prefillMetaTitle = typeof metaTitle === "string" && metaTitle.length > 0 ? metaTitle : sourceMetaTitle;
+  let prefillMetaDescription = typeof metaDescription === "string" && metaDescription.length > 0 ? metaDescription : sourceMetaDescription;
+  let prefillOgImage = typeof ogImage === "string" && ogImage.length > 0 ? ogImage : sourceOgImage;
+  if (!prefillMetaTitle || !prefillMetaDescription || !prefillOgImage) {
+    try {
+      const [tenantRow] = await db
+        .select({
+          name: tenantsTable.name,
+          defaultOgTitle: tenantsTable.defaultOgTitle,
+          defaultOgDescription: tenantsTable.defaultOgDescription,
+          defaultOgImageUrl: tenantsTable.defaultOgImageUrl,
+        })
+        .from(tenantsTable)
+        .where(eq(tenantsTable.id, tenantId))
+        .limit(1);
+      const resolved = resolveOGFields({
+        pageTitle: title,
+        pageMetaTitle: prefillMetaTitle,
+        pageMetaDescription: prefillMetaDescription,
+        pageOgImage: prefillOgImage,
+        blocks: effectiveBlocksForOg,
+        tenantName: (tenantRow?.name ?? "").trim(),
+        tenantDefaultTitle: (tenantRow?.defaultOgTitle ?? "").trim(),
+        tenantDefaultDescription: (tenantRow?.defaultOgDescription ?? "").trim(),
+        tenantDefaultImageUrl: (tenantRow?.defaultOgImageUrl ?? "").trim(),
+      });
+      if (!prefillMetaTitle) prefillMetaTitle = resolved.title;
+      if (!prefillMetaDescription) prefillMetaDescription = resolved.description;
+      if (!prefillOgImage) prefillOgImage = resolved.image;
+    } catch (ogErr) {
+      console.warn("[lp/pages] OG pre-fill lookup failed; leaving fields empty", { tenantId, err: ogErr });
+    }
+  }
+
   try {
     const finalCustomCss = (typeof customCss === "string" && customCss.length > 0) ? sanitizeCSS(customCss) : sanitizeCSS(sourceCss);
     const [page] = await db
@@ -501,9 +543,9 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
         blocks: (Array.isArray(blocks) && blocks.length > 0) ? blocks : sourceBlocks,
         status: effectiveStatus,
         customCss: finalCustomCss,
-        metaTitle: typeof metaTitle === "string" && metaTitle.length > 0 ? metaTitle : sourceMetaTitle,
-        metaDescription: typeof metaDescription === "string" && metaDescription.length > 0 ? metaDescription : sourceMetaDescription,
-        ogImage: typeof ogImage === "string" && ogImage.length > 0 ? ogImage : sourceOgImage,
+        metaTitle: prefillMetaTitle,
+        metaDescription: prefillMetaDescription,
+        ogImage: prefillOgImage,
         animationsEnabled: typeof animationsEnabled === "boolean" ? animationsEnabled : sourceAnimationsEnabled,
         smoothScroll: typeof smoothScroll === "boolean" ? smoothScroll : sourceSmoothScroll,
         pageVariables: (pageVariables && typeof pageVariables === "object" && !Array.isArray(pageVariables))

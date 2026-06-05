@@ -49,6 +49,7 @@ import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
 import { findTenantByHost, getActiveHostsForTenant } from "./tenantHosts";
 import { prerenderLpPage, PrerenderPageMissingError } from "./prerenderLpPage";
 import { injectPageMeta } from "./injectPageMeta";
+import { resolveOGFields } from "./resolvePageOG";
 import { uploadPublishedHtml, deletePublishedHtml } from "./publishedHtmlStorage";
 import {
   isR2Configured,
@@ -147,12 +148,27 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
   // decision below (shared-subdomain matching + Dandy exclusion). Captured
   // here so we reuse the same row we already fetched for robots defaults.
   let tenantSlug: string | null = null;
+  // Task #967 — tenant-level OG defaults (the middle layer of the OG cascade).
+  // Captured from the same row we already fetch for robots defaults so the
+  // resolver doesn't need a second round-trip.
+  let tenantDefaultOgTitle = "";
+  let tenantDefaultOgDescription = "";
+  let tenantDefaultOgImageUrl = "";
   try {
     const [tenantRow] = await db
-      .select({ slug: tenantsTable.slug, settings: tenantsTable.settings })
+      .select({
+        slug: tenantsTable.slug,
+        settings: tenantsTable.settings,
+        defaultOgTitle: tenantsTable.defaultOgTitle,
+        defaultOgDescription: tenantsTable.defaultOgDescription,
+        defaultOgImageUrl: tenantsTable.defaultOgImageUrl,
+      })
       .from(tenantsTable)
       .where(eq(tenantsTable.id, page.tenantId));
     tenantSlug = tenantRow?.slug ?? null;
+    tenantDefaultOgTitle = (tenantRow?.defaultOgTitle ?? "").trim();
+    tenantDefaultOgDescription = (tenantRow?.defaultOgDescription ?? "").trim();
+    tenantDefaultOgImageUrl = (tenantRow?.defaultOgImageUrl ?? "").trim();
     const seo = (tenantRow?.settings as { seo?: { allowIndexing?: unknown; allowFollowing?: unknown } } | null)?.seo;
     const defaults = resolveTenantRobotsDefaults({
       isExcludedFromDefaultNoindex: isProtectedEnterpriseSlug(tenantRow?.slug),
@@ -492,12 +508,30 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
   // live rule for the host it is served on: shown on the shared subdomain of
   // an eligible microsite, hidden on the tenant's own custom domain (and for
   // Dandy). Stripping is a no-op when the band isn't present.
+  // Task #967 — resolve the OG cascade ONCE (host-independent). resolvePageOG's
+  // pure core is fed the page+tenant rows we already loaded, so there's no extra
+  // DB round-trip. The injection layer still absolutises the image per host and
+  // keeps its own defensive fallback (a no-op given non-empty resolved inputs).
+  const resolvedOg = resolveOGFields({
+    pageTitle: (page.title ?? "").trim(),
+    pageMetaTitle: (page.metaTitle ?? "").trim(),
+    pageMetaDescription: (page.metaDescription ?? "").trim(),
+    pageOgImage: (page.ogImage ?? "").trim(),
+    blocks: page.blocks,
+    tenantName,
+    tenantDefaultTitle: tenantDefaultOgTitle,
+    tenantDefaultDescription: tenantDefaultOgDescription,
+    tenantDefaultImageUrl: tenantDefaultOgImageUrl,
+  });
+
   const buildHtmlForHost = (host: string): string => {
     const withMeta = injectPageMeta(html, {
       title: page.title,
-      metaTitle: page.metaTitle,
-      metaDescription: page.metaDescription,
-      ogImage: page.ogImage,
+      metaTitle: resolvedOg.title,
+      metaDescription: resolvedOg.description,
+      ogImage: resolvedOg.image,
+      ogImageWidth: resolvedOg.width,
+      ogImageHeight: resolvedOg.height,
       slug: page.slug,
       canonicalHost: host,
       tenantName,
