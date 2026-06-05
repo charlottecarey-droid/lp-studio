@@ -1,0 +1,177 @@
+# Homepage marketing plan — Analytics + Campaigns sections
+
+Two new sections to add to the homepage before launch. Both surface real product surfaces the marketing site doesn't currently feature.
+
+---
+
+## Section 1 — Analytics
+
+### What's actually in the product
+
+The "full page analytics" surface Charlotte mentioned is `artifacts/lp-studio/src/pages/page-detail.tsx` (1,137 lines). It's the unified per-page dashboard built in task #51. Renders at `/analytics/pages/:pageId` and contains:
+
+- 6-up summary stat cards with period-over-period deltas (Visits · Unique · Leads · CVR · Avg scroll · Clicks/session)
+- **Conversion Score** — circular ring 0–100 + 8 graded categories (Headline Clarity, CTA Effectiveness, Social Proof, Form Friction, Visual Hierarchy, Page Speed Impact, Mobile Responsiveness, Trust Signals). Each category lists "contributing blocks" with chips, plus a Quick Wins list with impact tags and one-click "add missing block" remediation.
+- **Page Speed** panel with measured-vs-estimated ring + heavy-block list
+- **Traffic Sources** with per-source visits/conversions/CVR
+- **Ad Map** — per-campaign Platform/Visits/Leads/CVR table (multi-touch attribution)
+- **A/B Tests** referencing this page
+- **Heatmap** (`HeatmapOverlay.tsx`) — canvas-rendered click heatmap with radial gradient hot→cold ramp, scroll-depth histogram, top blocks by clicks bar chart, device filter, view-mode toggle (Click / Scroll)
+- **Visits table** with each row expanding to show full click sequence + scroll path
+
+The product also has cross-page Analytics (`/analytics`) with Overview / Pages / Locations / Conversions tabs, but the differentiator is the **per-page Conversion Score with explainable "why"** — Mutiny shows a personalization score but doesn't tell you *which block earned which points*.
+
+### What's most marketable
+
+The five sharpest pieces:
+
+1. **Per-page Conversion Score with "why this score"** — circular ring + 8 graded categories + named contributing blocks + Quick Wins with one-click add-block remediation. Visually distinctive AND explainable.
+2. **Heatmap with per-block click attribution + device filter** — beats Unbounce because the heatmap is tied to the same builder blocks (per-block bar chart, not just pixel coordinates).
+3. **Visit timeline with click sequence + scroll path** — the expandable visit row showing a named contact's full session is something Unbounce/Webflow don't surface and Mutiny only does at account level.
+4. **Multi-touch attribution via Ad Map + Traffic Sources** — campaign → page → visits → leads → CVR with no GA4 bolt-on.
+5. **Engagement score with recency weighting + SFDC push-back** — proves "the analytics get into the CRM," not just a dashboard.
+
+### Recommended framing
+
+**Headline:** "Analytics that tell you what to fix."
+
+**Eyebrow:** "10 / Analytics & Scoring"
+
+**Position:** Section 10 on the homepage, **directly after IdentityWedge** (currently 09). IdentityWedge says *you know who's there*; this section says *you know what they did, where the page is failing, and how to fix it.* The story flow is **person → behavior → action**.
+
+**Body copy** (~2 lines): "Every visitor leaves a trail. LP Studio shows you the trail, grades the page that captured it, and tells you the exact block to add next."
+
+**Bullets:**
+- Conversion Score with named contributing blocks
+- Heatmap + scroll-depth + per-block click attribution
+- Visit timeline with full click sequence per named contact
+- Multi-touch attribution from ad campaigns through to closed leads
+
+**Mock visual:** Split-screen "real app" view of `page-detail.tsx`:
+- **Left half** — top section of Page Detail: 6 stat tiles, then the Conversion Score ring (e.g., **82 / 100 · B+**) with 3-4 visible category chips ("Headline Clarity — A · 'Q3 Summit hero'", "Form Friction — C · 'add trust signals'", "Social Proof — D · 'no testimonial block'"), Quick Wins list ("Add testimonial block — +12% est. CVR", "Move CTA above the fold — +8% est. CVR")
+- **Right half** — the Visits table with one row expanded showing the visit detail panel: avatar + name + source + time-on-page + the ordered click sequence (3-4 events with timestamps) + the scroll-path mini bars + an inline "Convert event" dot.
+
+**CTA:** "See it on /features" or "Explore analytics" → `/features#analytics` (add anchor if needed).
+
+### Naming alternatives considered
+
+Other framings I considered but rejected:
+
+- *"From page to pipeline, on one dashboard."* (attribution-led) — too marketing-attribution-y, blends into Integrations message
+- *"Two scores, one engine"* (Conversion Score + account engagement score) — interesting but harder to mock; saves it for the deep-dive at /features
+- *"Numbers are the boring part. Recommendations are the point."* — punchier but pushes too hard on the "AI tells you what to do" angle and undersells the per-visit fidelity
+
+---
+
+## Section 2 — Campaigns
+
+### What's actually in the product
+
+The campaigns surface is `artifacts/lp-studio/src/pages/sales/sales-campaign-detail.tsx` + `sales-campaign-pages.tsx` + the `QuickCampaignWizard` component. Per `sales-campaign-detail.tsx`:
+
+- Per-recipient delivery state: `sent` / `delivered` / `opened` / `clicked` with timestamps
+- Status colors (sent emerald, opened indigo, clicked indigo-deep, bounced red, failed coral)
+- Total sends + sent/delivered/opened/clicked counts + open rate %, click rate %, bounced/failed counts
+- Each recipient row links through to the campaign-pages view that shows which microsite/hotlink that recipient saw + their visit log
+- Saved audiences (segments) that can pre-fill recipients
+- Linked pages — pick the LP Studio page(s) the campaign drives traffic to; campaign analytics roll up per page
+
+`QuickCampaignWizard` (modal) lets users compose a campaign with: recipient audience picker, MultiSelectChip, EmailWYSIWYG editor with AI Sparkles, link-export panel that tokenizes URLs with per-recipient identity, then schedule/send. There's also a Marketo "ghost submit" health panel (cross-cuts — sits in tenant Analytics).
+
+### What's most marketable
+
+1. **Per-recipient identity tokenization at send time** — every URL in the email is unique per contact, so when that person visits the page LP Studio knows it's them (not just their company). Already alluded to in IdentityWedge but Campaigns is where the user *creates* the link.
+2. **AI-drafted outreach grounded in a contact brief** — `QuickCampaignWizard` with Sparkles + the contact brief that the Sales Console produces. Differentiates from Outreach/Salesloft (which draft generically) because LP Studio drafts using the page + the recipient's prior signals.
+3. **Page → campaign → recipient analytics loop** — the campaign analytics pull through page-level CVR for the linked pages, so "did this campaign work" answers itself.
+4. **Microsite-per-account workflow** — campaigns can fan out a different per-account microsite per recipient (the Cobalt Systems story from the IdentityWedge mock).
+
+### Recommended framing
+
+**Headline:** "Send the page. Know who read it."
+
+**Eyebrow:** "08 / Campaigns" (sits between Sales Console at 07 and IdentityWedge at 09, in the post-renumber)
+
+**Position:** Insert as **new section 08, BEFORE IdentityWedge**. This makes the flow:
+- 07 Sales Console (the dashboard)
+- **08 Campaigns (the act of sending — new)**
+- 09 IdentityWedge (the consequence — knowing who's reading)
+- 10 Analytics (the deeper learning — what fixed it)
+
+That reads as a clean send → reveal → optimize loop and reinforces both IdentityWedge and Analytics by giving them a *why this matters*.
+
+**Body copy** (~2 lines): "AI-drafted outreach with a per-recipient page baked into every link. The recipient clicks; LP Studio shows you exactly which person is on the page right now."
+
+**Bullets:**
+- AI-drafted email grounded in contact brief + selected pages
+- Per-recipient identity tokenized into every URL at send time
+- Per-account microsite generation in one click
+- Sent / opened / clicked + visit log roll up to the campaign
+
+**Mock visual:** Side-by-side composition mirroring the `QuickCampaignWizard` → result:
+- **Left** — the campaign composer (DraftEmail style chrome): To: Sarah Chen, Subject: "Cobalt × Northwind — Q3 expansion brief", body with AI-drafted paragraph + a "Pages attached" chip referencing the Cobalt microsite, Send button glowing
+- **Right** — the recipient view: the per-account microsite hero (already in the SalesConsoleEmbed mock) + a little floating "Sarah Chen is on the page · 5m ago" pill (this is the deterministic-identity moment)
+
+You may already have most of this as mocks reused from DraftEmailOverlay + NewMicrositeOverlay (`/for-sales` page) — pull from there.
+
+**CTA:** "Explore for sales" → `/for-sales` (same destination as the existing Sales row in WhatsInside)
+
+---
+
+## Combined homepage flow with both sections added
+
+Current IA:
+```
+1  HeroScene + PromptCard
+2  AssembleSceneV2
+3  UseCases (4 cards)
+4  WhatsInside zigzag (Brand · Marketing · Sales · Compare)
+5  FeatureRow / Builder
+6  FeatureRow / Generate
+7  FeatureRow / Templates
+8  FeatureRow / Sales Console
+9  IdentityWedge
+10 Integrations
+11 Pricing
+12 FAQ
+13 FinalCta + Footer
+```
+
+Proposed:
+```
+1  HeroScene + PromptCard
+2  AssembleSceneV2
+3  UseCases
+4  WhatsInside zigzag
+5  FeatureRow / Builder
+6  FeatureRow / Generate
+7  FeatureRow / Templates
+8  FeatureRow / Sales Console
+9  Campaigns ─── NEW (slot before IdentityWedge)
+10 IdentityWedge ─── renumbered
+11 Analytics ─── NEW (slot after IdentityWedge)
+12 Integrations
+13 Pricing
+14 FAQ
+15 FinalCta + Footer
+```
+
+Three sequential sections (Campaigns → IdentityWedge → Analytics) tell the same outbound story: **send → reveal → optimize.** Each one independently makes a sharper claim, and together they're a credible mini-narrative inside the homepage.
+
+---
+
+## Open questions before building
+
+1. **Mock data**: should both new sections use the **same Cobalt Systems / Sarah Chen / Northwind Summit cast** as IdentityWedge + SalesConsole? Yes — narrative cohesion. The visitor sees: Sarah from Cobalt receives a campaign (Campaigns section), is revealed on the page (IdentityWedge), and the page that captured her converts (Analytics).
+
+2. **Conversion Score mock values**: 82/100 · B+ is high enough to feel believable but leaves room for the Quick Wins to add value. Or pick 67/100 · C+ to make the "here's what to fix" promise feel more critical. I'd vote **82 · B+** — high enough that the product looks like it works, low enough that Quick Wins are still aspirational.
+
+3. **Heatmap visual or no?** The heatmap is the most visually striking element in the analytics surface but it's also the densest. Options:
+   - (a) Show heatmap as the right side of the Analytics mock (skip the visit timeline)
+   - (b) Show visit timeline as I described (skip heatmap)
+   - (c) Make heatmap a stretch / nice-to-have, ship visit timeline first
+   I'd vote **(c)** — visit timeline ties harder to the IdentityWedge narrative above it. Heatmap is its own beat that probably belongs on /features#analytics.
+
+4. **Campaigns mock fidelity**: the DraftEmailOverlay + NewMicrositeOverlay components on `/for-sales` already render most of the campaign composer + microsite-with-identity-pill UI. Reuse those as-is or build new tighter mocks?
+   I'd vote **reuse** — they're already polished and the homepage is now full of mocks; consistency matters more than uniqueness here.
+
+Tell me which framings + open questions you want me to lock in and I'll write the build prompts (one for the Campaigns section, one for the Analytics section, both following the SFDC / IdentityWedge / WhatsInside structural patterns we've established).
