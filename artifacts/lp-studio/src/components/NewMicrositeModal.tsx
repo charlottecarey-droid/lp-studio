@@ -147,6 +147,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
       setAiTemplateId("");
       setAiSegmentId("");
       setTemplateSegmentId("");
+      setAiReferenceUrl("");
       setError(null);
       setSubmitting(false);
     }
@@ -241,6 +242,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
         segmentId: string;
         prompt: string;
         templateId?: number;
+        referenceUrl?: string;
       }): Promise<number> => {
         const res = await fetch(
           `${API_BASE}/sales/accounts/${acctIdNum}/generate-microsite`,
@@ -252,6 +254,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
               audience: opts.segmentId,
               ...(opts.prompt ? { prompt: opts.prompt } : {}),
               ...(opts.templateId ? { templateId: opts.templateId } : {}),
+              ...(opts.referenceUrl ? { referenceUrl: opts.referenceUrl } : {}),
             }),
           },
         );
@@ -278,6 +281,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
             segmentId: aiSegmentId,
             prompt: aiPrompt.trim(),
             templateId: aiTemplateId ? Number(aiTemplateId) : undefined,
+            referenceUrl: aiReferenceUrl.trim() || undefined,
           });
         } else {
           // No account (or no segments configured) → generic generate-page.
@@ -290,6 +294,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
               prompt: aiPrompt.trim(),
               ...(tplIdForAi ? { templateId: tplIdForAi } : {}),
               ...(segmentContext ? { segmentContext } : {}),
+              ...(aiReferenceUrl.trim() ? { referenceUrl: aiReferenceUrl.trim() } : {}),
             }),
           });
           if (!genRes.ok) {
@@ -753,6 +758,20 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                     value={aiPrompt}
                     onChange={(e) => setAiPrompt(e.target.value)}
                   />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-medium">Reference URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                  <Input
+                    className="mt-1.5"
+                    type="url"
+                    placeholder="https://example.com — a page to draw style & structure from"
+                    value={aiReferenceUrl}
+                    onChange={(e) => setAiReferenceUrl(e.target.value)}
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    We'll study its layout, voice, and imagery for inspiration (your brand voice still wins).
+                  </p>
                 </div>
 
                 <div>
