@@ -272,6 +272,7 @@ export default function BuilderEmbed() {
       <style>{`
         @media (max-width: 767px) {
           .be-side { display: none !important; }
+          .be-hero-h1 { font-size: 34px !important; white-space: normal !important; }
         }
       `}</style>
       {/* Top bar */}
@@ -638,6 +639,7 @@ export default function BuilderEmbed() {
                     You&apos;re Invited
                   </div>
                   <h1
+                    className="be-hero-h1"
                     style={{
                       fontFamily: "'EB Garamond', Georgia, serif",
                       fontSize: 56,

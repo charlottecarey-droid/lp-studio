@@ -295,6 +295,7 @@ export default function ContactDetailModal({ contact, onClose }: Props) {
           <Card>
             <CardHeading>Contact Information</CardHeading>
             <div
+              className="cdm-info"
               style={{
                 display: "grid",
                 gridTemplateColumns: "1fr 1fr",

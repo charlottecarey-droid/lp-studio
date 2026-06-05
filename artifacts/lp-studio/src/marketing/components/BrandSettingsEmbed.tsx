@@ -148,6 +148,7 @@ export default function BrandSettingsEmbed() {
       }}
     >
       <div
+        className="bs-inner"
         style={{
           maxWidth: 1080,
           margin: "0 auto",
@@ -208,7 +209,7 @@ export default function BrandSettingsEmbed() {
                 library.
               </p>
             </div>
-            <div style={{ display: "flex", gap: 9 }}>
+            <div className="bs-actions" style={{ display: "flex", gap: 9 }}>
               <button
                 type="button"
                 style={{
@@ -431,6 +432,7 @@ export default function BrandSettingsEmbed() {
           }}
         >
           <div
+            className="bs-import-head"
             style={{
               display: "flex",
               alignItems: "center",
@@ -535,6 +537,7 @@ export default function BrandSettingsEmbed() {
             </div>
           </div>
           <div
+            className="bs-import-path"
             style={{
               display: "flex",
               alignItems: "center",
@@ -667,6 +670,7 @@ export default function BrandSettingsEmbed() {
         {/* Colors card */}
         <Card title="Colors" iconPath={PALETTE_ICON}>
           <div
+            className="bs-colors"
             style={{
               display: "grid",
               gridTemplateColumns: "1fr 1fr",
@@ -715,6 +719,7 @@ export default function BrandSettingsEmbed() {
         {/* Typography card — bigger editorial preview matching production */}
         <Card title="Typography" iconPath={TYPE_ICON}>
           <div
+            className="bs-type-prev"
             style={{
               border: "1px solid var(--hairline)",
               borderRadius: 14,
@@ -766,7 +771,7 @@ export default function BrandSettingsEmbed() {
           </div>
 
           {/* Font dropdowns */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginTop: 18 }}>
+          <div className="bs-fonts" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginTop: 18 }}>
             {[
               ["Display font (headings)", "Font family for H1/H2/H3", "Bagoss Standard"],
               ["Body font", "Font family for body text", "Inter"],
@@ -813,6 +818,7 @@ export default function BrandSettingsEmbed() {
 
           {/* Size selectors */}
           <div
+            className="bs-sizes"
             style={{
               display: "grid",
               gridTemplateColumns: "1fr 1fr 1fr",

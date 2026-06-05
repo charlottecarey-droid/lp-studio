@@ -100,6 +100,7 @@ function StatTile({ t }: { t: (typeof STAT_TILES)[number] }) {
 export default function DashboardEmbed() {
   return (
     <div
+      className="de-root"
       style={{
         height: "100%",
         background: "var(--cream)",
@@ -183,6 +184,7 @@ export default function DashboardEmbed() {
 
         {/* Stat tiles */}
         <div
+          className="de-stats"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(4, 1fr)",
@@ -322,6 +324,7 @@ export default function DashboardEmbed() {
 
         {/* Two-column work grid */}
         <div
+          className="de-work"
           style={{
             display: "grid",
             gridTemplateColumns: "2fr 1fr",

@@ -40,6 +40,7 @@ export default function NewMicrositeOverlay() {
 
   return (
     <div
+      className="nmo-wrap"
       style={{
         height: "100%",
         background: "var(--cream)",
@@ -53,6 +54,7 @@ export default function NewMicrositeOverlay() {
     >
       {/* Modal — freestanding card on cream */}
       <div
+        className="nmo-card"
         style={{
           flex: "0 1 460px",
           maxWidth: 460,
@@ -405,6 +407,7 @@ function GenerateArrow() {
   return (
     <div
       aria-hidden="true"
+      className="nmo-arrow"
       style={{
         flex: "0 0 56px",
         display: "flex",
@@ -451,6 +454,7 @@ function AccountMicrositeHero() {
 
   return (
     <div
+      className="nmo-hero"
       style={{
         flex: "0 1 440px",
         maxWidth: 440,

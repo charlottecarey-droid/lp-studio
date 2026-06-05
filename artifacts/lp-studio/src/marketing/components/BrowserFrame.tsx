@@ -70,7 +70,12 @@ export default function BrowserFrame({
 
   const bodyStyle: React.CSSProperties = aspect
     ? { paddingBottom: `${(1 / aspect) * 100}%`, position: "relative", overflow: "hidden" }
-    : { height: bodyHeight, overflow: "hidden", position: "relative" };
+    : ({
+        "--bf-h": `${bodyHeight}px`,
+        height: "var(--bf-h)",
+        overflow: "hidden",
+        position: "relative",
+      } as React.CSSProperties);
 
   return (
     <div
@@ -136,7 +141,7 @@ export default function BrowserFrame({
       </div>
 
       {/* Body — placeholder shown until lazy-mount triggers */}
-      <div style={bodyStyle}>
+      <div className={aspect ? undefined : "bf-body"} style={bodyStyle}>
         {show ? (
           children
         ) : (

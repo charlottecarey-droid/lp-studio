@@ -57,6 +57,7 @@ export default function DraftEmailOverlay() {
 
   return (
     <div
+      className="deo-wrap"
       style={{
         height: "100%",
         background: "var(--cream)",
@@ -70,6 +71,7 @@ export default function DraftEmailOverlay() {
     >
       {/* Modal — freestanding card on cream */}
       <div
+        className="deo-card"
         style={{
           flex: "0 1 480px",
           maxWidth: 480,
@@ -407,6 +409,7 @@ function SendArrow() {
   return (
     <div
       aria-hidden="true"
+      className="deo-arrow"
       style={{
         flex: "0 0 56px",
         display: "flex",
@@ -446,6 +449,7 @@ function SendArrow() {
 function GmailCompose() {
   return (
     <div
+      className="deo-gmail"
       style={{
         flex: "0 1 480px",
         maxWidth: 480,

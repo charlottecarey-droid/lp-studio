@@ -190,3 +190,128 @@
     to { opacity: 1; }
   }
 }
+
+/* ----------------------------------------------------------------------
+   Mobile responsiveness for marketing embeds (≤767px). Desktop (≥768px)
+   is untouched — every rule lives inside a max-width media query.
+   ---------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  /* BrowserFrame: on mobile let the frame grow to fit its embed instead of
+     keeping a fixed desktop height. A fixed height + overflow:hidden clips
+     embeds that reflow taller when stacked (and most embeds don't scroll
+     internally). min-height keeps a sensible size before lazy-mount. */
+  .bf-body {
+    height: auto !important;
+    min-height: 320px;
+  }
+
+  /* DraftEmailOverlay — stack modal over Gmail compose, drop the arrow. */
+  .deo-wrap {
+    flex-direction: column;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 14px !important;
+    padding: 16px 14px !important;
+    overflow-y: auto !important;
+  }
+  .deo-card,
+  .deo-gmail {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    flex: 0 0 auto !important;
+  }
+  .deo-arrow {
+    display: none !important;
+  }
+
+  /* NewMicrositeOverlay — stack modal over generated hero, drop the arrow. */
+  .nmo-wrap {
+    flex-direction: column;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 14px !important;
+    padding: 16px 14px !important;
+    overflow-y: auto !important;
+  }
+  .nmo-card {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    flex: 0 0 auto !important;
+  }
+  .nmo-hero {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    flex: 0 0 auto !important;
+  }
+  .nmo-arrow {
+    display: none !important;
+  }
+
+  /* SalesforceSyncDemo — stack the two panels, rotate the arrow downward. */
+  .sf-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  .sf-arrow {
+    transform: rotate(90deg);
+    padding: 2px 0;
+  }
+}
+
+@media (max-width: 767px) {
+  /* DashboardEmbed — 4-up stats → 2-up; 2-col work grid → stacked. */
+  .de-root {
+    padding: 18px 14px !important;
+  }
+  .de-stats {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .de-work {
+    grid-template-columns: 1fr !important;
+    gap: 18px !important;
+  }
+}
+
+@media (max-width: 767px) {
+  /* BrandSettingsEmbed — stack grids, wrap header actions, scale preview. */
+  .bs-inner {
+    padding: 18px 14px 28px !important;
+    gap: 16px !important;
+  }
+  .bs-actions {
+    flex-wrap: wrap;
+  }
+  .bs-import-head {
+    flex-wrap: wrap;
+  }
+  .bs-import-path {
+    flex-wrap: wrap;
+  }
+  .bs-colors,
+  .bs-fonts,
+  .bs-sizes {
+    grid-template-columns: 1fr !important;
+  }
+  .bs-type-prev {
+    padding: 20px 16px !important;
+    min-height: 0 !important;
+  }
+  .bs-type-prev > div:first-child > div:nth-child(1) {
+    font-size: 34px !important;
+  }
+  .bs-type-prev > div:first-child > div:nth-child(2) {
+    font-size: 24px !important;
+  }
+  .bs-type-prev > div:first-child > div:nth-child(3) {
+    font-size: 18px !important;
+  }
+}
+
+@media (max-width: 767px) {
+  /* ContactDetailModal — stack the 2-up contact info fields. */
+  .cdm-info {
+    grid-template-columns: 1fr !important;
+  }
+}

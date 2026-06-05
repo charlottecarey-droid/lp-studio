@@ -125,6 +125,7 @@ export default function SalesforceSyncDemo() {
 
         {/* Two-column compare: LP Studio activity → Salesforce record */}
         <div
+          className="sf-grid"
           style={{
             display: "grid",
             gridTemplateColumns: "minmax(0, 1fr) 36px minmax(0, 1fr)",
@@ -155,6 +156,7 @@ export default function SalesforceSyncDemo() {
 
           {/* ARROW */}
           <div
+            className="sf-arrow"
             style={{
               display: "flex",
               alignItems: "center",
