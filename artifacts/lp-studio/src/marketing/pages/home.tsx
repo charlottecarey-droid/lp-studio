@@ -16,7 +16,60 @@ import Pricing from "../components/Pricing";
 import FAQ from "../components/FAQ";
 import FinalCta from "../components/FinalCta";
 import Footer from "../components/Footer";
+import { useEffect, useState } from "react";
 import { usePageMeta } from "../hooks/usePageMeta";
+
+// Built-in defaults for the marketing homepage share card (Open Graph). These
+// are the fallback whenever a field is unset in the superadmin-editable
+// `marketing_homepage_og` config or the config can't be read. og:image must be
+// an absolute URL to a small file — opengraph.jpg is 1280×720 / ~61KB; the
+// legacy opengraph.png is 6.5MB and large images frequently time out in
+// scrapers' short fetch windows.
+const HOMEPAGE_OG_DEFAULTS = {
+  title: "LP Studio — The AI Revenue Workspace for One-Team GTM",
+  description:
+    "Generate on-brand pages, personalize for every account, and know exactly who's reading them. The AI revenue workspace for one-team GTM.",
+  imageUrl: "https://lpstudio.ai/opengraph.jpg",
+} as const;
+
+interface HomepageOgConfig {
+  title: string;
+  description: string;
+  imageUrl: string;
+}
+
+// The marketing prerender (scripts/prerender-marketing.mjs) injects the
+// superadmin-configured row as window.__LP_HOMEPAGE_OG__ before page scripts
+// run, so the OG tags baked into the static HTML that non-JS social scrapers
+// fetch reflect the operator's edits. At runtime in a real browser the global
+// isn't present, so we also fetch /api/lp/homepage-og to converge the live
+// document head. Either source falls back, field by field, to the built-ins.
+declare global {
+  interface Window {
+    __LP_HOMEPAGE_OG__?: Partial<HomepageOgConfig>;
+  }
+}
+
+// og:image must be an absolute URL for scrapers. Operator-uploaded images are
+// stored relative (e.g. /api/storage/…), so normalize to the apex domain.
+function normalizeOgImage(url: string): string {
+  const u = url.trim();
+  if (!u) return "";
+  if (/^https?:\/\//i.test(u) || u.startsWith("data:")) return u;
+  if (u.startsWith("//")) return `https:${u}`;
+  return `https://lpstudio.ai${u.startsWith("/") ? "" : "/"}${u}`;
+}
+
+function resolveHomepageOg(raw: Partial<HomepageOgConfig> | null | undefined): HomepageOgConfig {
+  const title = typeof raw?.title === "string" && raw.title.trim() ? raw.title : HOMEPAGE_OG_DEFAULTS.title;
+  const description =
+    typeof raw?.description === "string" && raw.description.trim()
+      ? raw.description
+      : HOMEPAGE_OG_DEFAULTS.description;
+  const rawImage = typeof raw?.imageUrl === "string" && raw.imageUrl.trim() ? raw.imageUrl : "";
+  const imageUrl = normalizeOgImage(rawImage) || HOMEPAGE_OG_DEFAULTS.imageUrl;
+  return { title, description, imageUrl };
+}
 
 // Homepage at the apex /. Order is intentional:
 //
@@ -51,18 +104,35 @@ import { usePageMeta } from "../hooks/usePageMeta";
 // focused index of the same content.
 
 export default function Home() {
-  // The marketing prerender (scripts/prerender-marketing.mjs) bakes these
-  // tags into the static dist/public/index.html that lpstudio.ai serves so
-  // social scrapers (which don't run JS) see real OG metadata. og:image
-  // must be an absolute URL to a small file — opengraph.jpg is 1280×720 /
-  // ~61KB; the legacy opengraph.png is 6.5MB and large images frequently
-  // time out in scrapers' short fetch windows.
+  // Marketing homepage share card (Open Graph). The values are superadmin-
+  // editable (marketing_homepage_og) with built-in fallbacks. The prerender
+  // injects window.__LP_HOMEPAGE_OG__ so the OG tags baked into the static
+  // dist/public/index.html that lpstudio.ai serves reflect the edits for
+  // non-JS social scrapers; the runtime fetch below converges the live head.
+  const [og, setOg] = useState<HomepageOgConfig>(() =>
+    resolveHomepageOg(typeof window !== "undefined" ? window.__LP_HOMEPAGE_OG__ : undefined),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/lp/homepage-og")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data) setOg(resolveHomepageOg(data));
+      })
+      .catch(() => {
+        /* best-effort — the built-in defaults already render */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   usePageMeta({
-    title: "LP Studio — The AI Revenue Workspace for One-Team GTM",
-    description:
-      "Generate on-brand pages, personalize for every account, and know exactly who's reading them. The AI revenue workspace for one-team GTM.",
+    title: og.title,
+    description: og.description,
     canonical: "https://lpstudio.ai/",
-    ogImage: "https://lpstudio.ai/opengraph.jpg",
+    ogImage: og.imageUrl,
     ogImageWidth: 1200,
     ogImageHeight: 630,
     ogImageType: "image/jpeg",

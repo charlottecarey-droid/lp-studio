@@ -81,3 +81,6 @@ export * from "./broadcastRecipientGroups";
 
 // Content Series block — episode-notification bookkeeping (subscribers, dedupe)
 export * from "./contentSeriesNotifications";
+
+// Marketing homepage share card (Open Graph) — superadmin-editable, single row
+export * from "./marketingHomepageOg";

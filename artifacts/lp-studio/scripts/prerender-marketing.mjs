@@ -68,6 +68,51 @@ const MARKETING_ROUTES = [
   { path: "/terms", outFile: "terms/index.html" },
 ];
 
+/**
+ * Best-effort read of the superadmin-editable marketing homepage share card
+ * (Open Graph) config so the prerender can bake the operator's edits into the
+ * static HTML that non-JS social scrapers fetch. Returns null on any failure
+ * (no DB URL, unreachable, table absent) — home.tsx then falls back, field by
+ * field, to its built-in defaults, so this NEVER fails the build.
+ *
+ * Uses `pg` directly (resolvable from lp-studio's node_modules) rather than
+ * importing @workspace/db, whose module index eagerly constructs a connection
+ * Pool on import.
+ */
+async function loadHomepageOg() {
+  const connectionString = process.env.NEON_DATABASE_URL ?? process.env.DATABASE_URL;
+  if (!connectionString) {
+    process.stdout.write("[prerender] homepage OG: no DATABASE_URL — using built-in defaults\n");
+    return null;
+  }
+  let client;
+  try {
+    const pg = (await import("pg")).default;
+    client = new pg.Client({ connectionString, connectionTimeoutMillis: 5000 });
+    await client.connect();
+    const result = await client.query(
+      `SELECT og_title, og_description, og_image_url
+         FROM marketing_homepage_og
+        ORDER BY id ASC
+        LIMIT 1`,
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    return {
+      title: typeof row.og_title === "string" ? row.og_title : "",
+      description: typeof row.og_description === "string" ? row.og_description : "",
+      imageUrl: typeof row.og_image_url === "string" ? row.og_image_url : "",
+    };
+  } catch (err) {
+    process.stdout.write(
+      `[prerender] homepage OG DB read skipped (${err?.message || err}) — using built-in defaults\n`,
+    );
+    return null;
+  } finally {
+    if (client) await client.end().catch(() => {});
+  }
+}
+
 async function findFreePort() {
   return new Promise((resolve, reject) => {
     const srv = net.createServer();
@@ -243,6 +288,15 @@ async function main() {
    // for our e2e suite) so we don't pull a separate `playwright` package.
   const { chromium } = await import("@playwright/test");
 
+  // Best-effort: pull the superadmin-configured homepage share card so its
+  // values get baked into the static / snapshot for non-JS social scrapers.
+  const homepageOg = await loadHomepageOg();
+  if (homepageOg) {
+    process.stdout.write(
+      `[prerender] homepage OG: baking configured share card (title="${homepageOg.title.slice(0, 60)}…")\n`,
+    );
+  }
+
   const port = await findFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
   process.stdout.write(`[prerender] starting vite preview on ${baseUrl}\n`);
@@ -269,6 +323,15 @@ async function main() {
     await context.addInitScript(() => {
       window.__LP_STUDIO_PRERENDER__ = true;
     });
+    // Inject the superadmin-configured homepage share card BEFORE page scripts
+    // run so home.tsx's useState initializer reads it and bakes the configured
+    // OG tags into the / snapshot. Only home.tsx reads this global; other
+    // marketing routes ignore it.
+    if (homepageOg) {
+      await context.addInitScript((og) => {
+        window.__LP_HOMEPAGE_OG__ = og;
+      }, homepageOg);
+    }
     const page = await context.newPage();
     page.on("console", (msg) => {
       if (msg.type() === "error" || msg.type() === "warning") {
