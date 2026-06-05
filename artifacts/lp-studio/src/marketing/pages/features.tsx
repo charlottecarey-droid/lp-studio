@@ -29,13 +29,13 @@ import { usePageMeta } from "../hooks/usePageMeta";
 //   8  FinalCta + Footer
 export default function Features() {
   usePageMeta({
-    title: "Features — LP Studio",
+    title: "Features — LP Studio · AI pages, brand lock, Sales Console",
     description:
-      "Everything LP Studio does — brand-locked AI page generation, the visual builder, 100+ templates, the Sales Console with per-recipient identity, and the integrations that wire it into your existing stack.",
+      "Brand-locked AI page generation, the visual builder, 100+ templates, the Sales Console with per-recipient identity, and integrations to your stack.",
     canonical: "https://lpstudio.ai/features",
     ogImage: "https://lpstudio.ai/opengraph.jpg",
-    ogImageWidth: 1280,
-    ogImageHeight: 720,
+    ogImageWidth: 1200,
+    ogImageHeight: 630,
     ogImageType: "image/jpeg",
     ogImageAlt: "LP Studio features",
     siteName: "LP Studio",

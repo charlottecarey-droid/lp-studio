@@ -130,7 +130,7 @@ export default function FinalCta() {
           }}
         >
           Skip the marketing queue. Every page on-brand, every time — for
-          every team that needs one.
+          one-team GTM.
         </p>
 
         {/* CTAs */}

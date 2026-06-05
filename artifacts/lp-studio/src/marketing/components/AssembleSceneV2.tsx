@@ -484,7 +484,7 @@ function MockPage({
               />
               <div className="text-[12px]" style={{ color: MUTED, lineHeight: 1.35 }}>
                 <strong style={{ color: TEXT, fontWeight: 600 }}>Skip the marketing queue.</strong> ·
-                Every page on-brand, every time — for every team that needs one.
+                Every page on-brand, every time — for one-team GTM.
               </div>
             </div>
           </div>

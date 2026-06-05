@@ -11,13 +11,13 @@ import { usePageMeta } from "../hooks/usePageMeta";
 
 export default function PricingPage() {
   usePageMeta({
-    title: "Pricing — LP Studio",
+    title: "Pricing — LP Studio · Free to start, no card required",
     description:
       "Free to start. No card. Every paid tier comes with a 14-day Growth trial — see the full plan matrix and find the right tier for your team.",
     canonical: "https://lpstudio.ai/pricing",
     ogImage: "https://lpstudio.ai/opengraph.jpg",
-    ogImageWidth: 1280,
-    ogImageHeight: 720,
+    ogImageWidth: 1200,
+    ogImageHeight: 630,
     ogImageType: "image/jpeg",
     ogImageAlt: "LP Studio pricing",
     siteName: "LP Studio",

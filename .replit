@@ -34,6 +34,10 @@ args = "e2e"
 task = "workflow.run"
 args = "typecheck-api"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "typecheck"
+
 [[workflows.workflow]]
 name = "artifacts/dandy-insights-video: web"
 author = "agent"
@@ -64,6 +68,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run typecheck"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "typecheck"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/lp-studio && pnpm typecheck"
 
 [workflows.workflow.metadata]
 isValidation = true

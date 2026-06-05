@@ -25,13 +25,13 @@ import { usePageMeta } from "../hooks/usePageMeta";
 //   6  FinalCta + Footer
 export default function ForMarketing() {
   usePageMeta({
-    title: "LP Studio for Marketing — Ship campaigns without the design queue",
+    title: "LP Studio for Marketing — Ship without the design queue",
     description:
-      "Generate on-brand pages from a prompt, A/B every variant with Smart Traffic auto-routing, start from 100+ templates, and hand off leads to Marketo, GA4, or any webhook — no ticket, no waiting on design.",
+      "Generate on-brand pages from a prompt, A/B test every variant with Smart Traffic auto-routing, and hand off leads to Marketo, GA4, or any webhook.",
     canonical: "https://lpstudio.ai/for-marketing",
     ogImage: "https://lpstudio.ai/opengraph.jpg",
-    ogImageWidth: 1280,
-    ogImageHeight: 720,
+    ogImageWidth: 1200,
+    ogImageHeight: 630,
     ogImageType: "image/jpeg",
     ogImageAlt: "LP Studio for marketing teams",
     siteName: "LP Studio",

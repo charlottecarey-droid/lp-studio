@@ -49,13 +49,13 @@ export default function Home() {
   // ~61KB; the legacy opengraph.png is 6.5MB and large images frequently
   // time out in scrapers' short fetch windows.
   usePageMeta({
-    title: "LP Studio — The AI Revenue Workspace",
+    title: "LP Studio — The AI Revenue Workspace for One-Team GTM",
     description:
-      "Generate on-brand pages, personalize for every account, and know which person — not just which account — is reading. The AI revenue workspace for marketing and sales.",
+      "Generate on-brand pages, personalize for every account, and know exactly who's reading them. The AI revenue workspace for one-team GTM.",
     canonical: "https://lpstudio.ai/",
     ogImage: "https://lpstudio.ai/opengraph.jpg",
-    ogImageWidth: 1280,
-    ogImageHeight: 720,
+    ogImageWidth: 1200,
+    ogImageHeight: 630,
     ogImageType: "image/jpeg",
     ogImageAlt: "LP Studio — the AI revenue workspace",
     siteName: "LP Studio",

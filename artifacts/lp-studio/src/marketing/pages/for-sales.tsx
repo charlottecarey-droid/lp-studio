@@ -26,13 +26,13 @@ import { usePageMeta } from "../hooks/usePageMeta";
 //   7  FinalCta + Footer
 export default function ForSales() {
   usePageMeta({
-    title: "LP Studio for Sales — Personalize every account. In one click.",
+    title: "LP Studio for Sales — Personalize every account in one click",
     description:
-      "An ABM workspace where every account gets a tailored microsite and AI-drafted outreach — with per-recipient identity and bidirectional Salesforce sync so every signal lands on the right contact.",
+      "An ABM workspace where every account gets a tailored microsite and AI-drafted outreach, with per-recipient identity in every link.",
     canonical: "https://lpstudio.ai/for-sales",
     ogImage: "https://lpstudio.ai/opengraph.jpg",
-    ogImageWidth: 1280,
-    ogImageHeight: 720,
+    ogImageWidth: 1200,
+    ogImageHeight: 630,
     ogImageType: "image/jpeg",
     ogImageAlt: "LP Studio for sales teams",
     siteName: "LP Studio",
