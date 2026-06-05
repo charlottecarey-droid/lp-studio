@@ -752,7 +752,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
       case "dso-problem":
         return <BlockDsoProblem props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-ai-feature":
-        return <BlockDsoAiFeature props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDsoAiFeature props={block.props} headlineColor={block.blockSettings?.headlineColor} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-stat-showcase":
         return <BlockDsoStatShowcase props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-scroll-story":

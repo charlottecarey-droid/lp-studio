@@ -42,6 +42,14 @@ args = "typecheck"
 task = "workflow.run"
 args = "typecheck-lp"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "tc-lp"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "tc-api"
+
 [[workflows.workflow]]
 name = "artifacts/dandy-insights-video: web"
 author = "agent"
@@ -94,6 +102,28 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/lp-studio run typecheck"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "tc-lp"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/lp-studio run typecheck"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "tc-api"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run typecheck"
 
 [workflows.workflow.metadata]
 isValidation = true

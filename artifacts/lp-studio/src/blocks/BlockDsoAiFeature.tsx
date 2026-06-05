@@ -32,10 +32,17 @@ const DEFAULT_STATS = [
 
 interface Props {
   props: DsoAiFeatureBlockProps;
+  // Concrete headline color from blockSettings.headlineColor (e.g. "#C7E738").
+  // Passed as a real hex — NOT a CSS var — because the published headline uses
+  // WordReveal, whose framer useTransform interpolates between two colors and
+  // cannot interpolate a CSS variable. Without this, per-word spans fall back to
+  // `fg` and the headline flips from the inherited (CSS-var) color to fg on
+  // hydration ("lime in builder, dark green when published").
+  headlineColor?: string;
   onFieldChange?: (updated: DsoAiFeatureBlockProps) => void;
 }
 
-export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
+export function BlockDsoAiFeature({ props, headlineColor, onFieldChange }: Props) {
   const {
     eyebrow   = "Waste Prevention",
     headline  = "Rework is a tax. AI eliminates it.",
@@ -169,7 +176,7 @@ export function BlockDsoAiFeature({ props, onFieldChange }: Props) {
                 <WordReveal
                   text={headline}
                   dimColor={dark ? "rgba(255,255,255,0.18)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.2)"}
-                  brightColor={fg}
+                  brightColor={headlineColor || fg}
                 />
               )}
             </h2>

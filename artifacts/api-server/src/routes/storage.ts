@@ -149,9 +149,16 @@ const videoUpload = multer({
   },
 });
 
+// The PDF upload accepts EITHER a raw multipart `file` part OR a base64-encoded
+// `fileBase64` text field. The base64 path exists because the Cloudflare edge
+// WAF in front of custom-domain tenant hosts 403s POSTs carrying a raw PDF
+// binary before they reach the origin (see lp-studio's pdf-upload.ts). A 50 MB
+// PDF base64-encodes to ~66.7 MB, so `fieldSize` is raised accordingly while the
+// decoded buffer is still capped at 50 MB in the handler.
+const PDF_MAX_BYTES = 50 * 1024 * 1024;
 const pdfUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: PDF_MAX_BYTES, fieldSize: 70 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (!ALLOWED_PDF_TYPES.has(file.mimetype)) {
       cb(new Error("Only PDF files are allowed"));
@@ -681,23 +688,73 @@ router.post("/lp/media/upload", (req: Request, res: Response) => {
 router.post("/lp/pdf/upload", (req: Request, res: Response) => {
   pdfUpload.single("file")(req, res, async (err) => {
     if (err) {
-      const message = err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE"
+      const tooLarge = err instanceof multer.MulterError
+        && (err.code === "LIMIT_FILE_SIZE" || err.code === "LIMIT_FIELD_VALUE");
+      const message = tooLarge
         ? "File too large. Maximum size is 50 MB."
         : (err as Error).message ?? "Upload failed";
       res.status(400).json({ error: message });
       return;
     }
-    if (!req.file) {
+
+    // Resolve the PDF bytes from either the raw multipart `file` part or the
+    // base64 `fileBase64` field (WAF-evasion path — see pdfUpload comment).
+    let buffer: Buffer;
+    let originalName: string;
+    const fileBase64 = typeof req.body?.fileBase64 === "string" ? req.body.fileBase64 : "";
+    if (req.file) {
+      buffer = req.file.buffer;
+      originalName = req.file.originalname ?? "document.pdf";
+    } else if (fileBase64) {
+      const base64 = (fileBase64.includes(",") ? fileBase64.slice(fileBase64.indexOf(",") + 1) : fileBase64)
+        .replace(/\s+/g, "");
+      // Buffer.from(..., "base64") silently drops invalid characters, so a
+      // malformed payload could still decode to bytes that pass the %PDF- check.
+      // Reject anything that isn't strict, correctly-padded base64 up front.
+      const isStrictBase64 =
+        base64.length > 0 &&
+        base64.length % 4 === 0 &&
+        /^[A-Za-z0-9+/]+={0,2}$/.test(base64);
+      if (!isStrictBase64) {
+        res.status(400).json({ error: "Invalid file encoding" });
+        return;
+      }
+      buffer = Buffer.from(base64, "base64");
+      // Round-trip check: a valid base64 string re-encodes to itself. Catches
+      // any residual malformed input Node tolerated during decode.
+      if (buffer.toString("base64") !== base64) {
+        res.status(400).json({ error: "Invalid file encoding" });
+        return;
+      }
+      if (buffer.length === 0) {
+        res.status(400).json({ error: "No file uploaded" });
+        return;
+      }
+      if (buffer.length > PDF_MAX_BYTES) {
+        res.status(400).json({ error: "File too large. Maximum size is 50 MB." });
+        return;
+      }
+      // Verify the decoded bytes are actually a PDF (the base64 path bypasses
+      // multer's mime fileFilter, so validate the magic number here).
+      if (buffer.subarray(0, 5).toString("latin1") !== "%PDF-") {
+        res.status(400).json({ error: "Only PDF files are allowed" });
+        return;
+      }
+      originalName = typeof req.body?.filename === "string" && req.body.filename
+        ? req.body.filename
+        : "document.pdf";
+    } else {
       res.status(400).json({ error: "No file uploaded" });
       return;
     }
+
     try {
       const servePath = await objectStorageService.uploadObjectEntity(
-        req.file.buffer,
-        req.file.mimetype,
+        buffer,
+        "application/pdf",
       );
       const serveUrl = `/api/storage${servePath}`;
-      const title = req.file.originalname?.replace(/\.pdf$/i, "").replace(/[_-]+/g, " ") ?? "Untitled";
+      const title = originalName.replace(/\.pdf$/i, "").replace(/[_-]+/g, " ") || "Untitled";
 
       const tenantId = getTenantId(req, res);
       if (tenantId == null) return;
@@ -706,8 +763,8 @@ router.post("/lp/pdf/upload", (req: Request, res: Response) => {
         title,
         url: serveUrl,
         mediaType: "pdf",
-        mimeType: req.file.mimetype,
-        sizeBytes: req.file.size,
+        mimeType: "application/pdf",
+        sizeBytes: buffer.length,
         tags: [],
       }).returning();
 

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ensureCsrfToken, clearCsrfToken } from "@/lib/api-fetch";
+import { buildPdfUploadFormData } from "@/lib/pdf-upload";
 import {
   Search, Upload, Loader2, X, Tag, Check, Pencil,
   FolderOpen, ChevronLeft, ChevronRight, Film, Play, Link2, FileText, Trash2, Globe,
@@ -768,10 +769,8 @@ function PdfsTab({ onSelect }: { onSelect: (url: string) => void }) {
 
   useEffect(() => { fetchPdfs(); }, [fetchPdfs]);
 
-  const uploadPdfOnce = (file: File, csrfToken: string) => {
+  const uploadPdfOnce = (formData: FormData, csrfToken: string) => {
     return new Promise<void>((resolve, reject) => {
-      const formData = new FormData();
-      formData.append("file", file);
       const xhr = new XMLHttpRequest();
       xhr.open("POST", "/api/lp/pdf/upload");
       xhr.withCredentials = true;
@@ -794,16 +793,17 @@ function PdfsTab({ onSelect }: { onSelect: (url: string) => void }) {
     setUploading(true);
     setUploadPct(0);
     setError("");
+    const formData = await buildPdfUploadFormData(file);
     const token = (await ensureCsrfToken()) ?? "";
     try {
-      await uploadPdfOnce(file, token);
+      await uploadPdfOnce(formData, token);
     } catch (err) {
       const e = err as Error & { status?: number };
       const looksLikeCsrf = e.status === 403 && /csrf/i.test(e.message);
       if (!looksLikeCsrf) throw err;
       clearCsrfToken();
       const fresh = (await ensureCsrfToken()) ?? "";
-      await uploadPdfOnce(file, fresh);
+      await uploadPdfOnce(formData, fresh);
     }
   };
 

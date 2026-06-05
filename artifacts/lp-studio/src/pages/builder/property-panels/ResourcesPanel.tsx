@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Trash2, GripVertical, Upload, Loader2, FileText } from "lucide-react";
 import { ImagePicker } from "@/components/ImagePicker";
 import { LibraryButtons, SaveItemToLibraryButton } from "@/components/LibraryPicker";
+import { buildPdfUploadFormData } from "@/lib/pdf-upload";
 
 interface Props {
   props: ResourcesBlockProps;
@@ -28,8 +29,7 @@ interface PdfUploadResponse {
  *  resource title. The endpoint enforces a 50 MB cap and PDF mime check
  *  server-side, so client-side validation is intentionally light. */
 async function uploadPdf(file: File): Promise<{ url: string; title: string }> {
-  const formData = new FormData();
-  formData.append("file", file);
+  const formData = await buildPdfUploadFormData(file);
   const res = await fetch("/api/lp/pdf/upload", {
     method: "POST",
     body: formData,
