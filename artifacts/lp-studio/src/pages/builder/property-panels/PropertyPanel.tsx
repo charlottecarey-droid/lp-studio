@@ -3,7 +3,7 @@ import { Trash2, SlidersHorizontal, AlignLeft, Plus, GripVertical, RefreshCcw, L
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { PageBlock, BlockSettings, CtaMode, DsoCaseFlowStage } from "@/lib/block-types";
-import { DSO_CASE_FLOW_DEFAULT_STAGES } from "@/lib/block-types";
+import { DSO_CASE_FLOW_DEFAULT_STAGES, createBlock } from "@/lib/block-types";
 import { getBgOptions, type BackgroundStyle } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockSettingsPanel, ColorField } from "./BlockSettingsPanel";
@@ -865,6 +865,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
   const [bentoTilesRefreshing, setBentoTilesRefreshing] = useState(false);
   const [storyApprovedForAi, setStoryApprovedForAi] = useState<Record<number, boolean>>({});
   const [storySaveStatus, setStorySaveStatus] = useState<Record<number, "idle" | "saving" | "saved" | "error">>({});
+  const [loadingStoryDefaults, setLoadingStoryDefaults] = useState(false);
 
   const handleAddStoryToLibrary = async (
     story: { name?: string; stat?: string; label?: string; quote?: string; author?: string; image?: string },
@@ -1866,12 +1867,64 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 {cases.length === 0 && (
                   <div className="text-center py-3 space-y-2">
                     <p className="text-xs text-slate-400">No stories yet.</p>
-                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onChange({ ...block, props: { ...p, cases: [
-                      { name: "APEX Dental Partners", stat: "12.5%", label: "annualized revenue potential increase", quote: "Dandy values education, technology, and people.", author: "Dr. Layla Lohmann, Founder", image: "https://images.unsplash.com/photo-1606811971618-4486d14f3f99?q=80&w=800&h=480&fit=crop" },
-                      { name: "Smile Brands", stat: "2–3 min", label: "saved per crown appointment", quote: "The efficiency gains were immediate.", author: "VP of Clinical Operations", image: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=800&h=480&fit=crop" },
-                      { name: "Tend", stat: "40%", label: "faster lab turnaround", quote: "Dandy keeps pace with our expansion without sacrificing quality.", author: "Head of Operations", image: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=800&h=480&fit=crop" },
-                    ] } })}>
-                      Load defaults
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      disabled={loadingStoryDefaults}
+                      onClick={async () => {
+                        // Load the tenant's AI-approved case studies from the
+                        // Content Library (source of truth for what's approved),
+                        // never hardcoded/unapproved stories. The block's
+                        // illustrative registry default is used ONLY when the
+                        // library is genuinely empty (no case studies at all) or
+                        // the request fails — when the library has case studies
+                        // but none are approved, we load an empty set rather
+                        // than reintroduce hardcoded stories.
+                        setLoadingStoryDefaults(true);
+                        try {
+                          const res = await fetch("/api/lp/library/case_study");
+                          if (res.ok) {
+                            const items = (await res.json()) as Array<{
+                              name?: string;
+                              approved_for_ai?: boolean;
+                              content?: { title?: string; categories?: string; image?: string };
+                            }>;
+                            const library = Array.isArray(items) ? items : [];
+                            const mapped = library
+                              .filter((it) => it.approved_for_ai !== false)
+                              .map((it) => {
+                                const c = it.content ?? {};
+                                return {
+                                  name: it.name || c.title || "",
+                                  stat: "",
+                                  label: c.categories ?? "",
+                                  quote: "",
+                                  author: "",
+                                  image: c.image || "",
+                                };
+                              })
+                              .filter((c) => c.name);
+                            // Library has content: honour it exactly (approved
+                            // items, or an empty set when none are approved).
+                            // Never fall back to hardcoded stories here.
+                            if (library.length > 0) {
+                              onChange({ ...block, props: { ...p, cases: mapped } });
+                              return;
+                            }
+                          }
+                        } catch {
+                          /* fall through to registry default */
+                        } finally {
+                          setLoadingStoryDefaults(false);
+                        }
+                        // Library is empty (or the request failed) — fall back to
+                        // the block's illustrative registry default.
+                        const fallback = (createBlock("dso-success-stories").props as typeof p).cases ?? [];
+                        onChange({ ...block, props: { ...p, cases: fallback } });
+                      }}
+                    >
+                      {loadingStoryDefaults ? "Loading…" : "Load defaults"}
                     </Button>
                   </div>
                 )}

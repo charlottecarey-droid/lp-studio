@@ -30,6 +30,11 @@ import {
   dedupeUrls,
   gatherReferences,
   type MediaImage,
+  // Approved-case-study guard shared with the marketing generator: surface the
+  // tenant's AI-approved case studies in the brief and hard-enforce that the
+  // dso-success-stories block only ever uses them (never invented stories).
+  fetchApprovedCaseStudies,
+  enforceDsoSuccessStoriesApproved,
 } from "../lp/generate-page";
 // Mirror harvested reference imagery into the tenant's media library so the
 // image-fill pass can use real site images for empty slots.
@@ -958,7 +963,7 @@ const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   "dso-stat-bar": "{ stats: [{ value, label }], backgroundStyle }",
   "dso-challenges": "{ eyebrow, headline, backgroundStyle, layout (\"4-col\"), challenges: [{ title, desc }] } — 4 pain points specific to this account",
   "dso-insights-dashboard": "{ eyebrow, headline, subheadline, practiceLabel, backgroundStyle, dashboardVariant (\"light\"|\"dark\") }",
-  "dso-success-stories": "{ eyebrow, headline, backgroundStyle, cases: [{ name, stat, label, quote, author }] } — 2–3 DSO case studies",
+  "dso-success-stories": "{ eyebrow, headline, backgroundStyle, cases: [{ name, stat, label, quote, author }] } — use ONLY the customer stories from the APPROVED CASE STUDIES section of the brief; never invent a company, stat, quote, or author. Omit this block entirely when no approved case studies are provided.",
   "dso-pilot-steps": "{ eyebrow, headline, subheadline, backgroundStyle, steps: [{ title, subtitle, desc, details: string[] }] }",
   "dso-final-cta": "{ eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, backgroundStyle }",
   "dso-comparison": "{ eyebrow, headline, subheadline, companyName, ctaText, ctaUrl, rows: [{ feature, dandy, traditional }], backgroundStyle }",
@@ -1721,6 +1726,18 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       }
     }
 
+    // Approved case studies — surface the tenant's AI-approved customer stories
+    // so the dso-success-stories block can reference real ones, and forbid the
+    // model from inventing any others. A post-AI guard re-enforces this.
+    const approvedCaseStudies = await fetchApprovedCaseStudies(account.tenantId, true);
+    contextParts.push(
+      approvedCaseStudies.length > 0
+        ? `\nAPPROVED CASE STUDIES (the ONLY customer stories you may reference by name in a dso-success-stories block; do NOT invent others, and do NOT invent stats, quotes, or authors for them):\n${
+            approvedCaseStudies.map((cs) => `- ${cs.title}${cs.categories ? ` (${cs.categories})` : ""}${cs.url ? ` — ${cs.url}` : ""}`).join("\n")
+          }`
+        : "\nAPPROVED CASE STUDIES: (none) — do NOT use a dso-success-stories block, and never invent a customer story, stat, quote, or author.",
+    );
+
     // Inject media library so AI uses real assets instead of inventing URLs
     if (imageCatalogText) contextParts.push(imageCatalogText);
     if (videoCatalogText) contextParts.push(videoCatalogText);
@@ -1823,6 +1840,11 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
           (brand.defaultCtaUrl as string | undefined),
       });
     }
+
+    // Hard-enforce that any dso-success-stories block only ever uses the
+    // tenant's AI-approved case studies (never invented stories), matching the
+    // marketing generator. No-op when the page has no such block.
+    await enforceDsoSuccessStoriesApproved(normalizedBlocks, account.tenantId);
 
     // Task #900 — deterministic backgroundStyle post-pass. Re-infer the design
     // intensity (deterministic; matches what buildSystemPrompt used) and enforce

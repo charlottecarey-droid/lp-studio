@@ -1443,7 +1443,7 @@ function buildBrandContext(brand: BrandConfig, designIntensity: DesignIntensity)
 
 /** Task #253 — fetch tenant's approved case-studies from the content library
  *  for injection into the AI brief when strict mode is on. Returns up to 12. */
-async function fetchApprovedCaseStudies(
+export async function fetchApprovedCaseStudies(
   tenantId: number | null,
   /** When true, only rows with `approved_for_ai = true` are returned (used by
    *  Strict Facts Mode). When false, every case study for the tenant is
@@ -1640,13 +1640,13 @@ function logStrictMismatches(
  *  shipping a hallucinated story. */
 const CASE_STUDY_PLACEHOLDER = "Add a quote in brand settings";
 
-type ApprovedCaseStudy = { title: string; categories: string; url: string };
+export type ApprovedCaseStudy = { title: string; categories: string; url: string };
 
 /** Hard-enforce strict mode for case-study-bearing blocks: rebuild
  *  `props.cases` (dso-success-stories) and the headline/quote/body fields
  *  (dso-case-study) so they only ever quote rows from the approved pool —
  *  or, when the pool is empty, an obvious placeholder. */
-function enforceApprovedCaseStudies(
+export function enforceApprovedCaseStudies(
   block: { type?: string; props?: Record<string, unknown> },
   pool: ApprovedCaseStudy[],
 ): void {
@@ -1700,6 +1700,25 @@ function enforceApprovedCaseStudies(
     // stats[]/results[] still go through the numeric scrub below, which
     // will replace any value field that isn't in the approved pool.
   }
+}
+
+/** Always-on guard for the `dso-success-stories` block: rebuild its `cases`
+ *  array exclusively from the tenant's AI-approved case studies (or the
+ *  placeholder when none are approved), independent of Strict Facts Mode. The
+ *  AI must never invent or surface unapproved customer stories in this block.
+ *  No-op when the page has no `dso-success-stories` block. */
+export async function enforceDsoSuccessStoriesApproved(
+  blocks: unknown,
+  tenantId: number | null,
+): Promise<void> {
+  if (!Array.isArray(blocks)) return;
+  const targets = blocks.filter(
+    (b): b is { type?: string; props?: Record<string, unknown> } =>
+      !!b && typeof b === "object" && (b as { type?: string }).type === "dso-success-stories",
+  );
+  if (targets.length === 0) return;
+  const approved = await fetchApprovedCaseStudies(tenantId, true);
+  for (const b of targets) enforceApprovedCaseStudies(b, approved);
 }
 
 /**
@@ -2417,7 +2436,7 @@ AVAILABLE DSO BLOCK TYPES (use these exact type strings — these are the only t
 - "dso-bento-outcomes": Bento grid of outcomes. Props: eyebrow (string), headline (string), tiles (array 4–6 of one of: {type:"stat",value,label,description} | {type:"photo",imageUrl,caption} | {type:"feature",headline,body} | {type:"quote",quote,author})
 - "dso-challenges": Challenge cards. Props: eyebrow (string), headline (string), layout ("4-col"|"2-col"), challenges (array 4–8 of {title, desc})
 - "dso-comparison": Side-by-side comparison table. Props: eyebrow (string), headline (string), subheadline (string), companyName (string — use the SELLING brand's name from the BRAND CONTEXT section; if no brand name is given, leave it blank ""), ctaText (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"), rows (array of EXACTLY 5–7 of {need, dandy, traditional} — MANDATORY, NEVER empty, NEVER fewer than 5). The "dandy" field is the data key for the SELLING brand's column (it is NOT a brand name — never put a vendor or brand name in its value). Each row must be SUBSTANTIVE: the "need" field is a full requirement phrase (6–12 words like "Consistent quality across every location"), the "dandy" field is a specific capability + proof point (8–14 words like "AI-driven quality control: 96% first-time right"), the "traditional" field is a concrete pain point (6–12 words like "Variable — depends on lab & technician"). NEVER use 1–3 word stubs. ${comparisonExample}
-- "dso-success-stories": Case study cards with stats. Props: eyebrow (string), headline (string), cases (array of EXACTLY 3 of {name, stat, label, quote, author, image} — never 2, never 4). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
+- "dso-success-stories": Case study cards with stats. Props: eyebrow (string), headline (string), cases (array of EXACTLY 3 of {name, stat, label, quote, author, image} — never 2, never 4). Use ONLY customer stories from the APPROVED CASE STUDIES section of this brief — NEVER invent a company name, stat, quote, or author. If no approved case studies are provided, leave the cases content as placeholders. ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-pilot-steps": Pilot program timeline. Props: eyebrow (string), headline (string), subheadline (string), steps (array 3–5 of {title, subtitle, desc, details (string[])}). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-cta-capture": Premium email/contact capture. Props: eyebrow (string), headline (string), body (string), inputLabel (string), inputPlaceholder (string), ctaLabel (string), trust1 (string), trust2 (string), trust3 (string), imageUrl (string), imagePosition ("left"|"right")
 - "dso-final-cta": Final dark CTA section. Props: eyebrow (string), headline (string), subheadline (string), primaryCtaText (string), primaryCtaUrl ("#" — use Chili Piper URL if provided), primaryCtaMode ("chilipiper"|"link"), secondaryCtaText (string), secondaryCtaUrl ("#")${dandyInsightsBlocks}
@@ -2439,7 +2458,7 @@ ${rule10}
 14. BACKGROUND RESTRICTIONS: dso-problem, dso-ai-feature, and dso-stat-showcase MUST have backgroundStyle set to "dandy-green", "black", or "dark". NEVER use "white" or "light-gray" for these three blocks — they render white text that becomes invisible on light backgrounds.
 ${rule15}
 16. NO STANDALONE NAV BLOCK with dso-heartland-hero: dso-heartland-hero already renders its own sticky navigation bar at the top. NEVER prepend a separate nav block (no "nav-header", no other navbar block) on a page that starts with dso-heartland-hero. The page's first block should be the hero itself.
-17. CASE STUDIES = 3: When you use "dso-success-stories", the cases array MUST have EXACTLY 3 items — not 2, not 4. Pick the three strongest case studies for the segment and stop.
+17. CASE STUDIES = 3: When you use "dso-success-stories", the cases array MUST have EXACTLY 3 items — not 2, not 4. Pick from the APPROVED CASE STUDIES section ONLY — never invent or use any customer story that is not explicitly listed there. If fewer than 3 approved case studies exist, repeat/pad with the remaining approved ones or leave placeholders, but NEVER fabricate a company, stat, quote, or author.
 18. NEVER SHIP AN EMPTY OR STUB COMPARISON: When you use "dso-comparison", you MUST populate the rows array with 5–7 fully written rows. An empty rows array, fewer than 5 rows, or rows with 1–3 word values is a FAILURE — the block will render blank or look broken. If you cannot think of 5 substantive rows for the segment, do NOT use this block at all; pick a different block instead. Each row needs a meaningful "need", ${rule18Capability} with a proof point or stat in "dandy", and a real pain point in "traditional". Mirror the verbosity of the EXAMPLE ROW shown in the dso-comparison schema above.
 19. dso-problem IMAGES: When you use "dso-problem", you MUST populate imageUrls with EXACTLY 2 real URLs from the IMAGE LIBRARY${rule19Imagery}. The block has two image slots that render placeholders when imageUrls is empty — never ship this block without images.
 20. dso-stat-showcase = 6 STATS: When you use "dso-stat-showcase", the stats array MUST have EXACTLY 6 entries — the block renders a 3-column × 2-row grid and looks broken with fewer. If you cannot write 6 substantive stats for the segment, do NOT use this block; pick a different block instead.${rule21}`;
@@ -3200,6 +3219,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         sanitizeBlocksStrict(mergedBlocks, pool, caseStudies);
         stripAiInlineColors(mergedBlocks);
       }
+
+      // Always rebuild dso-success-stories from AI-approved case studies only,
+      // regardless of Strict Facts Mode — the block must never surface invented
+      // or unapproved customer stories.
+      await enforceDsoSuccessStoriesApproved(mergedBlocks, tenantId);
 
       // Workstream B — banned-phrase post-validator (template path).
       const bannedPhraseHits = findBannedPhrases(
@@ -4103,6 +4127,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       sanitizeBlocksStrict(parsed.blocks, pool, caseStudies);
       stripAiInlineColors(parsed.blocks);
     }
+
+    // Always rebuild dso-success-stories from AI-approved case studies only,
+    // regardless of Strict Facts Mode — the block must never surface invented
+    // or unapproved customer stories.
+    await enforceDsoSuccessStoriesApproved(parsed.blocks, tenantId);
 
     // Workstream B — banned-phrase post-validator. Non-destructive: flag
     // clichés + brand-forbidden phrases that leaked past the prompt so the

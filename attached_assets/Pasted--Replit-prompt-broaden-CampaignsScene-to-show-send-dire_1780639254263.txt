@@ -1,0 +1,250 @@
+# Replit prompt — broaden CampaignsScene to show send-direct + push-to-MAP story
+
+The CampaignsScene on the homepage (`artifacts/lp-studio/src/marketing/components/CampaignsScene.tsx`) currently tells a single story: build a campaign in LPS, send directly via Resend, watch the identity reveal happen. That's only half the actual product story.
+
+The full story is **dual-channel**: either
+
+1. **Send directly from LPS** via Resend (the current story), OR
+2. **Push the campaign list + per-recipient tokenized URLs** to the user's existing send stack — Marketo, HubSpot, Salesforce, Google Sheets, or any webhook — and let their MAP/CRM/sequencer do the actual send.
+
+The identity reveal (the wedge) works the same either way, because the tokenized URLs are baked at list-build time, not at send time. That's worth saying explicitly because it's what makes LPS pluggable into existing GTM stacks rather than a replacement for them.
+
+Make the section tell that dual story without losing the existing visual.
+
+---
+
+## Step 1 — Update the section header copy
+
+Edit `artifacts/lp-studio/src/marketing/components/CampaignsScene.tsx`. Find the headline + body block.
+
+### Current
+
+```tsx
+<h2 className="font-display text-display-lg" style={{ color: "var(--ink)", margin: 0 }}>
+  Send the page.{" "}
+  <em style={{ fontStyle: "normal", color: "var(--indigo)" }}>
+    Know who read it.
+  </em>
+</h2>
+<p style={{ fontSize: 17, lineHeight: 1.6, color: "var(--ink-soft)", margin: "16px 0 0", maxWidth: 600 }}>
+  AI-drafted outreach grounded in a contact brief, with a
+  per-account page attached to every send. Every URL is
+  tokenized to the recipient at send time —{" "}
+  <strong style={{ color: "var(--ink)", fontWeight: 600 }}>
+    so when they click, you know exactly who clicked.
+  </strong>
+</p>
+```
+
+### Replace with
+
+```tsx
+<h2 className="font-display text-display-lg" style={{ color: "var(--ink)", margin: 0 }}>
+  Build the campaign here.{" "}
+  <em style={{ fontStyle: "normal", color: "var(--indigo)" }}>
+    Send it from anywhere.
+  </em>
+</h2>
+<p style={{ fontSize: 17, lineHeight: 1.6, color: "var(--ink-soft)", margin: "16px 0 0", maxWidth: 640 }}>
+  AI-drafted outreach with a per-account page in every send, and a
+  per-recipient tokenized URL on every link. Send directly from LP
+  Studio via Resend, or push the list + URLs to Marketo, HubSpot,
+  Salesforce, Google Sheets, or any webhook —{" "}
+  <strong style={{ color: "var(--ink)", fontWeight: 600 }}>
+    the identity reveal works either way.
+  </strong>
+</p>
+```
+
+### Update bullets
+
+Find the bullets array (the `{[...].map((b) => ...)}` block). Replace with:
+
+```tsx
+{[
+  "AI drafts grounded in the contact brief",
+  "Per-account pages attached in one click",
+  "Per-recipient identity in every URL — at list-build time, not at send",
+  "Send from LPS, or push to Marketo · HubSpot · SFDC · Sheets · webhook",
+].map((b) => (
+```
+
+(Only the 4 strings change. The surrounding `<ul>` + `<li>` markup stays as-is.)
+
+Also update the JSDoc block at the top of the file (lines ~3–10) to:
+
+```ts
+// CampaignsScene — homepage section #9. Sits between Sales Console
+// (#08) and IdentityWedge (#10) to set up the "send → reveal → optimize"
+// arc. Anchors on the dual story: build the campaign in LP Studio
+// (AI drafts + per-account page + per-recipient tokenized URLs), then
+// either send directly via LPS (Resend) OR push the list + tokenized
+// URLs to Marketo, HubSpot, Salesforce, Sheets, or any webhook for the
+// user's existing send stack to fire. The identity reveal works either
+// way because URLs are tokenized at list-build time, not at send time.
+// That's the wedge.
+```
+
+---
+
+## Step 2 — Add a "Destination" row to the composer mock
+
+Inside the `ComposerMock` function, find the Send row at the bottom — the block that starts with `{/* Send row */}` and contains "Send via Resend · from sarah@northwind.com" + the Schedule + Send buttons.
+
+**Insert a new "Destination" row BEFORE the Send row** (between the attached page chip and the send row). The new row should render as a horizontal strip of destination tiles — Resend selected (indigo highlight), the other 5 dimmed but visible. Code to insert:
+
+```tsx
+{/* Destination row — tells the story that LPS can send via Resend
+    OR push the campaign list to Marketo/HubSpot/SFDC/Sheets/webhook.
+    Resend is shown selected. The other tiles are dimmed but visible
+    so the user sees the full menu of options. */}
+<div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "10px 0 12px",
+    marginBottom: 4,
+    borderTop: "1px solid var(--hairline)",
+  }}
+>
+  <span
+    className="font-mono uppercase"
+    style={{
+      fontSize: 10,
+      letterSpacing: "0.18em",
+      fontWeight: 700,
+      color: "var(--ink-mute)",
+      width: 80,
+      flexShrink: 0,
+    }}
+  >
+    Destination
+  </span>
+  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+    {[
+      { label: "Resend", color: "#1A1815", selected: true },
+      { label: "Marketo", color: "#5C4C9F" },
+      { label: "HubSpot", color: "#FF7A59" },
+      { label: "Salesforce", color: "#00A1E0" },
+      { label: "Sheets", color: "#0F9D58" },
+      { label: "Webhook", color: "var(--ink-mute)" },
+    ].map((d) => (
+      <span
+        key={d.label}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          padding: "4px 9px 4px 7px",
+          borderRadius: 6,
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: "-0.005em",
+          background: d.selected
+            ? "color-mix(in srgb, var(--indigo) 10%, transparent)"
+            : "var(--cream-2)",
+          border: d.selected
+            ? "1px solid color-mix(in srgb, var(--indigo) 30%, transparent)"
+            : "1px solid var(--hairline)",
+          color: d.selected ? "var(--indigo)" : "var(--ink-mute)",
+          opacity: d.selected ? 1 : 0.85,
+        }}
+      >
+        <span
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: 999,
+            background: d.color,
+            flexShrink: 0,
+            boxShadow: d.selected ? `0 0 6px ${d.color}` : undefined,
+          }}
+        />
+        {d.label}
+        {d.selected && (
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              marginLeft: 2,
+              color: "var(--indigo)",
+            }}
+            aria-hidden="true"
+          >
+            ✓
+          </span>
+        )}
+      </span>
+    ))}
+  </div>
+</div>
+```
+
+After inserting this, **also update the Send row** so its left-side subline no longer duplicates the destination info. Find:
+
+```tsx
+<span
+  style={{
+    flex: 1,
+    fontSize: 11.5,
+    color: "var(--ink-mute)",
+  }}
+>
+  Send via Resend · from sarah@northwind.com
+</span>
+```
+
+Replace with:
+
+```tsx
+<span
+  style={{
+    flex: 1,
+    fontSize: 11.5,
+    color: "var(--ink-mute)",
+  }}
+>
+  Sending from sarah@northwind.com
+</span>
+```
+
+(The destination row above the send row now carries the "via Resend" story; the send row just shows the sender address.)
+
+---
+
+## Step 3 — Don't touch
+
+- Don't change the recipient view on the right side of the section. The identity-reveal pill works regardless of send channel; the visual story is already correct.
+- Don't change the Stats strip ("Time to ship · Variants live · Halifax portfolio") in the recipient view.
+- Don't change the section's wrapper, accent orb, or layout structure.
+- Don't add new dependencies. The destination row is plain inline-styled JSX, same pattern as everything else in the file.
+
+---
+
+## Step 4 — Verify
+
+```bash
+cd artifacts/lp-studio
+pnpm typecheck
+pnpm dev
+```
+
+Expected visual changes on the homepage:
+
+- Section 09 / Campaigns headline now reads **"Build the campaign here. Send it from anywhere."** with "Send it from anywhere." in indigo italic.
+- Body paragraph mentions Marketo, HubSpot, Salesforce, Google Sheets, and webhooks explicitly.
+- Fourth bullet now says "Send from LPS, or push to Marketo · HubSpot · SFDC · Sheets · webhook".
+- Inside the composer mock (left card), a new **DESTINATION** row appears between the attached page chip and the Send row, showing six small chip tiles: Resend (indigo-highlighted with ✓), Marketo, HubSpot, Salesforce, Sheets, Webhook (the others dimmed but visible).
+- The Send row's left subtext changed from "Send via Resend · from sarah@northwind.com" to just "Sending from sarah@northwind.com".
+- The right-side recipient view (identity-reveal pill, page mock) is unchanged.
+
+## Acceptance criteria
+
+- [ ] Headline says "Build the campaign here. Send it from anywhere."
+- [ ] Body text explicitly names Marketo, HubSpot, Salesforce, Sheets, webhook as destinations
+- [ ] Fourth bullet reads "Send from LPS, or push to Marketo · HubSpot · SFDC · Sheets · webhook"
+- [ ] DESTINATION row inserted into ComposerMock between the attached page chip and the Send row
+- [ ] All 6 destination chips render with their brand color dots; Resend shows the ✓ + indigo highlight; the rest are dimmed
+- [ ] `pnpm typecheck` clean
+- [ ] No visual changes to the right-side RecipientMock

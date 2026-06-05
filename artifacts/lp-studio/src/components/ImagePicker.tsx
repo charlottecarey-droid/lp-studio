@@ -20,6 +20,13 @@ interface ImagePickerProps {
    * on-topic. Falls back to the picker `label`, then a generic phrase.
    */
   aiHint?: string;
+  /**
+   * Tailwind classes for the preview <img>. Defaults to a short cropped band
+   * (`w-full h-24 object-cover`). Pass a taller `object-contain` variant when
+   * the full image must be visible (e.g. case-study cover images) rather than
+   * cropped to a thin strip.
+   */
+  previewClassName?: string;
 }
 
 async function uploadImage(file: File): Promise<string> {
@@ -38,7 +45,7 @@ async function uploadImage(file: File): Promise<string> {
   return `/api/storage${url}`;
 }
 
-export function ImagePicker({ value, onChange, label, placeholder, className, aiHint }: ImagePickerProps) {
+export function ImagePicker({ value, onChange, label, placeholder, className, aiHint, previewClassName = "w-full h-24 object-cover" }: ImagePickerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +115,7 @@ export function ImagePicker({ value, onChange, label, placeholder, className, ai
           <img
             src={value}
             alt="Preview"
-            className="w-full h-24 object-cover"
+            className={previewClassName}
             onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
           <button
