@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/select";
 import {
   AlertTriangle, CheckCircle2, Loader2, RefreshCw, Plus, Trash2,
-  ArrowUp, ArrowDown, ExternalLink,
+  ArrowUp, ArrowDown, ExternalLink, Upload,
 } from "lucide-react";
 import { LP_TEMPLATES, encodeGlobalTemplateId, parseGlobalTemplateId } from "@/lib/templates";
 import { templateToBlocks } from "@/lib/block-types/block-registry";
@@ -120,6 +120,9 @@ export default function SuperAdminFeaturedTemplates() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  // Key of the row whose thumbnail is mid-upload (null = none). Per-row so a
+  // single shared file picker / spinner doesn't block other cards.
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -178,6 +181,34 @@ export default function SuperAdminFeaturedTemplates() {
     setDrafts((prev) =>
       (prev ?? []).map((d) => (d.key === key ? { ...d, ...patch } : d)),
     );
+  };
+
+  // Upload a thumbnail image for a card. Mirrors the share-card uploader: POST
+  // the file to /api/lp/upload, then store the served /api/storage path as the
+  // card's thumbnailUrl. The text Input remains usable for pasting a URL.
+  const handleThumbUpload = async (key: string, file: File | undefined) => {
+    if (!file) return;
+    setUploadingKey(key);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${BASE}/api/lp/upload`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Upload failed");
+      }
+      const data = await res.json();
+      update(key, { thumbnailUrl: `/api/storage${data.url}` });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Thumbnail upload failed");
+    } finally {
+      setUploadingKey(null);
+    }
   };
 
   // Picking an underlying template prefills any empty display fields from the
@@ -410,7 +441,7 @@ export default function SuperAdminFeaturedTemplates() {
                     <SelectTrigger>
                       <SelectValue placeholder="Pick a usable template…" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-72">
                       <SelectGroup>
                         <SelectLabel>Flagship templates</SelectLabel>
                         {LP_TEMPLATES.map((t) => (
@@ -492,18 +523,52 @@ export default function SuperAdminFeaturedTemplates() {
                 </div>
 
                 <div className="space-y-1.5 md:col-span-2">
-                  <Label className="text-xs">Thumbnail URL</Label>
+                  <Label className="text-xs">Thumbnail</Label>
                   <div className="flex items-start gap-3">
                     <Input
                       value={d.thumbnailUrl}
                       onChange={(e) => update(d.key, { thumbnailUrl: e.target.value })}
-                      placeholder="https://…"
+                      placeholder="Paste a URL or upload an image…"
                     />
+                    <input
+                      type="file"
+                      id={`thumb-upload-${d.key}`}
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        e.currentTarget.value = "";
+                        void handleThumbUpload(d.key, f);
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 gap-1.5"
+                      disabled={uploadingKey === d.key}
+                      onClick={() =>
+                        document.getElementById(`thumb-upload-${d.key}`)?.click()
+                      }
+                    >
+                      {uploadingKey === d.key ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-3.5 h-3.5" /> Upload
+                        </>
+                      )}
+                    </Button>
                     {d.thumbnailUrl && (
                       <img
                         src={d.thumbnailUrl}
                         alt=""
                         className="h-10 w-16 rounded object-cover border shrink-0"
+                        onLoad={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.visibility = "visible";
+                        }}
                         onError={(e) => {
                           (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
                         }}
