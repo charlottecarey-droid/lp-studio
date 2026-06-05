@@ -409,7 +409,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       companyLogoUrl={p.companyLogoUrl || undefined}
       companyLogoAlt={p.companyLogoAlt || company || undefined}
       navLinks={p.navLinks ?? []}
-      primaryCtaText={p.primaryCtaText}
+      primaryCtaText={p.hideNavCta ? undefined : p.primaryCtaText}
       primaryCtaUrl={p.primaryCtaUrl}
       onPrimaryCtaClick={onCtaClick}
       theme="dark"
@@ -417,6 +417,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       accentTextColor={p.buttonTextColor || "hsl(192, 30%, 6%)"}
       position={isBuilder ? "absolute" : "fixed"}
       invertLogo
+      hideBrandLogo={p.hideBrandLogo}
     />
   ) : null;
 
@@ -435,15 +436,19 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-        <BrandLogo
-          brand={brand}
-          tone="onDark"
-          alt={brand.brandName || "Logo"}
-          style={{ height: 26, display: "block" }}
-        />
+        {!p.hideBrandLogo && (
+          <BrandLogo
+            brand={brand}
+            tone="onDark"
+            alt={brand.brandName || "Logo"}
+            style={{ height: 26, display: "block" }}
+          />
+        )}
         {(p.companyLogoUrl || company) && (
           <>
-            <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.30)", margin: "0 0.125rem", userSelect: "none", fontFamily: BODY }}>×</span>
+            {!p.hideBrandLogo && (
+              <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.30)", margin: "0 0.125rem", userSelect: "none", fontFamily: BODY }}>×</span>
+            )}
             {p.companyLogoUrl ? (
               <img
                 src={p.companyLogoUrl}
@@ -469,7 +474,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
         )}
       </div>
 
-      {p.primaryCtaText && (
+      {!p.hideNavCta && p.primaryCtaText && (
         <a
           href={onCtaClick ? undefined : (p.primaryCtaUrl || "#")}
           onClick={onCtaClick ? (e) => { e.preventDefault(); onCtaClick(); } : undefined}

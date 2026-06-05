@@ -2522,6 +2522,34 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </button>
             </div>
 
+            {/* Hide Dandy logo toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-xs">Hide Dandy logo</Label>
+                <p className="text-[11px] text-muted-foreground">Remove the Dandy mark (top-left) from the nav.</p>
+              </div>
+              <button
+                onClick={() => onChange({ ...block, props: { ...p, hideBrandLogo: !p.hideBrandLogo } })}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${p.hideBrandLogo ? "bg-primary" : "bg-muted"}`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${p.hideBrandLogo ? "translate-x-4" : "translate-x-0"}`} />
+              </button>
+            </div>
+
+            {/* Hide nav CTA toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-xs">Hide nav CTA</Label>
+                <p className="text-[11px] text-muted-foreground">Remove the top-right CTA pill. Body CTAs are unaffected.</p>
+              </div>
+              <button
+                onClick={() => onChange({ ...block, props: { ...p, hideNavCta: !p.hideNavCta } })}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${p.hideNavCta ? "bg-primary" : "bg-muted"}`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${p.hideNavCta ? "translate-x-4" : "translate-x-0"}`} />
+              </button>
+            </div>
+
             {/* Nav links (used by sticky header) */}
             {p.stickyHeader && (() => {
               const nav = p.navLinks ?? [];

@@ -135,6 +135,14 @@ export interface DsoHeartlandHeroBlockProps {
   /** Override for the stat label text color. Defaults to the muted gray. */
   statLabelColor?: string;
   stickyHeader?: boolean;
+  /** When true, hides the Dandy brand logo (top-left) in the hero nav across all
+   *  layouts and both the standard and sticky-header nav variants. Defaults to
+   *  showing the logo (current behavior). */
+  hideBrandLogo?: boolean;
+  /** When true, hides the top-right nav CTA pill across all layouts and both nav
+   *  variants. The hero's main body CTAs are unaffected. Defaults to showing the
+   *  CTA (current behavior). */
+  hideNavCta?: boolean;
   /** Optional nav links (label + href) shown in the header. */
   navLinks?: { label: string; href: string }[];
 

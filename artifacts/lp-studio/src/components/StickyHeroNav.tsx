@@ -46,6 +46,9 @@ export interface StickyHeroNavProps {
   position?: "fixed" | "sticky" | "absolute";
   /** When true, invert the logo to white. Useful for dark hero backgrounds. */
   invertLogo?: boolean;
+  /** When true, hides the brand logo entirely (top-left). The partner
+   *  logo/name (if present) still renders, without a leading "×" separator. */
+  hideBrandLogo?: boolean;
 }
 
 const DEFAULT_ACCENT = "hsl(72, 55%, 48%)";
@@ -68,6 +71,7 @@ export function StickyHeroNav({
   ctaStyle = "pill",
   position = "fixed",
   invertLogo,
+  hideBrandLogo,
 }: StickyHeroNavProps) {
   // `progress` is a continuous 0..1 ramp that begins at scrollThreshold and
   // saturates one viewport-height later. We still derive a boolean `scrolled`
@@ -171,25 +175,29 @@ export function StickyHeroNav({
         >
           {/* Logo + optional company */}
           <div className="flex items-center gap-3 min-w-0">
-            <BrandLogo
-              brand={brand ?? DEFAULT_BRAND}
-              url={logoUrl}
-              tone={shouldInvertLogo ? "onDark" : "onLight"}
-              alt={logoAlt}
-              style={{ height: 24, display: "block" }}
-            />
+            {!hideBrandLogo && (
+              <BrandLogo
+                brand={brand ?? DEFAULT_BRAND}
+                url={logoUrl}
+                tone={shouldInvertLogo ? "onDark" : "onLight"}
+                alt={logoAlt}
+                style={{ height: 24, display: "block" }}
+              />
+            )}
             {(companyLogoUrl || companyName) && (
               <>
-                <span
-                  style={{
-                    fontSize: "0.75rem",
-                    color: dividerColor,
-                    margin: "0 0.125rem",
-                    userSelect: "none",
-                  }}
-                >
-                  ×
-                </span>
+                {!hideBrandLogo && (
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      color: dividerColor,
+                      margin: "0 0.125rem",
+                      userSelect: "none",
+                    }}
+                  >
+                    ×
+                  </span>
+                )}
                 {companyLogoUrl ? (
                   <img
                     src={companyLogoUrl}
