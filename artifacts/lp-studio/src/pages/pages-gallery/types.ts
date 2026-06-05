@@ -70,6 +70,9 @@ export interface ApiTemplate {
   blockTypes?: string[];
   isGlobal: boolean;
   industry: "dental" | "generic" | null;
+  /** Creation timestamp (ISO string). Drives the "Newest" ordering that
+   *  mirrors the Template Library's default sort in the create dialog. */
+  createdAt?: string;
 }
 
 export interface PerfScore {

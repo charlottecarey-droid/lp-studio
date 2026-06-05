@@ -298,14 +298,19 @@ export default function PagesGallery() {
   const selectedAudienceType = selectedSegment ? inferAudienceType(selectedSegment.name) : null;
   const selectedAudienceBucket = audienceBucket(selectedAudienceType);
   const visibleApiTemplates = useMemo(() => {
+    // The leadership-content gate exists to stop Dandy's GLOBAL leadership
+    // decks from leaking onto practice-targeted pages. It must NOT hide the
+    // tenant's OWN saved templates — those were authored deliberately and the
+    // user expects them in the create dialog regardless of the audience.
     const filtered = selectedAudienceBucket !== "practice"
       ? apiTemplates
-      : apiTemplates.filter(t => !templateContainsLeadershipContent(t.blockTypes));
-    // Tenant-owned templates always appear before global templates so the
-    // user's own saved templates are easy to find in the create dialog.
+      : apiTemplates.filter(t => !t.isGlobal || !templateContainsLeadershipContent(t.blockTypes));
+    // Tenant-owned templates always appear first, ordered to mirror the
+    // Template Library's default sort ("Newest" = createdAt descending), so
+    // the user's own saved templates lead the dropdown in a familiar order.
     return [...filtered].sort((a, b) => {
       if (a.isGlobal !== b.isGlobal) return a.isGlobal ? 1 : -1;
-      return 0;
+      return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
     });
   }, [apiTemplates, selectedAudienceBucket]);
 
