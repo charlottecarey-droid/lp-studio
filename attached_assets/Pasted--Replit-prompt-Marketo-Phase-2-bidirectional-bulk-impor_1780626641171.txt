@@ -1,0 +1,189 @@
+# Replit prompt — Marketo Phase 2 (bidirectional + bulk import via SFDC keys)
+
+**Goal:** Make the existing Marketo integration **bidirectional**: keep the Phase 1 outbound form-submit push, and add (a) activity push-back, (b) field/list/program discovery, (c) bulk import of Marketo records into LP Studio via SFDC-keyed match, (d) a real settings UI.
+
+Marketo Phase 1 was bolted into the generic `lp_integrations` provider table. **Phase 2 should NOT extend that row.** Instead, mirror the dedicated SFDC integration pattern (`sfdc_connections` + `sfdc_field_mappings` + `sfdc_sync_log` + `sfdc-service.ts` + `sales/sfdc-settings.tsx`). The Marketo Phase 2 surface should look like SFDC's twin.
+
+Read these files first as your reference:
+
+- `lib/db/src/schema/sfdcIntegration.ts`
+- `artifacts/api-server/src/routes/sales/sfdc.ts`
+- `artifacts/api-server/src/lib/sfdc-service.ts`
+- `artifacts/api-server/src/lib/encryption.ts`
+- `artifacts/api-server/src/middleware/requireAuth.ts` (for `getTenantId`)
+- `artifacts/lp-studio/src/pages/sales/sfdc-settings.tsx`
+- `artifacts/api-server/src/routes/lp/leads.ts` lines 452–508 (Phase 1 outbound push — keep this working)
+- `lib/db/migrations/0001_sfdc_integration.sql` and `0009_sales_sfdc_tenant_id.sql` (migration shape)
+
+---
+
+## Step 1 — Schema (new migration, starting at `0047_marketo_phase2.sql` or higher)
+
+Mirror SFDC's tables. **Include `tenant_id NOT NULL` FK + index in the initial migration** — SFDC had to retrofit this in `0009`, don't repeat that mistake.
+
+- **`marketo_connections`** — one row per (tenantId, munchkinId). Columns: `id`, `tenantId` (FK → tenants, ON DELETE CASCADE), `munchkinId` (Marketo's account identifier), `restEndpoint` (per-account REST API base URL), `identityEndpoint`, `clientId`, `clientSecret` (encrypted), `accessToken` (encrypted), `tokenExpiresAt`, `status` (`connected|disconnected|error`), `lastSyncAt`, `lastSyncError`, `syncEnabled` (default true), `importUnlinkedLeads` (default false — see Tier 2 in Step 5), `metadata` jsonb, `connectedAt`, `connectedBy`.
+- **`marketo_field_mappings`** — `connectionId` FK, `marketoField` (string, the Marketo lead attribute), `localTable` (`sales_contacts` mostly), `localField`, `direction` (`inbound|outbound|both`), `isActive`, `transformFn` (whitelist).
+- **`marketo_sync_log`** — per-run audit row. Same columns as `sfdc_sync_log`: `syncType` (`manual|incremental`), `objectType` (`leads|lists|programs|activities`), `recordsProcessed/Created/Updated/Skipped`, `status`, `errorMessage`, `startedAt`, `completedAt`. Plus a new `lastCursor` text column to support incremental sync (the next-page token).
+- **`marketo_lists`** — cached list of Marketo Static Lists/Programs available to map (refreshed on sync). Columns: `connectionId`, `marketoListId`, `marketoListName`, `listType` (`static_list|program|smart_list`), `programType`, `updatedAt`.
+- **`marketo_activities_pushed`** — idempotency record for outbound activity writes. Columns: `connectionId`, `localEventId` (e.g. the LP Studio campaign-send id), `eventType`, `marketoActivityId`, `pushedAt`. **SFDC doesn't have this and gets duplicate Tasks on retry — don't repeat that.**
+- Add columns on **`sales_contacts`**: `marketoLeadId` (text, unique nullable) and `marketoLastSyncedAt` (timestamp). Parallel to `salesforceId` / `sfdcLastSyncedAt`.
+- Extend **`encryption.ts`** line ~186 `CREDENTIAL_FIELDS_BY_PROVIDER` to include `marketo: ["clientSecret", "accessToken"]` (it already has `["clientSecret"]` from Phase 1 — add `accessToken`).
+
+---
+
+## Step 2 — Marketo API client (`artifacts/api-server/src/lib/marketo-service.ts`)
+
+Singleton pattern: `export const marketoService = new MarketoService()`. Mirror `sfdcService` exactly. Required methods:
+
+- `getAuthorizationUrl({ tenantId })` — Marketo uses client credentials, not OAuth user-flow. The "connect" UX is actually a credential form (Munchkin ID + Client ID + Client Secret + REST endpoint URL) rather than a redirect. Build the equivalent: `POST /api/sales/marketo/connect` accepts those four fields, validates by calling `/identity/oauth/token`, persists with `clientSecret` + `accessToken` encrypted. **No HMAC state needed** because there's no redirect — but still gate the route on `requireAuth` and `getTenantId(req, res)`.
+- `getConnectionWithValidToken(connectionId)` — same shape as the SFDC version. Loads connection, decrypts tokens, checks `tokenExpiresAt` with 5-min buffer, calls `refreshAccessToken()` if expiring, returns plaintext token. Marketo access tokens expire in ~1 hour; refresh by re-calling `/identity/oauth/token` with the stored client credentials.
+- `queryMarketo(connectionId, path, opts)` — chokepoint. Implements **proper retry + backoff** (SFDC's client doesn't — improve here):
+  - Retry on 401 once after token refresh
+  - Retry on 429 with exponential backoff (start 500ms, max 30s, up to 5 attempts)
+  - Respect Marketo's `X-RateLimit-*` headers if present
+  - Throw `MARKETO_RATE_LIMIT` if exhausted
+- `getActiveConnection(tenantId)` — **MUST require `tenantId` as a non-optional parameter.** Do NOT mirror SFDC's `getActiveConnection()` overload that allows tenantId-less calls (that's a multi-tenant leak — see hotlinks.ts:673, campaigns.ts:854,1461, lp/leads.ts:454). Every call site passes tenantId; no fallback to "first connected row across all tenants."
+
+---
+
+## Step 3 — Outbound push (extend Phase 1 + add new event types)
+
+Phase 1 already pushes on form submit via `lp/leads.ts:452–508` using `sfdc_field_mappings`-style remapping for UTM fields. Keep that working. Then add three new push trigger sites paralleling SFDC:
+
+1. **Campaign email send** — `campaigns.ts:852-863` and `:1461-1469` currently call `sfdcService.logEmailActivity()`. Add a sibling call to `marketoService.logEmailActivity()` (gated on `contact.marketoLeadId != null` AND `connection.syncEnabled`). Both fire-and-forget with `.catch(() => {})`, same pattern.
+2. **Microsite visit (hotlink resolve)** — `hotlinks.ts:671-682`. Add `marketoService.logMicrositeView()`.
+3. **Engagement score push** — `signals.ts:211-213,222-283`. After the SFDC engagement push, also call `marketoService.pushEngagementScore()` which updates the Marketo lead score field (or a custom field — see below).
+
+**Activity push-back implementation** in `marketo-service.ts`:
+
+- `createCustomActivity({ leadId, activityTypeId, primaryAttributeValue, attributes })` — wraps `POST /rest/v1/activities/external.json`. Custom activity type IDs must be created in the Marketo account (document this in the README + surface it in the settings UI).
+- `logEmailActivity({ contactMarketoLeadId, subject, body?, campaignName? })` — wraps `createCustomActivity` with the "Email Sent" activity type. Strips HTML, truncates body to 500 chars, prefixes subject with "Email Sent: ". Records the returned `marketoActivityId` to `marketo_activities_pushed` — checked at the top of the function to prevent duplicate pushes (mirrors the missing-from-SFDC idempotency).
+- `logMicrositeView({ contactMarketoLeadId, pageTitle, pageUrl? })` — "Microsite View" activity type.
+- `pushEngagementScore({ leadId, label, numericScore })` — PATCHes Marketo lead via `POST /rest/v1/leads.json?action=updateOnly` with payload `[{ id: leadId, leadScore: numericScore, lp_studio_engagement_label: label }]`. (`lp_studio_engagement_label` is a custom field the customer creates in Marketo.)
+- `addLeadToList({ leadId, listId })` — `POST /rest/v1/lists/{listId}/leads.json` with `[{ id: leadId }]`. Useful for "enroll new leads in this program" workflows.
+
+---
+
+## Step 4 — Field/list/program discovery (this is the spec gap SFDC has — close it for Marketo)
+
+SFDC's settings UI has no "discover fields" picker. Marketo Phase 2 must build it. New endpoints:
+
+- `GET /api/sales/marketo/discover/fields` — calls Marketo `/rest/v1/leads/describe2.json`, returns the list of available lead attributes (`displayName`, `restName`, `dataType`).
+- `GET /api/sales/marketo/discover/lists` — calls `/rest/v1/lists.json`, paginates, returns all static lists.
+- `GET /api/sales/marketo/discover/programs` — calls `/rest/asset/v1/programs.json`, returns active programs.
+- Cache results in `marketo_lists` for 1 hour (cheap; avoids hammering Marketo's rate-limited API when users open the settings page).
+
+---
+
+## Step 5 — Bulk import (the big addition)
+
+Two sync modes, both triggered manually + the option to add a cron later:
+
+- `POST /api/sales/marketo/sync` — full sync (leads + lists + programs).
+- `POST /api/sales/marketo/sync/:object` — per-object: `leads`, `lists`, `programs`, `activities`.
+
+**Pagination, properly this time** — Marketo returns `nextPageToken` on every paged response. Implement the cursor loop from day one (don't repeat SFDC's `LIMIT 10000`-silent-truncation):
+
+```
+let nextPageToken = null;
+do {
+  const resp = await marketo.get(`/rest/v1/leads.json?nextPageToken=${nextPageToken ?? initial}`);
+  for (const lead of resp.result) { ...upsert... }
+  nextPageToken = resp.nextPageToken;
+} while (nextPageToken);
+```
+
+Persist `nextPageToken` to `marketo_sync_log.lastCursor` so partial sync runs can resume.
+
+**Dedupe + match strategy (Tier 1 — the launch scope):**
+
+For each incoming Marketo lead:
+
+1. If lead has a non-null `sfdcContactId` (Marketo attribute): match to `sales_contacts` where `salesforceId = sfdcContactId`. **If matched**, enrich the existing row with Marketo data (set `marketoLeadId`, `marketoLastSyncedAt`, merge engagement attributes into `sales_contacts.metadata`). **If not matched**, skip with reason "sfdc_contact_id_not_in_lp" — record count goes to `recordsSkipped` in the sync log.
+2. If lead has a non-null `sfdcAccountId` but no `sfdcContactId`: match the account via `sales_accounts.salesforceId`, then INSERT a new `sales_contacts` row under that account with the Marketo data, set `marketoLeadId` + `marketoLastSyncedAt`. Account-keyed contact creation.
+3. If lead has neither: **check `connection.importUnlinkedLeads`**. If false (default), skip with reason "unlinked_lead_skipped" — this is Tier 2 in the marketing site's "Bulk import requires Salesforce" footnote. If true, INSERT as orphan `sales_contacts` rows with `marketoLeadId` only.
+
+**Conflict resolution** — Marketo data is supplementary, NOT system-of-record. So for shared fields (email, name, company), **SFDC wins** if `salesforceId` is set. Marketo data only writes engagement-specific fields (lead score, last interesting moment, Marketo program memberships). Document this in `marketo-service.ts` header comment.
+
+**Cron / scheduling** — out of scope for Phase 2. Manual button only. Add a TODO comment for "scheduled incremental sync via lastCursor + lastSyncAt diff query" as a follow-up.
+
+---
+
+## Step 6 — Settings UI (`artifacts/lp-studio/src/pages/sales/marketo-settings.tsx`)
+
+Mirror `sfdc-settings.tsx` structurally — same `SalesLayout` + `SalesPageHeader` wrapper, same connection-status badge, same sync-log table, same field-mapping table. Plus the additions that close the SFDC UX gap:
+
+- **Credential form** (instead of OAuth redirect): four fields (Munchkin ID, REST endpoint URL, Client ID, Client Secret) with a "Test connection" button that validates before saving.
+- **Field-mapping CREATE flow** (SFDC's UI is missing this): "Add mapping" button → modal with two dropdowns (Marketo field from `/discover/fields`, local field from a hardcoded list of `sales_contacts` columns) + direction picker (inbound/outbound/both) + transform whitelist.
+- **List & program picker** at the top of the page — "When new leads come in via LP Studio forms, also add them to: [list dropdown]" — wires the outbound push to call `addLeadToList`.
+- **Import status panel** — last sync at, records processed/created/updated/skipped (per object), error log, "Import unlinked leads" toggle (the Tier 2 setting) with help text explaining the SFDC-key requirement.
+- **Custom field setup helper** — collapsible "Setup checklist" panel listing the Marketo lead custom fields the customer needs to create (`lp_studio_engagement_label`, `lp_studio_engagement_score`, and the activity type IDs).
+
+Link from the Sales nav (the same nav that has SFDC Settings).
+
+---
+
+## Step 7 — Marketing-site updates (only after backend ships)
+
+Once the integration is real, update the marketing site (`artifacts/lp-studio/src/marketing/`):
+
+1. **`components/Pricing.tsx`** — the feature map and Growth tier already claim "Salesforce + Marketo bidirectional sync". With Phase 2 shipped, that claim is now real — no copy change needed, but verify the FEATURE_MAP entry for Marketo bidirectional is in the right tier (Growth+).
+2. **`components/Integrations.tsx`** — Marketo tile already exists in `LEAD_HANDOFF`. Move it up next to the featured Salesforce card, OR feature it separately alongside Salesforce as "bidirectional integrations" (your call). Both have the same "different class than the rest" weight now.
+3. **`components/FAQ.tsx`** — search for any answer about Marketo being outbound-only and update.
+4. **`pages/home.tsx`** — WhatsInside Marketing row bullet currently says `"Marketo + GA4 lead handoff (HubSpot soon)"`. If HubSpot is also shipping in this sprint, drop the "soon" — see the separate HubSpot prompt. If not, leave that bullet alone.
+
+---
+
+## Step 8 — Routes mount + endpoint summary
+
+Mount in `artifacts/api-server/src/server.ts` at `/api/sales/marketo` (mirror SFDC's `/api/sales/sfdc`).
+
+Endpoint surface:
+
+```
+POST   /api/sales/marketo/connect              — credential form submit + validate
+POST   /api/sales/marketo/disconnect           — wipe tokens to "", set status="disconnected"
+GET    /api/sales/marketo/connection           — current connection state
+PUT    /api/sales/marketo/connection           — toggle syncEnabled / importUnlinkedLeads
+
+GET    /api/sales/marketo/discover/fields      — Marketo lead attributes
+GET    /api/sales/marketo/discover/lists       — Marketo static lists
+GET    /api/sales/marketo/discover/programs    — Marketo programs
+
+GET    /api/sales/marketo/field-mappings       — list mappings
+POST   /api/sales/marketo/field-mappings       — create mapping
+PUT    /api/sales/marketo/field-mappings/:id   — toggle active / update transform
+DELETE /api/sales/marketo/field-mappings/:id
+
+POST   /api/sales/marketo/sync                 — fire-and-forget full sync
+POST   /api/sales/marketo/sync/:object         — leads | lists | programs | activities
+GET    /api/sales/marketo/sync/log             — paginated sync history
+
+POST   /api/sales/marketo/test/activity        — fire a test custom activity (for debugging)
+```
+
+Every route: `requireAuth` middleware, `getTenantId(req, res)`, all DB queries scoped via `.where(eq(table.tenantId, tenantId))`.
+
+---
+
+## Acceptance criteria
+
+- [ ] All Marketo tables include `tenant_id NOT NULL` FK + index in the initial migration (no retrofit needed later)
+- [ ] `getActiveConnection` (or equivalent) requires `tenantId` as a non-optional parameter — verify no call site passes undefined
+- [ ] Token decryption goes through `decryptCredential`; encryption goes through `encryptCredential`; `marketo` whitelist updated
+- [ ] Form-submit outbound push (Phase 1 behavior) still works — write a smoke test
+- [ ] Activity push-back stores `marketoActivityId` in `marketo_activities_pushed` and refuses duplicate pushes on retry
+- [ ] Bulk import paginates over `nextPageToken` (verify on a Marketo account with >10,000 leads — they exist in the test sandbox)
+- [ ] Bulk import matches on `sfdcContactId` first, `sfdcAccountId` second, skips unlinked unless `importUnlinkedLeads=true`
+- [ ] Settings UI lets users (a) connect via credential form, (b) discover Marketo fields/lists, (c) create field mappings, (d) trigger a sync, (e) see per-object sync status with record counts
+- [ ] `pnpm typecheck` clean across all workspaces
+- [ ] No mention of "(HubSpot soon)" or "Marketo soon" in the marketing site after this lands and the HubSpot prompt is merged
+
+## Don't
+
+- Don't extend `lp_integrations` for Phase 2 — create the dedicated `marketo_*` tables instead, matching the SFDC structure
+- Don't replicate SFDC's `getActiveConnection()` tenantId-less leak — every Marketo call site MUST pass `tenantId`
+- Don't ship without pagination — `LIMIT 10000` truncation is fine for SFDC because we'll fix it later, but Marketo accounts routinely have 100k+ leads
+- Don't ship without activity idempotency — `marketo_activities_pushed` is the contract that prevents duplicate Tasks
+- Don't add a Marketo bidirectional tile to the marketing site until the backend acceptance criteria are all checked
+- Don't refactor the SFDC integration as part of this PR. Stay scoped. (Yes, the multi-tenant leak in `getActiveConnection` is a bug — file it as a separate task; fixing it should not block Marketo Phase 2.)
