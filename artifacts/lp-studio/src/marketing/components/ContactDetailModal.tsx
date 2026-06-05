@@ -162,7 +162,7 @@ export default function ContactDetailModal({ contact, onClose }: Props) {
         </div>
 
         {/* Body */}
-        <div style={{ padding: "26px 28px 32px" }}>
+        <div className="cdm-body" style={{ padding: "26px 28px 32px" }}>
           {/* Header row: back · avatar · name + role + status badge · Generate CTA · close.
               On mobile the row wraps and the Generate CTA drops to its own
               full-width line (sm:* resets to the single-row desktop layout). */}
@@ -292,7 +292,7 @@ export default function ContactDetailModal({ contact, onClose }: Props) {
           </div>
 
           {/* Contact Information card */}
-          <Card>
+          <Card className="cdm-card">
             <CardHeading>Contact Information</CardHeading>
             <div
               className="cdm-info"
@@ -328,7 +328,7 @@ export default function ContactDetailModal({ contact, onClose }: Props) {
           {/* AI Contact Brief — collapsed by default so the modal stays
               focused on the engagement metrics + history. The whole header
               row toggles expand/collapse. */}
-          <Card style={{ marginTop: 16, padding: briefExpanded ? "20px 24px" : "14px 18px" }}>
+          <Card className="cdm-card" style={{ marginTop: 16, padding: briefExpanded ? "20px 24px" : "14px 18px" }}>
             <button
               type="button"
               onClick={() => setBriefExpanded((v) => !v)}
@@ -467,6 +467,7 @@ export default function ContactDetailModal({ contact, onClose }: Props) {
             {contact.personalizedLinks.map((l) => (
               <div
                 key={l.title}
+                className="cdm-link-row"
                 style={{
                   background: "var(--paper)",
                   border: "1px solid var(--hairline-strong)",
@@ -500,8 +501,15 @@ export default function ContactDetailModal({ contact, onClose }: Props) {
                     {l.title}
                   </div>
                   <div
-                    className="font-mono"
-                    style={{ fontSize: 11.5, color: "var(--ink-mute)", marginTop: 2 }}
+                    className="font-mono cdm-link-url"
+                    style={{
+                      fontSize: 11.5,
+                      color: "var(--ink-mute)",
+                      marginTop: 2,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
                   >
                     {l.url}
                   </div>
@@ -598,6 +606,7 @@ export default function ContactDetailModal({ contact, onClose }: Props) {
               {contact.engagementHistory.map((e, i) => (
                 <div
                   key={i}
+                  className="cdm-eng-row"
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -687,9 +696,18 @@ function StatusBadge({ label, tone }: { label: string; tone: "engaged" | "cold" 
   );
 }
 
-function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+function Card({
+  children,
+  style,
+  className,
+}: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+  className?: string;
+}) {
   return (
     <div
+      className={className}
       style={{
         background: "var(--paper)",
         border: "1px solid var(--hairline-strong)",
