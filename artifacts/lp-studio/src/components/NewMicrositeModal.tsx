@@ -125,6 +125,10 @@ export function NewMicrositeModal({ open, onClose }: Props) {
   // through the AI template-rewrite path to lightly retune copy.
   const [aiSegmentId, setAiSegmentId] = useState<string>("");
   const [templateSegmentId, setTemplateSegmentId] = useState<string>("");
+  // Optional reference URL — scraped for voice (markdown), visual style
+  // (screenshot), and imagery, then merged with the brand's saved inspiration
+  // URLs server-side. AI mode only.
+  const [aiReferenceUrl, setAiReferenceUrl] = useState<string>("");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

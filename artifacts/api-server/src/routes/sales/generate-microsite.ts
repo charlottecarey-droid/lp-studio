@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { salesAccountsTable, salesBriefingsTable, salesContactsTable, salesContactBriefingsTable, lpPagesTable, lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import OpenAI from "openai";
+import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 import rateLimit from "express-rate-limit";
 import { pickExemplars, formatExemplarsSection, parseCustomExemplars } from "./microsite-exemplars";
 import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
@@ -20,9 +21,19 @@ import {
   buildTypographySection,
   buildDesignIntensitySection,
   applyDesignIntensityBackgrounds,
+  enforceHeroLegibility,
   type DesignIntensity,
   enforceRequiredRoles,
+  // Reference-URL ingestion shared with the marketing generator (Task #976):
+  // dedupe/cap a URL list and scrape (single- or multi-page) into markdown +
+  // screenshot + harvested image candidates.
+  dedupeUrls,
+  gatherReferences,
+  type MediaImage,
 } from "../lp/generate-page";
+// Mirror harvested reference imagery into the tenant's media library so the
+// image-fill pass can use real site images for empty slots.
+import { mirrorReferenceImages } from "../../lib/brand-import/assets-uploader";
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
 import { deriveCompanyName, derivePracticeCount } from "../../lib/businessCaseVars";
@@ -1031,6 +1042,69 @@ const NEUTRAL_MICROSITE_BLOCK_LIST: BrandMicrositeBlockListEntry[] = [
   { type: "bottom-cta" },
 ];
 
+// Task #976 — Freeform layout vocabulary. When neither the selected segment
+// nor the brand defines a curated micrositeBlockList, we no longer fall back to
+// the flat 7-block NEUTRAL list (which made every non-Dandy microsite look the
+// same). Instead the model picks a varied layout from this neutral,
+// industry-agnostic block set. It is deliberately restricted to general blocks:
+// NEVER the Dandy-curated dso-* or business-case-* compound blocks, which carry
+// dental/DSO vocabulary and are reserved for Dandy's curated path. NEUTRAL
+// stays a last-resort safety net (see route) if freeform yields nothing usable.
+const FREEFORM_MICROSITE_DISPLAY_TYPES = [
+  "hero",
+  "trust-bar",
+  "benefits-grid",
+  "features",
+  "testimonial",
+  "how-it-works",
+  "comparison",
+  "stats",
+  "pas-section",
+  "stat-callout",
+  "rich-text",
+  "video-section",
+  "bottom-cta",
+  "footer",
+] as const;
+
+// Validation allow-list — a superset of the displayed vocabulary that also
+// accepts the synonym block types the normalizer/renderer treat as equivalent
+// ("testimonials", "cta"). Any block the model emits whose type is NOT in this
+// set is dropped in freeform mode so dso-*/business-case-* can never leak.
+const FREEFORM_ALLOWED_TYPE_SET: ReadonlySet<string> = new Set<string>([
+  ...FREEFORM_MICROSITE_DISPLAY_TYPES,
+  "testimonials",
+  "cta",
+]);
+
+// Short role hint per displayed block so the model understands each section's
+// job (mirrors the shared block-role-tag vocabulary used by enforceRequiredRoles).
+const FREEFORM_ROLE_HINTS: Record<string, string> = {
+  "hero": "hero — opens the page; exactly ONE, always first",
+  "trust-bar": "social proof + stats — quick credibility/metrics bar",
+  "benefits-grid": "features — benefit/value cards",
+  "features": "features — capability cards",
+  "testimonial": "social proof — a real-sounding customer quote",
+  "how-it-works": "features — numbered process steps",
+  "comparison": "comparison — old-way vs new-way",
+  "stats": "stats — hard metrics row",
+  "pas-section": "content — problem / agitate / solve narrative",
+  "stat-callout": "stats — one big highlighted metric",
+  "rich-text": "content — short narrative prose section",
+  "video-section": "media — embedded video",
+  "bottom-cta": "cta — closing call to action",
+  "footer": "footer — closes the page; always last",
+};
+
+/** Build the freeform "AVAILABLE BLOCKS" guide: each allowed neutral block
+ *  with its role hint and prop schema. The model chooses which to use and in
+ *  what order (constrained by the best-practice rules in the freeform footer). */
+function buildFreeformBlockGuide(): string {
+  return FREEFORM_MICROSITE_DISPLAY_TYPES
+    .map((t) => `- "${t}" (${FREEFORM_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`)
+    .join("\n");
+}
+
 // Three-tier schema resolution for a block-list entry: explicit per-entry
 // schemaHint → server-side BLOCK_PROP_SCHEMAS registry default → generic
 // "{ ...fields }" placeholder. Never throws on missing data.
@@ -1194,6 +1268,10 @@ function buildSystemPrompt(
   brand: Record<string, unknown>,
   templateBlockTypes?: string[],
   accountSegment?: string | null,
+  // Task #976 — when true (no template, no curated/brand block list), the model
+  // freely composes a varied layout from the neutral freeform vocabulary
+  // instead of filling a fixed block list.
+  useFreeform = false,
 ): string {
   const tone            = brand.toneOfVoice as string | undefined;
   const pillars         = brand.messagingPillars as Array<{ label: string; description: string }> | undefined;
@@ -1338,6 +1416,36 @@ function buildSystemPrompt(
     ].join("\n");
   }
 
+  // Task #976 — Freeform layout. No template and no curated/brand block list:
+  // give the model the neutral block vocabulary + best-practice ordering rules
+  // and let IT compose a varied layout, instead of emitting the flat 7-block
+  // NEUTRAL list every time. NEUTRAL stays a last-resort validation safety net
+  // in the route if this yields nothing usable.
+  if (useFreeform) {
+    const freeformFooter = [
+      "",
+      "LAYOUT — YOU choose the sections (this page has NO fixed block list):",
+      "- Open with EXACTLY ONE \"hero\" block (first) and END with a \"footer\" block.",
+      "- Between them, pick 5–9 sections from the AVAILABLE BLOCKS that best tell THIS account's story. Vary the selection and order across accounts — do NOT emit the same flat sequence every time.",
+      "- Include at least one proof/metrics section (trust-bar, stats, stat-callout, or testimonial), at least one features/benefits section (benefits-grid, features, or how-it-works), and a closing CTA (bottom-cta) immediately before the footer.",
+      "- Sequence sections as a logical narrative: hook → problem/value → proof → how-it-works/benefits → comparison → closing CTA → footer. Skip sections that don't fit; never pad.",
+      "- Use ONLY the block types listed above (exact type strings). NEVER invent block types and NEVER use industry-specific compound blocks.",
+      "Every block's copy must feel written specifically for this account — their name, scale, and situation woven in naturally.",
+      "Use plain, direct language. If a phrase sounds like it belongs in a pitch deck or a press release, rewrite it.",
+      "FINAL CAPITALIZATION REMINDER: Every single string value — headlines, eyebrows, subheadlines, bullet points, step titles, labels, FAQ questions — MUST start with a capital letter. NEVER start any text value with a lowercase letter. NEVER title-case (capitalize every word). Only the first word + proper nouns + acronyms get capitals.",
+    ].join("\n");
+
+    return [
+      header,
+      "",
+      audienceSection,
+      "",
+      "AVAILABLE BLOCKS (choose from these — you decide which and in what order):",
+      buildFreeformBlockGuide(),
+      freeformFooter,
+    ].join("\n");
+  }
+
   const blockList = resolvedBlockTypes
     .map((entry, i) => `${i + 1}. "${entry.type}": ${resolveBlockSchema(entry)}`)
     .join("\n");
@@ -1362,7 +1470,19 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
   // `segmentId` is the current field. `audience` is a one-release legacy alias
   // (the old enum values doubled as segment ids); both resolve against
   // brand.segments by id after the brand row is loaded inside the try block.
-  const { prompt: userPrompt, segmentId, audience, templateId, ctaOverride, contactId } = req.body as { prompt?: string; segmentId?: string; audience?: string; templateId?: number; ctaOverride?: CtaOverride; contactId?: number };
+  const { prompt: userPrompt, segmentId, audience, templateId, ctaOverride, contactId, referenceUrl, referenceUrls } = req.body as {
+    prompt?: string;
+    segmentId?: string;
+    audience?: string;
+    templateId?: number;
+    ctaOverride?: CtaOverride;
+    contactId?: number;
+    // Task #976 — optional per-generation reference URL(s). Scraped for voice
+    // (markdown), visual style (screenshot), and imagery, then merged with the
+    // brand's saved inspiration URLs. Both forms accepted (single + list).
+    referenceUrl?: string;
+    referenceUrls?: string[];
+  };
 
   try {
     const [account] = await db.select().from(salesAccountsTable)
@@ -1435,9 +1555,48 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       valuePropPairs: brandCtx.valuePropPairs.map(v => ({ theme: v.theme, proof: v.proof })),
     };
 
+    // Task #976 — reference-URL ingestion (parity with /lp/generate-page). Merge
+    // per-request reference URL(s) with the brand's saved inspiration URLs
+    // (request wins on dedup; total capped at 5) and scrape markdown (voice) +
+    // screenshot (visual style) + image candidates. Best-effort: any failure
+    // degrades to no reference context, never blocks generation.
+    const perRequestReferenceUrls = dedupeUrls(
+      [
+        ...(Array.isArray(referenceUrls) ? referenceUrls : []),
+        ...(typeof referenceUrl === "string" ? [referenceUrl] : []),
+      ],
+      5,
+    );
+    const inspirationUrls = dedupeUrls(
+      ((brand.inspirationUrls as Array<string | { url?: string }> | undefined) ?? []).map((e) =>
+        typeof e === "string" ? e : e?.url,
+      ),
+      5,
+    );
+    const mergedReferenceUrls = dedupeUrls([...perRequestReferenceUrls, ...inspirationUrls], 5);
+    const scrapePromise = mergedReferenceUrls.length > 0
+      ? gatherReferences(mergedReferenceUrls, tenantId).catch(
+          () => ({ scraped: null, failureReason: "firecrawl_failed" } as Awaited<ReturnType<typeof gatherReferences>>),
+        )
+      : Promise.resolve({ scraped: null, failureReason: "no_url" } as Awaited<ReturnType<typeof gatherReferences>>);
+
     // Fetch media library so the AI uses real assets, not invented URLs
-    const [{ images, allImages, catalogText: imageCatalogText }, { videoUrls, catalogText: videoCatalogText }] =
-      await Promise.all([fetchMediaCatalog(tenantId), fetchVideoCatalog(tenantId)]);
+    const [{ images, allImages, catalogText: imageCatalogText }, { videoUrls, catalogText: videoCatalogText }, scrapeResult] =
+      await Promise.all([fetchMediaCatalog(tenantId), fetchVideoCatalog(tenantId), scrapePromise]);
+
+    // Kick off mirroring the reference site's content images into the tenant's
+    // media library now so it overlaps with prompt assembly + the LLM call. The
+    // results are merged into the image fill pool below (raced against a short
+    // grace window). Best-effort throughout.
+    const scrapedImageUrls = scrapeResult.scraped?.imageUrls ?? [];
+    const scrapedMediaPromise: Promise<MediaImage[]> =
+      scrapeResult.scraped && scrapedImageUrls.length > 0
+        ? mirrorReferenceImages({ tenantId, sourceUrl: scrapeResult.scraped.url, imageUrls: scrapedImageUrls })
+            .then((r) => r.images)
+            .catch(() => [])
+        : Promise.resolve([]);
+    // Firecrawl's full-page screenshot drives the visual-style vision context.
+    const visionImage: string | undefined = scrapeResult.screenshotUrl;
 
     const openai = getOpenAIClient();
     if (!openai) { res.status(503).json({ error: "AI not configured" }); return; }
@@ -1471,7 +1630,40 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     }
 
     const briefingData = briefing?.briefingData as Record<string, unknown> | undefined;
-    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment);
+
+    // Task #976 — freeform layout when there is no template AND no curated
+    // block list (neither the segment's nor the brand's). Curated lists (Dandy
+    // DSO segments, brand defaults) stay authoritative and short-circuit to the
+    // fixed-list path; only the previously-static NEUTRAL fallback is replaced.
+    const brandDefaultBlockList = brand.defaultMicrositeBlockList as BrandMicrositeBlockListEntry[] | undefined;
+    const hasCuratedBlockList =
+      (segment.micrositeBlockList?.length ?? 0) > 0 || (brandDefaultBlockList?.length ?? 0) > 0;
+    const useFreeform = !templateBlockTypes && !hasCuratedBlockList;
+
+    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment, useFreeform);
+
+    // Task #976 — REFERENCE PAGE (voice) + VISUAL REFERENCE (style) sections,
+    // appended to the user prompt exactly like /lp/generate-page. The brand's
+    // own voice/guidelines in the system prompt always win over the reference;
+    // the reference is inspiration for structure, density, and visual style.
+    const referenceSection = (() => {
+      if (!scrapeResult.scraped) return "";
+      const { url, markdown, truncated, additionalUrls } = scrapeResult.scraped;
+      const truncNote = truncated ? " (TRUNCATED — full page was longer)" : "";
+      const companions = additionalUrls && additionalUrls.length > 0
+        ? `\n\n(Stitched from ${1 + additionalUrls.length} pages: ${url} plus ${additionalUrls.join(", ")})`
+        : "";
+      return (
+        `REFERENCE PAGE — STUDY THIS CAREFULLY (${url})${truncNote}:${companions}\n${markdown}\n\n` +
+        `This is real marketing language to draw structural and stylistic inspiration from. Your output SHOULD:\n` +
+        `- Mirror the information density, section rhythm, and specificity you see above.\n` +
+        `- Match the level of concrete proof (numbers, named outcomes) per section.\n` +
+        `IMPORTANT: the BRAND VOICE & GUIDELINES section above WINS on tone, vocabulary, and banned phrases — the reference only informs structure and visual density, never overrides the brand's own voice. Never copy the reference's company name, products, or claims onto this account's page.`
+      );
+    })();
+    const visionSection = visionImage
+      ? `VISUAL REFERENCE (the attached image): Study the layout, color palette, typography hierarchy, information density, and overall aesthetic of this screenshot. Identify the feel — premium/editorial vs scrappy/casual, dense vs airy, dark vs light, modern minimal vs decorative — and let it inform WHICH block types you pick and how dense the content sits in each. The screenshot sets visual style; copy comes from the BRAND VOICE & GUIDELINES, the account context, and the REFERENCE PAGE markdown above (when present).`
+      : "";
 
     const contextParts: string[] = [];
     contextParts.push(`ACCOUNT: ${account.displayName ?? account.name}`);
@@ -1537,7 +1729,18 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     }
 
     if (userPrompt) contextParts.push(`\nADDITIONAL INSTRUCTIONS:\n${userPrompt}`);
+    if (referenceSection) contextParts.push(`\n${referenceSection}`);
+    if (visionSection) contextParts.push(`\n${visionSection}`);
     contextParts.push(`\nGenerate a personalised microsite for ${account.displayName ?? account.name} targeting the ${segment.name?.trim() || "specified"} audience. Make every block specific to their business.`);
+
+    // Multimodal user message when a reference screenshot is available so the
+    // model can read the visual style directly; otherwise plain text.
+    const userContent: string | ChatCompletionContentPart[] = visionImage
+      ? [
+          { type: "text", text: contextParts.join("\n") },
+          { type: "image_url", image_url: { url: visionImage } },
+        ]
+      : contextParts.join("\n");
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -1546,7 +1749,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: contextParts.join("\n") },
+        { role: "user", content: userContent },
       ],
     });
 
@@ -1583,6 +1786,28 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
 
     let normalizedBlocks = (parsed.blocks as AiBlock[]).map((b, i) => normalizeBlock(b, i, fallbackBrand));
 
+    // Task #976 — freeform safety: drop any block whose type is outside the
+    // neutral freeform vocabulary (defence-in-depth so dso-*/business-case-* can
+    // never leak into a non-Dandy freeform page even if the model ignores the
+    // prompt). If filtering leaves nothing usable, fall back to the static
+    // NEUTRAL layout (the last-resort safety net) rather than ship a blank page.
+    if (useFreeform) {
+      const filtered = normalizedBlocks.filter((b) =>
+        FREEFORM_ALLOWED_TYPE_SET.has(String(b.type ?? "")),
+      );
+      if (filtered.length > 0) {
+        normalizedBlocks = filtered;
+      } else {
+        logger.warn(
+          { accountId, tenantId },
+          "generate-microsite: freeform output had no usable blocks; falling back to NEUTRAL layout",
+        );
+        normalizedBlocks = NEUTRAL_MICROSITE_BLOCK_LIST.map((entry, i) =>
+          normalizeBlock({ type: entry.type, props: {} } as AiBlock, i, fallbackBrand),
+        );
+      }
+    }
+
     // Enforce required structural roles (hero, cta, social-proof, stats,
     // features, footer), auto-injecting brand-aware defaults for any missing
     // role. Skipped for fixed-template pages, whose layout is an explicit
@@ -1610,6 +1835,10 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       voiceProfile: brand.voiceProfile as { profile?: { tone?: string[]; summary?: string } } | undefined,
     });
     normalizedBlocks = applyDesignIntensityBackgrounds(normalizedBlocks, micrositeDesignIntensity) as AiBlock[];
+    // Task #976 — enforce hero text legibility over background imagery (parity
+    // with /lp/generate-page). No-op for the neutral "hero" block type but kept
+    // for parity + future hero variants.
+    normalizedBlocks = enforceHeroLegibility(normalizedBlocks as unknown[]) as AiBlock[];
 
     // ── Image pipeline (parity with the marketing generator) ──────────────
     // Page-level topic context biases image scoring toward on-topic library
@@ -1622,14 +1851,25 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       (userPrompt ?? "").trim(),
     ].join(" ").trim().slice(0, 240);
 
+    // Task #976 — merge harvested reference imagery into the fill pool (raced
+    // against a short grace window so a slow CDN never adds latency). Appended
+    // AFTER the tenant's own library so a genuine library match still wins each
+    // slot; the scraped imagery only backfills slots the library can't cover.
+    const SCRAPED_MEDIA_GRACE_MS = 4000;
+    const scrapedMedia = await Promise.race([
+      scrapedMediaPromise,
+      new Promise<MediaImage[]>((resolve) => setTimeout(() => resolve([]), SCRAPED_MEDIA_GRACE_MS)),
+    ]);
+    const imageFillPool: MediaImage[] = scrapedMedia.length > 0 ? [...images, ...scrapedMedia] : images;
+
     // Clear AI-assigned URLs that are hallucinated or excluded (OG/social/ads)
     // so the fill passes below can replace them.
     normalizedBlocks = sanitizeAIImageUrls(normalizedBlocks, allImages) as AiBlock[];
     // Subject the model's own picks to the same dedupe + relevance guardrails.
-    normalizedBlocks = validateAndDedupeAIImages(normalizedBlocks, images, pageImageContext) as AiBlock[];
-    // Fill remaining empty image slots from the tenant media library (surfaces
-    // untagged images + broad block-type coverage).
-    normalizedBlocks = fillEmptyImages(normalizedBlocks, images, pageImageContext) as AiBlock[];
+    normalizedBlocks = validateAndDedupeAIImages(normalizedBlocks, imageFillPool, pageImageContext) as AiBlock[];
+    // Fill remaining empty image slots from the tenant media library + scraped
+    // reference imagery (surfaces untagged images + broad block-type coverage).
+    normalizedBlocks = fillEmptyImages(normalizedBlocks, imageFillPool, pageImageContext) as AiBlock[];
     // Replace invented / missing video URLs with real library videos.
     normalizedBlocks = fillEmptyVideos(normalizedBlocks, videoUrls) as AiBlock[];
     normalizedBlocks = injectBrandIntoBlocks(normalizedBlocks, brand, ctaOverride) as AiBlock[];

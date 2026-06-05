@@ -2678,7 +2678,7 @@ export function buildSegmentSection(
  *
  *  The first URL in `urls` is treated as the primary (its screenshot wins
  *  for vision context; its URL fills `scraped.url`). */
-async function gatherReferences(
+export async function gatherReferences(
   urls: string[],
   tenantId: number,
 ): Promise<MaybeScrapeResult> {
@@ -2724,7 +2724,7 @@ async function gatherReferences(
 
 /** Deduplicate URLs case-insensitively (preserving the first-seen casing)
  *  and cap to `max`. Empty/whitespace entries are dropped. */
-function dedupeUrls(input: unknown[], max: number): string[] {
+export function dedupeUrls(input: unknown[], max: number): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const raw of input) {
