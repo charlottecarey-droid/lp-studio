@@ -28,6 +28,7 @@ import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-
 import { deriveCompanyName, derivePracticeCount } from "../../lib/businessCaseVars";
 import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../lib/tenantSettings";
 import { isDandyTenant } from "../../lib/planFeatures";
+import { logger } from "../../lib/logger";
 
 const router = Router();
 
@@ -1648,18 +1649,28 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
 
     // AI image-gen / Unsplash fallback for slots the library couldn't fill —
     // gated per-tenant exactly like the marketing generator. Best-effort:
-    // failures fall through to the empty-string defaults the editor handles.
-    const [outsideBuilderOn, imageGenStatus] = await Promise.all([
-      getAiImageGenOutsideBuilderEnabled(tenantId),
-      getAiImageGenStatus(tenantId),
-    ]);
-    if (outsideBuilderOn || imageGenStatus.enabled) {
-      normalizedBlocks = await aiFillEmptyImages(
-        normalizedBlocks as unknown as Array<Record<string, unknown>>,
-        tenantId,
-        brand as unknown as Parameters<typeof aiFillEmptyImages>[2],
-        userPrompt,
-      ) as unknown as AiBlock[];
+    // the whole image-fill step is wrapped so a storage/image failure (e.g.
+    // R2 or object-storage saturation) leaves the empty-string defaults the
+    // editor already handles, rather than failing the entire generation. A
+    // half-built page with a few blank image slots is far better than a 500.
+    try {
+      const [outsideBuilderOn, imageGenStatus] = await Promise.all([
+        getAiImageGenOutsideBuilderEnabled(tenantId),
+        getAiImageGenStatus(tenantId),
+      ]);
+      if (outsideBuilderOn || imageGenStatus.enabled) {
+        normalizedBlocks = await aiFillEmptyImages(
+          normalizedBlocks as unknown as Array<Record<string, unknown>>,
+          tenantId,
+          brand as unknown as Parameters<typeof aiFillEmptyImages>[2],
+          userPrompt,
+        ) as unknown as AiBlock[];
+      }
+    } catch (imgErr) {
+      logger.warn(
+        { err: imgErr, accountId, tenantId },
+        "generate-microsite: AI image fill failed; continuing with empty image slots",
+      );
     }
 
     // Slug uniqueness retry: on a unique-constraint violation (pg error 23505),
@@ -1696,7 +1707,22 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
 
     res.json({ page, blocks: normalizedBlocks });
   } catch (err) {
-    console.error("Generate microsite error:", err);
+    // Surface the real cause + stack in a structured origin log line so a
+    // genuine failure is diagnosable (the previous console.error often never
+    // made it to the deployment logs, leaving only an edge-timeout 500 with
+    // no origin completion entry). The client still gets a generic message so
+    // we don't leak internals.
+    logger.error(
+      {
+        err,
+        stack: err instanceof Error ? err.stack : undefined,
+        accountId: req.params.accountId,
+        // Read directly off the auth user — getTenantId() can write to the
+        // response, which we must not do from the error path.
+        tenantId: req.authUser?.tenantId ?? null,
+      },
+      "generate-microsite: generation failed",
+    );
     res.status(500).json({ error: "Failed to generate microsite" });
   }
 });

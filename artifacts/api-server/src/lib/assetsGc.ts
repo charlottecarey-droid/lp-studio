@@ -29,7 +29,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { logger } from "./logger";
 import { extractAssetPaths, STUDIO_ASSETS_PREFIX } from "./assetRefs";
-import { buildR2S3Client } from "./r2Storage";
+import { buildR2S3Client, R2_SWEEP_MAX_SOCKETS } from "./r2Storage";
 
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -60,7 +60,7 @@ function getR2() {
     }
     return null;
   }
-  const client = buildR2S3Client({ accountId, accessKeyId, secretAccessKey });
+  const client = buildR2S3Client({ accountId, accessKeyId, secretAccessKey, maxSockets: R2_SWEEP_MAX_SOCKETS });
   return { client, bucket };
 }
 

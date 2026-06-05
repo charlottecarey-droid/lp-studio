@@ -35,6 +35,21 @@ one tips over.
   Defer the FIRST run with `setTimeout(...).unref()` (health 60s, GC 120s,
   staggered) so they don't compete with the startup probe; keep the steady-state
   `setInterval` cadence unchanged.
+- `buildR2S3Client` MUST keep its socket-acquisition fail-fast: a big
+  `maxSockets` + keepAlive but NO timeout means a saturated pool enqueues
+  forever, so an on-demand request that needs R2 hangs until the CF edge 500s
+  (symptom: 500 with NO origin completion log — e.g. POST
+  `/api/sales/accounts/:id/generate-microsite`). The fix is smithy
+  `NodeHttpHandler` `connectionTimeout` (bounds socket-acquire+connect; reused
+  keep-alive sockets clear it so no false positives) + `requestTimeout` +
+  `throwOnRequestTimeout`, plus `maxAttempts` so retries don't multiply load.
+- Sweeps must not starve on-demand work even after boot: background sweeps
+  (`assetHealthCheck`, `assetsGc`) build their client with
+  `R2_SWEEP_MAX_SOCKETS` (small budget); on-demand/publish-path clients keep
+  `R2_DEFAULT_MAX_SOCKETS`. `assetPresenceCheck` runs at PUBLISH time (critical
+  path), so it stays on the default budget — it is NOT a sweep despite living
+  next to them. Also bound per-page HEAD fan-out inside a sweep (worker pool),
+  not an unbounded `Promise.all`.
 
 **Why:** the startup probe hits `/healthz` (unconditional, registered before the
 `/api/*` readiness gate) and must get 200 quickly on a cold start; anything that

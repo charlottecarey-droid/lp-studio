@@ -43,8 +43,35 @@ import { NodeHttpHandler } from "@smithy/node-http-handler";
 import { Agent as HttpsAgent } from "node:https";
 import { RENDER_VERSION_META_KEY } from "./renderVersion";
 
+/** Default socket pool for the on-demand client (publish-path writes, the
+ *  request-serving reads). Large enough to absorb a publish burst. */
+export const R2_DEFAULT_MAX_SOCKETS = 200;
+
+/** Smaller pool for the background sweeps (asset health check, GC,
+ *  snapshot reconcile, publish-time presence check). They run on timers,
+ *  not the user's critical path, so they get a bounded slice of the
+ *  connection budget — on-demand work (e.g. microsite generation, publish)
+ *  must never be starved by a sweep fanning out hundreds of HEADs. */
+export const R2_SWEEP_MAX_SOCKETS = 25;
+
+/** Fail-fast timeout (ms) for acquiring + establishing a socket. When the
+ *  agent's pool is saturated, a queued request never sees a `socket` event,
+ *  so this connection timeout fires and rejects with a TimeoutError instead
+ *  of enqueuing indefinitely (the old behavior produced the
+ *  `socket usage at capacity=200 and 666 additional requests are enqueued`
+ *  pile-up and an edge-timeout 500 with no origin completion log). Reused
+ *  keep-alive sockets clear this immediately, so it only bites genuine
+ *  saturation. */
+const R2_CONNECTION_TIMEOUT_MS = 6_000;
+
+/** Overall per-request ceiling (ms). With `throwOnRequestTimeout` this turns
+ *  a stuck in-flight R2 call into a prompt, logged error rather than a hang
+ *  that the Cloudflare edge eventually times out. R2 objects here are small
+ *  (prerendered HTML, asset HEADs), so 30s is generous headroom. */
+const R2_REQUEST_TIMEOUT_MS = 30_000;
+
 /**
- * Build an R2-targeted S3 client with a raised socket pool.
+ * Build an R2-targeted S3 client with a bounded, fail-fast socket pool.
  *
  * Every R2 client in this service MUST be created through here.
  * @smithy/node-http-handler otherwise falls back to Node's global
@@ -54,13 +81,29 @@ import { RENDER_VERSION_META_KEY } from "./renderVersion";
  * in prod, which back-pressured uploads and starved the event loop during
  * the deploy startup probe. Keep-alive also lets the burst of small
  * PUT/HEAD/GET calls a publish or sweep triggers reuse TLS handshakes.
+ *
+ * Fail-fast on saturation (task: microsite-generation 500 RCA): without a
+ * socket-acquisition timeout a saturated pool enqueues requests forever, so
+ * an on-demand request that needs R2 hangs until the edge times out (500
+ * with no origin completion log). `connectionTimeout` bounds the
+ * socket-acquisition+connect wait and `requestTimeout` (with
+ * `throwOnRequestTimeout`) bounds the overall call, so a saturated or stuck
+ * pool produces a prompt, catchable error instead.
+ *
+ * `maxSockets` defaults to the large on-demand budget; background sweeps
+ * pass `R2_SWEEP_MAX_SOCKETS` so they get a small, bounded slice and can't
+ * monopolize the connection budget.
  */
 export function buildR2S3Client(opts: {
   accountId: string;
   accessKeyId: string;
   secretAccessKey: string;
+  maxSockets?: number;
 }): S3Client {
-  const httpsAgent = new HttpsAgent({ maxSockets: 200, keepAlive: true });
+  const httpsAgent = new HttpsAgent({
+    maxSockets: opts.maxSockets ?? R2_DEFAULT_MAX_SOCKETS,
+    keepAlive: true,
+  });
   return new S3Client({
     region: "auto",
     // R2 S3-compatible endpoint. Per CF docs:
@@ -73,7 +116,15 @@ export function buildR2S3Client(opts: {
     // R2 doesn't support some S3 features; force path-style addressing
     // to avoid SDK trying to do virtual-host-style with a non-AWS host.
     forcePathStyle: true,
-    requestHandler: new NodeHttpHandler({ httpsAgent }),
+    // Bound retries so a stuck endpoint can't multiply each failed call into
+    // several more queued attempts on an already-saturated pool.
+    maxAttempts: 3,
+    requestHandler: new NodeHttpHandler({
+      httpsAgent,
+      connectionTimeout: R2_CONNECTION_TIMEOUT_MS,
+      requestTimeout: R2_REQUEST_TIMEOUT_MS,
+      throwOnRequestTimeout: true,
+    }),
   });
 }
 

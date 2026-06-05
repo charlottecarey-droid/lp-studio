@@ -28,9 +28,13 @@ import { desc, eq, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { getActiveHostsForTenant } from "./tenantHosts";
 import { extractAssetPaths, r2AssetExists, countEmptySrcImages } from "./assetRefs";
-import { buildR2S3Client } from "./r2Storage";
+import { buildR2S3Client, R2_SWEEP_MAX_SOCKETS } from "./r2Storage";
 
 const CONCURRENCY = 8;
+/** Per-page HEAD fan-out cap. Most pages reference 2-4 assets, but a
+ *  content-heavy page can reference dozens; bound the per-page probe so it
+ *  can't burst the (already small) sweep socket budget all at once. */
+const PER_PAGE_HEAD_CONCURRENCY = 4;
 
 export interface BrokenAsset {
   /** /assets/<file> reference as it appears in the HTML. */
@@ -85,7 +89,7 @@ function getR2() {
     }
     return null;
   }
-  const client = buildR2S3Client({ accountId, accessKeyId, secretAccessKey });
+  const client = buildR2S3Client({ accountId, accessKeyId, secretAccessKey, maxSockets: R2_SWEEP_MAX_SOCKETS });
   return { client, bucket };
 }
 
@@ -131,13 +135,20 @@ async function checkOnePage(
   }
   const emptySrcImages = countEmptySrcImages(html);
   const assets = Array.from(new Set(extractAssetPaths(html)));
-  // Per-page HEAD fan-out is also bounded: most pages reference 2-4 assets.
-  const presence = await Promise.all(
-    assets.map(async (ref) => {
+  // Per-page HEAD fan-out is bounded by a small worker pool so a page that
+  // references dozens of assets can't burst the whole sweep socket budget.
+  const presence: { ref: string; exists: boolean }[] = [];
+  let assetCursor = 0;
+  async function headWorker() {
+    while (assetCursor < assets.length) {
+      const ref = assets[assetCursor++];
       const basename = ref.split("/").pop()!;
       const exists = await r2AssetExists(cfg.client, cfg.bucket, basename);
-      return { ref, exists };
-    }),
+      presence.push({ ref, exists });
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(PER_PAGE_HEAD_CONCURRENCY, assets.length || 1) }, () => headWorker()),
   );
   const nowIso = new Date().toISOString();
   const broken: BrokenAsset[] = [];
