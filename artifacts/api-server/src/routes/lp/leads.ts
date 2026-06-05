@@ -449,9 +449,11 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
         console.error("Sheets sync error for lead", lead.id, ":", err)
       );
 
-      // SFDC write-back: create Lead in Salesforce from form submission
+      // SFDC write-back: create Lead in Salesforce from form submission.
+      // Scoped to the page's tenant so a form submit only ever pushes through
+      // the acting tenant's own Salesforce connection.
       try {
-        const conn = await sfdcService.getActiveConnection();
+        const conn = await sfdcService.getActiveConnection(pageTenantId);
         if (conn) {
           const f = fields as Record<string, string>;
 

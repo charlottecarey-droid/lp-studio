@@ -919,22 +919,31 @@ export class SfdcService {
   }
 
   /**
-   * Get the active SFDC connection (first connected one).
-   * Returns null if no connection exists or none are connected.
+   * Get the active (connected) SFDC connection for a specific tenant.
+   *
+   * SECURITY: tenantId is REQUIRED. There is deliberately no "first connected
+   * row across all tenants" fallback — on a multi-tenant system that would
+   * attribute (or route) one tenant's outbound Salesforce activity through
+   * another tenant's connection. A null/invalid tenantId returns null.
+   * Returns null if the tenant has no connected connection.
    */
-  async getActiveConnection(tenantId?: number): Promise<{ id: number; instanceUrl: string } | null> {
+  async getActiveConnection(tenantId: number): Promise<{ id: number; instanceUrl: string } | null> {
+    if (tenantId == null) {
+      logger.error("getActiveConnection called without a tenantId — refusing cross-tenant lookup");
+      return null;
+    }
     try {
-      const statusCond = eq(sfdcConnectionsTable.status, "connected");
       const [connection] = await db
         .select({ id: sfdcConnectionsTable.id, instanceUrl: sfdcConnectionsTable.instanceUrl })
         .from(sfdcConnectionsTable)
-        .where(tenantId != null
-          ? and(statusCond, eq(sfdcConnectionsTable.tenantId, tenantId))
-          : statusCond)
+        .where(and(
+          eq(sfdcConnectionsTable.status, "connected"),
+          eq(sfdcConnectionsTable.tenantId, tenantId),
+        ))
         .limit(1);
       return connection || null;
     } catch (err) {
-      logger.error({ err }, "Error retrieving active SFDC connection");
+      logger.error({ err, tenantId }, "Error retrieving active SFDC connection");
       return null;
     }
   }

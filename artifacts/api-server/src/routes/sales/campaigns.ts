@@ -851,7 +851,7 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
 
         // SFDC write-back: log email as Activity (fire-and-forget)
         if (contact.salesforceId) {
-          sfdcService.getActiveConnection().then(conn => {
+          sfdcService.getActiveConnection(tenantId).then(conn => {
             if (conn) {
               sfdcService.logEmailActivity(conn.id, {
                 contactSalesforceId: contact.salesforceId!,
@@ -1458,7 +1458,7 @@ router.post("/send-email", async (req, res): Promise<void> => {
 
     // SFDC write-back: log single email as Activity (fire-and-forget)
     if (contact.salesforceId) {
-      sfdcService.getActiveConnection().then(conn => {
+      sfdcService.getActiveConnection(tenantId).then(conn => {
         if (conn) {
           sfdcService.logEmailActivity(conn.id, {
             contactSalesforceId: contact.salesforceId!,

@@ -209,7 +209,7 @@ router.post("/signals", async (req, res): Promise<void> => {
     broadcastSignal(signal);
 
     if (signal.contactId) {
-      pushEngagementScoreToSfdc(signal.contactId).catch(() => {/* non-blocking */});
+      pushEngagementScoreToSfdc(tenantId, signal.contactId).catch(() => {/* non-blocking */});
     }
 
     res.status(201).json(signal);
@@ -219,13 +219,19 @@ router.post("/signals", async (req, res): Promise<void> => {
   }
 });
 
-async function pushEngagementScoreToSfdc(contactId: number): Promise<void> {
+async function pushEngagementScoreToSfdc(tenantId: number, contactId: number): Promise<void> {
   try {
+    // Tenant-scope the contact lookup so this tenant can never push an
+    // engagement score for another tenant's contact, and resolve the SFDC
+    // connection for this tenant only.
     const [contact] = await db.select().from(salesContactsTable)
-      .where(eq(salesContactsTable.id, contactId));
+      .where(and(
+        eq(salesContactsTable.id, contactId),
+        eq(salesContactsTable.tenantId, tenantId),
+      ));
     if (!contact?.salesforceId) return;
 
-    const conn = await sfdcService.getActiveConnection();
+    const conn = await sfdcService.getActiveConnection(tenantId);
     if (!conn) return;
 
     const signals = await db.select().from(salesSignalsTable)

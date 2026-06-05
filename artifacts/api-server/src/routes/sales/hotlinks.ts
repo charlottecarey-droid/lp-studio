@@ -670,7 +670,7 @@ router.get("/resolve/:token", resolveLimiter, async (req, res): Promise<void> =>
 
     // SFDC write-back: log microsite view as Activity (fire-and-forget)
     if (contact?.salesforceId) {
-      sfdcService.getActiveConnection().then(conn => {
+      sfdcService.getActiveConnection(page.tenantId).then(conn => {
         if (conn) {
           sfdcService.logMicrositeView(conn.id, {
             contactSalesforceId: contact.salesforceId!,
