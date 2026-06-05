@@ -3262,6 +3262,10 @@ export function GenerateMicrositeModal({
   const [segments, setSegments] = useState<PickerSegment[]>([]);
   const [segmentId, setSegmentId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
+  // Optional per-generation reference URL — scraped server-side for voice
+  // (markdown), visual style (screenshot), and imagery, then merged with the
+  // brand's saved inspiration URLs. Mirrors the New Microsite modal's field.
+  const [referenceUrl, setReferenceUrl] = useState("");
   const [step, setStep] = useState<"idle" | "generating" | "linking" | "done" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [createdPageId, setCreatedPageId] = useState<number | null>(null);
@@ -3307,6 +3311,7 @@ export function GenerateMicrositeModal({
     setSegmentId(null);
     setSegments([]);
     setPrompt("");
+    setReferenceUrl("");
     setStep("idle");
     setErrorMsg("");
     setCreatedPageId(null);
@@ -3351,6 +3356,7 @@ export function GenerateMicrositeModal({
           segmentId,
           audience: segmentId,
           prompt: prompt.trim() || undefined,
+          ...(referenceUrl.trim() ? { referenceUrl: referenceUrl.trim() } : {}),
           ...(contactId != null ? { contactId } : {}),
           ...(selectedTemplate ? { templateId: selectedTemplate.id } : {}),
           ...(ctaOverride ? { ctaOverride } : {}),
@@ -3617,6 +3623,24 @@ export function GenerateMicrositeModal({
                 disabled={busy}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
               />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ms-reference-url" className="text-xs font-medium">
+                Reference URL <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <input
+                id="ms-reference-url"
+                type="url"
+                value={referenceUrl}
+                onChange={(e) => setReferenceUrl(e.target.value)}
+                placeholder="https://example.com — a page to draw layout & style inspiration from"
+                disabled={busy}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                We'll study its layout, tone, and imagery for inspiration — your brand voice and guidelines always win.
+              </p>
             </div>
 
             {/* CTA Destination */}
