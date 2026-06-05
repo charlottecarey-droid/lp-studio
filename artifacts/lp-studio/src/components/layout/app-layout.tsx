@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard,
@@ -526,6 +526,30 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   // Global ⌘K palette — bound at the layout level so every authenticated
   // page inherits the shortcut without each route having to wire it up.
   const { open: cmdOpen, setOpen: setCmdOpen } = useCommandPalette();
+
+  // Task #999 — tenant-default document.title baseline for the authenticated
+  // app shell. After removing the hardcoded per-host index.html title overrides
+  // (ent/lp/partners.meetdandy.com), an admin page that doesn't set its own
+  // title would otherwise read the static "Landing Page Studio". Apply the
+  // tenant's brand-settings default title instead. GUARDED: only set when the
+  // title is still the static placeholder, so page-specific setters (page
+  // detail, landing-page viewer, marketing usePageMeta) always win — those run
+  // in child effects that fire before this parent effect. AppLayout persists
+  // across admin route changes, so this effect does not re-run on navigation
+  // (only when the brand default changes), and never clobbers a page title.
+  const { brand } = useBrandConfig();
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const raw = (brand.defaultOgTitle ?? "").trim();
+    if (!raw) return;
+    const baseline = raw
+      .replace(/\{\{\s*page_title\s*\}\}/gi, brand.brandName ?? "")
+      .trim();
+    if (!baseline) return;
+    if (document.title === "Landing Page Studio" || document.title === "") {
+      document.title = baseline;
+    }
+  }, [brand.defaultOgTitle, brand.brandName]);
 
   return (
     <SidebarProvider style={style}>

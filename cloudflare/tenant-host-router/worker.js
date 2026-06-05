@@ -337,6 +337,23 @@ async function fetchOgPreview(slug, originalHost, proto, secret) {
   return fetch(previewUrl, { method: "GET", headers });
 }
 
+// Task #999 — host-level OG (no slug). Serves the tenant's brand-settings
+// default share card for bots scraping a tenant/Dandy host root (or an
+// app-shell route with no published slug). The api-server resolves the tenant
+// from X-Original-Host and emits the default_og_* card; on a host that maps to
+// no tenant it 404s and we fall through to the tenant shell / origin.
+async function fetchHostOgPreview(originalHost, proto, secret) {
+  const previewUrl = `${REPLIT_TARGET}/api/lp/og-host-preview`;
+  const headers = {
+    "X-Original-Host": originalHost,
+    "X-Forwarded-Host": originalHost,
+    "X-Forwarded-Proto": proto,
+    "X-Bot-Router": "1",
+  };
+  if (secret) headers["X-Worker-Secret"] = secret;
+  return fetch(previewUrl, { method: "GET", headers });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -422,6 +439,44 @@ export default {
     // ── Tier 3: Passthrough for registered Replit custom domains ─────
     if (PASSTHROUGH_HOSTS.has(originalHost)) {
       return fetch(request);
+    }
+
+    // ── Tier 3.25: Bot host-level OG (no slug, or slug preview missed) ─
+    // Task #999 — for social/link-preview bots hitting a tenant/Dandy host
+    // root or an app-shell route with no published slug, serve the tenant's
+    // brand-settings default share card instead of falling through to the
+    // tenant shell (whose static title reads "Landing Page Studio"). This is
+    // placed AFTER Tier 3 passthrough, so lpstudio.ai hosts (which return
+    // there) keep their marketing card and never reach this branch. On a host
+    // that maps to no tenant the api-server 404s and we fall through below.
+    //
+    // Gated to HTML-navigation paths via pathNeedsOriginInsteadOfShell (same
+    // guard as the Tier 3.5 tenant-shell): /api/*, /assets/*, /.well-known/*,
+    // and any file-extension path (robots.txt, sitemap.xml, favicon, images)
+    // must reach their real origin content and NOT be replaced with OG HTML,
+    // or crawler/SEO behaviour breaks (e.g. a bot fetching /robots.txt would
+    // otherwise get a share card).
+    if (
+      isGetOrHead &&
+      BOT_UA_PATTERN.test(ua) &&
+      !pathNeedsOriginInsteadOfShell(url.pathname)
+    ) {
+      try {
+        const response = await fetchHostOgPreview(originalHost, proto, env.WORKER_HOST_SECRET);
+        if (response.ok) {
+          const html = await response.text();
+          return new Response(html, {
+            status: 200,
+            headers: {
+              "Content-Type": "text/html; charset=utf-8",
+              "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+              "X-OG-Router": "bot-host",
+            },
+          });
+        }
+      } catch (err) {
+        console.error("OG bot host short-circuit error:", err);
+      }
     }
 
     // ── Tier 3.5: Tenant-shell for SPA HTML routes ───────────────────

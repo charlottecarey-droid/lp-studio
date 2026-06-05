@@ -256,6 +256,18 @@ export interface BrandConfig {
    * assets. Not persisted: `saveBrandConfig` strips it before writing.
    */
   isDandy?: boolean;
+  /**
+   * Task #999 — tenant-level fallback share-card metadata, served read-only by
+   * `/lp/brand` from the `tenants.default_og_*` columns (NOT the brand_settings
+   * JSONB; `saveBrandConfig` strips them before writing). These drive the SPA's
+   * document.title / OG baseline on tenant/Dandy hosts, replacing the old
+   * hardcoded per-host index.html overrides. `defaultOgTitle` may contain a
+   * `{{page_title}}` token; for the app-shell baseline there is no page, so
+   * callers substitute the brand name. Empty string when unset.
+   */
+  defaultOgTitle?: string;
+  defaultOgDescription?: string;
+  defaultOgImageUrl?: string;
   companyDescription: string;
   taglines: string[];
   messagingPillars: MessagingPillar[];
@@ -555,6 +567,9 @@ export const DEFAULT_BRAND: BrandConfig = {
   navCtaUrl: "#",
   defaultCtaText: "Get Started",
   defaultCtaUrl: "#",
+  defaultOgTitle: "",
+  defaultOgDescription: "",
+  defaultOgImageUrl: "",
   copyrightName: "",
   socialUrls: {
     facebook: "",

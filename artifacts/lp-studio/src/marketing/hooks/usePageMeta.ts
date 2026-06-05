@@ -67,10 +67,12 @@ function removeManagedMeta(selectorAttr: "name" | "property", key: string) {
  * prerender pass (Playwright snapshot of the built bundle) captures the
  * correct head before serializing the document.
  *
- * Intentionally vanilla — no Helmet dependency — because the per-host
- * <script> in index.html that overrides title for Dandy-branded hosts
- * must remain authoritative on those hosts. On lpstudio.ai (and any other
- * host that doesn't match the per-host overrides) this hook owns the head.
+ * Intentionally vanilla — no Helmet dependency. The only host-level override
+ * still shipped in index.html is the lpstudio.ai marketing share card; on
+ * every other host this hook (and the SPA tenant-default baseline) owns the
+ * head. Dandy/tenant hosts no longer carry hardcoded per-host title/OG in
+ * index.html (removed in task #999) — their fallback metadata comes from the
+ * tenant's brand-settings defaults instead.
  */
 export function usePageMeta(meta: PageMeta): void {
   useEffect(() => {

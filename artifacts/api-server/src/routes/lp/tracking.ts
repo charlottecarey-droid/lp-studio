@@ -3,6 +3,7 @@ import { randomBytes } from "crypto";
 import { db, pool, tenantsTable, salesAccountsTable } from "@workspace/db";
 import { lpEventsTable, lpSessionsTable, lpVariantsTable, lpTestsTable, lpPagesTable, lpPageVisitsTable, lpPageReviewsTable } from "@workspace/db";
 import { resolveRobotsContentForPage } from "../../lib/resolveRobots";
+import { resolvePageOG, substitutePageTitleToken, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "../../lib/resolvePageOG";
 import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
 import { TrackEventBody, GetPageConfigParams, GetPageConfigQueryParams } from "@workspace/api-zod";
 import { eq, and } from "drizzle-orm";
@@ -352,10 +353,7 @@ router.get("/lp/og-preview/:slug", async (req, res): Promise<void> => {
     const tenantId = tenantMatch.tenantId;
 
     const [page] = await db.select({
-      title: lpPagesTable.title,
-      metaTitle: lpPagesTable.metaTitle,
-      metaDescription: lpPagesTable.metaDescription,
-      ogImage: lpPagesTable.ogImage,
+      id: lpPagesTable.id,
       status: lpPagesTable.status,
       allowIndexing: lpPagesTable.allowIndexing,
       allowFollowing: lpPagesTable.allowFollowing,
@@ -381,16 +379,21 @@ router.get("/lp/og-preview/:slug", async (req, res): Promise<void> => {
     });
     if (robots) res.set("X-Robots-Tag", robots);
 
-    // Tenant-aware fallback chain: explicit metaTitle → page title → tenant
-    // name. Never fall back to Dandy-specific copy on non-Dandy tenants.
-    const pageTitle = page.metaTitle || page.title || tenantMatch.tenantName;
-    const pageDesc = page.metaDescription || `${page.title || tenantMatch.tenantName}`;
-    const pageImage = page.ogImage || "";
-
-    // Derive canonical public URL from request origin. Pages are served at
-    // root (`/<slug>`) on tenant landing-page domains.
+    // Task #999 — resolve OG via the single shared cascade (per-page meta →
+    // tenant default_og_* w/ {{page_title}} → derived content → tenant name).
+    // This is the SAME resolver the R2 prerender uses, so the bot path now
+    // honours the tenant's brand-settings default share card as the fallback
+    // instead of bare metaTitle||title||name with no image.
+    const og = await resolvePageOG(page.id);
     const proto = (req.headers["x-forwarded-proto"] as string | undefined)?.split(",")[0]?.trim() || "https";
     const canonicalUrl = `${proto}://${host}/${slug}`;
+    const pageTitle = og?.title || tenantMatch.tenantName;
+    const pageDesc = og?.description || tenantMatch.tenantName;
+    // Resolved image may be relative (e.g. /api/storage/...) — absolutise it
+    // per request host so scrapers can fetch it.
+    const pageImage = absolutiseOgImage(og?.image || "", proto, host);
+    const imageWidth = og?.image ? OG_IMAGE_WIDTH : null;
+    const imageHeight = og?.image ? OG_IMAGE_HEIGHT : null;
 
     res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
     res.set("Content-Type", "text/html; charset=utf-8");
@@ -406,7 +409,10 @@ router.get("/lp/og-preview/:slug", async (req, res): Promise<void> => {
   <meta property="og:title" content="${escapeHtml(pageTitle)}" />
   <meta property="og:description" content="${escapeHtml(pageDesc)}" />
   ${pageImage ? `<meta property="og:image" content="${escapeHtml(pageImage)}" />` : ""}
-  <meta name="twitter:card" content="summary_large_image" />
+  ${pageImage ? `<meta property="og:image:secure_url" content="${escapeHtml(pageImage)}" />` : ""}
+  ${pageImage && imageWidth ? `<meta property="og:image:width" content="${imageWidth}" />` : ""}
+  ${pageImage && imageHeight ? `<meta property="og:image:height" content="${imageHeight}" />` : ""}
+  <meta name="twitter:card" content="${pageImage ? "summary_large_image" : "summary"}" />
   <meta name="twitter:title" content="${escapeHtml(pageTitle)}" />
   <meta name="twitter:description" content="${escapeHtml(pageDesc)}" />
   ${pageImage ? `<meta name="twitter:image" content="${escapeHtml(pageImage)}" />` : ""}
@@ -421,6 +427,99 @@ router.get("/lp/og-preview/:slug", async (req, res): Promise<void> => {
     res.status(500).send("Internal server error");
   }
 });
+
+/**
+ * Task #999 — host-level OG preview (no slug). Serves the tenant's
+ * brand-settings default share card for scrapers hitting a tenant/Dandy host's
+ * root or an app-shell route where there is no page slug. Without this, a bot
+ * scraping `ent.meetdandy.com` / `partners.meetdandy.com` root would fall
+ * through the edge worker to the tenant SPA shell and read a bare "Landing Page
+ * Studio" title. lpstudio.ai hosts never reach here (the worker passes them
+ * straight through to the marketing origin).
+ *
+ * Cascade: tenant default_og_* ({{page_title}} → tenant name) → tenant name.
+ * Robots: the host root is not a page, so we resolve the tenant's inherit
+ * default (noindex for non-Dandy, fail-closed) via the shared resolver.
+ */
+router.get("/lp/og-host-preview", async (req, res): Promise<void> => {
+  try {
+    const host = getRequestHost(req);
+    if (!host) { res.status(404).send("Not found"); return; }
+    const tenantMatch = await findTenantByHost(host);
+    if (!tenantMatch) { res.status(404).send("Not found"); return; }
+    const tenantId = tenantMatch.tenantId;
+    const tenantName = tenantMatch.tenantName;
+
+    const [tenantRow] = await db.select({
+      defaultOgTitle: tenantsTable.defaultOgTitle,
+      defaultOgDescription: tenantsTable.defaultOgDescription,
+      defaultOgImageUrl: tenantsTable.defaultOgImageUrl,
+    }).from(tenantsTable)
+      .where(eq(tenantsTable.id, tenantId))
+      .limit(1);
+
+    const rawTitle = (tenantRow?.defaultOgTitle ?? "").trim();
+    // {{page_title}} has no page at host level — substitute the tenant name so a
+    // template like "{{page_title}} | Brand" still reads sensibly.
+    const title =
+      (rawTitle ? substitutePageTitleToken(rawTitle, tenantName).trim() : "") ||
+      tenantName;
+    const desc = (tenantRow?.defaultOgDescription ?? "").trim() || tenantName;
+
+    const proto = (req.headers["x-forwarded-proto"] as string | undefined)?.split(",")[0]?.trim() || "https";
+    const image = absolutiseOgImage((tenantRow?.defaultOgImageUrl ?? "").trim(), proto, host);
+    const canonicalUrl = `${proto}://${host}/`;
+
+    // Host root is not a page → resolve the tenant's inherit robots default.
+    const robots = await resolveRobotsContentForPage({
+      allowIndexing: null,
+      allowFollowing: null,
+      tenantId,
+    });
+    if (robots) res.set("X-Robots-Tag", robots);
+
+    res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    res.set("Content-Type", "text/html; charset=utf-8");
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${escapeHtml(title)}</title>
+  ${robots ? `<meta name="robots" content="${escapeHtml(robots)}" />` : ""}
+  <meta name="description" content="${escapeHtml(desc)}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
+  <meta property="og:title" content="${escapeHtml(title)}" />
+  <meta property="og:description" content="${escapeHtml(desc)}" />
+  ${image ? `<meta property="og:image" content="${escapeHtml(image)}" />` : ""}
+  ${image ? `<meta property="og:image:secure_url" content="${escapeHtml(image)}" />` : ""}
+  ${image ? `<meta property="og:image:width" content="${OG_IMAGE_WIDTH}" />` : ""}
+  ${image ? `<meta property="og:image:height" content="${OG_IMAGE_HEIGHT}" />` : ""}
+  <meta name="twitter:card" content="${image ? "summary_large_image" : "summary"}" />
+  <meta name="twitter:title" content="${escapeHtml(title)}" />
+  <meta name="twitter:description" content="${escapeHtml(desc)}" />
+  ${image ? `<meta name="twitter:image" content="${escapeHtml(image)}" />` : ""}
+</head>
+<body>
+  <a href="${escapeHtml(canonicalUrl)}">${escapeHtml(title)}</a>
+</body>
+</html>`);
+  } catch (err) {
+    console.error("OG host preview error:", err);
+    res.status(500).send("Internal server error");
+  }
+});
+
+/** Absolutise a possibly-relative OG image URL against the request host so
+ *  scrapers (which never run the SPA) can fetch it. Leaves absolute URLs and
+ *  empty strings untouched. */
+function absolutiseOgImage(image: string, proto: string, host: string): string {
+  const v = image.trim();
+  if (!v) return "";
+  if (/^https?:\/\//i.test(v) || v.startsWith("data:")) return v;
+  if (v.startsWith("/")) return `${proto}://${host}${v}`;
+  return v;
+}
 
 function escapeHtml(str: string): string {
   return str

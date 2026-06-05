@@ -1237,6 +1237,44 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
+    // Corrective one-shot: strip a stale trailing "- LP Studio" / "| LP Studio"
+    // brand suffix from any tenant's default_og_title. The og-defaults seed above
+    // uses COALESCE(NULLIF(...)) so it never overwrote a pre-existing value — and
+    // the Dandy tenant's stored default carried a "… - LP Studio" suffix (likely
+    // captured from an app-wide document.title formatter). Now that tenant/Dandy
+    // hosts serve default_og_title as their fallback share card, that suffix would
+    // leak LP Studio branding onto Dandy's own social previews, which Task #999
+    // forbids. Tenant hosts must never advertise LP Studio; the marketing site
+    // sources its card from homepage-og, not tenants.default_og_title, so this is
+    // safe there. Idempotent: the WHERE clause only matches rows still carrying
+    // the suffix, and the marker makes reboots no-ops.
+    await runStep("tenant og title strip lp studio suffix", async () => {
+    try {
+      // NOTE: patterns use the POSIX class [[:space:]] rather than \s — inside a
+      // JS template literal an unrecognised escape like \s collapses to a bare
+      // "s" before Postgres ever sees it, so \s* would match the letter s, not
+      // whitespace. v1 of this marker shipped with that bug and ran as a no-op,
+      // hence the v2 bump so the corrected statement runs once on every DB.
+      const stripMarker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'tenant_og_title_strip_lpstudio_suffix_v2'`
+      );
+      if (stripMarker.rows.length === 0) {
+        await db.execute(sql`
+          UPDATE tenants
+             SET default_og_title = regexp_replace(default_og_title, '[[:space:]]*[-–—|][[:space:]]*LP Studio[[:space:]]*$', '', 'i'),
+                 updated_at = now()
+           WHERE default_og_title ~* '[-–—|][[:space:]]*LP Studio[[:space:]]*$'
+        `);
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES ('tenant_og_title_strip_lpstudio_suffix_v2') ON CONFLICT DO NOTHING`
+        );
+        logger.info("tenant og title strip lp studio suffix applied");
+      }
+    } catch (stripErr) {
+      logger.error({ err: stripErr }, "tenant og title strip lp studio suffix failed (non-fatal)");
+    }
+    });
+
     // Durable self-heal for the block_catalog.ai_enabled column. Same
     // high-water-mark hazard as the notifications self-heal above: drizzle only
     // applies a journal entry whose `when` is GREATER than the max created_at

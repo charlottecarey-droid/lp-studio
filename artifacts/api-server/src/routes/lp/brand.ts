@@ -2,7 +2,7 @@ import { getTenantId, optionalAuth } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { lpBrandSettingsTable, lpPagesTable } from "@workspace/db";
+import { lpBrandSettingsTable, lpPagesTable, tenantsTable } from "@workspace/db";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
 import { isDandyTenant } from "../../lib/planFeatures";
@@ -86,14 +86,33 @@ router.get("/lp/brand", optionalAuth, async (req, res): Promise<void> => {
   // resurface Dandy assets by renaming their brand to "Dandy". Always written
   // AFTER the stored config spread so a stale persisted value can't override it.
   const isDandy = await isDandyTenant(tenantId);
+  // Tenant-level fallback share-card metadata (task #999). These live on the
+  // tenants row (not in brand_settings JSONB) and are the SPA's title/OG
+  // baseline on tenant/Dandy hosts — replacing the old hardcoded per-host
+  // index.html overrides. Read-only here; stripped on PUT so a client echo
+  // can't shadow the canonical columns. Empty string when unset.
+  const [tenantRow] = await db
+    .select({
+      defaultOgTitle: tenantsTable.defaultOgTitle,
+      defaultOgDescription: tenantsTable.defaultOgDescription,
+      defaultOgImageUrl: tenantsTable.defaultOgImageUrl,
+    })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, tenantId))
+    .limit(1);
+  const ogDefaults = {
+    defaultOgTitle: (tenantRow?.defaultOgTitle ?? "").trim(),
+    defaultOgDescription: (tenantRow?.defaultOgDescription ?? "").trim(),
+    defaultOgImageUrl: (tenantRow?.defaultOgImageUrl ?? "").trim(),
+  };
   const rows = await db.select().from(lpBrandSettingsTable)
     .where(eq(lpBrandSettingsTable.tenantId, tenantId))
     .limit(1);
   if (rows.length === 0) {
-    res.json({ ...DEFAULT_CONFIG, isDandy });
+    res.json({ ...DEFAULT_CONFIG, ...ogDefaults, isDandy });
     return;
   }
-  res.json({ ...DEFAULT_CONFIG, ...(rows[0].config as object), isDandy });
+  res.json({ ...DEFAULT_CONFIG, ...(rows[0].config as object), ...ogDefaults, isDandy });
 });
 
 router.put("/lp/brand", async (req, res): Promise<void> => {
@@ -109,7 +128,17 @@ router.put("/lp/brand", async (req, res): Promise<void> => {
   // immutable tenant slug on GET). Strip it before persisting so a stale or
   // forged value from an old client / direct API caller can never be written
   // into brand_settings JSONB — GET always recomputes it authoritatively.
-  const { isDandy: _isDandy, ...config } = body as Record<string, unknown>;
+  // Also strip the read-only tenant-level OG defaults (task #999) — they are
+  // columns on the tenants row (managed elsewhere), surfaced on GET only.
+  // Persisting a client echo into brand_settings JSONB would create a stale
+  // shadow copy that GET re-overlays anyway.
+  const {
+    isDandy: _isDandy,
+    defaultOgTitle: _dot,
+    defaultOgDescription: _dod,
+    defaultOgImageUrl: _doi,
+    ...config
+  } = body as Record<string, unknown>;
   const existing = await db.select().from(lpBrandSettingsTable)
     .where(eq(lpBrandSettingsTable.tenantId, tenantId))
     .limit(1);
