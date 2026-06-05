@@ -3,6 +3,7 @@ import type { TrustBarBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getHeadingWeightClass, getHeadingLetterSpacingClass } from "@/lib/brand-config";
 import { useCountUp } from "@/hooks/use-count-up";
+import { InlineImage } from "@/components/InlineImage";
 import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_FONT, BRAND_NUMBERS_FONT } from "@/lib/brand-fonts";
 const NUMBERS = BRAND_NUMBERS_FONT;
@@ -38,7 +39,7 @@ function AnimatedStat({ value, enabled }: { value: string; enabled: boolean }) {
 
 export function BlockTrustBar({ props, brand, animationsEnabled = true, onFieldChange }: Props) {
   const items = props.items ?? [];
-  const updateItem = (i: number, patch: Partial<{ value: string; label: string }>) => {
+  const updateItem = (i: number, patch: Partial<{ value: string; label: string; image: string }>) => {
     if (!onFieldChange) return;
     const next = items.map((it, idx) => (idx === i ? { ...it, ...patch } : it));
     onFieldChange({ ...props, items: next });
@@ -65,19 +66,34 @@ export function BlockTrustBar({ props, brand, animationsEnabled = true, onFieldC
             className="flex flex-col items-center text-center px-8 py-2"
             style={i > 0 ? { borderLeft: `1px solid ${borderColor}` } : undefined}
           >
-            <span
-              className={cn("text-3xl md:text-4xl font-display mb-1", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
-              style={{ color: statColor, fontFamily: NUMBERS }}
-            >
-              {onFieldChange ? (
-                <InlineText
-                  value={item.value}
-                  onUpdate={(v) => updateItem(i, { value: v })}
-                style={{ fontFamily: NUMBERS }}/>
-              ) : (
-                <AnimatedStat value={item.value} enabled={(props.countUpEnabled ?? true) && animationsEnabled} />
-              )}
-            </span>
+            {item.image ? (
+              // A logo/photo-style trust item replaces the numeric stat with the
+              // supplied image; the label still reads beneath it.
+              <div className="h-12 md:h-14 mb-2 flex items-center justify-center">
+                <InlineImage
+                  src={item.image}
+                  alt={item.imageAlt ?? item.label}
+                  loading="lazy"
+                  className="max-h-full w-auto object-contain"
+                  wrapperClassName="inline-flex h-full items-center justify-center"
+                  onUpdate={onFieldChange ? (url) => updateItem(i, { image: url }) : undefined}
+                />
+              </div>
+            ) : (
+              <span
+                className={cn("text-3xl md:text-4xl font-display mb-1", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
+                style={{ color: statColor, fontFamily: NUMBERS }}
+              >
+                {onFieldChange ? (
+                  <InlineText
+                    value={item.value}
+                    onUpdate={(v) => updateItem(i, { value: v })}
+                  style={{ fontFamily: NUMBERS }}/>
+                ) : (
+                  <AnimatedStat value={item.value} enabled={(props.countUpEnabled ?? true) && animationsEnabled} />
+                )}
+              </span>
+            )}
             <InlineText
               as="span"
               value={item.label}

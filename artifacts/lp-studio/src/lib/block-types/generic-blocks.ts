@@ -47,7 +47,12 @@ export interface HeroBlockProps extends CtaModalConfig {
 }
 
 export interface TrustBarBlockProps {
-  items: Array<{ value: string; label: string }>;
+  /**
+   * `image` is optional per-item logo/photo imagery surfaced by microsite
+   * generation. When present the renderer shows it in place of the stat value
+   * (logo-style item); when absent the numeric value is shown as before.
+   */
+  items: Array<{ value: string; label: string; image?: string; imageAlt?: string }>;
   bgColor?: string;
   statColor?: string;
   labelColor?: string;
@@ -86,7 +91,12 @@ export interface StatCalloutBlockProps {
 export interface BenefitsGridBlockProps {
   headline: string;
   columns: 2 | 3 | 4 | 5;
-  items: Array<{ icon: string; title: string; description: string }>;
+  /**
+   * `image` is optional per-item photo imagery surfaced by microsite
+   * generation. When present the card shows it (with the icon overlaid as a
+   * badge); when absent the lucide icon is shown on its own as before.
+   */
+  items: Array<{ icon: string; title: string; description: string; image?: string; imageAlt?: string }>;
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
   hoverLift?: boolean;
 }

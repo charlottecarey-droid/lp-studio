@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import type { BenefitsGridBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "@/lib/brand-config";
+import { InlineImage } from "@/components/InlineImage";
 import { InlineText } from "@/components/InlineText";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
@@ -34,6 +35,11 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange, animationsEnabl
     onFieldChange({ ...props, items: props.items.map((item, i) => i === index ? { ...item, [field]: value } : item) });
   };
 
+  const updateItemImage = (index: number, url: string) => {
+    if (!onFieldChange) return;
+    onFieldChange({ ...props, items: props.items.map((item, i) => i === index ? { ...item, image: url } : item) });
+  };
+
   return (
     <section className={cn("w-full bg-white px-6", sectionPy)}>
       <div className="max-w-7xl mx-auto">
@@ -48,10 +54,14 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange, animationsEnabl
         }[props.columns ?? 3])}>
           {props.items.map((benefit, i) => {
             const Icon = ICON_MAP[benefit.icon] || Zap;
+            const hasImage = !!benefit.image;
             return (
               <motion.div
                 key={i}
-                className="flex flex-col p-8 rounded-2xl bg-white border border-slate-100 shadow-sm"
+                className={cn(
+                  "group flex flex-col rounded-2xl bg-white border border-slate-100 shadow-sm",
+                  hasImage ? "overflow-hidden" : "p-8",
+                )}
                 initial={animationsEnabled ? { opacity: 0, y: 32 } : undefined}
                 whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
                 viewport={{ once: true, amount: 0.12 }}
@@ -60,11 +70,32 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange, animationsEnabl
                 whileTap={(props.hoverLift ?? true) ? { scale: 0.99 } : undefined}
                 style={(props.hoverLift ?? true) ? undefined : { transition: "box-shadow 0.2s" }}
               >
-                <div className="w-14 h-14 rounded-full bg-[#E8F5F2] flex items-center justify-center mb-6">
-                  <Icon className="w-7 h-7 text-[var(--brand-primary)]" />
+                {hasImage ? (
+                  // When generation supplies a real photo for this benefit, lead
+                  // the card with the image and overlay the lucide icon as a
+                  // small badge so the iconography is preserved.
+                  <div className="relative w-full h-44 overflow-hidden bg-slate-50">
+                    <InlineImage
+                      src={benefit.image ?? ""}
+                      alt={benefit.imageAlt ?? benefit.title}
+                      loading="lazy"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      wrapperClassName="block w-full h-full"
+                      onUpdate={onFieldChange ? (url) => updateItemImage(i, url) : undefined}
+                    />
+                    <div className="absolute bottom-3 left-3 w-11 h-11 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-sm">
+                      <Icon className="w-6 h-6 text-[var(--brand-primary)]" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-14 h-14 rounded-full bg-[#E8F5F2] flex items-center justify-center mb-6">
+                    <Icon className="w-7 h-7 text-[var(--brand-primary)]" />
+                  </div>
+                )}
+                <div className={cn(hasImage && "p-8 pt-6 flex flex-col flex-1")}>
+                  <InlineText as="h3" value={benefit.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-heading-on-light)] mb-3", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }} />
+                  <InlineText as="p" value={benefit.description} onUpdate={onFieldChange ? (v) => updateItem(i, "description", v) : undefined} className={cn(getBodySizeClass(brand), "lg:text-lg leading-relaxed text-[#4A6358]")} style={{ fontFamily: BODY }} multiline />
                 </div>
-                <InlineText as="h3" value={benefit.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-heading-on-light)] mb-3", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }} />
-                <InlineText as="p" value={benefit.description} onUpdate={onFieldChange ? (v) => updateItem(i, "description", v) : undefined} className={cn(getBodySizeClass(brand), "lg:text-lg leading-relaxed text-[#4A6358]")} style={{ fontFamily: BODY }} multiline />
               </motion.div>
             );
           })}
