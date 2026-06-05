@@ -273,8 +273,8 @@ function WhatsInside() {
       eyebrow: "Brand & content",
       title: (
         <>
-          On-brand in{" "}
-          <span style={{ color: WHATS_INSIDE_INDIGO, fontStyle: "italic" }}>twenty seconds</span>.
+          <span style={{ color: WHATS_INSIDE_INDIGO }}>On-brand</span> in twenty
+          seconds.
         </>
       ),
       body: "Paste your site. LP Studio extracts your logos, colors, type, voice and content — then proposes every brand token for you to review and apply. Everything you ship after is on-brand by default.",
@@ -292,8 +292,8 @@ function WhatsInside() {
       eyebrow: "For Marketing",
       title: (
         <>
-          Campaigns without the{" "}
-          <span style={{ color: WHATS_INSIDE_INDIGO, fontStyle: "italic" }}>design queue</span>.
+          <span style={{ color: WHATS_INSIDE_INDIGO }}>Campaigns</span> without the
+          design queue.
         </>
       ),
       body: "Generate on-brand pages from a prompt, A/B test every variant with Smart Traffic auto-routing the winner, and hand off leads to the MAP your demand-gen team already runs.",
@@ -311,8 +311,8 @@ function WhatsInside() {
       eyebrow: "For Sales & RevOps",
       title: (
         <>
-          ABM that hits the{" "}
-          <span style={{ color: WHATS_INSIDE_INDIGO, fontStyle: "italic" }}>right person</span>.
+          <span style={{ color: WHATS_INSIDE_INDIGO }}>ABM</span> that hits the
+          right person.
         </>
       ),
       body: "A microsite for every account, AI-drafted outreach grounded in a contact brief, and per-recipient identity baked into every link — synced back to Salesforce on the right contact.",
@@ -331,7 +331,7 @@ function WhatsInside() {
       title: (
         <>
           See where{" "}
-          <span style={{ color: WHATS_INSIDE_INDIGO, fontStyle: "italic" }}>we win</span>.
+          <span style={{ color: WHATS_INSIDE_INDIGO }}>we win</span>.
         </>
       ),
       body: "A straight comparison vs Webflow, Unbounce, and Mutiny — where each one is strong, and the specific moments LP Studio is the better call.",
@@ -410,15 +410,15 @@ function WhatsInside() {
               lineHeight: 1.02,
             }}
           >
-            Four ways to go{" "}
-            <span style={{ color: WHATS_INSIDE_INDIGO, fontStyle: "italic" }}>deeper</span>.
+            Brand-locked AI that{" "}
+            <span style={{ color: WHATS_INSIDE_INDIGO }}>doesn&apos;t sound like AI</span>.
           </h2>
           <p
             className="mt-6 text-[17px] leading-[1.55]"
             style={{ color: "var(--ink-soft)", maxWidth: 580 }}
           >
-            Per-persona tours, side-by-side with the alternatives. Pick the
-            dive that fits the call you&apos;re trying to make.
+            Three things the cobbled-together stack of Webflow, Mutiny, and
+            Outreach can&apos;t do.
           </p>
         </div>
 
