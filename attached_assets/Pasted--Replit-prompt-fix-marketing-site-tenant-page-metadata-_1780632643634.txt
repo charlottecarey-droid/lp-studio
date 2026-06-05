@@ -1,0 +1,295 @@
+# Replit prompt — fix marketing-site + tenant page metadata (titles, descriptions, OG image)
+
+Three related jobs in one PR:
+
+**Part A — Marketing-site OG fixes.** An OG-image audit flagged three classes of issue across the marketing pages: OG image is 1280×720 instead of 1200×630, several titles outside 50–60 chars, several descriptions outside 110–160 chars.
+
+**Part B — "One-team GTM" positioning unification.** Use "one-team GTM" as the positioning anchor in metadata + the final-CTA closer + a few other high-impact spots, while keeping "revenue teams" / "revenue org" as audience descriptors where they read more natural (Pricing audience cards, Footer tagline, social-proof copy, prose).
+
+**Part C — Tenant OG metadata cascade + Dandy seed.** Add a tenant-default OG layer (title / description / image), wire up a per-page → tenant-default → derived → system-fallback cascade so most tenant pages inherit cleanly without per-page editing. Add char-count helpers + dimension warnings + live share-card preview to both the per-page editor AND the tenant default settings panel. Seed the Dandy tenant with `default_og_title = "Meet Dandy | The Modern Operating System for Dentistry"` and the brand OG image Charlotte provided.
+
+Run `pnpm typecheck` and re-run the marketing prerender after Part A/B so the static dist files pick up the new tags.
+
+---
+
+## Step 1 — Replace `usePageMeta` calls in each marketing page
+
+For each page below, edit `artifacts/lp-studio/src/marketing/pages/<file>.tsx`. Replace the existing `title` and `description` fields with the exact strings below. Leave `canonical`, `ogImage`, `ogImageWidth`/`Height`/`Type`/`Alt`, and `siteName` alone for now — Step 2 handles the image dimensions.
+
+### `pages/home.tsx`
+
+```ts
+title: "LP Studio — The AI Revenue Workspace for One-Team GTM",
+description:
+  "Generate on-brand pages, personalize for every account, and know exactly who's reading them. The AI revenue workspace for one-team GTM.",
+```
+
+Title is 53 chars, description is 135 chars — both inside the optimal ranges. "One-team GTM" is the positioning anchor (marketing + sales operating as a single revenue team, sharing the same canvas), used in title case in the page title and lowercase in running prose.
+
+### `pages/for-marketing.tsx`
+
+```ts
+title: "LP Studio for Marketing — Ship without the design queue",
+description:
+  "Generate on-brand pages from a prompt, A/B test every variant with Smart Traffic auto-routing, and hand off leads to Marketo, GA4, or any webhook.",
+```
+
+Title 57 chars, description 146 chars.
+
+### `pages/for-sales.tsx`
+
+```ts
+title: "LP Studio for Sales — Personalize every account in one click",
+description:
+  "An ABM workspace where every account gets a tailored microsite and AI-drafted outreach, with per-recipient identity in every link.",
+```
+
+Title 62 chars, description 130 chars.
+
+### `pages/pricing.tsx`
+
+```ts
+title: "Pricing — LP Studio · Free to start, no card required",
+```
+
+Title 56 chars. Leave the description unchanged — it's already 143 chars, in range.
+
+### `pages/features.tsx`
+
+```ts
+title: "Features — LP Studio · AI pages, brand lock, Sales Console",
+description:
+  "Brand-locked AI page generation, the visual builder, 100+ templates, the Sales Console with per-recipient identity, and integrations to your stack.",
+```
+
+Title 61 chars (1 over the optimal max — acceptable; trim the trailing word if you want it inside 60), description 147 chars.
+
+### `pages/compare.tsx`
+
+Already in range — **leave as-is**:
+- Title: "Compare LP Studio vs Webflow, Unbounce, and Mutiny" (50 chars)
+- Description: "An honest comparison. Where Webflow, Unbounce, and Mutiny are strong — and exactly when LP Studio is the better call." (117 chars)
+
+No edit needed here. Verify by re-running the audit after deploy.
+
+---
+
+## Step 2 — Regenerate `opengraph.jpg` at 1200×630
+
+The current OG image lives at `artifacts/lp-studio/public/opengraph.jpg` and is 1280×720 (about 61KB, JPEG). Facebook's official OG recommendation is **1200×630** (1.91:1 ratio); Slack, LinkedIn, Twitter all prefer this size. 1280×720 is the YouTube standard and will letterbox or get re-cropped on some surfaces.
+
+Two options to regenerate, in order of preference:
+
+### Option A — Resize the existing artwork (fast)
+
+If the source artwork exists in a designable format (Figma export, source PSD/Sketch, or the original PNG before JPEG compression), re-export at exactly 1200×630. Save back to `artifacts/lp-studio/public/opengraph.jpg` as JPEG, quality 85–90, target file size under 100KB.
+
+### Option B — Regenerate the 1200×630 from the current JPEG (acceptable but lower fidelity)
+
+If no source artwork exists, use `sharp` (already available in node_modules of the api-server workspace or installable as a dev dep):
+
+```bash
+cd artifacts/lp-studio
+npx sharp -i public/opengraph.jpg -o public/opengraph.jpg \
+  --resize 1200 630 --fit cover --position center
+```
+
+This center-crops the existing 1280×720 down to 1200×630. Verify the result visually — if anything important is at the very top or bottom edge of the current image, it might get cropped; in that case, manually re-do it from source.
+
+### Step 2.5 — Update the metadata dimensions
+
+After regenerating, update **every page's** `usePageMeta` call to reflect the new dimensions:
+
+```ts
+ogImageWidth: 1200,
+ogImageHeight: 630,
+```
+
+Use Find & Replace across `artifacts/lp-studio/src/marketing/pages/*.tsx`:
+- Find: `ogImageWidth: 1280,`  → Replace: `ogImageWidth: 1200,`
+- Find: `ogImageHeight: 720,`  → Replace: `ogImageHeight: 630,`
+
+---
+
+## Step 3 — Re-run the marketing prerender
+
+The marketing site has a prerender pipeline at `artifacts/lp-studio/scripts/prerender-marketing.mjs` that bakes the metadata tags into the static HTML files served to social scrapers (which don't execute JS). After editing `usePageMeta` calls, the prerender must re-run for the tags to land in production HTML:
+
+```bash
+cd artifacts/lp-studio
+pnpm build  # runs vite build + the prerender script
+```
+
+Verify the build output:
+- `dist/public/index.html` should contain the new `<title>` and `<meta name="description">` and `<meta property="og:image:width" content="1200">`
+- `dist/public/for-marketing/index.html` should contain the new for-marketing title
+- Same check for the other 4 prerendered routes
+
+---
+
+## Step 4 — Verify with the audit tool
+
+After deploy, re-run the same OG audit tool that flagged these issues (`opengraph.xyz`, Twitter Card Validator, or LinkedIn Post Inspector) against `https://lpstudio.ai/` and each of the persona/pricing/features/compare URLs. All three classes of warning should clear.
+
+---
+
+# Part B — "One-team GTM" positioning unification
+
+"One-team GTM" is the positioning anchor going forward (the idea that marketing + sales operate as a single revenue team sharing the same canvas). Use it consistently in a small set of high-leverage spots — but **don't blanket-replace** every mention of "revenue teams" or "revenue org." Those are audience descriptors, and they read more natural than "one-team GTM" does at scale. The bar: use "one-team GTM" when claiming the positioning. Use "revenue teams" when describing who the buyer is.
+
+### Update to "one-team GTM"
+
+1. **`pages/home.tsx`** — already covered in Part A (title + description). No additional changes.
+2. **`components/FinalCta.tsx`** — current subhead ends "for every team that needs one." Change to:
+   ```
+   Skip the marketing queue. Every page on-brand, every time — for one-team GTM.
+   ```
+3. **`components/AssembleSceneV2.tsx`** lines around `Every page on-brand, every time — for every team that needs one.` (search for the literal string). Update to:
+   ```
+   Every page on-brand, every time — for one-team GTM.
+   ```
+4. **`pages/for-marketing.tsx`** — the `usePageMeta` description already updated in Part A. Also: there's an IA comment near the top mentioning "for marketing buyers" — leave the comment alone, it's developer-facing.
+5. **`pages/for-sales.tsx`** — same treatment. Description from Part A is the only customer-facing change.
+
+### Keep as "revenue teams" / "revenue org"
+
+These read natural as audience descriptors and should NOT be rewritten:
+
+- **`components/Pricing.tsx`** line ~103: `idealFor: "Mid-market revenue teams"` — keep
+- **`components/Pricing.tsx`** line ~132: `"Multi-brand, multi-team. The whole revenue org on one canvas."` — keep
+- **`components/Footer.tsx`** tagline: `"The landing-page platform for revenue teams who need to move fast..."` — keep
+- **`components/FAQ.tsx`** answer: `"...so the data flows where your revenue team already looks."` — keep
+- **`components/Integrations.tsx`** subtitle: `"Lead handoff to the tools your revenue team already runs."` — keep
+- **`components/SmartTrafficDemo.tsx`** headline: `"Where the best revenue teams compare notes."` — keep
+- **`components/TwoMotions.tsx`** prose: `"so the whole revenue org ships on-brand..."` — keep (TwoMotions isn't on the homepage anymore but if you encounter it, leave it)
+- **`components/AssembleSceneV2.tsx`** `headlineL2Full = "for the whole revenue org"` — **keep this**. It's the big visible hero headline of the scroll demo. "One-team GTM" reads jargony at that scale; "revenue org" reads accessible to first-time visitors. Save the new positioning for tighter spots.
+- **`components/UseCases.tsx`** marker `"For the whole revenue org"` — keep.
+- **`pages/terms.tsx`** legal copy mentioning revenue teams — keep verbatim.
+
+Bottom line: 3 customer-facing edits in Part B (FinalCta, AssembleSceneV2 final CTA line, home.tsx metadata already handled).
+
+---
+
+# Part C — Tenant OG metadata: cascade + per-page editor + Dandy seed
+
+LP Studio tenants publish landing pages and need to share cleanly on social. Build a **tenant-default → per-page** cascade so most pages inherit the tenant's brand defaults and individual pages can override only when they need to. Bring the per-page editor to parity with what the marketing site itself needs (char-count helpers, dimension warnings, share-card preview). Seed Dandy as the first tenant to use the new defaults system.
+
+## Step C.1 — Audit the existing per-page metadata editor
+
+Find the in-app per-page settings UI that holds the page's OG fields. Search for `og:title`, `og:description`, `ogImage`, `metaDescription`, or wherever `lp_pages` columns like `meta_title` / `meta_description` / `og_image` get edited. Likely paths:
+
+- `artifacts/lp-studio/src/pages/builder/...` (the builder's settings drawer)
+- `artifacts/lp-studio/src/pages/pages/[id]/settings.tsx` or similar
+- The page-detail view's settings tab
+
+Document the current state in a 5-line summary in the PR description: what fields exist, what validation runs (if any), what the share-preview surface looks like (or if there isn't one).
+
+## Step C.2 — Add the same affordances the marketing site needs
+
+For each OG field in the editor, add the same UX the audit tool would want:
+
+- **Title field**: live character count. Green at 50–60. Yellow under 50 or 61–70. Red above 70. Below 50: tooltip "Most share cards truncate around 60 chars — too short reads thin." Above 70: tooltip "Facebook truncates around 60 chars; Twitter around 70."
+- **Description field**: live character count. Green at 110–160. Yellow under 110 or 161–200. Red above 200. Tooltip text similar to above.
+- **OG image upload**: when a user uploads, run a client-side check on dimensions. If not 1200×630, surface an inline warning (not a blocker) — "Recommended size is 1200×630. Your image is `<actual>` — it may letterbox or crop on some platforms." Offer a "Resize to 1200×630" one-click button that does a center-crop server-side via `sharp` (same call pattern as the marketing OG resize in Part A).
+- **Live share-card preview**: a small mock that renders what the OG card looks like on Facebook / LinkedIn / Twitter (use the user's actual title + description + image with the standard share-card visual treatment). 240px wide preview is enough — it's a sanity check, not a design tool.
+
+## Step C.3 — Tenant-default OG metadata + cascade
+
+Per-page metadata overrides should be the exception, not the rule. Most pages should inherit the tenant's brand-default OG so every page a tenant publishes shares cleanly without per-page work. Add a tenant-level OG defaults layer.
+
+### Schema
+
+Add columns to `tenants` in `lib/db/src/schema/tenants.ts`:
+
+- `default_og_title` — text, nullable. Either a plain string (used as-is) OR a template with `{{page_title}}` token (e.g., `"{{page_title}} — Meet Dandy"`). Keep it simple: if it contains `{{page_title}}`, substitute the page's display title; otherwise use the literal string.
+- `default_og_description` — text, nullable. Plain string.
+- `default_og_image_url` — text, nullable. URL to a 1200×630 image stored in the tenant's asset bucket.
+
+Migrate any existing tenants with `null` defaults — they'll fall through to the LP Studio system fallback.
+
+### Cascade order
+
+For every published tenant page, resolve OG fields in this order (first non-null wins):
+
+1. Per-page field on `lp_pages` (`meta_title` / `meta_description` / `og_image`)
+2. Tenant default (`tenants.default_og_title` / `default_og_description` / `default_og_image_url`)
+3. Derived from page content (H1 → title, first sentence → description, brand-imported hero → image)
+4. System fallback (LP Studio composite placeholder)
+
+Implement this as a single resolver helper, e.g. `resolvePageOG(pageId): { title, description, image, width, height }`, and have the published-page rendering layer call it. Don't duplicate the cascade logic in two places.
+
+### Tenant settings UI
+
+Add a "Default share card" panel to the tenant's brand-settings area (same surface where they upload logos / set colors). Fields:
+
+- "Default OG title" — text input with the same live char-count helper as the per-page editor (50–60 green). Includes a small note: "Use `{{page_title}}` to insert the page's title."
+- "Default OG description" — text area, 110–160 char helper.
+- "Default OG image" — uploader with the same 1200×630 dimension warning + one-click `sharp` resize as the per-page editor.
+- Live preview at the top showing what the default share card looks like, rendered with `{{page_title}}` substituted as "Example Page Title."
+
+### Seed Dandy
+
+Pre-seed the Dandy tenant record with these defaults (this is the only tenant-specific data in this PR; all other tenants get `null` defaults and fall through):
+
+- `default_og_title`: `"Meet Dandy | The Modern Operating System for Dentistry"` (54 chars — inside the optimal range)
+- `default_og_description`: leave `null` for now (Dandy hasn't picked one; they can set it themselves in the tenant settings UI). The cascade will fall through to derived/system.
+- `default_og_image_url`: upload Charlotte's provided Dandy brand OG card (1200×630, dark green background with "dandy" wordmark left, "Welcome to the future of dentistry" tagline right, faint tooth/jaw line-art) to the Dandy tenant asset bucket. Verify the URL is publicly accessible (not behind auth — social scrapers can't auth). Store the resulting CDN URL.
+
+For the Dandy image upload: if the asset isn't yet in the tenant bucket, ask Charlotte for the source file or pull it from wherever Dandy's brand assets currently live (probably their existing brand-import or marketing site). It should be the 2400×1254-ish image she shared in this PR's context; resize to exactly 1200×630 via the same `sharp` center-crop pattern Part A uses.
+
+## Step C.4 — Page-create defaults + page-publish emission
+
+When a tenant creates a new page, pre-fill the **per-page** OG fields by running the resolver helper above and writing the resolved values back so the user sees them in the editor (rather than empty fields). Users can override; if they don't, the tenant default flows through naturally.
+
+If the tenant page rendering layer isn't already reading `meta_title` / `meta_description` / `og_image` and emitting them into the page `<head>`, wire that up — using the resolver helper so the cascade applies. The marketing prerender uses `usePageMeta` for this; the tenant page rendering layer may use a different mechanism — find whatever the published-page rendering layer does and make sure all 3 resolved fields end up in the final HTML `<head>`.
+
+---
+
+## Acceptance criteria
+
+**Part A — Marketing-site OG**
+
+- [ ] `home.tsx` title is 53 chars ("LP Studio — The AI Revenue Workspace for One-Team GTM")
+- [ ] All 6 marketing page descriptions are between 110 and 160 chars
+- [ ] `public/opengraph.jpg` is exactly 1200×630
+- [ ] Every `usePageMeta` call has `ogImageWidth: 1200, ogImageHeight: 630`
+- [ ] `pnpm build` runs the prerender successfully and writes 6 route HTML files with the new metadata
+- [ ] Manual check: `curl https://lpstudio.ai/ | grep '<title>'` returns the new title after deploy
+- [ ] Facebook Sharing Debugger shows no warnings on `lpstudio.ai`
+
+**Part B — Positioning unification**
+
+- [ ] `FinalCta.tsx` subhead ends "for one-team GTM"
+- [ ] `AssembleSceneV2.tsx` final-CTA line ends "for one-team GTM"
+- [ ] AssembleSceneV2 hero `headlineL2Full` STILL reads "for the whole revenue org" (NOT changed — intentional)
+- [ ] Pricing audience cards + Footer tagline + FAQ + Integrations + SmartTrafficDemo + UseCases marker untouched
+
+**Part C — Tenant cascade + editor + Dandy seed**
+
+- [ ] `tenants` table has `default_og_title`, `default_og_description`, `default_og_image_url` columns (migration shipped, all existing rows back-filled to `null`)
+- [ ] `resolvePageOG(pageId)` helper exists and is the only place the cascade is implemented
+- [ ] Cascade order is per-page → tenant default → derived → system fallback
+- [ ] Per-page metadata editor surfaces live char counts on title (50–60 green) and description (110–160 green)
+- [ ] Tenant settings has a "Default share card" panel with the same char-count + dimension affordances
+- [ ] `{{page_title}}` token works in the tenant default OG title
+- [ ] OG image upload warns when dimensions ≠ 1200×630, offers one-click resize via `sharp`
+- [ ] Live share-card preview renders the title + description + image at ~240px wide (both in per-page editor AND tenant settings panel)
+- [ ] **Dandy tenant seeded**: `default_og_title = "Meet Dandy | The Modern Operating System for Dentistry"`, `default_og_image_url = <CDN URL of the 1200×630 brand OG card Charlotte provided>`
+- [ ] Verify on a live Dandy page (without per-page overrides): the rendered `<title>` and `og:image` match the Dandy defaults
+- [ ] Verify on a Dandy page WITH per-page overrides set: the per-page values win
+- [ ] Published tenant pages emit `<title>`, `<meta name="description">`, and `og:*` tags via the resolver
+
+**Build hygiene**
+
+- [ ] `pnpm typecheck` clean across all workspaces
+- [ ] No regressions to existing tenant page rendering (run the e2e suite if there is one)
+
+## Don't
+
+- Don't change the homepage title past 65 chars — Facebook truncates ~60 and Twitter ~70.
+- Don't shorten descriptions past 110 chars — under 110 reads thin in the share preview.
+- Don't replace the marketing OG image with a different design — scope is dimensions, not creative.
+- Don't skip the marketing prerender step. The site serves static HTML to scrapers; without re-running the prerender the new tags won't land in production HTML.
+- Don't touch the `usePageMeta` hook itself or the prerender script — they work; the data being passed in is what's wrong.
+- Don't blanket-replace "revenue teams" with "one-team GTM" across the site. The Part B keep-list is intentional; deviating dilutes both phrases.
+- Don't gate Part C on Parts A/B if you have to ship in phases — Part C is the bigger lift and shipping it later than the launch is fine. Parts A+B should ship before PH.
