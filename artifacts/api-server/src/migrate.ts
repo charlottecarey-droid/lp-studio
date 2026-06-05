@@ -974,6 +974,56 @@ async function runMigrationsBody(): Promise<void> {
       }
     });
 
+    // Durable self-heal for the Marketo two-way integration tables (Task #943).
+    // Same high-water-mark hazard as the self-heals above: on a drifted DB whose
+    // drizzle.__drizzle_migrations max created_at already sits ABOVE 0077's
+    // journal `when`, the node-postgres migrator records nothing and never runs
+    // 0077's DDL, leaving the tables/columns missing. The Marketo settings UI,
+    // sync routes, and the outbound push triggers (campaigns/hotlinks/signals)
+    // all read these tables and sales_contacts.marketo_lead_id; a missing object
+    // 500s the integration and silently drops every write-back. Re-applying the
+    // file here is independent of drizzle's dedup and idempotent (CREATE ... IF
+    // NOT EXISTS + ADD COLUMN IF NOT EXISTS), so it creates the schema where
+    // missing and is a no-op elsewhere. The .sql stays the single source of
+    // truth. Fails CLOSED: the schema is feature-critical, so any error aborts
+    // the release; the SQL is idempotent so a retry is always safe.
+    await runStep("marketo integration schema self-heal (0077)", async () => {
+      const marketoSql = readFileSync(
+        path.join(MIGRATIONS_FOLDER, "0077_marketo_integration.sql"),
+        "utf8",
+      );
+      await pool.query(marketoSql);
+      const { rows } = await pool.query<{ present: number }>(
+        `SELECT count(*)::int AS present
+           FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name IN (
+              'marketo_connections',
+              'marketo_field_mappings',
+              'marketo_sync_log',
+              'marketo_lists',
+              'marketo_activities_pushed'
+            )`,
+      );
+      if ((rows[0]?.present ?? 0) < 5) {
+        throw new Error(
+          `marketo integration schema self-heal did not produce all tables (found ${rows[0]?.present ?? 0}/5) — aborting release`,
+        );
+      }
+      const { rows: colRows } = await pool.query<{ present: number }>(
+        `SELECT count(*)::int AS present
+           FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'sales_contacts'
+            AND column_name IN ('marketo_lead_id', 'marketo_last_synced_at')`,
+      );
+      if ((colRows[0]?.present ?? 0) < 2) {
+        throw new Error(
+          `marketo integration self-heal did not add sales_contacts columns (found ${colRows[0]?.present ?? 0}/2) — aborting release`,
+        );
+      }
+    });
+
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
     // letterdrop integrations don't break the moment we cut over the routes.
     // Generates one secret per integration for tenant #1, idempotent under

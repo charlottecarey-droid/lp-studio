@@ -15,6 +15,7 @@ import {
 import { lpPagesTable } from "@workspace/db";
 import { broadcastSignal } from "./signals";
 import { sfdcService } from "../../lib/sfdc-service";
+import { marketoService } from "../../lib/marketo-service";
 import { logger } from "../../lib/logger";
 import { getTenantOutboundOrigin } from "../../lib/tenantHosts";
 import { getSalesBrandContext } from "../../lib/salesBrandContext";
@@ -861,6 +862,23 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
             }
           }).catch(() => {/* non-blocking */});
         }
+
+        // Marketo write-back (Phase 2): log email as a custom activity
+        // (fire-and-forget). Tenant-scoped + gated on marketoLeadId + sync
+        // enabled. Idempotent per campaign+contact so a re-send doesn't
+        // double-log.
+        if (contact.marketoLeadId) {
+          marketoService.getActiveConnection(tenantId).then(conn => {
+            if (conn) {
+              marketoService.logEmailActivity(conn.id, tenantId, {
+                localEventId: `email_sent:campaign:${campaignId}:contact:${contact.id}`,
+                marketoLeadId: Number(contact.marketoLeadId),
+                subject,
+                campaignName: campaign.name,
+              }).catch(() => {/* non-blocking */});
+            }
+          }).catch(() => {/* non-blocking */});
+        }
       } else {
         failed++;
       }
@@ -1462,6 +1480,21 @@ router.post("/send-email", async (req, res): Promise<void> => {
         if (conn) {
           sfdcService.logEmailActivity(conn.id, {
             contactSalesforceId: contact.salesforceId!,
+            subject: renderedSubject,
+          }).catch(() => {/* non-blocking */});
+        }
+      }).catch(() => {/* non-blocking */});
+    }
+
+    // Marketo write-back (Phase 2): log single email as a custom activity
+    // (fire-and-forget). Tenant-scoped + gated on marketoLeadId + sync enabled.
+    // Idempotent per email_sent signal id.
+    if (contact.marketoLeadId) {
+      marketoService.getActiveConnection(tenantId).then(conn => {
+        if (conn) {
+          marketoService.logEmailActivity(conn.id, tenantId, {
+            localEventId: `email_sent:single:${sig4.id}`,
+            marketoLeadId: Number(contact.marketoLeadId),
             subject: renderedSubject,
           }).catch(() => {/* non-blocking */});
         }

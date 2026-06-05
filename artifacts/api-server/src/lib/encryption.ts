@@ -184,7 +184,7 @@ export function decryptCredential(value: string | null | undefined): string {
  * so we never accidentally encrypt display labels or non-secret IDs.
  */
 const CREDENTIAL_FIELDS_BY_PROVIDER: Record<string, string[]> = {
-  marketo: ["clientSecret"],
+  marketo: ["clientSecret", "accessToken"],
   salesforce: ["clientSecret"],
   google_sheets: ["privateKey"],
   asana: ["pat"],

@@ -30,6 +30,9 @@ export * from "./salesOnePagerTemplates";
 // Salesforce Integration
 export * from "./sfdcIntegration";
 
+// Marketo Integration (Phase 2 — bidirectional)
+export * from "./marketoIntegration";
+
 // Multi-tenant identity tables
 export * from "./tenants";
 export * from "./appUsers";

@@ -126,3 +126,4 @@
 - [Page-visit de-anon surfaces](page-visit-deanon-surfaces.md) — lp_leads.session_id de-anon applies ONLY to LP page-detail /visits (names) + /summary (identity de-dup); aggregate analytics & Sales signals are out of scope.
 - [Dandy Insights vs AI Scan Review](dandy-insights-vs-ai-scan-review.md) — distinct Dandy products w/ own blocks; generic generator gates Insights on isDandyTenant; all dso-* hard-render white text (force-dark + airy-minimal skip + hero overlay clamp).
 - [Featured homepage templates config](featured-homepage-templates.md) — marketing homepage gallery is superadmin-editable (featured_homepage_templates) w/ built-in fallback; underlying id MUST be a real LP_TEMPLATES id or preview/clone break.
+- [Marketo two integration paths](marketo-two-integration-paths.md) — lp-studio has TWO unrelated Marketo integrations (legacy lp_integrations form-lead sync vs new dedicated two-way sales tables/service); know which before touching "Marketo".

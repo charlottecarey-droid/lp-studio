@@ -9,6 +9,7 @@ import {
   salesEmailSendsTable,
 } from "@workspace/db";
 import { sfdcService } from "../../lib/sfdc-service";
+import { marketoService } from "../../lib/marketo-service";
 import { restoreRows } from "../../lib/restoreRows";
 
 const router = Router();
@@ -210,6 +211,7 @@ router.post("/signals", async (req, res): Promise<void> => {
 
     if (signal.contactId) {
       pushEngagementScoreToSfdc(tenantId, signal.contactId).catch(() => {/* non-blocking */});
+      pushEngagementScoreToMarketo(signal.contactId, tenantId, signal.id).catch(() => {/* non-blocking */});
     }
 
     res.status(201).json(signal);
@@ -280,6 +282,76 @@ async function pushEngagementScoreToSfdc(tenantId: number, contactId: number): P
     else label = "Cold";
 
     await sfdcService.pushEngagementScore(conn.id, contact.salesforceId, {
+      label,
+      numericScore: Math.round(score),
+    });
+  } catch {
+    // Non-blocking
+  }
+}
+
+/**
+ * Marketo write-back: push the recomputed engagement score (Phase 2). Mirrors
+ * the SFDC twin but is tenant-scoped (Marketo getActiveConnection REQUIRES a
+ * tenantId) and gated on the contact having a marketoLeadId AND the connection
+ * having sync enabled. Idempotent per signal id. Salesforce stays
+ * system-of-record for shared fields — this only writes engagement fields.
+ */
+async function pushEngagementScoreToMarketo(contactId: number, tenantId: number, signalId: number): Promise<void> {
+  try {
+    const [contact] = await db.select().from(salesContactsTable)
+      .where(eq(salesContactsTable.id, contactId));
+    if (!contact?.marketoLeadId) return;
+
+    const conn = await marketoService.getActiveConnection(tenantId);
+    if (!conn) return;
+
+    const signals = await db.select().from(salesSignalsTable)
+      .where(eq(salesSignalsTable.contactId, contactId));
+
+    const weights: Record<string, number> = {
+      form_submit: 5,
+      email_click: 3,
+      link_click:  3,
+      email_open:  2,
+      page_view:   1,
+      email_sent:  0,
+    };
+
+    function visitorWeight(sig: typeof signals[number]): number {
+      const source = sig.source ?? "";
+      const meta   = (sig.metadata ?? {}) as Record<string, string | undefined>;
+      if (source === "rb2b")        return 3;
+      if (source === "apollo")      return 2;
+      if (source === "letterdrop") {
+        const activity = meta.activityType ?? meta.lastActivity ?? "";
+        if (activity.includes("comment"))               return 4;
+        if (activity.includes("organization_follower")) return 2;
+        if (activity.includes("profile_view"))          return 1;
+        return 2;
+      }
+      return 2;
+    }
+
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    let score = 0;
+    for (const sig of signals) {
+      const weight = sig.type === "visitor_identified"
+        ? visitorWeight(sig)
+        : (weights[sig.type] ?? 1);
+      const isRecent = sig.createdAt && new Date(sig.createdAt).getTime() > sevenDaysAgo;
+      score += weight * (isRecent ? 1.5 : 1);
+    }
+
+    let label: string;
+    if (score >= 15) label = "Hot";
+    else if (score >= 8) label = "Warm";
+    else if (score >= 3) label = "Cool";
+    else label = "Cold";
+
+    await marketoService.pushEngagementScore(conn.id, tenantId, {
+      localEventId: `engagement_score:${signalId}`,
+      marketoLeadId: Number(contact.marketoLeadId),
       label,
       numericScore: Math.round(score),
     });

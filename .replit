@@ -24,23 +24,23 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
+args = "artifacts/dandy-insights-video: web"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
 args = "e2e"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "typecheck"
+[[workflows.workflow]]
+name = "artifacts/dandy-insights-video: web"
+author = "agent"
 
 [[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "typecheck-api"
+task = "shell.exec"
+args = "pnpm --filter @workspace/dandy-insights-video run dev"
+waitForPort = 19876
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "lp-typecheck"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "typecheck-lp"
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [[workflows.workflow]]
 name = "e2e"
@@ -53,54 +53,9 @@ args = "pnpm --filter @workspace/lp-studio exec playwright test"
 [workflows.workflow.metadata]
 isValidation = true
 
-[[workflows.workflow]]
-name = "typecheck"
-author = "agent"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/lp-studio run typecheck"
-
-[[workflows.workflow]]
-name = "typecheck-api"
-author = "agent"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/api-server run typecheck"
-
-[[workflows.workflow]]
-name = "lp-typecheck"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/lp-studio run typecheck"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "typecheck-lp"
-author = "agent"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/lp-studio run typecheck"
-
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
-integrations = ["google-sheet:1.0.0", "github:1.0.0"]
 
 [postMerge]
 path = "scripts/post-merge.sh"
@@ -112,32 +67,7 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-RESEND_FROM_EMAIL = "LP Studio <team@mail.lpstudio.ai>"
+RESEND_FROM_EMAIL = "LP Studio <notifications@ent.meetdandy.com>"
+GOOGLE_REDIRECT_URI = "https://app.lpstudio.ai/api/auth/google/callback"
 DEPLOYMENT_TARGET_CNAME = "image-to-video-ccarey.replit.app"
 WILDCARD_TENANT_BASE_HOSTS = "lpstudio.ai,app.lpstudio.ai"
-TURNSTILE_SITE_KEY = "0x4AAAAAADboov6vgE0UvZpL"
-
-[userenv.production]
-PUBLIC_API_BASE_URL = "https://app.lpstudio.ai"
-GITHUB_OAUTH_REDIRECT_URI = "https://app.lpstudio.ai/api/auth/github/callback"
-GOOGLE_REDIRECT_URI = "https://app.lpstudio.ai/api/auth/google/callback"
-
-[[ports]]
-localPort = 8080
-externalPort = 8080
-
-[[ports]]
-localPort = 8081
-externalPort = 80
-
-[[ports]]
-localPort = 8082
-externalPort = 3002
-
-[[ports]]
-localPort = 24565
-externalPort = 3000
-
-[[ports]]
-localPort = 24566
-externalPort = 3001

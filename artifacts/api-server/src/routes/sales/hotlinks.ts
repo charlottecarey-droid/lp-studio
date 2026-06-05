@@ -15,6 +15,7 @@ import {
 import { deriveCompanyName, derivePracticeCount } from "../../lib/businessCaseVars";
 import { broadcastSignal } from "./signals";
 import { sfdcService } from "../../lib/sfdc-service";
+import { marketoService } from "../../lib/marketo-service";
 import { logger } from "../../lib/logger";
 import { resolveTenantSender } from "../../lib/tenantSender";
 
@@ -674,6 +675,23 @@ router.get("/resolve/:token", resolveLimiter, async (req, res): Promise<void> =>
         if (conn) {
           sfdcService.logMicrositeView(conn.id, {
             contactSalesforceId: contact.salesforceId!,
+            pageTitle: page.title,
+            pageUrl: `/lp/${page.slug}`,
+          }).catch(() => {/* non-blocking */});
+        }
+      }).catch(() => {/* non-blocking */});
+    }
+
+    // Marketo write-back (Phase 2): log microsite view as a custom activity
+    // (fire-and-forget). Tenant-scoped + gated on the contact having a
+    // marketoLeadId and the connection having sync enabled. Idempotent per
+    // page_view signal id.
+    if (contact?.marketoLeadId) {
+      marketoService.getActiveConnection(page.tenantId).then(conn => {
+        if (conn) {
+          marketoService.logMicrositeView(conn.id, page.tenantId, {
+            localEventId: `microsite_view:${pvSignal.id}`,
+            marketoLeadId: Number(contact.marketoLeadId),
             pageTitle: page.title,
             pageUrl: `/lp/${page.slug}`,
           }).catch(() => {/* non-blocking */});

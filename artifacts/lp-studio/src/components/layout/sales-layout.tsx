@@ -166,6 +166,14 @@ function SettingsDropdown() {
             </DropdownMenuItem>
           </Link>
         )}
+        {(hasPerm("settings") || user?.isAdmin) && (
+          <Link href="/sales/marketo">
+            <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/marketo") ? "bg-accent" : ""}`}>
+              <Cloud className="w-4 h-4 text-muted-foreground" />
+              <span>Marketo</span>
+            </DropdownMenuItem>
+          </Link>
+        )}
         {hasPerm("brand") && (
           <Link href="/brand">
             <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/brand") ? "bg-accent" : ""}`}>
