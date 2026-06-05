@@ -64,12 +64,12 @@ args = "pnpm --filter @workspace/lp-studio run typecheck"
 name = "typecheck-api"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/api-server exec tsc -p tsconfig.json --noEmit"
-
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run typecheck"
 
 [[workflows.workflow]]
 name = "lp-typecheck"

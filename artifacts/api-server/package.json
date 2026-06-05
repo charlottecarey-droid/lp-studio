@@ -8,7 +8,7 @@
     "build": "node ./build.mjs",
     "migrate": "node --enable-source-maps --env-file-if-exists=../../.env --env-file-if-exists=.env ./dist/migrate.mjs",
     "start": "node --enable-source-maps --env-file-if-exists=../../.env --env-file-if-exists=.env --import ./dist/instrument.mjs ./dist/index.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -b tsconfig.json",
     "test": "vitest run",
     "refresh-font-catalog": "tsx scripts/refresh-font-catalog.ts",
     "backfill-template-thumbnails": "tsx scripts/backfill-template-thumbnails.ts"
