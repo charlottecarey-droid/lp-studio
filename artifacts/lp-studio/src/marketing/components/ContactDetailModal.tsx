@@ -163,11 +163,14 @@ export default function ContactDetailModal({ contact, onClose }: Props) {
 
         {/* Body */}
         <div style={{ padding: "26px 28px 32px" }}>
-          {/* Header row: back · avatar · name + role + status badge · Generate CTA · close */}
+          {/* Header row: back · avatar · name + role + status badge · Generate CTA · close.
+              On mobile the row wraps and the Generate CTA drops to its own
+              full-width line (sm:* resets to the single-row desktop layout). */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
+              flexWrap: "wrap",
               gap: 16,
               marginBottom: 24,
             }}
@@ -213,7 +216,7 @@ export default function ContactDetailModal({ contact, onClose }: Props) {
               {contact.initials}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, minWidth: 0 }}>
                 <h2
                   className="font-display"
                   style={{
@@ -243,6 +246,7 @@ export default function ContactDetailModal({ contact, onClose }: Props) {
             </div>
             <button
               type="button"
+              className="order-1 w-full justify-center sm:order-none sm:w-auto sm:justify-start"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
