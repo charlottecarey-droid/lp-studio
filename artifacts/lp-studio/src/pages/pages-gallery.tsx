@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,8 @@ import {
   useCommentSummary,
   useRunningTests,
 } from "./pages-gallery/api";
-import { inferAudienceType } from "./pages-gallery/utils";
+import { inferAudienceType, getTemplateBlocks, slugify } from "./pages-gallery/utils";
+import { getTemplateById } from "@/lib/templates";
 import { ShareModalWrapper } from "./pages-gallery/share-modal-wrapper";
 import { CreateTestFromPageModal } from "./pages-gallery/create-test-from-page-modal";
 import { FiltersBar } from "./pages-gallery/filters-bar";
@@ -132,6 +133,57 @@ export default function PagesGallery() {
       window.history.replaceState({}, "", url.toString());
     }
   }, [search]);
+
+  // Marketing homepage handoff: each featured template's "Use this template"
+  // button sends the visitor to app.lpstudio.ai/?template={id} (which the root
+  // route bridges to /pages?template={id}, surviving login/signup since the
+  // query string is preserved across the OAuth/handoff redirects). On arrival
+  // we clone that built-in LP_TEMPLATES template into the tenant and open the
+  // new page in the builder. Runs exactly once and strips the param so a
+  // refresh doesn't re-clone; an unknown/invalid id silently falls back to the
+  // normal gallery. We wait for the existing pages to load so the new page's
+  // slug can be de-duplicated client-side.
+  const templateHandoffRan = useRef(false);
+  useEffect(() => {
+    if (templateHandoffRan.current || isLoading) return;
+    const templateId = new URLSearchParams(window.location.search).get("template");
+    if (!templateId) return;
+    templateHandoffRan.current = true;
+    // Strip `?template=` immediately (leaving any utm_* params intact) so a
+    // refresh or a failed clone never re-triggers the handoff.
+    const url = new URL(window.location.href);
+    url.searchParams.delete("template");
+    window.history.replaceState({}, "", url.toString());
+
+    const tpl = getTemplateById(templateId);
+    if (!tpl) return; // unknown id → just show the gallery, no error state
+
+    void (async () => {
+      try {
+        const existingSlugs = new Set(pages.map((p) => p.slug));
+        let slug = slugify(tpl.name) || "page";
+        if (existingSlugs.has(slug)) {
+          let i = 2;
+          while (existingSlugs.has(`${slug}-${i}`)) i++;
+          slug = `${slug}-${i}`;
+        }
+        const page = await createPage({
+          title: tpl.name,
+          slug,
+          blocks: getTemplateBlocks(tpl.id),
+          status: "draft",
+          segmentId: null,
+          audienceType: null,
+          fromTemplateId: null,
+        });
+        navigate(`/builder/${page.id}`);
+      } catch (err) {
+        // Stay on the gallery — no error screen, no broken state.
+        console.error("Template handoff failed:", err);
+      }
+    })();
+  }, [isLoading, pages, navigate]);
+
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("All");
   const [sortBy, setSortBy] = useState<SortBy>("recent");
   const [searchQuery, setSearchQuery] = useState("");

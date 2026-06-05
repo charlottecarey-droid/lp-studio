@@ -1,5 +1,5 @@
 import { lazy, Suspense, Component, type ReactNode } from "react";
-import { Switch, Route, Router as WouterRouter, useLocation, useRoute, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation, useSearch, useRoute, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -277,12 +277,25 @@ const queryClient = new QueryClient({
   },
 });
 
+// Marketing homepage handoff: "Use this template" sends the visitor to
+// app.lpstudio.ai/?template={id}. The root path renders the Dashboard, so we
+// bridge the param over to the pages gallery (which clones + opens the
+// template) while preserving the rest of the query string (utm_*). Without a
+// `?template=` param this just renders the Dashboard as usual.
+function RootRoute() {
+  const search = useSearch();
+  if (new URLSearchParams(search).has("template")) {
+    return <Redirect to={`/pages${search ? `?${search}` : ""}`} replace />;
+  }
+  return <Dashboard />;
+}
+
 function AppRouter() {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <Switch>
         {/* Platform Routes */}
-        <Route path="/" component={Dashboard} />
+        <Route path="/" component={RootRoute} />
         <Route path="/tests/new">{() => <PermRoute perm="tests" fallback="/"><CreateTest /></PermRoute>}</Route>
         <Route path="/tests/:testId">{() => <PermRoute perm="tests" fallback="/"><TestDetail /></PermRoute>}</Route>
         <Route path="/tests">{() => <PermRoute perm="tests" fallback="/"><AllTests /></PermRoute>}</Route>
