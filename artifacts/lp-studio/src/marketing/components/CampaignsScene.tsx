@@ -2,11 +2,15 @@ import { useInView } from "../hooks/useInView";
 
 // CampaignsScene — homepage section #9. Sits between Sales Console
 // (#08) and IdentityWedge (#10) to set up the "send → reveal → optimize"
-// arc that those three sections share. Anchors on per-recipient
-// identity tokenization at send time: every URL in the email is unique
-// to the contact, so when they click LP Studio knows it's them — not
-// just their account. Mock is a side-by-side: composer (left) with an
-// AI-drafted email + an attached per-account page, plus the recipient's
+// arc that those three sections share. Tells the dual-channel send
+// story: build the campaign + tokenized per-recipient pages in LP
+// Studio, then either send directly via Resend OR push the list +
+// tokenized URLs to an existing send stack (Marketo, HubSpot,
+// Salesforce, Google Sheets, or any webhook) and let the MAP/CRM fire
+// the send. Because URLs are tokenized at list-build time (not send
+// time), the per-recipient identity reveal works either way. Mock is a
+// side-by-side: composer (left) with an AI-drafted email, an attached
+// per-account page, and a destination picker, plus the recipient's
 // view (right) with a floating identity-reveal pill.
 
 export default function CampaignsScene() {
@@ -57,9 +61,9 @@ export default function CampaignsScene() {
             className="font-display text-display-lg"
             style={{ color: "var(--ink)", margin: 0 }}
           >
-            Send the page.{" "}
-            <em style={{ fontStyle: "normal", color: "var(--indigo)" }}>
-              Know who read it.
+            Build the campaign here.{" "}
+            <em style={{ fontStyle: "italic", color: "var(--indigo)" }}>
+              Send it from anywhere.
             </em>
           </h2>
           <p
@@ -71,11 +75,13 @@ export default function CampaignsScene() {
               maxWidth: 600,
             }}
           >
-            AI-drafted outreach grounded in a contact brief, with a
-            per-account page attached to every send. Every URL is
-            tokenized to the recipient at send time —{" "}
+            Draft AI outreach and attach a per-account page, then send
+            directly via Resend — or push the list and per-recipient
+            tokenized URLs to Marketo, HubSpot, Salesforce, Google
+            Sheets, or any webhook and let your own stack fire the send.{" "}
             <strong style={{ color: "var(--ink)", fontWeight: 600 }}>
-              so when they click, you know exactly who clicked.
+              The identity reveal works either way — URLs are tokenized
+              at list-build time, not send time.
             </strong>
           </p>
         </div>
@@ -89,7 +95,7 @@ export default function CampaignsScene() {
             "AI drafts grounded in the contact brief",
             "Per-account pages attached in one click",
             "Per-recipient identity in every URL",
-            "Sent / opened / clicked + visit log per send",
+            "Send from LPS, or push to Marketo · HubSpot · SFDC · Sheets · webhook",
           ].map((b) => (
             <li
               key={b}
@@ -393,6 +399,98 @@ function ComposerMock() {
           </span>
         </div>
 
+        {/* Destination row */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 10,
+            padding: "12px 0",
+            borderTop: "1px solid var(--hairline)",
+            flexWrap: "wrap",
+          }}
+        >
+          <span
+            className="font-mono uppercase"
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.18em",
+              fontWeight: 700,
+              color: "var(--ink-mute)",
+              flexShrink: 0,
+            }}
+          >
+            Destination
+          </span>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 6,
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            {[
+              { label: "Resend", dot: "var(--indigo)", selected: true },
+              { label: "Marketo", dot: "#5C4C9F", selected: false },
+              { label: "HubSpot", dot: "#FF7A59", selected: false },
+              { label: "Salesforce", dot: "#00A1E0", selected: false },
+              { label: "Sheets", dot: "#0F9D58", selected: false },
+              { label: "Webhook", dot: "#8A8780", selected: false },
+            ].map((d) => (
+              <span
+                key={d.label}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "4px 9px",
+                  borderRadius: 999,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "-0.005em",
+                  background: d.selected
+                    ? "color-mix(in srgb, var(--indigo) 10%, transparent)"
+                    : "var(--cream-2)",
+                  border: d.selected
+                    ? "1px solid color-mix(in srgb, var(--indigo) 30%, transparent)"
+                    : "1px solid var(--hairline)",
+                  color: d.selected ? "var(--indigo)" : "var(--ink-mute)",
+                  opacity: d.selected ? 1 : 0.7,
+                }}
+              >
+                <span
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: 999,
+                    background: d.dot,
+                    flexShrink: 0,
+                  }}
+                />
+                {d.label}
+                {d.selected && (
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ flexShrink: 0 }}
+                    aria-hidden="true"
+                  >
+                    <path d="M5 12.5L10 17.5L20 7.5" />
+                  </svg>
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+
         {/* Send row */}
         <div
           style={{
@@ -412,7 +510,7 @@ function ComposerMock() {
               color: "var(--ink-mute)",
             }}
           >
-            Send via Resend · from sarah@northwind.com
+            Sending from sarah@northwind.com
           </span>
           <span
             style={{
