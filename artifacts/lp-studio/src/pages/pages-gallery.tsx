@@ -298,6 +298,7 @@ export default function PagesGallery() {
       valueProps: activeSeg.valueProps,
       personas: activeSeg.personas?.map((p: { role: string; painPoints: string[] }) => ({ role: p.role, painPoints: p.painPoints })),
       challenges: activeSeg.challenges?.map((c: { title: string; desc: string }) => ({ title: c.title, desc: c.desc })),
+      ...(activeSeg.micrositeBlockList?.length ? { micrositeBlockList: activeSeg.micrositeBlockList } : {}),
     } : undefined;
 
     const cleanedRefUrls = (referenceUrls ?? []).map(u => u.trim()).filter(Boolean);

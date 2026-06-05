@@ -220,6 +220,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
           valueProps: seg.valueProps,
           personas: seg.personas?.map(p => ({ role: p.role, painPoints: p.painPoints })),
           challenges: seg.challenges?.map(c => ({ title: c.title, desc: c.desc })),
+          ...(seg.micrositeBlockList?.length ? { micrositeBlockList: seg.micrositeBlockList } : {}),
         } : undefined;
       };
 

@@ -123,3 +123,4 @@
 - [Design intensity + brand fonts in AI gen](design-intensity-ai-gen.md) — density axis inferred from tone & enforced in code not prompt; api-server mirrors lp-studio font/bg helpers (keep "display"/"text" out of font weight-words).
 - [Link-export connected-dest E2E](link-export-connected-dest-e2e.md) — links-only export deliver runs SERVER-side; can't browser-stub; needs MARKETO_FAKE_MODE (Asana precedent) + lp_integrations seed; verify via isolated single-spec run.
 - [Page-visit de-anon surfaces](page-visit-deanon-surfaces.md) — lp_leads.session_id de-anon applies ONLY to LP page-detail /visits (names) + /summary (identity de-dup); aggregate analytics & Sales signals are out of scope.
+- [Dandy Insights vs AI Scan Review](dandy-insights-vs-ai-scan-review.md) — distinct Dandy products w/ own blocks; generic generator gates Insights on isDandyTenant; all dso-* hard-render white text (force-dark + airy-minimal skip + hero overlay clamp).

@@ -15,6 +15,7 @@ import {
   buildTypographySection,
   buildDesignIntensitySection,
   applyDesignIntensityBackgrounds,
+  enforceHeroLegibility,
   cleanFamilyName,
 } from "./generate-page";
 
@@ -173,6 +174,21 @@ describe("applyDesignIntensityBackgrounds", () => {
     expect(bgOf(out[1])).toBe("black"); // preserved
   });
 
+  // Regression for the white-on-white hero bug: every dso-* block hard-renders
+  // white copy, so the airy-minimal "force everything white" pass must skip ALL
+  // of them, not just dso-problem.
+  it("airy-minimal preserves ALL dso-* blocks (dark surface keeps white text legible)", () => {
+    const input = [
+      { type: "dso-heartland-hero", id: "a", props: { backgroundStyle: "dark" } },
+      { type: "dso-insights-dashboard", id: "b", props: { backgroundStyle: "dandy-green" } },
+      { type: "dso-insights-video", id: "c", props: { backgroundStyle: "black" } },
+    ];
+    const out = applyDesignIntensityBackgrounds(input, "airy-minimal");
+    expect(bgOf(out[0])).toBe("dark");
+    expect(bgOf(out[1])).toBe("dandy-green");
+    expect(bgOf(out[2])).toBe("black");
+  });
+
   it("energetic-visual ensures an accent block in the first 3", () => {
     const out = applyDesignIntensityBackgrounds(blocks(4, "hero", "white"), "energetic-visual");
     const accentInFirst3 = out.slice(0, 3).filter((b) => bgOf(b) === "dandy-green").length;
@@ -193,5 +209,39 @@ describe("applyDesignIntensityBackgrounds", () => {
     const input = [{ type: "form", id: "a", props: { headline: "Hi" } }];
     const out = applyDesignIntensityBackgrounds(input, "airy-minimal");
     expect((out[0] as { props: Record<string, unknown> }).props).not.toHaveProperty("backgroundStyle");
+  });
+});
+
+const overlayOf = (b: unknown) => (b as { props: { overlayOpacity?: number } }).props.overlayOpacity;
+
+describe("enforceHeroLegibility", () => {
+  it("clamps a too-light overlay on image-overlay heroes up to the minimum", () => {
+    const out = enforceHeroLegibility([
+      { type: "full-bleed-hero", id: "a", props: { overlayOpacity: 10 } },
+      { type: "parallax-image-hero", id: "b", props: { overlayOpacity: 0 } },
+    ]);
+    expect(overlayOf(out[0])).toBe(45);
+    expect(overlayOf(out[1])).toBe(45);
+  });
+
+  it("fills a missing overlay with the minimum", () => {
+    const out = enforceHeroLegibility([
+      { type: "full-bleed-hero", id: "a", props: {} },
+    ]);
+    expect(overlayOf(out[0])).toBe(45);
+  });
+
+  it("leaves an already-strong overlay untouched", () => {
+    const out = enforceHeroLegibility([
+      { type: "full-bleed-hero", id: "a", props: { overlayOpacity: 70 } },
+    ]);
+    expect(overlayOf(out[0])).toBe(70);
+  });
+
+  it("ignores non-image-overlay hero blocks", () => {
+    const out = enforceHeroLegibility([
+      { type: "hero", id: "a", props: { overlayOpacity: 5 } },
+    ]);
+    expect(overlayOf(out[0])).toBe(5);
   });
 });

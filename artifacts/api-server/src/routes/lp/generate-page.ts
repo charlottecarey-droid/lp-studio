@@ -18,6 +18,7 @@ import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
 import { resolveBlockTags, BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS, type BlockRoleTag } from "@workspace/lp-template-engine";
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
+import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
 
 const router = Router();
 
@@ -288,7 +289,13 @@ export function applyDesignIntensityBackgrounds(
   if (intensity === "airy-minimal") {
     const light: GenBackgroundStyle = "white";
     for (const block of blocks) {
-      if (DARK_REQUIRED_BLOCK_TYPES.has(blockType(block))) continue;
+      const t = blockType(block);
+      // Never force a block to white when it renders light-on-dark text. The
+      // explicit DARK_REQUIRED set covers the always-dark non-DSO blocks; every
+      // `dso-*` block is part of the dark-by-design premium system (heroes,
+      // CTAs, feature sections all hard-render white copy), so forcing them to
+      // white produces white-on-white text — the hero-illegibility bug.
+      if (DARK_REQUIRED_BLOCK_TYPES.has(t) || t.startsWith("dso-")) continue;
       const props = getProps(block);
       if (supportsBg(props)) props.backgroundStyle = light;
     }
@@ -324,6 +331,27 @@ export function applyDesignIntensityBackgrounds(
     const target = window.find((block) => supportsBg(getProps(block)));
     const props = getProps(target);
     if (supportsBg(props)) props.backgroundStyle = accent;
+  }
+  return blocks;
+}
+
+/** Image-overlay heroes (`full-bleed-hero`, `parallax-image-hero`) render white
+ *  headline/CTA copy on top of a background photo dimmed by `overlayOpacity`
+ *  (0–100; higher = darker). A too-light overlay leaves that white text
+ *  illegible over a bright image. Deterministically clamp these heroes to a
+ *  safe minimum so the model can never emit an under-dimmed, unreadable hero.
+ *  Mutates and returns the same blocks array. */
+const HERO_MIN_OVERLAY_OPACITY = 45;
+const IMAGE_OVERLAY_HERO_TYPES = new Set(["full-bleed-hero", "parallax-image-hero"]);
+export function enforceHeroLegibility(blocks: unknown[]): unknown[] {
+  for (const block of blocks) {
+    const b = block as Record<string, unknown>;
+    const type = typeof b?.type === "string" ? b.type : "";
+    if (!IMAGE_OVERLAY_HERO_TYPES.has(type)) continue;
+    const props = b.props as Record<string, unknown> | undefined;
+    if (!props || typeof props !== "object") continue;
+    const raw = typeof props.overlayOpacity === "number" ? props.overlayOpacity : undefined;
+    props.overlayOpacity = Math.max(raw ?? HERO_MIN_OVERLAY_OPACITY, HERO_MIN_OVERLAY_OPACITY);
   }
   return blocks;
 }
@@ -501,6 +529,7 @@ function findBestImage(
   images: MediaImage[],
   usedUrls: Set<string>,
   preferredPurpose?: string,
+  relaxed = false,
 ): string {
   if (images.length === 0) return "";
   const contextLower = context.toLowerCase();
@@ -518,8 +547,11 @@ function findBestImage(
     }
   }
 
-  // Only use images with a non-negative score (avoids forcing a product-detail into hero)
-  if (best && bestScore >= 0) {
+  // Only use images with a non-negative score (avoids forcing a product-detail
+  // into a hero slot). In `relaxed` mode we drop that gate and return the best
+  // available unused library image regardless of score — used as a final pass
+  // to exhaust the brand library before falling back to AI image generation.
+  if (best && (relaxed || bestScore >= 0)) {
     usedUrls.add(best.url);
     return best.url;
   }
@@ -784,13 +816,15 @@ export function validateAndDedupeAIImages(
  *    photo-strip    → "lp-feature"
  *    product-grid   → "product-detail" (close-ups OK here)
  */
-export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageContext = ""): unknown[] {
+export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageContext = "", relaxed = false): unknown[] {
   if (images.length === 0) return blocks;
   const usedUrls = new Set<string>();
   // Bias every selection toward the page's industry/topic so a block with a
-  // generic headline still prefers on-topic imagery.
+  // generic headline still prefers on-topic imagery. When `relaxed` is set the
+  // score gate is dropped so any still-empty slot grabs the best remaining
+  // library image rather than being left for AI generation.
   const pick = (context: string, imgs: MediaImage[], used: Set<string>, purpose?: string): string =>
-    findBestImage(pageContext ? `${context} ${pageContext}` : context, imgs, used, purpose);
+    findBestImage(pageContext ? `${context} ${pageContext}` : context, imgs, used, purpose, relaxed);
 
   // First pass: collect already-used URLs across EVERY image-bearing shape
   // (reuses collectImageSlots so heroImageUrl, cards/panels/pairs/slides,
@@ -2348,6 +2382,24 @@ export function buildDsoSystemPrompt(opts: { isDandyTenant: boolean; brandName: 
   const rule18Capability = isDandyTenant ? "a concrete Dandy capability" : `a concrete ${sellingBrand} capability`;
   const rule19Imagery = isDandyTenant ? ` (prefer clinical, dental-team, or in-practice photos)` : "";
 
+  // Dandy Insights blocks are Dandy-only product surfaces (they render the
+  // Dandy Insights analytics dashboard / product UI), so they are advertised
+  // only for the Dandy tenant. Other tenants must not see them.
+  const dandyInsightsBlocks = isDandyTenant
+    ? `
+- "dso-insights-dashboard": "Dandy Insights" analytics dashboard showcase rendered in a simulated browser frame. Use this (NOT dso-ai-feature) when the page should present Dandy Insights — network analytics, benchmarking, multi-location dashboards. Props: eyebrow (string, e.g. "Dandy Insights"), headline (string), subheadline (string), practiceLabel (string), backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER "white"/"light-gray"), dashboardVariant ("light"|"dark"), browserUrl (string, optional, e.g. "insights/dashboard")
+- "dso-insights-video": "Dandy Insights" product walkthrough with a video / rotating dashboard screenshots and outcome callouts. Use this for a richer Dandy Insights story. Props: eyebrow (string, e.g. "Dandy Insights"), title (string), subtitle (string), description (string), callouts (array of {label, desc}), quote (string), quoteAttribution (string), ctaLabel (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"), backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER "white"/"light-gray"), imageUrl (string), videoUrl (string, OPTIONAL — only a real provided URL, NEVER invented)`
+    : "";
+
+  // Anti-relabel rule: the model keeps renaming the "AI Scan Review"
+  // (dso-ai-feature) block to "Dandy Insights" because no dedicated insights
+  // block existed in the prompt. Now that the insights blocks are advertised,
+  // forbid the relabel explicitly. Dandy-only (non-Dandy tenants don't use
+  // either product name).
+  const rule21 = isDandyTenant
+    ? `\n21. DANDY INSIGHTS vs AI SCAN REVIEW: These are two DISTINCT Dandy products with dedicated blocks. "Dandy Insights" is the analytics dashboard — represent it ONLY with "dso-insights-dashboard" or "dso-insights-video". "AI Scan Review" is the scan-QA feature — represent it ONLY with "dso-ai-feature", and keep that block's eyebrow/headline about AI Scan Review. NEVER rename, relabel, or repurpose a "dso-ai-feature" block as "Dandy Insights" (and vice versa). Choosing the wrong block or mislabeling it is a FAILURE.`
+    : "";
+
   return `${intro}
 
 AVAILABLE DSO BLOCK TYPES (use these exact type strings — these are the only types you may use):
@@ -2368,7 +2420,7 @@ AVAILABLE DSO BLOCK TYPES (use these exact type strings — these are the only t
 - "dso-success-stories": Case study cards with stats. Props: eyebrow (string), headline (string), cases (array of EXACTLY 3 of {name, stat, label, quote, author, image} — never 2, never 4). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-pilot-steps": Pilot program timeline. Props: eyebrow (string), headline (string), subheadline (string), steps (array 3–5 of {title, subtitle, desc, details (string[])}). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-cta-capture": Premium email/contact capture. Props: eyebrow (string), headline (string), body (string), inputLabel (string), inputPlaceholder (string), ctaLabel (string), trust1 (string), trust2 (string), trust3 (string), imageUrl (string), imagePosition ("left"|"right")
-- "dso-final-cta": Final dark CTA section. Props: eyebrow (string), headline (string), subheadline (string), primaryCtaText (string), primaryCtaUrl ("#" — use Chili Piper URL if provided), primaryCtaMode ("chilipiper"|"link"), secondaryCtaText (string), secondaryCtaUrl ("#")
+- "dso-final-cta": Final dark CTA section. Props: eyebrow (string), headline (string), subheadline (string), primaryCtaText (string), primaryCtaUrl ("#" — use Chili Piper URL if provided), primaryCtaMode ("chilipiper"|"link"), secondaryCtaText (string), secondaryCtaUrl ("#")${dandyInsightsBlocks}
 
 RULES:
 1. Return ONLY a valid JSON object — no markdown, no explanation, no code fences.
@@ -2390,7 +2442,7 @@ ${rule15}
 17. CASE STUDIES = 3: When you use "dso-success-stories", the cases array MUST have EXACTLY 3 items — not 2, not 4. Pick the three strongest case studies for the segment and stop.
 18. NEVER SHIP AN EMPTY OR STUB COMPARISON: When you use "dso-comparison", you MUST populate the rows array with 5–7 fully written rows. An empty rows array, fewer than 5 rows, or rows with 1–3 word values is a FAILURE — the block will render blank or look broken. If you cannot think of 5 substantive rows for the segment, do NOT use this block at all; pick a different block instead. Each row needs a meaningful "need", ${rule18Capability} with a proof point or stat in "dandy", and a real pain point in "traditional". Mirror the verbosity of the EXAMPLE ROW shown in the dso-comparison schema above.
 19. dso-problem IMAGES: When you use "dso-problem", you MUST populate imageUrls with EXACTLY 2 real URLs from the IMAGE LIBRARY${rule19Imagery}. The block has two image slots that render placeholders when imageUrls is empty — never ship this block without images.
-20. dso-stat-showcase = 6 STATS: When you use "dso-stat-showcase", the stats array MUST have EXACTLY 6 entries — the block renders a 3-column × 2-row grid and looks broken with fewer. If you cannot write 6 substantive stats for the segment, do NOT use this block; pick a different block instead.`;
+20. dso-stat-showcase = 6 STATS: When you use "dso-stat-showcase", the stats array MUST have EXACTLY 6 entries — the block renders a 3-column × 2-row grid and looks broken with fewer. If you cannot write 6 substantive stats for the segment, do NOT use this block; pick a different block instead.${rule21}`;
 }
 
 /**
@@ -2543,9 +2595,13 @@ interface SegmentContext {
   /** Task #253 — segment stats so strict-mode generations have an explicit
    *  approved pool of numbers to draw from. */
   stats?: SegmentStat[];
+  /** The segment's preferred microsite block list. When present, the generic
+   *  generator honors it the same way the dedicated microsite generator does —
+   *  the listed block types become the preferred structure for the page. */
+  micrositeBlockList?: { type: string; schemaHint?: string }[];
 }
 
-function buildSegmentSection(
+export function buildSegmentSection(
   seg: SegmentContext,
   opts: { strict?: boolean; proofPoints?: ProofPoint[] } = {},
 ): string {
@@ -2593,6 +2649,21 @@ function buildSegmentSection(
     parts.push(
       "APPROVED SEGMENT STATS: (none) — for any stat slot in this page, use the literal placeholder \"X\" instead of inventing numbers.",
     );
+  }
+  // Honor the segment's preferred microsite block list (parity with the
+  // dedicated microsite generator). These are the block types this audience's
+  // page should be built from, in order — use them as the page's backbone and
+  // only deviate when a listed block clearly does not fit the user request.
+  if (seg.micrositeBlockList?.length) {
+    const list = seg.micrositeBlockList
+      .filter((b) => b && typeof b.type === "string" && b.type)
+      .map((b) => `- "${b.type}"${b.schemaHint ? ` — ${b.schemaHint}` : ""}`)
+      .join("\n");
+    if (list) {
+      parts.push(
+        `PREFERRED BLOCK LIST (this segment's chosen page structure — build the page primarily from these block types, in this order, choosing only from the AVAILABLE BLOCK TYPES advertised above):\n${list}`,
+      );
+    }
   }
   return parts.join("\n");
 }
@@ -2883,7 +2954,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // The AI Scan Review motion video is a Dandy-only internal asset (it shows
   // Dandy product UI). It must NEVER be exposed to partner / customer
   // tenants. Storage layer also gates this video by tenant slug.
-  const isDandyTenant = tenantSlugRow[0]?.slug === "dandy";
+  const isDandyTenant = isProtectedEnterpriseSlug(tenantSlugRow[0]?.slug);
   const dandyInternalVideosSection = isDandyTenant
     ? `DANDY-INTERNAL VIDEO ASSETS (Dandy tenant only — safe to use):\n- AI Scan Review video URL: /videos/ai-scan-review.mp4 (use this for any dso-ai-feature videoUrl)`
     : "";
@@ -3615,13 +3686,32 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           delete props.dandyItems;
         }
 
-        // Fix background style: dandy-green is required for dso-problem, dso-ai-feature, dso-stat-showcase
-        const FORCE_DARK_BLOCKS = new Set(["dso-problem", "dso-ai-feature", "dso-stat-showcase"]);
+        // Fix background style: dandy-green is required for the dark-by-design
+        // DSO blocks (they hard-render white copy). The two Dandy Insights
+        // blocks belong in the same group — they render light text on a dark
+        // surface, so a model-chosen white/light bg would be illegible.
+        const FORCE_DARK_BLOCKS = new Set([
+          "dso-problem", "dso-ai-feature", "dso-stat-showcase",
+          "dso-insights-dashboard", "dso-insights-video",
+        ]);
         const LIGHT_BG_VALUES = new Set(["white", "light-gray", "muted"]);
         if (FORCE_DARK_BLOCKS.has(btype)) {
           const bs = props.backgroundStyle as string | undefined;
           if (!bs || LIGHT_BG_VALUES.has(bs)) {
             props.backgroundStyle = "dandy-green";
+          }
+        }
+
+        // Deterministic anti-relabel guard (Dandy only). The model habitually
+        // renamed the "AI Scan Review" (dso-ai-feature) block to "Dandy
+        // Insights" — a distinct product with its own dedicated blocks. The
+        // prompt now forbids this, but enforce it structurally too: if a
+        // dso-ai-feature block's eyebrow was relabeled to "Dandy Insights",
+        // restore the correct product label.
+        if (isDandyTenant && btype === "dso-ai-feature") {
+          const eyebrow = props.eyebrow;
+          if (typeof eyebrow === "string" && /^\s*dandy\s+insights\s*$/i.test(eyebrow)) {
+            props.eyebrow = "AI Scan Review";
           }
         }
       }
@@ -3633,6 +3723,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // design intensity structurally (mirroring the ctaColor/accentColor loop
     // above) instead of trusting the LLM to honor the prompt guidance.
     parsed.blocks = applyDesignIntensityBackgrounds(parsed.blocks, designIntensity);
+
+    // Deterministic hero legibility guard — clamp image-overlay heroes to a
+    // minimum dimming so their always-white copy never lands on a too-bright
+    // background. Runs after the design-intensity pass so it has the final say.
+    parsed.blocks = enforceHeroLegibility(parsed.blocks);
 
     // Sanitize AI-assigned image URLs: clear any that match EXCLUDE_TAGS
     // (OG images, social, ad creatives) so fillEmptyImages can replace them
@@ -3717,6 +3812,12 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       getAiImageGenStatus(tenantId),
     ]);
     if (outsideBuilderOn || imageGenStatus.enabled) {
+      // Exhaust the brand/library pool FIRST. The strict fillEmptyImages pass
+      // above only places topically-relevant images; this relaxed pass drops
+      // the relevance gate so any slot the library can still cover gets a real
+      // brand image instead of an AI-generated one. AI generation then only
+      // runs for slots the library genuinely cannot fill.
+      parsed.blocks = fillEmptyImages(parsed.blocks, fillPool, pageImageContext, true);
       parsed.blocks = await aiFillEmptyImages(
         parsed.blocks as Array<Record<string, unknown>>,
         tenantId!,
