@@ -4,7 +4,9 @@
 // These rows live in `lp_pages` with is_template=true and is_global=true. The
 // owning tenant_id is irrelevant for visibility (the GET /lp/templates filter
 // pulls all globals regardless of owner) but the FK still has to point at a
-// real tenant row, so we own these under the lowest-id tenant by default.
+// real tenant row, so every global is owned by the dedicated system tenant
+// (slug `__system-templates`) resolved via `ensureSystemTenant()` — a single
+// neutral home that keeps the library out of any real customer workspace.
 //
 // Block JSON shapes match the props expected by `BlockRenderer` and the
 // per-type defaults in `BLOCK_REGISTRY`. Anything missing falls back to those

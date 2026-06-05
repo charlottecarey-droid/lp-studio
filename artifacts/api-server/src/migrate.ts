@@ -1337,10 +1337,67 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
+    // Consolidate every global landing-page template under the dedicated
+    // system tenant (slug `__system-templates`). Globals were historically
+    // owned by whichever customer tenant created/promoted them (the seed used
+    // the lowest-id tenant — Dandy — and manual promotions kept their original
+    // owner), which gave the global library no neutral home and made the
+    // superadmin "Open in builder" edit-in-place flow unreliable. This step is
+    // self-healing (runs every boot, cheap): it pulls any global owned by a
+    // real customer tenant back under the system tenant. It MUST run before the
+    // global_templates seed below so the seed's ON CONFLICT (tenant_id, slug)
+    // upsert targets the already-consolidated rows instead of inserting
+    // duplicates under the system tenant.
+    // Gate the seed below on the consolidation succeeding in THIS boot. If
+    // consolidation throws (caught, non-fatal) but the seed still ran, the seed
+    // would insert fresh system-owned rows while legacy globals stayed put — a
+    // later boot's consolidation would then move those legacy rows under
+    // suffixed slugs, leaving duplicate templates. Skipping the seed until a
+    // boot where consolidation fully succeeds closes that window.
+    let globalsConsolidated = false;
+    await runStep("global_templates consolidate under system tenant", async () => {
+    try {
+      const { ensureSystemTenant } = await import("./lib/systemTenant");
+      const systemTenantId = await ensureSystemTenant();
+      const strays = await db.execute<{ id: number; slug: string }>(sql`
+        SELECT id, slug FROM lp_pages
+        WHERE is_global = true AND is_template = true AND tenant_id <> ${systemTenantId}
+        ORDER BY id ASC
+      `);
+      let moved = 0;
+      for (const row of strays.rows) {
+        // Resolve slug collisions against rows already living under the system
+        // tenant (and against earlier rows moved in this same loop). The page
+        // id suffix is globally unique so the de-collided slug can never clash.
+        let slug = row.slug;
+        const clash = await db.execute<{ "?column?": number }>(sql`
+          SELECT 1 FROM lp_pages
+          WHERE tenant_id = ${systemTenantId} AND slug = ${slug} LIMIT 1
+        `);
+        if (clash.rows.length > 0) slug = `${row.slug}-${row.id}`;
+        await db.execute(sql`
+          UPDATE lp_pages
+          SET tenant_id = ${systemTenantId}, slug = ${slug}
+          WHERE id = ${row.id}
+        `);
+        moved++;
+      }
+      if (moved > 0) {
+        logger.info({ moved, systemTenantId }, "global_templates consolidated under system tenant");
+      }
+      // Reached only when the move loop finished without throwing — every stray
+      // global is now under the system tenant, so the seed below can run safely.
+      globalsConsolidated = true;
+    } catch (consolidateErr) {
+      logger.error({ err: consolidateErr }, "global_templates consolidate failed (non-fatal)");
+    }
+    });
+
     // Idempotent seed for the global landing-page templates available to all
-    // generic-industry tenants. Owned by the lowest-id tenant (Dandy) by
-    // default — `is_global=true` makes ownership irrelevant for visibility.
-    // Marker-gated so we only attempt once per database.
+    // generic-industry tenants. Owned by the dedicated system tenant
+    // (slug `__system-templates`) — `is_global=true` makes ownership irrelevant
+    // for visibility, but a single neutral owner keeps the library out of any
+    // real customer workspace. Marker-gated so we only attempt once per database.
     // Global templates seed — runs on every boot until the latest marker is
     // present. We bumped from v1 → v2 when the starter library was rewritten
     // with real BLOCK_REGISTRY block types and ogImage thumbnails. The upsert
@@ -1371,17 +1428,23 @@ async function runMigrationsBody(): Promise<void> {
       // AI "starting point" dropdown. Bumping the marker inserts the two new
       // rows and refreshes every existing global row non-destructively (the
       // ON CONFLICT upsert below preserves tenant title edits).
-      const SEED_MARKER = "global_templates_seed_v25";
+      // v26: re-home the seed under the dedicated system tenant
+      // (slug `__system-templates`) instead of the lowest-id customer tenant.
+      // The consolidate step above already moved existing globals there, so
+      // bumping the marker refreshes every row in place under its new owner.
+      const SEED_MARKER = "global_templates_seed_v26";
+      if (!globalsConsolidated) {
+        logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
+        return;
+      }
       const marker = await db.execute<{ exists: number }>(
         sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${SEED_MARKER}`
       );
       if (marker.rows.length === 0) {
-        const ownerRow = await db.execute<{ id: number }>(
-          sql`SELECT id FROM tenants ORDER BY id ASC LIMIT 1`,
-        );
-        const ownerId = ownerRow.rows[0]?.id;
+        const { ensureSystemTenant } = await import("./lib/systemTenant");
+        const ownerId = await ensureSystemTenant();
         if (!ownerId) {
-          logger.warn("Skipping global_templates seed — no tenants exist yet");
+          logger.warn("Skipping global_templates seed — system tenant unavailable");
         } else {
           const { GLOBAL_TEMPLATE_SEEDS } = await import("./seeds/globalTemplates");
           let upserted = 0;

@@ -17,6 +17,7 @@ import crypto from "node:crypto";
 import { triggerPublishedRender, triggerPublishedDelete } from "../../lib/triggerPublishedRender";
 import { handlePagePublishNotifications } from "../../lib/contentSeriesNotify";
 import { triggerTemplateThumbnailCapture } from "../../lib/captureTemplateThumbnail";
+import { isRootSuperadminEmail } from "../../lib/rootSuperadmin";
 
 const router = Router();
 
@@ -33,9 +34,17 @@ const router = Router();
  *   3. Dandy super-admin (app_users.role)         — looked up once per call,
  *      not in the session, so promoting a user takes effect immediately.
  */
-async function isAppSuperadmin(userId: number | undefined): Promise<boolean> {
-  if (!userId) return false;
-  const r = await pool.query(`SELECT role FROM app_users WHERE id = $1`, [userId]);
+async function isAppSuperadmin(user: AuthUser | undefined): Promise<boolean> {
+  if (!user) return false;
+  // Honour the configured root superadmin purely by email — mirrors
+  // requireSuperadmin. A root operator whose app_users row was upserted under a
+  // different email casing never inherits the seeded 'superadmin' role, so an
+  // app_users.role-only check would silently deny them and the superadmin
+  // "Open in builder" cross-tenant edit-in-place would fall back to a 404 /
+  // copy. Checking the email here keeps in-place template editing reliable.
+  if (isRootSuperadminEmail(user.email)) return true;
+  if (!user.userId) return false;
+  const r = await pool.query(`SELECT role FROM app_users WHERE id = $1`, [user.userId]);
   return r.rows[0]?.role === "superadmin";
 }
 
@@ -45,7 +54,7 @@ async function userCanPublish(
 ): Promise<boolean> {
   if (!user) return false;
   if (user.isAdmin || user.permissions["pages.publish"]) return true;
-  if (await isAppSuperadmin(user.userId)) return true;
+  if (await isAppSuperadmin(user)) return true;
   // Task #113: when the tenant has the review-required toggle OFF, anyone
   // with the basic `pages` permission can publish directly. The toggle
   // defaults to ON for tenants existing before #113 (preserving #108
@@ -57,7 +66,7 @@ async function userCanPublish(
 async function userCanReview(user: AuthUser | undefined): Promise<boolean> {
   if (!user) return false;
   if (user.isAdmin || user.permissions["pages.review"]) return true;
-  return isAppSuperadmin(user.userId);
+  return isAppSuperadmin(user);
 }
 
 /**
@@ -97,7 +106,7 @@ async function userCanManageBlocks(user: AuthUser | undefined): Promise<boolean>
   if (!user) return false;
   if (user.isAdmin) return true;
   if (user.permissions["blocks"]) return true;
-  return isAppSuperadmin(user.userId);
+  return isAppSuperadmin(user);
 }
 
 /** Walk a (possibly nested) blocks tree and return the first grid-piece type
@@ -620,7 +629,7 @@ router.get("/lp/pages/:pageId", async (req, res): Promise<void> => {
     return;
   }
   // Superadmins can read any page (incl. global templates owned by other tenants).
-  const isSuper = await isAppSuperadmin(req.authUser?.userId);
+  const isSuper = await isAppSuperadmin(req.authUser);
   const where = isSuper
     ? eq(lpPagesTable.id, id)
     : and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id));
@@ -836,7 +845,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
   }
   // Superadmins can edit any page (incl. global starter templates owned by
   // other tenants). For everyone else, ownership is enforced by tenantId.
-  const isSuper = await isAppSuperadmin(req.authUser?.userId);
+  const isSuper = await isAppSuperadmin(req.authUser);
   const ownershipWhere = isSuper
     ? eq(lpPagesTable.id, id)
     : and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, id));

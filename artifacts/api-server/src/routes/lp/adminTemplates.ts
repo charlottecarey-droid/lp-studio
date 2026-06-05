@@ -7,6 +7,7 @@ import { Router } from "express";
 import { pool } from "@workspace/db";
 import { requireSuperadmin } from "../../middleware/requireSuperadmin";
 import { VALID_INDUSTRIES } from "../../lib/tenantIndustry";
+import { ensureSystemTenant } from "../../lib/systemTenant";
 
 const router = Router();
 
@@ -100,6 +101,42 @@ router.put("/admin/lp/templates/:id", requireSuperadmin, async (req, res): Promi
     res.status(400).json({ error: "Nothing to update" });
     return;
   }
+
+  // Promoting a page to global re-homes it under the dedicated system tenant so
+  // the global library never lives inside a real customer workspace and the
+  // superadmin builder edits the canonical row in place. Demotion is left
+  // untouched (we can't recover the original owner). Slug collisions against
+  // rows already owned by the system tenant are de-collided with the page id
+  // suffix, mirroring the boot-time consolidation step.
+  if (is_global === true) {
+    try {
+      const systemTenantId = await ensureSystemTenant();
+      const cur = await pool.query<{ tenant_id: number; slug: string }>(
+        `SELECT tenant_id, slug FROM lp_pages WHERE id = $1 AND is_template = true`,
+        [id],
+      );
+      const curRow = cur.rows[0];
+      if (curRow && curRow.tenant_id !== systemTenantId) {
+        let newSlug = curRow.slug;
+        const clash = await pool.query(
+          `SELECT 1 FROM lp_pages WHERE tenant_id = $1 AND slug = $2 AND id <> $3 LIMIT 1`,
+          [systemTenantId, newSlug, id],
+        );
+        if ((clash.rowCount ?? 0) > 0) newSlug = `${curRow.slug}-${id}`;
+        sets.push(`tenant_id = $${i++}`);
+        params.push(systemTenantId);
+        if (newSlug !== curRow.slug) {
+          sets.push(`slug = $${i++}`);
+          params.push(newSlug);
+        }
+      }
+    } catch (rehomeErr) {
+      console.error("PUT /admin/lp/templates/:id re-home error:", String(rehomeErr));
+      res.status(500).json({ error: "Update failed" });
+      return;
+    }
+  }
+
   sets.push(`updated_at = NOW()`);
   params.push(id);
 
