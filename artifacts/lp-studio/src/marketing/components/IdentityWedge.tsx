@@ -998,7 +998,7 @@ export default function IdentityWedge() {
       >
         {/* Headline + narrative */}
         <div style={{ maxWidth: 760, marginBottom: 36 }}>
-          <div className="marker marker-rule mb-5">09 / Signal</div>
+          <div className="marker marker-rule mb-5">10 / Signal</div>
           <h2
             className="font-display text-display-lg"
             style={{ color: "var(--ink)", margin: 0 }}

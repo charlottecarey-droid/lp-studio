@@ -8,9 +8,10 @@ import { Logo } from "./Logo";
 const productLinks = [
   { label: "Visual Builder", href: "/#builder" },
   { label: "AI Generation", href: "/#generate" },
+  { label: "Campaigns", href: "/#campaigns" },
+  { label: "Analytics", href: "/#analytics" },
   { label: "For Marketing", href: "/for-marketing" },
   { label: "For Sales", href: "/for-sales" },
-  { label: "Features", href: "/features" },
   { label: "Compare", href: "/compare" },
 ];
 

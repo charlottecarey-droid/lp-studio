@@ -8,7 +8,9 @@ import CreatePageOverlay from "../components/CreatePageOverlay";
 import BuilderEmbed from "../components/BuilderEmbed";
 import TemplatesEmbed from "../components/TemplatesEmbed";
 import SalesConsoleEmbed from "../components/SalesConsoleEmbed";
+import CampaignsScene from "../components/CampaignsScene";
 import IdentityWedge from "../components/IdentityWedge";
+import AnalyticsScene from "../components/AnalyticsScene";
 import Integrations from "../components/Integrations";
 import Pricing from "../components/Pricing";
 import FAQ from "../components/FAQ";
@@ -30,11 +32,18 @@ import { usePageMeta } from "../hooks/usePageMeta";
 //   6   FeatureRow / Generate  — CreatePageOverlay (Prompt → page demo)
 //   7   FeatureRow / Templates — TemplatesEmbed (live previews + clone)
 //   8   FeatureRow / Sales     — SalesConsoleEmbed (AI Briefing dropdown)
-//   9   IdentityWedge          — Analytics page mock; the Mutiny-killing wedge
-//  10   Integrations           — Marketo / SF / HubSpot / Apollo / RB2B / etc.
-//  11   Pricing                — Full 4-tier + Enterprise + collapsible map
-//  12   FAQ                    — 6-7 questions, corrected Mutiny answer
-//  13   FinalCta + Footer      — Dark "Skip the brief. Ship the page." closer
+//   9   CampaignsScene         — composer + recipient view; send → reveal
+//  10   IdentityWedge          — Analytics page mock; the deterministic-identity wedge
+//  11   AnalyticsScene         — Page Detail / Conversion Score + visit timeline
+//  12   Integrations           — Marketo / SF / HubSpot / Apollo / RB2B / etc.
+//  13   Pricing                — Full 4-tier + Enterprise + collapsible map
+//  14   FAQ                    — 6-7 questions, corrected Mutiny answer
+//  15   FinalCta + Footer      — Dark "Skip the brief. Ship the page." closer
+//
+// Sections 9 → 10 → 11 (Campaigns · IdentityWedge · Analytics) tell the
+// same send → reveal → optimize arc as one continuous narrative inside
+// the homepage. Each reads strong standalone; together they back up the
+// "for revenue teams, not just marketing" claim from the hero.
 //
 // The same FeatureRow embeds also live on /features (the depth page) — by
 // design. Visitors who scroll the homepage end-to-end see every surface;
@@ -201,25 +210,33 @@ export default function Home() {
           frame={<SalesConsoleEmbed />}
         />
 
-        {/* 9 — Identity wedge: the "know which person, not just which
-            account" differentiator vs Mutiny. Analytics-page mock with
-            visits table mixing named contacts + Anonymous; clicking a
-            row opens the contact-detail modal. */}
+        {/* 9 — Campaigns: AI-drafted outreach + per-recipient identity
+            in every URL. Opens the send → reveal → optimize arc that
+            runs through IdentityWedge + Analytics below. */}
+        <CampaignsScene />
+
+        {/* 10 — Identity wedge: the "know exactly who's on the page,
+            not just which account" differentiator vs Mutiny. */}
         <IdentityWedge />
 
-        {/* 10 — Integrations: Marketo / Salesforce / HubSpot / Apollo /
+        {/* 11 — Analytics: Page Detail Conversion Score with "why this
+            score" + visit timeline. Closes the send → reveal → optimize
+            arc. */}
+        <AnalyticsScene />
+
+        {/* 12 — Integrations: Marketo / Salesforce / HubSpot / Apollo /
             Google Sheets / GA4 / RB2B / Chili Piper / Resend / Asana /
             Webhooks. */}
         <Integrations />
 
-        {/* 11 — Pricing: full 4-tier + Enterprise + collapsible feature map
+        {/* 13 — Pricing: full 4-tier + Enterprise + collapsible feature map
             (collapsed by default on the homepage; open on /pricing). */}
         <Pricing />
 
-        {/* 12 — FAQ: 6-7 questions including the corrected Mutiny answer */}
+        {/* 14 — FAQ: 6-7 questions including the corrected Mutiny answer */}
         <FAQ />
 
-        {/* 13 — Final CTA + Footer */}
+        {/* 15 — Final CTA + Footer */}
         <FinalCta />
       </main>
       <Footer />
