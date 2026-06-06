@@ -7,7 +7,8 @@ import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage"
 import { tenantCanReadAcl, tenantIdFromAclOwner } from "../lib/objectAcl";
 import { OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "../lib/resolvePageOG";
 import { db, lpMediaTable, tenantsTable, pool } from "@workspace/db";
-import { asc, desc, eq, sql, ilike, and, count, or, inArray, type SQL } from "drizzle-orm";
+import { asc, desc, eq, sql, ilike, and, count, inArray, type SQL } from "drizzle-orm";
+import { resolveOwnedTenantIds, libraryReadablePredicate } from "../lib/libraryScope";
 import { getTenantId, SESSION_COOKIE, type AuthUser } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import { readImageDimensions } from "../lib/imageDimensions";
@@ -55,32 +56,10 @@ async function resolveLibraryTenantScope(req: Request, res: Response): Promise<{
 } | null> {
   const tenantId = getTenantId(req, res);
   if (tenantId == null) return null;
-  const ownRows = await db
-    .select({ sibling: tenantsTable.sharesLibraryWithTenantId })
-    .from(tenantsTable)
-    .where(eq(tenantsTable.id, tenantId))
-    .limit(1);
-  const sibling = ownRows[0]?.sibling ?? null;
-  let ownedTenantIds = [tenantId];
-  if (sibling != null && sibling !== tenantId) {
-    const reciprocal = await db
-      .select({ pointsBack: tenantsTable.sharesLibraryWithTenantId })
-      .from(tenantsTable)
-      .where(eq(tenantsTable.id, sibling))
-      .limit(1);
-    if (reciprocal[0]?.pointsBack === tenantId) {
-      ownedTenantIds = [tenantId, sibling];
-    }
-  }
+  // Single source of truth for the reciprocal-sibling read ACL — shared with
+  // the AI page/microsite generator (see lib/libraryScope.ts).
+  const ownedTenantIds = await resolveOwnedTenantIds(tenantId);
   return { tenantId, ownedTenantIds };
-}
-
-/** WHERE clause for "I can read this row" — own tenant, sibling tenant, or shared. */
-function libraryReadablePredicate(ownedTenantIds: number[]): SQL<unknown> {
-  return or(
-    inArray(lpMediaTable.tenantId, ownedTenantIds),
-    eq(lpMediaTable.isShared, true),
-  )!;
 }
 
 /** WHERE clause for "I can mutate this row" — own tenant or sibling tenant only (not shared). */

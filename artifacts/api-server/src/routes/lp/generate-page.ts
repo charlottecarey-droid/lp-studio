@@ -22,6 +22,7 @@ import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
 import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
 import { readImageDimensions, type ImageDimensions } from "../../lib/imageDimensions";
 import { ObjectStorageService } from "../../lib/objectStorage";
+import { resolveOwnedTenantIds, libraryReadablePredicate } from "../../lib/libraryScope";
 
 const router = Router();
 
@@ -582,10 +583,14 @@ function getImagePurpose(img: MediaImage): string {
 
 /** Fetch all images from the media library, separated by purpose for AI context.
  *
- * Tenant isolation: when a tenantId is supplied, ONLY images owned by that
- * tenant are returned. Shared / starter library rows (tenant_id IS NULL or
- * is_shared=true) are intentionally excluded so generated pages cannot leak
- * Dandy (or any other tenant's) imagery into a Royal / non-Dandy instance.
+ * Tenant isolation: when a tenantId is supplied, images readable by that
+ * tenant are returned — its OWN rows, a RECIPROCAL sibling's rows (the shared
+ * "drawer"), and any explicitly shared row (is_shared=true). This mirrors the
+ * media drawer's read ACL (resolveOwnedTenantIds / libraryReadablePredicate in
+ * lib/libraryScope.ts) so the generator sees exactly what the drawer shows.
+ * Without that, the drawer surfaced a sibling tenant's ~1000 images but the
+ * generator only saw the current tenant's handful — collapsing its candidate
+ * pool and making it repeat one image across slots.
  */
 export async function fetchMediaCatalog(tenantId: number | null): Promise<{ images: MediaImage[]; allImages: MediaImage[]; catalogText: string }> {
   // Tenant isolation: without a tenantId we MUST NOT query the global media
@@ -596,10 +601,11 @@ export async function fetchMediaCatalog(tenantId: number | null): Promise<{ imag
     return { images: [], allImages: [], catalogText: "" };
   }
   try {
+    const ownedTenantIds = await resolveOwnedTenantIds(tenantId);
     const rows = await db
       .select({ url: lpMediaTable.url, title: lpMediaTable.title, tags: lpMediaTable.tags, width: lpMediaTable.width, height: lpMediaTable.height })
       .from(lpMediaTable)
-      .where(and(eq(lpMediaTable.mediaType, "image"), eq(lpMediaTable.tenantId, tenantId)))
+      .where(and(eq(lpMediaTable.mediaType, "image"), libraryReadablePredicate(ownedTenantIds)))
       .orderBy(desc(lpMediaTable.createdAt))
       .limit(500);
 
