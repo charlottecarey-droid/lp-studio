@@ -154,7 +154,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
             as="p"
             value={props.subheadline}
             onUpdate={field("subheadline")}
-            className={cn(getBodySizeClass(brand), "leading-relaxed font-sans", isDark ? "text-white/80" : "text-[rgb(var(--brand-primary-rgb)/0.7)]", !isSplit && "max-w-2xl")}
+            className={cn(getBodySizeClass(brand), "leading-relaxed font-sans", isDark ? "text-white/80" : "text-[rgb(var(--brand-text-rgb)/0.7)]", !isSplit && "max-w-2xl")}
             multiline
             style={{ fontFamily: BODY }}
           />

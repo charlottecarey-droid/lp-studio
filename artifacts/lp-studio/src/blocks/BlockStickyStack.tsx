@@ -71,7 +71,7 @@ export function BlockStickyStack({ props, brand, onFieldChange, onCtaClick, page
       {props.eyebrow || props.headline ? (
         <div className="sticky top-0 z-0 pt-16 md:pt-24 px-6 md:px-12 text-center pointer-events-none">
           {props.eyebrow && (
-            <p className="text-xs font-bold uppercase tracking-widest text-[var(--brand-primary)] mb-2 pointer-events-auto" style={{ fontFamily: BODY }}>
+            <p className="text-xs font-bold uppercase tracking-widest text-[var(--brand-eyebrow-on-light)] mb-2 pointer-events-auto" style={{ fontFamily: BODY }}>
               <InlineText
                 value={props.eyebrow}
                 onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined}

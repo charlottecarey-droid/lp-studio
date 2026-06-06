@@ -396,7 +396,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
       {(props.subheadline || onFieldChange) && (
         <p className={cn(
           getBodySizeClass(brand), "leading-relaxed mb-6",
-          isDark ? "text-white/70" : "text-[rgb(var(--brand-primary-rgb)/0.7)]"
+          isDark ? "text-white/70" : "text-[rgb(var(--brand-text-rgb)/0.7)]"
         )} style={{ fontFamily: BODY }}>
           <InlineText value={props.subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
         </p>
@@ -515,7 +515,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
               {(props.subheadline || onFieldChange) && (
                 <p className={cn(
                   getBodySizeClass(brand), "leading-relaxed",
-                  isDark ? "text-white/70" : "text-[rgb(var(--brand-primary-rgb)/0.7)]"
+                  isDark ? "text-white/70" : "text-[rgb(var(--brand-text-rgb)/0.7)]"
                 )} style={{ fontFamily: BODY }}>
                   <InlineText value={props.subheadline ?? ""} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
                 </p>

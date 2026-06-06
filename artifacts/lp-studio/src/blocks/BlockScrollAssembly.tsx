@@ -138,7 +138,7 @@ function PieceView({
   const defaultColor =
     piece.kind === "text-body"
       ? (theme === "dark" ? "rgba(255,255,255,0.62)" : "rgb(71 85 105)")
-      : (theme === "dark" ? "rgba(255,255,255,0.96)" : "var(--brand-primary)");
+      : (theme === "dark" ? "rgba(255,255,255,0.96)" : "var(--brand-heading-on-light)");
 
   return (
     <motion.div
@@ -429,7 +429,7 @@ export function BlockScrollAssembly({ props, brand, onFieldChange, onCtaClick, p
   };
 
   // Derived helpers for theme-aware UI bits
-  const eyebrowColor = theme === "dark" ? "rgba(255,255,255,0.85)" : "var(--brand-primary)";
+  const eyebrowColor = theme === "dark" ? "rgba(255,255,255,0.85)" : "var(--brand-eyebrow-on-light)";
   const hintColor = theme === "dark" ? "rgba(255,255,255,0.5)" : "rgb(148 163 184)";
   const hintBar = theme === "dark" ? "rgba(255,255,255,0.4)" : "rgb(203 213 225)";
   const ctaBg = theme === "dark" ? accentColor : "var(--brand-accent)";

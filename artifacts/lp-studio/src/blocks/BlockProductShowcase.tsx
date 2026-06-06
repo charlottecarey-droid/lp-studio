@@ -43,7 +43,7 @@ export function BlockProductShowcase({ props, brand, onFieldChange, animationsEn
             value={props.headline}
             onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined}
             className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
-            style={{ color: brand.primaryColor, fontFamily: DISPLAY }} />
+            style={{ color: "var(--brand-heading-on-light)", fontFamily: DISPLAY }} />
           {props.subheadline && (
             <InlineText
               as="p"
@@ -80,7 +80,7 @@ export function BlockProductShowcase({ props, brand, onFieldChange, animationsEn
                 value={card.name}
                 onUpdate={onFieldChange ? (v) => updateCard(i, "name", v) : undefined}
                 className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), getHeadingWeightClass(brand))}
-                style={{ color: brand.primaryColor, fontFamily: DISPLAY }} />
+                style={{ color: "var(--brand-heading-on-light)", fontFamily: DISPLAY }} />
               <InlineText
                 as="p"
                 value={card.description}
