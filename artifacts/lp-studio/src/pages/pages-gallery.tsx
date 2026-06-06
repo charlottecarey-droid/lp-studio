@@ -357,7 +357,7 @@ export default function PagesGallery() {
     navigate(`/builder/${page.id}`);
   };
 
-  const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null, templateId?: number | null, referenceUrls?: string[]) => {
+  const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null, templateId?: number | null, referenceUrls?: string[], replaceImagery?: boolean) => {
     const activeSeg = seg !== undefined ? seg : selectedSegment;
     const segmentContext = activeSeg ? {
       name: activeSeg.name,
@@ -385,6 +385,7 @@ export default function PagesGallery() {
           prompt: prompt.trim(),
           ...(segmentContext ? { segmentContext } : {}),
           ...(templateId ? { templateId } : {}),
+          ...(templateId && replaceImagery ? { replaceImagery: true } : {}),
           ...(cleanedRefUrls.length > 0 ? { referenceUrls: cleanedRefUrls } : {}),
         }),
         signal: AbortSignal.timeout(180_000),
@@ -434,8 +435,8 @@ export default function PagesGallery() {
     navigate(`/builder/${page.id}`);
   };
 
-  const handleAiGenerateFromModal = async (prompt: string, templateId: number | null, referenceUrls: string[]) => {
-    await generatePageFromPrompt(prompt, selectedSegment, templateId, referenceUrls);
+  const handleAiGenerateFromModal = async (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean) => {
+    await generatePageFromPrompt(prompt, selectedSegment, templateId, referenceUrls, replaceImagery);
     setShowCreateModal(false);
   };
 

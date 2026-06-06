@@ -120,6 +120,12 @@ export function NewMicrositeModal({ open, onClose }: Props) {
   const [selectedTemplateId, setSelectedTemplateId] = useState<number>(0);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiTemplateId, setAiTemplateId] = useState<string>("");
+  // Task #1106 — when starting AI generation from a template, default to
+  // preserving the template's original photos (copy is still rewritten). When
+  // checked, the AI swaps template imagery for on-brand library + reference
+  // imagery. Only relevant (and only shown) when a starting-point template is
+  // selected.
+  const [replaceImagery, setReplaceImagery] = useState(false);
   // Empty string means "Auto / no specific segment". Used by both AI mode
   // and Template mode — when a segment is chosen with a template, we route
   // through the AI template-rewrite path to lightly retune copy.
@@ -145,6 +151,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
       setSelectedTemplateId(0);
       setAiPrompt("");
       setAiTemplateId("");
+      setReplaceImagery(false);
       setAiSegmentId("");
       setTemplateSegmentId("");
       setAiReferenceUrl("");
@@ -243,6 +250,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
         prompt: string;
         templateId?: number;
         referenceUrl?: string;
+        replaceImagery?: boolean;
       }): Promise<number> => {
         const res = await fetch(
           `${API_BASE}/sales/accounts/${acctIdNum}/generate-microsite`,
@@ -255,6 +263,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
               ...(opts.prompt ? { prompt: opts.prompt } : {}),
               ...(opts.templateId ? { templateId: opts.templateId } : {}),
               ...(opts.referenceUrl ? { referenceUrl: opts.referenceUrl } : {}),
+              ...(opts.templateId && opts.replaceImagery ? { replaceImagery: true } : {}),
             }),
           },
         );
@@ -282,6 +291,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
             prompt: aiPrompt.trim(),
             templateId: aiTemplateId ? Number(aiTemplateId) : undefined,
             referenceUrl: aiReferenceUrl.trim() || undefined,
+            replaceImagery: aiTemplateId ? replaceImagery : undefined,
           });
         } else {
           // No account (or no segments configured) → generic generate-page.
@@ -293,6 +303,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
             body: JSON.stringify({
               prompt: aiPrompt.trim(),
               ...(tplIdForAi ? { templateId: tplIdForAi } : {}),
+              ...(tplIdForAi && replaceImagery ? { replaceImagery: true } : {}),
               ...(segmentContext ? { segmentContext } : {}),
               ...(aiReferenceUrl.trim() ? { referenceUrl: aiReferenceUrl.trim() } : {}),
             }),
@@ -742,6 +753,19 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                     <p className="text-[11px] text-muted-foreground mt-2">
                       No saved templates yet. Marketing can save any page as a template from the Builder.
                     </p>
+                  )}
+                  {aiTemplateId && (
+                    <label className="mt-2 flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5"
+                        checked={replaceImagery}
+                        onChange={(e) => setReplaceImagery(e.target.checked)}
+                      />
+                      <span className="text-[11px] text-muted-foreground">
+                        <span className="font-medium text-foreground">Replace imagery</span> — swap the template's photos for on-brand images from your library (and any reference URL). Off keeps the template's original images; copy is rewritten either way.
+                      </span>
+                    </label>
                   )}
                 </div>
 

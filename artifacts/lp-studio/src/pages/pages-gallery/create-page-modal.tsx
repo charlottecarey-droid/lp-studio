@@ -55,7 +55,7 @@ interface Props {
   /** Workstream A (May 2026) — referenceUrls lets the user point the
    *  generator at 1–5 pages whose voice/structure should inform the output.
    *  Merged server-side with the brand's persisted inspirationUrls. */
-  onAiGenerate: (prompt: string, templateId: number | null, referenceUrls: string[]) => Promise<void>;
+  onAiGenerate: (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean) => Promise<void>;
   onOpenBriefModal: () => void;
 }
 
@@ -84,6 +84,11 @@ export function CreatePageModal({
   // rewrites copy for the template's predefined blocks instead of choosing
   // its own block layout. "" means "Generate from scratch".
   const [aiTemplateId, setAiTemplateId] = useState<string>("");
+  // Task #1106 — when starting from a template, default to preserving the
+  // template's original photos (copy is still rewritten). When checked, the AI
+  // swaps template imagery for on-brand library + reference imagery. Only shown
+  // when a starting-point template is selected.
+  const [replaceImagery, setReplaceImagery] = useState(false);
   // Workstream A — reference URL chips. Each chip is one URL we'll scrape
   // and inject into the prompt. Capped at 5 (server caps too). The pending
   // input field commits to a chip on Enter, comma, or blur.
@@ -185,9 +190,10 @@ export function CreatePageModal({
       const finalRefUrls = trimmedPending && !referenceUrls.includes(trimmedPending)
         ? [...referenceUrls, trimmedPending].slice(0, MAX_REF_URLS)
         : referenceUrls;
-      await onAiGenerate(aiPrompt, tplId, finalRefUrls);
+      await onAiGenerate(aiPrompt, tplId, finalRefUrls, tplId !== null ? replaceImagery : false);
       setAiPrompt("");
       setAiTemplateId("");
+      setReplaceImagery(false);
       setReferenceUrls([]);
       setPendingRefUrl("");
       setCreateMode("template");
@@ -451,6 +457,19 @@ export function CreatePageModal({
                   ? "AI will preserve the template's block layout and only rewrite copy to match your prompt."
                   : "AI will design the page structure from scratch based on your prompt."}
               </p>
+              {aiTemplateId && (
+                <label className="mt-2 flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={replaceImagery}
+                    onChange={(e) => setReplaceImagery(e.target.checked)}
+                  />
+                  <span className="text-[11px] text-muted-foreground">
+                    <span className="font-medium text-foreground">Replace imagery</span> — swap the template's photos for on-brand images from your library (and any reference URL). Off keeps the template's original images; copy is rewritten either way.
+                  </span>
+                </label>
+              )}
             </div>
 
             <div>

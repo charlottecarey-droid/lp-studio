@@ -38,6 +38,9 @@ import {
   // Numeric proof bars (trust-bar / stats) never carry a per-item image in AI
   // output; used to skip legacy-template image restore on those blocks.
   STAT_BAR_BLOCK_TYPES,
+  // Task #1106 — used to clear a template's image slots (in place) when the
+  // caller opts into replacing template imagery with on-brand library photos.
+  collectImageSlots,
 } from "../lp/generate-page";
 // Mirror harvested reference imagery into the tenant's media library so the
 // image-fill pass can use real site images for empty slots.
@@ -1541,11 +1544,17 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
   // `segmentId` is the current field. `audience` is a one-release legacy alias
   // (the old enum values doubled as segment ids); both resolve against
   // brand.segments by id after the brand row is loaded inside the try block.
-  const { prompt: userPrompt, segmentId, audience, templateId, ctaOverride, contactId, referenceUrl, referenceUrls } = req.body as {
+  const { prompt: userPrompt, segmentId, audience, templateId, replaceImagery, ctaOverride, contactId, referenceUrl, referenceUrls } = req.body as {
     prompt?: string;
     segmentId?: string;
     audience?: string;
     templateId?: number;
+    /** Task #1106 — when generating from a template, drop the template's
+     *  original imagery and repopulate image slots from the tenant media
+     *  library (+ scraped reference imagery) instead of restoring the
+     *  template's photos. Default (false/undefined) keeps the template's
+     *  carefully chosen images. */
+    replaceImagery?: boolean;
     ctaOverride?: CtaOverride;
     contactId?: number;
     // Task #976 — optional per-generation reference URL(s). Scraped for voice
@@ -1950,6 +1959,20 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     ]);
     const imageFillPool: MediaImage[] = scrapedMedia.length > 0 ? [...images, ...scrapedMedia] : images;
 
+    // Task #1106 — when generating from a template AND the caller opted into
+    // replacing imagery, clear every image slot up front so the fill passes
+    // below repopulate them from the tenant library + scraped reference pool
+    // instead of keeping the AI's (template-derived) picks. The restore pass
+    // is also skipped below. Stat bars stay numeric-only — collectImageSlots
+    // already excludes trust-bar / stats item images.
+    if (templateBlocks && replaceImagery === true) {
+      for (const block of normalizedBlocks) {
+        for (const slot of collectImageSlots(block as unknown as Record<string, unknown>)) {
+          slot.set("");
+        }
+      }
+    }
+
     // Clear AI-assigned URLs that are hallucinated or excluded (OG/social/ads)
     // so the fill passes below can replace them.
     normalizedBlocks = sanitizeAIImageUrls(normalizedBlocks, allImages) as AiBlock[];
@@ -1963,9 +1986,13 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     normalizedBlocks = injectBrandIntoBlocks(normalizedBlocks, brand, ctaOverride) as AiBlock[];
 
     // If a template was used, restore images from the template blocks — the AI
-    // updated copy but we keep the original carefully chosen images.
+    // updated copy but we keep the original carefully chosen images. Task #1106:
+    // skip this hard-restore when the caller opted into replacing imagery so the
+    // library-filled images (above) survive instead of the template's photos.
     if (templateBlocks) {
-      normalizedBlocks = restoreTemplateImages(normalizedBlocks, templateBlocks) as AiBlock[];
+      if (replaceImagery !== true) {
+        normalizedBlocks = restoreTemplateImages(normalizedBlocks, templateBlocks) as AiBlock[];
+      }
 
       // Compound business-case templates are a single rich monograph block.
       // Rather than trust the AI to emit every nested field, merge its copy

@@ -792,7 +792,7 @@ export const STAT_BAR_BLOCK_TYPES = new Set(["trust-bar", "stats"]);
 
 /** Collect every image-bearing slot on a block (mirrors the shapes handled by
  *  sanitizeAIImageUrls / fillEmptyImages). Accessors mutate the block in place. */
-function collectImageSlots(block: Record<string, unknown>): AIImageSlot[] {
+export function collectImageSlots(block: Record<string, unknown>): AIImageSlot[] {
   const slots: AIImageSlot[] = [];
   if (typeof block !== "object" || block === null) return slots;
   const props = block.props as Record<string, unknown> | undefined;
@@ -3142,10 +3142,16 @@ function logAiGeneration(row: {
 }
 
 router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiHeavyHourlyLimiter, async (req, res): Promise<void> => {
-  const { prompt, segmentContext, templateId, referenceUrl, referenceUrls: referenceUrlsRaw, screenshotDataUrl, _captureOnly } = req.body as {
+  const { prompt, segmentContext, templateId, replaceImagery, referenceUrl, referenceUrls: referenceUrlsRaw, screenshotDataUrl, _captureOnly } = req.body as {
     prompt?: string;
     segmentContext?: SegmentContext;
     templateId?: number;
+    /** Task #1106 — template-rewrite mode only. When true, the template's
+     *  original imagery is dropped and image slots are repopulated from the
+     *  tenant media library (+ reference-URL imagery when provided) via the
+     *  shared empty-image fill pipeline. Default (false/undefined) preserves
+     *  the template's photos verbatim. */
+    replaceImagery?: boolean;
     /** May 2026 audit follow-up — accept a single reference URL (legacy).
      *  When `referenceUrls` is also provided, this is merged in as the
      *  first entry. Kept for back-compat with older clients. */
@@ -3463,7 +3469,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // are preserved. Strategy: start with the template block, then
       // overlay top-level scalar props from the AI block (which carry the
       // new copy). Nested arrays of objects are aligned by index.
-      const mergedBlocks = tplBlocks.map((origRaw, i) => {
+      let mergedBlocks = tplBlocks.map((origRaw, i) => {
         const orig = origRaw as Record<string, unknown>;
         const aiBlock = (parsed.blocks?.[i] ?? {}) as Record<string, unknown>;
         const origProps = (orig.props && typeof orig.props === "object")
@@ -3523,6 +3529,57 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           type: orig.type,
         };
       });
+
+      // Task #1106 — "Replace imagery" opt-in. By default rule 6 forbids the
+      // model from touching image URLs and the merge above keeps the template's
+      // original photos verbatim. When the caller opts in, clear every template
+      // image slot and run the same empty-image fill pipeline the freeform path
+      // uses, so slots are repopulated from the tenant media library (+
+      // reference-URL imagery when provided). Stat bars stay numeric-only —
+      // collectImageSlots already excludes trust-bar / stats item images.
+      if (replaceImagery === true) {
+        for (const block of mergedBlocks) {
+          for (const slot of collectImageSlots(block as Record<string, unknown>)) {
+            slot.set("");
+          }
+        }
+
+        // Best-effort: mirror the reference site's imagery into the fill pool
+        // (only when a reference URL was successfully scraped), matching the
+        // freeform path. Failures degrade to the tenant-library-only pool.
+        let scrapedRefMedia: MediaImage[] = [];
+        const refImageUrls = scrapeResult.scraped?.imageUrls ?? [];
+        if (tenantId != null && scrapeResult.scraped && refImageUrls.length > 0) {
+          try {
+            const r = await mirrorReferenceImages({
+              tenantId,
+              sourceUrl: scrapeResult.scraped.url,
+              imageUrls: refImageUrls,
+            });
+            scrapedRefMedia = r.images as MediaImage[];
+          } catch (err) {
+            logger.warn(
+              { tenantId, err: String(err) },
+              "[generate-page] template replaceImagery reference harvest failed",
+            );
+          }
+        }
+
+        const industryForImages = await getTenantIndustry(tenantId);
+        const pageImageContext = [
+          getIndustryImageKeywords(industryForImages).join(" "),
+          prompt.trim(),
+        ].join(" ").trim().slice(0, 240);
+        const fillPool: MediaImage[] = buildReferenceFillPool(
+          mediaCatalog.images,
+          scrapedRefMedia,
+          scrapedUrls,
+        );
+
+        mergedBlocks = sanitizeAIImageUrls(mergedBlocks, mediaCatalog.allImages) as typeof mergedBlocks;
+        mergedBlocks = validateAndDedupeAIImages(mergedBlocks, fillPool, pageImageContext) as typeof mergedBlocks;
+        mergedBlocks = fillEmptyImages(mergedBlocks, fillPool, pageImageContext) as typeof mergedBlocks;
+      }
 
       const slug = String(parsed.slug)
         .toLowerCase()
