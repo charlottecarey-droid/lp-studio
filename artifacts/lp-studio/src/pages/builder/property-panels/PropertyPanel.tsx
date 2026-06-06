@@ -2522,11 +2522,11 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </button>
             </div>
 
-            {/* Hide Dandy logo toggle */}
+            {/* Hide brand logo toggle */}
             <div className="flex items-center justify-between">
               <div>
-                <Label className="text-xs">Hide Dandy logo</Label>
-                <p className="text-[11px] text-muted-foreground">Remove the Dandy mark (top-left) from the nav.</p>
+                <Label className="text-xs">Hide logo</Label>
+                <p className="text-[11px] text-muted-foreground">Remove your brand logo (top-left) from the nav.</p>
               </div>
               <button
                 onClick={() => onChange({ ...block, props: { ...p, hideBrandLogo: !p.hideBrandLogo } })}
@@ -3171,6 +3171,40 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   </div>
                   <Input value={p.statLabelColor ?? ""} onChange={e => onChange({ ...block, props: { ...p, statLabelColor: e.target.value } })} placeholder="muted gray" className="h-7 text-xs font-mono flex-1" />
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Stat value size</Label>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {p.statValueSize ?? 100}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={50}
+                  max={180}
+                  step={5}
+                  value={p.statValueSize ?? 100}
+                  onChange={e => onChange({ ...block, props: { ...p, statValueSize: Number(e.target.value) } })}
+                  className="w-full accent-primary"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Value / label spacing</Label>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {p.statLabelGap ?? 4}px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={32}
+                  step={1}
+                  value={p.statLabelGap ?? 4}
+                  onChange={e => onChange({ ...block, props: { ...p, statLabelGap: Number(e.target.value) } })}
+                  className="w-full accent-primary"
+                />
               </div>
             </div>
           </div>

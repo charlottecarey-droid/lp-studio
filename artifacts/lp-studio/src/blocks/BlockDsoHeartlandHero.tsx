@@ -188,7 +188,10 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           <div
             style={{
               fontFamily: DISPLAY_FONT,
-              fontSize: "clamp(1.375rem, 3vw, 2rem)",
+              fontSize:
+                p.statValueSize != null && p.statValueSize !== 100
+                  ? `calc(clamp(1.375rem, 3vw, 2rem) * ${p.statValueSize / 100})`
+                  : "clamp(1.375rem, 3vw, 2rem)",
               fontWeight: 600,
               color: p.statValueColor ?? PRIMARY,
               letterSpacing: "-0.02em",
@@ -201,7 +204,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
             style={{
               fontSize: "0.75rem",
               color: p.statLabelColor ?? MUTED_FG,
-              marginTop: "0.25rem",
+              marginTop: p.statLabelGap != null ? `${p.statLabelGap}px` : "0.25rem",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
             }}

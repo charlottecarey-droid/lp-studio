@@ -134,8 +134,15 @@ export interface DsoHeartlandHeroBlockProps {
   statValueColor?: string;
   /** Override for the stat label text color. Defaults to the muted gray. */
   statLabelColor?: string;
+  /** Scale (%) for the stat value font size. 100 (default) = the built-in
+   *  responsive clamp; lower to shrink, raise to enlarge the numbers. Applies
+   *  across all four layouts since the stats bar is shared. */
+  statValueSize?: number;
+  /** Vertical gap (px) between each stat value and its label. Defaults to 4
+   *  (the current 0.25rem). Applies across all four layouts. */
+  statLabelGap?: number;
   stickyHeader?: boolean;
-  /** When true, hides the Dandy brand logo (top-left) in the hero nav across all
+  /** When true, hides the brand logo (top-left) in the hero nav across all
    *  layouts and both the standard and sticky-header nav variants. Defaults to
    *  showing the logo (current behavior). */
   hideBrandLogo?: boolean;

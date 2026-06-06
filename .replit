@@ -110,12 +110,12 @@ args = "pnpm --filter @workspace/lp-studio run typecheck"
 name = "tc-lp"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/lp-studio run typecheck"
-
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/lp-studio && npx tsc -b --incremental"
 
 [[workflows.workflow]]
 name = "tc-api"
