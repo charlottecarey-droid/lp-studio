@@ -78,8 +78,8 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange, pageId, varia
                 as="h2"
                 value={row.headline}
                 onUpdate={onFieldChange ? (v) => updateRow(i, "headline", v) : undefined}
-                className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "md"), "leading-tight", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
-                style={{ color: brand.primaryColor, fontFamily: DISPLAY }} />
+                className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "md"), "text-[var(--brand-heading-on-light)] leading-tight", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
+                style={{ fontFamily: DISPLAY }} />
               <InlineText
                 as="p"
                 value={row.body}
@@ -95,8 +95,7 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange, pageId, varia
                       safeNavigate(row.ctaUrl, "_blank");
                     }
                   }}
-                  className="inline-flex items-center gap-2 font-semibold text-sm hover:gap-3 transition-all bg-transparent border-none p-0 cursor-pointer"
-                  style={{ color: brand.primaryColor }}
+                  className="inline-flex items-center gap-2 font-semibold text-sm hover:gap-3 transition-all bg-transparent border-none p-0 cursor-pointer text-[var(--brand-link-on-light)]"
                 >
                   <InlineText
                     value={row.ctaText}
