@@ -85,6 +85,7 @@
     { "idx": 80, "version": "7", "when": 1753400000000, "tag": "0080_marketing_homepage_og",                  "breakpoints": false },
     { "idx": 81, "version": "7", "when": 1753500000000, "tag": "0081_hubspot_integration",                     "breakpoints": false },
     { "idx": 82, "version": "7", "when": 1753600000000, "tag": "0082_marketing_page_og",                       "breakpoints": false },
-    { "idx": 83, "version": "7", "when": 1753700000000, "tag": "0083_lp_media_dimensions",                     "breakpoints": false }
+    { "idx": 83, "version": "7", "when": 1753700000000, "tag": "0083_lp_media_dimensions",                     "breakpoints": false },
+    { "idx": 84, "version": "7", "when": 1753800000000, "tag": "0084_sfdc_leads_industry_rating",            "breakpoints": false }
   ]
 }

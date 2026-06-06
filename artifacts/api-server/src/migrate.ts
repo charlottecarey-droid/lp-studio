@@ -1363,6 +1363,30 @@ async function runMigrationsBody(): Promise<void> {
         "block_catalog ai_enabled self-heal did not produce the column — aborting release",
     });
 
+    // Durable self-heal for sfdc_leads.industry / sfdc_leads.rating. Same
+    // high-water-mark hazard as the self-heals above. These two nullable text
+    // columns are declared in @workspace/db and were part of the original
+    // CREATE TABLE in 0001_sfdc_integration.sql, but on DBs where sfdc_leads
+    // already existed when 0001 ran (its CREATE TABLE is IF NOT EXISTS) the
+    // columns were never back-filled, leaving them missing — exactly the drift
+    // the schema-drift guard (migrate.schemaDrift.integration.test.ts) flags.
+    // Re-applying 0084 here is independent of drizzle's dedup; the file is two
+    // ALTER TABLE ... ADD COLUMN IF NOT EXISTS, so it heals where missing and is
+    // a no-op everywhere else. The .sql stays the single source of truth. Both
+    // columns are checked, so `expected: 2`.
+    await runProbedSelfHeal({
+      name: "sfdc_leads industry/rating self-heal (0084)",
+      applySqlFile: "0084_sfdc_leads_industry_rating.sql",
+      expected: 2,
+      checkSql: `SELECT count(*)::int AS present
+           FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'sfdc_leads'
+            AND column_name IN ('industry', 'rating')`,
+      shortfall: () =>
+        "sfdc_leads industry/rating self-heal did not produce both columns — aborting release",
+    });
+
     // Idempotent first-boot seed for the block_catalog table. Safe to run on
     // every boot — uses ON CONFLICT DO NOTHING so admin edits are never
     // clobbered. Adds rows only when missing.
