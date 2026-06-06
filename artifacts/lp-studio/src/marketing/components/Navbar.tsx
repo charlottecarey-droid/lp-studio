@@ -17,7 +17,6 @@ export default function Navbar() {
   // Route-based top nav — consistent across every marketing page so
   // prospects can move between them without hunting.
   const navLinks = [
-    { label: "Home", href: "/", active: location === "/" },
     { label: "For Marketing", href: "/for-marketing", active: location === "/for-marketing" },
     { label: "For Sales", href: "/for-sales", active: location === "/for-sales" },
     { label: "Features", href: "/features", active: location === "/features" },
