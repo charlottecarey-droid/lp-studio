@@ -175,17 +175,18 @@ export async function extractPhotography(
   const visionTargets = images.length > 0 ? images : screenshotFallback ? [screenshotFallback] : [];
 
   // Images that should reach the mirror step regardless of whether vision
-  // classification succeeds (task #592). When the page yielded no <img>
-  // URLs, fall back to the homepage screenshot so the tenant's media
-  // library still gets *something* mirrorable. Prefer the hosted
-  // screenshot URL over the (potentially huge) data: URL for mirroring —
-  // assets-uploader can fetch either, but the URL keeps the payload small.
-  const mirrorableScreenshot = evidence.screenshotUrl ?? evidence.screenshotDataUrl;
-  const referenceImageUrls = images.length > 0
-    ? images
-    : mirrorableScreenshot
-      ? [mirrorableScreenshot]
-      : [];
+  // classification succeeds (task #592). These become AI-usable landing-page
+  // creative (mirrored into lp_media tagged "photography"), so this list must
+  // ONLY ever contain real scraped <img>/background photography — NEVER the
+  // homepage screenshot. The screenshot is a full-page capture of the site
+  // chrome (nav, footer, hero text baked in); placing it as a block image
+  // makes a generated page look broken. It is still used as a vision style
+  // reference (visionTargets, above) and is mirrored separately as the
+  // Brand Settings visual record (orchestrator's mirrorHomepageScreenshot,
+  // which deliberately does NOT create an lp_media row). So when the page
+  // yields no real images we leave referenceImageUrls empty rather than
+  // falling back to the screenshot (task #1079).
+  const referenceImageUrls = images;
 
   const emptyProfile: PhotographyProfile = {
     medium: "unknown",
