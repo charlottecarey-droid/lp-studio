@@ -555,7 +555,15 @@ export interface MediaImage {
 }
 
 const PURPOSE_TAGS = ["lp-hero", "lp-feature", "product-detail"] as const;
-const SKIP_TAGS = new Set(["untitled folder", "web res", "high res", "abstract", "modern", "professional", "hat", "holographic hat", "green glow", "futuristic", "digital art", "lp-hero", "lp-feature", "product-detail"]);
+const SKIP_TAGS = new Set(["untitled folder", "web res", "high res", "abstract", "modern", "professional", "hat", "holographic hat", "green glow", "futuristic", "digital art", "lp-hero", "lp-feature", "product-detail",
+  // Scraped page-reference META tags carry NO semantic relevance to a slot — they
+  // record provenance, not content. They must never contribute to a relevance
+  // score: e.g. "page-reference" partial-matches the word "page" (ubiquitous in
+  // "landing page" prompts), spuriously lifting an off-topic scrape above the
+  // strict-pass gate. (The per-host "refhost:<host>" tag is skipped by prefix in
+  // scoreImage since it's dynamic.) This keeps the documented "scraped images
+  // score 0 unless genuinely on-topic" invariant true.
+  "scraped", "page-reference"]);
 /** Tags that permanently exclude an image from AI image selection.
  * Includes OG/social image tags AND visual-design markers that identify promo graphics
  * (text-heavy banners, ad creatives) which should never appear inside landing page blocks.
@@ -716,10 +724,18 @@ function scoreImage(
   // Content tag matching
   for (const tag of img.tags) {
     const tagLower = tag.toLowerCase();
-    if (SKIP_TAGS.has(tagLower)) continue;
+    // Skip non-semantic tags, incl. the dynamic per-host scrape provenance tag.
+    if (SKIP_TAGS.has(tagLower) || tagLower.startsWith("refhost:")) continue;
     if (contextLower.includes(tagLower)) score += TAG_MATCH_SCORE;
     for (const word of tagLower.split(/\s+/)) {
-      if (word.length > 3 && contextWords.some(w => w.includes(word) || word.includes(w))) score += 1;
+      // Guard against EMPTY context words: contextWords comes from splitting a
+      // space-padded template (`${a} ${b} ${c}`) so it routinely contains ""
+      // entries, and `word.includes("")` / `"".includes(word)` are always true.
+      // Without this guard every tag of length > 3 scores +1 against an empty
+      // word — silently inflating scraped images (whose only tags are the
+      // "scraped"/"refhost:…"/"page-reference" meta tags) to a positive score
+      // and defeating the strict-pass relevance gate in findBestImage.
+      if (word.length > 3 && contextWords.some(w => w.length > 0 && (w.includes(word) || word.includes(w)))) score += 1;
     }
   }
 
@@ -762,13 +778,24 @@ function findBestImage(
     }
   }
 
-  // Only use images with a non-negative score (avoids forcing a product-detail
-  // into a hero slot). In `relaxed` mode we drop that gate and return the best
-  // available unused library image regardless of score — used as a final pass
-  // to exhaust the brand library before falling back to AI image generation.
-  if (best && (relaxed || bestScore >= 0)) {
-    usedIds.add(imageIdentity(best));
-    return best.url;
+  // Strict-pass gate.
+  //  • Curated library images (drawer uploads, brand-import photography) need
+  //    only a NON-NEGATIVE score — this avoids forcing a product-detail into a
+  //    hero slot while still preferring the tenant's own assets.
+  //  • SCRAPED page-reference harvests are untagged-for-purpose, so they score 0
+  //    against most slots. Placing them on a bare `>= 0` gate fills slots with
+  //    off-topic brand-site photos (the "wrong images" symptom). Require a
+  //    POSITIVE relevance signal for scraped images here so only genuinely
+  //    on-topic scrapes win a slot in the strict pass; off-topic scrapes fall to
+  //    the relaxed last-resort pass (which runs AFTER AI image generation).
+  // In `relaxed` mode we drop the gate entirely and return the best available
+  // unused image regardless of score — the final pass to exhaust the library.
+  if (best) {
+    const passesStrict = isScrapedImage(best) ? bestScore > 0 : bestScore >= 0;
+    if (relaxed || passesStrict) {
+      usedIds.add(imageIdentity(best));
+      return best.url;
+    }
   }
   return "";
 }
@@ -1061,7 +1088,7 @@ export function validateAndDedupeAIImages(
 
 /** True when an image is a page-reference scrape harvested by mirrorReferenceImages
  *  (tagged "scraped"), as opposed to a curated drawer / brand-import / AI image. */
-function isScrapedImage(img: MediaImage): boolean {
+export function isScrapedImage(img: MediaImage): boolean {
   return img.tags.some((t) => typeof t === "string" && t.toLowerCase() === "scraped");
 }
 
@@ -4558,17 +4585,23 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // with images too — without this branch, AI-page generation produced
     // empty image slots for every non-superadmin-flagged tenant even
     // though they had the feature turned on.
+    // CURATED images only (drawer uploads, brand-import photography). Off-topic
+    // SCRAPED reference harvests are deliberately held back from the relaxed
+    // pre-AI pass below so an unrelated brand-site scrape never beats a relevant
+    // AI image; they fill in the last-resort pass after AI generation.
+    const curatedFillPool = fillPool.filter((img) => !isScrapedImage(img));
     const [outsideBuilderOn, imageGenStatus] = await Promise.all([
       getAiImageGenOutsideBuilderEnabled(tenantId),
       getAiImageGenStatus(tenantId),
     ]);
     if (outsideBuilderOn || imageGenStatus.enabled) {
-      // Exhaust the brand/library pool FIRST. The strict fillEmptyImages pass
-      // above only places topically-relevant images; this relaxed pass drops
-      // the relevance gate so any slot the library can still cover gets a real
-      // brand image instead of an AI-generated one. AI generation then only
-      // runs for slots the library genuinely cannot fill.
-      parsed.blocks = fillEmptyImages(parsed.blocks, fillPool, pageImageContext, true);
+      // Exhaust the CURATED brand library FIRST. The strict fillEmptyImages pass
+      // above only places topically-relevant images; this relaxed pass drops the
+      // relevance gate for curated images so any slot a real brand photo can
+      // cover gets it instead of an AI-generated one. Off-topic scraped harvests
+      // are excluded here (see curatedFillPool) so AI generation fills those
+      // slots with on-topic imagery rather than an unrelated brand-site scrape.
+      parsed.blocks = fillEmptyImages(parsed.blocks, curatedFillPool, pageImageContext, true);
       parsed.blocks = await aiFillEmptyImages(
         parsed.blocks as Array<Record<string, unknown>>,
         tenantId!,
@@ -4576,6 +4609,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         prompt,
       );
     }
+    // Last-resort fill: off-topic scraped reference harvests (and any
+    // purpose-mismatched curated image the relaxed curated pass left) for slots
+    // STILL empty after AI generation — or every empty slot for tenants without
+    // AI image-gen. This keeps an irrelevant brand-site scrape from ever beating
+    // a relevant AI image or an on-topic library image, while still avoiding
+    // shipped-empty image slots.
+    parsed.blocks = fillEmptyImages(parsed.blocks, fillPool, pageImageContext, true);
 
     // Task #1065 — refuse undersized images as full-bleed / parallax hero
     // backgrounds. Runs AFTER every image-fill pass (so the final resolved

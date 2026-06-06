@@ -313,13 +313,16 @@ describe("buildReferenceFillPool — reference-image fidelity", () => {
   });
 
   it("a tie between stale apple and fresh clay resolves to clay (findBestImage keeps first max-scorer)", () => {
-    // No content-tag or purpose overlap → every scraped image scores 0; ordering decides.
+    // No content-tag or purpose overlap → every scraped image scores 0; ordering
+    // decides. Off-topic scraped images no longer fill in the STRICT pass (they
+    // need positive relevance there), so this tie-ordering property is exercised
+    // via the relaxed last-resort pass, where score-0 scrapes are eligible.
     const catalog = [staleApple, freshClay];
     const pool = buildReferenceFillPool(catalog, [freshClay], ["https://clay.com/x"]);
     const blocks: any[] = [
       { type: "zigzag-features", props: { rows: [{ headline: "Workflow", body: "", imageUrl: "" }] } },
     ];
-    const filled = fillEmptyImages(blocks, pool, "saas pipeline") as any[];
+    const filled = fillEmptyImages(blocks, pool, "saas pipeline", true) as any[];
     expect(filled[0].props.rows[0].imageUrl).toBe("/objects/clay-fresh");
   });
 
@@ -450,7 +453,9 @@ describe("fillEmptyImages — single-image domination cap (scraped resize varian
         { headline: "Smile", imageUrl: "" },
       ] } },
     ];
-    blocks = fillEmptyImages(blocks, [scannerA, scannerB, scannerC], "dental clinic") as any[];
+    // Off-topic scrapes (score 0 vs "dental clinic") fill only in the relaxed
+    // pass now; the identity-folding cap is pass-independent and asserted here.
+    blocks = fillEmptyImages(blocks, [scannerA, scannerB, scannerC], "dental clinic", true) as any[];
     const urls = (blocks[0].props.rows as Array<{ imageUrl: string }>).map((r) => r.imageUrl);
     const filled = urls.filter(Boolean);
     expect(filled).toHaveLength(1); // one scanner, no repeats
@@ -465,7 +470,8 @@ describe("fillEmptyImages — single-image domination cap (scraped resize varian
         { headline: "Extra", imageUrl: "" },
       ] } },
     ];
-    blocks = fillEmptyImages(blocks, [scannerA, scannerB, chair], "dental clinic") as any[];
+    // Off-topic scrapes fill only in the relaxed pass; folding is pass-independent.
+    blocks = fillEmptyImages(blocks, [scannerA, scannerB, chair], "dental clinic", true) as any[];
     const urls = (blocks[0].props.rows as Array<{ imageUrl: string }>).map((r) => r.imageUrl);
     const filled = urls.filter(Boolean);
     // The two scanner variants collapse to one identity; the chair is distinct.
@@ -494,9 +500,75 @@ describe("fillEmptyImages — single-image domination cap (scraped resize varian
         { headline: "Comfort", imageUrl: "" },
       ] } },
     ];
-    blocks = fillEmptyImages(blocks, [scannerA, chair], "dental clinic") as any[];
+    // Off-topic scrapes fill only in the relaxed pass; distinctness is asserted there.
+    blocks = fillEmptyImages(blocks, [scannerA, chair], "dental clinic", true) as any[];
     const urls = (blocks[0].props.rows as Array<{ imageUrl: string }>).map((r) => r.imageUrl);
     expect(urls.filter(Boolean)).toHaveLength(2);
     expect(new Set(urls).size).toBe(2);
+  });
+});
+
+describe("findBestImage — scraped images need positive relevance in the strict pass", () => {
+  // A scraped page-reference harvest whose title does NOT overlap the slot
+  // context → scores 0 against "dental clinic dentures".
+  const offTopicScrape: MediaImage = {
+    url: "/objects/scrape-x",
+    title: "hero banner 1600x900",
+    tags: ["page-reference", "scraped", "refhost:acme.com"],
+  };
+  // A scraped harvest whose title overlaps the slot context → scores > 0.
+  const onTopicScrape: MediaImage = {
+    url: "/objects/scrape-dent",
+    title: "dental implants close up",
+    tags: ["page-reference", "scraped", "refhost:acme.com"],
+  };
+  // An untagged CURATED image (drawer upload): tags:[] → NOT scraped.
+  const untaggedCurated: MediaImage = {
+    url: "/objects/drawer-x",
+    title: "office lobby",
+    tags: [],
+  };
+
+  it("does NOT place an off-topic scraped image in the strict pass", () => {
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Dentures fitting", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, [offTopicScrape], "dental clinic dentures") as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("");
+  });
+
+  it("DOES place that same off-topic scraped image in the relaxed last-resort pass", () => {
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Dentures fitting", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, [offTopicScrape], "dental clinic dentures", true) as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/scrape-x");
+  });
+
+  it("does NOT place an off-topic scraped image even when context contains 'landing page' (page-reference meta-tag is non-semantic)", () => {
+    // Regression: the "page-reference" provenance tag partial-matches the word
+    // "page" — ubiquitous in "landing page" prompts — which used to lift an
+    // off-topic scrape over the strict gate. Meta-tags must score 0.
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Dentures fitting", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, [offTopicScrape], "dental clinic dentures landing page") as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("");
+  });
+
+  it("places a RELEVANT scraped image in the strict pass (positive relevance signal)", () => {
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Dental implants", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, [onTopicScrape], "dental implants clinic") as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/scrape-dent");
+  });
+
+  it("still places an untagged CURATED image in the strict pass (scoping is scraped-only)", () => {
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Anything", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, [untaggedCurated], "totally unrelated context") as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/drawer-x");
   });
 });

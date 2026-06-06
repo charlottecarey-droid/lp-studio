@@ -16,6 +16,7 @@ import {
   sanitizeAIImageUrls,
   validateAndDedupeAIImages,
   fillEmptyImages,
+  isScrapedImage,
   aiFillEmptyImages,
   inferDesignIntensity,
   buildTypographySection,
@@ -2191,11 +2192,18 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // editor already handles, rather than failing the entire generation. A
     // half-built page with a few blank image slots is far better than a 500.
     try {
+      // CURATED images only — off-topic scraped reference harvests are held back
+      // from the relaxed pre-AI pass so AI generation fills those slots with
+      // on-topic imagery instead of an unrelated brand-site scrape.
+      const curatedFillPool = imageFillPool.filter((img) => !isScrapedImage(img));
       const [outsideBuilderOn, imageGenStatus] = await Promise.all([
         getAiImageGenOutsideBuilderEnabled(tenantId),
         getAiImageGenStatus(tenantId),
       ]);
       if (outsideBuilderOn || imageGenStatus.enabled) {
+        // Exhaust the CURATED brand library first (a real brand photo beats an
+        // AI image), then AI-generate the rest. Parity with /lp/generate-page.
+        normalizedBlocks = fillEmptyImages(normalizedBlocks, curatedFillPool, pageImageContext, true) as AiBlock[];
         normalizedBlocks = await aiFillEmptyImages(
           normalizedBlocks as unknown as Array<Record<string, unknown>>,
           tenantId,
@@ -2209,6 +2217,13 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         "generate-microsite: AI image fill failed; continuing with empty image slots",
       );
     }
+    // Last-resort fill: off-topic scraped reference harvests for slots still
+    // empty after AI generation, or every empty slot for tenants without AI
+    // image-gen. Mirrors /lp/generate-page so an irrelevant scrape never beats a
+    // relevant AI image or on-topic library image, without shipping empty slots.
+    // (fillEmptyImages only fills EMPTY slots, so template-restored images and
+    // earlier picks are never overwritten.)
+    normalizedBlocks = fillEmptyImages(normalizedBlocks, imageFillPool, pageImageContext, true) as AiBlock[];
 
     // Slug uniqueness retry: on a unique-constraint violation (pg error 23505),
     // try appending -2, -3, ... up to MAX_ATTEMPTS before giving up.
