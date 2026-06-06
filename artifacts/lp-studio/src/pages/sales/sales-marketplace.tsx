@@ -114,12 +114,21 @@ function TemplateCardMedia({
   gradient: string;
   capturing: boolean;
 }) {
-  const src = thumbnailUrl || ogImage || "";
-  const [failed, setFailed] = useState(false);
+  // Ordered candidate sources: the real screenshot first, then the OG image. A
+  // broken/slow image advances to the next candidate via onError, so a stale or
+  // unreachable thumbnail still falls back to the OG image (then the gradient)
+  // rather than showing a blank/grey card.
+  const sources = useMemo(
+    () => [thumbnailUrl, ogImage].filter((s): s is string => !!s),
+    [thumbnailUrl, ogImage],
+  );
+  const [idx, setIdx] = useState(0);
+  // Reset to the first candidate when the sources change (e.g. after a refresh).
   useEffect(() => {
-    setFailed(false);
-  }, [src]);
-  const showImage = !!src && !failed;
+    setIdx(0);
+  }, [thumbnailUrl, ogImage]);
+  const src = sources[idx];
+  const showImage = !!src;
   return (
     <>
       {showImage ? (
@@ -128,7 +137,7 @@ function TemplateCardMedia({
           alt=""
           loading="lazy"
           className="absolute inset-0 h-full w-full object-cover object-top"
-          onError={() => setFailed(true)}
+          onError={() => setIdx((i) => i + 1)}
         />
       ) : (
         <div className="absolute inset-0" style={{ background: gradient }} />
@@ -289,7 +298,11 @@ export default function SalesMarketplace() {
         const err = await res.json().catch(() => ({ error: "Request failed" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
-      const data = (await res.json()) as { thumbnailUrl: string | null; thumbnailCapturedAt: string | null };
+      const data = (await res.json()) as {
+        captured?: boolean;
+        thumbnailUrl: string | null;
+        thumbnailCapturedAt: string | null;
+      };
       setTemplates((prev) =>
         prev.map((t) =>
           t.id === template.id
@@ -297,10 +310,18 @@ export default function SalesMarketplace() {
             : t,
         ),
       );
-      toast({
-        title: "Thumbnail refreshed",
-        description: `Updated the preview for "${template.templateLabel}".`,
-      });
+      if (data.captured) {
+        toast({
+          title: "Thumbnail refreshed",
+          description: `Updated the preview for "${template.templateLabel}".`,
+        });
+      } else {
+        // No real screenshot — the card now falls back to the page's OG image.
+        toast({
+          title: "Showing the social image",
+          description: `We couldn't capture a fresh preview for "${template.templateLabel}", so the card shows the page's social image instead.`,
+        });
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to refresh thumbnail";
       toast({ title: "Couldn't refresh thumbnail", description: message, variant: "destructive" });

@@ -193,13 +193,32 @@ router.post("/lp/templates/:id/refresh-thumbnail", async (req, res): Promise<voi
       return;
     }
 
-    const result = await captureTemplateThumbnail({ pageId: id, requestHost: getRequestHost(req) });
-    if (!result.ok) {
-      res.status(502).json({ error: "Could not capture a preview right now", detail: result.error });
+    const result = await captureTemplateThumbnail({
+      pageId: id,
+      requestHost: getRequestHost(req),
+      // Clear any stored (possibly broken/grey) thumbnail on failure so the card
+      // honestly falls back to the page's OG image.
+      clearOnFailure: true,
+    });
+    if (result.outcome === "skipped") {
+      res.status(404).json({ error: "Template not found" });
+      return;
+    }
+    if (result.outcome === "fell_back") {
+      // Not an error: we couldn't get a real screenshot, so the card now shows
+      // the page's OG image. Report it honestly (200, captured=false) and clear
+      // the client's stored thumbnail so it re-renders to the OG image.
+      res.json({
+        ok: true,
+        captured: false,
+        thumbnailUrl: null,
+        thumbnailCapturedAt: null,
+      });
       return;
     }
     res.json({
       ok: true,
+      captured: true,
       thumbnailUrl: result.thumbnailUrl,
       thumbnailCapturedAt: result.thumbnailCapturedAt,
     });

@@ -25,10 +25,31 @@
 import { db, lpPagesTable, lpPageReviewsTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
+import sharp from "sharp";
 
 /** Template card aspect — wider + taller crop than the 1200x630 OG card. */
 const THUMB_WIDTH = 1200;
 const THUMB_CROP = 800;
+
+/**
+ * Seconds thum.io waits *after* page load before snapshotting. The `/preview`
+ * route is a client-rendered SPA (bundle boot → API fetch → block paint → brand
+ * fonts/images), so without this thum.io often captures the blank/grey shell
+ * before it hydrates. thum.io has no wait-for-selector option (only time-based
+ * `wait`), so we give the SPA a generous fixed window and still validate the
+ * result below.
+ */
+const THUMB_WAIT_SECONDS = 8;
+
+/**
+ * Minimum per-channel standard deviation for a capture to count as a real,
+ * fully-rendered screenshot. A blank white/grey page — or a half-rendered shell
+ * that never hydrated — is near-uniform (stdev ≈ 0); a real template (hero
+ * imagery, colored sections, text) is well above this. Captures below the
+ * threshold are rejected so we never persist a broken screenshot over a good OG
+ * image.
+ */
+const MIN_CONTENT_STDEV = 10;
 
 /**
  * Upper bound on the pre-warm GET. thum.io renders synchronously on first hit
@@ -49,12 +70,32 @@ export interface CaptureThumbnailOptions {
    * Omitted by the backfill script, which falls back to env-configured hosts.
    */
   requestHost?: string | null;
+  /**
+   * When true, a failed/blank capture actively clears any stored thumbnail_url
+   * (set NULL) so the card falls back to the page's OG image. The manual-refresh
+   * route sets this so a previously-stored broken grey capture reverts to OG.
+   * The fire-and-forget autosave path leaves the existing thumbnail intact to
+   * avoid a mid-edit flicker to the gradient on a transient failure.
+   */
+  clearOnFailure?: boolean;
 }
+
+/**
+ * `captured`  — a fresh, validated screenshot was stored on thumbnail_url.
+ * `fell_back` — no real screenshot (blank/grey/timeout/error); the card should
+ *               show the page's OG image. thumbnail_url left as-is, or cleared
+ *               to NULL when `clearOnFailure` was requested.
+ * `skipped`   — the row isn't a capturable template (missing/not-template/no-slug).
+ */
+export type CaptureOutcome = "captured" | "fell_back" | "skipped";
 
 export interface CaptureThumbnailResult {
   ok: boolean;
+  outcome: CaptureOutcome;
   thumbnailUrl: string | null;
   thumbnailCapturedAt: Date | null;
+  /** True when a stored thumbnail_url was actively set NULL on failure. */
+  cleared?: boolean;
   skipped?: "page_not_found" | "not_template" | "no_slug";
   error?: string;
 }
@@ -119,23 +160,53 @@ export function buildTemplateThumbnailUrl(previewUrl: string): string {
 export async function captureTemplateThumbnail(
   opts: CaptureThumbnailOptions,
 ): Promise<CaptureThumbnailResult> {
-  const fail = (
-    partial: Partial<CaptureThumbnailResult>,
+  const skip = (
+    skipped: NonNullable<CaptureThumbnailResult["skipped"]>,
   ): CaptureThumbnailResult => ({
     ok: false,
+    outcome: "skipped",
     thumbnailUrl: null,
     thumbnailCapturedAt: null,
-    ...partial,
+    skipped,
   });
 
   const [page] = await db
     .select({ id: lpPagesTable.id, slug: lpPagesTable.slug, isTemplate: lpPagesTable.isTemplate })
     .from(lpPagesTable)
     .where(eq(lpPagesTable.id, opts.pageId));
-  if (!page) return fail({ skipped: "page_not_found" });
-  if (!page.isTemplate) return fail({ skipped: "not_template" });
+  if (!page) return skip("page_not_found");
+  if (!page.isTemplate) return skip("not_template");
   const slug = (page.slug ?? "").trim();
-  if (!slug) return fail({ skipped: "no_slug" });
+  if (!slug) return skip("no_slug");
+
+  // A capture didn't yield a real screenshot. Optionally clear any stored
+  // thumbnail so the card falls back to the page's OG image, then report a
+  // structured "fell_back" outcome the caller can surface honestly.
+  const fellBack = async (error?: string): Promise<CaptureThumbnailResult> => {
+    let cleared = false;
+    if (opts.clearOnFailure) {
+      try {
+        await db
+          .update(lpPagesTable)
+          .set({ thumbnailUrl: null, thumbnailCapturedAt: null })
+          .where(eq(lpPagesTable.id, page.id));
+        cleared = true;
+      } catch (err) {
+        console.warn("[captureTemplateThumbnail] failed to clear thumbnail", {
+          pageId: page.id,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    return {
+      ok: false,
+      outcome: "fell_back",
+      thumbnailUrl: null,
+      thumbnailCapturedAt: null,
+      cleared,
+      error,
+    };
+  };
 
   const capturedAt = new Date();
   let thumbnailUrl: string;
@@ -147,23 +218,39 @@ export async function captureTemplateThumbnail(
       `?reviewToken=${encodeURIComponent(token)}&v=${capturedAt.getTime()}`;
     thumbnailUrl = buildTemplateThumbnailUrl(previewUrl);
   } catch (err) {
-    return fail({ error: err instanceof Error ? err.message : String(err) });
+    return fellBack(err instanceof Error ? err.message : String(err));
   }
 
-  // Pre-warm: trigger thum.io to render + cache the screenshot now.
+  // Pre-warm: trigger thum.io to render the screenshot now, and pull the bytes
+  // back so we can validate the capture before trusting it.
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), PREWARM_TIMEOUT_MS);
+  let imageBytes: Buffer;
   try {
     const res = await fetch(thumbnailUrl, { signal: controller.signal, redirect: "follow" });
     if (!res.ok) {
-      return fail({ error: `thum.io responded ${res.status}` });
+      return fellBack(`thum.io responded ${res.status}`);
     }
-    // Drain the body so the render completes before we record success.
-    await res.arrayBuffer().catch(() => {});
+    imageBytes = Buffer.from(await res.arrayBuffer());
   } catch (err) {
-    return fail({ error: err instanceof Error ? err.message : String(err) });
+    return fellBack(err instanceof Error ? err.message : String(err));
   } finally {
     clearTimeout(timer);
+  }
+
+  // Validate: reject blank/grey/near-uniform captures (the SPA never hydrated)
+  // so a broken screenshot can never override a perfectly good OG image.
+  try {
+    const stats = await sharp(imageBytes).stats();
+    const maxStdev = Math.max(...stats.channels.map((c) => c.stdev));
+    if (!Number.isFinite(maxStdev) || maxStdev < MIN_CONTENT_STDEV) {
+      const reported = Number.isFinite(maxStdev) ? maxStdev.toFixed(1) : "n/a";
+      return fellBack(`blank/near-uniform capture (max stdev ${reported})`);
+    }
+  } catch (err) {
+    return fellBack(
+      `could not decode capture: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 
   try {
@@ -172,10 +259,10 @@ export async function captureTemplateThumbnail(
       .set({ thumbnailUrl, thumbnailCapturedAt: capturedAt })
       .where(eq(lpPagesTable.id, page.id));
   } catch (err) {
-    return fail({ error: err instanceof Error ? err.message : String(err) });
+    return fellBack(err instanceof Error ? err.message : String(err));
   }
 
-  return { ok: true, thumbnailUrl, thumbnailCapturedAt: capturedAt };
+  return { ok: true, outcome: "captured", thumbnailUrl, thumbnailCapturedAt: capturedAt };
 }
 
 // Per-page debounce timers so rapid autosaves coalesce into a single capture.
