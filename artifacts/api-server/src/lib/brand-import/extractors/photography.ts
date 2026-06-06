@@ -78,34 +78,56 @@ function urlFromBackgroundStyle(style: string): string | null {
 }
 
 /**
- * Extract candidate content-image URLs from an already-parsed DOM. Shared by
- * the Brand Import photography extractor (which has a Cheerio `Evidence`) and
- * page-create reference scraping (which loads raw Firecrawl HTML), so both use
- * identical quality heuristics: largest `srcset`, lazy-load attributes, and CSS
- * background images, while skipping header/nav/footer chrome, icon/sprite/
- * favicon/logo assets, and vision-unsupported formats (SVG/ICO/etc). Capped at 8.
+ * Candidate imagery harvested from a page DOM, split by usability as block
+ * creative:
+ *  - `content`: real `<img>`/`srcset`/CSS-background photography — safe to mirror
+ *    into `lp_media` as AI-usable landing-page creative.
+ *  - `og`: the page's `og:image` / `twitter:image`. These are social-preview
+ *    renders — typically a homepage hero with the brand logo and headline text
+ *    baked in — so they make a generated page look like a broken mini-screenshot
+ *    when used as a feature-block photo. They are kept OUT of `content` and are
+ *    only ever used as a vision *style* reference (task #1095).
  */
-export function pickImagesFromDom($: cheerio.CheerioAPI, baseUrl: string): string[] {
+interface DomImages {
+  content: string[];
+  og: string[];
+}
+
+/**
+ * Extract candidate image URLs from an already-parsed DOM, split into real
+ * content photography vs. og/twitter social-preview images. Shared by the Brand
+ * Import photography extractor (which has a Cheerio `Evidence`) and page-create
+ * reference scraping (which loads raw Firecrawl HTML), so both use identical
+ * quality heuristics: largest `srcset`, lazy-load attributes, and CSS background
+ * images, while skipping header/nav/footer chrome, icon/sprite/favicon/logo
+ * assets, and vision-unsupported formats (SVG/ICO/etc). Content capped at 8.
+ *
+ * The shared `seen` set means an og:image that ALSO appears as a page `<img>`
+ * stays in `og` (vision-only) and never bleeds into `content`.
+ */
+export function collectImagesFromDom($: cheerio.CheerioAPI, baseUrl: string): DomImages {
   const abs = (u: string | undefined | null): string | null => {
     if (!u) return null;
     const trimmed = u.trim();
     if (!trimmed || trimmed.startsWith("data:")) return null;
     try { return new URL(trimmed, baseUrl).toString(); } catch { return null; }
   };
-  const out: string[] = [];
+  const content: string[] = [];
+  const og: string[] = [];
   const seen = new Set<string>();
-  const push = (u: string | null): void => {
+  const pushTo = (arr: string[], u: string | null): void => {
     if (!u) return;
     if (seen.has(u)) return;
     if (isVisionUnsupportedImage(u)) return;
     if (/sprite|icon|favicon|logo/i.test(u)) return;
     seen.add(u);
-    out.push(u);
+    arr.push(u);
   };
 
-  // OG image first
-  push(abs($('meta[property="og:image"]').attr("content")));
-  push(abs($('meta[name="twitter:image"]').attr("content")));
+  // og:image / twitter:image — captured separately so they can serve as a
+  // vision style reference WITHOUT becoming AI-usable block creative.
+  pushTo(og, abs($('meta[property="og:image"]').attr("content")));
+  pushTo(og, abs($('meta[name="twitter:image"]').attr("content")));
 
   // Widened element search: themes without semantic <main>/<section>/
   // <article> wrappers (common on Shopify/Squarespace) still keep their
@@ -113,7 +135,7 @@ export function pickImagesFromDom($: cheerio.CheerioAPI, baseUrl: string): strin
   // (and <picture><source>) on the page and only exclude the header/nav/
   // footer chrome explicitly.
   $("img, picture source").each((_, el) => {
-    if (out.length >= 8) return;
+    if (content.length >= 8) return;
     const $el = $(el);
     if ($el.closest("header,nav,footer").length) return;
     const w = parseInt($el.attr("width") ?? "0", 10) || 0;
@@ -122,7 +144,7 @@ export function pickImagesFromDom($: cheerio.CheerioAPI, baseUrl: string): strin
 
     // Responsive sources: prefer the largest srcset candidate.
     const srcset = $el.attr("srcset") ?? $el.attr("data-srcset");
-    if (srcset) push(abs(pickLargestFromSrcset(srcset)));
+    if (srcset) pushTo(content, abs(pickLargestFromSrcset(srcset)));
 
     // Plain / lazy src attributes. Keep scanning until one resolves to a
     // real http(s) image — do NOT break on a merely-present attribute.
@@ -135,23 +157,31 @@ export function pickImagesFromDom($: cheerio.CheerioAPI, baseUrl: string): strin
       const v = $el.attr(attr);
       if (!v) continue;
       const resolved = abs(v);
-      if (resolved) { push(resolved); break; }
+      if (resolved) { pushTo(content, resolved); break; }
     }
   });
 
   // Inline CSS background-image URLs (hero sections frequently use these
   // instead of an <img>). Scan a bounded number of styled elements.
-  if (out.length < 8) {
+  if (content.length < 8) {
     $("[style*='background']").each((_, el) => {
-      if (out.length >= 8) return;
+      if (content.length >= 8) return;
       const $el = $(el);
       if ($el.closest("header,nav,footer").length) return;
       const style = $el.attr("style") ?? "";
-      push(abs(urlFromBackgroundStyle(style)));
+      pushTo(content, abs(urlFromBackgroundStyle(style)));
     });
   }
 
-  return out.slice(0, 8);
+  return { content: content.slice(0, 8), og: og.slice(0, 2) };
+}
+
+/**
+ * Real content photography from a DOM (excludes og/twitter social-preview
+ * images). This is what callers mirror as AI-usable creative.
+ */
+export function pickImagesFromDom($: cheerio.CheerioAPI, baseUrl: string): string[] {
+  return collectImagesFromDom($, baseUrl).content;
 }
 
 export function pickImages(evidence: Evidence): string[] {
@@ -165,27 +195,38 @@ export async function extractPhotography(
   openai: OpenAI,
 ): Promise<DimensionResult<PhotographyData>> {
   const errors: string[] = [];
-  const images = pickImages(evidence);
+  const $ = evidence.$home;
+  const { content: images, og: ogImages } = $
+    ? collectImagesFromDom($, evidence.homeUrl)
+    : { content: [] as string[], og: [] as string[] };
   // If we have NO images at all but DO have a screenshot, use the screenshot
   // as the lone evidence so we still produce something.
   // Prefer the inlined data: URL so the OpenAI fetcher isn't blocked/
   // throttled by some firecrawl screenshot hosts (same reason colors/
   // buttons/typography all use screenshotDataUrl).
   const screenshotFallback = evidence.screenshotDataUrl ?? evidence.screenshotUrl;
-  const visionTargets = images.length > 0 ? images : screenshotFallback ? [screenshotFallback] : [];
+  // og/twitter images are valid VISION style references (they show the brand's
+  // hero look) so we keep them here, but they are deliberately excluded from
+  // referenceImageUrls below so they never become block creative.
+  const visionCandidates = [...images, ...ogImages];
+  const visionTargets =
+    visionCandidates.length > 0 ? visionCandidates : screenshotFallback ? [screenshotFallback] : [];
 
   // Images that should reach the mirror step regardless of whether vision
   // classification succeeds (task #592). These become AI-usable landing-page
   // creative (mirrored into lp_media tagged "photography"), so this list must
   // ONLY ever contain real scraped <img>/background photography — NEVER the
-  // homepage screenshot. The screenshot is a full-page capture of the site
-  // chrome (nav, footer, hero text baked in); placing it as a block image
-  // makes a generated page look broken. It is still used as a vision style
-  // reference (visionTargets, above) and is mirrored separately as the
-  // Brand Settings visual record (orchestrator's mirrorHomepageScreenshot,
-  // which deliberately does NOT create an lp_media row). So when the page
-  // yields no real images we leave referenceImageUrls empty rather than
-  // falling back to the screenshot (task #1079).
+  // homepage screenshot NOR the og:image/twitter:image social-preview render.
+  // The screenshot is a full-page capture of the site chrome (nav, footer,
+  // hero text baked in); the og:image is a homepage hero render with the brand
+  // logo + headline baked in (task #1095). Placing either as a block image
+  // makes a generated page look like a broken mini-screenshot. Both are still
+  // used as vision style references (visionTargets, above); the screenshot is
+  // additionally mirrored separately as the Brand Settings visual record
+  // (orchestrator's mirrorHomepageScreenshot, which deliberately does NOT
+  // create an lp_media row). So when the page yields no real content images we
+  // leave referenceImageUrls empty rather than falling back to the screenshot
+  // (task #1079) or the og:image (task #1095).
   const referenceImageUrls = images;
 
   const emptyProfile: PhotographyProfile = {

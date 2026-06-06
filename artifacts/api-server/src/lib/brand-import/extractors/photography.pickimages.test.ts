@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as cheerio from "cheerio";
 
-import { pickImages } from "./photography";
+import { collectImagesFromDom, pickImages } from "./photography";
 import type { Evidence } from "../types";
 
 function makeEvidence(html: string, overrides: Partial<Evidence> = {}): Evidence {
@@ -108,5 +108,48 @@ describe("pickImages (brand-import photography)", () => {
     const imgs = Array.from({ length: 20 }, (_, i) => `<img src="https://cdn.example.com/p${i}.jpg" />`).join("");
     const out = pickImages(makeEvidence(`<main>${imgs}</main>`));
     expect(out.length).toBe(8);
+  });
+
+  it("excludes og:image / twitter:image from the content pool (task #1095)", () => {
+    // og/twitter previews are homepage renders with logo + headline baked in.
+    // They must NOT surface as AI-usable block creative.
+    const html = `
+      <head>
+        <meta property="og:image" content="https://cdn.example.com/og-preview.jpg" />
+        <meta name="twitter:image" content="https://cdn.example.com/twitter-card.jpg" />
+      </head>
+      <main><img src="https://cdn.example.com/real-photo.jpg" /></main>`;
+    const out = pickImages(makeEvidence(html));
+    expect(out).toContain("https://cdn.example.com/real-photo.jpg");
+    expect(out).not.toContain("https://cdn.example.com/og-preview.jpg");
+    expect(out).not.toContain("https://cdn.example.com/twitter-card.jpg");
+  });
+});
+
+describe("collectImagesFromDom (og vs content split)", () => {
+  it("keeps og/twitter images in `og` and real photos in `content`", () => {
+    const html = `
+      <head>
+        <meta property="og:image" content="https://cdn.example.com/og-preview.jpg" />
+        <meta name="twitter:image" content="https://cdn.example.com/twitter-card.jpg" />
+      </head>
+      <main><img src="https://cdn.example.com/real-photo.jpg" /></main>`;
+    const { content, og } = collectImagesFromDom(cheerio.load(html), "https://shop.example.com");
+    expect(content).toEqual(["https://cdn.example.com/real-photo.jpg"]);
+    expect(og).toEqual([
+      "https://cdn.example.com/og-preview.jpg",
+      "https://cdn.example.com/twitter-card.jpg",
+    ]);
+  });
+
+  it("an og:image that also appears as an <img> stays og-only, never content", () => {
+    const html = `
+      <head>
+        <meta property="og:image" content="https://cdn.example.com/hero.jpg" />
+      </head>
+      <main><img src="https://cdn.example.com/hero.jpg" /></main>`;
+    const { content, og } = collectImagesFromDom(cheerio.load(html), "https://shop.example.com");
+    expect(og).toEqual(["https://cdn.example.com/hero.jpg"]);
+    expect(content).not.toContain("https://cdn.example.com/hero.jpg");
   });
 });
