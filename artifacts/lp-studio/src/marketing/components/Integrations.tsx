@@ -16,33 +16,38 @@ interface Integration {
   // Lowercase status caption on the tile (defaults to "Shipped"). Used to
   // distinguish a first-class integration from a positioning/no-backend tile.
   tag?: string;
-  // When present, the tile is a link instead of a plain button (e.g. Zapier
-  // points at its docs page since there is no in-product backend).
+  // Anchor on the integrations docs hub (/docs/integrations#<anchor>). Every
+  // tile links to its matching section so visitors can read how it works.
   href?: string;
 }
+
+// Docs hub anchor base — every tile (and the featured Salesforce panel) links
+// to its matching section here. Keep ids in sync with the section ids in
+// marketing/pages/integrations-docs.tsx.
+const DOCS = "/docs/integrations";
 
 // Salesforce is featured separately above the grid (bidirectional sync with
 // field mapping is a different class of integration than the others), so it
 // is intentionally omitted from the tile list.
 const LEAD_HANDOFF: Integration[] = [
-  { name: "Marketo",      color: "#5C4C9F", mark: MarketoMark },
-  { name: "HubSpot",      color: "#FF7A59", mark: HubSpotMark },
-  { name: "Google Sheets",color: "#0F9D58", mark: SheetsMark },
-  { name: "Webhooks",     color: "#1A1815", mark: WebhookMark },
-  { name: "Zapier",       color: "#FF4F00", mark: ZapierMark, tag: "Via webhooks", href: "/docs/integrations/zapier" },
+  { name: "Marketo",      color: "#5C4C9F", mark: MarketoMark,  href: `${DOCS}#marketo` },
+  { name: "HubSpot",      color: "#FF7A59", mark: HubSpotMark,  href: `${DOCS}#hubspot` },
+  { name: "Google Sheets",color: "#0F9D58", mark: SheetsMark,   href: `${DOCS}#google-sheets` },
+  { name: "Webhooks",     color: "#1A1815", mark: WebhookMark,  href: `${DOCS}#webhooks` },
+  { name: "Zapier",       color: "#FF4F00", mark: ZapierMark, tag: "Via webhooks", href: `${DOCS}#zapier` },
 ];
 
 const SCHEDULING_OPS: Integration[] = [
-  { name: "Chili Piper", color: "#E26B4F", mark: ChiliPiperMark },
-  { name: "Asana",       color: "#F06A6A", mark: AsanaMark },
-  { name: "Resend",      color: "#1A1815", mark: ResendMark },
-  { name: "Slack",       color: "#4A154B", mark: SlackMark },
+  { name: "Chili Piper", color: "#E26B4F", mark: ChiliPiperMark, href: `${DOCS}#chili-piper` },
+  { name: "Asana",       color: "#F06A6A", mark: AsanaMark,       href: `${DOCS}#asana` },
+  { name: "Resend",      color: "#1A1815", mark: ResendMark,      href: `${DOCS}#resend` },
+  { name: "Slack",       color: "#4A154B", mark: SlackMark,       href: `${DOCS}#slack` },
 ];
 
 const SIGNALS_ANALYTICS: Integration[] = [
-  { name: "RB2B",              color: "#0A8C5C", mark: Rb2bMark },
-  { name: "Apollo",            color: "#5952FF", mark: ApolloMark },
-  { name: "Google Analytics 4",color: "#F5B83E", mark: Ga4Mark },
+  { name: "RB2B",              color: "#0A8C5C", mark: Rb2bMark,   href: `${DOCS}#rb2b` },
+  { name: "Apollo",            color: "#5952FF", mark: ApolloMark, href: `${DOCS}#apollo` },
+  { name: "Google Analytics 4",color: "#F5B83E", mark: Ga4Mark,    href: `${DOCS}#ga4` },
 ];
 
 const groups: { label: string; subtitle: string; items: Integration[] }[] = [
@@ -276,13 +281,23 @@ export default function Integrations() {
         {/* Featured: Salesforce — first-class, bidirectional sync with field mapping,
          *  Lead + Opportunity sync, and named-account routing. It's the deepest
          *  integration we ship, so it earns its own panel. */}
-        <div
-          className="mb-6 p-5 md:p-6 rounded-2xl grid grid-cols-12 gap-4 md:gap-6 items-center"
+        <a
+          href={`${DOCS}#salesforce`}
+          className="mb-6 p-5 md:p-6 rounded-2xl grid grid-cols-12 gap-4 md:gap-6 items-center transition-all"
           style={{
             background:
               "linear-gradient(135deg, color-mix(in srgb, #00A1E0 7%, var(--paper)) 0%, var(--paper) 65%)",
             border: "1px solid color-mix(in srgb, #00A1E0 25%, var(--hairline))",
             boxShadow: "0 1px 0 rgba(255,255,255,0.6) inset",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateY(-1px)";
+            e.currentTarget.style.boxShadow =
+              "0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 18px -10px color-mix(in srgb, #00A1E0 60%, transparent)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = "0 1px 0 rgba(255,255,255,0.6) inset";
           }}
         >
           <div className="col-span-12 md:col-span-4 flex items-center gap-3">
@@ -344,7 +359,7 @@ export default function Integrations() {
               ))}
             </ul>
           </div>
-        </div>
+        </a>
 
         <div className="flex flex-col gap-6">
           {groups.map((g) => (

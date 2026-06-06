@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import "./marketing.css";
 
 import Home from "./pages/home";
@@ -9,7 +9,7 @@ import ComparePage from "./pages/compare";
 import PricingPage from "./pages/pricing";
 import Privacy from "./pages/privacy";
 import Terms from "./pages/terms";
-import ZapierDocs from "./pages/zapier";
+import IntegrationsDocs from "./pages/integrations-docs";
 import NotFound from "./pages/not-found";
 
 /**
@@ -34,7 +34,12 @@ export default function MarketingApp() {
       <Route path="/pricing" component={PricingPage} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
-      <Route path="/docs/integrations/zapier" component={ZapierDocs} />
+      <Route path="/docs/integrations" component={IntegrationsDocs} />
+      {/* Old single-purpose Zapier doc → Zapier section of the hub so existing
+          links and OG share cards keep resolving instead of 404ing. */}
+      <Route path="/docs/integrations/zapier">
+        {() => <Redirect to="/docs/integrations#zapier" replace />}
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
