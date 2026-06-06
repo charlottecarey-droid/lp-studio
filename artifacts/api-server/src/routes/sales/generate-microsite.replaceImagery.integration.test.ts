@@ -137,6 +137,24 @@ async function seedLibrary(tenantId: number): Promise<void> {
 }
 
 /**
+ * The set of library image URLs this tenant may READ — its own rows PLUS any
+ * globally `is_shared` row. The microsite generator's `fetchMediaCatalog`
+ * mirrors the drawer's read-ACL (lib/libraryScope `libraryReadablePredicate`),
+ * so on the shared test DB the candidate pool legitimately includes shared
+ * images owned by other tenants — one of which can out-score this tenant's
+ * freshly-seeded hero. Asserting the exact seeded URLs is therefore brittle; the
+ * durable contract is "Replace ON swaps the template photo for a tenant-READABLE
+ * library image", so we assert membership in this readable set instead.
+ */
+async function readableLibraryUrls(tenantId: number): Promise<Set<string>> {
+  const r = await pool.query<{ url: string }>(
+    `SELECT url FROM lp_media WHERE media_type = 'image' AND (tenant_id = $1 OR is_shared = true)`,
+    [tenantId],
+  );
+  return new Set(r.rows.map(x => x.url));
+}
+
+/**
  * Seed a tenant-owned, multi-block TEMPLATE page whose blocks carry REAL image
  * URLs in every image slot: a hero `imageUrl`, a benefits-grid with per-item
  * `image`, and a numeric `trust-bar` (value + label only, no images).
@@ -334,18 +352,18 @@ describe("Microsite generation — Replace imagery toggle (real library)", () =>
     const hero = body.blocks.find(b => b.type === "hero")!;
     const grid = body.blocks.find(b => b.type === "benefits-grid")!;
 
-    const libUrls = new Set([LIB_HERO_URL, LIB_FEAT_1_URL, LIB_FEAT_2_URL]);
+    const readableUrls = await readableLibraryUrls(tenantId);
     const tmplUrls = new Set([TMPL_HERO_IMG, TMPL_FEAT_1_IMG, TMPL_FEAT_2_IMG]);
 
-    // Hero photo swapped to a library image (not the template's).
+    // Hero photo swapped to a tenant-readable library image (not the template's).
     expect(hero.props.imageUrl).not.toBe(TMPL_HERO_IMG);
-    expect(libUrls.has(hero.props.imageUrl as string)).toBe(true);
+    expect(readableUrls.has(hero.props.imageUrl as string)).toBe(true);
 
-    // Every benefits-grid item photo swapped to a library image too.
+    // Every benefits-grid item photo swapped to a tenant-readable library image too.
     const gridItems = grid.props.items as Array<Record<string, unknown>>;
     for (const item of gridItems) {
       expect(tmplUrls.has(item.image as string)).toBe(false);
-      expect(libUrls.has(item.image as string)).toBe(true);
+      expect(readableUrls.has(item.image as string)).toBe(true);
     }
 
     // Copy is still personalized to the account.
