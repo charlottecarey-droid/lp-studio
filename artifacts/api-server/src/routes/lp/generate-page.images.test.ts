@@ -5,6 +5,9 @@ import {
   sanitizeAIImageUrls,
   aiFillEmptyImages,
   buildReferenceFillPool,
+  collectImageSlots,
+  isLogoImageUrl,
+  buildBrandLogoUrlSet,
   type MediaImage,
 } from "./generate-page";
 
@@ -570,5 +573,125 @@ describe("findBestImage — scraped images need positive relevance in the strict
     ];
     blocks = fillEmptyImages(blocks, [untaggedCurated], "totally unrelated context") as any[];
     expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/drawer-x");
+  });
+});
+
+// ── Task #1134: logos survive "Replace imagery" ─────────────────────────────
+// Logo images sitting in scanned image slots (hero imageUrl, backgroundImage,
+// images[].src, cases[].image, etc.) must NEVER be cleared, library-swapped, or
+// AI-regenerated when "Replace imagery" is on. Protection lives in the shared
+// pipeline (collectImageSlots excludes logo slots; sanitize preserves them) so
+// both the marketing and microsite generators inherit it.
+describe("isLogoImageUrl — logo detection", () => {
+  it("matches the bundled Dandy brand marks by pathname", () => {
+    expect(isLogoImageUrl("/dandy-logo.svg")).toBe(true);
+    expect(isLogoImageUrl("/dandy-logo-white.svg")).toBe(true);
+    expect(isLogoImageUrl("https://lp.meetdandy.com/dandy-logo-white.svg")).toBe(true);
+  });
+
+  it("matches a filename whose token clearly names a logo", () => {
+    expect(isLogoImageUrl("/api/storage/objects/uploads/acme-logo.svg")).toBe(true);
+    expect(isLogoImageUrl("/assets/logo-white.png")).toBe(true);
+    expect(isLogoImageUrl("/assets/logo2.svg")).toBe(true);
+    expect(isLogoImageUrl("/assets/partner-logos.png")).toBe(true);
+    expect(isLogoImageUrl("https://cdn.example.com/brand/logo.png?v=2")).toBe(true);
+  });
+
+  it("does NOT misclassify content photos that merely contain the substring", () => {
+    expect(isLogoImageUrl("/objects/catalogos.jpg")).toBe(false);
+    expect(isLogoImageUrl("/objects/denture-hero-1")).toBe(false);
+    expect(isLogoImageUrl("/api/storage/objects/uploads/clinic-photo.jpg")).toBe(false);
+    expect(isLogoImageUrl("")).toBe(false);
+    expect(isLogoImageUrl(undefined)).toBe(false);
+  });
+
+  it("matches the tenant's brand logo URL even without a logo-like filename", () => {
+    const logoUrls = buildBrandLogoUrlSet({
+      logoUrl: "/api/storage/objects/uploads/abcdef-123",
+      logoUrlDark: "https://lp.acme.com/api/storage/objects/uploads/dark-987",
+    });
+    expect(isLogoImageUrl("/api/storage/objects/uploads/abcdef-123", logoUrls)).toBe(true);
+    // A root-relative reference to the dark logo also matches via pathname.
+    expect(isLogoImageUrl("/api/storage/objects/uploads/dark-987", logoUrls)).toBe(true);
+    // An unrelated storage object is still treated as a content photo.
+    expect(isLogoImageUrl("/api/storage/objects/uploads/zzz-000", logoUrls)).toBe(false);
+  });
+});
+
+describe("collectImageSlots — excludes logo slots", () => {
+  it("never returns a slot whose value is a logo (filename heuristic)", () => {
+    const block = {
+      type: "hero",
+      props: {
+        headline: "Welcome",
+        imageUrl: "/assets/acme-logo.svg",
+        backgroundImage: "/objects/denture-hero-1",
+      },
+    };
+    const slots = collectImageSlots(block as any);
+    const values = slots.map((s) => s.get());
+    expect(values).toContain("/objects/denture-hero-1");
+    expect(values).not.toContain("/assets/acme-logo.svg");
+  });
+
+  it("excludes a brand-logo storage URL passed via logoUrls", () => {
+    const logoUrls = buildBrandLogoUrlSet({ logoUrl: "/api/storage/objects/uploads/brand-logo-uuid" });
+    const block = {
+      type: "zigzag-features",
+      props: {
+        rows: [
+          { headline: "Logo row", imageUrl: "/api/storage/objects/uploads/brand-logo-uuid" },
+          { headline: "Photo row", imageUrl: "/objects/dental-feature-1" },
+        ],
+      },
+    };
+    const values = collectImageSlots(block as any, logoUrls).map((s) => s.get());
+    expect(values).toEqual(["/objects/dental-feature-1"]);
+  });
+});
+
+describe("Replace-imagery pipeline preserves logos", () => {
+  it("the clear loop leaves a logo slot intact while emptying photo slots", () => {
+    const logoUrls = buildBrandLogoUrlSet({ logoUrl: "/api/storage/objects/uploads/brand-logo-uuid" });
+    const blocks: any[] = [
+      { type: "hero", props: { headline: "H", imageUrl: "/objects/denture-hero-1" } },
+      { type: "logo-strip", props: { images: [{ src: "/api/storage/objects/uploads/brand-logo-uuid", alt: "logo" }] } },
+      { type: "card-grid", props: { cards: [{ title: "C", imageUrl: "/dandy-logo-white.svg" }] } },
+    ];
+    // Mirror the generator's clear loop (collectImageSlots(block, logoUrls)).
+    for (const block of blocks) {
+      for (const slot of collectImageSlots(block, logoUrls)) slot.set("");
+    }
+    expect(blocks[0].props.imageUrl).toBe(""); // photo cleared
+    expect(blocks[1].props.images[0].src).toBe("/api/storage/objects/uploads/brand-logo-uuid"); // brand logo kept
+    expect(blocks[2].props.cards[0].imageUrl).toBe("/dandy-logo-white.svg"); // bundled mark kept
+  });
+
+  it("sanitize never clears a bundled logo even though it is not an allowed storage URL", () => {
+    let blocks: any[] = [
+      { type: "hero", props: { headline: "Dentures", imageUrl: "/dandy-logo-white.svg" } },
+    ];
+    blocks = sanitizeAIImageUrls(blocks, LIB) as any[];
+    expect(blocks[0].props.imageUrl).toBe("/dandy-logo-white.svg");
+  });
+
+  it("validate never clears a brand-logo pick sitting in a hero slot", () => {
+    const logoUrls = buildBrandLogoUrlSet({ logoUrl: "/api/storage/objects/uploads/brand-logo-uuid" });
+    const blocks: any[] = [
+      { type: "hero", props: { headline: "Affordable dentures", imageUrl: "/api/storage/objects/uploads/brand-logo-uuid" } },
+    ];
+    validateAndDedupeAIImages(blocks, LIB, PAGE_CTX, logoUrls);
+    expect(blocks[0].props.imageUrl).toBe("/api/storage/objects/uploads/brand-logo-uuid");
+  });
+
+  it("fill never replaces a logo slot with a library image", () => {
+    const featLib: MediaImage[] = [
+      { url: "/objects/feat-a", title: "A", tags: ["lp-hero", "dentures"] },
+    ];
+    let blocks: any[] = [
+      { type: "hero", props: { headline: "Dentures", imageUrl: "/assets/acme-logo.svg" } },
+    ];
+    blocks = fillEmptyImages(blocks, featLib, PAGE_CTX) as any[];
+    expect(blocks[0].props.imageUrl).toBe("/assets/acme-logo.svg");
   });
 });

@@ -42,6 +42,9 @@ import {
   // Task #1106 — used to clear a template's image slots (in place) when the
   // caller opts into replacing template imagery with on-brand library photos.
   collectImageSlots,
+  // Task #1134 — builds the tenant's brand logo URL set so logo images survive
+  // "Replace imagery" (never cleared, swapped, or AI-regenerated).
+  buildBrandLogoUrlSet,
 } from "../lp/generate-page";
 // Mirror harvested reference imagery into the tenant's media library so the
 // image-fill pass can use real site images for empty slots.
@@ -1650,6 +1653,13 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       .where(eq(lpBrandSettingsTable.tenantId, account.tenantId))
       .limit(1);
     const brand = brandRows.length > 0 ? (brandRows[0].config as Record<string, unknown>) : {};
+    // Task #1134 — the tenant's brand logo URLs, threaded into the shared image
+    // pipeline so logo images survive "Replace imagery" (never cleared, swapped,
+    // or AI-regenerated).
+    const brandLogoUrls = buildBrandLogoUrlSet({
+      logoUrl: typeof brand.logoUrl === "string" ? brand.logoUrl : undefined,
+      logoUrlDark: typeof brand.logoUrlDark === "string" ? brand.logoUrlDark : undefined,
+    });
 
     // Resolve the audience segment the user picked from this tenant's own
     // brand.segments. No hardcoded enum — unknown ids fail closed with a 400
@@ -2077,20 +2087,22 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // already excludes trust-bar / stats item images.
     if (templateBlocks && replaceImagery === true) {
       for (const block of normalizedBlocks) {
-        for (const slot of collectImageSlots(block as unknown as Record<string, unknown>)) {
+        // Task #1134 — collectImageSlots excludes logo slots, so the brand mark
+        // is preserved while every photo slot is cleared for the fill passes.
+        for (const slot of collectImageSlots(block as unknown as Record<string, unknown>, brandLogoUrls)) {
           slot.set("");
         }
       }
     }
 
     // Clear AI-assigned URLs that are hallucinated or excluded (OG/social/ads)
-    // so the fill passes below can replace them.
-    normalizedBlocks = sanitizeAIImageUrls(normalizedBlocks, allImages) as AiBlock[];
+    // so the fill passes below can replace them. Task #1134 — logos are preserved.
+    normalizedBlocks = sanitizeAIImageUrls(normalizedBlocks, allImages, brandLogoUrls) as AiBlock[];
     // Subject the model's own picks to the same dedupe + relevance guardrails.
-    normalizedBlocks = validateAndDedupeAIImages(normalizedBlocks, imageFillPool, pageImageContext) as AiBlock[];
+    normalizedBlocks = validateAndDedupeAIImages(normalizedBlocks, imageFillPool, pageImageContext, brandLogoUrls) as AiBlock[];
     // Fill remaining empty image slots from the tenant media library + scraped
     // reference imagery (surfaces untagged images + broad block-type coverage).
-    normalizedBlocks = fillEmptyImages(normalizedBlocks, imageFillPool, pageImageContext) as AiBlock[];
+    normalizedBlocks = fillEmptyImages(normalizedBlocks, imageFillPool, pageImageContext, false, brandLogoUrls) as AiBlock[];
     // Replace invented / missing video URLs with real library videos.
     normalizedBlocks = fillEmptyVideos(normalizedBlocks, videoUrls) as AiBlock[];
     normalizedBlocks = injectBrandIntoBlocks(normalizedBlocks, brand, ctaOverride) as AiBlock[];
