@@ -32,7 +32,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, getLpPageUrl, getLpPreviewUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
-import { fetchBrandConfig, saveBrandConfig, DEFAULT_BRAND, getBrandStyleVars, type BrandConfig } from "@/lib/brand-config";
+import { fetchBrandConfig, saveBrandConfig, DEFAULT_BRAND, getBrandStyleVars, getBrandButtonCss, type BrandConfig } from "@/lib/brand-config";
 import { consumeStrictMismatches, type StrictMismatch } from "@/lib/strictMismatches";
 import { consumeCritiqueAnnotations, type CritiqueAnnotation } from "@/lib/critiqueAnnotations";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
@@ -3180,6 +3180,7 @@ export default function BuilderEditor() {
                   .animate-marquee { animation: marquee 40s linear infinite; }
                   .animate-marquee:hover { animation-play-state: paused; }
                 `}</style>
+                {getBrandButtonCss(brand) && <style>{getBrandButtonCss(brand)}</style>}
                 <SortableContext items={collectIds(blocks)} strategy={verticalListSortingStrategy}>
                     {!catalogMode && <InsertionBar onClick={() => openInsertAt(0)} />}
                     {blocks.map((block, index) => (
