@@ -22,8 +22,12 @@ void ensureCsrfToken();
   const h = window.location.hostname.toLowerCase();
   const isDandyHost = h.endsWith("meetdandy.com") || h.endsWith(".dandy.com") || h === "dandy.com";
   if (!isDandyHost) return;
-  const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-  if (link) link.href = "/favicon.svg";
+  const svgIcon = document.querySelector<HTMLLinkElement>('link[rel="icon"][type="image/svg+xml"]');
+  if (svgIcon) svgIcon.href = "/favicon.svg";
+  const icoIcon = document.querySelector<HTMLLinkElement>('link[rel="icon"][type="image/x-icon"]');
+  if (icoIcon) icoIcon.href = "/dandy-favicon.ico";
+  const appleIcon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
+  if (appleIcon) appleIcon.href = "/dandy-apple-touch-icon.png";
 })();
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN_FRONTEND as string | undefined;
