@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ImagePicker } from "@/components/ImagePicker";
 import { BrandSwatches, useBrandConfig } from "@/components/BrandSwatches";
 import { getBrandStyleVars, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
-import { Plus, Trash2, ImagePlus, ImageOff } from "lucide-react";
+import { Plus, Trash2, GripVertical, ImagePlus, ImageOff } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { SortableItemList, SortableItem, remapIndexSet } from "./SortableItemList";
 
 interface Props {
   props: TrustBarBlockProps;
@@ -124,6 +125,14 @@ export function TrustBarPanel({ props, onChange }: Props) {
   };
   const addItem = () => onChange({ ...props, items: [...items, { value: "0", label: "New Stat" }] });
   const removeItem = (i: number) => onChange({ ...props, items: items.filter((_, idx) => idx !== i) });
+  const moveItem = (from: number, to: number) => {
+    if (to < 0 || to >= items.length) return;
+    const updated = [...items];
+    const [moved] = updated.splice(from, 1);
+    updated.splice(to, 0, moved);
+    onChange({ ...props, items: updated });
+    setRevealed(prev => remapIndexSet(prev, from, to));
+  };
   const anyImages = items.some(it => (it.image ?? "").trim() !== "");
 
   return (
@@ -197,11 +206,23 @@ export function TrustBarPanel({ props, onChange }: Props) {
       {/* Stats */}
       <div className="space-y-3">
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Stats</Label>
+        <SortableItemList count={items.length} onReorder={moveItem}>
         {items.map((item, i) => {
           const hasImage = (item.image ?? "").trim() !== "";
           const showImage = hasImage || revealed.has(i);
           return (
-            <div key={i} className="flex gap-2 items-start">
+            <SortableItem key={i} index={i}>
+            {(handle) => (
+            <div className="flex gap-2 items-start bg-background mb-2">
+              <button
+                type="button"
+                {...handle.attributes}
+                {...handle.listeners}
+                className="text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none mt-2.5 shrink-0"
+                aria-label="Drag to reorder stat"
+              >
+                <GripVertical className="w-4 h-4" />
+              </button>
               <div className="flex-1 space-y-2">
                 {showImage ? (
                   <>
@@ -243,8 +264,11 @@ export function TrustBarPanel({ props, onChange }: Props) {
                 <Trash2 className="w-4 h-4" />
               </Button>
             </div>
+            )}
+            </SortableItem>
           );
         })}
+        </SortableItemList>
         <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={addItem}>
           <Plus className="w-3.5 h-3.5" /> Add Stat
         </Button>

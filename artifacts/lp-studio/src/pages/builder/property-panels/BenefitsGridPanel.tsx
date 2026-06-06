@@ -4,14 +4,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, ChevronUp, ChevronDown, ImagePlus, ImageOff } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
+import { Plus, Trash2, GripVertical, ImagePlus, ImageOff } from "lucide-react";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { ImagePicker } from "@/components/ImagePicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { useState } from "react";
+import { SortableItemList, SortableItem, remapIndexSet } from "./SortableItemList";
 
 interface Props {
   blockType: string;
@@ -45,6 +45,7 @@ export function BenefitsGridPanel({ blockType, props, onChange, brandVoiceSet }:
     const [moved] = items.splice(from, 1);
     items.splice(to, 0, moved);
     onChange({ ...props, items });
+    setRevealed(prev => remapIndexSet(prev, from, to));
   };
 
   return (
@@ -111,6 +112,7 @@ export function BenefitsGridPanel({ blockType, props, onChange, brandVoiceSet }:
         </div>
       </div>
       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Benefits</Label>
+      <SortableItemList count={props.items.length} onReorder={moveItem}>
       {props.items.map((item, i) => {
         const siblingTitles = props.items
           .filter((_, idx) => idx !== i)
@@ -123,30 +125,23 @@ export function BenefitsGridPanel({ blockType, props, onChange, brandVoiceSet }:
           .map(x => `${x.title}: ${x.description.slice(0, 60)}`)
           .join(" | ");
         return (
-          <div key={i} className="border rounded-lg p-3 space-y-2">
+          <SortableItem key={i} index={i}>
+          {(handle) => (
+          <div className="border rounded-lg p-3 space-y-2 bg-background mb-2">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-muted-foreground">Benefit {i + 1}</span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  {...handle.attributes}
+                  {...handle.listeners}
+                  className="text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none"
+                  aria-label="Drag to reorder benefit"
+                >
+                  <GripVertical className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-xs font-medium text-muted-foreground">Benefit {i + 1}</span>
+              </div>
               <div className="flex items-center gap-0.5">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="w-6 h-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  onClick={() => moveItem(i, i - 1)}
-                  disabled={i === 0}
-                  aria-label="Move benefit up"
-                >
-                  <ChevronUp className="w-3 h-3" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="w-6 h-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  onClick={() => moveItem(i, i + 1)}
-                  disabled={i === props.items.length - 1}
-                  aria-label="Move benefit down"
-                >
-                  <ChevronDown className="w-3 h-3" />
-                </Button>
                 <Button size="icon" variant="ghost" className="w-6 h-6 text-muted-foreground hover:text-red-500" onClick={() => removeItem(i)}>
                   <Trash2 className="w-3 h-3" />
                 </Button>
@@ -229,8 +224,11 @@ export function BenefitsGridPanel({ blockType, props, onChange, brandVoiceSet }:
               );
             })()}
           </div>
+          )}
+          </SortableItem>
         );
       })}
+      </SortableItemList>
       <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={addItem}>
         <Plus className="w-3.5 h-3.5" /> Add Benefit
       </Button>
