@@ -9,7 +9,18 @@ const API_BASE = `${import.meta.env.BASE_URL?.replace(/\/$/, "") ?? ""}/api`;
 
 export default function TemplatePreview() {
   const params = useParams<{ templateId: string }>();
-  const templateId = params.templateId ?? "";
+  // Featured cards encode the id (e.g. `global:3828` → `global%3A3828`) so the
+  // colon survives as a single path segment. wouter does not decode route
+  // params, so decode here before parsing — otherwise `global%3A3828` never
+  // matches the `global:` prefix and the page falls back to "Template not
+  // found". decodeURIComponent is a no-op for plain flagship slugs.
+  const rawTemplateId = params.templateId ?? "";
+  let templateId = rawTemplateId;
+  try {
+    templateId = decodeURIComponent(rawTemplateId);
+  } catch {
+    templateId = rawTemplateId;
+  }
   const template = LP_TEMPLATES.find((t) => t.id === templateId);
   // A featured card can point at a DB-backed global template (`global:<id>`)
   // instead of a built-in flagship one. Those blocks aren't bundled here, so we
