@@ -10,6 +10,13 @@ export const lpMediaTable = pgTable("lp_media", {
   mediaType: text("media_type").notNull().default("video"),
   mimeType: text("mime_type").notNull().default(""),
   sizeBytes: integer("size_bytes"),
+  // Intrinsic pixel dimensions of the asset, captured at upload / brand-import
+  // time (and probed on demand for old rows). Nullable: legacy rows predate
+  // this column, and non-raster assets (e.g. SVG logos) may have no fixed
+  // pixel size. Used by the AI page generator to refuse undersized images as
+  // full-bleed / parallax hero backgrounds (they pixelate when stretched).
+  width: integer("width"),
+  height: integer("height"),
   tags: jsonb("tags").notNull().default([]),
   // Marks rows in the shared "starter" image library — visible to every tenant
   // regardless of tenant_id. Only an admin can create these (see admin upload route).

@@ -10,6 +10,7 @@ import { db, lpMediaTable, tenantsTable, pool } from "@workspace/db";
 import { asc, desc, eq, sql, ilike, and, count, or, inArray, type SQL } from "drizzle-orm";
 import { getTenantId, SESSION_COOKIE, type AuthUser } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
+import { readImageDimensions } from "../lib/imageDimensions";
 
 /**
  * Read-only requester resolver for the storage serve route. Looks up the
@@ -492,6 +493,9 @@ router.post("/lp/upload", (req: Request, res: Response) => {
       // Save to media table so it appears in the library
       const tenantId = getTenantId(req, res);
       if (tenantId == null) return;
+      // Capture intrinsic pixel dimensions so the AI page generator can refuse
+      // undersized images as full-bleed hero backgrounds (task #1065).
+      const dims = await readImageDimensions(req.file.buffer, req.file.mimetype);
       const [record] = await db.insert(lpMediaTable).values({
         tenantId,
         title,
@@ -499,6 +503,8 @@ router.post("/lp/upload", (req: Request, res: Response) => {
         mediaType: "image",
         mimeType: req.file.mimetype,
         sizeBytes: req.file.size,
+        width: dims?.width ?? null,
+        height: dims?.height ?? null,
         tags: folderTags,
       }).returning();
 
@@ -571,6 +577,9 @@ router.post("/lp/media/shared/upload", requireSuperadmin, (req: Request, res: Re
         isShared = false;
       }
 
+      // Capture intrinsic pixel dimensions (task #1065) — same as the
+      // tenant upload route above.
+      const dims = await readImageDimensions(req.file.buffer, req.file.mimetype);
       const [record] = await db.insert(lpMediaTable).values({
         tenantId,
         title,
@@ -578,6 +587,8 @@ router.post("/lp/media/shared/upload", requireSuperadmin, (req: Request, res: Re
         mediaType: "image",
         mimeType: req.file.mimetype,
         sizeBytes: req.file.size,
+        width: dims?.width ?? null,
+        height: dims?.height ?? null,
         tags,
         isShared,
       }).returning();

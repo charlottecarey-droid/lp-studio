@@ -20,6 +20,8 @@ import { resolveBlockTags, BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS, type Bl
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
 import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
+import { readImageDimensions, type ImageDimensions } from "../../lib/imageDimensions";
+import { ObjectStorageService } from "../../lib/objectStorage";
 
 const router = Router();
 
@@ -357,12 +359,198 @@ export function enforceHeroLegibility(blocks: unknown[]): unknown[] {
   return blocks;
 }
 
+// ── Hero-resolution guard (task #1065) ──────────────────────────────────
+//
+// `full-bleed-hero` and `parallax-image-hero` stretch their background image
+// edge-to-edge across the entire viewport. A tiny / low-res source (a 600px
+// logo, a thumbnail scraped from a brand site) pixelates badly when blown up
+// that large. This guard refuses an undersized image as a full-bleed
+// background: it downgrades the block to a non-full-bleed generic `hero`
+// (image shown inset via a split layout, or text-only when the image is too
+// small even for that) while preserving the headline / subheadline / CTA
+// wiring. Because the generic `hero` is itself a self-nav hero, downgrading
+// keeps the page's nav/footer injection valid.
+//
+// AI-generated heroes (gpt-image-1 emits 1536×1024) and any image at/above
+// the threshold keep their full-bleed treatment. The guard acts ONLY on
+// positive evidence of smallness — unknown or unreadable dimensions are left
+// full-bleed so a legitimate hero whose size we simply couldn't measure is
+// never wrecked. Heroes backed by a video are skipped entirely (a still-image
+// pixel count says nothing about video playback).
+
+/** Long edge (px) below which a photo looks soft stretched edge-to-edge as a
+ *  full-bleed / parallax hero background on a typical desktop viewport. */
+const MIN_HERO_FULLBLEED_LONG_EDGE = 1200;
+/** Short edge (px) minimum — a wide-but-short banner (e.g. 1600×280) also
+ *  looks bad stretched to fill the hero's tall height. */
+const MIN_HERO_FULLBLEED_SHORT_EDGE = 600;
+/** Long edge (px) below which the image is too small even for a contained /
+ *  inset hero — drop the image and ship a text-only hero instead. */
+const MIN_HERO_INSET_LONG_EDGE = 600;
+
+const FULL_BLEED_HERO_TYPES = new Set(["full-bleed-hero", "parallax-image-hero"]);
+const HERO_PROBE_TIMEOUT_MS = 4000;
+
+type KnownDims = { width?: number | null; height?: number | null };
+
+const heroProbeStorage = new ObjectStorageService();
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    p.catch(() => null),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+}
+
+/** Best-effort probe of an INTERNAL object-storage image's pixel dimensions.
+ *  Only `/api/storage/objects/...` (or `/objects/...`) URLs are probed — we
+ *  never fetch an external URL here, so there is no SSRF surface and slow
+ *  third-party CDNs can't stall generation. Returns null on any failure. */
+async function probeStorageImageDimensions(url: string): Promise<ImageDimensions | null> {
+  let objectPath: string | null = null;
+  try {
+    const path = url.startsWith("http://") || url.startsWith("https://") ? new URL(url).pathname : url;
+    if (path.startsWith("/api/storage/objects/")) objectPath = path.slice("/api/storage".length);
+    else if (path.startsWith("/objects/")) objectPath = path;
+  } catch {
+    return null;
+  }
+  if (!objectPath) return null;
+  try {
+    const file = await heroProbeStorage.getObjectEntityFile(objectPath);
+    const [buffer] = await file.download();
+    return await readImageDimensions(buffer);
+  } catch {
+    return null;
+  }
+}
+
+/** Copy every CtaModalConfig / chilipiper field from a source hero's props so
+ *  the downgraded generic hero keeps its CTA-modal wiring intact. */
+function carryCtaWiring(src: Record<string, unknown>, dst: Record<string, unknown>): void {
+  if (typeof src.chilipiperUrl === "string") dst.chilipiperUrl = src.chilipiperUrl;
+  for (const key of Object.keys(src)) {
+    if (key.startsWith("modal")) dst[key] = src[key];
+  }
+}
+
+/** Build a non-full-bleed generic `hero` block from a too-small full-bleed /
+ *  parallax hero, preserving copy + CTA wiring. When the image is large enough
+ *  to read as an inset (split) image it is kept; otherwise the hero goes
+ *  text-only. */
+function downgradeFullBleedHero(
+  block: Record<string, unknown>,
+  props: Record<string, unknown>,
+  bgUrl: string,
+  longEdge: number,
+): Record<string, unknown> {
+  const str = (v: unknown): string => (typeof v === "string" ? v : "");
+  const headline = str(props.headline);
+  const subheadline = str(props.subheadline) || str(props.eyebrow);
+  // full-bleed-hero carries `ctaAction`; parallax-image-hero carries `ctaMode`
+  // (CtaMode uses "link" where the generic hero uses "url"). Normalize both to
+  // the generic hero's ctaAction enum.
+  const VALID_ACTIONS = new Set(["url", "chilipiper", "modal-form", "modal-chilipiper"]);
+  let ctaAction: string = "url";
+  if (typeof props.ctaAction === "string" && VALID_ACTIONS.has(props.ctaAction)) {
+    ctaAction = props.ctaAction;
+  } else if (typeof props.ctaMode === "string") {
+    ctaAction = props.ctaMode === "link" ? "url" : props.ctaMode;
+    if (!VALID_ACTIONS.has(ctaAction)) ctaAction = "url";
+  }
+
+  const keepImage = longEdge >= MIN_HERO_INSET_LONG_EDGE;
+  const newProps: Record<string, unknown> = {
+    headline,
+    subheadline,
+    ctaText: str(props.ctaText),
+    ctaUrl: str(props.ctaUrl),
+    ctaAction,
+    heroType: keepImage ? "static-image" : "none",
+    layout: keepImage ? "split" : "centered",
+    backgroundStyle: "white",
+    showSocialProof: props.showSocialProof === true || props.showSocialProof === undefined && typeof props.socialProofText === "string" && props.socialProofText.trim() !== "",
+    socialProofText: str(props.socialProofText),
+    imageUrl: keepImage ? bgUrl : "",
+    mediaUrl: "",
+  };
+  carryCtaWiring(props, newProps);
+
+  return { ...block, type: "hero", props: newProps };
+}
+
+/** Deterministic post-pass: refuse undersized images as full-bleed / parallax
+ *  hero backgrounds (task #1065). Mutates and returns the same blocks array. */
+export async function enforceHeroResolution(
+  blocks: Array<Record<string, unknown>>,
+  knownDims: Map<string, KnownDims>,
+): Promise<Array<Record<string, unknown>>> {
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+    const type = typeof block?.type === "string" ? block.type : "";
+    if (!FULL_BLEED_HERO_TYPES.has(type)) continue;
+    const props = block.props as Record<string, unknown> | undefined;
+    if (!props || typeof props !== "object") continue;
+
+    // A video hero is unaffected — a still-image pixel count says nothing
+    // about video playback quality.
+    const hasVideo =
+      (type === "full-bleed-hero" &&
+        props.backgroundType === "video" &&
+        typeof props.backgroundVideoUrl === "string" &&
+        props.backgroundVideoUrl.trim() !== "") ||
+      (type === "parallax-image-hero" &&
+        typeof props.videoUrl === "string" &&
+        props.videoUrl.trim() !== "");
+    if (hasVideo) continue;
+
+    const bgUrl =
+      type === "full-bleed-hero"
+        ? (typeof props.backgroundImageUrl === "string" ? props.backgroundImageUrl : "")
+        : (typeof props.imageUrl === "string" ? props.imageUrl : "");
+    // No background image at all → nothing to refuse. The fill / AI passes
+    // already ran; the block renders its dark fallback. Leave the flow alone.
+    if (!bgUrl.trim()) continue;
+
+    // Resolve dimensions: prefer dims captured at upload/mirror time, else a
+    // bounded best-effort probe of the internal object.
+    let dims: ImageDimensions | null = null;
+    const known = knownDims.get(bgUrl);
+    if (known && known.width && known.height) {
+      dims = { width: known.width, height: known.height };
+    } else {
+      dims = await withTimeout(probeStorageImageDimensions(bgUrl), HERO_PROBE_TIMEOUT_MS);
+    }
+    // Fail-safe: unknown dimensions → keep full-bleed. Only refuse on positive
+    // evidence the image is too small.
+    if (!dims) continue;
+
+    const longEdge = Math.max(dims.width, dims.height);
+    const shortEdge = Math.min(dims.width, dims.height);
+    if (longEdge >= MIN_HERO_FULLBLEED_LONG_EDGE && shortEdge >= MIN_HERO_FULLBLEED_SHORT_EDGE) {
+      continue;
+    }
+
+    logger.info(
+      { type, bgUrl, width: dims.width, height: dims.height },
+      "[generate-page] refusing undersized image as full-bleed hero background — downgrading to non-full-bleed hero",
+    );
+    blocks[i] = downgradeFullBleedHero(block, props, bgUrl, longEdge);
+  }
+  return blocks;
+}
+
 // ── Media library helpers ────────────────────────────────────────────────
 
 export interface MediaImage {
   url: string;
   title: string;
   tags: string[];
+  /** Intrinsic pixel dimensions, when known (captured at upload / brand-import,
+   *  null for legacy rows and non-raster assets). Used by the hero-resolution
+   *  guard to refuse undersized images as full-bleed backgrounds (task #1065). */
+  width?: number | null;
+  height?: number | null;
 }
 
 const PURPOSE_TAGS = ["lp-hero", "lp-feature", "product-detail"] as const;
@@ -406,7 +594,7 @@ export async function fetchMediaCatalog(tenantId: number | null): Promise<{ imag
   }
   try {
     const rows = await db
-      .select({ url: lpMediaTable.url, title: lpMediaTable.title, tags: lpMediaTable.tags })
+      .select({ url: lpMediaTable.url, title: lpMediaTable.title, tags: lpMediaTable.tags, width: lpMediaTable.width, height: lpMediaTable.height })
       .from(lpMediaTable)
       .where(and(eq(lpMediaTable.mediaType, "image"), eq(lpMediaTable.tenantId, tenantId)))
       .orderBy(desc(lpMediaTable.createdAt))
@@ -416,6 +604,8 @@ export async function fetchMediaCatalog(tenantId: number | null): Promise<{ imag
       url: r.url,
       title: r.title ?? "",
       tags: (r.tags as string[]) ?? [],
+      width: r.width,
+      height: r.height,
     }));
 
     // Exclude OG/social-sharing images — they are tagged "og-image" by the auto-tagger
@@ -2174,11 +2364,11 @@ AVAILABLE BLOCK TYPES (use these exact type strings — mirror the EXAMPLE for v
 
 SHOWCASE BLOCKS (use these to give each page a distinct, premium feel — NOT every page should look the same. Pick 2+ per page that match the brand's personality. For ALL image fields below, leave them as "" and the server fills them from the brand's image library):
 
-- "full-bleed-hero": Immersive full-screen hero with a background photo and overlaid text. A bolder alternative to "hero" for visual / consumer / lifestyle brands. Props: headline (5–12 words), subheadline (15–28 words), ctaText (2–5 words), ctaUrl ("#"), backgroundType ("image" — ALWAYS use "image" unless you have a REAL brand video URL), backgroundImageUrl (""), overlayOpacity (number 40–65 — a 0-100 percent; higher = darker = more legible white text), minHeight ("full"|"large"|"medium"), contentAlignment ("left"|"center"|"right"), navLinks ([]), showSocialProof (boolean), socialProofText (10–18 words). This block renders its own nav — never precede it with a nav block.
+- "full-bleed-hero": Immersive full-screen hero with a background photo and overlaid text. A bolder alternative to "hero" for visual / consumer / lifestyle brands. Props: headline (5–12 words), subheadline (15–28 words), ctaText (2–5 words), ctaUrl ("#"), backgroundType ("image" — ALWAYS use "image" unless you have a REAL brand video URL), backgroundImageUrl (""), overlayOpacity (number 40–65 — a 0-100 percent; higher = darker = more legible white text), minHeight ("full"|"large"|"medium"), contentAlignment ("left"|"center"|"right"), navLinks ([]), showSocialProof (boolean), socialProofText (10–18 words). This block renders its own nav — never precede it with a nav block. The background stretches edge-to-edge across the whole viewport, so ONLY pick a large, high-resolution photo (≥1200px wide) for backgroundImageUrl — never a logo, icon, thumbnail, or small graphic, which pixelate badly when blown up full-screen. If no large photo is available, leave backgroundImageUrl "" or use the plain "hero" block instead.
 
 - "magazine-hero": Editorial split hero with a large photo, serif display headline, eyebrow tag and byline. Use for premium, brand-led, or storytelling pages. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (15–28 words), ctaText (2–5 words), ctaUrl ("#"), bylineLabel (e.g. "Featured"), bylineValue (e.g. "Issue 01"), imageUrl (""), layout ("split"|"stacked"|"cover"), imageAspect ("portrait"|"landscape"|"wide").
 
-- "parallax-image-hero": Cinematic hero with a parallax-scrolling background image and overlaid text. Props: eyebrow (2–4 words), referenceLabel (short label e.g. the brand name), headline (5–12 words), ctaText (2–5 words), ctaUrl ("#"), imageUrl (""), brandMark (the brand name), overlayOpacity (number 35–55 — a 0-100 percent; higher = darker), parallaxStrength (number 0.15–0.3), minHeight ("large"|"medium").
+- "parallax-image-hero": Cinematic hero with a parallax-scrolling background image and overlaid text. Props: eyebrow (2–4 words), referenceLabel (short label e.g. the brand name), headline (5–12 words), ctaText (2–5 words), ctaUrl ("#"), imageUrl (""), brandMark (the brand name), overlayOpacity (number 35–55 — a 0-100 percent; higher = darker), parallaxStrength (number 0.15–0.3), minHeight ("large"|"medium"). The image fills the whole viewport, so ONLY pick a large, high-resolution photo (≥1200px wide) for imageUrl — never a logo, icon, thumbnail, or small graphic, which pixelate badly when stretched full-screen. If no large photo is available, leave imageUrl "" or use the plain "hero" block instead.
 
 - "sticky-stack": Apple-style cards that pin and stack as the visitor scrolls — walks through a sequence of features dramatically. Props: eyebrow (2–4 words), headline (5–12 words), cards (array of EXACTLY 3–5 of {tag (1–3 words), title (4–9 words SPECIFIC capability), body (18–34 words concrete mechanism + outcome), imageUrl (""), imageSide ("left"|"right" — alternate per card)}), cardScrollVh (number, default 110).
 
@@ -3896,6 +4086,23 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         prompt,
       );
     }
+
+    // Task #1065 — refuse undersized images as full-bleed / parallax hero
+    // backgrounds. Runs AFTER every image-fill pass (so the final resolved
+    // background URL is known) but BEFORE nav injection (so a downgraded
+    // full-bleed → generic self-nav hero is seen by the nav/footer logic).
+    // Seeded with dims captured at upload/mirror time; falls back to a
+    // bounded probe for URLs whose dims aren't already known.
+    const knownHeroDims = new Map<string, KnownDims>();
+    for (const img of fillPool) {
+      if (img.width != null && img.height != null) {
+        knownHeroDims.set(img.url, { width: img.width, height: img.height });
+      }
+    }
+    parsed.blocks = await enforceHeroResolution(
+      parsed.blocks as Array<Record<string, unknown>>,
+      knownHeroDims,
+    );
 
     // ── Guarantee nav, final CTA, and footer on every generated page ──────
     const blocks = parsed.blocks as Array<Record<string, unknown>>;

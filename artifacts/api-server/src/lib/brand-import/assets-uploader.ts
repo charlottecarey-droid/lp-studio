@@ -6,6 +6,7 @@ import { db, lpMediaTable } from "@workspace/db";
 import { ObjectStorageService } from "../objectStorage";
 import { USER_AGENT } from "./types";
 import { logger } from "../logger";
+import { readImageDimensions } from "../imageDimensions";
 
 const objectStorage = new ObjectStorageService();
 
@@ -236,7 +237,13 @@ interface UploadOpts {
   title: string;
 }
 
-async function uploadAndRecord(asset: FetchedAsset, opts: UploadOpts): Promise<string | null> {
+interface UploadedRecord {
+  url: string;
+  width: number | null;
+  height: number | null;
+}
+
+async function uploadAndRecord(asset: FetchedAsset, opts: UploadOpts): Promise<UploadedRecord | null> {
   try {
     // Pass tenantId so the stored object carries a tenant-owner ACL —
     // the /api/storage serve route refuses cross-tenant reads for any
@@ -244,6 +251,9 @@ async function uploadAndRecord(asset: FetchedAsset, opts: UploadOpts): Promise<s
     // are protected.
     const servePath = await objectStorage.uploadObjectEntity(asset.buffer, asset.mimeType, { tenantId: opts.tenantId });
     const serveUrl = `/api/storage${servePath}`;
+    // Capture intrinsic pixel dimensions so the AI page generator can refuse
+    // undersized scraped images as full-bleed hero backgrounds (task #1065).
+    const dims = await readImageDimensions(asset.buffer, asset.mimeType);
     await db.insert(lpMediaTable).values({
       tenantId: opts.tenantId,
       title: opts.title,
@@ -251,9 +261,11 @@ async function uploadAndRecord(asset: FetchedAsset, opts: UploadOpts): Promise<s
       mediaType: "image",
       mimeType: asset.mimeType,
       sizeBytes: asset.buffer.length,
+      width: dims?.width ?? null,
+      height: dims?.height ?? null,
       tags: opts.tags,
     });
-    return serveUrl;
+    return { url: serveUrl, width: dims?.width ?? null, height: dims?.height ?? null };
   } catch {
     return null;
   }
@@ -337,13 +349,13 @@ export async function mirrorBrandAssets(inputs: MirrorInputs): Promise<MirrorOut
     out.attempted++;
     const fetched = await fetchAsset(inputs.logoUrl);
     if (fetched.ok) {
-      const url = await uploadAndRecord(fetched.asset, {
+      const rec = await uploadAndRecord(fetched.asset, {
         tenantId: inputs.tenantId,
         tags: [...baseTags, "logo"],
         title: `${inputs.brandName || "Brand"} logo`,
       });
-      if (url) {
-        out.logoUrl = url;
+      if (rec) {
+        out.logoUrl = rec.url;
         out.uploaded++;
       } else {
         out.skips.push(`${inputs.logoUrl} -> upload-failed`);
@@ -359,12 +371,12 @@ export async function mirrorBrandAssets(inputs: MirrorInputs): Promise<MirrorOut
   const results = await Promise.all(photos.map(async (sourceUrl, i) => {
     const fetched = await fetchAsset(sourceUrl);
     if (!fetched.ok) return { sourceUrl, url: null as string | null, reason: fetched.reason };
-    const url = await uploadAndRecord(fetched.asset, {
+    const rec = await uploadAndRecord(fetched.asset, {
       tenantId: inputs.tenantId,
       tags: [...baseTags, "photography"],
       title: titleFromUrl(sourceUrl, `${inputs.brandName || "Brand"} photo ${i + 1}`),
     });
-    return { sourceUrl, url, reason: url ? null : "upload-failed" };
+    return { sourceUrl, url: rec?.url ?? null, reason: rec ? null : "upload-failed" };
   }));
   for (const r of results) {
     if (r.url) {
@@ -401,6 +413,11 @@ export interface MirroredImage {
   url: string;
   title: string;
   tags: string[];
+  /** Intrinsic pixel dimensions captured at mirror time, or null when sharp
+   *  could not size the asset. Lets the generator's hero-resolution guard
+   *  judge a scraped image without re-fetching it (task #1065). */
+  width?: number | null;
+  height?: number | null;
 }
 
 export interface MirrorReferenceOutput {
@@ -504,15 +521,15 @@ export async function mirrorReferenceImages(inputs: {
     const title = titleFromUrl(c.sourceUrl, `${refHost || "Reference"} image ${i + 1}`);
     const fetched = await fetchAsset(c.sourceUrl);
     if (!fetched.ok) {
-      return { url: null as string | null, reason: fetched.reason, sourceUrl: c.sourceUrl, tags, title };
+      return { rec: null as UploadedRecord | null, reason: fetched.reason, sourceUrl: c.sourceUrl, tags, title };
     }
-    const url = await uploadAndRecord(fetched.asset, { tenantId: inputs.tenantId, tags, title });
-    return { url, reason: url ? null : "upload-failed", sourceUrl: c.sourceUrl, tags, title };
+    const rec = await uploadAndRecord(fetched.asset, { tenantId: inputs.tenantId, tags, title });
+    return { rec, reason: rec ? null : "upload-failed", sourceUrl: c.sourceUrl, tags, title };
   }));
 
   for (const r of results) {
-    if (r.url) {
-      out.images.push({ url: r.url, title: r.title, tags: r.tags });
+    if (r.rec) {
+      out.images.push({ url: r.rec.url, title: r.title, tags: r.tags, width: r.rec.width, height: r.rec.height });
       out.uploaded++;
     } else {
       out.skips.push(`${r.sourceUrl} -> ${r.reason ?? "unknown"}`);
