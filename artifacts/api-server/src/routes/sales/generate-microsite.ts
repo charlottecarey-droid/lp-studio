@@ -1904,9 +1904,14 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       // Task #1135 — the template path is resilient: a model hiccup (non-JSON)
       // must never 500 or ship a blank page. Fall back to the authored template
       // (a complete, on-brand page) and continue; the positional merge below
-      // fills in whatever usable AI copy exists. Non-template generations keep
-      // the hard error — there is no authored layout to fall back to.
-      if (!templateBlocks) {
+      // fills in whatever usable AI copy exists.
+      //
+      // Task #1153 — the freeform path is resilient too: there is no authored
+      // template, but the static NEUTRAL layout is a complete, on-brand
+      // last-resort. Treat the response as empty and let the freeform safety
+      // net below produce NEUTRAL rather than 500. Only the curated-block-list
+      // path (no template, not freeform) keeps the hard error.
+      if (!templateBlocks && !useFreeform) {
         res.status(500).json({ error: "AI returned invalid JSON", raw });
         return;
       }
@@ -1925,6 +1930,21 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       }
       if (!parsed.slug || typeof parsed.slug !== "string") {
         parsed.slug = account.displayName ?? account.name;
+      }
+    } else if (useFreeform) {
+      // Task #1153 — freeform has no authored template to fall back to, but a
+      // missing/malformed title, slug, or block list must still never 500 or
+      // ship a blank page. Backfill title/slug from the account and normalise
+      // blocks to an array; if it ends up empty (or all-unknown), the freeform
+      // safety net below substitutes the static NEUTRAL layout.
+      if (!parsed.title || typeof parsed.title !== "string") {
+        parsed.title = account.displayName ?? account.name;
+      }
+      if (!parsed.slug || typeof parsed.slug !== "string") {
+        parsed.slug = account.displayName ?? account.name;
+      }
+      if (!Array.isArray(parsed.blocks)) {
+        parsed.blocks = [];
       }
     } else if (!parsed.title || !parsed.slug || !Array.isArray(parsed.blocks)) {
       res.status(500).json({ error: "AI response missing required fields" });

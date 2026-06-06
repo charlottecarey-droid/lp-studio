@@ -590,3 +590,154 @@ describe("Microsite generation survives malformed / partial AI output", () => {
     assertHeroIntact(body.blocks);
   });
 });
+
+/**
+ * Task #1153 — the FREEFORM path (no templateId, no curated block list) must
+ * survive bad AI output too. There is no authored template to fall back to, but
+ * the static NEUTRAL layout is a complete, on-brand last-resort. A model hiccup
+ * — non-JSON, missing title/slug, an empty block list, or only-unknown block
+ * types — must never 500 or ship a blank page: each degrades to the NEUTRAL
+ * layout (or at least a usable, non-empty page) instead.
+ *
+ * seedTenant() seeds a brand whose only segment ("general") carries NO
+ * micrositeBlockList, and these cases pass no templateId, so the route takes
+ * the freeform branch (useFreeform === true).
+ *
+ * The canonical NEUTRAL block list (see NEUTRAL_MICROSITE_BLOCK_LIST in the
+ * route): hero, trust-bar, benefits-grid, testimonial, how-it-works,
+ * comparison, bottom-cta. After it is substituted, enforceRequiredRoles may
+ * append further role blocks (e.g. a footer), so we assert the NEUTRAL types
+ * are a SUBSET of the produced layout rather than an exact match.
+ */
+const NEUTRAL_TYPES = [
+  "hero",
+  "trust-bar",
+  "benefits-grid",
+  "testimonial",
+  "how-it-works",
+  "comparison",
+  "bottom-cta",
+] as const;
+
+function assertNeutralLayout(blocks: Array<{ type: string; props: Record<string, unknown> }>): void {
+  // A real, non-blank page came back.
+  expect(Array.isArray(blocks)).toBe(true);
+  expect(blocks.length).toBeGreaterThan(0);
+
+  // Exactly the NEUTRAL safety-net layout was substituted (every NEUTRAL type
+  // is present), and it still opens with a hero.
+  const types = new Set(blocks.map(b => b.type));
+  for (const t of NEUTRAL_TYPES) {
+    expect(types.has(t)).toBe(true);
+  }
+  expect(blocks[0].type).toBe("hero");
+}
+
+describe("Freeform microsite generation survives malformed / partial AI output", () => {
+  it("falls back to the NEUTRAL layout when the AI returns invalid JSON", async () => {
+    const { tenantId, sid } = await seedTenant();
+    const accountName = `Freeform Harbor ${Math.floor(Math.random() * 1e6)}`;
+    const accountId = await seedAccount(tenantId, accountName);
+
+    // Non-JSON blob — the freeform path must not 500.
+    aiState.raw = "Here is some prose instead of JSON {definitely not valid";
+
+    const res = await authed(sid, "POST", `/sales/accounts/${accountId}/generate-microsite`, {
+      segmentId: "general",
+    });
+
+    expect(res.status).toBe(200);
+    const body = res.json as {
+      page: { id: number };
+      blocks: Array<{ type: string; props: Record<string, unknown> }>;
+    };
+
+    assertNeutralLayout(body.blocks);
+
+    // And it was persisted as a real draft, not lost.
+    expect(body.page.id).toBeGreaterThan(0);
+    const dbRow = await pool.query<{ tenant_id: number }>(
+      `SELECT tenant_id FROM lp_pages WHERE id = $1`,
+      [body.page.id],
+    );
+    expect(dbRow.rows[0].tenant_id).toBe(tenantId);
+  });
+
+  it("falls back to the NEUTRAL layout when the AI omits title and slug", async () => {
+    const { tenantId, sid } = await seedTenant();
+    const accountName = `Freeform Meadow ${Math.floor(Math.random() * 1e6)}`;
+    const accountId = await seedAccount(tenantId, accountName);
+
+    // Valid JSON, but the required title/slug fields are missing and blocks is
+    // not an array — the freeform path must backfill rather than 500.
+    aiState.response = { blocks: undefined as unknown as unknown[] } as typeof aiState.response;
+
+    const res = await authed(sid, "POST", `/sales/accounts/${accountId}/generate-microsite`, {
+      segmentId: "general",
+    });
+
+    expect(res.status).toBe(200);
+    const body = res.json as {
+      page: { id: number };
+      blocks: Array<{ type: string; props: Record<string, unknown> }>;
+    };
+
+    assertNeutralLayout(body.blocks);
+    expect(body.page.id).toBeGreaterThan(0);
+  });
+
+  it("falls back to the NEUTRAL layout when the AI returns an empty block list", async () => {
+    const { tenantId, sid } = await seedTenant();
+    const accountName = `Freeform Cascade ${Math.floor(Math.random() * 1e6)}`;
+    const accountId = await seedAccount(tenantId, accountName);
+
+    aiState.response = {
+      title: `${accountName} — Why Switch`,
+      slug: "freeform-empty-blocks",
+      blocks: [],
+    };
+
+    const res = await authed(sid, "POST", `/sales/accounts/${accountId}/generate-microsite`, {
+      segmentId: "general",
+    });
+
+    expect(res.status).toBe(200);
+    const body = res.json as { blocks: Array<{ type: string; props: Record<string, unknown> }> };
+
+    // An empty array must not yield a blank page — NEUTRAL fills in.
+    assertNeutralLayout(body.blocks);
+  });
+
+  it("falls back to the NEUTRAL layout when the AI returns only unknown block types", async () => {
+    const { tenantId, sid } = await seedTenant();
+    const accountName = `Freeform Summit ${Math.floor(Math.random() * 1e6)}`;
+    const accountId = await seedAccount(tenantId, accountName);
+
+    // Every block is an unrenderable / out-of-vocabulary type. The freeform
+    // filter drops them all, so the NEUTRAL safety net must take over.
+    aiState.response = {
+      title: `${accountName} — Why Switch`,
+      slug: "freeform-only-unknown",
+      blocks: [
+        { type: "totally-made-up-block", props: { headline: "hallucinated junk" } },
+        { type: "another-fabricated-section", props: { body: "more junk" } },
+        // A Dandy-curated compound block must never leak into a freeform page.
+        { type: "dso-success-stories", props: {} },
+      ],
+    };
+
+    const res = await authed(sid, "POST", `/sales/accounts/${accountId}/generate-microsite`, {
+      segmentId: "general",
+    });
+
+    expect(res.status).toBe(200);
+    const body = res.json as { blocks: Array<{ type: string; props: Record<string, unknown> }> };
+
+    assertNeutralLayout(body.blocks);
+
+    // None of the invented / Dandy-curated types survived.
+    expect(body.blocks.some(b => b.type === "totally-made-up-block")).toBe(false);
+    expect(body.blocks.some(b => b.type === "another-fabricated-section")).toBe(false);
+    expect(body.blocks.some(b => b.type === "dso-success-stories")).toBe(false);
+  });
+});
