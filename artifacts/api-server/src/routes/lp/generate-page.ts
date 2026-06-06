@@ -733,7 +733,7 @@ function scoreImage(
 function findBestImage(
   context: string,
   images: MediaImage[],
-  usedUrls: Set<string>,
+  usedIds: Set<string>,
   preferredPurpose?: string,
   relaxed = false,
 ): string {
@@ -744,8 +744,11 @@ function findBestImage(
   let best: MediaImage | null = null;
   let bestScore = -Infinity;
 
+  // `usedIds` holds normalized image IDENTITIES (see imageIdentity), not raw
+  // URLs, so a photo already placed under one URL can't be re-selected for
+  // another slot via a near-duplicate URL of the same visual asset.
   for (const img of images) {
-    if (usedUrls.has(img.url)) continue;
+    if (usedIds.has(imageIdentity(img))) continue;
     const score = scoreImage(img, contextLower, contextWords, preferredPurpose);
     if (score > bestScore) {
       bestScore = score;
@@ -758,7 +761,7 @@ function findBestImage(
   // available unused library image regardless of score — used as a final pass
   // to exhaust the brand library before falling back to AI image generation.
   if (best && (relaxed || bestScore >= 0)) {
-    usedUrls.add(best.url);
+    usedIds.add(imageIdentity(best));
     return best.url;
   }
   return "";
@@ -977,13 +980,18 @@ export function validateAndDedupeAIImages(
   // Walk every image slot across all blocks, in document order.
   const slots = blocks.flatMap(block => collectImageSlots(block as Record<string, unknown>));
 
-  // ── Pass 1: dedupe assigned URLs (keep the first occurrence) ──
+  // ── Pass 1: dedupe assigned images (keep the first occurrence) ──
+  // Keyed by normalized IDENTITY, not the raw URL, so the same visual asset
+  // assigned to two slots under near-duplicate URLs (resize variants, query
+  // cache busters, host casing, the /api/storage prefix) is recognised as a
+  // duplicate and the later slot is cleared.
   const seen = new Set<string>();
   for (const slot of slots) {
     const url = slot.get();
     if (!url) continue;
-    if (seen.has(url)) slot.set("");
-    else seen.add(url);
+    const id = identityForUrl(url, byUrl);
+    if (seen.has(id)) slot.set("");
+    else seen.add(id);
   }
 
   // ── Pass 2: relevance / purpose validation of model-assigned library picks ──
@@ -1006,10 +1014,13 @@ export function validateAndDedupeAIImages(
   //   this semantic intact if the weights are ever re-tuned. Wrong-purpose
   //   picks are handled separately (assignedScore < 0) and cleared regardless.
   const CLEAR_GAP = 2 * TAG_MATCH_SCORE;
+  // Track used image IDENTITIES (not raw URLs) so a free alternative that is
+  // merely a near-duplicate of an already-placed image isn't treated as a
+  // distinct, better candidate.
   const used = new Set<string>();
   for (const slot of slots) {
     const url = slot.get();
-    if (url) used.add(url);
+    if (url) used.add(identityForUrl(url, byUrl));
   }
   for (const slot of slots) {
     const url = slot.get();
@@ -1022,10 +1033,11 @@ export function validateAndDedupeAIImages(
     const purpose = slot.purpose || undefined;
     const assignedScore = scoreImage(assigned, ctx, ctxWords, purpose);
 
-    // Best free alternative for this slot (exclude every currently-used URL).
+    // Best free alternative for this slot (exclude every currently-used
+    // identity, so near-duplicates of placed images don't count as available).
     let bestAlt = -Infinity;
     for (const img of images) {
-      if (used.has(img.url)) continue;
+      if (used.has(imageIdentity(img))) continue;
       const s = scoreImage(img, ctx, ctxWords, purpose);
       if (s > bestAlt) bestAlt = s;
     }
@@ -1034,7 +1046,7 @@ export function validateAndDedupeAIImages(
     const clearlyWorse = bestAlt - assignedScore >= CLEAR_GAP;
     if (wrongPurpose || clearlyWorse) {
       slot.set("");
-      used.delete(url);
+      used.delete(identityForUrl(url, byUrl));
     }
   }
 
@@ -1057,6 +1069,101 @@ function refHostOf(img: MediaImage): string | null {
     }
   }
   return null;
+}
+
+// ── Per-page image identity (dedup) ─────────────────────────────────────────
+//
+// The page generator must never place the SAME visual asset in more than one
+// slot. Comparing raw URL strings is too weak: the same photo routinely shows
+// up under cosmetically-different URLs — responsive srcset resize variants
+// ("hero-800x600.jpg" vs "hero-1600x1200.jpg"), query-string cache busters
+// ("img.jpg?w=400" vs "img.jpg?w=800"), protocol/host casing, "www.", and the
+// "/api/storage" serve-path prefix. These helpers fold all of those down to a
+// stable identity so one image can fill at most one slot per page, while
+// genuinely different images stay distinct.
+
+/** Resize/scale variant tokens appended to image filenames by responsive
+ *  image pipelines (srcset widths, retina scales, CDN thumbnails). */
+const URL_VARIANT_SUFFIX_RE = /[-_](?:\d{2,5}x\d{2,5}|\d{2,5}[wh]|scaled|thumbnail|thumb)$/i;
+const URL_SCALE_SUFFIX_RE = /@\d+x$/i;
+
+/**
+ * Reduce an image URL to a stable identity. Near-duplicate URLs of the SAME
+ * visual asset compare equal; genuinely different images stay distinct.
+ *   - query string + fragment dropped (cache busters, resize query params)
+ *   - host lowercased, leading "www." stripped (only kept for off-storage URLs)
+ *   - our own object-storage references canonicalised: "/api/storage/objects/x",
+ *     "/objects/x" and "https://<app-host>/api/storage/objects/x" all name the
+ *     same stored asset → host dropped, "/api/storage" prefix dropped
+ *   - trailing resize/scale variant token stripped from the filename
+ */
+function normalizeImageUrl(url: string): string {
+  if (typeof url !== "string" || !url) return "";
+  const raw = url.trim();
+  if (raw.startsWith("data:")) return raw;
+  let host = "";
+  let path = raw;
+  try {
+    const u = new URL(raw, "https://__rel.invalid");
+    host = u.hostname.toLowerCase().replace(/^www\./, "");
+    if (host === "__rel.invalid") host = "";
+    path = u.pathname || "/";
+  } catch {
+    path = raw.split(/[?#]/)[0];
+  }
+  path = path.toLowerCase().replace(/^\/api\/storage(?=\/)/, "");
+  const isStoragePath = path.startsWith("/objects/");
+  const slash = path.lastIndexOf("/");
+  const dir = slash >= 0 ? path.slice(0, slash + 1) : "";
+  let base = slash >= 0 ? path.slice(slash + 1) : path;
+  const dot = base.lastIndexOf(".");
+  let ext = "";
+  if (dot > 0) { ext = base.slice(dot); base = base.slice(0, dot); }
+  base = base.replace(URL_SCALE_SUFFIX_RE, "").replace(URL_VARIANT_SUFFIX_RE, "");
+  return `${isStoragePath ? "" : host}${dir}${base}${ext}`;
+}
+
+/** Trailing resize/scale tokens in a scraped image's title (derived from the
+ *  source filename). Bare single-digit counters from the "<host> image N"
+ *  fallback name are NOT matched (require 2+ digits) so different images aren't
+ *  wrongly merged. */
+const TITLE_VARIANT_SUFFIX_RE = /[\s._-]*(?:@?\d{2,5}x\d{2,5}|\d{2,5}\s*[wh]|@\d+x|scaled|thumbnail|thumb|retina)$/i;
+
+/** Title stem for a scraped image: lowercased, with trailing resize/scale
+ *  tokens removed. Scraped reference rows are stored under unique object-storage
+ *  UUIDs, so their URLs never collide even when they are the same photo at
+ *  different sizes; their titles are the only selection-time signal that two
+ *  rows are one asset. */
+function titleVariantStem(title: string): string {
+  let s = (title ?? "").toLowerCase().trim();
+  if (!s) return "";
+  let prev = "";
+  while (s && s !== prev) {
+    prev = s;
+    s = s.replace(TITLE_VARIANT_SUFFIX_RE, "").trim();
+  }
+  return s;
+}
+
+/** Stable per-page identity for a library image. Scraped reference rows fold
+ *  resize variants of one photo together via their reference host + title stem
+ *  (their storage UUIDs never collide); everything else uses the normalized
+ *  URL. */
+function imageIdentity(img: MediaImage): string {
+  if (isScrapedImage(img)) {
+    const host = refHostOf(img) ?? "";
+    const stem = titleVariantStem(img.title);
+    if (stem) return `s:${host}:${stem}`;
+  }
+  return normalizeImageUrl(img.url);
+}
+
+/** Identity for a raw slot URL: resolve through the pool when the URL maps to a
+ *  known image (so scraped folding applies), else fall back to URL
+ *  normalization (storage defaults / off-catalog URLs). */
+function identityForUrl(url: string, byUrl: Map<string, MediaImage>): string {
+  const img = byUrl.get(url);
+  return img ? imageIdentity(img) : normalizeImageUrl(url);
 }
 
 /**
@@ -1124,7 +1231,7 @@ export function buildReferenceFillPool(
  */
 export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageContext = "", relaxed = false): unknown[] {
   if (images.length === 0) return blocks;
-  const usedUrls = new Set<string>();
+  const usedIds = new Set<string>();
   // Bias every selection toward the page's industry/topic so a block with a
   // generic headline still prefers on-topic imagery. When `relaxed` is set the
   // score gate is dropped so any still-empty slot grabs the best remaining
@@ -1132,15 +1239,18 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
   const pick = (context: string, imgs: MediaImage[], used: Set<string>, purpose?: string): string =>
     findBestImage(pageContext ? `${context} ${pageContext}` : context, imgs, used, purpose, relaxed);
 
-  // First pass: collect already-used URLs across EVERY image-bearing shape
-  // (reuses collectImageSlots so heroImageUrl, cards/panels/pairs/slides,
+  // First pass: collect already-used image IDENTITIES across EVERY image-bearing
+  // shape (reuses collectImageSlots so heroImageUrl, cards/panels/pairs/slides,
   // tiles.primary and dso-problem imageUrls[] are all tracked). Without this,
   // a model-kept URL in one of those shapes would be invisible here and could
-  // be re-selected into an empty sibling slot, reintroducing a duplicate.
+  // be re-selected into an empty sibling slot, reintroducing a duplicate. We
+  // track identities (not raw URLs) so the same photo kept under one URL is not
+  // re-placed under a near-duplicate URL of the same visual asset.
+  const byUrl = new Map<string, MediaImage>(images.map((i) => [i.url, i]));
   for (const block of blocks) {
     for (const slot of collectImageSlots(block as Record<string, unknown>)) {
       const url = slot.get();
-      if (url) usedUrls.add(url);
+      if (url) usedIds.add(identityForUrl(url, byUrl));
     }
   }
 
@@ -1157,10 +1267,10 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
 
     // Hero imageUrl → prefer lifestyle/people shots
     if (blockType === "hero" && "imageUrl" in props && !props.imageUrl) {
-      props.imageUrl = pick(blockContext, images, usedUrls, "lp-hero");
+      props.imageUrl = pick(blockContext, images, usedIds, "lp-hero");
     } else if (!blockType.startsWith("dso-") && "imageUrl" in props && !props.imageUrl) {
       // Other standard blocks with imageUrl → feature images
-      props.imageUrl = pick(blockContext, images, usedUrls, "lp-feature");
+      props.imageUrl = pick(blockContext, images, usedIds, "lp-feature");
     }
 
     // zigzag-features rows → feature images
@@ -1168,7 +1278,7 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       props.rows = (props.rows as Record<string, unknown>[]).map((row) => {
         if (!row.imageUrl) {
           const rowContext = `${row.tag ?? ""} ${row.headline ?? ""} ${row.body ?? ""}`;
-          return { ...row, imageUrl: pick(rowContext, images, usedUrls, "lp-feature") };
+          return { ...row, imageUrl: pick(rowContext, images, usedIds, "lp-feature") };
         }
         return row;
       });
@@ -1179,7 +1289,7 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       props.images = (props.images as Record<string, unknown>[]).map((img) => {
         if (!img.src) {
           const alt = (img.alt as string) ?? blockContext;
-          return { ...img, src: pick(alt, images, usedUrls, "lp-feature") };
+          return { ...img, src: pick(alt, images, usedIds, "lp-feature") };
         }
         return img;
       });
@@ -1196,7 +1306,7 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       props.items = (props.items as Record<string, unknown>[]).map((item) => {
         if ("image" in item && !item.image) {
           const itemContext = `${item.title ?? item.label ?? ""} ${item.description ?? ""}`;
-          return { ...item, image: pick(itemContext, images, usedUrls, itemsPurpose) };
+          return { ...item, image: pick(itemContext, images, usedIds, itemsPurpose) };
         }
         return item;
       });
@@ -1210,11 +1320,11 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       const layout = props.layout as string | undefined;
       if (layout === "split") {
         if (!props.heroImageUrl) {
-          props.heroImageUrl = pick(blockContext, images, usedUrls, "lp-hero");
+          props.heroImageUrl = pick(blockContext, images, usedIds, "lp-hero");
         }
       } else {
         if (!props.backgroundImageUrl) {
-          props.backgroundImageUrl = pick(blockContext, images, usedUrls, "lp-hero");
+          props.backgroundImageUrl = pick(blockContext, images, usedIds, "lp-hero");
         }
       }
     }
@@ -1235,13 +1345,13 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
     // plain background intact.
     if ("backgroundImage" in props && !props.backgroundImage) {
       const bgPurpose = blockType === "event-landing-hero" ? "lp-hero" : "lp-feature";
-      props.backgroundImage = pick(blockContext, images, usedUrls, bgPurpose);
+      props.backgroundImage = pick(blockContext, images, usedIds, bgPurpose);
     }
 
     // DSO blocks with a single imageUrl (ai-feature, particle-mesh, flow-canvas, cta-capture)
     if (blockType.startsWith("dso-") && "imageUrl" in props && !props.imageUrl) {
       const purpose = ["dso-heartland-hero", "dso-scroll-story-hero"].includes(blockType) ? "lp-hero" : "lp-feature";
-      props.imageUrl = pick(blockContext, images, usedUrls, purpose);
+      props.imageUrl = pick(blockContext, images, usedIds, purpose);
     }
 
     // DSO scroll-story and scroll-story-hero chapters → fill each chapter's imageUrl
@@ -1252,7 +1362,7 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       props.chapters = (props.chapters as Record<string, unknown>[]).map((ch) => {
         if (!ch.imageUrl) {
           const chContext = `${ch.headline ?? ""} ${ch.body ?? ""}`;
-          return { ...ch, imageUrl: pick(chContext, images, usedUrls, "lp-feature") };
+          return { ...ch, imageUrl: pick(chContext, images, usedIds, "lp-feature") };
         }
         return ch;
       });
@@ -1263,7 +1373,7 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       props.tiles = (props.tiles as Record<string, unknown>[]).map((tile) => {
         if (tile.type === "photo" && !tile.imageUrl) {
           const tileContext = `${tile.caption ?? ""} dental clinical`;
-          return { ...tile, imageUrl: pick(tileContext, images, usedUrls, "lp-feature") };
+          return { ...tile, imageUrl: pick(tileContext, images, usedIds, "lp-feature") };
         }
         return tile;
       });
@@ -1274,7 +1384,7 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       props.cases = (props.cases as Record<string, unknown>[]).map((c) => {
         if (!c.image) {
           const caseContext = `${c.name ?? ""} ${c.author ?? ""} dental practice`;
-          return { ...c, image: pick(caseContext, images, usedUrls, "lp-feature") };
+          return { ...c, image: pick(caseContext, images, usedIds, "lp-feature") };
         }
         return c;
       });
@@ -1283,14 +1393,14 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
     // ── New generic SHOWCASE blocks (May 2026) ──────────────────────────
     // full-bleed-hero: background photo (video is never auto-filled)
     if (blockType === "full-bleed-hero" && !props.backgroundImageUrl) {
-      props.backgroundImageUrl = pick(blockContext, images, usedUrls, "lp-hero");
+      props.backgroundImageUrl = pick(blockContext, images, usedIds, "lp-hero");
     }
     // sticky-stack cards
     if (blockType === "sticky-stack" && Array.isArray(props.cards)) {
       props.cards = (props.cards as Record<string, unknown>[]).map((card) => {
         if (!card.imageUrl) {
           const ctx = `${card.tag ?? ""} ${card.title ?? ""} ${card.body ?? ""}`;
-          return { ...card, imageUrl: pick(ctx, images, usedUrls, "lp-feature") };
+          return { ...card, imageUrl: pick(ctx, images, usedIds, "lp-feature") };
         }
         return card;
       });
@@ -1300,7 +1410,7 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       props.panels = (props.panels as Record<string, unknown>[]).map((panel) => {
         if (!panel.imageUrl) {
           const ctx = `${panel.tag ?? ""} ${panel.title ?? ""} ${panel.body ?? ""}`;
-          return { ...panel, imageUrl: pick(ctx, images, usedUrls, "lp-feature") };
+          return { ...panel, imageUrl: pick(ctx, images, usedIds, "lp-feature") };
         }
         return panel;
       });
@@ -1310,7 +1420,7 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       props.tiles = (props.tiles as Record<string, unknown>[]).map((tile) => {
         if (tile.kind === "image" && !tile.primary) {
           const ctx = `${tile.secondary ?? ""} ${blockContext}`;
-          return { ...tile, primary: pick(ctx, images, usedUrls, "lp-feature") };
+          return { ...tile, primary: pick(ctx, images, usedIds, "lp-feature") };
         }
         return tile;
       });
@@ -1320,10 +1430,10 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       props.pairs = (props.pairs as Record<string, unknown>[]).map((pair) => {
         const next = { ...pair };
         if (!next.beforeSrc) {
-          next.beforeSrc = pick(`${pair.caption ?? ""} before`, images, usedUrls, "lp-feature");
+          next.beforeSrc = pick(`${pair.caption ?? ""} before`, images, usedIds, "lp-feature");
         }
         if (!next.afterSrc) {
-          next.afterSrc = pick(`${pair.caption ?? ""} after`, images, usedUrls, "lp-feature");
+          next.afterSrc = pick(`${pair.caption ?? ""} after`, images, usedIds, "lp-feature");
         }
         return next;
       });
@@ -1333,7 +1443,7 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       props.slides = (props.slides as Record<string, unknown>[]).map((slide) => {
         if (!slide.src) {
           const ctx = `${slide.caption ?? ""} ${slide.headline ?? ""}`;
-          return { ...slide, src: pick(ctx, images, usedUrls, "lp-feature") };
+          return { ...slide, src: pick(ctx, images, usedIds, "lp-feature") };
         }
         return slide;
       });

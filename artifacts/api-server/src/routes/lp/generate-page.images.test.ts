@@ -355,3 +355,148 @@ describe("buildReferenceFillPool — reference-image fidelity", () => {
     expect(pool.map((p) => p.url)).toEqual(["/objects/clay-fresh", "/objects/orphan"]);
   });
 });
+
+// ── Near-duplicate-URL dedup ────────────────────────────────────────────────
+// The same visual asset routinely appears under cosmetically-different URLs
+// (responsive resize variants, query-string cache busters, host casing, the
+// /api/storage serve prefix). Dedup must recognise these as ONE image so a
+// single photo can't fill multiple slots.
+describe("validateAndDedupeAIImages — near-duplicate URL dedup", () => {
+  it("clears a query-string resize variant of an already-placed image", () => {
+    const blocks = [
+      { type: "hero", props: { headline: "x", imageUrl: "https://cdn.example.com/scanner.jpg?w=400" } },
+      { type: "zigzag-features", props: { rows: [{ headline: "y", imageUrl: "https://cdn.example.com/scanner.jpg?w=1200" }] } },
+    ];
+    validateAndDedupeAIImages(blocks, LIB, PAGE_CTX);
+    expect((blocks[0].props as any).imageUrl).toBe("https://cdn.example.com/scanner.jpg?w=400");
+    expect((blocks[1].props as any).rows[0].imageUrl).toBe("");
+  });
+
+  it("clears a filename resize-suffix variant (-800x600 vs -1600x1200)", () => {
+    const blocks = [
+      { type: "hero", props: { headline: "x", imageUrl: "https://cdn.example.com/hero-800x600.jpg" } },
+      { type: "zigzag-features", props: { rows: [{ headline: "y", imageUrl: "https://cdn.example.com/hero-1600x1200.jpg" }] } },
+    ];
+    validateAndDedupeAIImages(blocks, LIB, PAGE_CTX);
+    expect((blocks[1].props as any).rows[0].imageUrl).toBe("");
+  });
+
+  it("collapses protocol / www / host-casing differences", () => {
+    const blocks = [
+      { type: "hero", props: { headline: "x", imageUrl: "https://www.Example.com/a/img.png" } },
+      { type: "zigzag-features", props: { rows: [{ headline: "y", imageUrl: "http://example.com/a/img.png" }] } },
+    ];
+    validateAndDedupeAIImages(blocks, LIB, PAGE_CTX);
+    expect((blocks[1].props as any).rows[0].imageUrl).toBe("");
+  });
+
+  it("collapses the /api/storage serve-path prefix against a bare /objects path", () => {
+    const blocks = [
+      { type: "hero", props: { headline: "x", imageUrl: "/api/storage/objects/uploads/abc.jpg" } },
+      { type: "zigzag-features", props: { rows: [{ headline: "y", imageUrl: "/objects/uploads/abc.jpg" }] } },
+    ];
+    validateAndDedupeAIImages(blocks, LIB, PAGE_CTX);
+    expect((blocks[1].props as any).rows[0].imageUrl).toBe("");
+  });
+
+  it("does NOT merge genuinely different images from the same host", () => {
+    const blocks = [
+      { type: "hero", props: { headline: "x", imageUrl: "https://cdn.example.com/scanner.jpg" } },
+      { type: "zigzag-features", props: { rows: [{ headline: "y", imageUrl: "https://cdn.example.com/team.jpg" }] } },
+    ];
+    validateAndDedupeAIImages(blocks, LIB, PAGE_CTX);
+    expect((blocks[0].props as any).imageUrl).toBe("https://cdn.example.com/scanner.jpg");
+    expect((blocks[1].props as any).rows[0].imageUrl).toBe("https://cdn.example.com/team.jpg");
+  });
+
+  it("fillEmptyImages will not re-place a library URL near-duplicate of a kept image", () => {
+    // The kept slot holds the canonical URL; the pool also contains a resize
+    // variant of the SAME photo. The empty sibling must get the distinct photo,
+    // never the variant.
+    const lib: MediaImage[] = [
+      { url: "/objects/uploads/photo.jpg", title: "Photo", tags: ["lp-feature", "dentures"] },
+      { url: "/objects/uploads/photo-800x600.jpg", title: "Photo variant", tags: ["lp-feature", "dentures"] },
+      { url: "/objects/uploads/distinct.jpg", title: "Distinct", tags: ["lp-feature", "dentures"] },
+    ];
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [
+        { headline: "Dentures fitting", imageUrl: "/objects/uploads/photo.jpg" },
+        { headline: "Dentures care", imageUrl: "" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, lib, PAGE_CTX) as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/uploads/photo.jpg");
+    expect(blocks[0].props.rows[1].imageUrl).toBe("/objects/uploads/distinct.jpg");
+  });
+});
+
+// ── Single-image domination cap ─────────────────────────────────────────────
+// When a reference scrape mirrors the SAME photo at several sizes, each lands as
+// a distinct object-storage row (unique UUID URL, distinct refsrc tag). Their
+// shared reference host + title stem must fold them to ONE identity so the photo
+// fills at most one slot — the page prefers a distinct image, or an empty slot
+// for AI/neutral fill, over repeating it.
+describe("fillEmptyImages — single-image domination cap (scraped resize variants)", () => {
+  const scannerA: MediaImage = { url: "/objects/scan-a", title: "scanner 800x600", tags: ["page-reference", "scraped", "refhost:dental.com", "refsrc:a"] };
+  const scannerB: MediaImage = { url: "/objects/scan-b", title: "scanner 1200x900", tags: ["page-reference", "scraped", "refhost:dental.com", "refsrc:b"] };
+  const scannerC: MediaImage = { url: "/objects/scan-c", title: "scanner 1600x1200", tags: ["page-reference", "scraped", "refhost:dental.com", "refsrc:c"] };
+  const chair: MediaImage = { url: "/objects/chair", title: "chair 1024x768", tags: ["page-reference", "scraped", "refhost:dental.com", "refsrc:d"] };
+
+  it("places one scanner variant and leaves the over-dominated siblings' slots empty", () => {
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [
+        { headline: "Scan", imageUrl: "" },
+        { headline: "Treat", imageUrl: "" },
+        { headline: "Smile", imageUrl: "" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, [scannerA, scannerB, scannerC], "dental clinic") as any[];
+    const urls = (blocks[0].props.rows as Array<{ imageUrl: string }>).map((r) => r.imageUrl);
+    const filled = urls.filter(Boolean);
+    expect(filled).toHaveLength(1); // one scanner, no repeats
+    expect(["/objects/scan-a", "/objects/scan-b", "/objects/scan-c"]).toContain(filled[0]);
+  });
+
+  it("prefers a DISTINCT image over a second copy of the dominant photo", () => {
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [
+        { headline: "Scan", imageUrl: "" },
+        { headline: "Comfort", imageUrl: "" },
+        { headline: "Extra", imageUrl: "" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, [scannerA, scannerB, chair], "dental clinic") as any[];
+    const urls = (blocks[0].props.rows as Array<{ imageUrl: string }>).map((r) => r.imageUrl);
+    const filled = urls.filter(Boolean);
+    // The two scanner variants collapse to one identity; the chair is distinct.
+    expect(filled).toHaveLength(2);
+    expect(filled).toContain("/objects/chair");
+    expect(new Set(filled).size).toBe(2);
+  });
+
+  it("the relaxed (library-exhausting) pass still never repeats the dominant photo", () => {
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [
+        { headline: "Scan", imageUrl: "" },
+        { headline: "Treat", imageUrl: "" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, [scannerA, scannerB], "dental clinic", true) as any[];
+    const urls = (blocks[0].props.rows as Array<{ imageUrl: string }>).map((r) => r.imageUrl);
+    expect(urls.filter(Boolean)).toHaveLength(1);
+    expect(urls[1]).toBe("");
+  });
+
+  it("distinct scraped photos from the same host are NOT folded together", () => {
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [
+        { headline: "Scan", imageUrl: "" },
+        { headline: "Comfort", imageUrl: "" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, [scannerA, chair], "dental clinic") as any[];
+    const urls = (blocks[0].props.rows as Array<{ imageUrl: string }>).map((r) => r.imageUrl);
+    expect(urls.filter(Boolean)).toHaveLength(2);
+    expect(new Set(urls).size).toBe(2);
+  });
+});
