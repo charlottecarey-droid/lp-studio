@@ -185,6 +185,7 @@ export function decryptCredential(value: string | null | undefined): string {
  */
 const CREDENTIAL_FIELDS_BY_PROVIDER: Record<string, string[]> = {
   marketo: ["clientSecret", "accessToken"],
+  hubspot: ["accessToken"],
   salesforce: ["clientSecret"],
   slack: ["accessToken", "incomingWebhookUrl"],
   google_sheets: ["privateKey"],

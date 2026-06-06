@@ -32,6 +32,7 @@ export * from "./sfdcIntegration";
 
 // Marketo Integration (Phase 2 — bidirectional)
 export * from "./marketoIntegration";
+export * from "./hubspotIntegration";
 
 // Slack Notifier (outbound-only)
 export * from "./slackIntegration";

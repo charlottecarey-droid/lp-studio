@@ -27,6 +27,8 @@ export const salesContactsTable = pgTable("sales_contacts", {
   sfdcLastSyncedAt: timestamp("sfdc_last_synced_at", { withTimezone: true }),
   marketoLeadId: text("marketo_lead_id").unique(),  // Marketo lead id (parallel to salesforceId)
   marketoLastSyncedAt: timestamp("marketo_last_synced_at", { withTimezone: true }),
+  hubspotContactId: text("hubspot_contact_id").unique(),  // HubSpot contact id (parallel to salesforceId)
+  hubspotLastSyncedAt: timestamp("hubspot_last_synced_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

@@ -108,7 +108,7 @@ const cardTiers: Tier[] = [
           "Unlimited pages, forms & A/B tests",
           `Up to ${fmtCap(PLAN_CONFIG.growth.features.limits.userSeats)} seats`,
           "Sales Console — per-account microsites, AI outreach drafts, personalized links",
-          "Salesforce + Marketo bidirectional sync",
+          "Salesforce + Marketo + HubSpot bidirectional sync",
           "Apollo signals · Chili Piper · Asana · GA4 · Webhooks",
           `Smart Traffic routing + heatmaps · ${fmtCap(PLAN_CONFIG.growth.features.limits.heatmapSessionsPerMonth)} sessions/mo`,
           "Brand system & locked tokens",
@@ -200,6 +200,7 @@ const FEATURE_MAP: FeatureGroup[] = [
     rows: [
       { feature: "Salesforce bidirectional sync", values: [false, false, true, "+ custom field mapping"] },
       { feature: "Marketo bidirectional", values: [false, false, true, true] },
+      { feature: "HubSpot bidirectional", values: [false, false, true, true] },
       { feature: "Apollo signals + enrichment", values: [false, false, true, true] },
       { feature: "Chili Piper handoff", values: [false, false, true, true] },
       { feature: "Asana review routing", values: [false, false, true, true] },

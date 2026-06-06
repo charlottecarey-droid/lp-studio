@@ -26,6 +26,7 @@ interface Integration {
 // is intentionally omitted from the tile list.
 const LEAD_HANDOFF: Integration[] = [
   { name: "Marketo",      color: "#5C4C9F", mark: MarketoMark },
+  { name: "HubSpot",      color: "#FF7A59", mark: HubSpotMark },
   { name: "Google Sheets",color: "#0F9D58", mark: SheetsMark },
   { name: "Webhooks",     color: "#1A1815", mark: WebhookMark },
   { name: "Zapier",       color: "#FF4F00", mark: ZapierMark, tag: "Via webhooks", href: "/docs/integrations/zapier" },
@@ -75,6 +76,17 @@ function MarketoMark({ color }: { color: string }) {
       <path d="M17.4 0v24L8.7 19.5V4.5z" fill={color} />
       <path d="M7.05 18.6L4.2 17.1V7l2.85-1.5z" fill={color} fillOpacity="0.6" />
       <path d="M2.7 15.3L1.05 14.4V9.6l1.65-.9z" fill={color} fillOpacity="0.4" />
+    </svg>
+  );
+}
+function HubSpotMark({ color }: { color: string }) {
+  // HubSpot's sprocket — a circular node with three spokes and terminal nodes
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="11" cy="13" r="4.2" fill="none" stroke={color} strokeWidth="2" />
+      <circle cx="19" cy="6.5" r="2.4" fill={color} />
+      <circle cx="11" cy="3.4" r="1.7" fill={color} />
+      <path d="M11 7.6V5.1 M14.4 10.4l3-2.4" stroke={color} strokeWidth="2" strokeLinecap="round" fill="none" />
     </svg>
   );
 }

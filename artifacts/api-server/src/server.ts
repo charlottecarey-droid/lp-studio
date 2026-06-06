@@ -28,6 +28,7 @@ import { startEmailDomainPoller } from "./lib/emailDomainPoller";
 import { startBrandedSubdomainReconcilePoller } from "./lib/brandedSubdomainReconcilePoller";
 import { startBrandedEmailSubdomainPoller } from "./lib/brandedEmailSubdomainPoller";
 import { startMarketoSyncPoller } from "./lib/marketoSyncPoller";
+import { startHubspotSyncPoller } from "./lib/hubspotSyncPoller";
 import { scheduleWorkflowSweep } from "./lib/workflowEngine";
 import { turnstileConfigured } from "./lib/turnstile";
 import { runAssetHealthCheck } from "./lib/assetHealthCheck";
@@ -613,6 +614,7 @@ const httpServer = app.listen(port, (err) => {
   // tenant fails closed + observable via marketo_sync_log. Runs in production
   // OR when MARKETO_FAKE_MODE is set (see poller).
   startMarketoSyncPoller();
+  startHubspotSyncPoller();
 });
 
 // Keep a reference so SIGTERM handlers (if added later) can close cleanly.

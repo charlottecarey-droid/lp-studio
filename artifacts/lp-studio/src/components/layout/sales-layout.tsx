@@ -21,6 +21,7 @@ import {
   LayoutTemplate,
   BookOpen,
   Slack,
+  Plug,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -160,6 +161,14 @@ function SettingsDropdown() {
           Settings
         </DropdownMenuLabel>
         {(hasPerm("settings") || user?.isAdmin) && (
+          <Link href="/sales/integrations">
+            <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/integrations") ? "bg-accent" : ""}`}>
+              <Plug className="w-4 h-4 text-muted-foreground" />
+              <span>Integrations</span>
+            </DropdownMenuItem>
+          </Link>
+        )}
+        {(hasPerm("settings") || user?.isAdmin) && (
           <Link href="/sales/sfdc">
             <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/sfdc") ? "bg-accent" : ""}`}>
               <Cloud className="w-4 h-4 text-muted-foreground" />
@@ -172,6 +181,14 @@ function SettingsDropdown() {
             <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/marketo") ? "bg-accent" : ""}`}>
               <Cloud className="w-4 h-4 text-muted-foreground" />
               <span>Marketo</span>
+            </DropdownMenuItem>
+          </Link>
+        )}
+        {(hasPerm("settings") || user?.isAdmin) && (
+          <Link href="/sales/hubspot">
+            <DropdownMenuItem className={`gap-2.5 cursor-pointer rounded-md mx-0.5 ${isActive("/sales/hubspot") ? "bg-accent" : ""}`}>
+              <Cloud className="w-4 h-4 text-muted-foreground" />
+              <span>HubSpot</span>
             </DropdownMenuItem>
           </Link>
         )}

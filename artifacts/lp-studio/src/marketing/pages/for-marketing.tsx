@@ -21,13 +21,13 @@ import { usePageMeta } from "../hooks/usePageMeta";
 //   2  SmartTrafficDemo             — A/B/C variants + Smart Traffic routing
 //   3  FeatureRow / AI generation   — Prompt → page, lifted hero pattern
 //   4  FeatureRow / Templates       — TemplatesEmbed (filtered, marketing motions)
-//   5  Integrations                 — Marketo + GA4 lead-handoff story (HubSpot soon)
+//   5  Integrations                 — Marketo + HubSpot + GA4 lead-handoff story
 //   6  FinalCta + Footer
 export default function ForMarketing() {
   usePageMeta({
     title: "LP Studio for Marketing — Ship without the design queue",
     description:
-      "Generate on-brand pages from a prompt, A/B test every variant with Smart Traffic auto-routing, and hand off leads to Marketo, GA4, or any webhook.",
+      "Generate on-brand pages from a prompt, A/B test every variant with Smart Traffic auto-routing, and hand off leads to Marketo, HubSpot, GA4, or any webhook.",
     canonical: "https://lpstudio.ai/for-marketing",
     ogImage: "https://lpstudio.ai/opengraph.jpg",
     ogImageWidth: 1200,

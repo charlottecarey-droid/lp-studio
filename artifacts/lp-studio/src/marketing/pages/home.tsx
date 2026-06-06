@@ -370,7 +370,7 @@ function WhatsInside() {
       bullets: [
         "Prompt-to-page in under a minute",
         "A/B + Smart Traffic auto-routing",
-        "Marketo + GA4 lead handoff (HubSpot soon)",
+        "Marketo + HubSpot + GA4 lead handoff",
       ],
       cta: { label: "Explore for marketing", href: "/for-marketing" },
       visual: <MarketingVisual />,

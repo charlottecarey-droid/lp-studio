@@ -18,6 +18,7 @@ import {
 import { syncLeadToSheets, syncLeadToMarketo, syncLeadToSalesforce } from "./integrations";
 import { appendGuestApplicationToSheet } from "./podcast-availability";
 import { sfdcService } from "../../lib/sfdc-service";
+import { hubspotService } from "../../lib/hubspot-service";
 import { slackService } from "../../lib/slack-service";
 import { renderTenantEmail } from "../../lib/tenantEmailRender";
 import { escapeHtml } from "../../lib/emailRender";
@@ -508,6 +509,34 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
         }
       } catch (err) {
         console.error("SFDC Lead creation error:", err);
+      }
+
+      // HubSpot write-back (Phase-2 service): upsert the submitter as a HubSpot
+      // contact by email (idempotent at HubSpot's side via the email
+      // id-property) and, when configured, enrol them into the connection's
+      // list. Idempotent per lead via the activities-pushed ledger so a retry
+      // never double-pushes. Tenant-scoped: only ever pushes through the page
+      // tenant's own connection. Fire-and-forget — never blocks lead capture.
+      try {
+        const hsConn = await hubspotService.getActiveConnection(pageTenantId);
+        if (hsConn) {
+          const f = fields as Record<string, string>;
+          const email = f.email || f.Email || f.work_email;
+          if (email) {
+            await hubspotService.pushFormLead(hsConn.id, pageTenantId, {
+              localEventId: `form_lead:${lead.id}`,
+              email,
+              firstName: f.first_name || f.firstName || f.First_Name || undefined,
+              lastName: f.last_name || f.lastName || f.Last_Name || undefined,
+              company: f.company || f.Company || f.practice_name || f.organization || undefined,
+              title: f.title || f.Title || f.job_title || undefined,
+              phone: f.phone || f.Phone || f.phone_number || undefined,
+              enrollListId: hsConn.enrollListId,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("HubSpot lead sync error for lead", lead.id, ":", err);
       }
 
       // Slack notifier (outbound-only): post a Block Kit "New lead" message to

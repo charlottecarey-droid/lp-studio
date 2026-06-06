@@ -133,6 +133,8 @@ const SalesDraftEmail = lazy(() => import("@/pages/sales/sales-draft-email"));
 const SalesSignals = lazy(() => import("@/pages/sales/sales-signals"));
 const SfdcSettings = lazy(() => import("@/pages/sales/sfdc-settings"));
 const MarketoSettings = lazy(() => import("@/pages/sales/marketo-settings"));
+const HubspotSettings = lazy(() => import("@/pages/sales/hubspot-settings"));
+const SalesIntegrations = lazy(() => import("@/pages/sales/sales-integrations"));
 const SlackSettings = lazy(() => import("@/pages/sales/slack-settings"));
 const SalesCampaignPages = lazy(() => import("@/pages/sales/sales-campaign-pages"));
 const SalesCampaignDetail = lazy(() => import("@/pages/sales/sales-campaign-detail"));
@@ -387,6 +389,8 @@ function AppRouter() {
         <Route path="/sales/marketplace">{() => <PermRoute perm="sales_accounts" fallback="/sales"><SalesMarketplace /></PermRoute>}</Route>
         <Route path="/sales/sfdc">{() => <PermRoute perm="settings" fallback="/sales"><SfdcSettings /></PermRoute>}</Route>
         <Route path="/sales/marketo">{() => <PermRoute perm="settings" fallback="/sales"><MarketoSettings /></PermRoute>}</Route>
+        <Route path="/sales/hubspot">{() => <PermRoute perm="settings" fallback="/sales"><HubspotSettings /></PermRoute>}</Route>
+        <Route path="/sales/integrations">{() => <PermRoute perm="settings" fallback="/sales"><SalesIntegrations /></PermRoute>}</Route>
         <Route path="/sales/slack">{() => <PermRoute perm="settings" fallback="/sales"><SlackSettings /></PermRoute>}</Route>
 
         {/* Builder Editor (no app layout — full screen) */}

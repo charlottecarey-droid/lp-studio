@@ -32,7 +32,7 @@ const faqs: Faq[] = [
   },
   {
     q: "What about analytics and tracking?",
-    a: "Built in: visitors, conversions, scroll depth, click maps, heatmaps, and per-variant performance. We also push events to GA4 and your CRM (Salesforce, Marketo), plus webhooks for anything else — so the data flows where your revenue team already looks.",
+    a: "Built in: visitors, conversions, scroll depth, click maps, heatmaps, and per-variant performance. We also push events to GA4 and your CRM (Salesforce, Marketo, HubSpot), plus webhooks for anything else — so the data flows where your revenue team already looks.",
     cat: "Tech",
   },
   {
