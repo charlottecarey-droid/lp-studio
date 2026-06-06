@@ -568,6 +568,12 @@ type AIImageSlot = {
   context: string;
 };
 
+/** Block types whose `items[].image` is an OPTIONAL per-item photo (logo/feature
+ *  style → "lp-feature") rather than a product shot. Includes the legacy
+ *  `stats`/`features` aliases the microsite normalizer pairs with
+ *  `trust-bar`/`benefits-grid` (it keeps the original type). */
+const ITEM_PHOTO_BLOCK_TYPES = new Set(["benefits-grid", "features", "trust-bar", "stats"]);
+
 /** Collect every image-bearing slot on a block (mirrors the shapes handled by
  *  sanitizeAIImageUrls / fillEmptyImages). Accessors mutate the block in place. */
 function collectImageSlots(block: Record<string, unknown>): AIImageSlot[] {
@@ -630,7 +636,11 @@ function collectImageSlots(block: Record<string, unknown>): AIImageSlot[] {
   pushArrField(props.cards, "imageUrl", "lp-feature", it => `${it.tag ?? ""} ${it.title ?? ""} ${it.body ?? ""}`);
   pushArrField(props.panels, "imageUrl", "lp-feature", it => `${it.tag ?? ""} ${it.title ?? ""} ${it.body ?? ""}`);
   pushArrField(props.images, "src", "lp-feature", it => `${it.alt ?? ""} ${blockContext}`);
-  pushArrField(props.items, "image", "product-detail", it => `${it.title ?? ""} ${it.description ?? ""}`);
+  // benefits-grid / trust-bar (+ their stats/features aliases) carry an OPTIONAL
+  // per-item photo (logo-style) → lp-feature; product-grid items are product
+  // shots → product-detail.
+  const itemsPurpose = ITEM_PHOTO_BLOCK_TYPES.has(blockType) ? "lp-feature" : "product-detail";
+  pushArrField(props.items, "image", itemsPurpose, it => `${it.title ?? it.label ?? ""} ${it.description ?? ""}`);
   pushArrField(props.cases, "image", "lp-feature", it => `${it.name ?? ""} ${it.author ?? ""}`);
   pushArrField(props.slides, "src", "lp-feature", it => `${it.caption ?? ""} ${it.headline ?? ""}`);
 
@@ -879,12 +889,16 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       });
     }
 
-    // product-grid items → product-detail is fine here
+    // items[].image: benefits-grid / trust-bar (+ stats/features aliases) use an
+    // OPTIONAL per-item photo (logo-style) → lp-feature; product-grid items are
+    // product shots → product-detail. Only filled when the AI left an empty
+    // `image` key, so items that omit it keep falling back to icons / stats.
     if (Array.isArray(props.items)) {
+      const itemsPurpose = ITEM_PHOTO_BLOCK_TYPES.has(blockType) ? "lp-feature" : "product-detail";
       props.items = (props.items as Record<string, unknown>[]).map((item) => {
         if ("image" in item && !item.image) {
-          const itemContext = `${item.title ?? ""} ${item.description ?? ""}`;
-          return { ...item, image: pick(itemContext, images, usedUrls, "product-detail") };
+          const itemContext = `${item.title ?? item.label ?? ""} ${item.description ?? ""}`;
+          return { ...item, image: pick(itemContext, images, usedUrls, itemsPurpose) };
         }
         return item;
       });
@@ -2101,7 +2115,7 @@ AVAILABLE BLOCK TYPES (use these exact type strings — mirror the EXAMPLE for v
 - "hero": Main hero section. Props: headline (5–12 words, specific to the topic — NOT a generic verb phrase), subheadline (15–32 words, expands the headline with a concrete outcome + audience), ctaText (2–5 words, action verb first), ctaUrl ("#"), ctaColor (hex), heroType ("static-image"|"none"), layout ("centered"|"split"|"minimal"), backgroundStyle ("white"|"dark"), showSocialProof (boolean), socialProofText (10–18 words, concrete proof — count + named audience, e.g. "Trusted by 8,000+ teams across retail, services, and logistics"), imageUrl (string), mediaUrl (string).
   EXAMPLE (illustrative only — write copy for the brand and topic in BRAND CONTEXT / USER REQUEST, never reuse this domain): { headline: "Run your entire workflow from one place", subheadline: "From first request to final delivery, the platform unifies the steps your team already does — your data stays yours while the manual busywork disappears.", ctaText: "Book a 20-min walkthrough", showSocialProof: true, socialProofText: "Trusted by 8,000+ teams across retail, services, and logistics", layout: "split", backgroundStyle: "white" }
 
-- "trust-bar": Stat bar with metrics. Props: items (array of {value, label} — EXACTLY 4 items, value is a specific metric like "10,000+" or "98%" or "$2.4B" — never a vague word, label is 2–5 words naming a specific audience or outcome), countUpEnabled (boolean, default true).
+- "trust-bar": Stat bar with metrics. Props: items (array of {value, label, image (OPTIONAL — leave "" to let the server place a brand logo/photo beside the stat; omit entirely for a clean numeric bar)} — EXACTLY 4 items, value is a specific metric like "10,000+" or "98%" or "$2.4B" — never a vague word, label is 2–5 words naming a specific audience or outcome), countUpEnabled (boolean, default true).
   EXAMPLE items: [{ value: "8,000+", label: "Teams onboarded" }, { value: "98%", label: "Customer retention" }, { value: "2 days", label: "Average setup time" }, { value: "$0", label: "Upfront cost" }]
 
 - "pas-section": Problem-Agitate-Solve. Props: headline (6–14 words, names the problem directly), body (45–85 words, escalates the cost of inaction with a concrete scenario — money, time, or quality), bullets (string[], EXACTLY 3–5 items, each 8–16 words, each names a specific failure mode).
@@ -2112,7 +2126,7 @@ AVAILABLE BLOCK TYPES (use these exact type strings — mirror the EXAMPLE for v
 
 - "stat-callout": Single big stat. Props: stat (a short, vivid metric phrase like "98% on-time delivery" or "$8,400 saved per team per year"), description (15–28 words, expands the stat with a concrete mechanism — what the stat measures, why it matters), footnote (6–14 words, attribution: source + timeframe, e.g. "Independent customer audit, Q4 2025 (n=1,240 accounts)"), countUpEnabled (boolean, default true).
 
-- "benefits-grid": Feature/benefit cards. Props: headline (5–12 words), columns (2 or 3), items (array of {icon, title, description} — EXACTLY 4–6 items, title 3–6 words SPECIFIC capability not a generic noun, description 18–28 words with a concrete mechanism — what it does, why it matters, who it's for). Available icons: "Zap","ScanLine","RefreshCcw","HeadphonesIcon","BarChart2","DollarSign","Shield","Clock","Star","Check","Target","TrendingUp","Award","Heart","Users","Globe","Lock","Sparkles".
+- "benefits-grid": Feature/benefit cards. Props: headline (5–12 words), columns (2 or 3), items (array of {icon, title, description, image (OPTIONAL — leave "" to let the server add a brand photo to the card; omit for a clean icon-only card)} — EXACTLY 4–6 items, title 3–6 words SPECIFIC capability not a generic noun, description 18–28 words with a concrete mechanism — what it does, why it matters, who it's for). Available icons: "Zap","ScanLine","RefreshCcw","HeadphonesIcon","BarChart2","DollarSign","Shield","Clock","Star","Check","Target","TrendingUp","Award","Heart","Users","Globe","Lock","Sparkles".
   EXAMPLE item: { icon: "ScanLine", title: "Automated review on every job", description: "Every submission is auto-checked for errors, gaps, and missing details before it moves forward — so issues get caught up front, not after the work is delivered." }
   NEVER write: { title: "Quality", description: "Better quality." } — that is failure-grade output.
 

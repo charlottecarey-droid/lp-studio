@@ -592,7 +592,15 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         headline: p.headline ?? p.heading ?? (brand.name ? `Why teams choose ${us}` : "Why teams choose us"),
         columns: p.columns ?? 3,
         items: items.length > 0
-          ? items.map(f => ({ icon: f.icon ?? "Zap", title: f.title ?? f.name ?? "", description: f.description ?? f.body ?? "" }))
+          ? items.map(f => ({
+              icon: f.icon ?? "Zap",
+              title: f.title ?? f.name ?? "",
+              description: f.description ?? f.body ?? "",
+              // Preserve the optional per-item photo so the image-fill pass
+              // can populate it (renderer falls back to the icon when empty).
+              ...(f && typeof f === "object" && "image" in f ? { image: typeof f.image === "string" ? f.image : "" } : {}),
+              ...(typeof f.imageAlt === "string" ? { imageAlt: f.imageAlt } : {}),
+            }))
           : fromBrand,
       };
     }
@@ -609,7 +617,15 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         .map(v => ({ value: "✓", label: v.theme }));
       return {
         items: items.length > 0
-          ? items.map(s => ({ value: s.value ?? "", label: s.label ?? "" }))
+          ? items.map(s => ({
+              value: s.value ?? "",
+              label: s.label ?? "",
+              // Preserve the optional per-item logo/photo so the image-fill
+              // pass can populate it (renderer falls back to the numeric
+              // stat when empty).
+              ...(s && typeof s === "object" && "image" in s ? { image: typeof s.image === "string" ? s.image : "" } : {}),
+              ...(typeof s.imageAlt === "string" ? { imageAlt: s.imageAlt } : {}),
+            }))
           : fromBrand,
       };
     }
@@ -946,16 +962,16 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
 
 const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   "hero": "{ headline, subheadline, ctaText, ctaUrl, backgroundStyle (\"dark\"|\"white\"|\"light-gray\") }",
-  "trust-bar": "{ items: [{ value, label }] } — 3–4 key proof stats",
-  "benefits-grid": "{ headline, columns (3), items: [{ icon (lucide name), title, description }] } — 6 benefits",
-  "features": "{ headline, columns (3), items: [{ icon (lucide name), title, description }] } — 6 benefits",
+  "trust-bar": "{ items: [{ value, label, image (OPTIONAL — leave \"\" to let the server add a brand logo/photo; omit entirely for a clean numeric stat) }] } — 3–4 key proof stats",
+  "benefits-grid": "{ headline, columns (3), items: [{ icon (lucide name), title, description, image (OPTIONAL — leave \"\" to let the server add a brand photo to the card; omit for a clean icon card) }] } — 6 benefits",
+  "features": "{ headline, columns (3), items: [{ icon (lucide name), title, description, image (OPTIONAL — leave \"\" to let the server add a brand photo to the card; omit for a clean icon card) }] } — 6 benefits",
   "testimonial": "{ quote, author, role, practiceName }",
   "testimonials": "{ quote, author, role, practiceName }",
   "how-it-works": "{ headline, steps: [{ number, title, description }] }",
   "comparison": "{ headline, oldWayLabel, oldWayBullets: string[], newWayLabel, newWayBullets: string[] }",
   "bottom-cta": "{ headline, subheadline, ctaText, ctaUrl, backgroundStyle }",
   "cta": "{ headline, subheadline, ctaText, ctaUrl, backgroundStyle }",
-  "stats": "{ items: [{ value, label }] }",
+  "stats": "{ items: [{ value, label, image (OPTIONAL — leave \"\" to let the server add a brand logo/photo; omit entirely for a clean numeric stat) }] }",
   "pas-section": "{ headline, body, bullets: string[] }",
   "stat-callout": "{ stat, description, footnote }",
   "rich-text": "{ content, maxWidth }",
