@@ -890,6 +890,42 @@ async function runMigrationsBody(): Promise<void> {
     // safe. Fails CLOSED: campaign personalization is broken without it, so we assert
     // the index exists afterward and abort the release otherwise.
     await runStep("sales_hotlinks (contact_id, page_id) partial unique index self-heal (0017)", async () => {
+      // Probe first (AccessShareLock only): if the partial unique index already
+      // exists with the correct unique + (contact_id IS NOT NULL) predicate, skip
+      // both the duplicate collapse and the lock-taking CREATE UNIQUE INDEX. On
+      // every already-healed DB (i.e. every steady-state deploy) this takes no
+      // index/table lock, removing the deadlock hazard against the still-draining
+      // old instance's hotlink writes during the deploy hook.
+      // Catalog-precise probe: a false-POSITIVE here (skipping when the index is
+      // wrong/missing) would leave hotlink minting broken, so qualify by owning
+      // table (sales_hotlinks) AND schema (public) — not index name alone — and
+      // verify it is UNIQUE, carries the (contact_id IS NOT NULL) partial
+      // predicate, and indexes BOTH key columns. A false-NEGATIVE is safe: it
+      // just falls through to the dup-cleanup + idempotent CREATE below.
+      const existing = await pool.query<{ is_unique: boolean; def: string }>(
+        `SELECT i.indisunique AS is_unique, pg_get_indexdef(i.indexrelid) AS def
+           FROM pg_index i
+           JOIN pg_class ic ON ic.oid = i.indexrelid
+           JOIN pg_class tc ON tc.oid = i.indrelid
+           JOIN pg_namespace tn ON tn.oid = tc.relnamespace
+          WHERE ic.relname = 'sales_hotlinks_contact_page_unique'
+            AND tc.relname = 'sales_hotlinks'
+            AND tn.nspname = 'public'`,
+      );
+      const existingDef = existing.rows[0];
+      if (
+        existingDef &&
+        existingDef.is_unique &&
+        /contact_id IS NOT NULL/i.test(existingDef.def) &&
+        /\bcontact_id\b/i.test(existingDef.def) &&
+        /\bpage_id\b/i.test(existingDef.def)
+      ) {
+        logger.info(
+          { step: "sales_hotlinks (contact_id, page_id) partial unique index self-heal (0017)" },
+          "sales_hotlinks contact_page self-heal: index already present — skipping DDL (no lock taken)",
+        );
+        return;
+      }
       // Observability before any mutation: log how many (contact_id, page_id)
       // duplicate rows we're about to collapse and which ids lose their token, so
       // any impact is traceable. Duplicates are expected to be rare/zero — while
@@ -1314,24 +1350,17 @@ async function runMigrationsBody(): Promise<void> {
     // of truth. This must run BEFORE the block_catalog seed below, which writes
     // ai_enabled. Fails CLOSED: the column is route-critical, so any error must
     // abort the release. The SQL is idempotent, so a retry is always safe.
-    await runStep("block_catalog ai_enabled self-heal (0049)", async () => {
-      const aiEnabledSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0049_block_catalog_ai_enabled.sql"),
-        "utf8",
-      );
-      await pool.query(aiEnabledSql);
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
+    await runProbedSelfHeal({
+      name: "block_catalog ai_enabled self-heal (0049)",
+      applySqlFile: "0049_block_catalog_ai_enabled.sql",
+      expected: 1,
+      checkSql: `SELECT count(*)::int AS present
            FROM information_schema.columns
           WHERE table_schema = 'public'
             AND table_name = 'block_catalog'
             AND column_name = 'ai_enabled'`,
-      );
-      if ((rows[0]?.present ?? 0) < 1) {
-        throw new Error(
-          "block_catalog ai_enabled self-heal did not produce the column — aborting release",
-        );
-      }
+      shortfall: () =>
+        "block_catalog ai_enabled self-heal did not produce the column — aborting release",
     });
 
     // Idempotent first-boot seed for the block_catalog table. Safe to run on
