@@ -670,6 +670,13 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         author: t.author ?? t.name ?? "",
         role: t.role ?? t.title ?? "",
         practiceName: t.practiceName ?? t.company ?? "",
+        // Seed a light-neutral section background so the deterministic
+        // background-rhythm passes (applyDesignIntensityBackgrounds /
+        // applyDandySupportingVariability) have a value to vary — without one
+        // the block falls back to its hardcoded near-white tint and every
+        // section reads as white (Task #1127). The block still renders that
+        // near-white look when no style is set (legacy pages unaffected).
+        backgroundStyle: p.backgroundStyle ?? "muted",
       };
     }
 
@@ -986,10 +993,30 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
       };
     }
 
-    default:
+    default: {
+      // Some supporting block types render their own <section> with a
+      // hardcoded near-white background and only vary it when a
+      // `backgroundStyle` preset is present. Seed a light-neutral default for
+      // those so the deterministic background-rhythm passes have a value to
+      // alternate; without it every such section reads as white (Task #1127).
+      // The block still renders its hardcoded near-white look when no style is
+      // set, so legacy DB rows are unaffected.
+      const seeded = SECTION_BG_SEED_DEFAULTS[type];
+      if (seeded && !("backgroundStyle" in p)) {
+        return { ...p, backgroundStyle: seeded };
+      }
       return { ...p };
+    }
   }
 }
+
+// Block types that render their own <section> with a hardcoded near-white
+// background unless a `backgroundStyle` preset is supplied. Seeding a default
+// lets applyDesignIntensityBackgrounds / applyDandySupportingVariability vary
+// them instead of skipping the (previously absent) prop. (Task #1127.)
+const SECTION_BG_SEED_DEFAULTS: Record<string, string> = {
+  "dandy-columns-v3": "white",
+};
 
 const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   "hero": "{ headline, subheadline, ctaText, ctaUrl, backgroundStyle (\"dark\"|\"white\"|\"light-gray\") }",

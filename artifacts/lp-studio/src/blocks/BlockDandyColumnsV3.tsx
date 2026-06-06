@@ -4,6 +4,7 @@ import { getHeadingWeightClass } from "@/lib/brand-config";
 import type { DandyColumnsV3BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -23,8 +24,20 @@ export function BlockDandyColumnsV3({ props, brand, onFieldChange }: Props) {
     onFieldChange({ ...props, items });
   };
 
+  // Section background honors the optional `backgroundStyle` preset. When it's
+  // unset the block keeps its historical near-white tint so existing pages and
+  // the builder default render unchanged. On a dark/brand preset the hardcoded
+  // dark text would be illegible, so text colors flip to light. (Task #1127.)
+  const dark = isDarkBg(props.backgroundStyle);
+  const sectionStyle = props.backgroundStyle
+    ? getBgStyle(props.backgroundStyle)
+    : { background: "#FDFCFA" };
+  const headingColor = dark ? "#ffffff" : "var(--brand-heading-on-light)";
+  const bodyColor = dark ? "rgba(255,255,255,0.82)" : undefined;
+  const eyebrowColor = dark ? "rgba(255,255,255,0.9)" : "#006651";
+
   return (
-    <section className="w-full py-20 md:py-28 bg-[#FDFCFA]">
+    <section className="w-full py-20 md:py-28" style={sectionStyle}>
       <div className="max-w-7xl mx-auto px-6 md:px-10">
         {(props.eyebrow || props.headline || props.subheadline) && (
           // `headerAlign` defaults to "left" so existing pages render unchanged.
@@ -37,18 +50,18 @@ export function BlockDandyColumnsV3({ props, brand, onFieldChange }: Props) {
             )}
           >
             {props.eyebrow && (
-              <p className="text-xs font-bold uppercase tracking-widest text-[#006651] mb-3" style={{ fontFamily: BODY }}>
-                <InlineText value={props.eyebrow} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined} style={{ fontFamily: BODY }}/>
+              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ fontFamily: BODY, color: eyebrowColor }}>
+                <InlineText value={props.eyebrow} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, eyebrow: v }) : undefined} style={{ fontFamily: BODY, color: eyebrowColor }}/>
               </p>
             )}
             {props.headline && (
-              <h2 className={cn("text-4xl md:text-5xl font-bold text-[var(--brand-heading-on-light)] leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }}>
-                <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
+              <h2 className={cn("text-4xl md:text-5xl font-bold leading-[1.1] tracking-tight mb-4", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY, color: headingColor }}>
+                <InlineText value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ fontFamily: DISPLAY, color: headingColor }}/>
               </h2>
             )}
             {props.subheadline && (
-              <p className="text-slate-600 text-lg leading-relaxed" style={{ fontFamily: BODY }}>
-                <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} style={{ fontFamily: BODY }}/>
+              <p className={cn("text-lg leading-relaxed", dark ? "" : "text-slate-600")} style={{ fontFamily: BODY, color: bodyColor }}>
+                <InlineText value={props.subheadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, subheadline: v }) : undefined} style={{ fontFamily: BODY, color: bodyColor }}/>
               </p>
             )}
           </div>
@@ -76,12 +89,12 @@ export function BlockDandyColumnsV3({ props, brand, onFieldChange }: Props) {
                     {String(i + 1).padStart(2, "0")}.
                   </span>
                 )}
-                <h3 className="text-xl font-bold text-[var(--brand-heading-on-light)] leading-tight" style={{ fontFamily: DISPLAY }}>
-                  <InlineText value={item.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} style={{ fontFamily: DISPLAY }}/>
+                <h3 className="text-xl font-bold leading-tight" style={{ fontFamily: DISPLAY, color: headingColor }}>
+                  <InlineText value={item.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} style={{ fontFamily: DISPLAY, color: headingColor }}/>
                 </h3>
               </div>
-              <p className="text-slate-600 text-base leading-relaxed" style={{ fontFamily: BODY }}>
-                <InlineText value={item.description} onUpdate={onFieldChange ? (v) => updateItem(i, "description", v) : undefined} style={{ fontFamily: BODY }}/>
+              <p className={cn("text-base leading-relaxed", dark ? "" : "text-slate-600")} style={{ fontFamily: BODY, color: bodyColor }}>
+                <InlineText value={item.description} onUpdate={onFieldChange ? (v) => updateItem(i, "description", v) : undefined} style={{ fontFamily: BODY, color: bodyColor }}/>
               </p>
             </div>
           ))}

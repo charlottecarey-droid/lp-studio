@@ -115,4 +115,8 @@
 - [No-reveal sticky blocks](no-reveal-sticky-blocks.md) — blocks with internal `position: sticky` (vertical-tabs/roi-calculator/practice-nav) MUST be in the NO_REVEAL set; the scroll-reveal motion.div transform breaks the sticky containing block, but only on published pages.
 - [Strict Facts keeps stats (no scrub)](strict-facts-no-scrub.md) — strict mode no longer rewrites unapproved AI stats; scanForUnapprovedStats is read-only telemetry feeding the review modal; never re-add sanitizeBlocksStrict.
 - [Rate-limited route inject() tests](rate-limited-route-inject-tests.md) — inject() sets no req.ip so all reqs share one limiter key; >max reqs in one file → 429; set trust proxy 1 + unique X-Forwarded-For per call.
+<<<<<<< HEAD
 - [URL-sourced facts trust](url-sourced-facts-trust.md) — a successfully-scraped PER-REQUEST source URL makes that generation's facts trusted (relax strict guards in both paths); inspirationUrls don't; +fillDsoCaseStudyNeutralDefaults stops DCA component-default leak.
+=======
+- [Microsite section-bg rhythm](microsite-section-bg-rhythm.md) — self-section blocks (dandy-columns-v3/testimonial) read all-white unless mergeWithDefaults SEEDS a light-neutral backgroundStyle AND the block consumes it; legacy rows keep near-white fallback.
+>>>>>>> 01f992787 (Improve microsite section backgrounds by allowing them to vary colors)

@@ -113,6 +113,10 @@ export interface TestimonialBlockProps {
   author: string;
   role: string;
   practiceName: string;
+  /** Optional section background preset. When unset the block keeps its
+   *  historical near-white tint (#F0F7F4); when set it resolves through
+   *  getBgStyle so the deterministic background-rhythm passes can vary it. */
+  backgroundStyle?: BackgroundStyle;
 }
 
 export interface HowItWorksBlockProps {
@@ -570,6 +574,10 @@ export interface DandyColumnsV3BlockProps {
   numberColor?: string;
   /** Horizontal gap between the number and the adjacent title. */
   numberGap?: "tight" | "normal" | "loose";
+  /** Optional section background preset. When unset the block keeps its
+   *  historical near-white tint (#FDFCFA); when set it resolves through
+   *  getBgStyle so the deterministic background-rhythm passes can vary it. */
+  backgroundStyle?: BackgroundStyle;
   items: DandyColumnsV3Item[];
 }
 
