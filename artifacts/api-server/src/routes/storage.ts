@@ -646,6 +646,62 @@ router.post("/lp/og-image/resize", (req: Request, res: Response) => {
   });
 });
 
+/**
+ * Task #1110 — auto-generate a square browser-tab favicon from the tenant's
+ * existing logo. The client fetches its own logo into a blob and uploads the
+ * raw BYTES (multipart), so we never fetch an attacker-supplied URL server-side
+ * (same no-SSRF posture as the OG resize endpoint above).
+ *
+ * sharp pads the logo onto a transparent square canvas (`fit: "contain"`) at
+ * 256×256 — preserving the whole mark without distortion or cropping — and
+ * emits a PNG. SVG inputs are rasterized at a higher density for a crisp icon.
+ * The result is stored just like a manual favicon upload, so all downstream
+ * injection (snapshot + live view) works unchanged.
+ *
+ * Body (multipart/form-data):
+ *   file: the source logo (svg/png/jpg/gif/webp/avif, max 30 MB)
+ *
+ * Response: { url, width: 256, height: 256 }
+ */
+router.post("/lp/favicon/from-logo", (req: Request, res: Response) => {
+  imageUpload.single("file")(req, res, async (err) => {
+    if (err) {
+      const message = err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE"
+        ? "File too large. Maximum size is 30 MB."
+        : (err as Error).message ?? "Upload failed";
+      res.status(400).json({ error: message });
+      return;
+    }
+    // Tenant-scoped — anonymous callers have no business generating favicons.
+    // getTenantId writes the 401/403 on failure.
+    const tenantId = getTenantId(req, res);
+    if (tenantId == null) return;
+    if (!req.file) {
+      res.status(400).json({ error: "No file uploaded" });
+      return;
+    }
+    try {
+      const FAVICON_SIZE = 256;
+      // Higher density only affects vector (SVG) inputs — gives a crisp raster.
+      const favicon = await sharp(req.file.buffer, { density: 384 })
+        .resize({
+          width: FAVICON_SIZE,
+          height: FAVICON_SIZE,
+          fit: "contain",
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
+        })
+        .png()
+        .toBuffer();
+      const servePath = await objectStorageService.uploadObjectEntity(favicon, "image/png");
+      const serveUrl = `/api/storage${servePath}`;
+      res.json({ url: serveUrl, width: FAVICON_SIZE, height: FAVICON_SIZE });
+    } catch (error) {
+      req.log.error({ err: error }, "Error generating favicon from logo");
+      res.status(400).json({ error: "Could not generate a favicon from this logo. Please try a different image." });
+    }
+  });
+});
+
 router.post("/lp/media/upload", (req: Request, res: Response) => {
   videoUpload.single("file")(req, res, async (err) => {
     if (err) {

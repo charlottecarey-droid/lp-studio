@@ -2241,6 +2241,45 @@ export default function BrandSettings() {
     }
   }, [toast]);
 
+  const [generatingFavicon, setGeneratingFavicon] = useState(false);
+
+  // Task #1110 — auto-derive a square favicon from the tenant's existing logo.
+  // We fetch the logo into a blob client-side (same-origin /api/storage logos
+  // work directly) and post the raw bytes to the server, which pads it onto a
+  // square canvas with sharp. Result is stored into faviconUrl exactly like a
+  // manual upload so all downstream injection works unchanged.
+  const handleGenerateFaviconFromLogo = useCallback(async () => {
+    const logoUrl = config.logoUrl?.trim();
+    if (!logoUrl) {
+      toast({ title: "No logo set", description: "Add a logo first, then generate a favicon from it.", variant: "destructive" });
+      return;
+    }
+    setGeneratingFavicon(true);
+    try {
+      const logoRes = await fetch(logoUrl);
+      if (!logoRes.ok) throw new Error("Couldn't load your logo image.");
+      const logoBlob = await logoRes.blob();
+      const formData = new FormData();
+      formData.append("file", logoBlob, "logo");
+      const res = await fetch("/api/lp/favicon/from-logo", { method: "POST", body: formData });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Could not generate a favicon.");
+      }
+      const data = await res.json();
+      setConfig((prev) => ({ ...prev, faviconUrl: data.url }));
+      toast({ title: "Favicon generated", description: "Created from your logo. Don't forget to save your brand settings." });
+    } catch (err) {
+      toast({
+        title: "Couldn't generate favicon",
+        description: err instanceof Error ? err.message : "Please try uploading a favicon manually.",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingFavicon(false);
+    }
+  }, [config.logoUrl, toast]);
+
   const [uploadingEmailBanner, setUploadingEmailBanner] = useState(false);
   const emailBannerFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -3210,13 +3249,27 @@ export default function BrandSettings() {
                             ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…</>
                             : <><Upload className="w-3.5 h-3.5" /> Upload favicon</>}
                         </Button>
+                        {config.logoUrl && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleGenerateFaviconFromLogo}
+                            disabled={generatingFavicon || uploadingFavicon}
+                            className="gap-1.5 shrink-0"
+                          >
+                            {generatingFavicon
+                              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating…</>
+                              : <><Sparkles className="w-3.5 h-3.5" /> Generate from logo</>}
+                          </Button>
+                        )}
                         {config.faviconUrl && (
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
                             onClick={() => update("faviconUrl", "")}
-                            disabled={uploadingFavicon}
+                            disabled={uploadingFavicon || generatingFavicon}
                             className="text-muted-foreground hover:text-destructive"
                           >
                             Remove
