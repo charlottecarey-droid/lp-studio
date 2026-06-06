@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ImagePicker } from "@/components/ImagePicker";
 import { BrandSwatches, useBrandConfig } from "@/components/BrandSwatches";
 import { getBrandStyleVars, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ImagePlus, ImageOff } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 interface Props {
@@ -103,6 +103,13 @@ export function TrustBarPanel({ props, onChange }: Props) {
   const statDefault = resolveHex("var(--brand-heading-on-light)");
   const items = props.items ?? [];
 
+  // Tracks items whose image controls the user has revealed via "Add logo /
+  // photo" before they've actually chosen an image. Once an image is set the
+  // picker shows regardless, so this only matters for the empty-picker window.
+  const [revealed, setRevealed] = useState<Set<number>>(new Set());
+  const reveal = (i: number) => setRevealed(prev => new Set(prev).add(i));
+  const unreveal = (i: number) => setRevealed(prev => { const n = new Set(prev); n.delete(i); return n; });
+
   const updateItem = (i: number, key: "value" | "label", v: string) => {
     const updated = items.map((item, idx) => idx === i ? { ...item, [key]: v } : item);
     onChange({ ...props, items: updated });
@@ -110,6 +117,10 @@ export function TrustBarPanel({ props, onChange }: Props) {
   const patchItem = (i: number, patch: Partial<TrustBarBlockProps["items"][number]>) => {
     const updated = items.map((item, idx) => idx === i ? { ...item, ...patch } : item);
     onChange({ ...props, items: updated });
+  };
+  const removeItemImage = (i: number) => {
+    patchItem(i, { image: "", imageAlt: "" });
+    unreveal(i);
   };
   const addItem = () => onChange({ ...props, items: [...items, { value: "0", label: "New Stat" }] });
   const removeItem = (i: number) => onChange({ ...props, items: items.filter((_, idx) => idx !== i) });
@@ -186,26 +197,54 @@ export function TrustBarPanel({ props, onChange }: Props) {
       {/* Stats */}
       <div className="space-y-3">
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Stats</Label>
-        {items.map((item, i) => (
-          <div key={i} className="flex gap-2 items-start">
-            <div className="flex-1 space-y-2">
-              <Input placeholder="Value (e.g. 12,000+)" value={item.value} onChange={e => updateItem(i, "value", e.target.value)} className="text-sm" />
-              <Input placeholder="Label (e.g. Practices)" value={item.label} onChange={e => updateItem(i, "label", e.target.value)} className="text-sm" />
-              <ImagePicker
-                label="Image (optional — shown in place of the value)"
-                value={item.image ?? ""}
-                onChange={url => patchItem(i, { image: url })}
-                aiHint="trust bar logo"
-              />
-              {(item.image ?? "").trim() !== "" && (
-                <Input placeholder="Image alt text (for accessibility)" value={item.imageAlt ?? ""} onChange={e => patchItem(i, { imageAlt: e.target.value })} className="text-sm" />
-              )}
+        {items.map((item, i) => {
+          const hasImage = (item.image ?? "").trim() !== "";
+          const showImage = hasImage || revealed.has(i);
+          return (
+            <div key={i} className="flex gap-2 items-start">
+              <div className="flex-1 space-y-2">
+                {showImage ? (
+                  <>
+                    <ImagePicker
+                      label="Logo / photo (shown in place of the number)"
+                      value={item.image ?? ""}
+                      onChange={url => patchItem(i, { image: url })}
+                      aiHint="trust bar logo"
+                    />
+                    {hasImage && (
+                      <Input placeholder="Image alt text (for accessibility)" value={item.imageAlt ?? ""} onChange={e => patchItem(i, { imageAlt: e.target.value })} className="text-sm" />
+                    )}
+                  </>
+                ) : (
+                  <Input placeholder="Value (e.g. 12,000+)" value={item.value} onChange={e => updateItem(i, "value", e.target.value)} className="text-sm" />
+                )}
+                <Input placeholder="Label (e.g. Practices)" value={item.label} onChange={e => updateItem(i, "label", e.target.value)} className="text-sm" />
+                {showImage ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full gap-1.5 text-xs text-muted-foreground hover:text-red-500"
+                    onClick={() => removeItemImage(i)}
+                  >
+                    <ImageOff className="w-3.5 h-3.5" /> Remove logo / photo
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-1.5 text-xs"
+                    onClick={() => reveal(i)}
+                  >
+                    <ImagePlus className="w-3.5 h-3.5" /> Add logo / photo
+                  </Button>
+                )}
+              </div>
+              <Button size="icon" variant="ghost" className="text-muted-foreground hover:text-red-500 mt-1 shrink-0" onClick={() => removeItem(i)}>
+                <Trash2 className="w-4 h-4" />
+              </Button>
             </div>
-            <Button size="icon" variant="ghost" className="text-muted-foreground hover:text-red-500 mt-1 shrink-0" onClick={() => removeItem(i)}>
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-        ))}
+          );
+        })}
         <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs" onClick={addItem}>
           <Plus className="w-3.5 h-3.5" /> Add Stat
         </Button>

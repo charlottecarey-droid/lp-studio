@@ -4,12 +4,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, ImagePlus, ImageOff } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
+import { ImagePicker } from "@/components/ImagePicker";
 import { suggestCopy } from "@/lib/copy-api";
+import { useState } from "react";
 
 interface Props {
   blockType: string;
@@ -19,9 +21,21 @@ interface Props {
 }
 
 export function BenefitsGridPanel({ blockType, props, onChange, brandVoiceSet }: Props) {
+  // Tracks items whose photo controls the user has revealed via "Add photo"
+  // before they've actually chosen an image. Once an image is set the picker
+  // shows regardless, so this only matters for the brief empty-picker window.
+  const [revealed, setRevealed] = useState<Set<number>>(new Set());
+  const reveal = (i: number) => setRevealed(prev => new Set(prev).add(i));
+  const unreveal = (i: number) => setRevealed(prev => { const n = new Set(prev); n.delete(i); return n; });
+
   const updateItem = (i: number, key: string, v: string) => {
     const items = props.items.map((item, idx) => idx === i ? { ...item, [key]: v } : item);
     onChange({ ...props, items });
+  };
+  const removeItemImage = (i: number) => {
+    const items = props.items.map((item, idx) => idx === i ? { ...item, image: "", imageAlt: "" } : item);
+    onChange({ ...props, items });
+    unreveal(i);
   };
   const addItem = () => onChange({ ...props, items: [...props.items, { icon: "Zap", title: "New Benefit", description: "Description" }] });
   const removeItem = (i: number) => onChange({ ...props, items: props.items.filter((_, idx) => idx !== i) });
@@ -175,6 +189,45 @@ export function BenefitsGridPanel({ blockType, props, onChange, brandVoiceSet }:
                 tagline: siblingSnippets,
               })}
             />
+            {(() => {
+              const hasImage = (item.image ?? "").trim() !== "";
+              const showImage = hasImage || revealed.has(i);
+              return showImage ? (
+                <div className="space-y-2 pt-1">
+                  <ImagePicker
+                    label="Photo (shown in place of the icon)"
+                    value={item.image ?? ""}
+                    onChange={url => updateItem(i, "image", url)}
+                    aiHint="benefit photo"
+                  />
+                  {hasImage && (
+                    <Input
+                      placeholder="Image alt text (for accessibility)"
+                      value={item.imageAlt ?? ""}
+                      onChange={e => updateItem(i, "imageAlt", e.target.value)}
+                      className="text-xs h-7"
+                    />
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full gap-1.5 text-xs text-muted-foreground hover:text-red-500"
+                    onClick={() => removeItemImage(i)}
+                  >
+                    <ImageOff className="w-3.5 h-3.5" /> Remove photo
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-1.5 text-xs"
+                  onClick={() => reveal(i)}
+                >
+                  <ImagePlus className="w-3.5 h-3.5" /> Add photo
+                </Button>
+              );
+            })()}
           </div>
         );
       })}
