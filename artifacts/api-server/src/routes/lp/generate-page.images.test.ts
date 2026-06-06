@@ -4,6 +4,7 @@ import {
   fillEmptyImages,
   sanitizeAIImageUrls,
   aiFillEmptyImages,
+  buildReferenceFillPool,
   type MediaImage,
 } from "./generate-page";
 
@@ -288,5 +289,69 @@ describe("validateAndDedupeAIImages — generic industry (prompt-only context)",
     ];
     validateAndDedupeAIImages(blocks, GENERIC_LIB, GENERIC_CTX);
     expect((blocks[0].props as any).imageUrl).toBe("/objects/coffee-hero");
+  });
+});
+
+describe("buildReferenceFillPool — reference-image fidelity", () => {
+  const curated: MediaImage = { url: "/objects/brand-photo", title: "Brand photo", tags: ["brand-import", "photography"] };
+  // A stale scrape from a PRIOR generation (apple.com) and a CURRENT-reference
+  // scrape already in the catalog (clay.com), plus a freshly-harvested clay row.
+  const staleApple: MediaImage = { url: "/objects/apple-1", title: "apple image 1", tags: ["page-reference", "scraped", "refhost:apple.com", "refsrc:aaa"] };
+  const priorClay: MediaImage = { url: "/objects/clay-prior", title: "clay image 1", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:bbb"] };
+  const freshClay: MediaImage = { url: "/objects/clay-fresh", title: "clay fresh", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:ccc"] };
+
+  it("orders curated → current-reference scraped → other-host scraped", () => {
+    // Catalog is newest-first: stale apple appears BEFORE the prior clay scrape.
+    const catalog = [staleApple, priorClay, curated];
+    const pool = buildReferenceFillPool(catalog, [freshClay], ["https://www.clay.com/use-cases/plg-assist"]);
+    expect(pool.map((p) => p.url)).toEqual([
+      "/objects/brand-photo", // curated first
+      "/objects/clay-fresh", // freshly-harvested current reference
+      "/objects/clay-prior", // earlier scrape of the SAME host
+      "/objects/apple-1", // stale other-host scrape last
+    ]);
+  });
+
+  it("a tie between stale apple and fresh clay resolves to clay (findBestImage keeps first max-scorer)", () => {
+    // No content-tag or purpose overlap → every scraped image scores 0; ordering decides.
+    const catalog = [staleApple, freshClay];
+    const pool = buildReferenceFillPool(catalog, [freshClay], ["https://clay.com/x"]);
+    const blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Workflow", body: "", imageUrl: "" }] } },
+    ];
+    const filled = fillEmptyImages(blocks, pool, "saas pipeline") as any[];
+    expect(filled[0].props.rows[0].imageUrl).toBe("/objects/clay-fresh");
+  });
+
+  it("dedupes a freshly-harvested row that is also present in the catalog", () => {
+    // mirrorReferenceImages returns existing rows for already-mirrored refsrc, so
+    // the fresh row can also appear in the catalog — it must not be duplicated.
+    const pool = buildReferenceFillPool([freshClay, curated], [freshClay], ["https://clay.com/x"]);
+    expect(pool.filter((p) => p.url === "/objects/clay-fresh")).toHaveLength(1);
+    expect(pool.map((p) => p.url)).toEqual(["/objects/brand-photo", "/objects/clay-fresh"]);
+  });
+
+  it("with no reference URL, all scrapes fall to the other-host tail (no regression)", () => {
+    const pool = buildReferenceFillPool([staleApple, curated], [], []);
+    expect(pool.map((p) => p.url)).toEqual(["/objects/brand-photo", "/objects/apple-1"]);
+  });
+
+  it("matches a legacy refhost:www.<host> tag against a bare reference host", () => {
+    const wwwClay: MediaImage = { url: "/objects/clay-www", title: "clay www", tags: ["scraped", "refhost:www.clay.com"] };
+    const pool = buildReferenceFillPool([staleApple, wwwClay], [], ["https://clay.com/x"]);
+    // www.clay.com tag must be treated as the current reference, ahead of apple.
+    expect(pool.map((p) => p.url)).toEqual(["/objects/clay-www", "/objects/apple-1"]);
+  });
+
+  it("ignores malformed reference URLs without throwing", () => {
+    const pool = buildReferenceFillPool([priorClay, curated], [], ["not a url", ""]);
+    // No valid current-ref host derived → clay scrape falls to the tail.
+    expect(pool.map((p) => p.url)).toEqual(["/objects/brand-photo", "/objects/clay-prior"]);
+  });
+
+  it("treats a scrape with no refhost tag as other-host", () => {
+    const noHost: MediaImage = { url: "/objects/orphan", title: "orphan scrape", tags: ["scraped"] };
+    const pool = buildReferenceFillPool([noHost, freshClay], [freshClay], ["https://clay.com/x"]);
+    expect(pool.map((p) => p.url)).toEqual(["/objects/clay-fresh", "/objects/orphan"]);
   });
 });

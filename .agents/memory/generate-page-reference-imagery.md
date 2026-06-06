@@ -33,7 +33,23 @@ the Neon pool (max 10) is saturated and the mirror's `lp_media` inserts queue
 behind a connection timeout. Window bumped 4s→8s for that case. Log
 "harvest not ready within grace window" = pool contention, not a code bug.
 
-**How to apply:** EXCLUDE_TAGS (fetchMediaCatalog) does NOT exclude
-`scraped`/`page-reference`, so mirrored images do enter the general catalog;
-selection is by scoreImage (generic-titled scraped imgs score low). If scraped
-images aren't being picked, check scoring/relevance, not catalog inclusion.
+## Stale cross-host scrapes win score-0 ties → fill-pool must be host-ordered
+Scraped rows are untagged-for-purpose so every one scores 0 in `findBestImage`,
+which keeps the FIRST max-scorer on ties. A tenant accumulates scraped images
+from many prior reference URLs (apple.com, usatoday.com, …); when the fill pool
+was `[...catalog(newest-first), ...freshScraped]`, an older apple.com row sitting
+earlier beat the clay.com row the user actually referenced. Symptom: "it used a
+random Apple image instead of the reference site's photos."
+
+**Fix/contract:** `buildReferenceFillPool(catalogImages, freshScrapedMedia,
+referenceUrls)` (exported, unit-tested) partitions the pool: curated (non-scraped)
+→ freshScraped (this run) → current-reference scraped (refhost matches a current
+reference host) → other-host scraped. Host compare normalizes BOTH sides (strip
+`www.`, lowercase) — `refHostOf` must stay in sync with how `currentRefHosts` is
+derived. `fetchMediaCatalog` also drops `scraped` rows from the model's IMAGE
+LIBRARY `catalogText` (so the LLM can't pick a stale scrape by URL) while keeping
+them in returned `images` for server-side fill.
+
+**Why:** the model can't reliably distinguish stale vs current scrapes from a flat
+catalog, and the deterministic fill tiebreak is order-sensitive — so freshness/host
+priority must be enforced in pool ORDER, not left to scoring.

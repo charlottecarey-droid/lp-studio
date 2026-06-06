@@ -614,11 +614,23 @@ export async function fetchMediaCatalog(tenantId: number | null): Promise<{ imag
 
     if (images.length === 0) return { images, allImages, catalogText: "" };
 
+    // The model assigns block images by picking URLs from the IMAGE LIBRARY text
+    // built below. EXCLUDE page-reference "scraped" images from that menu: they
+    // are untagged-for-purpose harvests of past reference URLs that the model
+    // would otherwise list under "OTHER" and assign arbitrarily — which is how a
+    // stale apple.com scrape from a prior generation landed on a page whose
+    // reference URL was clay.com. They remain in the returned `images` pool so
+    // the deterministic server-side fill (which prioritises the CURRENT
+    // reference's host — see fillPool assembly) still places them.
+    const catalogImages = images.filter(
+      i => !i.tags.some(t => typeof t === "string" && t.toLowerCase() === "scraped"),
+    );
+
     // Separate into purpose buckets
-    const heroImages = images.filter(i => getImagePurpose(i) === "lp-hero");
-    const featureImages = images.filter(i => getImagePurpose(i) === "lp-feature");
-    const detailImages = images.filter(i => getImagePurpose(i) === "product-detail");
-    const unclassified = images.filter(i => getImagePurpose(i) === "");
+    const heroImages = catalogImages.filter(i => getImagePurpose(i) === "lp-hero");
+    const featureImages = catalogImages.filter(i => getImagePurpose(i) === "lp-feature");
+    const detailImages = catalogImages.filter(i => getImagePurpose(i) === "product-detail");
+    const unclassified = catalogImages.filter(i => getImagePurpose(i) === "");
 
     const buildSection = (imgs: MediaImage[], label: string): string => {
       const tagGroups = new Map<string, MediaImage[]>();
@@ -1020,6 +1032,80 @@ export function validateAndDedupeAIImages(
   }
 
   return blocks;
+}
+
+/** True when an image is a page-reference scrape harvested by mirrorReferenceImages
+ *  (tagged "scraped"), as opposed to a curated drawer / brand-import / AI image. */
+function isScrapedImage(img: MediaImage): boolean {
+  return img.tags.some((t) => typeof t === "string" && t.toLowerCase() === "scraped");
+}
+
+/** The host a scraped image was harvested from (its "refhost:<host>" tag), or
+ *  null. Normalized (lowercased, leading "www." stripped) to match the way
+ *  current-reference hosts are derived in buildReferenceFillPool. */
+function refHostOf(img: MediaImage): string | null {
+  for (const t of img.tags) {
+    if (typeof t === "string" && t.toLowerCase().startsWith("refhost:")) {
+      return t.slice("refhost:".length).toLowerCase().replace(/^www\./, "");
+    }
+  }
+  return null;
+}
+
+/**
+ * Assemble the empty-slot fill pool so the CURRENT reference's images win over
+ * stale page-reference scrapes harvested from PREVIOUS generations.
+ *
+ * Every page-create scrape mirrors the reference site's images into the tenant's
+ * lp_media tagged ["scraped","refhost:<host>",…], so a tenant accumulates scraped
+ * images from many unrelated reference URLs over time. They are all
+ * untagged-for-purpose and therefore score equally (0) in findBestImage, which
+ * keeps the FIRST max-scorer on ties — so a stale apple.com image sitting earlier
+ * in the pool would beat the clay.com image the user actually asked for.
+ *
+ * Ordering: curated → current-reference scraped → other-host scraped.
+ *   1. curated (brand-import / uploads / AI / purpose-tagged) — genuine library
+ *      matches still win first.
+ *   2. current-reference scraped — this run's freshly-harvested images, PLUS any
+ *      earlier scrape of the same host(s) (resilient to the harvest grace window
+ *      timing out), so the requested site's imagery is preferred.
+ *   3. other-host scraped — leftovers from unrelated prior generations, a last
+ *      resort before AI generation.
+ *
+ * @param catalogImages tenant media (fetchMediaCatalog `images`), newest-first.
+ * @param freshScrapedMedia images mirrored from the current reference this run.
+ * @param referenceUrls the reference URL(s) used for the current generation.
+ */
+export function buildReferenceFillPool(
+  catalogImages: MediaImage[],
+  freshScrapedMedia: MediaImage[],
+  referenceUrls: string[],
+): MediaImage[] {
+  const currentRefHosts = new Set<string>();
+  for (const u of referenceUrls) {
+    try {
+      currentRefHosts.add(new URL(u).hostname.replace(/^www\./, "").toLowerCase());
+    } catch {
+      /* ignore malformed reference URLs */
+    }
+  }
+  const freshScrapedUrls = new Set(freshScrapedMedia.map((m) => m.url));
+  const curatedImages: MediaImage[] = [];
+  const currentRefScraped: MediaImage[] = [];
+  const otherScraped: MediaImage[] = [];
+  for (const img of catalogImages) {
+    if (!isScrapedImage(img)) {
+      curatedImages.push(img);
+      continue;
+    }
+    // Freshly-harvested rows are placed via freshScrapedMedia — skip their catalog
+    // duplicates so they aren't demoted into the other-scraped tail.
+    if (freshScrapedUrls.has(img.url)) continue;
+    const host = refHostOf(img);
+    if (host && currentRefHosts.has(host)) currentRefScraped.push(img);
+    else otherScraped.push(img);
+  }
+  return [...curatedImages, ...freshScrapedMedia, ...currentRefScraped, ...otherScraped];
 }
 
 /** Post-process blocks to fill in empty image URLs from the media library.
@@ -4014,10 +4100,12 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     ].join(" ").trim().slice(0, 240);
 
     // Task #747 — merge the reference-site images harvested above into the
-    // fill pool. They are appended AFTER the tenant's drawer images so a
-    // genuine drawer match still wins each slot (findBestImage keeps the first
-    // max-scorer on ties), while these untagged scraped images only fill slots
-    // no drawer image fits — ahead of the AI-generation fallback below.
+    // fill pool. Genuine curated library images (drawer uploads, brand-import
+    // photography) still win each slot first (findBestImage keeps the first
+    // max-scorer on ties); harvested reference images only fill slots no curated
+    // image fits — ahead of the AI-generation fallback below. Ordering AMONG the
+    // reference images (current reference before stale prior-generation scrapes)
+    // is handled when the pool is built, just below.
     //
     // The harvest ran concurrently with the (multi-second) LLM call and is
     // almost always finished by now. To keep it strictly latency-free we only
@@ -4041,9 +4129,15 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         }, SCRAPED_MEDIA_GRACE_MS),
       ),
     ]);
-    const fillPool: MediaImage[] = scrapedMedia.length > 0
-      ? [...mediaCatalog.images, ...scrapedMedia]
-      : mediaCatalog.images;
+    // Reference-image fidelity: order the pool curated → current-reference
+    // scraped → other-host scraped, so the site the user actually referenced
+    // wins empty slots over stale scrapes from prior generations. See
+    // buildReferenceFillPool for the full rationale.
+    const fillPool: MediaImage[] = buildReferenceFillPool(
+      mediaCatalog.images,
+      scrapedMedia,
+      scrapedUrls,
+    );
 
     // Subject the model's OWN image picks to the same dedup + purpose/relevance
     // guardrails used for empty slots: clear duplicates and wrong-purpose /
