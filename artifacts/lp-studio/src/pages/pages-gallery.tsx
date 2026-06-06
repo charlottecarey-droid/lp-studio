@@ -372,16 +372,29 @@ export default function PagesGallery() {
 
     const cleanedRefUrls = (referenceUrls ?? []).map(u => u.trim()).filter(Boolean);
 
-    const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt: prompt.trim(),
-        ...(segmentContext ? { segmentContext } : {}),
-        ...(templateId ? { templateId } : {}),
-        ...(cleanedRefUrls.length > 0 ? { referenceUrls: cleanedRefUrls } : {}),
-      }),
-    });
+    // AI generation legitimately takes 30–70s, but without an explicit timeout
+    // a stalled request (hung upstream LLM call, dropped connection) leaves the
+    // modal spinner running forever. Abort after 3min and surface a retryable
+    // message instead of an indefinite spinner.
+    let genRes: Response;
+    try {
+      genRes = await fetch(`${API_BASE}/lp/generate-page`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          ...(segmentContext ? { segmentContext } : {}),
+          ...(templateId ? { templateId } : {}),
+          ...(cleanedRefUrls.length > 0 ? { referenceUrls: cleanedRefUrls } : {}),
+        }),
+        signal: AbortSignal.timeout(180_000),
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "TimeoutError") {
+        throw new Error("Generation took too long and timed out. Please try again.");
+      }
+      throw err;
+    }
     if (!genRes.ok) {
       const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
       throw new Error((err as { error?: string }).error ?? "Generation failed");

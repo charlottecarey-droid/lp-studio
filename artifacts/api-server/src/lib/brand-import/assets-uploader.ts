@@ -484,12 +484,23 @@ export async function mirrorReferenceImages(inputs: {
   }
   if (candidates.length === 0) return out;
 
-  // De-dup across prior page-create harvests for this tenant: collect the
-  // refsrc tags already present on "scraped" rows and skip those sources.
-  const alreadyMirrored = new Set<string>();
+  // De-dup across prior page-create harvests for this tenant: map each refsrc
+  // tag already present on a "scraped" row to that existing library row. We
+  // skip re-uploading those sources, but we still RETURN their existing rows
+  // (below) so a repeat generation from the same URL surfaces this run's
+  // reference imagery with the same priority as a fresh mirror — otherwise the
+  // second generation would get an empty `images[]` and silently fall back to
+  // generic catalog photos.
+  const alreadyMirrored = new Map<string, MirroredImage>();
   try {
     const existing = await db
-      .select({ tags: lpMediaTable.tags })
+      .select({
+        url: lpMediaTable.url,
+        title: lpMediaTable.title,
+        tags: lpMediaTable.tags,
+        width: lpMediaTable.width,
+        height: lpMediaTable.height,
+      })
       .from(lpMediaTable)
       .where(and(
         eq(lpMediaTable.tenantId, inputs.tenantId),
@@ -499,7 +510,17 @@ export async function mirrorReferenceImages(inputs: {
       .limit(2000);
     for (const row of existing) {
       const tags = (row.tags as string[]) ?? [];
-      for (const t of tags) if (typeof t === "string" && t.startsWith("refsrc:")) alreadyMirrored.add(t);
+      for (const t of tags) {
+        if (typeof t === "string" && t.startsWith("refsrc:") && !alreadyMirrored.has(t)) {
+          alreadyMirrored.set(t, {
+            url: row.url,
+            title: row.title ?? "",
+            tags,
+            width: row.width,
+            height: row.height,
+          });
+        }
+      }
     }
   } catch (e) {
     logger.warn(
@@ -510,6 +531,18 @@ export async function mirrorReferenceImages(inputs: {
 
   const fresh = candidates.filter((c) => !alreadyMirrored.has(c.tag));
   out.skipped = candidates.length - fresh.length;
+
+  // Surface the existing library rows for any deduped candidate so the caller
+  // gets this URL's reference images on every generation, not just the first.
+  // Capped at MAX_REFERENCE_PHOTOS to match the fresh-upload path — a content
+  // page can expose dozens of images, and an oversized reference pool would
+  // skew the generator's selection.
+  for (const c of candidates) {
+    if (out.images.length >= MAX_REFERENCE_PHOTOS) break;
+    const existingImg = alreadyMirrored.get(c.tag);
+    if (existingImg) out.images.push(existingImg);
+  }
+
   const toMirror = fresh.slice(0, MAX_REFERENCE_PHOTOS);
   out.attempted = toMirror.length;
   if (toMirror.length === 0) return out;

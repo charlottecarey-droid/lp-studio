@@ -1131,6 +1131,16 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       props.backgroundStyle = "dandy-green";
     }
 
+    // DSO challenges: this block's only image slot is a section background
+    // photo (`backgroundImage`, distinct from the `backgroundImageUrl` other
+    // dso blocks use), rendered behind a dark overlay. It's not in the AI
+    // schema, so the model never sets it — fill it here so the card grid sits
+    // on a relevant photo instead of a flat panel. pick() returns "" when no
+    // suitable library image exists, leaving the plain background intact.
+    if (blockType === "dso-challenges" && !props.backgroundImage) {
+      props.backgroundImage = pick(blockContext, images, usedUrls, "lp-feature");
+    }
+
     // DSO blocks with a single imageUrl (ai-feature, particle-mesh, flow-canvas, cta-capture)
     if (blockType.startsWith("dso-") && "imageUrl" in props && !props.imageUrl) {
       const purpose = ["dso-heartland-hero", "dso-scroll-story-hero"].includes(blockType) ? "lp-hero" : "lp-feature";
@@ -4015,7 +4025,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // settled, we proceed with the drawer-only pool. The mirror still completes
     // in the background and persists its rows, so the next generation from the
     // same site picks them up via the refsrc dedup — no work is wasted.
-    const SCRAPED_MEDIA_GRACE_MS = 4000;
+    // 8s, not 4s: under DB-pool contention the mirror's lp_media inserts can
+    // queue behind a connection-timeout, so a too-tight grace window discards
+    // freshly-scraped reference images that would have landed a beat later.
+    const SCRAPED_MEDIA_GRACE_MS = 8000;
     const scrapedMedia = await Promise.race([
       scrapedMediaPromise,
       new Promise<MediaImage[]>((resolve) =>

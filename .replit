@@ -50,6 +50,10 @@ args = "tc-lp"
 task = "workflow.run"
 args = "tc-api"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "tc-lp-studio"
+
 [[workflows.workflow]]
 name = "artifacts/dandy-insights-video: web"
 author = "agent"
@@ -124,6 +128,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run typecheck"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "tc-lp-studio"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/lp-studio run typecheck"
 
 [workflows.workflow.metadata]
 isValidation = true

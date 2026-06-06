@@ -15,6 +15,7 @@ import { findTenantByHost } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
 import crypto from "node:crypto";
 import { triggerPublishedRender, triggerPublishedDelete } from "../../lib/triggerPublishedRender";
+import { withDbRetry, isTransientDbError } from "../../lib/dbResilience";
 import { handlePagePublishNotifications } from "../../lib/contentSeriesNotify";
 import { triggerTemplateThumbnailCapture } from "../../lib/captureTemplateThumbnail";
 import { isRootSuperadminEmail } from "../../lib/rootSuperadmin";
@@ -481,11 +482,11 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
       const config = await getPlanConfig();
       const cap = config[plan].features.limits.pages;
       if (cap !== null) {
-        const countRow = await pool.query<{ count: string }>(
+        const countRow = await withDbRetry(() => pool.query<{ count: string }>(
           `SELECT COUNT(*)::text AS count FROM lp_pages
             WHERE tenant_id = $1 AND is_template = false`,
           [tenantId],
-        );
+        ));
         const current = Number(countRow.rows[0]?.count ?? 0);
         if (current >= cap) {
           res.status(402).json(capUpgradeBody("pages", current, cap, plan, config));
@@ -542,7 +543,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
 
   try {
     const finalCustomCss = (typeof customCss === "string" && customCss.length > 0) ? sanitizeCSS(customCss) : sanitizeCSS(sourceCss);
-    const [page] = await db
+    const [page] = await withDbRetry(() => db
       .insert(lpPagesTable)
       .values({
         tenantId,
@@ -564,7 +565,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
         segmentId: typeof segmentId === "string" && segmentId ? segmentId : null,
         createdBy: req.authUser?.email ?? null,
       })
-      .returning();
+      .returning());
     // Task #364: kick off prerender if the page was created directly as
     // `published` (superadmin / publish-perm tool). Fire-and-forget — the
     // user's 201 returns immediately and the rendered HTML lands a few
@@ -576,7 +577,14 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
   } catch (err) {
     if (isDbError(err) && err.code === "23505") {
       res.status(409).json({ error: "A page with that slug already exists" });
+    } else if (isTransientDbError(err)) {
+      // Pool was briefly saturated even after retries. Tell the client it's a
+      // temporary condition (so an AI-generated page can be re-saved) instead
+      // of the opaque "Failed to create page".
+      console.error("[lp/pages] create failed — transient DB saturation:", err);
+      res.status(503).json({ error: "The database is busy right now. Please try again in a moment." });
     } else {
+      console.error("[lp/pages] create failed:", err);
       res.status(500).json({ error: "Failed to create page" });
     }
   }
