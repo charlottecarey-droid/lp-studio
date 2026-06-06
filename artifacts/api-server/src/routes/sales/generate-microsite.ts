@@ -35,6 +35,9 @@ import {
   // dso-success-stories block only ever uses them (never invented stories).
   fetchApprovedCaseStudies,
   enforceDsoSuccessStoriesApproved,
+  // Numeric proof bars (trust-bar / stats) never carry a per-item image in AI
+  // output; used to skip legacy-template image restore on those blocks.
+  STAT_BAR_BLOCK_TYPES,
 } from "../lp/generate-page";
 // Mirror harvested reference imagery into the tenant's media library so the
 // image-fill pass can use real site images for empty slots.
@@ -491,7 +494,7 @@ const ARRAY_IMAGE_SPECS = [
  * AI-generated block, preventing the AI from inventing (or badly picking)
  * images when a perfectly good one already exists in the template.
  */
-function restoreTemplateImages(generatedBlocks: AiBlock[], tmplBlocks: AiBlock[]): AiBlock[] {
+export function restoreTemplateImages(generatedBlocks: AiBlock[], tmplBlocks: AiBlock[]): AiBlock[] {
   return generatedBlocks.map((block, i) => {
     const tmpl = tmplBlocks[i];
     if (!tmpl) return block;
@@ -503,8 +506,12 @@ function restoreTemplateImages(generatedBlocks: AiBlock[], tmplBlocks: AiBlock[]
       if (typeof tp[f] === "string" && tp[f]) gp[f] = tp[f];
     }
 
-    // Restore per-element image props inside arrays
+    // Restore per-element image props inside arrays. Stat bars (trust-bar /
+    // stats) are numeric-only — never restore a legacy template item image, or
+    // we reintroduce the "stat label above a random photo" mismatch.
+    const isStatBar = STAT_BAR_BLOCK_TYPES.has(block.type as string);
     for (const { field, imgKey } of ARRAY_IMAGE_SPECS) {
+      if (field === "items" && isStatBar) continue;
       if (Array.isArray(tp[field]) && Array.isArray(gp[field])) {
         const tmplArr = tp[field] as Record<string, unknown>[];
         gp[field] = (gp[field] as Record<string, unknown>[]).map((item, j) => {
@@ -616,15 +623,14 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         .slice(0, 4)
         .map(v => ({ value: "✓", label: v.theme }));
       return {
+        // trust-bar / stats are NUMERIC proof bars — value + label only. We
+        // deliberately drop any per-item image: a stat label above a brand
+        // photo or homepage screenshot reads as broken, and the library has no
+        // iconic/logo purpose to pull from.
         items: items.length > 0
           ? items.map(s => ({
               value: s.value ?? "",
               label: s.label ?? "",
-              // Preserve the optional per-item logo/photo so the image-fill
-              // pass can populate it (renderer falls back to the numeric
-              // stat when empty).
-              ...(s && typeof s === "object" && "image" in s ? { image: typeof s.image === "string" ? s.image : "" } : {}),
-              ...(typeof s.imageAlt === "string" ? { imageAlt: s.imageAlt } : {}),
             }))
           : fromBrand,
       };
@@ -962,7 +968,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
 
 const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   "hero": "{ headline, subheadline, ctaText, ctaUrl, backgroundStyle (\"dark\"|\"white\"|\"light-gray\") }",
-  "trust-bar": "{ items: [{ value, label, image (OPTIONAL — leave \"\" for a brand photo beside the stat ONLY for visual / consumer / lifestyle brands or stats tied to something photographable; omit for a clean numeric stat, the right default for B2B / SaaS / finance / abstract metrics — keep it all-or-none across items) }] } — 3–4 key proof stats",
+  "trust-bar": "{ items: [{ value, label }] } — 3–4 key NUMERIC proof stats; values + labels ONLY, NEVER an image (a stat label above a photo or screenshot reads as broken)",
   "benefits-grid": "{ headline, columns (3), items: [{ icon (lucide name), title, description, image (OPTIONAL — leave \"\" to add a brand photo when the benefit is concrete/showable (product, place, person, result) or the brand is visual/consumer/lifestyle; omit for a clean icon card when the benefit is abstract (security, support, pricing) or the brand is clean B2B/SaaS — keep it all-or-none across items) }] } — 6 benefits",
   "features": "{ headline, columns (3), items: [{ icon (lucide name), title, description, image (OPTIONAL — leave \"\" to add a brand photo when the benefit is concrete/showable (product, place, person, result) or the brand is visual/consumer/lifestyle; omit for a clean icon card when the benefit is abstract (security, support, pricing) or the brand is clean B2B/SaaS — keep it all-or-none across items) }] } — 6 benefits",
   "testimonial": "{ quote, author, role, practiceName }",
@@ -971,7 +977,7 @@ const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   "comparison": "{ headline, oldWayLabel, oldWayBullets: string[], newWayLabel, newWayBullets: string[] }",
   "bottom-cta": "{ headline, subheadline, ctaText, ctaUrl, backgroundStyle }",
   "cta": "{ headline, subheadline, ctaText, ctaUrl, backgroundStyle }",
-  "stats": "{ items: [{ value, label, image (OPTIONAL — leave \"\" for a brand photo beside the stat ONLY for visual / consumer / lifestyle brands or stats tied to something photographable; omit for a clean numeric stat, the right default for B2B / SaaS / finance / abstract metrics — keep it all-or-none across items) }] }",
+  "stats": "{ items: [{ value, label }] } — NUMERIC proof stats; values + labels ONLY, NEVER an image (a stat label above a photo or screenshot reads as broken)",
   "pas-section": "{ headline, body, bullets: string[] }",
   "stat-callout": "{ stat, description, footnote }",
   "rich-text": "{ content, maxWidth }",

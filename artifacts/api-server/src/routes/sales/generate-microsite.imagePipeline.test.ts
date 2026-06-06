@@ -24,6 +24,7 @@ import {
   validateAndDedupeAIImages,
   type MediaImage,
 } from "../lp/generate-page";
+import { restoreTemplateImages } from "./generate-microsite";
 
 // A tenant "drawer" of real uploads with NO auto-tags — the common case.
 const UNTAGGED: MediaImage[] = [
@@ -86,5 +87,53 @@ describe("sales image pipeline — empty library never fabricates URLs", () => {
     ];
     blocks = sanitizeAIImageUrls(blocks, []) as any[];
     expect(blocks[0].props.imageUrl).toBe("");
+  });
+});
+
+describe("sales template image restore — stat bars stay numeric", () => {
+  it("never restores a legacy template trust-bar/stats item image", () => {
+    // A legacy template ships per-item images on a trust-bar / stats block.
+    // restoreTemplateImages must NOT copy them back onto the AI output, or the
+    // numeric proof bar regains a "stat label above a random photo" mismatch.
+    const tmpl: any[] = [
+      { type: "trust-bar", props: { items: [
+        { value: "100%", label: "Old", image: "/objects/legacy-1" },
+        { value: "5x", label: "Faster", image: "/objects/legacy-2" },
+      ] } },
+      { type: "stats", props: { items: [
+        { value: "24/7", label: "Support", image: "/objects/legacy-3" },
+      ] } },
+    ];
+    const generated: any[] = [
+      { type: "trust-bar", props: { items: [
+        { value: "98%", label: "Satisfaction", image: "" },
+        { value: "2 days", label: "Setup", image: "" },
+      ] } },
+      { type: "stats", props: { items: [
+        { value: "10,000+", label: "Teams", image: "" },
+      ] } },
+    ];
+    const out = restoreTemplateImages(generated, tmpl) as any[];
+    for (const item of out[0].props.items as Array<{ image: string }>) expect(item.image).toBe("");
+    expect((out[1].props.items as Array<{ image: string }>)[0].image).toBe("");
+  });
+
+  it("still restores per-card photos for benefits-grid / features (no over-filtering)", () => {
+    const tmpl: any[] = [
+      { type: "benefits-grid", props: { items: [
+        { title: "A", image: "/objects/bg-1" },
+        { title: "B", image: "/objects/bg-2" },
+      ] } },
+    ];
+    const generated: any[] = [
+      { type: "benefits-grid", props: { items: [
+        { title: "A", image: "" },
+        { title: "B", image: "" },
+      ] } },
+    ];
+    const out = restoreTemplateImages(generated, tmpl) as any[];
+    const items = out[0].props.items as Array<{ image: string }>;
+    expect(items[0].image).toBe("/objects/bg-1");
+    expect(items[1].image).toBe("/objects/bg-2");
   });
 });

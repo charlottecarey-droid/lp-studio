@@ -570,9 +570,19 @@ type AIImageSlot = {
 
 /** Block types whose `items[].image` is an OPTIONAL per-item photo (logo/feature
  *  style → "lp-feature") rather than a product shot. Includes the legacy
- *  `stats`/`features` aliases the microsite normalizer pairs with
- *  `trust-bar`/`benefits-grid` (it keeps the original type). */
-const ITEM_PHOTO_BLOCK_TYPES = new Set(["benefits-grid", "features", "trust-bar", "stats"]);
+ *  `features` alias the microsite normalizer pairs with `benefits-grid` (it
+ *  keeps the original type).
+ *
+ *  NOTE: `trust-bar` (and its `stats` alias) are deliberately EXCLUDED. They are
+ *  numeric proof bars — a stat label ("Customer satisfaction", "Upfront cost")
+ *  sitting above a brand photo or homepage screenshot reads as broken, and the
+ *  library has no iconic/logo purpose to pull from. AI stat bars stay numeric;
+ *  see the stat-bar guard in fillEmptyImages / sanitizeAIImageUrls. */
+const ITEM_PHOTO_BLOCK_TYPES = new Set(["benefits-grid", "features"]);
+
+/** Numeric proof bars (trust-bar + its legacy `stats` alias) never carry a
+ *  per-item photo in AI output. */
+export const STAT_BAR_BLOCK_TYPES = new Set(["trust-bar", "stats"]);
 
 /** Collect every image-bearing slot on a block (mirrors the shapes handled by
  *  sanitizeAIImageUrls / fillEmptyImages). Accessors mutate the block in place. */
@@ -636,11 +646,13 @@ function collectImageSlots(block: Record<string, unknown>): AIImageSlot[] {
   pushArrField(props.cards, "imageUrl", "lp-feature", it => `${it.tag ?? ""} ${it.title ?? ""} ${it.body ?? ""}`);
   pushArrField(props.panels, "imageUrl", "lp-feature", it => `${it.tag ?? ""} ${it.title ?? ""} ${it.body ?? ""}`);
   pushArrField(props.images, "src", "lp-feature", it => `${it.alt ?? ""} ${blockContext}`);
-  // benefits-grid / trust-bar (+ their stats/features aliases) carry an OPTIONAL
-  // per-item photo (logo-style) → lp-feature; product-grid items are product
-  // shots → product-detail.
+  // benefits-grid (+ its features alias) carries an OPTIONAL per-item photo
+  // (logo-style) → lp-feature; product-grid items are product shots →
+  // product-detail. trust-bar / stats are numeric bars and never carry photos.
   const itemsPurpose = ITEM_PHOTO_BLOCK_TYPES.has(blockType) ? "lp-feature" : "product-detail";
-  pushArrField(props.items, "image", itemsPurpose, it => `${it.title ?? it.label ?? ""} ${it.description ?? ""}`);
+  if (!STAT_BAR_BLOCK_TYPES.has(blockType)) {
+    pushArrField(props.items, "image", itemsPurpose, it => `${it.title ?? it.label ?? ""} ${it.description ?? ""}`);
+  }
   pushArrField(props.cases, "image", "lp-feature", it => `${it.name ?? ""} ${it.author ?? ""}`);
   pushArrField(props.slides, "src", "lp-feature", it => `${it.caption ?? ""} ${it.headline ?? ""}`);
 
@@ -889,11 +901,13 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       });
     }
 
-    // items[].image: benefits-grid / trust-bar (+ stats/features aliases) use an
-    // OPTIONAL per-item photo (logo-style) → lp-feature; product-grid items are
-    // product shots → product-detail. Only filled when the AI left an empty
-    // `image` key, so items that omit it keep falling back to icons / stats.
-    if (Array.isArray(props.items)) {
+    // items[].image: benefits-grid (+ features alias) use an OPTIONAL per-item
+    // photo (logo-style) → lp-feature; product-grid items are product shots →
+    // product-detail. Only filled when the AI left an empty `image` key, so
+    // items that omit it keep falling back to icons. trust-bar / stats are
+    // numeric bars: NEVER auto-fill a photo (a stat label above a screenshot or
+    // text graphic reads as broken — the library has no iconic/logo purpose).
+    if (Array.isArray(props.items) && !STAT_BAR_BLOCK_TYPES.has(blockType)) {
       const itemsPurpose = ITEM_PHOTO_BLOCK_TYPES.has(blockType) ? "lp-feature" : "product-detail";
       props.items = (props.items as Record<string, unknown>[]).map((item) => {
         if ("image" in item && !item.image) {
@@ -1132,8 +1146,11 @@ export async function aiFillEmptyImages(
       });
     }
 
-    // Arrays of {image} (items, cases)
+    // Arrays of {image} (items, cases). Stat bars (trust-bar / stats) are
+    // numeric-only — never AI-generate an image for a stat label, or we
+    // reintroduce the "label above a random photo" mismatch.
     for (const arrKey of ["items", "cases"] as const) {
+      if (arrKey === "items" && STAT_BAR_BLOCK_TYPES.has(blockType)) continue;
       const arr = props[arrKey];
       if (!Array.isArray(arr)) continue;
       arr.forEach((item, i) => {
@@ -1262,6 +1279,7 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[]):
   return blocks.map((block) => {
     const b = { ...(block as Record<string, unknown>) };
     const props = { ...(b.props as Record<string, unknown> ?? {}) };
+    const blockType = (b.type as string) ?? "";
 
     // Single imageUrl fields
     if (typeof props.imageUrl === "string" && props.imageUrl) {
@@ -1341,11 +1359,16 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[]):
       }));
     }
 
-    // Arrays with image (product-grid items, success-stories cases)
+    // Arrays with image (product-grid items, success-stories cases).
+    // trust-bar / stats are numeric proof bars — force every item to a clean
+    // numeric stat (image ""), never pair a stat label with a photo/screenshot.
     if (Array.isArray(props.items)) {
+      const isStatBar = STAT_BAR_BLOCK_TYPES.has(blockType);
       props.items = (props.items as Record<string, unknown>[]).map(item => ({
         ...item,
-        image: typeof item.image === "string" ? cleanUrl(item.image) : item.image,
+        image: isStatBar
+          ? ""
+          : typeof item.image === "string" ? cleanUrl(item.image) : item.image,
       }));
     }
     if (Array.isArray(props.cases)) {
@@ -2115,7 +2138,7 @@ AVAILABLE BLOCK TYPES (use these exact type strings — mirror the EXAMPLE for v
 - "hero": Main hero section. Props: headline (5–12 words, specific to the topic — NOT a generic verb phrase), subheadline (15–32 words, expands the headline with a concrete outcome + audience), ctaText (2–5 words, action verb first), ctaUrl ("#"), ctaColor (hex), heroType ("static-image"|"none"), layout ("centered"|"split"|"minimal"), backgroundStyle ("white"|"dark"), showSocialProof (boolean), socialProofText (10–18 words, concrete proof — count + named audience, e.g. "Trusted by 8,000+ teams across retail, services, and logistics"), imageUrl (string), mediaUrl (string).
   EXAMPLE (illustrative only — write copy for the brand and topic in BRAND CONTEXT / USER REQUEST, never reuse this domain): { headline: "Run your entire workflow from one place", subheadline: "From first request to final delivery, the platform unifies the steps your team already does — your data stays yours while the manual busywork disappears.", ctaText: "Book a 20-min walkthrough", showSocialProof: true, socialProofText: "Trusted by 8,000+ teams across retail, services, and logistics", layout: "split", backgroundStyle: "white" }
 
-- "trust-bar": Stat bar with metrics. Props: items (array of {value, label, image (OPTIONAL — leave "" to let the server place a brand logo/photo beside the stat ONLY for visual / consumer / lifestyle brands or stats that map to something photographable like a place, product, or result; omit entirely for a clean numeric bar, which is the right default for B2B / SaaS / finance / abstract metrics)} — EXACTLY 4 items, value is a specific metric like "10,000+" or "98%" or "$2.4B" — never a vague word, label is 2–5 words naming a specific audience or outcome), countUpEnabled (boolean, default true). Keep image presence consistent across all 4 items — either all show a photo or none do, never a mix.
+- "trust-bar": Numeric proof/stats bar — credibility METRICS ONLY, never images or logos. Props: items (array of {value, label} — EXACTLY 4 items, value is a specific metric like "10,000+" or "98%" or "$2.4B" — never a vague word, label is 2–5 words naming a specific audience or outcome), countUpEnabled (boolean, default true). This block is for NUMBERS: every item is a value + label pair. NEVER add an "image" field to a trust-bar item — a stat label ("Customer satisfaction rating", "Upfront cost", "Teams using us") sitting above a random photo or homepage screenshot reads as broken. Use a separate image block (photo-strip, benefits-grid with photos) if you want imagery.
   EXAMPLE items: [{ value: "8,000+", label: "Teams onboarded" }, { value: "98%", label: "Customer retention" }, { value: "2 days", label: "Average setup time" }, { value: "$0", label: "Upfront cost" }]
 
 - "pas-section": Problem-Agitate-Solve. Props: headline (6–14 words, names the problem directly), body (45–85 words, escalates the cost of inaction with a concrete scenario — money, time, or quality), bullets (string[], EXACTLY 3–5 items, each 8–16 words, each names a specific failure mode).
@@ -2204,10 +2227,10 @@ RULES:
    - product-grid image → use images from "PRODUCT DETAIL" section. "FEATURE IMAGES" is also acceptable.
    - Match images to the specific content topic (e.g. product images for product content, team photos for people-focused sections).
    - Set heroType "static-image" when you assign a hero imageUrl. If no suitable image exists for a slot, use empty string "".
-9a. PER-CARD PHOTOS (benefits-grid / features / trust-bar / stats item images): these per-item image fields are OPTIONAL and decide whether each card shows a photo or stays a clean icon/numeric card. Decide by BRAND and by BENEFIT — and apply ONE decision to the whole block (all items get a photo or none do, never a mix):
+9a. PER-CARD PHOTOS (benefits-grid / features item images): these per-item image fields are OPTIONAL and decide whether each card shows a photo or stays a clean icon card. Decide by BRAND and by BENEFIT — and apply ONE decision to the whole block (all items get a photo or none do, never a mix). (trust-bar / stats are NUMERIC-only — never give them images.)
    - ADD per-card photos when the brand is visual / consumer / lifestyle / hospitality / retail / healthcare-results, OR when the cards describe concrete, showable things — a product, a place, a person, a before/after, a tangible result. Photos make these cards feel real and on-brand.
-   - KEEP icon-only / numeric (leave image "") when the brand is clean B2B / SaaS / finance / developer-tooling / professional-services, OR when the benefits are abstract (security, uptime, support, pricing, compliance, automation). Crisp icons read sharper here than generic stock-feeling photos, and a clean numeric trust-bar looks more credible than one cluttered with images.
-   - When unsure, default to icon-only (benefits-grid) / numeric (trust-bar) — a clean card is never wrong, an off-brand photo is.
+   - KEEP icon-only (leave image "") when the brand is clean B2B / SaaS / finance / developer-tooling / professional-services, OR when the benefits are abstract (security, uptime, support, pricing, compliance, automation). Crisp icons read sharper here than generic stock-feeling photos.
+   - When unsure, default to icon-only (benefits-grid) — a clean card is never wrong, an off-brand photo is.
 10. IMPORTANT: If the brand context includes a CTA button color, use that EXACT hex value for every ctaColor prop. Never invent random colors for buttons.
 10a. TEXT COLOR: Never wrap headline, subheadline, eyebrow, label, body, or any text field in inline color styles (e.g. <span style="color:#...">). Heading and body text MUST inherit color from the block's backgroundStyle so contrast is always correct. Server-side post-processing will strip any inline color you set, so emitting them is wasted tokens. To emphasize a word, use <strong> or <em>, not color.
 10b. IMAGE URLS — STRICT: Every imageUrl, backgroundImageUrl, heroImageUrl, src, and image field MUST be either (a) a verbatim URL copied from the IMAGE LIBRARY section above, or (b) an empty string "". NEVER invent, guess, or fabricate URLs. NEVER use placeholder domains like "image-library.com", "example.com", "cdn.example.com", "images.unsplash.com", "via.placeholder.com", or any host not literally present in the IMAGE LIBRARY. If no library image fits a slot, leave the field as "" — the server will fill it in. Hallucinated URLs render as broken images on the live page.

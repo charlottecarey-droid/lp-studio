@@ -3,6 +3,7 @@ import {
   validateAndDedupeAIImages,
   fillEmptyImages,
   sanitizeAIImageUrls,
+  aiFillEmptyImages,
   type MediaImage,
 } from "./generate-page";
 
@@ -158,6 +159,62 @@ describe("validateAndDedupeAIImages", () => {
     ];
     blocks = sanitizeAIImageUrls(blocks, LIB) as any[];
     expect(blocks[0].props.imageUrl).toBe("");
+  });
+
+  it("strips any per-item image from a trust-bar (numeric stat bars never pair a label with a photo)", () => {
+    let blocks: any[] = [
+      { type: "trust-bar", props: { items: [
+        { value: "98%", label: "Customer satisfaction rating", image: "/objects/dental-feature-1" },
+        { value: "$0", label: "Upfront cost", image: "/objects/restaurant-hero" },
+        { value: "10,000+", label: "Teams using us", image: "" },
+      ] } },
+    ];
+    blocks = sanitizeAIImageUrls(blocks, LIB) as any[];
+    for (const item of blocks[0].props.items as Array<{ image: string }>) {
+      expect(item.image).toBe("");
+    }
+  });
+
+  it("'stats' (legacy trust-bar alias) is also stripped of item images", () => {
+    let blocks: any[] = [
+      { type: "stats", props: { items: [
+        { value: "5x", label: "Faster onboarding", image: "/objects/dental-feature-2" },
+      ] } },
+    ];
+    blocks = sanitizeAIImageUrls(blocks, LIB) as any[];
+    expect((blocks[0].props.items as Array<{ image: string }>)[0].image).toBe("");
+  });
+
+  it("fillEmptyImages never back-fills a trust-bar item image left empty", () => {
+    const featLib: MediaImage[] = [
+      { url: "/objects/feat-a", title: "A", tags: ["lp-feature", "dentures"] },
+    ];
+    let blocks: any[] = [
+      { type: "trust-bar", props: { items: [
+        { value: "98%", label: "Patient satisfaction", image: "" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, featLib, PAGE_CTX) as any[];
+    expect((blocks[0].props.items as Array<{ image: string }>)[0].image).toBe("");
+  });
+
+  it("aiFillEmptyImages collects no slot for a trust-bar/stats item image (numeric-only, no AI gen)", async () => {
+    // A stat-bar-only page has no fillable image slots, so aiFillEmptyImages
+    // returns immediately without ever calling image generation. This pins
+    // that empty trust-bar/stats item images are NOT treated as AI-fillable.
+    const blocks: any[] = [
+      { type: "trust-bar", props: { items: [
+        { value: "98%", label: "Customer satisfaction rating", image: "" },
+        { value: "$0", label: "Upfront cost", image: "" },
+      ] } },
+      { type: "stats", props: { items: [
+        { value: "5x", label: "Faster onboarding", image: "" },
+      ] } },
+    ];
+    const brand = { brandName: "Acme", primaryColor: "#000", accentColor: "#111", productLines: [] } as any;
+    const out = (await aiFillEmptyImages(blocks, 1, brand, "test brief")) as any[];
+    for (const item of out[0].props.items as Array<{ image: string }>) expect(item.image).toBe("");
+    expect((out[1].props.items as Array<{ image: string }>)[0].image).toBe("");
   });
 });
 
