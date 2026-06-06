@@ -34,7 +34,7 @@ export interface Test {
 }
 
 export type FilterStatus = "All" | "Mine" | "Draft" | "Published" | "Running" | "Templates";
-export type SortBy = "recent" | "author";
+export type SortBy = "recent" | "author" | "created";
 
 export interface ColumnVisibility {
   author: boolean;

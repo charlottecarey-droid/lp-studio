@@ -83,6 +83,7 @@ export function FiltersBar({
         >
           <option value="recent">Recent</option>
           <option value="author">Author</option>
+          <option value="created">Date created</option>
         </select>
       </div>
       <div className="relative w-full sm:w-56">

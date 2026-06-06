@@ -532,6 +532,12 @@ export default function PagesGallery() {
         const cmp = aAuthor.localeCompare(bAuthor);
         if (cmp !== 0) return cmp;
       }
+      if (sortBy === "created") {
+        // Most recently created first.
+        const aCreated = new Date(a.createdAt).getTime();
+        const bCreated = new Date(b.createdAt).getTime();
+        if (aCreated !== bCreated) return bCreated - aCreated;
+      }
       // Default + tiebreaker: most recently updated first (falls back to
       // createdAt for legacy rows that never got an updatedAt stamp).
       const aTime = new Date(a.updatedAt || a.createdAt).getTime();
