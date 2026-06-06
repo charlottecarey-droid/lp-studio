@@ -14,9 +14,18 @@ and the shared `purgeStaleRoyalTenants` beforeAll in
 `tenant_id` FK on `tenants` is `ON DELETE NO ACTION`. Many tables CASCADE on
 tenant_id and are fine, but a sizable set are NO ACTION — notably the sales
 tables `sales_accounts`, `sales_contacts`, `sales_email_campaigns`,
-`sales_email_templates`, `sales_audiences`, `sales_signals` (plus several `lp_*`
-tables). Check live with: `SELECT confdeltype FROM pg_constraint` joined on
-parent=`tenants` — `'c'`=cascade/`'n'`=setnull are safe, `'a'`/`'r'` block.
+`sales_email_templates`, `sales_audiences`, `sales_signals`, plus several `lp_*`
+tables: `lp_pages`, `lp_library_items`, `lp_brand_settings`, `lp_forms`, and
+`lp_integrations` (FK `lp_integrations_tenant_id_fkey`, no ON DELETE clause —
+migration 0071). Check live with: `SELECT confdeltype FROM pg_constraint` joined
+on parent=`tenants` — `'c'`=cascade/`'n'`=setnull are safe, `'a'`/`'r'` block.
+
+**This list grows by hand and is the recurring trap.** Each new tenant-FK child
+table must be added to BOTH `cleanupRoyalTenant` and `purgeStaleRoyalTenants`
+independently; miss one and a single leftover row poisons the whole shared-Neon
+suite. `lp_integrations` was the latest miss (a crashed integration spec left an
+orphan that 23503'd every later spec's beforeAll). Consider generic discovery of
+tenant-referencing tables instead of the hand-maintained list (see follow-up).
 
 **Why:** Sales Console specs insert into `sales_accounts`/`sales_contacts`/
 `sales_signals` under a `royal-test-%` tenant. If a leftover sales row survives,

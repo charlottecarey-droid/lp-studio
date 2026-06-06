@@ -254,6 +254,10 @@ export async function cleanupRoyalTenant(pool: pg.Pool, t: RoyalTenant): Promise
     await client.query(`DELETE FROM lp_pages WHERE tenant_id = $1`, [t.tenantId]);
     await client.query(`DELETE FROM lp_library_items WHERE tenant_id = $1`, [t.tenantId]);
     await client.query(`DELETE FROM lp_brand_settings WHERE tenant_id = $1`, [t.tenantId]);
+    // lp_integrations.tenant_id holds a NO ACTION FK on tenants (no ON DELETE
+    // clause — see migration 0071); a leftover integration row blocks the
+    // tenant DELETE below, so clear it first.
+    await client.query(`DELETE FROM lp_integrations WHERE tenant_id = $1`, [t.tenantId]);
     // Sales rows carry a NO ACTION tenant_id FK; clear them before the tenant.
     await deleteTenantSalesRows(client, t.tenantId);
     await client.query(`DELETE FROM app_users WHERE id = $1`, [t.userId]);
@@ -402,6 +406,10 @@ export async function purgeStaleRoyalTenants(pool: pg.Pool): Promise<void> {
       // tenant row itself, otherwise DELETE FROM tenants raises a 23503 and
       // poisons every subsequent test in the same run.
       await client.query(`DELETE FROM lp_forms WHERE tenant_id = $1`, [row.id]);
+      // lp_integrations.tenant_id has a NO ACTION FK on tenants (migration 0071,
+      // no ON DELETE clause) — a leftover integration row from a crashed
+      // integration spec holds the FK and 23503s the tenant DELETE below.
+      await client.query(`DELETE FROM lp_integrations WHERE tenant_id = $1`, [row.id]);
       // Sales rows carry a NO ACTION tenant_id FK on tenants — a leftover
       // sales_account from a crashed/failed Sales Console spec holds the FK and
       // blocks the tenant DELETE below, cascading a 23503 into every later
