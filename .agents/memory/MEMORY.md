@@ -149,3 +149,4 @@
 - [dso-challenges image prop](dso-challenges-image-prop.md) — dso-challenges' only image slot is `backgroundImage` (NOT backgroundImageUrl); fill/collect code must target that exact prop or the block never gets imagery.
 - [Migration self-heal deploy deadlock](migrate-selfheal-deadlock.md) — always-run FK/constraint self-heal DDL takes AccessExclusiveLock every deploy → 40P01 deadlock vs live instance fails publish; fix = probe catalog (schema-qualified) & skip + retry-on-transient-lock.
 - [Schema-drift guard](schema-drift-guard.md) — automated test compares declared @workspace/db schema vs the live (PROD Neon) DB, fails loud on missing tables/cols; fix = ADD COLUMN migration + runProbedSelfHeal in migrate.ts.
+- [Builder "Preview as brand" display-only](brand-preview-display-only.md) — superadmin brand-preview on global/catalog pages feeds canvas-only effectiveBrand; saves/panels keep real brand; /lp/brand?previewTenantId= fails closed to superadmins.

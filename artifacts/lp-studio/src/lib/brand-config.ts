@@ -1409,7 +1409,10 @@ export async function resolveBrandPdfFonts(brand: BrandConfig): Promise<BrandPdf
   return out.heading || out.body ? out : undefined;
 }
 
-export async function fetchBrandConfig(slug?: string | null): Promise<BrandConfig> {
+export async function fetchBrandConfig(
+  slug?: string | null,
+  previewTenantId?: number | null,
+): Promise<BrandConfig> {
   // 8 s hard timeout. iOS Safari has been observed leaving fetch() hanging
   // indefinitely across network transitions (Wi-Fi ↔ cellular, iCloud Private
   // Relay reconnects, Low Power Mode), and the landing page viewer gates its
@@ -1425,7 +1428,15 @@ export async function fetchBrandConfig(slug?: string | null): Promise<BrandConfi
   // server look up the page record and resolve the correct tenant brand,
   // so Dandy preview links render in Dandy colours instead of falling back
   // to the neutral DEFAULT_BRAND blue.
-  const qs = slug ? `?slug=${encodeURIComponent(slug)}` : "";
+  // PREVIEW-AS-BRAND (superadmin only). When the builder is editing a global
+  // template / block-catalog scratch page (owned by the neutral system tenant),
+  // it passes the tenant id to preview AS. The server honours this only for
+  // superadmins; for everyone else it's ignored. Display-only — never saved.
+  const params = new URLSearchParams();
+  if (slug) params.set("slug", slug);
+  if (previewTenantId != null) params.set("previewTenantId", String(previewTenantId));
+  const qsStr = params.toString();
+  const qs = qsStr ? `?${qsStr}` : "";
   try {
     const res = await fetch(`${BASE}/api/lp/brand${qs}`, controller ? { signal: controller.signal } : undefined);
     if (!res.ok) return DEFAULT_BRAND;

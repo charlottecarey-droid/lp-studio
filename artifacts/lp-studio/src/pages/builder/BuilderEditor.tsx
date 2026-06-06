@@ -20,7 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus, ArrowLeft,
-  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star, MessageSquare, Palette,
+  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star, MessageSquare, Palette, Eye,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import { fetchBrandConfig, saveBrandConfig, DEFAULT_BRAND, getBrandStyleVars, ge
 import { consumeStrictMismatches, type StrictMismatch } from "@/lib/strictMismatches";
 import { consumeCritiqueAnnotations, type CritiqueAnnotation } from "@/lib/critiqueAnnotations";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BLOCK_REGISTRY, createBlock, getBlockDef, isAllowedAsChild, templateToBlocks, type PageBlock, type BlockType, type SchemaFieldValue } from "@/lib/block-types";
 import { CustomBlocksProvider, customBlockRowToSource, type CustomBlockSource } from "@/lib/custom-blocks-context";
 import {
@@ -142,6 +143,9 @@ interface FetchedPage {
   smoothScroll?: boolean;
   pageVariables?: Record<string, string>;
   isTemplate?: boolean;
+  // Task #1085 — global templates are owned by the neutral __system-templates
+  // tenant. Used (with superadmin) to surface the "Preview as brand" control.
+  isGlobal?: boolean;
   templateLabel?: string | null;
   templateDescription?: string | null;
   audienceType?: string | null;
@@ -1048,6 +1052,16 @@ export default function BuilderEditor() {
   const [pageVariables, setPageVariables] = useState<Record<string, string>>({});
   const [suggestedSlug, setSuggestedSlug] = useState<string | null>(null);
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
+  // Task #1085 — true when this page is a global template (owned by the neutral
+  // system tenant). Combined with superadmin + catalog mode to decide whether
+  // to offer the "Preview as brand" control.
+  const [isGlobalTemplate, setIsGlobalTemplate] = useState(false);
+  // Task #1085 — display-only "preview as brand". `previewBrand` is the chosen
+  // tenant's brand config (or null = neutral default). It is NEVER merged into
+  // `brand` or any save payload — only fed to the canvas renderer.
+  const [previewTenantId, setPreviewTenantId] = useState<number | null>(null);
+  const [previewBrand, setPreviewBrand] = useState<BrandConfig | null>(null);
+  const [previewTenants, setPreviewTenants] = useState<{ id: number; name: string; slug: string }[]>([]);
   const [blockDefaults, setBlockDefaults] = useState<Record<string, unknown>>({});
   // Hoist a single useBlockCatalog call here and pass the resolved blocks to
   // every consumer (BlockLibrary, SegmentLibrary, InsertBlockDialog, addBlock).
@@ -1081,6 +1095,55 @@ export default function BuilderEditor() {
     };
   }, [pageVariables]);
   const catalogMode = !!catalogCtx;
+  // Task #1085 — "Preview as brand" (display only). Only offered to app
+  // superadmins editing a brand-neutral page: a global template or a
+  // block-catalog scratch page. For everyone else (normal tenant editing,
+  // non-superadmins) the control never renders and `effectiveBrand` is just the
+  // real tenant brand, so there is zero behaviour change.
+  const isSuperadmin = (user?.appUserRole ?? null) === "superadmin";
+  const showBrandPreview = isSuperadmin && (catalogMode || isGlobalTemplate);
+  // The brand actually fed to the canvas renderer. `previewBrand` is only ever
+  // non-null while a superadmin has an active preview selection; saves keep
+  // using the real `brand`, so the persisted page stays brand-neutral.
+  const effectiveBrand = (showBrandPreview && previewBrand) ? previewBrand : brand;
+  // Lazy-load the tenant list the first time the control is eligible to show.
+  useEffect(() => {
+    if (!showBrandPreview || previewTenants.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/admin/superadmin/tenants`, {
+          credentials: "include",
+        });
+        if (!res.ok) return;
+        const rows = await res.json() as { id: number; name: string; slug: string }[];
+        if (!cancelled && Array.isArray(rows)) {
+          setPreviewTenants(
+            rows
+              .map((r) => ({ id: r.id, name: r.name, slug: r.slug }))
+              .sort((a, b) => a.name.localeCompare(b.name)),
+          );
+        }
+      } catch {
+        /* non-fatal — control just shows no tenants */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showBrandPreview, previewTenants.length]);
+  // Resolve the chosen tenant's brand for preview. Cleared selection → neutral.
+  const handlePreviewTenantChange = useCallback((value: string) => {
+    if (value === "__neutral__") {
+      setPreviewTenantId(null);
+      setPreviewBrand(null);
+      return;
+    }
+    const id = parseInt(value, 10);
+    if (Number.isNaN(id)) return;
+    setPreviewTenantId(id);
+    fetchBrandConfig(null, id)
+      .then((b) => setPreviewBrand(b))
+      .catch(() => setPreviewBrand(null));
+  }, []);
   // In catalog mode keep the single block selected — deselecting (canvas click,
   // ⌘\ shortcut, etc.) would surface the page-settings panel for a throwaway
   // scratch page, which is meaningless here.
@@ -1416,6 +1479,7 @@ export default function BuilderEditor() {
               : "draft",
         );
         setIsTemplate(p.isTemplate ?? false);
+        setIsGlobalTemplate(p.isGlobal ?? false);
         setTemplateLabel(p.templateLabel ?? p.title);
         setTemplateDescription(p.templateDescription ?? "");
         // Server load: bypass undo history.
@@ -1938,7 +2002,7 @@ export default function BuilderEditor() {
         child={child}
         parentPath={parentPath}
         index={index}
-        brand={brand}
+        brand={effectiveBrand}
         isSelected={selectedBlockId === child.id}
         isPolished={polishedBlockIds.has(child.id)}
         onSelect={() => setSelectedBlockId(child.id)}
@@ -2615,6 +2679,42 @@ export default function BuilderEditor() {
         </div>
       )}
 
+      {/* Task #1085 — "Preview as brand" (superadmin, brand-neutral pages only).
+          Renders the canvas as a chosen tenant's brand (colors, fonts, gated
+          assets). DISPLAY ONLY — never persisted; saves stay brand-neutral. */}
+      {showBrandPreview && (
+        <div className="mx-4 mt-2 flex items-center justify-between gap-3 rounded-xl bg-muted/40 border border-border px-4 py-2.5">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center shrink-0">
+              <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-foreground">Preview as brand</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                Render the canvas as a tenant would see it. Display only — your
+                changes are saved brand-neutral.
+              </p>
+            </div>
+          </div>
+          <Select
+            value={previewTenantId != null ? String(previewTenantId) : "__neutral__"}
+            onValueChange={handlePreviewTenantChange}
+          >
+            <SelectTrigger className="h-8 w-[200px] text-xs shrink-0">
+              <SelectValue placeholder="Neutral (default)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__neutral__">Neutral (default)</SelectItem>
+              {previewTenants.map((t) => (
+                <SelectItem key={t.id} value={String(t.id)}>
+                  {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {/* Linked-blocks banner — explains that any custom-schema instance with
           a `customBlockId` follows its master; edits there flow into this page
           (task #201). Names duplicate when a master is used multiple times so
@@ -3168,10 +3268,10 @@ export default function BuilderEditor() {
               <div
                 ref={canvasRef}
                 className="w-full max-w-5xl bg-white rounded-xl overflow-hidden ring-1 ring-black/5 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_12px_40px_-8px_rgba(15,23,42,0.12)] transition-all duration-300"
-                style={getBrandStyleVars(brand)}
+                style={getBrandStyleVars(effectiveBrand)}
                 data-lp-page
               >
-                <BrandFontLoader brand={brand} />
+                <BrandFontLoader brand={effectiveBrand} />
                 <style>{`
                   @keyframes marquee {
                     from { transform: translateX(0); }
@@ -3187,7 +3287,7 @@ export default function BuilderEditor() {
                       <div key={block.id}>
                         <SortableCanvasBlock
                           block={block}
-                          brand={brand}
+                          brand={effectiveBrand}
                           isSelected={selectedBlockId === block.id}
                           isPolished={polishedBlockIds.has(block.id)}
                           onSelect={() => setSelectedBlockId(block.id)}

@@ -1,13 +1,30 @@
 import { getTenantId, optionalAuth } from "../../middleware/requireAuth";
+import type { AuthUser } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, and } from "drizzle-orm";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import { lpBrandSettingsTable, lpPagesTable, tenantsTable } from "@workspace/db";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
 import { isDandyTenant } from "../../lib/planFeatures";
+import { isRootSuperadminEmail } from "../../lib/rootSuperadmin";
 
 const router = Router();
+
+/**
+ * App-superadmin check for the `?previewTenantId=` path below. Mirrors the
+ * helper in `routes/lp/pages.ts`: honour the configured root operator by email
+ * (their app_users row may be cased differently and lack the seeded role), then
+ * fall back to the persisted app_users.role. Resolved per-request (not from the
+ * session) so a freshly-promoted operator works immediately.
+ */
+async function isBrandPreviewSuperadmin(user: AuthUser | undefined): Promise<boolean> {
+  if (!user) return false;
+  if (isRootSuperadminEmail(user.email)) return true;
+  if (!user.userId) return false;
+  const r = await pool.query(`SELECT role FROM app_users WHERE id = $1`, [user.userId]);
+  return r.rows[0]?.role === "superadmin";
+}
 
 // Brand-agnostic server-side defaults. The client (`lp-studio` brand-config.ts
 // `DEFAULT_BRAND`) carries its own neutral defaults and will merge any keys
@@ -73,7 +90,28 @@ async function resolveBrandTenantId(
 // otherwise, so anonymous requests keep working unchanged.
 router.get("/lp/brand", optionalAuth, async (req, res): Promise<void> => {
   const slugParam = typeof req.query.slug === "string" ? req.query.slug : null;
-  const tenantId = await resolveBrandTenantId(req, slugParam);
+  // PREVIEW-AS-BRAND (superadmin only). When a superadmin edits a GLOBAL
+  // template or a block-catalog scratch page (both owned by the neutral
+  // __system-templates tenant, which has no brand of its own), the builder can
+  // request any tenant's brand by id so the canvas renders the way that tenant
+  // would see it. This is display-only — it never changes what is saved. The
+  // page-slug fallback below can't serve this case because the scratch/global
+  // page belongs to the system tenant, not the tenant being previewed. Gated
+  // strictly on app-superadmin; a non-superadmin (or anonymous) caller silently
+  // falls through to the normal host/auth/slug resolution so the param can't be
+  // used to enumerate other tenants' brand JSONB.
+  const previewParam =
+    typeof req.query.previewTenantId === "string" ? req.query.previewTenantId : null;
+  let tenantId: number | null = null;
+  if (previewParam) {
+    const previewId = parseInt(previewParam, 10);
+    if (!Number.isNaN(previewId) && (await isBrandPreviewSuperadmin(req.authUser))) {
+      tenantId = previewId;
+    }
+  }
+  if (tenantId == null) {
+    tenantId = await resolveBrandTenantId(req, slugParam);
+  }
   if (tenantId == null) {
     // Public request from a host we don't recognize (and no session). Return
     // bare server defaults; client will fill in its own neutral DEFAULT_BRAND.
