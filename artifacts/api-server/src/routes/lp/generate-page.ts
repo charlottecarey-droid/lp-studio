@@ -2024,8 +2024,8 @@ export function enforceApprovedCaseStudies(
     if ("solution" in props && props.solution && typeof props.solution === "object") {
       (props.solution as Record<string, unknown>).body = "";
     }
-    // stats[]/results[] still go through the numeric scrub below, which
-    // will replace any value field that isn't in the approved pool.
+    // stats[]/results[] keep the AI's values; unapproved ones are surfaced in
+    // the builder review modal rather than rewritten here.
   }
 }
 
@@ -2099,31 +2099,6 @@ function stripAiInlineColors(blocks: unknown): void {
   };
 
   for (const b of blocks) walk(b);
-}
-
-function sanitizeBlocksStrict(
-  blocks: Array<{ type?: string; props?: Record<string, unknown> }> | unknown,
-  pool: Set<string>,
-  caseStudies: ApprovedCaseStudy[] = [],
-): void {
-  if (!Array.isArray(blocks)) return;
-  const walk = (node: unknown): void => {
-    if (!node) return;
-    if (Array.isArray(node)) { node.forEach(walk); return; }
-    if (typeof node !== "object") return;
-    const obj = node as Record<string, unknown>;
-    for (const [k, v] of Object.entries(obj)) {
-      if (typeof v === "string" && STAT_FIELD_KEYS.has(k)) {
-        if (!isApprovedStat(v, pool)) obj[k] = STAT_PLACEHOLDER;
-      } else if (v && typeof v === "object") {
-        walk(v);
-      }
-    }
-  };
-  for (const b of blocks) {
-    enforceApprovedCaseStudies(b, caseStudies);
-    walk(b.props);
-  }
 }
 
 /** Detect if the user prompt is targeting practice-level staff within a DSO network */
@@ -3586,12 +3561,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-|-$/g, "");
 
-      // Task #253 — strict mode: scrub any unapproved numeric stats the model
-      // may have invented despite the instruction.
-      // Task #256 — proof-point values flow into the same approved pool.
-      // Task #254 — scan BEFORE sanitization so we capture (and warn about)
-      // the model's actual unapproved values; the sanitizer will then
-      // rewrite them to the placeholder for the live page.
+      // Strict Facts no longer scrubs the model's unapproved stats. We scan and
+      // record them in `strictMismatches` so the builder can surface them for
+      // review, but the AI's original values stay on the page — the editor
+      // decides which to keep/approve. Case-study blocks (quotes/stories) are
+      // still hard-enforced from the approved pool.
       let strictMismatches: StrictStatMismatch[] = [];
       if (strict) {
         const pool = buildApprovedStatSet(brand, segmentContext, proofPoints);
@@ -3604,7 +3578,9 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
             promptPath: "TEMPLATE",
           });
         }
-        sanitizeBlocksStrict(mergedBlocks, pool, caseStudies);
+        for (const b of mergedBlocks as Array<{ type?: string; props?: Record<string, unknown> }>) {
+          enforceApprovedCaseStudies(b, caseStudies);
+        }
         stripAiInlineColors(mergedBlocks);
       }
 
@@ -4529,10 +4505,9 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
 
     parsed.blocks = blocks;
 
-    // Task #253 — strict mode: scrub any unapproved numeric stats from the
-    // free-form generation path before shipping the response.
-    // Task #256 — proof-point library values are part of the approved pool.
-    // Task #254 — scan first so we can warn-log + return mismatches.
+    // Strict mode (free-form path): the AI's unapproved stats stay on the page;
+    // we only scan for them so we can warn-log + return mismatches for the
+    // builder review modal. Proof-point library values count as approved.
     let strictMismatches: StrictStatMismatch[] = [];
     if (strict) {
       const pool = buildApprovedStatSet(brand, segmentContext, proofPoints);
@@ -4545,7 +4520,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           promptPath,
         });
       }
-      sanitizeBlocksStrict(parsed.blocks, pool, caseStudies);
+      // Strict Facts keeps the AI's stats on the page (see strictMismatches →
+      // builder review modal); only case-study blocks are hard-enforced here.
+      for (const b of parsed.blocks as Array<{ type?: string; props?: Record<string, unknown> }>) {
+        enforceApprovedCaseStudies(b, caseStudies);
+      }
       stripAiInlineColors(parsed.blocks);
     }
 

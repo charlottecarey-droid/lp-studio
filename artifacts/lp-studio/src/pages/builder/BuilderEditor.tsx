@@ -2294,12 +2294,11 @@ export default function BuilderEditor() {
   useKeyboardShortcuts(builderShortcuts);
 
   const [showOutreachBanner, setShowOutreachBanner] = useState(false);
-  // Task #553 — post-publish "X values were scrubbed" summary for regular
-  // (non-microsite) pages. The one-time amber strict-mismatch banner is easy
-  // to miss or dismiss, and regular pages don't get the green outreach banner,
-  // so without this an editor can publish without ever approving real stats
-  // Strict Facts Mode removed. Shown only when scrubbed values are still
-  // unapproved at publish time.
+  // Post-publish "stats still need review" summary for regular (non-microsite)
+  // pages. The one-time amber strict-mismatch banner is easy to miss or
+  // dismiss, and regular pages don't get the green outreach banner, so without
+  // this an editor can publish without ever approving the real stats. Shown
+  // only when unapproved stats remain at publish time.
   const [showScrubbedSummary, setShowScrubbedSummary] = useState(false);
 
   // A page is a microsite when it's tied to a sales account (the microsite
@@ -2308,19 +2307,19 @@ export default function BuilderEditor() {
   // have no contacts to send tracked links to.
   const isMicrosite = Boolean(pageVariables.salesAccountId);
 
-  // Scrubbed values the editor hasn't yet pushed into the approved pool. Used
+  // Unapproved stats the editor hasn't yet pushed into the approved pool. Used
   // to decide whether the post-publish review nudge is worth showing.
   const unapprovedScrubbedCount = strictMismatches.reduce(
     (n, _m, i) => (quoteSaved[i] === true ? n : n + 1),
     0,
   );
 
-  // Task #552 — append a scrubbed value to the brand's approved pool. We add
-  // it as an approved claim on the first product line (creating a neutral
-  // "General" product line if the brand has none) — the strict-mode stat
-  // sanitizer's approved pool includes approved claim text, so adding it here
-  // is enough for the AI to reuse the number next time. Mirrors the
-  // brand-settings save path (`saveBrandConfig` PUTs the whole config).
+  // Append an unapproved stat to the brand's approved pool. We add it as an
+  // approved claim on the first product line (creating a neutral "General"
+  // product line if the brand has none) — the strict-mode approved pool
+  // includes approved claim text, so adding it here is enough for the AI to
+  // reuse the number next time. Mirrors the brand-settings save path
+  // (`saveBrandConfig` PUTs the whole config).
   const addRemovedQuoteToBrand = async (index: number) => {
     const value = (quoteDrafts[index] ?? strictMismatches[index]?.value ?? "").trim();
     if (!value || quoteSaving[index] || quoteSaved[index]) return;
@@ -2738,10 +2737,10 @@ export default function BuilderEditor() {
         </div>
       )}
 
-      {/* Task #254 — Strict Facts Mode mismatch banner. Surfaces when the
-          most recent AI generation produced stat-like values that didn't
-          substring-match the tenant's approved pool, so editors can audit
-          and tighten Brand Settings. */}
+      {/* Strict Facts Mode review banner. Surfaces when the most recent AI
+          generation produced stat-like values that aren't in the tenant's
+          approved pool. The values stay on the page — this lets editors review
+          them and add the real numbers to Brand Settings. */}
       {strictMismatches.length > 0 && !strictBannerDismissed && (
         <div className="relative mx-4 mt-2 flex items-start gap-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-4 py-3">
           <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
@@ -2750,11 +2749,11 @@ export default function BuilderEditor() {
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
               {strictMismatches.length === 1
-                ? "AI used 1 unapproved stat in this page"
-                : `AI used ${strictMismatches.length} unapproved stats in this page`}
+                ? "1 stat on this page isn't in your approved facts"
+                : `${strictMismatches.length} stats on this page aren't in your approved facts`}
             </p>
             <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80 mt-0.5 leading-relaxed">
-              Strict Facts Mode replaced these values with the placeholder. Add the missing numbers to your approved pool so the AI can use them next time.{" "}
+              They're kept on the page so you can review them. Add the real numbers to your approved facts so the AI can reuse them next time.{" "}
               <span className="font-medium">
                 Examples: {strictMismatches.slice(0, 3).map(m => `"${m.value}"`).join(", ")}
                 {strictMismatches.length > 3 ? ` and ${strictMismatches.length - 3} more` : ""}
@@ -2766,7 +2765,7 @@ export default function BuilderEditor() {
                 onClick={() => setRemovedQuotesOpen(true)}
                 className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:underline"
               >
-                See removed quotes
+                Review stats
               </button>
               <Link
                 href="/brand"
@@ -2787,17 +2786,18 @@ export default function BuilderEditor() {
         </div>
       )}
 
-      {/* Task #552 — "See removed quotes" review modal. Lists every value
-          Strict Facts Mode scrubbed so editors can edit it and push it into
-          the brand's approved pool without leaving the builder. */}
+      {/* Strict Facts review modal. Lists every stat the AI used that isn't in
+          the approved pool. The values stay on the page; this lets editors
+          review them and push the real ones into the approved pool without
+          leaving the builder. */}
       <Dialog open={removedQuotesOpen} onOpenChange={setRemovedQuotesOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Removed quotes &amp; stats</DialogTitle>
+            <DialogTitle>Review stats</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Strict Facts Mode replaced these unapproved values with a placeholder. Edit any value
-            and add it to your approved pool so the AI can use it next time.
+            These stats aren't in your approved facts. They're kept on the page — review each one
+            and add it to your approved pool so the AI can reuse it next time.
           </p>
           <div className="max-h-[55vh] overflow-y-auto -mx-1 px-1 space-y-3 mt-1">
             {strictMismatches.map((m, i) => {
@@ -2934,11 +2934,10 @@ export default function BuilderEditor() {
         </div>
       )}
 
-      {/* Task #553 — post-publish scrubbed-values review nudge for regular
-          (non-microsite) pages. Mirrors the microsite outreach banner so a
-          regular page editor who missed the one-time amber banner still gets a
-          clear, discoverable prompt to approve real stats Strict Facts Mode
-          removed. */}
+      {/* Post-publish stat-review nudge for regular (non-microsite) pages.
+          Mirrors the microsite outreach banner so a regular page editor who
+          missed the one-time amber banner still gets a clear, discoverable
+          prompt to review the stats that aren't in their approved facts. */}
       {showScrubbedSummary && unapprovedScrubbedCount > 0 && (
         <div className="relative mx-4 mt-2 flex items-center gap-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-5 py-3.5 animate-in slide-in-from-top-2">
           <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
@@ -2947,11 +2946,11 @@ export default function BuilderEditor() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
               {unapprovedScrubbedCount === 1
-                ? "Page published — but 1 value was scrubbed by Strict Facts Mode"
-                : `Page published — but ${unapprovedScrubbedCount} values were scrubbed by Strict Facts Mode`}
+                ? "Page published — 1 stat still needs review"
+                : `Page published — ${unapprovedScrubbedCount} stats still need review`}
             </p>
             <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-              Review the removed numbers and approve any real stats so they appear next time.
+              These stats aren't in your approved facts yet. Review them and approve any real numbers so the AI can reuse them.
             </p>
           </div>
           <button
@@ -2960,7 +2959,7 @@ export default function BuilderEditor() {
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition-colors shrink-0"
           >
             <AlertTriangle className="w-3.5 h-3.5" />
-            Review removed quotes
+            Review stats
           </button>
           <button
             onClick={() => setShowScrubbedSummary(false)}

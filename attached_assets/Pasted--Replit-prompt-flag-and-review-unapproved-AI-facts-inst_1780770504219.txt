@@ -1,0 +1,271 @@
+# Replit prompt — flag and review unapproved AI facts (instead of removing them)
+
+## Today's behavior
+
+With **Strict AI Facts mode** on, the AI generation pipeline silently strips any stat / quote / claim that isn't in the tenant's `lp_proof_points` (approved facts) library. The page renders without those facts, and a "N stats removed" banner tells the user what got cut.
+
+This is punitive UX. The user sees a half-empty page and has to mentally rebuild what the AI proposed. Most users either (a) regenerate from scratch hoping for fewer flags, (b) ignore the banner, or (c) abandon and edit by hand. None of those are the path we want.
+
+## What we're switching to
+
+**Flag in place, review on the page.** The AI keeps every fact it wanted to use. Server-side, we cross-check each fact against `lp_proof_points` and tag the ones that don't match. The page renders complete — but every unapproved fact is **visually flagged** (subtle yellow underline + small chip), and a "Review claims" side panel lists them. Per-flag, the user decides:
+
+1. **Keep** — vouches for the fact. Auto-adds to `lp_proof_points` so the AI can use it next time. Flag clears from the page.
+2. **Edit** — inline correction. The user rewrites the stat to something accurate. Edited version replaces the original on the page AND saves to approved facts.
+3. **Remove** — strip from this page only. Doesn't block future use.
+4. **Block forever** — never let the AI propose this fact again. Strips from this page AND adds to a permanent block list.
+
+Publish is gated until all flags are resolved (or the user explicitly overrides — see Step 6).
+
+---
+
+## Step 1 — Audit the existing strict-facts flow
+
+Before changing anything, find and read these files:
+
+- The **fact-extraction + filter** in the AI generation pipeline. Look in `artifacts/api-server/src/lib/` for `strictFacts*`, `factsFilter*`, `factCheck*`. Document: how does the model output get scanned for stats? What data shape does each detected fact have (raw string? structured `{ value, unit, context, blockId, characterRange }`)? Where in the pipeline does the strip happen — pre-block-assembly, post-block-assembly, or post-DB-save?
+- The **approved facts library** schema, probably `lib/db/src/schema/lpProofPoints.ts`. Note the columns + tenant scoping.
+- The **page content storage model** — JSON blob on `lp_pages.content`, separate `lp_page_blocks` table, or both? Specifically: do block contents store text as plain strings, rich-text JSON (Slate / Lexical / ProseMirror), or HTML? You'll need to know to anchor flags to character ranges.
+- The **builder rendering layer** that displays page blocks in edit mode. Likely `artifacts/lp-studio/src/pages/builder/BuilderEditor.tsx` or similar. Where do block-level annotations / decorations get applied today (e.g. spell-check highlights, locked-region indicators)?
+- The **publish flow** — `routes/lp/pages.ts:publish` or similar. Where does the "draft → live" transition happen?
+
+5-line summary in the PR description after the audit so reviewers can sanity-check.
+
+---
+
+## Step 2 — Data model changes
+
+### New table: `lp_page_fact_flags`
+
+Tracks every unapproved fact the AI proposed on a page draft. Distinct from `lp_proof_points` (the approved library) and `lp_blocked_facts` (the permanent block list, see below).
+
+Columns:
+
+- `id` PK
+- `tenantId` NOT NULL FK → `tenants(id)` ON DELETE CASCADE + index
+- `pageId` NOT NULL FK → `lp_pages(id)` ON DELETE CASCADE + index
+- `factText` TEXT NOT NULL — the literal stat as it appears in the block ("8,000+ dentists")
+- `factNormalized` TEXT NOT NULL — lowercased + whitespace-collapsed for dedupe matching
+- `factKind` TEXT — `stat | quote | claim | percentage | other`
+- `blockId` TEXT NOT NULL — which block on the page contains the fact
+- `charStart` INTEGER NULLABLE — start offset within the block's text content (for inline highlight)
+- `charEnd` INTEGER NULLABLE — end offset
+- `contextSentence` TEXT — the surrounding sentence (~140 chars max)
+- `triageState` TEXT NOT NULL DEFAULT `'pending'` — `'pending' | 'kept' | 'edited' | 'removed' | 'blocked'`
+- `replacementText` TEXT NULLABLE — only set when `triageState='edited'`, the user's correction
+- `triagedAt` TIMESTAMP NULLABLE
+- `triagedBy` FK → `app_users(id)` NULLABLE
+- `createdAt` TIMESTAMP
+
+Index on `(tenantId, pageId, triageState)` for the common query "give me pending flags on this page."
+
+### New table: `lp_blocked_facts`
+
+Permanent per-tenant block list. The AI must never propose these, even if true. Same shape as the previous prompt — keeping it here for completeness:
+
+- `id` PK
+- `tenantId` NOT NULL FK + index
+- `factText` TEXT NOT NULL
+- `factNormalized` TEXT NOT NULL
+- `factKind` TEXT
+- `blockedAt`, `blockedBy`, `blockedFromPageId`, `reason`
+- UNIQUE on `(tenantId, factNormalized)`
+
+### Migration
+
+Single new migration with both tables. `tenant_id NOT NULL` FK + index from day one. No retrofit.
+
+---
+
+## Step 3 — AI generation pipeline changes
+
+The big shift: **stop stripping facts pre-render.** Instead:
+
+1. **Generate as normal.** Let the model produce its full draft with every stat it wants to use.
+2. **Pre-load lp_blocked_facts** before assembling the system prompt and pass it as `BLOCKED_FACTS = ['...']` with the instruction "Never use these claims, even if true." Same as the block-list integration from the previous prompt.
+3. **Post-generate, scan for facts.** Walk every block's text content with the existing fact-extractor. For each detected fact, normalize and check against:
+   - `lp_blocked_facts` → reject the generation OR strip the offending sentence (these should NEVER appear).
+   - `lp_proof_points` (approved) → leave alone, no flag.
+   - Neither list → **insert a row into `lp_page_fact_flags` with `triageState='pending'`** and record `blockId`, `charStart`, `charEnd`, `contextSentence`.
+4. **Return the page draft + the flag list** to the client. The flag list payload shape:
+   ```ts
+   { flags: Array<{ id, factText, factKind, blockId, charStart, charEnd, contextSentence, suggestedFix?: string }> }
+   ```
+   Optional `suggestedFix` is a future enhancement (AI proposes a corrected version) — leave the field but don't populate it in this PR.
+
+Important: **flags are page-scoped, not generation-scoped.** Re-generating the same page wipes its pending flags and inserts fresh ones. Triaged flags (kept / edited / removed / blocked) stick around for audit history but don't re-trigger on regen — that's why the AI prompt loads from `lp_proof_points` + `lp_blocked_facts`, both of which get updated by the triage actions.
+
+---
+
+## Step 4 — Inline visual flags in the builder
+
+In the builder (`BuilderEditor.tsx` or equivalent), apply a decoration to each pending flag's character range within the block's text.
+
+### Decoration style
+
+- Subtle yellow background tint behind the flagged text (`background: rgba(245, 158, 11, 0.14)` or equivalent semantic warning ramp — match LP Studio's existing warning tokens)
+- 1px wavy underline in `color: var(--amber-600)` style — the spell-check-y look
+- Small inline pill icon at the end of the flag range: a warning triangle in amber. Click opens the popover.
+
+### Popover
+
+Click the icon (or the flagged text itself) → opens a popover anchored to the flag. Layout:
+
+```
+┌─ Review claim ───────────────────────────┐
+│  "8,000+ dentists trust us"               │
+│                                           │
+│  In: Hero subhead                         │
+│  Context: "...with 8,000+ dentists trust  │
+│           us across the country."         │
+│                                           │
+│  [✓ Keep]  [✎ Edit]                       │
+│  [✕ Remove]  [🚫 Block forever]           │
+│                                           │
+│  ?  Strict AI Facts mode caught this      │
+│     because it's not in your approved     │
+│     facts. Learn more →                    │
+└───────────────────────────────────────────┘
+```
+
+- **Keep** — POST `/api/lp/pages/:pageId/fact-flags/:flagId/keep` → adds to `lp_proof_points`, marks flag `triageState='kept'`, removes the decoration in place, closes popover.
+- **Edit** — replaces the popover content with a text input pre-filled with `factText`. User edits → Save → POST `/.../edit { replacementText }`. Server updates the block's text content (substring replacement on `charStart..charEnd`), adds the corrected version to `lp_proof_points`, marks flag `triageState='edited'`, removes decoration, closes popover. The page hot-updates.
+- **Remove** — POST `/.../remove` → strips the fact from the block's text (or the whole sentence if removing the fact alone would leave a fragment — server uses heuristic), marks flag `triageState='removed'`, page hot-updates.
+- **Block forever** — POST `/.../block` → strips from page (same as remove) AND inserts into `lp_blocked_facts`, marks flag `triageState='blocked'`.
+
+### Hover state
+
+Hovering a flag (without clicking) shows a small tooltip — just the factKind + "Click to review."
+
+---
+
+## Step 5 — Review side panel
+
+Optional alongside the inline flags: a "Review claims" panel that lists every pending flag on the page. Same per-row actions as the popover, but bulk-friendly.
+
+Triggered by:
+
+- A floating "Review N claims" pill in the bottom-right of the builder when any pending flags exist (analogous to the existing "N comments" affordance, if there is one).
+- Or as a banner at the top of the builder canvas — same N count.
+
+Panel structure (slides in from the right or bottom-anchored sheet):
+
+```
+Review claims  (3 pending)                  [×]
+─────────────────────────────────────────────
+□ "8,000+ dentists trust us"          [Keep]
+  Hero subhead                        [Edit]
+  Click to view in page →             [Remove]
+                                      [Block]
+─────────────────────────────────────────────
+□ "Saves 47% chair time"              [Keep]
+  Stat strip · slot 2                 [Edit]
+  Click to view in page →             [Remove]
+                                      [Block]
+─────────────────────────────────────────────
+□ "100+ years of dental innovation"   [Keep]
+  Footer trust bar                    [Edit]
+  Click to view in page →             [Remove]
+                                      [Block]
+─────────────────────────────────────────────
+[ ] Select all  Bulk: [Keep all] [Block all]
+```
+
+- Clicking a row scrolls the page to the flag + flashes the highlight briefly.
+- Bulk actions hit the bulk endpoint (see Step 7).
+- As flags get triaged, they grey out and stay visible until the user closes the panel (so they can undo).
+- "Undo" per row reverses the last action within 10 seconds (transactional rollback on the server).
+
+---
+
+## Step 6 — Publish gate
+
+This is the safety guarantee. **Publish is blocked if any flags on the page have `triageState='pending'`.**
+
+- Publish button shows a disabled state with a tooltip: "N claims to review before publish."
+- Clicking the disabled button opens the side panel.
+- Alternative path: an "Auto-resolve and publish" option in the publish confirmation modal. When chosen, every remaining pending flag is auto-removed (sentence stripped) and the page publishes. The user sees a clear summary: "3 claims auto-removed before publish: 'X', 'Y', 'Z'." Logged for audit.
+
+This preserves the strict-facts safety net for users who don't care to review while still defaulting to the better UX (review first).
+
+---
+
+## Step 7 — API endpoints
+
+```
+GET    /api/lp/pages/:pageId/fact-flags
+       — list flags for the page, with their pending/triaged state
+GET    /api/lp/pages/:pageId/fact-flags?state=pending
+       — only pending (for the badge count + side panel)
+
+POST   /api/lp/pages/:pageId/fact-flags/:flagId/keep
+       — keep + add to approved
+POST   /api/lp/pages/:pageId/fact-flags/:flagId/edit
+       Body: { replacementText: string }
+POST   /api/lp/pages/:pageId/fact-flags/:flagId/remove
+POST   /api/lp/pages/:pageId/fact-flags/:flagId/block
+       Body: { reason?: string }
+
+POST   /api/lp/pages/:pageId/fact-flags/bulk
+       Body: { flagIds: string[], action: 'keep'|'remove'|'block', reason?: string }
+
+POST   /api/lp/pages/:pageId/publish
+       — checks for pending flags; rejects with 409 + pending list
+         UNLESS body has { autoResolve: true } which strips all pending
+         flags as part of the publish transaction
+```
+
+Every endpoint: `requireAuth` + `getTenantId(req, res)` + tenant-scoped queries. Idempotent on `triageState`. Each action runs in a single transaction (block content update + flag-row update + proof-points/blocked-facts insert).
+
+---
+
+## Step 8 — Brand & Content surface
+
+In Brand & Content > Approved facts (existing surface), add a new tab next to it: **Blocked facts**, listing `lp_blocked_facts` with an unblock action that deletes the row.
+
+The Strict AI Facts header should now show all three counts: **"42 approved · 3 blocked · 0 pending review"** with each linkable.
+
+The third count ("pending review") is a cross-page rollup of pages with pending flags. Click → list of pages with pending flag counts → click a page → opens it in the builder with the review panel open.
+
+---
+
+## Step 9 — Telemetry
+
+Instrument:
+
+- Flag generated (fact + kind + tenant)
+- Flag kept (which fact + by whom)
+- Flag edited (original + replacement)
+- Flag removed (which fact)
+- Flag blocked (which fact + reason if given)
+- Auto-resolve at publish (how many + which facts)
+
+Use whatever event-tracking pipeline LP Studio already has (find via Step 1 audit). The intent is to surface per-tenant patterns later — "tenant X keeps blocking the same fact across pages, prompt them to add a rule" — but in this PR, just emit the events.
+
+---
+
+## Acceptance criteria
+
+- [ ] `lp_page_fact_flags` + `lp_blocked_facts` migrations shipped with `tenant_id NOT NULL` + indexes
+- [ ] Strict AI Facts mode no longer strips pre-render; instead inserts pending flag rows
+- [ ] AI prompt loads blocked facts and never proposes blocked content
+- [ ] Builder canvas shows inline flags (yellow underline + warning chip) at each unapproved fact
+- [ ] Click-the-flag popover offers Keep / Edit / Remove / Block
+- [ ] Edit action replaces the text in place + updates the block; page hot-updates without re-render
+- [ ] Side panel lists all pending flags with row + bulk actions
+- [ ] Publish button is disabled when pending flags exist; "Auto-resolve and publish" override available
+- [ ] Brand & Content shows the three counts (approved · blocked · pending) with click-through
+- [ ] `pnpm typecheck` clean
+- [ ] Smoke test: generate a page with strict facts on, verify N flags appear, triage them all four ways (keep, edit, remove, block), publish, verify the published page matches each triage decision
+- [ ] Telemetry events fire for all five actions
+
+## Don't
+
+- Don't auto-strip facts pre-render anymore. The whole point of this PR is to stop punishing the user with a half-empty draft.
+- Don't keep both UIs (the old "removed stats banner" + the new flag flow). Pick one — this prompt replaces the old. Remove or hide the removed-stats banner code path.
+- Don't apply flag decorations to approved facts. Only `triageState='pending'` flags should highlight.
+- Don't allow publish with pending flags by default. The override is opt-in inside the publish modal, not the primary action.
+- Don't store full draft content in `contextSentence` — cap at ~140 chars. Bigger storage = wasted DB.
+- Don't refactor the existing `lp_proof_points` flow as part of this PR. It's the source of truth for "approved." Keep it stable.
+- Don't ship without the publish gate. The safety guarantee that Strict Mode promised is the publish-time enforcement.
+- Don't show flags on published pages — only in builder/draft view. Once published, the page is the source of truth.
