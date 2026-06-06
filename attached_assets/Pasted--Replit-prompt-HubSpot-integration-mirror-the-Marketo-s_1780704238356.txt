@@ -1,0 +1,120 @@
+# Replit prompt — HubSpot integration (mirror the Marketo shape)
+
+The LP Studio marketing site has been promising a HubSpot integration in two places (homepage WhatsInside row + `/for-marketing` page meta description). It's currently softened to "(HubSpot soon)" but we want it real before the PH launch.
+
+**Goal:** Ship a HubSpot integration that mirrors the existing **Marketo** integration as closely as possible — same UX flow, same data shape, same code patterns. Marketo is the canonical example; treat HubSpot as a swap-out at the vendor-API layer.
+
+---
+
+## Step 0 — Read the (newly shipped) Marketo Phase 2 pattern as your canonical reference
+
+Marketo Phase 2 was just merged (see the recent commit referencing `marketo_connections`, `marketo_field_mappings`, `marketo_sync_log`, and `marketo-service.ts`). It's the **closest possible analog** to what you're building: dedicated tables (not the generic `lp_integrations` row), credential encryption via `encryptCredential`, tenant-scoped from migration 1, idempotency table for outbound activities, real pagination on bulk import, settings page under `artifacts/lp-studio/src/pages/sales/marketo-settings.tsx`. Mirror this pattern faithfully — HubSpot should look like Marketo's twin, not like SFDC's twin (SFDC has known weaknesses like tenant_id retrofitted in migration 0009, `LIMIT 10000` truncation, no activity idempotency — Marketo Phase 2 already corrected these and HubSpot should inherit the corrections).
+
+Before writing any HubSpot code, read every Marketo-related file end-to-end and write a 3-line summary in the PR description:
+
+- `lib/db/src/schema/marketoIntegration.ts` (and adjacent `marketo_*` schema files) — table shapes for connection, field mappings, sync log, idempotency
+- `artifacts/api-server/src/lib/marketo-service.ts` — singleton service, OAuth/credential flow, token refresh, retry+backoff, push/pull methods
+- `artifacts/api-server/src/routes/sales/marketo.ts` — REST surface (connect, disconnect, discover endpoints, sync, field-mappings)
+- `artifacts/api-server/src/lib/encryption.ts` — `encryptCredential` / `decryptCredential` helper + per-provider whitelist at the top of the file
+- `artifacts/api-server/src/middleware/requireAuth.ts` — `getTenantId(req, res)` helper used by every protected route
+- `artifacts/lp-studio/src/pages/sales/marketo-settings.tsx` — settings UI shape (connection state, field-mapping table + create flow, list/program picker, sync status)
+- `artifacts/api-server/src/routes/lp/leads.ts` lines around the Marketo form-submit push (the outbound trigger you'll mirror)
+- The Marketo migration files in `lib/db/migrations/` (latest are in the `0047_marketo_phase2*` range or higher) — note the naming convention for hand-rolled raw SQL migrations
+
+Also skim the SFDC integration as a secondary reference (`sfdcIntegration.ts`, `sfdc-service.ts`, `sales/sfdc.ts`, `sales/sfdc-settings.tsx`) — useful for understanding the OAuth + activity-push patterns, but **do not copy the weaknesses listed in the Marketo Phase 2 prompt** (no `getActiveConnection` without `tenantId`, no `LIMIT 10000` truncation, no missing activity idempotency).
+
+**Do not invent a new pattern.** If anything about the Marketo shape is awkward, prefer faithfulness over improvement — the goal is consistency across the three first-class integrations (SFDC, Marketo, HubSpot).
+
+---
+
+## Step 1 — HubSpot backend integration
+
+Mirror Marketo Phase 2's shape exactly:
+
+- **OAuth app** — register a HubSpot OAuth public app at developers.hubspot.com (manual step; document the client ID + secret in `.env` and Replit Secrets). Scopes needed:
+  - `crm.objects.contacts.write` — push leads as Contacts
+  - `crm.objects.contacts.read` — for the field-mapping picker
+  - `crm.lists.write` — optional, to enroll in a static list on submit
+  - `oauth` — required base scope
+- **Schema (new tables, mirror Marketo)** — create a new migration starting at the next sequence number after Marketo Phase 2. Tables:
+  - `hubspot_connections` — `tenantId NOT NULL` FK + index from migration 1 (do NOT retrofit later), `portalId`, `accessToken` (encrypted), `refreshToken` (encrypted), `tokenExpiresAt`, `status`, `lastSyncAt`, `lastSyncError`, `syncEnabled`, `metadata` jsonb, `connectedAt`, `connectedBy`
+  - `hubspot_field_mappings` — `connectionId` FK, `hubspotProperty`, `localTable`, `localField`, `direction`, `isActive`, `transformFn`
+  - `hubspot_sync_log` — per-run audit row, same columns as `marketo_sync_log`
+  - `hubspot_activities_pushed` — idempotency record (mirror `marketo_activities_pushed`); HubSpot's CRM Engagement objects deduplicate on this side, but we still want the local-side record
+  - Add `hubspotContactId` + `hubspotLastSyncedAt` columns on `sales_contacts` (parallel to `salesforceId` and `marketoLeadId`)
+- **Encryption** — extend `CREDENTIAL_FIELDS_BY_PROVIDER` in `artifacts/api-server/src/lib/encryption.ts` to include `hubspot: ["accessToken", "refreshToken"]`.
+- **OAuth callback route** — `GET /api/sales/hubspot/oauth/callback` (mirror `/api/sales/sfdc/callback`). Use the same HMAC-signed state pattern from the SFDC OAuth flow (`signSfdcState` / `verifySfdcState` in `sfdc.ts` — copy the helper, don't reinvent). Exchange code for tokens via `https://api.hubapi.com/oauth/v1/token`, fetch portal ID via `/oauth/v1/access-tokens/<token>`, upsert connection, redirect to settings.
+- **Disconnect route** — `POST /api/sales/hubspot/disconnect` — set `status='disconnected'`, wipe `accessToken`/`refreshToken` to `""` (keep the row for audit history, same as Marketo + SFDC).
+- **API client + token refresh** — singleton `hubspotService = new HubspotService()` in `artifacts/api-server/src/lib/hubspot-service.ts`. Mirror `marketo-service.ts` method shapes. Include the **same retry+backoff improvements Marketo got**: 401 retry once after refresh, 429 exponential backoff (start 500ms, max 30s, up to 5 attempts), `MARKETO_RATE_LIMIT`-style error throw.
+- **getActiveConnection** — **MUST require `tenantId` as a non-optional parameter** (do NOT mirror SFDC's leaky overload that allows tenantId-less calls).
+- **Push contacts on form submit** — wire into the same `lp/leads.ts:452-508` outbound push path. For each new `lpLead`, build a HubSpot Contact payload from the form fields using `hubspot_field_mappings`, POST to `https://api.hubapi.com/crm/v3/objects/contacts`. Optionally add to a HubSpot list if `listId` is configured on the connection. Use the upsert pattern (`?idProperty=email`) so we don't create duplicates on retry.
+- **Idempotency** — store the HubSpot Contact ID back on `lpLeads.hubspot_contact_id`; check it at the top of the push function and skip if already set. Mirror `marketo_lead_id`'s contract.
+
+---
+
+## Step 2 — Settings UI + field/list discovery
+
+Mirror the Marketo settings page exactly. New page at `artifacts/lp-studio/src/pages/sales/hubspot-settings.tsx`. Wrap in `SalesLayout` + `SalesPageHeader`, link from the Sales nav. Endpoints to back it:
+
+- `GET /api/sales/hubspot/connection` — current connection state
+- `POST /api/sales/hubspot/disconnect` — wipe tokens, set status disconnected
+- `GET /api/sales/hubspot/discover/properties` — calls `/crm/v3/properties/contacts`, returns available HubSpot Contact properties for the field-mapping picker (cache 1hr like Marketo does for lists)
+- `GET /api/sales/hubspot/discover/lists` — calls `/crm/v3/lists`, returns static lists
+- `GET/POST/PUT/DELETE /api/sales/hubspot/field-mappings` — same surface as Marketo's
+- `POST /api/sales/hubspot/test/contact` — fires a fake lead push for debugging
+
+UI shape (mirror `marketo-settings.tsx`):
+
+- Connection status badge (Connected to `<portal-name>` · Last sync) with Disconnect button
+- "Connect HubSpot" CTA → OAuth redirect (signed state)
+- Field-mapping table with **create flow** (Marketo has this; SFDC doesn't — keep parity with Marketo)
+- "Enroll new leads in this list" picker, fed by `/discover/lists`
+- "Send test contact" button — surfaces the HubSpot API response inline so users can debug without leaving the page
+- Setup-checklist panel listing any HubSpot custom properties the customer needs to create (if any LP Studio fields don't map to standard HubSpot Contact properties)
+
+---
+
+## Step 3 — Marketing-site updates
+
+Once the backend is shipped, update the marketing site (`artifacts/lp-studio/src/marketing/`) to reflect the new integration:
+
+1. **`components/Integrations.tsx`** — Add a HubSpot tile to the `LEAD_HANDOFF` group. The comment at the top of the file says "Do not re-add a logo here unless there is a shipped integration to back it." — this PR backs HubSpot, so the tile is fair to add. Use brand color `#FF7A59` and a stylized HubSpot sprocket mark (single-color SVG, normalized to a 24×24 viewBox, drawn in the same approximated-recognizable-silhouette style as the other marks in the file).
+
+2. **`pages/home.tsx`** — In the WhatsInside Marketing row bullet list (search for "Marketo + GA4"), change:
+   - `"Marketo + GA4 lead handoff (HubSpot soon)"` → `"Marketo + HubSpot + GA4 lead handoff"`
+
+3. **`pages/for-marketing.tsx`** — Two places:
+   - The IA comment at the top mentions "(HubSpot soon)" — remove the "soon".
+   - The `usePageMeta` description: change `"hand off leads to Marketo, GA4, or any webhook"` → `"hand off leads to Marketo, HubSpot, GA4, or any webhook"`.
+
+4. **`components/Pricing.tsx`** — In the FEATURE_MAP or tier card lists, HubSpot should appear at whichever tier Marketo currently does (probably Growth+). Search for `"Marketo"` and mirror its tier placement.
+
+5. **`components/FAQ.tsx`** — If any answer explicitly says "we don't have HubSpot yet," update it. Otherwise leave alone.
+
+---
+
+## Acceptance criteria
+
+- [ ] All HubSpot tables include `tenant_id NOT NULL` FK + index in the initial migration (no retrofit needed later)
+- [ ] `getActiveConnection` (or equivalent) requires `tenantId` as a non-optional parameter — verify no call site passes undefined
+- [ ] Token encryption uses `encryptCredential`; whitelist updated to include `hubspot: ["accessToken", "refreshToken"]`
+- [ ] HMAC-signed OAuth state matches the SFDC/Marketo pattern (10-min TTL, constant-time compare, `WORKER_HOST_SECRET`)
+- [ ] OAuth connect flow works end-to-end against a sandbox HubSpot developer account
+- [ ] Form-submit outbound push creates a Contact in HubSpot within 5s of submission
+- [ ] Retry on `409 conflict` (duplicate email) is handled by upserting on `?idProperty=email`
+- [ ] Token refresh fires automatically when access token is within 5 min of expiry
+- [ ] Disconnect wipes tokens to empty string, sets `status='disconnected'`, keeps row for audit
+- [ ] Field/list discovery endpoints respond + populate the settings-page pickers
+- [ ] Field-mapping create flow works (this is the SFDC-pattern gap that Marketo Phase 2 closed; keep parity)
+- [ ] Marketo + SFDC code paths untouched
+- [ ] `pnpm typecheck` clean across all workspaces
+- [ ] The HubSpot tile lands in `Integrations.tsx` AFTER the backend ships, not before — the comment at the top of that file is load-bearing for trust
+
+## Don't
+
+- Don't reuse `lp_integrations` (the generic provider table) — create dedicated `hubspot_*` tables matching the Marketo Phase 2 shape.
+- Don't mirror SFDC's `getActiveConnection()` tenantId-less leak (`hotlinks.ts:673`, `campaigns.ts:854,1461`, `lp/leads.ts:454`). Every call site MUST pass `tenantId`.
+- Don't refactor Marketo, SFDC, or shared integration helpers as part of this PR. Same-shape duplication is fine for now; refactor in a follow-up if needed.
+- Don't ship without idempotency on the form-submit push — if a tenant retries a failed push, we must not create duplicate Contacts. Use `?idProperty=email` upsert + check `lpLeads.hubspot_contact_id` before pushing.
+- Don't store HubSpot tokens unencrypted. Reuse `encryptCredential` and update the `CREDENTIAL_FIELDS_BY_PROVIDER` whitelist.
+- Don't add the HubSpot tile to `Integrations.tsx` until the backend actually ships — the comment at the top of that file is load-bearing for trust.
