@@ -24,7 +24,7 @@ import {
   validateAndDedupeAIImages,
   type MediaImage,
 } from "../lp/generate-page";
-import { restoreTemplateImages } from "./generate-microsite";
+import { restoreTemplateImages, mergeAuthored } from "./generate-microsite";
 
 // A tenant "drawer" of real uploads with NO auto-tags — the common case.
 const UNTAGGED: MediaImage[] = [
@@ -135,5 +135,80 @@ describe("sales template image restore — stat bars stay numeric", () => {
     const items = out[0].props.items as Array<{ image: string }>;
     expect(items[0].image).toBe("/objects/bg-1");
     expect(items[1].image).toBe("/objects/bg-2");
+  });
+});
+
+describe("sales template image restore — onlyEmpty backstop (Replace imagery)", () => {
+  // With "Replace imagery" ON, the library/scraped fill already swapped what it
+  // could. The backstop must only fill slots the fill couldn't satisfy and must
+  // never clobber a successfully replaced library image.
+  it("keeps a library-filled scalar image and only backstops the empty one", () => {
+    const tmpl: any[] = [
+      { type: "hero", props: { imageUrl: "/objects/tmpl-hero" } },
+      { type: "split", props: { imageUrl: "/objects/tmpl-split" } },
+    ];
+    const generated: any[] = [
+      { type: "hero", props: { imageUrl: "/objects/library-hero" } }, // library win
+      { type: "split", props: { imageUrl: "" } },                      // fill failed
+    ];
+    const out = restoreTemplateImages(generated, tmpl, { onlyEmpty: true }) as any[];
+    expect(out[0].props.imageUrl).toBe("/objects/library-hero");
+    expect(out[1].props.imageUrl).toBe("/objects/tmpl-split");
+  });
+
+  it("backstops empty per-item array images without overwriting filled ones", () => {
+    const tmpl: any[] = [
+      { type: "benefits-grid", props: { items: [
+        { title: "A", image: "/objects/tmpl-a" },
+        { title: "B", image: "/objects/tmpl-b" },
+      ] } },
+    ];
+    const generated: any[] = [
+      { type: "benefits-grid", props: { items: [
+        { title: "A", image: "/objects/library-a" }, // library win
+        { title: "B", image: "" },                    // fill failed
+      ] } },
+    ];
+    const out = restoreTemplateImages(generated, tmpl, { onlyEmpty: true }) as any[];
+    const items = out[0].props.items as Array<{ image: string }>;
+    expect(items[0].image).toBe("/objects/library-a");
+    expect(items[1].image).toBe("/objects/tmpl-b");
+  });
+});
+
+describe("sales template prop preservation — authored structure survives", () => {
+  // The AI re-emits each block's copy but does NOT re-emit authored structural
+  // props it doesn't know about (event-landing-hero embedded form config +
+  // backgroundImage). mergeAuthored must keep those authored fields while the
+  // personalised AI copy still wins.
+  it("preserves the embedded form + hero image while keeping AI copy", () => {
+    const authored = {
+      headline: "Inside Dandy: After Hours",
+      backgroundImage: "/objects/after-hours-hero",
+      showDetailsSection: true,
+      formId: 42,
+      formMode: "native",
+      eventDetailsBullets: ["Drinks", "Dinner", "Demos"],
+    };
+    const ai = {
+      headline: "Inside Dandy at Gentle Dental", // personalised copy
+      // AI omits backgroundImage, formId, formMode, eventDetailsBullets entirely
+    };
+    const merged = mergeAuthored(authored, ai) as Record<string, unknown>;
+    expect(merged.headline).toBe("Inside Dandy at Gentle Dental");
+    expect(merged.backgroundImage).toBe("/objects/after-hours-hero");
+    expect(merged.formId).toBe(42);
+    expect(merged.formMode).toBe("native");
+    expect(merged.showDetailsSection).toBe(true);
+    expect(merged.eventDetailsBullets).toEqual(["Drinks", "Dinner", "Demos"]);
+  });
+
+  it("falls back to authored value when AI emits a blank string", () => {
+    const merged = mergeAuthored(
+      { backgroundImage: "/objects/tmpl-hero", ctaText: "RSVP" },
+      { backgroundImage: "", ctaText: "Reserve your spot" },
+    ) as Record<string, unknown>;
+    expect(merged.backgroundImage).toBe("/objects/tmpl-hero");
+    expect(merged.ctaText).toBe("Reserve your spot");
   });
 });

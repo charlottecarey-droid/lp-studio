@@ -440,7 +440,7 @@ function isBusinessCaseType(type: unknown): boolean {
 //     (primitive/array) keeps the authored object.
 //   - Scalars: prefer the AI scalar; a blank string, null/undefined, or a
 //     wrong-typed (object/array) AI value keeps the authored scalar.
-function mergeAuthored(base: unknown, ai: unknown): unknown {
+export function mergeAuthored(base: unknown, ai: unknown): unknown {
   if (Array.isArray(base)) {
     if (!Array.isArray(ai) || ai.length === 0) return base;
     return base.map((item, i) => (i < ai.length ? mergeAuthored(item, ai[i]) : item));
@@ -497,8 +497,20 @@ const ARRAY_IMAGE_SPECS = [
  * position and copy any non-empty image URL from the template into the
  * AI-generated block, preventing the AI from inventing (or badly picking)
  * images when a perfectly good one already exists in the template.
+ *
+ * When `onlyEmpty` is true the template image is used ONLY as a backstop: a
+ * slot is restored from the template solely when the generated block left it
+ * empty. This is the "Replace imagery" path — library/scraped picks that
+ * actually filled a slot win, but any slot the fill passes couldn't satisfy
+ * falls back to the template's original image instead of shipping empty/black.
  */
-export function restoreTemplateImages(generatedBlocks: AiBlock[], tmplBlocks: AiBlock[]): AiBlock[] {
+export function restoreTemplateImages(
+  generatedBlocks: AiBlock[],
+  tmplBlocks: AiBlock[],
+  opts: { onlyEmpty?: boolean } = {},
+): AiBlock[] {
+  const onlyEmpty = opts.onlyEmpty === true;
+  const isEmpty = (v: unknown): boolean => typeof v !== "string" || v.trim() === "";
   return generatedBlocks.map((block, i) => {
     const tmpl = tmplBlocks[i];
     if (!tmpl) return block;
@@ -507,6 +519,7 @@ export function restoreTemplateImages(generatedBlocks: AiBlock[], tmplBlocks: Ai
 
     // Restore scalar image props
     for (const f of SCALAR_IMAGE_PROPS) {
+      if (onlyEmpty && !isEmpty(gp[f])) continue;
       if (typeof tp[f] === "string" && tp[f]) gp[f] = tp[f];
     }
 
@@ -520,6 +533,7 @@ export function restoreTemplateImages(generatedBlocks: AiBlock[], tmplBlocks: Ai
         const tmplArr = tp[field] as Record<string, unknown>[];
         gp[field] = (gp[field] as Record<string, unknown>[]).map((item, j) => {
           const tmplItem = tmplArr[j];
+          if (onlyEmpty && !isEmpty(item?.[imgKey])) return item;
           if (tmplItem && typeof tmplItem[imgKey] === "string" && tmplItem[imgKey]) {
             return { ...item, [imgKey]: tmplItem[imgKey] };
           }
@@ -1987,12 +2001,17 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
 
     // If a template was used, restore images from the template blocks — the AI
     // updated copy but we keep the original carefully chosen images. Task #1106:
-    // skip this hard-restore when the caller opted into replacing imagery so the
-    // library-filled images (above) survive instead of the template's photos.
+    // when the caller opted into replacing imagery, the library/scraped fill
+    // above already swapped what it could; run the restore in backstop mode so
+    // any slot the fill couldn't satisfy falls back to the template's original
+    // image instead of shipping empty/black (Task #1126), never clobbering a
+    // successfully replaced library image.
     if (templateBlocks) {
-      if (replaceImagery !== true) {
-        normalizedBlocks = restoreTemplateImages(normalizedBlocks, templateBlocks) as AiBlock[];
-      }
+      normalizedBlocks = restoreTemplateImages(
+        normalizedBlocks,
+        templateBlocks,
+        { onlyEmpty: replaceImagery === true },
+      ) as AiBlock[];
 
       // Compound business-case templates are a single rich monograph block.
       // Rather than trust the AI to emit every nested field, merge its copy
@@ -2013,6 +2032,24 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
           type: tmpl.type,
           props: mergedProps,
         }];
+      } else {
+        // Task #1126 — every other template: the AI re-emits each block's copy
+        // but does NOT re-emit authored structural props it doesn't know about
+        // (the event-landing-hero embedded form config + backgroundImage, layout
+        // knobs, etc.). Merge the AI copy OVER the full authored template props
+        // by position so those authored fields survive into the generated page.
+        // mergeAuthored keeps a non-empty AI value (the personalised copy and any
+        // replaced image) and falls back to the authored value otherwise — so the
+        // embedded form, hero image, and all content sections are preserved.
+        normalizedBlocks = normalizedBlocks.map((block, i) => {
+          const tmpl = templateBlocks[i];
+          if (!tmpl) return block;
+          const merged = mergeAuthored(
+            (tmpl.props ?? {}) as Record<string, unknown>,
+            (block.props ?? {}) as Record<string, unknown>,
+          ) as Record<string, unknown>;
+          return { ...block, props: merged } as AiBlock;
+        });
       }
     }
 
