@@ -1301,7 +1301,7 @@ function buildSegmentSection(segment: BrandAudienceSegment | undefined): string 
   return lines.join("\n");
 }
 
-function buildSystemPrompt(
+export function buildSystemPrompt(
   segment: BrandAudienceSegment,
   brand: Record<string, unknown>,
   templateBlockTypes?: string[],
