@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { StatsRefreshButton } from "@/components/BlockRefreshButton";
 import { Plus, X } from "lucide-react";
 
 interface Props {
@@ -19,6 +20,15 @@ export function IdStatsPanel({ props, onChange }: Props) {
   return (
     <div className="space-y-3">
       <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Stats (4 max)</div>
+      {stats.length > 0 && (
+        <StatsRefreshButton
+          blockType="id-stats"
+          items={stats.map((s) => ({ value: s.value ?? "", label: s.label ?? "", description: s.description ?? "" }))}
+          onApply={(next) => setStats(stats.map((s, idx) => next[idx]
+            ? { ...s, value: next[idx].value, label: next[idx].label, description: next[idx].description ?? s.description ?? "" }
+            : s))}
+        />
+      )}
       {stats.map((s, i) => (
         <div key={i} className="border rounded-md p-3 space-y-2">
           <div className="flex justify-between items-center">

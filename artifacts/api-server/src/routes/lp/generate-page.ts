@@ -1865,7 +1865,7 @@ function buildApprovedStatSet(
   return out;
 }
 
-function isApprovedStat(value: string, pool: Set<string>): boolean {
+export function isApprovedStat(value: string, pool: Set<string>): boolean {
   const v = value.trim().toLowerCase();
   if (!v) return true;
   if (!/\d/.test(v)) return true; // not a numeric stat — leave alone
@@ -2851,7 +2851,7 @@ type BrandSegmentStat = SegmentStat;
 
 /** Task #256 — proof point row as returned by the library route. Subset of
  *  the DB columns we actually consume in the prompt + sanitize pool. */
-interface ProofPoint {
+export interface ProofPoint {
   id: number;
   value: string;
   label: string;
@@ -2863,7 +2863,7 @@ interface ProofPoint {
 /** Task #256 — fetch the tenant's proof-point library so it can be injected
  *  into the AI brief and the strict-mode approved-stat pool. Returns ALL
  *  rows (the caller filters by approved_for_ai for prompt vs pool use). */
-async function fetchProofPoints(tenantId: number | null): Promise<ProofPoint[]> {
+export async function fetchProofPoints(tenantId: number | null): Promise<ProofPoint[]> {
   if (tenantId == null) return [];
   try {
     const rows = await db.execute(
@@ -2892,7 +2892,7 @@ async function fetchProofPoints(tenantId: number | null): Promise<ProofPoint[]> 
   }
 }
 
-function buildProofPointsSection(points: ProofPoint[], strict: boolean): string {
+export function buildProofPointsSection(points: ProofPoint[], strict: boolean): string {
   const usable = strict ? points.filter((p) => p.approved_for_ai) : points;
   if (usable.length === 0) {
     return strict

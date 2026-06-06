@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ImagePicker } from "@/components/ImagePicker";
+import { StatsRefreshButton } from "@/components/BlockRefreshButton";
 import { BrandSwatches, useBrandConfig } from "@/components/BrandSwatches";
 import { getBrandStyleVars, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
 import { Plus, Trash2, GripVertical, ImagePlus, ImageOff } from "lucide-react";
@@ -76,24 +77,30 @@ function ColorRow({ label, value, defaultValue, onChange, resolveHex }: { label:
     if (!focusedRef.current) setDraft(display);
   }, [display]);
 
+  // The color input + hex field + label sit on one row; the brand swatches lay
+  // out as a full-width wrapping horizontal row beneath them. Previously the
+  // swatches shared the same non-wrapping flex row with `basis-full`, which
+  // squeezed them into a narrow column so they stacked vertically.
   return (
-    <div className="flex items-center gap-2">
-      <input
-        type="color"
-        value={swatch}
-        onChange={e => onChange(e.target.value)}
-        className="w-8 h-8 rounded cursor-pointer border border-border p-0.5 bg-white shrink-0"
-      />
-      <Input
-        value={draft}
-        onFocus={() => { focusedRef.current = true; }}
-        onBlur={() => { focusedRef.current = false; setDraft(display); }}
-        onChange={e => { setDraft(e.target.value); onChange(e.target.value); }}
-        className="font-mono text-xs h-8"
-        maxLength={9}
-      />
-      <span className="text-xs text-muted-foreground shrink-0 w-20">{label}</span>
-      <BrandSwatches className="basis-full" current={swatch} onPick={onChange} />
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={swatch}
+          onChange={e => onChange(e.target.value)}
+          className="w-8 h-8 rounded cursor-pointer border border-border p-0.5 bg-white shrink-0"
+        />
+        <Input
+          value={draft}
+          onFocus={() => { focusedRef.current = true; }}
+          onBlur={() => { focusedRef.current = false; setDraft(display); }}
+          onChange={e => { setDraft(e.target.value); onChange(e.target.value); }}
+          className="font-mono text-xs h-8"
+          maxLength={9}
+        />
+        <span className="text-xs text-muted-foreground shrink-0 w-20">{label}</span>
+      </div>
+      <BrandSwatches current={swatch} onPick={onChange} />
     </div>
   );
 }
@@ -206,6 +213,18 @@ export function TrustBarPanel({ props, onChange }: Props) {
       {/* Stats */}
       <div className="space-y-3">
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Stats</Label>
+        {items.length > 0 && (
+          <StatsRefreshButton
+            blockType="trust-bar"
+            items={items.map(it => ({ value: it.value, label: it.label }))}
+            onApply={next => onChange({
+              ...props,
+              items: items.map((item, idx) => next[idx]
+                ? { ...item, value: next[idx].value, label: next[idx].label }
+                : item),
+            })}
+          />
+        )}
         <SortableItemList count={items.length} onReorder={moveItem}>
         {items.map((item, i) => {
           const hasImage = (item.image ?? "").trim() !== "";

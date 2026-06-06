@@ -14,9 +14,44 @@ import {
   hasBriefSignal,
   logCopyCall,
   type BriefContext,
+  type BrandConfig,
 } from "../../lib/ai-prompts/brand-and-brief";
+import {
+  STAT_BAR_BLOCK_TYPES,
+  fetchProofPoints,
+  isApprovedStat,
+  buildProofPointsSection,
+  type ProofPoint,
+} from "./generate-page";
 
 const router = Router();
+
+// Stat blocks whose copy is an ARRAY of stat items (value/label[/description]).
+// Refreshing these returns a repopulated `items` array rather than flat fields.
+// Reuses the shared STAT_BAR_BLOCK_TYPES (trust-bar / stats) + id-stats.
+const STAT_ARRAY_BLOCK_TYPES = new Set<string>([...STAT_BAR_BLOCK_TYPES, "id-stats"]);
+// All stat-bearing blocks (array + single-stat) — used to decide when the flat
+// copy refresh must honor strict-facts mode for numeric stat fields.
+const STAT_COPY_BLOCK_TYPES = new Set<string>([...STAT_ARRAY_BLOCK_TYPES, "stat-callout", "grid-stat"]);
+// Field keys that hold a numeric stat value on flat (non-array) stat blocks.
+const STAT_FIELD_KEYS = new Set<string>(["value", "stat", "metric"]);
+
+/** Build the strict-mode approved-stat pool from the brand sources reachable
+ *  here (proof-point library + scraped brand stats + product claims). Mirrors
+ *  generate-page's `buildApprovedStatSet` for the lighter copy-generate brand
+ *  shape; reuses the same proof-point fetch + `isApprovedStat` substring check. */
+function buildCopyApprovedStatPool(brand: BrandConfig, proofPoints: ProofPoint[]): Set<string> {
+  const out = new Set<string>();
+  const add = (raw?: string) => {
+    if (!raw) return;
+    const v = String(raw).trim().toLowerCase();
+    if (v) out.add(v);
+  };
+  for (const p of proofPoints) if (p.approved_for_ai) add(p.value);
+  for (const s of brand.scrapedStats ?? []) if (s.approvedForAi !== false) add(s.value);
+  for (const pl of brand.productLines ?? []) for (const c of pl.claims ?? []) add(c);
+  return out;
+}
 
 function getOpenAIClient(): OpenAI {
   const baseURL = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"];
@@ -112,6 +147,7 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
     currentValues?: Record<string, string>;
     briefContext?: BriefContext;
     tileTypes?: string[];
+    items?: Array<{ value?: string; label?: string; description?: string }>;
   };
 
   const { blockType, action } = body;
@@ -155,13 +191,31 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
       if (currentValues[f]) contextParts.push(`${f}: "${currentValues[f]}"`);
     }
 
+    // Strict-facts handling for single-stat blocks (e.g. stat-callout): when the
+    // tenant has strict facts ON, inject the approved proof points and forbid
+    // inventing numbers for stat-shaped fields. After generation we revert any
+    // unapproved numeric value so no fabricated stats reach the block.
+    const strictRefresh = brand.aiStrictFactsMode !== false;
+    const statBlockRefresh = STAT_COPY_BLOCK_TYPES.has(blockType);
+    let refreshPool: Set<string> | null = null;
+    let refreshProofSection = "";
+    if (statBlockRefresh && strictRefresh) {
+      const pp = await fetchProofPoints(tenantId);
+      refreshPool = buildCopyApprovedStatPool(brand, pp);
+      refreshProofSection = buildProofPointsSection(pp, true);
+    }
+
     const systemPrompt = [
       brandPrompt,
       dsoContext,
       briefPrompt,
+      refreshProofSection,
       `You are rewriting landing page copy for a "${blockType}" block.`,
       `Generate fresh, on-brand copy for each of the following fields: ${validFields.join(", ")}.`,
       `PRIMARY DRIVERS: the BRAND VOICE PROFILE and ACTIVE CAMPAIGN BRIEF above drive the output. The block's current copy is a REFERENCE for what slot/role each field fills — its topic and concrete specifics (numbers, product names, named groups) must stay intact, but you can freely rewrite wording, rhythm, and structure. If the existing copy is generic placeholder text from the block catalog, lean harder on brand + brief and produce on-brand copy in the same slot.`,
+      statBlockRefresh && strictRefresh
+        ? `STRICT FACTS: For any numeric stat field (e.g. "stat", "value", "metric"), use ONLY a value from the APPROVED PROOF POINTS above — never invent a number. If none fit, keep the current value verbatim. Non-stat fields (labels, descriptions, footnotes) may still be rewritten in the brand voice.`
+        : "",
       `Return ONLY a valid JSON object with field names as keys and new copy as string values.`,
       `Keep each value under 200 characters unless it is a body/description field (max 400 chars).`,
       `Do not include any explanation, markdown, or extra text — only the JSON object.`,
@@ -209,9 +263,11 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
       for (const f of validFields) {
         const maxLen = BODY_FIELDS.has(f) ? 400 : 200;
         const val = typeof parsed[f] === "string" ? (parsed[f] as string).trim() : "";
-        if (val && val.length <= maxLen) {
-          updated[f] = val;
-        }
+        if (!val || val.length > maxLen) continue;
+        // Strict facts: drop any fabricated numeric stat so the client keeps the
+        // existing approved value rather than shipping an invented number.
+        if (refreshPool && STAT_FIELD_KEYS.has(f) && !isApprovedStat(val, refreshPool)) continue;
+        updated[f] = val;
       }
 
       logCopyCall({
@@ -228,6 +284,129 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
       res.json({ updated });
     } catch (err) {
       logCopyCall({ endpoint: "copy-generate", tenantId, briefPresent, blockType, sparkleMode: "refresh", success: false, errorMessage: String(err) });
+      res.status(500).json({ error: String(err) });
+    }
+    return;
+  }
+
+  if (action === "refresh-stats") {
+    if (!STAT_ARRAY_BLOCK_TYPES.has(blockType)) {
+      res.status(400).json({ error: `refresh-stats is not supported for "${blockType}"` });
+      return;
+    }
+    const rawItems = Array.isArray(body.items) ? body.items : [];
+    const inputItems = rawItems
+      .filter((it): it is Record<string, unknown> => typeof it === "object" && it !== null)
+      .map((it) => ({
+        value: typeof it.value === "string" ? it.value : "",
+        label: typeof it.label === "string" ? it.label : "",
+        description: typeof it.description === "string" ? it.description : "",
+      }));
+    if (inputItems.length === 0) {
+      res.status(400).json({ error: "items array is required for refresh-stats action" });
+      return;
+    }
+    // id-stats items carry a description; trust-bar / stats are value+label only.
+    const withDescription = blockType === "id-stats";
+
+    const strict = brand.aiStrictFactsMode !== false;
+    const proofPoints = await fetchProofPoints(tenantId);
+    const pool = strict ? buildCopyApprovedStatPool(brand, proofPoints) : null;
+    const proofSection = buildProofPointsSection(proofPoints, strict);
+
+    const shapeLine = withDescription
+      ? `{ "value": "...", "label": "...", "description": "..." }`
+      : `{ "value": "...", "label": "..." }`;
+    const fieldGuide = [
+      `- value = a short metric (e.g. "96%", "12,000+", "2–3 days")`,
+      `- label = a short descriptive name for the metric`,
+      withDescription ? `- description = one short sentence expanding on the metric` : "",
+    ].filter(Boolean).join("\n");
+
+    const systemPrompt = [
+      brandPrompt,
+      dsoContext,
+      briefPrompt,
+      proofSection,
+      `You are refreshing the stats in a "${blockType}" landing page block.`,
+      `Return ONLY a JSON object: { "items": [ ${shapeLine}, ... ] }`,
+      `Generate exactly ${inputItems.length} items, in the SAME ORDER as the current items below.`,
+      fieldGuide,
+      strict
+        ? `STRICT FACTS: Use ONLY values from the APPROVED PROOF POINTS above for each item's "value" — never invent a number. If no approved stat fits an item, keep that item's CURRENT value verbatim. You may still rewrite the label${withDescription ? " and description" : ""} in the brand voice.`
+        : `Make every stat specific, credible, and on-brand.`,
+      `Do not include any explanation, markdown, or extra text — only the JSON object.`,
+    ].filter(Boolean).join("\n\n");
+
+    const currentList = inputItems
+      .map((it, i) => {
+        const bits = [`${i + 1}. value: "${it.value}", label: "${it.label}"`];
+        if (withDescription) bits.push(`description: "${it.description}"`);
+        return bits.join(", ");
+      })
+      .join("\n");
+    const userPrompt = `Current stats (REFERENCE — keep the same order and count):\n${currentList}`;
+
+    try {
+      const completion = await withOpenAIConcurrency(() =>
+        openai.chat.completions.create({
+          model: "gpt-4o",
+          temperature: strict ? 0.6 : 0.85,
+          max_completion_tokens: 1200,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+        }),
+      );
+
+      const raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
+      let parsed: { items?: unknown[] } = {};
+      try {
+        const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+        parsed = JSON.parse(cleaned);
+      } catch {
+        logCopyCall({ endpoint: "copy-generate", tenantId, briefPresent, blockType, sparkleMode: "refresh-stats", success: false, errorMessage: "invalid_json" });
+        res.status(500).json({ error: "AI returned invalid JSON", raw });
+        return;
+      }
+
+      const genItems = Array.isArray(parsed.items) ? parsed.items : [];
+      const clamp = (s: string, max: number) => (s.length <= max ? s : s.slice(0, max));
+      const items = inputItems.map((orig, i) => {
+        const gen = (typeof genItems[i] === "object" && genItems[i] !== null ? genItems[i] : {}) as Record<string, unknown>;
+        let value = typeof gen.value === "string" ? gen.value.trim() : "";
+        let label = typeof gen.label === "string" ? gen.label.trim() : "";
+        // Strict facts: never ship a fabricated number — fall back to the
+        // existing (approved) value when the model's value isn't in the pool.
+        if (pool && (!value || !isApprovedStat(value, pool))) value = orig.value;
+        if (!value) value = orig.value;
+        if (!label) label = orig.label;
+        const out: { value: string; label: string; description?: string } = {
+          value: clamp(value, 60),
+          label: clamp(label, 160),
+        };
+        if (withDescription) {
+          const desc = typeof gen.description === "string" ? gen.description.trim() : "";
+          out.description = clamp(desc || orig.description, 300);
+        }
+        return out;
+      });
+
+      logCopyCall({
+        endpoint: "copy-generate",
+        tenantId,
+        briefPresent,
+        blockType,
+        sparkleMode: "refresh-stats",
+        promptTokens: completion.usage?.prompt_tokens,
+        completionTokens: completion.usage?.completion_tokens,
+        success: true,
+      });
+
+      res.json({ items });
+    } catch (err) {
+      logCopyCall({ endpoint: "copy-generate", tenantId, briefPresent, blockType, sparkleMode: "refresh-stats", success: false, errorMessage: String(err) });
       res.status(500).json({ error: String(err) });
     }
     return;

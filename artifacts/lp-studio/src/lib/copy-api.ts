@@ -73,6 +73,32 @@ export async function refreshBentoTiles(
   return data.tiles ?? [];
 }
 
+export interface StatItem {
+  value: string;
+  label: string;
+  description?: string;
+}
+
+export async function refreshBlockStats(
+  blockType: string,
+  items: StatItem[],
+): Promise<StatItem[]> {
+  const { getBriefContext } = await import("./brief-context");
+  const briefContext = getBriefContext() ?? undefined;
+  const blockCategory = getBlockCategory(blockType);
+  const res = await fetch(API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ blockType, blockCategory, action: "refresh-stats", items, briefContext }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? "Stat refresh failed");
+  }
+  const data = await res.json() as { items: StatItem[] };
+  return data.items ?? [];
+}
+
 export async function refreshBlockCopy(
   blockType: string,
   fields: string[],
