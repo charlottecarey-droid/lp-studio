@@ -841,6 +841,45 @@ export function resolveHeadingColor(brand: BrandConfig, isDark: boolean): string
  * Build the inline style object that emits all brand CSS variables on a wrapper
  * element. Apply at the top of the page-viewer and the builder canvas.
  */
+/**
+ * Resolve a stored color value to a concrete CSS color that can be applied
+ * directly (e.g. as a `backgroundColor`) without relying on CSS custom-property
+ * inheritance at the render scope.
+ *
+ * The AI / templates sometimes store a brand color as a CSS-variable *string*
+ * (`var(--brand-primary)`). Applied raw, that string only works if the
+ * `--brand-*` custom property happens to be defined in that element's render
+ * scope — when it isn't (the well-known builder-vs-published render
+ * divergence), the property silently collapses to `transparent`/initial. This
+ * resolves brand `var(...)` strings to their concrete hex via the SAME source
+ * blocks render from ({@link getBrandStyleVars}), and falls back to a supplied
+ * safe color so the result can never collapse to transparent.
+ */
+export function resolveBrandColor(
+  brand: BrandConfig,
+  value: string | undefined | null,
+  fallback: string,
+): string {
+  const raw = (value ?? "").trim();
+  if (!raw) return fallback;
+  // Keywords that would defeat the "never collapse to transparent" guarantee.
+  if (/^(transparent|none|initial|inherit|unset|currentcolor)$/i.test(raw)) {
+    return fallback;
+  }
+  // Already a concrete hex — apply as-is (preserving any alpha).
+  if (isValidHex(raw)) return raw;
+  // Brand CSS variable — resolve through the same source blocks render from.
+  const match = raw.match(/var\(\s*(--[a-zA-Z0-9-]+)/);
+  if (match) {
+    const vars = getBrandStyleVars(brand) as Record<string, string | number>;
+    const resolved = vars[match[1]];
+    if (typeof resolved === "string" && resolved.trim()) return resolved.trim();
+    return fallback;
+  }
+  // Some other CSS color (named, rgb(...), hsl(...), etc.) — keep as-is.
+  return raw;
+}
+
 export function getBrandStyleVars(brand: BrandConfig): CSSProperties {
   const primary = isValidHex(brand.primaryColor) ? brand.primaryColor : DEFAULT_BRAND.primaryColor;
   const accent = isValidHex(brand.accentColor) ? brand.accentColor : DEFAULT_BRAND.accentColor;

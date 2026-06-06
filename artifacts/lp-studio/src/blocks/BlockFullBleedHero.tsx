@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, type ReactNode } from "react"
 import { ArrowRight, ImageIcon } from "lucide-react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { cn } from "@/lib/utils";
-import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, pickCtaButtonColors, pickOutlineButtonColors, isValidHex, DEFAULT_BRAND, getLogoLinkUrl, type BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, pickCtaButtonColors, pickOutlineButtonColors, isValidHex, DEFAULT_BRAND, getLogoLinkUrl, resolveBrandColor, type BrandConfig } from "@/lib/brand-config";
 import type { FullBleedHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -19,6 +19,10 @@ const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
 
 const EASE = [0.16, 1, 0.3, 1] as const;
+
+// Safe dark fallback for the image overlay so white hero text stays legible
+// even when the stored overlay color is missing or an unresolvable brand var.
+const SAFE_OVERLAY = "#0a0a0a";
 
 interface Props {
   props: FullBleedHeroBlockProps;
@@ -241,7 +245,7 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            backgroundColor: props.overlayColor ?? FOREST,
+            backgroundColor: resolveBrandColor(brand, props.overlayColor, SAFE_OVERLAY),
             opacity: overlayOpacity,
           }}
         />

@@ -3,7 +3,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
-import { getHeadingWeightClass, getHeadingLetterSpacingClass, contrastTextColor, pickContrastingColor, isValidHex } from "@/lib/brand-config";
+import { getHeadingWeightClass, getHeadingLetterSpacingClass, contrastTextColor, pickContrastingColor, isValidHex, resolveBrandColor } from "@/lib/brand-config";
 import type { ParallaxImageHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -82,7 +82,12 @@ export function BlockParallaxImageHero({
       ? pickContrastingColor(undefined, ctaButtonBg, [contrastTextColor(ctaButtonBg)], 4.5)
       : contrastTextColor(ctaButtonBg));
   const textColor = props.textColor || "#FFFFFF";
-  const overlayColor = props.overlayColor || "#000000";
+  // Resolve the overlay color before it's split into rgb parts: the AI/templates
+  // can store it as a brand CSS-variable string (`var(--brand-primary)`) which
+  // hexToRgbParts can't parse (and which collapses outside the var's render
+  // scope). Resolve through the same source blocks render from, with a safe dark
+  // fallback so the photo is always dimmed and white text stays legible.
+  const overlayColor = resolveBrandColor(brand, props.overlayColor, "#0a0a0a");
   const overlayAlpha = Math.max(0, Math.min(100, props.overlayOpacity ?? 35)) / 100;
   // Default bumped 0.35 → 0.6 so the parallax effect is obvious out of
   // the box. At strength 1.0 the image is perfectly stationary in
