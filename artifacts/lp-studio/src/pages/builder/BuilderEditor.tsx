@@ -1322,6 +1322,42 @@ export default function BuilderEditor() {
     if (items.length > 0) setCritiqueAnnotations(items);
   }, [pageIdNum]);
 
+  // Index of the next polished block to jump to (cycles through the list).
+  const [polishedJumpIndex, setPolishedJumpIndex] = useState(0);
+
+  // Map the critique annotations to the blocks that still exist on the page.
+  // Stale annotations (block deleted/regenerated since the polish ran) are
+  // dropped so the banner count, the removed-phrases list, and the on-canvas
+  // markers all stay accurate and never reference a missing block.
+  const presentBlockIds = useMemo(() => new Set(collectIds(blocks)), [blocks]);
+  const presentCritiqueAnnotations = useMemo(
+    () => critiqueAnnotations.filter(a => presentBlockIds.has(a.blockId)),
+    [critiqueAnnotations, presentBlockIds],
+  );
+  const critiqueBannerVisible = presentCritiqueAnnotations.length > 0 && !critiqueBannerDismissed;
+  // Block ids to outline on the canvas — only while the banner is showing, so
+  // dismissing the banner clears the markers.
+  const polishedBlockIds = useMemo(
+    () =>
+      critiqueBannerVisible
+        ? new Set(presentCritiqueAnnotations.map(a => a.blockId))
+        : new Set<string>(),
+    [critiqueBannerVisible, presentCritiqueAnnotations],
+  );
+  // Scroll the next polished block into view, cycling through them on repeat
+  // clicks. Looks up top-level and nested wrappers by their data attribute.
+  const jumpToNextPolishedBlock = useCallback(() => {
+    const ids = presentCritiqueAnnotations.map(a => a.blockId);
+    if (ids.length === 0) return;
+    const idx = polishedJumpIndex % ids.length;
+    const id = ids[idx];
+    const el =
+      document.querySelector(`[data-block-id="${id}"]`) ??
+      document.querySelector(`[data-nested-child="${id}"]`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setPolishedJumpIndex(idx + 1);
+  }, [presentCritiqueAnnotations, polishedJumpIndex]);
+
   const { blocks: commentBlocks, addComment, resolveComment } = useComments(pageIdNum);
   const { reviews, createReview, deleteReview, deleteReviews } = useReviews(pageIdNum);
   const tenantIndustry = user?.tenantIndustry ?? null;
@@ -1904,6 +1940,7 @@ export default function BuilderEditor() {
         index={index}
         brand={brand}
         isSelected={selectedBlockId === child.id}
+        isPolished={polishedBlockIds.has(child.id)}
         onSelect={() => setSelectedBlockId(child.id)}
         onDelete={() => deleteBlock(child.id)}
         onInsertAfter={() => {
@@ -1925,7 +1962,7 @@ export default function BuilderEditor() {
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [brand, selectedBlockId],
+    [brand, selectedBlockId, polishedBlockIds],
   );
   const renderEmptySlot = useCallback(
     (parentPath: BlockPath, parentLayout?: "stack" | "grid"): ReactNode => (
@@ -2725,21 +2762,32 @@ export default function BuilderEditor() {
       {/* Workstream C — two-pass critique banner. Surfaces when the most
           recent AI generation rewrote the copy of one or more low-quality
           blocks so editors know which sections were auto-polished. */}
-      {critiqueAnnotations.length > 0 && !critiqueBannerDismissed && (
+      {critiqueBannerVisible && (
         <div className="relative mx-4 mt-2 flex items-start gap-3 rounded-xl bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800/40 px-4 py-3">
           <div className="w-7 h-7 rounded-lg bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0">
             <Sparkles className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-violet-800 dark:text-violet-300">
-              {critiqueAnnotations.length === 1
+              {presentCritiqueAnnotations.length === 1
                 ? "AI polished 1 block to remove generic copy"
-                : `AI polished ${critiqueAnnotations.length} blocks to remove generic copy`}
+                : `AI polished ${presentCritiqueAnnotations.length} blocks to remove generic copy`}
             </p>
             <p className="text-[11px] text-violet-700/80 dark:text-violet-400/80 mt-0.5 leading-relaxed">
-              A second editing pass rewrote the weakest copy on this page. Review the highlighted sections and tweak anything that drifted from your intent.{" "}
+              A second editing pass rewrote the weakest copy on this page.{" "}
+              {presentCritiqueAnnotations.length === 1
+                ? "The rewritten block is outlined in violet on the canvas."
+                : "The rewritten blocks are outlined in violet on the canvas."}{" "}
+              <button
+                type="button"
+                onClick={jumpToNextPolishedBlock}
+                className="font-semibold underline underline-offset-2 hover:text-violet-900 dark:hover:text-violet-200"
+              >
+                {presentCritiqueAnnotations.length === 1 ? "Jump to it" : "Jump to the next one"}
+              </button>{" "}
+              and tweak anything that drifted from your intent.{" "}
               {(() => {
-                const phrases = [...new Set(critiqueAnnotations.flatMap(a => a.removedPhrases))];
+                const phrases = [...new Set(presentCritiqueAnnotations.flatMap(a => a.removedPhrases))];
                 return phrases.length > 0 ? (
                   <span className="font-medium">
                     Removed: {phrases.slice(0, 3).map(p => `"${p}"`).join(", ")}
@@ -3140,6 +3188,7 @@ export default function BuilderEditor() {
                           block={block}
                           brand={brand}
                           isSelected={selectedBlockId === block.id}
+                          isPolished={polishedBlockIds.has(block.id)}
                           onSelect={() => setSelectedBlockId(block.id)}
                           onDelete={() => deleteBlock(block.id)}
                           onTestBlock={() => handleOpenBlockTestModal(block.id)}
@@ -3979,6 +4028,9 @@ interface SortableCanvasBlockProps {
   block: PageBlock;
   brand: BrandConfig;
   isSelected: boolean;
+  /** True when the most recent AI generation polished this block's copy.
+   *  Renders a violet marker so the editor can find what changed. */
+  isPolished?: boolean;
   onSelect: () => void;
   onDelete: () => void;
   onTestBlock: () => void;
@@ -4000,7 +4052,7 @@ interface SortableCanvasBlockProps {
   renderEmptySlot?: (parentPath: BlockPath) => ReactNode;
 }
 
-function SortableCanvasBlockInner({ block, brand, isSelected, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary, onSetAsDefault, commentMode, blockIndex, blockComments, onAddComment, onResolveComment, currentUserName, path, renderChild, renderEmptySlot, renderTailSlot }: SortableCanvasBlockProps) {
+function SortableCanvasBlockInner({ block, brand, isSelected, isPolished, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary, onSetAsDefault, commentMode, blockIndex, blockComments, onAddComment, onResolveComment, currentUserName, path, renderChild, renderEmptySlot, renderTailSlot }: SortableCanvasBlockProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -4091,6 +4143,7 @@ function SortableCanvasBlockInner({ block, brand, isSelected, onSelect, onDelete
     <div
       ref={setNodeRef}
       style={style}
+      data-block-id={block.id}
       className={cn(
         "relative group",
         isDragging && "opacity-50 z-50",
@@ -4103,6 +4156,17 @@ function SortableCanvasBlockInner({ block, brand, isSelected, onSelect, onDelete
           isSelected ? "border-primary" : "border-transparent group-hover:border-primary/30"
         )}
       />
+
+      {/* Workstream C — "AI polished this block" marker. Mirrors the violet
+          banner so editors can immediately spot the rewritten sections. */}
+      {isPolished && (
+        <>
+          <div className="absolute inset-0 pointer-events-none z-[62] border-2 border-violet-500 ring-2 ring-violet-400/40 animate-pulse" />
+          <div className="absolute left-2 top-2 z-[75] inline-flex items-center gap-1 rounded-md bg-violet-600 text-white text-[10px] font-semibold px-2 py-0.5 shadow pointer-events-none">
+            <Sparkles className="w-3 h-3" /> AI polished
+          </div>
+        </>
+      )}
 
       {/* Controls overlay */}
       <div className={cn(
