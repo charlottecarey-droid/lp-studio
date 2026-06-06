@@ -1024,6 +1024,56 @@ async function runMigrationsBody(): Promise<void> {
       }
     });
 
+    // Durable self-heal for the HubSpot two-way integration tables. Same
+    // high-water-mark hazard as the self-heals above: on a drifted DB whose
+    // drizzle.__drizzle_migrations max created_at already sits ABOVE 0081's
+    // journal `when`, the node-postgres migrator records nothing and never runs
+    // 0081's DDL, leaving the tables/columns missing. The symptom that motivated
+    // this step: any sales test (and the HubSpot sync/settings routes) inserting
+    // a sales_contact errors with `column "hubspot_contact_id" of relation
+    // "sales_contacts" does not exist`. Re-applying the file here is independent
+    // of drizzle's dedup and idempotent (CREATE ... IF NOT EXISTS + ADD COLUMN
+    // IF NOT EXISTS), so it creates the schema where missing and is a no-op
+    // elsewhere. The .sql stays the single source of truth. Fails CLOSED: the
+    // schema is feature-critical, so any error aborts the release; the SQL is
+    // idempotent so a retry is always safe.
+    await runStep("hubspot integration schema self-heal (0081)", async () => {
+      const hubspotSql = readFileSync(
+        path.join(MIGRATIONS_FOLDER, "0081_hubspot_integration.sql"),
+        "utf8",
+      );
+      await pool.query(hubspotSql);
+      const { rows } = await pool.query<{ present: number }>(
+        `SELECT count(*)::int AS present
+           FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name IN (
+              'hubspot_connections',
+              'hubspot_field_mappings',
+              'hubspot_sync_log',
+              'hubspot_lists',
+              'hubspot_activities_pushed'
+            )`,
+      );
+      if ((rows[0]?.present ?? 0) < 5) {
+        throw new Error(
+          `hubspot integration schema self-heal did not produce all tables (found ${rows[0]?.present ?? 0}/5) — aborting release`,
+        );
+      }
+      const { rows: colRows } = await pool.query<{ present: number }>(
+        `SELECT count(*)::int AS present
+           FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'sales_contacts'
+            AND column_name IN ('hubspot_contact_id', 'hubspot_last_synced_at')`,
+      );
+      if ((colRows[0]?.present ?? 0) < 2) {
+        throw new Error(
+          `hubspot integration self-heal did not add sales_contacts columns (found ${colRows[0]?.present ?? 0}/2) — aborting release`,
+        );
+      }
+    });
+
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
     // letterdrop integrations don't break the moment we cut over the routes.
     // Generates one secret per integration for tenant #1, idempotent under
