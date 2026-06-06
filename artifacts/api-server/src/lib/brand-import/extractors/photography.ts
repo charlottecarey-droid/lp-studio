@@ -100,11 +100,20 @@ interface DomImages {
  * reference scraping (which loads raw Firecrawl HTML), so both use identical
  * quality heuristics: largest `srcset`, lazy-load attributes, and CSS background
  * images, while skipping header/nav/footer chrome, icon/sprite/favicon/logo
- * assets, and vision-unsupported formats (SVG/ICO/etc). Content capped at 8.
+ * assets, and vision-unsupported formats (SVG/ICO/etc). Content capped at
+ * MAX_CONTENT_IMAGES.
  *
  * The shared `seen` set means an og:image that ALSO appears as a page `<img>`
  * stays in `og` (vision-only) and never bleeds into `content`.
  */
+// Per-page content-image cap. Raised 8 -> 12 (task #1146): image-poor brands
+// run the AI page generator out of distinct on-brand photos, so we harvest more
+// real content imagery from each already-scraped page rather than leaving the
+// generator to fall back on neutral/AI fillers. Brand Import is unaffected — its
+// downstream mirror (MAX_PHOTOS) and vision sampler both cap at 6 and read the
+// first-N in order, so the extra candidates only widen the page-create reference
+// harvest pool (which dedups near-duplicates at selection time).
+const MAX_CONTENT_IMAGES = 12;
 export function collectImagesFromDom($: cheerio.CheerioAPI, baseUrl: string): DomImages {
   const abs = (u: string | undefined | null): string | null => {
     if (!u) return null;
@@ -135,7 +144,7 @@ export function collectImagesFromDom($: cheerio.CheerioAPI, baseUrl: string): Do
   // (and <picture><source>) on the page and only exclude the header/nav/
   // footer chrome explicitly.
   $("img, picture source").each((_, el) => {
-    if (content.length >= 8) return;
+    if (content.length >= MAX_CONTENT_IMAGES) return;
     const $el = $(el);
     if ($el.closest("header,nav,footer").length) return;
     const w = parseInt($el.attr("width") ?? "0", 10) || 0;
@@ -163,9 +172,9 @@ export function collectImagesFromDom($: cheerio.CheerioAPI, baseUrl: string): Do
 
   // Inline CSS background-image URLs (hero sections frequently use these
   // instead of an <img>). Scan a bounded number of styled elements.
-  if (content.length < 8) {
+  if (content.length < MAX_CONTENT_IMAGES) {
     $("[style*='background']").each((_, el) => {
-      if (content.length >= 8) return;
+      if (content.length >= MAX_CONTENT_IMAGES) return;
       const $el = $(el);
       if ($el.closest("header,nav,footer").length) return;
       const style = $el.attr("style") ?? "";
@@ -173,7 +182,7 @@ export function collectImagesFromDom($: cheerio.CheerioAPI, baseUrl: string): Do
     });
   }
 
-  return { content: content.slice(0, 8), og: og.slice(0, 2) };
+  return { content: content.slice(0, MAX_CONTENT_IMAGES), og: og.slice(0, 2) };
 }
 
 /**

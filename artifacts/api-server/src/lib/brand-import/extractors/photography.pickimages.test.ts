@@ -104,10 +104,10 @@ describe("pickImages (brand-import photography)", () => {
     ]);
   });
 
-  it("caps output at 8 images", () => {
+  it("caps output at 12 images (task #1146)", () => {
     const imgs = Array.from({ length: 20 }, (_, i) => `<img src="https://cdn.example.com/p${i}.jpg" />`).join("");
     const out = pickImages(makeEvidence(`<main>${imgs}</main>`));
-    expect(out.length).toBe(8);
+    expect(out.length).toBe(12);
   });
 
   it("excludes og:image / twitter:image from the content pool (task #1095)", () => {

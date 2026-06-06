@@ -432,9 +432,17 @@ export async function mirrorBrandAssets(inputs: MirrorInputs): Promise<MirrorOut
 // of mirrorBrandAssets but with its own tagging + de-dup so repeated
 // generations from one site don't pile up duplicate rows.
 
-// Cap distinct from MAX_PHOTOS: page-create runs on the user's critical path,
-// so keep the fan-out small and bounded.
-const MAX_REFERENCE_PHOTOS = 6;
+// Cap distinct from MAX_PHOTOS. Raised 6 -> 12 (task #1146): image-poor brands
+// (the Dandy SMB case) yield very few *distinct* usable photos per page, so the
+// generator runs out of on-brand imagery and falls back to neutral/AI fillers
+// for the remaining slots. The multi-page reference scrape already aggregates
+// candidates across the homepage + companion pages (deduped), so a higher cap
+// here lets more of those genuinely-distinct images reach the fill pool instead
+// of being truncated. The fan-out stays bounded and parallel, and the harvest
+// runs concurrently with the (multi-second) LLM call rather than on the blocking
+// path, so the extra slots add no perceptible latency. Dedup is unaffected:
+// near-duplicate variants are still folded by `imageIdentity` at selection time.
+const MAX_REFERENCE_PHOTOS = 12;
 
 /** A mirrored library image, structurally compatible with the generator's
  *  in-memory MediaImage so it can be appended straight into the fill pool. */
