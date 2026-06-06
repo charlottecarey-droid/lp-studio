@@ -179,15 +179,3 @@ WILDCARD_TENANT_BASE_HOSTS = "lpstudio.ai,app.lpstudio.ai"
 
 [userenv.production]
 GITHUB_OAUTH_REDIRECT_URI = "https://app.lpstudio.ai/api/auth/github/callback"
-
-[[ports]]
-localPort = 8080
-externalPort = 8080
-
-[[ports]]
-localPort = 8081
-externalPort = 80
-
-[[ports]]
-localPort = 24565
-externalPort = 3000
