@@ -199,6 +199,14 @@ async function countContacts(tenantId: number): Promise<number> {
   return Number(r.rows[0].c);
 }
 
+async function latestSyncStatus(connectionId: number): Promise<string | null> {
+  const r = await pgMod.pool.query<{ status: string }>(
+    `SELECT status FROM marketo_sync_log WHERE connection_id = $1 ORDER BY id DESC LIMIT 1`,
+    [connectionId],
+  );
+  return r.rows[0]?.status ?? null;
+}
+
 describe("scheduled Marketo sync poller — tenant eligibility filter (hermetic PG)", () => {
   it("imports only connected + sync-enabled connections under an active tenant", async () => {
     // ── Eligible: active tenant, connected, sync enabled. ──
@@ -341,5 +349,73 @@ describe("scheduled Marketo sync poller — in-process overlap guard (hermetic P
     } finally {
       querySpy.mockRestore();
     }
+  }, 60_000);
+});
+
+describe("scheduled Marketo sync poller — per-tenant failure isolation (hermetic PG)", () => {
+  it("keeps importing later tenants after one tenant's import fails", async () => {
+    // Two eligible tenants. The first tenant's import blows up (Marketo returns
+    // a 500 for its list); the second tenant's import succeeds. A failure on one
+    // tenant must be logged and skipped — it must never abort the sweep or starve
+    // the tenants that come after it in the loop.
+    const failingTenant = await seedTenant("active");
+    const failingConn = await seedConnection(failingTenant);
+    const failingList = "9301";
+    await seedStaticList(failingTenant, failingConn, failingList);
+
+    const okTenant = await seedTenant("active");
+    const okConn = await seedConnection(okTenant);
+    const okList = "9302";
+    await seedStaticList(okTenant, okConn, okList);
+
+    // Sanity: both connections are eligible, so the sweep will attempt both.
+    const eligible = await poller.listEligibleConnections();
+    expect(new Set(eligible.map((e) => e.connectionId))).toEqual(
+      new Set([failingConn, okConn]),
+    );
+
+    // Route by list id so the assertion holds regardless of the loop's tenant
+    // order: the failing tenant's list always 500s; the healthy tenant's always
+    // returns a lead. `listsFetched` records that BOTH lists were visited — i.e.
+    // the failure did not short-circuit the sweep before the second tenant.
+    const listsFetched: string[] = [];
+    fetchHandler = (url) => {
+      const m = url.match(/\/v1\/list\/(\d+)\/leads\.json/);
+      if (m) {
+        const listId = m[1];
+        listsFetched.push(listId);
+        if (listId === failingList) {
+          return fakeResponse("Internal Server Error", { status: 500 });
+        }
+        if (listId === okList) {
+          return fakeResponse({
+            success: true,
+            result: [
+              { id: okTenant * 1000 + 1, firstName: "Healthy", lastName: "Lead", email: "ok@nowhere.test" },
+            ],
+            moreResult: false,
+          });
+        }
+        throw new Error(`unexpected list ${listId} was fetched by the sweep`);
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    };
+
+    await poller.runMarketoSyncPoll();
+
+    // The sweep reached BOTH tenants despite the first one failing.
+    expect(listsFetched.sort()).toEqual([failingList, okList].sort());
+
+    // The failing tenant recorded exactly one sync run, marked failed, and
+    // imported no contacts.
+    expect(await countSyncLogs(failingConn)).toBe(1);
+    expect(await latestSyncStatus(failingConn)).toBe("failed");
+    expect(await countContacts(failingTenant)).toBe(0);
+
+    // The healthy tenant was still imported: a completed sync-log row and its
+    // contact — proving one tenant's failure never blocks the others.
+    expect(await countSyncLogs(okConn)).toBe(1);
+    expect(await latestSyncStatus(okConn)).toBe("completed");
+    expect(await countContacts(okTenant)).toBe(1);
   }, 60_000);
 });
