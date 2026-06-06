@@ -543,7 +543,7 @@ interface FallbackBrand {
   valuePropPairs: { theme: string; proof: string }[];
 }
 
-function normalizeBlock(raw: AiBlock, index: number, brand: FallbackBrand): AiBlock {
+export function normalizeBlock(raw: AiBlock, index: number, brand: FallbackBrand): AiBlock {
   const rawType = (raw.type as string) ?? "hero";
   // Task #1066 — alias guard: map any synonym block type the model emits
   // (e.g. `features`, `stats`) to its real, renderable equivalent. This
@@ -1112,7 +1112,7 @@ const FREEFORM_MICROSITE_DISPLAY_TYPES = [
 // hallucinated synonym ("features", "testimonials", "cta") becomes a renderable
 // canonical type and passes; any type still outside this set is dropped in
 // freeform mode so dso-*/business-case-* (and truly unknown types) can never leak.
-const FREEFORM_ALLOWED_TYPE_SET: ReadonlySet<string> = new Set<string>(
+export const FREEFORM_ALLOWED_TYPE_SET: ReadonlySet<string> = new Set<string>(
   FREEFORM_MICROSITE_DISPLAY_TYPES.map((t) => canonicalizeBlockType(t)),
 );
 
