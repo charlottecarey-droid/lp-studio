@@ -326,6 +326,15 @@ export const NO_REVEAL = new Set<string>([
   // position:sticky and shifts getBoundingClientRect measurements.
   "id-hero", "id-intro", "id-cinema-pillars", "id-parallax-showcase", "id-spotlight",
   "spacer",
+  // Blocks with an internal `position: sticky` panel. The reveal wrapper applies
+  // a CSS transform (motion.div), and a transformed ancestor becomes the
+  // containing block for descendants — which breaks `position: sticky` inside
+  // the child. On published pages this strands the sticky panel (and, for tall
+  // scroll containers, collapses them into a large whitespace gap). Excluding
+  // them keeps the published render identical to the builder (which never wraps
+  // blocks in the reveal motion.div). dandy-switchback already covers the tall
+  // 100vh*N scroll variant above.
+  "dandy-vertical-tabs", "roi-calculator", "dso-practice-nav",
 ]);
 
 function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, testId, variantId, sessionId, pageVars, isBuilder, path = [], renderChild, renderEmptySlot, renderTailSlot }: Props) {

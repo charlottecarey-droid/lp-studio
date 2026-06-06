@@ -18,3 +18,19 @@ describe("NO_REVEAL — full-page specialty blocks", () => {
     },
   );
 });
+
+describe("NO_REVEAL — internally-sticky blocks", () => {
+  // Blocks that own an internal `position: sticky` panel break when wrapped in
+  // the reveal motion.div: a transformed ancestor becomes the containing block,
+  // so sticky stops working (stranded panel / whitespace gap) on published
+  // pages while looking fine in the builder. dandy-switchback is the tall
+  // 100vh*N scroll variant and must also stay covered.
+  it.each([
+    "dandy-vertical-tabs",
+    "dandy-switchback",
+    "roi-calculator",
+    "dso-practice-nav",
+  ])("excludes the internally-sticky block %s from reveal wrapping", (type) => {
+    expect(NO_REVEAL.has(type)).toBe(true);
+  });
+});
