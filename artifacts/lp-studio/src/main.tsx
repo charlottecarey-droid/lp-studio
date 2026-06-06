@@ -28,6 +28,11 @@ void ensureCsrfToken();
   if (icoIcon) icoIcon.href = "/dandy-favicon.ico";
   const appleIcon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
   if (appleIcon) appleIcon.href = "/dandy-apple-touch-icon.png";
+  // Android / desktop PWA installs read the web app manifest for their
+  // home-screen icon. Swap to the Dandy manifest (Dandy "d" icons, green
+  // theme) so installs from Dandy-branded hosts show the Dandy mark.
+  const manifest = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+  if (manifest) manifest.href = "/dandy.webmanifest";
 })();
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN_FRONTEND as string | undefined;
