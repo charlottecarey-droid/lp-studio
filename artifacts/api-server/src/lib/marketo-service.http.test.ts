@@ -61,6 +61,48 @@ function fakeResponse(
   } as unknown as Response;
 }
 
+// ─── fast timers (keep wall-clock fast through the backoff) ────────
+// request()'s rate-limit backoff sleeps via setTimeout. We swap in a stub
+// that records the requested delay and fires the SHORT backoff sleeps
+// (< PG_MIN_TIMER_MS) immediately so the exponential backoff math is exercised
+// without the real multi-second waits. Larger timers — the pg pool's 5s
+// connection-timeout and 30s idle-timeout — are passed through UNCHANGED, since
+// firing those early tears the pool's connections down mid-query ("Connection
+// terminated due to connection timeout"). The whole backoff schedule under test
+// stays below 5s (cap-doubling only reaches 4000ms across 5 attempts), so the
+// threshold cleanly separates our sleeps from pg's timers.
+// Installed INSIDE each test body (after vitest already scheduled its own
+// test-timeout via the real setTimeout), so the runner's timeout is unaffected.
+const realSetTimeout = global.setTimeout;
+const PG_MIN_TIMER_MS = 5000; // matches the db pool's connectionTimeoutMillis
+let recordedDelays: number[] = [];
+
+function installFastTimers() {
+  recordedDelays = [];
+  global.setTimeout = ((fn: (...a: unknown[]) => void, ms?: number, ...args: unknown[]) => {
+    const delay = typeof ms === "number" ? ms : 0;
+    recordedDelays.push(delay);
+    return realSetTimeout(fn, delay < PG_MIN_TIMER_MS ? 0 : delay, ...args);
+  }) as unknown as typeof setTimeout;
+}
+
+function restoreTimers() {
+  global.setTimeout = realSetTimeout;
+}
+
+/**
+ * True when `needle` appears in order (not necessarily contiguously) within
+ * `haystack`. Lets us assert the backoff schedule survives incidental timers
+ * (e.g. pg pool idle timers) interleaved into the recorded delays.
+ */
+function isSubsequence(needle: number[], haystack: number[]): boolean {
+  let i = 0;
+  for (const v of haystack) {
+    if (i < needle.length && v === needle[i]) i++;
+  }
+  return i === needle.length;
+}
+
 // ─── fixtures ─────────────────────────────────────────────────────
 const createdTenantIds: number[] = [];
 
@@ -384,5 +426,130 @@ describe("importLeads — real HTTP layer (mocked fetch)", () => {
       .where(eq(marketoSyncLogTable.id, result.logId));
     expect(log.status).toBe("failed");
     expect(log.errorMessage ?? "").toContain("1003");
+  }, 30_000);
+
+  it("backs off then recovers across a 429 (Retry-After) and a rate-limit error code", async () => {
+    const tenantId = await seedTenant();
+    // Valid token so request() never detours to /oauth/token — every fetch the
+    // handler sees is a leads request, and the retries are purely rate-limit.
+    const connId = await seedConnection(tenantId, {
+      accessToken: "valid-token",
+      tokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    });
+    const listId = "9401";
+    await seedStaticList(tenantId, connId, listId);
+
+    let leadsAttempts = 0;
+    fetchHandler = (url) => {
+      if (url.includes(`/v1/list/${listId}/leads.json`)) {
+        leadsAttempts++;
+        if (leadsAttempts === 1) {
+          // HTTP 429 with Retry-After: 2 → wait 2000ms, then double backoff.
+          return fakeResponse("Too Many Requests", {
+            status: 429,
+            headers: { "Retry-After": "2" },
+          });
+        }
+        if (leadsAttempts === 2) {
+          // 200 OK body but Marketo encodes a rate-limit error code (606) →
+          // wait the current backoff (1000ms), then double again.
+          return fakeResponse({
+            success: false,
+            errors: [{ code: "606", message: "Max rate limit exceeded" }],
+          });
+        }
+        // Third attempt succeeds.
+        return fakeResponse({
+          success: true,
+          result: [{ id: tenantId * 1000 + 55, firstName: "Orphan", lastName: "Lead", email: "orphan@nowhere.test" }],
+          moreResult: false,
+        });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    };
+
+    installFastTimers();
+    let result: Awaited<ReturnType<typeof marketoService.importLeads>>;
+    try {
+      result = await marketoService.importLeads(connId, tenantId);
+    } finally {
+      restoreTimers();
+    }
+
+    // Two throttles then a success → exactly three leads requests.
+    expect(leadsAttempts).toBe(3);
+
+    // The backoff schedule: Retry-After (2000ms) honored first, then the
+    // exponential backoff (1000ms) for the 606. Asserted as a subsequence so
+    // incidental pg pool timers interleaved into the recording don't break it.
+    expect(isSubsequence([2000, 1000], recordedDelays)).toBe(true);
+
+    // The import recovered: the orphan lead was processed (skipped — unlinked).
+    expect(result.processed).toBe(1);
+    expect(result.skipped).toBe(1);
+
+    const [log] = await db
+      .select()
+      .from(marketoSyncLogTable)
+      .where(eq(marketoSyncLogTable.id, result.logId));
+    expect(log.status).toBe("completed");
+    expect(log.recordsProcessed).toBe(1);
+
+    const [conn] = await db
+      .select({ lastSyncError: marketoConnectionsTable.lastSyncError })
+      .from(marketoConnectionsTable)
+      .where(eq(marketoConnectionsTable.id, connId));
+    expect(conn.lastSyncError).toBeNull();
+  }, 30_000);
+
+  it("exhausts max attempts on relentless 429 → MarketoRateLimitError, sync log failed", async () => {
+    const tenantId = await seedTenant();
+    const connId = await seedConnection(tenantId, {
+      accessToken: "valid-token",
+      tokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    });
+    const listId = "9501";
+    await seedStaticList(tenantId, connId, listId);
+
+    let leadsAttempts = 0;
+    fetchHandler = (url) => {
+      if (url.includes(`/v1/list/${listId}/leads.json`)) {
+        leadsAttempts++;
+        // No Retry-After → falls back to the exponential backoff each time.
+        return fakeResponse("Too Many Requests", { status: 429 });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    };
+
+    installFastTimers();
+    let result: Awaited<ReturnType<typeof marketoService.importLeads>>;
+    try {
+      result = await marketoService.importLeads(connId, tenantId);
+    } finally {
+      restoreTimers();
+    }
+
+    // RATE_LIMIT_MAX_ATTEMPTS attempts (5): four backed-off retries then the
+    // fifth throws MarketoRateLimitError instead of sleeping a sixth time.
+    expect(leadsAttempts).toBe(5);
+
+    // Doubling from 500ms, capped at 30s: 500 → 1000 → 2000 → 4000 (four sleeps).
+    expect(isSubsequence([500, 1000, 2000, 4000], recordedDelays)).toBe(true);
+
+    // Nothing imported; the rate-limit error surfaced and failed the run.
+    expect(result.processed).toBe(0);
+
+    const [log] = await db
+      .select()
+      .from(marketoSyncLogTable)
+      .where(eq(marketoSyncLogTable.id, result.logId));
+    expect(log.status).toBe("failed");
+    expect(log.errorMessage ?? "").toContain("MarketoRateLimitError");
+
+    const [conn] = await db
+      .select({ lastSyncError: marketoConnectionsTable.lastSyncError })
+      .from(marketoConnectionsTable)
+      .where(eq(marketoConnectionsTable.id, connId));
+    expect(conn.lastSyncError ?? "").toContain("MarketoRateLimitError");
   }, 30_000);
 });
