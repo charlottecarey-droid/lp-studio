@@ -5,14 +5,18 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
-  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from "@/components/ui/command";
 import {
   AlertTriangle, CheckCircle2, Loader2, RefreshCw, Plus, Trash2,
-  ArrowUp, ArrowDown, ExternalLink, Upload,
+  ArrowUp, ArrowDown, ExternalLink, Upload, Check, ChevronsUpDown,
 } from "lucide-react";
 import { LP_TEMPLATES, encodeGlobalTemplateId, parseGlobalTemplateId } from "@/lib/templates";
 import { templateToBlocks } from "@/lib/block-types/block-registry";
+import { cn } from "@/lib/utils";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -111,6 +115,97 @@ function blockCountFor(templateId: string): number {
   } catch {
     return 0;
   }
+}
+
+// Searchable combobox for the "Underlying template" field. Keeps the two
+// labeled groups (Flagship / Global) and filters items by name as the admin
+// types. Selecting an option calls the same pickTemplate handler as before.
+function TemplatePicker({
+  value,
+  selectedName,
+  flagship,
+  globals,
+  onPick,
+}: {
+  /** The currently selected templateId, or "" when none/unknown. */
+  value: string;
+  /** Display name for the selected template, or "" to show the placeholder. */
+  selectedName: string;
+  flagship: { id: string; name: string }[];
+  globals: GlobalTemplate[];
+  onPick: (templateId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+        >
+          <span className={cn("truncate", !selectedName && "text-muted-foreground")}>
+            {selectedName || "Pick a usable template…"}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] p-0"
+        align="start"
+      >
+        <Command>
+          <CommandInput placeholder="Search templates…" />
+          <CommandList>
+            <CommandEmpty>No templates found.</CommandEmpty>
+            <CommandGroup heading="Flagship templates">
+              {flagship.map((t) => (
+                <CommandItem
+                  key={t.id}
+                  value={`${t.name} ${t.id}`}
+                  onSelect={() => {
+                    onPick(t.id);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === t.id ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  <span className="truncate">{t.name}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            {globals.length > 0 && (
+              <CommandGroup heading="Global templates">
+                {globals.map((g) => (
+                  <CommandItem
+                    key={g.refId}
+                    value={`${g.name} ${g.refId}`}
+                    onSelect={() => {
+                      onPick(g.refId);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        value === g.refId ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                    <span className="truncate">{g.name}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export default function SuperAdminFeaturedTemplates() {
@@ -380,6 +475,11 @@ export default function SuperAdminFeaturedTemplates() {
             ? `${BASE}/preview/template/${encodeURIComponent(d.templateId)}`
             : null;
           const knownTemplate = isKnownTemplate(d.templateId);
+          const selectedName = knownTemplate
+            ? (LP_TEMPLATES.find((t) => t.id === d.templateId)?.name ??
+              findGlobal(d.templateId)?.name ??
+              "")
+            : "";
           return (
             <div
               key={d.key}
@@ -434,34 +534,13 @@ export default function SuperAdminFeaturedTemplates() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Underlying template</Label>
-                  <Select
-                    value={knownTemplate ? d.templateId : undefined}
-                    onValueChange={(v) => pickTemplate(d.key, v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pick a usable template…" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      <SelectGroup>
-                        <SelectLabel>Flagship templates</SelectLabel>
-                        {LP_TEMPLATES.map((t) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            {t.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                      {globals.length > 0 && (
-                        <SelectGroup>
-                          <SelectLabel>Global templates</SelectLabel>
-                          {globals.map((g) => (
-                            <SelectItem key={g.refId} value={g.refId}>
-                              {g.name}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <TemplatePicker
+                    value={knownTemplate ? d.templateId : ""}
+                    selectedName={selectedName}
+                    flagship={LP_TEMPLATES}
+                    globals={globals}
+                    onPick={(v) => pickTemplate(d.key, v)}
+                  />
                   <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                     <code className="truncate">{d.templateId || "—"}</code>
                     {previewHref && (
