@@ -386,8 +386,6 @@ function PreviewModal({
   template: Template;
   onClose: () => void;
 }) {
-  const color = CAT_COLOR[template.category];
-
   // Lock body scroll + close-on-Escape while the modal is mounted. Restores
   // the original overflow value on unmount so we don't trample whatever else
   // is using it. Portal renders to document.body so the modal escapes the
@@ -430,27 +428,30 @@ function PreviewModal({
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: 920,
-          height: 620,
+          width: 880,
+          height: 600,
           maxWidth: "100%",
           maxHeight: "100%",
           background: "#fff",
-          borderRadius: 16,
+          borderRadius: 14,
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
-          boxShadow: "0 40px 90px -24px rgba(0,0,0,0.5)",
+          border: "1px solid var(--hairline)",
+          boxShadow: "0 24px 60px -28px rgba(0,0,0,0.4)",
         }}
       >
-        {/* Header */}
+        {/* Header — slim, single white surface separated from the preview by a
+            hairline. Title + meta on the left, flat action + minimal close on
+            the right. */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             gap: 14,
-            padding: "15px 18px 13px",
-            background: "var(--cream)",
+            padding: "14px 16px",
+            borderBottom: "1px solid var(--hairline)",
             flexShrink: 0,
           }}
         >
@@ -459,48 +460,19 @@ function PreviewModal({
               style={{
                 fontFamily: "DM Sans, ui-sans-serif, system-ui, sans-serif",
                 fontWeight: 600,
-                fontSize: 16,
+                fontSize: 15,
                 letterSpacing: "-0.01em",
                 color: "var(--ink)",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
               }}
             >
               {template.title}
             </div>
-            <div
-              style={{
-                fontSize: 12.5,
-                color: "var(--ink-mute)",
-                marginTop: 2,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 7,
-              }}
-            >
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  color,
-                  fontWeight: 600,
-                }}
-              >
-                <span
-                  style={{
-                    width: 5,
-                    height: 5,
-                    borderRadius: 999,
-                    background: color,
-                  }}
-                />
-                {template.category}
-              </span>
-              <span style={{ opacity: 0.5 }}>·</span>
-              <span>{template.blocks} blocks</span>
-            </div>
           </div>
           <div
-            style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}
+            style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}
           >
             <a
               href={templateUrl(template.id)}
@@ -509,19 +481,15 @@ function PreviewModal({
               style={{
                 fontSize: 13,
                 fontWeight: 600,
-                padding: "9px 16px",
-                borderRadius: 9,
-                background:
-                  "linear-gradient(180deg, #5C58EB 0%, #4B47E5 55%, #3F3BD3 100%)",
+                padding: "8px 14px",
+                borderRadius: 8,
+                background: "#4B47E5",
                 color: "#fff",
-                border: "1px solid rgba(46, 42, 140, 0.55)",
-                boxShadow:
-                  "inset 0 1px 0 rgba(255,255,255,0.24), 0 8px 18px -6px rgba(75,71,229,0.4)",
-                textShadow: "0 1px 0 rgba(46,42,140,0.4)",
+                border: "none",
                 textDecoration: "none",
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 7,
+                gap: 6,
                 letterSpacing: "-0.005em",
               }}
             >
@@ -532,105 +500,34 @@ function PreviewModal({
               onClick={onClose}
               aria-label="Close preview"
               style={{
-                width: 32,
-                height: 32,
+                width: 30,
+                height: 30,
                 borderRadius: 8,
                 background: "transparent",
-                border: "1px solid var(--hairline-strong)",
-                color: "var(--ink-soft)",
+                border: "none",
+                color: "var(--ink-mute)",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
                 cursor: "pointer",
               }}
             >
-              <Icon name="x" size={16} />
+              <Icon name="x" size={17} />
             </button>
           </div>
         </div>
 
-        {/* Body — live iframe of the actual rendered template + description.
-            The preview is framed as an inset card floating in the cream
-            surface so the header, preview and footer read as one cohesive
-            unit rather than three hard-bordered bands. */}
+        {/* Body — the live preview is the sole focus; it fills the remaining
+            height with no framing chrome beyond the header hairline. */}
         <div
           style={{
-            display: "flex",
-            flexDirection: "column",
-            background: "var(--cream)",
             flex: 1,
             minHeight: 0,
+            overflow: "auto",
+            background: "var(--cream-2)",
           }}
         >
-          {/* Live preview — scrollable, takes most of the modal height */}
-          <div
-            style={{
-              flex: 1,
-              minHeight: 0,
-              padding: "0 16px",
-              display: "flex",
-            }}
-          >
-            <div
-              style={{
-                flex: 1,
-                minHeight: 320,
-                overflow: "auto",
-                borderRadius: 12,
-                border: "1px solid var(--hairline)",
-                background: "var(--cream-2)",
-                boxShadow:
-                  "0 1px 2px rgba(26,24,21,0.05), 0 18px 36px -26px rgba(26,24,21,0.35)",
-              }}
-            >
-              <LivePreview url={previewUrl(template.id)} />
-            </div>
-          </div>
-          <div
-            style={{
-              padding: "13px 18px 16px",
-              flexShrink: 0,
-              display: "flex",
-              flexDirection: "column",
-              gap: 9,
-            }}
-          >
-            <p
-              style={{
-                fontSize: 13,
-                lineHeight: 1.5,
-                color: "var(--ink-soft)",
-                margin: 0,
-                maxWidth: 620,
-              }}
-            >
-              {template.description}
-            </p>
-            <div
-              style={{
-                fontSize: 11.5,
-                color: "var(--ink-mute)",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                letterSpacing: "0.005em",
-                alignSelf: "flex-start",
-              }}
-            >
-              <Icon name="external-link" size={11} />
-              <span>
-                Live preview ·{" "}
-                <span style={{ color: "var(--ink-soft)", fontWeight: 600 }}>
-                  &quot;Use this template&quot;
-                </span>{" "}
-                opens in a new tab
-                <span style={{ color: "var(--ink-faint)" }}>
-                  {" "}
-                  (signs you up first if needed)
-                </span>
-              </span>
-            </div>
-          </div>
+          <LivePreview url={previewUrl(template.id)} />
         </div>
       </div>
     </div>
