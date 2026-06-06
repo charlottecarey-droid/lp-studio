@@ -1901,11 +1901,32 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     try {
       parsed = JSON.parse(raw);
     } catch {
-      res.status(500).json({ error: "AI returned invalid JSON", raw });
-      return;
+      // Task #1135 — the template path is resilient: a model hiccup (non-JSON)
+      // must never 500 or ship a blank page. Fall back to the authored template
+      // (a complete, on-brand page) and continue; the positional merge below
+      // fills in whatever usable AI copy exists. Non-template generations keep
+      // the hard error — there is no authored layout to fall back to.
+      if (!templateBlocks) {
+        res.status(500).json({ error: "AI returned invalid JSON", raw });
+        return;
+      }
+      parsed = {};
     }
 
-    if (!parsed.title || !parsed.slug || !Array.isArray(parsed.blocks)) {
+    if (templateBlocks) {
+      // Task #1135 — backfill any field the AI dropped from the authored
+      // template so a partial/empty/malformed response still yields a complete
+      // page rather than a 500 or a missing section.
+      if (!Array.isArray(parsed.blocks) || parsed.blocks.length === 0) {
+        parsed.blocks = templateBlocks as unknown[];
+      }
+      if (!parsed.title || typeof parsed.title !== "string") {
+        parsed.title = account.displayName ?? account.name;
+      }
+      if (!parsed.slug || typeof parsed.slug !== "string") {
+        parsed.slug = account.displayName ?? account.name;
+      }
+    } else if (!parsed.title || !parsed.slug || !Array.isArray(parsed.blocks)) {
       res.status(500).json({ error: "AI response missing required fields" });
       return;
     }
@@ -2087,22 +2108,30 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
           props: mergedProps,
         }];
       } else {
-        // Task #1126 — every other template: the AI re-emits each block's copy
-        // but does NOT re-emit authored structural props it doesn't know about
-        // (the event-landing-hero embedded form config + backgroundImage, layout
-        // knobs, etc.). Merge the AI copy OVER the full authored template props
-        // by position so those authored fields survive into the generated page.
-        // mergeAuthored keeps a non-empty AI value (the personalised copy and any
-        // replaced image) and falls back to the authored value otherwise — so the
-        // embedded form, hero image, and all content sections are preserved.
-        normalizedBlocks = normalizedBlocks.map((block, i) => {
-          const tmpl = templateBlocks[i];
-          if (!tmpl) return block;
+        // Task #1126 / #1135 — every other template: the authored template
+        // layout is authoritative. The AI re-emits each block's COPY only and
+        // does NOT re-emit the authored structural props it doesn't know about
+        // (the event-landing-hero embedded form config + backgroundImage, the
+        // content sections, layout knobs, etc.). Iterate over the TEMPLATE
+        // blocks (not the AI's) so the generated page always carries the full
+        // authored layout in order, merging the AI copy OVER each authored block
+        // by position. This makes the route resilient to malformed/partial AI
+        // output: a block the AI omitted is restored from the template, an
+        // extra/unknown block the AI invented is dropped, and every authored
+        // structural prop (embedded form, hero image, content sections)
+        // survives. mergeAuthored keeps a non-empty AI value (personalised copy
+        // + any replaced image) and falls back to the authored value otherwise.
+        normalizedBlocks = templateBlocks.map((tmpl, i) => {
+          const aiBlock = normalizedBlocks[i];
           const merged = mergeAuthored(
             (tmpl.props ?? {}) as Record<string, unknown>,
-            (block.props ?? {}) as Record<string, unknown>,
+            (aiBlock?.props ?? {}) as Record<string, unknown>,
           ) as Record<string, unknown>;
-          return { ...block, props: merged } as AiBlock;
+          return {
+            id: (aiBlock?.id as string | undefined) ?? (tmpl.id as string | undefined),
+            type: tmpl.type,
+            props: merged,
+          } as AiBlock;
         });
       }
     }

@@ -12,15 +12,18 @@
  * insert). Each test seeds + tears down its own growth tenant, session, brand
  * settings, account, and any generated pages.
  */
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from "vitest";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
 
 // Deterministic AI response, mutated per test so a generated page can echo the
 // seeded account name. vi.hoisted lets the (hoisted) vi.mock factory read it.
+// `raw`, when set, is returned VERBATIM as the model's message content (used to
+// simulate non-JSON output); otherwise the structured `response` is serialised.
 const aiState = vi.hoisted(() => ({
   response: { title: "Generated Microsite", slug: "generated-microsite", blocks: [] as unknown[] },
+  raw: null as string | null,
 }));
 
 vi.mock("openai", () => ({
@@ -28,7 +31,7 @@ vi.mock("openai", () => ({
     chat = {
       completions: {
         create: async () => ({
-          choices: [{ message: { content: JSON.stringify(aiState.response) } }],
+          choices: [{ message: { content: aiState.raw ?? JSON.stringify(aiState.response) } }],
         }),
       },
     };
@@ -197,6 +200,12 @@ beforeAll(() => {
   app.use(express.json());
   app.use(requireAuth);
   app.use("/sales", salesRouter);
+});
+
+// Reset the raw-content override before every test so a non-JSON case can't
+// leak its garbage payload into a later test (tests share the hoisted aiState).
+beforeEach(() => {
+  aiState.raw = null;
 });
 
 afterAll(async () => {
@@ -414,4 +423,170 @@ describe("Microsite generation from a multi-block template", () => {
       expect((persisted[0].props.backgroundImage as string).trim().length).toBeGreaterThan(0);
     });
   }
+});
+
+/**
+ * Task #1135 — the template path must survive *bad* AI output, not just the
+ * happy path. A model hiccup (missing block, extra/unknown block, non-JSON,
+ * empty array) must never silently drop the embedded form, hero image, or whole
+ * content sections — and must never 500 or ship a blank page. The authored
+ * template is a complete, on-brand fallback the route degrades back toward.
+ *
+ * Every case asserts the same invariant on the lead `event-landing-hero`: the
+ * embedded form config, a non-empty backgroundImage, and the authored content
+ * sections all survive regardless of what the model returned.
+ */
+function assertHeroIntact(blocks: Array<{ type: string; props: Record<string, unknown> }>): void {
+  const hero = blocks.find(b => b.type === "event-landing-hero");
+  expect(hero).toBeDefined();
+  const p = hero!.props;
+
+  // Embedded form config preserved (the AI never re-emits these).
+  expect(p.formId).toBe(4242);
+  expect(p.formHeading).toBe("Save your spot");
+  expect(p.formSubheading).toBe("Spots are limited — RSVP to confirm your seat.");
+
+  // Hero background image stays non-empty (never a blank/black hero).
+  expect(typeof p.backgroundImage).toBe("string");
+  expect((p.backgroundImage as string).trim().length).toBeGreaterThan(0);
+
+  // Authored content sections survive (what-to-expect + event details).
+  expect(p.whatToExpectHeading).toBe("What to expect");
+  expect(p.whatToExpectBody).toBe(
+    "An evening of conversation, cocktails, and connection with leadership and fellow operators.",
+  );
+  expect(p.eventDetailsHeading).toBe("Event Details");
+  expect(Array.isArray(p.eventDetailsBullets)).toBe(true);
+  expect((p.eventDetailsBullets as unknown[]).length).toBe(3);
+}
+
+describe("Microsite generation survives malformed / partial AI output", () => {
+  it("restores a block the AI omitted from the template layout", async () => {
+    const { tenantId, sid } = await seedTenant();
+    const accountName = `Cascade Dental ${Math.floor(Math.random() * 1e6)}`;
+    const accountId = await seedAccount(tenantId, accountName);
+    const { templateId, blocks: tmplBlocks } = await seedTemplate(tenantId);
+
+    // The model drops the trailing bottom-cta entirely (truncated output),
+    // re-emitting only the hero + benefits copy.
+    aiState.response = {
+      title: `${accountName} — You're Invited`,
+      slug: "omitted-block",
+      blocks: [
+        { type: "event-landing-hero", props: { headline: `${accountName}: Join us`, ctaText: "Save Your Spot" } },
+        { type: "benefits-grid", props: { headline: `Why ${accountName} should attend` } },
+      ],
+    };
+
+    const res = await authed(sid, "POST", `/sales/accounts/${accountId}/generate-microsite`, {
+      segmentId: "general",
+      templateId,
+    });
+
+    expect(res.status).toBe(200);
+    const body = res.json as { blocks: Array<{ type: string; props: Record<string, unknown> }> };
+
+    // The authored layout is authoritative: the omitted block is restored, so
+    // the page keeps every template block in the same order.
+    expect(body.blocks).toHaveLength(tmplBlocks.length);
+    expect(body.blocks.map(b => b.type)).toEqual(tmplBlocks.map(b => b.type));
+
+    // The restored trailing block carries its AUTHORED copy (the AI never sent
+    // it), not an empty shell — proof the whole section wasn't silently dropped.
+    const restored = body.blocks[2];
+    expect(restored.type).toBe("bottom-cta");
+    expect(restored.props.headline).toBe("Ready to join?");
+    expect(restored.props.ctaText).toBe("RSVP now");
+
+    assertHeroIntact(body.blocks);
+  });
+
+  it("drops an extra / unknown block the AI invented", async () => {
+    const { tenantId, sid } = await seedTenant();
+    const accountName = `Summit Dental ${Math.floor(Math.random() * 1e6)}`;
+    const accountId = await seedAccount(tenantId, accountName);
+    const { templateId, blocks: tmplBlocks } = await seedTemplate(tenantId);
+
+    // The model returns the full layout PLUS a fabricated, unrenderable block.
+    aiState.response = {
+      title: `${accountName} — You're Invited`,
+      slug: "extra-block",
+      blocks: [
+        { type: "event-landing-hero", props: { headline: `${accountName}: Join us`, ctaText: "Save Your Spot" } },
+        { type: "benefits-grid", props: { headline: `Why ${accountName} should attend` } },
+        { type: "bottom-cta", props: { headline: `${accountName}, ready?`, ctaText: "RSVP" } },
+        { type: "totally-made-up-block", props: { headline: "hallucinated junk" } },
+      ],
+    };
+
+    const res = await authed(sid, "POST", `/sales/accounts/${accountId}/generate-microsite`, {
+      segmentId: "general",
+      templateId,
+    });
+
+    expect(res.status).toBe(200);
+    const body = res.json as { blocks: Array<{ type: string; props: Record<string, unknown> }> };
+
+    // Only the authored template positions survive — the invented block is gone.
+    expect(body.blocks).toHaveLength(tmplBlocks.length);
+    expect(body.blocks.map(b => b.type)).toEqual(tmplBlocks.map(b => b.type));
+    expect(body.blocks.some(b => b.type === "totally-made-up-block")).toBe(false);
+
+    assertHeroIntact(body.blocks);
+  });
+
+  it("falls back to the authored template when the AI returns invalid JSON", async () => {
+    const { tenantId, sid } = await seedTenant();
+    const accountName = `Harbor Dental ${Math.floor(Math.random() * 1e6)}`;
+    const accountId = await seedAccount(tenantId, accountName);
+    const { templateId, blocks: tmplBlocks } = await seedTemplate(tenantId);
+
+    // The model returns a non-JSON blob — the route must not 500.
+    aiState.raw = "Sorry, I can't help with that. Here is some prose instead {oops";
+
+    const res = await authed(sid, "POST", `/sales/accounts/${accountId}/generate-microsite`, {
+      segmentId: "general",
+      templateId,
+    });
+
+    expect(res.status).toBe(200);
+    const body = res.json as {
+      page: { id: number };
+      blocks: Array<{ type: string; props: Record<string, unknown> }>;
+    };
+
+    // The whole authored layout is preserved (nothing usable came from the AI).
+    expect(body.blocks).toHaveLength(tmplBlocks.length);
+    expect(body.blocks.map(b => b.type)).toEqual(tmplBlocks.map(b => b.type));
+    assertHeroIntact(body.blocks);
+
+    // And it was persisted as a real draft, not lost.
+    expect(body.page.id).toBeGreaterThan(0);
+  });
+
+  it("falls back to the authored template when the AI returns an empty block list", async () => {
+    const { tenantId, sid } = await seedTenant();
+    const accountName = `Meadow Dental ${Math.floor(Math.random() * 1e6)}`;
+    const accountId = await seedAccount(tenantId, accountName);
+    const { templateId, blocks: tmplBlocks } = await seedTemplate(tenantId);
+
+    aiState.response = {
+      title: `${accountName} — You're Invited`,
+      slug: "empty-blocks",
+      blocks: [],
+    };
+
+    const res = await authed(sid, "POST", `/sales/accounts/${accountId}/generate-microsite`, {
+      segmentId: "general",
+      templateId,
+    });
+
+    expect(res.status).toBe(200);
+    const body = res.json as { blocks: Array<{ type: string; props: Record<string, unknown> }> };
+
+    // An empty array must not yield a blank page — the authored layout fills in.
+    expect(body.blocks).toHaveLength(tmplBlocks.length);
+    expect(body.blocks.map(b => b.type)).toEqual(tmplBlocks.map(b => b.type));
+    assertHeroIntact(body.blocks);
+  });
 });
