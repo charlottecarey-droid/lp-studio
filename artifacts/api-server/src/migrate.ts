@@ -264,6 +264,65 @@ export async function acquireMigrationLock(lockClient: LockClient): Promise<void
   }
 }
 
+// Postgres SQLSTATEs that signal a transient, retryable failure of the DDL
+// batch. 40P01 = deadlock_detected, 40001 = serialization_failure. During a
+// zero-downtime publish, `migrate` runs while the PREVIOUS api-server instance
+// is still serving live traffic: its RowExclusiveLocks (from INSERT/UPDATE)
+// can deadlock against the migration's ShareLock / AccessExclusiveLock on
+// overlapping relations. Postgres breaks the cycle by aborting one side — when
+// that side is the migrate, the statement throws 40P01 and the deploy hook
+// exits non-zero, failing the publish. The advisory lock above only serializes
+// migrate-vs-migrate; it cannot prevent a deadlock against the live app.
+//
+// Every step in runMigrationsBody is idempotent — drizzle dedups already-applied
+// .sql files via __drizzle_migrations (and rolls back its batch transaction on
+// error, so nothing is half-applied), and the self-heals are all
+// IF NOT EXISTS / ON CONFLICT DO NOTHING. So simply re-running the whole body on
+// a transient lock failure is always safe and clears the contention once the
+// timing shifts (the live app's conflicting transaction commits in the meantime).
+const RETRYABLE_MIGRATION_PG_CODES = new Set(["40P01", "40001"]);
+const MAX_MIGRATION_BODY_ATTEMPTS = 5;
+
+export function isRetryableMigrationError(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null | undefined)?.code;
+  return typeof code === "string" && RETRYABLE_MIGRATION_PG_CODES.has(code);
+}
+
+// Run runMigrationsBody, retrying the whole body on a transient lock failure
+// (see RETRYABLE_MIGRATION_PG_CODES). Backoff is exponential and bounded so a
+// stuck deploy still fails in reasonable time rather than spinning forever. The
+// migration advisory lock is held across retries (the caller acquired it on a
+// dedicated client), so this never races another migrate.
+async function runMigrationsBodyWithRetry(): Promise<void> {
+  let attempt = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    attempt += 1;
+    try {
+      await runMigrationsBody();
+      if (attempt > 1) {
+        logger.info(
+          { attempt },
+          "Migration body succeeded after retrying a transient lock failure",
+        );
+      }
+      return;
+    } catch (err) {
+      if (attempt < MAX_MIGRATION_BODY_ATTEMPTS && isRetryableMigrationError(err)) {
+        const code = (err as { code?: string }).code;
+        const backoffMs = Math.min(8_000, 500 * 2 ** (attempt - 1));
+        logger.warn(
+          { attempt, maxAttempts: MAX_MIGRATION_BODY_ATTEMPTS, code, backoffMs },
+          `Migration hit a transient lock failure (${code}) — retrying after backoff`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 export async function runMigrationsLocked(): Promise<void> {
   // Task #442 — hold the advisory lock on a DEDICATED pg.Client (NOT a
   // connection borrowed from the shared app pool). Previously this used
@@ -291,7 +350,7 @@ export async function runMigrationsLocked(): Promise<void> {
   try {
     await acquireMigrationLock(lockClient as unknown as LockClient);
     try {
-      await runMigrationsBody();
+      await runMigrationsBodyWithRetry();
     } finally {
       try {
         await (lockClient as unknown as LockClient).query(
@@ -339,6 +398,47 @@ async function runStep<T>(name: string, fn: () => Promise<T>): Promise<T> {
     logger.error({ step: name, elapsedMs: Date.now() - started, err }, `migration step failed: ${name}`);
     throw err;
   }
+}
+
+// Run an idempotent constraint/FK self-heal that would otherwise issue
+// DROP CONSTRAINT IF EXISTS + ADD CONSTRAINT (or ALTER TABLE) on EVERY deploy.
+// Even a no-op ALTER acquires AccessExclusiveLock on the table(s) involved — for
+// an FK, on BOTH the child and the referenced parent. During a zero-downtime
+// publish that lock collides with the live previous instance's RowExclusiveLocks
+// (ongoing INSERT/UPDATE), and Postgres aborts one side with a deadlock
+// (SQLSTATE 40P01) — which, when it picks the migrate, fails the publish.
+//
+// The fix: probe the catalog FIRST with `checkSql` (a SELECT returning a single
+// integer `present`). A SELECT takes only an AccessShareLock and never deadlocks
+// against writers, so when the desired state already holds — the overwhelmingly
+// common steady-state deploy — we skip the locking DDL entirely and take no
+// table lock at all. Only a genuinely drifted DB falls through to apply the .sql
+// (where the retry wrapper + idempotent SQL still make a transient lock failure
+// safe), after which we re-assert and fail CLOSED on any shortfall.
+async function runConstraintSelfHeal(opts: {
+  name: string;
+  applySqlFile: string;
+  checkSql: string;
+  expected: number;
+  shortfall: (present: number) => string;
+}): Promise<void> {
+  await runStep(opts.name, async () => {
+    const probe = await pool.query<{ present: number }>(opts.checkSql);
+    if ((probe.rows[0]?.present ?? 0) >= opts.expected) {
+      logger.info(
+        { step: opts.name },
+        `${opts.name}: already satisfied — skipping DDL (no table lock taken)`,
+      );
+      return;
+    }
+    const applySql = readFileSync(path.join(MIGRATIONS_FOLDER, opts.applySqlFile), "utf8");
+    await pool.query(applySql);
+    const { rows } = await pool.query<{ present: number }>(opts.checkSql);
+    const present = rows[0]?.present ?? 0;
+    if (present < opts.expected) {
+      throw new Error(opts.shortfall(present));
+    }
+  });
 }
 
 async function runMigrationsBody(): Promise<void> {
@@ -734,35 +834,32 @@ async function runMigrationsBody(): Promise<void> {
     // ON DELETE SET NULL, so after running we assert each constraint exists with
     // confdeltype = 'n' (SET NULL) and abort the release otherwise. The SQL is
     // idempotent, so a retry on the next deploy is always safe.
-    await runStep("sales_accounts child-FK ON DELETE SET NULL self-heal (0066)", async () => {
-      const fkSetNullSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0066_sales_account_fk_set_null.sql"),
-        "utf8",
-      );
-      await pool.query(fkSetNullSql);
-      // Post-step assertion: each FK into sales_accounts must now SET NULL on
-      // delete (pg_constraint.confdeltype = 'n'). Anything else still blocks the
-      // delete, so fail the release loudly rather than ship a broken delete.
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
+    // Each FK into sales_accounts must SET NULL on delete
+    // (pg_constraint.confdeltype = 'n'). Anything else still blocks the delete.
+    // Probe first (AccessShareLock only); only a drifted DB runs the locking
+    // DROP/ADD CONSTRAINT DDL.
+    await runConstraintSelfHeal({
+      name: "sales_accounts child-FK ON DELETE SET NULL self-heal (0066)",
+      applySqlFile: "0066_sales_account_fk_set_null.sql",
+      expected: 3,
+      checkSql: `SELECT count(*)::int AS present
            FROM pg_constraint c
            JOIN pg_class child ON child.oid = c.conrelid
+           JOIN pg_namespace child_ns ON child_ns.oid = child.relnamespace
            JOIN pg_class parent ON parent.oid = c.confrelid
+           JOIN pg_namespace parent_ns ON parent_ns.oid = parent.relnamespace
           WHERE c.contype = 'f'
             AND c.confdeltype = 'n'
+            AND child_ns.nspname = 'public'
+            AND parent_ns.nspname = 'public'
             AND parent.relname = 'sales_accounts'
             AND (
               (child.relname = 'sales_email_campaigns' AND c.conname = 'sales_email_campaigns_account_id_fkey')
               OR (child.relname = 'sfdc_opportunities' AND c.conname = 'sfdc_opportunities_account_id_fkey')
               OR (child.relname = 'sfdc_leads' AND c.conname = 'sfdc_leads_converted_account_id_fkey')
             )`,
-      );
-      const present = rows[0]?.present ?? 0;
-      if (present < 3) {
-        throw new Error(
-          `sales_accounts child-FK self-heal did not produce all three ON DELETE SET NULL constraints (found ${present}/3) — aborting release`,
-        );
-      }
+      shortfall: (present) =>
+        `sales_accounts child-FK self-heal did not produce all three ON DELETE SET NULL constraints (found ${present}/3) — aborting release`,
     });
 
     // Durable self-heal for the sfdc_leads.converted_contact_id FK (Task #786).
@@ -786,32 +883,28 @@ async function runMigrationsBody(): Promise<void> {
     // SET NULL, so after running we assert the constraint exists with
     // confdeltype = 'n' (SET NULL) and abort the release otherwise. The SQL is
     // idempotent, so a retry on the next deploy is always safe.
-    await runStep("sfdc_leads converted_contact_id ON DELETE SET NULL self-heal (0067)", async () => {
-      const fkSetNullSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0067_sfdc_leads_converted_contact_fk_set_null.sql"),
-        "utf8",
-      );
-      await pool.query(fkSetNullSql);
-      // Post-step assertion: the FK into sales_contacts must now SET NULL on
-      // delete (pg_constraint.confdeltype = 'n'). Anything else still blocks the
-      // delete, so fail the release loudly rather than ship a broken delete.
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
+    // The FK into sales_contacts must SET NULL on delete (confdeltype = 'n').
+    // Probe first (AccessShareLock only); only a drifted DB runs the locking
+    // DROP/ADD CONSTRAINT DDL.
+    await runConstraintSelfHeal({
+      name: "sfdc_leads converted_contact_id ON DELETE SET NULL self-heal (0067)",
+      applySqlFile: "0067_sfdc_leads_converted_contact_fk_set_null.sql",
+      expected: 1,
+      checkSql: `SELECT count(*)::int AS present
            FROM pg_constraint c
            JOIN pg_class child ON child.oid = c.conrelid
+           JOIN pg_namespace child_ns ON child_ns.oid = child.relnamespace
            JOIN pg_class parent ON parent.oid = c.confrelid
+           JOIN pg_namespace parent_ns ON parent_ns.oid = parent.relnamespace
           WHERE c.contype = 'f'
             AND c.confdeltype = 'n'
+            AND child_ns.nspname = 'public'
+            AND parent_ns.nspname = 'public'
             AND parent.relname = 'sales_contacts'
             AND child.relname = 'sfdc_leads'
             AND c.conname = 'sfdc_leads_converted_contact_id_fkey'`,
-      );
-      const present = rows[0]?.present ?? 0;
-      if (present < 1) {
-        throw new Error(
-          `sfdc_leads converted_contact_id self-heal did not produce the ON DELETE SET NULL constraint (found ${present}/1) — aborting release`,
-        );
-      }
+      shortfall: (present) =>
+        `sfdc_leads converted_contact_id self-heal did not produce the ON DELETE SET NULL constraint (found ${present}/1) — aborting release`,
     });
 
     // Durable self-heal for the sales_email_sends / sales_inbound_emails child
@@ -837,36 +930,33 @@ async function runMigrationsBody(): Promise<void> {
     // exists with the expected confdeltype ('c' = CASCADE, 'n' = SET NULL) and
     // abort the release otherwise. The SQL is idempotent, so a retry on the next
     // deploy is always safe.
-    await runStep("sales_email_sends/inbound child-FK self-heal (0070)", async () => {
-      const fkSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0070_sales_email_sends_inbound_fks.sql"),
-        "utf8",
-      );
-      await pool.query(fkSql);
-      // Post-step assertion: each FK must exist with its intended ON DELETE
-      // action. contact_id on sales_email_sends is CASCADE (confdeltype 'c');
-      // the other three are SET NULL (confdeltype 'n'). Anything else still
-      // leaks orphans, so fail the release loudly rather than ship a broken
-      // cleanup path.
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
+    // Each FK must exist with its intended ON DELETE action: contact_id on
+    // sales_email_sends is CASCADE (confdeltype 'c'); the other three are SET
+    // NULL (confdeltype 'n'). Probe first (AccessShareLock only); only a drifted
+    // DB runs the locking orphan-cleanup + DROP/ADD CONSTRAINT DDL. Once all
+    // four FKs exist the enforcement prevents new orphans, so skipping the
+    // cleanup when already healed is safe.
+    await runConstraintSelfHeal({
+      name: "sales_email_sends/inbound child-FK self-heal (0070)",
+      applySqlFile: "0070_sales_email_sends_inbound_fks.sql",
+      expected: 4,
+      checkSql: `SELECT count(*)::int AS present
            FROM pg_constraint c
            JOIN pg_class child ON child.oid = c.conrelid
+           JOIN pg_namespace child_ns ON child_ns.oid = child.relnamespace
            JOIN pg_class parent ON parent.oid = c.confrelid
+           JOIN pg_namespace parent_ns ON parent_ns.oid = parent.relnamespace
           WHERE c.contype = 'f'
+            AND child_ns.nspname = 'public'
+            AND parent_ns.nspname = 'public'
             AND (
               (child.relname = 'sales_email_sends' AND parent.relname = 'sales_contacts' AND c.conname = 'sales_email_sends_contact_id_fkey' AND c.confdeltype = 'c')
               OR (child.relname = 'sales_email_sends' AND parent.relname = 'sales_hotlinks' AND c.conname = 'sales_email_sends_hotlink_id_fkey' AND c.confdeltype = 'n')
               OR (child.relname = 'sales_inbound_emails' AND parent.relname = 'sales_contacts' AND c.conname = 'sales_inbound_emails_contact_id_fkey' AND c.confdeltype = 'n')
               OR (child.relname = 'sales_inbound_emails' AND parent.relname = 'sales_accounts' AND c.conname = 'sales_inbound_emails_account_id_fkey' AND c.confdeltype = 'n')
             )`,
-      );
-      const present = rows[0]?.present ?? 0;
-      if (present < 4) {
-        throw new Error(
-          `sales_email_sends/inbound child-FK self-heal did not produce all four FKs with their intended ON DELETE action (found ${present}/4) — aborting release`,
-        );
-      }
+      shortfall: (present) =>
+        `sales_email_sends/inbound child-FK self-heal did not produce all four FKs with their intended ON DELETE action (found ${present}/4) — aborting release`,
     });
 
     // sales_hotlinks (contact_id, page_id) partial unique index self-heal (0017).
