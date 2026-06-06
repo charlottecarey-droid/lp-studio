@@ -4,6 +4,8 @@
 // subhead, primary + secondary CTAs. Sits above the FeatureRow stack on each
 // persona page.
 
+import PersonaToggle from "./PersonaToggle";
+
 interface PersonaHeroProps {
   eyebrow: string;
   /** Persona accent — typically var(--indigo) for marketing, var(--coral) for sales. */
@@ -13,6 +15,11 @@ interface PersonaHeroProps {
   /** Secondary CTA label, e.g. "Talk to sales" (marketing) or "Book a demo" (sales). */
   secondaryLabel: string;
   secondaryHref?: string;
+  /**
+   * When set, renders the Clay-style Marketing | Sales persona toggle at the
+   * top of the hero (above the eyebrow). The given persona is shown active.
+   */
+  persona?: "marketing" | "sales";
 }
 
 export default function PersonaHero({
@@ -22,6 +29,7 @@ export default function PersonaHero({
   sub,
   secondaryLabel,
   secondaryHref = "mailto:admin@lpstudio.ai",
+  persona,
 }: PersonaHeroProps) {
   return (
     <header
@@ -50,6 +58,7 @@ export default function PersonaHero({
 
       <div className="max-w-[1180px] mx-auto relative">
         <div style={{ maxWidth: 780 }}>
+          {persona ? <PersonaToggle active={persona} /> : null}
           <div
             style={{
               display: "inline-flex",

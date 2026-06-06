@@ -55,6 +55,7 @@ export default function ForSales() {
       <Navbar />
       <main>
         <PersonaHero
+          persona="sales"
           eyebrow="For Sales & RevOps"
           accent="var(--coral)"
           title="Personalize every account. In one click."

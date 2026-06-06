@@ -58,6 +58,7 @@ export default function ForMarketing() {
       <Navbar />
       <main>
         <PersonaHero
+          persona="marketing"
           eyebrow="For Marketing"
           accent="var(--indigo)"
           title="Ship campaigns without the design queue."
