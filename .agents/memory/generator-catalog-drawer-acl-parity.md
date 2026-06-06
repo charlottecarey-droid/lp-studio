@@ -20,6 +20,14 @@ boundary and must stay one source of truth.
 generator catalog. Keep the `tenantId == null` fail-closed guard. If the drawer ACL changes,
 change `lib/libraryScope.ts` and both callers move together.
 
+**Testing gotcha (shared DB):** because the predicate ORs in `is_shared = true` GLOBALLY,
+a freshly-seeded test tenant's `fetchMediaCatalog` pool also contains other tenants' shared
+images on the shared Neon test DB. So a "Replace imagery ON" integration test that asserts the
+hero/grid swapped to its EXACT seeded URLs is brittle — a foreign shared dental hero can
+out-score the seeded one. Assert membership in the tenant-READABLE set (own ∪ `is_shared`),
+not the seeded subset. Such a test can pass on an isolated DB (no shared rows) yet fail against a
+shared DB that has real `is_shared` rows.
+
 Related but SEPARATE: untagged images (most page-reference scrapes, and any untagged uploads)
 all score 0 in `scoreImage`; the strict fill gate places anything `bestScore >= 0`, so it falls
 back to pool/recency order, not relevance — pulling in off-topic photos once tagged matches run
