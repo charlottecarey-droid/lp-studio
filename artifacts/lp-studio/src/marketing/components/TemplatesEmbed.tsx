@@ -449,9 +449,8 @@ function PreviewModal({
             alignItems: "center",
             justifyContent: "space-between",
             gap: 14,
-            padding: "16px 20px",
+            padding: "15px 18px 13px",
             background: "var(--cream)",
-            borderBottom: "1px solid var(--hairline)",
             flexShrink: 0,
           }}
         >
@@ -550,7 +549,10 @@ function PreviewModal({
           </div>
         </div>
 
-        {/* Body — live iframe of the actual rendered template + description */}
+        {/* Body — live iframe of the actual rendered template + description.
+            The preview is framed as an inset card floating in the cream
+            surface so the header, preview and footer read as one cohesive
+            unit rather than three hard-bordered bands. */}
         <div
           style={{
             display: "flex",
@@ -564,38 +566,69 @@ function PreviewModal({
           <div
             style={{
               flex: 1,
-              minHeight: 380,
-              overflow: "auto",
-              borderBottom: "1px solid var(--hairline)",
+              minHeight: 0,
+              padding: "0 16px",
+              display: "flex",
             }}
           >
-            <LivePreview url={previewUrl(template.id)} />
+            <div
+              style={{
+                flex: 1,
+                minHeight: 320,
+                overflow: "auto",
+                borderRadius: 12,
+                border: "1px solid var(--hairline)",
+                background: "var(--cream-2)",
+                boxShadow:
+                  "0 1px 2px rgba(26,24,21,0.05), 0 18px 36px -26px rgba(26,24,21,0.35)",
+              }}
+            >
+              <LivePreview url={previewUrl(template.id)} />
+            </div>
           </div>
-          <div style={{ padding: "16px 24px 18px", flexShrink: 0 }}>
+          <div
+            style={{
+              padding: "13px 18px 16px",
+              flexShrink: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: 9,
+            }}
+          >
             <p
               style={{
-                fontSize: 13.5,
-                lineHeight: 1.55,
-                color: "var(--ink-2)",
+                fontSize: 13,
+                lineHeight: 1.5,
+                color: "var(--ink-soft)",
                 margin: 0,
-                maxWidth: 640,
+                maxWidth: 620,
               }}
             >
               {template.description}
             </p>
             <div
               style={{
-                marginTop: 10,
-                fontSize: 12,
+                fontSize: 11.5,
                 color: "var(--ink-mute)",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
+                letterSpacing: "0.005em",
+                alignSelf: "flex-start",
               }}
             >
-              <Icon name="external-link" size={12} />
-              Live preview · &quot;Use this template&quot; opens in a new tab
-              (sign you up first if needed).
+              <Icon name="external-link" size={11} />
+              <span>
+                Live preview ·{" "}
+                <span style={{ color: "var(--ink-soft)", fontWeight: 600 }}>
+                  &quot;Use this template&quot;
+                </span>{" "}
+                opens in a new tab
+                <span style={{ color: "var(--ink-faint)" }}>
+                  {" "}
+                  (signs you up first if needed)
+                </span>
+              </span>
             </div>
           </div>
         </div>
