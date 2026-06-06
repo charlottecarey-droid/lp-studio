@@ -162,6 +162,33 @@ export function resolveBlocksForIndustry(
   return out;
 }
 
+/**
+ * Compute the *effective* default props for a catalog row exactly as a tenant in
+ * that industry would receive them: the in-code BLOCK_REGISTRY default, shallow-
+ * merged under the row's stored override (`source: "db"` rows carry a RAW partial;
+ * `source: "code"` rows already carry the full registry default, so the merge is
+ * a no-op for them). Mirrors `resolveBlocksForIndustry`'s
+ * `{ ...def.defaultProps(), ...row.default_props }` semantics.
+ *
+ * Used to pre-fill the visual block-default editor (task #1026) so the builder
+ * opens showing the block as it actually renders today, not a sparse partial.
+ */
+export function effectiveDefaultProps(row: {
+  block_type: string;
+  default_props?: Record<string, unknown> | null;
+}): Record<string, unknown> {
+  const def = BLOCK_REGISTRY.find(d => d.type === row.block_type);
+  let base: Record<string, unknown> = {};
+  if (def) {
+    try {
+      base = def.defaultProps();
+    } catch {
+      base = {};
+    }
+  }
+  return { ...base, ...(row.default_props ?? {}) };
+}
+
 // ─── Superadmin merged catalog (SuperAdminBlockCatalog) ─────────────────────
 
 export interface CatalogRow {

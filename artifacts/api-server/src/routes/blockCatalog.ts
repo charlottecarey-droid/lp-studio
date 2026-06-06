@@ -4,6 +4,7 @@ import { requireAuth } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import { getTenantIndustry as tenantIndustry, VALID_INDUSTRIES as INDUSTRY_SET } from "../lib/tenantIndustry";
 import { sanitizeRoleTags } from "@workspace/lp-template-engine";
+import { ensureSystemTenant } from "../lib/systemTenant";
 
 const router = Router();
 
@@ -142,6 +143,117 @@ router.post("/admin/block-catalog/duplicate", requireSuperadmin, async (req, res
   } catch (err) {
     console.error("[block-catalog admin] duplicate error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ─── Superadmin: visual block-default editor (task #1026) ────────────────────
+//
+// The Block Catalog tab lets a superadmin edit a global block default visually
+// in the existing page builder instead of hand-editing JSON. The flow:
+//   1. POST /admin/block-catalog/scratch-page — seed a single-block scratch page
+//      owned by the system tenant, pre-filled with the catalog row's *effective*
+//      default props (registry default merged under the DB override, computed
+//      client-side since BLOCK_REGISTRY lives only in the lp-studio frontend).
+//      The catalog context (block_type, industry, label, category) rides along
+//      in page_variables.__catalog* so the builder can detect "catalog mode" and
+//      route Save back to the catalog rather than the page.
+//   2. The builder opens at /builder/:id (superadmin GET/PUT on lp_pages already
+//      bypass tenant ownership for app superadmins).
+//   3. PUT /admin/block-catalog/default-props — write the edited block props
+//      back to block_catalog.default_props for (block_type, industry),
+//      preserving label/category/tags/is_enabled/ai_enabled/sort_order on an
+//      existing row.
+
+// POST /admin/block-catalog/scratch-page
+// Body: { block_type, industry, label?, category?, props? }
+router.post("/admin/block-catalog/scratch-page", requireSuperadmin, async (req, res): Promise<void> => {
+  const { block_type, industry, label, category, props } = req.body ?? {};
+  if (!block_type || !industry) {
+    res.status(400).json({ error: "block_type and industry required" });
+    return;
+  }
+  if (!VALID_INDUSTRIES.has(industry)) {
+    res.status(400).json({ error: "Invalid industry" });
+    return;
+  }
+  const cleanProps =
+    props && typeof props === "object" && !Array.isArray(props) ? (props as Record<string, unknown>) : {};
+  const safeLabel = typeof label === "string" && label.trim() ? label.trim() : String(block_type);
+  const safeCategory = typeof category === "string" && category.trim() ? category.trim() : "Content";
+  try {
+    const tenantId = await ensureSystemTenant();
+    // Deterministic slug so re-opening the same (block_type, industry) reuses one
+    // scratch page rather than accumulating throwaways. Re-seeded on every open.
+    const slug = `__catalog-${industry}-${block_type}`.slice(0, 255);
+    const blockId = `${block_type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const blocks = [{ id: blockId, type: block_type, props: cleanProps }];
+    const pageVariables = {
+      __catalog: "1",
+      __catalogBlockType: String(block_type),
+      __catalogIndustry: String(industry),
+      __catalogLabel: safeLabel,
+      __catalogCategory: safeCategory,
+    };
+    const title = `Catalog · ${safeLabel} (${industry})`;
+    const actor = req.authUser?.email ?? null;
+    const result = await pool.query<{ id: number }>(
+      `INSERT INTO lp_pages (tenant_id, title, slug, blocks, status, mode, page_variables, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, 'draft', 'marketing', $5, $6, $6)
+       ON CONFLICT (tenant_id, slug) DO UPDATE SET
+         title = EXCLUDED.title,
+         blocks = EXCLUDED.blocks,
+         page_variables = EXCLUDED.page_variables,
+         updated_by = EXCLUDED.updated_by,
+         updated_at = now()
+       RETURNING id`,
+      [tenantId, title, slug, JSON.stringify(blocks), JSON.stringify(pageVariables), actor]
+    );
+    res.json({ pageId: result.rows[0].id });
+  } catch (err: any) {
+    console.error("[block-catalog admin] scratch-page error:", err);
+    res.status(500).json({ error: err?.message || "Server error" });
+  }
+});
+
+// PUT /admin/block-catalog/default-props
+// Body: { block_type, industry, default_props, label?, category? }
+// Writes the visually-edited block props back to the catalog. On an existing
+// row only default_props/updated_by/updated_at change; label/category/tags/
+// is_enabled/ai_enabled/sort_order are preserved. On a brand-new row the
+// provided label/category seed it (mirrors "create override on first save").
+router.put("/admin/block-catalog/default-props", requireSuperadmin, async (req, res): Promise<void> => {
+  const { block_type, industry, default_props, label, category } = req.body ?? {};
+  if (!block_type || !industry) {
+    res.status(400).json({ error: "block_type and industry required" });
+    return;
+  }
+  if (!VALID_INDUSTRIES.has(industry)) {
+    res.status(400).json({ error: "Invalid industry" });
+    return;
+  }
+  const cleanProps =
+    default_props && typeof default_props === "object" && !Array.isArray(default_props)
+      ? (default_props as Record<string, unknown>)
+      : {};
+  const newLabel = typeof label === "string" && label.trim() ? label.trim() : String(block_type);
+  const newCategory = typeof category === "string" && category.trim() ? category.trim() : "Content";
+  // updated_by is an INTEGER column (app user id), not an email string.
+  const updatedBy = req.authUser?.userId ?? null;
+  try {
+    const result = await pool.query(
+      `INSERT INTO block_catalog (block_type, industry, label, category, default_props, is_enabled, ai_enabled, sort_order, updated_by)
+       VALUES ($1, $2, $3, $4, $5, true, true, 0, $6)
+       ON CONFLICT (block_type, industry) DO UPDATE SET
+         default_props = EXCLUDED.default_props,
+         updated_by = EXCLUDED.updated_by,
+         updated_at = now()
+       RETURNING *`,
+      [block_type, industry, newLabel, newCategory, JSON.stringify(cleanProps), updatedBy]
+    );
+    res.json(result.rows[0]);
+  } catch (err: any) {
+    console.error("[block-catalog admin] default-props error:", err);
+    res.status(500).json({ error: err?.message || "Server error" });
   }
 });
 

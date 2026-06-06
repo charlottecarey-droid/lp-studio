@@ -19,7 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus,
+  GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus, ArrowLeft,
   Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star, MessageSquare, Palette,
 } from "lucide-react";
 import { Link } from "wouter";
@@ -1062,6 +1062,33 @@ export default function BuilderEditor() {
   // Task #254 — strict-mode mismatches stashed by the create flow. Read once
   // on first mount and shown as a dismissable banner pointing at Brand Settings.
   const [strictMismatches, setStrictMismatches] = useState<StrictMismatch[]>([]);
+
+  // Task #1026 — "catalog mode". When the superadmin opened this page from the
+  // Block Catalog's "Edit visually" action, the scratch page carries __catalog*
+  // page variables. In that mode the builder edits a SINGLE block whose props
+  // are a global block default: we focus the single block, hide page-level
+  // chrome (block library, insertion bars, publish/review/segment), and route
+  // Save back to block_catalog instead of saving the scratch page.
+  const catalogCtx = useMemo(() => {
+    const pv = pageVariables as Record<string, string>;
+    const blockType = pv?.["__catalogBlockType"];
+    if (!pv?.["__catalog"] || !blockType) return null;
+    return {
+      blockType,
+      industry: pv["__catalogIndustry"] ?? "",
+      label: pv["__catalogLabel"] ?? blockType,
+      category: pv["__catalogCategory"] ?? "Content",
+    };
+  }, [pageVariables]);
+  const catalogMode = !!catalogCtx;
+  // In catalog mode keep the single block selected — deselecting (canvas click,
+  // ⌘\ shortcut, etc.) would surface the page-settings panel for a throwaway
+  // scratch page, which is meaningless here.
+  useEffect(() => {
+    if (catalogMode && !selectedBlockId && blocks.length > 0) {
+      setSelectedBlockId(blocks[0].id);
+    }
+  }, [catalogMode, selectedBlockId, blocks]);
   const [strictBannerDismissed, setStrictBannerDismissed] = useState(false);
   // Task #552 — "See removed quotes" review modal. Lets editors push the
   // values Strict Facts Mode scrubbed into the brand's approved pool without
@@ -1356,9 +1383,16 @@ export default function BuilderEditor() {
         setTemplateLabel(p.templateLabel ?? p.title);
         setTemplateDescription(p.templateDescription ?? "");
         // Server load: bypass undo history.
-        setBlocksRaw(normalizeTree(p.blocks ?? []));
+        const loadedTree = normalizeTree(p.blocks ?? []);
+        setBlocksRaw(loadedTree);
         historyPastRef.current = [];
         historyFutureRef.current = [];
+        // Task #1026 — in catalog mode the page holds exactly one block (a
+        // global default being edited). Auto-select it so the property panel
+        // opens immediately on the block the superadmin came to edit.
+        if ((p.pageVariables as Record<string, string> | undefined)?.["__catalog"] && loadedTree[0]) {
+          setSelectedBlockId(loadedTree[0].id);
+        }
         setCustomCss(p.customCss ?? "");
         setAnimationsEnabled(p.animationsEnabled !== false);
         setSmoothScroll(p.smoothScroll !== false);
@@ -2030,6 +2064,33 @@ export default function BuilderEditor() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      // Task #1026 — catalog mode: persist the edited single block's props back
+      // to block_catalog.default_props for (block_type, industry) instead of
+      // saving the scratch page. The block's `type` is the source of truth (the
+      // superadmin can't change it here), and page_variables carry the industry.
+      if (catalogCtx) {
+        const blk = blocks[0];
+        const res = await fetch(`${API_BASE}/admin/block-catalog/default-props`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            block_type: catalogCtx.blockType,
+            industry: catalogCtx.industry,
+            label: catalogCtx.label,
+            category: catalogCtx.category,
+            default_props: blk?.props ?? {},
+          }),
+        });
+        if (!res.ok) throw new Error((await res.text()) || "Failed to save global default");
+        markSaved();
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 2000);
+        toast({
+          title: "Global default saved",
+          description: `${catalogCtx.label} (${catalogCtx.industry}) updated in the Block Catalog.`,
+        });
+        return;
+      }
       await savePage(pageId, getPageData());
       markSaved();
       setSaveSuccess(true);
@@ -2481,7 +2542,41 @@ export default function BuilderEditor() {
         onApproveReview={handleApproveReview}
         onRejectReview={handleRejectReview}
         reviewWorkflowEnabled={reviewWorkflowEnabled}
+        catalogMode={catalogMode}
+        catalogSaveLabel="Save default"
       />
+
+      {/* Task #1026 — catalog mode banner. Makes it unmistakable that edits here
+          set a GLOBAL block default (not a page) and gives a clear way back to
+          the Block Catalog tab. */}
+      {catalogCtx && (
+        <div className="mx-4 mt-2 flex items-center justify-between gap-3 rounded-xl bg-primary/5 border border-primary/20 px-4 py-2.5">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Layers className="w-3.5 h-3.5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-foreground">
+                Editing global block default — {catalogCtx.label}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                <span className="font-mono">{catalogCtx.blockType}</span> ·{" "}
+                {catalogCtx.industry === "dental" ? "Dental" : "Generic B2B SaaS"}. Saving writes back to the Block Catalog
+                for every tenant in this industry.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 text-xs shrink-0"
+            onClick={() => navigate("/superadmin#catalog")}
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Back to Block Catalog</span>
+          </Button>
+        </div>
+      )}
 
       {/* Linked-blocks banner — explains that any custom-schema instance with
           a `customBlockId` follows its master; edits there flow into this page
@@ -2955,7 +3050,10 @@ export default function BuilderEditor() {
       {/* Three-panel layout */}
       <div className="flex flex-1 min-h-0">
 
-        {/* Left panel: Block Library */}
+        {/* Left panel: Block Library — hidden in catalog mode (task #1026):
+            there's exactly one block to edit and adding/removing blocks would
+            corrupt the single-block global default. */}
+        {!catalogMode && (
         <aside className="w-64 border-r border-border bg-background/60 overflow-y-auto shrink-0">
           <Tabs defaultValue="blocks">
             <div className="sticky top-0 bg-background/90 backdrop-blur border-b border-border z-10">
@@ -3005,9 +3103,10 @@ export default function BuilderEditor() {
             </TabsContent>
           </Tabs>
         </aside>
+        )}
 
         {/* Center: Canvas */}
-        <main className="flex-1 min-w-0 overflow-y-auto bg-muted/50" onClick={() => setSelectedBlockId(null)}>
+        <main className="flex-1 min-w-0 overflow-y-auto bg-muted/50" onClick={() => { if (!catalogMode) setSelectedBlockId(null); }}>
           <div className="min-h-full flex flex-col items-center py-6 px-4">
             {blocks.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-12">
@@ -3034,7 +3133,7 @@ export default function BuilderEditor() {
                   .animate-marquee:hover { animation-play-state: paused; }
                 `}</style>
                 <SortableContext items={collectIds(blocks)} strategy={verticalListSortingStrategy}>
-                    <InsertionBar onClick={() => openInsertAt(0)} />
+                    {!catalogMode && <InsertionBar onClick={() => openInsertAt(0)} />}
                     {blocks.map((block, index) => (
                       <div key={block.id}>
                         <SortableCanvasBlock
@@ -3058,7 +3157,7 @@ export default function BuilderEditor() {
                           renderEmptySlot={renderEmptySlot}
                           renderTailSlot={renderTailSlot}
                         />
-                        <InsertionBar onClick={() => openInsertAt(index + 1)} />
+                        {!catalogMode && <InsertionBar onClick={() => openInsertAt(index + 1)} />}
                       </div>
                     ))}
                     {/* Top-level tail drop slot — lets users drop a block
@@ -3066,7 +3165,7 @@ export default function BuilderEditor() {
                         "before over" semantics never resolves to "after the
                         last item"). Same `container:` droppable id is
                         treated as "append" by handleDragEnd. */}
-                    <TailDropSlot parentPath={[]} />
+                    {!catalogMode && <TailDropSlot parentPath={[]} />}
                   </SortableContext>
               </div>
             )}

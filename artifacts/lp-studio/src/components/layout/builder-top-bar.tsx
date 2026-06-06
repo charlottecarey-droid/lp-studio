@@ -57,6 +57,12 @@ interface BuilderTopBarProps {
   onApproveReview?: () => void;
   onRejectReview?: () => void;
   reviewWorkflowEnabled?: boolean;
+  /** Task #1026 — catalog mode: editing a global block default, not a page.
+   *  Hides page-only chrome (segment, comments, more menu, preview, review,
+   *  publish) so the bar reads Back / title / Save only. */
+  catalogMode?: boolean;
+  /** Save-button label override used in catalog mode (e.g. "Save default"). */
+  catalogSaveLabel?: string;
 }
 
 /** "Saved 12s ago" / "Saved 5m ago" / "Saved" copy. */
@@ -102,6 +108,8 @@ export function BuilderTopBar({
   onApproveReview,
   onRejectReview,
   reviewWorkflowEnabled = true,
+  catalogMode = false,
+  catalogSaveLabel,
 }: BuilderTopBarProps) {
   const [, navigate] = useLocation();
   const [copied, setCopied] = useState(false);
@@ -142,7 +150,7 @@ export function BuilderTopBar({
     : saveSuccess
       ? "Saved!"
       : isDirty
-        ? "Save"
+        ? (catalogMode && catalogSaveLabel ? catalogSaveLabel : "Save")
         : "Saved";
   const saveIcon = isSaving
     ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -178,7 +186,7 @@ export function BuilderTopBar({
         placeholder="Page Title"
       />
 
-      {(() => {
+      {!catalogMode && (() => {
         const editable = !!onSegmentChange && Array.isArray(availableSegments);
         if (!editable && !segmentName) return null;
 
@@ -258,6 +266,7 @@ export function BuilderTopBar({
         );
       })()}
 
+      {!catalogMode && (
       <Badge
         variant={status === "published" ? "default" : "secondary"}
         className={cn(
@@ -270,6 +279,7 @@ export function BuilderTopBar({
         {status === "pending_review" && <Clock className="w-3 h-3" />}
         {status === "published" ? "Live" : status === "pending_review" ? "Pending Review" : "Draft"}
       </Badge>
+      )}
 
       {/* Spacer pushes everything else to the right */}
       <div className="flex-1" />
@@ -287,6 +297,8 @@ export function BuilderTopBar({
 
       <PresenceStrip viewers={viewers} />
 
+      {!catalogMode && (
+      <>
       <div className="hidden md:block h-5 w-px bg-border mx-0.5" />
 
       {/* ── Utility cluster: Comments + More overflow ──────────────────
@@ -360,7 +372,11 @@ export function BuilderTopBar({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      </>
+      )}
 
+      {!catalogMode && (
+      <>
       <div className="hidden md:block h-5 w-px bg-border mx-0.5" />
 
       {/* Preview / View button — adapts based on publish status */}
@@ -393,6 +409,8 @@ export function BuilderTopBar({
           </Button>
         </a>
       )}
+      </>
+      )}
 
       <Button
         variant={isDirty ? "default" : "outline"}
@@ -410,7 +428,7 @@ export function BuilderTopBar({
         <span className="hidden sm:inline">{saveLabel}</span>
       </Button>
 
-      {reviewWorkflowEnabled && status === "pending_review" && canReview && (
+      {!catalogMode && reviewWorkflowEnabled && status === "pending_review" && canReview && (
         <>
           <Button
             size="sm"
@@ -436,7 +454,7 @@ export function BuilderTopBar({
         </>
       )}
 
-      {reviewWorkflowEnabled && status !== "published" && (
+      {!catalogMode && reviewWorkflowEnabled && status !== "published" && (
         <Button
           size="sm"
           variant={status === "pending_review" ? "outline" : "default"}
@@ -450,7 +468,7 @@ export function BuilderTopBar({
         </Button>
       )}
 
-      {canPublish && (
+      {!catalogMode && canPublish && (
         <Button
           size="sm"
           className="h-8 gap-1.5 text-xs"

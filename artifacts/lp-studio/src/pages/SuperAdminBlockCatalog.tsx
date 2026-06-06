@@ -14,8 +14,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Loader2, Plus, RefreshCw, Pencil, Copy, Trash2, Search, AlertTriangle, RotateCcw,
+  Loader2, Plus, RefreshCw, Pencil, Copy, Trash2, Search, AlertTriangle, RotateCcw, Eye,
 } from "lucide-react";
+import { useLocation } from "wouter";
 import { ToastAction } from "@/components/ui/toast";
 import { useToast } from "@/hooks/use-toast";
 import { BLOCK_REGISTRY } from "@/lib/block-types";
@@ -27,6 +28,7 @@ import {
 } from "@workspace/lp-template-engine";
 import {
   mergeSuperadminCatalog,
+  effectiveDefaultProps,
   type CatalogRow,
   type DisplayRow,
   type Industry,
@@ -639,6 +641,8 @@ function ResetConfirm({
 // ── Main panel ─────────────────────────────────────────────────────────────
 export default function SuperAdminBlockCatalog() {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
+  const [openingVisual, setOpeningVisual] = useState<string | null>(null);
   const [rows, setRows] = useState<CatalogRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -827,6 +831,36 @@ export default function SuperAdminBlockCatalog() {
     });
     setEditorIsNew(false);
     setEditorOpen(true);
+  };
+
+  // Task #1026 — open the visual block-default editor. We compute the row's
+  // *effective* props here (registry default merged under any DB override) and
+  // seed a single-block scratch page owned by the system tenant, then navigate
+  // into the existing builder, which detects "catalog mode" via the page's
+  // __catalog* page variables and routes Save back to the catalog.
+  const openVisualEditor = async (row: DisplayRow) => {
+    const key = `${row.block_type}::${row.industry}`;
+    setOpeningVisual(key);
+    setActionError(null);
+    try {
+      const props = effectiveDefaultProps(row);
+      const data = await apiFetch("/api/admin/block-catalog/scratch-page", {
+        method: "POST",
+        body: JSON.stringify({
+          block_type: row.block_type,
+          industry: row.industry,
+          label: row.label,
+          category: row.category,
+          props,
+        }),
+      });
+      navigate(`/builder/${data.pageId}`);
+    } catch (err: any) {
+      let msg = err?.message ?? "Could not open visual editor";
+      try { msg = JSON.parse(msg).error ?? msg; } catch { /* */ }
+      setActionError(`Could not open visual editor for ${row.block_type} (${INDUSTRY_LABEL[row.industry]}): ${msg}`);
+      setOpeningVisual(null);
+    }
   };
 
   const toggleEnabled = async (row: DisplayRow) => {
@@ -1122,7 +1156,15 @@ export default function SuperAdminBlockCatalog() {
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
-                        title={isDb ? "Edit global default" : "Edit & save a global default"}
+                        title="Edit visually in the page builder"
+                        disabled={openingVisual === key}
+                        onClick={() => openVisualEditor(row)}>
+                        {openingVisual === key
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <Eye className="w-3.5 h-3.5" />}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
+                        title={isDb ? "Edit JSON default" : "Edit JSON & save a global default"}
                         onClick={() => openEdit(row)}>
                         <Pencil className="w-3.5 h-3.5" />
                       </Button>
