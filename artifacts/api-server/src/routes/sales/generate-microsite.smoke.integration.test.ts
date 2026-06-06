@@ -96,11 +96,90 @@ async function seedAccount(tenantId: number, name: string): Promise<number> {
   return r.rows[0].id;
 }
 
+/**
+ * Seed a tenant-owned, multi-block TEMPLATE page (isTemplate=true) whose lead
+ * block is a real `event-landing-hero` carrying the authored structural props
+ * the AI never re-emits — an embedded form (`formId` + form headings), a
+ * non-empty `backgroundImage`, and content sections (what-to-expect / event
+ * details). The route resolves a template by id + isTemplate + (own tenant OR
+ * global), so this row makes the full template path executable.
+ */
+async function seedTemplate(tenantId: number): Promise<{ templateId: number; blocks: AiBlock[] }> {
+  const blocks: AiBlock[] = [
+    {
+      id: "event-landing-hero-0",
+      type: "event-landing-hero",
+      props: {
+        // Authored structural props the AI does NOT re-emit — must survive.
+        backgroundImage: "https://images.example.com/skyline-template.jpg",
+        backgroundImageAlt: "City skyline at dusk",
+        backgroundOverlay: 0.5,
+        formId: 4242,
+        formHeading: "Save your spot",
+        formSubheading: "Spots are limited — RSVP to confirm your seat.",
+        // Authored content sections that must remain present.
+        whatToExpectHeading: "What to expect",
+        whatToExpectBody:
+          "An evening of conversation, cocktails, and connection with leadership and fellow operators.",
+        eventDetailsHeading: "Event Details",
+        eventDetailsBullets: [
+          "Wednesday — 6:00pm Welcome reception",
+          "Thursday — 6:30pm Dinner & program",
+          "Cocktail attire",
+        ],
+        // Copy the AI personalizes.
+        headline: "Join us in New York",
+        dateText: "June 10 & 11, 2026",
+        ctaText: "Save Your Spot",
+        ctaUrl: "#rsvp",
+      },
+    },
+    {
+      id: "benefits-grid-1",
+      type: "benefits-grid",
+      props: {
+        headline: "Why attend",
+        items: [
+          { icon: "Zap", title: "Network", description: "Meet peers" },
+          { icon: "Star", title: "Learn", description: "Hear the roadmap" },
+        ],
+      },
+    },
+    {
+      id: "bottom-cta-2",
+      type: "bottom-cta",
+      props: { headline: "Ready to join?", ctaText: "RSVP now", ctaUrl: "#rsvp" },
+    },
+  ];
+
+  const r = await pool.query<{ id: number }>(
+    `INSERT INTO lp_pages (tenant_id, title, slug, blocks, status, mode, is_template, template_label)
+     VALUES ($1, 'Event Landing Template', $2, $3::jsonb, 'draft', 'marketing', true, 'Event Landing')
+     RETURNING id`,
+    [tenantId, `it-ms-tmpl-${Date.now()}-${Math.floor(Math.random() * 1e6)}`, JSON.stringify(blocks)],
+  );
+  return { templateId: r.rows[0].id, blocks };
+}
+
+type AiBlock = { id?: string; type: string; props: Record<string, unknown> };
+
+// The in-process inject() helper sets no socket remoteAddress, so every request
+// would otherwise share one undefined rate-limit key and trip the 5/min cap
+// once the file makes >5 generation calls. With `trust proxy` on (set in
+// beforeAll), each request gets its own limiter bucket via a unique
+// X-Forwarded-For — keeping the real limiter in the chain without throttling
+// independent tests.
+let ipCounter = 0;
+function nextIp(): string {
+  ipCounter += 1;
+  return `10.0.${Math.floor(ipCounter / 256) % 256}.${ipCounter % 256}`;
+}
+
 function authed(sid: string, method: string, url: string, body?: unknown) {
   return inject(app, {
     method,
     url,
-    headers: { cookie: `${SESSION_COOKIE}=${sid}` },
+    headers: { cookie: `${SESSION_COOKIE}=${sid}`, "x-forwarded-for": nextIp() },
     ...(body !== undefined ? { body } : {}),
   });
 }
@@ -111,6 +190,9 @@ beforeAll(() => {
   process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || "test-key-not-used";
 
   app = express();
+  // Honor X-Forwarded-For so each injected request gets its own rate-limit
+  // bucket (the inject() helper sets no socket IP — see nextIp() above).
+  app.set("trust proxy", 1);
   app.use(cookieParser());
   app.use(express.json());
   app.use(requireAuth);
@@ -220,4 +302,116 @@ describe("Microsite generation smoke", () => {
     });
     expect(res.status).toBe(400);
   });
+});
+
+/**
+ * Task #1130 — route-level regression guard for the multi-block template path.
+ *
+ * Drives the FULL generate-microsite route from a real `event-landing-hero`
+ * template and asserts the generated page keeps the authored structural props
+ * the AI never re-emits: the embedded form (`formId` + form headings), a
+ * non-empty hero `backgroundImage`, and every content section — while the copy
+ * is still personalized to the account. Exercised with "Replace imagery" both
+ * OFF and ON (the original production bug — a pipeline reorder dropping the
+ * form / hero image — shipped undetected because nothing drove this path).
+ *
+ * The AI mock returns ONLY the personalized COPY per block (same types, same
+ * order), deliberately omitting formId / backgroundImage / form config, exactly
+ * as the real model does. The route's mergeAuthored backstop must restore them.
+ */
+describe("Microsite generation from a multi-block template", () => {
+  for (const replaceImagery of [false, true] as const) {
+    it(`preserves the embedded form, hero image, and content sections (replaceImagery=${replaceImagery})`, async () => {
+      const { tenantId, sid } = await seedTenant();
+      const accountName = `Northwind Dental ${Math.floor(Math.random() * 1e6)}`;
+      const accountId = await seedAccount(tenantId, accountName);
+      const { templateId, blocks: tmplBlocks } = await seedTemplate(tenantId);
+
+      // The model re-emits each block's COPY only (no formId, no
+      // backgroundImage, no form config) — personalized to the account, in the
+      // same type + order as the template.
+      aiState.response = {
+        title: `${accountName} — You're Invited`,
+        slug: "youre-invited",
+        blocks: [
+          {
+            type: "event-landing-hero",
+            props: {
+              headline: `${accountName}: Join us in New York`,
+              dateText: "June 10 & 11, 2026",
+              ctaText: "Save Your Spot",
+            },
+          },
+          {
+            type: "benefits-grid",
+            props: {
+              headline: `Why ${accountName} should attend`,
+              items: [
+                { icon: "Zap", title: "Network", description: "Meet operators like you" },
+                { icon: "Star", title: "Learn", description: "Hear what's next" },
+              ],
+            },
+          },
+          {
+            type: "bottom-cta",
+            props: { headline: `${accountName}, ready to join?`, ctaText: "RSVP now" },
+          },
+        ],
+      };
+
+      const res = await authed(sid, "POST", `/sales/accounts/${accountId}/generate-microsite`, {
+        segmentId: "general",
+        templateId,
+        replaceImagery,
+      });
+
+      expect(res.status).toBe(200);
+      const body = res.json as {
+        page: { id: number; tenantId: number; status: string };
+        blocks: Array<{ type: string; props: Record<string, unknown> }>;
+      };
+
+      // Every authored block is present, same types in the same order.
+      expect(body.blocks).toHaveLength(tmplBlocks.length);
+      expect(body.blocks.map(b => b.type)).toEqual(tmplBlocks.map(b => b.type));
+
+      const hero = body.blocks[0];
+      expect(hero.type).toBe("event-landing-hero");
+
+      // Embedded form config preserved (AI never re-emits these).
+      expect(hero.props.formId).toBe(4242);
+      expect(hero.props.formHeading).toBe("Save your spot");
+      expect(hero.props.formSubheading).toBe("Spots are limited — RSVP to confirm your seat.");
+
+      // Hero background image stays non-empty in BOTH imagery modes. With an
+      // empty media library + replaceImagery ON, the fill passes can't satisfy
+      // the slot, so the merge backstop must fall back to the authored image
+      // rather than ship a blank hero.
+      expect(typeof hero.props.backgroundImage).toBe("string");
+      expect((hero.props.backgroundImage as string).trim().length).toBeGreaterThan(0);
+
+      // Authored content sections survive (what-to-expect + event details).
+      expect(hero.props.whatToExpectHeading).toBe("What to expect");
+      expect(hero.props.whatToExpectBody).toBe(
+        "An evening of conversation, cocktails, and connection with leadership and fellow operators.",
+      );
+      expect(hero.props.eventDetailsHeading).toBe("Event Details");
+      expect(Array.isArray(hero.props.eventDetailsBullets)).toBe(true);
+      expect((hero.props.eventDetailsBullets as unknown[]).length).toBe(3);
+
+      // Copy is personalized to the account across the page.
+      expect(hero.props.headline as string).toContain(accountName);
+      expect(JSON.stringify(body.blocks)).toContain(accountName);
+
+      // Persisted draft is scoped to this tenant.
+      const dbRow = await pool.query<{ tenant_id: number; blocks: unknown }>(
+        `SELECT tenant_id, blocks FROM lp_pages WHERE id = $1`,
+        [body.page.id],
+      );
+      expect(dbRow.rows[0].tenant_id).toBe(tenantId);
+      const persisted = dbRow.rows[0].blocks as Array<{ type: string; props: Record<string, unknown> }>;
+      expect(persisted[0].props.formId).toBe(4242);
+      expect((persisted[0].props.backgroundImage as string).trim().length).toBeGreaterThan(0);
+    });
+  }
 });

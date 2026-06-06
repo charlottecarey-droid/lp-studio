@@ -114,3 +114,4 @@
 - [Branded subdomain lifecycle](branded-subdomain-lifecycle.md) — Tier 2 branded email subdomains: ONE shared deprovisionBrandedEmailSubdomain() for wizard+sweep; pollers convention advisory-lock=taskNum (415/783/787); retire fails-closed.
 - [No-reveal sticky blocks](no-reveal-sticky-blocks.md) — blocks with internal `position: sticky` (vertical-tabs/roi-calculator/practice-nav) MUST be in the NO_REVEAL set; the scroll-reveal motion.div transform breaks the sticky containing block, but only on published pages.
 - [Strict Facts keeps stats (no scrub)](strict-facts-no-scrub.md) — strict mode no longer rewrites unapproved AI stats; scanForUnapprovedStats is read-only telemetry feeding the review modal; never re-add sanitizeBlocksStrict.
+- [Rate-limited route inject() tests](rate-limited-route-inject-tests.md) — inject() sets no req.ip so all reqs share one limiter key; >max reqs in one file → 429; set trust proxy 1 + unique X-Forwarded-For per call.
