@@ -50,6 +50,41 @@ router.post("/lp/library/:type", async (req, res): Promise<void> => {
   }
 });
 
+// Task #1139 — persist an explicit tenant-chosen ordering for a library type.
+// The client sends the full ordered list of ids; we rewrite sort_order to
+// match. The GET above already returns rows `ORDER BY sort_order ASC, id ASC`,
+// and AI generation (rankCaseStudies) uses that same baseline as its
+// tie-breaker, so this order directly controls which case studies surface
+// first in generated pages/microsites.
+router.patch("/lp/library/:type/reorder", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const { type } = req.params;
+  if (!isValidType(type)) { res.status(400).json({ error: "Invalid type" }); return; }
+  const rawIds = (req.body?.ids ?? []) as unknown[];
+  const ids = rawIds
+    .map((x) => Number(x))
+    .filter((n) => Number.isInteger(n) && n > 0);
+  if (!Array.isArray(rawIds) || ids.length !== rawIds.length) {
+    res.status(400).json({ error: "ids must be an array of positive integers" });
+    return;
+  }
+  if (ids.length === 0) { res.json({ ok: true }); return; }
+  try {
+    // Build an int[] literal safely (a bare JS array would expand to a tuple,
+    // which is invalid for unnest) then map each id to its 1-based position.
+    const idsArr = sql`ARRAY[${sql.join(ids.map((id) => sql`${id}`), sql`, `)}]::int[]`;
+    await db.execute(
+      sql`UPDATE lp_library_items AS t
+          SET sort_order = v.ord, updated_at = now()
+          FROM unnest(${idsArr}) WITH ORDINALITY AS v(id, ord)
+          WHERE t.id = v.id AND t.type = ${type} AND t.tenant_id = ${tenantId}`
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 router.put("/lp/library/:type/:id", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { type, id } = req.params;

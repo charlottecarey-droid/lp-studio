@@ -1,6 +1,23 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Search, Upload, FolderOpen, Tag, ChevronLeft, ChevronRight, Sparkles, Copy, ExternalLink, Calendar, HardDrive, FileType2, Users, RefreshCw, Globe, FileText, Wand2 } from "lucide-react";
+import { Plus, Trash2, Star, Loader2, Pencil, Check, X, BookOpen, Image, Search, Upload, FolderOpen, Tag, ChevronLeft, ChevronRight, Sparkles, Copy, ExternalLink, Calendar, HardDrive, FileType2, Users, RefreshCw, Globe, FileText, Wand2, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,7 +90,30 @@ function useLibrary(type: LibraryType) {
     reload();
   };
 
-  return { items, loading, reload, create, update, toggleDefault, remove };
+  // Task #1139 — persist a tenant-chosen order. We optimistically reorder the
+  // local list, push the new order, then reload to stay in sync. This order is
+  // the tie-breaker the AI page generator uses when picking case studies.
+  const reorder = async (orderedIds: number[]) => {
+    setItems(prev => {
+      const byId = new Map(prev.map(i => [i.id, i] as const));
+      const next = orderedIds
+        .map(id => byId.get(id))
+        .filter((i): i is LibraryItem => i != null);
+      // keep any items not present in orderedIds (defensive) at the end
+      for (const i of prev) if (!orderedIds.includes(i.id)) next.push(i);
+      return next;
+    });
+    try {
+      await fetch(`${API_BASE}/lp/library/${type}/reorder`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: orderedIds }),
+      });
+    } catch { /* optimistic update already applied; reload reconciles */ }
+    reload();
+  };
+
+  return { items, loading, reload, create, update, toggleDefault, remove, reorder };
 }
 
 
@@ -204,9 +244,11 @@ interface LibraryItemCardProps {
   onToggleDefault: () => void;
   onDelete: () => void;
   onUpdate: (name: string, content: Record<string, unknown>, is_default: boolean, approved_for_ai?: boolean) => void;
+  /** Task #1139 — drag handle injected by the sortable wrapper. */
+  dragHandle?: React.ReactNode;
 }
 
-function LibraryItemCard({ item, type, onToggleDefault, onDelete, onUpdate }: LibraryItemCardProps) {
+function LibraryItemCard({ item, type, onToggleDefault, onDelete, onUpdate, dragHandle }: LibraryItemCardProps) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(item.name);
   const [content, setContent] = useState<Record<string, unknown>>(item.content);
@@ -266,6 +308,7 @@ function LibraryItemCard({ item, type, onToggleDefault, onDelete, onUpdate }: Li
 
   return (
     <div className="border rounded-lg p-4 flex items-start gap-3 bg-card">
+      {dragHandle}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
           <span className="text-sm font-semibold text-slate-800 truncate">{item.name || "(unnamed)"}</span>
@@ -1246,8 +1289,54 @@ function MediaTab() {
   );
 }
 
+// Task #1139 — a single library card made drag-sortable. The drag handle is the
+// only grab target so the card's edit/default/delete buttons stay clickable.
+function SortableLibraryItemCard(props: LibraryItemCardProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: props.item.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    zIndex: isDragging ? 10 : undefined,
+    position: "relative",
+  };
+  const handle = (
+    <button
+      type="button"
+      title="Drag to reorder"
+      aria-label="Drag to reorder"
+      {...attributes}
+      {...listeners}
+      className="mt-0.5 p-1 -ml-1 rounded text-slate-300 hover:text-slate-500 hover:bg-slate-100 cursor-grab active:cursor-grabbing touch-none shrink-0"
+    >
+      <GripVertical className="w-4 h-4" />
+    </button>
+  );
+  return (
+    <div ref={setNodeRef} style={style}>
+      <LibraryItemCard {...props} dragHandle={handle} />
+    </div>
+  );
+}
+
 function LibraryTab({ type }: { type: LibraryType }) {
   const lib = useLibrary(type);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = lib.items.findIndex(i => i.id === active.id);
+    const newIndex = lib.items.findIndex(i => i.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const ordered = arrayMove(lib.items, oldIndex, newIndex).map(i => i.id);
+    lib.reorder(ordered);
+  };
 
   return (
     <div className="space-y-3">
@@ -1264,18 +1353,30 @@ function LibraryTab({ type }: { type: LibraryType }) {
               <p>No items yet. Add your first one below.</p>
             </div>
           )}
-          {lib.items.map(item => (
-            <LibraryItemCard
-              key={item.id}
-              item={item}
-              type={type}
-              onToggleDefault={() => lib.toggleDefault(item.id)}
-              onDelete={() => {
-                if (confirm(`Delete "${item.name || "this item"}"?`)) lib.remove(item.id);
-              }}
-              onUpdate={(name, content, is_default) => lib.update(item.id, name, content, is_default)}
-            />
-          ))}
+          {lib.items.length > 1 && (
+            <p className="text-[11px] text-slate-400 flex items-center gap-1">
+              <GripVertical className="w-3 h-3" />
+              {type === "case_study"
+                ? "Drag to reorder. Higher items are preferred first in AI-generated pages."
+                : "Drag to reorder."}
+            </p>
+          )}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={lib.items.map(i => i.id)} strategy={verticalListSortingStrategy}>
+              {lib.items.map(item => (
+                <SortableLibraryItemCard
+                  key={item.id}
+                  item={item}
+                  type={type}
+                  onToggleDefault={() => lib.toggleDefault(item.id)}
+                  onDelete={() => {
+                    if (confirm(`Delete "${item.name || "this item"}"?`)) lib.remove(item.id);
+                  }}
+                  onUpdate={(name, content, is_default) => lib.update(item.id, name, content, is_default)}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
           <AddItemForm type={type} onCreate={lib.create} />
         </>
       )}
