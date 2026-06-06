@@ -249,6 +249,35 @@ const COMPANION_PATHS = [
   "/platform",
 ];
 
+// Image-rich pages common on small-business / service-industry sites (dental
+// practices, clinics, agencies) where the real brand photography actually
+// lives — but whose copy is low-signal for VOICE extraction. The marketing
+// COMPANION_PATHS above (/pricing, /platform, …) typically 404 on these
+// sites, so an image-poor brand misses photos that genuinely exist.
+//
+// These are scraped IMAGE-ONLY (task #1149): their harvested <img>/lazy/CSS
+// background URLs feed the media mirror, but their markdown is deliberately
+// NOT stitched into the combined voice corpus — boilerplate "Meet the team"
+// / service-list copy would only dilute the brand voice signal.
+//
+// To keep Firecrawl cost flat for image-rich brands, these run only as a
+// conditional second pass when the primary + marketing-companion pass
+// harvested fewer than IMAGE_HARVEST_THRESHOLD distinct images. Image-rich
+// brands therefore pay zero extra Firecrawl spend or latency.
+const IMAGE_COMPANION_PATHS = [
+  "/services",
+  "/gallery",
+  "/team",
+  "/our-team",
+  "/portfolio",
+];
+
+// Below this many distinct harvested images, trigger the IMAGE_COMPANION_PATHS
+// pass. Half of MAX_REFERENCE_PHOTOS (12) downstream — enough headroom that a
+// genuinely image-rich page never triggers the extra scrapes, while a
+// near-empty SMB homepage always does.
+const IMAGE_HARVEST_THRESHOLD = 6;
+
 /**
  * Scrape the primary URL plus a handful of well-known marketing paths,
  * concatenating their markdown. Voice extracted from 3 pages is materially
@@ -321,6 +350,38 @@ export async function maybeMultiPageScrapeRef(
       if (seenImg.has(u)) continue;
       seenImg.add(u);
       imageUrls.push(u);
+    }
+  }
+
+  // Image-poor brand (task #1149): the marketing-companion pass found few
+  // photos — typical of SMB/service sites whose real imagery lives on
+  // /services, /gallery, /team, etc. Run a conditional IMAGE-ONLY pass over
+  // those paths: harvest their images but keep their low-signal markdown out
+  // of the voice corpus. Skipped entirely for image-rich brands, so they pay
+  // no extra Firecrawl spend.
+  if (imageUrls.length < IMAGE_HARVEST_THRESHOLD) {
+    const seenCandidate = new Set(candidates.map((c) => c.url));
+    const imageOnlyUrls: string[] = [];
+    for (const p of IMAGE_COMPANION_PATHS) {
+      const joined = safeJoinUrl(primaryUrl, p);
+      if (joined && !seenCandidate.has(joined)) {
+        seenCandidate.add(joined);
+        imageOnlyUrls.push(joined);
+      }
+    }
+    const imageScrapes = await Promise.all(
+      imageOnlyUrls.map((u) =>
+        cachedFirecrawlScrape(FIRECRAWL_KEY, u, tenantId, { withScreenshot: false })
+          .then((r) => r?.imageUrls ?? [])
+          .catch(() => []),
+      ),
+    );
+    for (const arr of imageScrapes) {
+      for (const u of arr) {
+        if (seenImg.has(u)) continue;
+        seenImg.add(u);
+        imageUrls.push(u);
+      }
     }
   }
 
