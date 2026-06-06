@@ -77,17 +77,25 @@ interface InlineTextProps {
   animate?: InlineTextAnimate;
 }
 
-const COLOR_SWATCHES: ReadonlyArray<{ name: string; value: string }> = [
-  { name: "Default", value: "" },
-  { name: "Brand", value: "var(--brand-primary)" },
-  { name: "Accent", value: "var(--brand-accent)" },
-  { name: "Slate", value: "#0F172A" },
-  { name: "Muted", value: "#64748B" },
+// The picker's "Brand" swatches are sourced from the tenant's live brand CSS
+// variables (resolved to real hex below) so they reflect the actual palette
+// rather than a generic rainbow. Each carries a fallback hex used only when the
+// variable isn't present in scope (e.g. a non-branded preview).
+const BRAND_SWATCH_TOKENS: ReadonlyArray<{
+  name: string;
+  cssVar: string;
+  fallback: string;
+}> = [
+  { name: "Brand", cssVar: "--brand-primary", fallback: "#0f172a" },
+  { name: "Accent", cssVar: "--brand-accent", fallback: "#3b82f6" },
+  { name: "Text", cssVar: "--brand-text", fallback: "#1a1a1a" },
+];
+
+// Universal neutrals every text-color picker needs for legibility.
+const NEUTRAL_SWATCHES: ReadonlyArray<{ name: string; value: string }> = [
+  { name: "Ink", value: "#0F172A" },
+  { name: "Gray", value: "#64748B" },
   { name: "White", value: "#FFFFFF" },
-  { name: "Blue", value: "#2563EB" },
-  { name: "Green", value: "#16A34A" },
-  { name: "Amber", value: "#D97706" },
-  { name: "Rose", value: "#E11D48" },
 ];
 
 const FONT_SIZES: ReadonlyArray<{ label: string; value: string }> = [
@@ -177,6 +185,17 @@ export function InlineText({
   const updateToolbarFromSelection = useCallback(() => {
     const el = editableRef.current;
     if (!el) return;
+    // If focus has moved into a toolbar popover (e.g. the user clicked into the
+    // color picker's hex input), the contentEditable selection collapses and
+    // would otherwise tear down the toolbar — closing the popover mid-edit.
+    // Keep the toolbar mounted while focus lives inside one of THIS toolbar's
+    // surfaces. We scope strictly to [data-inline-toolbar] (the color/link
+    // popover content and inline menus all carry it) so focus in unrelated
+    // Radix popovers elsewhere in the app can't pin the toolbar open.
+    const active = document.activeElement as HTMLElement | null;
+    if (active && active.closest?.("[data-inline-toolbar]")) {
+      return;
+    }
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) {
       setToolbarPos(null);
@@ -336,8 +355,28 @@ export function InlineText({
   // browser selection inside the contentEditable. We restore it before
   // wrapping so the chosen swatch actually paints the user's highlighted run.
   const savedColorRangeRef = useRef<Range | null>(null);
+  // Brand swatches resolved to real hex. The toolbar is portaled to <body>
+  // (outside the brand-scoped wrapper), so `var(--brand-*)` won't resolve
+  // there — but the contentEditable element IS inside brand scope, so we read
+  // the live values from it when the picker opens.
+  const [colorSwatches, setColorSwatches] = useState<
+    { name: string; value: string }[]
+  >([]);
+  const resolveBrandSwatches = useCallback((): { name: string; value: string }[] => {
+    const el = editableRef.current;
+    const cs = el ? window.getComputedStyle(el) : null;
+    const brand = BRAND_SWATCH_TOKENS.map((t) => {
+      const resolved = cs?.getPropertyValue(t.cssVar).trim();
+      return {
+        name: t.name,
+        value: resolved && resolved.length > 0 ? resolved : t.fallback,
+      };
+    });
+    return [...brand, ...NEUTRAL_SWATCHES];
+  }, []);
   const handleColorOpenChange = (next: boolean) => {
     if (next) {
+      setColorSwatches(resolveBrandSwatches());
       const sel = window.getSelection();
       if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
         savedColorRangeRef.current = sel.getRangeAt(0).cloneRange();
@@ -620,9 +659,7 @@ export function InlineText({
               open={openMenu === "color"}
               onOpenChange={handleColorOpenChange}
               onPick={(value) => handleColor(value)}
-              brandSwatches={COLOR_SWATCHES.filter((c) => c.value !== "").map(
-                (c) => ({ name: c.name, value: c.value }),
-              )}
+              brandSwatches={colorSwatches}
             >
               <button
                 type="button"
