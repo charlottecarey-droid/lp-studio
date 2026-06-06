@@ -415,7 +415,7 @@ async function runStep<T>(name: string, fn: () => Promise<T>): Promise<T> {
 // table lock at all. Only a genuinely drifted DB falls through to apply the .sql
 // (where the retry wrapper + idempotent SQL still make a transient lock failure
 // safe), after which we re-assert and fail CLOSED on any shortfall.
-async function runConstraintSelfHeal(opts: {
+async function runProbedSelfHeal(opts: {
   name: string;
   applySqlFile: string;
   checkSql: string;
@@ -473,33 +473,16 @@ async function runMigrationsBody(): Promise<void> {
     // bad path, permission, malformed SQL — must abort the release rather than
     // ship an api-server that silently drops every notification. The SQL is
     // idempotent, so a retry on the next deploy is always safe.
-    await runStep("notifications schema self-heal (0041)", async () => {
-      const notificationsSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0041_notifications.sql"),
-        "utf8",
-      );
-      // Use the raw pool with a single string argument so node-postgres runs
-      // this through the SIMPLE query protocol, which allows the file's
-      // multiple statements in one round-trip. db.execute(sql.raw(...)) would
-      // send a params array and force the EXTENDED protocol, which rejects
-      // multi-statement SQL ("cannot insert multiple commands into a prepared
-      // statement").
-      await pool.query(notificationsSql);
-      // Post-step assertion: confirm both tables actually exist now. A silent
-      // no-op (e.g. the file ever stops creating them) would otherwise pass
-      // unnoticed; fail the release loudly instead.
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
+    await runProbedSelfHeal({
+      name: "notifications schema self-heal (0041)",
+      applySqlFile: "0041_notifications.sql",
+      expected: 2,
+      checkSql: `SELECT count(*)::int AS present
            FROM information_schema.tables
           WHERE table_schema = 'public'
             AND table_name IN ('notification_sends', 'notification_templates')`,
-      );
-      const present = rows[0]?.present ?? 0;
-      if (present < 2) {
-        throw new Error(
-          `notifications schema self-heal did not produce both tables (found ${present}/2) — aborting release`,
-        );
-      }
+      shortfall: (present) =>
+        `notifications schema self-heal did not produce both tables (found ${present}/2) — aborting release`,
     });
 
     // Durable self-heal for the workflow_send_failures ledger (Task #625). Same
@@ -515,23 +498,16 @@ async function runMigrationsBody(): Promise<void> {
     // missing and is a no-op everywhere else. The .sql stays the single source of
     // truth. Fails CLOSED: the table is feature-critical, so any error aborts the
     // release; the SQL is idempotent so a retry is always safe.
-    await runStep("workflow_send_failures self-heal (0051)", async () => {
-      const sendFailuresSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0051_workflow_send_failures.sql"),
-        "utf8",
-      );
-      await pool.query(sendFailuresSql);
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
+    await runProbedSelfHeal({
+      name: "workflow_send_failures self-heal (0051)",
+      applySqlFile: "0051_workflow_send_failures.sql",
+      expected: 1,
+      checkSql: `SELECT count(*)::int AS present
            FROM information_schema.tables
           WHERE table_schema = 'public'
             AND table_name = 'workflow_send_failures'`,
-      );
-      if ((rows[0]?.present ?? 0) < 1) {
-        throw new Error(
-          "workflow_send_failures self-heal did not produce the table — aborting release",
-        );
-      }
+      shortfall: () =>
+        "workflow_send_failures self-heal did not produce the table — aborting release",
     });
 
     // Durable self-heal for the tenant_email_shells.physical_address column.
@@ -546,24 +522,17 @@ async function runMigrationsBody(): Promise<void> {
     // EXISTS), so it adds the column where missing and is a no-op elsewhere. The
     // .sql stays the single source of truth. Fails CLOSED: the column is
     // feature-critical, so any error aborts the release; a retry is always safe.
-    await runStep("tenant_email_shells physical_address self-heal (0054)", async () => {
-      const physicalAddressSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0054_tenant_email_shells_physical_address.sql"),
-        "utf8",
-      );
-      await pool.query(physicalAddressSql);
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
+    await runProbedSelfHeal({
+      name: "tenant_email_shells physical_address self-heal (0054)",
+      applySqlFile: "0054_tenant_email_shells_physical_address.sql",
+      expected: 1,
+      checkSql: `SELECT count(*)::int AS present
            FROM information_schema.columns
           WHERE table_schema = 'public'
             AND table_name = 'tenant_email_shells'
             AND column_name = 'physical_address'`,
-      );
-      if ((rows[0]?.present ?? 0) < 1) {
-        throw new Error(
-          "tenant_email_shells physical_address self-heal did not produce the column — aborting release",
-        );
-      }
+      shortfall: () =>
+        "tenant_email_shells physical_address self-heal did not produce the column — aborting release",
     });
 
     // Durable self-heal for the tenant_email_shells.brand_invite_emails column
@@ -577,24 +546,17 @@ async function runMigrationsBody(): Promise<void> {
     // EXISTS), so it adds the column where missing and is a no-op elsewhere. The
     // .sql stays the single source of truth. Fails CLOSED: any error aborts the
     // release; a retry is always safe.
-    await runStep("tenant_email_shells brand_invite_emails self-heal (0074)", async () => {
-      const brandInviteSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0074_tenant_email_shells_brand_invite_emails.sql"),
-        "utf8",
-      );
-      await pool.query(brandInviteSql);
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
+    await runProbedSelfHeal({
+      name: "tenant_email_shells brand_invite_emails self-heal (0074)",
+      applySqlFile: "0074_tenant_email_shells_brand_invite_emails.sql",
+      expected: 1,
+      checkSql: `SELECT count(*)::int AS present
            FROM information_schema.columns
           WHERE table_schema = 'public'
             AND table_name = 'tenant_email_shells'
             AND column_name = 'brand_invite_emails'`,
-      );
-      if ((rows[0]?.present ?? 0) < 1) {
-        throw new Error(
-          "tenant_email_shells brand_invite_emails self-heal did not produce the column — aborting release",
-        );
-      }
+      shortfall: () =>
+        "tenant_email_shells brand_invite_emails self-heal did not produce the column — aborting release",
     });
 
     // Durable self-heal for the email_shell_templates.physical_address column.
@@ -609,24 +571,17 @@ async function runMigrationsBody(): Promise<void> {
     // missing and is a no-op elsewhere. The .sql stays the single source of
     // truth. Fails CLOSED: the column is feature-critical, so any error aborts the
     // release; a retry is always safe.
-    await runStep("email_shell_templates physical_address self-heal (0064)", async () => {
-      const platformAddressSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0064_email_shell_templates_physical_address.sql"),
-        "utf8",
-      );
-      await pool.query(platformAddressSql);
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
+    await runProbedSelfHeal({
+      name: "email_shell_templates physical_address self-heal (0064)",
+      applySqlFile: "0064_email_shell_templates_physical_address.sql",
+      expected: 1,
+      checkSql: `SELECT count(*)::int AS present
            FROM information_schema.columns
           WHERE table_schema = 'public'
             AND table_name = 'email_shell_templates'
             AND column_name = 'physical_address'`,
-      );
-      if ((rows[0]?.present ?? 0) < 1) {
-        throw new Error(
-          "email_shell_templates physical_address self-heal did not produce the column — aborting release",
-        );
-      }
+      shortfall: () =>
+        "email_shell_templates physical_address self-heal did not produce the column — aborting release",
     });
 
     // Durable self-heal for the trial phone-gating tables (Task #637). Same
@@ -640,23 +595,16 @@ async function runMigrationsBody(): Promise<void> {
     // EXISTS), so it creates the tables where missing and is a no-op elsewhere.
     // Fails CLOSED: both tables are feature-critical, so a missing table aborts
     // the release; the SQL is idempotent so a retry is always safe.
-    await runStep("trial phone-gating self-heal (0055)", async () => {
-      const trialPhoneSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0055_trial_phone_verification.sql"),
-        "utf8",
-      );
-      await pool.query(trialPhoneSql);
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
+    await runProbedSelfHeal({
+      name: "trial phone-gating self-heal (0055)",
+      applySqlFile: "0055_trial_phone_verification.sql",
+      expected: 2,
+      checkSql: `SELECT count(*)::int AS present
            FROM information_schema.tables
           WHERE table_schema = 'public'
             AND table_name IN ('trial_phone_numbers', 'trial_phone_tokens')`,
-      );
-      if ((rows[0]?.present ?? 0) < 2) {
-        throw new Error(
-          `trial phone-gating self-heal did not produce both tables (found ${rows[0]?.present ?? 0}/2) — aborting release`,
-        );
-      }
+      shortfall: (present) =>
+        `trial phone-gating self-heal did not produce both tables (found ${present}/2) — aborting release`,
     });
 
     // Durable self-heal for the trial-phone release audit log (Task #669). Same
@@ -670,23 +618,16 @@ async function runMigrationsBody(): Promise<void> {
     // so it creates the table where missing and is a no-op elsewhere. Fails
     // CLOSED: the table is feature-critical, so a missing table aborts the
     // release; the SQL is idempotent so a retry is always safe.
-    await runStep("trial_phone_release_log self-heal (0056)", async () => {
-      const releaseLogSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0056_trial_phone_release_log.sql"),
-        "utf8",
-      );
-      await pool.query(releaseLogSql);
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
+    await runProbedSelfHeal({
+      name: "trial_phone_release_log self-heal (0056)",
+      applySqlFile: "0056_trial_phone_release_log.sql",
+      expected: 1,
+      checkSql: `SELECT count(*)::int AS present
            FROM information_schema.tables
           WHERE table_schema = 'public'
             AND table_name = 'trial_phone_release_log'`,
-      );
-      if ((rows[0]?.present ?? 0) < 1) {
-        throw new Error(
-          "trial_phone_release_log self-heal did not produce the table — aborting release",
-        );
-      }
+      shortfall: () =>
+        "trial_phone_release_log self-heal did not produce the table — aborting release",
     });
 
     // Durable self-heal for the app_users.github_id column ("Sign in with
@@ -699,24 +640,17 @@ async function runMigrationsBody(): Promise<void> {
     // (ADD COLUMN IF NOT EXISTS + CREATE UNIQUE INDEX IF NOT EXISTS), so it adds
     // the column where missing and is a no-op elsewhere. Fails CLOSED: the
     // column is feature-critical, so a missing column aborts the release.
-    await runStep("app_users github_id self-heal (0057)", async () => {
-      const githubIdSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0057_app_users_github_id.sql"),
-        "utf8",
-      );
-      await pool.query(githubIdSql);
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
+    await runProbedSelfHeal({
+      name: "app_users github_id self-heal (0057)",
+      applySqlFile: "0057_app_users_github_id.sql",
+      expected: 1,
+      checkSql: `SELECT count(*)::int AS present
            FROM information_schema.columns
           WHERE table_schema = 'public'
             AND table_name = 'app_users'
             AND column_name = 'github_id'`,
-      );
-      if ((rows[0]?.present ?? 0) < 1) {
-        throw new Error(
-          "app_users github_id self-heal did not produce the column — aborting release",
-        );
-      }
+      shortfall: () =>
+        "app_users github_id self-heal did not produce the column — aborting release",
     });
 
     // Durable self-heal for the shared superadmin audit log (Task #672). Same
@@ -730,23 +664,16 @@ async function runMigrationsBody(): Promise<void> {
     // the table where missing and is a no-op elsewhere. Fails CLOSED: the table
     // is feature-critical, so a missing table aborts the release; the SQL is
     // idempotent so a retry is always safe.
-    await runStep("audit_log self-heal (0058)", async () => {
-      const auditLogSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0058_audit_log.sql"),
-        "utf8",
-      );
-      await pool.query(auditLogSql);
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
+    await runProbedSelfHeal({
+      name: "audit_log self-heal (0058)",
+      applySqlFile: "0058_audit_log.sql",
+      expected: 1,
+      checkSql: `SELECT count(*)::int AS present
            FROM information_schema.tables
           WHERE table_schema = 'public'
             AND table_name = 'audit_log'`,
-      );
-      if ((rows[0]?.present ?? 0) < 1) {
-        throw new Error(
-          "audit_log self-heal did not produce the table — aborting release",
-        );
-      }
+      shortfall: () =>
+        "audit_log self-heal did not produce the table — aborting release",
     });
 
     // Durable self-heal for the trial-phone lookup audit log (Task #673). Same
@@ -760,23 +687,16 @@ async function runMigrationsBody(): Promise<void> {
     // so it creates the table where missing and is a no-op elsewhere. Fails
     // CLOSED: the table is feature-critical, so a missing table aborts the
     // release; the SQL is idempotent so a retry is always safe.
-    await runStep("trial_phone_lookup_log self-heal (0059)", async () => {
-      const lookupLogSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0059_trial_phone_lookup_log.sql"),
-        "utf8",
-      );
-      await pool.query(lookupLogSql);
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
+    await runProbedSelfHeal({
+      name: "trial_phone_lookup_log self-heal (0059)",
+      applySqlFile: "0059_trial_phone_lookup_log.sql",
+      expected: 1,
+      checkSql: `SELECT count(*)::int AS present
            FROM information_schema.tables
           WHERE table_schema = 'public'
             AND table_name = 'trial_phone_lookup_log'`,
-      );
-      if ((rows[0]?.present ?? 0) < 1) {
-        throw new Error(
-          "trial_phone_lookup_log self-heal did not produce the table — aborting release",
-        );
-      }
+      shortfall: () =>
+        "trial_phone_lookup_log self-heal did not produce the table — aborting release",
     });
 
     // Durable self-heal for the oauth_login_states table (OAuth login-CSRF
@@ -791,23 +711,16 @@ async function runMigrationsBody(): Promise<void> {
     // and is a no-op elsewhere. Fails CLOSED: the table is auth-critical, so a
     // missing table aborts the release; the SQL is idempotent so a retry is
     // always safe.
-    await runStep("oauth_login_states self-heal (0060)", async () => {
-      const oauthStatesSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0060_oauth_login_states.sql"),
-        "utf8",
-      );
-      await pool.query(oauthStatesSql);
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
+    await runProbedSelfHeal({
+      name: "oauth_login_states self-heal (0060)",
+      applySqlFile: "0060_oauth_login_states.sql",
+      expected: 1,
+      checkSql: `SELECT count(*)::int AS present
            FROM information_schema.tables
           WHERE table_schema = 'public'
             AND table_name = 'oauth_login_states'`,
-      );
-      if ((rows[0]?.present ?? 0) < 1) {
-        throw new Error(
-          "oauth_login_states self-heal did not produce the table — aborting release",
-        );
-      }
+      shortfall: () =>
+        "oauth_login_states self-heal did not produce the table — aborting release",
     });
 
     // Durable self-heal for the sales_accounts child-FK ON DELETE actions
@@ -838,7 +751,7 @@ async function runMigrationsBody(): Promise<void> {
     // (pg_constraint.confdeltype = 'n'). Anything else still blocks the delete.
     // Probe first (AccessShareLock only); only a drifted DB runs the locking
     // DROP/ADD CONSTRAINT DDL.
-    await runConstraintSelfHeal({
+    await runProbedSelfHeal({
       name: "sales_accounts child-FK ON DELETE SET NULL self-heal (0066)",
       applySqlFile: "0066_sales_account_fk_set_null.sql",
       expected: 3,
@@ -886,7 +799,7 @@ async function runMigrationsBody(): Promise<void> {
     // The FK into sales_contacts must SET NULL on delete (confdeltype = 'n').
     // Probe first (AccessShareLock only); only a drifted DB runs the locking
     // DROP/ADD CONSTRAINT DDL.
-    await runConstraintSelfHeal({
+    await runProbedSelfHeal({
       name: "sfdc_leads converted_contact_id ON DELETE SET NULL self-heal (0067)",
       applySqlFile: "0067_sfdc_leads_converted_contact_fk_set_null.sql",
       expected: 1,
@@ -936,7 +849,7 @@ async function runMigrationsBody(): Promise<void> {
     // DB runs the locking orphan-cleanup + DROP/ADD CONSTRAINT DDL. Once all
     // four FKs exist the enforcement prevents new orphans, so skipping the
     // cleanup when already healed is safe.
-    await runConstraintSelfHeal({
+    await runProbedSelfHeal({
       name: "sales_email_sends/inbound child-FK self-heal (0070)",
       applySqlFile: "0070_sales_email_sends_inbound_fks.sql",
       expected: 4,
@@ -1045,23 +958,16 @@ async function runMigrationsBody(): Promise<void> {
     // never resurrects rows a superadmin deleted), so it creates the table where
     // missing and is a no-op elsewhere. Fails CLOSED: any error aborts the
     // release; the SQL is idempotent so a retry is always safe.
-    await runStep("featured_homepage_templates self-heal (0076)", async () => {
-      const featuredSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0076_featured_homepage_templates.sql"),
-        "utf8",
-      );
-      await pool.query(featuredSql);
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
+    await runProbedSelfHeal({
+      name: "featured_homepage_templates self-heal (0076)",
+      applySqlFile: "0076_featured_homepage_templates.sql",
+      expected: 1,
+      checkSql: `SELECT count(*)::int AS present
            FROM information_schema.tables
           WHERE table_schema = 'public'
             AND table_name = 'featured_homepage_templates'`,
-      );
-      if ((rows[0]?.present ?? 0) < 1) {
-        throw new Error(
-          "featured_homepage_templates self-heal did not produce the table — aborting release",
-        );
-      }
+      shortfall: () =>
+        "featured_homepage_templates self-heal did not produce the table — aborting release",
     });
 
     // Durable self-heal for the Marketo two-way integration tables (Task #943).
@@ -1077,41 +983,32 @@ async function runMigrationsBody(): Promise<void> {
     // missing and is a no-op elsewhere. The .sql stays the single source of
     // truth. Fails CLOSED: the schema is feature-critical, so any error aborts
     // the release; the SQL is idempotent so a retry is always safe.
-    await runStep("marketo integration schema self-heal (0077)", async () => {
-      const marketoSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0077_marketo_integration.sql"),
-        "utf8",
-      );
-      await pool.query(marketoSql);
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
-           FROM information_schema.tables
-          WHERE table_schema = 'public'
-            AND table_name IN (
-              'marketo_connections',
-              'marketo_field_mappings',
-              'marketo_sync_log',
-              'marketo_lists',
-              'marketo_activities_pushed'
-            )`,
-      );
-      if ((rows[0]?.present ?? 0) < 5) {
-        throw new Error(
-          `marketo integration schema self-heal did not produce all tables (found ${rows[0]?.present ?? 0}/5) — aborting release`,
-        );
-      }
-      const { rows: colRows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
-           FROM information_schema.columns
-          WHERE table_schema = 'public'
-            AND table_name = 'sales_contacts'
-            AND column_name IN ('marketo_lead_id', 'marketo_last_synced_at')`,
-      );
-      if ((colRows[0]?.present ?? 0) < 2) {
-        throw new Error(
-          `marketo integration self-heal did not add sales_contacts columns (found ${colRows[0]?.present ?? 0}/2) — aborting release`,
-        );
-      }
+    // Probe combines the 5 tables + 2 sales_contacts columns into one count
+    // (expected 7) so an already-healed DB skips the locking CREATE/ALTER DDL
+    // entirely — eliminating the AccessExclusiveLock that previously deadlocked
+    // the deploy hook against the still-draining old instance's writes to
+    // sales_contacts.
+    await runProbedSelfHeal({
+      name: "marketo integration schema self-heal (0077)",
+      applySqlFile: "0077_marketo_integration.sql",
+      expected: 7,
+      checkSql: `SELECT (
+             (SELECT count(*) FROM information_schema.tables
+               WHERE table_schema = 'public'
+                 AND table_name IN (
+                   'marketo_connections',
+                   'marketo_field_mappings',
+                   'marketo_sync_log',
+                   'marketo_lists',
+                   'marketo_activities_pushed'
+                 ))
+           + (SELECT count(*) FROM information_schema.columns
+               WHERE table_schema = 'public'
+                 AND table_name = 'sales_contacts'
+                 AND column_name IN ('marketo_lead_id', 'marketo_last_synced_at'))
+           )::int AS present`,
+      shortfall: (present) =>
+        `marketo integration schema self-heal did not produce all tables + sales_contacts columns (found ${present}/7) — aborting release`,
     });
 
     // Durable self-heal for the HubSpot two-way integration tables. Same
@@ -1127,41 +1024,30 @@ async function runMigrationsBody(): Promise<void> {
     // elsewhere. The .sql stays the single source of truth. Fails CLOSED: the
     // schema is feature-critical, so any error aborts the release; the SQL is
     // idempotent so a retry is always safe.
-    await runStep("hubspot integration schema self-heal (0081)", async () => {
-      const hubspotSql = readFileSync(
-        path.join(MIGRATIONS_FOLDER, "0081_hubspot_integration.sql"),
-        "utf8",
-      );
-      await pool.query(hubspotSql);
-      const { rows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
-           FROM information_schema.tables
-          WHERE table_schema = 'public'
-            AND table_name IN (
-              'hubspot_connections',
-              'hubspot_field_mappings',
-              'hubspot_sync_log',
-              'hubspot_lists',
-              'hubspot_activities_pushed'
-            )`,
-      );
-      if ((rows[0]?.present ?? 0) < 5) {
-        throw new Error(
-          `hubspot integration schema self-heal did not produce all tables (found ${rows[0]?.present ?? 0}/5) — aborting release`,
-        );
-      }
-      const { rows: colRows } = await pool.query<{ present: number }>(
-        `SELECT count(*)::int AS present
-           FROM information_schema.columns
-          WHERE table_schema = 'public'
-            AND table_name = 'sales_contacts'
-            AND column_name IN ('hubspot_contact_id', 'hubspot_last_synced_at')`,
-      );
-      if ((colRows[0]?.present ?? 0) < 2) {
-        throw new Error(
-          `hubspot integration self-heal did not add sales_contacts columns (found ${colRows[0]?.present ?? 0}/2) — aborting release`,
-        );
-      }
+    // Probe combines the 5 tables + 2 sales_contacts columns into one count
+    // (expected 7) so an already-healed DB skips the locking CREATE/ALTER DDL
+    // entirely — same deadlock-avoidance rationale as the Marketo step above.
+    await runProbedSelfHeal({
+      name: "hubspot integration schema self-heal (0081)",
+      applySqlFile: "0081_hubspot_integration.sql",
+      expected: 7,
+      checkSql: `SELECT (
+             (SELECT count(*) FROM information_schema.tables
+               WHERE table_schema = 'public'
+                 AND table_name IN (
+                   'hubspot_connections',
+                   'hubspot_field_mappings',
+                   'hubspot_sync_log',
+                   'hubspot_lists',
+                   'hubspot_activities_pushed'
+                 ))
+           + (SELECT count(*) FROM information_schema.columns
+               WHERE table_schema = 'public'
+                 AND table_name = 'sales_contacts'
+                 AND column_name IN ('hubspot_contact_id', 'hubspot_last_synced_at'))
+           )::int AS present`,
+      shortfall: (present) =>
+        `hubspot integration schema self-heal did not produce all tables + sales_contacts columns (found ${present}/7) — aborting release`,
     });
 
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
