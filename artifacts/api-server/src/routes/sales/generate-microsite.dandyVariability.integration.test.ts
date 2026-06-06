@@ -97,11 +97,23 @@ function buildExpectedHelperInput(): Array<{ type: string; props: Record<string,
   return buildAiBlocks().map((b) => ({ type: b.type, props: { ...b.props } }));
 }
 
+// The in-process inject() helper sets no socket remoteAddress, so every request
+// would otherwise share one undefined rate-limit key and trip the 5/min cap
+// once the file makes >5 generation calls. With `trust proxy` on (set in
+// beforeAll), each request gets its own limiter bucket via a unique
+// X-Forwarded-For — keeping the real limiter in the chain without throttling
+// independent tests.
+let ipCounter = 0;
+function nextIp(): string {
+  ipCounter += 1;
+  return `10.0.${Math.floor(ipCounter / 256) % 256}.${ipCounter % 256}`;
+}
+
 function injectAs(sid: string, opts: { method: string; url: string; body?: unknown }): Promise<InjectResponse> {
   return inject(app, {
     method: opts.method,
     url: opts.url,
-    headers: { cookie: `${SESSION_COOKIE}=${sid}` },
+    headers: { cookie: `${SESSION_COOKIE}=${sid}`, "x-forwarded-for": nextIp() },
     body: opts.body,
   });
 }
@@ -151,7 +163,24 @@ async function seedTenant(slug: string): Promise<number> {
   const tenantId = t.rows[0].id;
   await pool.query(
     `INSERT INTO lp_brand_settings (tenant_id, config) VALUES ($1, $2::jsonb)`,
-    [tenantId, JSON.stringify({ brandName: "IT Brand", segments: [{ id: "general", name: "General Buyers" }] })],
+    [
+      tenantId,
+      JSON.stringify({
+        brandName: "IT Brand",
+        // A curated micrositeBlockList keeps the route on the CURATED path
+        // (useFreeform=false) so the AI's dso-* blocks survive instead of being
+        // dropped to the neutral freeform fallback. This mirrors how a real
+        // Dandy tenant is configured and is what lets the supporting-section
+        // variability run on the curated funnel under test.
+        segments: [
+          {
+            id: "general",
+            name: "General Buyers",
+            micrositeBlockList: buildAiBlocks().map((b) => ({ type: b.type })),
+          },
+        ],
+      }),
+    ],
   );
   return tenantId;
 }
@@ -210,6 +239,9 @@ beforeAll(async () => {
 
   // 4. Mount the genuine router with the real auth/cookie/body middleware.
   app = express();
+  // Honor X-Forwarded-For so each injected request gets its own rate-limit
+  // bucket (the inject() helper sets no socket IP — see nextIp() above).
+  app.set("trust proxy", 1);
   app.use(cookieParser());
   app.use(express.json());
   app.use(requireAuthMod.requireAuth);
