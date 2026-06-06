@@ -178,29 +178,26 @@ function LivePreview({ url }: { url: string }) {
 function TemplateCard({
   template,
   onPreview,
-  interactive = true,
 }: {
   template: Template;
   onPreview: (t: Template) => void;
-  // On mobile the preview modal (live iframe) is a poor experience, so cards
-  // render as static, non-clickable proof. Defaults to interactive (desktop).
-  interactive?: boolean;
 }) {
-  // When non-interactive there are no hover handlers, so `hover` stays false
-  // and every hover-driven style below resolves to its resting state.
+  // Cards are tappable on every breakpoint: desktop opens the slim PreviewModal,
+  // mobile opens the full-screen MobilePreviewSheet. The hover-driven styles are
+  // purely visual; mobile fires no hover events, so `hover` simply stays false.
   const [hover, setHover] = useState(false);
   const color = CAT_COLOR[template.category] ?? CAT_COLOR_FALLBACK;
 
   return (
     <div
-      onMouseEnter={interactive ? () => setHover(true) : undefined}
-      onMouseLeave={interactive ? () => setHover(false) : undefined}
-      onClick={interactive ? () => onPreview(template) : undefined}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onClick={() => onPreview(template)}
       style={{
         background: "#fff",
         borderRadius: 14,
         overflow: "hidden",
-        cursor: interactive ? "pointer" : "default",
+        cursor: "pointer",
         transition: "transform .16s cubic-bezier(.16,1,.3,1), box-shadow .16s",
         transform: hover ? "translateY(-3px)" : "none",
         boxShadow: hover
@@ -536,6 +533,165 @@ function PreviewModal({
   return createPortal(modal, document.body);
 }
 
+// Mobile preview — a full-screen sheet that loads the live /preview/template
+// iframe at the phone's native width (the template renders responsively, so no
+// desktop-style scaling is needed). A sticky bottom CTA keeps "Use this
+// template" reachable; the header carries the title + a close affordance.
+// Honors safe-area insets so the chrome clears notches / home indicators.
+function MobilePreviewSheet({
+  template,
+  onClose,
+}: {
+  template: Template;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  if (typeof document === "undefined") return null;
+
+  const sheet = (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${template.title} — template preview`}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        background: "#fff",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {/* Header — title + close, padded for the notch */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          padding: "12px 14px",
+          paddingTop: "calc(12px + env(safe-area-inset-top, 0px))",
+          borderBottom: "1px solid var(--hairline)",
+          flexShrink: 0,
+          background: "#fff",
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "DM Sans, ui-sans-serif, system-ui, sans-serif",
+            fontWeight: 600,
+            fontSize: 15,
+            letterSpacing: "-0.01em",
+            color: "var(--ink)",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            minWidth: 0,
+            flex: 1,
+          }}
+        >
+          {template.title}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close preview"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 8,
+            background: "transparent",
+            border: "none",
+            color: "var(--ink-mute)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            flexShrink: 0,
+          }}
+        >
+          <Icon name="x" size={19} />
+        </button>
+      </div>
+
+      {/* Body — live iframe at native width, scrolls inside the sheet */}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflow: "hidden",
+          background: "var(--cream-2)",
+        }}
+      >
+        <iframe
+          src={previewUrl(template.id)}
+          title="Template preview"
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          sandbox="allow-scripts allow-same-origin"
+          style={{
+            width: "100%",
+            height: "100%",
+            border: "none",
+            background: "#fff",
+            display: "block",
+          }}
+        />
+      </div>
+
+      {/* Sticky CTA — keeps "Use this template" thumb-reachable */}
+      <div
+        style={{
+          flexShrink: 0,
+          padding: "12px 14px",
+          paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
+          borderTop: "1px solid var(--hairline)",
+          background: "#fff",
+        }}
+      >
+        <a
+          href={templateUrl(template.id)}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 7,
+            width: "100%",
+            fontSize: 14,
+            fontWeight: 600,
+            padding: "12px 16px",
+            borderRadius: 10,
+            background: "#4B47E5",
+            color: "#fff",
+            border: "none",
+            textDecoration: "none",
+            letterSpacing: "-0.005em",
+          }}
+        >
+          <Icon name="sparkles" size={14} /> Use this template
+        </a>
+      </div>
+    </div>
+  );
+
+  return createPortal(sheet, document.body);
+}
+
 // Normalize a raw API entry into a Template, dropping anything missing the
 // fields the card actually needs to render + preview/clone.
 function toTemplate(raw: unknown): Template | null {
@@ -562,17 +718,12 @@ export default function TemplatesEmbed() {
   const [templates, setTemplates] = useState<Template[]>(TEMPLATES);
 
   // SSR-safe mobile detection: default desktop (marketing is prerendered to
-  // desktop HTML), then flip after mount. On mobile we show only 3 cards and
-  // make them non-clickable (the live-iframe preview modal is a poor phone UX).
+  // desktop HTML), then flip after mount. On mobile we show only 3 cards; tap
+  // opens the full-screen MobilePreviewSheet (desktop keeps the slim modal).
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
-    const update = () => {
-      setIsMobile(mq.matches);
-      // Cards are non-interactive on mobile, so close any open preview to
-      // avoid a stale modal lingering after a resize down to phone width.
-      if (mq.matches) setOpen(null);
-    };
+    const update = () => setIsMobile(mq.matches);
     update();
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
@@ -767,19 +918,17 @@ export default function TemplatesEmbed() {
           }}
         >
           {visible.map((t) => (
-            <TemplateCard
-              key={t.id}
-              template={t}
-              onPreview={setOpen}
-              interactive={!isMobile}
-            />
+            <TemplateCard key={t.id} template={t} onPreview={setOpen} />
           ))}
         </div>
       </div>
 
-      {open && !isMobile && (
-        <PreviewModal template={open} onClose={() => setOpen(null)} />
-      )}
+      {open &&
+        (isMobile ? (
+          <MobilePreviewSheet template={open} onClose={() => setOpen(null)} />
+        ) : (
+          <PreviewModal template={open} onClose={() => setOpen(null)} />
+        ))}
     </div>
   );
 }
