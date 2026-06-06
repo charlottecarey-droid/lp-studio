@@ -1,6 +1,6 @@
 ---
-name: E2E royal-tenant teardown must clear NO-ACTION tenant-FK children
-description: Why lp-studio e2e cascades into whole-suite FK failures and how the royal-tenant teardown must clean sales rows before deleting a tenant
+name: E2E royal-tenant teardown clears tenant-FK children generically
+description: Why lp-studio e2e cascades into whole-suite FK failures and how the royal-tenant teardown auto-discovers tenant-referencing tables instead of a hand-maintained list
 ---
 
 The lp-studio Playwright e2e suite runs against the **shared prod Neon DB** (the
@@ -12,35 +12,31 @@ NEON_DATABASE_URL are inherited from the parent process), with `workers: 1`,
 and the shared `purgeStaleRoyalTenants` beforeAll in
 `tests/setup/royal-tenant.ts`) MUST first delete every tenant-scoped row whose
 `tenant_id` FK on `tenants` is `ON DELETE NO ACTION`. Many tables CASCADE on
-tenant_id and are fine, but a sizable set are NO ACTION — notably the sales
-tables `sales_accounts`, `sales_contacts`, `sales_email_campaigns`,
-`sales_email_templates`, `sales_audiences`, `sales_signals`, plus several `lp_*`
-tables: `lp_pages`, `lp_library_items`, `lp_brand_settings`, `lp_forms`, and
-`lp_integrations` (FK `lp_integrations_tenant_id_fkey`, no ON DELETE clause —
-migration 0071). Check live with: `SELECT confdeltype FROM pg_constraint` joined
-on parent=`tenants` — `'c'`=cascade/`'n'`=setnull are safe, `'a'`/`'r'` block.
+tenant_id and are fine, but a sizable set are NO ACTION (sales_*, lp_pages,
+lp_library_items, lp_brand_settings, lp_forms, lp_integrations, …).
 
-**This list grows by hand and is the recurring trap.** Each new tenant-FK child
-table must be added to BOTH `cleanupRoyalTenant` and `purgeStaleRoyalTenants`
-independently; miss one and a single leftover row poisons the whole shared-Neon
-suite. `lp_integrations` was the latest miss (a crashed integration spec left an
-orphan that 23503'd every later spec's beforeAll). Consider generic discovery of
-tenant-referencing tables instead of the hand-maintained list (see follow-up).
-
-**Why:** Sales Console specs insert into `sales_accounts`/`sales_contacts`/
-`sales_signals` under a `royal-test-%` tenant. If a leftover sales row survives,
+**Why:** If a leftover NO-ACTION child row survives a crashed spec,
 `DELETE FROM tenants` raises 23503. Because `purgeStaleRoyalTenants` deletes ALL
-`royal-test-%` tenants in beforeAll, ONE orphan turns into a whole-suite
-cascade: every later spec's beforeAll throws the same FK error (saw ~14 specs
-fail with `sales_accounts_tenant_id_fkey` while the actual culprit was a sales
-spec). The DB stays poisoned across runs until a teardown finally clears it.
+`royal-test-%` tenants in beforeAll, ONE orphan turns into a whole-suite cascade:
+every later spec's beforeAll throws the same FK error, and the DB stays poisoned
+across runs until a teardown finally clears it.
 
-**How to apply:** delete sales rows in dependency-safe order (campaigns →
-templates → accounts → contacts → signals → audiences): `sales_email_campaigns.
-template_id` is NO ACTION so campaigns must precede templates; `campaigns.
-account_id` is SET NULL so deleting accounts won't remove campaigns; deleting
-`sales_accounts` CASCADEs to contacts/briefings/signals and (via contacts) to
-sends/contact_briefings, the trailing explicit deletes mop up account-less rows.
-Use the shared `deleteTenantSalesRows(client, tenantId)` helper from BOTH
-teardown paths so they never drift. This is distinct from the generic
-concurrent-run flake note — it's a deterministic, persistent shared-DB poison.
+**The fix (current design):** teardown no longer hand-maintains the table list.
+`deleteTenantReferencingRows(client, tenantId)` DISCOVERS every single-column FK
+referencing `tenants` from `pg_constraint` at runtime (cached), then deletes per
+tenant inside a transaction using SAVEPOINTs + a retry loop: a table blocked by
+an intra-table NO-ACTION FK from another tenant-scoped table (e.g.
+`sales_email_campaigns.template_id -> sales_email_templates`) is retried until
+its blocker is gone; if a full pass makes zero progress it throws a descriptive
+error. Both `cleanupRoyalTenant` and `purgeStaleRoyalTenants` call it, so a newly
+added tenant-FK table is covered automatically with NO manual edit.
+
+**How to apply:** when adding a new tenant-scoped table, you do NOT need to touch
+royal-tenant.ts — discovery covers it. The ONE remaining assumption (documented
+in the big INVARIANT comment in that file): every FK from a NON-tenant-scoped
+table into a tenant-scoped table must be ON DELETE CASCADE or SET NULL (verified
+once via a catalog audit — query was empty). If someone adds a NO-ACTION FK from
+a non-tenant-scoped child, discovery can't reach it and the retry loop throws
+loudly rather than silently leaving an orphan; fix by making that FK CASCADE/SET
+NULL or deleting its rows explicitly. `app_sessions` has no tenant FK (keyed by
+sid) so it's still cleared explicitly by sid / email pattern.

@@ -217,51 +217,117 @@ export async function createRoyalTenant(
 }
 
 /**
- * Delete the tenant-scoped sales rows that hold a NON-cascade (NO ACTION)
- * `tenant_id` foreign key on `tenants`, so the subsequent `DELETE FROM tenants`
- * can't raise a 23503. Sales Console specs (sales-delete-controls,
- * sales-console-*) insert into sales_accounts / sales_contacts / sales_signals
- * etc. under a royal-test tenant; those FKs are `ON DELETE NO ACTION`, so a
- * leftover sales row blocks the tenant delete and poisons every subsequent
- * spec's `purgeStaleRoyalTenants` beforeAll (which deletes ALL royal-test
- * tenants) — turning one orphan into a whole-suite cascade.
+ * THE INVARIANT (read before adding a new tenant-scoped table):
  *
- * Order matters because of intra-sales FKs:
- *   - sales_email_campaigns.template_id -> sales_email_templates is NO ACTION,
- *     so campaigns must go before templates.
- *   - sales_email_campaigns.account_id -> sales_accounts is SET NULL, so
- *     deleting accounts does NOT remove campaigns — delete them explicitly.
- *   - sales_accounts CASCADEs to sales_contacts / sales_briefings /
- *     sales_signals, and sales_contacts CASCADEs to sales_email_sends /
- *     sales_contact_briefings; the trailing explicit deletes mop up any
- *     account-less rows. sales_hotlinks / sales_briefings cascade on tenant_id.
+ * Every table that holds a foreign key to `tenants` must have its rows cleared
+ * before `DELETE FROM tenants` runs, or the delete raises a 23503 and a single
+ * leftover row from a crashed spec poisons EVERY later spec's setup (the
+ * shared-Neon `purgeStaleRoyalTenants` beforeAll deletes ALL royal-test
+ * tenants, so one orphan cascades into a whole-suite failure).
+ *
+ * Historically this list was maintained BY HAND in two separate routines
+ * (`cleanupRoyalTenant` + `purgeStaleRoyalTenants`), and it broke repeatedly
+ * whenever a new child table (sales_*, lp_forms, lp_library_items,
+ * lp_integrations, …) was added but only wired into one of them. To stop that
+ * from recurring, teardown now DISCOVERS the set of tenant-referencing tables
+ * from the Postgres catalog at runtime — so a newly added table is covered
+ * automatically with zero edits here.
+ *
+ * Ordering: some tenant-scoped tables reference each OTHER via ON DELETE NO
+ * ACTION FKs (e.g. sales_email_campaigns.template_id -> sales_email_templates),
+ * so a naive single pass can 23503. `deleteTenantReferencingRows` retries
+ * blocked tables until their blocker is gone (see below). Children that are NOT
+ * tenant-scoped are handled implicitly: a catalog audit confirms every FK from
+ * a non-tenant-scoped table into a tenant-scoped one is ON DELETE CASCADE or
+ * SET NULL, so deleting the tenant-scoped parents clears them. If that ever
+ * stops being true, `deleteTenantReferencingRows` throws a descriptive error
+ * instead of silently leaving an orphan.
  */
-async function deleteTenantSalesRows(client: pg.PoolClient, tenantId: number): Promise<void> {
-  await client.query(`DELETE FROM sales_email_campaigns WHERE tenant_id = $1`, [tenantId]);
-  await client.query(`DELETE FROM sales_email_templates WHERE tenant_id = $1`, [tenantId]);
-  await client.query(`DELETE FROM sales_accounts WHERE tenant_id = $1`, [tenantId]);
-  await client.query(`DELETE FROM sales_contacts WHERE tenant_id = $1`, [tenantId]);
-  await client.query(`DELETE FROM sales_signals WHERE tenant_id = $1`, [tenantId]);
-  await client.query(`DELETE FROM sales_audiences WHERE tenant_id = $1`, [tenantId]);
+let cachedTenantTables: { table: string; column: string }[] | null = null;
+
+async function discoverTenantReferencingTables(
+  client: pg.PoolClient,
+): Promise<{ table: string; column: string }[]> {
+  if (cachedTenantTables) return cachedTenantTables;
+  // All tables with a single-column FK referencing `tenants` (excluding tenants
+  // itself). `conkey[1]` is the local FK column; `confrelid` is the referenced
+  // relation. `conrelid::regclass::text` yields a ready-to-use (schema-qualified
+  // when needed) identifier.
+  const { rows } = await client.query<{ table_name: string; column_name: string }>(
+    `SELECT con.conrelid::regclass::text AS table_name, att.attname AS column_name
+       FROM pg_constraint con
+       JOIN pg_attribute att
+         ON att.attrelid = con.conrelid
+        AND att.attnum = con.conkey[1]
+      WHERE con.contype = 'f'
+        AND con.confrelid = 'tenants'::regclass
+        AND con.conrelid <> 'tenants'::regclass
+        AND array_length(con.conkey, 1) = 1
+      ORDER BY table_name`,
+  );
+  cachedTenantTables = rows.map((r) => ({ table: r.table_name, column: r.column_name }));
+  return cachedTenantTables;
+}
+
+/**
+ * Generically clear every row referencing `tenantId` from every table that
+ * holds a tenant FK, so `DELETE FROM tenants` can't 23503. Must run inside a
+ * transaction (it uses SAVEPOINTs). Retries tables blocked by an intra-table
+ * NO ACTION FK from another tenant-scoped table until the blocker is gone;
+ * CASCADE / SET NULL children disappear when their parent row does.
+ */
+async function deleteTenantReferencingRows(
+  client: pg.PoolClient,
+  tenantId: number,
+): Promise<void> {
+  const tables = await discoverTenantReferencingTables(client);
+  let remaining = [...tables];
+  while (remaining.length) {
+    const blocked: typeof remaining = [];
+    let madeProgress = false;
+    for (const t of remaining) {
+      await client.query("SAVEPOINT del_sp");
+      try {
+        await client.query(`DELETE FROM ${t.table} WHERE "${t.column}" = $1`, [tenantId]);
+        await client.query("RELEASE SAVEPOINT del_sp");
+        madeProgress = true;
+      } catch (err) {
+        await client.query("ROLLBACK TO SAVEPOINT del_sp");
+        if ((err as { code?: string }).code === "23503") {
+          blocked.push(t);
+        } else {
+          throw err;
+        }
+      }
+    }
+    if (blocked.length && !madeProgress) {
+      throw new Error(
+        `royal-tenant teardown: could not delete tenant-referencing rows for tenant ${tenantId}; ` +
+          `tables still blocked by a foreign key: ${blocked.map((b) => b.table).join(", ")}. ` +
+          `This means a child table references one of these via an ON DELETE NO ACTION FK that is ` +
+          `NOT tenant-scoped (so it can't be auto-discovered). Give that FK ON DELETE CASCADE/SET ` +
+          `NULL, or delete its rows explicitly before calling deleteTenantReferencingRows.`,
+      );
+    }
+    remaining = blocked;
+  }
 }
 
 export async function cleanupRoyalTenant(pool: pg.Pool, t: RoyalTenant): Promise<void> {
   const client = await pool.connect();
   try {
-    // Delete in dependency order. tenant_members and tenant_roles cascade on
-    // tenant_id, but we still drop pages / brand / users / session explicitly.
+    await client.query("BEGIN");
+    // app_sessions has no tenant FK (keyed by sid), so it's cleared explicitly.
     await client.query(`DELETE FROM app_sessions WHERE sid = $1`, [t.sessionSid]);
-    await client.query(`DELETE FROM lp_pages WHERE tenant_id = $1`, [t.tenantId]);
-    await client.query(`DELETE FROM lp_library_items WHERE tenant_id = $1`, [t.tenantId]);
-    await client.query(`DELETE FROM lp_brand_settings WHERE tenant_id = $1`, [t.tenantId]);
-    // lp_integrations.tenant_id holds a NO ACTION FK on tenants (no ON DELETE
-    // clause — see migration 0071); a leftover integration row blocks the
-    // tenant DELETE below, so clear it first.
-    await client.query(`DELETE FROM lp_integrations WHERE tenant_id = $1`, [t.tenantId]);
-    // Sales rows carry a NO ACTION tenant_id FK; clear them before the tenant.
-    await deleteTenantSalesRows(client, t.tenantId);
-    await client.query(`DELETE FROM app_users WHERE id = $1`, [t.userId]);
+    // Everything else with a tenant FK (lp_pages, lp_brand_settings,
+    // lp_library_items, lp_integrations, sales_*, app_users, tenant_members,
+    // tenant_roles, …) is discovered + cleared generically.
+    await deleteTenantReferencingRows(client, t.tenantId);
     await client.query(`DELETE FROM tenants WHERE id = $1`, [t.tenantId]);
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw err;
   } finally {
     client.release();
   }
@@ -389,34 +455,22 @@ export async function cleanupDandyOnePagerRows(
 export async function purgeStaleRoyalTenants(pool: pg.Pool): Promise<void> {
   const client = await pool.connect();
   try {
-    const { rows } = await client.query<{ id: number; email: string | null }>(
-      `SELECT t.id, u.email
-         FROM tenants t
-         LEFT JOIN app_users u ON u.tenant_id = t.id
-        WHERE t.slug LIKE 'royal-test-%'`,
+    const { rows } = await client.query<{ id: number }>(
+      `SELECT id FROM tenants WHERE slug LIKE 'royal-test-%'`,
     );
     for (const row of rows) {
-      await client.query(`DELETE FROM lp_pages WHERE tenant_id = $1`, [row.id]);
-      // lp_library_items.tenant_id has a FK on tenants — leftover rows from a
-      // crashed run hold the FK and block the tenant DELETE below, which
-      // poisons every subsequent test run until cleaned by hand.
-      await client.query(`DELETE FROM lp_library_items WHERE tenant_id = $1`, [row.id]);
-      await client.query(`DELETE FROM lp_brand_settings WHERE tenant_id = $1`, [row.id]);
-      // lp_forms.tenant_id has a FK on tenants — must be cleared before the
-      // tenant row itself, otherwise DELETE FROM tenants raises a 23503 and
-      // poisons every subsequent test in the same run.
-      await client.query(`DELETE FROM lp_forms WHERE tenant_id = $1`, [row.id]);
-      // lp_integrations.tenant_id has a NO ACTION FK on tenants (migration 0071,
-      // no ON DELETE clause) — a leftover integration row from a crashed
-      // integration spec holds the FK and 23503s the tenant DELETE below.
-      await client.query(`DELETE FROM lp_integrations WHERE tenant_id = $1`, [row.id]);
-      // Sales rows carry a NO ACTION tenant_id FK on tenants — a leftover
-      // sales_account from a crashed/failed Sales Console spec holds the FK and
-      // blocks the tenant DELETE below, cascading a 23503 into every later
-      // spec's beforeAll. Clear them before the tenant row itself.
-      await deleteTenantSalesRows(client, row.id);
-      await client.query(`DELETE FROM app_users WHERE tenant_id = $1`, [row.id]);
-      await client.query(`DELETE FROM tenants WHERE id = $1`, [row.id]);
+      await client.query("BEGIN");
+      try {
+        // Discover + clear every tenant-referencing table generically (see the
+        // INVARIANT comment above deleteTenantReferencingRows). A newly added
+        // child table is covered automatically — no manual edit needed here.
+        await deleteTenantReferencingRows(client, row.id);
+        await client.query(`DELETE FROM tenants WHERE id = $1`, [row.id]);
+        await client.query("COMMIT");
+      } catch (err) {
+        await client.query("ROLLBACK").catch(() => undefined);
+        throw err;
+      }
     }
     // Sessions for the deleted users are orphaned; the JSON sid lookup in
     // requireAuth fails closed for any tenant that no longer exists, so this
