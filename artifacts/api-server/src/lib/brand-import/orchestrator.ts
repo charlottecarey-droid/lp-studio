@@ -530,7 +530,7 @@ export async function* runOrchestrator(
  * the FE consumes `proposed`, and we want the rewritten URLs to flow
  * through the existing apply-fields path without a schema change.
  */
-async function applyAssetMirror(payload: OrchestratorPayload, tenantId: number): Promise<void> {
+export async function applyAssetMirror(payload: OrchestratorPayload, tenantId: number): Promise<void> {
   const proposed = payload.proposed;
   const brandName = typeof proposed["brandName"] === "string" ? proposed["brandName"] as string : "";
   const logoUrl = typeof proposed["logoUrl"] === "string" ? proposed["logoUrl"] as string : undefined;
