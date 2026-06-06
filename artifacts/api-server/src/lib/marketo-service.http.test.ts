@@ -363,6 +363,66 @@ describe("importLeads — real HTTP layer (mocked fetch)", () => {
     expect(log.status).toBe("completed");
   }, 30_000);
 
+  it("re-acquires the token and retries once on an in-body token error (601)", async () => {
+    const tenantId = await seedTenant();
+    // Seed a currently-valid token so the FIRST request uses it (no upfront
+    // refresh). Marketo then signals the expired/invalid token as a 200-OK body
+    // with error code 601 — NOT an HTTP 401 — forcing exactly one
+    // re-acquisition + retry through the TOKEN_ERROR_CODES branch of request().
+    const connId = await seedConnection(tenantId, {
+      importUnlinkedLeads: false,
+      accessToken: "stale-but-unexpired",
+      tokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    });
+    const listId = "9601";
+    await seedStaticList(tenantId, connId, listId);
+
+    let tokenFetches = 0;
+    let leadsAttempts = 0;
+    const bearersSeen: string[] = [];
+
+    fetchHandler = (url, init) => {
+      if (url.includes("/oauth/token")) {
+        tokenFetches++;
+        return fakeResponse({ access_token: "refreshed-token", expires_in: 3600 });
+      }
+      if (url.includes(`/v1/list/${listId}/leads.json`)) {
+        leadsAttempts++;
+        bearersSeen.push((init?.headers as Record<string, string> | undefined)?.Authorization ?? "");
+        if (leadsAttempts === 1) {
+          // 200 OK body, but Marketo encodes an expired/invalid token (601).
+          return fakeResponse({
+            success: false,
+            errors: [{ code: "601", message: "Access token invalid" }],
+          });
+        }
+        // Retry after the forced refresh → success.
+        return fakeResponse({
+          success: true,
+          result: [{ id: tenantId * 1000 + 66, firstName: "Orphan", lastName: "Lead", email: "orphan@nowhere.test" }],
+          moreResult: false,
+        });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    };
+
+    const result = await marketoService.importLeads(connId, tenantId);
+
+    expect(leadsAttempts).toBe(2); // in-body 601 then a single retry
+    expect(tokenFetches).toBe(1); // exactly one re-acquisition
+    expect(bearersSeen).toEqual(["Bearer stale-but-unexpired", "Bearer refreshed-token"]);
+
+    // Import completed despite the soft token error.
+    expect(result.processed).toBe(1);
+    expect(result.skipped).toBe(1); // unlinked + importUnlinkedLeads off
+
+    const [log] = await db
+      .select()
+      .from(marketoSyncLogTable)
+      .where(eq(marketoSyncLogTable.id, result.logId));
+    expect(log.status).toBe("completed");
+  }, 30_000);
+
   it("marks the sync log failed on a non-2xx (500) leads response", async () => {
     const tenantId = await seedTenant();
     const connId = await seedConnection(tenantId, {
