@@ -206,7 +206,7 @@ export function CreatePageModal({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Create New Page</DialogTitle>
         </DialogHeader>
