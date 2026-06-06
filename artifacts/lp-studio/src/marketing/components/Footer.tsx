@@ -12,6 +12,7 @@ const productLinks = [
   { label: "Analytics", href: "/#analytics" },
   { label: "For Marketing", href: "/for-marketing" },
   { label: "For Sales", href: "/for-sales" },
+  { label: "Integrations", href: "/docs/integrations" },
   { label: "Compare", href: "/compare" },
 ];
 
