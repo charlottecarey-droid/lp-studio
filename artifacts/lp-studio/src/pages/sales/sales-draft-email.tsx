@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useRoute, useLocation } from "wouter";
-import { Copy, Check, Loader2, Mail, Sparkles, Globe, ChevronDown, ChevronUp, ExternalLink, FileText, ArrowLeft, RefreshCw, Save } from "lucide-react";
+import { Copy, Check, Loader2, Mail, Sparkles, Globe, ChevronDown, ChevronUp, ExternalLink, FileText, ArrowLeft, RefreshCw, Save, AlertTriangle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SalesLayout } from "@/components/layout/sales-layout";
@@ -265,6 +265,29 @@ export default function SalesDraftEmail() {
                     <button onClick={d.copyMicrosite} title="Copy microsite link" className="shrink-0" style={{ color: "#5a6e00" }}>
                       {d.copiedMicrosite ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
+                  </div>
+                )}
+
+                {/* Task #1138 — advisory fact-review notice (non-blocking). */}
+                {d.factWarnings.length > 0 && (
+                  <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-900">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
+                    <div className="text-xs leading-relaxed">
+                      <p className="font-semibold">
+                        {d.factWarnings.length} {d.factWarnings.length === 1 ? "stat or claim" : "stats or claims"} to verify before sending
+                      </p>
+                      <ul className="mt-1 space-y-0.5 list-disc list-inside text-amber-800">
+                        {d.factWarnings.slice(0, 5).map((w, i) => (
+                          <li key={i}>
+                            <span className="uppercase text-[10px] font-semibold tracking-wide mr-1">{w.factKind}</span>
+                            <span className="font-mono">{w.text}</span>
+                          </li>
+                        ))}
+                        {d.factWarnings.length > 5 && (
+                          <li className="list-none text-amber-700">+{d.factWarnings.length - 5} more</li>
+                        )}
+                      </ul>
+                    </div>
                   </div>
                 )}
 

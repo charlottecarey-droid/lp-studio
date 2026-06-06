@@ -6,6 +6,7 @@ import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
 import { getAIClient, fetchWithTimeout, type BriefingData } from "../../lib/ai-utils";
 import { getTenantOutboundOrigin } from "../../lib/tenantHosts";
+import { detectAdvisoryFacts, trackFactEvent, type FactWarning } from "../../lib/factFlags";
 
 /** Best-effort wrapper: log + return a default if the promise rejects. */
 async function bestEffort<T>(label: string, p: Promise<T>, fallback: T): Promise<T> {
@@ -853,9 +854,22 @@ Be factual and specific. Only include what's on the site.`;
       if (url && !sources.includes(url) && isCitationRelevant(url)) sources.push(url);
     }
 
+    // Task #1138 — advisory fact detection for the (ephemeral) email draft. No
+    // persistent flag/gate; the composer surfaces a soft "review before sending"
+    // notice. Best-effort so detection never blocks the draft.
+    const factWarnings: FactWarning[] = await bestEffort(
+      "draft-email fact detection",
+      detectAdvisoryFacts(tenantId, { subject, body }),
+      [],
+    );
+    if (factWarnings.length > 0) {
+      trackFactEvent("fact_flag_advisory_detected", { tenantId, source: "draft-email", count: factWarnings.length });
+    }
+
     res.json({
       subject,
       body,
+      factWarnings,
       hasMicrosite,
       micrositeUrl,
       contactEmail,

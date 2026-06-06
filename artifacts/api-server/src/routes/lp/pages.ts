@@ -18,6 +18,8 @@ import { triggerPublishedRender, triggerPublishedDelete } from "../../lib/trigge
 import { withDbRetry, isTransientDbError } from "../../lib/dbResilience";
 import { handlePagePublishNotifications } from "../../lib/contentSeriesNotify";
 import { triggerTemplateThumbnailCapture } from "../../lib/captureTemplateThumbnail";
+import { countPendingFactFlags } from "./fact-flags";
+import { trackFactEvent } from "../../lib/factFlags";
 import { isRootSuperadminEmail } from "../../lib/rootSuperadmin";
 
 const router = Router();
@@ -756,6 +758,27 @@ router.post("/lp/pages/:pageId/approve", async (req, res): Promise<void> => {
     res.status(409).json({ error: "Page is not pending review" });
     return;
   }
+  // Task #1138 — Strict Facts publish gate on the review-approval path too.
+  {
+    const pending = await countPendingFactFlags(tenantId, id);
+    if (pending > 0) {
+      if (req.body?.bulkApproveFactFlags === true) {
+        await db.execute(
+          sql`UPDATE lp_page_fact_flags
+              SET triage_state = 'approved_for_page', resolved_at = now(), updated_at = now()
+              WHERE tenant_id = ${tenantId} AND page_id = ${id} AND triage_state = 'pending'`,
+        );
+        trackFactEvent("fact_flag_published_with_bulk_approve", { tenantId, pageId: id, approved: pending });
+      } else {
+        res.status(409).json({
+          error: "Resolve flagged facts before publishing",
+          code: "fact_flags_pending",
+          pendingCount: pending,
+        });
+        return;
+      }
+    }
+  }
 
   const [updated] = await db
     .update(lpPagesTable)
@@ -925,6 +948,29 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
       if (!allowed) {
         res.status(403).json({ error: "You don't have permission to change page status. Submit for review instead." });
         return;
+      }
+    }
+    // Task #1138 — Strict Facts publish gate. Refuse to publish a page that
+    // still has pending fact flags, unless the caller bulk-approves them in the
+    // same request (bulk-approve-and-publish).
+    if (status === "published") {
+      const pending = await countPendingFactFlags(tenantId, id);
+      if (pending > 0) {
+        if (req.body?.bulkApproveFactFlags === true) {
+          await db.execute(
+            sql`UPDATE lp_page_fact_flags
+                SET triage_state = 'approved_for_page', resolved_at = now(), updated_at = now()
+                WHERE tenant_id = ${tenantId} AND page_id = ${id} AND triage_state = 'pending'`,
+          );
+          trackFactEvent("fact_flag_published_with_bulk_approve", { tenantId, pageId: id, approved: pending });
+        } else {
+          res.status(409).json({
+            error: "Resolve flagged facts before publishing",
+            code: "fact_flags_pending",
+            pendingCount: pending,
+          });
+          return;
+        }
       }
     }
     updates.status = status;

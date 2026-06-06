@@ -31,7 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AccountCombobox } from "@/components/AccountCombobox";
 import { fetchBrandConfig, type AudienceSegment } from "@/lib/brand-config";
-import { rememberStrictMismatches } from "@/lib/strictMismatches";
+import { syncFactFlags } from "@/lib/fact-flags-api";
 import { rememberCritiqueAnnotations } from "@/lib/critiqueAnnotations";
 import { cn } from "@/lib/utils";
 
@@ -316,7 +316,6 @@ export function NewMicrositeModal({ open, onClose }: Props) {
             title?: string;
             slug?: string;
             blocks?: unknown[];
-            strictMismatches?: unknown;
             critiqueAnnotations?: unknown;
           };
           // Save the AI-generated page. If the user supplied a title, prefer
@@ -341,8 +340,9 @@ export function NewMicrositeModal({ open, onClose }: Props) {
           pageId = page.id;
           createdTitle = finalTitle;
           createdSlug = finalSlug;
-          // Task #254 — surface unapproved-stat warnings on the editor.
-          rememberStrictMismatches(pageId, generated.strictMismatches);
+          // Task #1138 — detect + persist per-page fact flags (review banner +
+          // publish gate). Best-effort so a sync failure can't block creation.
+          void syncFactFlags(pageId).catch(() => {});
           rememberCritiqueAnnotations(pageId, generated.critiqueAnnotations);
         }
       } else {
@@ -401,7 +401,6 @@ export function NewMicrositeModal({ open, onClose }: Props) {
               title?: string;
               slug?: string;
               blocks?: unknown[];
-              strictMismatches?: unknown;
               critiqueAnnotations?: unknown;
             };
             const saveRes = await fetch(`${API_BASE}/lp/pages`, {
@@ -420,8 +419,8 @@ export function NewMicrositeModal({ open, onClose }: Props) {
             }
             const page = (await saveRes.json()) as { id: number };
             pageId = page.id;
-            // Task #254 — surface unapproved-stat warnings on the editor.
-            rememberStrictMismatches(pageId, generated.strictMismatches);
+            // Task #1138 — detect + persist per-page fact flags (best-effort).
+            void syncFactFlags(pageId).catch(() => {});
             rememberCritiqueAnnotations(pageId, generated.critiqueAnnotations);
           } else {
             const body: Record<string, unknown> = {

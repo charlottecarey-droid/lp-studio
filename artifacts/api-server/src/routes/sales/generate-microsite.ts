@@ -52,6 +52,7 @@ import { mirrorReferenceImages } from "../../lib/brand-import/assets-uploader";
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
+import { detectAndWriteFlagsForPage, templateFactForms } from "../../lib/factFlags";
 import { deriveCompanyName, derivePracticeCount } from "../../lib/businessCaseVars";
 import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../lib/tenantSettings";
 import { isDandyTenant } from "../../lib/planFeatures";
@@ -2266,6 +2267,22 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
           return;
         }
         throw insertErr; // non-duplicate error — let outer catch handle it
+      }
+    }
+
+    // Task #1138 — detect + persist per-page fact flags for the review flow.
+    // Best-effort: a detection hiccup must never block microsite generation.
+    // Template-authored facts are pre-tagged so vetted templates produce no flags.
+    if (page?.id) {
+      try {
+        await detectAndWriteFlagsForPage({
+          tenantId: account.tenantId,
+          pageId: page.id,
+          blocks: normalizedBlocks,
+          templateForms: templateBlocks ? templateFactForms(templateBlocks as unknown[]) : undefined,
+        });
+      } catch (flagErr) {
+        logger.warn({ err: flagErr }, "[generate-microsite] fact-flag sync failed");
       }
     }
 

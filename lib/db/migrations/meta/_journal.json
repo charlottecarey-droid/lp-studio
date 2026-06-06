@@ -2,90 +2,607 @@
   "version": "7",
   "dialect": "postgresql",
   "entries": [
-    { "idx":  0, "version": "7", "when": 1700000000000, "tag": "0000_initial_schema",                          "breakpoints": false },
-    { "idx":  1, "version": "7", "when": 1700000001000, "tag": "0001_sfdc_integration",                        "breakpoints": false },
-    { "idx":  2, "version": "7", "when": 1700000002000, "tag": "0002_tenant_microsite_domain",                 "breakpoints": false },
-    { "idx":  3, "version": "7", "when": 1700000003000, "tag": "0003_sales_layout_defaults",                   "breakpoints": false },
-    { "idx":  4, "version": "7", "when": 1700000004000, "tag": "0004_utm_tracking",                            "breakpoints": false },
-    { "idx":  5, "version": "7", "when": 1700000005000, "tag": "0005_lp_forms_chili_piper_config",             "breakpoints": false },
-    { "idx":  6, "version": "7", "when": 1700000006000, "tag": "0006_lp_events_optional_test_variant",         "breakpoints": false },
-    { "idx":  7, "version": "7", "when": 1700000007000, "tag": "0007_tenant_slug_redirects",                   "breakpoints": false },
-    { "idx":  8, "version": "7", "when": 1700000008000, "tag": "0008_sales_email_campaigns_set_null",          "breakpoints": false },
-    { "idx":  9, "version": "7", "when": 1700000009000, "tag": "0009_sales_sfdc_tenant_id",                    "breakpoints": false },
-    { "idx": 10, "version": "7", "when": 1700000010000, "tag": "0010_tenant_slug_redirects_notified_at",       "breakpoints": false },
-    { "idx": 11, "version": "7", "when": 1700000011000, "tag": "0011_tenant_webhook_secrets",                  "breakpoints": false },
-    { "idx": 12, "version": "7", "when": 1700000012000, "tag": "0012_lp_library_approved_for_ai",              "breakpoints": false },
-    { "idx": 13, "version": "7", "when": 1700000013000, "tag": "0013_lp_brand_claims_normalize",               "breakpoints": false },
-    { "idx": 14, "version": "7", "when": 1700000014000, "tag": "0014_lp_proof_points",                         "breakpoints": false },
-    { "idx": 15, "version": "7", "when": 1700000015000, "tag": "0015_lp_events_page_form_id",                  "breakpoints": false },
-    { "idx": 16, "version": "7", "when": 1700000016000, "tag": "0016_sales_contact_briefings",                 "breakpoints": false },
-    { "idx": 17, "version": "7", "when": 1700000017000, "tag": "0017_sales_hotlinks_contact_page_unique",      "breakpoints": false },
-    { "idx": 18, "version": "7", "when": 1700000018000, "tag": "0018_sales_email_campaigns_template_id_nullable", "breakpoints": false },
-    { "idx": 19, "version": "7", "when": 1700000019000, "tag": "0019_sales_tenant_scoping",                    "breakpoints": false },
-    { "idx": 20, "version": "7", "when": 1700000020000, "tag": "0020_seed_dandy_sales_console",                "breakpoints": false },
-    { "idx": 21, "version": "7", "when": 1700000021000, "tag": "0021_lp_forms_gtm_datalayer_config",           "breakpoints": false },
-    { "idx": 22, "version": "7", "when": 1700000022000, "tag": "0022_dandy_dca_proof_rephrase",                "breakpoints": false },
-    { "idx": 23, "version": "7", "when": 1747600000000, "tag": "0023_block_catalog_init",                      "breakpoints": false },
-    { "idx": 24, "version": "7", "when": 1747700000000, "tag": "0024_lp_forms_styling",                        "breakpoints": false },
-    { "idx": 25, "version": "7", "when": 1747800000000, "tag": "0025_lp_pages_asset_health",                   "breakpoints": false },
-    { "idx": 26, "version": "7", "when": 1747900000000, "tag": "0026_lp_forms_sheets_config",                  "breakpoints": false },
-    { "idx": 27, "version": "7", "when": 1748000000000, "tag": "0027_tenant_cloudflare_hostname_id",           "breakpoints": false },
-    { "idx": 28, "version": "7", "when": 1748100000000, "tag": "0028_tenant_custom_domain_status",             "breakpoints": false },
-    { "idx": 29, "version": "7", "when": 1748200000000, "tag": "0029_tenants_stripe",                          "breakpoints": false },
-    { "idx": 30, "version": "7", "when": 1748300000000, "tag": "0030_tenants_stripe_snapshot",                 "breakpoints": false },
-    { "idx": 31, "version": "7", "when": 1748400000000, "tag": "0031_auth_exchange_codes_target_host",         "breakpoints": false },
-    { "idx": 32, "version": "7", "when": 1748500000000, "tag": "0032_lp_brand_import_cache",                   "breakpoints": false },
-    { "idx": 33, "version": "7", "when": 1748600000000, "tag": "0033_ai_generation_log",                       "breakpoints": false },
-    { "idx": 34, "version": "7", "when": 1748700000000, "tag": "0034_ai_generation_log_banned_phrase_hits",   "breakpoints": false },
-    { "idx": 35, "version": "7", "when": 1748800000000, "tag": "0035_pricing_5tier_plan_reconcile",           "breakpoints": false },
-    { "idx": 36, "version": "7", "when": 1748900000000, "tag": "0036_plan_config",                            "breakpoints": false },
-    { "idx": 37, "version": "7", "when": 1749000000000, "tag": "0037_block_catalog_tags",                     "breakpoints": false },
-    { "idx": 38, "version": "7", "when": 1749100000000, "tag": "0038_lp_pages_robots",                        "breakpoints": false },
-    { "idx": 39, "version": "7", "when": 1749200000000, "tag": "0039_tenants_trial",                          "breakpoints": false },
-    { "idx": 40, "version": "7", "when": 1749300000000, "tag": "0040_tenants_plan_default_free",              "breakpoints": false },
-    { "idx": 41, "version": "7", "when": 1749400000000, "tag": "0041_notifications",                          "breakpoints": false },
-    { "idx": 42, "version": "7", "when": 1749500000000, "tag": "0042_tenants_plan_canonical_check",           "breakpoints": false },
-    { "idx": 43, "version": "7", "when": 1749600000000, "tag": "0043_auth_email_password",                    "breakpoints": false },
-    { "idx": 44, "version": "7", "when": 1749700000000, "tag": "0044_email_template_authoring",              "breakpoints": false },
-    { "idx": 45, "version": "7", "when": 1749800000000, "tag": "0045_notification_preferences",             "breakpoints": false },
-    { "idx": 46, "version": "7", "when": 1749900000000, "tag": "0046_tenant_scoped_emails",               "breakpoints": false },
-    { "idx": 47, "version": "7", "when": 1750000000000, "tag": "0047_email_workflows",                    "breakpoints": false },
-    { "idx": 48, "version": "7", "when": 1750100000000, "tag": "0048_email_template_sender_fields",      "breakpoints": false },
-    { "idx": 49, "version": "7", "when": 1750200000000, "tag": "0049_block_catalog_ai_enabled",           "breakpoints": false },
-    { "idx": 50, "version": "7", "when": 1750300000000, "tag": "0050_broadcast_alert_recipients",         "breakpoints": false },
-    { "idx": 51, "version": "7", "when": 1750500000000, "tag": "0051_workflow_send_failures",            "breakpoints": false },
-    { "idx": 52, "version": "7", "when": 1750600000000, "tag": "0052_broadcast_alert_recipient_groups",  "breakpoints": false },
-    { "idx": 53, "version": "7", "when": 1750700000000, "tag": "0053_broadcast_recipient_groups",        "breakpoints": false },
-    { "idx": 54, "version": "7", "when": 1750800000000, "tag": "0054_tenant_email_shells_physical_address", "breakpoints": false },
-    { "idx": 55, "version": "7", "when": 1750900000000, "tag": "0055_trial_phone_verification",          "breakpoints": false },
-    { "idx": 56, "version": "7", "when": 1751000000000, "tag": "0056_trial_phone_release_log",           "breakpoints": false },
-    { "idx": 57, "version": "7", "when": 1751100000000, "tag": "0057_app_users_github_id",               "breakpoints": false },
-    { "idx": 58, "version": "7", "when": 1751200000000, "tag": "0058_audit_log",                          "breakpoints": false },
-    { "idx": 59, "version": "7", "when": 1751300000000, "tag": "0059_trial_phone_lookup_log",            "breakpoints": false },
-    { "idx": 60, "version": "7", "when": 1751400000000, "tag": "0060_oauth_login_states",                "breakpoints": false },
-    { "idx": 61, "version": "7", "when": 1751500000000, "tag": "0061_page_detail_indexes",               "breakpoints": false },
-    { "idx": 62, "version": "7", "when": 1751600000000, "tag": "0062_lp_pages_template_thumbnail",        "breakpoints": false },
-    { "idx": 63, "version": "7", "when": 1751700000000, "tag": "0063_lp_template_usage",                  "breakpoints": false },
-    { "idx": 64, "version": "7", "when": 1751800000000, "tag": "0064_email_shell_templates_physical_address", "breakpoints": false },
-    { "idx": 65, "version": "7", "when": 1751900000000, "tag": "0065_plan_config_email_tiers",            "breakpoints": false },
-    { "idx": 66, "version": "7", "when": 1752000000000, "tag": "0066_sales_account_fk_set_null",          "breakpoints": false },
-    { "idx": 67, "version": "7", "when": 1752100000000, "tag": "0067_sfdc_leads_converted_contact_fk_set_null", "breakpoints": false },
-    { "idx": 68, "version": "7", "when": 1752200000000, "tag": "0068_sales_email_tenant_scoping",         "breakpoints": false },
-    { "idx": 69, "version": "7", "when": 1752300000000, "tag": "0069_content_series_notifications",        "breakpoints": false },
-    { "idx": 70, "version": "7", "when": 1752400000000, "tag": "0070_sales_email_sends_inbound_fks",        "breakpoints": false },
-    { "idx": 71, "version": "7", "when": 1752500000000, "tag": "0071_lp_integrations_tenant_scoping",       "breakpoints": false },
-    { "idx": 73, "version": "7", "when": 1752600000000, "tag": "0073_lp_events_page_id_index",              "breakpoints": false },
-    { "idx": 72, "version": "7", "when": 1752700000000, "tag": "0072_tenant_fk_constraints",                "breakpoints": false },
-    { "idx": 74, "version": "7", "when": 1752800000000, "tag": "0074_tenant_email_shells_brand_invite_emails", "breakpoints": false },
-    { "idx": 75, "version": "7", "when": 1752900000000, "tag": "0075_lp_leads_session_id",                   "breakpoints": false },
-    { "idx": 76, "version": "7", "when": 1753000000000, "tag": "0076_featured_homepage_templates",           "breakpoints": false },
-    { "idx": 77, "version": "7", "when": 1753100000000, "tag": "0077_marketo_integration",                   "breakpoints": false },
-    { "idx": 78, "version": "7", "when": 1753200000000, "tag": "0078_slack_integration",                     "breakpoints": false },
-    { "idx": 79, "version": "7", "when": 1753300000000, "tag": "0079_tenants_og_defaults",                   "breakpoints": false },
-    { "idx": 80, "version": "7", "when": 1753400000000, "tag": "0080_marketing_homepage_og",                  "breakpoints": false },
-    { "idx": 81, "version": "7", "when": 1753500000000, "tag": "0081_hubspot_integration",                     "breakpoints": false },
-    { "idx": 82, "version": "7", "when": 1753600000000, "tag": "0082_marketing_page_og",                       "breakpoints": false },
-    { "idx": 83, "version": "7", "when": 1753700000000, "tag": "0083_lp_media_dimensions",                     "breakpoints": false },
-    { "idx": 84, "version": "7", "when": 1753800000000, "tag": "0084_sfdc_leads_industry_rating",            "breakpoints": false }
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1700000000000,
+      "tag": "0000_initial_schema",
+      "breakpoints": false
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1700000001000,
+      "tag": "0001_sfdc_integration",
+      "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1700000002000,
+      "tag": "0002_tenant_microsite_domain",
+      "breakpoints": false
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1700000003000,
+      "tag": "0003_sales_layout_defaults",
+      "breakpoints": false
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1700000004000,
+      "tag": "0004_utm_tracking",
+      "breakpoints": false
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1700000005000,
+      "tag": "0005_lp_forms_chili_piper_config",
+      "breakpoints": false
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1700000006000,
+      "tag": "0006_lp_events_optional_test_variant",
+      "breakpoints": false
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1700000007000,
+      "tag": "0007_tenant_slug_redirects",
+      "breakpoints": false
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1700000008000,
+      "tag": "0008_sales_email_campaigns_set_null",
+      "breakpoints": false
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1700000009000,
+      "tag": "0009_sales_sfdc_tenant_id",
+      "breakpoints": false
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1700000010000,
+      "tag": "0010_tenant_slug_redirects_notified_at",
+      "breakpoints": false
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1700000011000,
+      "tag": "0011_tenant_webhook_secrets",
+      "breakpoints": false
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1700000012000,
+      "tag": "0012_lp_library_approved_for_ai",
+      "breakpoints": false
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1700000013000,
+      "tag": "0013_lp_brand_claims_normalize",
+      "breakpoints": false
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1700000014000,
+      "tag": "0014_lp_proof_points",
+      "breakpoints": false
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1700000015000,
+      "tag": "0015_lp_events_page_form_id",
+      "breakpoints": false
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1700000016000,
+      "tag": "0016_sales_contact_briefings",
+      "breakpoints": false
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1700000017000,
+      "tag": "0017_sales_hotlinks_contact_page_unique",
+      "breakpoints": false
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1700000018000,
+      "tag": "0018_sales_email_campaigns_template_id_nullable",
+      "breakpoints": false
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1700000019000,
+      "tag": "0019_sales_tenant_scoping",
+      "breakpoints": false
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1700000020000,
+      "tag": "0020_seed_dandy_sales_console",
+      "breakpoints": false
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1700000021000,
+      "tag": "0021_lp_forms_gtm_datalayer_config",
+      "breakpoints": false
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1700000022000,
+      "tag": "0022_dandy_dca_proof_rephrase",
+      "breakpoints": false
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1747600000000,
+      "tag": "0023_block_catalog_init",
+      "breakpoints": false
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1747700000000,
+      "tag": "0024_lp_forms_styling",
+      "breakpoints": false
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1747800000000,
+      "tag": "0025_lp_pages_asset_health",
+      "breakpoints": false
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1747900000000,
+      "tag": "0026_lp_forms_sheets_config",
+      "breakpoints": false
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1748000000000,
+      "tag": "0027_tenant_cloudflare_hostname_id",
+      "breakpoints": false
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1748100000000,
+      "tag": "0028_tenant_custom_domain_status",
+      "breakpoints": false
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1748200000000,
+      "tag": "0029_tenants_stripe",
+      "breakpoints": false
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1748300000000,
+      "tag": "0030_tenants_stripe_snapshot",
+      "breakpoints": false
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1748400000000,
+      "tag": "0031_auth_exchange_codes_target_host",
+      "breakpoints": false
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1748500000000,
+      "tag": "0032_lp_brand_import_cache",
+      "breakpoints": false
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1748600000000,
+      "tag": "0033_ai_generation_log",
+      "breakpoints": false
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1748700000000,
+      "tag": "0034_ai_generation_log_banned_phrase_hits",
+      "breakpoints": false
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1748800000000,
+      "tag": "0035_pricing_5tier_plan_reconcile",
+      "breakpoints": false
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1748900000000,
+      "tag": "0036_plan_config",
+      "breakpoints": false
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1749000000000,
+      "tag": "0037_block_catalog_tags",
+      "breakpoints": false
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1749100000000,
+      "tag": "0038_lp_pages_robots",
+      "breakpoints": false
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1749200000000,
+      "tag": "0039_tenants_trial",
+      "breakpoints": false
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1749300000000,
+      "tag": "0040_tenants_plan_default_free",
+      "breakpoints": false
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1749400000000,
+      "tag": "0041_notifications",
+      "breakpoints": false
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1749500000000,
+      "tag": "0042_tenants_plan_canonical_check",
+      "breakpoints": false
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1749600000000,
+      "tag": "0043_auth_email_password",
+      "breakpoints": false
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1749700000000,
+      "tag": "0044_email_template_authoring",
+      "breakpoints": false
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1749800000000,
+      "tag": "0045_notification_preferences",
+      "breakpoints": false
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1749900000000,
+      "tag": "0046_tenant_scoped_emails",
+      "breakpoints": false
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1750000000000,
+      "tag": "0047_email_workflows",
+      "breakpoints": false
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1750100000000,
+      "tag": "0048_email_template_sender_fields",
+      "breakpoints": false
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1750200000000,
+      "tag": "0049_block_catalog_ai_enabled",
+      "breakpoints": false
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1750300000000,
+      "tag": "0050_broadcast_alert_recipients",
+      "breakpoints": false
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1750500000000,
+      "tag": "0051_workflow_send_failures",
+      "breakpoints": false
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1750600000000,
+      "tag": "0052_broadcast_alert_recipient_groups",
+      "breakpoints": false
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1750700000000,
+      "tag": "0053_broadcast_recipient_groups",
+      "breakpoints": false
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1750800000000,
+      "tag": "0054_tenant_email_shells_physical_address",
+      "breakpoints": false
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1750900000000,
+      "tag": "0055_trial_phone_verification",
+      "breakpoints": false
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1751000000000,
+      "tag": "0056_trial_phone_release_log",
+      "breakpoints": false
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1751100000000,
+      "tag": "0057_app_users_github_id",
+      "breakpoints": false
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1751200000000,
+      "tag": "0058_audit_log",
+      "breakpoints": false
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1751300000000,
+      "tag": "0059_trial_phone_lookup_log",
+      "breakpoints": false
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1751400000000,
+      "tag": "0060_oauth_login_states",
+      "breakpoints": false
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1751500000000,
+      "tag": "0061_page_detail_indexes",
+      "breakpoints": false
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1751600000000,
+      "tag": "0062_lp_pages_template_thumbnail",
+      "breakpoints": false
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1751700000000,
+      "tag": "0063_lp_template_usage",
+      "breakpoints": false
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1751800000000,
+      "tag": "0064_email_shell_templates_physical_address",
+      "breakpoints": false
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1751900000000,
+      "tag": "0065_plan_config_email_tiers",
+      "breakpoints": false
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1752000000000,
+      "tag": "0066_sales_account_fk_set_null",
+      "breakpoints": false
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1752100000000,
+      "tag": "0067_sfdc_leads_converted_contact_fk_set_null",
+      "breakpoints": false
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1752200000000,
+      "tag": "0068_sales_email_tenant_scoping",
+      "breakpoints": false
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1752300000000,
+      "tag": "0069_content_series_notifications",
+      "breakpoints": false
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1752400000000,
+      "tag": "0070_sales_email_sends_inbound_fks",
+      "breakpoints": false
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1752500000000,
+      "tag": "0071_lp_integrations_tenant_scoping",
+      "breakpoints": false
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1752600000000,
+      "tag": "0073_lp_events_page_id_index",
+      "breakpoints": false
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1752700000000,
+      "tag": "0072_tenant_fk_constraints",
+      "breakpoints": false
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1752800000000,
+      "tag": "0074_tenant_email_shells_brand_invite_emails",
+      "breakpoints": false
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1752900000000,
+      "tag": "0075_lp_leads_session_id",
+      "breakpoints": false
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1753000000000,
+      "tag": "0076_featured_homepage_templates",
+      "breakpoints": false
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1753100000000,
+      "tag": "0077_marketo_integration",
+      "breakpoints": false
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1753200000000,
+      "tag": "0078_slack_integration",
+      "breakpoints": false
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1753300000000,
+      "tag": "0079_tenants_og_defaults",
+      "breakpoints": false
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1753400000000,
+      "tag": "0080_marketing_homepage_og",
+      "breakpoints": false
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1753500000000,
+      "tag": "0081_hubspot_integration",
+      "breakpoints": false
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1753600000000,
+      "tag": "0082_marketing_page_og",
+      "breakpoints": false
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1753700000000,
+      "tag": "0083_lp_media_dimensions",
+      "breakpoints": false
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1753800000000,
+      "tag": "0084_sfdc_leads_industry_rating",
+      "breakpoints": false
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1753900000000,
+      "tag": "0085_lp_page_fact_flags",
+      "breakpoints": false
+    }
   ]
 }

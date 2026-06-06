@@ -18,6 +18,7 @@ import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
 import { resolveBlockTags, BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS, type BlockRoleTag } from "@workspace/lp-template-engine";
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
+import { detectFacts } from "../../lib/factFlags";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
 import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
 import { readImageDimensions, type ImageDimensions } from "../../lib/imageDimensions";
@@ -4115,6 +4116,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         slug,
         blocks: mergedBlocks,
         strictMismatches,
+        // Task #1138 — raw candidate facts (stats + claims + quotes). The
+        // client persists these as pending flags via the page's /fact-flags/sync
+        // endpoint once the page row exists.
+        detectedFacts: detectFacts(mergedBlocks),
         bannedPhraseHits,
         critiqueAnnotations,
         referenceUrl: scrapeResult.scraped?.url ?? null,
@@ -5089,6 +5094,9 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       slug: parsed.slug,
       blocks: parsed.blocks,
       strictMismatches,
+      // Task #1138 — raw candidate facts persisted as pending flags by the
+      // client via /fact-flags/sync after the page row is created.
+      detectedFacts: detectFacts(parsed.blocks),
       bannedPhraseHits,
       critiqueAnnotations,
       referenceUrl: scrapeResult.scraped?.url ?? null,

@@ -15,6 +15,15 @@ export const lpProofPointsTable = pgTable(
     asOfDate: date("as_of_date"),
     approvedForAi: boolean("approved_for_ai").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
+    // Task #1138 — proof points can now be a reusable STAT or a reusable QUOTE
+    // (with attribution), so the Swap dropdown in the fact-review modal can be
+    // filtered by the kind of fact being swapped.
+    factKind: text("fact_kind").notNull().default("stat"),
+    attributionName: text("attribution_name").notNull().default(""),
+    attributionTitle: text("attribution_title").notNull().default(""),
+    attributionCompany: text("attribution_company").notNull().default(""),
+    attributionPhotoUrl: text("attribution_photo_url").notNull().default(""),
+    consentNote: text("consent_note").notNull().default(""),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

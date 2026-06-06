@@ -23,6 +23,11 @@ export interface ResearchText {
   site: string;
 }
 
+export interface FactWarning {
+  factKind: "stat" | "claim" | "quote";
+  text: string;
+}
+
 interface EmailDraftResult {
   subject?: string;
   body?: string;
@@ -33,6 +38,7 @@ interface EmailDraftResult {
   hookSource?: string | null;
   emailTheme?: string | null;
   researchText?: ResearchText;
+  factWarnings?: FactWarning[];
 }
 
 export function useEmailDraft(urlContactId: number | null) {
@@ -62,6 +68,7 @@ export function useEmailDraft(urlContactId: number | null) {
   const [hookSource, setHookSource] = useState<string | null>(null);
   const [emailTheme, setEmailTheme] = useState<string | null>(null);
   const [researchText, setResearchText] = useState<ResearchText | null>(null);
+  const [factWarnings, setFactWarnings] = useState<FactWarning[]>([]);
   const [error, setError] = useState("");
 
   // ── Copy ───────────────────────────────────────────────────
@@ -163,6 +170,7 @@ export function useEmailDraft(urlContactId: number | null) {
     setSources([]);
     setHookSource(null);
     setResearchText(null);
+    setFactWarnings([]);
     setBrief("");
     setBriefOpen(false);
 
@@ -190,6 +198,7 @@ export function useEmailDraft(urlContactId: number | null) {
       setHookSource(data.hookSource ?? null);
       setEmailTheme(data.emailTheme ?? null);
       setResearchText(data.researchText ?? null);
+      setFactWarnings(Array.isArray(data.factWarnings) ? data.factWarnings : []);
     } catch (err) {
       if (!cancelRef.current) {
         setError(err instanceof Error ? err.message : "Error generating email");
@@ -310,6 +319,7 @@ export function useEmailDraft(urlContactId: number | null) {
     generating, subject, body, hasMicrosite, micrositeUrl, researchUsed,
     sources, sourcesOpen, setSourcesOpen,
     hookSource, emailTheme, researchText, error,
+    factWarnings,
     generateEmail,
     textareaRef,
 

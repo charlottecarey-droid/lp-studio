@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { lpPagesTable, lpPageVisitsTable, salesLayoutDefaultsTable } from "@workspace/db";
 import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
 import { isDandyTenant } from "../../lib/planFeatures";
+import { detectAndWriteFlagsForPage } from "../../lib/factFlags";
 import { isDandyGatedBuiltin } from "@workspace/one-pager-types/constants";
 
 const router = Router();
@@ -449,6 +450,17 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
       status: "published",
       blocks: blocks as unknown as typeof lpPagesTable.$inferInsert["blocks"],
     }).returning({ id: lpPagesTable.id, slug: lpPagesTable.slug });
+
+    // Task #1138 — detect + persist per-page fact flags (account-specific stats
+    // pulled into the one-pager are exactly what the reviewer should vet). Best-
+    // effort so detection never blocks one-pager generation.
+    if (page?.id) {
+      try {
+        await detectAndWriteFlagsForPage({ tenantId, pageId: page.id, blocks });
+      } catch (flagErr) {
+        console.warn("[web-one-pager] fact-flag sync failed", String(flagErr));
+      }
+    }
 
     res.json({ pageId: page.id, slug: page.slug, url: `/lp/${page.slug}` });
   } catch (err) {

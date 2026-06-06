@@ -53,6 +53,7 @@ import homepageOgRouter from "./homepage-og";
 import marketingPageOgRouter from "./marketing-page-og";
 import emailDomainRouter from "./email-domain";
 import brandedEmailSubdomainRouter from "./branded-email-subdomain";
+import factFlagsRouter from "./fact-flags";
 
 const router = Router();
 
@@ -113,6 +114,7 @@ router.use(rssSyncRouter);
 router.use(extractGuestsRouter);
 router.use(podcastAvailabilityRouter);
 router.use(contentSeriesRouter);
+router.use(factFlagsRouter);
 router.use(testSentryErrorRouter);
 
 export default router;

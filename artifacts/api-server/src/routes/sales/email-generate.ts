@@ -5,6 +5,7 @@ import { salesContactsTable, salesAccountsTable } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { callAIChat, aiErrorMessage } from "../../lib/ai-utils";
 import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
+import { detectAdvisoryFacts, trackFactEvent, type FactWarning } from "../../lib/factFlags";
 
 const router = Router();
 
@@ -133,7 +134,19 @@ router.post("/generate-email", requireAuth, async (req, res): Promise<void> => {
     // Strip HTML tags for clients that prefer/expect plain text.
     const bodyText = bodyHtml.replace(/<[^>]+>/g, "").replace(/\n{3,}/g, "\n\n").trim();
 
-    res.json({ subject, bodyHtml, bodyText });
+    // Task #1138 — advisory (non-persistent) fact detection. Best-effort so a
+    // detection hiccup never blocks the generated email.
+    let factWarnings: FactWarning[] = [];
+    try {
+      factWarnings = await detectAdvisoryFacts(tenantId, { subject, body: bodyText });
+    } catch (err) {
+      console.warn("[generate-email] fact detection failed", String(err));
+    }
+    if (factWarnings.length > 0) {
+      trackFactEvent("fact_flag_advisory_detected", { tenantId, source: "generate-email", count: factWarnings.length });
+    }
+
+    res.json({ subject, bodyHtml, bodyText, factWarnings });
   } catch (err) {
     console.error("POST /sales/generate-email error:", err);
     const message = err instanceof Error ? err.message : "Failed to generate email";

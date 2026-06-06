@@ -33,8 +33,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, getLpPageUrl, getLpPreviewUrl } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { fetchBrandConfig, saveBrandConfig, DEFAULT_BRAND, getBrandStyleVars, getBrandButtonCss, type BrandConfig } from "@/lib/brand-config";
-import { consumeStrictMismatches, type StrictMismatch } from "@/lib/strictMismatches";
 import { consumeCritiqueAnnotations, type CritiqueAnnotation } from "@/lib/critiqueAnnotations";
+import { useFactFlags } from "@/hooks/use-fact-flags";
+import { FactReviewModal } from "@/components/FactReviewModal";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BLOCK_REGISTRY, createBlock, getBlockDef, isAllowedAsChild, templateToBlocks, type PageBlock, type BlockType, type SchemaFieldValue } from "@/lib/block-types";
@@ -1073,9 +1074,13 @@ export default function BuilderEditor() {
   const [customizeLibraryOpen, setCustomizeLibraryOpen] = useState(false);
   const [customBlocks, setCustomBlocks] = useState<CustomBlock[]>([]);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  // Task #254 — strict-mode mismatches stashed by the create flow. Read once
-  // on first mount and shown as a dismissable banner pointing at Brand Settings.
-  const [strictMismatches, setStrictMismatches] = useState<StrictMismatch[]>([]);
+  // Task #1138 — Strict Facts review. Persistent per-page fact flags drive both
+  // the review banner and the publish gate (review-not-remove: the values stay
+  // on the page). `pageId` is the route param string defined just above.
+  const factFlags = useFactFlags(
+    pageId && !isNaN(parseInt(pageId, 10)) ? parseInt(pageId, 10) : undefined,
+  );
+  const [factReviewOpen, setFactReviewOpen] = useState(false);
 
   // Task #1026 — "catalog mode". When the superadmin opened this page from the
   // Block Catalog's "Edit visually" action, the scratch page carries __catalog*
@@ -1153,14 +1158,6 @@ export default function BuilderEditor() {
     }
   }, [catalogMode, selectedBlockId, blocks]);
   const [strictBannerDismissed, setStrictBannerDismissed] = useState(false);
-  // Task #552 — "See removed quotes" review modal. Lets editors push the
-  // values Strict Facts Mode scrubbed into the brand's approved pool without
-  // leaving the builder. Per-row edit drafts + save/saved state are keyed by
-  // the mismatch's index in `strictMismatches`.
-  const [removedQuotesOpen, setRemovedQuotesOpen] = useState(false);
-  const [quoteDrafts, setQuoteDrafts] = useState<Record<number, string>>({});
-  const [quoteSaving, setQuoteSaving] = useState<Record<number, boolean>>({});
-  const [quoteSaved, setQuoteSaved] = useState<Record<number, boolean>>({});
   const [critiqueAnnotations, setCritiqueAnnotations] = useState<CritiqueAnnotation[]>([]);
   const [critiqueBannerDismissed, setCritiqueBannerDismissed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -1366,15 +1363,6 @@ export default function BuilderEditor() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Task #254 — pull strict-mode mismatch list (if any) that the create
-  // flow stashed in sessionStorage. consumeStrictMismatches removes the
-  // entry so the banner only shows once per generation.
-  useEffect(() => {
-    if (isNaN(pageIdNum)) return;
-    const items = consumeStrictMismatches(pageIdNum);
-    if (items.length > 0) setStrictMismatches(items);
-  }, [pageIdNum]);
 
   // Workstream C — pull the two-pass critique annotations the create flow
   // stashed in sessionStorage. consumeCritiqueAnnotations clears the entry so
@@ -2294,12 +2282,6 @@ export default function BuilderEditor() {
   useKeyboardShortcuts(builderShortcuts);
 
   const [showOutreachBanner, setShowOutreachBanner] = useState(false);
-  // Post-publish "stats still need review" summary for regular (non-microsite)
-  // pages. The one-time amber strict-mismatch banner is easy to miss or
-  // dismiss, and regular pages don't get the green outreach banner, so without
-  // this an editor can publish without ever approving the real stats. Shown
-  // only when unapproved stats remain at publish time.
-  const [showScrubbedSummary, setShowScrubbedSummary] = useState(false);
 
   // A page is a microsite when it's tied to a sales account (the microsite
   // builder tags it with `pageVariables.salesAccountId`). The post-publish
@@ -2307,46 +2289,11 @@ export default function BuilderEditor() {
   // have no contacts to send tracked links to.
   const isMicrosite = Boolean(pageVariables.salesAccountId);
 
-  // Unapproved stats the editor hasn't yet pushed into the approved pool. Used
-  // to decide whether the post-publish review nudge is worth showing.
-  const unapprovedScrubbedCount = strictMismatches.reduce(
-    (n, _m, i) => (quoteSaved[i] === true ? n : n + 1),
-    0,
-  );
-
-  // Append an unapproved stat to the brand's approved pool. We add it as an
-  // approved claim on the first product line (creating a neutral "General"
-  // product line if the brand has none) — the strict-mode approved pool
-  // includes approved claim text, so adding it here is enough for the AI to
-  // reuse the number next time. Mirrors the brand-settings save path
-  // (`saveBrandConfig` PUTs the whole config).
-  const addRemovedQuoteToBrand = async (index: number) => {
-    const value = (quoteDrafts[index] ?? strictMismatches[index]?.value ?? "").trim();
-    if (!value || quoteSaving[index] || quoteSaved[index]) return;
-    setQuoteSaving((s) => ({ ...s, [index]: true }));
-    try {
-      const productLines = Array.isArray(brand.productLines) ? brand.productLines.map((pl) => ({ ...pl })) : [];
-      if (productLines.length === 0) {
-        productLines.push({ name: "General", description: "", valueProps: [], claims: [], keywords: [] });
-      }
-      productLines[0] = {
-        ...productLines[0],
-        claims: [...(productLines[0].claims ?? []), { text: value, approvedForAi: true }],
-      };
-      const next: BrandConfig = { ...brand, productLines };
-      await saveBrandConfig(next);
-      setBrand(next);
-      setQuoteSaved((s) => ({ ...s, [index]: true }));
-      toast({ title: "Added to Brand Settings", description: "The AI can use this next time." });
-    } catch (err) {
-      toast({
-        title: "Couldn't save",
-        description: err instanceof Error ? err.message : "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setQuoteSaving((s) => ({ ...s, [index]: false }));
-    }
+  // Open the review modal and refresh the flags. Used both by the banner and
+  // by the publish gate when the server refuses a publish (409).
+  const openFactReview = () => {
+    setFactReviewOpen(true);
+    void factFlags.refresh();
   };
 
   const handlePublish = async () => {
@@ -2358,21 +2305,36 @@ export default function BuilderEditor() {
     const newStatus: "draft" | "published" = isPublished ? "draft" : "published";
     setIsSaving(true);
     try {
-      await savePage(pageId, getPageData({ status: newStatus }));
+      // Publish goes through a direct PUT so we can detect the Strict Facts
+      // publish gate (409 fact_flags_pending) and open the review modal instead
+      // of silently failing. Unpublish never trips the gate.
+      const res = await fetch(`${API_BASE}/lp/pages/${pageId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(getPageData({ status: newStatus })),
+      });
+      if (res.status === 409) {
+        const j = await res.json().catch(() => ({} as { code?: string }));
+        if (j.code === "fact_flags_pending") {
+          await factFlags.refresh();
+          openFactReview();
+          toast({
+            title: "Review facts before publishing",
+            description: "Approve, edit or remove the flagged facts, then publish.",
+          });
+          return;
+        }
+        throw new Error((j as { error?: string }).error ?? "Failed to update status");
+      }
+      if (!res.ok) throw new Error("Failed to update status");
       setStatus(newStatus);
       markSaved({ status: newStatus });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
-      // Show outreach banner after publishing (not unpublishing), but only
-      // for microsites — regular pages have no sales contacts to send
-      // tracked links to. Regular pages instead get the scrubbed-values
-      // review nudge so editors don't ship a page with unapproved stats.
-      if (newStatus === "published") {
-        if (isMicrosite) {
-          setShowOutreachBanner(true);
-        } else if (unapprovedScrubbedCount > 0) {
-          setShowScrubbedSummary(true);
-        }
+      // Microsites get the outreach banner after publishing; regular pages have
+      // no sales contacts to send tracked links to.
+      if (newStatus === "published" && isMicrosite) {
+        setShowOutreachBanner(true);
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to update status");
@@ -2421,6 +2383,19 @@ export default function BuilderEditor() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
       });
+      if (res.status === 409) {
+        const j = await res.json().catch(() => ({} as { code?: string }));
+        if (j.code === "fact_flags_pending") {
+          await factFlags.refresh();
+          openFactReview();
+          toast({
+            title: "Review facts before publishing",
+            description: "Approve, edit or remove the flagged facts, then approve again.",
+          });
+          return;
+        }
+        throw new Error((j as { error?: string }).error ?? `Approve failed (HTTP ${res.status})`);
+      }
       if (!res.ok) {
         const j = await res.json().catch(() => ({} as { error?: string }));
         throw new Error(j.error ?? `Approve failed (HTTP ${res.status})`);
@@ -2428,11 +2403,9 @@ export default function BuilderEditor() {
       setStatus("published");
       markSaved({ status: "published" });
       // Outreach banner is microsite-only (see handlePublish); regular pages
-      // get the scrubbed-values review nudge instead.
+      // have no sales contacts to send tracked links to.
       if (isMicrosite) {
         setShowOutreachBanner(true);
-      } else if (unapprovedScrubbedCount > 0) {
-        setShowScrubbedSummary(true);
       }
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
@@ -2737,35 +2710,31 @@ export default function BuilderEditor() {
         </div>
       )}
 
-      {/* Strict Facts Mode review banner. Surfaces when the most recent AI
-          generation produced stat-like values that aren't in the tenant's
-          approved pool. The values stay on the page — this lets editors review
-          them and add the real numbers to Brand Settings. */}
-      {strictMismatches.length > 0 && !strictBannerDismissed && (
+      {/* Task #1138 — Strict Facts review banner. Driven by the persistent
+          per-page fact flags (stats, claims, quotes the AI used that aren't in
+          the approved pool). The values stay on the page — this opens the
+          review modal so editors can approve, edit, swap or remove each one. */}
+      {factFlags.pendingCount > 0 && !strictBannerDismissed && (
         <div className="relative mx-4 mt-2 flex items-start gap-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-4 py-3">
           <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
-              {strictMismatches.length === 1
-                ? "1 stat on this page isn't in your approved facts"
-                : `${strictMismatches.length} stats on this page aren't in your approved facts`}
+              {factFlags.pendingCount === 1
+                ? "1 fact on this page needs review"
+                : `${factFlags.pendingCount} facts on this page need review`}
             </p>
             <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80 mt-0.5 leading-relaxed">
-              They're kept on the page so you can review them. Add the real numbers to your approved facts so the AI can reuse them next time.{" "}
-              <span className="font-medium">
-                Examples: {strictMismatches.slice(0, 3).map(m => `"${m.value}"`).join(", ")}
-                {strictMismatches.length > 3 ? ` and ${strictMismatches.length - 3} more` : ""}
-              </span>
+              They're kept on the page. Approve, edit, swap or remove each one before publishing — and save the real ones to your library so the AI can reuse them next time.
             </p>
             <div className="flex items-center gap-3 mt-1.5">
               <button
                 type="button"
-                onClick={() => setRemovedQuotesOpen(true)}
+                onClick={openFactReview}
                 className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:underline"
               >
-                Review stats
+                Review facts
               </button>
               <Link
                 href="/brand"
@@ -2786,78 +2755,8 @@ export default function BuilderEditor() {
         </div>
       )}
 
-      {/* Strict Facts review modal. Lists every stat the AI used that isn't in
-          the approved pool. The values stay on the page; this lets editors
-          review them and push the real ones into the approved pool without
-          leaving the builder. */}
-      <Dialog open={removedQuotesOpen} onOpenChange={setRemovedQuotesOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Review stats</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            These stats aren't in your approved facts. They're kept on the page — review each one
-            and add it to your approved pool so the AI can reuse it next time.
-          </p>
-          <div className="max-h-[55vh] overflow-y-auto -mx-1 px-1 space-y-3 mt-1">
-            {strictMismatches.map((m, i) => {
-              const saved = quoteSaved[i] === true;
-              const saving = quoteSaving[i] === true;
-              const draft = quoteDrafts[i] ?? m.value;
-              const context = [m.blockType, m.fieldPath].filter(Boolean).join(" · ");
-              return (
-                <div key={i} className="rounded-lg border border-border p-3">
-                  {context && (
-                    <p className="text-[11px] text-muted-foreground mb-1.5 truncate" title={context}>
-                      {context}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={draft}
-                      disabled={saved || saving}
-                      onChange={(e) => setQuoteDrafts((d) => ({ ...d, [i]: e.target.value }))}
-                      className="h-9 text-sm flex-1"
-                    />
-                    {saved ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 shrink-0 px-2">
-                        <CheckCircle2 className="w-4 h-4" />
-                        Added
-                      </span>
-                    ) : (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={saving || !(quoteDrafts[i] ?? m.value).trim()}
-                        onClick={() => addRemovedQuoteToBrand(i)}
-                        className="shrink-0"
-                      >
-                        {saving ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <>
-                            <Plus className="w-3.5 h-3.5 mr-1" />
-                            Add to Brand Settings
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <DialogFooter>
-            <Link
-              href="/brand"
-              className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground hover:underline"
-            >
-              Open Brand Settings →
-            </Link>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Task #1138 — Strict Facts review modal. */}
+      <FactReviewModal open={factReviewOpen} onOpenChange={setFactReviewOpen} ff={factFlags} />
 
       {/* Workstream C — two-pass critique banner. Surfaces when the most
           recent AI generation rewrote the copy of one or more low-quality
@@ -2928,42 +2827,6 @@ export default function BuilderEditor() {
           <button
             onClick={() => setShowOutreachBanner(false)}
             className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-emerald-400 hover:text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
-      {/* Post-publish stat-review nudge for regular (non-microsite) pages.
-          Mirrors the microsite outreach banner so a regular page editor who
-          missed the one-time amber banner still gets a clear, discoverable
-          prompt to review the stats that aren't in their approved facts. */}
-      {showScrubbedSummary && unapprovedScrubbedCount > 0 && (
-        <div className="relative mx-4 mt-2 flex items-center gap-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-5 py-3.5 animate-in slide-in-from-top-2">
-          <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
-            <AlertTriangle className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-              {unapprovedScrubbedCount === 1
-                ? "Page published — 1 stat still needs review"
-                : `Page published — ${unapprovedScrubbedCount} stats still need review`}
-            </p>
-            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-              These stats aren't in your approved facts yet. Review them and approve any real numbers so the AI can reuse them.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setRemovedQuotesOpen(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition-colors shrink-0"
-          >
-            <AlertTriangle className="w-3.5 h-3.5" />
-            Review stats
-          </button>
-          <button
-            onClick={() => setShowScrubbedSummary(false)}
-            className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-amber-400 hover:text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
           >
             ×
           </button>
