@@ -4,6 +4,7 @@ import FeatureRow from "../components/FeatureRow";
 import CreatePageOverlay from "../components/CreatePageOverlay";
 import SmartTrafficDemo from "../components/SmartTrafficDemo";
 import TemplatesEmbed from "../components/TemplatesEmbed";
+import CampaignsScene from "../components/CampaignsScene";
 import Integrations from "../components/Integrations";
 import FinalCta from "../components/FinalCta";
 import Footer from "../components/Footer";
@@ -17,13 +18,16 @@ import { useShareCard } from "../hooks/useShareCard";
 // the marketing buyer's biggest concrete value-add) · templates by motion ·
 // the stack-integration story focused on MAP handoff.
 //
-// 6-section IA:
+// 7-section IA:
 //   1  PersonaHero (indigo)         — "Ship campaigns without the design queue."
 //   2  SmartTrafficDemo             — A/B/C variants + Smart Traffic routing
 //   3  FeatureRow / AI generation   — Prompt → page, lifted hero pattern
-//   4  FeatureRow / Templates       — TemplatesEmbed (filtered, marketing motions)
-//   5  Integrations                 — Marketo + HubSpot + GA4 lead-handoff story
-//   6  FinalCta + Footer
+//   4  CampaignsScene               — orchestration wizard + backflow signals
+//                                     (moved from homepage #9 — fits the marketer
+//                                     workflow story between generate and pick-a-template)
+//   5  FeatureRow / Templates       — TemplatesEmbed (filtered, marketing motions)
+//   6  Integrations                 — Marketo + GA4 lead-handoff story (HubSpot soon)
+//   7  FinalCta + Footer
 export default function ForMarketing() {
   const og = useShareCard("for-marketing", {
     title: "LP Studio for Marketing — Ship without the design queue",
@@ -97,11 +101,17 @@ export default function ForMarketing() {
           frame={<CreatePageOverlay />}
         />
 
-        {/* 3 — Templates by motion. Reuse the live TemplatesEmbed but frame
+        {/* 3 — Campaigns: orchestration wizard (audience → templates →
+            push to MAP/CRM) + live engagement signals flowing back into
+            Salesforce, Marketo, and Slack. Was on the homepage; moved
+            here because this is a marketing-persona story. */}
+        <CampaignsScene />
+
+        {/* 4 — Templates by motion. Reuse the live TemplatesEmbed but frame
             it around demand-gen / events / product-launch motions in copy. */}
         <FeatureRow
           id="templates"
-          num="03"
+          num="04"
           label="Templates"
           title="Templates for the motions you actually run."
           body={
@@ -123,7 +133,7 @@ export default function ForMarketing() {
           frame={<TemplatesEmbed />}
         />
 
-        {/* 4 — Stack integrations. Same Integrations component as homepage
+        {/* 6 — Stack integrations. Same Integrations component as homepage
             and /features — but the copy above (in PersonaHero + this
             section's marker) frames it as the lead-handoff story. */}
         <Integrations />

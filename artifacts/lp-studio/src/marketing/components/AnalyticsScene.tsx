@@ -50,7 +50,7 @@ export default function AnalyticsScene() {
       >
         {/* Headline + narrative */}
         <div style={{ maxWidth: 760, marginBottom: 36 }}>
-          <div className="marker marker-rule mb-5">11 / Analytics</div>
+          <div className="marker marker-rule mb-5">10 / Analytics</div>
           <h2
             className="font-display text-display-lg"
             style={{ color: "var(--ink)", margin: 0 }}
