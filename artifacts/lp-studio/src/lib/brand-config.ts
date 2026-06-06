@@ -305,6 +305,14 @@ export interface BrandConfig {
   scrapedTestimonials?: ScrapedTestimonial[];
   chilipiperUrl?: string;
   logoUrl?: string;
+  /** Tenant favicon (the small browser-tab icon). A single uploaded image is
+   *  used for both `rel="icon"` and `rel="apple-touch-icon"` on published
+   *  tenant landing pages / microsites (live SPA view + static R2 snapshot).
+   *  When empty/unset, pages fall back to the default LP Studio favicon. The
+   *  LP Studio admin shell + marketing site always keep the LP Studio icon —
+   *  only tenant landing-page output reads this. Stored in the brand_settings
+   *  JSONB; no dedicated DB column. */
+  faviconUrl?: string;
   logoAutoRecolor?: boolean;
   /** The brand's public website URL (e.g. "https://acme.com"). Used as the
    *  link target when `logoLinkEnabled` is on, so the logo in nav/hero/footer
@@ -630,6 +638,10 @@ export const DEFAULT_BRAND: BrandConfig = {
   // dental tenants store `/dandy-logo.svg` explicitly in their brand_settings,
   // so this neutral default does not affect them.
   logoUrl: "",
+  // No default favicon. When empty, published tenant pages keep the default
+  // LP Studio favicon (served from the base index.html). Tenants set their
+  // own via Brand Settings → Logo & Identity.
+  faviconUrl: "",
   logoAutoRecolor: true,
   // Logo→website link is opt-in. Off by default so existing tenants see no
   // behaviour change; tenants enable it in Brand Settings → Logo & Identity.

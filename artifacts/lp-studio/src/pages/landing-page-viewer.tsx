@@ -661,6 +661,36 @@ export default function LandingPageViewer() {
     };
   }, [config]);
 
+  // Task #1103 — runtime tenant favicon override for the live SPA view of a
+  // landing page / microsite. The published R2 snapshot bakes the favicon via
+  // injectPageMeta, but the live React route swaps the document icon here so a
+  // visitor on the JS path sees the tenant's favicon too. A single uploaded
+  // image drives the SVG icon, the .ico icon, and the apple-touch-icon. When
+  // unset (or the brand hasn't loaded), we restore the default LP Studio icons
+  // — including on unmount, so navigating back into the admin shell keeps the
+  // LP Studio favicon. Dandy hosts keep their main.tsx swap because their
+  // brand_settings carry no faviconUrl.
+  useEffect(() => {
+    const favicon = (brand.faviconUrl ?? "").trim();
+    const svgIcon = document.querySelector<HTMLLinkElement>('link[rel="icon"][type="image/svg+xml"]');
+    const icoIcon = document.querySelector<HTMLLinkElement>('link[rel="icon"][type="image/x-icon"]');
+    const appleIcon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
+    if (!favicon) return;
+    const originals = {
+      svg: svgIcon?.getAttribute("href") ?? null,
+      ico: icoIcon?.getAttribute("href") ?? null,
+      apple: appleIcon?.getAttribute("href") ?? null,
+    };
+    if (svgIcon) svgIcon.href = favicon;
+    if (icoIcon) icoIcon.href = favicon;
+    if (appleIcon) appleIcon.href = favicon;
+    return () => {
+      if (svgIcon && originals.svg !== null) svgIcon.href = originals.svg;
+      if (icoIcon && originals.ico !== null) icoIcon.href = originals.ico;
+      if (appleIcon && originals.apple !== null) appleIcon.href = originals.apple;
+    };
+  }, [brand.faviconUrl]);
+
   useEffect(() => {
     const onScroll = () => { if (window.scrollY > 40) setScrolled(true); };
     window.addEventListener("scroll", onScroll, { passive: true });

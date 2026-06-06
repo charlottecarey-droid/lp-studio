@@ -2215,6 +2215,32 @@ export default function BrandSettings() {
     }
   }, [toast]);
 
+  const [uploadingFavicon, setUploadingFavicon] = useState(false);
+  const faviconFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFaviconFilePick = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (faviconFileInputRef.current) faviconFileInputRef.current.value = "";
+    if (!file) return;
+    setUploadingFavicon(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/lp/upload", { method: "POST", body: formData });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Upload failed");
+      }
+      const data = await res.json();
+      setConfig((prev) => ({ ...prev, faviconUrl: `/api/storage${data.url}` }));
+      toast({ title: "Favicon uploaded", description: "Don't forget to save your brand settings." });
+    } catch (err) {
+      toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Please try again.", variant: "destructive" });
+    } finally {
+      setUploadingFavicon(false);
+    }
+  }, [toast]);
+
   const [uploadingEmailBanner, setUploadingEmailBanner] = useState(false);
   const emailBannerFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -3158,6 +3184,57 @@ export default function BrandSettings() {
                       {config.logoUrlDark && (
                         <div className="mt-3 rounded-md border border-border bg-slate-900 p-4 flex items-center justify-center">
                           <img src={config.logoUrlDark} alt="Dark logo preview" className="h-10 w-auto object-contain" />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium mb-1.5 block">Favicon (optional)</Label>
+                      <p className="text-xs text-muted-foreground mb-2">The small icon shown in the browser tab on your published landing pages and microsites. Use a square image (PNG or SVG); when empty, pages show the default LP Studio icon.</p>
+                      <input
+                        ref={faviconFileInputRef}
+                        type="file"
+                        accept="image/svg+xml,image/png,image/x-icon,image/vnd.microsoft.icon,image/webp"
+                        className="hidden"
+                        onChange={handleFaviconFilePick}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => faviconFileInputRef.current?.click()}
+                          disabled={uploadingFavicon}
+                          className="gap-1.5 shrink-0"
+                        >
+                          {uploadingFavicon
+                            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…</>
+                            : <><Upload className="w-3.5 h-3.5" /> Upload favicon</>}
+                        </Button>
+                        {config.faviconUrl && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => update("faviconUrl", "")}
+                            disabled={uploadingFavicon}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                      <div className="mt-3">
+                        <Label className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5 block">…or paste a URL</Label>
+                        <Input
+                          value={config.faviconUrl ?? ""}
+                          onChange={(e) => update("faviconUrl", e.target.value)}
+                          placeholder="https://… or /assets/favicon.png"
+                        />
+                      </div>
+                      {config.faviconUrl && (
+                        <div className="mt-3 flex items-center gap-3 rounded-md border border-border bg-white p-3">
+                          <img src={config.faviconUrl} alt="Favicon preview" className="h-8 w-8 object-contain" />
+                          <span className="text-xs text-muted-foreground">Live preview at browser-tab size</span>
                         </div>
                       )}
                     </div>

@@ -74,6 +74,16 @@ interface PageMetaInput {
    */
   tenantAllowIndexing?: boolean;
   tenantAllowFollowing?: boolean;
+  /**
+   * Task #1103 — tenant favicon URL (brand_settings JSONB `faviconUrl`). When
+   * a non-empty value is provided, any existing icon / shortcut-icon /
+   * apple-touch-icon link tags in the snapshot are stripped and replaced with
+   * the tenant's favicon (absolutised against the canonical host). When empty
+   * / unset, the snapshot keeps whatever the base index.html shipped (the
+   * default LP Studio favicon) — we deliberately do NOT strip in that case so
+   * the fallback survives.
+   */
+  faviconUrl?: string | null;
 }
 
 /**
@@ -353,6 +363,32 @@ export function injectPageMeta(html: string, meta: PageMetaInput): string {
       out,
       /<meta[^>]+name=["']robots["'][^>]*>/i,
       `<meta name="robots" content="${escapeAttr(robots)}" />`,
+    );
+  }
+
+  // Task #1103 — tenant favicon. Only act when a non-empty value is provided:
+  // strip the snapshot's existing icon / shortcut-icon / apple-touch-icon
+  // link tags and inject the tenant's favicon (absolutised). When unset we
+  // leave the base index.html favicon untouched so pages fall back to the
+  // default LP Studio icon. A single uploaded image drives both rel="icon"
+  // and rel="apple-touch-icon" (multi-size icon sets are out of scope).
+  const favicon = (meta.faviconUrl || "").trim();
+  if (favicon) {
+    const faviconUrl = toAbsoluteUrl(favicon, meta.canonicalHost);
+    const faviconType = inferImageType(faviconUrl);
+    out = out
+      .replace(/<link[^>]+rel=["'](?:shortcut )?icon["'][^>]*>/gi, "")
+      .replace(/<link[^>]+rel=["']apple-touch-icon["'][^>]*>/gi, "");
+    const typeAttr = faviconType ? ` type="${escapeAttr(faviconType)}"` : "";
+    out = upsertHeadTag(
+      out,
+      /<link[^>]+rel=["']icon["'][^>]*>/i,
+      `<link rel="icon"${typeAttr} href="${escapeAttr(faviconUrl)}" />`,
+    );
+    out = upsertHeadTag(
+      out,
+      /<link[^>]+rel=["']apple-touch-icon["'][^>]*>/i,
+      `<link rel="apple-touch-icon" href="${escapeAttr(faviconUrl)}" />`,
     );
   }
 

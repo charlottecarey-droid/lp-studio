@@ -42,7 +42,7 @@
  *      the next publish.
  */
 import * as Sentry from "@sentry/node";
-import { db, lpPagesTable, tenantsTable } from "@workspace/db";
+import { db, lpPagesTable, tenantsTable, lpBrandSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { resolveRobotsMeta, robotsMetaContent, resolveTenantRobotsDefaults } from "@workspace/lp-template-engine";
 import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
@@ -154,6 +154,10 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
   let tenantDefaultOgTitle = "";
   let tenantDefaultOgDescription = "";
   let tenantDefaultOgImageUrl = "";
+  // Task #1103 — tenant favicon (brand_settings JSONB `faviconUrl`). Empty
+  // string when unset → injectPageMeta leaves the default LP Studio favicon
+  // in place. Looked up best-effort; a failure just keeps the default icon.
+  let tenantFaviconUrl = "";
   try {
     const [tenantRow] = await db
       .select({
@@ -180,6 +184,24 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
   } catch (seoErr) {
     console.warn("[triggerPublishedRender] tenant SEO defaults lookup failed; failing CLOSED (noindex)", {
       pageId: page.id, tenantId: page.tenantId, err: seoErr,
+    });
+  }
+
+  // Task #1103 — tenant favicon, read from the brand_settings JSONB. Separate
+  // best-effort query (different table); a failure just leaves the default LP
+  // Studio favicon in place.
+  try {
+    const [brandRow] = await db
+      .select({ config: lpBrandSettingsTable.config })
+      .from(lpBrandSettingsTable)
+      .where(eq(lpBrandSettingsTable.tenantId, page.tenantId));
+    const cfg = (brandRow?.config ?? null) as { faviconUrl?: unknown } | null;
+    if (cfg && typeof cfg.faviconUrl === "string") {
+      tenantFaviconUrl = cfg.faviconUrl.trim();
+    }
+  } catch (favErr) {
+    console.warn("[triggerPublishedRender] tenant favicon lookup failed; keeping default favicon", {
+      pageId: page.id, tenantId: page.tenantId, err: favErr,
     });
   }
 
@@ -540,6 +562,7 @@ async function renderAndStore(opts: TriggerPublishedRenderOpts): Promise<RenderO
       allowFollowing: page.allowFollowing ?? null,
       tenantAllowIndexing,
       tenantAllowFollowing,
+      faviconUrl: tenantFaviconUrl,
     });
     return applyProvenanceFooterForHost(withMeta, {
       accountId: page.accountId ?? null,
