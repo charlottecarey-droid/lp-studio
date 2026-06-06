@@ -156,6 +156,14 @@ function flattenForProposed(results: OrchestratorPayload["results"]): {
     if (results.logos.data.alternates.length > 1) {
       put("logoAlternates", results.logos.data.alternates, results.logos.confidence);
     }
+    // Source site's favicon (link[rel=icon] / apple-touch-icon). Surfaced as
+    // its own proposed row so the tenant's published pages match the real
+    // site's browser-tab icon out of the box. Confidence "high": the favicon
+    // is a deterministic declared <link>, not an inferred value — so the FE
+    // pre-checks it in the proposed-changes review.
+    if (results.logos.data.faviconUrl) {
+      put("faviconUrl", results.logos.data.faviconUrl, "high");
+    }
   }
 
   if (results.colors.status !== "failed" && results.colors.data) {
@@ -534,6 +542,7 @@ export async function applyAssetMirror(payload: OrchestratorPayload, tenantId: n
   const proposed = payload.proposed;
   const brandName = typeof proposed["brandName"] === "string" ? proposed["brandName"] as string : "";
   const logoUrl = typeof proposed["logoUrl"] === "string" ? proposed["logoUrl"] as string : undefined;
+  const faviconUrl = typeof proposed["faviconUrl"] === "string" ? proposed["faviconUrl"] as string : undefined;
   const photoProfile = proposed["photographyProfile"] as { referenceImageUrls?: unknown } | undefined;
 
   // Homepage screenshot is mirrored independently of the logo/photo mirror
@@ -572,15 +581,15 @@ export async function applyAssetMirror(payload: OrchestratorPayload, tenantId: n
     ...collectStrings(resultPhoto?.referenceImageUrls),
   ]));
 
-  if (!logoUrl && photoUrls.length === 0) {
+  if (!logoUrl && !faviconUrl && photoUrls.length === 0) {
     logger.warn(
       { tenantId, brandName, photographyStatus: payload.results?.photography?.status },
-      "[brand-import] asset mirror skipped — no logo and no photography URLs captured",
+      "[brand-import] asset mirror skipped — no logo, favicon, or photography URLs captured",
     );
     return;
   }
   try {
-    const result = await mirrorBrandAssets({ tenantId, brandName, logoUrl, photoUrls });
+    const result = await mirrorBrandAssets({ tenantId, brandName, logoUrl, faviconUrl, photoUrls });
     logger.info(
       {
         tenantId,
@@ -589,6 +598,7 @@ export async function applyAssetMirror(payload: OrchestratorPayload, tenantId: n
         uploaded: result.uploaded,
         photoCandidates: photoUrls.length,
         hadLogo: !!logoUrl,
+        hadFavicon: !!faviconUrl,
         photographyStatus: payload.results?.photography?.status,
       },
       "[brand-import] asset mirror complete",
@@ -600,6 +610,7 @@ export async function applyAssetMirror(payload: OrchestratorPayload, tenantId: n
       );
     }
     if (result.logoUrl) proposed["logoUrl"] = result.logoUrl;
+    if (result.faviconUrl) proposed["faviconUrl"] = result.faviconUrl;
     if (result.photoUrls.length > 0 && photoProfile) {
       proposed["photographyProfile"] = { ...photoProfile, referenceImageUrls: result.photoUrls };
     }

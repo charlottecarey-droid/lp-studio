@@ -89,6 +89,12 @@ export interface LogoCandidate {
 export interface LogosData {
   defaultLogoUrl: string;
   alternates: LogoCandidate[];
+  /** Best favicon candidate (highest-scored `favicon`/`apple-touch-icon`
+   *  source) from the source site's `<link rel="icon">` tags, or null when
+   *  the site declared none. Surfaced separately from `defaultLogoUrl` so the
+   *  importer can pre-fill the tenant's browser-tab favicon independently of
+   *  the brand logo. */
+  faviconUrl: string | null;
 }
 
 export interface ColorSlot {

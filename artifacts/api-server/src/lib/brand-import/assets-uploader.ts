@@ -33,6 +33,7 @@ interface MirrorInputs {
   tenantId: number;
   brandName: string;
   logoUrl?: string | null;
+  faviconUrl?: string | null;
   photoUrls?: string[];
 }
 
@@ -41,6 +42,10 @@ export interface MirrorOutput {
    *  asset, or `undefined` if the upload failed (caller should keep the
    *  external URL in that case). */
   logoUrl?: string;
+  /** Rewritten favicon URL pointing at the freshly-uploaded /api/storage
+   *  asset, or `undefined` if the upload failed (caller keeps the external
+   *  URL in that case). */
+  faviconUrl?: string;
   /** Rewritten photo URLs, in the same order as the input (failures are
    *  dropped, not replaced with their external original — the goal is a
    *  clean library, not a 1:1 mapping). */
@@ -362,6 +367,30 @@ export async function mirrorBrandAssets(inputs: MirrorInputs): Promise<MirrorOut
       }
     } else {
       out.skips.push(`${inputs.logoUrl} -> ${fetched.reason}`);
+    }
+  }
+
+  // Favicon next — sequential like the logo (tiny .ico/.png, negligible
+  // cost). Mirroring rather than storing the external URL keeps the tenant's
+  // browser-tab icon durable against the source site removing/renaming its
+  // favicon, and tenant-owns the asset behind the /api/storage ACL.
+  if (inputs.faviconUrl) {
+    out.attempted++;
+    const fetched = await fetchAsset(inputs.faviconUrl);
+    if (fetched.ok) {
+      const rec = await uploadAndRecord(fetched.asset, {
+        tenantId: inputs.tenantId,
+        tags: [...baseTags, "favicon"],
+        title: `${inputs.brandName || "Brand"} favicon`,
+      });
+      if (rec) {
+        out.faviconUrl = rec.url;
+        out.uploaded++;
+      } else {
+        out.skips.push(`${inputs.faviconUrl} -> upload-failed`);
+      }
+    } else {
+      out.skips.push(`${inputs.faviconUrl} -> ${fetched.reason}`);
     }
   }
 

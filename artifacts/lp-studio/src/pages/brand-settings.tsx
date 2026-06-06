@@ -907,7 +907,7 @@ const FIELD_LABELS: Record<string, string> = {
   avoidPhrases: "Avoid Phrases", targetAudience: "Target Audience",
   copyExamples: "Copy Examples",
   salesConsole: "Sales Console (value props + AI prompts)",
-  logoUrl: "Logo", logoUrlDark: "Dark-mode Logo",
+  logoUrl: "Logo", logoUrlDark: "Dark-mode Logo", faviconUrl: "Favicon",
   socialUrls: "Social Links",
   homepageScreenshotUrl: "Homepage screenshot",
 };

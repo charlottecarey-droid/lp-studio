@@ -327,9 +327,23 @@ export async function extractLogos(evidence: Evidence): Promise<DimensionResult<
       ? "medium"
       : "low";
 
+  // Best favicon for the tenant's browser-tab icon. `candidates` is already
+  // score-sorted, so the first favicon/apple-touch-icon entry is the highest
+  // scored one (apple-touch-icon PNGs outrank tiny .ico favicons via the
+  // source/format/area weighting above). Computed from the full candidate
+  // list rather than the sliced alternates so a busy header with >8 logo
+  // candidates can't push the favicon out of view.
+  const faviconCand = candidates.find(
+    (c) => c.source === "favicon" || c.source === "apple-touch-icon",
+  );
+
   return {
     status,
-    data: { defaultLogoUrl: def.url, alternates: candidates.slice(0, 8) },
+    data: {
+      defaultLogoUrl: def.url,
+      alternates: candidates.slice(0, 8),
+      faviconUrl: faviconCand?.url ?? null,
+    },
     confidence,
     errors,
   };
