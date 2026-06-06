@@ -3,6 +3,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ImagePicker } from "@/components/ImagePicker";
 import { BrandSwatches, useBrandConfig } from "@/components/BrandSwatches";
 import { getBrandStyleVars, DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
 import { Plus, Trash2 } from "lucide-react";
@@ -105,8 +107,13 @@ export function TrustBarPanel({ props, onChange }: Props) {
     const updated = items.map((item, idx) => idx === i ? { ...item, [key]: v } : item);
     onChange({ ...props, items: updated });
   };
+  const patchItem = (i: number, patch: Partial<TrustBarBlockProps["items"][number]>) => {
+    const updated = items.map((item, idx) => idx === i ? { ...item, ...patch } : item);
+    onChange({ ...props, items: updated });
+  };
   const addItem = () => onChange({ ...props, items: [...items, { value: "0", label: "New Stat" }] });
   const removeItem = (i: number) => onChange({ ...props, items: items.filter((_, idx) => idx !== i) });
+  const anyImages = items.some(it => (it.image ?? "").trim() !== "");
 
   return (
     <div className="space-y-5">
@@ -155,6 +162,27 @@ export function TrustBarPanel({ props, onChange }: Props) {
         </div>
       </div>
 
+      {/* Image size — applies to every item image so the row stays even. Only
+          relevant once at least one item has an image. */}
+      {anyImages && (
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Image size</Label>
+          <Select
+            value={props.imageSize ?? "md"}
+            onValueChange={v => onChange({ ...props, imageSize: v as NonNullable<TrustBarBlockProps["imageSize"]> })}
+          >
+            <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="sm">Small</SelectItem>
+              <SelectItem value="md">Medium (default)</SelectItem>
+              <SelectItem value="lg">Large</SelectItem>
+              <SelectItem value="xl">Extra large</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">Applies to all trust-bar images.</p>
+        </div>
+      )}
+
       {/* Stats */}
       <div className="space-y-3">
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Stats</Label>
@@ -163,6 +191,15 @@ export function TrustBarPanel({ props, onChange }: Props) {
             <div className="flex-1 space-y-2">
               <Input placeholder="Value (e.g. 12,000+)" value={item.value} onChange={e => updateItem(i, "value", e.target.value)} className="text-sm" />
               <Input placeholder="Label (e.g. Practices)" value={item.label} onChange={e => updateItem(i, "label", e.target.value)} className="text-sm" />
+              <ImagePicker
+                label="Image (optional — shown in place of the value)"
+                value={item.image ?? ""}
+                onChange={url => patchItem(i, { image: url })}
+                aiHint="trust bar logo"
+              />
+              {(item.image ?? "").trim() !== "" && (
+                <Input placeholder="Image alt text (for accessibility)" value={item.imageAlt ?? ""} onChange={e => patchItem(i, { imageAlt: e.target.value })} className="text-sm" />
+              )}
             </div>
             <Button size="icon" variant="ghost" className="text-muted-foreground hover:text-red-500 mt-1 shrink-0" onClick={() => removeItem(i)}>
               <Trash2 className="w-4 h-4" />

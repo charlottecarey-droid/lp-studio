@@ -58,6 +58,13 @@ export interface TrustBarBlockProps {
   labelColor?: string;
   borderColor?: string;
   countUpEnabled?: boolean;
+  /**
+   * Global display height for per-item images (logo/photo trust items). Applies
+   * to every image in the bar so the row stays visually even. Defaults to "md"
+   * (the original `h-12 md:h-14` band). Larger sizes are useful for partner
+   * logos or product shots that read better at scale.
+   */
+  imageSize?: "sm" | "md" | "lg" | "xl";
 }
 
 export interface PasSectionBlockProps {

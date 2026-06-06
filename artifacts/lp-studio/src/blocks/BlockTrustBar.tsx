@@ -45,6 +45,14 @@ export function BlockTrustBar({ props, brand, animationsEnabled = true, onFieldC
     onFieldChange({ ...props, items: next });
   };
   const bg = props.bgColor ?? "#F8FAF9";
+  // Per-item images share one global height so the row reads evenly. "md"
+  // preserves the original h-12 md:h-14 band; larger steps suit logos/photos.
+  const imageHeightClass = {
+    sm: "h-10 md:h-12",
+    md: "h-12 md:h-14",
+    lg: "h-16 md:h-20",
+    xl: "h-20 md:h-28",
+  }[props.imageSize ?? "md"];
   // The trust bar always sits on a light surface, so the stat numbers must use
   // the contrast-guarded on-light heading token rather than raw brand-primary.
   // resolveHeadingColor keeps brand-primary when it clears WCAG AA on the page
@@ -69,7 +77,7 @@ export function BlockTrustBar({ props, brand, animationsEnabled = true, onFieldC
             {item.image ? (
               // A logo/photo-style trust item replaces the numeric stat with the
               // supplied image; the label still reads beneath it.
-              <div className="h-12 md:h-14 mb-2 flex items-center justify-center">
+              <div className={cn(imageHeightClass, "mb-2 flex items-center justify-center")}>
                 <InlineImage
                   src={item.image}
                   alt={item.imageAlt ?? item.label}
