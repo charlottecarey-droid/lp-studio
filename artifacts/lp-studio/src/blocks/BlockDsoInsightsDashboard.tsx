@@ -724,9 +724,21 @@ const DISPLAY = DISPLAY_FONT;
 export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldChange }: Props) {
   const {
     eyebrow, headline, subheadline,
-    backgroundStyle = "muted",
+    backgroundStyle,
     dashboardVariant = "light",
   } = props;
+  // A null / empty / unknown backgroundStyle (common on AI-generated and
+  // imported microsites, where the value is saved as "" rather than undefined)
+  // must not leave the <section> with no background — that renders a dark-themed
+  // dashboard floating on the page's white background ("dark mode on white").
+  // Fall back to a style that MATCHES the dashboard theme so the two never
+  // disagree: dark dashboard → dark section, light dashboard → muted section.
+  const resolvedBackgroundStyle =
+    backgroundStyle && BG_STYLE[backgroundStyle]
+      ? backgroundStyle
+      : dashboardVariant === "dark"
+        ? "dark"
+        : "muted";
   const field = (key: keyof DsoInsightsDashboardBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoInsightsDashboardBlockProps[typeof key] }) : undefined;
 
@@ -781,7 +793,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
     return () => clearInterval(id);
   }, []);
 
-  const isDark = ["dark", "dandy-green", "black", "gradient"].includes(backgroundStyle ?? "");
+  const isDark = ["dark", "dandy-green", "black", "gradient"].includes(resolvedBackgroundStyle);
 
   const handleTabChange = (id: string) => {
     setActiveTab(id);
@@ -804,7 +816,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
   };
 
   return (
-    <section ref={containerRef} style={BG_STYLE[backgroundStyle]} className="py-24 md:py-32">
+    <section ref={containerRef} style={BG_STYLE[resolvedBackgroundStyle]} className="py-24 md:py-32">
       <div className="max-w-[1100px] mx-auto px-6 md:px-10">
         {/* Header */}
         <div className="text-center mb-10">

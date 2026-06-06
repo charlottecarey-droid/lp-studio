@@ -1340,7 +1340,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Background</Label>
-              <Select value={p.backgroundStyle ?? "white"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
+              <Select value={(p.backgroundStyle && p.backgroundStyle.length > 0) ? p.backgroundStyle : (p.dashboardVariant === "dark" ? "dark" : "muted")} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {bgOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
