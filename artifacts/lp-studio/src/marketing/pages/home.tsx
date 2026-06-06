@@ -187,21 +187,22 @@ export default function Home() {
           // Watch it build." — using the same line here was a duplicate.
           // Reframe the Builder row around the visual-editor / inline-
           // editing value it actually demonstrates.
-          title="Edit any block. No ticket required."
+          title="Edit any block. Never write from scratch."
           body={
             <>
-              Drag blocks onto the canvas, edit copy inline, and tune brand,
-              fonts and colors from the properties panel —{" "}
+              Edit any block inline, ask AI to sharpen a line, or refresh a whole
+              block from the rest of the page, a researched contact or account
+              brief, and your brand settings —{" "}
               <strong style={{ color: "var(--ink)", fontWeight: 600 }}>
-                no code, no design ticket.
+                the copy suggests itself.
               </strong>
             </>
           }
           bullets={[
-            "Prompt, URL, or screenshot → page",
-            "Visual block builder",
-            "Inline copy editing",
-            "Live segment-aware previews",
+            "Edit any block, no code",
+            "AI copy suggestions on any line",
+            "Refresh a block from the whole page",
+            "Contact-, account- & brand-aware",
           ]}
           url="app.lpstudio.ai/builder/northwind-summit"
           bodyHeight={620}
