@@ -44,6 +44,7 @@ import {
 import { mirrorReferenceImages } from "../../lib/brand-import/assets-uploader";
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
+import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
 import { deriveCompanyName, derivePracticeCount } from "../../lib/businessCaseVars";
 import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../lib/tenantSettings";
 import { isDandyTenant } from "../../lib/planFeatures";
@@ -543,7 +544,14 @@ interface FallbackBrand {
 }
 
 function normalizeBlock(raw: AiBlock, index: number, brand: FallbackBrand): AiBlock {
-  const type = (raw.type as string) ?? "hero";
+  const rawType = (raw.type as string) ?? "hero";
+  // Task #1066 — alias guard: map any synonym block type the model emits
+  // (e.g. `features`, `stats`) to its real, renderable equivalent. This
+  // canonicalization is defense-in-depth: even if the prompt never advertises
+  // a synonym, a hallucinated one can never reach the renderer as an
+  // "Unknown block type". mergeWithDefaults handles both the synonym and the
+  // canonical type identically, so using the canonical type is safe.
+  const type = canonicalizeBlockType(rawType);
   if (raw.props && typeof raw.props === "object") {
     return {
       id: raw.id ?? `${type}-${index}`,
@@ -1077,11 +1085,15 @@ const NEUTRAL_MICROSITE_BLOCK_LIST: BrandMicrositeBlockListEntry[] = [
 // NEVER the Dandy-curated dso-* or business-case-* compound blocks, which carry
 // dental/DSO vocabulary and are reserved for Dandy's curated path. NEUTRAL
 // stays a last-resort safety net (see route) if freeform yields nothing usable.
+// NOTE: every entry here MUST have a renderer in lp-studio's BlockRenderer.
+// `features` was removed (Task #1066): it has NO renderer (it produced an
+// "Unknown block type" placeholder), and `benefits-grid` (plus `zigzag-features`)
+// already cover the "features" role. `stats` is kept as a distinct semantic
+// label but is canonicalized to the renderable `trust-bar` at normalize time.
 const FREEFORM_MICROSITE_DISPLAY_TYPES = [
   "hero",
   "trust-bar",
   "benefits-grid",
-  "features",
   "testimonial",
   "how-it-works",
   "comparison",
@@ -1094,15 +1106,15 @@ const FREEFORM_MICROSITE_DISPLAY_TYPES = [
   "footer",
 ] as const;
 
-// Validation allow-list — a superset of the displayed vocabulary that also
-// accepts the synonym block types the normalizer/renderer treat as equivalent
-// ("testimonials", "cta"). Any block the model emits whose type is NOT in this
-// set is dropped in freeform mode so dso-*/business-case-* can never leak.
-const FREEFORM_ALLOWED_TYPE_SET: ReadonlySet<string> = new Set<string>([
-  ...FREEFORM_MICROSITE_DISPLAY_TYPES,
-  "testimonials",
-  "cta",
-]);
+// Validation allow-list — the displayed vocabulary canonicalized to the actual
+// renderer types (e.g. "stats" → "trust-bar"). normalizeBlock canonicalizes
+// every emitted type via canonicalizeBlockType BEFORE this filter runs, so a
+// hallucinated synonym ("features", "testimonials", "cta") becomes a renderable
+// canonical type and passes; any type still outside this set is dropped in
+// freeform mode so dso-*/business-case-* (and truly unknown types) can never leak.
+const FREEFORM_ALLOWED_TYPE_SET: ReadonlySet<string> = new Set<string>(
+  FREEFORM_MICROSITE_DISPLAY_TYPES.map((t) => canonicalizeBlockType(t)),
+);
 
 // Short role hint per displayed block so the model understands each section's
 // job (mirrors the shared block-role-tag vocabulary used by enforceRequiredRoles).
@@ -1110,7 +1122,6 @@ const FREEFORM_ROLE_HINTS: Record<string, string> = {
   "hero": "hero — opens the page; exactly ONE, always first",
   "trust-bar": "social proof + stats — quick credibility/metrics bar",
   "benefits-grid": "features — benefit/value cards",
-  "features": "features — capability cards",
   "testimonial": "social proof — a real-sounding customer quote",
   "how-it-works": "features — numbered process steps",
   "comparison": "comparison — old-way vs new-way",
@@ -1371,13 +1382,46 @@ function buildSystemPrompt(
     forbiddenList,
   });
 
+  // Task #1066 — Harden the SELLER identity even when the tenant has no
+  // brandName / companyDescription. The seller is the voice the page is written
+  // AS; if it degrades to an empty string the dominant account/reference
+  // context takes over and the copy flips to the prospect's point of view
+  // ("why companies should use X"). Always resolve a usable seller name and
+  // log a warning when none is configured so the failure is visible.
+  const sellerName = brandName.trim() || "the selling company";
+  // Warn only when the seller identity is TRULY weak — i.e. neither a brandName
+  // nor a companyDescription is available to anchor the seller voice. If
+  // companyDescription is set, sellerIdentity (below) still resolves to a real
+  // identity even when brandName is blank, so no warning is warranted.
+  if (!brandName.trim() && !companyDescription?.trim()) {
+    logger.warn(
+      { accountSegment },
+      "generate-microsite: tenant has no brandName/companyDescription; seller identity is weak — generated copy may drift toward generic point-of-view",
+    );
+  }
+
   // Build dynamic identity — use companyDescription if set, else compose from brandName + targetAudience
   const sellerIdentity = companyDescription?.trim()
-    || (targetAudience ? `${brandName}, serving ${targetAudience}` : `${brandName}, a B2B technology company`);
+    || (targetAudience ? `${sellerName}, serving ${targetAudience}` : `${sellerName}, a B2B technology company`);
   const audienceDescription = targetAudience ? `${targetAudience} accounts` : "specific accounts";
+
+  // Task #1066 — State the persuasion direction unambiguously so the page is
+  // always written by the SELLER (the tenant) TO PERSUADE the target account,
+  // never from the account's point of view and never generic
+  // "why companies should use X" copy.
+  const pitchDirection = [
+    "PITCH DIRECTION — read carefully, NEVER reverse this:",
+    `- You write AS ${sellerName} (the SELLER). ${sellerName}'s product is the thing being sold.`,
+    "- The reader is the TARGET ACCOUNT named in the user message (the PROSPECT / buyer). The whole page argues why THAT account should adopt " + sellerName + "'s product.",
+    `- Write in ${sellerName}'s first-person voice ("we", "our"). Address the account as "you".`,
+    "- NEVER write from the target account's point of view. NEVER produce generic \"why companies should use X\" copy — it must be specific to this account adopting " + sellerName + "'s product.",
+    "- Any reference page, website, screenshot, or account context provided is the AUDIENCE you are pitching TO — it is NOT the voice to adopt and NOT the product to sell. Never flip the roles even when the account/reference context is richer than the seller's.",
+  ].join("\n");
 
   const header = [
     `You are an expert B2B copywriter for ${sellerIdentity}. You write personalized microsites for ${audienceDescription}.`,
+    "",
+    pitchDirection,
     "",
     brandSection ? `BRAND VOICE & GUIDELINES:\n${brandSection}` : "",
     productCatalog ? `\n${productCatalog}` : "",
@@ -1454,7 +1498,7 @@ function buildSystemPrompt(
       "LAYOUT — YOU choose the sections (this page has NO fixed block list):",
       "- Open with EXACTLY ONE \"hero\" block (first) and END with a \"footer\" block.",
       "- Between them, pick 5–9 sections from the AVAILABLE BLOCKS that best tell THIS account's story. Vary the selection and order across accounts — do NOT emit the same flat sequence every time.",
-      "- Include at least one proof/metrics section (trust-bar, stats, stat-callout, or testimonial), at least one features/benefits section (benefits-grid, features, or how-it-works), and a closing CTA (bottom-cta) immediately before the footer.",
+      "- Include at least one proof/metrics section (trust-bar, stats, stat-callout, or testimonial), at least one features/benefits section (benefits-grid or how-it-works), and a closing CTA (bottom-cta) immediately before the footer.",
       "- Sequence sections as a logical narrative: hook → problem/value → proof → how-it-works/benefits → comparison → closing CTA → footer. Skip sections that don't fit; never pad.",
       "- Use ONLY the block types listed above (exact type strings). NEVER invent block types and NEVER use industry-specific compound blocks.",
       "Every block's copy must feel written specifically for this account — their name, scale, and situation woven in naturally.",

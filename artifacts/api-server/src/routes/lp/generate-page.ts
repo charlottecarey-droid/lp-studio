@@ -18,6 +18,7 @@ import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
 import { resolveBlockTags, BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS, type BlockRoleTag } from "@workspace/lp-template-engine";
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
+import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
 import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
 
 const router = Router();
@@ -3590,6 +3591,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
 
     parsed.blocks = parsed.blocks.map((block: unknown, i: number) => {
       const b = block as Record<string, unknown>;
+      // Task #1066 — alias guard (parity with the sales-microsite path): map any
+      // synonym block type the model emits (e.g. `features`) to its real,
+      // renderable equivalent so it never surfaces an "Unknown block type"
+      // placeholder. No-op for already-canonical types.
+      if (typeof b.type === "string") b.type = canonicalizeBlockType(b.type);
       if (!b.id) b.id = `block-${b.type ?? "unknown"}-${i}`;
 
       // Inject brand CTA color into any block that has a ctaColor prop.
