@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="240" height="240">
+  <defs><linearGradient id="lpict" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F6F2E9"/><stop offset="1" stop-color="#EFE6D0"/></linearGradient></defs>
+  <rect x="4" y="4" width="92" height="92" rx="26" fill="url(#lpict)" stroke="#1A1815" stroke-opacity="0.08" stroke-width="1"/>
+  <text x="46.5" y="66" text-anchor="middle" font-family="'DM Sans','Helvetica Neue',Arial,sans-serif" font-weight="700" font-size="46" letter-spacing="-3" fill="#4B47E5">LP</text>
+  <circle cx="71" cy="65" r="7" fill="#E26B4F"/>
+</svg>
