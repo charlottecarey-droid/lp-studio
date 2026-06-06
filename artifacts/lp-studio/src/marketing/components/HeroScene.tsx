@@ -89,11 +89,11 @@ export default function HeroScene() {
             margin: "0 auto",
             maxWidth: 980,
             color: "var(--ink)",
-            // Raise the clamp floor to 42px so the headline reads big and
-            // premium on phones (was 30px, which looked undersized). The floor
-            // only applies below ~583px viewport; desktop is unchanged (still
-            // 7.2vw, capping at 96px).
-            fontSize: "clamp(42px, 7.2vw, 96px)",
+            // Raise only the clamp floor to 48px so the headline reads big and
+            // premium on phones (was 42px). Keeping the 7.2vw term means the
+            // floor applies below ~666px viewport; tablet/desktop scaling is
+            // unchanged (still 7.2vw, capping at 96px).
+            fontSize: "clamp(48px, 7.2vw, 96px)",
           }}
         >
           Describe a page.

@@ -18,8 +18,6 @@ const SUGGESTION_PILLS = [
   { label: "Demo-request page", prompt: "A demo-request page that qualifies enterprise buyers, with a short brief form." },
 ];
 
-const HAIRLINE_STRONG = "rgba(26, 24, 21, 0.18)";
-
 export default function PromptCard() {
   const [value, setValue] = useState("");
   const [focused, setFocused] = useState(false);
@@ -108,71 +106,17 @@ export default function PromptCard() {
               </div>
             </div>
 
-            {/* Footer — text-link affordances + Generate page button.
-                Stacks vertically below md so the input controls + Generate
-                button never crowd / overflow on phones. */}
+            {/* Footer — primary + secondary CTAs. On mobile they spread
+                across the full width (justify-between) so there's no dead
+                white space on the right; on desktop they pack to the right. */}
             <div
-              className="flex flex-col items-stretch md:flex-row md:items-center md:justify-between"
+              className="flex items-center justify-between md:justify-end"
               style={{
-                gap: 10,
+                gap: 6,
                 padding: "10px 12px",
                 borderTop: "1px solid var(--hairline)",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-                {[
-                  {
-                    label: "Reference URL",
-                    icon: (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M10 13a5 5 0 007 0l4-4a5 5 0 00-7-7l-1 1" />
-                        <path d="M14 11a5 5 0 00-7 0l-4 4a5 5 0 007 7l1-1" />
-                      </svg>
-                    ),
-                  },
-                  {
-                    label: "Screenshot",
-                    icon: (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                        <circle cx="8.5" cy="8.5" r="1.5" />
-                        <path d="M21 15l-5-5L5 21" />
-                      </svg>
-                    ),
-                  },
-                ].map((b) => (
-                  <button
-                    key={b.label}
-                    type="button"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      fontSize: 12.5,
-                      color: "var(--ink-mute)",
-                      background: "transparent",
-                      padding: "6px 10px",
-                      borderRadius: 7,
-                      border: "none",
-                      cursor: "pointer",
-                      fontWeight: 500,
-                      transition: "background .12s, color .12s",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "var(--cream-2)";
-                      e.currentTarget.style.color = "var(--ink)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "transparent";
-                      e.currentTarget.style.color = "var(--ink-mute)";
-                    }}
-                  >
-                    {b.icon}
-                    {b.label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-wrap items-center" style={{ gap: 6 }}>
                 {/* Secondary — subtle text-link affordance, no surface */}
                 <a
                   href="https://app.lpstudio.ai"
@@ -233,7 +177,6 @@ export default function PromptCard() {
                   </svg>
                   Generate page
                 </a>
-              </div>
             </div>
           </div>
         </form>
