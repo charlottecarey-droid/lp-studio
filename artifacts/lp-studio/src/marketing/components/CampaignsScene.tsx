@@ -126,6 +126,34 @@ export default function CampaignsScene() {
           <ComposerMock />
           <RecipientMock />
         </div>
+
+        {/* CTA */}
+        <div className="mt-10">
+          <a
+            href="/for-sales"
+            className="inline-flex items-center gap-1.5 text-[14px] font-medium transition-all"
+            style={{
+              color: "var(--indigo)",
+              background: "rgba(75,71,229,0.08)",
+              border: "1px solid rgba(75,71,229,0.22)",
+              borderRadius: 8,
+              padding: "9px 14px",
+              textDecoration: "none",
+              letterSpacing: "-0.005em",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(75,71,229,0.14)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(75,71,229,0.08)";
+            }}
+          >
+            Explore for sales
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 12h14M13 5l7 7-7 7" />
+            </svg>
+          </a>
+        </div>
       </div>
     </section>
   );
