@@ -19,6 +19,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  collectImageSlots,
   fillEmptyImages,
   sanitizeAIImageUrls,
   validateAndDedupeAIImages,
@@ -210,5 +211,49 @@ describe("sales template prop preservation — authored structure survives", () 
     ) as Record<string, unknown>;
     expect(merged.backgroundImage).toBe("/objects/tmpl-hero");
     expect(merged.ctaText).toBe("Reserve your spot");
+  });
+});
+
+describe("sales image pipeline — backgroundImage slot (event-landing-hero / dso-*)", () => {
+  // The event-landing-hero (and dso-* section blocks) store their full-bleed
+  // hero/section photo in `backgroundImage`, not `imageUrl`/`backgroundImageUrl`.
+  // collectImageSlots must expose it so the "Replace imagery" clear + fill pass
+  // can swap it; restoreTemplateImages must backstop it from the template.
+  it("collectImageSlots exposes backgroundImage as an lp-hero slot", () => {
+    const block = {
+      type: "event-landing-hero",
+      props: { headline: "After Hours", backgroundImage: "/objects/tmpl-hero" },
+    };
+    const slots = collectImageSlots(block as any);
+    const bg = slots.find(s => s.get() === "/objects/tmpl-hero");
+    expect(bg).toBeDefined();
+    expect(bg!.purpose).toBe("lp-hero");
+    // The slot accessor mutates in place — this is how "Replace imagery" clears it.
+    bg!.set("");
+    expect((block.props as any).backgroundImage).toBe("");
+  });
+
+  it("fillEmptyImages repopulates an empty backgroundImage from the library", () => {
+    let blocks: any[] = [
+      { type: "event-landing-hero", props: { headline: "After Hours", backgroundImage: "" } },
+    ];
+    blocks = fillEmptyImages(blocks, UNTAGGED, CTX) as any[];
+    const bg = blocks[0].props.backgroundImage as string;
+    expect(bg).toBeTruthy();
+    expect(UNTAGGED.some(i => i.url === bg)).toBe(true);
+  });
+
+  it("restoreTemplateImages backstops an empty backgroundImage but keeps a library win", () => {
+    const tmpl: any[] = [
+      { type: "event-landing-hero", props: { backgroundImage: "/objects/tmpl-event" } },
+      { type: "dso-challenges", props: { backgroundImage: "/objects/tmpl-dso" } },
+    ];
+    const generated: any[] = [
+      { type: "event-landing-hero", props: { backgroundImage: "/objects/library-event" } }, // library win
+      { type: "dso-challenges", props: { backgroundImage: "" } },                            // fill failed
+    ];
+    const out = restoreTemplateImages(generated, tmpl, { onlyEmpty: true }) as any[];
+    expect(out[0].props.backgroundImage).toBe("/objects/library-event");
+    expect(out[1].props.backgroundImage).toBe("/objects/tmpl-dso");
   });
 });

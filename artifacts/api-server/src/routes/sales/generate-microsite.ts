@@ -480,7 +480,7 @@ function substituteAccountVars(value: unknown, companyName: string, practiceCoun
 }
 
 // Image-bearing prop names to restore from the template block at each position.
-const SCALAR_IMAGE_PROPS = ["imageUrl", "backgroundImageUrl", "heroImageUrl", "mediaUrl"] as const;
+const SCALAR_IMAGE_PROPS = ["imageUrl", "backgroundImageUrl", "heroImageUrl", "mediaUrl", "backgroundImage"] as const;
 // Array fields + the image key within each element
 const ARRAY_IMAGE_SPECS = [
   { field: "rows",     imgKey: "imageUrl" },

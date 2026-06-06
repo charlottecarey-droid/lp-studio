@@ -823,6 +823,10 @@ export function collectImageSlots(block: Record<string, unknown>): AIImageSlot[]
 
   pushScalar("imageUrl", heroScalar ? "lp-hero" : "lp-feature", blockContext);
   pushScalar("backgroundImageUrl", "lp-hero", blockContext);
+  // `backgroundImage` is the full-bleed section/hero background used by
+  // event-landing-hero and the dso-* section blocks (challenges, comparison,
+  // final-cta, lab-tour). It is a wide hero-style photo → lp-hero.
+  pushScalar("backgroundImage", "lp-hero", blockContext);
   pushScalar("heroImageUrl", "lp-hero", blockContext);
   pushScalar("bundleImageUrl", "lp-feature", blockContext); // storefront closing-CTA bundle
 
@@ -1220,14 +1224,18 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       props.backgroundStyle = "dandy-green";
     }
 
-    // DSO challenges: this block's only image slot is a section background
-    // photo (`backgroundImage`, distinct from the `backgroundImageUrl` other
-    // dso blocks use), rendered behind a dark overlay. It's not in the AI
-    // schema, so the model never sets it — fill it here so the card grid sits
-    // on a relevant photo instead of a flat panel. pick() returns "" when no
-    // suitable library image exists, leaving the plain background intact.
-    if (blockType === "dso-challenges" && !props.backgroundImage) {
-      props.backgroundImage = pick(blockContext, images, usedUrls, "lp-feature");
+    // Section / hero background photo stored in `backgroundImage` (distinct
+    // from the `backgroundImageUrl` other blocks use). Used by the cinematic
+    // event-landing-hero and the dso-* section blocks (challenges, comparison,
+    // final-cta, lab-tour), rendered behind a dark overlay. Not in the AI
+    // schema, so the model never sets it — fill it here so the section sits on
+    // a relevant photo instead of a flat panel. event-landing-hero is a
+    // full-bleed hero → lp-hero; the dso section backgrounds → lp-feature.
+    // pick() returns "" when no suitable library image exists, leaving the
+    // plain background intact.
+    if ("backgroundImage" in props && !props.backgroundImage) {
+      const bgPurpose = blockType === "event-landing-hero" ? "lp-hero" : "lp-feature";
+      props.backgroundImage = pick(blockContext, images, usedUrls, bgPurpose);
     }
 
     // DSO blocks with a single imageUrl (ai-feature, particle-mesh, flow-canvas, cta-capture)
