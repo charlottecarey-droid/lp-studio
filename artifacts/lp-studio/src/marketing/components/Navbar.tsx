@@ -41,7 +41,7 @@ export default function Navbar() {
           style={{ color: "var(--ink)" }}
           aria-label="LP Studio — home"
         >
-          <Logo variant="wordmark" height={28} />
+          <Logo variant="wordmark" height={38} />
         </a>
 
         <div
