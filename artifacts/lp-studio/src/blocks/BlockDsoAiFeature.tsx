@@ -52,7 +52,7 @@ export function BlockDsoAiFeature({ props, headlineColor, onFieldChange }: Props
     statsLayout = "row",
     imageUrl  = "",
     videoUrl  = "",
-    backgroundStyle = "muted",
+    backgroundStyle = "dandy-green",
     ctaText,
     ctaUrl,
     ctaMode = "link",
