@@ -116,11 +116,25 @@ function CaseStudyForm({
   value: Record<string, unknown>;
   onChange: (v: Record<string, unknown>) => void;
 }) {
-  const v = value as { title?: string; categories?: string; url?: string; image?: string; logoUrl?: string };
+  const v = value as {
+    title?: string; categories?: string; url?: string; image?: string; logoUrl?: string;
+    quote?: string; author?: string; stat?: string; statLabel?: string;
+    locationCount?: string | number; segment?: string;
+  };
   return (
     <div className="space-y-2">
       <Input placeholder="Title" value={v.title ?? ""} onChange={e => onChange({ ...v, title: e.target.value })} className="text-xs h-7" />
       <Input placeholder="Categories e.g. INDUSTRY / SIZE" value={v.categories ?? ""} onChange={e => onChange({ ...v, categories: e.target.value })} className="text-xs h-7" />
+      <Textarea placeholder="Customer quote" value={v.quote ?? ""} onChange={e => onChange({ ...v, quote: e.target.value })} rows={2} className="text-xs resize-none" />
+      <Input placeholder="Quote author e.g. Jane Doe, COO" value={v.author ?? ""} onChange={e => onChange({ ...v, author: e.target.value })} className="text-xs h-7" />
+      <div className="grid grid-cols-2 gap-2">
+        <Input placeholder="Headline stat e.g. 12.5%" value={v.stat ?? ""} onChange={e => onChange({ ...v, stat: e.target.value })} className="text-xs h-7" />
+        <Input placeholder="Stat label e.g. revenue lift" value={v.statLabel ?? ""} onChange={e => onChange({ ...v, statLabel: e.target.value })} className="text-xs h-7" />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Input placeholder="# of locations" value={v.locationCount == null ? "" : String(v.locationCount)} onChange={e => onChange({ ...v, locationCount: e.target.value })} className="text-xs h-7" />
+        <Input placeholder="Segment / industry" value={v.segment ?? ""} onChange={e => onChange({ ...v, segment: e.target.value })} className="text-xs h-7" />
+      </div>
       <Input placeholder="Link URL" value={v.url ?? ""} onChange={e => onChange({ ...v, url: e.target.value })} className="text-xs h-7" />
       <ImagePicker label="Cover image" value={v.image ?? ""} onChange={url => onChange({ ...v, image: url })} previewClassName="w-full h-44 object-contain bg-muted/40" />
       <ImagePicker label="Logo" value={v.logoUrl ?? ""} onChange={url => onChange({ ...v, logoUrl: url })} />
@@ -162,7 +176,7 @@ function TeamMemberForm({ value, onChange }: { value: Record<string, unknown>; o
 function getDefaultContent(type: LibraryType): Record<string, unknown> {
   if (type === "product_showcase") return { name: "", description: "", badge: "", image: "" };
   if (type === "product_grid") return { title: "", description: "", image: "" };
-  if (type === "case_study") return { title: "", categories: "", url: "#", image: "", logoUrl: "" };
+  if (type === "case_study") return { title: "", categories: "", url: "#", image: "", logoUrl: "", quote: "", author: "", stat: "", statLabel: "", locationCount: "", segment: "" };
   if (type === "team_member") return { name: "", role: "", email: "", chilipiperUrl: "", photo: "" };
   return { title: "", description: "", category: "Article", url: "#", image: "" };
 }

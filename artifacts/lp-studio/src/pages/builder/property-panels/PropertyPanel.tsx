@@ -1888,7 +1888,11 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                             const items = (await res.json()) as Array<{
                               name?: string;
                               approved_for_ai?: boolean;
-                              content?: { title?: string; categories?: string; image?: string };
+                              content?: {
+                                title?: string; categories?: string; image?: string;
+                                quote?: string; author?: string; stat?: string;
+                                statLabel?: string; label?: string;
+                              };
                             }>;
                             const library = Array.isArray(items) ? items : [];
                             const mapped = library
@@ -1897,10 +1901,10 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                                 const c = it.content ?? {};
                                 return {
                                   name: it.name || c.title || "",
-                                  stat: "",
-                                  label: c.categories ?? "",
-                                  quote: "",
-                                  author: "",
+                                  stat: c.stat ?? "",
+                                  label: c.statLabel || c.label || c.categories || "",
+                                  quote: c.quote ?? "",
+                                  author: c.author ?? "",
                                   image: c.image || "",
                                 };
                               })

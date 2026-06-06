@@ -1896,7 +1896,7 @@ export async function fetchApprovedCaseStudies(
    *  (task #255). Defaults to true to preserve the historical strict-only
    *  call site behavior. */
   onlyApproved: boolean = true,
-): Promise<Array<{ title: string; categories: string; url: string }>> {
+): Promise<ApprovedCaseStudy[]> {
   if (tenantId == null) return [];
   try {
     const rows = await db.execute(
@@ -1908,17 +1908,72 @@ export async function fetchApprovedCaseStudies(
               WHERE tenant_id = ${tenantId} AND type = 'case_study'
               ORDER BY sort_order ASC, id ASC LIMIT 12`,
     );
+    const str = (v: unknown): string => (typeof v === "string" ? v : v == null ? "" : String(v));
+    const parseLoc = (v: unknown): number | null => {
+      if (typeof v === "number" && Number.isFinite(v)) return v;
+      if (typeof v === "string") {
+        const m = v.replace(/[, ]/g, "").match(/\d+/);
+        if (m) return Number(m[0]);
+      }
+      return null;
+    };
     return (rows.rows as Array<{ name: string; content: Record<string, unknown> }>).map((r) => {
-      const c = (r.content ?? {}) as { title?: string; categories?: string; url?: string };
+      const c = (r.content ?? {}) as Record<string, unknown>;
+      // `label` is the legacy key written by the "Save DSO Success Story to
+      // library" path for the stat's short label; `statLabel` is the explicit
+      // editor field. Read both so legacy rows keep working.
       return {
-        title: r.name || c.title || "",
-        categories: c.categories ?? "",
-        url: c.url ?? "",
+        title: r.name || str(c.title),
+        categories: str(c.categories),
+        url: str(c.url),
+        quote: str(c.quote),
+        author: str(c.author),
+        stat: str(c.stat),
+        statLabel: str(c.statLabel) || str(c.label),
+        image: str(c.image),
+        logoUrl: str(c.logoUrl),
+        locationCount: parseLoc(c.locationCount),
+        segment: str(c.segment),
       };
     }).filter((r) => r.title);
   } catch {
     return [];
   }
+}
+
+/** Rank approved case studies by relevance to a target audience: closest
+ *  location count first, then matching segment/industry, then the library's
+ *  existing sort order as a stable tiebreak. Returns a new sorted array. */
+function rankCaseStudies(
+  pool: ApprovedCaseStudy[],
+  ctx: { locationCount?: number | null; segment?: string },
+): ApprovedCaseStudy[] {
+  const targetLoc =
+    typeof ctx.locationCount === "number" && Number.isFinite(ctx.locationCount)
+      ? ctx.locationCount
+      : null;
+  const targetSeg = (ctx.segment ?? "").trim().toLowerCase();
+  const segMatch = (a: string): boolean => {
+    const s = a.trim().toLowerCase();
+    if (!s || !targetSeg) return false;
+    return s.includes(targetSeg) || targetSeg.includes(s);
+  };
+  return pool
+    .map((cs, i) => ({ cs, i }))
+    .sort((a, b) => {
+      if (targetLoc != null) {
+        const da = a.cs.locationCount != null ? Math.abs(a.cs.locationCount - targetLoc) : Infinity;
+        const dbb = b.cs.locationCount != null ? Math.abs(b.cs.locationCount - targetLoc) : Infinity;
+        if (da !== dbb) return da - dbb;
+      }
+      if (targetSeg) {
+        const ma = segMatch(a.cs.segment) ? 0 : 1;
+        const mb = segMatch(b.cs.segment) ? 0 : 1;
+        if (ma !== mb) return ma - mb;
+      }
+      return a.i - b.i;
+    })
+    .map((x) => x.cs);
 }
 
 /** Task #253 — strict-mode hard constraint: scan AI-generated blocks for
@@ -1932,6 +1987,7 @@ function buildApprovedStatSet(
   brand: BrandConfig,
   segmentContext: SegmentContext | undefined,
   proofPoints: ProofPoint[] = [],
+  caseStudies: ApprovedCaseStudy[] = [],
 ): Set<string> {
   const out = new Set<string>();
   const add = (raw: string | undefined) => {
@@ -1980,6 +2036,10 @@ function buildApprovedStatSet(
     if (!p.approved_for_ai) continue;
     add(p.value);
   }
+  // Approved case-study headline stats must be in the pool, or
+  // scanForUnapprovedStats would flag the REAL stats we populate into
+  // case-study blocks as unapproved mismatches in the builder review modal.
+  for (const cs of caseStudies) add(cs.stat);
   return out;
 }
 
@@ -2085,65 +2145,118 @@ function logStrictMismatches(
  *  shipping a hallucinated story. */
 const CASE_STUDY_PLACEHOLDER = "Add a quote in brand settings";
 
-export type ApprovedCaseStudy = { title: string; categories: string; url: string };
+export type ApprovedCaseStudy = {
+  title: string;
+  categories: string;
+  url: string;
+  quote: string;
+  author: string;
+  /** Headline stat value, e.g. "12.5%". */
+  stat: string;
+  /** Short stat label, e.g. "annualized revenue lift". */
+  statLabel: string;
+  image: string;
+  logoUrl: string;
+  /** Number of locations the customer operates, for relevance ranking. */
+  locationCount: number | null;
+  /** Segment / industry, for relevance ranking. */
+  segment: string;
+};
 
-/** Hard-enforce strict mode for case-study-bearing blocks: rebuild
- *  `props.cases` (dso-success-stories) and the headline/quote/body fields
- *  (dso-case-study) so they only ever quote rows from the approved pool —
- *  or, when the pool is empty, an obvious placeholder. */
+/** Set of case-study-bearing block types that draw from the approved pool. */
+const CASE_STUDY_BLOCK_TYPES = new Set(["dso-success-stories", "dso-case-study", "case-studies"]);
+
+/** Populate case-study-bearing blocks from the tenant's approved case-study
+ *  pool (already ranked by relevance), using the REAL quote, author, stat,
+ *  label, and image. Falls back to per-field placeholders only for fields
+ *  genuinely missing on an otherwise-real case study.
+ *
+ *  When the pool is EMPTY (no approved case studies), the block keeps its
+ *  built-in example stories instead of being wiped to placeholders — for
+ *  `dso-success-stories` this means clearing `cases` so the renderer falls
+ *  back to its shipped DEFAULT_CASES (reversal of the original Task #253
+ *  always-placeholder behavior). In strict mode the single-story
+ *  `dso-case-study` block still blanks long-form prose when empty so the AI
+ *  cannot ship an invented story. */
 export function enforceApprovedCaseStudies(
   block: { type?: string; props?: Record<string, unknown> },
   pool: ApprovedCaseStudy[],
+  opts: { strict?: boolean } = {},
 ): void {
   const t = block.type;
   const props = block.props;
   if (!props || typeof props !== "object") return;
+  const isStrict = opts.strict === true;
 
   if (t === "dso-success-stories") {
-    // Block contract: cases array of EXACTLY 3 of {name, stat, label, quote, author, image}.
-    const targetCount = 3;
-    const next: Array<Record<string, unknown>> = [];
-    for (let i = 0; i < targetCount; i += 1) {
-      const src = pool[i];
-      if (src) {
-        next.push({
-          name: src.title,
-          stat: STAT_PLACEHOLDER,
-          label: src.categories || "",
-          quote: "",
-          author: "",
-          image: "",
-        });
-      } else {
-        next.push({
-          name: CASE_STUDY_PLACEHOLDER,
-          stat: STAT_PLACEHOLDER,
-          label: "",
-          quote: "",
-          author: "",
-          image: "",
-        });
-      }
+    if (pool.length === 0) {
+      // No approved case studies — clear `cases` so BlockDsoSuccessStories
+      // renders its built-in example stories rather than placeholders.
+      props.cases = [];
+      return;
     }
-    props.cases = next;
+    // Block contract: up to 3 of {name, stat, label, quote, author, image}.
+    props.cases = pool.slice(0, 3).map((src) => ({
+      name: src.title,
+      stat: src.stat || STAT_PLACEHOLDER,
+      label: src.statLabel || src.categories || "",
+      quote: src.quote || "",
+      author: src.author || "",
+      image: src.image || "",
+    }));
     return;
   }
 
   if (t === "dso-case-study") {
-    // Single-case block: headline = approved title (or placeholder); blank
-    // out the long-form fields so unapproved prose can't ship.
     const src = pool[0];
-    props.headline = src ? src.title : CASE_STUDY_PLACEHOLDER;
-    if ("subheadline" in props) props.subheadline = "";
-    if ("quote" in props) props.quote = "";
-    if ("challenge" in props && props.challenge && typeof props.challenge === "object") {
-      (props.challenge as Record<string, unknown>).body = "";
+    if (src) {
+      props.headline = src.title;
+      if (src.quote) props.quote = src.quote;
+      else if (isStrict && "quote" in props) props.quote = "";
+      if (src.stat) {
+        props.stats = [{ value: src.stat, label: src.statLabel || src.categories || "" }];
+      }
+      if (isStrict) {
+        // No approved long-form prose source — blank it so unapproved copy
+        // can't ship, while keeping the real headline/quote/stat above.
+        if ("subheadline" in props) props.subheadline = "";
+        if (props.challenge && typeof props.challenge === "object") {
+          (props.challenge as Record<string, unknown>).body = "";
+        }
+        if (props.solution && typeof props.solution === "object") {
+          (props.solution as Record<string, unknown>).body = "";
+        }
+      }
+      return;
     }
-    if ("solution" in props && props.solution && typeof props.solution === "object") {
-      (props.solution as Record<string, unknown>).body = "";
+    // No approved case studies.
+    if (isStrict) {
+      props.headline = CASE_STUDY_PLACEHOLDER;
+      if ("subheadline" in props) props.subheadline = "";
+      if ("quote" in props) props.quote = "";
+      if (props.challenge && typeof props.challenge === "object") {
+        (props.challenge as Record<string, unknown>).body = "";
+      }
+      if (props.solution && typeof props.solution === "object") {
+        (props.solution as Record<string, unknown>).body = "";
+      }
     }
-    // stats[]/results[] keep the AI's values; unapproved ones are surfaced in
-    // the builder review modal rather than rewritten here.
+    // Non-strict + empty: leave the block's built-in example content in place.
+    return;
+  }
+
+  if (t === "case-studies") {
+    // Generic logo/title grid (CaseStudyItem: image, logoUrl, title,
+    // categories, url). Keep built-in/generated examples when empty.
+    if (pool.length === 0) return;
+    props.items = pool.slice(0, 6).map((src) => ({
+      image: src.image || "",
+      logoUrl: src.logoUrl || "",
+      title: src.title,
+      categories: src.categories || "",
+      url: src.url || "",
+    }));
+    return;
   }
 }
 
@@ -2184,23 +2297,30 @@ export function fillDsoCaseStudyNeutralDefaults(block: {
   ensureSection("whyItMatters", "Why It Matters");
 }
 
-/** Always-on guard for the `dso-success-stories` block: rebuild its `cases`
- *  array exclusively from the tenant's AI-approved case studies (or the
- *  placeholder when none are approved), independent of Strict Facts Mode. The
- *  AI must never invent or surface unapproved customer stories in this block.
- *  No-op when the page has no `dso-success-stories` block. */
+/** Always-on guard for every case-study-bearing block (`dso-success-stories`,
+ *  `dso-case-study`, `case-studies`): rebuild them exclusively from the
+ *  tenant's AI-approved case studies — ranked by relevance to the target
+ *  audience — independent of Strict Facts Mode. The AI must never invent or
+ *  surface unapproved customer stories. When no case studies are approved the
+ *  blocks keep their built-in example stories. No-op when the page has no
+ *  case-study block. */
 export async function enforceDsoSuccessStoriesApproved(
   blocks: unknown,
   tenantId: number | null,
+  opts: { strict?: boolean; locationCount?: number | null; segment?: string } = {},
 ): Promise<void> {
   if (!Array.isArray(blocks)) return;
   const targets = blocks.filter(
     (b): b is { type?: string; props?: Record<string, unknown> } =>
-      !!b && typeof b === "object" && (b as { type?: string }).type === "dso-success-stories",
+      !!b && typeof b === "object" && CASE_STUDY_BLOCK_TYPES.has((b as { type?: string }).type ?? ""),
   );
   if (targets.length === 0) return;
   const approved = await fetchApprovedCaseStudies(tenantId, true);
-  for (const b of targets) enforceApprovedCaseStudies(b, approved);
+  const ranked = rankCaseStudies(approved, {
+    locationCount: opts.locationCount ?? null,
+    segment: opts.segment ?? "",
+  });
+  for (const b of targets) enforceApprovedCaseStudies(b, ranked, { strict: opts.strict === true });
 }
 
 /**
@@ -3453,21 +3573,29 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // mode upgrades the wording to a hard "use only these" instruction.
   const proofPointsSection = buildProofPointsSection(proofPoints, strict);
   // Task #1136 — when the user provided a trusted source URL, case-study /
-  // testimonial slots may be filled from that REFERENCE PAGE. Strict mode no
-  // longer forces the "Add a quote in brand settings" placeholder in that case.
-  const approvedCaseStudyList = caseStudies
-    .map((cs) => `- ${cs.title}${cs.categories ? ` (${cs.categories})` : ""}${cs.url ? ` — ${cs.url}` : ""}`)
-    .join("\n");
+  // testimonial slots may also be filled from that REFERENCE PAGE; strict mode
+  // no longer forces the "Add a quote in brand settings" placeholder then.
+  const formatCaseStudy = (cs: ApprovedCaseStudy): string => {
+    const bits = [`- ${cs.title}`];
+    if (cs.categories) bits.push(`(${cs.categories})`);
+    if (cs.segment) bits.push(`[segment: ${cs.segment}]`);
+    if (cs.locationCount != null) bits.push(`[~${cs.locationCount} locations]`);
+    if (cs.stat) bits.push(`— stat: ${cs.stat}${cs.statLabel ? ` ${cs.statLabel}` : ""}`);
+    if (cs.quote) bits.push(`— quote: "${cs.quote}"${cs.author ? ` — ${cs.author}` : ""}`);
+    if (cs.url) bits.push(`(${cs.url})`);
+    return bits.join(" ");
+  };
+  const caseStudyList = caseStudies.map(formatCaseStudy).join("\n");
   const caseStudiesSection = strict
     ? (urlSourcedFacts
         ? (caseStudies.length > 0
-            ? `CASE STUDIES — you may reference these approved customer stories AND any real customer stories, quotes, or stats that appear on the REFERENCE PAGE above (the user provided that URL as a trusted source). Do NOT invent stories that appear in neither:\n${approvedCaseStudyList}`
+            ? `CASE STUDIES — you may reference these approved customer stories AND any real customer stories, quotes, or stats that appear on the REFERENCE PAGE above (the user provided that URL as a trusted source). Use the real values verbatim; do NOT invent stories that appear in neither:\n${caseStudyList}`
             : "CASE STUDIES — for any case-study or testimonial slot, use the real customer stories, quotes, and stats from the REFERENCE PAGE above (the user provided that URL as a trusted source). Do NOT invent ones that don't appear there, and do NOT emit placeholder text like \"Add a quote in brand settings\".")
         : (caseStudies.length > 0
-            ? `APPROVED CASE STUDIES (the only customer stories the AI may reference by name; do not invent others):\n${approvedCaseStudyList}`
-            : "APPROVED CASE STUDIES: (none) — for any case-study or testimonial slot, use the literal placeholder \"Add a quote in brand settings\" instead of inventing one."))
+            ? `APPROVED CASE STUDIES (the only customer stories the AI may reference by name; do not invent others, and do not invent or alter their stats, quotes, or authors — use the real values below verbatim). Prefer the stories most relevant to the target audience's size (locations) and segment:\n${caseStudyList}`
+            : "APPROVED CASE STUDIES: (none) — do not invent any customer stories, stats, quotes, or authors; the system will supply neutral example stories for any case-study block."))
     : (caseStudies.length > 0
-        ? `CASE STUDIES (real customer stories you may reference by name):\n${approvedCaseStudyList}`
+        ? `CASE STUDIES (real customer stories you may reference by name, with their real stats and quotes — use the real values verbatim). Prefer the stories most relevant to the target audience's size (locations) and segment:\n${caseStudyList}`
         : "");
   // The AI Scan Review motion video is a Dandy-only internal asset (it shows
   // Dandy product UI). It must NEVER be exposed to partner / customer
@@ -3766,11 +3894,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       let strictMismatches: StrictStatMismatch[] = [];
       if (strict) {
         // Task #1136 — when the user provided a trusted source URL that scraped,
-        // its facts are trusted for THIS generation: don't scan/flag the stats,
-        // and don't blank/placeholder case studies. Color stripping is unrelated
-        // to facts and stays on in strict mode.
+        // its facts are trusted for THIS generation: don't scan/flag the stats.
+        // Color stripping is unrelated to facts and stays on in strict mode.
         if (!urlSourcedFacts) {
-          const pool = buildApprovedStatSet(brand, segmentContext, proofPoints);
+          const pool = buildApprovedStatSet(brand, segmentContext, proofPoints, caseStudies);
           strictMismatches = scanForUnapprovedStats(mergedBlocks, pool);
           if (strictMismatches.length > 0) {
             logStrictMismatches(strictMismatches, {
@@ -3779,9 +3906,6 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
               promptPreview: prompt.trim().slice(0, 200).replace(/\n/g, " "),
               promptPath: "TEMPLATE",
             });
-          }
-          for (const b of mergedBlocks as Array<{ type?: string; props?: Record<string, unknown> }>) {
-            enforceApprovedCaseStudies(b, caseStudies);
           }
         }
         stripAiInlineColors(mergedBlocks);
@@ -3792,7 +3916,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // or unapproved customer stories. Task #1136: skip when a trusted source
       // URL scraped — its customer stories are allowed to flow onto the page.
       if (!urlSourcedFacts) {
-        await enforceDsoSuccessStoriesApproved(mergedBlocks, tenantId);
+        await enforceDsoSuccessStoriesApproved(mergedBlocks, tenantId, {
+          strict,
+          segment: segmentContext?.name ?? "",
+        });
       }
 
       // Task #1136 — ensure every generated dso-case-study carries explicit
@@ -4725,10 +4852,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     let strictMismatches: StrictStatMismatch[] = [];
     if (strict) {
       // Task #1136 — a trusted, successfully-scraped source URL makes this
-      // generation's facts trusted: skip stat scanning/flagging and case-study
-      // blanking. Color stripping is fact-independent and stays on.
+      // generation's facts trusted: skip stat scanning/flagging. Color
+      // stripping is fact-independent and stays on.
       if (!urlSourcedFacts) {
-        const pool = buildApprovedStatSet(brand, segmentContext, proofPoints);
+        const pool = buildApprovedStatSet(brand, segmentContext, proofPoints, caseStudies);
         strictMismatches = scanForUnapprovedStats(parsed.blocks, pool);
         if (strictMismatches.length > 0) {
           logStrictMismatches(strictMismatches, {
@@ -4737,11 +4864,6 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
             promptPreview: prompt.trim().slice(0, 200).replace(/\n/g, " "),
             promptPath,
           });
-        }
-        // Strict Facts keeps the AI's stats on the page (see strictMismatches →
-        // builder review modal); only case-study blocks are hard-enforced here.
-        for (const b of parsed.blocks as Array<{ type?: string; props?: Record<string, unknown> }>) {
-          enforceApprovedCaseStudies(b, caseStudies);
         }
       }
       stripAiInlineColors(parsed.blocks);
@@ -4752,7 +4874,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // or unapproved customer stories. Task #1136: skip when a trusted source URL
     // scraped — its customer stories are allowed to flow onto the page.
     if (!urlSourcedFacts) {
-      await enforceDsoSuccessStoriesApproved(parsed.blocks, tenantId);
+      await enforceDsoSuccessStoriesApproved(parsed.blocks, tenantId, {
+        strict,
+        segment: segmentContext?.name ?? "",
+      });
     }
 
     // Task #1136 — ensure every generated dso-case-study carries explicit values

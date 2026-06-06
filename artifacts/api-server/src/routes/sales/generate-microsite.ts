@@ -1846,12 +1846,22 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // so the dso-success-stories block can reference real ones, and forbid the
     // model from inventing any others. A post-AI guard re-enforces this.
     const approvedCaseStudies = await fetchApprovedCaseStudies(account.tenantId, true);
+    const formatApprovedCaseStudy = (cs: typeof approvedCaseStudies[number]): string => {
+      const bits = [`- ${cs.title}`];
+      if (cs.categories) bits.push(`(${cs.categories})`);
+      if (cs.segment) bits.push(`[segment: ${cs.segment}]`);
+      if (cs.locationCount != null) bits.push(`[~${cs.locationCount} locations]`);
+      if (cs.stat) bits.push(`— stat: ${cs.stat}${cs.statLabel ? ` ${cs.statLabel}` : ""}`);
+      if (cs.quote) bits.push(`— quote: "${cs.quote}"${cs.author ? ` — ${cs.author}` : ""}`);
+      if (cs.url) bits.push(`(${cs.url})`);
+      return bits.join(" ");
+    };
     contextParts.push(
       approvedCaseStudies.length > 0
-        ? `\nAPPROVED CASE STUDIES (the ONLY customer stories you may reference by name in a dso-success-stories block; do NOT invent others, and do NOT invent stats, quotes, or authors for them):\n${
-            approvedCaseStudies.map((cs) => `- ${cs.title}${cs.categories ? ` (${cs.categories})` : ""}${cs.url ? ` — ${cs.url}` : ""}`).join("\n")
+        ? `\nAPPROVED CASE STUDIES (the ONLY customer stories you may reference by name in a case-study block; do NOT invent others, and do NOT invent or alter their stats, quotes, or authors — use the real values below verbatim). Prefer the stories most relevant to this account's size (locations) and segment:\n${
+            approvedCaseStudies.map(formatApprovedCaseStudy).join("\n")
           }`
-        : "\nAPPROVED CASE STUDIES: (none) — do NOT use a dso-success-stories block, and never invent a customer story, stat, quote, or author.",
+        : "\nAPPROVED CASE STUDIES: (none) — do NOT invent any customer story, stat, quote, or author; if you include a case-study block the system will supply neutral example stories.",
     );
 
     // Inject media library so AI uses real assets instead of inventing URLs
@@ -1957,10 +1967,27 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       });
     }
 
-    // Hard-enforce that any dso-success-stories block only ever uses the
-    // tenant's AI-approved case studies (never invented stories), matching the
-    // marketing generator. No-op when the page has no such block.
-    await enforceDsoSuccessStoriesApproved(normalizedBlocks, account.tenantId);
+    // Hard-enforce that any case-study block (dso-success-stories,
+    // dso-case-study, case-studies) only ever uses the tenant's AI-approved
+    // case studies (never invented stories), ranked by relevance to this
+    // account's size and segment, matching the marketing generator. No-op when
+    // the page has no such block.
+    const micrositeStrict = (brand.aiStrictFactsMode as boolean | undefined) !== false;
+    const micrositeLocationCount = ((): number | null => {
+      const sl = (briefingData?.sizeAndLocations ?? undefined) as Record<string, unknown> | undefined;
+      const v = sl?.locationCount;
+      if (typeof v === "number" && Number.isFinite(v)) return v;
+      if (typeof v === "string") {
+        const m = v.replace(/[, ]/g, "").match(/\d+/);
+        if (m) return Number(m[0]);
+      }
+      return null;
+    })();
+    await enforceDsoSuccessStoriesApproved(normalizedBlocks, account.tenantId, {
+      strict: micrositeStrict,
+      locationCount: micrositeLocationCount,
+      segment: (account.segment as string | undefined) ?? "",
+    });
 
     // Task #900 — deterministic backgroundStyle post-pass. Re-infer the design
     // intensity (deterministic; matches what buildSystemPrompt used) and enforce

@@ -1,32 +1,48 @@
 ---
-name: dso-success-stories approved-only
-description: The dso-success-stories block (builder + both AI generators) must only ever use the tenant's AI-approved Content Library case studies — never hardcoded/invented stories.
+name: case-study blocks approved-only + real content
+description: All case-study blocks (dso-success-stories, dso-case-study, case-studies) in both AI generators + builder must use the tenant's AI-approved Content Library case studies with their REAL quote/author/stat/image; empty library keeps built-in examples.
 ---
 
-# dso-success-stories must use approved Content Library case studies only
+# Case-study blocks: approved-only, real content, relevance-ranked
 
-The `dso-success-stories` block's customer stories must come exclusively from the
-tenant's **AI-approved** Content Library case studies (`case_study` type, where
-`approved_for_ai !== false`). It must never surface hardcoded/illustrative or
-AI-invented companies, stats, quotes, or authors.
+The three case-study-bearing block types — `dso-success-stories`,
+`dso-case-study`, and the generic `case-studies` — must source customer stories
+exclusively from the tenant's **AI-approved** Content Library case studies
+(`case_study` type, `approved_for_ai !== false`), populated with the REAL
+quote, author, headline stat (value + label), and image. Never surface
+hardcoded/illustrative or AI-invented companies, stats, quotes, or authors.
 
-**Why:** The block registry default ships illustrative placeholder stories
-(APEX/Smile Brands/Tend). Loading those onto a real tenant page — or letting the
-AI invent stories — puts fabricated customer outcomes in front of prospects.
+**Why:** Block registry defaults ship illustrative placeholder stories; loading
+those onto a real tenant page — or letting the AI invent stories — puts
+fabricated customer outcomes in front of prospects. Earlier the strict guard
+overwrote case slots to placeholders ("X" stat, "Add a quote in brand settings"),
+which shipped ugly placeholders even when the library was empty.
 
 **How to apply:**
-- Builder "Load defaults" (PropertyPanel, DSO Success Stories panel): fetch
-  `/api/lp/library/case_study`, keep `approved_for_ai !== false`, map to cases
-  (`name`=title, blank stat/quote/author, `label`=categories, `image` from
-  content). Fall back to the registry default **only when the library is
-  genuinely empty or the request fails** — a non-empty library with zero approved
-  items loads an empty set, NOT the hardcoded default.
-- AI generators: enforcement is shared and **always-on** (decoupled from strict
-  mode). `generate-page.ts` exports `fetchApprovedCaseStudies` /
-  `enforceApprovedCaseStudies` / `enforceDsoSuccessStoriesApproved`. Both
-  generate-page paths and `generate-microsite.ts` must (1) inject an APPROVED
-  CASE STUDIES section into the prompt, and (2) call
-  `enforceDsoSuccessStoriesApproved(blocks, tenantId)` after sanitize/normalize
-  (no-op when the block is absent; placeholder cases when the pool is empty).
-- The registry default itself is intentionally kept illustrative (not tenant
-  names) — enforcement happens at the callsites, not by editing the default.
+- `case_study` content JSON is free-form (no DB migration): editor + generators
+  read `quote, author, stat, statLabel (legacy alias: label), locationCount,
+  segment, image, logoUrl, categories, url`. `statLabel ?? label` — the "Save DSO
+  Success Story to library" path writes `label`; the editor writes `statLabel`.
+- AI generators (`generate-page.ts` + `generate-microsite.ts`): enforcement is
+  shared + **always-on** (decoupled from strict mode). `fetchApprovedCaseStudies`
+  returns the rich shape; `rankCaseStudies` orders by closest `locationCount` →
+  matching `segment` (contains either way) → library sort order;
+  `enforceApprovedCaseStudies(block, rankedPool, {strict})` populates per type;
+  `enforceDsoSuccessStoriesApproved(blocks, tenantId, {strict, locationCount,
+  segment})` is the always-on entry (name kept; now covers all 3 types). Call it
+  after sanitize/normalize at every generation callsite.
+- **Empty-library reversal:** when the approved pool is EMPTY, do NOT overwrite to
+  placeholders — keep the block's built-in examples. `dso-success-stories` →
+  set `props.cases = []` so the renderer's shipped `DEFAULT_CASES` fallback fires.
+  `case-studies` → leave items untouched. `dso-case-study` → leave untouched in
+  non-strict; in strict still blank long-form prose (no approved prose source) so
+  the AI can't ship an invented story.
+- **Strict stat pool:** approved case-study `stat` values MUST be fed into
+  `buildApprovedStatSet(...)` (4th arg), or `sanitizeBlocksStrict`'s numeric walk
+  rewrites the REAL populated stat to the "X" placeholder (it runs enforce THEN
+  walks within the same loop).
+- Builder "Load defaults" (PropertyPanel DSO panel): map real
+  stat/label/quote/author/image from content (was previously blanking them); still
+  loads empty set (never registry default) when library has rows but none approved.
+- Registry defaults stay illustrative (not tenant names) — enforcement happens at
+  callsites, not by editing the defaults.
