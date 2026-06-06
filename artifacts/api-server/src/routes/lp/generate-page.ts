@@ -2037,6 +2037,43 @@ export function enforceApprovedCaseStudies(
   }
 }
 
+/** Task #1136 — stop the `dso-case-study` React component from falling back to
+ *  its hardcoded DCA demo constants (DEFAULT_STATS, DEFAULT_RESULTS, the 45-site
+ *  / 9,600-hours quote, etc.) on a freshly generated page. The component uses
+ *  `props.x ?? DEFAULT_X` for every field, so any field the generation leaves
+ *  unset leaks DCA's numbers. We ensure every field the block defines carries an
+ *  explicit value: AI-extracted values are kept as-is; genuinely-missing fields
+ *  get neutral/empty values (never the DCA defaults). The block's component
+ *  defaults stay untouched, so Dandy's default (non-generated) rendering — block
+ *  library, canvas, template previews — is unchanged. */
+export function fillDsoCaseStudyNeutralDefaults(block: {
+  type?: string;
+  props?: Record<string, unknown>;
+}): void {
+  if (block.type !== "dso-case-study" || !block.props || typeof block.props !== "object") return;
+  const p = block.props;
+  if (typeof p.eyebrow !== "string") p.eyebrow = "Customer Story";
+  if (typeof p.headline !== "string") p.headline = "";
+  if (typeof p.subheadline !== "string") p.subheadline = "";
+  if (typeof p.quote !== "string") p.quote = "";
+  if (!Array.isArray(p.stats)) p.stats = [];
+  if (!Array.isArray(p.results)) p.results = [];
+  if (typeof p.heroOnly !== "boolean") p.heroOnly = false;
+  const ensureSection = (key: string, heading: string): void => {
+    const cur = p[key];
+    if (cur && typeof cur === "object" && !Array.isArray(cur)) {
+      const sec = cur as Record<string, unknown>;
+      if (typeof sec.heading !== "string") sec.heading = heading;
+      if (typeof sec.body !== "string") sec.body = "";
+    } else {
+      p[key] = { heading, body: "" };
+    }
+  };
+  ensureSection("challenge", "The Challenge");
+  ensureSection("solution", "The Solution");
+  ensureSection("whyItMatters", "Why It Matters");
+}
+
 /** Always-on guard for the `dso-success-stories` block: rebuild its `cases`
  *  array exclusively from the tenant's AI-approved case studies (or the
  *  placeholder when none are approved), independent of Strict Facts Mode. The
@@ -3232,6 +3269,32 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     ? [scrapeResult.scraped.url, ...(scrapeResult.scraped.additionalUrls ?? [])]
     : [];
 
+  // Task #1136 — "user-provided reference URL scraped successfully" signal.
+  // When a user explicitly hands the AI a source URL for THIS generation and
+  // it scraped, we treat that page as a TRUSTED fact source: the strict-facts
+  // guards below must not blank case studies, rebuild from the approved-only
+  // pool, force placeholders, or flag the URL's facts as unapproved. This is
+  // deliberately distinct from the brand's persisted `inspirationUrls` (auto-
+  // merged for voice/structure only) — only per-request URLs (`perRequestUrls`)
+  // confer this trust. Matching is on the normalized URL so a bare "site.com"
+  // request still matches the scraper's "https://site.com/" result.
+  const normalizeUrlForMatch = (u: string): string | null => {
+    try {
+      return new URL(u.startsWith("http") ? u : `https://${u}`).toString().toLowerCase();
+    } catch {
+      return null;
+    }
+  };
+  const perRequestUrlSet = new Set(
+    perRequestUrls.map(normalizeUrlForMatch).filter((u): u is string => u !== null),
+  );
+  const urlSourcedFacts =
+    scrapeResult.scraped != null &&
+    scrapedUrls.some((u) => {
+      const n = normalizeUrlForMatch(u);
+      return n !== null && perRequestUrlSet.has(n);
+    });
+
   // Uploaded screenshot always wins over Firecrawl's full-page render — the
   // user gave us their own picture, that's the one they want matched.
   const visionImage: string | undefined = uploadedScreenshot ?? scrapeResult.screenshotUrl;
@@ -3279,16 +3342,22 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // points (it's useful context for non-strict generations too); strict
   // mode upgrades the wording to a hard "use only these" instruction.
   const proofPointsSection = buildProofPointsSection(proofPoints, strict);
+  // Task #1136 — when the user provided a trusted source URL, case-study /
+  // testimonial slots may be filled from that REFERENCE PAGE. Strict mode no
+  // longer forces the "Add a quote in brand settings" placeholder in that case.
+  const approvedCaseStudyList = caseStudies
+    .map((cs) => `- ${cs.title}${cs.categories ? ` (${cs.categories})` : ""}${cs.url ? ` — ${cs.url}` : ""}`)
+    .join("\n");
   const caseStudiesSection = strict
-    ? (caseStudies.length > 0
-        ? `APPROVED CASE STUDIES (the only customer stories the AI may reference by name; do not invent others):\n${
-            caseStudies.map((cs) => `- ${cs.title}${cs.categories ? ` (${cs.categories})` : ""}${cs.url ? ` — ${cs.url}` : ""}`).join("\n")
-          }`
-        : "APPROVED CASE STUDIES: (none) — for any case-study or testimonial slot, use the literal placeholder \"Add a quote in brand settings\" instead of inventing one.")
+    ? (urlSourcedFacts
+        ? (caseStudies.length > 0
+            ? `CASE STUDIES — you may reference these approved customer stories AND any real customer stories, quotes, or stats that appear on the REFERENCE PAGE above (the user provided that URL as a trusted source). Do NOT invent stories that appear in neither:\n${approvedCaseStudyList}`
+            : "CASE STUDIES — for any case-study or testimonial slot, use the real customer stories, quotes, and stats from the REFERENCE PAGE above (the user provided that URL as a trusted source). Do NOT invent ones that don't appear there, and do NOT emit placeholder text like \"Add a quote in brand settings\".")
+        : (caseStudies.length > 0
+            ? `APPROVED CASE STUDIES (the only customer stories the AI may reference by name; do not invent others):\n${approvedCaseStudyList}`
+            : "APPROVED CASE STUDIES: (none) — for any case-study or testimonial slot, use the literal placeholder \"Add a quote in brand settings\" instead of inventing one."))
     : (caseStudies.length > 0
-        ? `CASE STUDIES (real customer stories you may reference by name):\n${
-            caseStudies.map((cs) => `- ${cs.title}${cs.categories ? ` (${cs.categories})` : ""}${cs.url ? ` — ${cs.url}` : ""}`).join("\n")
-          }`
+        ? `CASE STUDIES (real customer stories you may reference by name):\n${approvedCaseStudyList}`
         : "");
   // The AI Scan Review motion video is a Dandy-only internal asset (it shows
   // Dandy product UI). It must NEVER be exposed to partner / customer
@@ -3372,6 +3441,16 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // PHRASES anchors; the reference section explicitly states that
       // brand wins if there's a conflict, so order is correct.
       if (referenceSection) templateUserPromptParts.push(referenceSection);
+      // Task #1136 — when the user provided a trusted source URL, the template
+      // may carry example/demo facts (e.g. another customer's stats, names,
+      // quotes). Rule 6 normally freezes numeric values, but here we WANT those
+      // replaced with the reference page's real facts so no foreign demo data
+      // (numbers, customer names, quotes, case-study prose) survives.
+      if (urlSourcedFacts) {
+        templateUserPromptParts.push(
+          "TRUSTED SOURCE URL — OVERRIDE: The REFERENCE PAGE above was provided by the user as a trusted source for this page. For stat VALUES/metrics, customer names, quotes, and case-study prose, you MUST replace any example or demo content in the template with the corresponding real facts from the REFERENCE PAGE (this overrides rule 6 for those text values — keep image/link/color/anchor fields unchanged). If the reference page has no value for a given stat/quote slot, leave that text field empty rather than keeping the template's example value or inventing one.",
+        );
+      }
       if (visionSection) templateUserPromptParts.push(visionSection);
       templateUserPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
       templateUserPromptParts.push(
@@ -3576,26 +3655,43 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // still hard-enforced from the approved pool.
       let strictMismatches: StrictStatMismatch[] = [];
       if (strict) {
-        const pool = buildApprovedStatSet(brand, segmentContext, proofPoints);
-        strictMismatches = scanForUnapprovedStats(mergedBlocks, pool);
-        if (strictMismatches.length > 0) {
-          logStrictMismatches(strictMismatches, {
-            tenantId,
-            slug,
-            promptPreview: prompt.trim().slice(0, 200).replace(/\n/g, " "),
-            promptPath: "TEMPLATE",
-          });
-        }
-        for (const b of mergedBlocks as Array<{ type?: string; props?: Record<string, unknown> }>) {
-          enforceApprovedCaseStudies(b, caseStudies);
+        // Task #1136 — when the user provided a trusted source URL that scraped,
+        // its facts are trusted for THIS generation: don't scan/flag the stats,
+        // and don't blank/placeholder case studies. Color stripping is unrelated
+        // to facts and stays on in strict mode.
+        if (!urlSourcedFacts) {
+          const pool = buildApprovedStatSet(brand, segmentContext, proofPoints);
+          strictMismatches = scanForUnapprovedStats(mergedBlocks, pool);
+          if (strictMismatches.length > 0) {
+            logStrictMismatches(strictMismatches, {
+              tenantId,
+              slug,
+              promptPreview: prompt.trim().slice(0, 200).replace(/\n/g, " "),
+              promptPath: "TEMPLATE",
+            });
+          }
+          for (const b of mergedBlocks as Array<{ type?: string; props?: Record<string, unknown> }>) {
+            enforceApprovedCaseStudies(b, caseStudies);
+          }
         }
         stripAiInlineColors(mergedBlocks);
       }
 
       // Always rebuild dso-success-stories from AI-approved case studies only,
       // regardless of Strict Facts Mode — the block must never surface invented
-      // or unapproved customer stories.
-      await enforceDsoSuccessStoriesApproved(mergedBlocks, tenantId);
+      // or unapproved customer stories. Task #1136: skip when a trusted source
+      // URL scraped — its customer stories are allowed to flow onto the page.
+      if (!urlSourcedFacts) {
+        await enforceDsoSuccessStoriesApproved(mergedBlocks, tenantId);
+      }
+
+      // Task #1136 — ensure every generated dso-case-study carries explicit
+      // values so the React component never falls back to its hardcoded DCA
+      // demo constants. Runs in all cases (AI values are kept; only missing
+      // fields get neutral/empty values).
+      for (const b of mergedBlocks as Array<{ type?: string; props?: Record<string, unknown> }>) {
+        fillDsoCaseStudyNeutralDefaults(b);
+      }
 
       // Workstream B — banned-phrase post-validator (template path).
       const bannedPhraseHits = findBannedPhrases(
@@ -4518,28 +4614,43 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // builder review modal. Proof-point library values count as approved.
     let strictMismatches: StrictStatMismatch[] = [];
     if (strict) {
-      const pool = buildApprovedStatSet(brand, segmentContext, proofPoints);
-      strictMismatches = scanForUnapprovedStats(parsed.blocks, pool);
-      if (strictMismatches.length > 0) {
-        logStrictMismatches(strictMismatches, {
-          tenantId,
-          slug: parsed.slug,
-          promptPreview: prompt.trim().slice(0, 200).replace(/\n/g, " "),
-          promptPath,
-        });
-      }
-      // Strict Facts keeps the AI's stats on the page (see strictMismatches →
-      // builder review modal); only case-study blocks are hard-enforced here.
-      for (const b of parsed.blocks as Array<{ type?: string; props?: Record<string, unknown> }>) {
-        enforceApprovedCaseStudies(b, caseStudies);
+      // Task #1136 — a trusted, successfully-scraped source URL makes this
+      // generation's facts trusted: skip stat scanning/flagging and case-study
+      // blanking. Color stripping is fact-independent and stays on.
+      if (!urlSourcedFacts) {
+        const pool = buildApprovedStatSet(brand, segmentContext, proofPoints);
+        strictMismatches = scanForUnapprovedStats(parsed.blocks, pool);
+        if (strictMismatches.length > 0) {
+          logStrictMismatches(strictMismatches, {
+            tenantId,
+            slug: parsed.slug,
+            promptPreview: prompt.trim().slice(0, 200).replace(/\n/g, " "),
+            promptPath,
+          });
+        }
+        // Strict Facts keeps the AI's stats on the page (see strictMismatches →
+        // builder review modal); only case-study blocks are hard-enforced here.
+        for (const b of parsed.blocks as Array<{ type?: string; props?: Record<string, unknown> }>) {
+          enforceApprovedCaseStudies(b, caseStudies);
+        }
       }
       stripAiInlineColors(parsed.blocks);
     }
 
     // Always rebuild dso-success-stories from AI-approved case studies only,
     // regardless of Strict Facts Mode — the block must never surface invented
-    // or unapproved customer stories.
-    await enforceDsoSuccessStoriesApproved(parsed.blocks, tenantId);
+    // or unapproved customer stories. Task #1136: skip when a trusted source URL
+    // scraped — its customer stories are allowed to flow onto the page.
+    if (!urlSourcedFacts) {
+      await enforceDsoSuccessStoriesApproved(parsed.blocks, tenantId);
+    }
+
+    // Task #1136 — ensure every generated dso-case-study carries explicit values
+    // so the React component never falls back to its hardcoded DCA demo
+    // constants (AI values kept; only missing fields get neutral/empty values).
+    for (const b of parsed.blocks as Array<{ type?: string; props?: Record<string, unknown> }>) {
+      fillDsoCaseStudyNeutralDefaults(b);
+    }
 
     // Workstream B — banned-phrase post-validator. Non-destructive: flag
     // clichés + brand-forbidden phrases that leaked past the prompt so the
