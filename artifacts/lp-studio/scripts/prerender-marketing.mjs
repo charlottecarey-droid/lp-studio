@@ -91,17 +91,23 @@ async function loadHomepageOg() {
     client = new pg.Client({ connectionString, connectionTimeoutMillis: 5000 });
     await client.connect();
     const result = await client.query(
-      `SELECT og_title, og_description, og_image_url
+      `SELECT og_title, og_description, og_image_url, og_image_width, og_image_height
          FROM marketing_homepage_og
         ORDER BY id ASC
         LIMIT 1`,
     );
     const row = result.rows[0];
     if (!row) return null;
+    const toDim = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
+    };
     return {
       title: typeof row.og_title === "string" ? row.og_title : "",
       description: typeof row.og_description === "string" ? row.og_description : "",
       imageUrl: typeof row.og_image_url === "string" ? row.og_image_url : "",
+      imageWidth: toDim(row.og_image_width),
+      imageHeight: toDim(row.og_image_height),
     };
   } catch (err) {
     process.stdout.write(

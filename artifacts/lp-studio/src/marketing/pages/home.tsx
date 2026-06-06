@@ -30,12 +30,16 @@ const HOMEPAGE_OG_DEFAULTS = {
   description:
     "Generate on-brand pages, personalize for every account, and know exactly who's reading them. The AI revenue workspace for one-team GTM.",
   imageUrl: "https://lpstudio.ai/opengraph.jpg",
+  imageWidth: 1200,
+  imageHeight: 630,
 } as const;
 
 interface HomepageOgConfig {
   title: string;
   description: string;
   imageUrl: string;
+  imageWidth: number;
+  imageHeight: number;
 }
 
 // The marketing prerender (scripts/prerender-marketing.mjs) injects the
@@ -68,7 +72,13 @@ function resolveHomepageOg(raw: Partial<HomepageOgConfig> | null | undefined): H
       : HOMEPAGE_OG_DEFAULTS.description;
   const rawImage = typeof raw?.imageUrl === "string" && raw.imageUrl.trim() ? raw.imageUrl : "";
   const imageUrl = normalizeOgImage(rawImage) || HOMEPAGE_OG_DEFAULTS.imageUrl;
-  return { title, description, imageUrl };
+  const toDim = (v: unknown): number | null => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? Math.trunc(n) : null;
+  };
+  const imageWidth = toDim(raw?.imageWidth) ?? HOMEPAGE_OG_DEFAULTS.imageWidth;
+  const imageHeight = toDim(raw?.imageHeight) ?? HOMEPAGE_OG_DEFAULTS.imageHeight;
+  return { title, description, imageUrl, imageWidth, imageHeight };
 }
 
 // Homepage at the apex /. Order is intentional:
@@ -133,8 +143,8 @@ export default function Home() {
     description: og.description,
     canonical: "https://lpstudio.ai/",
     ogImage: og.imageUrl,
-    ogImageWidth: 1200,
-    ogImageHeight: 630,
+    ogImageWidth: og.imageWidth,
+    ogImageHeight: og.imageHeight,
     ogImageType: "image/jpeg",
     ogImageAlt: "LP Studio — the AI revenue workspace",
     siteName: "LP Studio",
