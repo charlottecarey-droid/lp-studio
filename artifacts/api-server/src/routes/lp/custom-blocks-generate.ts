@@ -11,12 +11,12 @@
 // message} so the UI can attach problems to a specific field/token.
 
 import { Router } from "express";
+import OpenAI from "openai";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 import { db, pool } from "@workspace/db";
 import { lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
-import { getOpenAIClient } from "./brand-import";
 import { ObjectStorageService } from "../../lib/objectStorage";
 import { getAiImageGenStatus } from "../../lib/tenantSettings";
 import { normalizePlan } from "../../lib/planFeatures";
@@ -45,6 +45,25 @@ import {
 } from "./custom-blocks-validator";
 
 const router = Router();
+
+// NOTE: We deliberately do NOT reuse brand-import's getOpenAIClient() here.
+// That client is tuned for brand-import's many small extractor calls with a
+// tight 18s timeout + maxRetries:1. Block generation is a HEAVY call (full
+// schema + HTML/CSS template + sample, up to 8192 output tokens) that routinely
+// runs longer than 18s. With the short timeout the call timed out, retried, and
+// — when a reference URL added a multi-page firecrawl scrape in front — the
+// whole request overran the proxy's gateway timeout, which returns an HTML
+// error page. The client then failed with "Unexpected token '<', "<!DOCTYPE"
+// because it tried to JSON.parse that HTML. We instead use the default SDK
+// timeout, matching the proven generate-page.ts heavy-generation client.
+function getOpenAIClient(): OpenAI {
+  const baseURL = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"];
+  const apiKey = process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
+  if (!baseURL || !apiKey) {
+    throw new Error("AI integration not configured. Please set up Replit AI Integrations.");
+  }
+  return new OpenAI({ baseURL, apiKey });
+}
 
 interface BrandHints {
   primaryColor?: string;
