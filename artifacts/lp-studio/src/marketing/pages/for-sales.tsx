@@ -9,6 +9,7 @@ import SalesforceSyncDemo from "../components/SalesforceSyncDemo";
 import FinalCta from "../components/FinalCta";
 import Footer from "../components/Footer";
 import { usePageMeta } from "../hooks/usePageMeta";
+import { useShareCard } from "../hooks/useShareCard";
 
 // /for-sales — refactored per site-ia-plan.md. Old shape was 3 FeatureRows
 // that read as "Sales Console at three workflow steps." New shape adds the
@@ -25,12 +26,17 @@ import { usePageMeta } from "../hooks/usePageMeta";
 //   6  SalesforceSyncDemo           — Bidirectional CRM sync + custom fields
 //   7  FinalCta + Footer
 export default function ForSales() {
-  usePageMeta({
+  const og = useShareCard("for-sales", {
     title: "LP Studio for Sales — Personalize every account in one click",
     description:
       "An ABM workspace where every account gets a tailored microsite and AI-drafted outreach, with per-recipient identity in every link.",
+    imageUrl: "https://lpstudio.ai/opengraph.jpg",
+  });
+  usePageMeta({
+    title: og.title,
+    description: og.description,
     canonical: "https://lpstudio.ai/for-sales",
-    ogImage: "https://lpstudio.ai/opengraph.jpg",
+    ogImage: og.imageUrl,
     ogImageWidth: 1200,
     ogImageHeight: 630,
     ogImageType: "image/jpeg",

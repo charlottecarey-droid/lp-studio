@@ -55,6 +55,7 @@ export const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "GET",  pattern: /^\/lp\/plan-config$/ },     // GET /lp/plan-config — public, live (SuperAdmin-editable) plan/pricing config for app billing/upgrade surfaces
   { method: "GET",  pattern: /^\/lp\/featured-templates$/ }, // GET /lp/featured-templates — public, CORS; SuperAdmin-editable list of homepage featured templates (marketing site reads this, falls back to built-in list)
   { method: "GET",  pattern: /^\/lp\/homepage-og$/ },        // GET /lp/homepage-og — public; SuperAdmin-editable marketing homepage share card (OG) config (marketing site reads this, falls back to built-in defaults)
+  { method: "GET",  pattern: /^\/lp\/page-og\/[a-z-]+$/ },    // GET /lp/page-og/:key — public; SuperAdmin-editable marketing page share card (OG) config for secondary routes (features/pricing/for-marketing/for-sales/compare); marketing site reads this, falls back to built-in defaults
   { method: "GET",  pattern: /^\/lp\/global-templates\/\d+\/preview$/ }, // GET /lp/global-templates/:id/preview — public blocks for a DB-backed GLOBAL template, so the homepage preview iframe can render featured cards pointing at global templates (global-only; tenant templates never served)
   { method: "GET",  pattern: /^\/sales\/resolve\// },     // GET /sales/resolve/:token — visited by contacts from email (no auth)
   { method: "GET",  pattern: /^\/sales\/track\// },        // GET /sales/track/click-hotlink, /sales/track/open — click/open tracking from emails

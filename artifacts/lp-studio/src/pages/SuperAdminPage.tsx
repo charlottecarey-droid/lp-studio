@@ -1396,7 +1396,7 @@ export default function SuperAdminPage() {
               tab === "homepage-og" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Share2 className="w-3.5 h-3.5" /> Homepage Share Card
+            <Share2 className="w-3.5 h-3.5" /> Share Cards
           </button>
           <button
             onClick={() => setTab("asset-health")}
@@ -1449,7 +1449,14 @@ export default function SuperAdminPage() {
         ) : tab === "featured-templates" ? (
           <SuperAdminFeaturedTemplates />
         ) : tab === "homepage-og" ? (
-          <SuperAdminMarketingShareCard />
+          <div className="flex flex-col gap-6">
+            <SuperAdminMarketingShareCard heading="Homepage share card" />
+            <SuperAdminMarketingShareCard pageKey="features" heading="Features share card" pagePath="/features" />
+            <SuperAdminMarketingShareCard pageKey="pricing" heading="Pricing share card" pagePath="/pricing" />
+            <SuperAdminMarketingShareCard pageKey="for-marketing" heading="For Marketing share card" pagePath="/for-marketing" />
+            <SuperAdminMarketingShareCard pageKey="for-sales" heading="For Sales share card" pagePath="/for-sales" />
+            <SuperAdminMarketingShareCard pageKey="compare" heading="Compare share card" pagePath="/compare" />
+          </div>
         ) : tab === "plans" ? (
           <SuperAdminPlanConfig />
         ) : tab === "notifications" ? (

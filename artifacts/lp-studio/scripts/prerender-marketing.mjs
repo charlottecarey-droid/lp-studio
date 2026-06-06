@@ -119,6 +119,49 @@ async function loadHomepageOg() {
   }
 }
 
+/**
+ * Best-effort read of the superadmin-editable share cards for the secondary
+ * marketing routes (`marketing_page_og`, Task #997). Returns a map keyed by
+ * page_key (e.g. { features: {...}, pricing: {...} }) so the prerender can bake
+ * each route's configured OG tags into the static HTML that non-JS social
+ * scrapers fetch. Returns {} on any failure — each marketing page then falls
+ * back, field by field, to its built-in defaults, so this NEVER fails the build.
+ *
+ * Uses `pg` directly (resolvable from lp-studio's node_modules) rather than
+ * importing @workspace/db, whose module index eagerly constructs a Pool.
+ */
+async function loadPageOg() {
+  const connectionString = process.env.NEON_DATABASE_URL ?? process.env.DATABASE_URL;
+  if (!connectionString) return {};
+  let client;
+  try {
+    const pg = (await import("pg")).default;
+    client = new pg.Client({ connectionString, connectionTimeoutMillis: 5000 });
+    await client.connect();
+    const result = await client.query(
+      `SELECT page_key, og_title, og_description, og_image_url
+         FROM marketing_page_og`,
+    );
+    const map = {};
+    for (const row of result.rows) {
+      if (typeof row.page_key !== "string") continue;
+      map[row.page_key] = {
+        title: typeof row.og_title === "string" ? row.og_title : "",
+        description: typeof row.og_description === "string" ? row.og_description : "",
+        imageUrl: typeof row.og_image_url === "string" ? row.og_image_url : "",
+      };
+    }
+    return map;
+  } catch (err) {
+    process.stdout.write(
+      `[prerender] page OG DB read skipped (${err?.message || err}) — using built-in defaults\n`,
+    );
+    return {};
+  } finally {
+    if (client) await client.end().catch(() => {});
+  }
+}
+
 async function findFreePort() {
   return new Promise((resolve, reject) => {
     const srv = net.createServer();
@@ -303,6 +346,17 @@ async function main() {
     );
   }
 
+  // Best-effort: pull the superadmin-configured share cards for the secondary
+  // marketing routes (features/pricing/for-marketing/for-sales/compare) so each
+  // route's snapshot bakes the configured OG tags for non-JS social scrapers.
+  const pageOg = await loadPageOg();
+  const pageOgKeys = Object.keys(pageOg);
+  if (pageOgKeys.length) {
+    process.stdout.write(
+      `[prerender] page OG: baking configured share cards for ${pageOgKeys.join(", ")}\n`,
+    );
+  }
+
   const port = await findFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
   process.stdout.write(`[prerender] starting vite preview on ${baseUrl}\n`);
@@ -337,6 +391,14 @@ async function main() {
       await context.addInitScript((og) => {
         window.__LP_HOMEPAGE_OG__ = og;
       }, homepageOg);
+    }
+    // Inject the superadmin-configured share cards for the secondary marketing
+    // routes BEFORE page scripts run so each page's useShareCard() initializer
+    // reads its row and bakes the configured OG tags into that route's snapshot.
+    if (pageOgKeys.length) {
+      await context.addInitScript((map) => {
+        window.__LP_PAGE_OG__ = map;
+      }, pageOg);
     }
     const page = await context.newPage();
     page.on("console", (msg) => {

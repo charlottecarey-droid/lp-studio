@@ -17,26 +17,44 @@ import {
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-// The marketing homepage always renders at the apex domain — the share preview
-// and any OG image are scoped to lpstudio.ai.
+// The marketing site always renders at the apex domain — the share preview and
+// any OG image are scoped to lpstudio.ai.
 const MARKETING_DOMAIN = "lpstudio.ai";
 
-interface HomepageOg {
+interface ShareCardData {
   title: string;
   description: string;
   imageUrl: string;
 }
 
+interface Props {
+  /**
+   * The marketing page this panel edits. Omit (or pass undefined) for the
+   * homepage, which uses its own dedicated single-row config endpoint. Any
+   * other value (e.g. "features") edits the shared `marketing_page_og` table
+   * row via /api/lp/page-og/:key.
+   */
+  pageKey?: string;
+  /** Heading shown above the panel. Defaults to a homepage label. */
+  heading?: string;
+  /**
+   * The marketing route path (e.g. "/features") shown in the preview domain
+   * and the helper copy. Empty string = the apex homepage.
+   */
+  pagePath?: string;
+}
+
 /**
  * Superadmin panel that brings the same share-card editing affordances the
  * tenant landing pages have (live preview, char-count guidance, 1200×630
- * dimension warning + one-click resize) to the MARKETING homepage
- * (lpstudio.ai/). Reads/writes the single `marketing_homepage_og` config row
- * via /api/lp/homepage-og (public read) and /api/admin/lp/homepage-og (admin).
+ * dimension warning + one-click resize) to a MARKETING route. The homepage
+ * (no pageKey) reads/writes the single `marketing_homepage_og` row via
+ * /api/lp/homepage-og; any other page reads/writes its `marketing_page_og` row
+ * via /api/lp/page-og/:key (public read) and /api/admin/lp/page-og/:key (admin).
  */
-export default function SuperAdminMarketingShareCard() {
+export default function SuperAdminMarketingShareCard({ pageKey, heading, pagePath = "" }: Props) {
   const { toast } = useToast();
-  const [og, setOg] = useState<HomepageOg>({ title: "", description: "", imageUrl: "" });
+  const [og, setOg] = useState<ShareCardData>({ title: "", description: "", imageUrl: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -47,10 +65,16 @@ export default function SuperAdminMarketingShareCard() {
   // be anything). Saving the dimensions lets future reads warn without a fetch.
   const { width: imgWidth, height: imgHeight } = useImageDimensions(og.imageUrl);
 
+  const label = heading ?? "Homepage share card";
+  const previewDomain = pagePath ? `${MARKETING_DOMAIN}${pagePath}` : MARKETING_DOMAIN;
+  const adminEndpoint = pageKey
+    ? `${BASE}/api/admin/lp/page-og/${pageKey}`
+    : `${BASE}/api/admin/lp/homepage-og`;
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BASE}/api/admin/lp/homepage-og`, { credentials: "include" });
+      const res = await fetch(adminEndpoint, { credentials: "include" });
       if (!res.ok) throw new Error(String(res.status));
       const data = await res.json();
       setOg({
@@ -63,7 +87,7 @@ export default function SuperAdminMarketingShareCard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [adminEndpoint]);
 
   useEffect(() => {
     load();
@@ -102,7 +126,7 @@ export default function SuperAdminMarketingShareCard() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${BASE}/api/admin/lp/homepage-og`, {
+      const res = await fetch(adminEndpoint, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -125,8 +149,8 @@ export default function SuperAdminMarketingShareCard() {
         imageUrl: typeof data.imageUrl === "string" ? data.imageUrl : "",
       });
       toast({
-        title: "Homepage share card saved",
-        description: "The marketing homepage will use this when its link is shared. Edits reach social scrapers on the next publish.",
+        title: `${label} saved`,
+        description: "The marketing page will use this when its link is shared. Edits reach social scrapers on the next publish.",
       });
     } catch (err) {
       toast({
@@ -152,7 +176,7 @@ export default function SuperAdminMarketingShareCard() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Share2 className="w-4 h-4 text-primary" />
-          <h2 className="font-display font-semibold text-lg">Homepage share card</h2>
+          <h2 className="font-display font-semibold text-lg">{label}</h2>
         </div>
         <Button size="sm" variant="outline" onClick={load} disabled={loading}>
           <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
@@ -160,8 +184,8 @@ export default function SuperAdminMarketingShareCard() {
         </Button>
       </div>
       <p className="text-xs text-muted-foreground -mt-2">
-        Shown when the marketing homepage (<code className="px-1 rounded bg-muted">{MARKETING_DOMAIN}</code>) link is
-        shared on social media or messaging apps. Leave a field blank to fall back to the built-in default.
+        Shown when the <code className="px-1 rounded bg-muted">{previewDomain}</code> link is shared on social media or
+        messaging apps. Leave a field blank to fall back to the built-in default.
       </p>
       <Separator />
       <div className="grid lg:grid-cols-2 gap-6">
@@ -180,7 +204,7 @@ export default function SuperAdminMarketingShareCard() {
             <textarea
               value={og.description}
               onChange={(e) => setOg((p) => ({ ...p, description: e.target.value }))}
-              placeholder="Briefly describe the homepage for link previews…"
+              placeholder="Briefly describe the page for link previews…"
               rows={3}
               className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background resize-none outline-none focus:ring-1 focus:ring-ring"
             />
@@ -242,7 +266,7 @@ export default function SuperAdminMarketingShareCard() {
             title={og.title}
             description={og.description}
             imageUrl={og.imageUrl}
-            domain={MARKETING_DOMAIN}
+            domain={previewDomain}
           />
           <p className="text-[10px] text-muted-foreground leading-relaxed max-w-[240px]">
             Best at {OG_IMAGE_WIDTH}×{OG_IMAGE_HEIGHT}px.

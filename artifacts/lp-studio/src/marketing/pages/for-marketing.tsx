@@ -8,6 +8,7 @@ import Integrations from "../components/Integrations";
 import FinalCta from "../components/FinalCta";
 import Footer from "../components/Footer";
 import { usePageMeta } from "../hooks/usePageMeta";
+import { useShareCard } from "../hooks/useShareCard";
 
 // /for-marketing — refactored per site-ia-plan.md. The old page reused the
 // same four FeatureRow product embeds as the homepage (Builder · Templates ·
@@ -24,12 +25,17 @@ import { usePageMeta } from "../hooks/usePageMeta";
 //   5  Integrations                 — Marketo + HubSpot + GA4 lead-handoff story
 //   6  FinalCta + Footer
 export default function ForMarketing() {
-  usePageMeta({
+  const og = useShareCard("for-marketing", {
     title: "LP Studio for Marketing — Ship without the design queue",
     description:
       "Generate on-brand pages from a prompt, A/B test every variant with Smart Traffic auto-routing, and hand off leads to Marketo, HubSpot, GA4, or any webhook.",
+    imageUrl: "https://lpstudio.ai/opengraph.jpg",
+  });
+  usePageMeta({
+    title: og.title,
+    description: og.description,
     canonical: "https://lpstudio.ai/for-marketing",
-    ogImage: "https://lpstudio.ai/opengraph.jpg",
+    ogImage: og.imageUrl,
     ogImageWidth: 1200,
     ogImageHeight: 630,
     ogImageType: "image/jpeg",

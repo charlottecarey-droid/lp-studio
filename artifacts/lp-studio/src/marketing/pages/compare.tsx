@@ -4,6 +4,7 @@ import FinalCta from "../components/FinalCta";
 import Footer from "../components/Footer";
 import { useInView } from "../hooks/useInView";
 import { usePageMeta } from "../hooks/usePageMeta";
+import { useShareCard } from "../hooks/useShareCard";
 
 // /compare — ported from design-preview/marketing/comparison.jsx. A grouped
 // capability matrix + honest head-to-head cards (where each competitor wins
@@ -856,12 +857,17 @@ function Migration() {
 }
 
 export default function ComparePage() {
-  usePageMeta({
+  const og = useShareCard("compare", {
     title: "Compare LP Studio vs Webflow, Unbounce, and Mutiny",
     description:
       "An honest comparison. Where Webflow, Unbounce, and Mutiny are strong — and exactly when LP Studio is the better call.",
+    imageUrl: "https://lpstudio.ai/opengraph.jpg",
+  });
+  usePageMeta({
+    title: og.title,
+    description: og.description,
     canonical: "https://lpstudio.ai/compare",
-    ogImage: "https://lpstudio.ai/opengraph.jpg",
+    ogImage: og.imageUrl,
     ogImageWidth: 1200,
     ogImageHeight: 630,
     ogImageType: "image/jpeg",

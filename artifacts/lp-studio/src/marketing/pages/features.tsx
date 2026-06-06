@@ -10,6 +10,7 @@ import Integrations from "../components/Integrations";
 import FinalCta from "../components/FinalCta";
 import Footer from "../components/Footer";
 import { usePageMeta } from "../hooks/usePageMeta";
+import { useShareCard } from "../hooks/useShareCard";
 
 // /features — the depth page. Visitors who want "what does this actually do"
 // land here and find every product surface in browser chrome, plus a deeper
@@ -28,12 +29,17 @@ import { usePageMeta } from "../hooks/usePageMeta";
 //   7  Integrations                 — Logo bar + Salesforce sync narrative
 //   8  FinalCta + Footer
 export default function Features() {
-  usePageMeta({
+  const og = useShareCard("features", {
     title: "Features — LP Studio · AI pages, brand lock, Sales Console",
     description:
       "Brand-locked AI page generation, the visual builder, 100+ templates, the Sales Console with per-recipient identity, and integrations to your stack.",
+    imageUrl: "https://lpstudio.ai/opengraph.jpg",
+  });
+  usePageMeta({
+    title: og.title,
+    description: og.description,
     canonical: "https://lpstudio.ai/features",
-    ogImage: "https://lpstudio.ai/opengraph.jpg",
+    ogImage: og.imageUrl,
     ogImageWidth: 1200,
     ogImageHeight: 630,
     ogImageType: "image/jpeg",

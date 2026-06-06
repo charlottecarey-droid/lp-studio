@@ -83,6 +83,7 @@
     { "idx": 78, "version": "7", "when": 1753200000000, "tag": "0078_slack_integration",                     "breakpoints": false },
     { "idx": 79, "version": "7", "when": 1753300000000, "tag": "0079_tenants_og_defaults",                   "breakpoints": false },
     { "idx": 80, "version": "7", "when": 1753400000000, "tag": "0080_marketing_homepage_og",                  "breakpoints": false },
-    { "idx": 81, "version": "7", "when": 1753500000000, "tag": "0081_hubspot_integration",                     "breakpoints": false }
+    { "idx": 81, "version": "7", "when": 1753500000000, "tag": "0081_hubspot_integration",                     "breakpoints": false },
+    { "idx": 82, "version": "7", "when": 1753600000000, "tag": "0082_marketing_page_og",                       "breakpoints": false }
   ]
 }

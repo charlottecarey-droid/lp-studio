@@ -50,6 +50,7 @@ import renderedRouter from "./rendered";
 import planConfigRouter from "./plan-config";
 import featuredTemplatesRouter from "./featured-templates";
 import homepageOgRouter from "./homepage-og";
+import marketingPageOgRouter from "./marketing-page-og";
 import emailDomainRouter from "./email-domain";
 import brandedEmailSubdomainRouter from "./branded-email-subdomain";
 
@@ -66,6 +67,7 @@ router.use(renderedRouter);
 router.use(planConfigRouter);
 router.use(featuredTemplatesRouter);
 router.use(homepageOgRouter);
+router.use(marketingPageOgRouter);
 router.use(emailDomainRouter);
 router.use(brandedEmailSubdomainRouter);
 router.use(resultsRouter);

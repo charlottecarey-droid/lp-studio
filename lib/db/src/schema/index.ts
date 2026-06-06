@@ -85,3 +85,4 @@ export * from "./contentSeriesNotifications";
 
 // Marketing homepage share card (Open Graph) — superadmin-editable, single row
 export * from "./marketingHomepageOg";
+export * from "./marketingPageOg";

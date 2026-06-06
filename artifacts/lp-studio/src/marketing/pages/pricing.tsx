@@ -4,18 +4,24 @@ import FAQ from "../components/FAQ";
 import FinalCta from "../components/FinalCta";
 import Footer from "../components/Footer";
 import { usePageMeta } from "../hooks/usePageMeta";
+import { useShareCard } from "../hooks/useShareCard";
 
 // /pricing — standalone pricing route. Wraps the existing Pricing component
 // (which already includes the 4-tier cards + Enterprise strip + collapsible
 // feature map) as Charlotte requested, plus FAQ + FinalCta + Footer.
 
 export default function PricingPage() {
-  usePageMeta({
+  const og = useShareCard("pricing", {
     title: "Pricing — LP Studio · Free to start, no card required",
     description:
       "Free to start. No card. Every paid tier comes with a 14-day Growth trial — see the full plan matrix and find the right tier for your team.",
+    imageUrl: "https://lpstudio.ai/opengraph.jpg",
+  });
+  usePageMeta({
+    title: og.title,
+    description: og.description,
     canonical: "https://lpstudio.ai/pricing",
-    ogImage: "https://lpstudio.ai/opengraph.jpg",
+    ogImage: og.imageUrl,
     ogImageWidth: 1200,
     ogImageHeight: 630,
     ogImageType: "image/jpeg",
