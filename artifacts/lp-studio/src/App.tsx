@@ -202,6 +202,7 @@ const MARKETING_PATHS = new Set([
   "/pricing",
   "/privacy",
   "/terms",
+  "/docs/integrations/zapier",
 ]);
 
 function isMarketingHost(): boolean {

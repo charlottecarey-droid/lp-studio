@@ -1,13 +1,25 @@
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { usePageMeta } from "../hooks/usePageMeta";
+import { useShareCard } from "../hooks/useShareCard";
 
 export default function ZapierDocs() {
-  usePageMeta({
+  const og = useShareCard("zapier", {
     title: "Connect LP Studio to Zapier — LP Studio",
     description:
       "Use LP Studio's per-form webhooks to trigger Zapier Zaps. Send new leads, form fills, and events to 6,000+ apps without writing code.",
+    imageUrl: "https://lpstudio.ai/opengraph.jpg",
+  });
+  usePageMeta({
+    title: og.title,
+    description: og.description,
     canonical: "https://lpstudio.ai/docs/integrations/zapier",
+    ogImage: og.imageUrl,
+    ogImageWidth: 1200,
+    ogImageHeight: 630,
+    ogImageType: "image/jpeg",
+    ogImageAlt: "Connect LP Studio to Zapier",
+    siteName: "LP Studio",
   });
   return (
     <div className="min-h-screen paper-grain" style={{ background: "var(--cream)", color: "var(--ink)" }}>

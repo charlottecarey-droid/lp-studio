@@ -1456,6 +1456,9 @@ export default function SuperAdminPage() {
             <SuperAdminMarketingShareCard pageKey="for-marketing" heading="For Marketing share card" pagePath="/for-marketing" />
             <SuperAdminMarketingShareCard pageKey="for-sales" heading="For Sales share card" pagePath="/for-sales" />
             <SuperAdminMarketingShareCard pageKey="compare" heading="Compare share card" pagePath="/compare" />
+            <SuperAdminMarketingShareCard pageKey="privacy" heading="Privacy share card" pagePath="/privacy" />
+            <SuperAdminMarketingShareCard pageKey="terms" heading="Terms share card" pagePath="/terms" />
+            <SuperAdminMarketingShareCard pageKey="zapier" heading="Zapier share card" pagePath="/docs/integrations/zapier" />
           </div>
         ) : tab === "plans" ? (
           <SuperAdminPlanConfig />

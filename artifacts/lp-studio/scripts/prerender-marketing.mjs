@@ -6,8 +6,9 @@
  * it with Playwright (Chromium) to render the marketing routes, captures
  * the hydrated DOM, and writes per-route HTML files into dist/public.
  *
- * The result: real, fully-populated HTML for `/`, `/privacy`, `/terms`
- * with per-page <title>/<meta>/canonical/OG tags baked in. The page
+ * The result: real, fully-populated HTML for every route in
+ * MARKETING_ROUTES with per-page <title>/<meta>/canonical/OG tags baked
+ * in. The page
  * scripts in the snapshot point at the same hashed asset bundles, so
  * React still boots normally on the client and re-renders identical
  * markup — no flash, no hydration mismatch beyond what createRoot
@@ -21,8 +22,7 @@
  * already ships in devDependencies for our e2e tests, so this is
  * additive — no new deps, no extra CI install time.
  *
- * Routes prerendered are listed in MARKETING_ROUTES below. The marketing
- * site only has three: home, privacy, terms.
+ * Routes prerendered are listed in MARKETING_ROUTES below.
  */
 
 import { execSync, spawn } from "node:child_process";
@@ -66,6 +66,7 @@ const MARKETING_ROUTES = [
   { path: "/pricing", outFile: "pricing/index.html" },
   { path: "/privacy", outFile: "privacy/index.html" },
   { path: "/terms", outFile: "terms/index.html" },
+  { path: "/docs/integrations/zapier", outFile: "docs/integrations/zapier/index.html" },
 ];
 
 /**

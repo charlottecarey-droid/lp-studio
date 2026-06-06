@@ -35,6 +35,9 @@ export const MARKETING_PAGE_KEYS = [
   "for-marketing",
   "for-sales",
   "compare",
+  "privacy",
+  "terms",
+  "zapier",
 ] as const;
 
 const VALID_KEYS = new Set<string>(MARKETING_PAGE_KEYS);

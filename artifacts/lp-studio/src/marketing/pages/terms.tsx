@@ -1,13 +1,25 @@
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { usePageMeta } from "../hooks/usePageMeta";
+import { useShareCard } from "../hooks/useShareCard";
 
 export default function Terms() {
-  usePageMeta({
+  const og = useShareCard("terms", {
     title: "Terms of Service — LP Studio",
     description:
       "The terms that govern your use of LP Studio, including account responsibilities, acceptable use, billing, and limitations of liability.",
+    imageUrl: "https://lpstudio.ai/opengraph.jpg",
+  });
+  usePageMeta({
+    title: og.title,
+    description: og.description,
     canonical: "https://lpstudio.ai/terms",
+    ogImage: og.imageUrl,
+    ogImageWidth: 1200,
+    ogImageHeight: 630,
+    ogImageType: "image/jpeg",
+    ogImageAlt: "LP Studio terms of service",
+    siteName: "LP Studio",
   });
   return (
     <div className="min-h-screen paper-grain" style={{ background: "var(--cream)", color: "var(--ink)" }}>

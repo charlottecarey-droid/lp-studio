@@ -1,13 +1,25 @@
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { usePageMeta } from "../hooks/usePageMeta";
+import { useShareCard } from "../hooks/useShareCard";
 
 export default function Privacy() {
-  usePageMeta({
+  const og = useShareCard("privacy", {
     title: "Privacy Policy — LP Studio",
     description:
       "How LP Studio collects, uses, and protects your data, including Google user data handled under Google's Limited Use requirements.",
+    imageUrl: "https://lpstudio.ai/opengraph.jpg",
+  });
+  usePageMeta({
+    title: og.title,
+    description: og.description,
     canonical: "https://lpstudio.ai/privacy",
+    ogImage: og.imageUrl,
+    ogImageWidth: 1200,
+    ogImageHeight: 630,
+    ogImageType: "image/jpeg",
+    ogImageAlt: "LP Studio privacy policy",
+    siteName: "LP Studio",
   });
   return (
     <div className="min-h-screen paper-grain" style={{ background: "var(--cream)", color: "var(--ink)" }}>
