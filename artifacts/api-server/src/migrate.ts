@@ -1086,6 +1086,48 @@ async function runMigrationsBody(): Promise<void> {
         `hubspot integration schema self-heal did not produce all tables + sales_contacts columns (found ${present}/7) — aborting release`,
     });
 
+    // Durable self-heal for the Strict Facts review schema (0085): the
+    // lp_page_fact_flags table + the lp_proof_points quote/attribution columns.
+    // Same high-water-mark hazard as the self-heals above: on a drifted DB whose
+    // drizzle.__drizzle_migrations max created_at already sits ABOVE 0085's
+    // journal `when`, the node-postgres migrator records nothing and never runs
+    // 0085's DDL, leaving the columns/table missing. The symptom that motivated
+    // this step: the Review Facts modal's "Save to library" /
+    // /lp/fact-flags/:id/save-to-library route INSERTs into lp_proof_points with
+    // fact_kind + attribution_* columns and 500s with `column "fact_kind" of
+    // relation "lp_proof_points" does not exist`. Re-applying the file here is
+    // independent of drizzle's dedup and idempotent (CREATE TABLE/INDEX IF NOT
+    // EXISTS + ADD COLUMN IF NOT EXISTS), so it creates the schema where missing
+    // and is a no-op elsewhere. The .sql stays the single source of truth. Fails
+    // CLOSED: the schema is feature-critical, so any error aborts the release;
+    // the SQL is idempotent so a retry is always safe.
+    // Probe combines the lp_page_fact_flags table + the 6 lp_proof_points
+    // columns into one count (expected 7) so an already-healed DB skips the
+    // locking CREATE/ALTER DDL entirely.
+    await runProbedSelfHeal({
+      name: "strict-facts review schema self-heal (0085)",
+      applySqlFile: "0085_lp_page_fact_flags.sql",
+      expected: 7,
+      checkSql: `SELECT (
+             (SELECT count(*) FROM information_schema.tables
+               WHERE table_schema = 'public'
+                 AND table_name = 'lp_page_fact_flags')
+           + (SELECT count(*) FROM information_schema.columns
+               WHERE table_schema = 'public'
+                 AND table_name = 'lp_proof_points'
+                 AND column_name IN (
+                   'fact_kind',
+                   'attribution_name',
+                   'attribution_title',
+                   'attribution_company',
+                   'attribution_photo_url',
+                   'consent_note'
+                 ))
+           )::int AS present`,
+      shortfall: (present) =>
+        `strict-facts review schema self-heal did not produce the lp_page_fact_flags table + all lp_proof_points columns (found ${present}/7) — aborting release`,
+    });
+
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
     // letterdrop integrations don't break the moment we cut over the routes.
     // Generates one secret per integration for tenant #1, idempotent under

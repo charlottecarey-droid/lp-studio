@@ -120,6 +120,7 @@ describe("parseSelfHealedSqlFiles", () => {
       "0049_block_catalog_ai_enabled.sql",
       "0077_marketo_integration.sql",
       "0081_hubspot_integration.sql",
+      "0085_lp_page_fact_flags.sql",
     ]) {
       expect(healed.has(f)).toBe(true);
     }
