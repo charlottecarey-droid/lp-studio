@@ -1692,6 +1692,42 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
+    // Task #1206 — retroactively reserve existing team-member headshots from AI
+    // reuse. New saves are tagged in routes/lp/library.ts, but headshots uploaded
+    // BEFORE this change are still in the media pool the AI scores. This one-shot
+    // pass merges the `team-photo` tag onto every lp_media row whose URL matches a
+    // saved `team_member` library item's `content->>'photo'` (tenant-scoped match
+    // on tenant_id + url). Idempotent — the `?` guard skips rows already tagged,
+    // so even ignoring the marker it is safe to re-run; the marker just makes
+    // reboots no-ops. Best-effort: a failure here never aborts the release.
+    await runStep("team_photo media backfill", async () => {
+    try {
+      const TEAM_PHOTO_MARKER = "team_photo_media_backfill_v1";
+      const marker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${TEAM_PHOTO_MARKER}`
+      );
+      if (marker.rows.length === 0) {
+        const result = await db.execute(sql`
+          UPDATE lp_media m
+             SET tags = COALESCE(m.tags, '[]'::jsonb) || '["team-photo"]'::jsonb
+            FROM lp_library_items li
+           WHERE li.type = 'team_member'
+             AND li.content ->> 'photo' IS NOT NULL
+             AND li.content ->> 'photo' <> ''
+             AND m.tenant_id = li.tenant_id
+             AND m.url = li.content ->> 'photo'
+             AND NOT (COALESCE(m.tags, '[]'::jsonb) ? 'team-photo')
+        `);
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES (${TEAM_PHOTO_MARKER}) ON CONFLICT DO NOTHING`
+        );
+        logger.info({ tagged: result.rowCount ?? 0 }, "team_photo media backfill applied");
+      }
+    } catch (backfillErr) {
+      logger.error({ err: backfillErr }, "team_photo media backfill failed (non-fatal)");
+    }
+    });
+
     // Task #641 — seed the root superadmin platform-operator account. This is
     // the single bootstrap account (admin@lpstudio.ai by default, overridable
     // via ROOT_SUPERADMIN_EMAIL) that owns the superadmin roster and can never

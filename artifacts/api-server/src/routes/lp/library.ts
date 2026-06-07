@@ -12,6 +12,47 @@ function isValidType(t: string): t is LibraryType {
   return (VALID_TYPES as readonly string[]).includes(t);
 }
 
+// Task #1206 — reserved tag for team-member headshots. Team photos are uploaded
+// through the Content Library and land in the shared media library (`lp_media`),
+// the same pool the AI page generator draws hero/feature imagery from. Marking
+// them with this tag lets `fetchMediaCatalog` / `sanitizeAIImageUrls` exclude
+// them so a person's headshot is never reused as a hero or section image. The
+// "Meet the Team" block populates from the saved `team_member` rows (not the AI
+// catalog), so excluding the tagged image does NOT break that section.
+const RESERVED_TEAM_PHOTO_TAG = "team-photo";
+
+/**
+ * Best-effort: merge the reserved `team-photo` tag onto the media-library row
+ * matching this tenant + photo URL, mirroring the brand-logo tagging pattern
+ * (routes/lp/brand.ts). Tenant-scoped and idempotent (the `?` guard skips rows
+ * that already carry the tag) and preserves any existing tags. Does nothing
+ * when no media row matches the URL (e.g. an external/CDN headshot URL). Never
+ * throws — a tagging hiccup must not fail the library save.
+ */
+async function tagTeamPhotoMedia(tenantId: number, photoUrl: unknown): Promise<void> {
+  if (typeof photoUrl !== "string" || photoUrl.trim() === "") return;
+  try {
+    await db.execute(
+      sql`UPDATE lp_media
+             SET tags = COALESCE(tags, '[]'::jsonb) || ${JSON.stringify([RESERVED_TEAM_PHOTO_TAG])}::jsonb
+           WHERE tenant_id = ${tenantId}
+             AND url = ${photoUrl}
+             AND NOT (COALESCE(tags, '[]'::jsonb) ? ${RESERVED_TEAM_PHOTO_TAG})`
+    );
+  } catch {
+    // Best-effort: the headshot still renders in the team block; the only loss
+    // is the AI-reuse protection for this one image.
+  }
+}
+
+/** Pull a team member's headshot URL out of a library item's `content` payload
+ *  (the `dso-meet-team` consumer reads `content.photo` — see fetchTeamMembers). */
+function teamPhotoUrl(content: unknown): unknown {
+  return content && typeof content === "object"
+    ? (content as Record<string, unknown>).photo
+    : undefined;
+}
+
 router.get("/lp/library/:type", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { type } = req.params;
@@ -44,6 +85,10 @@ router.post("/lp/library/:type", async (req, res): Promise<void> => {
                   COALESCE((SELECT MAX(sort_order) + 1 FROM lp_library_items WHERE type = ${type} AND tenant_id = ${tenantId}), 0))
           RETURNING *`
     );
+    // Task #1206 — reserve a newly-saved team member's headshot from AI reuse.
+    if (type === "team_member") {
+      await tagTeamPhotoMedia(tenantId, teamPhotoUrl(content));
+    }
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -105,6 +150,12 @@ router.put("/lp/library/:type/:id", async (req, res): Promise<void> => {
           RETURNING *`
     );
     if (!result.rows.length) { res.status(404).json({ error: "Item not found" }); return; }
+    // Task #1206 — when a team member's photo changes, ensure the (possibly new)
+    // headshot is reserved from AI reuse. A stale tag left on a replaced headshot
+    // is acceptable (still safe) per the task scope.
+    if (type === "team_member") {
+      await tagTeamPhotoMedia(tenantId, teamPhotoUrl(content));
+    }
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: String(err) });

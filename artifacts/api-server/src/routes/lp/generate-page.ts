@@ -611,7 +611,13 @@ const SKIP_TAGS = new Set(["untitled folder", "web res", "high res", "abstract",
  * reference / Brand Settings visual record only, NEVER usable as block creative
  * (it bakes in site chrome and hero text, so it reads as broken on a generated page).
  */
-const EXCLUDE_TAGS = new Set(["og-image", "og", "social", "open-graph", "text-based", "call to action", "advertisement", "ad creative", "homepage-screenshot"]);
+// Task #1206 — `team-photo` reserves team-member headshots (auto-tagged on save
+// in routes/lp/library.ts) so the AI never reuses a person's headshot as a hero,
+// feature, or any other block image. `fetchMediaCatalog` filters these out of
+// the scored pool and `sanitizeAIImageUrls` clears any team-photo URL the model
+// assigns. The "Meet the Team" block populates from saved team_member rows (via
+// reconcileTeamMemberPhotos), not this catalog, so the headshots still render.
+const EXCLUDE_TAGS = new Set(["og-image", "og", "social", "open-graph", "text-based", "call to action", "advertisement", "ad creative", "homepage-screenshot", "team-photo"]);
 
 /** Relevance scoring weights — kept as named constants so the validation
  *  threshold (CLEAR_GAP, below) can be derived from them and stays meaningful
