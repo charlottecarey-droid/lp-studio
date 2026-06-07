@@ -3373,6 +3373,62 @@ export function buildTeamMembersSection(members: TeamMember[]): string {
   return `TEAM MEMBERS (the only real people you may put in a "dso-meet-team" block — populate its \`members\` ONLY from this list, copying each person's name, role, email, and Photo URL VERBATIM into the member's name/role/email/photo. Never invent a person and never place any other image — group, lifestyle, or dinner photos from the library — into a member's photo slot):\n${lines}`;
 }
 
+/** Task #1168 — deterministic team-photo reconciliation for `dso-meet-team`.
+ *
+ * Task #1158 has the AI copy each saved team member's headshot URL verbatim into
+ * the block, but that relies on the model faithfully echoing the URLs from the
+ * prompt text. This pass (mirroring the deterministic image-fill pipeline used
+ * for other blocks) reconciles each member's `photo` against the tenant's saved
+ * `team_member` rows by email/name match, overwriting any model-introduced drift
+ * so a saved headshot can never be dropped, swapped, or replaced with an
+ * arbitrary library image.
+ *
+ * Matching is by email first (case-insensitive), then by normalized name. A
+ * matched member's `photo` is forced to the saved row's EXACT value (which may
+ * be "" when the saved person has no headshot). A member that matches NO saved
+ * row has its `photo` cleared — the model either invented the person or pulled an
+ * arbitrary library image, and neither may occupy a member photo slot. (When the
+ * tenant has no saved team members the maps are empty, so every member photo is
+ * cleared and the block degrades to neutral placeholder cards.)
+ */
+export function reconcileTeamMemberPhotos(
+  blocks: unknown[],
+  teamMembers: TeamMember[],
+): unknown[] {
+  if (!Array.isArray(blocks)) return blocks;
+  const normName = (v: unknown): string =>
+    typeof v === "string" ? v.trim().toLowerCase().replace(/\s+/g, " ") : "";
+  const normEmail = (v: unknown): string =>
+    typeof v === "string" ? v.trim().toLowerCase() : "";
+  const byEmail = new Map<string, string>();
+  const byName = new Map<string, string>();
+  for (const m of teamMembers) {
+    const e = normEmail(m.email);
+    if (e && !byEmail.has(e)) byEmail.set(e, m.photo ?? "");
+    const n = normName(m.name);
+    if (n && !byName.has(n)) byName.set(n, m.photo ?? "");
+  }
+  for (const block of blocks) {
+    if (typeof block !== "object" || block === null) continue;
+    if ((block as { type?: string }).type !== "dso-meet-team") continue;
+    const props = (block as { props?: unknown }).props;
+    if (!props || typeof props !== "object") continue;
+    const members = (props as { members?: unknown }).members;
+    if (!Array.isArray(members)) continue;
+    for (const member of members) {
+      if (typeof member !== "object" || member === null) continue;
+      const m = member as Record<string, unknown>;
+      const e = normEmail(m.email);
+      const n = normName(m.name);
+      let resolved: string | undefined;
+      if (e && byEmail.has(e)) resolved = byEmail.get(e);
+      else if (n && byName.has(n)) resolved = byName.get(n);
+      m.photo = resolved ?? "";
+    }
+  }
+  return blocks;
+}
+
 interface SegmentContext {
   name?: string;
   description?: string;
@@ -5118,6 +5174,14 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     for (const b of parsed.blocks as Array<{ type?: string; props?: Record<string, unknown> }>) {
       fillDsoCaseStudyNeutralDefaults(b);
     }
+
+    // Task #1168 — deterministic team-photo reconciliation. The AI is told to
+    // copy each saved team member's headshot URL verbatim into dso-meet-team
+    // (task #1158), but this guarantees correctness even if the model drops,
+    // swaps, or fabricates a photo: every member's `photo` is forced to the
+    // saved `team_member` row's value (matched by email/name) and any member
+    // with no saved match has its photo cleared.
+    parsed.blocks = reconcileTeamMemberPhotos(parsed.blocks, teamMembers) as typeof parsed.blocks;
 
     // Workstream B — banned-phrase post-validator. Non-destructive: flag
     // clichés + brand-forbidden phrases that leaked past the prompt so the
