@@ -62,7 +62,7 @@ export function CarouselSpotlight({
           )}
         </div>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-10">
           <div className="relative w-full aspect-video rounded-3xl overflow-hidden shadow-2xl bg-black">
             <img 
               src={images[activeIndex].src} 
@@ -88,7 +88,7 @@ export function CarouselSpotlight({
             </button>
           </div>
 
-          <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar justify-center">
+          <div className="flex gap-6 overflow-x-auto px-2 py-2 snap-x hide-scrollbar justify-center">
             {images.map((img, idx) => (
               <button
                 key={img.id}
