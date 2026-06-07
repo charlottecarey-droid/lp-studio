@@ -150,6 +150,50 @@ describe("extractColors", () => {
     expect(result.data?.ctaBackground).not.toBe(result.data?.primary);
   });
 
+  it("does not let a large hero/gradient wash hijack primary when a named brand token exists", async () => {
+    // Regression: a gradient/hero-driven site (e.g. Stripe). The pixel
+    // sampler floats the big vivid orange hero wash to the FRONT of the
+    // palette and the LLM dutifully echoes it as primary, but the site
+    // declares its real brand color as a named --brand custom property
+    // (Stripe's blurple). The named token must win the primary slot.
+    const { client } = mockOpenAI({
+      respondWith: JSON.stringify({ slots: { primary: "#FF6201" } }),
+    });
+    const evidence = makeEvidence({
+      // Orange hero wash leads the palette; navy + light surfaces follow.
+      sampledPalette: ["#FF6201", "#0A2540", "#FFFFFF", "#F6F9FC"],
+      cssVarPaletteHints: [
+        // The vivid mid-scale brand shade should win over the pale tint and
+        // the orange "accent" utility token (which is NOT a brand/primary
+        // name, so it must never be picked as primary).
+        { name: "--hds-color-core-brand-100", value: "#D6D9FC" },
+        { name: "--hds-color-core-brand-600", value: "#533AFD" },
+        { name: "--hds-color-util-accent-orange-350", value: "#FF6201" },
+      ],
+    });
+
+    const result = await extractColors(evidence, client);
+
+    expect(result.data?.primary).toBe("#533AFD");
+    expect(result.data?.primary).not.toBe("#FF6201");
+  });
+
+  it("leaves a valid LLM primary untouched when there is no pixel palette to guard against", async () => {
+    // Sibling guard to the wash test: with no sampled palette there is no
+    // hero wash competing for the slot, so a confident LLM primary must NOT
+    // be overridden by the brand-token fallback (pasted-text imports).
+    const { client } = mockOpenAI({
+      respondWith: JSON.stringify({ slots: { primary: "#10B981" } }),
+    });
+    const evidence = makeEvidence({
+      cssVarPaletteHints: [{ name: "--brand-primary", value: "#533AFD" }],
+    });
+
+    const result = await extractColors(evidence, client);
+
+    expect(result.data?.primary).toBe("#10B981");
+  });
+
   it("returns status 'failed' with no color evidence and never calls the LLM", async () => {
     const { client, calls } = mockOpenAI({ throwOnCall: true });
     const evidence = makeEvidence({ sampledPalette: [], cssVarPaletteHints: [] });

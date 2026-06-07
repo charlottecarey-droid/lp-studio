@@ -367,7 +367,15 @@ function extractCssVarPaletteHints(
   stylesheets: FetchedStylesheet[],
 ): { name: string; value: string }[] {
   const hexRe = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
-  const namePattern = /--(?:brand|primary|secondary|accent|cta|button|bg|background|surface|card|text|fg|foreground|nav|border|color)[a-zA-Z0-9-]*/g;
+  // Match a role keyword as a dash-delimited *segment* ANYWHERE in the custom
+  // property name — not just immediately after the leading `--`. Design-system
+  // sites namespace their tokens (e.g. Stripe's `--hds-color-core-brand-600`,
+  // `--hds-color-button-primary-bg`), so the old anchored `--brand…` match
+  // silently skipped every real brand token and the extractor never saw the
+  // brand color at all. `color` is deliberately omitted from the keyword set:
+  // it appears in nearly every token name on such sites and would flood the
+  // hints with noise. The `i` flag also catches camelCase (e.g. `brandDark`).
+  const namePattern = /--(?:[a-z0-9]+-)*(?:brand|primary|secondary|accent|cta|link|button|bg|background|surface|card|text|fg|foreground|nav|border)(?:[-0-9a-z]*)?$/i;
   const found = new Map<string, string>();
 
   const consume = (css: string): void => {
@@ -376,11 +384,7 @@ function extractCssVarPaletteHints(
     let m: RegExpExecArray | null;
     while ((m = declRe.exec(css))) {
       const name = m[1];
-      if (!name.match(namePattern)) {
-        namePattern.lastIndex = 0;
-        continue;
-      }
-      namePattern.lastIndex = 0;
+      if (!namePattern.test(name)) continue;
       const value = m[2].trim();
       const hex = value.match(/#[0-9a-fA-F]{3,8}\b/)?.[0]
         ?? value.match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/)?.[0]
@@ -404,7 +408,23 @@ function extractCssVarPaletteHints(
 
   $("style").each((_, el) => consume($(el).text() ?? ""));
   for (const s of stylesheets) consume(s.css);
-  return [...found.entries()].map(([name, value]) => ({ name, value }));
+
+  // Surface the highest-signal brand tokens first, then cap the list so a
+  // design-system site's hundreds of role-named tokens can't bury the
+  // brand/primary entries (or blow up the downstream LLM prompt). The color
+  // extractor scans this whole returned (capped) list for its deterministic
+  // brand pick; brand/primary are sorted to the front so the cap never drops
+  // them, and the prompt + swatch UI only slice the head.
+  const PRIORITY = ["brand", "primary", "secondary", "accent", "cta", "link", "button", "nav", "surface", "card", "background", "bg", "foreground", "fg", "text", "border"];
+  const rolePriority = (name: string): number => {
+    const lower = name.toLowerCase();
+    for (let i = 0; i < PRIORITY.length; i++) if (lower.includes(PRIORITY[i])) return i;
+    return PRIORITY.length;
+  };
+  return [...found.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => rolePriority(a.name) - rolePriority(b.name))
+    .slice(0, 48);
 }
 
 // Reliability fallback: when neither a pixel-sampled screenshot palette nor

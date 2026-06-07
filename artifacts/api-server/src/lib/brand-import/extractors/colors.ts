@@ -35,6 +35,16 @@ function hue([r, g, b]: [number, number, number]): number {
   h *= 60;
   return h < 0 ? h + 360 : h;
 }
+// Salience = saturation × chroma (mirrors the pixel-sampler's ranking in
+// evidence.ts). Used to pick the *vivid* shade out of a brand color scale:
+// design-system sites expose a whole token ramp (e.g. Stripe's
+// `--…-brand-25` … `--…-brand-975`), and the true brand color is the
+// saturated mid-scale shade, not a pale tint or near-black extreme.
+function chromaSalience(hex: string): number {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return 0;
+  return saturation(rgb) * (Math.max(...rgb) - Math.min(...rgb));
+}
 function isNearGrey(hex: string): boolean {
   const rgb = hexToRgb(hex);
   if (!rgb) return true;
@@ -137,11 +147,24 @@ All values must be 6-digit hex starting with #. Use solid colors only (no rgba).
     return fallback;
   };
 
-  // Find a likely primary from CSS vars if LLM whiffed
-  const primaryVar = cssVars.find((v) => /primary|brand(?!-bg)/i.test(v.name) && !isWeakColor(v.value));
+  // Find a likely primary from CSS vars if LLM whiffed. A *named*
+  // --brand/--primary custom property is the highest-confidence brand
+  // signal we have, so prefer it over any pixel-sampled color. Exclude
+  // background-ish brand tokens (--brand-bg / --primary-surface) — those
+  // are page fills, not the brand color — and skip weak (near-grey /
+  // brown-beige) values. When a design-system site exposes a whole brand
+  // scale, rank the candidates by salience so we land the vivid mid-scale
+  // shade rather than a pale tint or near-black extreme.
+  const brandVar = cssVars
+    .filter((v) =>
+      /(?:^|-)(?:brand|primary)/i.test(v.name)
+      && !/(?:brand|primary)-?(?:bg|background|surface|card)/i.test(v.name)
+      && !isWeakColor(v.value))
+    .slice()
+    .sort((a, b) => chromaSalience(b.value) - chromaSalience(a.value))[0];
   const accentVar = cssVars.find((v) => /accent/i.test(v.name) && !isWeakColor(v.value));
   const saturated = palette.filter((h) => !isWeakColor(h));
-  const fallbackPrimary = primaryVar?.value ?? saturated[0] ?? darkest;
+  const fallbackPrimary = brandVar?.value ?? saturated[0] ?? darkest;
   const fallbackAccent = accentVar?.value ?? saturated[1] ?? saturated[0] ?? fallbackPrimary;
 
   let primary = safe(slots.primary, fallbackPrimary);
@@ -153,6 +176,27 @@ All values must be 6-digit hex starting with #. Use solid colors only (no rgba).
   }
   if (isWeakColor(accent)) {
     accent = saturated.find((h) => h.toUpperCase() !== primary.toUpperCase()) ?? accent;
+  }
+
+  // Guard against a large hero/gradient wash hijacking the brand primary.
+  // The pixel sampler floats the most-frequent strongly-saturated color to
+  // the FRONT of the sampled palette; on sites with a big vivid hero
+  // gradient (e.g. Stripe's orange wash) that front color is a background
+  // region the LLM/pixels happily promote, while the real brand color lives
+  // in CTAs/links and — most reliably — in a named brand CSS custom
+  // property. So whenever such a named brand token exists and we also have a
+  // pixel palette in play (i.e. a wash could be competing for the slot),
+  // trust the named token over whatever the screenshot produced: a declared
+  // --brand/--primary value is the highest-confidence brand signal. When
+  // there is no pixel palette (e.g. pasted-text imports) we leave a valid
+  // LLM-chosen primary untouched — there is no wash to guard against.
+  if (
+    brandVar
+    && palette.length > 0
+    && brandVar.value.toUpperCase() !== primary.toUpperCase()
+  ) {
+    errors.push(`primary (${primary}) overridden by named brand token ${brandVar.name} (${brandVar.value}); a pixel-sampled wash must not outrank a declared brand color`);
+    primary = brandVar.value.toUpperCase();
   }
 
   // Decouple the CTA background from primary: when the LLM omits it, prefer a
