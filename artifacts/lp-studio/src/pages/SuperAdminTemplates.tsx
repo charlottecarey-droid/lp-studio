@@ -21,7 +21,7 @@ import { useLocation } from "wouter";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 type Industry = "dental" | "generic";
-type IndustryFilter = "all" | "global" | Industry;
+type IndustryFilter = "all" | "global" | "fullpage" | "homepage" | Industry;
 
 interface TemplateRow {
   id: number;
@@ -38,6 +38,10 @@ interface TemplateRow {
   is_global: boolean;
   industry: Industry | null;
   updated_at: string;
+  /** True for standalone full-page templates (first block renders a full page). */
+  full_page: boolean;
+  /** True when this global template is featured on the marketing homepage. */
+  on_homepage: boolean;
 }
 
 const INDUSTRY_LABEL: Record<Industry, string> = {
@@ -225,6 +229,8 @@ export default function SuperAdminTemplates() {
     const q = search.trim().toLowerCase();
     return (rows ?? []).filter(r => {
       if (filter === "global" && !r.is_global) return false;
+      if (filter === "fullpage" && !r.full_page) return false;
+      if (filter === "homepage" && !r.on_homepage) return false;
       if ((filter === "dental" || filter === "generic") && r.industry !== filter) return false;
       if (!q) return true;
       return (
@@ -242,7 +248,9 @@ export default function SuperAdminTemplates() {
     const dental = rows?.filter(r => r.is_global && r.industry === "dental").length ?? 0;
     const generic = rows?.filter(r => r.is_global && r.industry === "generic").length ?? 0;
     const universal = rows?.filter(r => r.is_global && r.industry === null).length ?? 0;
-    return { all, global, dental, generic, universal };
+    const fullpage = rows?.filter(r => r.full_page).length ?? 0;
+    const homepage = rows?.filter(r => r.on_homepage).length ?? 0;
+    return { all, global, dental, generic, universal, fullpage, homepage };
   }, [rows]);
 
   const openEdit = (row: TemplateRow) => {
@@ -266,7 +274,8 @@ export default function SuperAdminTemplates() {
             {rows === null ? "Loading…" : (
               <>
                 {counts.all} templates · {counts.global} global ({counts.universal} universal,
-                {" "}{counts.generic} generic, {counts.dental} dental)
+                {" "}{counts.generic} generic, {counts.dental} dental) · {counts.fullpage} full page
+                {" "}· {counts.homepage} on homepage
               </>
             )}
           </p>
@@ -293,7 +302,7 @@ export default function SuperAdminTemplates() {
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-1">
-          {(["all", "global", "generic", "dental"] as const).map(opt => (
+          {(["all", "global", "fullpage", "homepage", "generic", "dental"] as const).map(opt => (
             <Button
               key={opt}
               size="sm"
@@ -303,6 +312,8 @@ export default function SuperAdminTemplates() {
             >
               {opt === "all" ? "All templates"
                 : opt === "global" ? "Global only"
+                : opt === "fullpage" ? "Full page"
+                : opt === "homepage" ? "On homepage"
                 : `Global · ${INDUSTRY_LABEL[opt]}`}
             </Button>
           ))}

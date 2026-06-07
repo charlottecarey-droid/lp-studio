@@ -79,6 +79,10 @@ interface TemplatePage {
    * 50 = generic starters, 100 = industry starters. Missing → fall back
    * to a high number so unranked entries sink. */
   premiumRank?: number;
+  /** True for standalone full-page templates — the page's first block renders
+   *  an entire page (its own hero/body/chrome) rather than composing into one.
+   *  Drives the "Full Page" type filter and the card badge. */
+  fullPage?: boolean;
   /** Per-workspace last-used timestamp (ISO). null = this workspace has never
    *  cloned this template; the "Recently Used" sort pushes these to the end. */
   lastUsedAt: string | null;
@@ -493,6 +497,7 @@ export default function TemplateMarketplace() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="All">All types</SelectItem>
+                <SelectItem value="Full Page">Full Page</SelectItem>
                 <SelectItem value="Premium">Premium</SelectItem>
                 <SelectItem value="Industry-specific">Industry-specific</SelectItem>
                 <SelectItem value="Custom">Custom</SelectItem>
@@ -628,6 +633,11 @@ export default function TemplateMarketplace() {
                     {template.isGlobal && (
                       <Badge className="absolute top-2 left-2 bg-white/90 text-foreground hover:bg-white text-[10px] font-medium border border-border/40">
                         Starter
+                      </Badge>
+                    )}
+                    {template.fullPage && (
+                      <Badge className="absolute top-2 right-2 bg-primary/90 text-primary-foreground hover:bg-primary text-[10px] font-medium border border-primary/40">
+                        Full Page
                       </Badge>
                     )}
                   </button>

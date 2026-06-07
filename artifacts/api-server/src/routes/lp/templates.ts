@@ -10,6 +10,7 @@ import { getTenantId } from "../../middleware/requireAuth";
 import { getRequestHost } from "../../lib/requestHost";
 import { captureTemplateThumbnail } from "../../lib/captureTemplateThumbnail";
 import { PREMIUM_RANK_BY_SLUG } from "../../seeds/globalTemplates";
+import { isFullPageTemplate } from "@workspace/lp-template-engine";
 
 const router = Router();
 
@@ -92,6 +93,11 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
         templateDescription: t.templateDescription || "",
         blockCount: blocks.length,
         blockTypes,
+        // True when this is a standalone full-page template (its first block
+        // renders an entire page). Drives the marketplace "Full Page" category.
+        fullPage: isFullPageTemplate(
+          blocks as ReadonlyArray<{ type?: unknown }>,
+        ),
         status: t.status,
         mode: t.mode,
         ogImage: t.ogImage || "",

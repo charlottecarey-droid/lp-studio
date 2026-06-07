@@ -8,6 +8,7 @@ import { pool } from "@workspace/db";
 import { requireSuperadmin } from "../../middleware/requireSuperadmin";
 import { VALID_INDUSTRIES } from "../../lib/tenantIndustry";
 import { ensureSystemTenant } from "../../lib/systemTenant";
+import { isFullPageBlockType } from "@workspace/lp-template-engine";
 
 const router = Router();
 
@@ -26,6 +27,12 @@ interface TemplateRow {
   is_global: boolean;
   industry: string | null;
   updated_at: string;
+  /** Type of the page's first block — used to classify full-page templates. */
+  first_block_type: string | null;
+  /** True when this template is a standalone full-page template. */
+  full_page: boolean;
+  /** True when this global template is featured on the marketing homepage. */
+  on_homepage: boolean;
 }
 
 // GET /api/admin/lp/templates — list every template across every tenant,
@@ -47,13 +54,26 @@ router.get("/admin/lp/templates", requireSuperadmin, async (_req, res): Promise<
         COALESCE(jsonb_array_length(p.blocks), 0)::int AS block_count,
         p.is_global,
         p.industry,
-        p.updated_at
+        p.updated_at,
+        (p.blocks->0->>'type') AS first_block_type,
+        -- Featured rows reference global templates as 'global:<id>'. Use EXISTS
+        -- (not a JOIN) so duplicate featured rows can never fan out template rows.
+        EXISTS (
+          SELECT 1 FROM featured_homepage_templates fh
+          WHERE fh.template_id = 'global:' || p.id::text
+        ) AS on_homepage
       FROM lp_pages p
       LEFT JOIN tenants t ON t.id = p.tenant_id
       WHERE p.is_template = true
       ORDER BY p.is_global DESC, p.industry NULLS LAST, p.template_label NULLS LAST, p.title
     `);
-    res.json(r.rows);
+    const rows = r.rows.map((row) => ({
+      ...row,
+      // Classify full-page templates from the first block type so the UI can
+      // filter them — mirrors the marketplace's FULL_PAGE_BLOCK_TYPES.
+      full_page: isFullPageBlockType(row.first_block_type),
+    }));
+    res.json(rows);
   } catch (err) {
     console.error("GET /admin/lp/templates error:", String(err));
     res.status(500).json({ error: "Failed to load templates" });

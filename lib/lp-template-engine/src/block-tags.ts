@@ -255,6 +255,54 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "speaker-grid": ["content"],
 };
 
+/**
+ * Full-page template block types — blocks that render an ENTIRE standalone page
+ * (their own hero, body, and chrome) rather than composing into a larger page.
+ * A page whose first block is one of these is a "full-page template": users
+ * pick it as-is, not as a section to combine with other blocks.
+ *
+ * This is the BROAD, user-facing classification used to badge/filter templates
+ * in the marketplace and superadmin tools. It is intentionally wider than the
+ * AI's narrow "self-contained" set (api-server generate-page.ts), which only
+ * lists blocks that render their own nav AND footer so the generator skips ALL
+ * chrome injection. business-case-* are full-page templates here, but render
+ * their own nav with no footer, so they are NOT in the AI self-contained set.
+ */
+export const FULL_PAGE_BLOCK_TYPES: ReadonlySet<string> = new Set([
+  "content-series",
+  "blog-series",
+  "storefront",
+  "event-noir",
+  "event-luminous",
+  "event-split",
+  "case-metrics",
+  "case-editorial",
+  "case-modular",
+  "business-case-split",
+  "business-case-centered",
+  "business-case-premium",
+]);
+
+/** True when a block type renders an entire standalone full-page template. */
+export function isFullPageBlockType(type: unknown): boolean {
+  return typeof type === "string" && FULL_PAGE_BLOCK_TYPES.has(type);
+}
+
+/**
+ * True when a template/page is a full-page template — i.e. its FIRST block is a
+ * full-page block type. (Most are a single block; content-series carries a
+ * trailing block but still leads with its full-page block.)
+ */
+export function isFullPageTemplate(
+  blocks: ReadonlyArray<{ type?: unknown }> | null | undefined,
+): boolean {
+  return (
+    Array.isArray(blocks) &&
+    blocks.length > 0 &&
+    isFullPageBlockType(blocks[0]?.type)
+  );
+}
+
 /** Code-default tags for a block type. Returns a fresh array (never shared). */
 export function getDefaultBlockTags(type: string): BlockRoleTag[] {
   const def = DEFAULT_BLOCK_TAGS[type];

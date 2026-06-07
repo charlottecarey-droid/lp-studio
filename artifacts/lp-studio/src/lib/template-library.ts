@@ -4,7 +4,7 @@
 // place guarantees both libraries bucket templates by Type and Industry — and
 // order "Recently Used" — identically.
 
-export type TemplateTypeFilter = "All" | "Premium" | "Industry-specific" | "Custom";
+export type TemplateTypeFilter = "All" | "Full Page" | "Premium" | "Industry-specific" | "Custom";
 
 /** Minimal shape needed to bucket a template by Type / Industry. */
 export interface TemplateTypeShape {
@@ -15,6 +15,9 @@ export interface TemplateTypeShape {
   industry?: string | null;
   /** Marketplace rank; 1–10 marks a curated flagship "Premium" template. */
   premiumRank?: number;
+  /** True for standalone full-page templates (the page's first block renders an
+   *  entire page rather than composing into one). */
+  fullPage?: boolean;
 }
 
 /** Premium = curated flagship starter templates (premiumRank 1–10). */
@@ -36,6 +39,7 @@ export function hasRealIndustry(t: TemplateTypeShape): boolean {
 }
 
 /** Type buckets:
+ *   - Full Page        → standalone full-page templates (first block is a full page)
  *   - Premium          → curated flagship starters (premiumRank 1–10)
  *   - Industry-specific → global starters with a real industry tag (non-premium)
  *   - Custom           → tenant-owned templates (not global)
@@ -45,6 +49,8 @@ export function templateMatchesType(t: TemplateTypeShape, type: TemplateTypeFilt
   switch (type) {
     case "All":
       return true;
+    case "Full Page":
+      return !!t.fullPage;
     case "Custom":
       return !t.isGlobal;
     case "Premium":

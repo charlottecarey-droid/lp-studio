@@ -180,7 +180,14 @@ describe("isStorefrontRequest", () => {
 
 describe("isSingleFullPageBlock", () => {
   it("is true for a page that is a single self-contained full-page block", () => {
-    for (const type of ["content-series", "blog-series", "storefront"]) {
+    // These render their OWN nav AND footer, so the generator must not stack
+    // any chrome on top: content/blog/storefront plus the bespoke event and
+    // case-study full-page templates.
+    for (const type of [
+      "content-series", "blog-series", "storefront",
+      "event-noir", "event-luminous", "event-split",
+      "case-metrics", "case-editorial", "case-modular",
+    ]) {
       expect(isSingleFullPageBlock([{ type }])).toBe(true);
     }
   });
@@ -191,9 +198,13 @@ describe("isSingleFullPageBlock", () => {
   });
 
   it("is false for a single block that is NOT a self-contained full-page block", () => {
-    // event-page / business-case render their own nav but no footer, so they
-    // are intentionally NOT treated as self-contained here.
-    for (const type of ["hero", "full-bleed-hero", "event-page", "business-case-split"]) {
+    // event-page / business-case-* render their own nav but no footer, so they
+    // are intentionally NOT treated as self-contained here — they still need a
+    // footer injected (business-case-* skip only the nav via SELF_NAV_TYPES).
+    for (const type of [
+      "hero", "full-bleed-hero", "event-page",
+      "business-case-split", "business-case-centered", "business-case-premium",
+    ]) {
       expect(isSingleFullPageBlock([{ type }])).toBe(false);
     }
   });

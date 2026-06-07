@@ -2998,13 +2998,23 @@ export function isStorefrontRequest(prompt: string): boolean {
 // The self-contained full-page blocks that render their OWN nav AND footer.
 // A page made of a SINGLE one of these is already a complete page, so the
 // post-processing pass must NOT auto-inject a nav-header, bottom-cta, or footer
-// on top of it (that stacks duplicate chrome). event-page / business-case render
-// their own nav but NO footer, so they are intentionally excluded here — they
-// still need a footer injected.
+// on top of it (that stacks duplicate chrome). This is the NARROW set — only
+// blocks that bake BOTH nav and footer. event-page / business-case-* render
+// their own nav but NO footer, so they are intentionally excluded here (they
+// still need a footer injected); business-case-* instead go in SELF_NAV_TYPES
+// so we skip the duplicate nav while still appending a footer. For the BROAD
+// user-facing "full-page template" classification (marketplace category /
+// superadmin filter) see FULL_PAGE_BLOCK_TYPES in @workspace/lp-template-engine.
 export const SELF_CONTAINED_FULL_PAGE_TYPES = new Set([
   "content-series",
   "blog-series",
   "storefront",
+  "event-noir",
+  "event-luminous",
+  "event-split",
+  "case-metrics",
+  "case-editorial",
+  "case-modular",
 ]);
 
 // True when the generated page is exactly one self-contained full-page block.
@@ -4918,10 +4928,19 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
 
     // 1. Nav header — prepend if missing
     const NAV_TYPES = new Set(["nav-header", "dso-practice-nav"]);
-    // These hero blocks render their own sticky navbar internally —
-    // skip auto-injecting nav-header on top of them, otherwise the page
-    // ends up with two stacked navs.
-    const SELF_NAV_TYPES = new Set(["full-bleed-hero", "dso-heartland-hero", "hero"]);
+    // These blocks render their own sticky navbar internally — skip
+    // auto-injecting nav-header on top of them, otherwise the page ends up with
+    // two stacked navs. The business-case-* full-page blocks bake their own nav
+    // (but no footer, so they are NOT in SELF_CONTAINED_FULL_PAGE_TYPES — a
+    // footer is still appended below).
+    const SELF_NAV_TYPES = new Set([
+      "full-bleed-hero",
+      "dso-heartland-hero",
+      "hero",
+      "business-case-split",
+      "business-case-centered",
+      "business-case-premium",
+    ]);
     // Defensive strip: the prompt forbids prepending a standalone nav before a
     // self-nav hero, but if the model ignores that and emits e.g.
     // [nav-header, full-bleed-hero, …], drop the leading nav so we don't ship
