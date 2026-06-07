@@ -7,6 +7,7 @@ import { ObjectStorageService } from "../objectStorage";
 import { USER_AGENT } from "./types";
 import { logger } from "../logger";
 import { readImageDimensions } from "../imageDimensions";
+import { autoTagImage } from "../imageAutoTag";
 
 const objectStorage = new ObjectStorageService();
 
@@ -243,6 +244,7 @@ interface UploadOpts {
 }
 
 interface UploadedRecord {
+  id: number;
   url: string;
   width: number | null;
   height: number | null;
@@ -259,7 +261,7 @@ async function uploadAndRecord(asset: FetchedAsset, opts: UploadOpts): Promise<U
     // Capture intrinsic pixel dimensions so the AI page generator can refuse
     // undersized scraped images as full-bleed hero backgrounds (task #1065).
     const dims = await readImageDimensions(asset.buffer, asset.mimeType);
-    await db.insert(lpMediaTable).values({
+    const [inserted] = await db.insert(lpMediaTable).values({
       tenantId: opts.tenantId,
       title: opts.title,
       url: serveUrl,
@@ -269,11 +271,26 @@ async function uploadAndRecord(asset: FetchedAsset, opts: UploadOpts): Promise<U
       width: dims?.width ?? null,
       height: dims?.height ?? null,
       tags: opts.tags,
-    });
-    return { url: serveUrl, width: dims?.width ?? null, height: dims?.height ?? null };
+    }).returning({ id: lpMediaTable.id });
+    if (!inserted) return null;
+    return { id: inserted.id, url: serveUrl, width: dims?.width ?? null, height: dims?.height ?? null };
   } catch {
     return null;
   }
+}
+
+/** Fire-and-forget content/purpose auto-tagging for a freshly mirrored image.
+ *  Reuses the same GPT-4o vision tagger the media-drawer upload path uses so
+ *  scraped reference photography + brand-import photos earn real relevance tags
+ *  (and a landing-page purpose) for FUTURE generations. Never awaited and never
+ *  throws into the caller — the mirror returns immediately with provenance-only
+ *  tags; the richer tags land asynchronously. Existing provenance tags
+ *  (page-reference / scraped / refhost: / refsrc:) are preserved by autoTagImage
+ *  (it strips only stale purpose/og tags before merging). */
+function scheduleAutoTag(rec: UploadedRecord, asset: FetchedAsset, tags: string[]): void {
+  setImmediate(() => {
+    void autoTagImage(rec.id, asset.buffer, asset.mimeType, tags).catch(() => {});
+  });
 }
 
 function titleFromUrl(url: string, fallback: string): string {
@@ -400,11 +417,15 @@ export async function mirrorBrandAssets(inputs: MirrorInputs): Promise<MirrorOut
   const results = await Promise.all(photos.map(async (sourceUrl, i) => {
     const fetched = await fetchAsset(sourceUrl);
     if (!fetched.ok) return { sourceUrl, url: null as string | null, reason: fetched.reason };
+    const photoTags = [...baseTags, "photography"];
     const rec = await uploadAndRecord(fetched.asset, {
       tenantId: inputs.tenantId,
-      tags: [...baseTags, "photography"],
+      tags: photoTags,
       title: titleFromUrl(sourceUrl, `${inputs.brandName || "Brand"} photo ${i + 1}`),
     });
+    // Best-effort, non-blocking: enrich brand-import photos with real content +
+    // purpose tags so future generations can place them relevantly.
+    if (rec) scheduleAutoTag(rec, fetched.asset, photoTags);
     return { sourceUrl, url: rec?.url ?? null, reason: rec ? null : "upload-failed" };
   }));
   for (const r of results) {
@@ -594,6 +615,10 @@ export async function mirrorReferenceImages(inputs: {
       return { rec: null as UploadedRecord | null, reason: fetched.reason, sourceUrl: c.sourceUrl, tags, title };
     }
     const rec = await uploadAndRecord(fetched.asset, { tenantId: inputs.tenantId, tags, title });
+    // Best-effort, non-blocking: enrich the scraped reference image with real
+    // content + purpose tags so future generations can place it relevantly.
+    // This run still selects via the relaxed trust gate (provenance-only tags).
+    if (rec) scheduleAutoTag(rec, fetched.asset, tags);
     return { rec, reason: rec ? null : "upload-failed", sourceUrl: c.sourceUrl, tags, title };
   }));
 

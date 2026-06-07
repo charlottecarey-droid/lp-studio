@@ -804,6 +804,7 @@ function findBestImage(
   usedIds: Set<string>,
   preferredPurpose?: string,
   relaxed = false,
+  trustedScrapedIds?: ReadonlySet<string>,
 ): string {
   if (images.length === 0) return "";
   const contextLower = context.toLowerCase();
@@ -836,8 +837,16 @@ function findBestImage(
   //    the relaxed last-resort pass (which runs AFTER AI image generation).
   // In `relaxed` mode we drop the gate entirely and return the best available
   // unused image regardless of score — the final pass to exhaust the library.
+  //
+  // Task #1218 — a scrape from the CURRENT request (freshScrapedMedia or a
+  // catalog scrape whose refhost matches a current reference host) is TRUSTED:
+  // it passes on the same non-negative gate as curated library images. The user
+  // pointed us at that site this run, so its imagery should fill empty slots
+  // before AI generation. Stale/other-host scrapes keep the strict `> 0` gate so
+  // an unrelated prior brand-site scrape never wins a slot.
   if (best) {
-    const passesStrict = isScrapedImage(best) ? bestScore > 0 : bestScore >= 0;
+    const trusted = isScrapedImage(best) && !!trustedScrapedIds?.has(imageIdentity(best));
+    const passesStrict = (isScrapedImage(best) && !trusted) ? bestScore > 0 : bestScore >= 0;
     if (relaxed || passesStrict) {
       usedIds.add(imageIdentity(best));
       return best.url;
@@ -1376,19 +1385,27 @@ function identityForUrl(url: string, byUrl: Map<string, MediaImage>): string {
  * @param freshScrapedMedia images mirrored from the current reference this run.
  * @param referenceUrls the reference URL(s) used for the current generation.
  */
+/** Normalized host set for the current generation's reference URL(s)
+ *  (lowercased, leading "www." stripped). Shared by buildReferenceFillPool and
+ *  buildTrustedScrapedIds so "current reference host" is derived identically. */
+function currentReferenceHosts(referenceUrls: string[]): Set<string> {
+  const hosts = new Set<string>();
+  for (const u of referenceUrls) {
+    try {
+      hosts.add(new URL(u).hostname.replace(/^www\./, "").toLowerCase());
+    } catch {
+      /* ignore malformed reference URLs */
+    }
+  }
+  return hosts;
+}
+
 export function buildReferenceFillPool(
   catalogImages: MediaImage[],
   freshScrapedMedia: MediaImage[],
   referenceUrls: string[],
 ): MediaImage[] {
-  const currentRefHosts = new Set<string>();
-  for (const u of referenceUrls) {
-    try {
-      currentRefHosts.add(new URL(u).hostname.replace(/^www\./, "").toLowerCase());
-    } catch {
-      /* ignore malformed reference URLs */
-    }
-  }
+  const currentRefHosts = currentReferenceHosts(referenceUrls);
   const freshScrapedUrls = new Set(freshScrapedMedia.map((m) => m.url));
   const curatedImages: MediaImage[] = [];
   const currentRefScraped: MediaImage[] = [];
@@ -1408,6 +1425,38 @@ export function buildReferenceFillPool(
   return [...curatedImages, ...freshScrapedMedia, ...currentRefScraped, ...otherScraped];
 }
 
+/**
+ * Identities of the scraped images that THIS generation is allowed to place on
+ * the same relaxed footing as curated library images (i.e. at a NON-NEGATIVE
+ * score in the strict pass, instead of requiring a strictly-positive relevance
+ * signal). A scrape is "trusted" when it came from the current request:
+ *   • freshScrapedMedia — images mirrored from the reference URL(s) this run, or
+ *   • a catalog scrape whose refhost matches a current reference host (resilient
+ *     to the harvest grace window timing out and to repeat generations of the
+ *     same site, which surface the existing rows instead of re-mirroring).
+ *
+ * Stale scrapes from unrelated prior generations (other hosts) are NOT trusted —
+ * they keep the strict `> 0` gate so an off-topic brand-site photo never wins a
+ * slot ahead of AI generation. Keyed by imageIdentity so it matches the dedup
+ * keys used in findBestImage.
+ */
+export function buildTrustedScrapedIds(
+  catalogImages: MediaImage[],
+  freshScrapedMedia: MediaImage[],
+  referenceUrls: string[],
+): Set<string> {
+  const trusted = new Set<string>();
+  for (const m of freshScrapedMedia) trusted.add(imageIdentity(m));
+  const currentRefHosts = currentReferenceHosts(referenceUrls);
+  if (currentRefHosts.size === 0) return trusted;
+  for (const img of catalogImages) {
+    if (!isScrapedImage(img)) continue;
+    const host = refHostOf(img);
+    if (host && currentRefHosts.has(host)) trusted.add(imageIdentity(img));
+  }
+  return trusted;
+}
+
 /** Post-process blocks to fill in empty image URLs from the media library.
  *  Each block type requests images with the appropriate landing-page purpose:
  *    hero           → "lp-hero"   (lifestyle, people, clinic shots)
@@ -1415,15 +1464,17 @@ export function buildReferenceFillPool(
  *    photo-strip    → "lp-feature"
  *    product-grid   → "product-detail" (close-ups OK here)
  */
-export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageContext = "", relaxed = false, logoUrls?: ReadonlySet<string>): unknown[] {
+export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageContext = "", relaxed = false, logoUrls?: ReadonlySet<string>, trustedScrapedIds?: ReadonlySet<string>): unknown[] {
   if (images.length === 0) return blocks;
   const usedIds = new Set<string>();
   // Bias every selection toward the page's industry/topic so a block with a
   // generic headline still prefers on-topic imagery. When `relaxed` is set the
   // score gate is dropped so any still-empty slot grabs the best remaining
-  // library image rather than being left for AI generation.
+  // library image rather than being left for AI generation. `trustedScrapedIds`
+  // lets the current request's scrapes fill slots on the same gate as curated
+  // images (Task #1218).
   const pick = (context: string, imgs: MediaImage[], used: Set<string>, purpose?: string): string =>
-    findBestImage(pageContext ? `${context} ${pageContext}` : context, imgs, used, purpose, relaxed);
+    findBestImage(pageContext ? `${context} ${pageContext}` : context, imgs, used, purpose, relaxed, trustedScrapedIds);
 
   // First pass: collect already-used image IDENTITIES across EVERY image-bearing
   // shape (reuses collectImageSlots so heroImageUrl, cards/panels/pairs/slides,
@@ -4433,10 +4484,17 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           scrapedRefMedia,
           scrapedUrls,
         );
+        // This run's scrapes are trusted to fill empty slots on the same gate as
+        // curated images (Task #1218).
+        const trustedScrapedIds = buildTrustedScrapedIds(
+          mediaCatalog.images,
+          scrapedRefMedia,
+          scrapedUrls,
+        );
 
         mergedBlocks = sanitizeAIImageUrls(mergedBlocks, mediaCatalog.allImages, brandLogoUrls) as typeof mergedBlocks;
         mergedBlocks = validateAndDedupeAIImages(mergedBlocks, fillPool, pageImageContext, brandLogoUrls) as typeof mergedBlocks;
-        mergedBlocks = fillEmptyImages(mergedBlocks, fillPool, pageImageContext, false, brandLogoUrls) as typeof mergedBlocks;
+        mergedBlocks = fillEmptyImages(mergedBlocks, fillPool, pageImageContext, false, brandLogoUrls, trustedScrapedIds) as typeof mergedBlocks;
       }
 
       const slug = String(parsed.slug)
@@ -5147,6 +5205,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       scrapedMedia,
       scrapedUrls,
     );
+    // This run's scrapes are trusted to fill empty slots on the same gate as
+    // curated images (Task #1218).
+    const trustedScrapedIds = buildTrustedScrapedIds(
+      mediaCatalog.images,
+      scrapedMedia,
+      scrapedUrls,
+    );
 
     // Subject the model's OWN image picks to the same dedup + purpose/relevance
     // guardrails used for empty slots: clear duplicates and wrong-purpose /
@@ -5154,7 +5219,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     parsed.blocks = validateAndDedupeAIImages(parsed.blocks, fillPool, pageImageContext, brandLogoUrls);
 
     // Fill in any remaining empty image URLs from the media library
-    parsed.blocks = fillEmptyImages(parsed.blocks, fillPool, pageImageContext, false, brandLogoUrls);
+    parsed.blocks = fillEmptyImages(parsed.blocks, fillPool, pageImageContext, false, brandLogoUrls, trustedScrapedIds);
 
     // An empty media catalog is the upstream cause of the brand-import
     // broken-image symptom (task #592): if nothing was mirrored into

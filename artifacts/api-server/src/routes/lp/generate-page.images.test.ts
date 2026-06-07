@@ -5,6 +5,7 @@ import {
   sanitizeAIImageUrls,
   aiFillEmptyImages,
   buildReferenceFillPool,
+  buildTrustedScrapedIds,
   collectImageSlots,
   isLogoImageUrl,
   buildBrandLogoUrlSet,
@@ -573,6 +574,63 @@ describe("findBestImage — scraped images need positive relevance in the strict
     ];
     blocks = fillEmptyImages(blocks, [untaggedCurated], "totally unrelated context") as any[];
     expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/drawer-x");
+  });
+});
+
+// ── Task #1218: THIS run's scrapes are trusted in the strict pass ────────────
+// A scrape harvested from the reference URL the user pointed us at THIS run
+// (freshScrapedMedia) or already in the catalog under a current-reference host
+// should fill empty slots on the same non-negative gate as curated images —
+// even when its title doesn't lexically overlap the slot context. Stale scrapes
+// from unrelated prior generations keep the strict `> 0` gate.
+describe("buildTrustedScrapedIds — current-run scrape trust", () => {
+  const freshClay: MediaImage = { url: "/objects/clay-fresh", title: "abstract gradient", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:ccc"] };
+  const priorClay: MediaImage = { url: "/objects/clay-prior", title: "team offsite", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:bbb"] };
+  const staleApple: MediaImage = { url: "/objects/apple-1", title: "product shot", tags: ["page-reference", "scraped", "refhost:apple.com", "refsrc:aaa"] };
+  const curated: MediaImage = { url: "/objects/brand-photo", title: "office lobby", tags: ["brand-import", "photography"] };
+
+  // The set is keyed by imageIdentity (scrapes fold to `s:<host>:<title-stem>`),
+  // so we assert membership by SIZE — the fillEmptyImages tests below exercise
+  // the exact keys end-to-end. Inputs are chosen so size pins WHICH rows count:
+  // fresh clay (1) + catalog clay same-host (1) = 2; apple (other host) and the
+  // curated row must NOT be counted, or the size would be 3+.
+  it("trusts freshly-harvested scrapes and catalog scrapes from the current reference host", () => {
+    const trusted = buildTrustedScrapedIds([priorClay, staleApple, curated], [freshClay], ["https://www.clay.com/x"]);
+    expect(trusted.size).toBe(2); // clay-fresh + clay-prior; NOT apple, NOT curated
+  });
+
+  it("trusts ONLY fresh scrapes when there is no reference URL", () => {
+    const trusted = buildTrustedScrapedIds([priorClay, staleApple], [freshClay], []);
+    expect(trusted.size).toBe(1); // only the freshly-harvested clay row
+  });
+
+  it("fillEmptyImages PLACES a trusted off-topic scrape in the strict pass", () => {
+    // freshClay's title ("abstract gradient") does NOT overlap "saas pipeline" →
+    // scores 0. Untrusted it would be held back, but as a current-run scrape it
+    // fills the slot on the curated (>= 0) gate.
+    const trusted = buildTrustedScrapedIds([curated], [freshClay], ["https://clay.com/x"]);
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, [freshClay], "saas pipeline", false, undefined, trusted) as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/clay-fresh");
+  });
+
+  it("WITHOUT the trusted set, that same off-topic scrape is held back in the strict pass", () => {
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, [freshClay], "saas pipeline", false) as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("");
+  });
+
+  it("does NOT trust a stale other-host scrape even with a reference URL set", () => {
+    const trusted = buildTrustedScrapedIds([staleApple], [], ["https://clay.com/x"]);
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, [staleApple], "saas pipeline", false, undefined, trusted) as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("");
   });
 });
 

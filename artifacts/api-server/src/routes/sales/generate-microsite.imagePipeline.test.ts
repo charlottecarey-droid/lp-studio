@@ -23,6 +23,8 @@ import {
   fillEmptyImages,
   sanitizeAIImageUrls,
   validateAndDedupeAIImages,
+  buildReferenceFillPool,
+  buildTrustedScrapedIds,
   type MediaImage,
 } from "../lp/generate-page";
 import { restoreTemplateImages, mergeAuthored } from "./generate-microsite";
@@ -255,5 +257,38 @@ describe("sales image pipeline — backgroundImage slot (event-landing-hero / ds
     const out = restoreTemplateImages(generated, tmpl, { onlyEmpty: true }) as any[];
     expect(out[0].props.backgroundImage).toBe("/objects/library-event");
     expect(out[1].props.backgroundImage).toBe("/objects/tmpl-dso");
+  });
+});
+
+// ── Task #1218: reference-image fidelity parity ─────────────────────────────
+// The microsite generator now builds its fill pool + trusted-scrape set with the
+// SAME shared helpers as the marketing generator, so a site the rep referenced
+// this run wins empty slots over stale scrapes and fills on the curated gate.
+describe("sales image pipeline — reference-image fidelity (Task #1218)", () => {
+  const curated: MediaImage = { url: "/objects/brand-photo", title: "office lobby", tags: ["brand-import", "photography"] };
+  const staleApple: MediaImage = { url: "/objects/apple-1", title: "product shot", tags: ["scraped", "refhost:apple.com"] };
+  const freshClay: MediaImage = { url: "/objects/clay-fresh", title: "abstract gradient", tags: ["scraped", "refhost:clay.com", "refsrc:ccc"] };
+
+  it("orders curated → fresh current-reference scrape → stale other-host scrape", () => {
+    const pool = buildReferenceFillPool([staleApple, curated], [freshClay], ["https://clay.com/x"]);
+    expect(pool.map(p => p.url)).toEqual(["/objects/brand-photo", "/objects/clay-fresh", "/objects/apple-1"]);
+  });
+
+  it("places this run's off-topic reference scrape in the strict pass via the trusted set", () => {
+    const trusted = buildTrustedScrapedIds([curated], [freshClay], ["https://clay.com/x"]);
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, [freshClay], "saas pipeline", false, undefined, trusted) as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/clay-fresh");
+  });
+
+  it("holds back a stale other-host scrape in the strict pass (untrusted)", () => {
+    const trusted = buildTrustedScrapedIds([staleApple], [], ["https://clay.com/x"]);
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, [staleApple], "saas pipeline", false, undefined, trusted) as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("");
   });
 });
