@@ -8,7 +8,7 @@ import { tenantCanReadAcl, tenantIdFromAclOwner } from "../lib/objectAcl";
 import { OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "../lib/resolvePageOG";
 import { db, lpMediaTable, tenantsTable, pool } from "@workspace/db";
 import { asc, desc, eq, sql, ilike, and, count, inArray, type SQL } from "drizzle-orm";
-import { resolveOwnedTenantIds, libraryReadablePredicate } from "../lib/libraryScope";
+import { resolveOwnedTenantIds, libraryReadablePredicate, isSharedOrGlobalAsset } from "../lib/libraryScope";
 import { getTenantId, SESSION_COOKIE, type AuthUser } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import { readImageDimensions } from "../lib/imageDimensions";
@@ -1128,8 +1128,19 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
       if (requesterTenantId !== null) {
         const allowed = tenantCanReadAcl(aclPolicy, requesterTenantId);
         if (allowed !== true) {
-          res.status(403).json({ error: "Access denied" });
-          return;
+          // Before refusing, allow the request when this object is an
+          // intentionally-shared asset (shared starter-library row or imagery
+          // referenced by a GLOBAL template). Global/shared imagery is meant to
+          // be visible to every tenant, but the underlying object can still
+          // carry a tenant-private ACL (e.g. it was uploaded by one tenant and
+          // then promoted into a global template). This lookup runs ONLY on the
+          // rare cross-tenant 403 path, so the hot path is unaffected, and it
+          // does NOT broaden access for genuinely private tenant uploads.
+          const shared = await isSharedOrGlobalAsset(wildcardPath);
+          if (!shared) {
+            res.status(403).json({ error: "Access denied" });
+            return;
+          }
         }
       }
     }
