@@ -1549,7 +1549,7 @@ async function runMigrationsBody(): Promise<void> {
       // (slug `__system-templates`) instead of the lowest-id customer tenant.
       // The consolidate step above already moved existing globals there, so
       // bumping the marker refreshes every row in place under its new owner.
-      const SEED_MARKER = "global_templates_seed_v26";
+      const SEED_MARKER = "global_templates_seed_v27";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;

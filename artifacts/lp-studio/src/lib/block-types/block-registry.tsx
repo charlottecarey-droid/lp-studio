@@ -140,6 +140,15 @@ import type {
   StickyBarBlockProps,
   StickyHeaderBlockProps,
 } from "./utility-blocks";
+import type {
+  EventNoirBlockProps,
+  EventLuminousBlockProps,
+  EventSplitBlockProps,
+  CaseMetricsBlockProps,
+  CaseEditorialBlockProps,
+  CaseModularBlockProps,
+} from "./template-pages";
+import { eventPageDefaults, caseStudyDefaults } from "./template-page-defaults";
 import type { BlockType, PageBlock } from "./block-variant";
 import { type BlockRoleTag, getDefaultBlockTags } from "@workspace/lp-template-engine";
 
@@ -5559,6 +5568,118 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "event-noir" as const,
+    label: "Event — Editorial Noir",
+    category: "Events" as BlockCategory,
+    defaultProps: (): EventNoirBlockProps => eventPageDefaults("noir"),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="80" fill="#0b0b0d" rx="4" />
+        <rect x="8" y="8" width="40" height="4" rx="1" fill="#f4f4f5" />
+        <rect x="8" y="18" width="64" height="6" rx="1" fill="#f4f4f5" />
+        <rect x="8" y="28" width="52" height="6" rx="1" fill="#f4f4f5" />
+        <rect x="8" y="44" width="30" height="3" rx="1" fill="#c9a86a" />
+        <rect x="8" y="58" width="22" height="14" rx="1" fill="#151517" />
+        <rect x="36" y="58" width="22" height="14" rx="1" fill="#151517" />
+        <rect x="64" y="58" width="22" height="14" rx="1" fill="#151517" />
+        <rect x="92" y="58" width="22" height="14" rx="1" fill="#c9a86a" />
+      </svg>
+    ),
+  },
+  {
+    type: "event-luminous" as const,
+    label: "Event — Luminous Minimal",
+    category: "Events" as BlockCategory,
+    defaultProps: (): EventLuminousBlockProps => eventPageDefaults("luminous"),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="80" fill="#fafaf8" rx="4" />
+        <rect x="44" y="12" width="32" height="3" rx="1" fill="#4f46e5" />
+        <rect x="30" y="22" width="60" height="6" rx="3" fill="#18181b" />
+        <rect x="38" y="32" width="44" height="4" rx="2" fill="#71717a" />
+        <rect x="40" y="46" width="40" height="10" rx="5" fill="#4f46e5" />
+        <rect x="14" y="64" width="28" height="10" rx="3" fill="#ffffff" stroke="#e7e5e0" />
+        <rect x="46" y="64" width="28" height="10" rx="3" fill="#ffffff" stroke="#e7e5e0" />
+        <rect x="78" y="64" width="28" height="10" rx="3" fill="#ffffff" stroke="#e7e5e0" />
+      </svg>
+    ),
+  },
+  {
+    type: "event-split" as const,
+    label: "Event — Split Conference",
+    category: "Events" as BlockCategory,
+    defaultProps: (): EventSplitBlockProps => eventPageDefaults("split"),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="80" fill="#ffffff" rx="4" />
+        <rect x="0" y="0" width="60" height="80" fill="#0f172a" />
+        <rect x="8" y="14" width="36" height="5" rx="1" fill="#ffffff" />
+        <rect x="8" y="24" width="44" height="5" rx="1" fill="#ffffff" />
+        <rect x="8" y="40" width="24" height="3" rx="1" fill="#2563eb" />
+        <rect x="8" y="56" width="40" height="9" rx="2" fill="#2563eb" />
+        <rect x="68" y="14" width="44" height="4" rx="1" fill="#0f172a" opacity="0.8" />
+        <rect x="68" y="22" width="44" height="4" rx="1" fill="#64748b" opacity="0.5" />
+        <rect x="68" y="34" width="20" height="20" rx="2" fill="#f8fafc" stroke="#e2e8f0" />
+        <rect x="92" y="34" width="20" height="20" rx="2" fill="#f8fafc" stroke="#e2e8f0" />
+      </svg>
+    ),
+  },
+  {
+    type: "case-metrics" as const,
+    label: "Case Study — Metrics Forward",
+    category: "Showcase" as BlockCategory,
+    defaultProps: (): CaseMetricsBlockProps => caseStudyDefaults("metrics"),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="80" fill="#ffffff" rx="4" />
+        <rect x="8" y="8" width="56" height="6" rx="1" fill="#0a0a0a" />
+        <rect x="8" y="18" width="40" height="4" rx="1" fill="#6b7280" />
+        <rect x="8" y="32" width="24" height="20" rx="2" fill="#f9fafb" stroke="#e5e7eb" />
+        <rect x="36" y="32" width="24" height="20" rx="2" fill="#f9fafb" stroke="#e5e7eb" />
+        <rect x="64" y="32" width="24" height="20" rx="2" fill="#16a34a" />
+        <rect x="92" y="32" width="20" height="20" rx="2" fill="#f9fafb" stroke="#e5e7eb" />
+        <rect x="8" y="60" width="104" height="12" rx="2" fill="#f9fafb" stroke="#e5e7eb" />
+      </svg>
+    ),
+  },
+  {
+    type: "case-editorial" as const,
+    label: "Case Study — Editorial Story",
+    category: "Showcase" as BlockCategory,
+    defaultProps: (): CaseEditorialBlockProps => caseStudyDefaults("editorial"),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="80" fill="#fbf9f5" rx="4" />
+        <rect x="36" y="10" width="48" height="3" rx="1" fill="#b45309" />
+        <rect x="22" y="18" width="76" height="7" rx="1" fill="#1c1917" />
+        <rect x="30" y="30" width="60" height="4" rx="1" fill="#78716c" />
+        <rect x="22" y="44" width="3" height="28" fill="#b45309" />
+        <rect x="30" y="44" width="40" height="3" rx="1" fill="#1c1917" opacity="0.8" />
+        <rect x="30" y="51" width="64" height="3" rx="1" fill="#78716c" opacity="0.6" />
+        <rect x="30" y="58" width="58" height="3" rx="1" fill="#78716c" opacity="0.6" />
+        <rect x="30" y="65" width="48" height="3" rx="1" fill="#78716c" opacity="0.6" />
+      </svg>
+    ),
+  },
+  {
+    type: "case-modular" as const,
+    label: "Case Study — Modular Report",
+    category: "Showcase" as BlockCategory,
+    defaultProps: (): CaseModularBlockProps => caseStudyDefaults("modular"),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="80" fill="#f8fafc" rx="4" />
+        <rect x="8" y="8" width="40" height="5" rx="1" fill="#0f172a" />
+        <rect x="8" y="20" width="50" height="22" rx="3" fill="#ffffff" stroke="#e2e8f0" />
+        <rect x="62" y="20" width="50" height="22" rx="3" fill="#ffffff" stroke="#e2e8f0" />
+        <rect x="8" y="48" width="50" height="24" rx="3" fill="#6366f1" />
+        <rect x="62" y="48" width="50" height="24" rx="3" fill="#ffffff" stroke="#e2e8f0" />
+        <rect x="14" y="26" width="20" height="3" rx="1" fill="#0f172a" opacity="0.7" />
+        <rect x="68" y="26" width="20" height="3" rx="1" fill="#0f172a" opacity="0.7" />
+      </svg>
+    ),
+  },
 ];
 
 // Attach code-default semantic role tags to every registered block from the
@@ -5698,6 +5819,12 @@ export function createBlock(type: "one-pager-hero"): Extract<PageBlock, { type: 
 export function createBlock(type: "content-series"): Extract<PageBlock, { type: "content-series" }>;
 export function createBlock(type: "blog-series"): Extract<PageBlock, { type: "blog-series" }>;
 export function createBlock(type: "storefront"): Extract<PageBlock, { type: "storefront" }>;
+export function createBlock(type: "event-noir"): Extract<PageBlock, { type: "event-noir" }>;
+export function createBlock(type: "event-luminous"): Extract<PageBlock, { type: "event-luminous" }>;
+export function createBlock(type: "event-split"): Extract<PageBlock, { type: "event-split" }>;
+export function createBlock(type: "case-metrics"): Extract<PageBlock, { type: "case-metrics" }>;
+export function createBlock(type: "case-editorial"): Extract<PageBlock, { type: "case-editorial" }>;
+export function createBlock(type: "case-modular"): Extract<PageBlock, { type: "case-modular" }>;
 export function createBlock(type: "event-page"): Extract<PageBlock, { type: "event-page" }>;
 export function createBlock(type: "product-launch"): Extract<PageBlock, { type: "product-launch" }>;
 export function createBlock(type: "story-hub"): Extract<PageBlock, { type: "story-hub" }>;
@@ -5843,6 +5970,12 @@ export function createBlock(type: BlockType): PageBlock {
     case "content-series": return { id, type: "content-series", props: props as ContentSeriesBlockProps };
     case "blog-series": return { id, type: "blog-series", props: props as BlogSeriesBlockProps };
     case "storefront": return { id, type: "storefront", props: props as StorefrontBlockProps };
+    case "event-noir": return { id, type: "event-noir", props: props as EventNoirBlockProps };
+    case "event-luminous": return { id, type: "event-luminous", props: props as EventLuminousBlockProps };
+    case "event-split": return { id, type: "event-split", props: props as EventSplitBlockProps };
+    case "case-metrics": return { id, type: "case-metrics", props: props as CaseMetricsBlockProps };
+    case "case-editorial": return { id, type: "case-editorial", props: props as CaseEditorialBlockProps };
+    case "case-modular": return { id, type: "case-modular", props: props as CaseModularBlockProps };
     case "section": return { id, type: "section", props: props as SectionBlockProps, children: [] };
     case "columns": return { id, type: "columns", props: props as ColumnsBlockProps, children: [] };
     case "grid": return { id, type: "grid", props: props as GridBlockProps, children: [] };

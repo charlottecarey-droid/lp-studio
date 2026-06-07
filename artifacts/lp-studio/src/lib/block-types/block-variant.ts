@@ -1,5 +1,13 @@
 import type { BlockSettings } from "./common";
 import type {
+  EventNoirBlockProps,
+  EventLuminousBlockProps,
+  EventSplitBlockProps,
+  CaseMetricsBlockProps,
+  CaseEditorialBlockProps,
+  CaseModularBlockProps,
+} from "./template-pages";
+import type {
   HeroBlockProps,
   TrustBarBlockProps,
   PasSectionBlockProps,
@@ -267,6 +275,12 @@ export type BlockVariant =
   | { type: "content-series"; props: ContentSeriesBlockProps }
   | { type: "blog-series"; props: BlogSeriesBlockProps }
   | { type: "storefront"; props: StorefrontBlockProps }
+  | { type: "event-noir"; props: EventNoirBlockProps }
+  | { type: "event-luminous"; props: EventLuminousBlockProps }
+  | { type: "event-split"; props: EventSplitBlockProps }
+  | { type: "case-metrics"; props: CaseMetricsBlockProps }
+  | { type: "case-editorial"; props: CaseEditorialBlockProps }
+  | { type: "case-modular"; props: CaseModularBlockProps }
   | { type: "section"; props: SectionBlockProps }
   | { type: "columns"; props: ColumnsBlockProps }
   | { type: "grid"; props: GridBlockProps }

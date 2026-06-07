@@ -2526,6 +2526,7 @@ const GENERIC_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
 
 import { DISTINCTIVE_TEMPLATE_SEEDS } from "./distinctiveTemplates";
 import { FLAGSHIP_TEMPLATE_SEEDS } from "./flagshipTemplates";
+import { TEMPLATE_PAGE_SEEDS } from "./templatePageSeeds";
 
 // Default premiumRank applied when a seed doesn't carry one explicitly.
 // The marketplace shows lower ranks first and groups rank ≤ 10 under
@@ -2947,6 +2948,7 @@ const BUSINESS_CASE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
 const COMBINED: GlobalTemplateSeed[] = [
   ...FLAGSHIP_TEMPLATE_SEEDS,
   ...DISTINCTIVE_TEMPLATE_SEEDS,
+  ...TEMPLATE_PAGE_SEEDS,
   ...BUSINESS_CASE_TEMPLATE_SEEDS,
   ...GENERIC_TEMPLATE_SEEDS,
   ...INDUSTRY_TEMPLATE_SEEDS_RANKED,

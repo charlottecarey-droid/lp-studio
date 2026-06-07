@@ -98,6 +98,8 @@ import { ContentSeriesPanel } from "./ContentSeriesPanel";
 import { BlogSeriesPanel } from "./BlogSeriesPanel";
 import { StorefrontPanel } from "./StorefrontPanel";
 import { BusinessCasePanel } from "./BusinessCasePanel";
+import { TemplateEventPanel } from "./TemplateEventPanel";
+import { TemplateCaseStudyPanel } from "./TemplateCaseStudyPanel";
 import { SpatialTourPanel } from "./SpatialTourPanel";
 import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 import { CampaignVarInserter } from "@/components/CampaignVarInserter";
@@ -6125,6 +6127,14 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return <BusinessCasePanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} variant="centered" />;
       case "business-case-premium":
         return <BusinessCasePanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} variant="premium" />;
+      case "event-noir":
+      case "event-luminous":
+      case "event-split":
+        return <TemplateEventPanel props={block.props} onChange={next => onChange({ ...block, props: next })} />;
+      case "case-metrics":
+      case "case-editorial":
+      case "case-modular":
+        return <TemplateCaseStudyPanel props={block.props} onChange={next => onChange({ ...block, props: next })} />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

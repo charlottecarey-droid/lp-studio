@@ -220,6 +220,14 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "blog-series": ["content", "media"],
   storefront: ["features", "media"],
 
+  // ── Full-page templates (Events + Case Studies) ─────────────────────────────
+  "event-noir": ["hero", "content", "media"],
+  "event-luminous": ["hero", "content", "media"],
+  "event-split": ["hero", "content", "media"],
+  "case-metrics": ["hero", "content", "media"],
+  "case-editorial": ["hero", "content", "media"],
+  "case-modular": ["hero", "content", "media"],
+
   // ── DSO Microsites ──────────────────────────────────────────────────────────
   "business-case-split": ["content"],
   "business-case-centered": ["content"],

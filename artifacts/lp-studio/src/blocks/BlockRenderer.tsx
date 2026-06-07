@@ -127,6 +127,12 @@ import { BlockHoursLocation } from "./BlockHoursLocation";
 import { BlockBeforeAfterGallery } from "./BlockBeforeAfterGallery";
 import { BlockSpeakerGrid } from "./BlockSpeakerGrid";
 import { BlockContentSeries } from "./BlockContentSeries";
+import { BlockEventNoir } from "./BlockEventNoir";
+import { BlockEventLuminous } from "./BlockEventLuminous";
+import { BlockEventSplit } from "./BlockEventSplit";
+import { BlockCaseMetrics } from "./BlockCaseMetrics";
+import { BlockCaseEditorial } from "./BlockCaseEditorial";
+import { BlockCaseModular } from "./BlockCaseModular";
 import { BlockBlogSeries } from "./BlockBlogSeries";
 import { BlockStorefront } from "./BlockStorefront";
 import { BlockSection } from "./BlockSection";
@@ -320,6 +326,8 @@ export const NO_REVEAL = new Set<string>([
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch", "story-hub",
   "business-case-split", "business-case-centered", "business-case-premium",
   "content-series", "blog-series", "storefront",
+  "event-noir", "event-luminous", "event-split",
+  "case-metrics", "case-editorial", "case-modular",
   // Inside Dandy blocks: own their own scroll-driven internals (sticky cinema
   // pillars, scroll-progress letter reveal, parallax showcase) and the hero's
   // own entrance animation. Wrapping them in a transformed motion.div breaks
@@ -868,6 +876,18 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
         return <BlockBlogSeries props={block.props} brand={brand} pageId={pageId} sessionId={sessionId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "storefront":
         return <BlockStorefront props={block.props} brand={brand} pageId={pageId} sessionId={sessionId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "event-noir":
+        return <BlockEventNoir props={block.props} brand={brand} isBuilder={isBuilder} />;
+      case "event-luminous":
+        return <BlockEventLuminous props={block.props} />;
+      case "event-split":
+        return <BlockEventSplit props={block.props} brand={brand} />;
+      case "case-metrics":
+        return <BlockCaseMetrics props={block.props} brand={brand} />;
+      case "case-editorial":
+        return <BlockCaseEditorial props={block.props} brand={brand} />;
+      case "case-modular":
+        return <BlockCaseModular props={block.props} />;
       case "event-page":
         return <BlockEventPage props={block.props} pageId={pageId} testId={testId} variantId={variantId} sessionId={sessionId} />;
       case "product-launch":

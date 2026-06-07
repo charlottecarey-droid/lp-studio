@@ -259,6 +259,47 @@ export type {
 } from "./dso-blocks";
 export { DSO_CASE_FLOW_DEFAULT_STAGES } from "./dso-blocks";
 
+// Template-page blocks (event + case-study families)
+export type {
+  TemplatePageStyle,
+  SectionSpacing,
+  ContentWidth,
+  CornerRadius,
+  HeadingScale,
+  EventPageCommonProps,
+  EventNoirBlockProps,
+  EventLuminousBlockProps,
+  EventSplitBlockProps,
+  EventNavLink,
+  EventStat,
+  EventAgendaSession,
+  EventAgendaDay,
+  EventSpeaker,
+  EventSponsor,
+  EventTicketTier,
+  EventFaqItem,
+  EventGalleryImage,
+  EventFormField,
+  EventFormFieldType,
+  CaseStudyCommonProps,
+  CaseMetricsBlockProps,
+  CaseEditorialBlockProps,
+  CaseModularBlockProps,
+  CaseNavLink,
+  CaseStat,
+  CaseProfileRow,
+  CaseApproachCard,
+  CaseModule,
+  CaseTakeaway,
+  CaseGalleryImage,
+} from "./template-pages";
+export {
+  resolveSectionSpacingPx,
+  resolveContentMaxWidthPx,
+  resolveRadiusPx,
+  resolveHeadingScale,
+} from "./template-pages";
+
 // Utility block types
 export type {
   NavHeaderBlockProps,

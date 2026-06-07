@@ -131,7 +131,7 @@ isValidation = true
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd artifacts/lp-studio && npx tsc -b tsconfig.json"
+args = "pnpm --filter @workspace/lp-studio run typecheck"
 
 [[workflows.workflow]]
 name = "tc-api"
@@ -142,7 +142,7 @@ isValidation = true
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd artifacts/api-server && npx tsc -b tsconfig.json"
+args = "pnpm --filter @workspace/api-server run typecheck"
 
 [[workflows.workflow]]
 name = "tc-lp-studio"
