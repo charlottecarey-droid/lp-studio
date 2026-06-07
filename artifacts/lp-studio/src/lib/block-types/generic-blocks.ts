@@ -3624,3 +3624,390 @@ export interface TransparentOverlayNavBlockProps extends CtaModalConfig {
   headlineFont?: string;
   bodyFont?: string;
 }
+
+// ── Family B: Flexible column / row layout sections ──────────────────────────
+
+/**
+ * Layout — Split media row: 50/50 text + standalone image with a left/right
+ * toggle, optional eyebrow, bullet list and CTA.
+ */
+export interface SplitMediaRowBlockProps extends CtaModalConfig {
+  eyebrow?: string;
+  heading: string;
+  body?: string;
+  bullets?: string[];
+  imageUrl?: string;
+  imageAlt?: string;
+  /** Which side the image sits on. */
+  mediaSide?: "left" | "right";
+  ctaLabel?: string;
+  ctaAction?: HeroCtaActionMode;
+  ctaUrl?: string;
+  chilipiperUrl?: string;
+  videoUrl?: string;
+  videoPosterUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/**
+ * Layout — Full-bleed split: text on a colored half, an edge-to-edge image on
+ * the other half. Optional CTA.
+ */
+export interface FullBleedSplitBlockProps extends CtaModalConfig {
+  eyebrow?: string;
+  heading: string;
+  body?: string;
+  imageUrl?: string;
+  imageAlt?: string;
+  /** Which side the edge-to-edge image sits on. */
+  mediaSide?: "left" | "right";
+  ctaLabel?: string;
+  ctaAction?: HeroCtaActionMode;
+  ctaUrl?: string;
+  chilipiperUrl?: string;
+  videoUrl?: string;
+  videoPosterUrl?: string;
+  /** Background color of the text panel half. */
+  panelBgColor?: string;
+  /** Text color on the colored panel. */
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/** A single icon + title + text item in an icon row. */
+export interface IconRowItem {
+  /** Lucide icon name (resolved by name; falls back to a default). */
+  icon?: string;
+  title: string;
+  text?: string;
+}
+
+/**
+ * Layout — Icon row: a flexible 2–4 column row of icon + title + short text.
+ * No image; low detail.
+ */
+export interface IconRowBlockProps {
+  eyebrow?: string;
+  heading?: string;
+  subheading?: string;
+  items: IconRowItem[];
+  /** Column count (2–4). */
+  columns?: 2 | 3 | 4;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/** A single media card (image + heading + text + link). */
+export interface MediaRowCard {
+  imageUrl?: string;
+  imageAlt?: string;
+  heading: string;
+  text?: string;
+  linkLabel?: string;
+  linkUrl?: string;
+}
+
+/**
+ * Layout — Media cards row: 2–3 cards each with an image, heading, text and
+ * optional link.
+ */
+export interface MediaCardsRowBlockProps {
+  eyebrow?: string;
+  heading?: string;
+  subheading?: string;
+  cards: MediaRowCard[];
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/** A single big-number stat with a label. */
+export interface StatRowItem {
+  value: string;
+  label: string;
+}
+
+/**
+ * Layout — Stat row: a flexible row of 2–4 big-number stats with labels.
+ * No image.
+ */
+export interface StatRowBlockProps {
+  eyebrow?: string;
+  heading?: string;
+  stats: StatRowItem[];
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/** A single pain-point card in a PAS icon grid. */
+export interface PasIconGridItem {
+  icon?: string;
+  title: string;
+  text?: string;
+}
+
+/**
+ * PAS — Icon grid: problem statement, a grid of pain-point cards (agitate),
+ * then a solution statement + optional CTA.
+ */
+export interface PasIconGridBlockProps extends CtaModalConfig {
+  eyebrow?: string;
+  problemHeading: string;
+  problemBody?: string;
+  items: PasIconGridItem[];
+  solutionHeading?: string;
+  solutionBody?: string;
+  columns?: 2 | 3 | 4;
+  ctaLabel?: string;
+  ctaAction?: HeroCtaActionMode;
+  ctaUrl?: string;
+  chilipiperUrl?: string;
+  videoUrl?: string;
+  videoPosterUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/**
+ * PAS — Split image: problem + agitation copy on one side, image on the other,
+ * then a solution statement + optional CTA.
+ */
+export interface PasSplitImageBlockProps extends CtaModalConfig {
+  eyebrow?: string;
+  problemHeading: string;
+  problemBody?: string;
+  agitateBody?: string;
+  solutionHeading?: string;
+  solutionBody?: string;
+  imageUrl?: string;
+  imageAlt?: string;
+  mediaSide?: "left" | "right";
+  ctaLabel?: string;
+  ctaAction?: HeroCtaActionMode;
+  ctaUrl?: string;
+  chilipiperUrl?: string;
+  videoUrl?: string;
+  videoPosterUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/** A single agitating stat in a PAS stat-agitate block. */
+export interface PasAgitateStat {
+  value: string;
+  label: string;
+}
+
+/**
+ * PAS — Stat agitate: problem statement, a row of alarming/agitating stats,
+ * then a solution statement + optional CTA.
+ */
+export interface PasStatAgitateBlockProps extends CtaModalConfig {
+  eyebrow?: string;
+  problemHeading: string;
+  problemBody?: string;
+  stats: PasAgitateStat[];
+  solutionHeading?: string;
+  solutionBody?: string;
+  ctaLabel?: string;
+  ctaAction?: HeroCtaActionMode;
+  ctaUrl?: string;
+  chilipiperUrl?: string;
+  videoUrl?: string;
+  videoPosterUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/** A single before/after contrast row. */
+export interface PasBeforeAfterRow {
+  before: string;
+  after: string;
+}
+
+/**
+ * PAS — Before/after: a two-column contrast of the painful "before" against the
+ * improved "after", with an optional CTA.
+ */
+export interface PasBeforeAfterBlockProps extends CtaModalConfig {
+  eyebrow?: string;
+  heading: string;
+  subheading?: string;
+  beforeTitle?: string;
+  afterTitle?: string;
+  rows: PasBeforeAfterRow[];
+  ctaLabel?: string;
+  ctaAction?: HeroCtaActionMode;
+  ctaUrl?: string;
+  chilipiperUrl?: string;
+  videoUrl?: string;
+  videoPosterUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/**
+ * Final CTA — Full bleed: a single full-width call-to-action over a solid color
+ * or background image, with primary + optional secondary CTA.
+ */
+export interface FullBleedFinalCtaBlockProps extends CtaModalConfig {
+  eyebrow?: string;
+  heading: string;
+  subheading?: string;
+  backgroundImageUrl?: string;
+  overlayOpacity?: number;
+  ctaLabel?: string;
+  ctaAction?: HeroCtaActionMode;
+  ctaUrl?: string;
+  chilipiperUrl?: string;
+  videoUrl?: string;
+  videoPosterUrl?: string;
+  ctaSecondaryLabel?: string;
+  ctaSecondaryUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/**
+ * Final CTA — Split form: persuasive copy on one side, an inline email-capture
+ * form on the other.
+ */
+export interface SplitFormFinalCtaBlockProps extends CtaModalConfig {
+  eyebrow?: string;
+  heading: string;
+  subheading?: string;
+  bullets?: string[];
+  formTitle?: string;
+  formButtonLabel?: string;
+  successMessage?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/**
+ * Final CTA — Stat backed: a final CTA reinforced by a row of proof stats.
+ */
+export interface StatBackedFinalCtaBlockProps extends CtaModalConfig {
+  eyebrow?: string;
+  heading: string;
+  subheading?: string;
+  stats: StatRowItem[];
+  ctaLabel?: string;
+  ctaAction?: HeroCtaActionMode;
+  ctaUrl?: string;
+  chilipiperUrl?: string;
+  videoUrl?: string;
+  videoPosterUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/**
+ * Final CTA — Social urgency: a final CTA with social-proof avatars/logos and an
+ * urgency line (limited time / spots).
+ */
+export interface SocialUrgencyFinalCtaBlockProps extends CtaModalConfig {
+  eyebrow?: string;
+  heading: string;
+  subheading?: string;
+  urgencyText?: string;
+  avatarUrls?: string[];
+  proofText?: string;
+  ctaLabel?: string;
+  ctaAction?: HeroCtaActionMode;
+  ctaUrl?: string;
+  chilipiperUrl?: string;
+  videoUrl?: string;
+  videoPosterUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/**
+ * Final CTA — Gradient glow: a centered final CTA over an animated/elevated
+ * gradient-glow backdrop.
+ */
+export interface GradientGlowFinalCtaBlockProps extends CtaModalConfig {
+  eyebrow?: string;
+  heading: string;
+  subheading?: string;
+  gradientStart?: string;
+  gradientEnd?: string;
+  ctaLabel?: string;
+  ctaAction?: HeroCtaActionMode;
+  ctaUrl?: string;
+  chilipiperUrl?: string;
+  videoUrl?: string;
+  videoPosterUrl?: string;
+  ctaSecondaryLabel?: string;
+  ctaSecondaryUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/**
+ * Final CTA — Video background: a final CTA over a looping background video
+ * (user-supplied URL) with a poster fallback image.
+ */
+export interface VideoBackgroundFinalCtaBlockProps extends CtaModalConfig {
+  eyebrow?: string;
+  heading: string;
+  subheading?: string;
+  /** Looping background video URL (user-supplied; not auto-filled). */
+  backgroundVideoUrl?: string;
+  /** Poster/fallback image shown before the video loads. */
+  posterUrl?: string;
+  overlayOpacity?: number;
+  ctaLabel?: string;
+  ctaAction?: HeroCtaActionMode;
+  ctaUrl?: string;
+  chilipiperUrl?: string;
+  videoUrl?: string;
+  videoPosterUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}

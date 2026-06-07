@@ -114,12 +114,17 @@ export const CTA_TYPES = new Set([
   "bottom-cta", "cta-button", "dandy-cta-block", "dso-final-cta",
   "roi-calculator", "id-invitation",
   "cta-centered-minimal", "cta-split-image", "cta-stat-backed", "cta-gradient-banner",
+  // Family D final-CTA section blocks (all carry the "cta" role).
+  "full-bleed-final-cta", "split-form-final-cta", "stat-backed-final-cta",
+  "social-urgency-final-cta", "gradient-glow-final-cta", "video-background-final-cta",
 ]);
 
 // Lead-capture / conversion paths: forms, email capture, booking, reservations.
 export const LEAD_CAPTURE_TYPES = new Set([
   "form", "dandy-form-right-alt", "dandy-conversion-panel-1",
   "dso-cta-capture", "id-form", "id-reservation-pass",
+  // Final-CTA block with an inline email-capture form.
+  "split-form-final-cta",
 ]);
 
 // Social proof: testimonials, customer stories, case studies, results galleries.
@@ -140,6 +145,8 @@ export const SOCIAL_PROOF_TYPES = new Set([
   // case-study-* sections above, their SEO/GEO value is social proof — kept
   // DISTINCT from AUTHORITY so a page earns the credit once, never twice.
   "case-metrics", "case-editorial", "case-modular",
+  // Final-CTA block carrying a "social-proof" role (avatars + proof line).
+  "social-urgency-final-cta",
 ]);
 
 // Authority: stats, trust bars, metric showcases (concrete data signals).
@@ -147,6 +154,9 @@ export const AUTHORITY_TYPES = new Set([
   "trust-bar", "stat-callout", "bento-showcase", "dso-stat-bar",
   "dso-stat-row", "dso-stat-showcase", "id-stats",
   "dso-flow-canvas", "dso-particle-mesh", "rating-badges",
+  "stat-row",
+  // PAS + final-CTA section blocks carrying the "stats" role.
+  "pas-stat-agitate", "stat-backed-final-cta",
 ]);
 
 // Structured content sections AI engines can extract organized answers from.
@@ -174,12 +184,18 @@ export const STRUCTURED_TYPES = new Set([
   "features-bento-showcase", "features-spotlight-cards", "features-tabbed-categories",
   "features-comparison-checklist", "gallery-split-feature", "media-feature-reel",
   "media-video-split",
+  // Family B layout rows carrying the "features" role.
+  "icon-row", "media-cards-row",
+  // PAS icon grid carries the "features" role.
+  "pas-icon-grid",
 ]);
 
 // Comparison / differentiation ("us vs them", "old way vs new way").
 export const COMPARISON_TYPES = new Set([
   "comparison", "dandy-versus", "dso-paradigm-shift", "dso-comparison",
   "features-comparison-checklist",
+  // PAS before/after contrast block carries the "comparison" role.
+  "pas-before-after",
 ]);
 
 // FAQ / Q&A blocks reinforce the question-answer GEO signal.

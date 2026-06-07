@@ -30,7 +30,7 @@ export function BlockTransparentOverlayNav({ props, brand }: Props) {
   const text = scrolled ? solidText : overlayText;
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
-  const logoText = props.logoText || brand.name || "Brand";
+  const logoText = props.logoText || brand.brandName || "Brand";
 
   return (
     <div className="sticky top-0 z-50 w-full" style={{ fontFamily: BODY }}>

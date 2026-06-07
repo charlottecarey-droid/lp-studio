@@ -84,6 +84,21 @@ import type {
   MegaMenuNavBlockProps,
   MinimalNavBlockProps,
   TransparentOverlayNavBlockProps,
+  SplitMediaRowBlockProps,
+  FullBleedSplitBlockProps,
+  IconRowBlockProps,
+  MediaCardsRowBlockProps,
+  StatRowBlockProps,
+  PasIconGridBlockProps,
+  PasSplitImageBlockProps,
+  PasStatAgitateBlockProps,
+  PasBeforeAfterBlockProps,
+  FullBleedFinalCtaBlockProps,
+  SplitFormFinalCtaBlockProps,
+  StatBackedFinalCtaBlockProps,
+  SocialUrgencyFinalCtaBlockProps,
+  GradientGlowFinalCtaBlockProps,
+  VideoBackgroundFinalCtaBlockProps,
   CtaGradientBannerBlockProps,
   CtaSplitImageBlockProps,
   CtaStatBackedBlockProps,
@@ -373,6 +388,21 @@ export type BlockVariant =
   | { type: "mega-menu-nav"; props: MegaMenuNavBlockProps }
   | { type: "minimal-nav"; props: MinimalNavBlockProps }
   | { type: "transparent-overlay-nav"; props: TransparentOverlayNavBlockProps }
+  | { type: "split-media-row"; props: SplitMediaRowBlockProps }
+  | { type: "full-bleed-split"; props: FullBleedSplitBlockProps }
+  | { type: "icon-row"; props: IconRowBlockProps }
+  | { type: "media-cards-row"; props: MediaCardsRowBlockProps }
+  | { type: "stat-row"; props: StatRowBlockProps }
+  | { type: "pas-icon-grid"; props: PasIconGridBlockProps }
+  | { type: "pas-split-image"; props: PasSplitImageBlockProps }
+  | { type: "pas-stat-agitate"; props: PasStatAgitateBlockProps }
+  | { type: "pas-before-after"; props: PasBeforeAfterBlockProps }
+  | { type: "full-bleed-final-cta"; props: FullBleedFinalCtaBlockProps }
+  | { type: "split-form-final-cta"; props: SplitFormFinalCtaBlockProps }
+  | { type: "stat-backed-final-cta"; props: StatBackedFinalCtaBlockProps }
+  | { type: "social-urgency-final-cta"; props: SocialUrgencyFinalCtaBlockProps }
+  | { type: "gradient-glow-final-cta"; props: GradientGlowFinalCtaBlockProps }
+  | { type: "video-background-final-cta"; props: VideoBackgroundFinalCtaBlockProps }
   | { type: "section"; props: SectionBlockProps }
   | { type: "columns"; props: ColumnsBlockProps }
   | { type: "grid"; props: GridBlockProps }

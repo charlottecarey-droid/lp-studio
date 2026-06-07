@@ -19,7 +19,7 @@ export function BlockCenteredLogoNav({ props, brand }: Props) {
   const border = `${text}14`;
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
-  const logoText = props.logoText || brand.name || "Brand";
+  const logoText = props.logoText || brand.brandName || "Brand";
 
   const renderLinks = (links: { label: string; url: string }[], align: "start" | "end") => (
     <nav

@@ -1,4 +1,18 @@
-import type { CtaModalConfig } from "@/lib/block-types";
+import type { CtaModalConfig, HeroCtaActionMode } from "@/lib/block-types";
+
+/**
+ * The full set of CTA-button fields a block exposes when it uses the shared
+ * CtaButton suite: a label, an action mode, the per-action destinations, and
+ * the spread CtaModalConfig modal fields. Reused by the shared CTA panel
+ * section so every CTA-bearing block edits the suite the same way.
+ */
+export interface CtaSuiteFields extends CtaModalConfig {
+  ctaAction?: HeroCtaActionMode;
+  ctaUrl?: string;
+  chilipiperUrl?: string;
+  videoUrl?: string;
+  videoPosterUrl?: string;
+}
 
 /**
  * Extract just the shared modal-CTA fields from a block's props so they can be

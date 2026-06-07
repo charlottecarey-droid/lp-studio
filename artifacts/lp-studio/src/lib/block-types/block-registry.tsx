@@ -83,6 +83,21 @@ import type {
   MegaMenuNavBlockProps,
   MinimalNavBlockProps,
   TransparentOverlayNavBlockProps,
+  SplitMediaRowBlockProps,
+  FullBleedSplitBlockProps,
+  IconRowBlockProps,
+  MediaCardsRowBlockProps,
+  StatRowBlockProps,
+  PasIconGridBlockProps,
+  PasSplitImageBlockProps,
+  PasStatAgitateBlockProps,
+  PasBeforeAfterBlockProps,
+  FullBleedFinalCtaBlockProps,
+  SplitFormFinalCtaBlockProps,
+  StatBackedFinalCtaBlockProps,
+  SocialUrgencyFinalCtaBlockProps,
+  GradientGlowFinalCtaBlockProps,
+  VideoBackgroundFinalCtaBlockProps,
   CtaSplitImageBlockProps,
   CtaStatBackedBlockProps,
   CtaGradientBannerBlockProps,
@@ -5726,6 +5741,484 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "split-media-row",
+    label: "Layout — Split Media Row",
+    category: "Layout",
+    defaultProps: (): SplitMediaRowBlockProps => ({
+      eyebrow: "Why teams choose us",
+      heading: "Everything you need in one place",
+      body: "Bring your workflow together with a platform built for speed, clarity and scale.",
+      bullets: ["Set up in minutes", "No code required", "Trusted by thousands"],
+      imageUrl: "",
+      imageAlt: "",
+      mediaSide: "right",
+      ctaLabel: "Learn more",
+      ctaAction: "url",
+      ctaUrl: "#",
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="10" y="20" width="34" height="4" rx="2" fill="#0F172A" />
+        <rect x="10" y="30" width="44" height="3" rx="1.5" fill="#94A3B8" />
+        <rect x="10" y="37" width="40" height="3" rx="1.5" fill="#94A3B8" />
+        <rect x="10" y="48" width="20" height="8" rx="4" fill="#4f46e5" />
+        <rect x="66" y="16" width="44" height="38" rx="4" fill="#CBD5E1" />
+      </svg>
+    ),
+  },
+  {
+    type: "full-bleed-split",
+    label: "Layout — Full-Bleed Split",
+    category: "Layout",
+    defaultProps: (): FullBleedSplitBlockProps => ({
+      eyebrow: "Built for scale",
+      heading: "A bold statement, edge to edge",
+      body: "Pair a striking full-height image with a punchy message and a clear call to action.",
+      imageUrl: "",
+      imageAlt: "",
+      mediaSide: "right",
+      ctaLabel: "Get started",
+      ctaAction: "url",
+      ctaUrl: "#",
+      panelBgColor: "#4f46e5",
+      textColor: "#FFFFFF",
+      accentColor: "#FFFFFF",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="60" height="70" fill="#4f46e5" />
+        <rect x="60" width="60" height="70" fill="#CBD5E1" />
+        <rect x="10" y="24" width="34" height="4" rx="2" fill="#FFFFFF" />
+        <rect x="10" y="34" width="40" height="3" rx="1.5" fill="#C7D2FE" />
+        <rect x="10" y="46" width="22" height="8" rx="4" fill="#FFFFFF" />
+      </svg>
+    ),
+  },
+  {
+    type: "icon-row",
+    label: "Layout — Icon Row",
+    category: "Layout",
+    defaultProps: (): IconRowBlockProps => ({
+      eyebrow: "",
+      heading: "Built for the way you work",
+      subheading: "",
+      columns: 3,
+      items: [
+        { icon: "Zap", title: "Lightning fast", text: "Pages load instantly, every time." },
+        { icon: "ShieldCheck", title: "Secure by default", text: "Enterprise-grade security baked in." },
+        { icon: "Sparkles", title: "Delightfully simple", text: "An interface your whole team will love." },
+      ],
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        {[20, 56, 92].map((cx) => (
+          <g key={cx}>
+            <rect x={cx - 7} y="22" width="14" height="14" rx="4" fill="#EEF2FF" />
+            <rect x={cx - 4} y="26" width="8" height="6" rx="2" fill="#4f46e5" />
+            <rect x={cx - 12} y="42" width="24" height="3" rx="1.5" fill="#0F172A" />
+            <rect x={cx - 10} y="49" width="20" height="2.5" rx="1.25" fill="#94A3B8" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "media-cards-row",
+    label: "Layout — Media Cards Row",
+    category: "Layout",
+    defaultProps: (): MediaCardsRowBlockProps => ({
+      eyebrow: "",
+      heading: "Explore what's possible",
+      subheading: "",
+      cards: [
+        { imageUrl: "", heading: "For startups", text: "Launch fast and iterate with confidence.", linkLabel: "Learn more", linkUrl: "#" },
+        { imageUrl: "", heading: "For teams", text: "Collaborate seamlessly at any scale.", linkLabel: "Learn more", linkUrl: "#" },
+        { imageUrl: "", heading: "For enterprise", text: "Security and control you can rely on.", linkLabel: "Learn more", linkUrl: "#" },
+      ],
+      bgColor: "#F8FAFC",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#F8FAFC" rx="4" stroke="#E5E7EB" />
+        {[8, 44, 80].map((x) => (
+          <g key={x}>
+            <rect x={x} y="14" width="32" height="42" rx="3" fill="#FFFFFF" stroke="#E2E8F0" />
+            <rect x={x} y="14" width="32" height="16" rx="3" fill="#CBD5E1" />
+            <rect x={x + 4} y="34" width="22" height="3" rx="1.5" fill="#0F172A" />
+            <rect x={x + 4} y="41" width="18" height="2.5" rx="1.25" fill="#94A3B8" />
+            <rect x={x + 4} y="48" width="12" height="2.5" rx="1.25" fill="#4f46e5" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "stat-row",
+    label: "Layout — Stat Row",
+    category: "Layout",
+    defaultProps: (): StatRowBlockProps => ({
+      eyebrow: "",
+      heading: "",
+      stats: [
+        { value: "10k+", label: "Active customers" },
+        { value: "99.9%", label: "Uptime guarantee" },
+        { value: "4.9/5", label: "Average rating" },
+      ],
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        {[20, 56, 92].map((cx) => (
+          <g key={cx}>
+            <rect x={cx - 14} y="26" width="28" height="10" rx="2" fill="#4f46e5" />
+            <rect x={cx - 10} y="42" width="20" height="3" rx="1.5" fill="#94A3B8" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "pas-icon-grid",
+    label: "PAS — Icon Grid",
+    category: "CTA",
+    defaultProps: (): PasIconGridBlockProps => ({
+      eyebrow: "Sound familiar?",
+      problemHeading: "The old way is holding you back",
+      problemBody: "Manual work, scattered tools and slow feedback loops drain your team every single day.",
+      columns: 3,
+      items: [
+        { icon: "Clock", title: "Wasted hours", text: "Repetitive tasks eat into time you can't get back." },
+        { icon: "AlertTriangle", title: "Costly mistakes", text: "Disconnected systems lead to errors that compound." },
+        { icon: "TrendingDown", title: "Missed growth", text: "Bottlenecks keep you from scaling when it matters." },
+      ],
+      solutionHeading: "There's a better way",
+      solutionBody: "Our platform replaces the chaos with one streamlined workflow your whole team will love.",
+      ctaLabel: "See how it works",
+      ctaAction: "url",
+      ctaUrl: "#",
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="36" y="8" width="48" height="4" rx="2" fill="#0F172A" />
+        {[20, 56, 92].map((cx) => (
+          <g key={cx}>
+            <rect x={cx - 7} y="22" width="14" height="14" rx="4" fill="#FEE2E2" />
+            <rect x={cx - 4} y="26" width="8" height="6" rx="2" fill="#EF4444" />
+            <rect x={cx - 11} y="42" width="22" height="3" rx="1.5" fill="#0F172A" />
+          </g>
+        ))}
+        <rect x="44" y="54" width="32" height="8" rx="4" fill="#4f46e5" />
+      </svg>
+    ),
+  },
+  {
+    type: "pas-split-image",
+    label: "PAS — Split Image",
+    category: "CTA",
+    defaultProps: (): PasSplitImageBlockProps => ({
+      eyebrow: "The problem",
+      problemHeading: "You're working harder, not smarter",
+      problemBody: "Every day brings more tools, more tabs and more busywork between you and real results.",
+      agitateBody: "The longer it goes unsolved, the more it costs you in time, money and momentum.",
+      solutionHeading: "Imagine a simpler way",
+      solutionBody: "One platform that brings it all together so you can focus on what actually moves the needle.",
+      imageUrl: "",
+      imageAlt: "",
+      mediaSide: "right",
+      ctaLabel: "Show me how",
+      ctaAction: "url",
+      ctaUrl: "#",
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="10" y="16" width="40" height="4" rx="2" fill="#EF4444" />
+        <rect x="10" y="26" width="46" height="3" rx="1.5" fill="#94A3B8" />
+        <rect x="10" y="33" width="42" height="3" rx="1.5" fill="#94A3B8" />
+        <rect x="10" y="44" width="44" height="3" rx="1.5" fill="#4f46e5" />
+        <rect x="10" y="54" width="22" height="8" rx="4" fill="#4f46e5" />
+        <rect x="66" y="14" width="44" height="42" rx="4" fill="#CBD5E1" />
+      </svg>
+    ),
+  },
+  {
+    type: "pas-stat-agitate",
+    label: "PAS — Stat Agitate",
+    category: "CTA",
+    defaultProps: (): PasStatAgitateBlockProps => ({
+      eyebrow: "The hard truth",
+      problemHeading: "The cost of doing nothing is higher than you think",
+      problemBody: "Every week the problem goes unsolved, the gap between you and your competitors widens.",
+      stats: [
+        { value: "68%", label: "of teams cite wasted time as their #1 frustration" },
+        { value: "$1.3M", label: "average annual cost of inefficiency" },
+        { value: "5hrs", label: "lost per person, per week" },
+      ],
+      solutionHeading: "Turn the numbers around",
+      solutionBody: "Teams that switch see results in weeks, not quarters.",
+      ctaLabel: "Stop the bleed",
+      ctaAction: "url",
+      ctaUrl: "#",
+      bgColor: "#0F172A",
+      textColor: "#FFFFFF",
+      accentColor: "#818cf8",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0F172A" rx="4" />
+        <rect x="30" y="8" width="60" height="4" rx="2" fill="#FFFFFF" />
+        {[20, 56, 92].map((cx) => (
+          <g key={cx}>
+            <rect x={cx - 14} y="24" width="28" height="10" rx="2" fill="#818cf8" />
+            <rect x={cx - 11} y="40" width="22" height="3" rx="1.5" fill="#64748B" />
+          </g>
+        ))}
+        <rect x="44" y="54" width="32" height="8" rx="4" fill="#818cf8" />
+      </svg>
+    ),
+  },
+  {
+    type: "pas-before-after",
+    label: "PAS — Before / After",
+    category: "CTA",
+    defaultProps: (): PasBeforeAfterBlockProps => ({
+      eyebrow: "Before & after",
+      heading: "See the difference for yourself",
+      subheading: "",
+      beforeTitle: "Without us",
+      afterTitle: "With us",
+      rows: [
+        { before: "Hours lost to manual work", after: "Automated in a few clicks" },
+        { before: "Data scattered across tools", after: "One source of truth" },
+        { before: "Slow, error-prone handoffs", after: "Seamless, reliable workflows" },
+      ],
+      ctaLabel: "Make the switch",
+      ctaAction: "url",
+      ctaUrl: "#",
+      bgColor: "#F8FAFC",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#F8FAFC" rx="4" stroke="#E5E7EB" />
+        <rect x="8" y="14" width="48" height="48" rx="4" fill="#FEE2E2" />
+        <rect x="64" y="14" width="48" height="48" rx="4" fill="#DCFCE7" />
+        {[24, 36, 48].map((y) => (
+          <g key={y}>
+            <rect x="14" y={y} width="36" height="3" rx="1.5" fill="#EF4444" />
+            <rect x="70" y={y} width="36" height="3" rx="1.5" fill="#16A34A" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "full-bleed-final-cta",
+    label: "Final CTA — Full Bleed",
+    category: "CTA",
+    defaultProps: (): FullBleedFinalCtaBlockProps => ({
+      eyebrow: "",
+      heading: "Ready to get started?",
+      subheading: "Join thousands of teams already moving faster with us.",
+      backgroundImageUrl: "",
+      overlayOpacity: 60,
+      ctaLabel: "Start free trial",
+      ctaAction: "url",
+      ctaUrl: "#",
+      ctaSecondaryLabel: "Talk to sales",
+      ctaSecondaryUrl: "#",
+      bgColor: "#4f46e5",
+      textColor: "#FFFFFF",
+      accentColor: "#FFFFFF",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#4f46e5" rx="4" />
+        <rect x="30" y="22" width="60" height="6" rx="3" fill="#FFFFFF" />
+        <rect x="38" y="34" width="44" height="3" rx="1.5" fill="#C7D2FE" />
+        <rect x="36" y="46" width="22" height="9" rx="4.5" fill="#FFFFFF" />
+        <rect x="62" y="46" width="22" height="9" rx="4.5" fill="#FFFFFF" fillOpacity="0.3" />
+      </svg>
+    ),
+  },
+  {
+    type: "split-form-final-cta",
+    label: "Final CTA — Split Form",
+    category: "CTA",
+    defaultProps: (): SplitFormFinalCtaBlockProps => ({
+      eyebrow: "Get started today",
+      heading: "Let's build something great together",
+      subheading: "Drop your email and we'll get you set up in minutes.",
+      bullets: ["No credit card required", "Cancel anytime", "Setup in under 5 minutes"],
+      formTitle: "Request access",
+      formButtonLabel: "Get started",
+      successMessage: "Thanks! We'll be in touch shortly.",
+      bgColor: "#0F172A",
+      textColor: "#FFFFFF",
+      accentColor: "#818cf8",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0F172A" rx="4" />
+        <rect x="10" y="20" width="40" height="5" rx="2.5" fill="#FFFFFF" />
+        <rect x="10" y="30" width="46" height="3" rx="1.5" fill="#64748B" />
+        <rect x="10" y="37" width="40" height="3" rx="1.5" fill="#64748B" />
+        <rect x="66" y="16" width="44" height="38" rx="4" fill="#1E293B" stroke="#334155" />
+        <rect x="72" y="24" width="32" height="7" rx="2" fill="#FFFFFF" />
+        <rect x="72" y="34" width="32" height="7" rx="2" fill="#FFFFFF" />
+        <rect x="72" y="44" width="32" height="7" rx="3.5" fill="#818cf8" />
+      </svg>
+    ),
+  },
+  {
+    type: "stat-backed-final-cta",
+    label: "Final CTA — Stat Backed",
+    category: "CTA",
+    defaultProps: (): StatBackedFinalCtaBlockProps => ({
+      eyebrow: "",
+      heading: "Join the teams getting results",
+      subheading: "The numbers speak for themselves.",
+      stats: [
+        { value: "10k+", label: "Happy customers" },
+        { value: "99.9%", label: "Uptime" },
+        { value: "4.9/5", label: "Average rating" },
+      ],
+      ctaLabel: "Start free trial",
+      ctaAction: "url",
+      ctaUrl: "#",
+      bgColor: "#4f46e5",
+      textColor: "#FFFFFF",
+      accentColor: "#FFFFFF",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#4f46e5" rx="4" />
+        <rect x="34" y="10" width="52" height="5" rx="2.5" fill="#FFFFFF" />
+        {[24, 56, 88].map((cx) => (
+          <g key={cx}>
+            <rect x={cx - 13} y="24" width="26" height="9" rx="2" fill="#FFFFFF" />
+            <rect x={cx - 10} y="38" width="20" height="3" rx="1.5" fill="#C7D2FE" />
+          </g>
+        ))}
+        <rect x="44" y="52" width="32" height="9" rx="4.5" fill="#FFFFFF" />
+      </svg>
+    ),
+  },
+  {
+    type: "social-urgency-final-cta",
+    label: "Final CTA — Social Urgency",
+    category: "CTA",
+    defaultProps: (): SocialUrgencyFinalCtaBlockProps => ({
+      eyebrow: "",
+      heading: "Don't miss your spot",
+      subheading: "Join a growing community of teams moving faster.",
+      urgencyText: "Limited spots available this month",
+      avatarUrls: [],
+      proofText: "Trusted by 10,000+ teams worldwide",
+      ctaLabel: "Claim your spot",
+      ctaAction: "url",
+      ctaUrl: "#",
+      bgColor: "#0F172A",
+      textColor: "#FFFFFF",
+      accentColor: "#f59e0b",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0F172A" rx="4" />
+        <rect x="34" y="14" width="52" height="5" rx="2.5" fill="#FFFFFF" />
+        <rect x="40" y="24" width="40" height="4" rx="2" fill="#f59e0b" />
+        {[48, 56, 64, 72].map((cx, i) => (
+          <circle key={cx} cx={cx} cy="38" r="5" fill={["#94A3B8", "#CBD5E1", "#64748B", "#E2E8F0"][i]} stroke="#0F172A" />
+        ))}
+        <rect x="44" y="50" width="32" height="9" rx="4.5" fill="#f59e0b" />
+      </svg>
+    ),
+  },
+  {
+    type: "gradient-glow-final-cta",
+    label: "Final CTA — Gradient Glow",
+    category: "CTA",
+    defaultProps: (): GradientGlowFinalCtaBlockProps => ({
+      eyebrow: "",
+      heading: "The future starts now",
+      subheading: "Everything you need to grow, in one beautiful platform.",
+      gradientStart: "#6366f1",
+      gradientEnd: "#a855f7",
+      ctaLabel: "Get started",
+      ctaAction: "url",
+      ctaUrl: "#",
+      ctaSecondaryLabel: "",
+      ctaSecondaryUrl: "#",
+      bgColor: "#0B1020",
+      textColor: "#FFFFFF",
+      accentColor: "#FFFFFF",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <defs>
+          <radialGradient id="glowThumb" cx="50%" cy="50%" r="60%">
+            <stop offset="0%" stopColor="#a855f7" />
+            <stop offset="100%" stopColor="#0B1020" />
+          </radialGradient>
+        </defs>
+        <rect width="120" height="70" fill="#0B1020" rx="4" />
+        <ellipse cx="60" cy="35" rx="50" ry="28" fill="url(#glowThumb)" />
+        <rect x="34" y="26" width="52" height="6" rx="3" fill="#FFFFFF" />
+        <rect x="44" y="44" width="32" height="9" rx="4.5" fill="#FFFFFF" />
+      </svg>
+    ),
+  },
+  {
+    type: "video-background-final-cta",
+    label: "Final CTA — Video Background",
+    category: "CTA",
+    defaultProps: (): VideoBackgroundFinalCtaBlockProps => ({
+      eyebrow: "",
+      heading: "See it in motion",
+      subheading: "Experience the difference with a platform built to move.",
+      backgroundVideoUrl: "",
+      posterUrl: "",
+      overlayOpacity: 55,
+      ctaLabel: "Watch demo",
+      ctaAction: "url",
+      ctaUrl: "#",
+      bgColor: "#0F172A",
+      textColor: "#FFFFFF",
+      accentColor: "#FFFFFF",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#1E293B" rx="4" />
+        <rect width="120" height="70" fill="#0F172A" rx="4" fillOpacity="0.5" />
+        <circle cx="60" cy="30" r="10" fill="#FFFFFF" fillOpacity="0.9" />
+        <path d="M57 26 L65 30 L57 34 Z" fill="#0F172A" />
+        <rect x="40" y="48" width="40" height="4" rx="2" fill="#FFFFFF" />
+        <rect x="46" y="57" width="28" height="7" rx="3.5" fill="#FFFFFF" />
+      </svg>
+    ),
+  },
+  {
     type: "cta-split-image",
     label: "CTA — Split Image",
     category: "CTA",
@@ -7684,6 +8177,21 @@ export function createBlock(type: "centered-logo-nav"): Extract<PageBlock, { typ
 export function createBlock(type: "mega-menu-nav"): Extract<PageBlock, { type: "mega-menu-nav" }>;
 export function createBlock(type: "minimal-nav"): Extract<PageBlock, { type: "minimal-nav" }>;
 export function createBlock(type: "transparent-overlay-nav"): Extract<PageBlock, { type: "transparent-overlay-nav" }>;
+export function createBlock(type: "split-media-row"): Extract<PageBlock, { type: "split-media-row" }>;
+export function createBlock(type: "full-bleed-split"): Extract<PageBlock, { type: "full-bleed-split" }>;
+export function createBlock(type: "icon-row"): Extract<PageBlock, { type: "icon-row" }>;
+export function createBlock(type: "media-cards-row"): Extract<PageBlock, { type: "media-cards-row" }>;
+export function createBlock(type: "stat-row"): Extract<PageBlock, { type: "stat-row" }>;
+export function createBlock(type: "pas-icon-grid"): Extract<PageBlock, { type: "pas-icon-grid" }>;
+export function createBlock(type: "pas-split-image"): Extract<PageBlock, { type: "pas-split-image" }>;
+export function createBlock(type: "pas-stat-agitate"): Extract<PageBlock, { type: "pas-stat-agitate" }>;
+export function createBlock(type: "pas-before-after"): Extract<PageBlock, { type: "pas-before-after" }>;
+export function createBlock(type: "full-bleed-final-cta"): Extract<PageBlock, { type: "full-bleed-final-cta" }>;
+export function createBlock(type: "split-form-final-cta"): Extract<PageBlock, { type: "split-form-final-cta" }>;
+export function createBlock(type: "stat-backed-final-cta"): Extract<PageBlock, { type: "stat-backed-final-cta" }>;
+export function createBlock(type: "social-urgency-final-cta"): Extract<PageBlock, { type: "social-urgency-final-cta" }>;
+export function createBlock(type: "gradient-glow-final-cta"): Extract<PageBlock, { type: "gradient-glow-final-cta" }>;
+export function createBlock(type: "video-background-final-cta"): Extract<PageBlock, { type: "video-background-final-cta" }>;
 export function createBlock(type: "cta-split-image"): Extract<PageBlock, { type: "cta-split-image" }>;
 export function createBlock(type: "cta-stat-backed"): Extract<PageBlock, { type: "cta-stat-backed" }>;
 export function createBlock(type: "cta-gradient-banner"): Extract<PageBlock, { type: "cta-gradient-banner" }>;
@@ -7980,6 +8488,21 @@ export function createBlock(type: BlockType): PageBlock {
     case "mega-menu-nav": return { id, type: "mega-menu-nav", props: props as MegaMenuNavBlockProps };
     case "minimal-nav": return { id, type: "minimal-nav", props: props as MinimalNavBlockProps };
     case "transparent-overlay-nav": return { id, type: "transparent-overlay-nav", props: props as TransparentOverlayNavBlockProps };
+    case "split-media-row": return { id, type: "split-media-row", props: props as SplitMediaRowBlockProps };
+    case "full-bleed-split": return { id, type: "full-bleed-split", props: props as FullBleedSplitBlockProps };
+    case "icon-row": return { id, type: "icon-row", props: props as IconRowBlockProps };
+    case "media-cards-row": return { id, type: "media-cards-row", props: props as MediaCardsRowBlockProps };
+    case "stat-row": return { id, type: "stat-row", props: props as StatRowBlockProps };
+    case "pas-icon-grid": return { id, type: "pas-icon-grid", props: props as PasIconGridBlockProps };
+    case "pas-split-image": return { id, type: "pas-split-image", props: props as PasSplitImageBlockProps };
+    case "pas-stat-agitate": return { id, type: "pas-stat-agitate", props: props as PasStatAgitateBlockProps };
+    case "pas-before-after": return { id, type: "pas-before-after", props: props as PasBeforeAfterBlockProps };
+    case "full-bleed-final-cta": return { id, type: "full-bleed-final-cta", props: props as FullBleedFinalCtaBlockProps };
+    case "split-form-final-cta": return { id, type: "split-form-final-cta", props: props as SplitFormFinalCtaBlockProps };
+    case "stat-backed-final-cta": return { id, type: "stat-backed-final-cta", props: props as StatBackedFinalCtaBlockProps };
+    case "social-urgency-final-cta": return { id, type: "social-urgency-final-cta", props: props as SocialUrgencyFinalCtaBlockProps };
+    case "gradient-glow-final-cta": return { id, type: "gradient-glow-final-cta", props: props as GradientGlowFinalCtaBlockProps };
+    case "video-background-final-cta": return { id, type: "video-background-final-cta", props: props as VideoBackgroundFinalCtaBlockProps };
     case "cta-split-image": return { id, type: "cta-split-image", props: props as CtaSplitImageBlockProps };
     case "cta-stat-backed": return { id, type: "cta-stat-backed", props: props as CtaStatBackedBlockProps };
     case "cta-gradient-banner": return { id, type: "cta-gradient-banner", props: props as CtaGradientBannerBlockProps };

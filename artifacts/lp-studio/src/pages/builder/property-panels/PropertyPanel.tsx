@@ -52,9 +52,28 @@ import { MediaLoopingShowcasePanel } from "./MediaLoopingShowcasePanel";
 import { MediaThumbnailGridPanel } from "./MediaThumbnailGridPanel";
 import { MediaVideoSplitPanel } from "./MediaVideoSplitPanel";
 import { CtaCenteredMinimalPanel } from "./CtaCenteredMinimalPanel";
+import { CenteredLogoNavPanel } from "./CenteredLogoNavPanel";
+import { MegaMenuNavPanel } from "./MegaMenuNavPanel";
+import { MinimalNavPanel } from "./MinimalNavPanel";
+import { TransparentOverlayNavPanel } from "./TransparentOverlayNavPanel";
+import { SplitMediaRowPanel } from "./SplitMediaRowPanel";
+import { FullBleedSplitPanel } from "./FullBleedSplitPanel";
+import { IconRowPanel } from "./IconRowPanel";
+import { MediaCardsRowPanel } from "./MediaCardsRowPanel";
+import { StatRowPanel } from "./StatRowPanel";
 import { CtaGradientBannerPanel } from "./CtaGradientBannerPanel";
 import { CtaSplitImagePanel } from "./CtaSplitImagePanel";
 import { CtaStatBackedPanel } from "./CtaStatBackedPanel";
+import { PasIconGridPanel } from "./PasIconGridPanel";
+import { PasSplitImagePanel } from "./PasSplitImagePanel";
+import { PasStatAgitatePanel } from "./PasStatAgitatePanel";
+import { PasBeforeAfterPanel } from "./PasBeforeAfterPanel";
+import { FullBleedFinalCtaPanel } from "./FullBleedFinalCtaPanel";
+import { SplitFormFinalCtaPanel } from "./SplitFormFinalCtaPanel";
+import { StatBackedFinalCtaPanel } from "./StatBackedFinalCtaPanel";
+import { SocialUrgencyFinalCtaPanel } from "./SocialUrgencyFinalCtaPanel";
+import { GradientGlowFinalCtaPanel } from "./GradientGlowFinalCtaPanel";
+import { VideoBackgroundFinalCtaPanel } from "./VideoBackgroundFinalCtaPanel";
 import { CaseStudyCardGridPanel } from "./CaseStudyCardGridPanel";
 import { CaseStudyLogoResultsRowPanel } from "./CaseStudyLogoResultsRowPanel";
 import { CaseStudyMetricTriptychPanel } from "./CaseStudyMetricTriptychPanel";
@@ -86,9 +105,28 @@ import type {
   MediaThumbnailGridBlockProps,
   MediaVideoSplitBlockProps,
   CtaCenteredMinimalBlockProps,
+  CenteredLogoNavBlockProps,
+  MegaMenuNavBlockProps,
+  MinimalNavBlockProps,
+  TransparentOverlayNavBlockProps,
+  SplitMediaRowBlockProps,
+  FullBleedSplitBlockProps,
+  IconRowBlockProps,
+  MediaCardsRowBlockProps,
+  StatRowBlockProps,
   CtaGradientBannerBlockProps,
   CtaSplitImageBlockProps,
   CtaStatBackedBlockProps,
+  PasIconGridBlockProps,
+  PasSplitImageBlockProps,
+  PasStatAgitateBlockProps,
+  PasBeforeAfterBlockProps,
+  FullBleedFinalCtaBlockProps,
+  SplitFormFinalCtaBlockProps,
+  StatBackedFinalCtaBlockProps,
+  SocialUrgencyFinalCtaBlockProps,
+  GradientGlowFinalCtaBlockProps,
+  VideoBackgroundFinalCtaBlockProps,
   CaseStudyCardGridBlockProps,
   CaseStudyLogoResultsRowBlockProps,
   CaseStudyMetricTriptychBlockProps,
@@ -1209,6 +1247,69 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             onChange={(next) => onChange({ ...block, props: next })}
           />
         );
+      case "centered-logo-nav":
+        return (
+          <CenteredLogoNavPanel
+            props={block.props as CenteredLogoNavBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "mega-menu-nav":
+        return (
+          <MegaMenuNavPanel
+            props={block.props as MegaMenuNavBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "minimal-nav":
+        return (
+          <MinimalNavPanel
+            props={block.props as MinimalNavBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "transparent-overlay-nav":
+        return (
+          <TransparentOverlayNavPanel
+            props={block.props as TransparentOverlayNavBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "split-media-row":
+        return (
+          <SplitMediaRowPanel
+            props={block.props as SplitMediaRowBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "full-bleed-split":
+        return (
+          <FullBleedSplitPanel
+            props={block.props as FullBleedSplitBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "icon-row":
+        return (
+          <IconRowPanel
+            props={block.props as IconRowBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "media-cards-row":
+        return (
+          <MediaCardsRowPanel
+            props={block.props as MediaCardsRowBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "stat-row":
+        return (
+          <StatRowPanel
+            props={block.props as StatRowBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
       case "cta-gradient-banner":
         return (
           <CtaGradientBannerPanel
@@ -1227,6 +1328,76 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return (
           <CtaStatBackedPanel
             props={block.props as CtaStatBackedBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "pas-icon-grid":
+        return (
+          <PasIconGridPanel
+            props={block.props as PasIconGridBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "pas-split-image":
+        return (
+          <PasSplitImagePanel
+            props={block.props as PasSplitImageBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "pas-stat-agitate":
+        return (
+          <PasStatAgitatePanel
+            props={block.props as PasStatAgitateBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "pas-before-after":
+        return (
+          <PasBeforeAfterPanel
+            props={block.props as PasBeforeAfterBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "full-bleed-final-cta":
+        return (
+          <FullBleedFinalCtaPanel
+            props={block.props as FullBleedFinalCtaBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "split-form-final-cta":
+        return (
+          <SplitFormFinalCtaPanel
+            props={block.props as SplitFormFinalCtaBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "stat-backed-final-cta":
+        return (
+          <StatBackedFinalCtaPanel
+            props={block.props as StatBackedFinalCtaBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "social-urgency-final-cta":
+        return (
+          <SocialUrgencyFinalCtaPanel
+            props={block.props as SocialUrgencyFinalCtaBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "gradient-glow-final-cta":
+        return (
+          <GradientGlowFinalCtaPanel
+            props={block.props as GradientGlowFinalCtaBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "video-background-final-cta":
+        return (
+          <VideoBackgroundFinalCtaPanel
+            props={block.props as VideoBackgroundFinalCtaBlockProps}
             onChange={(next) => onChange({ ...block, props: next })}
           />
         );

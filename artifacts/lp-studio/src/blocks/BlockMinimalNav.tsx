@@ -19,7 +19,7 @@ export function BlockMinimalNav({ props, brand }: Props) {
   const border = `${text}14`;
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
-  const logoText = props.logoText || brand.name || "Brand";
+  const logoText = props.logoText || brand.brandName || "Brand";
 
   return (
     <header className="w-full border-b" style={{ backgroundColor: bg, borderColor: border }}>

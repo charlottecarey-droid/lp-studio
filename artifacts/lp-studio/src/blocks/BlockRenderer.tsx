@@ -143,6 +143,21 @@ import { BlockCenteredLogoNav } from "./BlockCenteredLogoNav";
 import { BlockMegaMenuNav } from "./BlockMegaMenuNav";
 import { BlockMinimalNav } from "./BlockMinimalNav";
 import { BlockTransparentOverlayNav } from "./BlockTransparentOverlayNav";
+import { BlockSplitMediaRow } from "./BlockSplitMediaRow";
+import { BlockFullBleedSplit } from "./BlockFullBleedSplit";
+import { BlockIconRow } from "./BlockIconRow";
+import { BlockMediaCardsRow } from "./BlockMediaCardsRow";
+import { BlockStatRow } from "./BlockStatRow";
+import { BlockPasIconGrid } from "./BlockPasIconGrid";
+import { BlockPasSplitImage } from "./BlockPasSplitImage";
+import { BlockPasStatAgitate } from "./BlockPasStatAgitate";
+import { BlockPasBeforeAfter } from "./BlockPasBeforeAfter";
+import { BlockFullBleedFinalCta } from "./BlockFullBleedFinalCta";
+import { BlockSplitFormFinalCta } from "./BlockSplitFormFinalCta";
+import { BlockStatBackedFinalCta } from "./BlockStatBackedFinalCta";
+import { BlockSocialUrgencyFinalCta } from "./BlockSocialUrgencyFinalCta";
+import { BlockGradientGlowFinalCta } from "./BlockGradientGlowFinalCta";
+import { BlockVideoBackgroundFinalCta } from "./BlockVideoBackgroundFinalCta";
 import { BlockCtaSplitImage } from "./BlockCtaSplitImage";
 import { BlockCtaStatBacked } from "./BlockCtaStatBacked";
 import { BlockCtaGradientBanner } from "./BlockCtaGradientBanner";
@@ -366,6 +381,8 @@ export const NO_REVEAL = new Set<string>([
   "nav-header", "sticky-header", "sticky-bar", "popup", "footer",
   "dandy-site-header", "dandy-site-footer",
   "centered-logo-nav", "mega-menu-nav", "minimal-nav", "transparent-overlay-nav",
+  "full-bleed-split",
+  "full-bleed-final-cta", "video-background-final-cta",
   "scroll-assembly", "horizontal-showcase", "sticky-stack", "spatial-tour",
   "dso-scroll-story", "dso-scroll-story-hero",
   "dandy-switchback", "dso-paradigm-shift",
@@ -1207,6 +1224,36 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
         return <BlockMinimalNav props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "transparent-overlay-nav":
         return <BlockTransparentOverlayNav props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "split-media-row":
+        return <BlockSplitMediaRow props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "full-bleed-split":
+        return <BlockFullBleedSplit props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "icon-row":
+        return <BlockIconRow props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "media-cards-row":
+        return <BlockMediaCardsRow props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "stat-row":
+        return <BlockStatRow props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "pas-icon-grid":
+        return <BlockPasIconGrid props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "pas-split-image":
+        return <BlockPasSplitImage props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "pas-stat-agitate":
+        return <BlockPasStatAgitate props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "pas-before-after":
+        return <BlockPasBeforeAfter props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "full-bleed-final-cta":
+        return <BlockFullBleedFinalCta props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "split-form-final-cta":
+        return <BlockSplitFormFinalCta props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "stat-backed-final-cta":
+        return <BlockStatBackedFinalCta props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "social-urgency-final-cta":
+        return <BlockSocialUrgencyFinalCta props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "gradient-glow-final-cta":
+        return <BlockGradientGlowFinalCta props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "video-background-final-cta":
+        return <BlockVideoBackgroundFinalCta props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "cta-split-image":
         return <BlockCtaSplitImage props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "cta-stat-backed":
