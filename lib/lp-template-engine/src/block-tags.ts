@@ -97,6 +97,10 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "parallax-image-hero": ["hero"],
   "sticky-header": ["header"],
   "dandy-site-header": ["header"],
+  "centered-logo-nav": ["header"],
+  "mega-menu-nav": ["header"],
+  "minimal-nav": ["header"],
+  "transparent-overlay-nav": ["header"],
   "dandy-site-footer": ["footer"],
 
   // ── Social Proof ────────────────────────────────────────────────────────────

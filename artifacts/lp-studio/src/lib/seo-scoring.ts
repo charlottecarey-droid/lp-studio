@@ -103,6 +103,9 @@ export const HERO_TYPES = new Set([
   "one-pager-hero", "dandy-product-hero", "dandy-hero-v7-s3",
   "dso-heartland-hero", "dso-practice-hero", "dso-scroll-story-hero",
   "event-landing-hero", "id-hero",
+  // Full-page event landing templates — each leads with an event hero (see
+  // FULL_PAGE_BLOCK_TYPES); they carry the "hero" role, so credit the hero.
+  "event-noir", "event-luminous", "event-split",
 ]);
 
 // Calls-to-action: explicit CTA strips, buttons, and interactive conversion
@@ -133,6 +136,10 @@ export const SOCIAL_PROOF_TYPES = new Set([
   "quote-carousel", "quote-library", "quote-with-image", "single-quote",
   "testimonial-grid", "case-study-card-grid", "case-study-logo-results-row",
   "case-study-metric-triptych", "case-study-spotlight-feature",
+  // Full-page case-study templates (Showcase). Like business-case-* and the
+  // case-study-* sections above, their SEO/GEO value is social proof — kept
+  // DISTINCT from AUTHORITY so a page earns the credit once, never twice.
+  "case-metrics", "case-editorial", "case-modular",
 ]);
 
 // Authority: stats, trust bars, metric showcases (concrete data signals).

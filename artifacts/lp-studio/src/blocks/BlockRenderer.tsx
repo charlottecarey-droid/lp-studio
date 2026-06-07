@@ -139,6 +139,10 @@ import { BlockMenuSection } from "./BlockMenuSection";
 import { BlockHoursLocation } from "./BlockHoursLocation";
 import { BlockBeforeAfterGallery } from "./BlockBeforeAfterGallery";
 import { BlockCtaCenteredMinimal } from "./BlockCtaCenteredMinimal";
+import { BlockCenteredLogoNav } from "./BlockCenteredLogoNav";
+import { BlockMegaMenuNav } from "./BlockMegaMenuNav";
+import { BlockMinimalNav } from "./BlockMinimalNav";
+import { BlockTransparentOverlayNav } from "./BlockTransparentOverlayNav";
 import { BlockCtaSplitImage } from "./BlockCtaSplitImage";
 import { BlockCtaStatBacked } from "./BlockCtaStatBacked";
 import { BlockCtaGradientBanner } from "./BlockCtaGradientBanner";
@@ -361,6 +365,7 @@ function resolveDsoCtaUrl(ctaUrl: string | undefined, ctaMode: string | undefine
 export const NO_REVEAL = new Set<string>([
   "nav-header", "sticky-header", "sticky-bar", "popup", "footer",
   "dandy-site-header", "dandy-site-footer",
+  "centered-logo-nav", "mega-menu-nav", "minimal-nav", "transparent-overlay-nav",
   "scroll-assembly", "horizontal-showcase", "sticky-stack", "spatial-tour",
   "dso-scroll-story", "dso-scroll-story-hero",
   "dandy-switchback", "dso-paradigm-shift",
@@ -1194,6 +1199,14 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
         return <BlockBeforeAfterGallery props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "cta-centered-minimal":
         return <BlockCtaCenteredMinimal props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "centered-logo-nav":
+        return <BlockCenteredLogoNav props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "mega-menu-nav":
+        return <BlockMegaMenuNav props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "minimal-nav":
+        return <BlockMinimalNav props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "transparent-overlay-nav":
+        return <BlockTransparentOverlayNav props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "cta-split-image":
         return <BlockCtaSplitImage props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "cta-stat-backed":

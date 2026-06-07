@@ -79,6 +79,10 @@ import type {
   HoursLocationBlockProps,
   BeforeAfterGalleryBlockProps,
   CtaCenteredMinimalBlockProps,
+  CenteredLogoNavBlockProps,
+  MegaMenuNavBlockProps,
+  MinimalNavBlockProps,
+  TransparentOverlayNavBlockProps,
   CtaSplitImageBlockProps,
   CtaStatBackedBlockProps,
   CtaGradientBannerBlockProps,
@@ -233,6 +237,10 @@ export const CHROME_BLOCK_TYPES = new Set<BlockType>([
   "footer",
   "dandy-site-header",
   "dandy-site-footer",
+  "centered-logo-nav",
+  "mega-menu-nav",
+  "minimal-nav",
+  "transparent-overlay-nav",
 ]);
 
 /** Returns true when `type` is allowed to be inserted as a nested child of
@@ -5592,6 +5600,132 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "centered-logo-nav",
+    label: "Navbar — Centered Logo",
+    category: "Layout",
+    defaultProps: (): CenteredLogoNavBlockProps => ({
+      logoText: "",
+      leftLinks: [
+        { label: "Product", url: "#" },
+        { label: "Solutions", url: "#" },
+      ],
+      rightLinks: [
+        { label: "Pricing", url: "#" },
+        { label: "About", url: "#" },
+      ],
+      ctaLabel: "Get started",
+      ctaAction: "url",
+      ctaUrl: "#",
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="10" y="30" width="14" height="3" rx="1.5" fill="#94A3B8" />
+        <rect x="28" y="30" width="14" height="3" rx="1.5" fill="#94A3B8" />
+        <rect x="52" y="27" width="16" height="9" rx="2" fill="#0F172A" />
+        <rect x="78" y="30" width="12" height="3" rx="1.5" fill="#94A3B8" />
+        <rect x="96" y="26" width="16" height="10" rx="5" fill="#4f46e5" />
+      </svg>
+    ),
+  },
+  {
+    type: "mega-menu-nav",
+    label: "Navbar — Mega Menu",
+    category: "Layout",
+    defaultProps: (): MegaMenuNavBlockProps => ({
+      logoText: "",
+      links: [
+        { label: "Solutions", url: "#" },
+        { label: "Pricing", url: "#" },
+      ],
+      menuLabel: "Products",
+      menuGroups: [
+        { title: "Platform", links: [{ label: "Overview", url: "#" }, { label: "Integrations", url: "#" }] },
+        { title: "Use cases", links: [{ label: "Marketing", url: "#" }, { label: "Sales", url: "#" }] },
+        { title: "Resources", links: [{ label: "Docs", url: "#" }, { label: "Guides", url: "#" }] },
+      ],
+      featuredImageUrl: "",
+      featuredImageAlt: "",
+      featuredTitle: "What's new",
+      featuredText: "See the latest product updates and releases.",
+      ctaLabel: "Get started",
+      ctaAction: "url",
+      ctaUrl: "#",
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="10" y="12" width="16" height="9" rx="2" fill="#0F172A" />
+        <rect x="34" y="14" width="12" height="3" rx="1.5" fill="#94A3B8" />
+        <rect x="52" y="14" width="12" height="3" rx="1.5" fill="#4f46e5" />
+        <rect x="96" y="11" width="16" height="10" rx="5" fill="#4f46e5" />
+        <rect x="10" y="28" width="100" height="34" rx="4" fill="#F8FAFC" stroke="#E2E8F0" />
+        <rect x="18" y="34" width="18" height="3" rx="1.5" fill="#94A3B8" />
+        <rect x="48" y="34" width="18" height="3" rx="1.5" fill="#94A3B8" />
+        <rect x="78" y="34" width="24" height="20" rx="3" fill="#CBD5E1" />
+      </svg>
+    ),
+  },
+  {
+    type: "minimal-nav",
+    label: "Navbar — Minimal",
+    category: "Layout",
+    defaultProps: (): MinimalNavBlockProps => ({
+      logoText: "",
+      ctaLabel: "Get started",
+      ctaAction: "url",
+      ctaUrl: "#",
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="12" y="30" width="20" height="9" rx="2" fill="#0F172A" />
+        <rect x="88" y="29" width="20" height="11" rx="5.5" fill="#4f46e5" />
+      </svg>
+    ),
+  },
+  {
+    type: "transparent-overlay-nav",
+    label: "Navbar — Transparent Overlay",
+    category: "Layout",
+    defaultProps: (): TransparentOverlayNavBlockProps => ({
+      logoText: "",
+      links: [
+        { label: "Features", url: "#" },
+        { label: "Pricing", url: "#" },
+        { label: "Company", url: "#" },
+      ],
+      announcementText: "",
+      announcementUrl: "#",
+      ctaLabel: "Get started",
+      ctaAction: "url",
+      ctaUrl: "#",
+      scrolledBgColor: "#0F172A",
+      overlayTextColor: "#FFFFFF",
+      textColor: "#FFFFFF",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0F172A" rx="4" />
+        <rect x="12" y="14" width="18" height="8" rx="2" fill="#FFFFFF" />
+        <rect x="40" y="16" width="12" height="3" rx="1.5" fill="#CBD5E1" />
+        <rect x="58" y="16" width="12" height="3" rx="1.5" fill="#CBD5E1" />
+        <rect x="92" y="13" width="18" height="10" rx="5" fill="#4f46e5" />
+        <rect x="0" y="34" width="120" height="36" fill="#1E293B" opacity="0.6" />
+      </svg>
+    ),
+  },
+  {
     type: "cta-split-image",
     label: "CTA — Split Image",
     category: "CTA",
@@ -7546,6 +7680,10 @@ export function createBlock(type: "menu-section"): Extract<PageBlock, { type: "m
 export function createBlock(type: "hours-location"): Extract<PageBlock, { type: "hours-location" }>;
 export function createBlock(type: "before-after-gallery"): Extract<PageBlock, { type: "before-after-gallery" }>;
 export function createBlock(type: "cta-centered-minimal"): Extract<PageBlock, { type: "cta-centered-minimal" }>;
+export function createBlock(type: "centered-logo-nav"): Extract<PageBlock, { type: "centered-logo-nav" }>;
+export function createBlock(type: "mega-menu-nav"): Extract<PageBlock, { type: "mega-menu-nav" }>;
+export function createBlock(type: "minimal-nav"): Extract<PageBlock, { type: "minimal-nav" }>;
+export function createBlock(type: "transparent-overlay-nav"): Extract<PageBlock, { type: "transparent-overlay-nav" }>;
 export function createBlock(type: "cta-split-image"): Extract<PageBlock, { type: "cta-split-image" }>;
 export function createBlock(type: "cta-stat-backed"): Extract<PageBlock, { type: "cta-stat-backed" }>;
 export function createBlock(type: "cta-gradient-banner"): Extract<PageBlock, { type: "cta-gradient-banner" }>;
@@ -7838,6 +7976,10 @@ export function createBlock(type: BlockType): PageBlock {
     case "hours-location": return { id, type: "hours-location", props: props as HoursLocationBlockProps };
     case "before-after-gallery": return { id, type: "before-after-gallery", props: props as BeforeAfterGalleryBlockProps };
     case "cta-centered-minimal": return { id, type: "cta-centered-minimal", props: props as CtaCenteredMinimalBlockProps };
+    case "centered-logo-nav": return { id, type: "centered-logo-nav", props: props as CenteredLogoNavBlockProps };
+    case "mega-menu-nav": return { id, type: "mega-menu-nav", props: props as MegaMenuNavBlockProps };
+    case "minimal-nav": return { id, type: "minimal-nav", props: props as MinimalNavBlockProps };
+    case "transparent-overlay-nav": return { id, type: "transparent-overlay-nav", props: props as TransparentOverlayNavBlockProps };
     case "cta-split-image": return { id, type: "cta-split-image", props: props as CtaSplitImageBlockProps };
     case "cta-stat-backed": return { id, type: "cta-stat-backed", props: props as CtaStatBackedBlockProps };
     case "cta-gradient-banner": return { id, type: "cta-gradient-banner", props: props as CtaGradientBannerBlockProps };

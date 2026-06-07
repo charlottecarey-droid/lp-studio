@@ -3508,3 +3508,119 @@ export interface TestimonialGridBlockProps extends BenefitsCtaConfig {
   textColor?: string;
   accentColor?: string;
 }
+
+// ── New section blocks batch (navbars / layout rows / PAS / final CTAs) ──────
+
+/** A single nav link (label + destination URL). */
+export interface SectionNavLink {
+  label: string;
+  url: string;
+}
+
+/** A grouped column of links inside a mega-menu dropdown. */
+export interface MegaMenuGroup {
+  /** Group heading shown above the column of links. */
+  title: string;
+  links: SectionNavLink[];
+}
+
+/**
+ * Navbar — Centered Logo: brand mark centered, nav links split to the left and
+ * right of it, with an optional CTA button. Brand-var themed; chrome block.
+ */
+export interface CenteredLogoNavBlockProps extends CtaModalConfig {
+  logoUrl?: string;
+  /** Wordmark text fallback when no logo image is set. */
+  logoText?: string;
+  leftLinks: SectionNavLink[];
+  rightLinks: SectionNavLink[];
+  ctaLabel?: string;
+  ctaAction?: HeroCtaActionMode;
+  ctaUrl?: string;
+  chilipiperUrl?: string;
+  videoUrl?: string;
+  videoPosterUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/**
+ * Navbar — Mega Menu: logo + top-level links, where one link opens a grouped
+ * dropdown of sub-links with an optional featured image/card. Optional CTA.
+ */
+export interface MegaMenuNavBlockProps extends CtaModalConfig {
+  logoUrl?: string;
+  logoText?: string;
+  /** Simple top-level links shown inline. */
+  links: SectionNavLink[];
+  /** Label of the link that opens the mega-menu dropdown. */
+  menuLabel?: string;
+  /** Grouped columns shown inside the dropdown. */
+  menuGroups: MegaMenuGroup[];
+  /** Optional featured image inside the dropdown. */
+  featuredImageUrl?: string;
+  featuredImageAlt?: string;
+  featuredTitle?: string;
+  featuredText?: string;
+  ctaLabel?: string;
+  ctaAction?: HeroCtaActionMode;
+  ctaUrl?: string;
+  chilipiperUrl?: string;
+  videoUrl?: string;
+  videoPosterUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/**
+ * Navbar — Minimal: logo + a single primary CTA only. Low-detail header.
+ */
+export interface MinimalNavBlockProps extends CtaModalConfig {
+  logoUrl?: string;
+  logoText?: string;
+  ctaLabel?: string;
+  ctaAction?: HeroCtaActionMode;
+  ctaUrl?: string;
+  chilipiperUrl?: string;
+  videoUrl?: string;
+  videoPosterUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/**
+ * Navbar — Transparent Overlay: sits transparently over a full-bleed hero and
+ * solidifies on scroll. Optional announcement strip above the bar.
+ */
+export interface TransparentOverlayNavBlockProps extends CtaModalConfig {
+  logoUrl?: string;
+  logoText?: string;
+  links: SectionNavLink[];
+  /** Optional announcement strip text shown above the bar (blank to hide). */
+  announcementText?: string;
+  announcementUrl?: string;
+  ctaLabel?: string;
+  ctaAction?: HeroCtaActionMode;
+  ctaUrl?: string;
+  chilipiperUrl?: string;
+  videoUrl?: string;
+  videoPosterUrl?: string;
+  /** Solid background color applied once the bar is scrolled (over the hero). */
+  scrolledBgColor?: string;
+  /** Text color while transparent over the hero (usually light). */
+  overlayTextColor?: string;
+  /** Text color once solidified. */
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}

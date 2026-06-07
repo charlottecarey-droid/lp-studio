@@ -80,6 +80,10 @@ import type {
   HoursLocationBlockProps,
   BeforeAfterGalleryBlockProps,
   CtaCenteredMinimalBlockProps,
+  CenteredLogoNavBlockProps,
+  MegaMenuNavBlockProps,
+  MinimalNavBlockProps,
+  TransparentOverlayNavBlockProps,
   CtaGradientBannerBlockProps,
   CtaSplitImageBlockProps,
   CtaStatBackedBlockProps,
@@ -365,6 +369,10 @@ export type BlockVariant =
   | { type: "case-metrics"; props: CaseMetricsBlockProps }
   | { type: "case-editorial"; props: CaseEditorialBlockProps }
   | { type: "case-modular"; props: CaseModularBlockProps }
+  | { type: "centered-logo-nav"; props: CenteredLogoNavBlockProps }
+  | { type: "mega-menu-nav"; props: MegaMenuNavBlockProps }
+  | { type: "minimal-nav"; props: MinimalNavBlockProps }
+  | { type: "transparent-overlay-nav"; props: TransparentOverlayNavBlockProps }
   | { type: "section"; props: SectionBlockProps }
   | { type: "columns"; props: ColumnsBlockProps }
   | { type: "grid"; props: GridBlockProps }
