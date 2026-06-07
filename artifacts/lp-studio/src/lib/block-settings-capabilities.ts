@@ -181,6 +181,12 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   "grid":    { ...ALL, textColors: false, cardBgColor: false, bgImage: false, minHeight: false },
   "stack":   { ...ALL, textColors: false, cardBgColor: false, bgImage: false, minHeight: false },
 
+  // Self-styled social-proof bands (own their bg / surface) ----------------
+  "logo-wall": SELF_STYLED,
+  "logo-marquee": SELF_STYLED,
+  "rating-badges": SELF_STYLED,
+  "avatar-social-proof": SELF_STYLED,
+
   // Card-less content blocks -----------------------------------------------
   "rich-text":      { ...ALL, cardBgColor: false, bgImage: false, minHeight: false },
   "trust-bar":      { ...ALL, cardBgColor: false, bgImage: false, minHeight: false },

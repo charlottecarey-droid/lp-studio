@@ -125,13 +125,14 @@ export const SOCIAL_PROOF_TYPES = new Set([
   "dso-testimonials", "dso-success-stories", "dso-case-study",
   "before-after-gallery", "business-case-split", "business-case-premium",
   "business-case-centered", "dso-live-feed",
+  "logo-wall", "logo-marquee", "avatar-social-proof",
 ]);
 
 // Authority: stats, trust bars, metric showcases (concrete data signals).
 export const AUTHORITY_TYPES = new Set([
   "trust-bar", "stat-callout", "bento-showcase", "dso-stat-bar",
   "dso-stat-row", "dso-stat-showcase", "id-stats",
-  "dso-flow-canvas", "dso-particle-mesh",
+  "dso-flow-canvas", "dso-particle-mesh", "rating-badges",
 ]);
 
 // Structured content sections AI engines can extract organized answers from.

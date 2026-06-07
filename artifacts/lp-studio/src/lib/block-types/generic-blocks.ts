@@ -2549,3 +2549,90 @@ export interface SpotlightGlowHeroBlockProps
   /** Sidebar feature items in the bento preview (defaults provided). */
   sidebarItems?: SpotlightSidebarItem[];
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Graduated generic SOCIAL-PROOF bars (logo-wall / logo-marquee / rating-badges
+ * / avatar-social-proof). These are brand-swappable, light-surface social-proof
+ * bands distinct from the metrics-only `trust-bar`. They carry logos / avatars /
+ * ratings / testimonials the TENANT supplies — they are deliberately NOT part of
+ * the AI page-generation prompt (auto-fabricating customer logos / ratings /
+ * testimonials would be false proof). Each extends HeroBrandStyleConfig for
+ * optional brand color / font overrides; left unset they read the tenant brand.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** A generic, brand-swappable logo entry shared by the logo-wall and
+ *  logo-marquee bands. When `imageUrl` is set the real logo is shown; otherwise
+ *  a neutral letter-mark derived from `name` renders, so the block reads cleanly
+ *  before a tenant uploads their customer logos. */
+export interface SocialProofLogo {
+  name: string;
+  imageUrl?: string;
+}
+
+/** 6. Logo Wall — a calm, editorial "trusted by" logo cloud on a light surface;
+ *  a static row/grid of monochrome client marks. */
+export interface LogoWallBlockProps extends HeroBrandStyleConfig {
+  /** Small kicker above the logos, e.g. "Trusted by teams at". */
+  eyebrow?: string;
+  logos: SocialProofLogo[];
+  /** Render logos in muted greyscale (classic logo-cloud look). Default true. */
+  grayscale?: boolean;
+}
+
+/** 7. Logo Marquee — infinite auto-scrolling logo ribbon(s) with edge fade masks.
+ *  Communicates momentum / volume. */
+export interface LogoMarqueeBlockProps extends HeroBrandStyleConfig {
+  eyebrow?: string;
+  logos: SocialProofLogo[];
+  /** Two opposing rows (true) vs a single row. Default true. */
+  twoRows?: boolean;
+  /** Scroll speed. Default "medium". */
+  speed?: "slow" | "medium" | "fast";
+  /** Render logos in muted greyscale. Default true. */
+  grayscale?: boolean;
+}
+
+/** A single third-party review-platform badge for the rating-badges band. */
+export interface RatingBadge {
+  platform: string;
+  /** Numeric score, e.g. 4.9. Stars are derived from this against `ratingMax`. */
+  rating: number;
+  /** Free-text review count, e.g. "842 reviews". */
+  reviewCount?: string;
+  /** Optional award / recognition pill, e.g. "High Performer". */
+  award?: string;
+  /** Visually emphasise this card (dark, accent-tinted). */
+  featured?: boolean;
+}
+
+/** 8. Rating Badges — a row of review-platform badge cards (third-party
+ *  validation): platform name, star score, review count and an award pill. */
+export interface RatingBadgesBlockProps extends HeroBrandStyleConfig {
+  eyebrow?: string;
+  /** Max stars (denominator). Default 5. */
+  ratingMax?: number;
+  badges: RatingBadge[];
+}
+
+/** A single avatar in the avatar-social-proof stack. */
+export interface SocialProofAvatar {
+  /** 1-3 char initials shown when no image is supplied. */
+  initials?: string;
+  imageUrl?: string;
+}
+
+/** 9. Avatar Social Proof — overlapping avatar stack + bold volume line + inline
+ *  star rating + a short testimonial. Human / community angle. */
+export interface AvatarSocialProofBlockProps extends HeroBrandStyleConfig {
+  avatars: SocialProofAvatar[];
+  /** Trailing "+N" chip after the stack, e.g. "+2k". Empty hides it. */
+  extraCountLabel?: string;
+  headline: string;
+  /** Numeric average, e.g. 4.9. Drives the inline stars. */
+  rating?: number;
+  ratingMax?: number;
+  /** Suffix after the score, e.g. "average from 2,400+ reviews". */
+  reviewSummary?: string;
+  testimonialQuote?: string;
+  testimonialAuthor?: string;
+}

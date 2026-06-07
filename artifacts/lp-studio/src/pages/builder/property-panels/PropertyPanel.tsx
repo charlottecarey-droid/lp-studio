@@ -80,6 +80,10 @@ import { AuroraGradientHeroPanel } from "./AuroraGradientHeroPanel";
 import { EditorialSplitHeroPanel } from "./EditorialSplitHeroPanel";
 import { ParallaxLayersHeroPanel } from "./ParallaxLayersHeroPanel";
 import { SpotlightGlowHeroPanel } from "./SpotlightGlowHeroPanel";
+import { LogoWallPanel } from "./LogoWallPanel";
+import { LogoMarqueePanel } from "./LogoMarqueePanel";
+import { RatingBadgesPanel } from "./RatingBadgesPanel";
+import { AvatarSocialProofPanel } from "./AvatarSocialProofPanel";
 import { BoldStatementPanel } from "./BoldStatementPanel";
 import { IdHeroPanel } from "./IdHeroPanel";
 import { IdMarqueePanel } from "./IdMarqueePanel";
@@ -964,6 +968,34 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "trust-bar":
         return (
           <TrustBarPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "logo-wall":
+        return (
+          <LogoWallPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "logo-marquee":
+        return (
+          <LogoMarqueePanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "rating-badges":
+        return (
+          <RatingBadgesPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "avatar-social-proof":
+        return (
+          <AvatarSocialProofPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />

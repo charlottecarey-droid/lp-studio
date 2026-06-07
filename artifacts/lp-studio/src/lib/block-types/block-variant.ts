@@ -88,6 +88,10 @@ import type {
   EditorialSplitHeroBlockProps,
   ParallaxLayersHeroBlockProps,
   SpotlightGlowHeroBlockProps,
+  LogoWallBlockProps,
+  LogoMarqueeBlockProps,
+  RatingBadgesBlockProps,
+  AvatarSocialProofBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -285,6 +289,10 @@ export type BlockVariant =
   | { type: "editorial-split-hero"; props: EditorialSplitHeroBlockProps }
   | { type: "parallax-layers-hero"; props: ParallaxLayersHeroBlockProps }
   | { type: "spotlight-glow-hero"; props: SpotlightGlowHeroBlockProps }
+  | { type: "logo-wall"; props: LogoWallBlockProps }
+  | { type: "logo-marquee"; props: LogoMarqueeBlockProps }
+  | { type: "rating-badges"; props: RatingBadgesBlockProps }
+  | { type: "avatar-social-proof"; props: AvatarSocialProofBlockProps }
   | { type: "event-noir"; props: EventNoirBlockProps }
   | { type: "event-luminous"; props: EventLuminousBlockProps }
   | { type: "event-split"; props: EventSplitBlockProps }

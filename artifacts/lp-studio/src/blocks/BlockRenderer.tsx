@@ -111,6 +111,10 @@ import { BlockAuroraGradientHero } from "./BlockAuroraGradientHero";
 import { BlockEditorialSplitHero } from "./BlockEditorialSplitHero";
 import { BlockParallaxLayersHero } from "./BlockParallaxLayersHero";
 import { BlockSpotlightGlowHero } from "./BlockSpotlightGlowHero";
+import { BlockLogoWall } from "./BlockLogoWall";
+import { BlockLogoMarquee } from "./BlockLogoMarquee";
+import { BlockRatingBadges } from "./BlockRatingBadges";
+import { BlockAvatarSocialProof } from "./BlockAvatarSocialProof";
 import { BlockEditorialCarousel } from "./BlockEditorialCarousel";
 import { BlockBoldStatement } from "./BlockBoldStatement";
 import { BlockIdHero } from "./BlockIdHero";
@@ -1020,6 +1024,50 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
             pageId={pageId}
             variantId={variantId}
             onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "logo-wall":
+        return (
+          <BlockLogoWall
+            props={block.props}
+            brand={brand}
+            animationsEnabled={animationsEnabled}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "logo-marquee":
+        return (
+          <BlockLogoMarquee
+            props={block.props}
+            brand={brand}
+            animationsEnabled={animationsEnabled}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "rating-badges":
+        return (
+          <BlockRatingBadges
+            props={block.props}
+            brand={brand}
+            animationsEnabled={animationsEnabled}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "avatar-social-proof":
+        return (
+          <BlockAvatarSocialProof
+            props={block.props}
+            brand={brand}
+            animationsEnabled={animationsEnabled}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}

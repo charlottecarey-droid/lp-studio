@@ -82,6 +82,10 @@ import type {
   ContentSeriesBlockProps,
   BlogSeriesBlockProps,
   StorefrontBlockProps,
+  LogoWallBlockProps,
+  LogoMarqueeBlockProps,
+  RatingBadgesBlockProps,
+  AvatarSocialProofBlockProps,
 } from "./generic-blocks";
 import type {
   SectionBlockProps,
@@ -256,6 +260,149 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
             <rect width="18" height="5" rx="1" fill="#94a3b8" opacity="0.5" y="11" />
           </g>
         ))}
+      </svg>
+    ),
+  },
+  {
+    type: "logo-wall",
+    label: "Logo Wall",
+    category: "Social Proof",
+    defaultProps: (): LogoWallBlockProps => ({
+      eyebrow: "Trusted by teams at",
+      grayscale: true,
+      logos: [
+        { name: "Northwind" },
+        { name: "Lumina" },
+        { name: "Vertex" },
+        { name: "Cobalt" },
+        { name: "Mirador" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#ffffff" rx="4" />
+        <rect x="20" y="16" width="80" height="3" rx="1.5" fill="#cbd5e1" />
+        {([0, 1, 2].map(i => (
+          <g key={i} transform={`translate(${14 + i * 34}, 32)`}>
+            <rect width="10" height="10" rx="2" fill="#94a3b8" opacity="0.5" />
+            <rect x="14" y="2" width="18" height="6" rx="1.5" fill="#94a3b8" opacity="0.5" />
+          </g>
+        )))}
+        {([0, 1].map(i => (
+          <g key={`b${i}`} transform={`translate(${31 + i * 34}, 50)`}>
+            <rect width="10" height="10" rx="2" fill="#94a3b8" opacity="0.5" />
+            <rect x="14" y="2" width="18" height="6" rx="1.5" fill="#94a3b8" opacity="0.5" />
+          </g>
+        )))}
+      </svg>
+    ),
+  },
+  {
+    type: "logo-marquee",
+    label: "Logo Marquee",
+    category: "Social Proof",
+    defaultProps: (): LogoMarqueeBlockProps => ({
+      eyebrow: "Powering teams everywhere",
+      grayscale: true,
+      twoRows: true,
+      speed: "medium",
+      logos: [
+        { name: "Northwind" },
+        { name: "Lumina" },
+        { name: "Vertex" },
+        { name: "Cobalt" },
+        { name: "Mirador" },
+        { name: "Solstice" },
+        { name: "Equinox" },
+        { name: "Zenith" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#ffffff" rx="4" />
+        {([0, 1, 2, 3].map(i => (
+          <g key={i} transform={`translate(${6 + i * 30}, 22)`}>
+            <rect width="9" height="9" rx="2" fill="#94a3b8" opacity="0.5" />
+            <rect x="12" y="2" width="14" height="5" rx="1.5" fill="#94a3b8" opacity="0.5" />
+          </g>
+        )))}
+        {([0, 1, 2, 3].map(i => (
+          <g key={`b${i}`} transform={`translate(${18 + i * 30}, 42)`}>
+            <rect width="9" height="9" rx="2" fill="#94a3b8" opacity="0.5" />
+            <rect x="12" y="2" width="14" height="5" rx="1.5" fill="#94a3b8" opacity="0.5" />
+          </g>
+        )))}
+        <rect width="16" height="70" fill="url(#lmqL)" />
+        <rect x="104" width="16" height="70" fill="url(#lmqR)" />
+        <defs>
+          <linearGradient id="lmqL" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#fff" /><stop offset="1" stopColor="#fff" stopOpacity="0" /></linearGradient>
+          <linearGradient id="lmqR" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#fff" stopOpacity="0" /><stop offset="1" stopColor="#fff" /></linearGradient>
+        </defs>
+      </svg>
+    ),
+  },
+  {
+    type: "rating-badges",
+    label: "Rating Badges",
+    category: "Social Proof",
+    defaultProps: (): RatingBadgesBlockProps => ({
+      eyebrow: "Rated excellent across the web",
+      ratingMax: 5,
+      badges: [
+        { platform: "ReviewHub", rating: 4.9, reviewCount: "1,240 reviews", award: "Top Rated" },
+        { platform: "SoftRank", rating: 4.8, reviewCount: "860 reviews", award: "Leader", featured: true },
+        { platform: "TrustScore", rating: 4.9, reviewCount: "2,100 reviews", award: "Excellent" },
+        { platform: "PeerVoice", rating: 4.7, reviewCount: "540 reviews", award: "High Performer" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        {([0, 1, 2].map(i => (
+          <g key={i} transform={`translate(${8 + i * 36}, 14)`}>
+            <rect width="30" height="42" rx="4" fill={i === 1 ? "#0f172a" : "#ffffff"} stroke={i === 1 ? "#6366f1" : "#e2e8f0"} />
+            <rect x="6" y="8" width="18" height="4" rx="1" fill={i === 1 ? "#fff" : "#475569"} opacity="0.7" />
+            {([0, 1, 2, 3, 4].map(s => (
+              <circle key={s} cx={7 + s * 4} cy="20" r="1.6" fill="#f59e0b" />
+            )))}
+            <rect x="6" y="28" width="18" height="8" rx="2" fill="#6366f1" opacity={i === 1 ? 1 : 0.2} />
+          </g>
+        )))}
+      </svg>
+    ),
+  },
+  {
+    type: "avatar-social-proof",
+    label: "Avatar Social Proof",
+    category: "Social Proof",
+    defaultProps: (): AvatarSocialProofBlockProps => ({
+      headline: "Join 12,000+ teams who switched",
+      extraCountLabel: "+2k",
+      rating: 4.9,
+      ratingMax: 5,
+      reviewSummary: "average from 2,400+ reviews",
+      testimonialQuote: "Switching was the best decision we made this year — onboarding took an afternoon.",
+      testimonialAuthor: "Dr. Jane Smith, Bright Dental",
+      avatars: [
+        { initials: "AR" },
+        { initials: "MK" },
+        { initials: "JL" },
+        { initials: "TS" },
+        { initials: "DP" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#ffffff" rx="4" />
+        {(["#6366f1", "#0ea5e9", "#10b981", "#f59e0b"].map((c, i) => (
+          <circle key={i} cx={42 + i * 9} cy="20" r="6" fill={c} stroke="#fff" strokeWidth="1.5" />
+        )))}
+        <circle cx="78" cy="20" r="6" fill="#6366f1" stroke="#fff" strokeWidth="1.5" />
+        {([0, 1, 2, 3, 4].map(s => (
+          <circle key={s} cx={48 + s * 6} cy="38" r="2" fill="#f59e0b" />
+        )))}
+        <rect x="30" y="46" width="60" height="5" rx="2" fill="#0f172a" opacity="0.8" />
+        <rect x="40" y="56" width="40" height="3" rx="1.5" fill="#94a3b8" opacity="0.6" />
       </svg>
     ),
   },
@@ -5940,6 +6087,10 @@ export function createBlock(type: "aurora-gradient-hero"): Extract<PageBlock, { 
 export function createBlock(type: "editorial-split-hero"): Extract<PageBlock, { type: "editorial-split-hero" }>;
 export function createBlock(type: "parallax-layers-hero"): Extract<PageBlock, { type: "parallax-layers-hero" }>;
 export function createBlock(type: "spotlight-glow-hero"): Extract<PageBlock, { type: "spotlight-glow-hero" }>;
+export function createBlock(type: "logo-wall"): Extract<PageBlock, { type: "logo-wall" }>;
+export function createBlock(type: "logo-marquee"): Extract<PageBlock, { type: "logo-marquee" }>;
+export function createBlock(type: "rating-badges"): Extract<PageBlock, { type: "rating-badges" }>;
+export function createBlock(type: "avatar-social-proof"): Extract<PageBlock, { type: "avatar-social-proof" }>;
 export function createBlock(type: "bold-statement"): Extract<PageBlock, { type: "bold-statement" }>;
 export function createBlock(type: "id-hero"): Extract<PageBlock, { type: "id-hero" }>;
 export function createBlock(type: "id-marquee"): Extract<PageBlock, { type: "id-marquee" }>;
@@ -6191,6 +6342,10 @@ export function createBlock(type: BlockType): PageBlock {
     case "editorial-split-hero": return { id, type: "editorial-split-hero", props: props as EditorialSplitHeroBlockProps };
     case "parallax-layers-hero": return { id, type: "parallax-layers-hero", props: props as ParallaxLayersHeroBlockProps };
     case "spotlight-glow-hero": return { id, type: "spotlight-glow-hero", props: props as SpotlightGlowHeroBlockProps };
+    case "logo-wall": return { id, type: "logo-wall", props: props as LogoWallBlockProps };
+    case "logo-marquee": return { id, type: "logo-marquee", props: props as LogoMarqueeBlockProps };
+    case "rating-badges": return { id, type: "rating-badges", props: props as RatingBadgesBlockProps };
+    case "avatar-social-proof": return { id, type: "avatar-social-proof", props: props as AvatarSocialProofBlockProps };
     case "bold-statement": return { id, type: "bold-statement", props: props as BoldStatementBlockProps };
     case "id-hero": return { id, type: "id-hero", props: props as IdHeroBlockProps };
     case "id-marquee": return { id, type: "id-marquee", props: props as IdMarqueeBlockProps };

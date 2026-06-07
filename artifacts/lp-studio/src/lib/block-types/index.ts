@@ -20,6 +20,13 @@ export type {
   EditorialSplitHeroBlockProps,
   ParallaxLayersHeroBlockProps,
   SpotlightGlowHeroBlockProps,
+  SocialProofLogo,
+  LogoWallBlockProps,
+  LogoMarqueeBlockProps,
+  RatingBadge,
+  RatingBadgesBlockProps,
+  SocialProofAvatar,
+  AvatarSocialProofBlockProps,
 } from "./generic-blocks";
 
 // Common types and utilities

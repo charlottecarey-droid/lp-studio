@@ -102,6 +102,10 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   // ── Social Proof ────────────────────────────────────────────────────────────
   "trust-bar": ["social-proof", "stats"],
   "stat-callout": ["stats", "social-proof"],
+  "logo-wall": ["social-proof"],
+  "logo-marquee": ["social-proof"],
+  "rating-badges": ["social-proof", "stats"],
+  "avatar-social-proof": ["social-proof"],
   testimonial: ["social-proof"],
   "case-studies": ["social-proof"],
   "dandy-video-testimonials": ["social-proof", "media"],
