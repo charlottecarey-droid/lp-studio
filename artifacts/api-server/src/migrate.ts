@@ -1728,6 +1728,112 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
+    // One-shot, best-effort backfill so existing campaign engagement signals are
+    // clearly attributed for EVERY tenant (matches the forward-fixes in the
+    // signals + hotlink-tracking routes). Three idempotent passes, each strictly
+    // tenant-scoped (no cross-tenant fallback) and non-fatal:
+    //   1. Attach contact_id (+ derive account_id) to NULL-contact signals via
+    //      an UNAMBIGUOUS tenant-scoped match on metadata.email — only when
+    //      exactly one contact in that tenant owns the address, so we never
+    //      mis-attribute.
+    //   2. Reconcile email-send rows from historical hotlink (microsite)
+    //      open/click signals so old campaigns' recipient tables + summary cards
+    //      include microsite engagement, not just pixel/direct opens. Guarded by
+    //      IS NULL so it never downgrades a stronger state.
+    //   3. Replace the opaque "outreach" source with a human-readable label
+    //      derived from the signal type so the activity feed never shows a bare
+    //      machine token.
+    await runStep("sales signal attribution backfill", async () => {
+    try {
+      const SIGNAL_ATTR_MARKER = "sales_signal_attribution_backfill_v1";
+      const marker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${SIGNAL_ATTR_MARKER}`
+      );
+      if (marker.rows.length === 0) {
+        const attributed = await db.execute(sql`
+          UPDATE sales_signals s
+             SET contact_id = m.contact_id,
+                 account_id = COALESCE(s.account_id, m.account_id)
+            FROM (
+              SELECT s2.id AS signal_id,
+                     (array_agg(c.id))[1] AS contact_id,
+                     (array_agg(c.account_id))[1] AS account_id
+                FROM sales_signals s2
+                JOIN sales_contacts c
+                  ON c.tenant_id = s2.tenant_id
+                 AND lower(c.email) = lower(s2.metadata ->> 'email')
+               WHERE s2.contact_id IS NULL
+                 AND COALESCE(s2.metadata ->> 'email', '') <> ''
+               GROUP BY s2.id
+              HAVING count(*) = 1
+            ) m
+           WHERE s.id = m.signal_id
+        `);
+
+        const opensReconciled = await db.execute(sql`
+          UPDATE sales_email_sends es
+             SET status = 'opened',
+                 opened_at = COALESCE(es.opened_at, sig.first_open)
+            FROM (
+              SELECT hotlink_id, min(created_at) AS first_open
+                FROM sales_signals
+               WHERE type = 'email_open' AND hotlink_id IS NOT NULL
+               GROUP BY hotlink_id
+            ) sig
+           WHERE es.hotlink_id = sig.hotlink_id
+             AND es.opened_at IS NULL
+             AND es.status NOT IN ('clicked', 'bounced', 'complained')
+        `);
+
+        const clicksReconciled = await db.execute(sql`
+          UPDATE sales_email_sends es
+             SET status = 'clicked',
+                 clicked_at = COALESCE(es.clicked_at, sig.first_click),
+                 opened_at = COALESCE(es.opened_at, sig.first_click)
+            FROM (
+              SELECT hotlink_id, min(created_at) AS first_click
+                FROM sales_signals
+               WHERE type = 'email_click' AND hotlink_id IS NOT NULL
+               GROUP BY hotlink_id
+            ) sig
+           WHERE es.hotlink_id = sig.hotlink_id
+             AND es.clicked_at IS NULL
+             AND es.status NOT IN ('bounced', 'complained')
+        `);
+
+        const sourceRewritten = await db.execute(sql`
+          UPDATE sales_signals
+             SET source = CASE type
+               WHEN 'email_open' THEN 'Opened email'
+               WHEN 'email_click' THEN 'Clicked email link'
+               WHEN 'email_sent' THEN 'Email sent'
+               WHEN 'email_replied' THEN 'Replied to email'
+               WHEN 'email_bounced' THEN 'Email bounced'
+               WHEN 'email_complained' THEN 'Marked as spam'
+               WHEN 'page_view' THEN 'Viewed page'
+               WHEN 'form_submit' THEN 'Submitted form'
+               WHEN 'link_click' THEN 'Clicked link'
+               WHEN 'visitor_identified' THEN 'Identified visitor'
+               ELSE 'Engagement'
+             END
+           WHERE source = 'outreach'
+        `);
+
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES (${SIGNAL_ATTR_MARKER}) ON CONFLICT DO NOTHING`
+        );
+        logger.info({
+          attributed: attributed.rowCount ?? 0,
+          opensReconciled: opensReconciled.rowCount ?? 0,
+          clicksReconciled: clicksReconciled.rowCount ?? 0,
+          sourceRewritten: sourceRewritten.rowCount ?? 0,
+        }, "sales signal attribution backfill applied");
+      }
+    } catch (backfillErr) {
+      logger.error({ err: backfillErr }, "sales signal attribution backfill failed (non-fatal)");
+    }
+    });
+
     // Task #641 — seed the root superadmin platform-operator account. This is
     // the single bootstrap account (admin@lpstudio.ai by default, overridable
     // via ROOT_SUPERADMIN_EMAIL) that owns the superadmin roster and can never

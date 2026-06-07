@@ -1,6 +1,6 @@
 import { getTenantId, requirePermission } from "../../middleware/requireAuth";
 import { Router } from "express";
-import { eq, desc, and, inArray, sql } from "drizzle-orm";
+import { eq, desc, and, inArray, isNull, notInArray, sql } from "drizzle-orm";
 import { createHmac, timingSafeEqual, randomBytes } from "crypto";
 import { db } from "@workspace/db";
 import {
@@ -1231,21 +1231,38 @@ router.get("/track/open-hotlink", async (req, res): Promise<void> => {
       if (hotlinkWithPage.length > 0) {
         const { hotlink, tenantId } = hotlinkWithPage[0];
         if (hotlink && hotlink.contactId) {
-          const [contact] = await db.select({ accountId: salesContactsTable.accountId })
+          const [contact] = await db.select({
+            accountId: salesContactsTable.accountId,
+            email: salesContactsTable.email,
+          })
             .from(salesContactsTable)
             .where(eq(salesContactsTable.id, hotlink.contactId));
           const [page] = await db.select({ title: lpPagesTable.title })
             .from(lpPagesTable)
             .where(eq(lpPagesTable.id, hotlink.pageId));
-          await db.insert(salesSignalsTable).values({
+          const [sig] = await db.insert(salesSignalsTable).values({
             tenantId: tenantId ?? 0,
             accountId: contact?.accountId ?? null,
             contactId: hotlink.contactId,
             hotlinkId: hotlink.id,
             type: "email_open",
             source: page?.title ?? "Campaign Page",
-            metadata: { pageId: hotlink.pageId },
-          });
+            metadata: { pageId: hotlink.pageId, email: contact?.email ?? undefined },
+          }).returning();
+          broadcastSignal(sig);
+
+          // Reflect this microsite open on the matching email-send row(s) so the
+          // campaign's recipient table and Opened summary card include it — not
+          // just directly-tracked (pixel) opens. Stamp the first open time and
+          // promote status, but never downgrade a stronger state (clicked/
+          // bounced/complained) and never overwrite an existing openedAt.
+          await db.update(salesEmailSendsTable)
+            .set({ status: "opened", openedAt: new Date() })
+            .where(and(
+              eq(salesEmailSendsTable.hotlinkId, hotlink.id),
+              isNull(salesEmailSendsTable.openedAt),
+              notInArray(salesEmailSendsTable.status, ["clicked", "bounced", "complained"]),
+            ));
         }
       }
     } catch (err) {
@@ -1335,21 +1352,41 @@ router.get("/track/click-hotlink", async (req, res): Promise<void> => {
       if (hotlinkWithPage.length > 0) {
         const { hotlink, tenantId } = hotlinkWithPage[0];
         if (hotlink && hotlink.contactId) {
-          const [contact] = await db.select({ accountId: salesContactsTable.accountId })
+          const [contact] = await db.select({
+            accountId: salesContactsTable.accountId,
+            email: salesContactsTable.email,
+          })
             .from(salesContactsTable)
             .where(eq(salesContactsTable.id, hotlink.contactId));
           const [page] = await db.select({ title: lpPagesTable.title })
             .from(lpPagesTable)
             .where(eq(lpPagesTable.id, hotlink.pageId));
-          await db.insert(salesSignalsTable).values({
+          const [sig] = await db.insert(salesSignalsTable).values({
             tenantId: tenantId ?? 0,
             accountId: contact?.accountId ?? null,
             contactId: hotlink.contactId,
             hotlinkId: hotlink.id,
             type: "email_click",
             source: page?.title ?? "Campaign Page",
-            metadata: { pageId: hotlink.pageId, destination },
-          });
+            metadata: { pageId: hotlink.pageId, destination, email: contact?.email ?? undefined },
+          }).returning();
+          broadcastSignal(sig);
+
+          // Reflect this microsite click on the matching email-send row(s). A
+          // click implies an open, so stamp openedAt too when it's still null.
+          // status is promoted to "clicked" unless the row already bounced/
+          // complained (terminal failure states we must not override).
+          await db.update(salesEmailSendsTable)
+            .set({
+              status: "clicked",
+              clickedAt: new Date(),
+              openedAt: sql`COALESCE(${salesEmailSendsTable.openedAt}, now())`,
+            })
+            .where(and(
+              eq(salesEmailSendsTable.hotlinkId, hotlink.id),
+              isNull(salesEmailSendsTable.clickedAt),
+              notInArray(salesEmailSendsTable.status, ["bounced", "complained"]),
+            ));
         }
       }
     } catch (err) {

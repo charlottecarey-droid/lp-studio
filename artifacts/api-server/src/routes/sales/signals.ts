@@ -1,6 +1,6 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router, type Response } from "express";
-import { eq, desc, and, gte, count } from "drizzle-orm";
+import { eq, desc, and, gte, count, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesSignalsTable,
@@ -11,6 +11,7 @@ import {
 import { sfdcService } from "../../lib/sfdc-service";
 import { marketoService } from "../../lib/marketo-service";
 import { restoreRows } from "../../lib/restoreRows";
+import { resolveContactByEmail } from "../../lib/signalAttribution";
 
 const router = Router();
 
@@ -98,11 +99,56 @@ router.get("/signals", async (req, res): Promise<void> => {
       db.select({ total: count() }).from(salesSignalsTable).where(whereClause),
     ]);
 
-    const signals = rows.map((s) => ({
-      ...s,
-      accountName: s.accountName ?? null,
-      contactName: [s.contactFirstName, s.contactLastName].filter(Boolean).join(" ") || null,
-    }));
+    // Resilience: some signals (e.g. integration-pushed or legacy "outreach"
+    // rows) arrive without a contactId. Rather than render a blank/anonymous
+    // row, resolve a display name from any email left in metadata via a
+    // tenant-scoped match. Batch one query for all such emails. This NEVER
+    // falls back to a global lookup — the match is strictly scoped to this
+    // tenant so attribution can't leak across tenants.
+    const unresolvedEmails = Array.from(new Set(
+      rows
+        .filter((s) => !s.contactFirstName && !s.contactLastName)
+        .map((s) => {
+          const meta = (s.metadata ?? {}) as Record<string, unknown>;
+          const email = typeof meta.email === "string" ? meta.email.trim().toLowerCase() : "";
+          return email;
+        })
+        .filter((e): e is string => e.length > 0),
+    ));
+
+    const emailToName = new Map<string, string>();
+    if (unresolvedEmails.length > 0) {
+      const matched = await db
+        .select({
+          email: salesContactsTable.email,
+          firstName: salesContactsTable.firstName,
+          lastName: salesContactsTable.lastName,
+        })
+        .from(salesContactsTable)
+        .where(and(
+          eq(salesContactsTable.tenantId, tenantId),
+          inArray(salesContactsTable.email, unresolvedEmails),
+        ));
+      for (const c of matched) {
+        const name = [c.firstName, c.lastName].filter(Boolean).join(" ");
+        if (c.email && name) emailToName.set(c.email.trim().toLowerCase(), name);
+      }
+    }
+
+    const signals = rows.map((s) => {
+      const joinedName = [s.contactFirstName, s.contactLastName].filter(Boolean).join(" ") || null;
+      let contactName = joinedName;
+      if (!contactName) {
+        const meta = (s.metadata ?? {}) as Record<string, unknown>;
+        const email = typeof meta.email === "string" ? meta.email.trim().toLowerCase() : "";
+        if (email && emailToName.has(email)) contactName = emailToName.get(email)!;
+      }
+      return {
+        ...s,
+        accountName: s.accountName ?? null,
+        contactName,
+      };
+    });
 
     res.json({ data: signals, totalCount: total });
   } catch (err) {
@@ -194,12 +240,30 @@ router.post("/signals", async (req, res): Promise<void> => {
     return;
   }
   try {
+    // Attribute the signal to a contact + account whenever possible so the
+    // activity feed never shows a blank/anonymous row. If the caller (e.g. an
+    // integration) didn't supply a contactId, resolve one from any email in the
+    // payload via a strictly tenant-scoped match — never a global lookup, which
+    // would leak attribution across tenants. The account is then derived from
+    // the resolved contact when not explicitly provided.
+    const meta = (metadata ?? {}) as Record<string, unknown>;
+    const metaEmail = typeof meta.email === "string" ? meta.email : null;
+    let resolvedContactId: number | null = contactId ?? null;
+    let resolvedAccountId: number | null = accountId ?? null;
+    if (resolvedContactId == null && metaEmail) {
+      const match = await resolveContactByEmail(tenantId, metaEmail);
+      if (match) {
+        resolvedContactId = match.id;
+        if (resolvedAccountId == null) resolvedAccountId = match.accountId;
+      }
+    }
+
     const [signal] = await db
       .insert(salesSignalsTable)
       .values({
         tenantId,
-        accountId: accountId ?? null,
-        contactId: contactId ?? null,
+        accountId: resolvedAccountId,
+        contactId: resolvedContactId,
         hotlinkId: hotlinkId ?? null,
         type,
         source: source ?? null,

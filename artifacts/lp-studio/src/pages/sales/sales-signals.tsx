@@ -441,7 +441,7 @@ export default function SalesSignals() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-foreground">
-                                {signal.contactName ?? "Anonymous"}{" "}
+                                {signal.contactName ?? signal.accountName ?? "Anonymous"}{" "}
                                 <span className="text-muted-foreground font-normal">
                                   {getSignalLabel(signal.type).toLowerCase()}
                                 </span>
@@ -511,7 +511,7 @@ export default function SalesSignals() {
                                         ? <>{company}</>
                                         : <span className="text-muted-foreground font-normal">Unknown visitor</span>;
                                   })()
-                                : <>{signal.contactName ?? "Anonymous"}{" "}<span className="text-muted-foreground font-normal">{getSignalLabel(signal.type).toLowerCase()}</span></>
+                                : <>{signal.contactName ?? signal.accountName ?? "Anonymous"}{" "}<span className="text-muted-foreground font-normal">{getSignalLabel(signal.type).toLowerCase()}</span></>
                               }
                             </p>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
