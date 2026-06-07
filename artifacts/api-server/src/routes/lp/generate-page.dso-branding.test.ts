@@ -15,6 +15,7 @@ import {
   buildDsoSystemPrompt,
   buildDsoPracticesSystemPrompt,
   buildSegmentSection,
+  buildTeamMembersSection,
 } from "./generate-page";
 
 const DANDY_MARKERS = [
@@ -161,5 +162,52 @@ describe("buildDsoPracticesSystemPrompt — non-Dandy tenant is neutral", () => 
     ]) {
       expect(prompt).toContain(`"${t}"`);
     }
+  });
+});
+
+describe("buildDsoPracticesSystemPrompt — dso-meet-team uses the library (Task #1158)", () => {
+  const prompt = buildDsoPracticesSystemPrompt({ isDandyTenant: false, brandName: "Acme Dental" });
+
+  it("binds the dso-meet-team block to the TEAM MEMBERS section", () => {
+    expect(prompt).toContain("TEAM MEMBERS section");
+    expect(prompt).toContain("VERBATIM");
+  });
+
+  it("adds a numbered rule forbidding invented people and arbitrary headshots", () => {
+    expect(prompt).toContain("TEAM MEMBERS = REAL PEOPLE ONLY");
+    expect(prompt).toContain("NEVER invent a person");
+  });
+});
+
+describe("buildTeamMembersSection (Task #1158)", () => {
+  it("lists each saved member with name/role/email and the exact photo URL", () => {
+    const section = buildTeamMembersSection([
+      { name: "Jane Doe", role: "Regional Manager", email: "jane@acme.com", photo: "https://cdn/jane.jpg" },
+      { name: "John Smith", role: "Account Exec", email: "john@acme.com", photo: "https://cdn/john.jpg" },
+    ]);
+    expect(section).toContain("TEAM MEMBERS");
+    expect(section).toContain("Name: Jane Doe");
+    expect(section).toContain("Role: Regional Manager");
+    expect(section).toContain("Email: jane@acme.com");
+    expect(section).toContain("Photo: https://cdn/jane.jpg");
+    expect(section).toContain("Name: John Smith");
+    expect(section).toContain("VERBATIM");
+  });
+
+  it("notes missing photos rather than inventing one", () => {
+    const section = buildTeamMembersSection([
+      { name: "No Photo", role: "Rep", email: "", photo: "" },
+    ]);
+    expect(section).toContain("Name: No Photo");
+    expect(section).toContain("(none — leave photo empty)");
+    // Optional fields are omitted when blank.
+    expect(section).not.toContain("Email: ");
+  });
+
+  it("emits a do-not-invent guidance when the tenant has no team members", () => {
+    const section = buildTeamMembersSection([]);
+    expect(section).toContain("TEAM MEMBERS: (none)");
+    expect(section).toContain("Do NOT invent people");
+    expect(section).toContain("placeholders");
   });
 });

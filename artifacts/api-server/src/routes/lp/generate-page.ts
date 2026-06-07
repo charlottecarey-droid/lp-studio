@@ -3232,7 +3232,7 @@ AVAILABLE DSO PRACTICES BLOCK TYPES (use these exact type strings — these are 
 - "dso-activation-steps": Numbered onboarding steps (4 steps). Props: eyebrow (string), headline (string), subheadline (string), steps (array 4 of {step ("01"|"02"|etc), title, desc}), ctaText (string, optional), ctaUrl (string, optional), backgroundStyle ("dark"|"white"|"muted")
 - "dso-promises": Promise/guarantee cards with icons. Props: eyebrow (string), headline (string), subheadline (string), promises (array of {icon, title, desc} — icon keys: "ban","rotate","shieldCheck","trending","award","zap","clock","heart"), backgroundStyle ("dark"|"white"|"muted")
 - "dso-faq": Expandable accordion FAQ for handling objections. Props: eyebrow (string), headline (string), subheadline (string), items (array of {question, answer}), backgroundStyle ("dark"|"white"|"muted")
-- "dso-meet-team": Team member cards with booking buttons + section CTA. Props: eyebrow (string), headline (string), subheadline (string), ctaText (string), ctaUrl (string), members (array of {name, role, email, photo, chilipiperUrl}), backgroundStyle ("dark"|"white"|"muted")
+- "dso-meet-team": Team member cards with booking buttons + section CTA. Props: eyebrow (string), headline (string), subheadline (string), ctaText (string), ctaUrl (string), members (array of {name, role, email, photo, chilipiperUrl}), backgroundStyle ("dark"|"white"|"muted"). Populate the members array ONLY from the TEAM MEMBERS section of this brief — copy each real person's name, role, email, and Photo URL VERBATIM. NEVER invent a person and NEVER place any other library image (a group, lifestyle, or dinner photo) into a member's photo. If no team members are provided, leave members as placeholders rather than fabricating people.
 - "dso-testimonials": 3-column testimonial strip. Props: eyebrow (string), headline (string), subheadline (string), testimonials (array of {quote, author, location}), backgroundStyle ("dark"|"white"|"muted")
 
 RULES:
@@ -3247,7 +3247,8 @@ ${rule7}
 ${rule9}
 10. When the user provides specific numbers or stats, use those EXACT numbers.
 11. For backgroundStyle, alternate between "dark" and "white"/"muted" to create visual rhythm. Always set backgroundStyle "dark" for the hero, team, and promises sections.
-12. NEVER SHIP AN EMPTY PARADIGM SHIFT: When you use "dso-paradigm-shift", oldWayItems and newWayItems MUST each contain 4–5 fully written strings (6–12 words each), and the items must pair 1:1 (oldWayItems[i] is the pain that newWayItems[i] solves). Empty arrays, fewer than 4 items, or 1–3 word stubs ("Slow", "Manual", "Better", "Fast") are a FAILURE — the block renders empty columns. If you cannot write 4 substantive paired items for the segment, do NOT use this block; pick a different block instead. Mirror the verbosity of the EXAMPLE shown in the dso-paradigm-shift schema above.`;
+12. NEVER SHIP AN EMPTY PARADIGM SHIFT: When you use "dso-paradigm-shift", oldWayItems and newWayItems MUST each contain 4–5 fully written strings (6–12 words each), and the items must pair 1:1 (oldWayItems[i] is the pain that newWayItems[i] solves). Empty arrays, fewer than 4 items, or 1–3 word stubs ("Slow", "Manual", "Better", "Fast") are a FAILURE — the block renders empty columns. If you cannot write 4 substantive paired items for the segment, do NOT use this block; pick a different block instead. Mirror the verbosity of the EXAMPLE shown in the dso-paradigm-shift schema above.
+13. TEAM MEMBERS = REAL PEOPLE ONLY: When you use "dso-meet-team", populate the members array ONLY from the TEAM MEMBERS section of this brief — copy each real person's name, role, email, and Photo URL VERBATIM into that member's name/role/email/photo. NEVER invent a person (name, role, or email) and NEVER place any other library image — a group, lifestyle, or dinner photo — into a member's photo slot. If the TEAM MEMBERS section says "(none)", leave members as placeholders rather than fabricating people; the system will render neutral placeholder cards.`;
 }
 
 interface SegmentStat { value: string; label: string; approvedForAi?: boolean; linkProofPointId?: number }
@@ -3313,6 +3314,63 @@ export function buildProofPointsSection(points: ProofPoint[], strict: boolean): 
   return strict
     ? `APPROVED PROOF POINTS (use ONLY these — together with any APPROVED SEGMENT STATS — for any stat-bearing block; do not invent others):\n${lines}`
     : `Proof Points (reusable across pages and segments):\n${lines}`;
+}
+
+/** Task #1158 — a saved team member from the Content Library (lp_library_items
+ *  type 'team_member'). Subset of the row consumed when populating the
+ *  `dso-meet-team` block: real name, role, email, and headshot photo URL. */
+export interface TeamMember {
+  name: string;
+  role: string;
+  email: string;
+  photo: string;
+}
+
+/** Task #1158 — fetch the tenant's saved team members so the AI can populate
+ *  the `dso-meet-team` block from REAL people (name/role/email + saved headshot)
+ *  instead of inventing fictional reps and assigning arbitrary library imagery.
+ *  Modeled on fetchApprovedCaseStudies / fetchProofPoints. Returns up to 12. */
+export async function fetchTeamMembers(tenantId: number | null): Promise<TeamMember[]> {
+  if (tenantId == null) return [];
+  try {
+    const rows = await db.execute(
+      sql`SELECT name, content FROM lp_library_items
+          WHERE tenant_id = ${tenantId} AND type = 'team_member'
+          ORDER BY sort_order ASC, id ASC LIMIT 12`,
+    );
+    const str = (v: unknown): string => (typeof v === "string" ? v : v == null ? "" : String(v));
+    return (rows.rows as Array<{ name: string; content: Record<string, unknown> }>).map((r) => {
+      const c = (r.content ?? {}) as Record<string, unknown>;
+      return {
+        name: r.name || str(c.name),
+        role: str(c.role),
+        email: str(c.email),
+        photo: str(c.photo),
+      };
+    }).filter((m) => m.name);
+  } catch {
+    return [];
+  }
+}
+
+/** Task #1158 — prompt section listing the tenant's saved team members for the
+ *  `dso-meet-team` block. When the tenant has saved people, each is listed with
+ *  name/role/email and the EXACT photo URL the model must copy verbatim into the
+ *  member's `photo` slot. When none exist, emit "(none) — do not invent people"
+ *  guidance (parallel to the case-study behavior) so the block degrades to
+ *  placeholders rather than fabricated reps. */
+export function buildTeamMembersSection(members: TeamMember[]): string {
+  if (members.length === 0) {
+    return "TEAM MEMBERS: (none) — if you include a \"dso-meet-team\" block, leave its members as placeholders. Do NOT invent people (names, roles, emails) and do NOT place any library image (group/lifestyle/dinner photo) into a member's photo slot.";
+  }
+  const lines = members.map((m) => {
+    const bits = [`- Name: ${m.name}`];
+    if (m.role) bits.push(`Role: ${m.role}`);
+    if (m.email) bits.push(`Email: ${m.email}`);
+    bits.push(`Photo: ${m.photo || "(none — leave photo empty)"}`);
+    return bits.join(" | ");
+  }).join("\n");
+  return `TEAM MEMBERS (the only real people you may put in a "dso-meet-team" block — populate its \`members\` ONLY from this list, copying each person's name, role, email, and Photo URL VERBATIM into the member's name/role/email/photo. Never invent a person and never place any other image — group, lifestyle, or dinner photos from the library — into a member's photo slot):\n${lines}`;
 }
 
 interface SegmentContext {
@@ -3732,6 +3790,14 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     : (caseStudies.length > 0
         ? `CASE STUDIES (real customer stories you may reference by name, with their real stats and quotes — use the real values verbatim). Prefer the stories most relevant to the target audience's size (locations) and segment:\n${caseStudyList}`
         : "");
+  // Task #1158 — the tenant's saved team members (Content Library) so the
+  // `dso-meet-team` block is populated from REAL people + their saved headshots
+  // instead of invented reps / arbitrary library imagery. Mirrors the
+  // case-study / proof-point injection pattern. Only consumed by the DSO
+  // Practices path (the only path that advertises dso-meet-team); see the
+  // gated push at the two prompt-assembly call sites below.
+  const teamMembers = await fetchTeamMembers(tenantId);
+  const teamMembersSection = buildTeamMembersSection(teamMembers);
   // The AI Scan Review motion video is a Dandy-only internal asset (it shows
   // Dandy product UI). It must NEVER be exposed to partner / customer
   // tenants. Storage layer also gates this video by tenant slug.
@@ -3809,6 +3875,14 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       }
       if (caseStudiesSection) templateUserPromptParts.push(caseStudiesSection);
       if (proofPointsSection) templateUserPromptParts.push(proofPointsSection);
+      // Task #1158 — only surface saved team members when the template actually
+      // contains a dso-meet-team block (the block that consumes them); avoids
+      // exposing headshot URLs to a copy-only rewrite that has no team block.
+      if (
+        tplBlocks.some((b) => (b as { type?: string })?.type === "dso-meet-team")
+      ) {
+        templateUserPromptParts.push(teamMembersSection);
+      }
       // Reference URL + screenshot (May 2026 audit follow-up). The brand
       // sections above already include the WRITE IN THIS VOICE / BANNED
       // PHRASES anchors; the reference section explicitly states that
@@ -4270,6 +4344,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   }
   if (caseStudiesSection) userPromptParts.push(caseStudiesSection);
   if (proofPointsSection) userPromptParts.push(proofPointsSection);
+  // Task #1158 — the dso-meet-team block only exists in the DSO Practices block
+  // library, so only that path benefits from (and should be exposed to) the
+  // saved team members + their headshot URLs.
+  if (useDsoPractices) userPromptParts.push(teamMembersSection);
   if (mediaCatalog.catalogText) userPromptParts.push(mediaCatalog.catalogText);
   if (dandyInternalVideosSection) userPromptParts.push(dandyInternalVideosSection);
   // Reference URL + screenshot (May 2026 audit follow-up). Brand-voice
