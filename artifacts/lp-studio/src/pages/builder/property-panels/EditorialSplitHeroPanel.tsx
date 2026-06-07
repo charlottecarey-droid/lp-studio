@@ -2,7 +2,6 @@ import type { EditorialSplitHeroBlockProps } from "@/lib/block-types";
 import type { NavHeaderLink } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
@@ -17,6 +16,9 @@ import { ImagePicker } from "@/components/ImagePicker";
 import { FontSelect } from "@/components/FontSelect";
 import { ColorField } from "./BlockSettingsPanel";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
+import { AiTextField } from "@/components/AiTextField";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
+import { suggestCopy } from "@/lib/copy-api";
 
 interface Props {
   props: EditorialSplitHeroBlockProps;
@@ -161,22 +163,38 @@ export function EditorialSplitHeroPanel({ props, onChange }: Props) {
       {/* ── Content ─────────────────────────────────────────── */}
       <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Content</div>
+        <BlockRefreshButton
+          blockType="editorial-split-hero"
+          fields={["eyebrow", "headline", "subheadline", "ctaText"]}
+          values={{
+            eyebrow: props.eyebrow ?? "",
+            headline: props.headline ?? "",
+            subheadline: props.subheadline ?? "",
+            ctaText: props.ctaText ?? "",
+          }}
+          onApply={(updated) => update(updated as Partial<EditorialSplitHeroBlockProps>)}
+        />
         <div>
           <Label className="text-[11px] text-muted-foreground">Eyebrow</Label>
-          <Input
+          <AiTextField
+            type="input"
             value={props.eyebrow ?? ""}
-            onChange={(e) => update({ eyebrow: e.target.value })}
+            onChange={(v) => update({ eyebrow: v })}
             placeholder="The New Standard"
             className="h-8 text-xs"
+            onSuggest={() => suggestCopy("editorial-split-hero", "eyebrow", props.eyebrow ?? "", { headline: props.headline ?? "" })}
+            fieldLabel="Eyebrow"
           />
         </div>
         <div>
           <Label className="text-[11px] text-muted-foreground">Headline</Label>
-          <Textarea
+          <AiTextField
             value={props.headline}
-            onChange={(e) => update({ headline: e.target.value })}
+            onChange={(v) => update({ headline: v })}
             rows={2}
             className="text-xs"
+            onSuggest={() => suggestCopy("editorial-split-hero", "headline", props.headline ?? "", { eyebrow: props.eyebrow ?? "", subheadline: props.subheadline ?? "" })}
+            fieldLabel="Headline"
           />
         </div>
         <div>
@@ -190,12 +208,14 @@ export function EditorialSplitHeroPanel({ props, onChange }: Props) {
         </div>
         <div>
           <Label className="text-[11px] text-muted-foreground">Subheadline</Label>
-          <Textarea
+          <AiTextField
             value={props.subheadline ?? ""}
-            onChange={(e) => update({ subheadline: e.target.value })}
+            onChange={(v) => update({ subheadline: v })}
             rows={3}
             className="text-xs"
             placeholder="Leave blank to hide"
+            onSuggest={() => suggestCopy("editorial-split-hero", "subheadline", props.subheadline ?? "", { headline: props.headline ?? "" })}
+            fieldLabel="Subheadline"
           />
         </div>
         <div>
@@ -253,7 +273,7 @@ export function EditorialSplitHeroPanel({ props, onChange }: Props) {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="text-[11px] text-muted-foreground">Text</Label>
-              <Input value={props.ctaText} onChange={(e) => update({ ctaText: e.target.value })} className="h-8 text-xs" />
+              <AiTextField type="input" value={props.ctaText} onChange={(v) => update({ ctaText: v })} className="h-8 text-xs" onSuggest={() => suggestCopy("editorial-split-hero", "ctaText", props.ctaText ?? "", { headline: props.headline ?? "" })} fieldLabel="CTA text" />
             </div>
             <div>
               <Label className="text-[11px] text-muted-foreground">Action</Label>

@@ -2483,6 +2483,12 @@ export function fillDsoCaseStudyNeutralDefaults(block: {
   // each entry's heading/body to strings so a malformed AI item can't leak a
   // non-string through to the renderer. The optional imageUrl/quote/
   // backgroundStyle are left untouched.
+  //
+  // Task #1195 — additionally validate each section's `position` field. The AI
+  // may set it to "before-results" (interleave between the Challenge/Solution
+  // body and the Results band) or "after-results" (legacy placement after
+  // Results + CTA). Any missing/invalid value is coerced to the default
+  // "after-results" so the renderer never receives a garbage enum.
   if (Array.isArray(p.sections)) {
     p.sections = p.sections.map((s) => {
       if (!s || typeof s !== "object" || Array.isArray(s)) return { heading: "", body: "" };
@@ -2493,6 +2499,14 @@ export function fillDsoCaseStudyNeutralDefaults(block: {
         body: typeof sec.body === "string" ? sec.body : "",
       };
     });
+    for (const sec of p.sections) {
+      if (sec && typeof sec === "object" && !Array.isArray(sec)) {
+        const s = sec as Record<string, unknown>;
+        if (s.position !== "before-results" && s.position !== "after-results") {
+          s.position = "after-results";
+        }
+      }
+    }
   }
 }
 
@@ -4003,6 +4017,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         "7. If a text field in the template is empty string, you may leave it empty or fill it with appropriate copy — your choice based on context.",
         "8. Tailor every piece of copy to the user's prompt and (if provided) the audience segment. Avoid generic filler.",
         "9. The top-level `slug` must be lowercase letters/numbers/hyphens only.",
+        "10. EXCEPTION for `dso-case-study` blocks: each item in the `sections` array may carry an optional `position` field — \"before-results\" (the section renders between the Challenge/Solution body and the Results band) or \"after-results\" (the section renders after the Results band and CTA). This is the ONLY structural field you may add or change (it overrides rules 4 and 6 for this field only). Default is \"after-results\" when omitted. Set \"before-results\" on a section when its content (e.g. extra context, a customer quote, or supporting detail) reads more naturally BEFORE the results/outcomes; otherwise keep \"after-results\". Do not add a `position` field to any other block type or array.",
       ].join("\n");
 
       const templateUserPromptParts: string[] = [];
@@ -4120,6 +4135,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       let mergedBlocks = tplBlocks.map((origRaw, i) => {
         const orig = origRaw as Record<string, unknown>;
         const aiBlock = (parsed.blocks?.[i] ?? {}) as Record<string, unknown>;
+        // Task #1195 — dso-case-study sections may carry a `position` field
+        // ("before-results" | "after-results") that the template's original
+        // sections often lack. The structure-preserving merge below normally
+        // drops any key absent from the template item; allow this single field
+        // through so the model can re-order sections relative to the Results
+        // band. fillDsoCaseStudyNeutralDefaults coerces invalid values after.
+        const isDsoCaseStudy = orig.type === "dso-case-study";
         const origProps = (orig.props && typeof orig.props === "object")
           ? orig.props as Record<string, unknown>
           : {};
@@ -4143,6 +4165,9 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           }
           // Align array-of-objects by index; copy text fields, keep technical fields.
           if (Array.isArray(origVal) && Array.isArray(v)) {
+            // Task #1195 — only dso-case-study `sections` items may gain a new
+            // `position` key the template lacked; every other array stays shape-locked.
+            const allowPosition = isDsoCaseStudy && k === "sections";
             mergedProps[k] = origVal.map((origItem, idx) => {
               const aiItem = v[idx];
               if (
@@ -4153,7 +4178,8 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
                 const ai = aiItem as Record<string, unknown>;
                 const merged: Record<string, unknown> = { ...oi };
                 for (const [ik, iv] of Object.entries(ai)) {
-                  if (!(ik in oi)) continue;
+                  const isAllowedNewKey = allowPosition && ik === "position";
+                  if (!(ik in oi) && !isAllowedNewKey) continue;
                   if (/url$/i.test(ik) || /color$/i.test(ik) || ik === "id" || ik === "anchor" || ik === "href" || ik === "src") continue;
                   if (typeof iv === "string") merged[ik] = iv;
                 }

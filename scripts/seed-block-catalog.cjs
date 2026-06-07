@@ -422,6 +422,10 @@ const GENERIC_SEED = [
       { quote: "We replaced three tools in a month.",     author: "Tom L.",   location: "Head of Ops" },
       { quote: "The CSM actually returns calls.",         author: "Mei R.",   location: "Director, RevOps" },
     ] } },
+  { block_type: "logo-wall", label: "Logo Wall", category: "Social Proof", sort_order: 50, default_props: {} },
+  { block_type: "logo-marquee", label: "Logo Marquee", category: "Social Proof", sort_order: 51, default_props: {} },
+  { block_type: "rating-badges", label: "Rating Badges", category: "Social Proof", sort_order: 52, default_props: {} },
+  { block_type: "avatar-social-proof", label: "Avatar Social Proof", category: "Social Proof", sort_order: 53, default_props: {} },
 
   { block_type: "dso-challenges", label: "Challenges Grid", category: "Content", sort_order: 31,
     default_props: { eyebrow: "Why teams switch", headline: "The cost of doing nothing", layout: "4-col", challenges: [

@@ -1,5 +1,7 @@
 import type { LogoWallBlockProps } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
+import { AiTextField } from "@/components/AiTextField";
+import { suggestCopy } from "@/lib/copy-api";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -32,11 +34,13 @@ export function LogoWallPanel({ props, onChange }: Props) {
     <div className="space-y-5">
       <div className="space-y-2">
         <Heading>Content</Heading>
-        <Input
+        <AiTextField
+          type="input"
           placeholder="Eyebrow (e.g. Trusted by teams at)"
           value={props.eyebrow ?? ""}
-          onChange={(e) => onChange({ ...props, eyebrow: e.target.value })}
-          className="text-sm"
+          onChange={(v) => onChange({ ...props, eyebrow: v })}
+          onSuggest={() => suggestCopy("logo-wall", "eyebrow", props.eyebrow ?? "")}
+          fieldLabel="Eyebrow"
         />
       </div>
 

@@ -1,5 +1,7 @@
 import type { AvatarSocialProofBlockProps } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
+import { AiTextField } from "@/components/AiTextField";
+import { suggestCopy } from "@/lib/copy-api";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,11 +36,13 @@ export function AvatarSocialProofPanel({ props, onChange }: Props) {
         <Heading>Content</Heading>
         <div>
           <Label className="text-xs text-muted-foreground mb-1.5 block">Headline</Label>
-          <Input
+          <AiTextField
+            type="input"
             placeholder="Join 12,000+ teams who switched"
             value={props.headline ?? ""}
-            onChange={(e) => onChange({ ...props, headline: e.target.value })}
-            className="text-sm"
+            onChange={(v) => onChange({ ...props, headline: v })}
+            onSuggest={() => suggestCopy("avatar-social-proof", "headline", props.headline ?? "")}
+            fieldLabel="Headline"
           />
         </div>
         <div>

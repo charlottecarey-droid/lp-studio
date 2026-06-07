@@ -102,10 +102,45 @@ describe("fillDsoCaseStudyNeutralDefaults", () => {
     };
     fillDsoCaseStudyNeutralDefaults(block);
 
+    // heading/body coerced and optional fields preserved; every section also
+    // gets the default `position` (Task #1195) since none specified one.
     expect(block.props.sections).toEqual([
-      { heading: "Rollout", body: "Phased across 8 regions.", quote: "Loved it.", backgroundStyle: "dark", imageUrl: "/a.jpg" },
-      { heading: "", body: "", quote: "No heading or body here." },
+      { heading: "Rollout", body: "Phased across 8 regions.", quote: "Loved it.", backgroundStyle: "dark", imageUrl: "/a.jpg", position: "after-results" },
+      { heading: "", body: "", quote: "No heading or body here.", position: "after-results" },
     ]);
+  });
+
+  it("preserves a valid section `position` and defaults missing/invalid ones to after-results", () => {
+    const block = {
+      type: "dso-case-study",
+      props: {
+        sections: [
+          { heading: "Context", body: "Set before the results band.", position: "before-results" },
+          { heading: "Aftermath", body: "Set after results + CTA.", position: "after-results" },
+          { heading: "No position", body: "Legacy section, no position field." },
+          { heading: "Garbage", body: "Invalid enum.", position: "somewhere-else" },
+        ],
+      } as Record<string, unknown>,
+    };
+    fillDsoCaseStudyNeutralDefaults(block);
+
+    const sections = block.props.sections as Array<Record<string, unknown>>;
+    expect(sections[0].position).toBe("before-results");
+    expect(sections[1].position).toBe("after-results");
+    expect(sections[2].position).toBe("after-results");
+    expect(sections[3].position).toBe("after-results");
+    // Copy fields are left untouched.
+    expect(sections[0].heading).toBe("Context");
+    expect(sections[2].body).toBe("Legacy section, no position field.");
+  });
+
+  it("tolerates a non-array or malformed sections value", () => {
+    const block = {
+      type: "dso-case-study",
+      props: { sections: "not-an-array" } as Record<string, unknown>,
+    };
+    expect(() => fillDsoCaseStudyNeutralDefaults(block)).not.toThrow();
+    expect(block.props.sections).toBe("not-an-array");
   });
 
   it("is a no-op for non dso-case-study blocks", () => {

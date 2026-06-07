@@ -1,5 +1,7 @@
 import type { RatingBadgesBlockProps } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
+import { AiTextField } from "@/components/AiTextField";
+import { suggestCopy } from "@/lib/copy-api";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -32,11 +34,13 @@ export function RatingBadgesPanel({ props, onChange }: Props) {
     <div className="space-y-5">
       <div className="space-y-2">
         <Heading>Content</Heading>
-        <Input
+        <AiTextField
+          type="input"
           placeholder="Eyebrow (e.g. Rated excellent across the web)"
           value={props.eyebrow ?? ""}
-          onChange={(e) => onChange({ ...props, eyebrow: e.target.value })}
-          className="text-sm"
+          onChange={(v) => onChange({ ...props, eyebrow: v })}
+          onSuggest={() => suggestCopy("rating-badges", "eyebrow", props.eyebrow ?? "")}
+          fieldLabel="Eyebrow"
         />
         <div className="flex items-center gap-2">
           <Label className="text-xs text-muted-foreground w-24 shrink-0">Max stars</Label>

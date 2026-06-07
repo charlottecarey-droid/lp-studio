@@ -17,6 +17,9 @@ import { ImagePicker } from "@/components/ImagePicker";
 import { FontSelect } from "@/components/FontSelect";
 import { ColorField } from "./BlockSettingsPanel";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
+import { AiTextField } from "@/components/AiTextField";
+import { BlockRefreshButton } from "@/components/BlockRefreshButton";
+import { suggestCopy } from "@/lib/copy-api";
 
 interface Props {
   props: SpotlightGlowHeroBlockProps;
@@ -179,23 +182,39 @@ export function SpotlightGlowHeroPanel({ props, onChange }: Props) {
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           Content
         </div>
+        <BlockRefreshButton
+          blockType="spotlight-glow-hero"
+          fields={["badgeText", "headline", "subheadline", "ctaText"]}
+          values={{
+            badgeText: props.badgeText ?? "",
+            headline: props.headline ?? "",
+            subheadline: props.subheadline ?? "",
+            ctaText: props.ctaText ?? "",
+          }}
+          onApply={(updated) => update(updated as Partial<SpotlightGlowHeroBlockProps>)}
+        />
         <div>
           <Label className="text-[11px] text-muted-foreground">Badge text</Label>
-          <Input
+          <AiTextField
+            type="input"
             value={props.badgeText ?? ""}
-            onChange={(e) => update({ badgeText: e.target.value })}
+            onChange={(v) => update({ badgeText: v })}
             placeholder="Nexus Engine v2.0 is now live"
             className="h-8 text-xs"
+            onSuggest={() => suggestCopy("spotlight-glow-hero", "badgeText", props.badgeText ?? "", { headline: props.headline ?? "" })}
+            fieldLabel="Badge text"
           />
         </div>
         <div>
           <Label className="text-[11px] text-muted-foreground">Headline</Label>
-          <Textarea
+          <AiTextField
             value={props.headline ?? ""}
-            onChange={(e) => update({ headline: e.target.value })}
+            onChange={(v) => update({ headline: v })}
             placeholder="Build with absolute velocity"
             rows={2}
             className="text-xs"
+            onSuggest={() => suggestCopy("spotlight-glow-hero", "headline", props.headline ?? "", { badgeText: props.badgeText ?? "", subheadline: props.subheadline ?? "" })}
+            fieldLabel="Headline"
           />
         </div>
         <div>
@@ -209,12 +228,14 @@ export function SpotlightGlowHeroPanel({ props, onChange }: Props) {
         </div>
         <div>
           <Label className="text-[11px] text-muted-foreground">Subheadline</Label>
-          <Textarea
+          <AiTextField
             value={props.subheadline ?? ""}
-            onChange={(e) => update({ subheadline: e.target.value })}
+            onChange={(v) => update({ subheadline: v })}
             placeholder="The world's most powerful infrastructure…"
             rows={3}
             className="text-xs"
+            onSuggest={() => suggestCopy("spotlight-glow-hero", "subheadline", props.subheadline ?? "", { headline: props.headline ?? "" })}
+            fieldLabel="Subheadline"
           />
         </div>
       </div>
@@ -329,11 +350,14 @@ export function SpotlightGlowHeroPanel({ props, onChange }: Props) {
         <div className="grid grid-cols-2 gap-2">
           <div>
             <Label className="text-[11px] text-muted-foreground">CTA text</Label>
-            <Input
+            <AiTextField
+              type="input"
               value={props.ctaText ?? ""}
-              onChange={(e) => update({ ctaText: e.target.value })}
+              onChange={(v) => update({ ctaText: v })}
               placeholder="Start Building Free"
               className="h-8 text-xs"
+              onSuggest={() => suggestCopy("spotlight-glow-hero", "ctaText", props.ctaText ?? "", { headline: props.headline ?? "" })}
+              fieldLabel="CTA text"
             />
           </div>
           <div>
