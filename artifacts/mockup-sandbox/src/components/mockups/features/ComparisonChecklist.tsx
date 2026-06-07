@@ -1,6 +1,7 @@
 import React from "react";
 import { Check, Shield, Zap, Globe, Layers, MessageSquare, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MockupCTA } from "@/components/mockups/_shared/MockupCTA";
 
 const FEATURE_CATEGORIES = [
   {
@@ -56,7 +57,8 @@ const FEATURE_CATEGORIES = [
   },
 ];
 
-export function ComparisonChecklist() {
+export function ComparisonChecklist({ showCta = true }: { showCta?: boolean } = {}) {
+
   return (
     <section className="flex w-full min-h-[900px] flex-col items-center justify-center bg-white px-6 py-24">
       <div className="w-full max-w-5xl">
@@ -124,6 +126,25 @@ export function ComparisonChecklist() {
             Contact Enterprise Sales
           </Button>
         </div>
+
+        {showCta && (
+          <div className="mt-20 border-t border-neutral-200 pt-16">
+            <MockupCTA
+              variant="form"
+              accent="#4f46e5"
+              accentText="#ffffff"
+              ink="#0f172a"
+              muted="#64748b"
+              border="#e2e8f0"
+              align="center"
+              eyebrow="Stay in the loop"
+              heading="Get the enterprise capabilities checklist."
+              subheading="Drop your email and we'll send the full breakdown of what's included on every plan."
+              primaryLabel="Send it to me"
+              placeholder="you@company.com"
+            />
+          </div>
+        )}
       </div>
     </section>
   );

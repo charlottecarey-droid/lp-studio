@@ -408,6 +408,12 @@ uri = "file://artifacts/mockup-sandbox/public/images/hero-spotlight-glow-dashboa
 type = "image"
 title = "Dark mode developer dashboard"
 
+[[generated]]
+id = "kOJpCzCCtmcBgK_IVqEye"
+uri = "file://artifacts/mockup-sandbox/public/images/portrait-sarah.png"
+type = "image"
+title = "Professional VP of Marketing headshot"
+
 [[outputs]]
 id = "2sUbM7UegFOFtU0kTdNUi"
 uri = "file://.local/cheatsheet.md"

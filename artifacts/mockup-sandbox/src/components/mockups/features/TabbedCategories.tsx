@@ -13,6 +13,7 @@ import {
   Zap,
   BarChart3,
 } from "lucide-react";
+import { MockupCTA } from "@/components/mockups/_shared/MockupCTA";
 
 type Feature = {
   title: string;
@@ -238,7 +239,7 @@ const CATEGORIES: Category[] = [
   },
 ];
 
-export function TabbedCategories() {
+export function TabbedCategories({ showCta = true }: { showCta?: boolean } = {}) {
   const [activeTabId, setActiveTabId] = useState(CATEGORIES[0].id);
 
   const activeCategory = CATEGORIES.find((c) => c.id === activeTabId) || CATEGORIES[0];
@@ -320,6 +321,27 @@ export function TabbedCategories() {
           </div>
           
         </div>
+
+        {showCta && (
+          <div className="mt-20 border-t border-neutral-200 pt-16">
+            <MockupCTA
+              variant="modal"
+              modalKind="booking"
+              accent="#4f46e5"
+              accentText="#ffffff"
+              ink="#0f172a"
+              muted="#64748b"
+              border="#e2e8f0"
+              align="center"
+              eyebrow="See it in action"
+              heading="Get a guided tour of the full platform."
+              subheading="Walk through design, conversion, and analytics with a specialist who knows your use case."
+              primaryLabel="Book a live demo"
+              modalTitle="Book a live demo"
+              modalSubtitle="Pick a time that works — sessions run about 30 minutes."
+            />
+          </div>
+        )}
       </div>
     </section>
   );

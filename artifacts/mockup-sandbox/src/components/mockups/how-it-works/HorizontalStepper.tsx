@@ -1,6 +1,7 @@
 import React from "react";
 import { ArrowRight, UserPlus, Zap, Rocket, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MockupCTA } from "@/components/mockups/_shared/MockupCTA";
 
 const STEPS = [
   {
@@ -23,7 +24,8 @@ const STEPS = [
   },
 ];
 
-export function HorizontalStepper() {
+export function HorizontalStepper({ showCta = true }: { showCta?: boolean } = {}) {
+
   return (
     <section className="w-full bg-neutral-50 py-24 text-neutral-900">
       <div className="container mx-auto px-4 md:px-8 max-w-6xl">
@@ -86,6 +88,27 @@ export function HorizontalStepper() {
             <CheckCircle2 className="h-4 w-4 text-emerald-500" /> 14-day free trial
           </div>
         </div>
+
+        {showCta && (
+          <div className="mt-20 border-t border-neutral-200 pt-16">
+            <MockupCTA
+              variant="modal"
+              modalKind="booking"
+              align="center"
+              accent="#4f46e5"
+              accentText="#ffffff"
+              ink="#0f172a"
+              muted="#64748b"
+              border="#e2e8f0"
+              eyebrow="See it in action"
+              heading="Watch your revenue engine go live in minutes"
+              subheading="Book a quick walkthrough and we'll show you how to connect your tools, set your rules, and start routing leads automatically."
+              primaryLabel="Book a demo"
+              modalTitle="Book a demo"
+              modalSubtitle="Pick a time that works — it takes 30 seconds."
+            />
+          </div>
+        )}
       </div>
     </section>
   );

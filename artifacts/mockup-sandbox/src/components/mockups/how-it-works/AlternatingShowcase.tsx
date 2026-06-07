@@ -1,6 +1,7 @@
 import React from "react";
 import { ArrowRight, LayoutTemplate, MousePointerClick, Zap, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MockupCTA } from "@/components/mockups/_shared/MockupCTA";
 
 const STEPS = [
   {
@@ -20,7 +21,8 @@ const STEPS = [
   },
 ];
 
-export function AlternatingShowcase() {
+export function AlternatingShowcase({ showCta = true }: { showCta?: boolean } = {}) {
+
   return (
     <section className="w-full bg-neutral-50 py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
@@ -194,6 +196,27 @@ export function AlternatingShowcase() {
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
+
+        {showCta && (
+          <div className="mt-20 border-t border-neutral-200 pt-16">
+            <MockupCTA
+              variant="modal"
+              modalKind="booking"
+              align="center"
+              accent="#4f46e5"
+              accentText="#ffffff"
+              ink="#0f172a"
+              muted="#64748b"
+              border="#e2e8f0"
+              eyebrow="Get a guided tour"
+              heading="See how fast your team can ship landing pages"
+              subheading="Book a live walkthrough and watch a page go from brand template to published in minutes — no development backlog required."
+              primaryLabel="Schedule a walkthrough"
+              modalTitle="Schedule a walkthrough"
+              modalSubtitle="Pick a time that works — it takes 30 seconds."
+            />
+          </div>
+        )}
       </div>
     </section>
   );

@@ -10,6 +10,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MockupCTA } from "@/components/mockups/_shared/MockupCTA";
 
 const SPOTLIGHT_FEATURE = {
   id: "builder",
@@ -131,7 +132,8 @@ function BuilderMockup() {
   );
 }
 
-export function SpotlightCards() {
+export function SpotlightCards({ showCta = true }: { showCta?: boolean } = {}) {
+
   return (
     <section className="flex w-full justify-center bg-neutral-50 py-24">
       <div className="w-full max-w-[1280px] px-8">
@@ -188,6 +190,25 @@ export function SpotlightCards() {
             ))}
           </div>
         </div>
+
+        {showCta && (
+          <div className="mt-20 border-t border-neutral-200 pt-16">
+            <MockupCTA
+              variant="link"
+              accent="#4f46e5"
+              accentText="#ffffff"
+              ink="#0f172a"
+              muted="#64748b"
+              border="#e2e8f0"
+              align="center"
+              eyebrow="Ready when you are"
+              heading="Launch your first page in minutes, not weeks."
+              subheading="Everything from the visual builder to analytics is included — start free and upgrade only when you need to."
+              primaryLabel="Try the builder"
+              secondaryLabel="See all features"
+            />
+          </div>
+        )}
       </div>
     </section>
   );

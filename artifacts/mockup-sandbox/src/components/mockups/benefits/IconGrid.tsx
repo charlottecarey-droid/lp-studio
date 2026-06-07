@@ -7,8 +7,10 @@ import {
   Globe2, 
   Clock
 } from "lucide-react";
+import { MockupCTA } from "@/components/mockups/_shared/MockupCTA";
 
-export function IconGrid() {
+export function IconGrid({ showCta = true }: { showCta?: boolean } = {}) {
+
   const benefits = [
     {
       icon: <Zap className="h-6 w-6 text-indigo-600" />,
@@ -73,6 +75,25 @@ export function IconGrid() {
             </div>
           ))}
         </div>
+
+        {showCta && (
+          <div className="mt-24 border-t border-neutral-200 pt-16">
+            <MockupCTA
+              variant="link"
+              accent="#4f46e5"
+              accentText="#ffffff"
+              ink="#0f172a"
+              muted="#64748b"
+              border="#e2e8f0"
+              align="center"
+              eyebrow="Ready when you are"
+              heading="Build your first page in minutes"
+              subheading="See how LP Studio removes the friction between design, engineering, and marketing—no credit card required."
+              primaryLabel="Start building free"
+              secondaryLabel="Book a demo"
+            />
+          </div>
+        )}
       </div>
     </section>
   );

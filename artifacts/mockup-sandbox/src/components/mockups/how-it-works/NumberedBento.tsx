@@ -1,8 +1,10 @@
 import React from "react";
 import { Plug, Palette, Wand2, BarChart3, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MockupCTA } from "@/components/mockups/_shared/MockupCTA";
 
-export function NumberedBento() {
+export function NumberedBento({ showCta = true }: { showCta?: boolean } = {}) {
+
   return (
     <section className="w-full bg-neutral-50 py-24 text-neutral-900">
       <div className="mx-auto w-full max-w-7xl px-8">
@@ -97,6 +99,25 @@ export function NumberedBento() {
             Start building for free <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
         </div>
+
+        {showCta && (
+          <div className="mt-20 border-t border-neutral-200 pt-16">
+            <MockupCTA
+              variant="link"
+              align="center"
+              accent="#4f46e5"
+              accentText="#ffffff"
+              ink="#0f172a"
+              muted="#64748b"
+              border="#e2e8f0"
+              eyebrow="Skip the wait"
+              heading="Turn your data into live campaigns today"
+              subheading="Connect your systems once and let LP Studio generate hundreds of on-brand, personalized pages — no weeks-long backlog required."
+              primaryLabel="Start building for free"
+              secondaryLabel="Talk to sales"
+            />
+          </div>
+        )}
       </div>
     </section>
   );

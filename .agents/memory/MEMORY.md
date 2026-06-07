@@ -129,8 +129,6 @@
 - [Logo preservation in Replace-imagery](logo-preserve-replace-imagery.md) — logos kept out of AI image pipeline via collectImageSlots filter + separate sanitizeAIImageUrls guard; detection conservative (false-pos keeps a photo, false-neg swaps the logo).
 - [Template-page seed mirroring](template-page-seed-mirroring.md) — api-server global seeds hand-mirror lp-studio block defaults (no shared import); edit BOTH + bump SEED_MARKER or they drift silently.
 - [Brand-import named token beats wash](brand-import-named-token-over-wash.md) — named --brand/--primary CSS token beats pixel-sampled hero-gradient wash for primary (gated on palette.length>0); var name-matcher must match role keyword as dash-segment ANYWHERE in token.
-<<<<<<< HEAD
 - [New block-type graduation callsites](block-type-graduation-callsites.md) — ~9 synced callsites to graduate a mockup into a block type; block-variant.ts needs BOTH the import AND the union member, registry ENTRY is separate from createBlock case.
-=======
 - [inject() tests vs post-response side-effects](inject-test-post-response-sideeffects.md) — inject() resolves on res.end; handlers doing fire-and-continue work after res.json need a bounded poll in tests, not an immediate read (flakes).
->>>>>>> 3e3d3fef9 (Add automated tests for content-series brand accent/logo + brand logo tagging)
+- [mockup-section optional CTA + brand-swap](mockup-section-optional-cta-convention.md) — section mockups: gate CTA on a prop (showCta bool or nullable cta), never `const showCta=true`; theme via token inline-styles, never hardcoded Tailwind color classes/avatar data.

@@ -1,5 +1,6 @@
 import React from "react";
 import { Zap, Layers, TrendingUp, CheckCircle2, ArrowRight, BarChart3, Users, LayoutDashboard } from "lucide-react";
+import { MockupCTA } from "@/components/mockups/_shared/MockupCTA";
 
 const BENEFITS = [
   {
@@ -185,7 +186,8 @@ function AnalyticsMockup() {
 }
 
 
-export function AlternatingRows() {
+export function AlternatingRows({ showCta = true }: { showCta?: boolean } = {}) {
+
   return (
     <section className="w-full bg-white py-24 md:py-32">
       <div className="mx-auto w-full max-w-[1280px] px-6 md:px-12">
@@ -258,6 +260,25 @@ export function AlternatingRows() {
             );
           })}
         </div>
+
+        {showCta && (
+          <div className="mt-24 border-t border-neutral-200 pt-20 md:mt-40 md:pt-28">
+            <MockupCTA
+              variant="link"
+              accent="#4f46e5"
+              accentText="#ffffff"
+              ink="#0f172a"
+              muted="#64748b"
+              border="#e2e8f0"
+              align="center"
+              eyebrow="One unified platform"
+              heading="Ship faster, scale further"
+              subheading="Bring design, engineering, and marketing onto the same canvas. See what a truly unified platform does for your launch velocity."
+              primaryLabel="Get started free"
+              secondaryLabel="Talk to sales"
+            />
+          </div>
+        )}
 
       </div>
     </section>

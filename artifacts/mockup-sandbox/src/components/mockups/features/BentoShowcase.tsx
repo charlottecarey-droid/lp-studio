@@ -1,7 +1,9 @@
 import React from "react";
 import { Layout, Palette, Users, LineChart, Shield, Rocket } from "lucide-react";
+import { MockupCTA } from "@/components/mockups/_shared/MockupCTA";
 
-export function BentoShowcase() {
+export function BentoShowcase({ showCta = true }: { showCta?: boolean } = {}) {
+
   return (
     <section className="w-full bg-neutral-50 py-24">
       <div className="mx-auto w-full max-w-[1280px] px-8">
@@ -216,6 +218,25 @@ export function BentoShowcase() {
           </div>
 
         </div>
+
+        {showCta && (
+          <div className="mt-20 border-t border-neutral-200 pt-16">
+            <MockupCTA
+              variant="link"
+              accent="#4f46e5"
+              accentText="#ffffff"
+              ink="#0f172a"
+              muted="#64748b"
+              border="#e2e8f0"
+              align="center"
+              eyebrow="Built for scale"
+              heading="Ship your next campaign without the engineering bottleneck."
+              subheading="Bring every capability together in one workspace and launch pages your whole team can build on."
+              primaryLabel="Start building free"
+              secondaryLabel="Book a walkthrough"
+            />
+          </div>
+        )}
       </div>
     </section>
   );

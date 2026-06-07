@@ -1,7 +1,9 @@
 import React from 'react';
 import { BarChart3, CloudLightning, Layers, ShieldCheck, Users } from 'lucide-react';
+import { MockupCTA } from "@/components/mockups/_shared/MockupCTA";
 
-export function BentoGrid() {
+export function BentoGrid({ showCta = true }: { showCta?: boolean } = {}) {
+
   return (
     <section className="w-full bg-neutral-50 py-24">
       <div className="mx-auto max-w-[1280px] px-6 lg:px-8">
@@ -90,6 +92,28 @@ export function BentoGrid() {
             </div>
           </div>
         </div>
+
+        {showCta && (
+          <div className="mt-20 border-t border-neutral-200 pt-16">
+            <MockupCTA
+              variant="modal"
+              modalKind="form"
+              accent="#4f46e5"
+              accentText="#ffffff"
+              ink="#0f172a"
+              muted="#64748b"
+              border="#e2e8f0"
+              align="center"
+              eyebrow="Built to scale with you"
+              heading="Bring every capability together"
+              subheading="From visual workflows to enterprise security, see how LP Studio powers your operations end to end."
+              primaryLabel="Request a walkthrough"
+              modalTitle="Request a walkthrough"
+              modalSubtitle="Tell us where to reach you and our team will set up a tailored demo."
+              placeholder="you@company.com"
+            />
+          </div>
+        )}
       </div>
     </section>
   );

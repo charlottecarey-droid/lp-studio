@@ -32,18 +32,6 @@ args = "e2e"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "typecheck-api"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "typecheck"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "typecheck-lp"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "tc-lp"
 
 [[workflows.workflow.tasks]]
@@ -52,19 +40,7 @@ args = "tc-api"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "tc-lp-studio"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "img-test"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "tc-lpstudio"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "tc-apiserver"
 
 [[workflows.workflow]]
 name = "artifacts/dandy-insights-video: web"
@@ -90,39 +66,6 @@ args = "pnpm --filter @workspace/lp-studio exec playwright test"
 isValidation = true
 
 [[workflows.workflow]]
-name = "typecheck-api"
-author = "agent"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/api-server run typecheck"
-
-[[workflows.workflow]]
-name = "typecheck"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd artifacts/lp-studio && pnpm typecheck"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "typecheck-lp"
-author = "agent"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/lp-studio run typecheck"
-
-[[workflows.workflow]]
 name = "tc-lp"
 author = "agent"
 
@@ -145,45 +88,12 @@ task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run typecheck"
 
 [[workflows.workflow]]
-name = "tc-lp-studio"
-author = "agent"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/lp-studio run typecheck"
-
-[[workflows.workflow]]
 name = "img-test"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd artifacts/api-server && npx vitest run src/routes/lp/generate-page.images.test.ts --reporter=dot --pool=forks --no-file-parallelism"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "tc-lpstudio"
-author = "agent"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/lp-studio run typecheck"
-
-[[workflows.workflow]]
-name = "tc-apiserver"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/api-server run typecheck"
 
 [workflows.workflow.metadata]
 isValidation = true

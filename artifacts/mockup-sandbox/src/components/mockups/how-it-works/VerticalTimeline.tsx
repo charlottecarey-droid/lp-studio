@@ -1,6 +1,7 @@
 import React from "react";
 import { Palette, Users, Zap, BarChart3, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MockupCTA } from "@/components/mockups/_shared/MockupCTA";
 
 const STEPS = [
   {
@@ -25,7 +26,8 @@ const STEPS = [
   },
 ];
 
-export function VerticalTimeline() {
+export function VerticalTimeline({ showCta = true }: { showCta?: boolean } = {}) {
+
   return (
     <section className="w-full bg-white py-24 sm:py-32">
       <div className="mx-auto max-w-4xl px-6 lg:px-8">
@@ -86,6 +88,25 @@ export function VerticalTimeline() {
             View examples <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
+
+        {showCta && (
+          <div className="mt-20 border-t border-neutral-200 pt-16">
+            <MockupCTA
+              variant="link"
+              align="center"
+              accent="#4f46e5"
+              accentText="#ffffff"
+              ink="#0f172a"
+              muted="#64748b"
+              border="#e2e8f0"
+              eyebrow="Ready when you are"
+              heading="Launch your first on-brand campaign today"
+              subheading="Connect your brand, pick an audience, and let LP Studio assemble high-converting pages in minutes — no design or dev cycles required."
+              primaryLabel="Start building for free"
+              secondaryLabel="View live examples"
+            />
+          </div>
+        )}
       </div>
     </section>
   );

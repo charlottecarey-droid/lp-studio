@@ -1,5 +1,6 @@
 import React from "react";
 import { Zap, TrendingUp, Clock } from "lucide-react";
+import { MockupCTA } from "@/components/mockups/_shared/MockupCTA";
 
 const BENEFITS = [
   {
@@ -25,7 +26,8 @@ const BENEFITS = [
   },
 ];
 
-export function StatLed() {
+export function StatLed({ showCta = true }: { showCta?: boolean } = {}) {
+
   return (
     <section className="w-full min-h-[800px] bg-white py-24 sm:py-32 flex items-center justify-center">
       <div className="container mx-auto px-4 md:px-8 max-w-[1200px]">
@@ -70,6 +72,25 @@ export function StatLed() {
             </div>
           ))}
         </div>
+
+        {showCta && (
+          <div className="mt-24 border-t border-neutral-200 pt-16">
+            <MockupCTA
+              variant="form"
+              accent="#4f46e5"
+              accentText="#ffffff"
+              ink="#0f172a"
+              muted="#64748b"
+              border="#e2e8f0"
+              align="center"
+              eyebrow="See the numbers for yourself"
+              heading="Put these outcomes to work"
+              subheading="Get the LP Studio benchmark report and a tailored walkthrough delivered straight to your inbox."
+              primaryLabel="Send me the report"
+              placeholder="you@company.com"
+            />
+          </div>
+        )}
       </div>
     </section>
   );
