@@ -21,4 +21,6 @@ The marketing homepage "templates" gallery (TemplatesEmbed.tsx, imported by mark
 
 **Fallback:** TemplatesEmbed starts with its built-in TEMPLATES array, then replaces it on a successful non-empty fetch of `${APP_BASE}/api/lp/featured-templates`. Any failure/empty keeps the built-in list, so the section is never blank (also covers dev, where APP_BASE points at prod app.lpstudio.ai).
 
+**Per-row thumbnail has NO fallback:** the marketing card renders `<img src={thumbnail}>` directly; an empty `thumbnail_url` = broken image (the live preview only appears in the modal, never on the card). When adding bespoke single-block templates as featured rows, always set `thumbnail_url` (their `og_image` Unsplash URL is a fine "for now" value). `blocks_count` is display-only — single full-page blocks can carry an estimated count (e.g. 6-8) instead of the literal `1`.
+
 **Quirk:** tool output sometimes renders the identifier "TemplatesEmbed" as "n" (display artifact); the real source imports `TemplatesEmbed from "../components/TemplatesEmbed"`.
