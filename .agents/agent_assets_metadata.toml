@@ -414,6 +414,42 @@ uri = "file://artifacts/mockup-sandbox/public/images/portrait-sarah.png"
 type = "image"
 title = "Professional VP of Marketing headshot"
 
+[[generated]]
+id = "k2CpnrLhBxTB4toVbqTKG"
+uri = "file://artifacts/mockup-sandbox/public/images/media-poster-main.png"
+type = "image"
+title = "cinematic digital network"
+
+[[generated]]
+id = "zBpcuqiMo7ii6YuHCfl2r"
+uri = "file://artifacts/mockup-sandbox/public/images/media-thumb-1.png"
+type = "image"
+title = "software dashboard abstract"
+
+[[generated]]
+id = "GPAY9s2M4g1kOTr_BrqBy"
+uri = "file://artifacts/mockup-sandbox/public/images/media-thumb-2.png"
+type = "image"
+title = "team collaboration virtual"
+
+[[generated]]
+id = "6V3Z6hyMiSsFjTBefQMRm"
+uri = "file://artifacts/mockup-sandbox/public/images/media-thumb-3.png"
+type = "image"
+title = "data analytics growth"
+
+[[generated]]
+id = "8BBhl-1Z-42ww2Y2cW8fI"
+uri = "file://artifacts/mockup-sandbox/public/images/cta-split.png"
+type = "image"
+title = "Modern collaborative team office"
+
+[[generated]]
+id = "iukQTP-LKeyv6FZDXZ8FP"
+uri = "file://artifacts/mockup-sandbox/public/images/csb-spotlight-hero.png"
+type = "image"
+title = "professional working in modern office"
+
 [[outputs]]
 id = "2sUbM7UegFOFtU0kTdNUi"
 uri = "file://.local/cheatsheet.md"
@@ -623,3 +659,39 @@ id = "CfDMquCKe9jUbmugYC9tY"
 uri = "file://artifacts/mockup-sandbox/public/images/case-study-gallery-3.jpg"
 type = "image"
 title = "close up of hands typing on laptop data"
+
+[[outputs]]
+id = "EDwwmor0rPUCejW9VusZU"
+uri = "file://artifacts/mockup-sandbox/public/images/gallery-team_1.jpg"
+type = "image"
+title = "modern creative team working in bright office"
+
+[[outputs]]
+id = "2crR4RpeT9LgtdvV8tL9v"
+uri = "file://artifacts/mockup-sandbox/public/images/gallery-team_2.jpg"
+type = "image"
+title = "modern creative team working in bright office"
+
+[[outputs]]
+id = "GdVroJlb2jhSyAD8BfS1Z"
+uri = "file://artifacts/mockup-sandbox/public/images/gallery-team_3.jpg"
+type = "image"
+title = "modern creative team working in bright office"
+
+[[outputs]]
+id = "tB9kbO1yt2ZC_nGcac67e"
+uri = "file://artifacts/mockup-sandbox/public/images/gallery-team_4.jpg"
+type = "image"
+title = "modern creative team working in bright office"
+
+[[outputs]]
+id = "qtDCznCDqMKr1L6-wLJZN"
+uri = "file://artifacts/mockup-sandbox/public/images/gallery-team_5.jpg"
+type = "image"
+title = "modern creative team working in bright office"
+
+[[outputs]]
+id = "oMdX3l6j7kOokj4bO7J3I"
+uri = "file://artifacts/mockup-sandbox/public/images/gallery-team_6.jpg"
+type = "image"
+title = "modern creative team working in bright office"
