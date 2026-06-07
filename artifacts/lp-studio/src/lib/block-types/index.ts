@@ -233,6 +233,7 @@ export type {
   DsoInsightsVideoBlockProps,
   DsoCaseStudyBlockProps,
   DsoCaseStudyBodySection,
+  DsoCaseStudyExtraSection,
   DsoCaseStudyResultItem,
   EventPageBlockProps,
   EventPageAgendaDay,

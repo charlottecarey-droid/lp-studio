@@ -833,6 +833,19 @@ export interface DsoCaseStudyBodySection {
   imageUrl?: string;
 }
 
+/** Repeatable, editor-driven case-study section. Additive — legacy blocks have
+ *  no `sections` array and render exactly as before. Each item renders as its
+ *  own full-width band with an optional image, a subheading, body copy, an
+ *  optional pull quote, and its own background color (falling back to the
+ *  block's default background when unset). */
+export interface DsoCaseStudyExtraSection {
+  heading: string;
+  body: string;
+  imageUrl?: string;
+  quote?: string;
+  backgroundStyle?: BackgroundStyle;
+}
+
 export interface DsoCaseStudyResultItem {
   value: string;
   label: string;
@@ -854,6 +867,7 @@ export interface DsoCaseStudyBlockProps {
   bodyBackgroundStyle?: BackgroundStyle;
   resultsBackgroundStyle?: BackgroundStyle;
   whyItMatters?: DsoCaseStudyBodySection;
+  sections?: DsoCaseStudyExtraSection[];
   backgroundStyle?: BackgroundStyle;
   ctaText?: string;
   ctaUrl?: string;

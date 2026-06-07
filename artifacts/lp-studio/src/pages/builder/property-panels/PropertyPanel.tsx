@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { Trash2, SlidersHorizontal, AlignLeft, Plus, GripVertical, RefreshCcw, Loader2, BookmarkPlus } from "lucide-react";
+import { Trash2, SlidersHorizontal, AlignLeft, Plus, GripVertical, RefreshCcw, Loader2, BookmarkPlus, Copy, ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { PageBlock, BlockSettings, CtaMode, DsoCaseFlowStage } from "@/lib/block-types";
+import type { PageBlock, BlockSettings, CtaMode, DsoCaseFlowStage, DsoCaseStudyExtraSection } from "@/lib/block-types";
 import { DSO_CASE_FLOW_DEFAULT_STAGES, createBlock } from "@/lib/block-types";
 import { getBgOptions, type BackgroundStyle } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -5777,6 +5777,78 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <ImagePicker value={p.whyItMatters?.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, whyItMatters: { heading: p.whyItMatters?.heading ?? "Why It Matters", body: p.whyItMatters?.body ?? "", imageUrl: v || undefined } } })} />
               </div>
             </div>
+            {(() => {
+              const sections = p.sections ?? [];
+              const writeSections = (next: typeof sections) => onChange({ ...block, props: { ...p, sections: next } });
+              const updateSection = (i: number, patch: Partial<DsoCaseStudyExtraSection>) =>
+                writeSections(sections.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+              const addSection = () => writeSections([...sections, { heading: "New Section", body: "" }]);
+              const duplicateSection = (i: number) => {
+                const next = [...sections];
+                next.splice(i + 1, 0, { ...sections[i] });
+                writeSections(next);
+              };
+              const removeSection = (i: number) => writeSections(sections.filter((_, idx) => idx !== i));
+              const moveSection = (i: number, dir: -1 | 1) => {
+                const to = i + dir;
+                if (to < 0 || to >= sections.length) return;
+                const next = [...sections];
+                const [moved] = next.splice(i, 1);
+                next.splice(to, 0, moved);
+                writeSections(next);
+              };
+              return (
+                <div className="space-y-2 pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Additional Sections</p>
+                    <Button variant="ghost" size="sm" onClick={addSection} className="h-7 text-xs gap-1">
+                      <Plus className="w-3 h-3" /> Add section
+                    </Button>
+                  </div>
+                  {sections.length === 0 && (
+                    <p className="text-[11px] text-muted-foreground py-1">No extra sections. Add one to extend the case study.</p>
+                  )}
+                  <div className="space-y-3">
+                    {sections.map((sec, i) => (
+                      <div key={i} className="border rounded-lg p-2.5 space-y-2 bg-muted/30">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-muted-foreground">Section {i + 1}</span>
+                          <div className="flex items-center gap-0.5">
+                            <button onClick={() => moveSection(i, -1)} disabled={i === 0} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label="Move up"><ChevronUp className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => moveSection(i, 1)} disabled={i === sections.length - 1} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30" aria-label="Move down"><ChevronDown className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => duplicateSection(i)} className="p-1 text-muted-foreground hover:text-foreground" aria-label="Duplicate"><Copy className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => removeSection(i)} className="p-1 text-muted-foreground hover:text-destructive" aria-label="Remove"><Trash2 className="w-3.5 h-3.5" /></button>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px] text-muted-foreground">Background</Label>
+                          <Select value={sec.backgroundStyle ?? p.backgroundStyle ?? "white"} onValueChange={v => updateSection(i, { backgroundStyle: v as BackgroundStyle })}>
+                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>{bgOptions.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px] text-muted-foreground">Subheading</Label>
+                          <Input value={sec.heading} onChange={e => updateSection(i, { heading: e.target.value })} className="h-8 text-xs" placeholder="Section heading" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px] text-muted-foreground">Body</Label>
+                          <Textarea value={sec.body} onChange={e => updateSection(i, { body: e.target.value })} className="text-xs min-h-[70px]" placeholder="Section body copy…" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px] text-muted-foreground">Quote (optional)</Label>
+                          <Textarea value={sec.quote ?? ""} onChange={e => updateSection(i, { quote: e.target.value || undefined })} className="text-xs min-h-[60px]" placeholder="Optional pull quote" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px] text-muted-foreground">Image (optional)</Label>
+                          <ImagePicker value={sec.imageUrl ?? ""} onChange={v => updateSection(i, { imageUrl: v || undefined })} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
             <div className="space-y-2 pt-2 border-t">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">CTA Button</p>
               <div className="space-y-1.5">

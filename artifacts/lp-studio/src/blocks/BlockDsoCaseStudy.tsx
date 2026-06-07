@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
-import type { DsoCaseStudyBlockProps, DsoCaseStudyBodySection, DsoCaseStudyResultItem } from "@/lib/block-types";
+import type { DsoCaseStudyBlockProps, DsoCaseStudyBodySection, DsoCaseStudyExtraSection, DsoCaseStudyResultItem } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
@@ -86,10 +86,17 @@ export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
   const results     = props.results     ?? DEFAULT_RESULTS;
   const whyItMatters = props.whyItMatters ?? DEFAULT_WHY;
   const heroOnly    = props.heroOnly    ?? false;
+  const sections    = props.sections    ?? [];
 
   const upd = onFieldChange
     ? (patch: Partial<DsoCaseStudyBlockProps>) => onFieldChange({ ...props, ...patch })
     : undefined;
+
+  const updExtraSection = (i: number, field: keyof DsoCaseStudyExtraSection, val: string) => {
+    if (!upd) return;
+    const next = sections.map((s, idx) => (idx === i ? { ...s, [field]: val || undefined } : s));
+    upd({ sections: next });
+  };
 
   const updSection = (key: "challenge" | "solution" | "whyItMatters", field: keyof DsoCaseStudyBodySection, val: string) => {
     if (!upd) return;
@@ -274,6 +281,37 @@ export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
           })()}
         </div>
       </section>}
+
+      {/* ── Repeatable, editor-added sections ───────────────────────── */}
+      {!heroOnly && sections.map((sec, i) => {
+        const secBg   = sec.backgroundStyle ?? fallback;
+        const secDark = isDarkBg(secBg);
+        const secDivider = secDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)";
+        const hasQuote = (sec.quote ?? "").trim() !== "";
+        return (
+          <section key={`extra-${i}`} style={{ ...getBgStyle(secBg), position: "relative" }}>
+            <div style={{ maxWidth: 900, margin: "0 auto", padding: "3.5rem 1.5rem" }}>
+              <BodySection
+                section={{ heading: sec.heading, body: sec.body, imageUrl: sec.imageUrl }}
+                dark={secDark}
+                onUpdateHeading={upd ? (v) => updExtraSection(i, "heading", v) : undefined}
+                onUpdateBody={upd ? (v) => updExtraSection(i, "body", v) : undefined}
+                onUpdateImage={upd ? (v) => updExtraSection(i, "imageUrl", v) : undefined}
+              />
+              {hasQuote && (
+                <>
+                  <div style={{ height: 1, background: secDivider, marginBottom: "3rem" }} />
+                  <PullQuote
+                    quote={sec.quote!}
+                    dark={secDark}
+                    onUpdate={upd ? (v) => updExtraSection(i, "quote", v) : undefined}
+                  />
+                </>
+              )}
+            </div>
+          </section>
+        );
+      })}
     </>
   );
 }

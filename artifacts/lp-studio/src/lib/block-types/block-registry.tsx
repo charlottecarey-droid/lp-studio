@@ -2543,6 +2543,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         heading: "Why It Matters",
         body: "Dentures represent one of the highest-value, highest-complexity production categories for DSOs. Every appointment saved is a slot that can be filled with an exam, a crown, or an implant consult. For a 45-location group, recapturing 9,600 appointments per year isn't an operational win — it's a revenue transformation. Enable Dental's results demonstrate that the biggest gains from digital dentistry don't come from technology alone. They come from standardizing the workflow across every location, then letting the data compound.",
       },
+      sections: [],
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
