@@ -2376,6 +2376,19 @@ export function enforceApprovedCaseStudies(
   }
 
   if (t === "dso-case-study") {
+    // Strict mode: blank every additive `sections[]` entry's long-form prose
+    // and optional pull quote — they're unapproved AI copy just like the
+    // built-in challenge/solution bodies — while keeping the structural
+    // heading so the band still renders. (The repeatable sections feature.)
+    const blankExtraSections = (): void => {
+      if (!Array.isArray(props.sections)) return;
+      for (const s of props.sections) {
+        if (!s || typeof s !== "object" || Array.isArray(s)) continue;
+        const sec = s as Record<string, unknown>;
+        sec.body = "";
+        if ("quote" in sec) sec.quote = "";
+      }
+    };
     const src = pool[0];
     if (src) {
       props.headline = src.title;
@@ -2394,6 +2407,7 @@ export function enforceApprovedCaseStudies(
         if (props.solution && typeof props.solution === "object") {
           (props.solution as Record<string, unknown>).body = "";
         }
+        blankExtraSections();
       }
       return;
     }
@@ -2408,6 +2422,7 @@ export function enforceApprovedCaseStudies(
       if (props.solution && typeof props.solution === "object") {
         (props.solution as Record<string, unknown>).body = "";
       }
+      blankExtraSections();
     }
     // Non-strict + empty: leave the block's built-in example content in place.
     return;
@@ -2463,6 +2478,22 @@ export function fillDsoCaseStudyNeutralDefaults(block: {
   ensureSection("challenge", "The Challenge");
   ensureSection("solution", "The Solution");
   ensureSection("whyItMatters", "Why It Matters");
+  // Repeatable, editor/AI-added `sections[]`. Legacy blocks omit the array
+  // entirely (renderer defaults to []), so only normalize when present: coerce
+  // each entry's heading/body to strings so a malformed AI item can't leak a
+  // non-string through to the renderer. The optional imageUrl/quote/
+  // backgroundStyle are left untouched.
+  if (Array.isArray(p.sections)) {
+    p.sections = p.sections.map((s) => {
+      if (!s || typeof s !== "object" || Array.isArray(s)) return { heading: "", body: "" };
+      const sec = s as Record<string, unknown>;
+      return {
+        ...sec,
+        heading: typeof sec.heading === "string" ? sec.heading : "",
+        body: typeof sec.body === "string" ? sec.body : "",
+      };
+    });
+  }
 }
 
 /** Always-on guard for every case-study-bearing block (`dso-success-stories`,

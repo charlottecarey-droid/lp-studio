@@ -81,6 +81,33 @@ describe("fillDsoCaseStudyNeutralDefaults", () => {
     expect(p.solution).toEqual({ heading: "The Solution", body: "" });
   });
 
+  it("leaves a legacy block (no `sections`) without a sections array", () => {
+    const block = { type: "dso-case-study", props: {} as Record<string, unknown> };
+    fillDsoCaseStudyNeutralDefaults(block);
+    // Additive feature: legacy blocks must stay exactly as before — no array.
+    expect("sections" in block.props).toBe(false);
+  });
+
+  it("normalizes each extra section's heading/body to strings, preserving the rest", () => {
+    const block = {
+      type: "dso-case-study",
+      props: {
+        sections: [
+          // A well-formed section keeps all its fields untouched.
+          { heading: "Rollout", body: "Phased across 8 regions.", quote: "Loved it.", backgroundStyle: "dark", imageUrl: "/a.jpg" },
+          // Missing heading/body get coerced to "", optional fields preserved.
+          { quote: "No heading or body here." },
+        ],
+      } as Record<string, unknown>,
+    };
+    fillDsoCaseStudyNeutralDefaults(block);
+
+    expect(block.props.sections).toEqual([
+      { heading: "Rollout", body: "Phased across 8 regions.", quote: "Loved it.", backgroundStyle: "dark", imageUrl: "/a.jpg" },
+      { heading: "", body: "", quote: "No heading or body here." },
+    ]);
+  });
+
   it("is a no-op for non dso-case-study blocks", () => {
     const block = { type: "hero", props: { headline: "Hi" } as Record<string, unknown> };
     fillDsoCaseStudyNeutralDefaults(block);
