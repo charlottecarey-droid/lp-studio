@@ -2490,7 +2490,7 @@ export function fillDsoCaseStudyNeutralDefaults(block: {
   // Results + CTA). Any missing/invalid value is coerced to the default
   // "after-results" so the renderer never receives a garbage enum.
   if (Array.isArray(p.sections)) {
-    p.sections = p.sections.map((s) => {
+    const normalizedSections = p.sections.map((s) => {
       if (!s || typeof s !== "object" || Array.isArray(s)) return { heading: "", body: "" };
       const sec = s as Record<string, unknown>;
       return {
@@ -2499,7 +2499,7 @@ export function fillDsoCaseStudyNeutralDefaults(block: {
         body: typeof sec.body === "string" ? sec.body : "",
       };
     });
-    for (const sec of p.sections as unknown[]) {
+    for (const sec of normalizedSections) {
       if (sec && typeof sec === "object" && !Array.isArray(sec)) {
         const s = sec as Record<string, unknown>;
         if (s.position !== "before-results" && s.position !== "after-results") {
@@ -2507,6 +2507,7 @@ export function fillDsoCaseStudyNeutralDefaults(block: {
         }
       }
     }
+    p.sections = normalizedSections;
   }
 }
 
@@ -3246,6 +3247,7 @@ AVAILABLE DSO BLOCK TYPES (use these exact type strings — these are the only t
 - "dso-challenges": Challenge cards. Props: eyebrow (string), headline (string), layout ("4-col"|"2-col"), challenges (array 4–8 of {title, desc})
 - "dso-comparison": Side-by-side comparison table. Props: eyebrow (string), headline (string), subheadline (string), companyName (string — use the SELLING brand's name from the BRAND CONTEXT section; if no brand name is given, leave it blank ""), ctaText (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"), rows (array of EXACTLY 5–7 of {need, dandy, traditional} — MANDATORY, NEVER empty, NEVER fewer than 5). The "dandy" field is the data key for the SELLING brand's column (it is NOT a brand name — never put a vendor or brand name in its value). Each row must be SUBSTANTIVE: the "need" field is a full requirement phrase (6–12 words like "Consistent quality across every location"), the "dandy" field is a specific capability + proof point (8–14 words like "AI-driven quality control: 96% first-time right"), the "traditional" field is a concrete pain point (6–12 words like "Variable — depends on lab & technician"). NEVER use 1–3 word stubs. ${comparisonExample}
 - "dso-success-stories": Case study cards with stats. Props: eyebrow (string), headline (string), cases (array of EXACTLY 3 of {name, stat, label, quote, author, image} — never 2, never 4). Use ONLY customer stories from the APPROVED CASE STUDIES section of this brief — NEVER invent a company name, stat, quote, or author. If no approved case studies are provided, leave the cases content as placeholders. ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
+- "dso-case-study": Single deep-dive customer success story (ONE company), rendered as a hero → Challenge/Solution narrative → Results band → CTA. Use this (NOT dso-success-stories) when the prompt asks for ONE in-depth story rather than a 3-card roundup. Props: eyebrow (string, e.g. "Customer Story"), headline (string — the customer/company name or story title), subheadline (string), quote (string — a pull quote from the customer), stats (array of 1–3 of {value, label} — headline metrics), challenge ({heading, body} — what the customer struggled with), solution ({heading, body} — how ${sellingBrand} solved it), whyItMatters ({heading, body} — the broader takeaway), results (array of 2–4 of {value, label, description} — outcome metrics, each with a short description), sections (OPTIONAL array of additional narrative bands, each {heading, body, quote (optional), position ("before-results"|"after-results" — where the band renders relative to the Results/CTA; default "after-results")}). Use ONLY a customer story from the APPROVED CASE STUDIES section of this brief — NEVER invent a company name, stat, quote, author, or result. If no approved case studies are provided, omit this block. ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-pilot-steps": Pilot program timeline. Props: eyebrow (string), headline (string), subheadline (string), steps (array 3–5 of {title, subtitle, desc, details (string[])}). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-cta-capture": Premium email/contact capture. Props: eyebrow (string), headline (string), body (string), inputLabel (string), inputPlaceholder (string), ctaLabel (string), trust1 (string), trust2 (string), trust3 (string), imageUrl (string), imagePosition ("left"|"right")
 - "dso-final-cta": Final dark CTA section. Props: eyebrow (string), headline (string), subheadline (string), primaryCtaText (string), primaryCtaUrl ("#" — use Chili Piper URL if provided), primaryCtaMode ("chilipiper"|"link"), secondaryCtaText (string), secondaryCtaUrl ("#")${dandyInsightsBlocks}
@@ -3263,7 +3265,7 @@ ${rule7}
 ${rule10}
 11. When the user provides specific numbers or stats, use those EXACT numbers. Do not invent different statistics.
 12. Make backgroundStyle "dandy-green" or "black" for dramatic blocks (hero, cta, particle); use "white" or "light-gray" for lighter content blocks. Include backgroundStyle in props for blocks that support it.
-13. CTA BOOKING: If the brand context includes a Chili Piper URL, set ctaMode: "chilipiper" and ctaUrl to that URL on EVERY block that has ctaText/ctaUrl props (dso-problem, dso-ai-feature, dso-stat-showcase, dso-success-stories, dso-pilot-steps, dso-network-map, dso-comparison, dso-scroll-story-hero). Always include ctaText on these blocks — use "Schedule a Demo", "Book a Pilot", or similar. For dso-final-cta and dso-heartland-hero, use the Chili Piper URL for primaryCtaUrl AND set primaryCtaMode: "chilipiper".
+13. CTA BOOKING: If the brand context includes a Chili Piper URL, set ctaMode: "chilipiper" and ctaUrl to that URL on EVERY block that has ctaText/ctaUrl props (dso-problem, dso-ai-feature, dso-stat-showcase, dso-success-stories, dso-case-study, dso-pilot-steps, dso-network-map, dso-comparison, dso-scroll-story-hero). Always include ctaText on these blocks — use "Schedule a Demo", "Book a Pilot", or similar. For dso-final-cta and dso-heartland-hero, use the Chili Piper URL for primaryCtaUrl AND set primaryCtaMode: "chilipiper".
 14. BACKGROUND RESTRICTIONS: dso-problem, dso-ai-feature, and dso-stat-showcase MUST have backgroundStyle set to "dandy-green", "black", or "dark". NEVER use "white" or "light-gray" for these three blocks — they render white text that becomes invisible on light backgrounds.
 ${rule15}
 16. NO STANDALONE NAV BLOCK with dso-heartland-hero: dso-heartland-hero already renders its own sticky navigation bar at the top. NEVER prepend a separate nav block (no "nav-header", no other navbar block) on a page that starts with dso-heartland-hero. The page's first block should be the hero itself.

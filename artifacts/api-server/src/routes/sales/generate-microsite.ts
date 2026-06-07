@@ -36,6 +36,10 @@ import {
   // dso-success-stories block only ever uses them (never invented stories).
   fetchApprovedCaseStudies,
   enforceDsoSuccessStoriesApproved,
+  // Task #1136 — ensures a generated dso-case-study carries explicit values so
+  // the renderer never falls back to its hardcoded DCA demo constants. Needed
+  // here too now that the microsite catalog advertises the block (Task #1201).
+  fillDsoCaseStudyNeutralDefaults,
   // Numeric proof bars (trust-bar / stats) never carry a per-item image in AI
   // output; used to skip legacy-template image restore on those blocks.
   STAT_BAR_BLOCK_TYPES,
@@ -1043,6 +1047,7 @@ const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   "dso-challenges": "{ eyebrow, headline, backgroundStyle, layout (\"4-col\"), challenges: [{ title, desc }] } — 4 pain points specific to this account",
   "dso-insights-dashboard": "{ eyebrow, headline, subheadline, practiceLabel, backgroundStyle, dashboardVariant (\"light\"|\"dark\") }",
   "dso-success-stories": "{ eyebrow, headline, backgroundStyle, cases: [{ name, stat, label, quote, author }] } — use ONLY the customer stories from the APPROVED CASE STUDIES section of the brief; never invent a company, stat, quote, or author. Omit this block entirely when no approved case studies are provided.",
+  "dso-case-study": "{ eyebrow, headline, subheadline, quote, stats: [{ value, label }], challenge: { heading, body }, solution: { heading, body }, whyItMatters: { heading, body }, results: [{ value, label, description }], sections: [{ heading, body, quote, position (\"before-results\"|\"after-results\") }], ctaText, ctaUrl, backgroundStyle } — a single deep-dive customer success story for ONE company (hero → challenge/solution narrative → results → CTA). Use this instead of dso-success-stories when one in-depth story fits better than a 3-card roundup. Use ONLY a customer story from the APPROVED CASE STUDIES section of the brief; never invent a company, stat, quote, author, or result. Omit this block entirely when no approved case studies are provided.",
   "dso-pilot-steps": "{ eyebrow, headline, subheadline, backgroundStyle, steps: [{ title, subtitle, desc, details: string[] }] }",
   "dso-final-cta": "{ eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, backgroundStyle }",
   "dso-comparison": "{ eyebrow, headline, subheadline, companyName, ctaText, ctaUrl, rows: [{ feature, dandy, traditional }], backgroundStyle }",
@@ -2041,6 +2046,16 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       locationCount: micrositeLocationCount,
       segment: (account.segment as string | undefined) ?? "",
     });
+
+    // Task #1201 — the microsite catalog now advertises dso-case-study, so a
+    // freeform microsite can author one from scratch. Mirror the marketing
+    // generator's neutral-default guard (Task #1136) so a generated case-study
+    // block never falls back to the renderer's hardcoded DCA demo constants;
+    // AI-provided values are kept, only genuinely-missing fields get neutral
+    // values, and each section's `position` enum is validated.
+    for (const b of normalizedBlocks as Array<{ type?: string; props?: Record<string, unknown> }>) {
+      fillDsoCaseStudyNeutralDefaults(b);
+    }
 
     // Task #900 — deterministic backgroundStyle post-pass. Re-infer the design
     // intensity (deterministic; matches what buildSystemPrompt used) and enforce
