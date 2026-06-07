@@ -79,7 +79,36 @@ import type {
   MenuSectionBlockProps,
   HoursLocationBlockProps,
   BeforeAfterGalleryBlockProps,
+  CtaCenteredMinimalBlockProps,
+  CtaGradientBannerBlockProps,
+  CtaSplitImageBlockProps,
+  CtaStatBackedBlockProps,
+  CaseStudyCardGridBlockProps,
+  CaseStudyLogoResultsRowBlockProps,
+  CaseStudyMetricTriptychBlockProps,
+  CaseStudySpotlightFeatureBlockProps,
+  GalleryCarouselSpotlightBlockProps,
+  GalleryFilmstripBlockProps,
+  GalleryMasonryBlockProps,
+  GallerySplitFeatureBlockProps,
   SpeakerGridBlockProps,
+  BenefitsAlternatingRowsBlockProps,
+  HowItWorksAlternatingBlockProps,
+  HowItWorksNumberedBentoBlockProps,
+  HowItWorksVerticalTimelineBlockProps,
+  HowItWorksHorizontalStepperBlockProps,
+  BenefitsBentoBlockProps,
+  FeaturesBentoShowcaseBlockProps,
+  FeaturesSpotlightCardsBlockProps,
+  FeaturesTabbedCategoriesBlockProps,
+  FeaturesComparisonChecklistBlockProps,
+  BenefitsIconGridBlockProps,
+  BenefitsStatLedBlockProps,
+  QuoteCarouselBlockProps,
+  QuoteLibraryBlockProps,
+  QuoteWithImageBlockProps,
+  SingleQuoteBlockProps,
+  TestimonialGridBlockProps,
   ContentSeriesBlockProps,
   BlogSeriesBlockProps,
   StorefrontBlockProps,
@@ -92,6 +121,10 @@ import type {
   LogoMarqueeBlockProps,
   RatingBadgesBlockProps,
   AvatarSocialProofBlockProps,
+  MediaFeatureReelBlockProps,
+  MediaLoopingShowcaseBlockProps,
+  MediaThumbnailGridBlockProps,
+  MediaVideoSplitBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -169,6 +202,10 @@ export type BlockVariant =
   | { type: "photo-strip"; props: PhotoStripBlockProps }
   | { type: "bottom-cta"; props: BottomCtaBlockProps }
   | { type: "video-section"; props: VideoSectionBlockProps }
+  | { type: "media-feature-reel"; props: MediaFeatureReelBlockProps }
+  | { type: "media-looping-showcase"; props: MediaLoopingShowcaseBlockProps }
+  | { type: "media-thumbnail-grid"; props: MediaThumbnailGridBlockProps }
+  | { type: "media-video-split"; props: MediaVideoSplitBlockProps }
   | { type: "case-studies"; props: CaseStudiesBlockProps }
   | { type: "resources"; props: ResourcesBlockProps }
   | { type: "rich-text"; props: RichTextBlockProps }
@@ -280,7 +317,36 @@ export type BlockVariant =
   | { type: "menu-section"; props: MenuSectionBlockProps }
   | { type: "hours-location"; props: HoursLocationBlockProps }
   | { type: "before-after-gallery"; props: BeforeAfterGalleryBlockProps }
+  | { type: "cta-centered-minimal"; props: CtaCenteredMinimalBlockProps }
+  | { type: "cta-gradient-banner"; props: CtaGradientBannerBlockProps }
+  | { type: "cta-split-image"; props: CtaSplitImageBlockProps }
+  | { type: "cta-stat-backed"; props: CtaStatBackedBlockProps }
+  | { type: "case-study-card-grid"; props: CaseStudyCardGridBlockProps }
+  | { type: "case-study-logo-results-row"; props: CaseStudyLogoResultsRowBlockProps }
+  | { type: "case-study-metric-triptych"; props: CaseStudyMetricTriptychBlockProps }
+  | { type: "case-study-spotlight-feature"; props: CaseStudySpotlightFeatureBlockProps }
+  | { type: "gallery-carousel-spotlight"; props: GalleryCarouselSpotlightBlockProps }
+  | { type: "gallery-filmstrip"; props: GalleryFilmstripBlockProps }
+  | { type: "gallery-masonry"; props: GalleryMasonryBlockProps }
+  | { type: "gallery-split-feature"; props: GallerySplitFeatureBlockProps }
   | { type: "speaker-grid"; props: SpeakerGridBlockProps }
+  | { type: "benefits-alternating-rows"; props: BenefitsAlternatingRowsBlockProps }
+  | { type: "how-it-works-alternating"; props: HowItWorksAlternatingBlockProps }
+  | { type: "how-it-works-numbered-bento"; props: HowItWorksNumberedBentoBlockProps }
+  | { type: "how-it-works-vertical-timeline"; props: HowItWorksVerticalTimelineBlockProps }
+  | { type: "how-it-works-horizontal-stepper"; props: HowItWorksHorizontalStepperBlockProps }
+  | { type: "benefits-bento"; props: BenefitsBentoBlockProps }
+  | { type: "features-bento-showcase"; props: FeaturesBentoShowcaseBlockProps }
+  | { type: "features-spotlight-cards"; props: FeaturesSpotlightCardsBlockProps }
+  | { type: "features-tabbed-categories"; props: FeaturesTabbedCategoriesBlockProps }
+  | { type: "features-comparison-checklist"; props: FeaturesComparisonChecklistBlockProps }
+  | { type: "benefits-icon-grid"; props: BenefitsIconGridBlockProps }
+  | { type: "benefits-stat-led"; props: BenefitsStatLedBlockProps }
+  | { type: "quote-carousel"; props: QuoteCarouselBlockProps }
+  | { type: "quote-library"; props: QuoteLibraryBlockProps }
+  | { type: "quote-with-image"; props: QuoteWithImageBlockProps }
+  | { type: "single-quote"; props: SingleQuoteBlockProps }
+  | { type: "testimonial-grid"; props: TestimonialGridBlockProps }
   | { type: "content-series"; props: ContentSeriesBlockProps }
   | { type: "blog-series"; props: BlogSeriesBlockProps }
   | { type: "storefront"; props: StorefrontBlockProps }

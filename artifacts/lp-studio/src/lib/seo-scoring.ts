@@ -110,6 +110,7 @@ export const HERO_TYPES = new Set([
 export const CTA_TYPES = new Set([
   "bottom-cta", "cta-button", "dandy-cta-block", "dso-final-cta",
   "roi-calculator", "id-invitation",
+  "cta-centered-minimal", "cta-split-image", "cta-stat-backed", "cta-gradient-banner",
 ]);
 
 // Lead-capture / conversion paths: forms, email capture, booking, reservations.
@@ -126,6 +127,12 @@ export const SOCIAL_PROOF_TYPES = new Set([
   "before-after-gallery", "business-case-split", "business-case-premium",
   "business-case-centered", "dso-live-feed",
   "logo-wall", "logo-marquee", "avatar-social-proof",
+  // New graduated quote / testimonial / case-study section blocks. The
+  // case-study-* blocks also carry a "stats" tag but stay social-proof only
+  // (kept DISTINCT from AUTHORITY so a page earns the credit once, never twice).
+  "quote-carousel", "quote-library", "quote-with-image", "single-quote",
+  "testimonial-grid", "case-study-card-grid", "case-study-logo-results-row",
+  "case-study-metric-triptych", "case-study-spotlight-feature",
 ]);
 
 // Authority: stats, trust bars, metric showcases (concrete data signals).
@@ -151,11 +158,21 @@ export const STRUCTURED_TYPES = new Set([
   "speaker-grid", "dandy-side-image-v6", "dso-network-map",
   "dso-comparison", "horizontal-showcase", "scroll-assembly",
   "spatial-tour", "storefront", "sticky-stack",
+  // New graduated features / benefits / how-it-works section blocks (all carry
+  // the "features" role). The three media/gallery feature blocks below lead with
+  // media but present structured feature content, so they earn structured credit.
+  "benefits-alternating-rows", "benefits-bento", "benefits-icon-grid",
+  "benefits-stat-led", "how-it-works-alternating", "how-it-works-numbered-bento",
+  "how-it-works-vertical-timeline", "how-it-works-horizontal-stepper",
+  "features-bento-showcase", "features-spotlight-cards", "features-tabbed-categories",
+  "features-comparison-checklist", "gallery-split-feature", "media-feature-reel",
+  "media-video-split",
 ]);
 
 // Comparison / differentiation ("us vs them", "old way vs new way").
 export const COMPARISON_TYPES = new Set([
   "comparison", "dandy-versus", "dso-paradigm-shift", "dso-comparison",
+  "features-comparison-checklist",
 ]);
 
 // FAQ / Q&A blocks reinforce the question-answer GEO signal.

@@ -61,6 +61,10 @@ import { BlockProductGrid } from "./BlockProductGrid";
 import { BlockPhotoStrip } from "./BlockPhotoStrip";
 import { BlockBottomCta } from "./BlockBottomCta";
 import { BlockVideoSection } from "./BlockVideoSection";
+import { BlockMediaFeatureReel } from "./BlockMediaFeatureReel";
+import { BlockMediaLoopingShowcase } from "./BlockMediaLoopingShowcase";
+import { BlockMediaThumbnailGrid } from "./BlockMediaThumbnailGrid";
+import { BlockMediaVideoSplit } from "./BlockMediaVideoSplit";
 import BlockCaseStudies from "./BlockCaseStudies";
 import BlockResources from "./BlockResources";
 import { BlockRichText } from "./BlockRichText";
@@ -134,6 +138,35 @@ import { BlockGradientPricing } from "./BlockGradientPricing";
 import { BlockMenuSection } from "./BlockMenuSection";
 import { BlockHoursLocation } from "./BlockHoursLocation";
 import { BlockBeforeAfterGallery } from "./BlockBeforeAfterGallery";
+import { BlockCtaCenteredMinimal } from "./BlockCtaCenteredMinimal";
+import { BlockCtaSplitImage } from "./BlockCtaSplitImage";
+import { BlockCtaStatBacked } from "./BlockCtaStatBacked";
+import { BlockCtaGradientBanner } from "./BlockCtaGradientBanner";
+import { BlockCaseStudyCardGrid } from "./BlockCaseStudyCardGrid";
+import { BlockCaseStudyLogoResultsRow } from "./BlockCaseStudyLogoResultsRow";
+import { BlockCaseStudyMetricTriptych } from "./BlockCaseStudyMetricTriptych";
+import { BlockCaseStudySpotlightFeature } from "./BlockCaseStudySpotlightFeature";
+import { BlockGalleryCarouselSpotlight } from "./BlockGalleryCarouselSpotlight";
+import { BlockGalleryFilmstrip } from "./BlockGalleryFilmstrip";
+import { BlockGalleryMasonry } from "./BlockGalleryMasonry";
+import { BlockGallerySplitFeature } from "./BlockGallerySplitFeature";
+import { BlockBenefitsAlternatingRows } from "./BlockBenefitsAlternatingRows";
+import { BlockHowItWorksAlternating } from "./BlockHowItWorksAlternating";
+import { BlockHowItWorksNumberedBento } from "./BlockHowItWorksNumberedBento";
+import { BlockHowItWorksVerticalTimeline } from "./BlockHowItWorksVerticalTimeline";
+import { BlockHowItWorksHorizontalStepper } from "./BlockHowItWorksHorizontalStepper";
+import { BlockBenefitsBento } from "./BlockBenefitsBento";
+import { BlockFeaturesBentoShowcase } from "./BlockFeaturesBentoShowcase";
+import { BlockFeaturesSpotlightCards } from "./BlockFeaturesSpotlightCards";
+import { BlockFeaturesTabbedCategories } from "./BlockFeaturesTabbedCategories";
+import { BlockFeaturesComparisonChecklist } from "./BlockFeaturesComparisonChecklist";
+import { BlockBenefitsIconGrid } from "./BlockBenefitsIconGrid";
+import { BlockBenefitsStatLed } from "./BlockBenefitsStatLed";
+import { BlockQuoteCarousel } from "./BlockQuoteCarousel";
+import { BlockQuoteLibrary } from "./BlockQuoteLibrary";
+import { BlockQuoteWithImage } from "./BlockQuoteWithImage";
+import { BlockSingleQuote } from "./BlockSingleQuote";
+import { BlockTestimonialGrid } from "./BlockTestimonialGrid";
 import { BlockSpeakerGrid } from "./BlockSpeakerGrid";
 import { BlockContentSeries } from "./BlockContentSeries";
 import { BlockEventNoir } from "./BlockEventNoir";
@@ -353,6 +386,17 @@ export const NO_REVEAL = new Set<string>([
   // blocks in the reveal motion.div). dandy-switchback already covers the tall
   // 100vh*N scroll variant above.
   "dandy-vertical-tabs", "roi-calculator", "dso-practice-nav",
+  // Owns its own carousel state + transition animations; wrapping it in the
+  // reveal motion.div double-animates the slide and fights the internal
+  // opacity/scale transition.
+  "quote-carousel",
+  // Photo gallery sections with horizontal scroll / snap + active-index
+  // carousel state. The reveal motion.div transform breaks the horizontal
+  // scroll-snap container and double-animates the active-slide transition.
+  "gallery-carousel-spotlight", "gallery-filmstrip",
+  // Horizontal scroll-snap stepper row: the reveal motion.div transform breaks
+  // the horizontal scroll-snap container, so it owns its own scroll interactivity.
+  "how-it-works-horizontal-stepper",
 ]);
 
 function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, testId, variantId, sessionId, pageVars, isBuilder, path = [], renderChild, renderEmptySlot, renderTailSlot }: Props) {
@@ -548,6 +592,14 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
         );
       case "video-section":
         return <BlockVideoSection props={block.props} brand={brand} onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "media-feature-reel":
+        return <BlockMediaFeatureReel props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "media-looping-showcase":
+        return <BlockMediaLoopingShowcase props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "media-thumbnail-grid":
+        return <BlockMediaThumbnailGrid props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "media-video-split":
+        return <BlockMediaVideoSplit props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "case-studies":
         return <BlockCaseStudies props={block.props} brand={brand} animationsEnabled={animationsEnabled} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "resources":
@@ -1140,8 +1192,66 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
         return <BlockHoursLocation props={block.props} brand={brand} onCtaClick={onCtaClick && block.props.ctaUrl ? () => onCtaClick(block.props.ctaUrl!) : undefined} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "before-after-gallery":
         return <BlockBeforeAfterGallery props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "cta-centered-minimal":
+        return <BlockCtaCenteredMinimal props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "cta-split-image":
+        return <BlockCtaSplitImage props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "cta-stat-backed":
+        return <BlockCtaStatBacked props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "cta-gradient-banner":
+        return <BlockCtaGradientBanner props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "gallery-carousel-spotlight":
+        return <BlockGalleryCarouselSpotlight props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "gallery-filmstrip":
+        return <BlockGalleryFilmstrip props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "case-study-card-grid":
+        return <BlockCaseStudyCardGrid props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "case-study-logo-results-row":
+        return <BlockCaseStudyLogoResultsRow props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "case-study-metric-triptych":
+        return <BlockCaseStudyMetricTriptych props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "case-study-spotlight-feature":
+        return <BlockCaseStudySpotlightFeature props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "gallery-masonry":
+        return <BlockGalleryMasonry props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "gallery-split-feature":
+        return <BlockGallerySplitFeature props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "benefits-alternating-rows":
+        return <BlockBenefitsAlternatingRows props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "how-it-works-alternating":
+        return <BlockHowItWorksAlternating props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "how-it-works-numbered-bento":
+        return <BlockHowItWorksNumberedBento props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "how-it-works-vertical-timeline":
+        return <BlockHowItWorksVerticalTimeline props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "how-it-works-horizontal-stepper":
+        return <BlockHowItWorksHorizontalStepper props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "benefits-bento":
+        return <BlockBenefitsBento props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "features-bento-showcase":
+        return <BlockFeaturesBentoShowcase props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "features-spotlight-cards":
+        return <BlockFeaturesSpotlightCards props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "features-tabbed-categories":
+        return <BlockFeaturesTabbedCategories props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "features-comparison-checklist":
+        return <BlockFeaturesComparisonChecklist props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "benefits-icon-grid":
+        return <BlockBenefitsIconGrid props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "benefits-stat-led":
+        return <BlockBenefitsStatLed props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "speaker-grid":
         return <BlockSpeakerGrid props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "quote-carousel":
+        return <BlockQuoteCarousel props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "quote-library":
+        return <BlockQuoteLibrary props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "quote-with-image":
+        return <BlockQuoteWithImage props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "single-quote":
+        return <BlockSingleQuote props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "testimonial-grid":
+        return <BlockTestimonialGrid props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "section":
         return <BlockSection props={block.props} childrenSlot={childrenSlot} isBuilder={isBuilder} />;
       case "columns":

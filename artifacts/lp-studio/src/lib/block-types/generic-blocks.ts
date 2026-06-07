@@ -184,6 +184,111 @@ export interface VideoSectionBlockProps extends CtaModalConfig {
   playInModal?: boolean;
 }
 
+/* ------------------------------------------------------------------------- */
+/*  Media blocks — video showcase sections graduated from mockup-sandbox.     */
+/*  FeatureReel: poster + play → video, with feature captions. LoopingShow-   */
+/*  case: autoplay/muted/looping background video with overlaid copy. Video   */
+/*  URLs are user-supplied (never auto-filled); posters fill from the library. */
+/* ------------------------------------------------------------------------- */
+
+export interface MediaFeatureReelFeature {
+  /** Lucide icon name (e.g. "Sparkles", "Zap", "Shield"). */
+  icon: string;
+  title: string;
+  desc: string;
+}
+
+export interface MediaFeatureReelBlockProps {
+  heading: string;
+  /** Video shown in the framed player; the poster image is shown until play. */
+  videoUrl: string;
+  /** Poster / preview image for the video card. */
+  posterUrl: string;
+  features: MediaFeatureReelFeature[];
+  /** Optional primary CTA. */
+  ctaLabel?: string;
+  ctaUrl?: string;
+  /** Optional secondary CTA link. */
+  ctaSecondaryLabel?: string;
+  ctaSecondaryUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+export interface MediaLoopingShowcaseBlockProps {
+  heading: string;
+  subheading?: string;
+  /** Autoplaying, muted, looping background video. */
+  videoUrl: string;
+  /** Poster / fallback image shown before the video loads. */
+  posterUrl: string;
+  /** Optional primary CTA. */
+  ctaLabel?: string;
+  ctaUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  /** Muted/secondary text color for the subheading. */
+  mutedColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/** A single video card in a media-thumbnail-grid. Each card has its own video
+ *  (user-supplied, never auto-filled) and a poster image (library auto-filled). */
+export interface MediaThumbnailGridItem {
+  id: string;
+  /** Video opened in the lightbox when the card is clicked. */
+  videoUrl: string;
+  /** Poster / thumbnail image shown in the card. */
+  posterUrl: string;
+  title: string;
+  /** Duration badge text (e.g. "4:12"). */
+  duration: string;
+}
+
+export interface MediaThumbnailGridBlockProps {
+  eyebrow?: string;
+  heading: string;
+  subheading?: string;
+  /** Grid of video thumbnail cards. */
+  videos: MediaThumbnailGridItem[];
+  /** Optional CTA link. */
+  ctaLabel?: string;
+  ctaUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+export interface MediaVideoSplitBlockProps {
+  eyebrow?: string;
+  heading: string;
+  description?: string;
+  /** Checklist of feature bullet strings. */
+  features?: string[];
+  /** Video shown beside the copy; the poster image is shown until play. */
+  videoUrl: string;
+  /** Poster / preview image for the video. */
+  posterUrl: string;
+  /** Optional primary CTA. */
+  ctaLabel?: string;
+  ctaUrl?: string;
+  /** Optional secondary CTA link. */
+  ctaSecondaryLabel?: string;
+  ctaSecondaryUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
 export interface CaseStudiesBlockProps {
   headline: string;
   subheadline: string;
@@ -1318,6 +1423,323 @@ export interface BeforeAfterGalleryBlockProps {
   beforeLabel?: string;
   /** Label for the "after" tile pill. Default "After". */
   afterLabel?: string;
+}
+
+/* ------------------------------------------------------------------------- */
+/*  CTA section blocks — focused call-to-action sections (centered surface    */
+/*  card, gradient banner) with a primary + secondary CtaButton. Decorative   */
+/*  only (no imagery).                                                        */
+/* ------------------------------------------------------------------------- */
+
+/** CTA — Centered Minimal: an eyebrow + headline + subheading centered on a
+ *  rounded surface card, with a primary + secondary button row below. */
+export interface CtaCenteredMinimalBlockProps {
+  eyebrow?: string;
+  heading: string;
+  subheading?: string;
+  ctaPrimaryLabel?: string;
+  ctaPrimaryUrl?: string;
+  ctaSecondaryLabel?: string;
+  ctaSecondaryUrl?: string;
+  /** Outer page background behind the surface card. */
+  bgColor?: string;
+  /** The rounded surface card background. */
+  surfaceColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/** CTA — Gradient Banner: a headline + subheading centered on an accent-colored
+ *  gradient banner (linear-gradient from the accent color), with a primary +
+ *  secondary button row below. */
+export interface CtaGradientBannerBlockProps {
+  heading: string;
+  subheading?: string;
+  ctaPrimaryLabel?: string;
+  ctaPrimaryUrl?: string;
+  ctaSecondaryLabel?: string;
+  ctaSecondaryUrl?: string;
+  /** Outer page background behind the gradient banner. */
+  bgColor?: string;
+  /** On-gradient text color (the banner's foreground). */
+  textColor?: string;
+  /** Gradient base color (the banner fill). */
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/** CTA — Split Image: a two-column call-to-action pairing a large rounded
+ *  product image on one side with eyebrow + heading + subheading copy and a
+ *  primary + secondary button row on the other. */
+export interface CtaSplitImageBlockProps {
+  eyebrow?: string;
+  heading: string;
+  subheading?: string;
+  /** The large feature image shown beside the copy. */
+  imageUrl?: string;
+  imageAlt?: string;
+  ctaPrimaryLabel?: string;
+  ctaPrimaryUrl?: string;
+  ctaSecondaryLabel?: string;
+  ctaSecondaryUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/** A single value+label metric in the CTA — Stat Backed block. */
+export interface CtaStat {
+  value: string;
+  label: string;
+}
+
+/** CTA — Stat Backed: a call-to-action pairing heading + subheading + a
+ *  primary + secondary button row on one side with a column of big-number
+ *  stat cards (value + label) on the other. */
+export interface CtaStatBackedBlockProps {
+  heading: string;
+  subheading?: string;
+  stats: CtaStat[];
+  ctaPrimaryLabel?: string;
+  ctaPrimaryUrl?: string;
+  ctaSecondaryLabel?: string;
+  ctaSecondaryUrl?: string;
+  /** Outer page background. */
+  bgColor?: string;
+  /** The stat card background. */
+  surfaceColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/* ------------------------------------------------------------------------- */
+/*  Case Study blocks — social-proof sections built from customer stories,    */
+/*  logos, and headline result metrics.                                       */
+/* ------------------------------------------------------------------------- */
+
+/** A single customer story card in the Case Study — Card Grid block. */
+export interface CaseStudyCard {
+  /** Customer / company name. */
+  company: string;
+  /** Company logo or photo shown in the card header (library/AI-filled). */
+  imageUrl: string;
+  /** Optional alt text for the logo/photo. */
+  imageAlt?: string;
+  /** The outcome / quote describing what the customer achieved. */
+  result: string;
+  /** The headline metric value (e.g. "85%", "2.5x", "$12M"). */
+  metricValue: string;
+  /** The metric label (e.g. "Reduction in manual sync tasks"). */
+  metricLabel: string;
+  /** Optional link to the full story. */
+  linkUrl?: string;
+}
+
+/** Case Study — Card Grid: a grid of customer-story cards, each with a logo,
+ *  result quote, and a headline metric, plus an optional closing CTA. */
+export interface CaseStudyCardGridBlockProps {
+  heading: string;
+  subheading?: string;
+  cards: CaseStudyCard[];
+  /** Optional link/CTA below the grid. */
+  ctaLabel?: string;
+  ctaUrl?: string;
+  /** Outer page background. */
+  bgColor?: string;
+  /** The card surface background. */
+  surfaceColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/** A single customer outcome in the Case Study — Logo Results Row block. */
+export interface CaseStudyResult {
+  /** Customer / company name. */
+  company: string;
+  /** Company logo image (library/AI-filled). */
+  logoUrl: string;
+  /** Optional alt text for the logo. */
+  logoAlt?: string;
+  /** Short description of the outcome the customer achieved. */
+  outcome: string;
+  /** The headline metric (e.g. "99.99% uptime", "3x faster"). */
+  metricValue: string;
+}
+
+/** Case Study — Logo Results Row: a row of customer logos paired with a
+ *  headline result metric + outcome, plus an optional CTA. */
+export interface CaseStudyLogoResultsRowBlockProps {
+  heading?: string;
+  results: CaseStudyResult[];
+  /** Optional CTA below the row. */
+  ctaLabel?: string;
+  ctaUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/** A single headline metric in the Case Study — Metric Triptych block. */
+export interface CaseStudyMetric {
+  /** The big numeric value (e.g. "10x", "$2.4M", "45%"). */
+  value: string;
+  /** The supporting label describing the metric. */
+  label: string;
+}
+
+/** Case Study — Metric Triptych: a centered, text-only proof section that pairs
+ *  three big headline metrics with a customer pull-quote, attribution, and an
+ *  optional closing CTA. No images — a pure stats + quote social-proof band. */
+export interface CaseStudyMetricTriptychBlockProps {
+  /** Customer / company name shown above the metrics. */
+  company: string;
+  /** Exactly three (1–3) headline metrics. */
+  metrics: CaseStudyMetric[];
+  /** The customer pull-quote. */
+  quote: string;
+  /** Quote author name. */
+  author: string;
+  /** Quote author role/title. */
+  role: string;
+  /** Optional link/CTA below the quote. */
+  ctaLabel?: string;
+  ctaUrl?: string;
+  /** Outer page background. */
+  bgColor?: string;
+  /** The logo-badge surface background. */
+  surfaceColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/** Case Study — Spotlight Feature: a featured customer story rendered as a
+ *  two-column split — Challenge/Solution/Result narrative + a headline metric +
+ *  CTA on one side, and a prominent hero photo on the other. */
+export interface CaseStudySpotlightFeatureBlockProps {
+  /** Small uppercase label above the story (e.g. "Featured Case Study"). */
+  eyebrow?: string;
+  /** Customer / company name. */
+  company: string;
+  /** The story headline. */
+  headline: string;
+  /** What the customer struggled with. */
+  challenge: string;
+  /** How the product solved it. */
+  solution: string;
+  /** The outcome they achieved. */
+  result: string;
+  /** The headline metric value (e.g. "300%"). */
+  metricValue: string;
+  /** The metric label. */
+  metricLabel: string;
+  /** The prominent feature photo (library/AI-filled). */
+  imageUrl: string;
+  /** Optional alt text for the photo. */
+  imageAlt?: string;
+  /** Optional link/CTA below the narrative. */
+  ctaLabel?: string;
+  ctaUrl?: string;
+  /** Outer page background. */
+  bgColor?: string;
+  /** The metric-card surface background. */
+  surfaceColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/* ------------------------------------------------------------------------- */
+/*  Photo Gallery blocks — horizontal carousel + filmstrip of captioned      */
+/*  images. Image-led media sections for product tours, events, portfolios.  */
+/* ------------------------------------------------------------------------- */
+
+export interface GalleryImage {
+  id: string;
+  src: string;
+  caption: string;
+  /** Optional alt text for accessibility; falls back to caption. */
+  alt?: string;
+  /** Optional Tailwind aspect-ratio class (e.g. "aspect-[4/3]") for masonry layouts. */
+  aspect?: string;
+}
+
+export interface GalleryCarouselSpotlightBlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  images: GalleryImage[];
+  /** Optional CTA button below the carousel. */
+  ctaLabel?: string;
+  ctaUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+export interface GalleryFilmstripBlockProps {
+  headline: string;
+  images: GalleryImage[];
+  /** Optional CTA link beside the heading. */
+  ctaLabel?: string;
+  ctaUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+export interface GalleryMasonryBlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  /** Each image carries an optional `aspect` Tailwind class for the masonry columns. */
+  images: GalleryImage[];
+  /** Optional CTA button below the grid. */
+  ctaLabel?: string;
+  ctaUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+export interface GallerySplitFeatureBlockProps {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  /** The large hero image filling the left of the gallery grid. */
+  imageUrl: string;
+  /** Two smaller images stacked beside the hero. */
+  images: GalleryImage[];
+  /** Optional primary CTA. */
+  ctaLabel?: string;
+  ctaUrl?: string;
+  /** Optional secondary CTA link. */
+  ctaSecondaryLabel?: string;
+  ctaSecondaryUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -2635,4 +3057,454 @@ export interface AvatarSocialProofBlockProps extends HeroBrandStyleConfig {
   reviewSummary?: string;
   testimonialQuote?: string;
   testimonialAuthor?: string;
+}
+
+/* ------------------------------------------------------------------------- */
+/*  Benefits family (graduated from mockup-sandbox) — four section layouts:   */
+/*  alternating rows, bento grid, icon grid, and stat-led columns. Each       */
+/*  carries an optional link-style CTA suite (eyebrow/heading/subheading +     */
+/*  primary & secondary buttons) and brand-aware bg/text/accent styling.      */
+/* ------------------------------------------------------------------------- */
+
+/** Shared optional CTA suite appended below each benefits section. */
+export interface BenefitsCtaConfig {
+  /** Hide the trailing CTA band entirely. Default true (shown). */
+  showCta?: boolean;
+  ctaEyebrow?: string;
+  ctaHeading?: string;
+  ctaSubheading?: string;
+  ctaPrimaryLabel?: string;
+  ctaPrimaryUrl?: string;
+  ctaSecondaryLabel?: string;
+  ctaSecondaryUrl?: string;
+}
+
+/** A single alternating row: icon + title + description + feature checklist. */
+export interface BenefitsAlternatingRow {
+  /** Lucide icon name (see ICON_MAP in the block component). */
+  icon: string;
+  title: string;
+  description: string;
+  features: string[];
+  /** Optional inline "learn more" link below the checklist. */
+  linkLabel?: string;
+  linkUrl?: string;
+}
+
+/** Benefits — Alternating Rows: header + alternating text/visual rows, each
+ *  with an icon, feature checklist, and inline link, plus an optional CTA. */
+export interface BenefitsAlternatingRowsBlockProps extends BenefitsCtaConfig {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  rows: BenefitsAlternatingRow[];
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+/** A single step in the alternating "how it works" showcase: number badge +
+ *  icon + title + description + feature checklist. The visual side is a
+ *  decorative placeholder (no real imagery). */
+export interface HowItWorksAlternatingStep {
+  /** Lucide icon name (see ICON_MAP in the block component). */
+  icon: string;
+  title: string;
+  description: string;
+  features: string[];
+}
+
+/** How It Works — Alternating Showcase: header + alternating left/right rows,
+ *  each numbered with an icon, copy, and a feature checklist beside a decorative
+ *  product panel, plus an optional trailing CTA band. */
+export interface HowItWorksAlternatingBlockProps extends BenefitsCtaConfig {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  steps: HowItWorksAlternatingStep[];
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/** A single step in the numbered-bento "how it works": icon + title +
+ *  description. Rendered inside an oversized-number bento tile. */
+export interface HowItWorksNumberedBentoStep {
+  /** Lucide icon name (see ICON_MAP in the block component). */
+  icon: string;
+  title: string;
+  description: string;
+}
+
+/** How It Works — Numbered Bento: header + an asymmetric bento grid of numbered
+ *  steps (oversized background numerals, the last tile accent-colored), a
+ *  centered primary button, and an optional trailing CTA band. Decorative only
+ *  (no real imagery). */
+export interface HowItWorksNumberedBentoBlockProps extends BenefitsCtaConfig {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  steps: HowItWorksNumberedBentoStep[];
+  buttonLabel?: string;
+  buttonUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/** A single step in the vertical-timeline "how it works": icon + title +
+ *  description. Rendered as a node on a vertical connecting rail. */
+export interface HowItWorksVerticalTimelineStep {
+  /** Lucide icon name (see ICON_MAP in the block component). */
+  icon: string;
+  title: string;
+  description: string;
+}
+
+/** How It Works — Vertical Timeline: header + a vertical numbered timeline
+ *  (connecting rail with node circles, each step icon + title + description),
+ *  a primary + secondary button row, and an optional trailing CTA band.
+ *  Decorative only (no real imagery). */
+export interface HowItWorksVerticalTimelineBlockProps extends BenefitsCtaConfig {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  steps: HowItWorksVerticalTimelineStep[];
+  primaryButtonLabel?: string;
+  primaryButtonUrl?: string;
+  secondaryButtonLabel?: string;
+  secondaryButtonUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/** A single step in the horizontal stepper: icon + title + description. */
+export interface HowItWorksHorizontalStep {
+  /** Lucide icon name (see ICON_MAP in the block component). */
+  icon: string;
+  title: string;
+  description: string;
+}
+
+/** How It Works — Horizontal Stepper: header (with an optional header CTA
+ *  button) + a horizontal row of numbered steps over a progress rail, a
+ *  trust-badge row, and an optional trailing CTA band. The steps row is a
+ *  horizontal scroll-snap container on narrow screens. */
+export interface HowItWorksHorizontalStepperBlockProps extends BenefitsCtaConfig {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  /** Optional inline CTA button rendered in the section header. */
+  headerCtaLabel?: string;
+  headerCtaUrl?: string;
+  steps: HowItWorksHorizontalStep[];
+  /** Trailing trust badges (e.g. "No credit card required"). */
+  trustItems?: string[];
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
+}
+
+/** A single bento tile. The first tile renders large; the last renders as a
+ *  dark accent panel — layout spans are derived by index in the component. */
+export interface BenefitsBentoTile {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+/** Benefits — Bento Grid: asymmetric 5-tile bento (large hero tile + small
+ *  tiles + a dark accent tile) with an optional CTA. */
+export interface BenefitsBentoBlockProps extends BenefitsCtaConfig {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  tiles: BenefitsBentoTile[];
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+/** A single bento-showcase tile: icon + title + description. The first tile
+ *  renders large (2×2 hero) and embeds a builder-canvas mockup; the remaining
+ *  tiles render compact with their own decorative mini-mockups keyed by index. */
+export interface FeaturesBentoShowcaseTile {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+/** Features — Bento Showcase: an asymmetric 6-tile bento grid (large flagship
+ *  tile + supporting tiles) with decorative product mockups and an optional CTA. */
+export interface FeaturesBentoShowcaseBlockProps extends BenefitsCtaConfig {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  tiles: FeaturesBentoShowcaseTile[];
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+/** A single supporting feature card in the spotlight-cards grid. */
+export interface FeaturesSpotlightCardsSecondaryFeature {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+/** Features — Spotlight Cards: a large flagship "spotlight" card (icon + title +
+ *  description + inline button + builder mockup) above a row of compact
+ *  supporting feature cards, with an optional trailing CTA band. */
+export interface FeaturesSpotlightCardsBlockProps extends BenefitsCtaConfig {
+  eyebrow?: string;
+  headline: string;
+  /** Lucide icon name for the spotlight feature (see ICON_MAP in the component). */
+  spotlightIcon: string;
+  spotlightTitle: string;
+  spotlightDescription: string;
+  /** Inline button rendered inside the spotlight card. Hidden when blank. */
+  spotlightButtonLabel?: string;
+  spotlightButtonUrl?: string;
+  secondaryFeatures: FeaturesSpotlightCardsSecondaryFeature[];
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+/** A single feature listed inside a tabbed category. */
+export interface FeaturesTabbedCategoriesFeature {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+/** A single category tab: label + icon + per-tab heading/subheading + features.
+ *  Each tab renders a decorative product mockup keyed by index in the component. */
+export interface FeaturesTabbedCategoriesCategory {
+  /** Stable id used to track the active tab. */
+  id: string;
+  label: string;
+  /** Lucide icon name shown in the tab button (see ICON_MAP in the component). */
+  icon: string;
+  heading: string;
+  subheading: string;
+  features: FeaturesTabbedCategoriesFeature[];
+}
+
+/** Features — Tabbed Categories: a header + a row of category tabs that swap an
+ *  active panel (heading/subheading + feature list + decorative mockup), with an
+ *  optional trailing CTA band. Keeps client-side active-tab state. */
+export interface FeaturesTabbedCategoriesBlockProps extends BenefitsCtaConfig {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  categories: FeaturesTabbedCategoriesCategory[];
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+/** A single comparison-checklist feature row: icon + name + description. */
+export interface FeaturesComparisonChecklistFeature {
+  icon: string;
+  name: string;
+  description: string;
+}
+
+/** A grouped category of comparison-checklist features. */
+export interface FeaturesComparisonChecklistCategory {
+  title: string;
+  features: FeaturesComparisonChecklistFeature[];
+}
+
+/** Features — Comparison Checklist: a grouped feature table with included
+ *  checkmarks, a bespoke "need something custom?" card, and an optional CTA. */
+export interface FeaturesComparisonChecklistBlockProps extends BenefitsCtaConfig {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  /** Left column header label (e.g. "Feature & Description"). */
+  featureColumnLabel?: string;
+  /** Right column header label (e.g. "Included"). */
+  includedColumnLabel?: string;
+  categories: FeaturesComparisonChecklistCategory[];
+  /** Show the trailing bespoke/custom card above the CTA band. Default true. */
+  showBespokeCard?: boolean;
+  bespokeHeading?: string;
+  bespokeSubheading?: string;
+  bespokeButtonLabel?: string;
+  bespokeButtonUrl?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+/** A single icon-grid item: icon + title + description. */
+export interface BenefitsIconGridItem {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+/** Benefits — Icon Grid: a 2- or 3-column grid of icon + title + description
+ *  cards with an optional CTA. */
+export interface BenefitsIconGridBlockProps extends BenefitsCtaConfig {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  items: BenefitsIconGridItem[];
+  /** Cards per row at lg+. Default 3. */
+  columns?: 2 | 3;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+/** A single stat column: big stat number + icon + title + description. */
+export interface BenefitsStatLedItem {
+  /** The big display value, e.g. "3.5x", "+42%", "15h". */
+  stat: string;
+  title: string;
+  description: string;
+  icon: string;
+}
+
+/** Benefits — Stat-Led: 3 oversized stat columns (stat + icon + title +
+ *  description) with an optional CTA. */
+export interface BenefitsStatLedBlockProps extends BenefitsCtaConfig {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  stats: BenefitsStatLedItem[];
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+/* ------------------------------------------------------------------------- */
+/*  Quotes / Testimonials family (graduated from mockup-sandbox) — three      */
+/*  social-proof section layouts: a single-quote carousel, a masonry "wall    */
+/*  of love" library, and a single large quote paired with a portrait image.  */
+/*  Each carries an optional link-style CTA suite and brand-aware styling.     */
+/* ------------------------------------------------------------------------- */
+
+/** A single testimonial shown in the quote carousel. */
+export interface QuoteCarouselTestimonial {
+  quote: string;
+  author: string;
+  role: string;
+  company: string;
+  /** Optional star rating (1–5). */
+  rating?: number;
+  /** Initials fallback shown when no avatar image is set. */
+  avatarInitials?: string;
+  /** Optional avatar image URL. */
+  avatarImage?: string;
+}
+
+/** Quotes — Carousel: one large testimonial at a time with prev/next + dot
+ *  controls and an optional CTA band. */
+export interface QuoteCarouselBlockProps extends BenefitsCtaConfig {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  testimonials: QuoteCarouselTestimonial[];
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+/** A single testimonial card in the quote library masonry grid. */
+export interface QuoteLibraryTestimonial {
+  id: string;
+  quote: string;
+  author: string;
+  role: string;
+  company: string;
+  /** Optional star rating (1–5). */
+  rating?: number;
+  /** Initials shown in the avatar bubble. */
+  avatarInitials?: string;
+}
+
+/** Quotes — Library: a masonry "wall of love" of testimonial cards with an
+ *  optional CTA band. */
+export interface QuoteLibraryBlockProps extends BenefitsCtaConfig {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  testimonials: QuoteLibraryTestimonial[];
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+/** Quotes — With Image: a single large quote paired with a portrait image,
+ *  star rating, and an optional CTA band. */
+export interface QuoteWithImageBlockProps extends BenefitsCtaConfig {
+  eyebrow?: string;
+  quote: string;
+  author: string;
+  role: string;
+  company: string;
+  /** Portrait / customer image URL. */
+  imageUrl?: string;
+  /** Alt text for the portrait image. */
+  imageAlt?: string;
+  /** Side the image sits on at lg+. Default "left". */
+  imageSide?: "left" | "right";
+  /** Number of filled stars to show (0 hides the rating). Default 5. */
+  rating?: number;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+/** Quotes — Single: one cinematic, centered testimonial with a large quote
+ *  mark, avatar-initials bubble, and an optional CTA band. */
+export interface SingleQuoteBlockProps extends BenefitsCtaConfig {
+  quote: string;
+  author: string;
+  role: string;
+  company: string;
+  /** Initials shown in the avatar bubble. */
+  avatarInitials?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+/** A single testimonial card shown in the testimonial grid. */
+export interface TestimonialGridItem {
+  id: string;
+  quote: string;
+  author: string;
+  role: string;
+  company: string;
+  /** Optional star rating (1–5). */
+  rating?: number;
+  /** Initials shown in the avatar bubble. */
+  avatarInitials?: string;
+}
+
+/** Testimonials — Grid: a header plus a responsive grid of testimonial cards
+ *  (stars + quote + author) with an optional CTA band. */
+export interface TestimonialGridBlockProps extends BenefitsCtaConfig {
+  eyebrow?: string;
+  headline: string;
+  subheadline?: string;
+  testimonials: TestimonialGridItem[];
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
 }

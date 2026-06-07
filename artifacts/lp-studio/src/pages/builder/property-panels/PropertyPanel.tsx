@@ -25,6 +25,75 @@ import CaseStudiesPanel from "./CaseStudiesPanel";
 import ResourcesPanel from "./ResourcesPanel";
 import { RichTextPanel } from "./RichTextPanel";
 import { CustomHtmlPanel } from "./CustomHtmlPanel";
+// --- Graduated section blocks (auto-batched routing) ---
+import { BenefitsAlternatingRowsPanel } from "./BenefitsAlternatingRowsPanel";
+import { BenefitsBentoPanel } from "./BenefitsBentoPanel";
+import { BenefitsIconGridPanel } from "./BenefitsIconGridPanel";
+import { BenefitsStatLedPanel } from "./BenefitsStatLedPanel";
+import { QuoteCarouselPanel } from "./QuoteCarouselPanel";
+import { QuoteLibraryPanel } from "./QuoteLibraryPanel";
+import { QuoteWithImagePanel } from "./QuoteWithImagePanel";
+import { SingleQuotePanel } from "./SingleQuotePanel";
+import { TestimonialGridPanel } from "./TestimonialGridPanel";
+import { GalleryCarouselSpotlightPanel } from "./GalleryCarouselSpotlightPanel";
+import { GalleryFilmstripPanel } from "./GalleryFilmstripPanel";
+import { GalleryMasonryPanel } from "./GalleryMasonryPanel";
+import { GallerySplitFeaturePanel } from "./GallerySplitFeaturePanel";
+import { FeaturesBentoShowcasePanel } from "./FeaturesBentoShowcasePanel";
+import { FeaturesComparisonChecklistPanel } from "./FeaturesComparisonChecklistPanel";
+import { FeaturesSpotlightCardsPanel } from "./FeaturesSpotlightCardsPanel";
+import { FeaturesTabbedCategoriesPanel } from "./FeaturesTabbedCategoriesPanel";
+import { HowItWorksAlternatingPanel } from "./HowItWorksAlternatingPanel";
+import { HowItWorksHorizontalStepperPanel } from "./HowItWorksHorizontalStepperPanel";
+import { HowItWorksNumberedBentoPanel } from "./HowItWorksNumberedBentoPanel";
+import { HowItWorksVerticalTimelinePanel } from "./HowItWorksVerticalTimelinePanel";
+import { MediaFeatureReelPanel } from "./MediaFeatureReelPanel";
+import { MediaLoopingShowcasePanel } from "./MediaLoopingShowcasePanel";
+import { MediaThumbnailGridPanel } from "./MediaThumbnailGridPanel";
+import { MediaVideoSplitPanel } from "./MediaVideoSplitPanel";
+import { CtaCenteredMinimalPanel } from "./CtaCenteredMinimalPanel";
+import { CtaGradientBannerPanel } from "./CtaGradientBannerPanel";
+import { CtaSplitImagePanel } from "./CtaSplitImagePanel";
+import { CtaStatBackedPanel } from "./CtaStatBackedPanel";
+import { CaseStudyCardGridPanel } from "./CaseStudyCardGridPanel";
+import { CaseStudyLogoResultsRowPanel } from "./CaseStudyLogoResultsRowPanel";
+import { CaseStudyMetricTriptychPanel } from "./CaseStudyMetricTriptychPanel";
+import { CaseStudySpotlightFeaturePanel } from "./CaseStudySpotlightFeaturePanel";
+import type {
+  BenefitsAlternatingRowsBlockProps,
+  BenefitsBentoBlockProps,
+  BenefitsIconGridBlockProps,
+  BenefitsStatLedBlockProps,
+  QuoteCarouselBlockProps,
+  QuoteLibraryBlockProps,
+  QuoteWithImageBlockProps,
+  SingleQuoteBlockProps,
+  TestimonialGridBlockProps,
+  GalleryCarouselSpotlightBlockProps,
+  GalleryFilmstripBlockProps,
+  GalleryMasonryBlockProps,
+  GallerySplitFeatureBlockProps,
+  FeaturesBentoShowcaseBlockProps,
+  FeaturesComparisonChecklistBlockProps,
+  FeaturesSpotlightCardsBlockProps,
+  FeaturesTabbedCategoriesBlockProps,
+  HowItWorksAlternatingBlockProps,
+  HowItWorksHorizontalStepperBlockProps,
+  HowItWorksNumberedBentoBlockProps,
+  HowItWorksVerticalTimelineBlockProps,
+  MediaFeatureReelBlockProps,
+  MediaLoopingShowcaseBlockProps,
+  MediaThumbnailGridBlockProps,
+  MediaVideoSplitBlockProps,
+  CtaCenteredMinimalBlockProps,
+  CtaGradientBannerBlockProps,
+  CtaSplitImageBlockProps,
+  CtaStatBackedBlockProps,
+  CaseStudyCardGridBlockProps,
+  CaseStudyLogoResultsRowBlockProps,
+  CaseStudyMetricTriptychBlockProps,
+  CaseStudySpotlightFeatureBlockProps,
+} from "@/lib/block-types";
 import {
   GridImagePanel,
   GridHeadlineSubPanel,
@@ -917,7 +986,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
     try {
       const types = currentTiles.length > 0 ? currentTiles.map(t => t.type) : ["stat", "stat", "stat", "photo", "quote", "feature"];
       const tiles = await refreshBentoTiles(types);
-      onChange({ ...block, props: { ...block.props, tiles } } as PageBlock);
+      onChange({ ...block, props: { ...block.props, tiles } } as unknown as PageBlock);
     } catch (e) {
       console.error("Bento tiles refresh failed", e);
     } finally {
@@ -954,6 +1023,241 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
 
   const renderForm = () => {
     switch (block.type) {
+      case "benefits-alternating-rows":
+        return (
+          <BenefitsAlternatingRowsPanel
+            props={block.props as BenefitsAlternatingRowsBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "benefits-bento":
+        return (
+          <BenefitsBentoPanel
+            props={block.props as BenefitsBentoBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "benefits-icon-grid":
+        return (
+          <BenefitsIconGridPanel
+            props={block.props as BenefitsIconGridBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "benefits-stat-led":
+        return (
+          <BenefitsStatLedPanel
+            props={block.props as BenefitsStatLedBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "quote-carousel":
+        return (
+          <QuoteCarouselPanel
+            props={block.props as QuoteCarouselBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "quote-library":
+        return (
+          <QuoteLibraryPanel
+            props={block.props as QuoteLibraryBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "quote-with-image":
+        return (
+          <QuoteWithImagePanel
+            props={block.props as QuoteWithImageBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "single-quote":
+        return (
+          <SingleQuotePanel
+            props={block.props as SingleQuoteBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "testimonial-grid":
+        return (
+          <TestimonialGridPanel
+            props={block.props as TestimonialGridBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "gallery-carousel-spotlight":
+        return (
+          <GalleryCarouselSpotlightPanel
+            props={block.props as GalleryCarouselSpotlightBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "gallery-filmstrip":
+        return (
+          <GalleryFilmstripPanel
+            props={block.props as GalleryFilmstripBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "gallery-masonry":
+        return (
+          <GalleryMasonryPanel
+            props={block.props as GalleryMasonryBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "gallery-split-feature":
+        return (
+          <GallerySplitFeaturePanel
+            props={block.props as GallerySplitFeatureBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "features-bento-showcase":
+        return (
+          <FeaturesBentoShowcasePanel
+            props={block.props as FeaturesBentoShowcaseBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "features-comparison-checklist":
+        return (
+          <FeaturesComparisonChecklistPanel
+            props={block.props as FeaturesComparisonChecklistBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "features-spotlight-cards":
+        return (
+          <FeaturesSpotlightCardsPanel
+            props={block.props as FeaturesSpotlightCardsBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "features-tabbed-categories":
+        return (
+          <FeaturesTabbedCategoriesPanel
+            props={block.props as FeaturesTabbedCategoriesBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "how-it-works-alternating":
+        return (
+          <HowItWorksAlternatingPanel
+            props={block.props as HowItWorksAlternatingBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "how-it-works-horizontal-stepper":
+        return (
+          <HowItWorksHorizontalStepperPanel
+            props={block.props as HowItWorksHorizontalStepperBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "how-it-works-numbered-bento":
+        return (
+          <HowItWorksNumberedBentoPanel
+            props={block.props as HowItWorksNumberedBentoBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "how-it-works-vertical-timeline":
+        return (
+          <HowItWorksVerticalTimelinePanel
+            props={block.props as HowItWorksVerticalTimelineBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "media-feature-reel":
+        return (
+          <MediaFeatureReelPanel
+            props={block.props as MediaFeatureReelBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+            brandVoiceSet={brandVoiceSet}
+          />
+        );
+      case "media-looping-showcase":
+        return (
+          <MediaLoopingShowcasePanel
+            props={block.props as MediaLoopingShowcaseBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+            brandVoiceSet={brandVoiceSet}
+          />
+        );
+      case "media-thumbnail-grid":
+        return (
+          <MediaThumbnailGridPanel
+            props={block.props as MediaThumbnailGridBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+            brandVoiceSet={brandVoiceSet}
+          />
+        );
+      case "media-video-split":
+        return (
+          <MediaVideoSplitPanel
+            props={block.props as MediaVideoSplitBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+            brandVoiceSet={brandVoiceSet}
+          />
+        );
+      case "cta-centered-minimal":
+        return (
+          <CtaCenteredMinimalPanel
+            props={block.props as CtaCenteredMinimalBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "cta-gradient-banner":
+        return (
+          <CtaGradientBannerPanel
+            props={block.props as CtaGradientBannerBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "cta-split-image":
+        return (
+          <CtaSplitImagePanel
+            props={block.props as CtaSplitImageBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "cta-stat-backed":
+        return (
+          <CtaStatBackedPanel
+            props={block.props as CtaStatBackedBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "case-study-card-grid":
+        return (
+          <CaseStudyCardGridPanel
+            props={block.props as CaseStudyCardGridBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "case-study-logo-results-row":
+        return (
+          <CaseStudyLogoResultsRowPanel
+            props={block.props as CaseStudyLogoResultsRowBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "case-study-metric-triptych":
+        return (
+          <CaseStudyMetricTriptychPanel
+            props={block.props as CaseStudyMetricTriptychBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
+      case "case-study-spotlight-feature":
+        return (
+          <CaseStudySpotlightFeaturePanel
+            props={block.props as CaseStudySpotlightFeatureBlockProps}
+            onChange={(next) => onChange({ ...block, props: next })}
+          />
+        );
       case "hero":
         return (
           <HeroPanel

@@ -990,6 +990,9 @@ export function collectImageSlots(
   pushScalar("backgroundImage", "lp-hero", blockContext);
   pushScalar("heroImageUrl", "lp-hero", blockContext);
   pushScalar("bundleImageUrl", "lp-feature", blockContext); // storefront closing-CTA bundle
+  // media block video poster still (the videoUrl is user-picked, never collected).
+  // looping-showcase poster doubles as a full-bleed backdrop → lp-hero; others framed → lp-feature.
+  pushScalar("posterUrl", blockType === "media-looping-showcase" ? "lp-hero" : "lp-feature", blockContext);
 
   const pushArrField = (
     arr: unknown,
@@ -1026,6 +1029,10 @@ export function collectImageSlots(
   }
   pushArrField(props.cases, "image", "lp-feature", it => `${it.name ?? ""} ${it.author ?? ""}`);
   pushArrField(props.slides, "src", "lp-feature", it => `${it.caption ?? ""} ${it.headline ?? ""}`);
+  // case-study-logo-results-row results[].logoUrl (customer logos)
+  pushArrField(props.results, "logoUrl", "lp-feature", it => `${it.company ?? ""} ${it.outcome ?? ""}`);
+  // media-thumbnail-grid videos[].posterUrl (per-card video poster still; videoUrl is user-picked)
+  pushArrField(props.videos, "posterUrl", "lp-feature", it => `${it.title ?? ""} ${blockContext}`);
 
   // blog-series (editorial archive) + storefront (DTC shop) premium full-page blocks
   pushArrField(props.articles, "imageUrl", "lp-feature", it => `${it.category ?? ""} ${it.title ?? ""} ${it.excerpt ?? ""}`);
@@ -1435,7 +1442,9 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
     if (blockType === "hero" && "imageUrl" in props && !props.imageUrl) {
       props.imageUrl = pick(blockContext, images, usedIds, "lp-hero");
     } else if (!blockType.startsWith("dso-") && "imageUrl" in props && !props.imageUrl) {
-      // Other standard blocks with imageUrl → feature images
+      // Other standard single-imageUrl blocks → feature images. This generic
+      // path covers quote-with-image and cta-split-image (their lone imageUrl
+      // is filled with an "lp-feature" image here).
       props.imageUrl = pick(blockContext, images, usedIds, "lp-feature");
     }
 
@@ -1612,6 +1621,72 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
           return { ...slide, src: pick(ctx, images, usedIds, "lp-feature") };
         }
         return slide;
+      });
+    }
+    // gallery-carousel-spotlight / gallery-filmstrip / gallery-masonry /
+    // gallery-split-feature images[] (photo galleries with an image-array; src
+    // starts "" so the library pass fills each slide)
+    if (
+      (blockType === "gallery-carousel-spotlight" ||
+        blockType === "gallery-filmstrip" ||
+        blockType === "gallery-masonry" ||
+        blockType === "gallery-split-feature") &&
+      Array.isArray(props.images)
+    ) {
+      props.images = (props.images as Record<string, unknown>[]).map((img) => {
+        if (!img.src) {
+          const ctx = `${img.caption ?? ""} ${img.alt ?? ""} ${blockContext}`;
+          return { ...img, src: pick(ctx, images, usedIds, "lp-feature") };
+        }
+        return img;
+      });
+    }
+    // case-study-card-grid cards[].imageUrl (customer logo / photo shown in each
+    // card header; starts "" so the library pass fills each card)
+    if (blockType === "case-study-card-grid" && Array.isArray(props.cards)) {
+      props.cards = (props.cards as Record<string, unknown>[]).map((card) => {
+        if (!card.imageUrl) {
+          const ctx = `${card.company ?? ""} ${card.result ?? ""} ${blockContext}`;
+          return { ...card, imageUrl: pick(ctx, images, usedIds, "lp-feature") };
+        }
+        return card;
+      });
+    }
+    // case-study-logo-results-row results[].logoUrl (customer logos paired with a
+    // headline result metric; starts "" so the library pass fills each logo)
+    if (blockType === "case-study-logo-results-row" && Array.isArray(props.results)) {
+      props.results = (props.results as Record<string, unknown>[]).map((result) => {
+        if (!result.logoUrl) {
+          const ctx = `${result.company ?? ""} ${result.outcome ?? ""} ${blockContext}`;
+          return { ...result, logoUrl: pick(ctx, images, usedIds, "lp-feature") };
+        }
+        return result;
+      });
+    }
+    // media-feature-reel / media-looping-showcase / media-video-split poster
+    // image (the videoUrl itself is never auto-filled — there is no stock-video
+    // pass, so the user picks it). The looping-showcase poster doubles as a
+    // full-bleed hero backdrop → lp-hero; the feature-reel / video-split poster
+    // is a framed still → lp-feature.
+    if (
+      (blockType === "media-feature-reel" ||
+        blockType === "media-looping-showcase" ||
+        blockType === "media-video-split") &&
+      !props.posterUrl
+    ) {
+      const posterPurpose = blockType === "media-looping-showcase" ? "lp-hero" : "lp-feature";
+      props.posterUrl = pick(blockContext, images, usedIds, posterPurpose);
+    }
+    // media-thumbnail-grid video cards: each card's posterUrl starts "" so the
+    // library pass fills each thumbnail. The per-card videoUrl is NEVER
+    // auto-filled (no stock-video pass — the user picks each one).
+    if (blockType === "media-thumbnail-grid" && Array.isArray(props.videos)) {
+      props.videos = (props.videos as Record<string, unknown>[]).map((vid) => {
+        if (!vid.posterUrl) {
+          const ctx = `${vid.title ?? ""} ${blockContext}`;
+          return { ...vid, posterUrl: pick(ctx, images, usedIds, "lp-feature") };
+        }
+        return vid;
       });
     }
 
@@ -1869,6 +1944,10 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     if (typeof props.heroImageUrl === "string" && props.heroImageUrl) {
       props.heroImageUrl = cleanUrl(props.heroImageUrl);
     }
+    // media block video poster still (the videoUrl is user-picked, not an image URL)
+    if (typeof props.posterUrl === "string" && props.posterUrl) {
+      props.posterUrl = cleanUrl(props.posterUrl);
+    }
 
     // Arrays with imageUrl (rows, chapters, tiles)
     if (Array.isArray(props.rows)) {
@@ -1926,6 +2005,22 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
       props.slides = (props.slides as Record<string, unknown>[]).map(slide => ({
         ...slide,
         src: typeof slide.src === "string" ? cleanUrl(slide.src) : slide.src,
+      }));
+    }
+
+    // case-study-logo-results-row results[].logoUrl
+    if (Array.isArray(props.results)) {
+      props.results = (props.results as Record<string, unknown>[]).map(result => ({
+        ...result,
+        logoUrl: typeof result.logoUrl === "string" ? cleanUrl(result.logoUrl) : result.logoUrl,
+      }));
+    }
+
+    // media-thumbnail-grid videos[].posterUrl (per-card video poster still)
+    if (Array.isArray(props.videos)) {
+      props.videos = (props.videos as Record<string, unknown>[]).map(vid => ({
+        ...vid,
+        posterUrl: typeof vid.posterUrl === "string" ? cleanUrl(vid.posterUrl) : vid.posterUrl,
       }));
     }
 
@@ -2954,6 +3049,60 @@ SHOWCASE BLOCKS (use these to give each page a distinct, premium feel — NOT ev
 
 - "before-after-gallery": Before/after image comparison gallery — ideal for visible-results brands (dental, design, fitness, renovation). Props: eyebrow (2–4 words), headline (5–12 words), subheadline (12–24 words), beforeLabel (1–3 words, default "Before"), afterLabel (1–3 words, default "After"), pairs (array of EXACTLY 2–4 of {beforeSrc (""), beforeAlt (4–8 words), afterSrc (""), afterAlt (4–8 words), caption (4–10 words)}).
 
+- "gallery-carousel-spotlight": Photo gallery as a large spotlight image with prev/next controls and a clickable thumbnail strip — great for product tours, portfolios, and visual walkthroughs. Props: eyebrow (2–4 words), headline (5–10 words), subheadline (12–24 words), ctaLabel (2–5 words, optional), ctaUrl ("#"), images (array of EXACTLY 3–6 of {id (unique short string), src (""), caption (3–7 words), alt (4–8 words)}).
+
+- "gallery-filmstrip": Photo gallery as a horizontally scrolling filmstrip of large captioned images — best for events, recaps, lifestyle, and portfolio highlights. Props: headline (5–12 words), ctaLabel (2–5 words, optional), ctaUrl ("#"), images (array of EXACTLY 4–8 of {id (unique short string), src (""), caption (3–7 words), alt (4–8 words)}).
+
+- "gallery-masonry": Photo gallery as a multi-column masonry grid of mixed-aspect images — great for culture, team, portfolio, and brand-story sections. Props: eyebrow (2–4 words), headline (5–10 words), subheadline (12–24 words), ctaLabel (2–5 words, optional), ctaUrl ("#"), images (array of EXACTLY 4–6 of {id (unique short string), src (""), caption (3–7 words), alt (4–8 words), aspect (one of "aspect-[4/3]"|"aspect-[3/4]"|"aspect-[1/1]"|"aspect-[4/5]"|"aspect-[16/9]")}).
+
+- "gallery-split-feature": Editorial split section pairing a headline + copy + CTAs on one side with a large hero image and two smaller stacked images on the other — great for office/culture, footprint, and brand-story features. Props: eyebrow (2–4 words), headline (5–10 words), subheadline (18–36 words), imageUrl (""), images (array of EXACTLY 2 of {id (unique short string), src (""), caption (3–7 words), alt (4–8 words)}), ctaLabel (2–5 words, optional), ctaUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+
+- "case-study-card-grid": Social-proof grid of customer case-study cards, each with a logo/photo, an outcome quote, and a headline metric — great for proving results from named customers. Props: heading (5–10 words), subheading (12–24 words, optional), cards (array of EXACTLY 3–6 of {company (1–3 words customer name), imageUrl (""), imageAlt (3–6 words), result (12–24 words outcome/quote), metricValue (short stat e.g. "85%","2.5x","$12M"), metricLabel (3–7 words describing the metric), linkUrl ("#")}), ctaLabel (2–5 words, optional), ctaUrl ("#").
+
+- "case-study-logo-results-row": Social-proof row of customer logos each paired with a headline result metric and a short outcome — a compact proof bar of named wins. Props: heading (5–10 words, optional), results (array of EXACTLY 3–5 of {company (1–3 words customer name), logoUrl (""), logoAlt (3–6 words), outcome (10–20 words), metricValue (short stat e.g. "99.99% uptime","3x faster")}), ctaLabel (2–5 words, optional), ctaUrl ("#").
+
+- "case-study-metric-triptych": Centered, text-only proof band for ONE customer — three big headline metrics above a pull-quote with attribution. No images. Great for a punchy, stat-led single-customer endorsement. Props: company (1–3 words customer name), metrics (array of EXACTLY 3 of {value (short stat e.g. "10x","$2.4M","45%"), label (3–6 words describing the metric)}), quote (20–45 words customer pull-quote), author (2–3 words person name), role (2–5 words job title), ctaLabel (2–5 words, optional), ctaUrl ("#").
+
+- "case-study-spotlight-feature": Featured single customer story in a two-column split — Challenge/Solution/Result narrative + a headline metric + CTA on one side, a large feature photo on the other. Great for an in-depth flagship win. Props: eyebrow (2–4 words, e.g. "Featured Case Study"), company (1–3 words customer name), headline (8–14 words story title), challenge (18–32 words), solution (18–32 words), result (18–32 words), metricValue (short stat e.g. "300%"), metricLabel (4–8 words), imageUrl (""), imageAlt (3–6 words), ctaLabel (2–5 words, optional), ctaUrl ("#").
+
+- "media-feature-reel": A centered video showcase — a large poster image with a play button that opens the video in a lightbox, followed by a row of three icon feature captions and optional CTAs. Great for product demos and launch reels. Props: heading (5–10 words), videoUrl (ALWAYS "" — never invent a video URL; the user picks it), posterUrl (""), features (array of EXACTLY 3 of {icon (lucide name e.g. Sparkles/Zap/Shield/Layers/Rocket), title (2–4 words), desc (8–16 words)}), ctaLabel (2–5 words, optional), ctaUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+
+- "media-looping-showcase": A full-bleed cinematic section with an autoplaying, muted, looping background video (poster image as fallback), centered heading + subheading over a dark gradient, a play button that opens the video in a lightbox, and an optional CTA. Great for bold brand or product film moments. Props: heading (4–9 words), subheading (16–30 words), videoUrl (ALWAYS "" — never invent a video URL; the user picks it), posterUrl (""), ctaLabel (2–5 words, optional), ctaUrl ("#").
+
+- "media-thumbnail-grid": A video library section — a header (eyebrow + heading + subheading) above a responsive grid of video thumbnail cards, each with a poster image, duration badge, hover play button, and title; clicking a card opens that video in a lightbox. Great for tutorial libraries, webinar recaps, and demo collections. Props: eyebrow (2–4 words), heading (4–8 words), subheading (12–24 words), videos (array of EXACTLY 3–6 of {id (unique short string), videoUrl (ALWAYS "" — never invent a video URL; the user picks it), posterUrl (""), title (4–9 words), duration (e.g. "4:12")}), ctaLabel (2–5 words, optional), ctaUrl ("#").
+
+- "media-video-split": A split section pairing copy (eyebrow + heading + description + a checklist of feature bullets + optional CTAs) on one side with a large video poster + play button that opens the video in a lightbox on the other. Great for product demos and feature walkthroughs. Props: eyebrow (2–4 words), heading (6–12 words), description (18–36 words), features (array of EXACTLY 3 of 3–6 words), videoUrl (ALWAYS "" — never invent a video URL; the user picks it), posterUrl (""), ctaLabel (2–5 words, optional), ctaUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+
+- "cta-centered-minimal": A focused call-to-action section — eyebrow + headline + subheading centered on a rounded surface card, with a primary + secondary button row below. Best as a clean, conversion-focused closing section. Props: eyebrow (2–4 words, e.g. "Ready to start?"), heading (4–9 words), subheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "cta-gradient-banner": A bold call-to-action banner — headline + subheading centered on an accent-colored gradient banner, with a primary + secondary button row below. Best as a high-impact, eye-catching closing CTA. Props: heading (4–9 words), subheading (10–20 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "cta-split-image": A two-column call-to-action pairing a large rounded feature image on one side with eyebrow + heading + subheading copy and a primary + secondary button row on the other. Great for a visual, conversion-focused closing section. Props: eyebrow (2–4 words), heading (5–10 words), subheading (18–36 words), imageUrl (""), imageAlt (4–8 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "cta-stat-backed": A call-to-action pairing heading + subheading + a primary + secondary button row on one side with a column of big-number stat cards (value + label) on the other. Use REAL numbers from the prompt when provided. Best as a credibility-backed closing CTA. Props: heading (4–9 words), subheading (18–36 words), stats (array of EXACTLY 3 of {value (short metric e.g. "99.99%", "10x", "24/7"), label (2–4 words)}), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "benefits-alternating-rows": Benefits laid out as alternating left/right rows, each pairing a benefit with a checklist and a visual placeholder — great for explaining a few deep value props. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (12–28 words), rows (array of EXACTLY 3–4 of {icon (lucide name e.g. Zap/Layers/TrendingUp/ShieldCheck), title (3–7 words), description (15–30 words), features (array of EXACTLY 3 of 3–6 words), linkLabel (2–4 words, optional), linkUrl ("#")}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+
+- "how-it-works-alternating": A step-by-step "how it works" section laid out as alternating left/right rows, each numbered step pairing an icon + copy + a feature checklist with a decorative product placeholder — great for explaining a 3-step process or onboarding flow. Props: eyebrow (2–4 words, e.g. "How it works"), headline (5–10 words), subheadline (14–28 words), steps (array of EXACTLY 3–4 of {icon (lucide name e.g. LayoutTemplate/MousePointerClick/Zap/Rocket/Settings), title (3–7 words), description (18–36 words), features (array of EXACTLY 3 of 3–6 words)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "how-it-works-numbered-bento": A "how it works" section laid out as an asymmetric bento grid of numbered steps (oversized background numerals, the last tile accent-colored), with a centered primary button below — great for a punchy, modern 3–4 step process overview. Props: eyebrow (2–4 words, e.g. "How it works"), headline (5–10 words), subheadline (14–28 words), steps (array of EXACTLY 3–4 of {icon (lucide name e.g. Plug/Palette/Wand2/BarChart3/Zap/Rocket/Settings), title (2–5 words), description (16–32 words)}), buttonLabel (2–4 words, optional), buttonUrl ("#"), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "how-it-works-vertical-timeline": A "how it works" section laid out as a vertical numbered timeline (connecting rail with node circles, each step pairing an icon + title + description), with a primary + secondary button row below — great for a clear, sequential onboarding or process flow. Props: eyebrow (2–4 words, e.g. "How it works"), headline (5–10 words), subheadline (14–28 words), steps (array of EXACTLY 3–4 of {icon (lucide name e.g. Palette/Users/Zap/BarChart3/Plug/Rocket/Settings), title (2–5 words), description (16–32 words)}), primaryButtonLabel (2–4 words, optional), primaryButtonUrl ("#"), secondaryButtonLabel (2–4 words, optional), secondaryButtonUrl ("#"), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "how-it-works-horizontal-stepper": A compact "how it works" section showing numbered steps in a horizontal row over a progress rail, with a header CTA button and a trailing trust-badge row — great for a quick 3-step process overview. Props: eyebrow (2–4 words, e.g. "How it works"), headline (5–10 words), subheadline (14–28 words), headerCtaLabel (2–4 words, optional), headerCtaUrl ("#"), steps (array of EXACTLY 3–4 of {icon (lucide name e.g. UserPlus/Zap/Rocket/Settings/Plug/Workflow), title (2–5 words), description (8–18 words)}), trustItems (array of EXACTLY 2–3 of 3–5 words, e.g. "No credit card required"), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "benefits-bento": Benefits in an asymmetric bento grid — one large feature tile plus smaller supporting tiles for a modern product feel. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (12–28 words), tiles (array of EXACTLY 5 of {icon (lucide name e.g. Layers/CloudLightning/Users/ShieldCheck/BarChart3), title (2–5 words), description (10–24 words)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "features-bento-showcase": Product features in an asymmetric bento grid with one large flagship tile plus supporting tiles, each rendering a decorative product mockup — best for a polished, modern SaaS feature overview. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (12–28 words), tiles (array of EXACTLY 6 of {icon (lucide name e.g. Layout/Palette/Users/LineChart/Shield/Rocket), title (2–5 words), description (10–24 words); the first tile is the large flagship), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "features-spotlight-cards": A large flagship "spotlight" feature card (icon + title + description + button beside a decorative builder mockup) above a row of compact supporting feature cards, with an optional CTA — best for leading with one headline capability then listing the rest. Props: eyebrow (2–4 words), headline (6–12 words), spotlightIcon (lucide name e.g. LayoutTemplate), spotlightTitle (3–7 words), spotlightDescription (20–40 words), spotlightButtonLabel (2–4 words, optional), spotlightButtonUrl ("#"), secondaryFeatures (array of EXACTLY 5 of {icon (lucide name e.g. SplitSquareHorizontal/LineChart/Globe/Users/Search), title (2–5 words), description (8–16 words)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "features-tabbed-categories": Feature categories presented as clickable tabs that swap an active panel (per-tab heading/subheading + feature list + decorative product mockup), with an optional CTA — best for organizing many features into a few themes. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (15–32 words), categories (array of EXACTLY 3 of {id (unique short slug e.g. "design"), label (2–4 words), icon (lucide name e.g. MonitorSmartphone/Zap/BarChart3), heading (5–10 words), subheading (12–24 words), features (array of EXACTLY 3 of {icon (lucide name e.g. Paintbrush/Palette/Layers/Split/ListChecks/Sparkles/Route/DollarSign/MousePointerClick), title (2–4 words), description (10–20 words)})}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "features-comparison-checklist": A grouped feature table with included-checkmarks organized into categories, a bespoke "need something custom?" card, and an optional CTA — best for showing everything included across plans. Props: eyebrow (2–4 words), headline (4–8 words), subheadline (15–30 words), featureColumnLabel (2–4 words), includedColumnLabel (1–2 words), categories (array of EXACTLY 3 of {title (2–4 words), features (array of EXACTLY 2 of {icon (lucide name e.g. Database/Shield/Globe/Zap/Layers/MessageSquare), name (2–5 words), description (8–18 words)})}), showBespokeCard (boolean, default true), bespokeHeading (3–6 words), bespokeSubheading (8–16 words), bespokeButtonLabel (2–4 words), bespokeButtonUrl ("#"), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+
+- "benefits-icon-grid": Benefits in a clean icon grid (2 or 3 columns) — best for presenting many short value props at a glance. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (12–28 words), columns (2 or 3, default 3), items (array of EXACTLY 6 of {icon (lucide name e.g. Zap/BarChart3/ShieldCheck/Users/Globe2/Clock), title (3–6 words), description (12–26 words)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+
+- "benefits-stat-led": Benefits anchored by a big metric on each — leads with the outcome number, then explains it. Use REAL numbers from the prompt when provided. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (12–28 words), stats (array of EXACTLY 3 of {stat (short metric e.g. "3.5x", "+42%", "15h"), title (2–5 words), description (15–30 words), icon (lucide name e.g. Zap/TrendingUp/Clock)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+
+- "quote-carousel": Social proof as a one-at-a-time testimonial carousel with prev/next + dot controls — focused, high-impact single quotes. Props: eyebrow (2–4 words), headline (5–10 words), subheadline (12–24 words), testimonials (array of EXACTLY 3–4 of {quote (20–45 words), author (full name), role (2–4 words), company (1–3 words), rating (integer 4–5), avatarInitials (2 letters), avatarImage ("")}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+
+- "quote-library": Social proof "wall of love" — a masonry grid of many short testimonial cards. Best when you have lots of quotes. Props: eyebrow (2–4 words), headline (5–10 words), subheadline (12–24 words), testimonials (array of EXACTLY 6–9 of {id (unique short string), quote (15–35 words), author (full name), role (2–4 words), company (1–3 words), rating (integer 4–5), avatarInitials (2 letters)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+
+- "quote-with-image": Social proof as a single large quote paired with a customer portrait image and star rating — premium, editorial feel. Props: eyebrow (2–4 words), quote (30–60 words), author (full name), role (2–4 words), company (1–3 words), imageUrl (""), imageAlt (4–8 words), imageSide ("left"|"right"), rating (integer 0–5, default 5), showCta (boolean, default true), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+
+- "single-quote": Social proof as one cinematic, centered testimonial with a large quote mark and avatar initials — maximum focus on a single powerful customer quote. Props: quote (30–60 words), author (full name), role (2–4 words), company (1–3 words), avatarInitials (2 letters), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+
+- "testimonial-grid": Social proof as a responsive grid of testimonial cards (stars + quote + author), with a centered header — great for showcasing many quotes at once. Props: eyebrow (2–4 words), headline (5–10 words), subheadline (12–24 words), testimonials (array of EXACTLY 6 of {id (unique short string), quote (15–35 words), author (full name), role (2–4 words), company (1–3 words), rating (integer 4–5), avatarInitials (2 letters)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+
 - "editorial-carousel": Auto-advancing, draggable photo / case-study carousel with a premium dark-luxury treatment. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (optional), mode ("image"|"case-study"), aspect ("16/9"|"4/3"|"3/2"|"1/1"), slides (array of EXACTLY 4–8 of {src (""), alt (4–8 words), caption (image mode: 3–7 word uppercase label), headline (case-study mode: 3–7 words), subheadline (case-study mode: 10–20 words), ctaText (optional)}).
 
 GLOBAL DENSITY ENFORCEMENT — NEVER SHIP EMPTY OR STUB CONTENT:
@@ -3003,7 +3152,7 @@ RULES:
 12. CAPITALIZATION: Always use sentence casing — first word of every sentence is capitalized only — unless you are using acronyms, names, cities, states, countries, or other proper nouns, or specific product names from the BRAND CONTEXT. Headlines and all copy should follow sentence casing as a general rule. NEVER use all-lowercase. Examples: "Get more done in less time" (correct), "Get More Done In Less Time" (wrong — no title case), "get more done in less time" (wrong — no all-lowercase).
 13. When the user provides specific numbers or stats in their prompt, use those EXACT numbers. Do not invent different statistics.
 14. NAVIGATION: every page needs a top nav and an end footer — EXCEPT a page that is a single full-page block ("content-series", "blog-series", "storefront", or ANY block whose schema describes it as "A COMPLETE, full-page block"). Those are self-contained pages that render their OWN nav AND footer, so when you use one as the page's only block, NEVER add a separate "nav-header" or "footer" block alongside it (that produces a duplicate stacked nav/footer). For all OTHER (multi-block) pages: Heroes that render their OWN sticky nav — "hero", "full-bleed-hero", "dso-heartland-hero", "cinematic-video-hero", "aurora-gradient-hero", "editorial-split-hero", "parallax-layers-hero", and "spotlight-glow-hero" — must be the page's FIRST block; NEVER prepend a "nav-header" before them (that produces two stacked navs). Heroes that do NOT render a nav — "magazine-hero" and "parallax-image-hero" — MUST be preceded by a "nav-header" block as the page's first block. Always end the page with a "footer" block.
-15. VARY THE STRUCTURE PER BRAND — never emit the same block sequence every time. Read the brand's personality from BRAND CONTEXT (tone, style keywords, design feel, colors) and choose blocks to match it: premium/editorial brands lean on magazine-hero, bold-statement, editorial-carousel, bento-showcase; energetic/visual/consumer brands lean on full-bleed-hero, sticky-stack, horizontal-showcase, before-after-gallery; straightforward B2B leans on hero, benefits-grid, comparison, zigzag-features. Include AT LEAST 2 SHOWCASE blocks (full-bleed-hero, magazine-hero, cinematic-video-hero, aurora-gradient-hero, editorial-split-hero, parallax-layers-hero, spotlight-glow-hero, parallax-image-hero, sticky-stack, horizontal-showcase, bento-showcase, bold-statement, before-after-gallery, editorial-carousel, scroll-assembly, video-section) on every page so two different brands never produce identical-looking pages.
+15. VARY THE STRUCTURE PER BRAND — never emit the same block sequence every time. Read the brand's personality from BRAND CONTEXT (tone, style keywords, design feel, colors) and choose blocks to match it: premium/editorial brands lean on magazine-hero, bold-statement, editorial-carousel, bento-showcase; energetic/visual/consumer brands lean on full-bleed-hero, sticky-stack, horizontal-showcase, before-after-gallery; straightforward B2B leans on hero, benefits-grid, comparison, zigzag-features. Include AT LEAST 2 SHOWCASE blocks (full-bleed-hero, magazine-hero, cinematic-video-hero, aurora-gradient-hero, editorial-split-hero, parallax-layers-hero, spotlight-glow-hero, parallax-image-hero, sticky-stack, horizontal-showcase, bento-showcase, bold-statement, before-after-gallery, gallery-carousel-spotlight, gallery-filmstrip, gallery-masonry, gallery-split-feature, case-study-card-grid, case-study-spotlight-feature, media-feature-reel, media-looping-showcase, media-thumbnail-grid, media-video-split, cta-split-image, editorial-carousel, scroll-assembly, video-section) on every page so two different brands never produce identical-looking pages.
 16. VIDEO: Only set videoUrl, backgroundType:"video", or backgroundVideoUrl when you have a REAL video URL provided in the brand assets or the DANDY VIDEOS section. Otherwise use backgroundType:"image" (full-bleed-hero) and leave image fields "" for the server to fill. NEVER invent or guess a video URL.
 17. ITEM COUNTS — match each block's canonical count: every repeating array MUST contain exactly the number of items stated in that block's schema in AVAILABLE BLOCK TYPES above. When a block says "EXACTLY N" use N; when it gives a range (e.g. "3–5"), pick a value inside the range and fully populate it. A block must look complete and balanced — e.g. "trust-bar" always has EXACTLY 4 items, never 2, 3, or 5. Never emit a block with fewer items than its minimum or a half-filled array.`;
 

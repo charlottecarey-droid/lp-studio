@@ -78,7 +78,40 @@ import type {
   MenuSectionBlockProps,
   HoursLocationBlockProps,
   BeforeAfterGalleryBlockProps,
+  CtaCenteredMinimalBlockProps,
+  CtaSplitImageBlockProps,
+  CtaStatBackedBlockProps,
+  CtaGradientBannerBlockProps,
+  CaseStudyCardGridBlockProps,
+  CaseStudyLogoResultsRowBlockProps,
+  CaseStudyMetricTriptychBlockProps,
+  CaseStudySpotlightFeatureBlockProps,
+  GalleryCarouselSpotlightBlockProps,
+  GalleryFilmstripBlockProps,
+  GalleryMasonryBlockProps,
+  GallerySplitFeatureBlockProps,
+  MediaFeatureReelBlockProps,
+  MediaLoopingShowcaseBlockProps,
+  MediaThumbnailGridBlockProps,
+  MediaVideoSplitBlockProps,
   SpeakerGridBlockProps,
+  BenefitsAlternatingRowsBlockProps,
+  HowItWorksAlternatingBlockProps,
+  HowItWorksNumberedBentoBlockProps,
+  HowItWorksVerticalTimelineBlockProps,
+  HowItWorksHorizontalStepperBlockProps,
+  BenefitsBentoBlockProps,
+  FeaturesBentoShowcaseBlockProps,
+  FeaturesSpotlightCardsBlockProps,
+  FeaturesTabbedCategoriesBlockProps,
+  FeaturesComparisonChecklistBlockProps,
+  BenefitsIconGridBlockProps,
+  BenefitsStatLedBlockProps,
+  QuoteCarouselBlockProps,
+  QuoteLibraryBlockProps,
+  QuoteWithImageBlockProps,
+  SingleQuoteBlockProps,
+  TestimonialGridBlockProps,
   ContentSeriesBlockProps,
   BlogSeriesBlockProps,
   StorefrontBlockProps,
@@ -5530,6 +5563,619 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "cta-centered-minimal",
+    label: "CTA — Centered Minimal",
+    category: "CTA",
+    defaultProps: (): CtaCenteredMinimalBlockProps => ({
+      eyebrow: "Ready to start?",
+      heading: "Build your next great idea.",
+      subheading: "Join thousands of developers building scalable, high-performance applications with our tools.",
+      ctaPrimaryLabel: "Start building for free",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "Contact sales",
+      ctaSecondaryUrl: "#",
+      bgColor: "#FFFFFF",
+      surfaceColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#F1F5F9" rx="4" />
+        <rect x="12" y="10" width="96" height="50" rx="8" fill="#FFFFFF" stroke="#E2E8F0" />
+        <rect x="44" y="18" width="32" height="3" rx="1.5" fill="#4f46e5" />
+        <rect x="32" y="26" width="56" height="6" rx="2" fill="#0F172A" />
+        <rect x="40" y="37" width="40" height="3" rx="1.5" fill="#94A3B8" />
+        <rect x="36" y="46" width="28" height="9" rx="4.5" fill="#4f46e5" />
+        <rect x="68" y="46" width="20" height="9" rx="4.5" fill="none" stroke="#CBD5E1" />
+      </svg>
+    ),
+  },
+  {
+    type: "cta-split-image",
+    label: "CTA — Split Image",
+    category: "CTA",
+    defaultProps: (): CtaSplitImageBlockProps => ({
+      eyebrow: "Unlock potential",
+      heading: "Everything you need to launch faster",
+      subheading: "Stop building the same components over and over. Get access to a complete library of production-ready UI blocks.",
+      imageUrl: "",
+      imageAlt: "",
+      ctaPrimaryLabel: "Get started today",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "View documentation",
+      ctaSecondaryUrl: "#",
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="10" y="14" width="46" height="42" rx="6" fill="#CBD5E1" />
+        <path d="M22 44 l8 -10 l6 7 l5 -5 l9 13 z" fill="#94A3B8" />
+        <circle cx="24" cy="26" r="4" fill="#E2E8F0" />
+        <rect x="64" y="16" width="24" height="3" rx="1.5" fill="#4f46e5" />
+        <rect x="64" y="24" width="46" height="6" rx="2" fill="#0F172A" />
+        <rect x="64" y="34" width="40" height="3" rx="1.5" fill="#94A3B8" />
+        <rect x="64" y="40" width="34" height="3" rx="1.5" fill="#94A3B8" />
+        <rect x="64" y="49" width="26" height="9" rx="4.5" fill="#4f46e5" />
+        <rect x="94" y="49" width="18" height="9" rx="4.5" fill="none" stroke="#CBD5E1" />
+      </svg>
+    ),
+  },
+  {
+    type: "cta-stat-backed",
+    label: "CTA — Stat Backed",
+    category: "CTA",
+    defaultProps: (): CtaStatBackedBlockProps => ({
+      heading: "Join the industry leaders",
+      subheading: "Our platform handles billions of requests daily for the world's most demanding teams. See what we can do for yours.",
+      stats: [
+        { value: "99.99%", label: "Uptime SLA" },
+        { value: "10x", label: "Faster deployments" },
+        { value: "24/7", label: "Expert support" },
+      ],
+      ctaPrimaryLabel: "Get a demo",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "Talk to sales",
+      ctaSecondaryUrl: "#",
+      bgColor: "#FFFFFF",
+      surfaceColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="10" y="18" width="40" height="6" rx="2" fill="#0F172A" />
+        <rect x="10" y="29" width="46" height="3" rx="1.5" fill="#94A3B8" />
+        <rect x="10" y="35" width="38" height="3" rx="1.5" fill="#94A3B8" />
+        <rect x="10" y="46" width="24" height="9" rx="4.5" fill="#4f46e5" />
+        <rect x="64" y="14" width="46" height="13" rx="3" fill="none" stroke="#E2E8F0" />
+        <rect x="69" y="18" width="14" height="5" rx="1.5" fill="#4f46e5" />
+        <rect x="64" y="30" width="46" height="13" rx="3" fill="none" stroke="#E2E8F0" />
+        <rect x="69" y="34" width="14" height="5" rx="1.5" fill="#4f46e5" />
+        <rect x="64" y="46" width="46" height="13" rx="3" fill="none" stroke="#E2E8F0" />
+        <rect x="69" y="50" width="14" height="5" rx="1.5" fill="#4f46e5" />
+      </svg>
+    ),
+  },
+  {
+    type: "cta-gradient-banner",
+    label: "CTA — Gradient Banner",
+    category: "CTA",
+    defaultProps: (): CtaGradientBannerBlockProps => ({
+      heading: "Ready to transform your workflow?",
+      subheading: "Join thousands of teams who are already moving faster.",
+      ctaPrimaryLabel: "Start for free",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "Talk to sales",
+      ctaSecondaryUrl: "#",
+      bgColor: "#FFFFFF",
+      textColor: "#FFFFFF",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <defs>
+          <linearGradient id="cta-gb-thumb" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#4f46e5" />
+            <stop offset="100%" stopColor="#6366f1" />
+          </linearGradient>
+        </defs>
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" />
+        <rect x="10" y="12" width="100" height="46" rx="10" fill="url(#cta-gb-thumb)" />
+        <rect x="34" y="22" width="52" height="6" rx="2" fill="#FFFFFF" />
+        <rect x="42" y="33" width="36" height="3" rx="1.5" fill="#FFFFFF" opacity="0.7" />
+        <rect x="36" y="42" width="26" height="9" rx="4.5" fill="#FFFFFF" />
+        <rect x="66" y="42" width="20" height="9" rx="4.5" fill="none" stroke="#FFFFFF" opacity="0.6" />
+      </svg>
+    ),
+  },
+  {
+    type: "case-study-card-grid",
+    label: "Case Study — Card Grid",
+    category: "Social Proof",
+    defaultProps: (): CaseStudyCardGridBlockProps => ({
+      heading: "Trusted by industry leaders",
+      subheading: "See how fast-growing companies are transforming their operations with our platform.",
+      cards: [
+        {
+          company: "Stark Industries",
+          imageUrl: "",
+          imageAlt: "Stark Industries logo",
+          result: "Unified disparate engineering data into a single source of truth.",
+          metricValue: "85%",
+          metricLabel: "Reduction in manual sync tasks",
+          linkUrl: "#",
+        },
+        {
+          company: "Globex Corp",
+          imageUrl: "",
+          imageAlt: "Globex Corp logo",
+          result: "Accelerated go-to-market motions across global regional teams.",
+          metricValue: "2.5x",
+          metricLabel: "Faster campaign launches",
+          linkUrl: "#",
+        },
+        {
+          company: "Soylent",
+          imageUrl: "",
+          imageAlt: "Soylent logo",
+          result: "Optimized supply chain logistics with predictive AI routing.",
+          metricValue: "$12M",
+          metricLabel: "Annual logistics savings",
+          linkUrl: "#",
+        },
+      ],
+      ctaLabel: "Explore all customer stories",
+      ctaUrl: "#",
+      bgColor: "#F8FAFC",
+      surfaceColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#F8FAFC" rx="4" stroke="#E5E7EB" />
+        <rect x="36" y="9" width="48" height="5" rx="2" fill="#0F172A" />
+        <g>
+          <rect x="9" y="22" width="32" height="38" rx="4" fill="#FFFFFF" stroke="#E2E8F0" />
+          <circle cx="17" cy="30" r="4" fill="#4f46e5" opacity="0.25" />
+          <rect x="13" y="40" width="24" height="3" rx="1.5" fill="#CBD5E1" />
+          <rect x="13" y="47" width="14" height="6" rx="2" fill="#4f46e5" />
+        </g>
+        <g>
+          <rect x="44" y="22" width="32" height="38" rx="4" fill="#FFFFFF" stroke="#E2E8F0" />
+          <circle cx="52" cy="30" r="4" fill="#4f46e5" opacity="0.25" />
+          <rect x="48" y="40" width="24" height="3" rx="1.5" fill="#CBD5E1" />
+          <rect x="48" y="47" width="14" height="6" rx="2" fill="#4f46e5" />
+        </g>
+        <g>
+          <rect x="79" y="22" width="32" height="38" rx="4" fill="#FFFFFF" stroke="#E2E8F0" />
+          <circle cx="87" cy="30" r="4" fill="#4f46e5" opacity="0.25" />
+          <rect x="83" y="40" width="24" height="3" rx="1.5" fill="#CBD5E1" />
+          <rect x="83" y="47" width="14" height="6" rx="2" fill="#4f46e5" />
+        </g>
+      </svg>
+    ),
+  },
+  {
+    type: "case-study-logo-results-row",
+    label: "Case Study — Logo Results Row",
+    category: "Social Proof",
+    defaultProps: (): CaseStudyLogoResultsRowBlockProps => ({
+      heading: "Real results from real teams",
+      results: [
+        {
+          company: "TechFlow",
+          logoUrl: "",
+          logoAlt: "TechFlow logo",
+          outcome: "Migrated their entire infrastructure with zero downtime.",
+          metricValue: "99.99% uptime",
+        },
+        {
+          company: "DataSync",
+          logoUrl: "",
+          logoAlt: "DataSync logo",
+          outcome: "Reduced customer onboarding time from weeks to days.",
+          metricValue: "3x faster",
+        },
+        {
+          company: "CloudScale",
+          logoUrl: "",
+          logoAlt: "CloudScale logo",
+          outcome: "Scaled to handle Black Friday traffic spikes effortlessly.",
+          metricValue: "50k req/s",
+        },
+        {
+          company: "LogicCore",
+          logoUrl: "",
+          logoAlt: "LogicCore logo",
+          outcome: "Consolidated five disparate tools into one platform.",
+          metricValue: "$120k saved",
+        },
+      ],
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="40" y="10" width="40" height="4" rx="2" fill="#94A3B8" />
+        <g>
+          <circle cx="15" cy="28" r="4" fill="#0F172A" opacity="0.3" />
+          <rect x="22" y="26" width="14" height="4" rx="2" fill="#0F172A" />
+          <rect x="9" y="36" width="22" height="6" rx="2" fill="#4f46e5" />
+          <rect x="9" y="46" width="26" height="3" rx="1.5" fill="#CBD5E1" />
+        </g>
+        <g>
+          <circle cx="42" cy="28" r="4" fill="#0F172A" opacity="0.3" />
+          <rect x="49" y="26" width="14" height="4" rx="2" fill="#0F172A" />
+          <rect x="36" y="36" width="22" height="6" rx="2" fill="#4f46e5" />
+          <rect x="36" y="46" width="26" height="3" rx="1.5" fill="#CBD5E1" />
+        </g>
+        <g>
+          <circle cx="69" cy="28" r="4" fill="#0F172A" opacity="0.3" />
+          <rect x="76" y="26" width="14" height="4" rx="2" fill="#0F172A" />
+          <rect x="63" y="36" width="22" height="6" rx="2" fill="#4f46e5" />
+          <rect x="63" y="46" width="26" height="3" rx="1.5" fill="#CBD5E1" />
+        </g>
+        <g>
+          <circle cx="96" cy="28" r="4" fill="#0F172A" opacity="0.3" />
+          <rect x="103" y="26" width="12" height="4" rx="2" fill="#0F172A" />
+          <rect x="90" y="36" width="22" height="6" rx="2" fill="#4f46e5" />
+          <rect x="90" y="46" width="24" height="3" rx="1.5" fill="#CBD5E1" />
+        </g>
+      </svg>
+    ),
+  },
+  {
+    type: "case-study-metric-triptych",
+    label: "Case Study — Metric Triptych",
+    category: "Social Proof",
+    defaultProps: (): CaseStudyMetricTriptychBlockProps => ({
+      company: "Acme Corp",
+      metrics: [
+        { value: "10x", label: "Faster deployment times" },
+        { value: "$2.4M", label: "Pipeline generated in Q1" },
+        { value: "45%", label: "Increase in conversion rate" },
+      ],
+      quote: "Implementing this platform was a turning point for our organization. The metrics speak for themselves, but the real value is how it empowered our team to move fast without breaking things.",
+      author: "David Chen",
+      role: "Chief Marketing Officer",
+      ctaLabel: "View full story",
+      ctaUrl: "#",
+      bgColor: "#FAFAFA",
+      surfaceColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FAFAFA" rx="4" stroke="#E5E7EB" />
+        <rect x="54" y="8" width="12" height="9" rx="3" fill="#FFFFFF" stroke="#E2E8F0" />
+        <g textAnchor="middle">
+          <rect x="20" y="26" width="18" height="8" rx="2" fill="#4f46e5" />
+          <rect x="16" y="38" width="26" height="3" rx="1.5" fill="#CBD5E1" />
+          <rect x="51" y="26" width="18" height="8" rx="2" fill="#4f46e5" />
+          <rect x="47" y="38" width="26" height="3" rx="1.5" fill="#CBD5E1" />
+          <rect x="82" y="26" width="18" height="8" rx="2" fill="#4f46e5" />
+          <rect x="78" y="38" width="26" height="3" rx="1.5" fill="#CBD5E1" />
+        </g>
+        <rect x="30" y="52" width="60" height="3" rx="1.5" fill="#0F172A" />
+        <rect x="40" y="59" width="40" height="3" rx="1.5" fill="#94A3B8" />
+      </svg>
+    ),
+  },
+  {
+    type: "case-study-spotlight-feature",
+    label: "Case Study — Spotlight Feature",
+    category: "Social Proof",
+    defaultProps: (): CaseStudySpotlightFeatureBlockProps => ({
+      eyebrow: "Featured Case Study",
+      company: "Nexus Data",
+      headline: "How Nexus Data increased pipeline velocity by 300%",
+      challenge: "Nexus Data's marketing team was blocked by a slow, engineering-led web update process, taking weeks to launch a single campaign.",
+      solution: "By switching to our platform, the marketing team gained full autonomy to build, test, and optimize landing pages without writing code.",
+      result: "They now launch 15+ campaigns per week, testing messaging instantly and significantly scaling their inbound pipeline.",
+      metricValue: "300%",
+      metricLabel: "Increase in campaign launch velocity",
+      imageUrl: "",
+      imageAlt: "Nexus Data team working",
+      ctaLabel: "Read the case study",
+      ctaUrl: "#",
+      bgColor: "#FFFFFF",
+      surfaceColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="9" y="9" width="24" height="3" rx="1.5" fill="#4f46e5" />
+        <rect x="9" y="18" width="44" height="5" rx="2" fill="#0F172A" />
+        <rect x="9" y="29" width="44" height="3" rx="1.5" fill="#CBD5E1" />
+        <rect x="9" y="36" width="40" height="3" rx="1.5" fill="#CBD5E1" />
+        <rect x="9" y="46" width="44" height="12" rx="3" fill="#F1F5F9" stroke="#E2E8F0" />
+        <rect x="13" y="50" width="14" height="5" rx="2" fill="#4f46e5" />
+        <rect x="63" y="12" width="48" height="46" rx="4" fill="#EEF2FF" stroke="#C7D2FE" />
+        <circle cx="78" cy="30" r="6" fill="#C7D2FE" />
+        <path d="M63 50 L78 38 L92 48 L101 42 L111 50 Z" fill="#A5B4FC" />
+      </svg>
+    ),
+  },
+  {
+    type: "gallery-carousel-spotlight",
+    label: "Gallery — Carousel Spotlight",
+    category: "Showcase",
+    defaultProps: (): GalleryCarouselSpotlightBlockProps => ({
+      eyebrow: "Product Tour",
+      headline: "See it in action",
+      subheadline: "Explore the platform that's powering modern growth teams.",
+      images: [
+        { id: "1", src: "", caption: "Dashboard overview", alt: "Dashboard overview" },
+        { id: "2", src: "", caption: "Analytics view", alt: "Analytics view" },
+        { id: "3", src: "", caption: "Campaign builder", alt: "Campaign builder" },
+        { id: "4", src: "", caption: "Team settings", alt: "Team settings" },
+      ],
+      ctaLabel: "Request a demo",
+      ctaUrl: "#",
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="20" y="10" width="80" height="34" rx="3" fill="#0F172A" />
+        <path d="M14 27 l5 -5 v10 z" fill="#4f46e5" />
+        <path d="M106 27 l-5 -5 v10 z" fill="#4f46e5" />
+        <rect x="30" y="50" width="18" height="11" rx="2" fill="#4f46e5" />
+        <rect x="51" y="50" width="18" height="11" rx="2" fill="#CBD5E1" />
+        <rect x="72" y="50" width="18" height="11" rx="2" fill="#CBD5E1" />
+      </svg>
+    ),
+  },
+  {
+    type: "gallery-filmstrip",
+    label: "Gallery — Filmstrip Scroll",
+    category: "Showcase",
+    defaultProps: (): GalleryFilmstripBlockProps => ({
+      headline: "Highlights from our recent retreat",
+      images: [
+        { id: "1", src: "", caption: "Keynote presentation", alt: "Keynote presentation" },
+        { id: "2", src: "", caption: "Workshop session", alt: "Workshop session" },
+        { id: "3", src: "", caption: "Team dinner", alt: "Team dinner" },
+        { id: "4", src: "", caption: "Award ceremony", alt: "Award ceremony" },
+        { id: "5", src: "", caption: "Morning hike", alt: "Morning hike" },
+        { id: "6", src: "", caption: "Closing remarks", alt: "Closing remarks" },
+      ],
+      ctaLabel: "View the full album",
+      ctaUrl: "#",
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="14" y="14" width="8" height="3" rx="1" fill="#0F172A" />
+        <rect x="10" y="26" width="34" height="30" rx="3" fill="#94A3B8" />
+        <rect x="48" y="26" width="34" height="30" rx="3" fill="#64748B" />
+        <rect x="86" y="26" width="34" height="30" rx="3" fill="#94A3B8" />
+      </svg>
+    ),
+  },
+  {
+    type: "gallery-masonry",
+    label: "Gallery — Masonry Grid",
+    category: "Showcase",
+    defaultProps: (): GalleryMasonryBlockProps => ({
+      eyebrow: "Our Culture",
+      headline: "Inside the studio",
+      subheadline: "See how our team collaborates, creates, and celebrates everyday wins.",
+      images: [
+        { id: "1", src: "", caption: "Team meeting", alt: "Team meeting", aspect: "aspect-[4/3]" },
+        { id: "2", src: "", caption: "Workspace", alt: "Workspace", aspect: "aspect-[3/4]" },
+        { id: "3", src: "", caption: "Collaboration", alt: "Collaboration", aspect: "aspect-[1/1]" },
+        { id: "4", src: "", caption: "Event", alt: "Event", aspect: "aspect-[4/5]" },
+        { id: "5", src: "", caption: "Presentation", alt: "Presentation", aspect: "aspect-[16/9]" },
+        { id: "6", src: "", caption: "Brainstorm", alt: "Brainstorm", aspect: "aspect-[4/3]" },
+      ],
+      ctaLabel: "Join our team",
+      ctaUrl: "#",
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="14" y="12" width="30" height="22" rx="3" fill="#94A3B8" />
+        <rect x="14" y="38" width="30" height="18" rx="3" fill="#CBD5E1" />
+        <rect x="48" y="12" width="30" height="30" rx="3" fill="#64748B" />
+        <rect x="48" y="46" width="30" height="12" rx="3" fill="#94A3B8" />
+        <rect x="82" y="12" width="24" height="16" rx="3" fill="#CBD5E1" />
+        <rect x="82" y="32" width="24" height="24" rx="3" fill="#94A3B8" />
+      </svg>
+    ),
+  },
+  {
+    type: "media-feature-reel",
+    label: "Media — Feature Reel",
+    category: "Showcase",
+    defaultProps: (): MediaFeatureReelBlockProps => ({
+      heading: "Unleash the full potential of your stack",
+      videoUrl: "",
+      posterUrl: "",
+      features: [
+        { icon: "Sparkles", title: "AI-Powered", desc: "Automate repetitive tasks with native intelligence." },
+        { icon: "Zap", title: "Real-time Sync", desc: "Instantly update across all your devices." },
+        { icon: "Shield", title: "Enterprise Grade", desc: "Bank-level security and compliance built in." },
+      ],
+      ctaLabel: "Watch the reel",
+      ctaUrl: "#",
+      ctaSecondaryLabel: "Read the docs",
+      ctaSecondaryUrl: "#",
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="30" y="8" width="60" height="4" rx="2" fill="#0F172A" />
+        <rect x="22" y="18" width="76" height="28" rx="4" fill="#E2E8F0" />
+        <circle cx="60" cy="32" r="8" fill="#4f46e5" />
+        <polygon points="57,28 57,36 64,32" fill="#FFFFFF" />
+        <rect x="16" y="52" width="26" height="12" rx="3" fill="#F1F5F9" />
+        <rect x="47" y="52" width="26" height="12" rx="3" fill="#F1F5F9" />
+        <rect x="78" y="52" width="26" height="12" rx="3" fill="#F1F5F9" />
+      </svg>
+    ),
+  },
+  {
+    type: "media-looping-showcase",
+    label: "Media — Looping Showcase",
+    category: "Showcase",
+    defaultProps: (): MediaLoopingShowcaseBlockProps => ({
+      heading: "Experience the future of digital workflows",
+      subheading: "A continuous, uninterrupted environment that adapts to how you work best. Built for scale, designed for speed.",
+      videoUrl: "",
+      posterUrl: "",
+      ctaLabel: "Watch full film",
+      ctaUrl: "#",
+      bgColor: "#000000",
+      textColor: "#FFFFFF",
+      accentColor: "#4f46e5",
+      mutedColor: "#94A3B8",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0B0B0F" rx="4" />
+        <rect width="120" height="70" fill="#4f46e5" opacity="0.15" rx="4" />
+        <circle cx="60" cy="26" r="9" fill="none" stroke="#FFFFFF" strokeWidth="2" />
+        <polygon points="57,21 57,31 65,26" fill="#FFFFFF" />
+        <rect x="34" y="42" width="52" height="5" rx="2" fill="#FFFFFF" />
+        <rect x="42" y="52" width="36" height="3" rx="1" fill="#94A3B8" />
+      </svg>
+    ),
+  },
+  {
+    type: "media-thumbnail-grid",
+    label: "Media — Thumbnail Grid",
+    category: "Showcase",
+    defaultProps: (): MediaThumbnailGridBlockProps => ({
+      eyebrow: "Video Library",
+      heading: "Master the platform",
+      subheading: "Watch quick tutorials and deep dives from our product team.",
+      videos: [
+        { id: "1", videoUrl: "", posterUrl: "", title: "Getting started with core workflows", duration: "4:12" },
+        { id: "2", videoUrl: "", posterUrl: "", title: "Advanced data analytics and reporting", duration: "12:05" },
+        { id: "3", videoUrl: "", posterUrl: "", title: "Managing team permissions safely", duration: "7:30" },
+      ],
+      ctaLabel: "Browse all videos",
+      ctaUrl: "#",
+      bgColor: "#F8FAFC",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#F8FAFC" rx="4" stroke="#E5E7EB" />
+        <rect x="12" y="8" width="44" height="4" rx="2" fill="#0F172A" />
+        <g>
+          <rect x="12" y="20" width="30" height="22" rx="3" fill="#E2E8F0" />
+          <circle cx="27" cy="31" r="5" fill="#4f46e5" />
+          <polygon points="25,28 25,34 30,31" fill="#FFFFFF" />
+          <rect x="45" y="20" width="30" height="22" rx="3" fill="#E2E8F0" />
+          <circle cx="60" cy="31" r="5" fill="#4f46e5" />
+          <polygon points="58,28 58,34 63,31" fill="#FFFFFF" />
+          <rect x="78" y="20" width="30" height="22" rx="3" fill="#E2E8F0" />
+          <circle cx="93" cy="31" r="5" fill="#4f46e5" />
+          <polygon points="91,28 91,34 96,31" fill="#FFFFFF" />
+        </g>
+        <rect x="12" y="48" width="26" height="3" rx="1" fill="#94A3B8" />
+        <rect x="45" y="48" width="26" height="3" rx="1" fill="#94A3B8" />
+        <rect x="78" y="48" width="26" height="3" rx="1" fill="#94A3B8" />
+      </svg>
+    ),
+  },
+  {
+    type: "media-video-split",
+    label: "Media — Video Split",
+    category: "Showcase",
+    defaultProps: (): MediaVideoSplitBlockProps => ({
+      eyebrow: "Product Demo",
+      heading: "See how our platform works in action",
+      description: "Take a quick tour of the core features that help modern teams move faster and build better products. No fluff, just the workflow.",
+      features: [
+        "Intuitive drag-and-drop interface",
+        "Real-time team collaboration",
+        "Seamless third-party integrations",
+      ],
+      videoUrl: "",
+      posterUrl: "",
+      ctaLabel: "Start your free trial",
+      ctaUrl: "#",
+      ctaSecondaryLabel: "",
+      ctaSecondaryUrl: "#",
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="12" y="16" width="20" height="4" rx="2" fill="#4f46e5" />
+        <rect x="12" y="26" width="42" height="5" rx="2" fill="#0F172A" />
+        <rect x="12" y="36" width="38" height="3" rx="1" fill="#CBD5E1" />
+        <rect x="12" y="43" width="32" height="3" rx="1" fill="#CBD5E1" />
+        <rect x="12" y="52" width="24" height="8" rx="3" fill="#4f46e5" />
+        <rect x="64" y="14" width="44" height="42" rx="4" fill="#E2E8F0" />
+        <circle cx="86" cy="35" r="9" fill="#4f46e5" />
+        <polygon points="83,30 83,40 91,35" fill="#FFFFFF" />
+      </svg>
+    ),
+  },
+  {
+    type: "gallery-split-feature",
+    label: "Gallery — Split Feature",
+    category: "Showcase",
+    defaultProps: (): GallerySplitFeatureBlockProps => ({
+      eyebrow: "Global Footprint",
+      headline: "Designed for teams without borders",
+      subheadline: "Our global offices are built to foster connection, creativity, and deep focus. Whether you are in NYC or London, you're part of the same seamless culture.",
+      imageUrl: "",
+      images: [
+        { id: "1", src: "", caption: "Gallery grid 1", alt: "Gallery grid 1" },
+        { id: "2", src: "", caption: "Gallery grid 2", alt: "Gallery grid 2" },
+      ],
+      ctaLabel: "View open roles",
+      ctaUrl: "#",
+      ctaSecondaryLabel: "Our mission",
+      ctaSecondaryUrl: "#",
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="14" y="20" width="22" height="4" rx="2" fill="#4f46e5" />
+        <rect x="14" y="30" width="40" height="5" rx="2" fill="#0F172A" />
+        <rect x="14" y="40" width="36" height="3" rx="1" fill="#CBD5E1" />
+        <rect x="14" y="46" width="30" height="3" rx="1" fill="#CBD5E1" />
+        <rect x="66" y="12" width="30" height="46" rx="3" fill="#64748B" />
+        <rect x="99" y="12" width="14" height="22" rx="3" fill="#94A3B8" />
+        <rect x="99" y="36" width="14" height="22" rx="3" fill="#CBD5E1" />
+      </svg>
+    ),
+  },
+  {
     type: "speaker-grid",
     label: "Speaker Grid",
     category: "Showcase",
@@ -5559,6 +6205,795 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         <rect x="22" y="51" width="16" height="2" rx="1" fill="#7B5BFF" />
         <rect x="52" y="51" width="16" height="2" rx="1" fill="#7B5BFF" />
         <rect x="82" y="51" width="16" height="2" rx="1" fill="#7B5BFF" />
+      </svg>
+    ),
+  },
+  {
+    type: "benefits-alternating-rows",
+    label: "Benefits — Alternating Rows",
+    category: "Showcase",
+    defaultProps: (): BenefitsAlternatingRowsBlockProps => ({
+      eyebrow: "Why choose our platform",
+      headline: "Everything you need to scale, nothing you don't.",
+      subheadline: "We've spent years building the foundation so you can focus on building the product. Experience the difference a truly unified platform makes.",
+      bgColor: "#FFFFFF",
+      textColor: "#171717",
+      accentColor: "#4f46e5",
+      rows: [
+        { icon: "Zap", title: "Accelerate your launch cycles", description: "Go from idea to production in days, not months. Our platform removes the boilerplate so your team can focus on building product.", features: ["Zero-config deployment pipelines", "Automated infrastructure provisioning", "Built-in CI/CD with instant rollbacks"], linkLabel: "Learn more about launches", linkUrl: "#" },
+        { icon: "Layers", title: "Unify your team's knowledge", description: "Break down silos and bring everyone onto the same page. A single source of truth for your documentation, decisions, and architecture.", features: ["Real-time collaborative editing", "Automatic version history", "Cross-functional permission controls"], linkLabel: "Learn more about knowledge", linkUrl: "#" },
+        { icon: "TrendingUp", title: "Scale without the growing pains", description: "Built on enterprise-grade infrastructure that grows with you. Handle traffic spikes effortlessly without rewriting your backend.", features: ["Auto-scaling compute resources", "Global edge CDN distribution", "99.99% guaranteed uptime SLA"], linkLabel: "Learn more about scaling", linkUrl: "#" },
+      ],
+      showCta: true,
+      ctaEyebrow: "One unified platform",
+      ctaHeading: "Ship faster, scale further",
+      ctaSubheading: "Bring design, engineering, and marketing onto the same canvas. See what a truly unified platform does for your launch velocity.",
+      ctaPrimaryLabel: "Get started free",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "Talk to sales",
+      ctaSecondaryUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="14" y="14" width="40" height="6" rx="2" fill="#171717" />
+        <rect x="14" y="24" width="30" height="3" rx="1" fill="#94A3B8" />
+        <rect x="14" y="31" width="34" height="3" rx="1" fill="#94A3B8" />
+        <rect x="14" y="40" width="6" height="6" rx="3" fill="#4f46e5" />
+        <rect x="24" y="41" width="22" height="3" rx="1" fill="#94A3B8" />
+        <rect x="62" y="14" width="44" height="42" rx="3" fill="#EEF0FF" stroke="#C7D2FE" />
+        <rect x="68" y="20" width="20" height="3" rx="1" fill="#4f46e5" />
+        <rect x="68" y="30" width="32" height="18" rx="2" fill="#C7D2FE" />
+      </svg>
+    ),
+  },
+  {
+    type: "how-it-works-alternating",
+    label: "How It Works — Alternating Showcase",
+    category: "Showcase",
+    defaultProps: (): HowItWorksAlternatingBlockProps => ({
+      eyebrow: "How it works",
+      headline: "From idea to live page in minutes",
+      subheadline: "Skip the development backlog. Empower your marketing team to build, test, and scale landing pages independently.",
+      bgColor: "#FAFAFA",
+      textColor: "#171717",
+      accentColor: "#4f46e5",
+      steps: [
+        { icon: "LayoutTemplate", title: "Select a brand template", description: "Start with a high-converting baseline. Choose from dozens of battle-tested layouts designed specifically for B2B SaaS, then instantly apply your company's colors and fonts.", features: ["One-click brand import", "Mobile-responsive by default", "Accessible color palettes"] },
+        { icon: "MousePointerClick", title: "Customize without code", description: "Drag, drop, and edit directly on the canvas. Our visual editor gives you complete control over spacing, typography, and content without writing a single line of CSS.", features: ["Inline text editing", "Global component libraries", "Version history"] },
+        { icon: "Zap", title: "Publish and optimize", description: "Hit publish to deploy instantly to our global edge network. Track conversions, run A/B tests, and iterate rapidly based on real user data.", features: ["Instant edge deployment", "Built-in analytics", "SEO optimization tools"] },
+      ],
+      showCta: true,
+      ctaEyebrow: "Get a guided tour",
+      ctaHeading: "See how fast your team can ship landing pages",
+      ctaSubheading: "Book a live walkthrough and watch a page go from brand template to published in minutes — no development backlog required.",
+      ctaPrimaryLabel: "Schedule a walkthrough",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "Talk to sales",
+      ctaSecondaryUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FAFAFA" rx="4" stroke="#E5E7EB" />
+        <rect x="40" y="8" width="40" height="4" rx="2" fill="#171717" />
+        <rect x="14" y="22" width="6" height="6" rx="3" fill="#4f46e5" />
+        <rect x="14" y="32" width="34" height="4" rx="2" fill="#171717" />
+        <rect x="14" y="40" width="30" height="3" rx="1" fill="#94A3B8" />
+        <rect x="14" y="47" width="22" height="3" rx="1" fill="#94A3B8" />
+        <rect x="62" y="22" width="44" height="34" rx="3" fill="#EEF0FF" stroke="#C7D2FE" />
+        <rect x="68" y="28" width="14" height="3" rx="1" fill="#4f46e5" />
+        <rect x="68" y="36" width="32" height="14" rx="2" fill="#C7D2FE" />
+      </svg>
+    ),
+  },
+  {
+    type: "how-it-works-numbered-bento",
+    label: "How It Works — Numbered Bento",
+    category: "Showcase",
+    defaultProps: (): HowItWorksNumberedBentoBlockProps => ({
+      eyebrow: "How it works",
+      headline: "From raw data to live campaigns in minutes.",
+      subheadline: "Stop waiting weeks for landing pages. Connect your systems once, define your rules, and let our engine build the rest.",
+      bgColor: "#FAFAFA",
+      textColor: "#171717",
+      accentColor: "#4f46e5",
+      steps: [
+        { icon: "Plug", title: "Connect your data", description: "Link your CRM, CMS, and product databases in a few clicks. We automatically sync your inventory, pricing, and customer segments in real-time." },
+        { icon: "Palette", title: "Map your brand", description: "Upload your fonts, colors, and logos. Our engine ensures every generated page stays strictly on-brand." },
+        { icon: "Wand2", title: "Generate variants", description: "Instantly spin up hundreds of personalized page variants tailored to different audiences and search intents." },
+        { icon: "BarChart3", title: "Publish & track", description: "Deploy to your domain with zero configuration. Watch conversions roll in through our built-in analytics dashboard." },
+      ],
+      buttonLabel: "Start building for free",
+      buttonUrl: "#",
+      showCta: true,
+      ctaEyebrow: "Skip the wait",
+      ctaHeading: "Turn your data into live campaigns today",
+      ctaSubheading: "Connect your systems once and let LP Studio generate hundreds of on-brand, personalized pages — no weeks-long backlog required.",
+      ctaPrimaryLabel: "Start building for free",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "Talk to sales",
+      ctaSecondaryUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FAFAFA" rx="4" stroke="#E5E7EB" />
+        <rect x="14" y="8" width="32" height="4" rx="2" fill="#171717" />
+        <rect x="14" y="15" width="24" height="3" rx="1" fill="#94A3B8" />
+        <rect x="14" y="26" width="56" height="18" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="18" y="30" width="6" height="6" rx="3" fill="#4f46e5" />
+        <rect x="74" y="26" width="32" height="18" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="78" y="30" width="6" height="6" rx="3" fill="#4f46e5" />
+        <rect x="14" y="48" width="32" height="14" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="18" y="52" width="6" height="6" rx="3" fill="#4f46e5" />
+        <rect x="50" y="48" width="56" height="14" rx="3" fill="#4f46e5" />
+        <rect x="54" y="52" width="6" height="6" rx="3" fill="#C7D2FE" />
+      </svg>
+    ),
+  },
+  {
+    type: "how-it-works-vertical-timeline",
+    label: "How It Works — Vertical Timeline",
+    category: "Showcase",
+    defaultProps: (): HowItWorksVerticalTimelineBlockProps => ({
+      eyebrow: "How it works",
+      headline: "From idea to published campaign in minutes",
+      subheadline: "Skip the lengthy design cycles and developer bottlenecks. Our platform automates the heavy lifting so you can focus on strategy.",
+      bgColor: "#ffffff",
+      textColor: "#171717",
+      accentColor: "#4f46e5",
+      steps: [
+        { icon: "Palette", title: "Connect your brand", description: "Link your style guide or let our AI extract colors, typography, and voice directly from your domain in seconds." },
+        { icon: "Users", title: "Define your audience", description: "Select your target segment and campaign goals so our engine can assemble the right blocks and personalize the messaging." },
+        { icon: "Zap", title: "Generate campaigns", description: "Create dozens of perfectly on-brand, high-converting landing pages tailored to your ad groups with a single click." },
+        { icon: "BarChart3", title: "Publish & measure", description: "Push directly to your custom subdomain and track conversion uplift instantly with our built-in analytics." },
+      ],
+      primaryButtonLabel: "Start building for free",
+      primaryButtonUrl: "#",
+      secondaryButtonLabel: "View examples",
+      secondaryButtonUrl: "#",
+      showCta: true,
+      ctaEyebrow: "Ready when you are",
+      ctaHeading: "Launch your first on-brand campaign today",
+      ctaSubheading: "Connect your brand, pick an audience, and let LP Studio assemble high-converting pages in minutes — no design or dev cycles required.",
+      ctaPrimaryLabel: "Start building for free",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "View live examples",
+      ctaSecondaryUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="14" y="8" width="40" height="4" rx="2" fill="#171717" />
+        <rect x="14" y="15" width="28" height="3" rx="1" fill="#94A3B8" />
+        <rect x="21" y="26" width="2" height="34" rx="1" fill="#E5E7EB" />
+        <circle cx="22" cy="30" r="5" fill="#FFFFFF" stroke="#C7D2FE" />
+        <circle cx="22" cy="44" r="5" fill="#FFFFFF" stroke="#C7D2FE" />
+        <circle cx="22" cy="58" r="5" fill="#FFFFFF" stroke="#C7D2FE" />
+        <rect x="34" y="27" width="30" height="3" rx="1" fill="#171717" />
+        <rect x="34" y="33" width="50" height="2" rx="1" fill="#94A3B8" />
+        <rect x="34" y="41" width="30" height="3" rx="1" fill="#171717" />
+        <rect x="34" y="47" width="50" height="2" rx="1" fill="#94A3B8" />
+        <rect x="34" y="55" width="30" height="3" rx="1" fill="#171717" />
+      </svg>
+    ),
+  },
+  {
+    type: "how-it-works-horizontal-stepper",
+    label: "How It Works — Horizontal Stepper",
+    category: "Showcase",
+    defaultProps: (): HowItWorksHorizontalStepperBlockProps => ({
+      eyebrow: "How it works",
+      headline: "From zero to automated in minutes",
+      subheadline: "We've eliminated the technical complexity so you can focus on building the perfect revenue engine.",
+      headerCtaLabel: "Start free trial",
+      headerCtaUrl: "#",
+      bgColor: "#FAFAFA",
+      textColor: "#171717",
+      accentColor: "#4f46e5",
+      steps: [
+        { icon: "UserPlus", title: "Connect your tools", description: "Securely link your existing CRM and data sources in one click." },
+        { icon: "Zap", title: "Set your rules", description: "Define custom routing logic and scoring criteria without code." },
+        { icon: "Rocket", title: "Go live instantly", description: "Launch your automated workflows and start routing leads immediately." },
+      ],
+      trustItems: ["No credit card required", "Cancel anytime", "14-day free trial"],
+      showCta: true,
+      ctaEyebrow: "See it in action",
+      ctaHeading: "Watch your revenue engine go live in minutes",
+      ctaSubheading: "Book a quick walkthrough and we'll show you how to connect your tools, set your rules, and start routing leads automatically.",
+      ctaPrimaryLabel: "Book a demo",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "Talk to sales",
+      ctaSecondaryUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FAFAFA" rx="4" stroke="#E5E7EB" />
+        <rect x="14" y="10" width="40" height="4" rx="2" fill="#171717" />
+        <rect x="14" y="18" width="28" height="3" rx="1" fill="#94A3B8" />
+        <rect x="90" y="10" width="16" height="8" rx="2" fill="#4f46e5" />
+        <rect x="14" y="34" width="92" height="2" rx="1" fill="#E5E7EB" />
+        <circle cx="22" cy="35" r="6" fill="#FFFFFF" stroke="#C7D2FE" />
+        <circle cx="60" cy="35" r="6" fill="#FFFFFF" stroke="#C7D2FE" />
+        <circle cx="98" cy="35" r="6" fill="#FFFFFF" stroke="#C7D2FE" />
+        <rect x="14" y="46" width="20" height="3" rx="1" fill="#171717" />
+        <rect x="52" y="46" width="20" height="3" rx="1" fill="#171717" />
+        <rect x="90" y="46" width="20" height="3" rx="1" fill="#171717" />
+        <rect x="14" y="53" width="24" height="2" rx="1" fill="#94A3B8" />
+        <rect x="52" y="53" width="24" height="2" rx="1" fill="#94A3B8" />
+        <rect x="90" y="53" width="22" height="2" rx="1" fill="#94A3B8" />
+      </svg>
+    ),
+  },
+  {
+    type: "benefits-bento",
+    label: "Benefits — Bento Grid",
+    category: "Showcase",
+    defaultProps: (): BenefitsBentoBlockProps => ({
+      eyebrow: "Platform capabilities",
+      headline: "Everything you need to scale operations.",
+      subheadline: "We've built the foundation so you can focus on what matters most—delivering value to your customers with zero friction.",
+      bgColor: "#FAFAFA",
+      textColor: "#171717",
+      accentColor: "#4f46e5",
+      tiles: [
+        { icon: "Layers", title: "Visual Workflow Builder", description: "Drag and drop your way to complex automations. Connect apps, databases, and APIs without writing a single line of code." },
+        { icon: "CloudLightning", title: "Instant Deployments", description: "Push your changes live in milliseconds to our globally distributed edge network." },
+        { icon: "Users", title: "Multiplayer Sync", description: "Work together in real-time. See cursors, leave comments, and ship faster as a team." },
+        { icon: "ShieldCheck", title: "Enterprise Security", description: "SOC2 compliant, SSO, and granular RBAC out of the box for total peace of mind." },
+        { icon: "BarChart3", title: "Advanced Telemetry", description: "Track every interaction, monitor performance, and gain actionable insights with our built-in analytics engine." },
+      ],
+      showCta: true,
+      ctaEyebrow: "Built to scale with you",
+      ctaHeading: "Bring every capability together",
+      ctaSubheading: "From visual workflows to enterprise security, see how the platform powers your operations end to end.",
+      ctaPrimaryLabel: "Request a walkthrough",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "Talk to sales",
+      ctaSecondaryUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FAFAFA" rx="4" stroke="#E5E7EB" />
+        <rect x="10" y="12" width="50" height="32" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="64" y="12" width="20" height="15" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="88" y="12" width="20" height="15" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="64" y="29" width="20" height="15" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="88" y="29" width="20" height="15" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="10" y="48" width="50" height="12" rx="3" fill="#4f46e5" />
+        <rect x="64" y="48" width="44" height="12" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="14" y="16" width="8" height="8" rx="2" fill="#EEF0FF" />
+      </svg>
+    ),
+  },
+  {
+    type: "features-bento-showcase",
+    label: "Features — Bento Showcase",
+    category: "Showcase",
+    defaultProps: (): FeaturesBentoShowcaseBlockProps => ({
+      eyebrow: "Platform Capabilities",
+      headline: "Everything you need to build at scale.",
+      subheadline: "A comprehensive suite of tools designed for modern marketing teams. Build, test, and deploy without waiting on engineering.",
+      bgColor: "#FAFAFA",
+      textColor: "#171717",
+      accentColor: "#4f46e5",
+      tiles: [
+        { icon: "Layout", title: "Visual Page Builder", description: "A truly WYSIWYG experience. Drag, drop, and configure components with a robust property panel. What you see is exactly what your customers get." },
+        { icon: "Palette", title: "Global Brand Sync", description: "Define your palettes, fonts, and logos once. Updates cascade across all your pages instantly." },
+        { icon: "Users", title: "Real-time Collab", description: "See who's editing, leave comments on specific blocks, and never overwrite someone else's work." },
+        { icon: "LineChart", title: "A/B Testing Engine", description: "Test headlines, heroes, or entire page layouts. Automatic traffic routing and statistical significance." },
+        { icon: "Shield", title: "Role-based Access", description: "Granular permissions ensure the right people can edit, while protecting your core templates." },
+        { icon: "Rocket", title: "Instant Publishing", description: "Deploy to a global edge network in milliseconds. Changes are live instantly, with zero downtime." },
+      ],
+      showCta: true,
+      ctaEyebrow: "Built for scale",
+      ctaHeading: "Ship your next campaign without the engineering bottleneck.",
+      ctaSubheading: "Bring every capability together in one workspace and launch pages your whole team can build on.",
+      ctaPrimaryLabel: "Start building free",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "Book a walkthrough",
+      ctaSecondaryUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FAFAFA" rx="4" stroke="#E5E7EB" />
+        <rect x="10" y="10" width="50" height="34" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="14" y="14" width="8" height="8" rx="2" fill="#EEF0FF" />
+        <rect x="14" y="30" width="38" height="10" rx="2" fill="#EEF1F5" />
+        <rect x="64" y="10" width="20" height="16" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="88" y="10" width="20" height="16" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="64" y="28" width="20" height="16" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="88" y="28" width="20" height="16" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="10" y="52" width="44" height="10" rx="3" fill="#4f46e5" />
+        <rect x="58" y="52" width="36" height="10" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+      </svg>
+    ),
+  },
+  {
+    type: "features-spotlight-cards",
+    label: "Features — Spotlight Cards",
+    category: "Showcase",
+    defaultProps: (): FeaturesSpotlightCardsBlockProps => ({
+      eyebrow: "Platform Capabilities",
+      headline: "Everything you need to launch and scale.",
+      spotlightIcon: "LayoutTemplate",
+      spotlightTitle: "Drag-and-drop visual builder",
+      spotlightDescription: "Design stunning, high-converting landing pages without writing a single line of code. Our intuitive builder gives you pixel-perfect control over every element, backed by a robust block library.",
+      spotlightButtonLabel: "Try the builder",
+      spotlightButtonUrl: "#",
+      bgColor: "#FAFAFA",
+      textColor: "#171717",
+      accentColor: "#4f46e5",
+      secondaryFeatures: [
+        { icon: "SplitSquareHorizontal", title: "Native A/B Testing", description: "Split traffic automatically and find your winning variations." },
+        { icon: "LineChart", title: "Real-time Analytics", description: "Track page views, conversion rates, and bounce rates instantly." },
+        { icon: "Globe", title: "Custom Domains", description: "Publish pages directly to your own brand domains and subdomains." },
+        { icon: "Users", title: "Team Collaboration", description: "Invite teammates, manage roles, and review drafts together." },
+        { icon: "Search", title: "Advanced SEO Tools", description: "Optimize metadata, generate sitemaps, and score high on search." },
+      ],
+      showCta: true,
+      ctaEyebrow: "Ready when you are",
+      ctaHeading: "Launch your first page in minutes, not weeks.",
+      ctaSubheading: "Everything from the visual builder to analytics is included — start free and upgrade only when you need to.",
+      ctaPrimaryLabel: "Try the builder",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "See all features",
+      ctaSecondaryUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FAFAFA" rx="4" stroke="#E5E7EB" />
+        <rect x="10" y="10" width="48" height="30" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="14" y="14" width="9" height="9" rx="2" fill="#EEF0FF" />
+        <rect x="14" y="28" width="34" height="8" rx="2" fill="#EEF1F5" />
+        <rect x="62" y="10" width="48" height="30" rx="3" fill="#EDEEF2" stroke="#E5E7EB" />
+        <rect x="10" y="46" width="20" height="16" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="34" y="46" width="20" height="16" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="58" y="46" width="20" height="16" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+        <rect x="82" y="46" width="20" height="16" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+      </svg>
+    ),
+  },
+  {
+    type: "features-tabbed-categories",
+    label: "Features — Tabbed Categories",
+    category: "Showcase",
+    defaultProps: (): FeaturesTabbedCategoriesBlockProps => ({
+      eyebrow: "Platform Capabilities",
+      headline: "Everything you need to build at scale.",
+      subheadline: "A complete suite of tools designed to help marketing teams launch faster, iterate smarter, and drive more pipeline without writing code.",
+      bgColor: "#FFFFFF",
+      textColor: "#171717",
+      accentColor: "#4f46e5",
+      categories: [
+        {
+          id: "design",
+          label: "Design & Build",
+          icon: "MonitorSmartphone",
+          heading: "Pixel-perfect control, zero code required.",
+          subheading: "Empower your marketing team to build stunning pages without waiting on engineering.",
+          features: [
+            { icon: "Paintbrush", title: "Visual Builder", description: "Drag-and-drop elements with real-time preview and precision layout controls." },
+            { icon: "Palette", title: "Global Styles", description: "Define typography, colors, and spacing once to ensure brand consistency." },
+            { icon: "Layers", title: "Dynamic Blocks", description: "Create smart, reusable components that sync instantly when updated anywhere." },
+          ],
+        },
+        {
+          id: "conversion",
+          label: "Conversion Optimization",
+          icon: "Zap",
+          heading: "Turn more clicks into qualified pipeline.",
+          subheading: "Deploy sophisticated experiments and smart forms to maximize your advertising ROI.",
+          features: [
+            { icon: "Split", title: "A/B Testing", description: "Run multivariate experiments and automatically route traffic to the winning variant." },
+            { icon: "ListChecks", title: "Form Flows", description: "Build multi-step lead capture forms with conditional logic and progressive profiling." },
+            { icon: "Sparkles", title: "Smart Personalization", description: "Swap headlines, imagery, and CTAs based on visitor firmographics." },
+          ],
+        },
+        {
+          id: "analytics",
+          label: "Analytics & Attribution",
+          icon: "BarChart3",
+          heading: "Measure what matters, prove your impact.",
+          subheading: "Connect the dots between marketing activity and closed revenue with precision.",
+          features: [
+            { icon: "Route", title: "Journey Tracking", description: "Map the complete path from initial ad click to final conversion event." },
+            { icon: "DollarSign", title: "Revenue Attribution", description: "Connect marketing touches directly to closed-won deals in your CRM." },
+            { icon: "MousePointerClick", title: "Heatmaps", description: "Understand exactly where visitors engage, hesitate, and drop off your pages." },
+          ],
+        },
+      ],
+      showCta: true,
+      ctaEyebrow: "See it in action",
+      ctaHeading: "Get a guided tour of the full platform.",
+      ctaSubheading: "Walk through design, conversion, and analytics with a specialist who knows your use case.",
+      ctaPrimaryLabel: "Book a live demo",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "See all features",
+      ctaSecondaryUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="10" y="9" width="24" height="6" rx="2" fill="#4f46e5" />
+        <rect x="38" y="9" width="24" height="6" rx="2" fill="#EEF1F5" />
+        <rect x="66" y="9" width="24" height="6" rx="2" fill="#EEF1F5" />
+        <rect x="10" y="15" width="100" height="1.5" fill="#E5E7EB" />
+        <rect x="10" y="24" width="40" height="8" rx="2" fill="#EEF1F5" />
+        <rect x="10" y="36" width="44" height="5" rx="2" fill="#F1F3F6" />
+        <rect x="10" y="44" width="44" height="5" rx="2" fill="#F1F3F6" />
+        <rect x="10" y="52" width="44" height="5" rx="2" fill="#F1F3F6" />
+        <rect x="60" y="24" width="50" height="36" rx="3" fill="#EEF0FF" stroke="#E5E7EB" />
+      </svg>
+    ),
+  },
+  {
+    type: "features-comparison-checklist",
+    label: "Features — Comparison Checklist",
+    category: "Showcase",
+    defaultProps: (): FeaturesComparisonChecklistBlockProps => ({
+      eyebrow: "Platform Capabilities",
+      headline: "Everything you need to scale",
+      subheadline: "Stop worrying about the foundational pieces. We include all the enterprise-grade infrastructure and capabilities right out of the box.",
+      featureColumnLabel: "Feature & Description",
+      includedColumnLabel: "Included",
+      bgColor: "#FFFFFF",
+      textColor: "#171717",
+      accentColor: "#4f46e5",
+      categories: [
+        {
+          title: "Infrastructure & Security",
+          features: [
+            { icon: "Database", name: "Multi-tenant Architecture", description: "Isolate customer data automatically with dedicated database schemas." },
+            { icon: "Shield", name: "Role-based Access Control", description: "Granular permissions, custom roles, and comprehensive audit logs." },
+          ],
+        },
+        {
+          title: "Platform Capabilities",
+          features: [
+            { icon: "Globe", name: "White-labeling Engine", description: "Custom domains, branding presets, and branded email delivery." },
+            { icon: "Zap", name: "API & Webhooks", description: "RESTful endpoints and real-time events for external systems." },
+          ],
+        },
+        {
+          title: "Experience & Support",
+          features: [
+            { icon: "Layers", name: "Component Library", description: "Over 100+ accessible, pre-built components ready to deploy." },
+            { icon: "MessageSquare", name: "Priority Support", description: "24/7 dedicated support team with 1-hour response SLA." },
+          ],
+        },
+      ],
+      showBespokeCard: true,
+      bespokeHeading: "Need something bespoke?",
+      bespokeSubheading: "Our engineering team can build custom modules for your enterprise.",
+      bespokeButtonLabel: "Contact Enterprise Sales",
+      bespokeButtonUrl: "#",
+      showCta: true,
+      ctaEyebrow: "Stay in the loop",
+      ctaHeading: "Get the enterprise capabilities checklist.",
+      ctaSubheading: "Drop your email and we'll send the full breakdown of what's included on every plan.",
+      ctaPrimaryLabel: "Send it to me",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "",
+      ctaSecondaryUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="38" y="8" width="44" height="5" rx="2" fill="#171717" />
+        <rect x="14" y="20" width="92" height="42" rx="4" fill="#FFFFFF" stroke="#E5E7EB" />
+        {[0, 1, 2].map((r) => (
+          <g key={r} transform={`translate(20, ${26 + r * 12})`}>
+            <rect width="7" height="7" rx="2" fill="#EEF0FF" />
+            <rect x="12" y="1" width="44" height="3" rx="1" fill="#171717" />
+            <rect x="12" y="6" width="34" height="2" rx="1" fill="#94A3B8" />
+            <circle cx="86" cy="4" r="4" fill="#4f46e5" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "benefits-icon-grid",
+    label: "Benefits — Icon Grid",
+    category: "Showcase",
+    defaultProps: (): BenefitsIconGridBlockProps => ({
+      eyebrow: "Why choose us",
+      headline: "Everything you need to scale your marketing",
+      subheadline: "We've eliminated the friction between design, engineering, and marketing. Focus on your message, and let our platform handle the rest.",
+      bgColor: "#FFFFFF",
+      textColor: "#171717",
+      accentColor: "#4f46e5",
+      columns: 3,
+      items: [
+        { icon: "Zap", title: "Lightning fast execution", description: "Launch campaigns in minutes, not weeks. Our intuitive builder removes technical bottlenecks so your team moves at the speed of thought." },
+        { icon: "BarChart3", title: "Data-driven optimization", description: "Stop guessing what works. Built-in A/B testing and real-time analytics ensure every page performs better than the last." },
+        { icon: "ShieldCheck", title: "Enterprise-grade security", description: "Rest easy knowing your brand assets and customer data are protected by bank-level encryption and compliance frameworks." },
+        { icon: "Users", title: "Seamless collaboration", description: "Bring your whole team together. Comment, review, and approve changes directly on the canvas without context switching." },
+        { icon: "Globe2", title: "Global localization", description: "Scale your message worldwide. Automatically adapt content, currency, and layouts for different regions with a single click." },
+        { icon: "Clock", title: "24/7 automated scaling", description: "Handle viral traffic spikes effortlessly. Our edge network automatically distributes your pages globally for zero downtime." },
+      ],
+      showCta: true,
+      ctaEyebrow: "Ready when you are",
+      ctaHeading: "Build your first page in minutes",
+      ctaSubheading: "See how the platform removes the friction between design, engineering, and marketing—no credit card required.",
+      ctaPrimaryLabel: "Start building free",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "Book a demo",
+      ctaSecondaryUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="12" y="10" width="44" height="5" rx="2" fill="#171717" />
+        {[0, 1, 2].map((c) => (
+          <g key={c} transform={`translate(${12 + c * 34}, 26)`}>
+            <rect width="8" height="8" rx="2" fill="#EEF0FF" />
+            <rect x="0" y="13" width="26" height="3" rx="1" fill="#171717" />
+            <rect x="0" y="19" width="22" height="2" rx="1" fill="#94A3B8" />
+            <rect x="0" y="24" width="24" height="2" rx="1" fill="#94A3B8" />
+          </g>
+        ))}
+        {[0, 1, 2].map((c) => (
+          <g key={`b${c}`} transform={`translate(${12 + c * 34}, 50)`}>
+            <rect width="8" height="8" rx="2" fill="#EEF0FF" />
+            <rect x="0" y="13" width="26" height="3" rx="1" fill="#171717" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "benefits-stat-led",
+    label: "Benefits — Stat-Led",
+    category: "Showcase",
+    defaultProps: (): BenefitsStatLedBlockProps => ({
+      eyebrow: "Proven Outcomes",
+      headline: "Measurable impact, delivered by design.",
+      subheadline: "Don't just take our word for it. See the real numbers our platform delivers for marketing teams scaling their operations.",
+      bgColor: "#FFFFFF",
+      textColor: "#171717",
+      accentColor: "#4f46e5",
+      stats: [
+        { stat: "3.5x", title: "Faster Deployment", description: "Launch new campaigns in days instead of weeks, eliminating developer bottlenecks and long QA cycles entirely.", icon: "Zap" },
+        { stat: "+42%", title: "Conversion Uplift", description: "Our performance-optimized blocks and automatic A/B testing systematically drive higher lead generation across all your pages.", icon: "TrendingUp" },
+        { stat: "15h", title: "Saved Per Week", description: "Free up your marketing team to focus on high-level strategy rather than wrestling with brittle code and rigid CMS limitations.", icon: "Clock" },
+      ],
+      showCta: true,
+      ctaEyebrow: "See the numbers for yourself",
+      ctaHeading: "Put these outcomes to work",
+      ctaSubheading: "Get the benchmark report and a tailored walkthrough delivered straight to your inbox.",
+      ctaPrimaryLabel: "Send me the report",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "Talk to sales",
+      ctaSecondaryUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        {[0, 1, 2].map((c) => (
+          <g key={c} transform={`translate(${12 + c * 36}, 16)`}>
+            <text x="0" y="16" fontSize="16" fontWeight="800" fill="#4f46e5">{["3.5x", "+42%", "15h"][c]}</text>
+            <rect x="0" y="24" width="30" height="2" rx="1" fill="#E5E7EB" />
+            <rect x="0" y="32" width="7" height="7" rx="2" fill="#EEF0FF" />
+            <rect x="10" y="33" width="20" height="3" rx="1" fill="#171717" />
+            <rect x="10" y="39" width="18" height="2" rx="1" fill="#94A3B8" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "quote-carousel",
+    label: "Quotes — Carousel",
+    category: "Social Proof",
+    defaultProps: (): QuoteCarouselBlockProps => ({
+      eyebrow: "Customer Stories",
+      headline: "Don't just take our word for it.",
+      subheadline: "See how top teams are accelerating their work and driving more results.",
+      bgColor: "#FAFAFA",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+      testimonials: [
+        { quote: "We went from a 3-week backlog for landing pages to spinning up highly-targeted campaigns in under an hour. The conversion uplift speaks for itself.", author: "Sarah Jenkins", role: "VP of Growth", company: "Lumina Data", avatarInitials: "SJ", avatarImage: "", rating: 5 },
+        { quote: "Most page builders ignore enterprise constraints. This is the first platform that enforces our brand guidelines while giving the team the agility they need.", author: "Marcus Chen", role: "Head of Demand Gen", company: "Vertex Systems", avatarInitials: "MC", avatarImage: "", rating: 5 },
+        { quote: "The ability to rapidly launch and test new messaging without developer intervention is incredible. Our conversion rates are up 28%.", author: "Elena Rodriguez", role: "Marketing Director", company: "Finova Capital", avatarInitials: "ER", avatarImage: "", rating: 5 },
+      ],
+      showCta: true,
+      ctaEyebrow: "Ready when you are",
+      ctaHeading: "Ready to accelerate your campaigns?",
+      ctaSubheading: "Join thousands of teams building better pages, faster.",
+      ctaPrimaryLabel: "Start your free trial",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "Talk to sales",
+      ctaSecondaryUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FAFAFA" rx="4" stroke="#E5E7EB" />
+        <rect x="52" y="12" width="16" height="12" rx="3" fill="#EEF0FF" />
+        <rect x="40" y="30" width="40" height="3" rx="1" fill="#0F172A" />
+        <rect x="34" y="37" width="52" height="3" rx="1" fill="#94A3B8" />
+        <circle cx="60" cy="50" r="5" fill="#4f46e5" opacity="0.3" />
+        <path d="M16 38 l-5 -5 l5 -5" stroke="#94A3B8" strokeWidth="2" fill="none" />
+        <path d="M104 28 l5 5 l-5 5" stroke="#94A3B8" strokeWidth="2" fill="none" />
+        <circle cx="52" cy="62" r="2" fill="#4f46e5" />
+        <circle cx="60" cy="62" r="2" fill="#CBD5E1" />
+        <circle cx="68" cy="62" r="2" fill="#CBD5E1" />
+      </svg>
+    ),
+  },
+  {
+    type: "quote-library",
+    label: "Quotes — Wall of Love",
+    category: "Social Proof",
+    defaultProps: (): QuoteLibraryBlockProps => ({
+      eyebrow: "Wall of Love",
+      headline: "Trusted by the world's best teams",
+      subheadline: "See what leaders are saying about how we transformed the way they work.",
+      bgColor: "#F8FAFC",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+      testimonials: [
+        { id: "1", quote: "Cut our campaign time-to-market from 3 weeks to 3 hours. The quality is indistinguishable from our custom-coded pages.", author: "Sarah Jenkins", role: "VP Marketing", company: "Acme Corp", rating: 5, avatarInitials: "SJ" },
+        { id: "2", quote: "Finally, a builder that actually understands B2B requirements. The built-in components are incredibly well thought out.", author: "Marcus Chen", role: "Director of Demand Gen", company: "TechFlow", rating: 5, avatarInitials: "MC" },
+        { id: "3", quote: "We were skeptical about losing design control, but the brand constraints actually made our pages more consistent.", author: "Elena Rodriguez", role: "CMO", company: "Nexus Systems", rating: 5, avatarInitials: "ER" },
+        { id: "4", quote: "The ability to spin up bespoke ABM pages for our top accounts without waiting on engineering has transformed our outbound.", author: "David Kim", role: "Growth Lead", company: "Kira", rating: 5, avatarInitials: "DK" },
+        { id: "5", quote: "I've tried them all. This is the first platform that feels like it was built for professionals who care about brand.", author: "Rachel Foster", role: "Head of Marketing", company: "Vanguard", rating: 5, avatarInitials: "RF" },
+        { id: "6", quote: "Our engineering team was thrilled when we switched. They focus on the core product, and marketing gets infinite flexibility.", author: "Tom Baker", role: "CTO", company: "FinTech Solutions", rating: 4, avatarInitials: "TB" },
+      ],
+      showCta: true,
+      ctaEyebrow: "Join them",
+      ctaHeading: "Ready to move faster?",
+      ctaSubheading: "Join thousands of teams shipping better pages today.",
+      ctaPrimaryLabel: "Start building for free",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "Book a demo",
+      ctaSecondaryUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#F8FAFC" rx="4" stroke="#E5E7EB" />
+        <rect x="46" y="8" width="28" height="3" rx="1" fill="#0F172A" />
+        {[0, 1, 2].map((c) => (
+          <g key={c} transform={`translate(${10 + c * 36}, 18)`}>
+            <rect width="32" height="20" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+            <rect x="4" y="4" width="16" height="2" rx="1" fill="#4f46e5" />
+            <rect x="4" y="9" width="24" height="2" rx="1" fill="#94A3B8" />
+            <circle cx="7" cy="15" r="2.5" fill="#EEF0FF" />
+            <rect x="12" y="14" width="14" height="2" rx="1" fill="#94A3B8" />
+          </g>
+        ))}
+        {[0, 1, 2].map((c) => (
+          <g key={`b${c}`} transform={`translate(${10 + c * 36}, 42)`}>
+            <rect width="32" height="20" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+            <rect x="4" y="4" width="16" height="2" rx="1" fill="#4f46e5" />
+            <rect x="4" y="9" width="24" height="2" rx="1" fill="#94A3B8" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "quote-with-image",
+    label: "Quotes — With Image",
+    category: "Social Proof",
+    defaultProps: (): QuoteWithImageBlockProps => ({
+      eyebrow: "Customer Story",
+      quote: "Before this, our team relied on engineering for every single iteration. It took weeks to test a new message. Now, we launch five high-converting campaigns a week. It fundamentally changed how we scale.",
+      author: "Sarah Jenkins",
+      role: "VP of Demand Generation",
+      company: "Equinox",
+      imageUrl: "",
+      imageAlt: "Portrait of Sarah Jenkins",
+      imageSide: "left",
+      rating: 5,
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+      showCta: true,
+      ctaHeading: "Ready to accelerate your team?",
+      ctaSubheading: "See how it can transform your velocity in a 15-minute product tour.",
+      ctaPrimaryLabel: "Book a personalized demo",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "",
+      ctaSecondaryUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <rect x="12" y="12" width="40" height="46" rx="4" fill="#CBD5E1" />
+        <circle cx="32" cy="30" r="8" fill="#94A3B8" />
+        <path d="M20 52 q12 -14 24 0" fill="#94A3B8" />
+        <rect x="62" y="16" width="20" height="3" rx="1" fill="#4f46e5" />
+        <rect x="62" y="26" width="46" height="3" rx="1" fill="#0F172A" />
+        <rect x="62" y="33" width="42" height="3" rx="1" fill="#0F172A" />
+        <rect x="62" y="40" width="36" height="3" rx="1" fill="#94A3B8" />
+        <rect x="62" y="50" width="24" height="8" rx="3" fill="#4f46e5" />
+      </svg>
+    ),
+  },
+  {
+    type: "single-quote",
+    label: "Quotes — Single",
+    category: "Social Proof",
+    defaultProps: (): SingleQuoteBlockProps => ({
+      quote: "Before this, every campaign required a week of dev time just to get the tracking and styling right. Now, my demand gen team launches six flawless, brand-perfect pages a week on their own. It has fundamentally changed our velocity.",
+      author: "Sarah Jenkins",
+      role: "VP of Growth Marketing",
+      company: "Acme Corp",
+      avatarInitials: "SJ",
+      bgColor: "#FFFFFF",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+      showCta: true,
+      ctaEyebrow: "Ready when you are",
+      ctaHeading: "Ready to scale your campaigns?",
+      ctaSubheading: "Join thousands of marketers building better pages, faster.",
+      ctaPrimaryLabel: "Start your free trial",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "Talk to sales",
+      ctaSecondaryUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FFFFFF" rx="4" stroke="#E5E7EB" />
+        <circle cx="60" cy="16" r="6" fill="#EEF0FF" />
+        <path d="M57 14 q0 -3 3 -3 M60 14 q0 -3 3 -3" stroke="#4f46e5" strokeWidth="1.5" fill="none" />
+        <rect x="30" y="28" width="60" height="4" rx="2" fill="#0F172A" />
+        <rect x="38" y="36" width="44" height="4" rx="2" fill="#0F172A" />
+        <circle cx="60" cy="50" r="5" fill="#4f46e5" />
+        <rect x="48" y="60" width="24" height="3" rx="1" fill="#94A3B8" />
+      </svg>
+    ),
+  },
+  {
+    type: "testimonial-grid",
+    label: "Testimonials — Grid",
+    category: "Social Proof",
+    defaultProps: (): TestimonialGridBlockProps => ({
+      eyebrow: "Customer Stories",
+      headline: "Trusted by the best marketing teams",
+      subheadline: "See how high-growth companies are scaling their campaign execution without engineering bottlenecks.",
+      bgColor: "#F8FAFC",
+      textColor: "#0F172A",
+      accentColor: "#4f46e5",
+      testimonials: [
+        { id: "1", quote: "It cut our campaign launch time from weeks to hours. Easily the highest leverage tool in our growth stack right now.", author: "Sarah Jenkins", role: "VP Growth", company: "Acme Corp", rating: 5, avatarInitials: "SJ" },
+        { id: "2", quote: "Finally, a landing page builder that doesn't feel like a toy. The design constraints actually make us faster, and the conversion rates speak for themselves.", author: "David Chen", role: "Head of Demand Gen", company: "Nexus", rating: 5, avatarInitials: "DC" },
+        { id: "3", quote: "We've scaled our personalized ABM pages to 500+ without hiring a single developer. The ROI was positive in month one.", author: "Emily Rodriguez", role: "Marketing Dir", company: "CloudScale", rating: 5, avatarInitials: "ER" },
+        { id: "4", quote: "The built-in testing and analytics are a game-changer. We've seen a 34% lift in form completions across all our core campaigns.", author: "Marcus Thorne", role: "Co-founder", company: "Outbound", rating: 5, avatarInitials: "MT" },
+        { id: "5", quote: "It's the first time our design team is actually happy with the output of a visual builder. Everything stays rigorously on-brand.", author: "Jessica Lin", role: "Brand Lead", company: "Vela", rating: 5, avatarInitials: "JL" },
+        { id: "6", quote: "Incredible speed. We spun up an entire conference registration hub in two days. Highly recommended for any serious marketing org.", author: "Tom Barton", role: "CMO", company: "TechStars", rating: 5, avatarInitials: "TB" },
+      ],
+      showCta: true,
+      ctaEyebrow: "Join them",
+      ctaHeading: "Ready to move faster?",
+      ctaSubheading: "Join thousands of teams shipping better pages today.",
+      ctaPrimaryLabel: "Start building for free",
+      ctaPrimaryUrl: "#",
+      ctaSecondaryLabel: "Book a demo",
+      ctaSecondaryUrl: "#",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#F8FAFC" rx="4" stroke="#E5E7EB" />
+        <rect x="42" y="7" width="36" height="3" rx="1" fill="#0F172A" />
+        {[0, 1, 2].map((c) => (
+          <g key={c} transform={`translate(${10 + c * 36}, 16)`}>
+            <rect width="32" height="22" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+            <rect x="4" y="4" width="14" height="2" rx="1" fill="#f59e0b" />
+            <rect x="4" y="9" width="24" height="2" rx="1" fill="#94A3B8" />
+            <circle cx="7" cy="17" r="2.5" fill="#EEF0FF" />
+            <rect x="12" y="16" width="14" height="2" rx="1" fill="#94A3B8" />
+          </g>
+        ))}
+        {[0, 1, 2].map((c) => (
+          <g key={`b${c}`} transform={`translate(${10 + c * 36}, 42)`}>
+            <rect width="32" height="20" rx="3" fill="#FFFFFF" stroke="#E5E7EB" />
+            <rect x="4" y="4" width="14" height="2" rx="1" fill="#f59e0b" />
+            <rect x="4" y="9" width="24" height="2" rx="1" fill="#94A3B8" />
+          </g>
+        ))}
       </svg>
     ),
   },
@@ -6110,7 +7545,36 @@ export function createBlock(type: "editorial-carousel"): Extract<PageBlock, { ty
 export function createBlock(type: "menu-section"): Extract<PageBlock, { type: "menu-section" }>;
 export function createBlock(type: "hours-location"): Extract<PageBlock, { type: "hours-location" }>;
 export function createBlock(type: "before-after-gallery"): Extract<PageBlock, { type: "before-after-gallery" }>;
+export function createBlock(type: "cta-centered-minimal"): Extract<PageBlock, { type: "cta-centered-minimal" }>;
+export function createBlock(type: "cta-split-image"): Extract<PageBlock, { type: "cta-split-image" }>;
+export function createBlock(type: "cta-stat-backed"): Extract<PageBlock, { type: "cta-stat-backed" }>;
+export function createBlock(type: "cta-gradient-banner"): Extract<PageBlock, { type: "cta-gradient-banner" }>;
+export function createBlock(type: "case-study-card-grid"): Extract<PageBlock, { type: "case-study-card-grid" }>;
+export function createBlock(type: "case-study-logo-results-row"): Extract<PageBlock, { type: "case-study-logo-results-row" }>;
+export function createBlock(type: "case-study-metric-triptych"): Extract<PageBlock, { type: "case-study-metric-triptych" }>;
+export function createBlock(type: "case-study-spotlight-feature"): Extract<PageBlock, { type: "case-study-spotlight-feature" }>;
+export function createBlock(type: "gallery-carousel-spotlight"): Extract<PageBlock, { type: "gallery-carousel-spotlight" }>;
+export function createBlock(type: "gallery-filmstrip"): Extract<PageBlock, { type: "gallery-filmstrip" }>;
+export function createBlock(type: "gallery-masonry"): Extract<PageBlock, { type: "gallery-masonry" }>;
+export function createBlock(type: "gallery-split-feature"): Extract<PageBlock, { type: "gallery-split-feature" }>;
 export function createBlock(type: "speaker-grid"): Extract<PageBlock, { type: "speaker-grid" }>;
+export function createBlock(type: "benefits-alternating-rows"): Extract<PageBlock, { type: "benefits-alternating-rows" }>;
+export function createBlock(type: "how-it-works-alternating"): Extract<PageBlock, { type: "how-it-works-alternating" }>;
+export function createBlock(type: "how-it-works-numbered-bento"): Extract<PageBlock, { type: "how-it-works-numbered-bento" }>;
+export function createBlock(type: "how-it-works-vertical-timeline"): Extract<PageBlock, { type: "how-it-works-vertical-timeline" }>;
+export function createBlock(type: "how-it-works-horizontal-stepper"): Extract<PageBlock, { type: "how-it-works-horizontal-stepper" }>;
+export function createBlock(type: "benefits-bento"): Extract<PageBlock, { type: "benefits-bento" }>;
+export function createBlock(type: "features-bento-showcase"): Extract<PageBlock, { type: "features-bento-showcase" }>;
+export function createBlock(type: "features-spotlight-cards"): Extract<PageBlock, { type: "features-spotlight-cards" }>;
+export function createBlock(type: "features-tabbed-categories"): Extract<PageBlock, { type: "features-tabbed-categories" }>;
+export function createBlock(type: "features-comparison-checklist"): Extract<PageBlock, { type: "features-comparison-checklist" }>;
+export function createBlock(type: "benefits-icon-grid"): Extract<PageBlock, { type: "benefits-icon-grid" }>;
+export function createBlock(type: "benefits-stat-led"): Extract<PageBlock, { type: "benefits-stat-led" }>;
+export function createBlock(type: "quote-carousel"): Extract<PageBlock, { type: "quote-carousel" }>;
+export function createBlock(type: "quote-library"): Extract<PageBlock, { type: "quote-library" }>;
+export function createBlock(type: "quote-with-image"): Extract<PageBlock, { type: "quote-with-image" }>;
+export function createBlock(type: "single-quote"): Extract<PageBlock, { type: "single-quote" }>;
+export function createBlock(type: "testimonial-grid"): Extract<PageBlock, { type: "testimonial-grid" }>;
 export function createBlock(type: "section"): Extract<PageBlock, { type: "section" }>;
 export function createBlock(type: "columns"): Extract<PageBlock, { type: "columns" }>;
 export function createBlock(type: "grid"): Extract<PageBlock, { type: "grid" }>;
@@ -6127,6 +7591,10 @@ export function createBlock(type: "product-grid"): Extract<PageBlock, { type: "p
 export function createBlock(type: "photo-strip"): Extract<PageBlock, { type: "photo-strip" }>;
 export function createBlock(type: "bottom-cta"): Extract<PageBlock, { type: "bottom-cta" }>;
 export function createBlock(type: "video-section"): Extract<PageBlock, { type: "video-section" }>;
+export function createBlock(type: "media-feature-reel"): Extract<PageBlock, { type: "media-feature-reel" }>;
+export function createBlock(type: "media-looping-showcase"): Extract<PageBlock, { type: "media-looping-showcase" }>;
+export function createBlock(type: "media-thumbnail-grid"): Extract<PageBlock, { type: "media-thumbnail-grid" }>;
+export function createBlock(type: "media-video-split"): Extract<PageBlock, { type: "media-video-split" }>;
 export function createBlock(type: "case-studies"): Extract<PageBlock, { type: "case-studies" }>;
 export function createBlock(type: "resources"): Extract<PageBlock, { type: "resources" }>;
 export function createBlock(type: "rich-text"): Extract<PageBlock, { type: "rich-text" }>;
@@ -6245,6 +7713,10 @@ export function createBlock(type: BlockType): PageBlock {
     case "photo-strip": return { id, type: "photo-strip", props: props as PhotoStripBlockProps };
     case "bottom-cta": return { id, type: "bottom-cta", props: props as BottomCtaBlockProps };
     case "video-section": return { id, type: "video-section", props: props as VideoSectionBlockProps };
+    case "media-feature-reel": return { id, type: "media-feature-reel", props: props as MediaFeatureReelBlockProps };
+    case "media-looping-showcase": return { id, type: "media-looping-showcase", props: props as MediaLoopingShowcaseBlockProps };
+    case "media-thumbnail-grid": return { id, type: "media-thumbnail-grid", props: props as MediaThumbnailGridBlockProps };
+    case "media-video-split": return { id, type: "media-video-split", props: props as MediaVideoSplitBlockProps };
     case "case-studies": return { id, type: "case-studies", props: props as CaseStudiesBlockProps };
     case "resources": return { id, type: "resources", props: props as ResourcesBlockProps };
     case "rich-text": return { id, type: "rich-text", props: props as RichTextBlockProps };
@@ -6365,7 +7837,36 @@ export function createBlock(type: BlockType): PageBlock {
     case "menu-section": return { id, type: "menu-section", props: props as MenuSectionBlockProps };
     case "hours-location": return { id, type: "hours-location", props: props as HoursLocationBlockProps };
     case "before-after-gallery": return { id, type: "before-after-gallery", props: props as BeforeAfterGalleryBlockProps };
+    case "cta-centered-minimal": return { id, type: "cta-centered-minimal", props: props as CtaCenteredMinimalBlockProps };
+    case "cta-split-image": return { id, type: "cta-split-image", props: props as CtaSplitImageBlockProps };
+    case "cta-stat-backed": return { id, type: "cta-stat-backed", props: props as CtaStatBackedBlockProps };
+    case "cta-gradient-banner": return { id, type: "cta-gradient-banner", props: props as CtaGradientBannerBlockProps };
+    case "case-study-card-grid": return { id, type: "case-study-card-grid", props: props as CaseStudyCardGridBlockProps };
+    case "case-study-logo-results-row": return { id, type: "case-study-logo-results-row", props: props as CaseStudyLogoResultsRowBlockProps };
+    case "case-study-metric-triptych": return { id, type: "case-study-metric-triptych", props: props as CaseStudyMetricTriptychBlockProps };
+    case "case-study-spotlight-feature": return { id, type: "case-study-spotlight-feature", props: props as CaseStudySpotlightFeatureBlockProps };
+    case "gallery-carousel-spotlight": return { id, type: "gallery-carousel-spotlight", props: props as GalleryCarouselSpotlightBlockProps };
+    case "gallery-filmstrip": return { id, type: "gallery-filmstrip", props: props as GalleryFilmstripBlockProps };
+    case "gallery-masonry": return { id, type: "gallery-masonry", props: props as GalleryMasonryBlockProps };
+    case "gallery-split-feature": return { id, type: "gallery-split-feature", props: props as GallerySplitFeatureBlockProps };
     case "speaker-grid": return { id, type: "speaker-grid", props: props as SpeakerGridBlockProps };
+    case "benefits-alternating-rows": return { id, type: "benefits-alternating-rows", props: props as BenefitsAlternatingRowsBlockProps };
+    case "how-it-works-alternating": return { id, type: "how-it-works-alternating", props: props as HowItWorksAlternatingBlockProps };
+    case "how-it-works-numbered-bento": return { id, type: "how-it-works-numbered-bento", props: props as HowItWorksNumberedBentoBlockProps };
+    case "how-it-works-vertical-timeline": return { id, type: "how-it-works-vertical-timeline", props: props as HowItWorksVerticalTimelineBlockProps };
+    case "how-it-works-horizontal-stepper": return { id, type: "how-it-works-horizontal-stepper", props: props as HowItWorksHorizontalStepperBlockProps };
+    case "benefits-bento": return { id, type: "benefits-bento", props: props as BenefitsBentoBlockProps };
+    case "features-bento-showcase": return { id, type: "features-bento-showcase", props: props as FeaturesBentoShowcaseBlockProps };
+    case "features-spotlight-cards": return { id, type: "features-spotlight-cards", props: props as FeaturesSpotlightCardsBlockProps };
+    case "features-tabbed-categories": return { id, type: "features-tabbed-categories", props: props as FeaturesTabbedCategoriesBlockProps };
+    case "features-comparison-checklist": return { id, type: "features-comparison-checklist", props: props as FeaturesComparisonChecklistBlockProps };
+    case "benefits-icon-grid": return { id, type: "benefits-icon-grid", props: props as BenefitsIconGridBlockProps };
+    case "benefits-stat-led": return { id, type: "benefits-stat-led", props: props as BenefitsStatLedBlockProps };
+    case "quote-carousel": return { id, type: "quote-carousel", props: props as QuoteCarouselBlockProps };
+    case "quote-library": return { id, type: "quote-library", props: props as QuoteLibraryBlockProps };
+    case "quote-with-image": return { id, type: "quote-with-image", props: props as QuoteWithImageBlockProps };
+    case "single-quote": return { id, type: "single-quote", props: props as SingleQuoteBlockProps };
+    case "testimonial-grid": return { id, type: "testimonial-grid", props: props as TestimonialGridBlockProps };
     case "content-series": return { id, type: "content-series", props: props as ContentSeriesBlockProps };
     case "blog-series": return { id, type: "blog-series", props: props as BlogSeriesBlockProps };
     case "storefront": return { id, type: "storefront", props: props as StorefrontBlockProps };
