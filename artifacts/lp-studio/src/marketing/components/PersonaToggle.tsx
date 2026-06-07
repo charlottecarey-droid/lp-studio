@@ -33,21 +33,9 @@ export default function PersonaToggle({ active }: PersonaToggleProps) {
       style={{
         display: "inline-flex",
         flexDirection: "column",
-        gap: 9,
-        marginBottom: 26,
+        marginBottom: 22,
       }}
     >
-      <span
-        style={{
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: "0.16em",
-          textTransform: "uppercase",
-          color: "var(--ink-soft)",
-        }}
-      >
-        LP Studio
-      </span>
       <div
         style={{
           position: "relative",
