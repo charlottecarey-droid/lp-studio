@@ -59,7 +59,6 @@ export default function ForMarketing() {
       <main>
         <PersonaHero
           persona="marketing"
-          eyebrow="For Marketing"
           accent="var(--indigo)"
           title="Ship campaigns without the design queue."
           sub="Generate on-brand pages from a prompt, A/B every variant with Smart Traffic auto-routing the winner, and hand off leads to the MAP your demand-gen team already runs — launch in an afternoon, not a sprint."

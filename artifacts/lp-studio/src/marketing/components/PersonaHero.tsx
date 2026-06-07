@@ -7,7 +7,12 @@
 import PersonaToggle from "./PersonaToggle";
 
 interface PersonaHeroProps {
-  eyebrow: string;
+  /**
+   * Accent eyebrow pill shown above the headline. Omitted on the persona
+   * solution pages (/for-marketing, /for-sales), where the PersonaToggle is
+   * the only element above the headline.
+   */
+  eyebrow?: string;
   /** Persona accent — typically var(--indigo) for marketing, var(--coral) for sales. */
   accent: string;
   title: string;
@@ -59,34 +64,36 @@ export default function PersonaHero({
       <div className="max-w-[1180px] mx-auto relative">
         <div style={{ maxWidth: 780 }}>
           {persona ? <PersonaToggle active={persona} /> : null}
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 9,
-              border: `1px solid ${accent}`,
-              color: accent,
-              background: `color-mix(in srgb, ${accent} 8%, transparent)`,
-              borderRadius: 999,
-              padding: "6px 14px",
-              marginBottom: 26,
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-            }}
-          >
-            <span
+          {eyebrow ? (
+            <div
               style={{
-                width: 6,
-                height: 6,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 9,
+                border: `1px solid ${accent}`,
+                color: accent,
+                background: `color-mix(in srgb, ${accent} 8%, transparent)`,
                 borderRadius: 999,
-                background: accent,
-                boxShadow: `0 0 8px ${accent}`,
+                padding: "6px 14px",
+                marginBottom: 26,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
               }}
-            />
-            {eyebrow}
-          </div>
+            >
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 999,
+                  background: accent,
+                  boxShadow: `0 0 8px ${accent}`,
+                }}
+              />
+              {eyebrow}
+            </div>
+          ) : null}
           <h1
             className="font-display text-display-lg"
             style={{ color: "var(--ink)", margin: 0, maxWidth: 720 }}

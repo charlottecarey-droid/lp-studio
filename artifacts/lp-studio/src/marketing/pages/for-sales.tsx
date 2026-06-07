@@ -56,7 +56,6 @@ export default function ForSales() {
       <main>
         <PersonaHero
           persona="sales"
-          eyebrow="For Sales & RevOps"
           accent="var(--coral)"
           title="Personalize every account. In one click."
           sub="An ABM workspace where every account gets a tailored microsite and AI-drafted outreach — with per-recipient identity baked into every link and bidirectional Salesforce sync so every signal lands on the right contact."

@@ -3,11 +3,11 @@ import Icon from "./EmbedIcons";
 
 // PersonaToggle — a presentation-only segmented switcher for the public
 // marketing site, placed at the top of the /for-marketing and /for-sales
-// solution pages (Clay-style: a small "LP STUDIO" label above a two-segment
-// Marketing | Sales pill). It mirrors the look of the in-app product mode
-// toggle (sliding active background, Megaphone icon for Marketing, Target icon
-// for Sales) but carries NO mode-context, auth, or plan-gating — it is a pure
-// navigation control.
+// solution pages (a two-segment "Marketing | Sales & RevOps" pill that leads
+// the hero, replacing the old eyebrow). It mirrors the look of the in-app
+// product mode toggle (sliding active background, Megaphone icon for Marketing,
+// Target icon for Sales) but carries NO mode-context, auth, or plan-gating —
+// it is a pure navigation control.
 //
 // SSR-safe: the active segment is derived entirely from the `active` prop, so
 // the prerendered static HTML and the hydrated client render the same markup —
@@ -22,7 +22,7 @@ interface PersonaToggleProps {
 
 const SEGMENTS: { persona: Persona; href: string; icon: string; label: string }[] = [
   { persona: "marketing", href: "/for-marketing", icon: "megaphone", label: "Marketing" },
-  { persona: "sales", href: "/for-sales", icon: "target", label: "Sales" },
+  { persona: "sales", href: "/for-sales", icon: "target", label: "Sales & RevOps" },
 ];
 
 export default function PersonaToggle({ active }: PersonaToggleProps) {
@@ -33,7 +33,7 @@ export default function PersonaToggle({ active }: PersonaToggleProps) {
       style={{
         display: "inline-flex",
         flexDirection: "column",
-        marginBottom: 22,
+        marginBottom: 24,
       }}
     >
       <div
@@ -42,11 +42,13 @@ export default function PersonaToggle({ active }: PersonaToggleProps) {
           display: "flex",
           alignItems: "center",
           gap: 0,
-          padding: 3,
-          borderRadius: 12,
-          border: "1px solid color-mix(in srgb, var(--ink) 12%, transparent)",
-          background: "color-mix(in srgb, var(--ink) 4%, transparent)",
-          width: 248,
+          padding: 5,
+          borderRadius: 16,
+          border: "1px solid rgba(26, 24, 21, 0.10)",
+          background: "linear-gradient(180deg, #FFFFFF 0%, #F6F1E8 100%)",
+          boxShadow:
+            "inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(26, 24, 21, 0.04), 0 1px 2px rgba(26, 24, 21, 0.04), 0 10px 26px -12px rgba(26, 24, 21, 0.20)",
+          width: 332,
         }}
       >
         {/* Sliding active background */}
@@ -54,14 +56,18 @@ export default function PersonaToggle({ active }: PersonaToggleProps) {
           aria-hidden
           style={{
             position: "absolute",
-            top: 3,
-            bottom: 3,
-            left: isSales ? "calc(50% + 1.5px)" : 3,
-            width: "calc(50% - 4.5px)",
-            borderRadius: 9,
-            background: isSales ? "var(--coral)" : "var(--indigo)",
-            boxShadow: "0 4px 12px -4px color-mix(in srgb, var(--ink) 30%, transparent)",
-            transition: "left 200ms ease-out, background 200ms ease-out",
+            top: 5,
+            bottom: 5,
+            left: isSales ? "calc(50% + 2.5px)" : 5,
+            width: "calc(50% - 7.5px)",
+            borderRadius: 11,
+            background: isSales
+              ? "linear-gradient(180deg, color-mix(in srgb, var(--coral) 92%, #fff) 0%, var(--coral) 55%, color-mix(in srgb, var(--coral) 86%, #000) 100%)"
+              : "linear-gradient(180deg, color-mix(in srgb, var(--indigo) 92%, #fff) 0%, var(--indigo) 55%, color-mix(in srgb, var(--indigo) 86%, #000) 100%)",
+            boxShadow: isSales
+              ? "inset 0 1px 0 rgba(255, 255, 255, 0.30), 0 6px 16px -6px color-mix(in srgb, var(--coral) 60%, transparent), 0 2px 5px color-mix(in srgb, var(--coral) 22%, transparent)"
+              : "inset 0 1px 0 rgba(255, 255, 255, 0.30), 0 6px 16px -6px color-mix(in srgb, var(--indigo) 60%, transparent), 0 2px 5px color-mix(in srgb, var(--indigo) 22%, transparent)",
+            transition: "left 220ms cubic-bezier(0.4, 0.0, 0.2, 1), background 200ms ease-out, box-shadow 200ms ease-out",
           }}
         />
         {SEGMENTS.map((seg) => {
@@ -78,14 +84,16 @@ export default function PersonaToggle({ active }: PersonaToggleProps) {
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 7,
-                padding: "8px 0",
-                borderRadius: 9,
-                fontSize: 13,
+                gap: 8,
+                padding: "9px 12px",
+                borderRadius: 11,
+                fontSize: 13.5,
                 fontWeight: 600,
                 letterSpacing: "-0.005em",
+                whiteSpace: "nowrap",
                 textDecoration: "none",
                 color: segActive ? "#fff" : "var(--ink-soft)",
+                textShadow: segActive ? "0 1px 1px rgba(26, 24, 21, 0.18)" : "none",
                 transition: "color 150ms ease-out",
               }}
             >
