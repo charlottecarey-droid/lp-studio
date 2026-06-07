@@ -156,6 +156,228 @@ uri = "file://artifacts/mockup-sandbox/public/images/ecom-avatar-3.png"
 type = "image"
 title = "generated_image"
 
+[[generated]]
+id = "i8AceeuE_WYi8WIwcBoFP"
+uri = "file://artifacts/mockup-sandbox/public/images/luminous-hero.png"
+type = "image"
+title = "abstract luminous geometric hero"
+
+[[generated]]
+id = "5EG93jpS8Mth4pH06QwmT"
+uri = "file://artifacts/mockup-sandbox/public/images/luminous-venue.png"
+type = "image"
+title = "modern venue interior"
+
+[[generated]]
+id = "Ojd5eCzhFQ7F_pYj05cXc"
+uri = "file://artifacts/mockup-sandbox/public/images/luminous-map.png"
+type = "image"
+title = "minimal map illustration"
+
+[[generated]]
+id = "AICaU3_CZD4W2ReG7lh04"
+uri = "file://artifacts/mockup-sandbox/public/images/luminous-gallery-1.png"
+type = "image"
+title = "bright conference networking"
+
+[[generated]]
+id = "CoLCCuf52zzKlKxLQ5mCy"
+uri = "file://artifacts/mockup-sandbox/public/images/luminous-gallery-2.png"
+type = "image"
+title = "speaker on stage bright"
+
+[[generated]]
+id = "8r2NJH_4TPmDAHL6PgTxi"
+uri = "file://artifacts/mockup-sandbox/public/images/luminous-gallery-3.png"
+type = "image"
+title = "audience watching bright"
+
+[[generated]]
+id = "VI5v5TiqOXyh4WNpa4_S6"
+uri = "file://artifacts/mockup-sandbox/public/images/framework-hero.png"
+type = "image"
+title = "tech conference stage"
+
+[[generated]]
+id = "cNtdwBjcBa5edKOgi7tBj"
+uri = "file://artifacts/mockup-sandbox/public/images/framework-speaker1.png"
+type = "image"
+title = "speaker 1 portrait"
+
+[[generated]]
+id = "ND0LdCb_g8JZl4C2BXBTf"
+uri = "file://artifacts/mockup-sandbox/public/images/framework-speaker2.png"
+type = "image"
+title = "speaker 2 portrait"
+
+[[generated]]
+id = "lO-xWikC4kShtc7EKJ35P"
+uri = "file://artifacts/mockup-sandbox/public/images/framework-speaker3.png"
+type = "image"
+title = "speaker 3 portrait"
+
+[[generated]]
+id = "v5cSWzdm9yDq2hIerjIFK"
+uri = "file://artifacts/mockup-sandbox/public/images/framework-speaker4.png"
+type = "image"
+title = "speaker 4 portrait"
+
+[[generated]]
+id = "GQTRPhT0RRgN-MgxQa85T"
+uri = "file://artifacts/mockup-sandbox/public/images/framework-venue.png"
+type = "image"
+title = "modern venue interior"
+
+[[generated]]
+id = "2NPO_14qLuUK5YMFUYBfG"
+uri = "file://artifacts/mockup-sandbox/public/images/framework-gallery1.png"
+type = "image"
+title = "networking event"
+
+[[generated]]
+id = "4jMCwRIZQHxU-hVOBcY--"
+uri = "file://artifacts/mockup-sandbox/public/images/framework-gallery2.png"
+type = "image"
+title = "keynote presentation"
+
+[[generated]]
+id = "O8i25BooK91zljSo9zsZ1"
+uri = "file://artifacts/mockup-sandbox/public/images/noir-hero.png"
+type = "image"
+title = "cinematic gala event hero"
+
+[[generated]]
+id = "NWb4ZVlOHKUh4EXKVRsOt"
+uri = "file://artifacts/mockup-sandbox/public/images/noir-speaker-1.png"
+type = "image"
+title = "moody speaker portrait 1"
+
+[[generated]]
+id = "gVDGKtD4zMxDcHgPZ5e0Q"
+uri = "file://artifacts/mockup-sandbox/public/images/editorial-hero.png"
+type = "image"
+title = "Editorial hero living room"
+
+[[generated]]
+id = "YpTvIAtrlNdaAks7tpND-"
+uri = "file://artifacts/mockup-sandbox/public/images/noir-speaker-2.png"
+type = "image"
+title = "moody speaker portrait 2"
+
+[[generated]]
+id = "txP3GuSAODIfbbLGDQ7zE"
+uri = "file://artifacts/mockup-sandbox/public/images/editorial-challenge.png"
+type = "image"
+title = "Architecture blueprints on table"
+
+[[generated]]
+id = "mIatHCuZ6-gP4hkNutRPd"
+uri = "file://artifacts/mockup-sandbox/public/images/noir-speaker-3.png"
+type = "image"
+title = "moody speaker portrait 3"
+
+[[generated]]
+id = "cVREvzGzzkT-w9WCiB6A0"
+uri = "file://artifacts/mockup-sandbox/public/images/editorial-testimonial.png"
+type = "image"
+title = "Portrait of creative director"
+
+[[generated]]
+id = "u5b1ZXI4CD_jZe45YoAc_"
+uri = "file://artifacts/mockup-sandbox/public/images/noir-venue-map.png"
+type = "image"
+title = "dark cinematic map"
+
+[[generated]]
+id = "ciWg3HIrD5EcqvJbwemFF"
+uri = "file://artifacts/mockup-sandbox/public/images/editorial-gallery-1.png"
+type = "image"
+title = "Marble and brass details"
+
+[[generated]]
+id = "se_dMqQlBCRb_RKwT8Lpq"
+uri = "file://artifacts/mockup-sandbox/public/images/noir-gallery-1.png"
+type = "image"
+title = "gala event detail"
+
+[[generated]]
+id = "En97zON4E6b5TPv_5ubLm"
+uri = "file://artifacts/mockup-sandbox/public/images/editorial-gallery-2.png"
+type = "image"
+title = "Modern staircase lighting"
+
+[[generated]]
+id = "OFYhtG82iT7IuXvXQAsp7"
+uri = "file://artifacts/mockup-sandbox/public/images/noir-gallery-2.png"
+type = "image"
+title = "gala crowd blurred"
+
+[[generated]]
+id = "pRUcydnbyWTm6GacFcMFn"
+uri = "file://artifacts/mockup-sandbox/public/images/vanguard-hero.png"
+type = "image"
+title = "Modern corporate architecture glass facade"
+
+[[generated]]
+id = "KWYBNj9N2tCVsBh9X2nXd"
+uri = "file://artifacts/mockup-sandbox/public/images/editorial-gallery-3.png"
+type = "image"
+title = "Elegant dining area"
+
+[[generated]]
+id = "rviACW6fBgWP21IMAFAFu"
+uri = "file://artifacts/mockup-sandbox/public/images/noir-gallery-3.png"
+type = "image"
+title = "gala architecture"
+
+[[generated]]
+id = "5JUPPXYkFa5JOH4q4bX4Y"
+uri = "file://artifacts/mockup-sandbox/public/images/vanguard-module-1.png"
+type = "image"
+title = "Data center server racks"
+
+[[generated]]
+id = "G5HG7I8xeW1VbreTFsRGs"
+uri = "file://artifacts/mockup-sandbox/public/images/editorial-chapter-1.png"
+type = "image"
+title = "Design team collaborating"
+
+[[generated]]
+id = "0M02hKeUnWATkQ_Vy7BuT"
+uri = "file://artifacts/mockup-sandbox/public/images/vanguard-module-2.png"
+type = "image"
+title = "Professionals in meeting"
+
+[[generated]]
+id = "wCxZTScovJSgoT9Ma2NBG"
+uri = "file://artifacts/mockup-sandbox/public/images/editorial-chapter-2.png"
+type = "image"
+title = "Boutique hotel lobby"
+
+[[generated]]
+id = "Fmmoa9UvyQk9s2sBsUXE3"
+uri = "file://artifacts/mockup-sandbox/public/images/vanguard-module-3.png"
+type = "image"
+title = "Modern office workspace"
+
+[[generated]]
+id = "mopQlE89nYD0x36LHkDFY"
+uri = "file://artifacts/mockup-sandbox/public/images/vanguard-gallery-1.png"
+type = "image"
+title = "Abstract data visualization"
+
+[[generated]]
+id = "fnVlDjxibV4H3tMGBv7HJ"
+uri = "file://artifacts/mockup-sandbox/public/images/vanguard-gallery-2.png"
+type = "image"
+title = "Corporate team collaboration"
+
+[[generated]]
+id = "JK7r6tolGfj0zN9TqhmTC"
+uri = "file://artifacts/mockup-sandbox/public/images/vanguard-gallery-3.png"
+type = "image"
+title = "Clean tech hardware"
+
 [[outputs]]
 id = "2sUbM7UegFOFtU0kTdNUi"
 uri = "file://.local/cheatsheet.md"
@@ -329,3 +551,39 @@ id = "OT6iTvotVHaFVp8rw9ThG"
 uri = "file://attached_assets/dandy-dentures/dandy-dentures-dentist-arch.jpg"
 type = "image"
 title = "Dandy Dentures Dentist Arch"
+
+[[outputs]]
+id = "O88kP0iyh2ux1WLL-BTfC"
+uri = "file://artifacts/mockup-sandbox/public/images/case-study-challenge.jpg"
+type = "image"
+title = "modern corporate server room with blue lighting"
+
+[[outputs]]
+id = "sW9Hs1Z3HLG6TjMFFF74r"
+uri = "file://artifacts/mockup-sandbox/public/images/case-study-deep-dive-1.jpg"
+type = "image"
+title = "business team reviewing data analytics on screen"
+
+[[outputs]]
+id = "vShSaIucZybAZ2PI26Mh7"
+uri = "file://artifacts/mockup-sandbox/public/images/case-study-deep-dive-2.jpg"
+type = "image"
+title = "abstract data visualization on screen"
+
+[[outputs]]
+id = "Cy_nnH3i80wws-dvRJUI9"
+uri = "file://artifacts/mockup-sandbox/public/images/case-study-portrait.jpg"
+type = "image"
+title = "professional corporate headshot portrait of a confident woman"
+
+[[outputs]]
+id = "fuLkhosxx5y_lQ-tKk0yQ"
+uri = "file://artifacts/mockup-sandbox/public/images/case-study-gallery-2.jpg"
+type = "image"
+title = "modern office interior meeting room"
+
+[[outputs]]
+id = "CfDMquCKe9jUbmugYC9tY"
+uri = "file://artifacts/mockup-sandbox/public/images/case-study-gallery-3.jpg"
+type = "image"
+title = "close up of hands typing on laptop data"
