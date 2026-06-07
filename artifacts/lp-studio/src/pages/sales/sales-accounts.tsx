@@ -63,63 +63,20 @@ import { InfoTip } from "@/components/ui/info-tip";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "@/hooks/use-toast";
 import { toastUndoableDelete } from "@/lib/undo-delete";
+import {
+  type HeatSignal,
+  type HeatTier,
+  computeHeatTier,
+  FOURTEEN_DAYS_MS,
+} from "@/lib/heat-tier";
 
 const API_BASE = "/api";
 
-// ── Engagement heat scoring (mirrors dashboard logic) ─────────────────────────
+// ── Engagement heat scoring ───────────────────────────────────────────────────
+// Tier + weights live in the shared @/lib/heat-tier module (imported above) so
+// the dashboard and the Accounts page can never drift.
 
-interface HeatSignal {
-  id: number;
-  type: string;
-  source?: string | null;
-  metadata?: Record<string, unknown>;
-  accountId?: number;
-  createdAt: string;
-}
-
-const SIGNAL_WEIGHTS: Record<string, number> = {
-  form_submit:        5,
-  email_click:        3,
-  link_click:         3,
-  visitor_identified: 2,
-  email_open:         2,
-  page_view:          1,
-};
-
-/** Source + activity-aware weight for visitor_identified signals. */
-function visitorWeight(s: HeatSignal): number {
-  const source   = s.source ?? "";
-  const meta     = (s.metadata ?? {}) as Record<string, string | undefined>;
-  if (source === "rb2b")       return 3;
-  if (source === "apollo")     return 2;
-  if (source === "letterdrop") {
-    const activity = meta.activityType ?? meta.lastActivity ?? "";
-    if (activity.includes("comment"))               return 4;
-    if (activity.includes("organization_follower")) return 2;
-    if (activity.includes("profile_view"))          return 1;
-    return 2;
-  }
-  return 2;
-}
-
-const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
-
-type HeatTier = "hot" | "warm" | "cool" | "cold";
-
-function computeHeatTier(acctSignals: HeatSignal[], refTime: number): HeatTier {
-  const cutoff = refTime - FOURTEEN_DAYS_MS;
-  const recentSigs = acctSignals.filter(s => new Date(s.createdAt).getTime() > cutoff);
-  if (recentSigs.length === 0) return "cold";
-  let score = 0;
-  for (const s of recentSigs) {
-    const w = s.type === "visitor_identified" ? visitorWeight(s) : (SIGNAL_WEIGHTS[s.type] ?? 0);
-    score += w * 1.5;
-  }
-  if (score >= 15) return "hot";
-  if (score >= 8)  return "warm";
-  if (score >= 3)  return "cool";
-  return "cold";
-}
+type AccountSignal = HeatSignal & { id: number; accountId?: number };
 
 interface Account {
   id: number;
@@ -395,7 +352,7 @@ function AccountListView() {
   }
 
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [signals, setSignals] = useState<HeatSignal[]>([]);
+  const [signals, setSignals] = useState<AccountSignal[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [abmTierFilters, setAbmTierFilters] = useState<string[]>(() => readLsArr("abmTierFilters"));
@@ -621,8 +578,8 @@ function AccountListView() {
     const prevRef = now - FOURTEEN_DAYS_MS; // 14d ago = "prior 2 weeks" reference point
     const TWENTY_EIGHT_DAYS_MS = 2 * FOURTEEN_DAYS_MS;
 
-    const sigsByAccount = new Map<number, HeatSignal[]>();
-    const prevSigsByAccount = new Map<number, HeatSignal[]>();
+    const sigsByAccount = new Map<number, AccountSignal[]>();
+    const prevSigsByAccount = new Map<number, AccountSignal[]>();
 
     for (const s of signals) {
       if (!s.accountId) continue;

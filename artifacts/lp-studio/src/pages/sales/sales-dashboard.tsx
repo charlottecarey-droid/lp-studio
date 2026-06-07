@@ -26,6 +26,12 @@ import { PageHint } from "@/components/ui/page-hint";
 import { InfoTip } from "@/components/ui/info-tip";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { getSignalIcon, getSignalLabel } from "@/lib/signal-types";
+import {
+  FOURTEEN_DAYS_MS,
+  computeHeatScore,
+  computeHeatTier,
+  type HeatTier,
+} from "@/lib/heat-tier";
 import { useAuth } from "@/context/AuthContext";
 import { NewMicrositeModal } from "@/components/NewMicrositeModal";
 
@@ -142,51 +148,9 @@ function BriefingPickerButton({ accounts }: { accounts: Account[] }) {
   );
 }
 
-// ── Engagement scoring (mirrors server-side logic) ────────────────────────────
-
-const SIGNAL_WEIGHTS: Record<string, number> = {
-  form_submit:        5,
-  email_click:        3,
-  link_click:         3,
-  visitor_identified: 2,
-  email_open:         2,
-  page_view:          1,
-};
-
-const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
-
-function visitorWeight(s: Signal): number {
-  const source = s.source ?? "";
-  const meta   = (s.metadata ?? {}) as Record<string, string | undefined>;
-  if (source === "rb2b")       return 3;
-  if (source === "apollo")     return 2;
-  if (source === "letterdrop") {
-    const activity = meta.activityType ?? meta.lastActivity ?? "";
-    if (activity.includes("comment"))               return 4;
-    if (activity.includes("organization_follower")) return 2;
-    if (activity.includes("profile_view"))          return 1;
-    return 2;
-  }
-  return 2;
-}
-
-function computeScore(signals: Signal[], now: number) {
-  let score = 0;
-  for (const s of signals) {
-    const w = s.type === "visitor_identified" ? visitorWeight(s) : (SIGNAL_WEIGHTS[s.type] ?? 0);
-    const isRecent = now - new Date(s.createdAt).getTime() < FOURTEEN_DAYS_MS;
-    score += w * (isRecent ? 1.5 : 1);
-  }
-  return score;
-}
-
-function heatLabel(score: number, signalCount14d: number) {
-  if (signalCount14d === 0) return null;
-  if (score >= 15) return "hot";
-  if (score >= 8)  return "warm";
-  if (score >= 3)  return "cool";
-  return null;
-}
+// ── Engagement scoring ────────────────────────────────────────────────────────
+// Weighted recent-engagement score + heat tier live in the shared @/lib/heat-tier
+// module (imported above) so the dashboard and the Accounts page stay in lockstep.
 
 const HEAT_CONFIG = {
   hot:  { label: "Hot",  icon: <Flame className="w-3 h-3" />,       className: "bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400" },
@@ -372,7 +336,7 @@ export default function SalesDashboard() {
     type EnrichedAccount = Account & {
       score: number;
       signalCount14d: number;
-      heat: "hot" | "warm" | "cool" | null;
+      heat: HeatTier;
       lastSignal: Signal | null;
       hasMicrosite: boolean;
       daysSinceLastSignal: number | null;
@@ -380,10 +344,12 @@ export default function SalesDashboard() {
 
     const enriched: EnrichedAccount[] = accounts.map(acct => {
       const acctSignals = sigsByAccount.get(acct.id) ?? [];
-      const score = computeScore(acctSignals, now);
+      // Weighted recent-engagement score + tier from the shared helper so the
+      // dashboard's heat always matches the Accounts page.
+      const score = computeHeatScore(acctSignals, now);
       const fourteenDaysAgo = now - FOURTEEN_DAYS_MS;
       const signalCount14d = acctSignals.filter(s => new Date(s.createdAt).getTime() > fourteenDaysAgo).length;
-      const heat = heatLabel(score, signalCount14d);
+      const heat = computeHeatTier(acctSignals, now);
       const sorted = [...acctSignals].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       const lastSignal = sorted[0] ?? null;
       const hasMicrosite = (micrositeCounts.get(acct.id) ?? 0) > 0;
@@ -402,7 +368,8 @@ export default function SalesDashboard() {
       return matchesOwner && matchesTier && matchesStage && matchesSegment;
     });
 
-    // Hot accounts: have any signals in last 2 weeks, sorted by score desc
+    // Most-engaged list: any account with signals in the last 2 weeks, ranked by
+    // weighted score. This is a "most engaged" ranking, NOT the hot-tier count.
     const hot = ownerFiltered
       .filter(a => a.signalCount14d > 0)
       .sort((a, b) => b.score - a.score)
@@ -424,7 +391,11 @@ export default function SalesDashboard() {
       })
       .slice(0, 6);
 
-    return { hotAccounts: hot, needsAttention: attention, hotCount: hot.length, filteredAccountCount: ownerFiltered.length };
+    // Hot (last 2 weeks) headline: accounts in the HOT tier (score ≥ 15), the
+    // same weighted definition the Accounts page Engagement panel uses.
+    const hotTierCount = ownerFiltered.filter(a => a.heat === "hot").length;
+
+    return { hotAccounts: hot, needsAttention: attention, hotCount: hotTierCount, filteredAccountCount: ownerFiltered.length };
   }, [accounts, signals, micrositeGroups, ownerFilters, abmTierFilters, abmStageFilters, segmentFilters]);
 
   const recentSignals = useMemo(() => {
@@ -867,13 +838,13 @@ export default function SalesDashboard() {
                   <div className="flex items-center gap-2">
                     <Flame className="w-3.5 h-3.5 text-orange-500" />
                     <div className="flex items-center gap-1">
-                      <h2 className="text-sm font-semibold text-foreground">Hot accounts</h2>
+                      <h2 className="text-sm font-semibold text-foreground">Most engaged</h2>
                       <InfoTip
                         content="Accounts ranked by engagement recency and frequency. The heat badge shows how active they've been in the last 2 weeks."
                         color="amber"
                       />
                     </div>
-                    <span className="text-xs text-muted-foreground/60">most engaged in last 2 weeks</span>
+                    <span className="text-xs text-muted-foreground/60">in the last 2 weeks</span>
                   </div>
                   <Link href="/sales/accounts">
                     <span className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1">
@@ -908,8 +879,8 @@ export default function SalesDashboard() {
                   ) : (
                     <div className="flex-1 overflow-y-auto divide-y divide-border/40">
                     {hotAccounts.map(acct => {
-                      const heat = acct.heat as "hot" | "warm" | "cool" | null;
-                      const heatCfg = heat ? HEAT_CONFIG[heat] : null;
+                      const heat = acct.heat;
+                      const heatCfg = heat === "cold" ? null : HEAT_CONFIG[heat];
                       return (
                         <Link
                           key={acct.id}
