@@ -2499,7 +2499,7 @@ export function fillDsoCaseStudyNeutralDefaults(block: {
         body: typeof sec.body === "string" ? sec.body : "",
       };
     });
-    for (const sec of p.sections) {
+    for (const sec of p.sections as unknown[]) {
       if (sec && typeof sec === "object" && !Array.isArray(sec)) {
         const s = sec as Record<string, unknown>;
         if (s.position !== "before-results" && s.position !== "after-results") {
@@ -4840,6 +4840,68 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // Task #1173 — bake the brand accent + logo onto a generated content-series
     // page (see applyContentSeriesBranding for the rationale).
     applyContentSeriesBranding(parsed.blocks as Array<Record<string, unknown>>, brand);
+
+    // Task #1176 — extend the same brand accent + logo baking to the other two
+    // self-contained full-page blocks ("blog-series", "storefront"). Like
+    // content-series, they carry their accent inside a nested `theme` object
+    // (NOT a top-level `accentColor` prop) so the generic accentColor loop above
+    // never touches them. They use different theme keys for the accent
+    // (storefront → theme.primary; blog-series → theme.accent + theme.accentSoft),
+    // so the key set is looked up per block type. The brand logo is baked into
+    // logoUrl when set; the text-logo/wordmark fallback is preserved for brands
+    // with no logo (logoUrl stays ""). Scoped to these two blocks only.
+    {
+      const fullPageAccent = brand.accentColor || brand.primaryColor;
+      const fullPageLogo = (brand.logoUrl ?? "").trim();
+      const fullPageBrandName = (brand.brandName ?? "").trim();
+      // theme keys that should receive the brand accent, per block type
+      const ACCENT_THEME_KEYS: Record<string, readonly string[]> = {
+        storefront: ["primary"],
+        "blog-series": ["accent", "accentSoft"],
+      };
+      // The text-logo prop and the block's built-in placeholder name, per block
+      // type. When the brand has no logo, the block renders this text instead —
+      // so we bake the tenant brand name into it (overwriting a blank value or
+      // the block's hard-coded default) so the text fallback reads as the brand,
+      // not the model's example publication/store name. content-series is
+      // intentionally absent: its text fallback is the seriesTitle, not a brand
+      // wordmark, so we never overwrite it.
+      const TEXT_IDENTITY: Record<string, { key: string; placeholder: string }> = {
+        storefront: { key: "brandName", placeholder: "Meridian" },
+        "blog-series": { key: "wordmark", placeholder: "The Margin" },
+      };
+      for (const block of parsed.blocks as Array<Record<string, unknown>>) {
+        const blockType = typeof block?.type === "string" ? block.type : "";
+        const accentKeys = ACCENT_THEME_KEYS[blockType];
+        if (!accentKeys) continue;
+        if (!block.props || typeof block.props !== "object") continue;
+        const props = block.props as Record<string, unknown>;
+        if (fullPageAccent) {
+          const theme =
+            props.theme && typeof props.theme === "object"
+              ? (props.theme as Record<string, unknown>)
+              : {};
+          for (const key of accentKeys) theme[key] = fullPageAccent;
+          props.theme = theme;
+        }
+        if (fullPageLogo) {
+          props.logoUrl = fullPageLogo;
+        }
+        // Bake the brand name into the text-logo fallback when we actually have a
+        // brand name. Only overwrite a blank value or the block's example default
+        // so an intentional AI-authored publication/store name is preserved.
+        const textIdentity = TEXT_IDENTITY[blockType];
+        if (fullPageBrandName && textIdentity) {
+          const current =
+            typeof props[textIdentity.key] === "string"
+              ? (props[textIdentity.key] as string).trim()
+              : "";
+          if (!current || current === textIdentity.placeholder) {
+            props[textIdentity.key] = fullPageBrandName;
+          }
+        }
+      }
+    }
 
     // Task #900 — deterministic backgroundStyle post-pass. Enforce the brand's
     // design intensity structurally (mirroring the ctaColor/accentColor loop
