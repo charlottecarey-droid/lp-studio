@@ -111,6 +111,8 @@
 - [Drizzle ANY(array) vs IN](drizzle-any-array-not-in.md) — bare JS array expands to `($1,$2)` tuple: OK for IN, INVALID for `=ANY()`; throws only on non-empty arrays; fix via `sql\`ARRAY[...]::text[]\``.
 - [Page-path display microsite-aware](lp-path-display-microsite-aware.md) — many scattered callsites hardcode `/lp/<slug>`; microsite tenants serve at root; labels use micrositeDomain ternary, live links use getLpPageUrl, each component needs its own useAuth.
 - [Composite lib test-file exclude](composite-lib-test-exclude.md) — consumer TS6305 (stale dist) = the lib's dist didn't emit; cause is a sibling *.test.ts importing node:test (base types:[]) blocking `tsc -b`; add `exclude:["src/**/*.test.ts"]`.
+- [Content-series brand accent/logo injection](content-series-brand-accent-logo-injection.md) — AI-generated content-series blocks must inject the brand's accentColor (as theme.primary) and logoUrl via applyContentSeriesBranding; non-logo/whitespace brands are ignored to allow text-logo fallback.
+- [Brand logo media tagging](brand-logo-media-tagging.md) — PUT /lp/brand must merge a "logo" tag onto matching light/dark lp_media rows (preserving other tags); must be tenant-scoped and idempotent; external URLs are ignored.
 - [Branded subdomain lifecycle](branded-subdomain-lifecycle.md) — Tier 2 branded email subdomains: ONE shared deprovisionBrandedEmailSubdomain() for wizard+sweep; pollers convention advisory-lock=taskNum (415/783/787); retire fails-closed.
 - [No-reveal sticky blocks](no-reveal-sticky-blocks.md) — blocks with internal `position: sticky` (vertical-tabs/roi-calculator/practice-nav) MUST be in the NO_REVEAL set; the scroll-reveal motion.div transform breaks the sticky containing block, but only on published pages.
 - [Strict Facts keeps stats (no scrub)](strict-facts-no-scrub.md) — strict mode no longer rewrites unapproved AI stats; scanForUnapprovedStats is read-only telemetry feeding the review modal; never re-add sanitizeBlocksStrict.
@@ -127,4 +129,8 @@
 - [Logo preservation in Replace-imagery](logo-preserve-replace-imagery.md) — logos kept out of AI image pipeline via collectImageSlots filter + separate sanitizeAIImageUrls guard; detection conservative (false-pos keeps a photo, false-neg swaps the logo).
 - [Template-page seed mirroring](template-page-seed-mirroring.md) — api-server global seeds hand-mirror lp-studio block defaults (no shared import); edit BOTH + bump SEED_MARKER or they drift silently.
 - [Brand-import named token beats wash](brand-import-named-token-over-wash.md) — named --brand/--primary CSS token beats pixel-sampled hero-gradient wash for primary (gated on palette.length>0); var name-matcher must match role keyword as dash-segment ANYWHERE in token.
+<<<<<<< HEAD
 - [New block-type graduation callsites](block-type-graduation-callsites.md) — ~9 synced callsites to graduate a mockup into a block type; block-variant.ts needs BOTH the import AND the union member, registry ENTRY is separate from createBlock case.
+=======
+- [inject() tests vs post-response side-effects](inject-test-post-response-sideeffects.md) — inject() resolves on res.end; handlers doing fire-and-continue work after res.json need a bounded poll in tests, not an immediate read (flakes).
+>>>>>>> 3e3d3fef9 (Add automated tests for content-series brand accent/logo + brand logo tagging)
