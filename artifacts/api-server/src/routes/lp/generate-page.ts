@@ -4728,6 +4728,36 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       return b;
     });
 
+    // Task #1173 — bake the brand accent + logo onto a generated content-series
+    // page. The self-contained "content-series" full-page block carries its
+    // accent in `theme.primary` (NOT a top-level `accentColor` prop), so the
+    // generic accentColor loop above never touches it — without this it only
+    // falls back to the brand primary at render time and never persists an
+    // explicit accent. We also bake the brand's actual logo into `logoUrl` so
+    // the page shows the brand mark instead of the text-logo fallback. Scoped to
+    // the content-series block; other blocks are unaffected. The text-logo
+    // fallback is preserved for brands with no logo set (logoUrl stays "").
+    {
+      const contentSeriesAccent = brand.accentColor || brand.primaryColor;
+      const contentSeriesLogo = (brand.logoUrl ?? "").trim();
+      for (const block of parsed.blocks as Array<Record<string, unknown>>) {
+        if (block?.type !== "content-series") continue;
+        if (!block.props || typeof block.props !== "object") continue;
+        const props = block.props as Record<string, unknown>;
+        if (contentSeriesAccent) {
+          const theme =
+            props.theme && typeof props.theme === "object"
+              ? (props.theme as Record<string, unknown>)
+              : {};
+          theme.primary = contentSeriesAccent;
+          props.theme = theme;
+        }
+        if (contentSeriesLogo) {
+          props.logoUrl = contentSeriesLogo;
+        }
+      }
+    }
+
     // Task #900 — deterministic backgroundStyle post-pass. Enforce the brand's
     // design intensity structurally (mirroring the ctaColor/accentColor loop
     // above) instead of trusting the LLM to honor the prompt guidance.

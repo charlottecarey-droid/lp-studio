@@ -3,7 +3,7 @@ import type { AuthUser } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
-import { lpBrandSettingsTable, lpPagesTable, tenantsTable } from "@workspace/db";
+import { lpBrandSettingsTable, lpPagesTable, tenantsTable, lpMediaTable } from "@workspace/db";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
 import { isDandyTenant } from "../../lib/planFeatures";
@@ -190,6 +190,34 @@ router.put("/lp/brand", async (req, res): Promise<void> => {
       .where(and(eq(lpBrandSettingsTable.tenantId, tenantId), eq(lpBrandSettingsTable.id, existing[0].id)))
       .returning();
     res.json(row.config);
+  }
+
+  // Task #1173 — make brand logos self-identify in the media library. When the
+  // brand is saved with a logoUrl (and the dark variant), add a `logo` tag to
+  // the matching media-library row so logo assets are findable and protectable.
+  // Best-effort: never fail the brand save on a tagging hiccup, and do nothing
+  // when no media row matches the stored logo path (e.g. an external URL).
+  const logoUrls = [config["logoUrl"], config["logoUrlDark"]]
+    .filter((u): u is string => typeof u === "string" && u.trim() !== "");
+  for (const logoUrl of logoUrls) {
+    try {
+      await db.transaction(async (tx) => {
+        const [media] = await tx
+          .select({ id: lpMediaTable.id, tags: lpMediaTable.tags })
+          .from(lpMediaTable)
+          .where(and(eq(lpMediaTable.tenantId, tenantId), eq(lpMediaTable.url, logoUrl)))
+          .limit(1);
+        if (!media) return;
+        const existingTags = Array.isArray(media.tags) ? (media.tags as string[]) : [];
+        if (existingTags.includes("logo")) return;
+        await tx
+          .update(lpMediaTable)
+          .set({ tags: [...new Set([...existingTags, "logo"])] })
+          .where(eq(lpMediaTable.id, media.id));
+      });
+    } catch (err) {
+      req.log?.warn?.({ err, tenantId }, "[brand] failed to tag brand logo media row");
+    }
   }
 });
 
