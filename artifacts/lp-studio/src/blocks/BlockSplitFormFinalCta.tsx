@@ -5,6 +5,7 @@ import { pickContrastingColor } from "@/lib/brand-config";
 import type { SplitFormFinalCtaBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { usePageContext } from "@/lib/page-context";
 
 interface Props {
   props: SplitFormFinalCtaBlockProps;
@@ -12,7 +13,16 @@ interface Props {
   onFieldChange?: (updated: SplitFormFinalCtaBlockProps) => void;
 }
 
+/**
+ * Split-form final CTA. Unlike the other final-CTA blocks (which expose the
+ * shared CtaButton action suite — url / chilipiper / modal-form / video), this
+ * block is intentionally an INLINE lead-capture form: the on-page email input
+ * IS the conversion action. It therefore submits the lead directly through the
+ * shared `/api/lp/leads` pipeline (same endpoint as EmailCaptureModal) rather
+ * than wiring a CtaActionConfigSection. This inline-form scope is deliberate.
+ */
 export function BlockSplitFormFinalCta({ props, brand, onFieldChange }: Props) {
+  const ctx = usePageContext();
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const bg = props.bgColor ?? accent;
   const ink = props.textColor ?? pickContrastingColor(undefined, bg, ["#FFFFFF", "#0F172A"]);
@@ -33,10 +43,25 @@ export function BlockSplitFormFinalCta({ props, brand, onFieldChange }: Props) {
     onFieldChange({ ...props, bullets: bullets.map((b, idx) => (idx === i ? v : b)) });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editing || !email) return;
     setSubmitted(true);
+    const pageId = ctx.pageId;
+    if (!pageId) return;
+    try {
+      await fetch("/api/lp/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pageId,
+          variantId: ctx.variantId,
+          fields: { email, source: "split-form-final-cta" },
+        }),
+      });
+    } catch {
+      // Lead capture is best-effort; the success state is already shown.
+    }
   };
 
   return (
