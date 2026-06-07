@@ -203,6 +203,48 @@ describe("Strict Facts review flow endpoints (#1138)", () => {
     expect((after.json as ListResponse).pendingCount).toBe(0);
   });
 
+  it("publish gate WARNS (never silently publishes) when the pending-flag check itself fails, and a confirmed bulk-approve still goes through", async () => {
+    const { pool } = pgMod;
+    const pageId = await seedPage(tenantId, "draft");
+    // Force the gate's pending-flag count query to THROW by removing the table
+    // it reads — simulating a DB that is missing the Strict Facts schema (the
+    // original failure mode). The gate must WARN (409 fact_flags_pending with
+    // checkFailed) rather than treat the page as clean and silently publish
+    // unapproved stats. Renamed (not dropped) so we can restore it for the
+    // remaining tests.
+    await pool.query(`ALTER TABLE lp_page_fact_flags RENAME TO lp_page_fact_flags_bak`);
+    try {
+      const warned = await injectAs(SID, {
+        method: "PUT", url: `/lp/pages/${pageId}`, body: { status: "published" },
+      });
+      expect(warned.status).toBe(409);
+      const wjson = warned.json as { code?: string; checkFailed?: boolean };
+      expect(wjson.code).toBe("fact_flags_pending");
+      // The check couldn't be completed — the client is told so explicitly.
+      expect(wjson.checkFailed).toBe(true);
+
+      // CRITICAL: the warning path must NOT have published the page.
+      const stillDraft = await pool.query<{ status: string }>(
+        `SELECT status FROM lp_pages WHERE id = $1`, [pageId],
+      );
+      expect(stillDraft.rows[0].status).toBe("draft");
+
+      // An explicit confirmation still publishes even though the check failed —
+      // the best-effort bulk-approve swallows the missing-table error and never
+      // hard-blocks a user who has chosen to proceed.
+      const published = await injectAs(SID, {
+        method: "PUT", url: `/lp/pages/${pageId}`, body: { status: "published", bulkApproveFactFlags: true },
+      });
+      expect(published.status).toBe(200);
+      const afterPub = await pool.query<{ status: string }>(
+        `SELECT status FROM lp_pages WHERE id = $1`, [pageId],
+      );
+      expect(afterPub.rows[0].status).toBe("published");
+    } finally {
+      await pool.query(`ALTER TABLE lp_page_fact_flags_bak RENAME TO lp_page_fact_flags`);
+    }
+  });
+
   it("save-to-library falls back to the captured context label when the body label is blank", async () => {
     const { pool } = pgMod;
     const pageId = await seedPage(tenantId, "draft");

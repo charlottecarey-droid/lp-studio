@@ -5,9 +5,10 @@
 // banner lists them, and the reviewer resolves each one (approve-for-page /
 // edit / swap / remove / save-to-library / undo) or bulk-approves. Publishing
 // is gated until zero pending flags remain. Strict tenant isolation throughout.
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
+import { logger } from "../../lib/logger";
 import { getTenantId } from "../../middleware/requireAuth";
 import {
   buildApprovedFacts,
@@ -58,17 +59,101 @@ async function loadFlag(tenantId: number, id: number): Promise<FactFlagRow | nul
   return (rows.rows[0] as unknown as FactFlagRow) ?? null;
 }
 
-/** Count pending flags for a page — shared with the publish gate in pages.ts. */
-export async function countPendingFactFlags(tenantId: number, pageId: number): Promise<number> {
+export interface PendingFactFlagState {
+  /** Number of pending flags. 0 when none — and also 0 when `ok` is false. */
+  pending: number;
+  /**
+   * True when the pending-flag count was determined successfully. False when
+   * the query errored (e.g. the Strict Facts schema is missing on this DB), in
+   * which case callers must WARN rather than treat the page as clean.
+   */
+  ok: boolean;
+}
+
+/**
+ * Resolve how many pending fact flags a page has — shared with the publish gate
+ * in pages.ts.
+ *
+ * Critically, a query failure no longer silently reports "0 pending". Returning
+ * `{ pending: 0, ok: false }` lets the publish gate distinguish "genuinely no
+ * flags" (publish freely) from "couldn't check" (warn the user) so unapproved
+ * stats can never slip through a *silent* publish when the check itself errors.
+ */
+export async function getPendingFactFlagState(
+  tenantId: number,
+  pageId: number,
+): Promise<PendingFactFlagState> {
   try {
     const r = await db.execute(
       sql`SELECT COUNT(*)::int AS c FROM lp_page_fact_flags
           WHERE tenant_id = ${tenantId} AND page_id = ${pageId} AND triage_state = 'pending'`,
     );
-    return (r.rows[0] as { c?: number })?.c ?? 0;
-  } catch {
-    return 0;
+    return { pending: (r.rows[0] as { c?: number })?.c ?? 0, ok: true };
+  } catch (err) {
+    logger.error(
+      { err, tenantId, pageId },
+      "countPendingFactFlags query failed — publish gate will warn rather than pass silently",
+    );
+    return { pending: 0, ok: false };
   }
+}
+
+/**
+ * Shared Strict Facts publish gate used by BOTH the `PUT /lp/pages/:id` publish
+ * path and the `POST /lp/pages/:id/approve` review-approval path.
+ *
+ * Warn-and-confirm semantics (never a hard block):
+ *   - Genuinely zero pending flags → returns `{ blocked: false }`, publish runs
+ *     normally with no prompt.
+ *   - Pending flags OR the count couldn't be determined → unless the caller has
+ *     explicitly confirmed via `bulkApproveFactFlags: true`, respond 409 with
+ *     `code: "fact_flags_pending"` so the client opens the Review Facts modal.
+ *     The user always sees the warning; nothing publishes silently.
+ *   - Confirmed (`bulkApproveFactFlags: true`) → best-effort bulk-approve of any
+ *     pending flags, then allow the publish. If the bulk-approve UPDATE itself
+ *     fails (e.g. the schema is missing) we still let the publish through — the
+ *     user has explicitly chosen to proceed, so a confirmed request is never
+ *     hard-blocked.
+ *
+ * Returns `{ blocked: true }` when a 409 response was already sent (caller must
+ * return immediately); `{ blocked: false }` when the publish may proceed.
+ */
+export async function enforceFactFlagPublishGate(
+  tenantId: number,
+  pageId: number,
+  req: Request,
+  res: Response,
+): Promise<{ blocked: boolean }> {
+  const state = await getPendingFactFlagState(tenantId, pageId);
+  const needsWarning = !state.ok || state.pending > 0;
+  if (!needsWarning) return { blocked: false };
+
+  if (req.body?.bulkApproveFactFlags === true) {
+    try {
+      await db.execute(
+        sql`UPDATE lp_page_fact_flags
+            SET triage_state = 'approved_for_page', resolved_at = now(), updated_at = now()
+            WHERE tenant_id = ${tenantId} AND page_id = ${pageId} AND triage_state = 'pending'`,
+      );
+    } catch (err) {
+      // The user explicitly chose to publish anyway — never block on the
+      // best-effort cleanup (the schema may be missing, which is the very
+      // failure that tripped the warning).
+      logger.error({ err, tenantId, pageId }, "bulk-approve-and-publish update failed; publishing anyway");
+    }
+    trackFactEvent("fact_flag_published_with_bulk_approve", { tenantId, pageId, approved: state.pending });
+    return { blocked: false };
+  }
+
+  res.status(409).json({
+    error: "Resolve flagged facts before publishing",
+    code: "fact_flags_pending",
+    pendingCount: state.pending,
+    // Signal that the count itself couldn't be verified, so the client can show
+    // an appropriate "couldn't verify facts" message instead of "0 pending".
+    checkFailed: !state.ok,
+  });
+  return { blocked: true };
 }
 
 function setBlockField(blocks: unknown[], row: FactFlagRow, value: string): void {
@@ -88,6 +173,7 @@ router.get("/lp/pages/:pageId/fact-flags", async (req, res): Promise<void> => {
     const pending = flags.filter((f) => f.triageState === "pending").length;
     res.json({ flags, pendingCount: pending, total: flags.length });
   } catch (err) {
+    logger.error({ err }, "fact-flags route error");
     res.status(500).json({ error: String(err) });
   }
 });
@@ -111,6 +197,7 @@ router.post("/lp/pages/:pageId/fact-flags/sync", async (req, res): Promise<void>
     const flags = await listFactFlags(tenantId, pageId);
     res.json({ flags, pendingCount: result.pendingCount, created: result.created, mutated: result.mutated });
   } catch (err) {
+    logger.error({ err }, "fact-flags route error");
     res.status(500).json({ error: String(err) });
   }
 });
@@ -134,6 +221,7 @@ router.post("/lp/fact-flags/:id/approve", async (req, res): Promise<void> => {
     }
     res.json({ ok: true, flag });
   } catch (err) {
+    logger.error({ err }, "fact-flags route error");
     res.status(500).json({ error: String(err) });
   }
 });
@@ -164,6 +252,7 @@ router.post("/lp/fact-flags/:id/edit", async (req, res): Promise<void> => {
     trackFactEvent("fact_flag_edited", { tenantId, flagId: id, factKind: flag.factKind });
     res.json({ ok: true, flag: await loadFlag(tenantId, id) });
   } catch (err) {
+    logger.error({ err }, "fact-flags route error");
     res.status(500).json({ error: String(err) });
   }
 });
@@ -201,6 +290,7 @@ router.post("/lp/fact-flags/:id/swap", async (req, res): Promise<void> => {
     trackFactEvent("fact_flag_swapped", { tenantId, flagId: id, factKind: flag.factKind, proofPointId });
     res.json({ ok: true, flag: await loadFlag(tenantId, id) });
   } catch (err) {
+    logger.error({ err }, "fact-flags route error");
     res.status(500).json({ error: String(err) });
   }
 });
@@ -225,6 +315,7 @@ router.post("/lp/fact-flags/:id/remove", async (req, res): Promise<void> => {
     trackFactEvent("fact_flag_removed", { tenantId, flagId: id, factKind: flag.factKind });
     res.json({ ok: true, flag: await loadFlag(tenantId, id) });
   } catch (err) {
+    logger.error({ err }, "fact-flags route error");
     res.status(500).json({ error: String(err) });
   }
 });
@@ -262,6 +353,7 @@ router.post("/lp/fact-flags/:id/save-to-library", async (req, res): Promise<void
     trackFactEvent("fact_flag_library_upgrade", { tenantId, flagId: id, factKind, proofPointId });
     res.json({ ok: true, proofPointId, flag: await loadFlag(tenantId, id) });
   } catch (err) {
+    logger.error({ err }, "fact-flags route error");
     res.status(500).json({ error: String(err) });
   }
 });
@@ -295,6 +387,7 @@ router.post("/lp/fact-flags/:id/undo", async (req, res): Promise<void> => {
     trackFactEvent("fact_flag_undo", { tenantId, flagId: id, factKind: flag.factKind });
     res.json({ ok: true, flag: await loadFlag(tenantId, id) });
   } catch (err) {
+    logger.error({ err }, "fact-flags route error");
     res.status(500).json({ error: String(err) });
   }
 });
@@ -314,6 +407,7 @@ router.post("/lp/pages/:pageId/fact-flags/bulk-approve", async (req, res): Promi
     trackFactEvent("fact_flag_bulk_approved", { tenantId, pageId, approved: r.rows.length });
     res.json({ ok: true, approved: r.rows.length, flags: await listFactFlags(tenantId, pageId) });
   } catch (err) {
+    logger.error({ err }, "fact-flags route error");
     res.status(500).json({ error: String(err) });
   }
 });
@@ -337,6 +431,7 @@ router.get("/lp/fact-flags/proof-points", async (req, res): Promise<void> => {
     );
     res.json(rows.rows);
   } catch (err) {
+    logger.error({ err }, "fact-flags route error");
     res.status(500).json({ error: String(err) });
   }
 });

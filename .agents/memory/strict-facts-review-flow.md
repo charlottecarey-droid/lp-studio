@@ -44,6 +44,30 @@ library_upgrade/bulk_approved/published_with_bulk_approve/quote_approve_confirme
 advisory_detected). Pure client events (e.g. "modal dismissed") are NOT wired —
 no client telemetry transport exists.
 
+## Publish gate = WARN-and-confirm, never silent-pass, never hard-block
+The shared `enforceFactFlagPublishGate` (in `routes/lp/fact-flags.ts`, used by BOTH
+the PUT publish path and the `/approve` path) must:
+- WARN (409 `code:"fact_flags_pending"`, `pendingCount`, `checkFailed`) when pending>0
+  **OR** when the pending-count query itself THREW. The count helper
+  `getPendingFactFlagState` returns `{pending, ok}` — a failed query is `ok:false`,
+  NOT `pending:0`. Never collapse "couldn't check" into "clean" or unapproved stats
+  publish silently. (Old `countPendingFactFlags`→`catch→return 0` was the bug.)
+- Still publish on explicit `bulkApproveFactFlags:true` even if the bulk-approve
+  UPDATE fails (best-effort, swallowed) — a confirmed user is never hard-blocked.
+**Why:** the original failure looked like "review modal never appears, pages publish
+with unapproved stats" — caused by the gate silently passing on a schema/query error.
+**Regression test:** `factFlags.integration.test.ts` renames `lp_page_fact_flags`
+mid-test to force the count query to throw, asserts 409+checkFailed (page stays
+draft) then 200 with bulkApprove. Restore the table in `finally`.
+
+## Write-route 500s were undiagnosable — now logged
+Every catch in `fact-flags.ts` returns `String(err)` to the client but historically
+did NOT log server-side, so prod 500s (e.g. save-to-library) showed only pino-http's
+generic line with no pg detail. All catches now `logger.error({err}, "fact-flags
+route error")`. The real prod DB is Neon (has full Strict Facts schema, INSERT works
+— see `prod-db-is-neon-not-helium.md`); `executeSql` hits empty Helium, so don't
+diagnose schema state from it.
+
 ## Gotchas
 - `logger.warn` is pino: object FIRST, message SECOND (`logger.warn({err}, "msg")`).
   The `(msg, {obj})` order does not typecheck.
