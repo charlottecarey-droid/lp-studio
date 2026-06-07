@@ -844,6 +844,11 @@ export interface DsoCaseStudyExtraSection {
   imageUrl?: string;
   quote?: string;
   backgroundStyle?: BackgroundStyle;
+  /** Where this section renders relative to the fixed Results/CTA band.
+   *  - "after-results" (default): renders after the Results band + CTA (legacy behavior).
+   *  - "before-results": renders between the Challenge/Solution body and the Results band.
+   *  Legacy rows have no `position` and keep the "after-results" behavior. */
+  position?: "before-results" | "after-results";
 }
 
 export interface DsoCaseStudyResultItem {

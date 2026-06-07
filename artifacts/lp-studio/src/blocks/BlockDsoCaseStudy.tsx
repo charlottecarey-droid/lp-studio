@@ -120,6 +120,42 @@ export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
   const bodyDivider     = bodyDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)";
   const resDivider      = resultsDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)";
 
+  // Carry the original index alongside each section so editing callbacks keep
+  // pointing at the right row even after we split by position.
+  const indexedSections = sections.map((sec, i) => ({ sec, i }));
+  const beforeResults = indexedSections.filter(({ sec }) => sec.position === "before-results");
+  const afterResults  = indexedSections.filter(({ sec }) => sec.position !== "before-results");
+
+  const renderExtraSection = (sec: DsoCaseStudyExtraSection, i: number) => {
+    const secBg   = sec.backgroundStyle ?? fallback;
+    const secDark = isDarkBg(secBg);
+    const secDivider = secDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)";
+    const hasQuote = (sec.quote ?? "").trim() !== "";
+    return (
+      <section key={`extra-${i}`} style={{ ...getBgStyle(secBg), position: "relative" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto", padding: "3.5rem 1.5rem" }}>
+          <BodySection
+            section={{ heading: sec.heading, body: sec.body, imageUrl: sec.imageUrl }}
+            dark={secDark}
+            onUpdateHeading={upd ? (v) => updExtraSection(i, "heading", v) : undefined}
+            onUpdateBody={upd ? (v) => updExtraSection(i, "body", v) : undefined}
+            onUpdateImage={upd ? (v) => updExtraSection(i, "imageUrl", v) : undefined}
+          />
+          {hasQuote && (
+            <>
+              <div style={{ height: 1, background: secDivider, marginBottom: "3rem" }} />
+              <PullQuote
+                quote={sec.quote!}
+                dark={secDark}
+                onUpdate={upd ? (v) => updExtraSection(i, "quote", v) : undefined}
+              />
+            </>
+          )}
+        </div>
+      </section>
+    );
+  };
+
   return (
     <>
       {/* ── Section 1: Hero ─────────────────────────────────────────── */}
@@ -228,6 +264,9 @@ export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
         </div>
       </section>}
 
+      {/* ── Editor-added sections placed before the Results band ─────── */}
+      {!heroOnly && beforeResults.map(({ sec, i }) => renderExtraSection(sec, i))}
+
       {/* ── Section 3: Results + Why It Matters ─────────────────────── */}
       {!heroOnly && <section style={{ ...getBgStyle(resultsBg), position: "relative" }}>
         <div style={{ maxWidth: 900, margin: "0 auto", padding: "3.5rem 1.5rem 5rem" }}>
@@ -282,36 +321,8 @@ export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
         </div>
       </section>}
 
-      {/* ── Repeatable, editor-added sections ───────────────────────── */}
-      {!heroOnly && sections.map((sec, i) => {
-        const secBg   = sec.backgroundStyle ?? fallback;
-        const secDark = isDarkBg(secBg);
-        const secDivider = secDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)";
-        const hasQuote = (sec.quote ?? "").trim() !== "";
-        return (
-          <section key={`extra-${i}`} style={{ ...getBgStyle(secBg), position: "relative" }}>
-            <div style={{ maxWidth: 900, margin: "0 auto", padding: "3.5rem 1.5rem" }}>
-              <BodySection
-                section={{ heading: sec.heading, body: sec.body, imageUrl: sec.imageUrl }}
-                dark={secDark}
-                onUpdateHeading={upd ? (v) => updExtraSection(i, "heading", v) : undefined}
-                onUpdateBody={upd ? (v) => updExtraSection(i, "body", v) : undefined}
-                onUpdateImage={upd ? (v) => updExtraSection(i, "imageUrl", v) : undefined}
-              />
-              {hasQuote && (
-                <>
-                  <div style={{ height: 1, background: secDivider, marginBottom: "3rem" }} />
-                  <PullQuote
-                    quote={sec.quote!}
-                    dark={secDark}
-                    onUpdate={upd ? (v) => updExtraSection(i, "quote", v) : undefined}
-                  />
-                </>
-              )}
-            </div>
-          </section>
-        );
-      })}
+      {/* ── Editor-added sections placed after the Results band ─────── */}
+      {!heroOnly && afterResults.map(({ sec, i }) => renderExtraSection(sec, i))}
     </>
   );
 }

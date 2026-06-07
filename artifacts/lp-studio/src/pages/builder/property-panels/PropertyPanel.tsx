@@ -5853,6 +5853,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                           </div>
                         </div>
                         <div className="space-y-1">
+                          <Label className="text-[11px] text-muted-foreground">Position</Label>
+                          <Select value={sec.position ?? "after-results"} onValueChange={v => updateSection(i, { position: v as DsoCaseStudyExtraSection["position"] })}>
+                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="before-results" className="text-xs">Before Results band</SelectItem>
+                              <SelectItem value="after-results" className="text-xs">After Results / CTA</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
                           <Label className="text-[11px] text-muted-foreground">Background</Label>
                           <Select value={sec.backgroundStyle ?? p.backgroundStyle ?? "white"} onValueChange={v => updateSection(i, { backgroundStyle: v as BackgroundStyle })}>
                             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
