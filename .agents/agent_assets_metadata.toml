@@ -378,6 +378,36 @@ uri = "file://artifacts/mockup-sandbox/public/images/vanguard-gallery-3.png"
 type = "image"
 title = "Clean tech hardware"
 
+[[generated]]
+id = "JCtUyzSOO88xW1PK_khbn"
+uri = "file://artifacts/mockup-sandbox/public/images/hero-editorial-split-abstract.png"
+type = "image"
+title = "editorial abstract architecture"
+
+[[generated]]
+id = "DdF9pRILO9_V_91FGeIZj"
+uri = "file://artifacts/mockup-sandbox/public/images/hero-parallax-layers-shape1.png"
+type = "image"
+title = "Frosted glass sphere"
+
+[[generated]]
+id = "WOgpkt58eD5ELtS1wKhAS"
+uri = "file://artifacts/mockup-sandbox/public/images/hero-parallax-layers-shape2.png"
+type = "image"
+title = "Metallic torus"
+
+[[generated]]
+id = "hsgAEGZFBdln628DqZIOO"
+uri = "file://artifacts/mockup-sandbox/public/images/hero-parallax-layers-shape3.png"
+type = "image"
+title = "Floating crystal"
+
+[[generated]]
+id = "N4m_cvl6dZS8oFcVUJaT7"
+uri = "file://artifacts/mockup-sandbox/public/images/hero-spotlight-glow-dashboard.png"
+type = "image"
+title = "Dark mode developer dashboard"
+
 [[outputs]]
 id = "2sUbM7UegFOFtU0kTdNUi"
 uri = "file://.local/cheatsheet.md"

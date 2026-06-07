@@ -1,0 +1,80 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600&display=swap');
+
+.spotlight-glow-hero {
+  --spotlight-color: rgba(139, 92, 246, 0.15); /* Purple-500 equivalent */
+  --grid-color: rgba(255, 255, 255, 0.05);
+  --bg-color: #030305;
+  font-family: 'Outfit', sans-serif;
+  background-color: var(--bg-color);
+  color: white;
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+.spotlight-glow-hero .font-mono {
+  font-family: 'Space Grotesk', monospace;
+}
+
+.spotlight-glow-hero .grid-bg {
+  position: absolute;
+  inset: 0;
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+  mask-image: radial-gradient(circle at center, black, transparent 80%);
+  -webkit-mask-image: radial-gradient(circle at center, black, transparent 80%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.spotlight-glow-hero .spotlight {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(
+    circle 600px at var(--mouse-x) var(--mouse-y),
+    var(--spotlight-color),
+    transparent 80%
+  );
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+
+.spotlight-glow-hero:hover .spotlight {
+  opacity: 1;
+}
+
+.spotlight-glow-hero .content-wrapper {
+  position: relative;
+  z-index: 10;
+}
+
+/* Glass panel for nav and bento */
+.spotlight-glow-glass {
+  background: rgba(20, 20, 25, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.spotlight-glow-bento-glow {
+  position: relative;
+}
+
+.spotlight-glow-bento-glow::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(to bottom right, rgba(139, 92, 246, 0.5), rgba(59, 130, 246, 0.5), transparent);
+  border-radius: inherit;
+  z-index: -1;
+  opacity: 0.3;
+  transition: opacity 0.3s;
+}
+
+.spotlight-glow-bento-glow:hover::before {
+  opacity: 0.6;
+}
