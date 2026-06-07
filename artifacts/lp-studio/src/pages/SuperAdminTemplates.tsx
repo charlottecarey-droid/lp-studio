@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import {
   Loader2, RefreshCw, Pencil, Search, Globe2, Building2, AlertCircle, PenSquare,
+  Eye, ImageOff,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -42,6 +43,10 @@ interface TemplateRow {
   full_page: boolean;
   /** True when this global template is featured on the marketing homepage. */
   on_homepage: boolean;
+  /** Social-share card URL ('' when never set). Display-only in the preview modal. */
+  og_image: string;
+  /** Template-gallery thumbnail URL (NULL when never captured). Display-only. */
+  thumbnail_url: string | null;
 }
 
 const INDUSTRY_LABEL: Record<Industry, string> = {
@@ -201,6 +206,91 @@ function TemplateEditor({
   );
 }
 
+function TemplatePreviewModal({
+  row, onClose,
+}: {
+  row: TemplateRow | null;
+  onClose: () => void;
+}) {
+  const open = !!row;
+  // Reset the OG image error flag whenever a different template opens.
+  const [ogError, setOgError] = useState(false);
+  useEffect(() => { if (open) setOgError(false); }, [open, row?.id]);
+
+  if (!row) return null;
+
+  const label = row.template_label || row.title;
+  const rawOg = row.og_image?.trim() ?? "";
+  // Root-relative paths (e.g. /api/storage/…) would escape the app's base-path
+  // prefix on the admin host, so re-anchor them to BASE. Absolute, protocol-
+  // relative and data/blob URLs pass through verbatim.
+  const ogImage = !rawOg
+    ? ""
+    : /^(https?:)?\/\//i.test(rawOg) || rawOg.startsWith("data:") || rawOg.startsWith("blob:")
+      ? rawOg
+      : rawOg.startsWith("/")
+        ? `${BASE}${rawOg}`
+        : rawOg;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-5xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Eye className="w-4 h-4" />
+            {label}
+          </DialogTitle>
+          <div className="text-[11px] text-muted-foreground font-mono mt-0.5" title={row.slug}>
+            {row.slug} · id #{row.id}
+          </div>
+        </DialogHeader>
+        <div className="space-y-4">
+          {/* Live rendered preview */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Live preview</Label>
+            <div className="rounded-lg border overflow-hidden bg-white">
+              <iframe
+                key={row.id}
+                src={`${BASE}/preview/template/${row.id}`}
+                title={`Preview of ${label}`}
+                className="w-full h-[60vh] border-0"
+                sandbox="allow-scripts allow-same-origin"
+              />
+            </div>
+          </div>
+
+          {/* Current OG image (display-only) */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">
+              Current OG image (social-share card)
+            </Label>
+            {ogImage && !ogError ? (
+              <div className="rounded-lg border overflow-hidden bg-muted/30">
+                <img
+                  src={ogImage}
+                  alt={`OG image for ${label}`}
+                  className="w-full max-h-[40vh] object-contain bg-white"
+                  onError={() => setOgError(true)}
+                />
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed bg-muted/30 py-10 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                <ImageOff className="w-6 h-6" />
+                <span className="text-xs">No OG image set</span>
+              </div>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function SuperAdminTemplates() {
   const [rows, setRows] = useState<TemplateRow[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -208,6 +298,7 @@ export default function SuperAdminTemplates() {
   const [filter, setFilter] = useState<IndustryFilter>("all");
   const [search, setSearch] = useState("");
   const [editingInitial, setEditingInitial] = useState<EditState | null>(null);
+  const [previewRow, setPreviewRow] = useState<TemplateRow | null>(null);
   const [, setLocation] = useLocation();
 
   const refresh = useCallback(async () => {
@@ -413,6 +504,16 @@ export default function SuperAdminTemplates() {
                     </Button>
                     <Button
                       size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      title="Preview this template and its OG image"
+                      onClick={() => setPreviewRow(row)}
+                    >
+                      <Eye className="w-3.5 h-3.5 mr-1" />
+                      Preview
+                    </Button>
+                    <Button
+                      size="sm"
                       variant="ghost"
                       className="h-7 w-7 p-0"
                       title="Edit metadata (label, visibility, industry)"
@@ -433,6 +534,11 @@ export default function SuperAdminTemplates() {
         onClose={() => setEditingInitial(null)}
         initial={editingInitial}
         onSaved={refresh}
+      />
+
+      <TemplatePreviewModal
+        row={previewRow}
+        onClose={() => setPreviewRow(null)}
       />
     </div>
   );

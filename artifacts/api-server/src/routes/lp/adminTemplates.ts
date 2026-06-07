@@ -27,6 +27,10 @@ interface TemplateRow {
   is_global: boolean;
   industry: string | null;
   updated_at: string;
+  /** Social-share card URL ('' when never set). Display-only in the preview modal. */
+  og_image: string;
+  /** Template-gallery thumbnail URL (NULL when never captured). Display-only. */
+  thumbnail_url: string | null;
   /** Type of the page's first block — used to classify full-page templates. */
   first_block_type: string | null;
   /** True when this template is a standalone full-page template. */
@@ -55,6 +59,8 @@ router.get("/admin/lp/templates", requireSuperadmin, async (_req, res): Promise<
         p.is_global,
         p.industry,
         p.updated_at,
+        p.og_image,
+        p.thumbnail_url,
         (p.blocks->0->>'type') AS first_block_type,
         -- Featured rows reference global templates as 'global:<id>'. Use EXISTS
         -- (not a JOIN) so duplicate featured rows can never fan out template rows.
