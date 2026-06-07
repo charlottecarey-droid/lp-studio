@@ -149,16 +149,21 @@ All values must be 6-digit hex starting with #. Use solid colors only (no rgba).
 
   // Find a likely primary from CSS vars if LLM whiffed. A *named*
   // --brand/--primary custom property is the highest-confidence brand
-  // signal we have, so prefer it over any pixel-sampled color. Exclude
-  // background-ish brand tokens (--brand-bg / --primary-surface) — those
-  // are page fills, not the brand color — and skip weak (near-grey /
-  // brown-beige) values. When a design-system site exposes a whole brand
-  // scale, rank the candidates by salience so we land the vivid mid-scale
-  // shade rather than a pale tint or near-black extreme.
+  // signal we have, so prefer it over any pixel-sampled color. We exclude
+  // only --brand-surface / --brand-card tokens (genuine component fills) and
+  // skip weak (near-grey / brown-beige) values. We deliberately do NOT
+  // exclude --brand-bg / --brand-background tokens: a SATURATED *-bg brand
+  // token is almost always the brand color used as a button/background fill
+  // (e.g. Linear's brand purple lives in --color-brand-bg #5E6AD2), not a
+  // neutral page fill — those are already dropped by isWeakColor. When a
+  // design-system site exposes a whole brand scale, rank the candidates by
+  // salience so we land the vivid mid-scale shade rather than a pale tint or
+  // near-black extreme; salience also naturally demotes low-chroma semantic
+  // slot tokens (--text-primary, --border-primary) below the real brand hue.
   const brandVar = cssVars
     .filter((v) =>
       /(?:^|-)(?:brand|primary)/i.test(v.name)
-      && !/(?:brand|primary)-?(?:bg|background|surface|card)/i.test(v.name)
+      && !/(?:brand|primary)-?(?:surface|card)/i.test(v.name)
       && !isWeakColor(v.value))
     .slice()
     .sort((a, b) => chromaSalience(b.value) - chromaSalience(a.value))[0];

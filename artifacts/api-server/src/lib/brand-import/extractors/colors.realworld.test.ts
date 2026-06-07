@@ -120,17 +120,17 @@ const CASES: Record<string, Expectation> = {
   },
   // Design-system dark-theme site: the screenshot palette is entirely
   // near-black navy, but the brand purple lives in named tokens. The extractor
-  // must avoid the near-black wash and land a saturated purple. Note Linear's
-  // canonical brand (#5E6AD2) is declared as `--color-brand-bg`, which the
-  // extractor deliberately skips as a background token, so it recovers the
-  // sibling link/accent purple (#828FFF) instead — still on-brand.
+  // must avoid the near-black wash and land a saturated purple. Linear's
+  // canonical brand (#5E6AD2) is declared as `--color-brand-bg`; that
+  // *-bg token is a SATURATED brand color, so it must be recovered as primary
+  // rather than skipped in favor of the sibling link/accent purple (#828FFF).
   linear: {
-    category: "design-system / dark-theme (named token beats dark wash)",
-    expectedPrimary: "#828FFF",
+    category: "design-system / dark-theme (saturated --brand-bg beats link/accent)",
+    expectedPrimary: "#5E6AD2",
     confidence: "high",
     hasBrandToken: true,
     hueBand: [220, 270],
-    note: "Palette is all near-black; recovers a purple link/accent token, not the dark wash.",
+    note: "Canonical brand color lives in --color-brand-bg; recovered over the link/accent purple and the dark wash.",
   },
   // Screenshot-blocked + plain-hex-CSS: no screenshot palette and no named
   // CSS vars, so evidence falls back to harvesting raw declared hex colors
