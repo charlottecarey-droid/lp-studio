@@ -27,9 +27,35 @@ import { eq, and, desc } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import sharp from "sharp";
 
-/** Template card aspect — wider + taller crop than the 1200x630 OG card. */
-const THUMB_WIDTH = 1200;
+/**
+ * Template card aspect — a 3:2 crop, wider + taller than the 1200x630 OG card.
+ *
+ * High-DPI sharpness: gallery cards are ~410px wide at the 3-up grid and up to
+ * ~430px full-width on phones, i.e. up to ~1290 device px on a 3× display. To
+ * stay above that (so the browser always *downscales* the source — never
+ * upscales it — and the card reads crisp on retina/3× screens) we capture at the
+ * largest clean 3:2 thum.io's anonymous gateway will return.
+ *
+ * thum.io ceiling (verified empirically, anonymous tier — no auth key in env):
+ * the output width is capped around 1280px. `width/2400/crop/1600` does NOT give
+ * a 2400px image — it returns a broken 1200×1200 *square* (no res gain, ratio
+ * lost). `width/1600/crop/800` reliably returns a clean 1280×853 (3:2). So 1600
+ * is the request value that maxes out a correct-ratio capture; thum.io clamps
+ * the delivered pixels to ~1280 wide.
+ */
+const THUMB_WIDTH = 1600;
 const THUMB_CROP = 800;
+
+/**
+ * Browser viewport thum.io renders the `/preview` SPA at before snapshotting.
+ * Pinning a generous *desktop* viewport (3:2) does two things vs. relying on
+ * thum.io's default viewport: (1) it forces the template's intended desktop
+ * layout (not a narrower default/mobile breakpoint), and (2) thum.io renders at
+ * 1600px then delivers its ~1280px-capped output, so the result is a clean
+ * downscale (sharp) rather than a potential upscale (soft/grainy).
+ */
+const THUMB_VIEWPORT_WIDTH = 1600;
+const THUMB_VIEWPORT_HEIGHT = 1067;
 
 /**
  * Seconds thum.io waits *after* page load before snapshotting. The `/preview`
@@ -148,7 +174,10 @@ async function ensureReviewToken(pageId: number): Promise<string> {
  * the target URL raw after the option path (matching the existing OG pattern).
  */
 export function buildTemplateThumbnailUrl(previewUrl: string): string {
-  return `https://image.thum.io/get/width/${THUMB_WIDTH}/crop/${THUMB_CROP}/png/noanimate/${previewUrl}`;
+  return (
+    `https://image.thum.io/get/viewport/${THUMB_VIEWPORT_WIDTH}x${THUMB_VIEWPORT_HEIGHT}` +
+    `/width/${THUMB_WIDTH}/crop/${THUMB_CROP}/png/noanimate/${previewUrl}`
+  );
 }
 
 /**

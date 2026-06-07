@@ -132,3 +132,4 @@
 - [New block-type graduation callsites](block-type-graduation-callsites.md) — ~9 synced callsites to graduate a mockup into a block type; block-variant.ts needs BOTH the import AND the union member, registry ENTRY is separate from createBlock case.
 - [inject() tests vs post-response side-effects](inject-test-post-response-sideeffects.md) — inject() resolves on res.end; handlers doing fire-and-continue work after res.json need a bounded poll in tests, not an immediate read (flakes).
 - [mockup-section optional CTA + brand-swap](mockup-section-optional-cta-convention.md) — section mockups: gate CTA on a prop (showCta bool or nullable cta), never `const showCta=true`; theme via token inline-styles, never hardcoded Tailwind color classes/avatar data.
+- [thum.io output cap](thumio-output-cap.md) — anonymous gateway caps output ~1280px; width/2400 breaks ratio to a square; max clean 3:2 = viewport/1600x1067/width/1600/crop/800 → 1280×853.
