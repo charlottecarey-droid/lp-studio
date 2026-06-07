@@ -54,6 +54,11 @@ import type {
   HorizontalShowcaseBlockProps,
   StickyStackBlockProps,
   MagazineHeroBlockProps,
+  CinematicVideoHeroBlockProps,
+  AuroraGradientHeroBlockProps,
+  EditorialSplitHeroBlockProps,
+  ParallaxLayersHeroBlockProps,
+  SpotlightGlowHeroBlockProps,
   BoldStatementBlockProps,
   IdHeroBlockProps,
   IdMarqueeBlockProps,
@@ -4170,6 +4175,234 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "cinematic-video-hero",
+    label: "Cinematic Video Hero",
+    category: "Showcase",
+    defaultProps: () => ({
+      showNav: true,
+      logoText: "AURA",
+      navLinks: [
+        { label: "Work", href: "#" },
+        { label: "Studio", href: "#" },
+        { label: "Contact", href: "#" },
+      ],
+      navCtaText: "Get Started",
+      navCtaUrl: "#",
+      eyebrow: "Featured Film",
+      headline: "Stories worth watching, told in motion.",
+      subheadline:
+        "A cinematic full-bleed hero with a looping background film, built for brands that lead with atmosphere.",
+      ctaText: "Begin the Journey",
+      ctaUrl: "#",
+      ctaAction: "url",
+      ctaStyle: "buttons",
+      ctaSecondaryText: "Watch Film",
+      ctaSecondaryAction: "video-modal",
+      backgroundVideoUrl: "",
+      backgroundImageUrl:
+        "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?q=80&w=1920&h=1080&fit=crop",
+      overlayOpacity: 0.55,
+      scrollCueLabel: "Discover",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0A0A0A" rx="4" />
+        <rect width="120" height="70" fill="url(#cvg)" rx="4" opacity="0.5" />
+        <defs><linearGradient id="cvg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#000" stopOpacity="0"/><stop offset="1" stopColor="#000" stopOpacity="0.8"/></linearGradient></defs>
+        <circle cx="60" cy="30" r="9" fill="#fff" opacity="0.85" />
+        <path d="M57 26 L66 30 L57 34 Z" fill="#0A0A0A" />
+        <rect x="20" y="48" width="60" height="4" rx="1" fill="#fff" opacity="0.9" />
+        <rect x="20" y="56" width="40" height="2.5" rx="1" fill="#fff" opacity="0.5" />
+        <rect x="86" y="48" width="14" height="6" rx="3" fill="#C7E738" />
+      </svg>
+    ),
+  },
+  {
+    type: "aurora-gradient-hero",
+    label: "Aurora Gradient Hero",
+    category: "Showcase",
+    defaultProps: () => ({
+      showNav: true,
+      logoText: "Lumina",
+      navLinks: [
+        { label: "Product", href: "#" },
+        { label: "Pricing", href: "#" },
+        { label: "Docs", href: "#" },
+      ],
+      navSignInText: "Sign in",
+      navSignInUrl: "#",
+      navCtaText: "Start free",
+      navCtaUrl: "#",
+      badgeText: "Introducing Lumina AI",
+      badgeLinkText: "Read announcement",
+      badgeLinkUrl: "#",
+      headline: "The intelligent canvas for modern teams",
+      headlineGradientWord: "intelligent",
+      subheadline:
+        "Design, build, and ship faster with an aurora of tools that adapt to the way you work.",
+      ctaText: "Get started free",
+      ctaUrl: "#",
+      ctaAction: "url",
+      ctaStyle: "buttons",
+      ctaSecondaryText: "Book a demo",
+      ctaSecondaryAction: "url",
+      ctaSecondaryUrl: "#",
+      chips: [
+        { icon: "Zap", title: "10x faster", subtitle: "Ship in days, not months" },
+        { icon: "Shield", title: "Enterprise-ready", subtitle: "SOC 2 Type II" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0B0B14" rx="4" />
+        <circle cx="34" cy="22" r="26" fill="#7C3AED" opacity="0.5" />
+        <circle cx="86" cy="40" r="28" fill="#C7E738" opacity="0.35" />
+        <rect x="34" y="26" width="52" height="5" rx="1" fill="#fff" opacity="0.92" />
+        <rect x="34" y="36" width="40" height="3" rx="1" fill="#fff" opacity="0.5" />
+        <rect x="34" y="46" width="20" height="6" rx="3" fill="#C7E738" />
+        <rect x="58" y="46" width="20" height="6" rx="3" fill="#fff" opacity="0.2" />
+      </svg>
+    ),
+  },
+  {
+    type: "editorial-split-hero",
+    label: "Editorial Split Hero",
+    category: "Showcase",
+    defaultProps: () => ({
+      showNav: true,
+      logoText: "Maison",
+      navLinks: [
+        { label: "Collection", href: "#" },
+        { label: "About", href: "#" },
+        { label: "Journal", href: "#" },
+      ],
+      navCtaText: "Inquire",
+      navCtaUrl: "#",
+      eyebrow: "The New Standard",
+      headline: "Craft that speaks softly and carries weight.",
+      headlineAccentWord: "softly",
+      subheadline:
+        "An editorial split hero with a refined serif voice — made for premium, design-led brands.",
+      ctaText: "Explore the collection",
+      ctaUrl: "#",
+      ctaAction: "url",
+      ctaStyle: "buttons",
+      imageUrl:
+        "https://images.unsplash.com/photo-1618220179428-22790b461013?q=80&w=1000&h=1200&fit=crop",
+      imageSide: "right",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#F6F3EE" rx="4" />
+        <rect x="10" y="14" width="14" height="2" fill="#B07B4F" />
+        <text x="10" y="36" fontSize="13" fontWeight="bold" fill="#1A1A1A" fontFamily="Georgia, serif">Craft</text>
+        <rect x="10" y="42" width="44" height="2.5" rx="1" fill="#1A1A1A" opacity="0.35" />
+        <rect x="10" y="48" width="34" height="2.5" rx="1" fill="#1A1A1A" opacity="0.25" />
+        <rect x="10" y="56" width="24" height="6" rx="1" fill="#1A1A1A" />
+        <rect x="74" y="10" width="38" height="50" rx="2" fill="#B07B4F" opacity="0.55" />
+      </svg>
+    ),
+  },
+  {
+    type: "parallax-layers-hero",
+    label: "Parallax Layers Hero",
+    category: "Showcase",
+    defaultProps: () => ({
+      showNav: true,
+      logoText: "NEXUS",
+      navLinks: [
+        { label: "Platform", href: "#" },
+        { label: "Solutions", href: "#" },
+        { label: "Company", href: "#" },
+      ],
+      navCtaText: "Request access",
+      navCtaUrl: "#",
+      badgeText: "Now in public beta",
+      headline: "Depth you can feel, performance you can trust.",
+      subheadline:
+        "A dark parallax hero with drifting layers — engineered for cinematic, high-impact landing pages.",
+      ctaText: "Get started",
+      ctaUrl: "#",
+      ctaAction: "url",
+      ctaStyle: "buttons",
+      ctaSecondaryText: "See how it works",
+      ctaSecondaryAction: "url",
+      ctaSecondaryUrl: "#",
+      shapeImage1Url: "",
+      shapeImage2Url: "",
+      shapeImage3Url: "",
+      parallaxStrength: 0.5,
+      showMarquee: true,
+      marqueeLabel: "Trusted by teams at",
+      marqueeLogos: ["Vertex", "Quanta", "Northwind", "Helios", "Apex"],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0A0E1A" rx="4" />
+        <circle cx="24" cy="20" r="14" fill="#C7E738" opacity="0.4" />
+        <rect x="88" y="34" width="22" height="22" rx="4" fill="#3B82F6" opacity="0.45" transform="rotate(12 99 45)" />
+        <circle cx="98" cy="16" r="8" fill="#fff" opacity="0.18" />
+        <rect x="16" y="34" width="54" height="5" rx="1" fill="#fff" opacity="0.92" />
+        <rect x="16" y="44" width="38" height="3" rx="1" fill="#fff" opacity="0.5" />
+        <rect x="16" y="54" width="20" height="6" rx="3" fill="#C7E738" />
+      </svg>
+    ),
+  },
+  {
+    type: "spotlight-glow-hero",
+    label: "Spotlight Glow Hero",
+    category: "Showcase",
+    defaultProps: () => ({
+      showNav: true,
+      logoText: "Orbit",
+      navLinks: [
+        { label: "Features", href: "#" },
+        { label: "Pricing", href: "#" },
+        { label: "Changelog", href: "#" },
+      ],
+      navSignInText: "Sign in",
+      navSignInUrl: "#",
+      navCtaText: "Start building",
+      navCtaUrl: "#",
+      badgeText: "v2.0 is here",
+      headline: "Build at the speed of thought",
+      headlineGradientWord: "thought",
+      subheadline:
+        "A dark spotlight hero with a cursor-follow glow and a bento product preview — made for developer tools and SaaS.",
+      ctaText: "Start for free",
+      ctaUrl: "#",
+      ctaAction: "url",
+      ctaStyle: "buttons",
+      ctaSecondaryText: "View docs",
+      ctaSecondaryAction: "url",
+      ctaSecondaryUrl: "#",
+      showPreview: true,
+      previewImageUrl:
+        "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1200&h=800&fit=crop",
+      codeFileName: "config.ts",
+      codeSnippet:
+        "export const app = create({\n  name: 'orbit',\n  speed: 'instant',\n});",
+      sidebarItems: [
+        { icon: "Zap", label: "Instant deploys" },
+        { icon: "Lock", label: "Secure by default" },
+        { icon: "Activity", label: "Live analytics" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#08080C" rx="4" />
+        <circle cx="40" cy="26" r="30" fill="#C7E738" opacity="0.18" />
+        <rect x="14" y="22" width="46" height="5" rx="1" fill="#fff" opacity="0.92" />
+        <rect x="14" y="32" width="32" height="3" rx="1" fill="#fff" opacity="0.5" />
+        <rect x="14" y="42" width="18" height="6" rx="3" fill="#C7E738" />
+        <rect x="74" y="14" width="36" height="42" rx="3" fill="#fff" opacity="0.06" stroke="#fff" strokeOpacity="0.15" />
+        <rect x="80" y="20" width="24" height="12" rx="2" fill="#C7E738" opacity="0.3" />
+        <rect x="80" y="36" width="24" height="2.5" rx="1" fill="#fff" opacity="0.3" />
+        <rect x="80" y="42" width="18" height="2.5" rx="1" fill="#fff" opacity="0.3" />
+      </svg>
+    ),
+  },
+  {
     type: "id-hero" as const,
     label: "Inside Dandy · Hero",
     category: "Showcase" as BlockCategory,
@@ -5701,6 +5934,11 @@ function makeId(type: BlockType): string {
 }
 
 export function createBlock(type: "magazine-hero"): Extract<PageBlock, { type: "magazine-hero" }>;
+export function createBlock(type: "cinematic-video-hero"): Extract<PageBlock, { type: "cinematic-video-hero" }>;
+export function createBlock(type: "aurora-gradient-hero"): Extract<PageBlock, { type: "aurora-gradient-hero" }>;
+export function createBlock(type: "editorial-split-hero"): Extract<PageBlock, { type: "editorial-split-hero" }>;
+export function createBlock(type: "parallax-layers-hero"): Extract<PageBlock, { type: "parallax-layers-hero" }>;
+export function createBlock(type: "spotlight-glow-hero"): Extract<PageBlock, { type: "spotlight-glow-hero" }>;
 export function createBlock(type: "bold-statement"): Extract<PageBlock, { type: "bold-statement" }>;
 export function createBlock(type: "id-hero"): Extract<PageBlock, { type: "id-hero" }>;
 export function createBlock(type: "id-marquee"): Extract<PageBlock, { type: "id-marquee" }>;
@@ -5947,6 +6185,11 @@ export function createBlock(type: BlockType): PageBlock {
     case "horizontal-showcase": return { id, type: "horizontal-showcase", props: props as HorizontalShowcaseBlockProps };
     case "sticky-stack": return { id, type: "sticky-stack", props: props as StickyStackBlockProps };
     case "magazine-hero": return { id, type: "magazine-hero", props: props as MagazineHeroBlockProps };
+    case "cinematic-video-hero": return { id, type: "cinematic-video-hero", props: props as CinematicVideoHeroBlockProps };
+    case "aurora-gradient-hero": return { id, type: "aurora-gradient-hero", props: props as AuroraGradientHeroBlockProps };
+    case "editorial-split-hero": return { id, type: "editorial-split-hero", props: props as EditorialSplitHeroBlockProps };
+    case "parallax-layers-hero": return { id, type: "parallax-layers-hero", props: props as ParallaxLayersHeroBlockProps };
+    case "spotlight-glow-hero": return { id, type: "spotlight-glow-hero", props: props as SpotlightGlowHeroBlockProps };
     case "bold-statement": return { id, type: "bold-statement", props: props as BoldStatementBlockProps };
     case "id-hero": return { id, type: "id-hero", props: props as IdHeroBlockProps };
     case "id-marquee": return { id, type: "id-marquee", props: props as IdMarqueeBlockProps };

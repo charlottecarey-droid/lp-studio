@@ -704,6 +704,11 @@ const GENERIC_SEED = [
   // require either component fixes or per-row default_props overrides; both
   // are out of scope for this backfill. Tracked separately as cleanup debt.
   { block_type: "magazine-hero",      label: "Magazine Hero",      category: "Layout",  sort_order: 100, default_props: {} },
+  { block_type: "cinematic-video-hero", label: "Cinematic Video Hero", category: "Hero", sort_order: 104, default_props: {} },
+  { block_type: "aurora-gradient-hero", label: "Aurora Gradient Hero", category: "Hero", sort_order: 105, default_props: {} },
+  { block_type: "editorial-split-hero", label: "Editorial Split Hero", category: "Hero", sort_order: 106, default_props: {} },
+  { block_type: "parallax-layers-hero", label: "Parallax Layers Hero", category: "Hero", sort_order: 107, default_props: {} },
+  { block_type: "spotlight-glow-hero",  label: "Spotlight Glow Hero",  category: "Hero", sort_order: 108, default_props: {} },
   { block_type: "scroll-assembly",    label: "Scroll Assembly",    category: "Hero",    sort_order: 102, default_props: {} },
   { block_type: "one-pager-hero",     label: "One-Pager Hero",     category: "Hero",    sort_order: 103, default_props: {} },
   { block_type: "bento-showcase",     label: "Bento Showcase",     category: "Content", sort_order: 111, default_props: {} },

@@ -106,6 +106,11 @@ import { BlockScrollAssembly } from "./BlockScrollAssembly";
 import { BlockHorizontalShowcase } from "./BlockHorizontalShowcase";
 import { BlockStickyStack } from "./BlockStickyStack";
 import { BlockMagazineHero } from "./BlockMagazineHero";
+import { BlockCinematicVideoHero } from "./BlockCinematicVideoHero";
+import { BlockAuroraGradientHero } from "./BlockAuroraGradientHero";
+import { BlockEditorialSplitHero } from "./BlockEditorialSplitHero";
+import { BlockParallaxLayersHero } from "./BlockParallaxLayersHero";
+import { BlockSpotlightGlowHero } from "./BlockSpotlightGlowHero";
 import { BlockEditorialCarousel } from "./BlockEditorialCarousel";
 import { BlockBoldStatement } from "./BlockBoldStatement";
 import { BlockIdHero } from "./BlockIdHero";
@@ -323,6 +328,7 @@ export const NO_REVEAL = new Set<string>([
   "dso-scroll-story", "dso-scroll-story-hero",
   "dandy-switchback", "dso-paradigm-shift",
   "hero", "full-bleed-hero", "parallax-image-hero", "dandy-hero-v7-s3", "dandy-product-hero",
+  "cinematic-video-hero", "aurora-gradient-hero", "editorial-split-hero", "parallax-layers-hero", "spotlight-glow-hero",
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch", "story-hub",
   "business-case-split", "business-case-centered", "business-case-premium",
   "content-series", "blog-series", "storefront",
@@ -957,6 +963,71 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
       case "magazine-hero":
         return (
           <BlockMagazineHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "cinematic-video-hero":
+        return (
+          <BlockCinematicVideoHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "aurora-gradient-hero":
+        return (
+          <BlockAuroraGradientHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "editorial-split-hero":
+        return (
+          <BlockEditorialSplitHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "parallax-layers-hero":
+        return (
+          <BlockParallaxLayersHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "spotlight-glow-hero":
+        return (
+          <BlockSpotlightGlowHero
             props={block.props}
             brand={brand}
             pageId={pageId}

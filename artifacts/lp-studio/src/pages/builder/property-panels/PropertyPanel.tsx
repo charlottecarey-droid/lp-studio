@@ -75,6 +75,11 @@ import { ProductLaunchPanel } from "./ProductLaunchPanel";
 import { StoryHubPanel } from "./StoryHubPanel";
 import { BentoShowcasePanel } from "./BentoShowcasePanel";
 import { MagazineHeroPanel } from "./MagazineHeroPanel";
+import { CinematicVideoHeroPanel } from "./CinematicVideoHeroPanel";
+import { AuroraGradientHeroPanel } from "./AuroraGradientHeroPanel";
+import { EditorialSplitHeroPanel } from "./EditorialSplitHeroPanel";
+import { ParallaxLayersHeroPanel } from "./ParallaxLayersHeroPanel";
+import { SpotlightGlowHeroPanel } from "./SpotlightGlowHeroPanel";
 import { BoldStatementPanel } from "./BoldStatementPanel";
 import { IdHeroPanel } from "./IdHeroPanel";
 import { IdMarqueePanel } from "./IdMarqueePanel";
@@ -5880,6 +5885,41 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "magazine-hero":
         return (
           <MagazineHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "cinematic-video-hero":
+        return (
+          <CinematicVideoHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "aurora-gradient-hero":
+        return (
+          <AuroraGradientHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "editorial-split-hero":
+        return (
+          <EditorialSplitHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "parallax-layers-hero":
+        return (
+          <ParallaxLayersHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "spotlight-glow-hero":
+        return (
+          <SpotlightGlowHeroPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />

@@ -2338,3 +2338,214 @@ export interface StorefrontBlockProps {
   // Visual theme overrides
   theme?: StorefrontTheme;
 }
+
+/* ===========================================================================
+ * Generic graduated heroes (cinematic-video / aurora-gradient / editorial-split
+ * / parallax-layers / spotlight-glow). All five are brand-swappable: colors and
+ * fonts resolve from brand CSS vars (var(--brand-accent) / var(--brand-primary)
+ * / var(--brand-font-display) / var(--brand-font-body)) with optional per-block
+ * overrides below. Each renders its OWN integrated top nav that can be hidden
+ * via `showNav`, and a full CTA suite (url / chilipiper / modal-form /
+ * modal-chilipiper / video-modal + inline email-capture pill) like the real
+ * dso-heartland / magazine heroes.
+ * ===========================================================================*/
+
+/** CTA action vocabulary shared by the graduated heroes — matches CtaButton. */
+export type HeroCtaActionMode =
+  | "url"
+  | "chilipiper"
+  | "modal-form"
+  | "modal-chilipiper"
+  | "video-modal";
+
+/** Integrated top-nav config shared by every graduated hero. The whole bar is
+ *  hidden when `showNav === false`. */
+export interface HeroNavConfig {
+  /** Render the integrated top nav bar. Defaults to true. Set false to hide
+   *  the entire nav (logo + links + CTA). */
+  showNav?: boolean;
+  /** Brand wordmark text in the nav. Falls back to the brand name. */
+  logoText?: string;
+  /** Optional image logo (overrides `logoText` when set). */
+  logoImageUrl?: string;
+  /** Nav links. `#` anchors smooth-scroll. */
+  navLinks?: NavHeaderLink[];
+  /** Optional ghost "Sign in"-style link shown before the nav CTA. */
+  navSignInText?: string;
+  navSignInUrl?: string;
+  /** Primary nav button. */
+  navCtaText?: string;
+  navCtaUrl?: string;
+}
+
+/** Full CTA suite shared by every graduated hero (mirrors CtaButton + the
+ *  inline email-capture pill used by dso-heartland / parallax-image heroes). */
+export interface HeroCtaConfig {
+  ctaText: string;
+  ctaUrl: string;
+  /** Primary CTA behavior. Defaults to "url". */
+  ctaAction?: HeroCtaActionMode;
+  /** Used when ctaAction === "chilipiper". */
+  chilipiperUrl?: string;
+  /** Used when ctaAction === "video-modal" (opens an in-page video overlay). */
+  videoUrl?: string;
+  /** Presentation of the primary CTA:
+   *  - "buttons" (default): a normal button (+ optional secondary).
+   *  - "email-capture": an inline email pill that collects a lead, then
+   *    navigates / opens a modal per `submitMode`. */
+  ctaStyle?: "buttons" | "email-capture";
+  emailCapturePlaceholder?: string;
+  emailCaptureButtonText?: string;
+  /** What the email-capture pill does after capturing the email. */
+  submitMode?: "navigate" | "modal-form" | "modal-chilipiper";
+  /** Optional per-block fill/label overrides for the primary CTA. When unset,
+   *  the surface-aware brand fill (pickCtaButtonColors) is used. */
+  ctaButtonColor?: string;
+  ctaButtonTextColor?: string;
+  /** Optional secondary CTA (rendered next to the primary). */
+  ctaSecondaryText?: string;
+  ctaSecondaryUrl?: string;
+  ctaSecondaryAction?: HeroCtaActionMode;
+  secondaryChilipiperUrl?: string;
+  /** Used when ctaSecondaryAction === "video-modal". */
+  secondaryVideoUrl?: string;
+}
+
+/** Optional brand-color / font overrides shared by every graduated hero. When
+ *  omitted the hero reads the tenant brand CSS vars. */
+export interface HeroBrandStyleConfig {
+  /** Surface / background color override. */
+  bgColor?: string;
+  /** Primary text color override. */
+  textColor?: string;
+  /** Accent color override (defaults to var(--brand-accent)). */
+  accentColor?: string;
+  /** Per-block headline font (FontSelect). Defaults to the brand display font. */
+  headlineFont?: string;
+  /** Per-block body font (FontSelect). Defaults to the brand body font. */
+  bodyFont?: string;
+}
+
+/** A floating glass info chip used by the aurora-gradient hero. */
+export interface AuroraHeroChip {
+  /** lucide icon name (e.g. "Sparkles"). */
+  icon?: string;
+  title: string;
+  subtitle?: string;
+}
+
+/** A sidebar feature item in the spotlight-glow bento preview. */
+export interface SpotlightSidebarItem {
+  /** lucide icon name. */
+  icon?: string;
+  label: string;
+}
+
+/** 1. Cinematic, full-bleed looping background video with a glass nav, a large
+ *  headline + sub, a primary CTA and a "Watch Film" video-modal CTA, plus a
+ *  scroll cue. Dark/glass aesthetic. */
+export interface CinematicVideoHeroBlockProps
+  extends CtaModalConfig,
+    HeroNavConfig,
+    HeroCtaConfig,
+    HeroBrandStyleConfig {
+  headline: string;
+  subheadline?: string;
+  /** Optional small kicker above the headline. */
+  eyebrow?: string;
+  /** Looping background video (mp4/webm). Falls back to a brand gradient when
+   *  empty. */
+  backgroundVideoUrl?: string;
+  /** Poster / reduced-motion fallback image (also shown while the video loads). */
+  backgroundImageUrl?: string;
+  /** Scrim darkness over the video, 0-1. Defaults to ~0.55. */
+  overlayOpacity?: number;
+  /** Label for the bottom scroll cue. Empty hides it. */
+  scrollCueLabel?: string;
+}
+
+/** 2. Animated aurora-blob gradient background, a badge with an inline link, a
+ *  gradient-word headline, two CTAs and two floating glass info chips. */
+export interface AuroraGradientHeroBlockProps
+  extends CtaModalConfig,
+    HeroNavConfig,
+    HeroCtaConfig,
+    HeroBrandStyleConfig {
+  /** Pill badge above the headline. */
+  badgeText?: string;
+  /** Optional inline link inside/after the badge. */
+  badgeLinkText?: string;
+  badgeLinkUrl?: string;
+  headline: string;
+  /** Portion of the headline rendered with the accent gradient. */
+  headlineGradientWord?: string;
+  subheadline?: string;
+  /** Floating glass chips (defaults provided). */
+  chips?: AuroraHeroChip[];
+}
+
+/** 3. Light editorial split — eyebrow, large Playfair-style headline with an
+ *  italic-accent word, a sub, a single CTA, and an image on one side. */
+export interface EditorialSplitHeroBlockProps
+  extends CtaModalConfig,
+    HeroNavConfig,
+    HeroCtaConfig,
+    HeroBrandStyleConfig {
+  eyebrow?: string;
+  headline: string;
+  /** Portion of the headline rendered in italic accent. */
+  headlineAccentWord?: string;
+  subheadline?: string;
+  imageUrl?: string;
+  imageAlt?: string;
+  /** Which side the image sits on. Defaults to "right". */
+  imageSide?: "left" | "right";
+}
+
+/** 4. Dark parallax hero — three drifting shape images, a badge, headline + sub,
+ *  two CTAs and an optional marquee logo band. */
+export interface ParallaxLayersHeroBlockProps
+  extends CtaModalConfig,
+    HeroNavConfig,
+    HeroCtaConfig,
+    HeroBrandStyleConfig {
+  badgeText?: string;
+  headline: string;
+  subheadline?: string;
+  /** Three parallax decoration images (graceful gradient fallback when empty). */
+  shapeImage1Url?: string;
+  shapeImage2Url?: string;
+  shapeImage3Url?: string;
+  /** Parallax intensity multiplier, 0-1. Defaults to ~0.5. */
+  parallaxStrength?: number;
+  /** Marquee logo band below the hero. */
+  showMarquee?: boolean;
+  marqueeLabel?: string;
+  /** Text logos for the marquee band. */
+  marqueeLogos?: string[];
+}
+
+/** 5. Dark spotlight hero — cursor-follow glow over a grid, a badge, a
+ *  gradient-word headline, two CTAs and a bento preview (dashboard image + code
+ *  snippet + sidebar feature list). */
+export interface SpotlightGlowHeroBlockProps
+  extends CtaModalConfig,
+    HeroNavConfig,
+    HeroCtaConfig,
+    HeroBrandStyleConfig {
+  badgeText?: string;
+  headline: string;
+  /** Portion of the headline rendered with the accent gradient. */
+  headlineGradientWord?: string;
+  subheadline?: string;
+  /** Show the bento preview panel. Defaults to true. */
+  showPreview?: boolean;
+  /** Dashboard image inside the bento preview. */
+  previewImageUrl?: string;
+  previewImageAlt?: string;
+  /** Optional code-snippet card content. */
+  codeFileName?: string;
+  codeSnippet?: string;
+  /** Sidebar feature items in the bento preview (defaults provided). */
+  sidebarItems?: SpotlightSidebarItem[];
+}

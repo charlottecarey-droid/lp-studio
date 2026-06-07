@@ -98,6 +98,8 @@ function hasAnyBlockType(blocks: PageBlock[], types: Set<string>): boolean {
 
 export const HERO_TYPES = new Set([
   "hero", "full-bleed-hero", "parallax-image-hero", "magazine-hero",
+  "cinematic-video-hero", "aurora-gradient-hero", "editorial-split-hero",
+  "parallax-layers-hero", "spotlight-glow-hero",
   "one-pager-hero", "dandy-product-hero", "dandy-hero-v7-s3",
   "dso-heartland-hero", "dso-practice-hero", "dso-scroll-story-hero",
   "event-landing-hero", "id-hero",

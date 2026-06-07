@@ -236,6 +236,11 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   // ── Showcase ────────────────────────────────────────────────────────────────
   "sticky-stack": ["features", "media"],
   "magazine-hero": ["hero"],
+  "cinematic-video-hero": ["hero"],
+  "aurora-gradient-hero": ["hero"],
+  "editorial-split-hero": ["hero"],
+  "parallax-layers-hero": ["hero"],
+  "spotlight-glow-hero": ["hero"],
   "id-hero": ["hero"],
   "id-marquee": ["media"],
   "id-intro": ["content"],

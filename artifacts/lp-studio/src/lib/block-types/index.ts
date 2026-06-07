@@ -6,6 +6,22 @@ export type {
   StackBlockProps,
 } from "./container-blocks";
 
+// Generic graduated heroes (cinematic-video / aurora-gradient / editorial-split
+// / parallax-layers / spotlight-glow) + their shared mixins.
+export type {
+  HeroCtaActionMode,
+  HeroNavConfig,
+  HeroCtaConfig,
+  HeroBrandStyleConfig,
+  AuroraHeroChip,
+  SpotlightSidebarItem,
+  CinematicVideoHeroBlockProps,
+  AuroraGradientHeroBlockProps,
+  EditorialSplitHeroBlockProps,
+  ParallaxLayersHeroBlockProps,
+  SpotlightGlowHeroBlockProps,
+} from "./generic-blocks";
+
 // Common types and utilities
 export type { BlockCategory, CtaMode, CtaModalConfig, FormFieldType, BlockSettings } from "./common";
 export type { StepCondition, FormField, FormStep } from "./common";

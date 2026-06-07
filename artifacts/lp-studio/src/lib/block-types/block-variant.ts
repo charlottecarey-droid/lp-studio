@@ -83,6 +83,11 @@ import type {
   ContentSeriesBlockProps,
   BlogSeriesBlockProps,
   StorefrontBlockProps,
+  CinematicVideoHeroBlockProps,
+  AuroraGradientHeroBlockProps,
+  EditorialSplitHeroBlockProps,
+  ParallaxLayersHeroBlockProps,
+  SpotlightGlowHeroBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -275,6 +280,11 @@ export type BlockVariant =
   | { type: "content-series"; props: ContentSeriesBlockProps }
   | { type: "blog-series"; props: BlogSeriesBlockProps }
   | { type: "storefront"; props: StorefrontBlockProps }
+  | { type: "cinematic-video-hero"; props: CinematicVideoHeroBlockProps }
+  | { type: "aurora-gradient-hero"; props: AuroraGradientHeroBlockProps }
+  | { type: "editorial-split-hero"; props: EditorialSplitHeroBlockProps }
+  | { type: "parallax-layers-hero"; props: ParallaxLayersHeroBlockProps }
+  | { type: "spotlight-glow-hero"; props: SpotlightGlowHeroBlockProps }
   | { type: "event-noir"; props: EventNoirBlockProps }
   | { type: "event-luminous"; props: EventLuminousBlockProps }
   | { type: "event-split"; props: EventSplitBlockProps }
