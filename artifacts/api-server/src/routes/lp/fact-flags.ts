@@ -52,7 +52,7 @@ async function loadFlag(tenantId: number, id: number): Promise<FactFlagRow | nul
           replacement_text AS "replacementText", swapped_with_proof_point_id AS "swappedWithProofPointId",
           library_saved AS "librarySaved", source, attribution_name AS "attributionName",
           attribution_title AS "attributionTitle", attribution_company AS "attributionCompany",
-          resolved_at AS "resolvedAt"
+          context_label AS "contextLabel", resolved_at AS "resolvedAt"
         FROM lp_page_fact_flags WHERE id = ${id} AND tenant_id = ${tenantId} LIMIT 1`,
   );
   return (rows.rows[0] as unknown as FactFlagRow) ?? null;
@@ -238,15 +238,19 @@ router.post("/lp/fact-flags/:id/save-to-library", async (req, res): Promise<void
     const flag = await loadFlag(tenantId, id);
     if (!flag) { res.status(404).json({ error: "Flag not found" }); return; }
     const value = (req.body?.value as string) ?? flag.replacementText ?? flag.originalText;
-    const label = (req.body?.label as string) ?? "";
+    // Prefill the human-readable context as the label when the client doesn't
+    // send one (or sends a blank/whitespace-only one), so saved proof points
+    // are never stored with an empty label.
+    const bodyLabel = typeof req.body?.label === "string" ? req.body.label.trim() : "";
+    const label = bodyLabel || (flag.contextLabel?.trim() ?? "");
     const factKind: FactKind = flag.factKind;
     const ins = await db.execute(
       sql`INSERT INTO lp_proof_points
             (tenant_id, value, label, source_url, approved_for_ai, fact_kind,
              attribution_name, attribution_title, attribution_company, sort_order)
           VALUES (${tenantId}, ${String(value ?? "")}, ${String(label)}, '', true, ${factKind},
-             ${flag.attributionName ?? null}, ${flag.attributionTitle ?? null},
-             ${flag.attributionCompany ?? null},
+             ${flag.attributionName ?? ""}, ${flag.attributionTitle ?? ""},
+             ${flag.attributionCompany ?? ""},
              COALESCE((SELECT MAX(sort_order) + 1 FROM lp_proof_points WHERE tenant_id = ${tenantId}), 0))
           RETURNING id`,
     );

@@ -23,6 +23,63 @@ const STAT_FIELD_KEYS = new Set([
   "value", "stat", "metric", "stat1value", "stat2value", "stat3value",
 ]);
 
+// Numeric-looking text that is NOT a factual stat and must never be flagged:
+//   • time / ratio shorthand — "24/7", "9-5", "1-5" (two small integers joined
+//     by / or -, with NO decimal so ratings like "4.9/5" stay real stats).
+//   • imperative UI-instruction copy — starts with an action verb
+//     ("Select 1–5 locations", "Choose…", "Pick…", "Enter…").
+//   • a numeric SELECTION range used as an instruction — "1–5 locations"
+//     (low–high + a word, with no %/+/x/k/m strong-stat marker).
+// Kept conservative: real stats ("$129/arch", "98%", "4.9/5", "8,000+ dentists")
+// fall through. This guard is shared with generate-page.ts's telemetry scanner so
+// the persisted flags and the telemetry warnings agree.
+const TIME_RATIO_IDIOM_RX = /^\d{1,2}\s*[/\u2013\u2014-]\s*\d{1,2}$/;
+// Unambiguous UI-action verbs only — kept narrow so a marketing headline that
+// merely starts with a common verb (e.g. "Set a new record: 98% uptime") is not
+// dropped as an instruction.
+const IMPERATIVE_RX =
+  /^(select|choose|pick|enter|click|tap|drag|toggle|upload|browse|filter|search)\b/i;
+const SELECTION_RANGE_RX = /\b\d{1,3}\s*[\u2013\u2014-]\s*\d{1,3}\s+[a-z]/i;
+const STRONG_STAT_MARKER_RX = /[%+]|\b(?:x|k|m)\b/i;
+
+export function isNonStatIdiom(value: string): boolean {
+  const t = stripHtml(value).trim();
+  if (!t) return true;
+  if (TIME_RATIO_IDIOM_RX.test(t)) return true;
+  if (IMPERATIVE_RX.test(t)) return true;
+  if (SELECTION_RANGE_RX.test(t) && !STRONG_STAT_MARKER_RX.test(t)) return true;
+  return false;
+}
+
+// Fields that carry a human-readable label/heading describing a sibling value.
+const SIBLING_LABEL_KEYS = ["label", "caption", "title", "heading", "name", "description"];
+const BLOCK_HEADING_KEYS = ["eyebrow", "headline", "heading", "title", "subheadline", "label"];
+
+/** Best human-readable context for a detected value: a sibling descriptive
+ *  field (e.g. `props.stats[].label`) or, failing that, the block's heading. */
+function captureContext(
+  siblings: Record<string, unknown>,
+  blockProps: Record<string, unknown> | undefined,
+  ownText: string,
+): string {
+  const own = stripHtml(ownText).trim().toLowerCase();
+  const pick = (obj: Record<string, unknown>, keys: string[]): string => {
+    const lower: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj)) lower[k.toLowerCase()] = v;
+    for (const key of keys) {
+      const v = lower[key];
+      if (typeof v === "string") {
+        const s = stripHtml(v).trim();
+        if (s && s.length <= 120 && s.toLowerCase() !== own) return s;
+      }
+    }
+    return "";
+  };
+  const sibling = pick(siblings, SIBLING_LABEL_KEYS);
+  if (sibling) return sibling;
+  return blockProps ? pick(blockProps, BLOCK_HEADING_KEYS) : "";
+}
+
 // Block types whose primary content is a customer quote.
 const QUOTE_BLOCK_TYPES = new Set([
   "testimonial", "testimonials", "pull-quote", "pullquote", "quote",
@@ -96,12 +153,17 @@ export function detectFacts(blocks: unknown): DetectedFact[] {
     const blockId = typeof block.id === "string" ? block.id : undefined;
     const blockType = typeof block.type === "string" ? block.type : undefined;
     const isQuoteBlock = !!blockType && QUOTE_BLOCK_TYPES.has(blockType);
+    const blockProps =
+      block.props && typeof block.props === "object"
+        ? (block.props as Record<string, unknown>)
+        : undefined;
 
     const push = (
       factKind: DetectedFact["factKind"],
       fieldPath: string,
       originalText: string,
       attribution?: QuoteAttribution,
+      contextLabel?: string,
     ): void => {
       out.push({
         factKind,
@@ -111,6 +173,7 @@ export function detectFacts(blocks: unknown): DetectedFact[] {
         originalText,
         normalizedForm: normalizedFormFor(factKind, originalText, attribution),
         attribution,
+        contextLabel: contextLabel || undefined,
       });
     };
 
@@ -140,18 +203,20 @@ export function detectFacts(blocks: unknown): DetectedFact[] {
             continue;
           }
 
-          // 2) Stat — number + unit, or a known stat field key.
-          if (/\d/.test(text)) {
+          // 2) Stat — number + unit, or a known stat field key. Numeric idioms
+          //    (time/ratio shorthand, imperative UI copy, selection ranges) are
+          //    NOT factual stats and are skipped.
+          if (/\d/.test(text) && !isNonStatIdiom(text)) {
             const isStatField = STAT_FIELD_KEYS.has(lowerKey);
             if (isStatField || STAT_LIKE_RX.test(text)) {
-              push("stat", childPath, text);
+              push("stat", childPath, text, undefined, captureContext(obj, blockProps, text));
               continue;
             }
           }
 
           // 3) Claim — named-entity claim (conservative).
           if (isClaim(text)) {
-            push("claim", childPath, text);
+            push("claim", childPath, text, undefined, captureContext(obj, blockProps, text));
             continue;
           }
         } else if (v && typeof v === "object") {

@@ -48,6 +48,66 @@ describe("detectFacts — stats", () => {
   });
 });
 
+describe("detectFacts — stat false positives (Task #1197)", () => {
+  it("does NOT flag time/ratio idioms even in a stat value field", () => {
+    const blocks = [
+      { type: "trust-bar", props: { items: [
+        { value: "24/7", label: "support" },
+        { value: "9-5", label: "hours" },
+        { value: "1-5", label: "range" },
+      ] } },
+    ];
+    expect(byKind(detectFacts(blocks), "stat")).toHaveLength(0);
+  });
+
+  it("does NOT flag imperative UI-instruction copy", () => {
+    const blocks = [
+      { type: "stepper", props: { steps: [
+        { subtitle: "Select 1–5 locations" },
+        { subtitle: "Choose your plan in 3 clicks" },
+        { subtitle: "Pick 2 add-ons" },
+        { subtitle: "Enter up to 10 emails" },
+      ] } },
+    ];
+    expect(byKind(detectFacts(blocks), "stat")).toHaveLength(0);
+  });
+
+  it("does NOT flag a bare numeric selection range used as an instruction", () => {
+    const blocks = [{ type: "stepper", props: { steps: [{ subtitle: "1–5 locations" }] } }];
+    expect(byKind(detectFacts(blocks), "stat")).toHaveLength(0);
+  });
+
+  it("STILL flags genuine stats (no regression from the new guards)", () => {
+    const blocks = [
+      { type: "trust-bar", props: { items: [
+        { value: "$129/arch", label: "price" },
+        { value: "98%", label: "fit rate" },
+        { value: "4.9/5", label: "rating" },
+        { value: "8,000+ dentists", label: "network" },
+      ] } },
+    ];
+    const texts = byKind(detectFacts(blocks), "stat").map((s) => s.originalText).sort();
+    expect(texts).toContain("$129/arch");
+    expect(texts).toContain("98%");
+    expect(texts).toContain("4.9/5");
+    expect(texts).toContain("8,000+ dentists");
+  });
+});
+
+describe("detectFacts — context capture (Task #1197)", () => {
+  it("captures a sibling label as the fact's context", () => {
+    const blocks = [{ type: "trust-bar", props: { stats: [{ value: "$129/arch", label: "per implant arch" }] } }];
+    const [fact] = byKind(detectFacts(blocks), "stat");
+    expect(fact.contextLabel).toBe("per implant arch");
+  });
+
+  it("falls back to the block heading when there is no sibling label", () => {
+    const blocks = [{ type: "feature", props: { headline: "Proven results", body: "We deliver 2.5x ROI in 90 days" } }];
+    const [fact] = byKind(detectFacts(blocks), "stat");
+    expect(fact.contextLabel).toBe("Proven results");
+  });
+});
+
 describe("detectFacts — claims", () => {
   it("detects a named-entity claim with a trigger phrase", () => {
     const blocks = [{ type: "richtext", props: { body: "Trusted by Fortune 500 companies nationwide." } }];

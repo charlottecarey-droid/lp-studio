@@ -56,9 +56,12 @@ function FactRow({ flag, ff }: { flag: FactFlag; ff: UseFactFlags }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [swapOpen, setSwapOpen] = useState(false);
   const [options, setOptions] = useState<ProofPointOption[]>([]);
+  const [savingLib, setSavingLib] = useState(false);
+  const [libLabel, setLibLabel] = useState(flag.contextLabel ?? "");
 
   const resolved = flag.triageState !== "pending";
-  const context = [flag.blockType, flag.fieldPath].filter(Boolean).join(" · ");
+  const contextLabel = flag.contextLabel?.trim() ?? "";
+  const techPath = [flag.blockType, flag.fieldPath].filter(Boolean).join(" · ");
   const display = flag.replacementText ?? flag.originalText;
 
   const guard = async (label: string, fn: () => Promise<unknown>) => {
@@ -83,12 +86,19 @@ function FactRow({ flag, ff }: { flag: FactFlag; ff: UseFactFlags }) {
 
   return (
     <div className="rounded-lg border border-border p-3">
-      <div className="flex items-center justify-between gap-2 mb-1.5">
-        {context ? (
-          <p className="text-[11px] text-muted-foreground truncate" title={context}>
-            {context}
-          </p>
-        ) : <span />}
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <div className="min-w-0">
+          {contextLabel ? (
+            <p className="text-xs font-medium text-foreground/80 truncate" title={contextLabel}>
+              {contextLabel}
+            </p>
+          ) : null}
+          {techPath ? (
+            <p className="text-[10px] text-muted-foreground/70 truncate" title={techPath}>
+              {techPath}
+            </p>
+          ) : null}
+        </div>
         {resolved && STATE_BADGE[flag.triageState] && (
           <Badge variant="secondary" className="shrink-0 text-[10px]">
             {STATE_BADGE[flag.triageState]}
@@ -126,11 +136,38 @@ function FactRow({ flag, ff }: { flag: FactFlag; ff: UseFactFlags }) {
           </Select>
           <Button size="sm" variant="ghost" onClick={() => setSwapOpen(false)}>Cancel</Button>
         </div>
+      ) : savingLib ? (
+        <div className="space-y-2">
+          <p className="text-sm font-medium break-words">{display}</p>
+          <p className="text-[11px] text-muted-foreground">
+            Add a label so you can recognise this fact when reusing it later.
+          </p>
+          <div className="flex items-center gap-2">
+            <Input
+              value={libLabel}
+              onChange={(e) => setLibLabel(e.target.value)}
+              placeholder="What does this number represent?"
+              className="h-9 text-sm flex-1"
+            />
+            <Button
+              size="sm"
+              disabled={busy !== null}
+              onClick={() => guard("lib", async () => {
+                await ff.saveToLibrary(flag.id, { label: libLabel.trim() });
+                setSavingLib(false);
+                toast({ title: "Saved to your facts library" });
+              })}
+            >
+              {busy === "lib" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Save"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSavingLib(false)}>Cancel</Button>
+          </div>
+        </div>
       ) : (
         <p className="text-sm font-medium break-words">{display}</p>
       )}
 
-      {!editing && !swapOpen && (
+      {!editing && !swapOpen && !savingLib && (
         <div className="flex flex-wrap items-center gap-1.5 mt-2">
           {resolved ? (
             <Button size="sm" variant="ghost" disabled={busy !== null}
@@ -160,8 +197,8 @@ function FactRow({ flag, ff }: { flag: FactFlag; ff: UseFactFlags }) {
           )}
           {!flag.librarySaved && (
             <Button size="sm" variant="ghost" disabled={busy !== null}
-              onClick={() => guard("lib", async () => { await ff.saveToLibrary(flag.id); toast({ title: "Saved to your facts library" }); })}>
-              {busy === "lib" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5 mr-1" />}
+              onClick={() => { setLibLabel(flag.contextLabel ?? ""); setSavingLib(true); }}>
+              <Plus className="w-3.5 h-3.5 mr-1" />
               Save to library
             </Button>
           )}

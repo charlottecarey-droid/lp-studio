@@ -54,6 +54,10 @@ export const lpPageFactFlagsTable = pgTable(
     attributionName: text("attribution_name"),
     attributionTitle: text("attribution_title"),
     attributionCompany: text("attribution_company"),
+    // Task #1197 — human-readable context for this fact (e.g. the sibling label
+    // or block heading it appeared next to), surfaced in the review modal and
+    // used as the default library label when promoting the fact.
+    contextLabel: text("context_label"),
     // Undo window support: when a row is resolved we stamp resolvedAt so the
     // client can offer a 10s Undo and the server can authorize it.
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),

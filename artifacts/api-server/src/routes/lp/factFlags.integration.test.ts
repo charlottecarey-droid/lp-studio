@@ -203,6 +203,41 @@ describe("Strict Facts review flow endpoints (#1138)", () => {
     expect((after.json as ListResponse).pendingCount).toBe(0);
   });
 
+  it("save-to-library falls back to the captured context label when the body label is blank", async () => {
+    const { pool } = pgMod;
+    const pageId = await seedPage(tenantId, "draft");
+    await injectAs(SID, { method: "POST", url: `/lp/pages/${pageId}/fact-flags/sync` });
+    const list = await injectAs(SID, { method: "GET", url: `/lp/pages/${pageId}/fact-flags` });
+    // Use a quote flag — its attribution columns are populated, so the library
+    // insert exercises the label-fallback path without tripping unrelated
+    // NOT NULL attribution constraints.
+    const quoteFlag = (list.json as ListResponse).flags.find((f) => f.factKind === "quote")!;
+    expect(quoteFlag).toBeTruthy();
+
+    // Stamp a known context label so we can assert the fallback path.
+    await pool.query(`UPDATE lp_page_fact_flags SET context_label = $1 WHERE id = $2`, [
+      "Captured context",
+      quoteFlag.id,
+    ]);
+
+    // Send a whitespace-only label — server must treat it as missing.
+    const saved = await injectAs(SID, {
+      method: "POST",
+      url: `/lp/fact-flags/${quoteFlag.id}/save-to-library`,
+      body: { label: "   " },
+    });
+    expect(saved.status).toBe(200);
+    const ppId = (saved.json as { proofPointId?: number; id?: number }).proofPointId
+      ?? (saved.json as { id?: number }).id;
+    expect(ppId).toBeTruthy();
+
+    const pp = await pool.query<{ label: string }>(
+      `SELECT label FROM lp_proof_points WHERE id = $1`,
+      [ppId],
+    );
+    expect(pp.rows[0].label).toBe("Captured context");
+  });
+
   it("fails closed (403) for a session with no tenant", async () => {
     const pageId = await seedPage(tenantId, "draft");
     const res = await injectAs(SID_NO_TENANT, { method: "GET", url: `/lp/pages/${pageId}/fact-flags` });

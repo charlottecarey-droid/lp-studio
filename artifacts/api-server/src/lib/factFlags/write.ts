@@ -29,6 +29,7 @@ export interface FactFlagRow {
   attributionName: string | null;
   attributionTitle: string | null;
   attributionCompany: string | null;
+  contextLabel: string | null;
   resolvedAt: string | null;
 }
 
@@ -67,7 +68,7 @@ const ROW_COLS = sql`id, tenant_id AS "tenantId", page_id AS "pageId", fact_kind
   replacement_text AS "replacementText", swapped_with_proof_point_id AS "swappedWithProofPointId",
   library_saved AS "librarySaved", source, attribution_name AS "attributionName",
   attribution_title AS "attributionTitle", attribution_company AS "attributionCompany",
-  resolved_at AS "resolvedAt"`;
+  context_label AS "contextLabel", resolved_at AS "resolvedAt"`;
 
 export async function listFactFlags(tenantId: number, pageId: number): Promise<FactFlagRow[]> {
   const res = await db.execute(
@@ -149,7 +150,7 @@ export async function syncFactFlags(opts: {
         sql`UPDATE lp_page_fact_flags
             SET block_id = ${fact.blockId ?? null}, block_type = ${fact.blockType ?? null},
                 field_path = ${fact.fieldPath}, original_text = ${fact.originalText},
-                updated_at = now()
+                context_label = ${fact.contextLabel ?? null}, updated_at = now()
             WHERE id = ${prior.id}`,
       );
       continue;
@@ -161,7 +162,7 @@ export async function syncFactFlags(opts: {
         sql`UPDATE lp_page_fact_flags
             SET block_id = ${fact.blockId ?? null}, block_type = ${fact.blockType ?? null},
                 field_path = ${fact.fieldPath}, original_text = ${fact.originalText},
-                updated_at = now()
+                context_label = ${fact.contextLabel ?? null}, updated_at = now()
             WHERE id = ${prior.id}`,
       );
       continue;
@@ -172,12 +173,12 @@ export async function syncFactFlags(opts: {
       sql`INSERT INTO lp_page_fact_flags
             (tenant_id, page_id, fact_kind, normalized_form, block_id, block_type,
              field_path, original_text, triage_state, source,
-             attribution_name, attribution_title, attribution_company)
+             attribution_name, attribution_title, attribution_company, context_label)
           VALUES (${tenantId}, ${pageId}, ${fact.factKind}, ${norm},
              ${fact.blockId ?? null}, ${fact.blockType ?? null}, ${fact.fieldPath},
              ${fact.originalText}, 'pending', 'ai',
              ${fact.attribution?.name ?? null}, ${fact.attribution?.title ?? null},
-             ${fact.attribution?.company ?? null})
+             ${fact.attribution?.company ?? null}, ${fact.contextLabel ?? null})
           RETURNING id`,
     );
     const id = (ins.rows[0] as { id?: number })?.id;

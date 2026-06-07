@@ -29,6 +29,7 @@ export interface FactFlag {
   attributionName: string | null;
   attributionTitle: string | null;
   attributionCompany: string | null;
+  contextLabel: string | null;
   resolvedAt: string | null;
 }
 

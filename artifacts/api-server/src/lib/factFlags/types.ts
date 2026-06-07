@@ -32,6 +32,10 @@ export interface DetectedFact {
   /** Fuzzy-match + regen-memory key. */
   normalizedForm: string;
   attribution?: QuoteAttribution;
+  /** Human-readable context for the value — a sibling label (e.g.
+   *  `props.stats[].label`) or the nearest block heading. Used to explain what
+   *  the value means in the review modal and prefill the library label. */
+  contextLabel?: string;
 }
 
 /** The tenant's approved-fact pools used to suppress flags for already-vetted
