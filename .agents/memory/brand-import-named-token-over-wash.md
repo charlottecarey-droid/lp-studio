@@ -31,3 +31,13 @@ the highest-confidence brand signal; a pixel-sampled wash must not outrank it.
   never saw the brand color. Use the `i` flag for camelCase (`brandDark`), drop the
   generic `color` keyword (floods noise), and prioritize+cap the output (brand/primary
   first, slice ~48) so hundreds of role tokens can't bury the brand entries.
+
+**Real-world sweep finding (`extractors/colors.realworld.test.ts`):** a fixture
+sweep of live captured evidence confirms the guards hold on messy real sites
+(Airbnb's all-brown photo wash → recovers red `*-core` token; dark-theme Linear →
+recovers purple, not near-black). BUT the `--brand-bg`/`--primary-surface|card`
+exclusion is over-broad: a design system that declares its brand color as
+`--color-brand-bg` (Linear's `#5E6AD2`) has its TRUE brand color skipped — the
+extractor falls back to a sibling link/accent purple (`#828FFF`). Still on-brand
+(purple), but not exact. Re-capture fixtures via
+`scripts/capture-brand-evidence.ts` if the evidence shape changes.

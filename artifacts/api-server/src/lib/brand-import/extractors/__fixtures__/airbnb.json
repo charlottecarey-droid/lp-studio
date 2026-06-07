@@ -1,0 +1,214 @@
+{
+  "slug": "airbnb",
+  "homeUrl": "https://www.airbnb.com",
+  "capturedAt": "2026-06-07",
+  "sampledPalette": [
+    "#382818",
+    "#685848",
+    "#786858",
+    "#686858",
+    "#787868",
+    "#786868",
+    "#888878",
+    "#A8A8A8",
+    "#989898",
+    "#888888",
+    "#787878",
+    "#686868",
+    "#585858"
+  ],
+  "cssVarPaletteHints": [
+    {
+      "name": "--elevation-primary-box-shadow",
+      "value": "#000000"
+    },
+    {
+      "name": "--elevation-primary-border",
+      "value": "#000000"
+    },
+    {
+      "name": "--palette-bg-primary",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "--palette-bg-primary-disabled",
+      "value": "#F7F7F7"
+    },
+    {
+      "name": "--palette-bg-primary-hover",
+      "value": "#F7F7F7"
+    },
+    {
+      "name": "--palette-bg-primary-selected",
+      "value": "#F7F7F7"
+    },
+    {
+      "name": "--palette-bg-primary-error",
+      "value": "#FFF8F6"
+    },
+    {
+      "name": "--palette-bg-primary-core",
+      "value": "#FF385C"
+    },
+    {
+      "name": "--palette-bg-primary-luxe",
+      "value": "#460479"
+    },
+    {
+      "name": "--palette-bg-primary-plus",
+      "value": "#92174D"
+    },
+    {
+      "name": "--palette-bg-primary-inverse",
+      "value": "#222222"
+    },
+    {
+      "name": "--palette-bg-primary-inverse-hover",
+      "value": "#000000"
+    },
+    {
+      "name": "--palette-bg-primary-inverse-disabled",
+      "value": "#DDDDDD"
+    },
+    {
+      "name": "--palette-bg-primary-inverse-error",
+      "value": "#C13515"
+    },
+    {
+      "name": "--palette-bg-primary-inverse-error-hover",
+      "value": "#B32505"
+    },
+    {
+      "name": "--palette-text-primary",
+      "value": "#222222"
+    },
+    {
+      "name": "--palette-text-primary-disabled",
+      "value": "#DDDDDD"
+    },
+    {
+      "name": "--palette-text-primary-hover",
+      "value": "#000000"
+    },
+    {
+      "name": "--palette-text-primary-error",
+      "value": "#C13515"
+    },
+    {
+      "name": "--palette-text-primary-error-hover",
+      "value": "#B32505"
+    },
+    {
+      "name": "--palette-text-primary-inverse",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "--palette-text-primary-core",
+      "value": "#E61E4D"
+    },
+    {
+      "name": "--palette-icon-primary",
+      "value": "#222222"
+    },
+    {
+      "name": "--palette-icon-primary-disabled",
+      "value": "#DDDDDD"
+    },
+    {
+      "name": "--palette-icon-primary-hover",
+      "value": "#000000"
+    },
+    {
+      "name": "--palette-icon-primary-error",
+      "value": "#C13515"
+    },
+    {
+      "name": "--palette-icon-primary-error-hover",
+      "value": "#B32505"
+    },
+    {
+      "name": "--palette-icon-primary-inverse",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "--palette-border-primary",
+      "value": "#222222"
+    },
+    {
+      "name": "--palette-border-primary-hover",
+      "value": "#000000"
+    },
+    {
+      "name": "--palette-border-primary-disabled",
+      "value": "#DDDDDD"
+    },
+    {
+      "name": "--palette-border-primary-inverse",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "--elevation-secondary-box-shadow",
+      "value": "#000000"
+    },
+    {
+      "name": "--elevation-secondary-border",
+      "value": "#000000"
+    },
+    {
+      "name": "--palette-bg-secondary",
+      "value": "#F7F7F7"
+    },
+    {
+      "name": "--palette-bg-secondary-core",
+      "value": "#E61E4D"
+    },
+    {
+      "name": "--palette-bg-secondary-core-rtl",
+      "value": "#E61E4D"
+    },
+    {
+      "name": "--palette-bg-secondary-plus",
+      "value": "#BD1E59"
+    },
+    {
+      "name": "--palette-bg-secondary-plus-rtl",
+      "value": "#BD1E59"
+    },
+    {
+      "name": "--palette-bg-secondary-luxe",
+      "value": "#59086E"
+    },
+    {
+      "name": "--palette-bg-secondary-luxe-rtl",
+      "value": "#59086E"
+    },
+    {
+      "name": "--palette-bg-secondary-core-hover",
+      "value": "#FF385C"
+    },
+    {
+      "name": "--palette-bg-secondary-plus-hover",
+      "value": "#D70466"
+    },
+    {
+      "name": "--palette-bg-secondary-luxe-hover",
+      "value": "#6C0D63"
+    },
+    {
+      "name": "--palette-text-secondary",
+      "value": "#6A6A6A"
+    },
+    {
+      "name": "--palette-text-secondary-disabled",
+      "value": "#DDDDDD"
+    },
+    {
+      "name": "--palette-text-secondary-error",
+      "value": "#C13515"
+    },
+    {
+      "name": "--palette-text-secondary-error-hover",
+      "value": "#B32505"
+    }
+  ]
+}
