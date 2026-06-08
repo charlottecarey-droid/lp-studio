@@ -2198,11 +2198,22 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     // Arrays with image (product-grid items, success-stories cases).
     // trust-bar / stats are numeric proof bars — force every item to a clean
     // numeric stat (image ""), never pair a stat label with a photo/screenshot.
+    //
+    // benefits-grid / features are ICON-ONLY by default: the AI is handed the
+    // real IMAGE LIBRARY URLs (rule 10b) and routinely copies one into a card's
+    // `image` field even though the prompt says to leave it "". The renderer
+    // turns ANY truthy item.image into a tiny photo card and demotes the lucide
+    // icon to a small badge — i.e. "the icons are tiny random images". The
+    // fill/AI-gen gates only stop the SERVER from populating these slots; they
+    // don't strip an AI-supplied URL. Force item.image to "" unless the block
+    // explicitly opted in via useItemPhotos === true (mirrors that gate).
     if (Array.isArray(props.items)) {
       const isStatBar = STAT_BAR_BLOCK_TYPES.has(blockType);
+      const isIconOnlyItemPhotos =
+        ITEM_PHOTO_BLOCK_TYPES.has(blockType) && props.useItemPhotos !== true;
       props.items = (props.items as Record<string, unknown>[]).map(item => ({
         ...item,
-        image: isStatBar
+        image: isStatBar || isIconOnlyItemPhotos
           ? ""
           : typeof item.image === "string" ? cleanUrl(item.image) : item.image,
       }));

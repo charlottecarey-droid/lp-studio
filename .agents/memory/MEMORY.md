@@ -1,5 +1,6 @@
 - [Dev env source](dev-env-source.md) — dev workflows read env from `.replit` `[userenv]` + gitignored `.env`; Replit Secrets are agent/deploy-only, NOT injected into workflow shells.
 - [AI trust-bar numeric-only](ai-trust-bar-numeric-only.md) — AI trust-bar/stats must be value+label only (no per-item image); STAT_BAR_BLOCK_TYPES must be skipped at every image assign/restore callsite in both generators.
+- [Icon-only item photos strip at sanitize](icon-only-item-photos-sanitize-strip.md) — benefits-grid/features render AI-supplied items[].image as tiny photo cards; strip in sanitizeAIImageUrls (useItemPhotos!==true), NOT via fill gates.
 - [Modal theme fallback callsites](modal-theme-fallback.md) — BrandConfig modal fallback must happen at every EmailCaptureModal callsite; the modal itself has no brand context.
 - [EmailWYSIWYGEditor mergeVars contract](email-wysiwyg-mergevars-bare.md) — editor mergeVars/insertMergeVar need BARE names (it wraps {{…}} itself); wrapped/empty values cause the empty-{{}} bug; plain-text chips keep wrapped tokens.
 - [Workspace login branding](workspace-login-branding.md) — tenant logins must read as LP Studio (logo+wordmark), Dandy is the sole white-label exception; no custom tenant logo, no "powered by".

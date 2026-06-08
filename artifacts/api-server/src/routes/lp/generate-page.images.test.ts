@@ -984,3 +984,99 @@ describe("buildBlockSelectionDirective — brand-fit selection for every role", 
     expect(buildBlockSelectionDirective(single, new Map())).toBe("");
   });
 });
+
+// The AI is handed real IMAGE LIBRARY URLs (rule 10b) and tends to copy them
+// into per-item `image` fields of icon-only blocks (benefits-grid / features),
+// even though the prompt says those cards are icon-only by default. The renderer
+// turns ANY truthy item.image into a tiny photo card and demotes the lucide icon
+// to a small badge — i.e. "the icons are tiny random images". sanitizeAIImageUrls
+// must strip those AI-supplied photos unless the block opted into useItemPhotos.
+describe("icon-only item photos (benefits-grid / features)", () => {
+  it("strips AI-supplied per-item photos from a benefits-grid when useItemPhotos is not set", () => {
+    const blocks = [
+      {
+        type: "benefits-grid",
+        props: {
+          headline: "Why choose us",
+          items: [
+            { icon: "Shield", title: "Secure", description: "x", image: "/objects/dental-feature-1" },
+            { icon: "Zap", title: "Fast", description: "y", image: "/objects/dental-feature-2" },
+            { icon: "Star", title: "Loved", description: "z", image: "/objects/denture-hero-1" },
+          ],
+        },
+      },
+    ];
+    const out = sanitizeAIImageUrls(blocks, LIB) as typeof blocks;
+    for (const item of (out[0].props as any).items) {
+      expect(item.image).toBe("");
+      expect(typeof item.icon).toBe("string");
+    }
+  });
+
+  it("strips per-item photos when useItemPhotos is explicitly false", () => {
+    const blocks = [
+      {
+        type: "features",
+        props: {
+          useItemPhotos: false,
+          items: [{ icon: "Zap", title: "A", description: "d", image: "/objects/dental-feature-1" }],
+        },
+      },
+    ];
+    const out = sanitizeAIImageUrls(blocks, LIB) as typeof blocks;
+    expect((out[0].props as any).items[0].image).toBe("");
+  });
+
+  it("KEEPS valid per-item photos when the block opted in via useItemPhotos: true", () => {
+    const blocks = [
+      {
+        type: "benefits-grid",
+        props: {
+          useItemPhotos: true,
+          items: [
+            { icon: "Shield", title: "Secure", description: "x", image: "/objects/dental-feature-1" },
+            { icon: "Zap", title: "Fast", description: "y", image: "/objects/dental-feature-2" },
+          ],
+        },
+      },
+    ];
+    const out = sanitizeAIImageUrls(blocks, LIB) as typeof blocks;
+    expect((out[0].props as any).items[0].image).toBe("/objects/dental-feature-1");
+    expect((out[0].props as any).items[1].image).toBe("/objects/dental-feature-2");
+  });
+
+  it("still clears hallucinated per-item photos when useItemPhotos: true", () => {
+    const blocks = [
+      {
+        type: "benefits-grid",
+        props: {
+          useItemPhotos: true,
+          items: [{ icon: "Zap", title: "A", description: "d", image: "https://image-library.com/fake.jpg" }],
+        },
+      },
+    ];
+    const out = sanitizeAIImageUrls(blocks, LIB) as typeof blocks;
+    expect((out[0].props as any).items[0].image).toBe("");
+  });
+
+  it("does not fill icon-only benefits-grid items downstream (full pipeline)", () => {
+    const blocks = [
+      {
+        type: "benefits-grid",
+        props: {
+          headline: "Capabilities",
+          items: [
+            { icon: "Shield", title: "Secure", description: "x", image: "/objects/dental-feature-1" },
+            { icon: "Zap", title: "Fast", description: "y", image: "" },
+          ],
+        },
+      },
+    ];
+    let out = sanitizeAIImageUrls(blocks, LIB) as typeof blocks;
+    out = validateAndDedupeAIImages(out, LIB, PAGE_CTX) as typeof blocks;
+    out = fillEmptyImages(out, LIB, PAGE_CTX) as typeof blocks;
+    for (const item of (out[0].props as any).items) {
+      expect(item.image).toBe("");
+    }
+  });
+});
