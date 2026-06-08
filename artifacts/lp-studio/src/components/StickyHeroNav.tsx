@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import { ArrowRight, Menu, X } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
-import { DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
+import { DEFAULT_BRAND, type BrandConfig, type ButtonRadius } from "@/lib/brand-config";
 
 export interface StickyHeroNavLink {
   label: string;
@@ -33,13 +33,14 @@ export interface StickyHeroNavProps {
   /** Accent color for the CTA button. Defaults to Dandy primary. */
   accentColor?: string;
   accentTextColor?: string;
-  /** CTA visual treatment.
-   *  - "pill"  (default): the original compact rounded-pill nav button.
-   *  - "pass": flatter 6px-radius citron rectangle with an inset white
-   *    highlight, soft glow and an arrow that slides on hover — same
-   *    shape used by the Inside-Dandy reservation pass primary CTA, so
-   *    a header above that block reads as the same button family. */
-  ctaStyle?: "pill" | "pass";
+  /** CTA button shape.
+   *  - "pill" (default): fully rounded pill nav button.
+   *  - "square": squared / sharp-cornered button.
+   *  - "default": follows the brand's button shape (Brand Settings).
+   *  - "pass": legacy value kept so previously saved pages keep rendering;
+   *    a flatter 6px-radius rectangle with an inset highlight, soft glow and
+   *    an arrow that slides on hover. No longer offered in the picker. */
+  ctaStyle?: "pill" | "square" | "default" | "pass";
   /** Position. "fixed" overlays content (premium hero feel). "sticky" stays in flow.
    *  "absolute" pins to nearest positioned ancestor (used in the page builder so
    *  the nav cannot escape the hero block's bounds). */
@@ -52,6 +53,14 @@ export interface StickyHeroNavProps {
 }
 
 const DEFAULT_ACCENT = "hsl(72, 55%, 48%)";
+
+/** CSS border-radius for each brand button shape, used when ctaStyle="default". */
+const RADIUS_BY_SHAPE: Record<ButtonRadius, string> = {
+  pill: "9999px",
+  rounded: "0.75rem",
+  slight: "0.5rem",
+  square: "0px",
+};
 
 export function StickyHeroNav({
   brand,
@@ -142,6 +151,16 @@ export function StickyHeroNav({
   };
 
   const links = navLinks ?? [];
+
+  // Non-"pass" CTA shapes resolve to a concrete border-radius. "default"
+  // follows the brand's configured button shape (Brand Settings), "pill" is
+  // fully rounded, "square" is sharp-cornered.
+  const ctaRadius =
+    ctaStyle === "square"
+      ? "0px"
+      : ctaStyle === "default"
+        ? RADIUS_BY_SHAPE[(brand ?? DEFAULT_BRAND).buttonRadius]
+        : "9999px";
 
   return (
     <>
@@ -287,7 +306,7 @@ export function StickyHeroNav({
                 <a
                   href={primaryCtaUrl || "#"}
                   onClick={handleCta}
-                  className="hidden sm:inline-flex items-center gap-1.5 rounded-full transition-opacity hover:opacity-90"
+                  className="hidden sm:inline-flex items-center gap-1.5 transition-opacity hover:opacity-90"
                   style={{
                     background: accentColor,
                     color: accentTextColor,
@@ -295,6 +314,7 @@ export function StickyHeroNav({
                     fontSize: "0.8125rem",
                     fontWeight: 600,
                     letterSpacing: "0.01em",
+                    borderRadius: ctaRadius,
                     cursor: "pointer",
                   }}
                 >
@@ -357,7 +377,7 @@ export function StickyHeroNav({
                     handleCta(e);
                     setMobileOpen(false);
                   }}
-                  className={`inline-flex items-center justify-center gap-1.5 mt-2 ${ctaStyle === "pass" ? "stky-hero-pass-cta" : "rounded-full"}`}
+                  className={`inline-flex items-center justify-center gap-1.5 mt-2 ${ctaStyle === "pass" ? "stky-hero-pass-cta" : ""}`}
                   style={
                     ctaStyle === "pass"
                       ? {
@@ -377,6 +397,7 @@ export function StickyHeroNav({
                           padding: "0.6rem 1.25rem",
                           fontSize: "0.875rem",
                           fontWeight: 600,
+                          borderRadius: ctaRadius,
                         }
                   }
                 >

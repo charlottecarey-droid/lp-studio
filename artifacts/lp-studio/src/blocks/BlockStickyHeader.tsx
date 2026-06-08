@@ -72,7 +72,7 @@ export function BlockStickyHeader({ props: p, brand, onCtaClick, isBuilder }: Pr
   return (
     <>
       <StickyHeroNav
-        brand={brand}
+        brand={resolvedBrand}
         logoUrl={p.logoUrl}
         logoAlt={p.logoAlt || "Logo"}
         companyName={p.companyName}
@@ -82,7 +82,7 @@ export function BlockStickyHeader({ props: p, brand, onCtaClick, isBuilder }: Pr
         onPrimaryCtaClick={handleCta}
         theme={p.theme ?? "dark"}
         accentColor={p.accentColor}
-        ctaStyle={p.ctaStyle}
+        ctaStyle={p.ctaStyle ?? "default"}
         position={isBuilder ? "absolute" : (p.position ?? "fixed")}
         invertLogo={p.invertLogo}
         scrollThreshold={p.scrollThreshold ?? 40}

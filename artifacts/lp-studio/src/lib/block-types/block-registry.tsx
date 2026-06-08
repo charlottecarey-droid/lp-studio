@@ -1263,6 +1263,9 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       theme: "dark",
       position: "fixed",
       scrollThreshold: 40,
+      // CTA shape follows the brand's button shape (Brand Settings) by
+      // default; editors can switch to a fully-rounded Pill or sharp Square.
+      ctaStyle: "default",
       // This starter is the Inside-Dandy cinematic sticky header (dark
       // glass + citron CTA), so default its CTA modal to the matching dark
       // shell. Templates that drop a Sticky Hero Header onto a light page

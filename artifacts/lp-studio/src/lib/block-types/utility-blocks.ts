@@ -82,14 +82,15 @@ export interface StickyHeaderBlockProps extends CtaModalConfig {
   chilipiperUrl?: string;
   /** Visual theme. "dark" uses blurred dark glass; "light" uses white glass. */
   theme?: "dark" | "light";
-  /** CTA pill background color (defaults to Dandy primary). */
+  /** CTA background color. Falls back to the brand accent when unset. */
   accentColor?: string;
-  /** CTA visual style.
-   *  - "pill" (default) — original compact rounded-pill nav button.
-   *  - "pass" — flatter citron rectangle matching the Inside-Dandy
-   *    reservation pass primary CTA, so a header above that block
-   *    reads as the same button family. */
-  ctaStyle?: "pill" | "pass";
+  /** CTA button shape.
+   *  - "pill" — fully rounded pill button.
+   *  - "square" — squared / sharp-cornered button.
+   *  - "default" — follows the brand's button shape from Brand Settings.
+   *  - "pass" — legacy value kept so previously saved pages keep rendering;
+   *    no longer offered in the picker (falls back to default rendering). */
+  ctaStyle?: "pill" | "square" | "default" | "pass";
   /** "fixed" overlays the hero (premium feel). "sticky" stays in flow. */
   position?: "fixed" | "sticky";
   /** Force invert the logo to white (auto-true for dark theme). */
