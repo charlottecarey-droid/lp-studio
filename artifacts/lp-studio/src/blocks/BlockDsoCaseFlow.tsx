@@ -10,6 +10,7 @@ import {
   type BrandConfig,
 } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
+import { IconOrImage } from "@/lib/icon-value";
 
 import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
@@ -163,6 +164,7 @@ export function BlockDsoCaseFlow({ props, brand, onFieldChange }: Props) {
           metric: s.metric,
           metricLabel: s.metricLabel,
           body: s.body,
+          iconName: s.iconName,
         }));
         seeded[idx] = { ...seeded[idx], ...patch };
         onFieldChange({ ...props, stages: seeded });
@@ -271,11 +273,15 @@ export function BlockDsoCaseFlow({ props, brand, onFieldChange }: Props) {
                   <span style={{ fontFamily: DISPLAY_FONT, fontSize: "0.6875rem", fontWeight: 700, letterSpacing: "0.12em", color: colors.accentText }}>
                     {stage.number ?? String(i + 1).padStart(2, "0")}
                   </span>
-                  <div style={{ color: colors.accentText, opacity: 0.85 }}>
-                    {stage.icon ?? (
-                      <svg viewBox="0 0 28 28" width={28} height={28} fill="none">
-                        <circle cx="14" cy="14" r="8" stroke="currentColor" strokeWidth="2" />
-                      </svg>
+                  <div style={{ color: colors.accentText, opacity: 0.85, display: "flex", alignItems: "center" }}>
+                    {stage.iconName ? (
+                      <IconOrImage value={stage.iconName} alt={stage.label} style={{ width: 28, height: 28 }} />
+                    ) : (
+                      stage.icon ?? STAGE_ICONS[i] ?? (
+                        <svg viewBox="0 0 28 28" width={28} height={28} fill="none">
+                          <circle cx="14" cy="14" r="8" stroke="currentColor" strokeWidth="2" />
+                        </svg>
+                      )
                     )}
                   </div>
                 </div>

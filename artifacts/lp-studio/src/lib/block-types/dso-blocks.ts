@@ -405,6 +405,15 @@ export interface DsoCaseFlowStage {
   metric: string;
   metricLabel: string;
   body: string;
+  /**
+   * Editable, serializable icon: a Lucide icon name (e.g. "Zap") or an image
+   * URL / data-URI. When set it overrides the built-in positional SVG.
+   */
+  iconName?: string;
+  /**
+   * Built-in animated SVG, applied positionally by the renderer. Not
+   * serializable — only used for the component-level default stages.
+   */
   icon?: React.ReactNode;
 }
 

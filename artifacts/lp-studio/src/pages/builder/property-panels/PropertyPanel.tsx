@@ -221,6 +221,7 @@ import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 import { CampaignVarInserter } from "@/components/CampaignVarInserter";
 import { getBlockDef } from "@/lib/block-types";
 import { ImagePicker } from "@/components/ImagePicker";
+import { IconPicker } from "@/components/IconPicker";
 import { FocalPointPicker } from "@/components/FocalPointPicker";
 import { VideoPicker } from "@/components/VideoPicker";
 import { Input } from "@/components/ui/input";
@@ -886,11 +887,13 @@ function StageReorderList({
   stages,
   onReorder,
   onUpdate,
+  onUpdateIcon,
   onRemove,
 }: {
   stages: DsoCaseFlowStage[];
   onReorder: (from: number, to: number) => void;
   onUpdate: (i: number, field: "label" | "metric" | "metricLabel" | "body", val: string) => void;
+  onUpdateIcon: (i: number, val: string) => void;
   onRemove: (i: number) => void;
 }) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -936,6 +939,7 @@ function StageReorderList({
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Stage {i + 1}</span>
                 {overflow && <span className="text-[10px] font-medium text-amber-600">Not shown (max 4)</span>}
               </div>
+              <IconPicker value={s.iconName} onChange={v => onUpdateIcon(i, v)} aiHint={`${s.label || "Stage"} icon`} />
               <Input
                 className="h-7 text-xs"
                 placeholder="Label (e.g. Submit)"
@@ -4744,6 +4748,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         const writeStages = (next: DsoCaseFlowStage[]) => onChange({ ...block, props: { ...p, stages: next } });
         const updateStage = (i: number, field: "label" | "metric" | "metricLabel" | "body", val: string) =>
           writeStages(stages.map((s, idx) => idx === i ? { ...s, [field]: val } : s));
+        const updateStageIcon = (i: number, val: string) =>
+          writeStages(stages.map((s, idx) => idx === i ? { ...s, iconName: val || undefined } : s));
         const addStage = () => writeStages([...stages, { label: "", metric: "", metricLabel: "", body: "" }]);
         const removeStage = (i: number) => writeStages(stages.filter((_, idx) => idx !== i));
         const reorderStage = (from: number, to: number) => {
@@ -4795,7 +4801,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   </Button>
                 )}
               </div>
-              <StageReorderList stages={stages} onReorder={reorderStage} onUpdate={updateStage} onRemove={removeStage} />
+              <StageReorderList stages={stages} onReorder={reorderStage} onUpdate={updateStage} onUpdateIcon={updateStageIcon} onRemove={removeStage} />
               <p className="text-[11px] text-muted-foreground">Drag to reorder. The block displays the first 4 stages.</p>
             </div>
           </div>

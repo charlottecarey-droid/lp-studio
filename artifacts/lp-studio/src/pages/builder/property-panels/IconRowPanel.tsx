@@ -1,6 +1,5 @@
 import type { IconRowBlockProps, IconRowItem } from "@/lib/block-types";
 import { Plus, Trash2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,6 +7,7 @@ import {
 } from "@/components/ui/select";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
+import { IconPicker } from "@/components/IconPicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 
@@ -63,8 +63,8 @@ export function IconRowPanel({ props, onChange }: Props) {
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Items</div>
         {items.map((it, i) => (
           <div key={i} className="space-y-2 border rounded-lg p-3 bg-slate-50/50">
-            <div className="flex items-center gap-1.5">
-              <Input value={it.icon ?? ""} onChange={(e) => updateItem(i, { icon: e.target.value })} placeholder="Lucide icon name (e.g. Zap)" className="h-8 text-xs" />
+            <div className="flex items-start gap-1.5">
+              <IconPicker value={it.icon} onChange={(v) => updateItem(i, { icon: v })} aiHint={`${it.title || "Icon"} icon`} className="flex-1" />
               <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeItem(i)}>
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>

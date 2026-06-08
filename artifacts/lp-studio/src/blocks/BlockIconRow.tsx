@@ -1,20 +1,14 @@
-import * as LucideIcons from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { IconRowBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { IconOrImage } from "@/lib/icon-value";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
 interface Props {
   props: IconRowBlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: IconRowBlockProps) => void;
-}
-
-type IconComp = React.ComponentType<{ className?: string }>;
-function resolveIcon(name?: string): IconComp {
-  const map = LucideIcons as unknown as Record<string, IconComp>;
-  return (name ? map[name] : undefined) ?? LucideIcons.Sparkles;
 }
 
 const COL_CLASS: Record<number, string> = {
@@ -58,11 +52,10 @@ export function BlockIconRow({ props, brand, onFieldChange }: Props) {
         )}
         <div className={`grid grid-cols-1 gap-8 ${COL_CLASS[cols] ?? COL_CLASS[3]}`}>
           {items.map((it, i) => {
-            const Icon = resolveIcon(it.icon);
             return (
               <div key={i} className="flex flex-col items-center text-center">
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: `${accent}1A`, color: accent }}>
-                  <Icon className="h-5 w-5" />
+                  <IconOrImage value={it.icon} className="h-5 w-5" alt={it.title} />
                 </div>
                 <InlineText as="h3" value={it.title} onUpdate={onFieldChange ? (v) => updateItem(i, { title: v }) : undefined} className="text-lg font-bold" style={{ color: ink, fontFamily: DISPLAY }} />
                 {it.text !== undefined && (

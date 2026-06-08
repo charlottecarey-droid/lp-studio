@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/select";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
+import { IconPicker } from "@/components/IconPicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 import { CtaActionConfigSection } from "./CtaActionConfigSection";
@@ -53,13 +54,13 @@ export function PasIconGridPanel({ props, onChange }: Props) {
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pain points</div>
         {items.map((it, i) => (
           <div key={i} className="space-y-1.5 rounded-md border p-2">
-            <div className="flex items-center gap-1.5">
-              <Input value={it.icon ?? ""} onChange={(e) => updateItem(i, { icon: e.target.value })} placeholder="Icon (lucide)" className="h-8 text-xs w-32 shrink-0 font-mono" />
-              <Input value={it.title} onChange={(e) => updateItem(i, { title: e.target.value })} placeholder="Title" className="h-8 text-xs" />
+            <div className="flex items-start gap-1.5">
+              <IconPicker value={it.icon} onChange={(v) => updateItem(i, { icon: v })} aiHint={`${it.title || "Pain point"} icon`} className="flex-1" />
               <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeItem(i)}>
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
+            <Input value={it.title} onChange={(e) => updateItem(i, { title: e.target.value })} placeholder="Title" className="h-8 text-xs" />
             <AiTextField value={it.text ?? ""} onChange={(v) => updateItem(i, { text: v })} rows={2} className="text-xs" placeholder="Description" onSuggest={() => suggestCopy("pas-icon-grid", "itemText", it.text ?? "", { title: it.title })} fieldLabel="Description" />
           </div>
         ))}

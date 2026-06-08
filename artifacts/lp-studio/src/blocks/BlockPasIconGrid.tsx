@@ -1,10 +1,10 @@
-import * as Icons from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { PasIconGridBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
+import { IconOrImage } from "@/lib/icon-value";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
 interface Props {
@@ -18,15 +18,6 @@ const COL_CLASS: Record<number, string> = {
   3: "sm:grid-cols-2 lg:grid-cols-3",
   4: "grid-cols-2 lg:grid-cols-4",
 };
-
-function Icon({ name, color }: { name?: string; color: string }) {
-  const Cmp = (name && (Icons as Record<string, unknown>)[name]) as
-    | React.ComponentType<{ className?: string; style?: React.CSSProperties }>
-    | undefined;
-  const Fallback = Icons.Sparkles;
-  const C = Cmp ?? Fallback;
-  return <C className="h-6 w-6" style={{ color }} />;
-}
 
 export function BlockPasIconGrid({ props, brand, onFieldChange }: Props) {
   const bg = props.bgColor ?? "#FFFFFF";
@@ -62,7 +53,7 @@ export function BlockPasIconGrid({ props, brand, onFieldChange }: Props) {
           {items.map((it, i) => (
             <div key={i} className="rounded-2xl border p-6" style={{ borderColor: `${ink}14` }}>
               <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: `${accent}1A` }}>
-                <Icon name={it.icon} color={accent} />
+                <IconOrImage value={it.icon} className="h-6 w-6" style={{ color: accent }} alt={it.title} />
               </div>
               <InlineText as="h3" value={it.title} onUpdate={onFieldChange ? (v) => updateItem(i, { title: v }) : undefined} className="text-lg font-bold" style={{ color: ink, fontFamily: DISPLAY }} />
               {(it.text || onFieldChange) && (
