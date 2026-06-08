@@ -24,6 +24,7 @@ export function BlockCaseStudyLogoResultsRow({ props, brand, onFieldChange }: Pr
   const border = `${ink}14`;
 
   const results = props.results ?? [];
+  const isLogo = props.displayMode === "logo";
 
   const update = <K extends keyof CaseStudyLogoResultsRowBlockProps>(
     key: K,
@@ -53,25 +54,46 @@ export function BlockCaseStudyLogoResultsRow({ props, brand, onFieldChange }: Pr
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-12 lg:gap-y-0">
           {results.map((item, i) => (
-            <div key={i} className="flex flex-col">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 flex items-center justify-center shrink-0 overflow-hidden" style={{ color: ink }}>
-                  <InlineImage
-                    src={item.logoUrl}
-                    alt={item.logoAlt || item.company}
-                    onUpdate={onFieldChange ? (src: string) => updateResult(i, { logoUrl: src }) : undefined}
-                    onAltUpdate={onFieldChange ? (alt: string) => updateResult(i, { logoAlt: alt }) : undefined}
-                    className="w-full h-full object-contain"
-                    wrapperClassName="block w-full h-full"
-                  />
+            <div key={i} className={`flex flex-col ${isLogo ? "items-center text-center" : ""}`}>
+              {isLogo ? (
+                <>
+                  <div className="h-16 sm:h-20 w-full flex items-center justify-center mb-4" style={{ color: ink }}>
+                    <InlineImage
+                      src={item.logoUrl}
+                      alt={item.logoAlt || item.company}
+                      onUpdate={onFieldChange ? (src: string) => updateResult(i, { logoUrl: src }) : undefined}
+                      onAltUpdate={onFieldChange ? (alt: string) => updateResult(i, { logoAlt: alt }) : undefined}
+                      className="max-h-full max-w-[180px] w-auto h-auto object-contain"
+                      wrapperClassName="inline-flex items-center justify-center max-h-full"
+                    />
+                  </div>
+                  <InlineText
+                    as="span"
+                    value={item.company}
+                    onUpdate={onFieldChange ? (v: string) => updateResult(i, { company: v }) : undefined}
+                    className="font-extrabold text-lg tracking-tight mb-6"
+                    style={{ color: ink, fontFamily: DISPLAY }} />
+                </>
+              ) : (
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-8 h-8 flex items-center justify-center shrink-0 overflow-hidden" style={{ color: ink }}>
+                    <InlineImage
+                      src={item.logoUrl}
+                      alt={item.logoAlt || item.company}
+                      onUpdate={onFieldChange ? (src: string) => updateResult(i, { logoUrl: src }) : undefined}
+                      onAltUpdate={onFieldChange ? (alt: string) => updateResult(i, { logoAlt: alt }) : undefined}
+                      className="w-full h-full object-contain"
+                      wrapperClassName="block w-full h-full"
+                    />
+                  </div>
+                  <InlineText
+                    as="span"
+                    value={item.company}
+                    onUpdate={onFieldChange ? (v: string) => updateResult(i, { company: v }) : undefined}
+                    className="font-extrabold text-lg tracking-tight"
+                    style={{ color: ink, fontFamily: DISPLAY }} />
                 </div>
-                <InlineText
-                  as="span"
-                  value={item.company}
-                  onUpdate={onFieldChange ? (v: string) => updateResult(i, { company: v }) : undefined}
-                  className="font-extrabold text-lg tracking-tight"
-                  style={{ color: ink, fontFamily: DISPLAY }} />
-              </div>
+              )}
 
               <InlineText
                 as="div"

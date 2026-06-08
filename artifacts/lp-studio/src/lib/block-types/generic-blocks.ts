@@ -1580,6 +1580,9 @@ export interface CaseStudyResult {
 export interface CaseStudyLogoResultsRowBlockProps {
   heading?: string;
   results: CaseStudyResult[];
+  /** How each item's image is shown: a small inline "icon" (default) or a
+   *  larger "logo" centered above the company name. */
+  displayMode?: "icon" | "logo";
   /** Optional CTA below the row. */
   ctaLabel?: string;
   ctaUrl?: string;

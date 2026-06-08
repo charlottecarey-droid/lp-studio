@@ -58,6 +58,28 @@ export function CaseStudyLogoResultsRowPanel({ props, onChange }: Props) {
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Results</Label>
           <Button size="sm" variant="outline" onClick={addResult}><Plus className="h-3 w-3 mr-1" />Result</Button>
         </div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Image display</Label>
+          <div className="grid grid-cols-2 gap-1 mt-1">
+            {([
+              { value: "icon", label: "Icons" },
+              { value: "logo", label: "Logos" },
+            ] as const).map((opt) => {
+              const active = (props.displayMode ?? "icon") === opt.value;
+              return (
+                <Button
+                  key={opt.value}
+                  size="sm"
+                  variant={active ? "default" : "outline"}
+                  className="h-8 text-xs"
+                  onClick={() => update({ displayMode: opt.value })}
+                >
+                  {opt.label}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
         {results.map((item, i) => (
           <div key={i} className="border rounded-md p-3 space-y-2">
             <div className="flex justify-between items-center">
