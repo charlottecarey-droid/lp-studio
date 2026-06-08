@@ -11,7 +11,7 @@ const MASKED = "••••••••";
 
 interface SheetsConfig { sheetId: string; serviceAccountEmail: string; privateKey: string; tabName: string; }
 interface MarketoConfig { munchkinId: string; clientId: string; clientSecret: string; }
-interface SalesforceConfig { instanceUrl: string; clientId: string; clientSecret: string; }
+interface SalesforceStatus { connected: boolean; status: string | null; orgId: string | null; instanceUrl: string | null; }
 interface AsanaConfig { pat: string; workspaceId: string; projectId: string; defaultAssigneeGid: string; }
 interface WebhookConfig { url: string; signingSecret: string; }
 
@@ -65,12 +65,12 @@ export function IntegrationsContent() {
   const [marketoTesting, setMarketoTesting] = useState(false);
   const [marketoResult, setMarketoResult] = useState<TestResult | null>(null);
 
-  // Salesforce state
-  const [sf, setSf] = useState({ enabled: false, config: { instanceUrl: "", clientId: "", clientSecret: "" } as SalesforceConfig });
-  const [sfSaving, setSfSaving] = useState(false);
-  const [sfSaved, setSfSaved] = useState(false);
-  const [sfTesting, setSfTesting] = useState(false);
-  const [sfResult, setSfResult] = useState<TestResult | null>(null);
+  // Salesforce state — now an OAuth connection (mirrors the sales console)
+  // instead of per-tenant client_credentials config.
+  const [sf, setSf] = useState<SalesforceStatus>({ connected: false, status: null, orgId: null, instanceUrl: null });
+  const [sfConnecting, setSfConnecting] = useState(false);
+  const [sfDisconnecting, setSfDisconnecting] = useState(false);
+  const [sfBanner, setSfBanner] = useState<TestResult | null>(null);
 
   // Asana state (page-review workflow, task #108)
   const [asana, setAsana] = useState({ enabled: false, config: { pat: "", workspaceId: "", projectId: "", defaultAssigneeGid: "" } as AsanaConfig });
@@ -99,10 +99,31 @@ export function IntegrationsContent() {
     ]).then(([s, m, sf, a, w]) => {
       setSheets({ enabled: s.enabled ?? false, config: { sheetId: "", serviceAccountEmail: "", privateKey: "", tabName: "Leads", ...(s.config ?? {}) } });
       setMarketo({ enabled: m.enabled ?? false, config: { munchkinId: "", clientId: "", clientSecret: "", ...(m.config ?? {}) } });
-      setSf({ enabled: sf.enabled ?? false, config: { instanceUrl: "", clientId: "", clientSecret: "", ...(sf.config ?? {}) } });
+      setSf({ connected: sf.connected ?? false, status: sf.status ?? null, orgId: sf.orgId ?? null, instanceUrl: sf.instanceUrl ?? null });
       setAsana({ enabled: a.enabled ?? false, config: { pat: "", workspaceId: "", projectId: "", defaultAssigneeGid: "", ...(a.config ?? {}) } });
       setWebhook({ enabled: w.enabled ?? false, config: { url: "", signingSecret: "", ...(w.config ?? {}) } });
     }).finally(() => setLoading(false));
+  }, []);
+
+  // Handle the Salesforce OAuth callback redirect (?salesforce=connected|error).
+  // Show a banner, refresh the connection status, and strip the query param so a
+  // refresh doesn't re-trigger the banner.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sfResult = params.get("salesforce");
+    if (!sfResult) return;
+    if (sfResult === "connected") {
+      setSfBanner({ ok: true, title: "Salesforce" });
+      fetch("/api/lp/integrations/salesforce")
+        .then(r => r.json())
+        .then(d => setSf({ connected: d.connected ?? false, status: d.status ?? null, orgId: d.orgId ?? null, instanceUrl: d.instanceUrl ?? null }))
+        .catch(() => {});
+    } else {
+      setSfBanner({ ok: false, error: "Salesforce connection failed. Please try again." });
+    }
+    params.delete("salesforce");
+    const qs = params.toString();
+    window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
   }, []);
 
   // Sheets handlers
@@ -131,17 +152,30 @@ export function IntegrationsContent() {
     setMarketoResult(await res.json()); setMarketoTesting(false);
   };
 
-  // Salesforce handlers
-  const updateSf = (field: keyof SalesforceConfig, value: string) => { setSf(s => ({ ...s, config: { ...s.config, [field]: value } })); setSfSaved(false); setSfResult(null); };
-  const saveSf = async () => {
-    setSfSaving(true);
-    await fetch("/api/lp/integrations/salesforce", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sf) });
-    setSfSaving(false); setSfSaved(true); setTimeout(() => setSfSaved(false), 3000);
+  // Salesforce handlers — one-click OAuth (mirrors the sales console). Connect
+  // fetches the auth URL and hands the browser off to Salesforce; the callback
+  // bounces back to this page with ?salesforce=connected|error.
+  const connectSf = async () => {
+    setSfConnecting(true); setSfBanner(null);
+    try {
+      const res = await fetch("/api/lp/integrations/salesforce/auth-url");
+      const data = await res.json();
+      if (data.url) { window.location.href = data.url; return; }
+      setSfBanner({ ok: false, error: data.error || "Failed to start Salesforce connection" });
+    } catch {
+      setSfBanner({ ok: false, error: "Failed to start Salesforce connection" });
+    }
+    setSfConnecting(false);
   };
-  const testSf = async () => {
-    setSfTesting(true); setSfResult(null);
-    const res = await fetch("/api/lp/integrations/salesforce/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config: sf.config }) });
-    setSfResult(await res.json()); setSfTesting(false);
+  const disconnectSf = async () => {
+    setSfDisconnecting(true); setSfBanner(null);
+    try {
+      await fetch("/api/lp/integrations/salesforce/disconnect", { method: "POST" });
+      setSf({ connected: false, status: null, orgId: null, instanceUrl: null });
+    } catch {
+      setSfBanner({ ok: false, error: "Failed to disconnect" });
+    }
+    setSfDisconnecting(false);
   };
 
   // Asana handlers
@@ -179,7 +213,6 @@ export function IntegrationsContent() {
 
   const sheetsReady = !!(sheets.config.sheetId && sheets.config.serviceAccountEmail && sheets.config.privateKey);
   const marketoReady = !!(marketo.config.munchkinId && marketo.config.clientId && marketo.config.clientSecret);
-  const sfReady = !!(sf.config.instanceUrl && sf.config.clientId && sf.config.clientSecret);
   const asanaReady = !!(asana.config.pat && asana.config.workspaceId && asana.config.projectId);
   const webhookReady = !!(webhook.config.url);
 
@@ -290,7 +323,7 @@ export function IntegrationsContent() {
           </div>
         </div>
 
-        {/* ── Salesforce ── */}
+        {/* ── Salesforce (one-click OAuth) ── */}
         <div className="rounded-2xl border border-border bg-white shadow-sm overflow-hidden">
           <div className="flex items-center gap-4 px-6 py-5 border-b border-border">
             <div className="w-10 h-10 rounded-xl bg-[#00A1E0]/10 flex items-center justify-center shrink-0">
@@ -300,40 +333,44 @@ export function IntegrationsContent() {
               <p className="font-semibold text-sm">Salesforce</p>
               <p className="text-xs text-muted-foreground">Create Lead records in Salesforce for each form submission. Field mappings are configured per-form.</p>
             </div>
-            <Toggle checked={sf.enabled} onChange={v => { setSf(s => ({ ...s, enabled: v })); setSfSaved(false); }} />
+            {sf.connected ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-2.5 py-1 text-xs font-medium text-green-700">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Connected
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-muted border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                Not connected
+              </span>
+            )}
           </div>
           <div className="px-6 py-6 space-y-5">
-            <div className="rounded-xl bg-muted/50 border border-border px-4 py-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
-              <p className="font-semibold text-foreground text-[11px] uppercase tracking-wide mb-2">Setup steps</p>
-              <p>1. In Salesforce Setup, go to <strong>App Manager → New Connected App</strong>. Enable OAuth, add the <code className="bg-muted px-1 rounded">client_credentials</code> flow, and select the <strong>Manage User Data via APIs</strong> scope.</p>
-              <p>2. Copy the <strong>Consumer Key</strong> (Client ID) and <strong>Consumer Secret</strong> (Client Secret).</p>
-              <p>3. Your <strong>Instance URL</strong> is the base of your Salesforce org URL (e.g. <code className="bg-muted px-1 rounded">https://yourorg.my.salesforce.com</code>).</p>
-              <p>4. Field mappings (which form fields map to which Salesforce Lead fields) are set <a href="/forms" className="underline text-foreground">per-form in Forms → Notifications</a>.</p>
+            {sf.connected ? (
+              <div className="rounded-xl bg-muted/50 border border-border px-4 py-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
+                <p className="text-foreground">Your Salesforce org is connected. New form submissions create Lead records automatically.</p>
+                {sf.instanceUrl && <p>Org: <code className="bg-muted px-1 rounded">{sf.instanceUrl}</code></p>}
+                <p>Field mappings (which form fields map to which Salesforce Lead fields) are set <a href="/forms" className="underline text-foreground">per-form in Forms → Notifications</a>.</p>
+              </div>
+            ) : (
+              <div className="rounded-xl bg-muted/50 border border-border px-4 py-3 text-xs text-muted-foreground space-y-1.5 leading-relaxed">
+                <p>Click <strong>Connect Salesforce</strong> to authorize LP Studio against your Salesforce org. No Connected App setup or API keys required — you'll sign in to Salesforce and approve access.</p>
+                <p>Already connected from the sales console? Your connection is shared — no need to reconnect here.</p>
+                <p>Field mappings (which form fields map to which Salesforce Lead fields) are set <a href="/forms" className="underline text-foreground">per-form in Forms → Notifications</a>.</p>
+              </div>
+            )}
+            <TestBanner result={sfBanner} />
+            <div className="flex items-center gap-3 pt-1">
+              {sf.connected ? (
+                <Button variant="outline" size="sm" className="gap-2" disabled={sfDisconnecting} onClick={disconnectSf}>
+                  {sfDisconnecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  Disconnect
+                </Button>
+              ) : (
+                <Button size="sm" className="gap-2" disabled={sfConnecting} onClick={connectSf}>
+                  {sfConnecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Cloud className="w-3.5 h-3.5" />}
+                  Connect Salesforce
+                </Button>
+              )}
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Instance URL</Label>
-              <Input value={sf.config.instanceUrl} onChange={e => updateSf("instanceUrl", e.target.value)} placeholder="https://yourorg.my.salesforce.com" className="font-mono text-sm h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Client ID (Consumer Key)</Label>
-              <Input value={sf.config.clientId} onChange={e => updateSf("clientId", e.target.value)} className="font-mono text-sm h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Client Secret (Consumer Secret)</Label>
-              <Input
-                type={sf.config.clientSecret === MASKED ? "text" : "password"}
-                value={sf.config.clientSecret}
-                onChange={e => updateSf("clientSecret", e.target.value)}
-                className="font-mono text-sm h-9"
-              />
-            </div>
-            <TestBanner result={sfResult} />
-            <SaveRow saving={sfSaving} saved={sfSaved} onSave={saveSf} testEl={
-              <Button variant="outline" size="sm" className="gap-2" disabled={sfTesting || !sfReady} onClick={testSf}>
-                {sfTesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                Test connection
-              </Button>
-            } />
           </div>
         </div>
 

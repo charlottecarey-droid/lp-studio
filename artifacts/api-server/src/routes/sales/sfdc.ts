@@ -1,55 +1,13 @@
 import { Router } from "express";
-import crypto from "crypto";
 import { eq, desc, and } from "drizzle-orm";
 import { db, sfdcConnectionsTable, sfdcFieldMappingsTable, sfdcSyncLogTable, sfdcLeadsTable, sfdcOpportunitiesTable } from "@workspace/db";
 import { sfdcService } from "../../lib/sfdc-service";
 import { logger } from "../../lib/logger";
 import { encryptCredential } from "../../lib/encryption";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
+import { signSfdcState, verifySfdcState } from "../../lib/sfdc-oauth-state";
 
 const router = Router();
-
-// HMAC-signed OAuth `state`. Without this, the `state` was a plain
-// base64-encoded JSON `{ tenantId }` and the callback trusted whatever
-// tenantId the caller put in it — letting a logged-in user link their own
-// Salesforce org to a different tenant by tampering with the state value.
-// The signing key is the same WORKER_HOST_SECRET used by the Cloudflare
-// tenant-host worker; it always exists in this environment. We fall back to
-// a per-process key only as a last resort so dev without secrets still runs
-// — but a dev secret never matches a prod-signed state, so signatures don't
-// survive a restart, which is fine for short-lived OAuth flows.
-const SFDC_STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
-let __sfdcStateDevSecret: string | null = null;
-function sfdcStateKey(): string {
-  const k = process.env.WORKER_HOST_SECRET;
-  if (k && k.length > 0) return k;
-  if (!__sfdcStateDevSecret) __sfdcStateDevSecret = crypto.randomBytes(32).toString("hex");
-  return __sfdcStateDevSecret;
-}
-function signSfdcState(tenantId: number): string {
-  const payload = { tenantId, ts: Date.now() };
-  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const sig = crypto.createHmac("sha256", sfdcStateKey()).update(body).digest("base64url");
-  return `${body}.${sig}`;
-}
-function verifySfdcState(state: string): { tenantId: number } | null {
-  const dot = state.lastIndexOf(".");
-  if (dot <= 0) return null;
-  const body = state.slice(0, dot);
-  const sig = state.slice(dot + 1);
-  const expected = crypto.createHmac("sha256", sfdcStateKey()).update(body).digest("base64url");
-  // Constant-time compare; lengths must match for timingSafeEqual.
-  const a = Buffer.from(sig);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  let payload: { tenantId?: unknown; ts?: unknown };
-  try { payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")); } catch { return null; }
-  const tenantId = typeof payload.tenantId === "number" ? payload.tenantId : null;
-  const ts = typeof payload.ts === "number" ? payload.ts : null;
-  if (tenantId == null || ts == null) return null;
-  if (Date.now() - ts > SFDC_STATE_TTL_MS) return null;
-  return { tenantId };
-}
 
 /**
  * GET /sfdc/auth-url
@@ -100,6 +58,15 @@ router.get("/sfdc/callback", async (req, res): Promise<void> => {
     return;
   }
   const tenantId: number = verified.tenantId;
+  // When the connect flow embedded a returnTo (the marketing Integrations
+  // page does; the sales console does not), bounce the browser back there
+  // with a status flag. Absent returnTo we keep the legacy JSON response so
+  // the sales-console flow is byte-for-byte unchanged.
+  const returnTo = verified.returnTo;
+  const redirectBack = (status: "connected" | "error") => {
+    const sep = returnTo!.includes("?") ? "&" : "?";
+    res.redirect(`${returnTo}${sep}salesforce=${status}`);
+  };
 
   try {
     const redirectUri = `${process.env.API_BASE_URL || "http://localhost:3000"}/api/sales/sfdc/callback`;
@@ -144,6 +111,7 @@ router.get("/sfdc/callback", async (req, res): Promise<void> => {
 
     logger.info({ connectionId: connection.id, orgId }, "Created SFDC connection");
 
+    if (returnTo) { redirectBack("connected"); return; }
     // Redirect to success page or return connection details
     res.json({
       success: true,
@@ -153,6 +121,7 @@ router.get("/sfdc/callback", async (req, res): Promise<void> => {
     });
   } catch (err) {
     logger.error(err, "Error in OAuth callback");
+    if (returnTo) { redirectBack("error"); return; }
     res.status(500).json({ error: "Failed to complete OAuth exchange" });
   }
 });

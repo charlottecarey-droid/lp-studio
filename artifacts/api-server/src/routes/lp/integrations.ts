@@ -1,11 +1,14 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
-import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
+import { db, sfdcConnectionsTable } from "@workspace/db";
+import { sql, eq, desc } from "drizzle-orm";
 import { testSheetsConnection, type SheetsConfig } from "../../lib/google-sheets";
-import type { MarketoConfig, SalesforceConfig, LeadPayload } from "../../lib/notifications";
+import type { MarketoConfig, LeadPayload } from "../../lib/notifications";
 import { decryptConfigCredentials, encryptConfigCredentials } from "../../lib/encryption";
 import { assertPublicHttpsUrl } from "../../lib/exportDestinations";
+import { sfdcService } from "../../lib/sfdc-service";
+import { signSfdcState } from "../../lib/sfdc-oauth-state";
+import { logger } from "../../lib/logger";
 
 const router = Router();
 const MASKED = "••••••••";
@@ -162,72 +165,80 @@ router.post("/lp/integrations/marketo/test", async (req, res): Promise<void> => 
 });
 
 // ─── Salesforce ───────────────────────────────────────────────────────────────
+//
+// One-click OAuth against the shared platform Connected App. This reads/writes
+// the SAME per-tenant `sfdc_connections` row the sales console uses, so a tenant
+// connected from either surface is connected for both — form-lead write-back in
+// leads.ts pushes through whatever connection is active. The legacy
+// per-tenant client_credentials path (manual Instance URL / Client ID / Secret
+// stored in lp_integrations) is retired: tenants reconnect with one click.
 
+// GET status — reflects the OAuth connection, not the deprecated
+// client_credentials config. `enabled` mirrors "connected" because form-lead
+// sync runs whenever the tenant has an active connection (there is no separate
+// per-tenant on/off — opting a single form out is done in Forms → Notifications).
 router.get("/lp/integrations/salesforce", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
-  const row = await getIntegration("salesforce", tenantId);
-  if (!row) {
-    res.json({ enabled: false, config: { instanceUrl: "", clientId: "", clientSecret: "" } });
-    return;
-  }
-  const cfg = row.config as SalesforceConfig;
+  const [connection] = await db
+    .select({
+      orgId: sfdcConnectionsTable.orgId,
+      instanceUrl: sfdcConnectionsTable.instanceUrl,
+      status: sfdcConnectionsTable.status,
+      createdAt: sfdcConnectionsTable.createdAt,
+    })
+    .from(sfdcConnectionsTable)
+    .where(eq(sfdcConnectionsTable.tenantId, tenantId))
+    .orderBy(desc(sfdcConnectionsTable.createdAt))
+    .limit(1);
+  const connected = !!connection && connection.status === "connected";
   res.json({
-    enabled: row.enabled,
-    config: {
-      instanceUrl: cfg.instanceUrl ?? "",
-      clientId: cfg.clientId ?? "",
-      clientSecret: cfg.clientSecret ? MASKED : "",
-    },
+    connected,
+    enabled: connected,
+    status: connection?.status ?? null,
+    orgId: connected ? connection.orgId : null,
+    instanceUrl: connected ? connection.instanceUrl : null,
   });
 });
 
-router.put("/lp/integrations/salesforce", async (req, res): Promise<void> => {
+// GET auth-url — returns the Salesforce OAuth authorization URL. Uses the SAME
+// shared callback as the sales console (/api/sales/sfdc/callback) but embeds a
+// returnTo so the callback bounces the user back to this Integrations page.
+router.get("/lp/integrations/salesforce/auth-url", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
-  const { enabled, config } = req.body as { enabled: boolean; config: SalesforceConfig };
-  const existing = await getIntegration("salesforce", tenantId);
-  const existingCfg = (existing?.config ?? {}) as SalesforceConfig;
-  const merged: SalesforceConfig = {
-    instanceUrl: config.instanceUrl ?? existingCfg.instanceUrl ?? "",
-    clientId: config.clientId ?? existingCfg.clientId ?? "",
-    clientSecret: config.clientSecret && config.clientSecret !== MASKED
-      ? config.clientSecret
-      : (existingCfg.clientSecret ?? ""),
-  };
-  await upsertIntegration("salesforce", merged, enabled ?? false, tenantId);
-  res.json({ ok: true });
+  try {
+    const redirectUri = `${process.env.API_BASE_URL || "http://localhost:3000"}/api/sales/sfdc/callback`;
+    const state = signSfdcState(tenantId, "/integrations");
+    const url = sfdcService.getAuthorizationUrl(redirectUri, state);
+    res.json({ url });
+  } catch (err) {
+    logger.error(err, "Error generating LP Salesforce auth URL");
+    res.status(500).json({ error: "Failed to generate auth URL" });
+  }
 });
 
-router.post("/lp/integrations/salesforce/test", async (req, res): Promise<void> => {
+// POST disconnect — marks the tenant's connection disconnected and clears its
+// tokens. Mirrors the sales-console disconnect since the connection is shared.
+router.post("/lp/integrations/salesforce/disconnect", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
-  const { config } = req.body as { config: SalesforceConfig };
-  const existing = await getIntegration("salesforce", tenantId);
-  const existingCfg = (existing?.config ?? {}) as SalesforceConfig;
-  const secret = config.clientSecret === MASKED ? existingCfg.clientSecret : config.clientSecret;
-  if (!config.instanceUrl || !config.clientId || !secret) {
-    res.json({ ok: false, error: "Instance URL, Client ID, and Client Secret are required" });
-    return;
-  }
   try {
-    const params = new URLSearchParams({
-      grant_type: "client_credentials",
-      client_id: config.clientId,
-      client_secret: secret ?? "",
-    });
-    const resp = await fetch(`${config.instanceUrl}/services/oauth2/token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: params.toString(),
-    });
-    const data = await resp.json() as { access_token?: string; error?: string; error_description?: string };
-    if (data.error) {
-      res.json({ ok: false, error: data.error_description ?? data.error });
-    } else if (data.access_token) {
+    const [connection] = await db
+      .select({ id: sfdcConnectionsTable.id })
+      .from(sfdcConnectionsTable)
+      .where(eq(sfdcConnectionsTable.tenantId, tenantId))
+      .orderBy(desc(sfdcConnectionsTable.createdAt))
+      .limit(1);
+    if (!connection) {
       res.json({ ok: true });
-    } else {
-      res.json({ ok: false, error: "No access token returned" });
+      return;
     }
-  } catch (err: unknown) {
-    res.json({ ok: false, error: String(err) });
+    await db
+      .update(sfdcConnectionsTable)
+      .set({ status: "disconnected", accessToken: "", refreshToken: "" })
+      .where(eq(sfdcConnectionsTable.id, connection.id));
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error(err, "Error disconnecting LP Salesforce");
+    res.status(500).json({ error: "Failed to disconnect" });
   }
 });
 
@@ -486,21 +497,6 @@ export async function syncLeadToMarketo(
   if (!cfg.munchkinId || !cfg.clientId || !cfg.clientSecret) return;
   const { syncToMarketo } = await import("../../lib/notifications");
   await syncToMarketo({ ...cfg, fieldMappings: perFormFieldMappings }, payload);
-}
-
-export async function syncLeadToSalesforce(
-  payload: LeadPayload,
-  perFormFieldMappings?: Record<string, string>,
-  perFormEnabled?: boolean,
-  tenantId = 1,
-): Promise<void> {
-  if (perFormEnabled === false) return;
-  const row = await getIntegration("salesforce", tenantId);
-  if (!row || !row.enabled) return;
-  const cfg = row.config as SalesforceConfig;
-  if (!cfg.instanceUrl || !cfg.clientId || !cfg.clientSecret) return;
-  const { syncToSalesforce } = await import("../../lib/notifications");
-  await syncToSalesforce({ ...cfg, fieldMappings: perFormFieldMappings }, payload);
 }
 
 export default router;

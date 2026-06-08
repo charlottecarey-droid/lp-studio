@@ -1222,54 +1222,11 @@ export async function syncLinksToMarketoStaticList(
   return { created, failed, addedToList, reasons: uniqueReasons };
 }
 
-const sfTokenCache = new Map<string, { token: string; instanceUrl: string; expiresAt: number }>();
-
-async function getSalesforceToken(config: SalesforceConfig): Promise<{ token: string; instanceUrl: string }> {
-  const cacheKey = `${config.clientId}:${config.instanceUrl}`;
-  const cached = sfTokenCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now() + 60_000) return { token: cached.token, instanceUrl: cached.instanceUrl };
-
-  const params = new URLSearchParams({
-    grant_type: "client_credentials",
-    client_id: config.clientId,
-    client_secret: config.clientSecret,
-  });
-
-  const res = await fetch(`${config.instanceUrl}/services/oauth2/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: params.toString(),
-  });
-  if (!res.ok) throw new Error(`Salesforce auth failed: ${res.status}`);
-  const data = await res.json() as { access_token: string; instance_url: string };
-  sfTokenCache.set(cacheKey, { token: data.access_token, instanceUrl: data.instance_url, expiresAt: Date.now() + 3600_000 });
-  return { token: data.access_token, instanceUrl: data.instance_url };
-}
-
-export async function syncToSalesforce(config: SalesforceConfig, lead: LeadPayload): Promise<void> {
-  try {
-    const { token, instanceUrl } = await getSalesforceToken(config);
-    const mappings = config.fieldMappings ?? {};
-    const sfFields: Record<string, unknown> = {};
-    for (const [formField, value] of Object.entries(lead.fields)) {
-      const sfField = mappings[formField] ?? formField;
-      sfFields[sfField] = value;
-    }
-
-    const res = await retryFetch(`${instanceUrl}/services/data/v58.0/sobjects/Lead`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(sfFields),
-    });
-    if (!res.ok) throw new Error(`Salesforce Lead create failed: ${res.status}`);
-    logger.info({ leadId: lead.leadId }, "Lead synced to Salesforce");
-  } catch (err) {
-    logger.error({ err, leadId: lead.leadId }, "Failed to sync lead to Salesforce");
-  }
-}
+// NOTE: The legacy per-tenant client_credentials Salesforce sync (getSalesforceToken
+// + syncToSalesforce) was removed. Marketing form leads now sync exclusively via
+// the tenant's OAuth connection to the shared platform Connected App — see the
+// SFDC write-back block in routes/lp/leads.ts. The `SalesforceConfig` type is
+// retained only for the per-form field-mapping shape stored on forms.
 
 function escapeHtml(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
