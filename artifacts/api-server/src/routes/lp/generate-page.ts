@@ -1254,6 +1254,15 @@ export function isScrapedImage(img: MediaImage): boolean {
   return img.tags.some((t) => typeof t === "string" && t.toLowerCase() === "scraped");
 }
 
+/** True when an image is a generic STARTER seed (shared library row tagged
+ *  "starter" by STARTER_IMAGE_SEEDS), as opposed to a tenant's genuine
+ *  brand-import / uploaded / AI / purpose-tagged asset. Starter seeds are a
+ *  neutral last-resort fallback, so they must rank BELOW the current reference's
+ *  scraped imagery in the fill pool. */
+export function isStarterImage(img: MediaImage): boolean {
+  return img.tags.some((t) => typeof t === "string" && t.toLowerCase() === "starter");
+}
+
 /** The host a scraped image was harvested from (its "refhost:<host>" tag), or
  *  null. Normalized (lowercased, leading "www." stripped) to match the way
  *  current-reference hosts are derived in buildReferenceFillPool. */
@@ -1372,13 +1381,19 @@ function identityForUrl(url: string, byUrl: Map<string, MediaImage>): string {
  * keeps the FIRST max-scorer on ties — so a stale apple.com image sitting earlier
  * in the pool would beat the clay.com image the user actually asked for.
  *
- * Ordering: curated → current-reference scraped → other-host scraped.
+ * Ordering: curated → current-reference scraped → starter seeds → other-host scraped.
  *   1. curated (brand-import / uploads / AI / purpose-tagged) — genuine library
- *      matches still win first.
+ *      matches still win first. Excludes generic STARTER seeds (see 3).
  *   2. current-reference scraped — this run's freshly-harvested images, PLUS any
  *      earlier scrape of the same host(s) (resilient to the harvest grace window
  *      timing out), so the requested site's imagery is preferred.
- *   3. other-host scraped — leftovers from unrelated prior generations, a last
+ *   3. starter seeds — generic shared fallback imagery (STARTER_IMAGE_SEEDS,
+ *      tagged "starter"). These are purpose-neutral and score 0 against most
+ *      slots, so when left inside the curated bucket they sat FIRST and beat the
+ *      current reference's score-0 scrapes on ties — the "scraped images never
+ *      get used, irrelevant starters show instead" symptom. Demoted below the
+ *      current-reference scrapes so the requested site's imagery wins.
+ *   4. other-host scraped — leftovers from unrelated prior generations, a last
  *      resort before AI generation.
  *
  * @param catalogImages tenant media (fetchMediaCatalog `images`), newest-first.
@@ -1408,11 +1423,15 @@ export function buildReferenceFillPool(
   const currentRefHosts = currentReferenceHosts(referenceUrls);
   const freshScrapedUrls = new Set(freshScrapedMedia.map((m) => m.url));
   const curatedImages: MediaImage[] = [];
+  const starterImages: MediaImage[] = [];
   const currentRefScraped: MediaImage[] = [];
   const otherScraped: MediaImage[] = [];
   for (const img of catalogImages) {
     if (!isScrapedImage(img)) {
-      curatedImages.push(img);
+      // Generic starter seeds rank below the current reference's scrapes (see 3
+      // in the doc above); genuine brand/upload/AI assets still win first.
+      if (isStarterImage(img)) starterImages.push(img);
+      else curatedImages.push(img);
       continue;
     }
     // Freshly-harvested rows are placed via freshScrapedMedia — skip their catalog
@@ -1422,7 +1441,7 @@ export function buildReferenceFillPool(
     if (host && currentRefHosts.has(host)) currentRefScraped.push(img);
     else otherScraped.push(img);
   }
-  return [...curatedImages, ...freshScrapedMedia, ...currentRefScraped, ...otherScraped];
+  return [...curatedImages, ...freshScrapedMedia, ...currentRefScraped, ...starterImages, ...otherScraped];
 }
 
 /**

@@ -361,6 +361,38 @@ describe("buildReferenceFillPool — reference-image fidelity", () => {
     const pool = buildReferenceFillPool([noHost, freshClay], [freshClay], ["https://clay.com/x"]);
     expect(pool.map((p) => p.url)).toEqual(["/objects/clay-fresh", "/objects/orphan"]);
   });
+
+  it("ranks generic starter seeds BELOW the current reference's scrapes (but genuine curated still wins first)", () => {
+    const starter: MediaImage = { url: "/objects/starter-1", title: "Starter 14142350", tags: ["starter", "generic"] };
+    // Catalog newest-first: starter and a prior clay scrape, plus a fresh clay row.
+    const pool = buildReferenceFillPool(
+      [starter, priorClay, curated],
+      [freshClay],
+      ["https://clay.com/x"],
+    );
+    expect(pool.map((p) => p.url)).toEqual([
+      "/objects/brand-photo", // genuine curated still first
+      "/objects/clay-fresh", // current-reference scrape
+      "/objects/clay-prior", // earlier scrape of the same host
+      "/objects/starter-1", // generic starter seed demoted below scrapes
+    ]);
+  });
+
+  it("a tie between a starter seed and the current reference's scrape resolves to the scrape", () => {
+    // Starter seeds are purpose-neutral → score 0, same as an untagged scrape;
+    // ordering must let the requested site's image win the slot. The current
+    // reference's scrape is trusted (buildTrustedScrapedIds), so it passes the
+    // strict non-negative gate just like the curated/starter assets.
+    const starter: MediaImage = { url: "/objects/starter-1", title: "Starter 14142350", tags: ["starter", "generic"] };
+    const refUrls = ["https://clay.com/x"];
+    const pool = buildReferenceFillPool([starter, freshClay], [freshClay], refUrls);
+    const trusted = buildTrustedScrapedIds([starter, freshClay], [freshClay], refUrls);
+    const blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Workflow", body: "", imageUrl: "" }] } },
+    ];
+    const filled = fillEmptyImages(blocks, pool, "saas pipeline", false, undefined, trusted) as any[];
+    expect(filled[0].props.rows[0].imageUrl).toBe("/objects/clay-fresh");
+  });
 });
 
 // ── Near-duplicate-URL dedup ────────────────────────────────────────────────
