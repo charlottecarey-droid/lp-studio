@@ -26,6 +26,15 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const showCta = props.showCta ?? true;
 
+  // CTA button styling. Each field is an optional override; when unset we
+  // derive a contrast-aware default from the CTA band background (`bg`) so the
+  // secondary button never renders illegible white-on-light text.
+  const ctaBandText = pickContrastingColor(undefined, bg, ["#0F172A", "#FFFFFF"]);
+  const primaryBg = props.ctaPrimaryBgColor ?? accent;
+  const primaryText = props.ctaPrimaryTextColor ?? pickContrastingColor(undefined, primaryBg, ["#FFFFFF", "#0f172a"]);
+  const secondaryText = props.ctaSecondaryTextColor ?? ctaBandText;
+  const secondaryBorder = props.ctaSecondaryBorderColor ?? `${ctaBandText}33`;
+
   const testimonials = props.testimonials ?? [];
 
   const update = <K extends keyof TestimonialGridBlockProps>(key: K, value: TestimonialGridBlockProps[K]) =>
@@ -163,7 +172,7 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
                     brand={brand}
                     source="testimonial-grid-cta"
                     className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold"
-                    style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY }}
+                    style={{ backgroundColor: primaryBg, color: primaryText, fontFamily: BODY }}
                   >
                     {props.ctaPrimaryLabel || "Get started"}
                     <ArrowRight className="h-4 w-4" />
@@ -176,7 +185,7 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
                     brand={brand}
                     source="testimonial-grid-cta-secondary"
                     className="inline-flex items-center justify-center gap-2 rounded-xl border px-6 py-3.5 text-base font-semibold"
-                    style={{ borderColor: `${text}33`, color: text, fontFamily: BODY }}
+                    style={{ borderColor: secondaryBorder, color: secondaryText, fontFamily: BODY }}
                   >
                     {props.ctaSecondaryLabel || "Talk to sales"}
                   </CtaButton>

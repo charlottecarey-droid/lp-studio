@@ -3509,6 +3509,14 @@ export interface TestimonialGridBlockProps extends BenefitsCtaConfig {
   textColor?: string;
   accentColor?: string;
   headlineColor?: string;
+  /** Optional CTA button style overrides. When unset, the renderer derives
+   *  contrast-aware defaults from the CTA band background so the buttons
+   *  stay legible. Kept on this block (not BenefitsCtaConfig) so the ~17
+   *  other blocks sharing the CTA band are unaffected. */
+  ctaPrimaryBgColor?: string;
+  ctaPrimaryTextColor?: string;
+  ctaSecondaryTextColor?: string;
+  ctaSecondaryBorderColor?: string;
 }
 
 // ── New section blocks batch (navbars / layout rows / PAS / final CTAs) ──────

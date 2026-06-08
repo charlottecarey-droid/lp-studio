@@ -112,6 +112,17 @@ export function TestimonialGridPanel({ props, onChange }: Props) {
           <ColorField label="Accent" value={props.accentColor ?? "#4f46e5"} onChange={(v) => update({ accentColor: v })} />
         </div>
       </div>
+
+      <div className="space-y-3">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">CTA style</div>
+        <p className="text-[11px] text-muted-foreground">Leave blank to use legible, contrast-aware defaults.</p>
+        <div className="grid grid-cols-2 gap-2">
+          <ColorField label="Primary background" value={props.ctaPrimaryBgColor} onChange={(v) => update({ ctaPrimaryBgColor: v })} />
+          <ColorField label="Primary text" value={props.ctaPrimaryTextColor} onChange={(v) => update({ ctaPrimaryTextColor: v })} />
+          <ColorField label="Secondary text" value={props.ctaSecondaryTextColor} onChange={(v) => update({ ctaSecondaryTextColor: v })} />
+          <ColorField label="Secondary border" value={props.ctaSecondaryBorderColor} onChange={(v) => update({ ctaSecondaryBorderColor: v })} />
+        </div>
+      </div>
     </div>
   );
 }
