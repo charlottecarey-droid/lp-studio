@@ -409,7 +409,7 @@ export function BlockEditorialSplitHero({
 
   return (
     <section
-      className="relative min-h-[900px] h-[100dvh] w-full flex flex-col overflow-hidden"
+      className="relative min-h-[max(900px,100dvh)] w-full flex flex-col"
       style={{ backgroundColor: bg, color: text, fontFamily: bodyFamily }}
     >
       {navBar}
