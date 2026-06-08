@@ -6,6 +6,7 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { Reveal, AccentGlow } from "@/lib/premium-toolkit";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -24,6 +25,7 @@ export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
   const border = `${text}1f`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const showCta = props.showCta ?? true;
+  const animate = !onFieldChange;
 
   const update = <K extends keyof SingleQuoteBlockProps>(key: K, value: SingleQuoteBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -33,23 +35,33 @@ export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
       className="relative flex w-full flex-col items-center justify-center overflow-hidden px-6 py-24 sm:px-12 md:py-32"
       style={{ background: surface.background, color: text }}
     >
-      <div className="mx-auto flex w-full max-w-5xl flex-col items-center justify-center text-center">
-        <div className="mb-10 flex h-20 w-20 items-center justify-center rounded-full" style={{ backgroundColor: `${accent}12` }}>
+      <AccentGlow color={accent} isDark={surface.isDark} />
+      {/* Oversized decorative quote mark watermark */}
+      <Quote
+        aria-hidden
+        className="pointer-events-none absolute -top-6 left-1/2 z-0 h-64 w-64 -translate-x-1/2 select-none"
+        style={{ color: accent, opacity: surface.isDark ? 0.1 : 0.05 }}
+        strokeWidth={1}
+      />
+      <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-col items-center justify-center text-center">
+        <Reveal disabled={!animate} className="mb-10 flex h-20 w-20 items-center justify-center rounded-full" style={{ backgroundColor: `${accent}12`, boxShadow: `0 16px 40px -16px ${accent}66` }}>
           <Quote className="h-10 w-10" style={{ color: accent }} />
-        </div>
+        </Reveal>
 
-        <InlineText
-          as="blockquote"
-          value={props.quote}
-          onUpdate={onFieldChange ? (v) => update("quote", v) : undefined}
-          className="mb-12 max-w-4xl text-3xl font-medium leading-snug tracking-tight sm:text-4xl md:text-5xl md:leading-tight"
-          style={{ color: text, fontFamily: DISPLAY }}
-          multiline />
+        <Reveal disabled={!animate} delay={0.08}>
+          <InlineText
+            as="blockquote"
+            value={props.quote}
+            onUpdate={onFieldChange ? (v) => update("quote", v) : undefined}
+            className="mb-12 max-w-4xl text-3xl font-medium leading-snug tracking-tight sm:text-4xl md:text-5xl md:leading-tight"
+            style={{ color: text, fontFamily: DISPLAY }}
+            multiline />
+        </Reveal>
 
-        <div className="flex flex-col items-center gap-4">
+        <Reveal disabled={!animate} delay={0.16} className="flex flex-col items-center gap-4">
           <div
-            className="flex h-16 w-16 items-center justify-center rounded-full text-xl font-bold tracking-tight shadow-sm"
-            style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY }}
+            className="flex h-16 w-16 items-center justify-center rounded-full text-xl font-bold tracking-tight shadow-sm ring-2"
+            style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY, boxShadow: `0 12px 28px -10px ${accent}88` }}
           >
             {props.avatarInitials || props.author.charAt(0)}
           </div>
@@ -76,12 +88,12 @@ export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
                 style={{ color: text }} />
             </span>
           </div>
-        </div>
+        </Reveal>
 
         {showCta && (
           <div className="mt-20 flex w-full flex-col items-center pt-20">
             <div className="mb-16 h-px w-full max-w-md" style={{ backgroundColor: border }} />
-            <div className="flex flex-col items-center gap-7 text-center">
+            <Reveal disabled={!animate} className="flex flex-col items-center gap-7 text-center">
               <div className="flex flex-col items-center gap-3">
                 {(props.ctaEyebrow || onFieldChange) && (
                   <InlineText
@@ -116,7 +128,7 @@ export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
                     ctaUrl={props.ctaPrimaryUrl}
                     brand={brand}
                     source="single-quote-cta"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold shadow-sm transition-transform duration-200 hover:-translate-y-0.5"
                     style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY }}
                   >
                     {props.ctaPrimaryLabel || "Get started"}
@@ -136,7 +148,7 @@ export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
                   </CtaButton>
                 )}
               </div>
-            </div>
+            </Reveal>
           </div>
         )}
       </div>

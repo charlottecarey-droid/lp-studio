@@ -7,6 +7,7 @@ import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { Reveal, AccentGlow } from "@/lib/premium-toolkit";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -27,24 +28,33 @@ export function BlockQuoteWithImage({ props, brand, onFieldChange }: Props) {
   const showCta = props.showCta ?? true;
   const rating = props.rating ?? 5;
   const imageRight = props.imageSide === "right";
+  const animate = !onFieldChange;
 
   const update = <K extends keyof QuoteWithImageBlockProps>(key: K, value: QuoteWithImageBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
 
   const imageCol = (
     <div className={`lg:col-span-5 ${imageRight ? "lg:order-2" : ""}`}>
-      <div className="relative w-full aspect-[4/5] sm:aspect-[3/4] lg:aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl transform transition-transform duration-700 hover:scale-[1.01]">
-        <InlineImage
-          src={props.imageUrl ?? ""}
-          alt={props.imageAlt || props.author}
-          onUpdate={onFieldChange ? (url) => update("imageUrl", url) : undefined}
-          onAltUpdate={onFieldChange ? (alt) => update("imageAlt", alt) : undefined}
-          className="absolute inset-0 w-full h-full object-cover"
+      <div className="relative">
+        {/* Soft accent halo behind the portrait */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -inset-5 rounded-[2rem] opacity-40 blur-3xl"
+          style={{ background: `radial-gradient(circle at 50% 30%, ${accent}, transparent 70%)` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none" />
-        <div className="absolute bottom-8 left-8 text-white pointer-events-none">
-          <p className="font-bold text-xl mb-1" style={{ fontFamily: BODY }}>{props.author}</p>
-          <p className="text-white/80 font-medium" style={{ fontFamily: BODY }}>{props.role}, {props.company}</p>
+        <div className="group relative w-full aspect-[4/5] sm:aspect-[3/4] lg:aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl" style={{ boxShadow: `0 40px 80px -32px ${accent}66, inset 0 0 0 1px ${border}` }}>
+          <InlineImage
+            src={props.imageUrl ?? ""}
+            alt={props.imageAlt || props.author}
+            onUpdate={onFieldChange ? (url) => update("imageUrl", url) : undefined}
+            onAltUpdate={onFieldChange ? (alt) => update("imageAlt", alt) : undefined}
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent pointer-events-none" />
+          <div className="absolute bottom-8 left-8 text-white pointer-events-none">
+            <p className="font-bold text-xl mb-1" style={{ fontFamily: BODY }}>{props.author}</p>
+            <p className="text-white/80 font-medium" style={{ fontFamily: BODY }}>{props.role}, {props.company}</p>
+          </div>
         </div>
       </div>
     </div>
@@ -70,7 +80,7 @@ export function BlockQuoteWithImage({ props, brand, onFieldChange }: Props) {
       )}
 
       <div className="relative">
-        <Quote className="absolute -top-6 -left-8 h-16 w-16 opacity-10 transform -scale-x-100" style={{ color: text }} />
+        <Quote className="absolute -top-6 -left-8 h-16 w-16 transform -scale-x-100" style={{ color: accent, opacity: 0.14 }} />
         <InlineText
           as="h2"
           value={props.quote}
@@ -80,7 +90,7 @@ export function BlockQuoteWithImage({ props, brand, onFieldChange }: Props) {
           multiline />
       </div>
 
-      <div className="h-px w-full max-w-[120px] mb-12" style={{ backgroundColor: border }} />
+      <div className="h-1 w-full max-w-[120px] mb-12 rounded-full" style={{ background: `linear-gradient(90deg, ${accent}, ${accent}33)` }} />
 
       {showCta && (
         <div className="flex flex-col gap-5">
@@ -110,7 +120,7 @@ export function BlockQuoteWithImage({ props, brand, onFieldChange }: Props) {
                 ctaUrl={props.ctaPrimaryUrl}
                 brand={brand}
                 source="quote-with-image-cta"
-                className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold"
+                className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold shadow-sm transition-transform duration-200 hover:-translate-y-0.5"
                 style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY }}
               >
                 {props.ctaPrimaryLabel || "Book a demo"}
@@ -136,11 +146,12 @@ export function BlockQuoteWithImage({ props, brand, onFieldChange }: Props) {
   );
 
   return (
-    <section className="w-full flex items-center justify-center py-24 sm:py-32" style={{ background: surface.background, color: text }}>
-      <div className="container mx-auto px-6 md:px-12 max-w-6xl">
+    <section className="relative w-full flex items-center justify-center overflow-hidden py-24 sm:py-32" style={{ background: surface.background, color: text }}>
+      <AccentGlow color={accent} isDark={surface.isDark} />
+      <div className="relative z-10 container mx-auto px-6 md:px-12 max-w-6xl">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-24 items-center">
-          {imageCol}
-          {contentCol}
+          <Reveal disabled={!animate}>{imageCol}</Reveal>
+          <Reveal disabled={!animate} delay={0.12}>{contentCol}</Reveal>
         </div>
       </div>
     </section>

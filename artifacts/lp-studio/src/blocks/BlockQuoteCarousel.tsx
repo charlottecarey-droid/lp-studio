@@ -7,6 +7,7 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { Reveal, AccentGlow } from "@/lib/premium-toolkit";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -68,14 +69,22 @@ export function BlockQuoteCarousel({ props, brand, onFieldChange }: Props) {
   };
 
   const current = testimonials[safeIndex];
+  const animate = !onFieldChange;
 
   return (
     <section
       className="w-full py-24 sm:py-32 flex flex-col items-center relative overflow-hidden"
       style={{ background: bgSurface.background, color: text }}
     >
-      <div className="container mx-auto px-6 md:px-12 max-w-5xl flex flex-col items-center">
-        <div className="text-center max-w-2xl mb-16 sm:mb-24">
+      <AccentGlow color={accent} isDark={bgSurface.isDark} />
+      <Quote
+        aria-hidden
+        className="pointer-events-none absolute top-10 left-1/2 z-0 h-72 w-72 -translate-x-1/2 select-none"
+        style={{ color: accent, opacity: bgSurface.isDark ? 0.08 : 0.04 }}
+        strokeWidth={1}
+      />
+      <div className="relative z-10 container mx-auto px-6 md:px-12 max-w-5xl flex flex-col items-center">
+        <Reveal disabled={!animate} className="text-center max-w-2xl mb-16 sm:mb-24">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
               as="span"
@@ -99,7 +108,7 @@ export function BlockQuoteCarousel({ props, brand, onFieldChange }: Props) {
               style={{ color: muted, fontFamily: BODY }}
               multiline />
           )}
-        </div>
+        </Reveal>
 
         {current && (
           <div className="w-full relative flex items-center justify-center min-h-[360px] md:min-h-[300px]">
@@ -230,7 +239,7 @@ export function BlockQuoteCarousel({ props, brand, onFieldChange }: Props) {
         )}
 
         {showCta && (
-          <div className="mt-24 sm:mt-32 w-full pt-16 border-t" style={{ borderColor: border }}>
+          <Reveal disabled={!animate} className="mt-24 sm:mt-32 w-full pt-16 border-t" style={{ borderColor: border }}>
             <div className="flex flex-col items-center gap-7 text-center">
               <div className="flex flex-col items-center gap-3">
                 {(props.ctaEyebrow || onFieldChange) && (
@@ -287,7 +296,7 @@ export function BlockQuoteCarousel({ props, brand, onFieldChange }: Props) {
                 )}
               </div>
             </div>
-          </div>
+          </Reveal>
         )}
       </div>
     </section>

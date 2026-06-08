@@ -6,6 +6,7 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { Reveal, RevealStagger, RevealItem, AccentGlow } from "@/lib/premium-toolkit";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -44,6 +45,7 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
   const secondaryBorder = props.ctaSecondaryBorderColor ?? `${ctaBandText}33`;
 
   const testimonials = props.testimonials ?? [];
+  const animate = !onFieldChange;
 
   const update = <K extends keyof TestimonialGridBlockProps>(key: K, value: TestimonialGridBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -54,9 +56,10 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="w-full py-24 sm:py-32 px-6 lg:px-8 flex flex-col justify-center" style={{ background: bgSurface.background, color: text }}>
-      <div className="mx-auto w-full max-w-7xl flex flex-col gap-16 lg:gap-20">
-        <div className="flex flex-col items-center text-center gap-4 max-w-3xl mx-auto">
+    <section className="relative w-full overflow-hidden py-24 sm:py-32 px-6 lg:px-8 flex flex-col justify-center" style={{ background: bgSurface.background, color: text }}>
+      <AccentGlow color={accent} isDark={bgSurface.isDark} />
+      <div className="relative z-10 mx-auto w-full max-w-7xl flex flex-col gap-16 lg:gap-20">
+        <Reveal disabled={!animate} className="flex flex-col items-center text-center gap-4 max-w-3xl mx-auto">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
               as="span"
@@ -80,16 +83,21 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
               style={{ color: muted, fontFamily: BODY }}
               multiline />
           )}
-        </div>
+        </Reveal>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+        <RevealStagger disabled={!animate} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {testimonials.map((t, i) => (
-            <div
+            <RevealItem
               key={t.id || i}
-              className="relative flex flex-col p-8 rounded-3xl border shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl"
+              className="group relative flex flex-col overflow-hidden p-8 rounded-3xl border shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_24px_48px_-18px_rgba(15,23,42,0.22)]"
               style={{ backgroundColor: surface, borderColor: cardBorder }}
             >
-              <Quote className="absolute top-8 right-8 w-12 h-12" style={{ color: cardBorder, opacity: 0.6 }} strokeWidth={1} />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 top-0 h-1 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                style={{ background: `linear-gradient(90deg, ${accent}, ${accent}33)` }}
+              />
+              <Quote className="absolute top-8 right-8 w-12 h-12 transition-colors duration-300" style={{ color: accent, opacity: 0.16 }} strokeWidth={1} />
 
               {(t.rating ?? 5) > 0 && (
                 <div className="flex items-center gap-1 mb-6 z-10" style={{ color: accent }}>
@@ -138,12 +146,12 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
                   </span>
                 </div>
               </div>
-            </div>
+            </RevealItem>
           ))}
-        </div>
+        </RevealStagger>
 
         {showCta && (
-          <div className="mt-4 pt-10 border-t" style={{ borderColor: border }}>
+          <Reveal disabled={!animate} className="mt-4 pt-10 border-t" style={{ borderColor: border }}>
             <div className="flex flex-col items-center gap-7 text-center">
               <div className="flex flex-col items-center gap-3">
                 {(props.ctaEyebrow || onFieldChange) && (
@@ -200,7 +208,7 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
                 )}
               </div>
             </div>
-          </div>
+          </Reveal>
         )}
       </div>
     </section>

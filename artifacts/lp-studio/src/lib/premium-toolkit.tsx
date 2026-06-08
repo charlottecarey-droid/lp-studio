@@ -59,6 +59,12 @@ export interface RevealProps {
   y?: number;
   /** Re-animate every time it enters the viewport (default: once). */
   repeat?: boolean;
+  /**
+   * Render statically (a plain div) with no motion. Used inside the builder
+   * canvas, where editors need content visible and stable while editing rather
+   * than fading in on scroll.
+   */
+  disabled?: boolean;
 }
 
 /**
@@ -66,7 +72,10 @@ export interface RevealProps {
  * viewport. Uses `whileInView` so it works for any section without a scroll
  * controller.
  */
-export function Reveal({ children, className, style, delay = 0, y = 24, repeat = false }: RevealProps) {
+export function Reveal({ children, className, style, delay = 0, y = 24, repeat = false, disabled = false }: RevealProps) {
+  if (disabled) {
+    return <div className={className} style={style}>{children}</div>;
+  }
   return (
     <motion.div
       className={className}
@@ -93,7 +102,11 @@ export function RevealStagger({
   stagger = 0.12,
   delayChildren = 0.1,
   repeat = false,
+  disabled = false,
 }: RevealProps & { stagger?: number; delayChildren?: number }) {
+  if (disabled) {
+    return <div className={className} style={style}>{children}</div>;
+  }
   return (
     <motion.div
       className={className}
@@ -109,7 +122,10 @@ export function RevealStagger({
 }
 
 /** A single staggered child for use inside {@link RevealStagger}. */
-export function RevealItem({ children, className, style }: { children: ReactNode; className?: string; style?: CSSProperties }) {
+export function RevealItem({ children, className, style, disabled = false }: { children: ReactNode; className?: string; style?: CSSProperties; disabled?: boolean }) {
+  if (disabled) {
+    return <div className={className} style={style}>{children}</div>;
+  }
   return (
     <motion.div className={className} style={style} variants={staggerItem}>
       {children}
@@ -176,6 +192,61 @@ export function GlowOrbs({
           />
         );
       })}
+    </div>
+  );
+}
+
+export interface AccentGlowProps {
+  /** Brand/accent color the glows are tinted with. */
+  color: string;
+  /** True when the host surface reads dark (boosts opacity + uses screen blend). */
+  isDark?: boolean;
+  /** Layer opacity multiplier override (0–1). Defaults are surface-aware. */
+  opacity?: number;
+  className?: string;
+}
+
+/**
+ * Surface-aware decorative glows — two soft, blurred accent-tinted blobs anchored
+ * to opposite corners. Unlike {@link GlowOrbs} (screen-blend, dark-only) this
+ * reads correctly on light *and* dark surfaces: on light it stays a faint tint;
+ * on dark it brightens and uses a screen blend. Place inside a
+ * `relative overflow-hidden` container behind content (it sits at `zIndex: 0`).
+ */
+export function AccentGlow({ color, isDark = false, opacity, className }: AccentGlowProps) {
+  const topOpacity = opacity ?? (isDark ? 0.32 : 0.1);
+  const bottomOpacity = opacity ?? (isDark ? 0.22 : 0.07);
+  const blend: CSSProperties["mixBlendMode"] = isDark ? "screen" : "normal";
+  return (
+    <div className={className} aria-hidden style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}>
+      <div
+        style={{
+          position: "absolute",
+          top: "-12%",
+          right: "-6%",
+          width: "46%",
+          height: "58%",
+          borderRadius: "50%",
+          opacity: topOpacity,
+          filter: "blur(90px)",
+          mixBlendMode: blend,
+          background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          bottom: "-16%",
+          left: "-8%",
+          width: "42%",
+          height: "52%",
+          borderRadius: "50%",
+          opacity: bottomOpacity,
+          filter: "blur(100px)",
+          mixBlendMode: blend,
+          background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
+        }}
+      />
     </div>
   );
 }

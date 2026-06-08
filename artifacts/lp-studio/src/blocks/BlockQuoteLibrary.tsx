@@ -1,4 +1,4 @@
-import { Star, ArrowRight } from "lucide-react";
+import { Star, ArrowRight, Quote } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { QuoteLibraryBlockProps } from "@/lib/block-types";
@@ -6,6 +6,7 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { Reveal, RevealStagger, RevealItem, AccentGlow } from "@/lib/premium-toolkit";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -27,6 +28,7 @@ export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
   const showCta = props.showCta ?? true;
 
   const testimonials = props.testimonials ?? [];
+  const animate = !onFieldChange;
 
   const update = <K extends keyof QuoteLibraryBlockProps>(key: K, value: QuoteLibraryBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -37,9 +39,10 @@ export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="w-full py-24 sm:py-32 flex flex-col items-center" style={{ background: bgSurface.background, color: text }}>
-      <div className="container mx-auto px-6 max-w-7xl">
-        <div className="max-w-3xl mx-auto text-center mb-16 md:mb-24 flex flex-col items-center gap-4">
+    <section className="relative w-full overflow-hidden py-24 sm:py-32 flex flex-col items-center" style={{ background: bgSurface.background, color: text }}>
+      <AccentGlow color={accent} isDark={bgSurface.isDark} />
+      <div className="relative z-10 container mx-auto px-6 max-w-7xl">
+        <Reveal disabled={!animate} className="max-w-3xl mx-auto text-center mb-16 md:mb-24 flex flex-col items-center gap-4">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
               as="span"
@@ -63,15 +66,21 @@ export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
               style={{ color: muted, fontFamily: BODY }}
               multiline />
           )}
-        </div>
+        </Reveal>
 
-        <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
+        <RevealStagger disabled={!animate} className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
           {testimonials.map((t, i) => (
-            <div
+            <RevealItem
               key={t.id || i}
-              className="break-inside-avoid flex flex-col gap-6 p-8 rounded-2xl shadow-sm border transition-transform duration-300 hover:-translate-y-1 hover:shadow-md"
+              className="group relative break-inside-avoid flex flex-col gap-6 overflow-hidden p-8 rounded-2xl shadow-sm border transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_48px_-18px_rgba(15,23,42,0.22)]"
               style={{ backgroundColor: surface, borderColor: border }}
             >
+              <Quote
+                aria-hidden
+                className="pointer-events-none absolute -right-3 -top-3 h-20 w-20 select-none opacity-[0.06] transition-opacity duration-300 group-hover:opacity-[0.12]"
+                style={{ color: accent }}
+                strokeWidth={1}
+              />
               {t.rating ? (
                 <div className="flex items-center gap-1">
                   {Array.from({ length: 5 }).map((_, s) => (
@@ -126,12 +135,12 @@ export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
                   </span>
                 </div>
               </div>
-            </div>
+            </RevealItem>
           ))}
-        </div>
+        </RevealStagger>
 
         {showCta && (
-          <div className="mt-24 pt-16 border-t" style={{ borderColor: border }}>
+          <Reveal disabled={!animate} className="mt-24 pt-16 border-t" style={{ borderColor: border }}>
             <div className="flex flex-col items-center gap-7 text-center">
               <div className="flex flex-col items-center gap-3">
                 {(props.ctaEyebrow || onFieldChange) && (
@@ -188,7 +197,7 @@ export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
                 )}
               </div>
             </div>
-          </div>
+          </Reveal>
         )}
       </div>
     </section>

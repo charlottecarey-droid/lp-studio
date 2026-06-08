@@ -7,6 +7,8 @@ import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { Reveal, RevealStagger, RevealItem, AccentGlow } from "@/lib/premium-toolkit";
+import { StatCounter } from "./StatCounter";
 
 interface Props {
   props: CaseStudyCardGridBlockProps;
@@ -24,6 +26,7 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
   const muted = pickContrastingColor(undefined, surface.base, ["#64748b", "#94a3b8"]);
   const surfaceMuted = pickContrastingColor(undefined, cardSurface, ["#64748b", "#94a3b8"]);
   const border = `${ink}14`;
+  const animate = !onFieldChange;
 
   const cards = props.cards ?? [];
   const isLogo = props.displayMode === "logo";
@@ -43,9 +46,10 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="w-full py-24 sm:py-32" style={{ background: surface.background }}>
-      <div className="container mx-auto px-6 md:px-12 max-w-7xl">
-        <div className="text-center max-w-3xl mx-auto mb-16 md:mb-24">
+    <section className="relative w-full overflow-hidden py-24 sm:py-32" style={{ background: surface.background }}>
+      <AccentGlow color={accent} isDark={surface.isDark} />
+      <div className="relative z-10 container mx-auto px-6 md:px-12 max-w-7xl">
+        <Reveal disabled={!animate} className="text-center max-w-3xl mx-auto mb-16 md:mb-24">
           <InlineText
             as="h2"
             value={props.heading}
@@ -61,15 +65,29 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
               style={{ color: muted, fontFamily: BODY }}
               multiline />
           )}
-        </div>
+        </Reveal>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+        <RevealStagger disabled={!animate} className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
           {cards.map((card, i) => (
-            <div
+            <RevealItem
               key={i}
-              className="flex flex-col h-full p-8 rounded-3xl border shadow-sm transition-shadow hover:shadow-md group"
+              disabled={!animate}
+              className="group relative flex h-full flex-col overflow-hidden rounded-3xl border p-8 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_24px_48px_-16px_rgba(15,23,42,0.22)]"
               style={{ backgroundColor: cardSurface, borderColor: border }}
             >
+              {/* Gradient accent rule along the top edge */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 top-0 h-1 opacity-70 transition-opacity duration-300 group-hover:opacity-100"
+                style={{ background: `linear-gradient(90deg, ${accent}, ${accent}33)` }}
+              />
+              {/* Accent corner glow that warms on hover */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-60"
+                style={{ background: `radial-gradient(circle, ${accent}, transparent 70%)` }}
+              />
+              <div className="relative z-10 flex h-full flex-col">
               {isLogo ? (
                 <div className="flex flex-col items-center text-center gap-4 mb-8 pb-8 border-b" style={{ borderColor: border }}>
                   <div className="h-14 sm:h-16 w-full flex items-center justify-center" style={{ color: accent }}>
@@ -92,8 +110,8 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
               ) : (
                 <div className="flex items-center gap-3 mb-8 pb-8 border-b" style={{ borderColor: border }}>
                   <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-                    style={{ backgroundColor: `${accent}15`, color: accent }}
+                    className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ring-1 transition-transform duration-300 group-hover:scale-105"
+                    style={{ backgroundColor: `${accent}15`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}26` }}
                   >
                     <InlineImage
                       src={card.imageUrl}
@@ -124,12 +142,20 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
               </div>
 
               <div className="mb-10">
-                <InlineText
-                  as="div"
-                  value={card.metricValue}
-                  onUpdate={onFieldChange ? (v: string) => updateCard(i, { metricValue: v }) : undefined}
+                <div
                   className="text-4xl font-extrabold tracking-tight mb-2"
-                  style={{ color: accent, fontFamily: DISPLAY }} />
+                  style={{ color: accent, fontFamily: DISPLAY }}
+                >
+                  {onFieldChange ? (
+                    <InlineText
+                      as="span"
+                      value={card.metricValue}
+                      onUpdate={(v: string) => updateCard(i, { metricValue: v })}
+                      style={{ fontFamily: DISPLAY }} />
+                  ) : (
+                    <StatCounter value={card.metricValue} style={{ fontFamily: DISPLAY }} />
+                  )}
+                </div>
                 <InlineText
                   as="div"
                   value={card.metricLabel}
@@ -148,12 +174,13 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
               >
                 View story <ArrowRight className="w-4 h-4" />
               </CtaButton>
-            </div>
+              </div>
+            </RevealItem>
           ))}
-        </div>
+        </RevealStagger>
 
         {(props.ctaLabel || onFieldChange) && (
-          <div className="flex justify-center">
+          <Reveal disabled={!animate} className="flex justify-center">
             <CtaButton
               ctaAction="url"
               ctaUrl={props.ctaUrl}
@@ -165,7 +192,7 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
               {props.ctaLabel || "Explore all customer stories"}
               <ArrowRight className="w-4 h-4" />
             </CtaButton>
-          </div>
+          </Reveal>
         )}
       </div>
     </section>
