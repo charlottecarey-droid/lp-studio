@@ -9,6 +9,7 @@ import {
   collectImageSlots,
   isLogoImageUrl,
   buildBrandLogoUrlSet,
+  buildHeroProofSelectionDirective,
   type MediaImage,
 } from "./generate-page";
 
@@ -783,5 +784,56 @@ describe("Replace-imagery pipeline preserves logos", () => {
     ];
     blocks = fillEmptyImages(blocks, featLib, PAGE_CTX) as any[];
     expect(blocks[0].props.imageUrl).toBe("/assets/acme-logo.svg");
+  });
+});
+
+describe("buildHeroProofSelectionDirective — brand-fit selection", () => {
+  // A minimal advertised-block menu in the same `- "type":` form the real
+  // system prompt uses. Includes the plain defaults plus several variants.
+  const PROMPT = [
+    '- "hero": Main hero section.',
+    '- "full-bleed-hero": Immersive hero.',
+    '- "magazine-hero": Editorial split hero.',
+    '- "trust-bar": Numeric proof bar.',
+    '- "testimonial": A customer quote.',
+    '- "logo-wall": A wall of customer logos.',
+    '- "benefits-grid": Feature grid.',
+  ].join("\n\n");
+
+  it("enumerates all hero + proof blocks and instructs brand/reference matching", () => {
+    const out = buildHeroProofSelectionDirective(PROMPT, new Map());
+    expect(out).toContain("BLOCK SELECTION");
+    // The full menu of hero + proof blocks is offered, including the plain
+    // defaults (so the model can still pick them when they genuinely fit).
+    expect(out).toContain('"hero"');
+    expect(out).toContain('"full-bleed-hero"');
+    expect(out).toContain('"magazine-hero"');
+    expect(out).toContain('"trust-bar"');
+    expect(out).toContain('"testimonial"');
+    expect(out).toContain('"logo-wall"');
+    // It steers toward deliberate brand/reference matching, not randomness.
+    expect(out).toContain("BRAND CONTEXT");
+    expect(out).toContain("reference URL");
+    expect(out).toContain("never pick at random");
+    // And explicitly discourages reflexively defaulting to the plain blocks.
+    expect(out).toContain('Do NOT reflexively choose the plain "hero"');
+    expect(out).toContain('Do NOT reflexively choose the plain "trust-bar"');
+  });
+
+  it("omits the hero line when only one hero block is advertised (no real choice)", () => {
+    const oneHero = [
+      '- "hero": Main hero.',
+      '- "trust-bar": Proof bar.',
+      '- "testimonial": A quote.',
+    ].join("\n\n");
+    const out = buildHeroProofSelectionDirective(oneHero, new Map());
+    // Proof has two options → a SOCIAL PROOF line; hero has one → no HERO line.
+    expect(out).not.toContain("- HERO:");
+    expect(out).toContain("- SOCIAL PROOF:");
+  });
+
+  it("returns empty when there is no real hero or proof choice", () => {
+    const onlyDefaults = ['- "hero": Main hero.', '- "trust-bar": Proof bar.'].join("\n\n");
+    expect(buildHeroProofSelectionDirective(onlyDefaults, new Map())).toBe("");
   });
 });
