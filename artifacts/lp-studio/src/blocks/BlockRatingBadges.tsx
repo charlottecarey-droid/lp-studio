@@ -6,6 +6,7 @@ import { useBlockFonts } from "@/lib/use-block-fonts";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { BRAND_DISPLAY_STACK, BRAND_BODY_STACK } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { StatCounter } from "./StatCounter";
 
 interface Props {
   props: RatingBadgesBlockProps;
@@ -61,8 +62,13 @@ export function BlockRatingBadges({ props }: Props) {
     : BRAND_BODY_STACK;
 
   return (
-    <section className="w-full" style={{ background: surface.background }}>
-      <div className="max-w-6xl mx-auto px-6 py-16 md:py-20 flex flex-col items-center gap-10 md:gap-12">
+    <section className="relative w-full overflow-hidden" style={{ background: surface.background }}>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-24 top-0 h-72 w-72 rounded-full opacity-10 blur-3xl"
+        style={{ background: `radial-gradient(circle, ${accent}, transparent 70%)` }}
+      />
+      <div className="relative z-10 max-w-6xl mx-auto px-6 py-16 md:py-20 flex flex-col items-center gap-10 md:gap-12">
         {props.eyebrow && (
           <h2
             className="text-center text-sm md:text-base font-semibold uppercase tracking-[0.16em]"
@@ -78,8 +84,8 @@ export function BlockRatingBadges({ props }: Props) {
               <div
                 key={i}
                 className={cn(
-                  "flex flex-col items-center gap-4 rounded-2xl border p-6 text-center transition-shadow",
-                  featured ? "shadow-lg" : "shadow-sm",
+                  "flex flex-col items-center gap-4 rounded-2xl border p-6 text-center transition-all duration-300 hover:-translate-y-1",
+                  featured ? "shadow-lg hover:shadow-2xl" : "shadow-sm hover:shadow-xl",
                 )}
                 style={
                   featured
@@ -95,7 +101,7 @@ export function BlockRatingBadges({ props }: Props) {
                 </span>
                 <div className="flex items-baseline gap-1">
                   <span className="text-4xl font-extrabold leading-none" style={{ fontFamily: headFamily }}>
-                    {badge.rating.toFixed(1)}
+                    <StatCounter value={badge.rating.toFixed(1)} />
                   </span>
                   <span className="text-base font-medium" style={{ color: featured ? "#94a3b8" : "#94a3b8" }}>
                     /{ratingMax}

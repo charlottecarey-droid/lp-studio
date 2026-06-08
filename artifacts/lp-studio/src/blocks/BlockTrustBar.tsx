@@ -5,6 +5,7 @@ import { getHeadingWeightClass, getHeadingLetterSpacingClass } from "@/lib/brand
 import { useCountUp } from "@/hooks/use-count-up";
 import { InlineImage } from "@/components/InlineImage";
 import { InlineText } from "@/components/InlineText";
+import { RevealStagger, RevealItem } from "@/lib/premium-toolkit";
 import { BRAND_BODY_FONT, BRAND_NUMBERS_FONT } from "@/lib/brand-fonts";
 const NUMBERS = BRAND_NUMBERS_FONT;
 
@@ -68,57 +69,81 @@ export function BlockTrustBar({ props, brand, animationsEnabled = true, onFieldC
   const statColor = props.statColor ?? "var(--brand-heading-on-light)";
   const labelColor = props.labelColor ?? "#4A6358";
   const borderColor = props.borderColor ?? "#e2e8f0";
+  const accent = props.statColor && props.statColor.startsWith("#") ? props.statColor : brand.primaryColor ?? "#4f46e5";
+  const editing = !!onFieldChange;
+  const gridClass = "max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-0";
+
+  const renderItem = (item: TrustBarBlockProps["items"][number], i: number) => (
+    <div
+      className="flex flex-col items-center text-center px-8 py-2"
+      style={i > 0 ? { borderLeft: `1px solid ${borderColor}` } : undefined}
+    >
+      {item.image ? (
+        // A logo/photo-style trust item replaces the numeric stat with the
+        // supplied image; the label still reads beneath it.
+        <div className={cn(imageHeightClass, "mb-2 flex items-center justify-center")}>
+          <InlineImage
+            src={item.image}
+            alt={item.imageAlt ?? item.label}
+            loading="lazy"
+            className="max-h-full w-auto object-contain"
+            wrapperClassName="inline-flex h-full items-center justify-center"
+            onUpdate={onFieldChange ? (url) => updateItem(i, { image: url }) : undefined}
+          />
+        </div>
+      ) : (
+        <span
+          className={cn("text-3xl md:text-4xl font-display mb-1", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
+          style={{ color: statColor, fontFamily: NUMBERS }}
+        >
+          {onFieldChange ? (
+            <InlineText
+              value={item.value}
+              onUpdate={(v) => updateItem(i, { value: v })}
+            style={{ fontFamily: NUMBERS }}/>
+          ) : (
+            <AnimatedStat value={item.value} enabled={(props.countUpEnabled ?? true) && animationsEnabled} />
+          )}
+        </span>
+      )}
+      <span
+        className="mb-2 mt-0.5 h-0.5 w-7 rounded-full"
+        style={{ background: `linear-gradient(to right, ${accent}, ${accent}33)` }}
+        aria-hidden
+      />
+      <InlineText
+        as="span"
+        value={item.label}
+        onUpdate={onFieldChange ? (v) => updateItem(i, { label: v }) : undefined}
+        className="text-sm font-medium uppercase tracking-wider"
+        style={{ color: labelColor, fontFamily: BRAND_BODY_FONT }}
+      />
+    </div>
+  );
 
   return (
     <section
-      className="w-full py-12"
+      className="relative w-full overflow-hidden py-12"
       style={{ backgroundColor: bg, borderTop: `1px solid ${borderColor}`, borderBottom: `1px solid ${borderColor}` }}
     >
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-0">
-        {items.map((item, i) => (
-          <div
-            key={i}
-            className="flex flex-col items-center text-center px-8 py-2"
-            style={i > 0 ? { borderLeft: `1px solid ${borderColor}` } : undefined}
-          >
-            {item.image ? (
-              // A logo/photo-style trust item replaces the numeric stat with the
-              // supplied image; the label still reads beneath it.
-              <div className={cn(imageHeightClass, "mb-2 flex items-center justify-center")}>
-                <InlineImage
-                  src={item.image}
-                  alt={item.imageAlt ?? item.label}
-                  loading="lazy"
-                  className="max-h-full w-auto object-contain"
-                  wrapperClassName="inline-flex h-full items-center justify-center"
-                  onUpdate={onFieldChange ? (url) => updateItem(i, { image: url }) : undefined}
-                />
-              </div>
-            ) : (
-              <span
-                className={cn("text-3xl md:text-4xl font-display mb-1", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))}
-                style={{ color: statColor, fontFamily: NUMBERS }}
-              >
-                {onFieldChange ? (
-                  <InlineText
-                    value={item.value}
-                    onUpdate={(v) => updateItem(i, { value: v })}
-                  style={{ fontFamily: NUMBERS }}/>
-                ) : (
-                  <AnimatedStat value={item.value} enabled={(props.countUpEnabled ?? true) && animationsEnabled} />
-                )}
-              </span>
-            )}
-            <InlineText
-              as="span"
-              value={item.label}
-              onUpdate={onFieldChange ? (v) => updateItem(i, { label: v }) : undefined}
-              className="text-sm font-medium uppercase tracking-wider"
-              style={{ color: labelColor, fontFamily: BRAND_BODY_FONT }}
-            />
-          </div>
-        ))}
-      </div>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-24 left-1/2 h-56 w-[32rem] -translate-x-1/2 rounded-full blur-3xl"
+        style={{ background: `radial-gradient(circle, ${accent}14, transparent 70%)` }}
+      />
+      {editing ? (
+        <div className={`relative z-10 ${gridClass}`}>
+          {items.map((item, i) => (
+            <div key={i}>{renderItem(item, i)}</div>
+          ))}
+        </div>
+      ) : (
+        <RevealStagger className={`relative z-10 ${gridClass}`}>
+          {items.map((item, i) => (
+            <RevealItem key={i}>{renderItem(item, i)}</RevealItem>
+          ))}
+        </RevealStagger>
+      )}
     </section>
   );
 }

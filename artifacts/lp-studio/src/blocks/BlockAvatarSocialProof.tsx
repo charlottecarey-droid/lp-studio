@@ -5,6 +5,7 @@ import { useBlockFonts } from "@/lib/use-block-fonts";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { BRAND_DISPLAY_STACK, BRAND_BODY_STACK } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { StatCounter } from "./StatCounter";
 
 interface Props {
   props: AvatarSocialProofBlockProps;
@@ -58,8 +59,13 @@ export function BlockAvatarSocialProof({ props }: Props) {
     : BRAND_BODY_STACK;
 
   return (
-    <section className="w-full" style={{ background: surface.background }}>
-      <div className="max-w-3xl mx-auto px-6 py-16 md:py-20 flex flex-col items-center gap-6 text-center">
+    <section className="relative w-full overflow-hidden" style={{ background: surface.background }}>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 -top-24 h-72 w-72 -translate-x-1/2 rounded-full opacity-10 blur-3xl"
+        style={{ background: `radial-gradient(circle, ${accent}, transparent 70%)` }}
+      />
+      <div className="relative z-10 max-w-3xl mx-auto px-6 py-16 md:py-20 flex flex-col items-center gap-6 text-center">
         <div className="flex items-center">
           <div className="flex">
             {avatars.map((a, i) => (
@@ -90,7 +96,7 @@ export function BlockAvatarSocialProof({ props }: Props) {
           <div className="flex flex-wrap items-center justify-center gap-2">
             {typeof props.rating === "number" && <Stars rating={props.rating} max={ratingMax} color={starColor} />}
             <span className="text-sm font-medium" style={{ color: "#64748b", fontFamily: bodyFamily }}>
-              {typeof props.rating === "number" && <strong style={{ color: textColor }}>{props.rating.toFixed(1)}</strong>}
+              {typeof props.rating === "number" && <strong style={{ color: textColor }}><StatCounter value={props.rating.toFixed(1)} /></strong>}
               {props.reviewSummary ? ` ${props.reviewSummary}` : ""}
             </span>
           </div>

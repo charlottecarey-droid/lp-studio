@@ -5,6 +5,7 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { IconOrImage } from "@/lib/icon-value";
+import { RevealStagger, RevealItem } from "@/lib/premium-toolkit";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 
@@ -39,8 +40,13 @@ export function BlockPasIconGrid({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="w-full py-20 sm:py-28" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
-      <div className="container mx-auto px-6 md:px-12">
+    <section className="relative w-full overflow-hidden py-20 sm:py-28" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-24 right-0 h-80 w-80 rounded-full opacity-[0.08] blur-3xl"
+        style={{ background: `radial-gradient(circle, ${accent}, transparent 70%)` }}
+      />
+      <div className="container relative z-10 mx-auto px-6 md:px-12">
         <div className="mx-auto mb-12 max-w-3xl text-center">
           {(props.eyebrow || onFieldChange) && (
             <InlineText as="p" value={props.eyebrow ?? ""} onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined} className="mb-3 text-xs font-bold uppercase tracking-[0.18em]" style={{ color: accent }} />
@@ -50,9 +56,10 @@ export function BlockPasIconGrid({ props, brand, onFieldChange }: Props) {
             <InlineText as="p" value={props.problemBody ?? ""} onUpdate={onFieldChange ? (v) => update("problemBody", v) : undefined} className="mt-4 text-lg leading-relaxed" style={{ color: muted }} multiline />
           )}
         </div>
-        <div className={`grid grid-cols-1 gap-6 ${COL_CLASS[cols] ?? COL_CLASS[3]}`}>
-          {items.map((it, i) => (
-            <div key={i} className="rounded-2xl border p-6" style={{ borderColor: `${ink}14` }}>
+        {(() => {
+          const gridClass = `grid grid-cols-1 gap-6 ${COL_CLASS[cols] ?? COL_CLASS[3]}`;
+          const itemCard = (it: PasIconGridBlockProps["items"][number], i: number) => (
+            <div className="h-full rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg" style={{ borderColor: `${ink}14` }}>
               <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: `${accent}1A` }}>
                 <IconOrImage value={it.icon} className="h-6 w-6" style={{ color: accent }} alt={it.title} />
               </div>
@@ -61,8 +68,21 @@ export function BlockPasIconGrid({ props, brand, onFieldChange }: Props) {
                 <InlineText as="p" value={it.text ?? ""} onUpdate={onFieldChange ? (v) => updateItem(i, { text: v }) : undefined} className="mt-2 text-sm leading-relaxed" style={{ color: muted }} multiline />
               )}
             </div>
-          ))}
-        </div>
+          );
+          return onFieldChange ? (
+            <div className={gridClass}>
+              {items.map((it, i) => (
+                <div key={i}>{itemCard(it, i)}</div>
+              ))}
+            </div>
+          ) : (
+            <RevealStagger className={gridClass}>
+              {items.map((it, i) => (
+                <RevealItem key={i}>{itemCard(it, i)}</RevealItem>
+              ))}
+            </RevealStagger>
+          );
+        })()}
         {(props.solutionHeading || props.solutionBody || props.ctaLabel || onFieldChange) && (
           <div className="mx-auto mt-14 max-w-3xl text-center">
             {(props.solutionHeading || onFieldChange) && (

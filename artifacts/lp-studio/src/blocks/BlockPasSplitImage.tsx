@@ -28,8 +28,13 @@ export function BlockPasSplitImage({ props, brand, onFieldChange }: Props) {
     onFieldChange?.({ ...props, [key]: value });
 
   const copy = (
-    <div className="flex items-center px-6 py-16 sm:px-12 lg:px-16" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
-      <div className="mx-auto w-full max-w-lg">
+    <div className="relative flex items-center overflow-hidden px-6 py-16 sm:px-12 lg:px-16" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-20 -right-16 h-72 w-72 rounded-full opacity-[0.08] blur-3xl"
+        style={{ background: `radial-gradient(circle, ${accent}, transparent 70%)` }}
+      />
+      <div className="relative z-10 mx-auto w-full max-w-lg">
         {(props.eyebrow || onFieldChange) && (
           <InlineText as="p" value={props.eyebrow ?? ""} onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined} className="mb-3 text-xs font-bold uppercase tracking-[0.18em]" style={{ color: accent }} />
         )}

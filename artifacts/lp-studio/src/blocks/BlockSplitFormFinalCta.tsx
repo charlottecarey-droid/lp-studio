@@ -69,8 +69,18 @@ export function BlockSplitFormFinalCta({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="w-full px-6 py-20 sm:py-28" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
-      <div className="container mx-auto grid max-w-5xl grid-cols-1 items-center gap-12 md:grid-cols-2">
+    <section className="relative w-full overflow-hidden px-6 py-20 sm:py-28" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-24 -left-20 h-80 w-80 rounded-full opacity-10 blur-3xl"
+        style={{ background: `radial-gradient(circle, ${ink}, transparent 70%)` }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-28 right-0 h-80 w-80 rounded-full opacity-[0.07] blur-3xl"
+        style={{ background: `radial-gradient(circle, ${ink}, transparent 70%)` }}
+      />
+      <div className="container relative z-10 mx-auto grid max-w-5xl grid-cols-1 items-center gap-12 md:grid-cols-2">
         <div>
           {(props.eyebrow || onFieldChange) && (
             <InlineText as="p" value={props.eyebrow ?? ""} onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined} className="mb-3 text-xs font-bold uppercase tracking-[0.18em]" style={{ color: ink, opacity: 0.85 }} />

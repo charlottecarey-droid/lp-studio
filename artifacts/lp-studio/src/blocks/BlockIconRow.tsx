@@ -3,6 +3,7 @@ import { pickContrastingColor } from "@/lib/brand-config";
 import type { IconRowBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { IconOrImage } from "@/lib/icon-value";
+import { RevealStagger, RevealItem } from "@/lib/premium-toolkit";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 
@@ -28,6 +29,8 @@ export function BlockIconRow({ props, brand, onFieldChange }: Props) {
   const items = props.items ?? [];
   const cols = props.columns ?? (items.length >= 4 ? 4 : (items.length as 2 | 3) || 3);
 
+  const editing = !!onFieldChange;
+
   const update = <K extends keyof IconRowBlockProps>(key: K, value: IconRowBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
   const updateItem = (i: number, patch: Partial<IconRowBlockProps["items"][number]>) => {
@@ -35,9 +38,31 @@ export function BlockIconRow({ props, brand, onFieldChange }: Props) {
     onFieldChange({ ...props, items: items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)) });
   };
 
+  const renderItem = (it: IconRowBlockProps["items"][number], i: number) => (
+    <div className="group flex flex-col items-center text-center">
+      <div
+        className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl ring-1 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg"
+        style={{ backgroundColor: `${accent}14`, color: accent, ["--tw-ring-color" as string]: `${accent}29` }}
+      >
+        <IconOrImage value={it.icon} className="h-6 w-6" alt={it.title} />
+      </div>
+      <InlineText as="h3" value={it.title} onUpdate={editing ? (v) => updateItem(i, { title: v }) : undefined} className="text-lg font-bold" style={{ color: ink, fontFamily: DISPLAY }} />
+      {it.text !== undefined && (
+        <InlineText as="p" value={it.text} onUpdate={editing ? (v) => updateItem(i, { text: v }) : undefined} className="mt-2 text-sm leading-relaxed" style={{ color: muted }} />
+      )}
+    </div>
+  );
+
+  const grid = `grid grid-cols-1 gap-x-8 gap-y-12 ${COL_CLASS[cols] ?? COL_CLASS[3]}`;
+
   return (
-    <section className="w-full py-20 sm:py-24" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
-      <div className="container mx-auto px-6 md:px-12">
+    <section className="relative w-full overflow-hidden py-20 sm:py-24" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full blur-3xl"
+        style={{ background: `radial-gradient(circle, ${accent}1a, transparent 70%)` }}
+      />
+      <div className="container relative z-10 mx-auto px-6 md:px-12">
         {(props.eyebrow !== undefined || props.heading !== undefined || props.subheading !== undefined) && (
           <div className="mx-auto mb-12 max-w-2xl text-center">
             {props.eyebrow !== undefined && (
@@ -51,21 +76,19 @@ export function BlockIconRow({ props, brand, onFieldChange }: Props) {
             )}
           </div>
         )}
-        <div className={`grid grid-cols-1 gap-8 ${COL_CLASS[cols] ?? COL_CLASS[3]}`}>
-          {items.map((it, i) => {
-            return (
-              <div key={i} className="flex flex-col items-center text-center">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: `${accent}1A`, color: accent }}>
-                  <IconOrImage value={it.icon} className="h-5 w-5" alt={it.title} />
-                </div>
-                <InlineText as="h3" value={it.title} onUpdate={onFieldChange ? (v) => updateItem(i, { title: v }) : undefined} className="text-lg font-bold" style={{ color: ink, fontFamily: DISPLAY }} />
-                {it.text !== undefined && (
-                  <InlineText as="p" value={it.text} onUpdate={onFieldChange ? (v) => updateItem(i, { text: v }) : undefined} className="mt-2 text-sm leading-relaxed" style={{ color: muted }} />
-                )}
-              </div>
-            );
-          })}
-        </div>
+        {editing ? (
+          <div className={grid}>
+            {items.map((it, i) => (
+              <div key={i}>{renderItem(it, i)}</div>
+            ))}
+          </div>
+        ) : (
+          <RevealStagger className={grid}>
+            {items.map((it, i) => (
+              <RevealItem key={i}>{renderItem(it, i)}</RevealItem>
+            ))}
+          </RevealStagger>
+        )}
       </div>
     </section>
   );

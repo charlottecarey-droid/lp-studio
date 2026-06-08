@@ -70,9 +70,10 @@ function Logo({
   );
 }
 
-export function BlockLogoMarquee({ props }: Props) {
+export function BlockLogoMarquee({ props, brand }: Props) {
   const surface = resolveSectionSurface(props, "#ffffff");
   const textColor = props.textColor || surface.color || "#334155";
+  const accent = brand?.primaryColor ?? "#4f46e5";
   const grayscale = props.grayscale !== false;
   const twoRows = props.twoRows !== false;
   const duration = SPEED_SECONDS[props.speed ?? "medium"];
@@ -109,7 +110,12 @@ export function BlockLogoMarquee({ props }: Props) {
   );
 
   return (
-    <section className="w-full overflow-hidden" style={{ background: surface.background }}>
+    <section className="relative w-full overflow-hidden" style={{ background: surface.background }}>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-20 left-1/2 h-52 w-[34rem] -translate-x-1/2 rounded-full blur-3xl"
+        style={{ background: `radial-gradient(circle, ${accent}12, transparent 70%)` }}
+      />
       <style>{`
         @keyframes lmqScrollX {
           from { transform: translateX(0); }
@@ -118,14 +124,21 @@ export function BlockLogoMarquee({ props }: Props) {
         .lmq-track { animation-name: lmqScrollX; animation-timing-function: linear; animation-iteration-count: infinite; }
         @media (prefers-reduced-motion: reduce) { .lmq-track { animation: none; } }
       `}</style>
-      <div className="py-14 md:py-16">
+      <div className="relative z-10 py-14 md:py-16">
         {props.eyebrow && (
-          <p
-            className="mb-10 text-center text-xs md:text-sm font-semibold uppercase tracking-[0.18em]"
-            style={{ color: "#64748b", fontFamily: bodyFamily }}
-          >
-            {props.eyebrow}
-          </p>
+          <div className="mb-10 flex flex-col items-center">
+            <p
+              className="text-center text-xs md:text-sm font-semibold uppercase tracking-[0.18em]"
+              style={{ color: "#64748b", fontFamily: bodyFamily }}
+            >
+              {props.eyebrow}
+            </p>
+            <span
+              className="mt-3 h-0.5 w-10 rounded-full"
+              style={{ background: `linear-gradient(to right, ${accent}, ${accent}33)` }}
+              aria-hidden
+            />
+          </div>
         )}
         <div className="relative flex w-full flex-col gap-7">
           <div

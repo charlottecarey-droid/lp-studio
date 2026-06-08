@@ -30,10 +30,20 @@ export function BlockCtaCenteredMinimal({ props, brand, onFieldChange }: Props) 
   return (
     <section className="w-full px-6 py-32 sm:py-48" style={{ background: sectionBg.background }}>
       <div
-        className="container mx-auto max-w-4xl rounded-[3rem] border border-black/5 p-12 text-center shadow-sm sm:p-24"
+        className="container relative mx-auto max-w-4xl overflow-hidden rounded-[3rem] border border-black/5 p-12 text-center shadow-sm sm:p-24"
         style={{ backgroundColor: surface, borderColor: border }}
       >
-        <div className="mx-auto flex max-w-3xl flex-col items-center">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-1"
+          style={{ background: `linear-gradient(to right, transparent, ${accent}, transparent)` }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-32 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full opacity-[0.08] blur-3xl"
+          style={{ background: `radial-gradient(circle, ${accent}, transparent 70%)` }}
+        />
+        <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
               as="span"

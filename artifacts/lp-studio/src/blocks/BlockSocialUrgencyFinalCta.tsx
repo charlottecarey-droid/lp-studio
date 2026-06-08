@@ -28,8 +28,13 @@ export function BlockSocialUrgencyFinalCta({ props, brand, onFieldChange }: Prop
     onFieldChange?.({ ...props, [key]: value });
 
   return (
-    <section className="w-full px-6 py-20 sm:py-28" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
-      <div className="container mx-auto max-w-3xl text-center">
+    <section className="relative w-full overflow-hidden px-6 py-20 sm:py-28" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-24 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full opacity-[0.08] blur-3xl"
+        style={{ background: `radial-gradient(circle, ${accent}, transparent 70%)` }}
+      />
+      <div className="container relative z-10 mx-auto max-w-3xl text-center">
         {(props.urgencyText || onFieldChange) && (
           <div className="mb-6 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold" style={{ backgroundColor: `${accent}1A`, color: accent }}>
             <Clock className="h-4 w-4" />

@@ -28,8 +28,13 @@ export function BlockCtaSplitImage({ props, brand, onFieldChange }: Props) {
     onFieldChange?.({ ...props, [key]: value });
 
   return (
-    <section className="w-full py-24 sm:py-32" style={{ background: surface.background }}>
-      <div className="container mx-auto px-6 md:px-12 max-w-7xl">
+    <section className="relative w-full overflow-hidden py-24 sm:py-32" style={{ background: surface.background }}>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-32 top-1/2 h-96 w-96 -translate-y-1/2 rounded-full opacity-[0.08] blur-3xl"
+        style={{ background: `radial-gradient(circle, ${accent}, transparent 70%)` }}
+      />
+      <div className="container relative z-10 mx-auto px-6 md:px-12 max-w-7xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
           <div className="order-2 lg:order-1 relative aspect-[4/3] lg:aspect-square rounded-3xl overflow-hidden shadow-2xl">
             <InlineImage

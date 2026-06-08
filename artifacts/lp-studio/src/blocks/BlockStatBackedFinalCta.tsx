@@ -4,6 +4,8 @@ import type { StatBackedFinalCtaBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
+import { StatCounter } from "./StatCounter";
+import { RevealStagger, RevealItem } from "@/lib/premium-toolkit";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 
@@ -38,8 +40,18 @@ export function BlockStatBackedFinalCta({ props, brand, onFieldChange }: Props) 
   };
 
   return (
-    <section className="w-full px-6 py-20 sm:py-28" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
-      <div className="container mx-auto max-w-4xl text-center">
+    <section className="relative w-full overflow-hidden px-6 py-20 sm:py-28" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-32 -left-24 h-96 w-96 rounded-full opacity-20 blur-3xl"
+        style={{ background: `radial-gradient(circle, ${accent}, transparent 70%)` }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-32 -right-24 h-96 w-96 rounded-full opacity-10 blur-3xl"
+        style={{ background: `radial-gradient(circle, ${accent}, transparent 70%)` }}
+      />
+      <div className="container relative z-10 mx-auto max-w-4xl text-center">
         {(props.eyebrow || onFieldChange) && (
           <InlineText as="p" value={props.eyebrow ?? ""} onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined} className="mb-3 text-xs font-bold uppercase tracking-[0.18em]" style={{ color: accent }} />
         )}
@@ -47,14 +59,34 @@ export function BlockStatBackedFinalCta({ props, brand, onFieldChange }: Props) 
         {(props.subheading || onFieldChange) && (
           <InlineText as="p" value={props.subheading ?? ""} onUpdate={onFieldChange ? (v) => update("subheading", v) : undefined} className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed" style={{ color: muted }} multiline />
         )}
-        <div className={`mt-12 grid grid-cols-1 gap-8 ${COL_CLASS[cols] ?? COL_CLASS[3]}`}>
-          {stats.map((s, i) => (
-            <div key={i} className="text-center">
-              <InlineText as="div" value={s.value} onUpdate={onFieldChange ? (v) => updateStat(i, { value: v }) : undefined} className="text-4xl font-extrabold tracking-tight sm:text-5xl" style={{ color: accent, fontFamily: DISPLAY }} />
+        {(() => {
+          const gridClass = `mt-12 grid grid-cols-1 gap-8 ${COL_CLASS[cols] ?? COL_CLASS[3]}`;
+          const statItem = (s: StatBackedFinalCtaBlockProps["stats"][number], i: number) => (
+            <div className="text-center">
+              <div className="text-4xl font-extrabold tracking-tight sm:text-5xl" style={{ color: accent, fontFamily: DISPLAY }}>
+                {onFieldChange ? (
+                  <InlineText as="span" value={s.value} onUpdate={(v) => updateStat(i, { value: v })} />
+                ) : (
+                  <StatCounter value={s.value} />
+                )}
+              </div>
               <InlineText as="p" value={s.label} onUpdate={onFieldChange ? (v) => updateStat(i, { label: v }) : undefined} className="mt-2 text-sm font-medium" style={{ color: muted }} />
             </div>
-          ))}
-        </div>
+          );
+          return onFieldChange ? (
+            <div className={gridClass}>
+              {stats.map((s, i) => (
+                <div key={i}>{statItem(s, i)}</div>
+              ))}
+            </div>
+          ) : (
+            <RevealStagger className={gridClass}>
+              {stats.map((s, i) => (
+                <RevealItem key={i}>{statItem(s, i)}</RevealItem>
+              ))}
+            </RevealStagger>
+          );
+        })()}
         {(props.ctaLabel || onFieldChange) && (
           <div className="mt-12">
             <CtaButton

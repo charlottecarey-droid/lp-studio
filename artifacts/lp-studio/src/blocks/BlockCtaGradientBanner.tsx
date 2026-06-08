@@ -31,6 +31,16 @@ export function BlockCtaGradientBanner({ props, brand, onFieldChange }: Props) {
           style={{ background: `linear-gradient(135deg, ${accent}, ${accent}dd)`, color: onAccent }}
         >
           <div className="absolute inset-0 bg-black/5 mix-blend-overlay" />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full opacity-20 blur-3xl"
+            style={{ background: `radial-gradient(circle, ${onAccent}, transparent 70%)` }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -bottom-28 -left-16 h-80 w-80 rounded-full opacity-10 blur-3xl"
+            style={{ background: `radial-gradient(circle, ${onAccent}, transparent 70%)` }}
+          />
           <div className="relative z-10 flex flex-col items-center">
             <InlineText
               as="h2"

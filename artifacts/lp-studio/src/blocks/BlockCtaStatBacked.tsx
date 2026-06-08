@@ -4,6 +4,8 @@ import { pickContrastingColor } from "@/lib/brand-config";
 import type { CtaStatBackedBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
+import { StatCounter } from "./StatCounter";
+import { RevealStagger, RevealItem } from "@/lib/premium-toolkit";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 
@@ -90,19 +92,20 @@ export function BlockCtaStatBacked({ props, brand, onFieldChange }: Props) {
           </div>
 
           <div className="lg:w-1/2 w-full">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-6">
-              {stats.map((stat, i) => (
+            {(() => {
+              const gridClass = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-6";
+              const statCard = (stat: CtaStatBackedBlockProps["stats"][number], i: number) => (
                 <div
-                  key={i}
-                  className="flex flex-col gap-2 p-8 md:p-10 rounded-3xl border shadow-sm"
+                  className="flex h-full flex-col gap-2 p-8 md:p-10 rounded-3xl border shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
                   style={{ backgroundColor: surface, borderColor: border }}
                 >
-                  <InlineText
-                    as="span"
-                    value={stat.value}
-                    onUpdate={onFieldChange ? (v: string) => updateStat(i, "value", v) : undefined}
-                    className="text-5xl md:text-6xl font-black tracking-tight"
-                    style={{ color: accent, fontFamily: DISPLAY }} />
+                  <span className="text-5xl md:text-6xl font-black tracking-tight" style={{ color: accent, fontFamily: DISPLAY }}>
+                    {onFieldChange ? (
+                      <InlineText as="span" value={stat.value} onUpdate={(v: string) => updateStat(i, "value", v)} />
+                    ) : (
+                      <StatCounter value={stat.value} />
+                    )}
+                  </span>
                   <InlineText
                     as="span"
                     value={stat.label}
@@ -110,8 +113,21 @@ export function BlockCtaStatBacked({ props, brand, onFieldChange }: Props) {
                     className="text-sm md:text-base font-bold uppercase tracking-[0.15em]"
                     style={{ color: surfaceMuted, fontFamily: BODY }} />
                 </div>
-              ))}
-            </div>
+              );
+              return onFieldChange ? (
+                <div className={gridClass}>
+                  {stats.map((stat, i) => (
+                    <div key={i}>{statCard(stat, i)}</div>
+                  ))}
+                </div>
+              ) : (
+                <RevealStagger className={gridClass}>
+                  {stats.map((stat, i) => (
+                    <RevealItem key={i}>{statCard(stat, i)}</RevealItem>
+                  ))}
+                </RevealStagger>
+              );
+            })()}
           </div>
         </div>
       </div>
