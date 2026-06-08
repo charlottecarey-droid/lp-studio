@@ -72,8 +72,16 @@ function FactRow({
 
   const resolved = flag.triageState !== "pending";
   const contextLabel = flag.contextLabel?.trim() ?? "";
-  const techPath = [flag.blockType, flag.fieldPath].filter(Boolean).join(" · ");
   const display = flag.replacementText ?? flag.originalText;
+
+  const valuePair = (
+    <p className="text-sm break-words">
+      {contextLabel ? (
+        <span className="font-medium text-foreground/70">{contextLabel} — </span>
+      ) : null}
+      <span className="font-semibold text-foreground">{display}</span>
+    </p>
+  );
 
   const guard = async (label: string, fn: () => Promise<unknown>) => {
     setBusy(label);
@@ -109,59 +117,55 @@ function FactRow({
         />
       ) : null}
       <div className="min-w-0 flex-1">
-      <div className="flex items-start justify-between gap-2 mb-1.5">
-        <div className="min-w-0">
-          {contextLabel ? (
-            <p className="text-xs font-medium text-foreground/80 truncate" title={contextLabel}>
-              {contextLabel}
-            </p>
-          ) : null}
-          {techPath ? (
-            <p className="text-[10px] text-muted-foreground/70 truncate" title={techPath}>
-              {techPath}
-            </p>
-          ) : null}
-        </div>
-        {resolved && STATE_BADGE[flag.triageState] && (
+      {resolved && STATE_BADGE[flag.triageState] && (
+        <div className="flex justify-end mb-1.5">
           <Badge variant="secondary" className="shrink-0 text-[10px]">
             {STATE_BADGE[flag.triageState]}
           </Badge>
-        )}
-      </div>
+        </div>
+      )}
 
       {editing ? (
-        <div className="flex items-center gap-2">
-          <Input value={draft} onChange={(e) => setDraft(e.target.value)} className="h-9 text-sm flex-1" />
-          <Button
-            size="sm"
-            disabled={busy !== null || !draft.trim()}
-            onClick={() => guard("edit", async () => { await ff.edit(flag.id, draft.trim()); setEditing(false); })}
-          >
-            {busy === "edit" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Save"}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setDraft(display); }}>
-            Cancel
-          </Button>
+        <div className="space-y-1.5">
+          {contextLabel ? (
+            <p className="text-xs font-medium text-foreground/70">{contextLabel}</p>
+          ) : null}
+          <div className="flex items-center gap-2">
+            <Input value={draft} onChange={(e) => setDraft(e.target.value)} className="h-9 text-sm flex-1" />
+            <Button
+              size="sm"
+              disabled={busy !== null || !draft.trim()}
+              onClick={() => guard("edit", async () => { await ff.edit(flag.id, draft.trim()); setEditing(false); })}
+            >
+              {busy === "edit" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Save"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { setEditing(false); setDraft(display); }}>
+              Cancel
+            </Button>
+          </div>
         </div>
       ) : swapOpen ? (
-        <div className="flex items-center gap-2">
-          <Select onValueChange={(v) => guard("swap", async () => { await ff.swap(flag.id, Number(v)); setSwapOpen(false); })}>
-            <SelectTrigger className="h-9 text-sm flex-1">
-              <SelectValue placeholder={options.length ? "Pick an approved fact…" : "No approved facts of this kind"} />
-            </SelectTrigger>
-            <SelectContent>
-              {options.map((o) => (
-                <SelectItem key={o.id} value={String(o.id)}>
-                  {o.label ? `${o.label} — ${o.value}` : o.value}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button size="sm" variant="ghost" onClick={() => setSwapOpen(false)}>Cancel</Button>
+        <div className="space-y-1.5">
+          {valuePair}
+          <div className="flex items-center gap-2">
+            <Select onValueChange={(v) => guard("swap", async () => { await ff.swap(flag.id, Number(v)); setSwapOpen(false); })}>
+              <SelectTrigger className="h-9 text-sm flex-1">
+                <SelectValue placeholder={options.length ? "Pick an approved fact…" : "No approved facts of this kind"} />
+              </SelectTrigger>
+              <SelectContent>
+                {options.map((o) => (
+                  <SelectItem key={o.id} value={String(o.id)}>
+                    {o.label ? `${o.label} — ${o.value}` : o.value}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button size="sm" variant="ghost" onClick={() => setSwapOpen(false)}>Cancel</Button>
+          </div>
         </div>
       ) : savingLib ? (
         <div className="space-y-2">
-          <p className="text-sm font-medium break-words">{display}</p>
+          {valuePair}
           <p className="text-[11px] text-muted-foreground">
             Add a label so you can recognise this fact when reusing it later.
           </p>
@@ -187,7 +191,7 @@ function FactRow({
           </div>
         </div>
       ) : (
-        <p className="text-sm font-medium break-words">{display}</p>
+        valuePair
       )}
 
       {!editing && !swapOpen && !savingLib && (
