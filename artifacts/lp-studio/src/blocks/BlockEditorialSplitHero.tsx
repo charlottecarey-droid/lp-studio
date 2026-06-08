@@ -326,18 +326,6 @@ export function BlockEditorialSplitHero({
           transition={{ duration: 1, ease: EASE_OUT_EXPO, delay: 0.3 }}
         >
           <InlineText as="span" value={props.headline} onUpdate={field("headline")} />
-          {(props.headlineAccentWord || onFieldChange) && (
-            <>
-              <br />
-              <InlineText
-                as="span"
-                value={props.headlineAccentWord ?? ""}
-                onUpdate={field("headlineAccentWord")}
-                className="italic"
-                style={{ color: accent }}
-              />
-            </>
-          )}
         </motion.h1>
 
         {(props.subheadline || onFieldChange) && (

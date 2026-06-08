@@ -4488,7 +4488,6 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       navCtaUrl: "#",
       eyebrow: "The New Standard",
       headline: "Craft that speaks softly and carries weight.",
-      headlineAccentWord: "softly",
       subheadline:
         "An editorial split hero with a refined serif voice — made for premium, design-led brands.",
       ctaText: "Explore the collection",

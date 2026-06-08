@@ -2944,8 +2944,8 @@ export interface AuroraGradientHeroBlockProps
   chips?: AuroraHeroChip[];
 }
 
-/** 3. Light editorial split — eyebrow, large Playfair-style headline with an
- *  italic-accent word, a sub, a single CTA, and an image on one side. */
+/** 3. Light editorial split — eyebrow, large Playfair-style headline, a sub, a
+ *  single CTA, and an image on one side. */
 export interface EditorialSplitHeroBlockProps
   extends CtaModalConfig,
     HeroNavConfig,
@@ -2953,8 +2953,6 @@ export interface EditorialSplitHeroBlockProps
     HeroBrandStyleConfig {
   eyebrow?: string;
   headline: string;
-  /** Portion of the headline rendered in italic accent. */
-  headlineAccentWord?: string;
   subheadline?: string;
   imageUrl?: string;
   imageAlt?: string;

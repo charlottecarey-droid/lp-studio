@@ -18,6 +18,8 @@
 import { describe, it, expect } from "vitest";
 import {
   buildGeneralSystemPrompt,
+  buildDsoSystemPrompt,
+  buildDsoPracticesSystemPrompt,
   isContentSeriesRequest,
   isBlogSeriesRequest,
   isStorefrontRequest,
@@ -75,6 +77,74 @@ describe("buildGeneralSystemPrompt — ai_enabled filtering", () => {
     expect(types).not.toContain("dso-heartland-hero");
     expect(types).not.toContain("footer");
     expect(types).toContain("nav-header");
+  });
+
+  // Regression: the showcase hero cluster (magazine-hero / cinematic-video-hero
+  // / aurora-gradient-hero / editorial-split-hero / parallax-layers-hero /
+  // spotlight-glow-hero) lives in ONE blank-line paragraph. The previous
+  // paragraph-level filter only inspected the paragraph's FIRST line, so
+  // disabling a non-first cluster member (e.g. editorial-split-hero) did nothing
+  // and disabling the first member over-dropped its siblings.
+  it("drops a non-first block inside a shared paragraph (showcase hero cluster)", () => {
+    const prompt = buildGeneralSystemPrompt({ aiDisabledTypes: new Set(["editorial-split-hero"]) });
+    const types = advertisedTypes(prompt);
+    expect(types).not.toContain("editorial-split-hero");
+    // Siblings in the same paragraph remain advertised.
+    for (const t of ["magazine-hero", "cinematic-video-hero", "aurora-gradient-hero", "parallax-layers-hero", "spotlight-glow-hero"]) {
+      expect(types).toContain(t);
+    }
+  });
+
+  it("drops the FIRST block of a shared paragraph without over-dropping siblings", () => {
+    const prompt = buildGeneralSystemPrompt({ aiDisabledTypes: new Set(["magazine-hero"]) });
+    const types = advertisedTypes(prompt);
+    expect(types).not.toContain("magazine-hero");
+    for (const t of ["cinematic-video-hero", "aurora-gradient-hero", "editorial-split-hero", "parallax-layers-hero", "spotlight-glow-hero"]) {
+      expect(types).toContain(t);
+    }
+  });
+});
+
+describe("DSO prompts — ai_enabled filtering", () => {
+  // The DSO builders return hardcoded block lists. Filtering happens at the
+  // generate-page callsite via stripAiDisabledBlockLines; these tests apply the
+  // same line-level strip the callsite uses to confirm the DSO block lines drop.
+  function stripped(prompt: string, disabled: string[]): string[] {
+    const set = new Set(disabled);
+    const kept: string[] = [];
+    let dropping = false;
+    for (const line of prompt.split("\n")) {
+      const m = line.match(/^- "([a-z0-9-]+)":/);
+      if (m) {
+        dropping = set.has(m[1]);
+        if (!dropping) kept.push(m[1]);
+        continue;
+      }
+      if (line.trim() === "") dropping = false;
+    }
+    return kept;
+  }
+
+  it("advertises DSO enterprise blocks by default", () => {
+    const types = advertisedTypes(buildDsoSystemPrompt({ isDandyTenant: true, brandName: "Dandy" }));
+    expect(types).toContain("dso-heartland-hero");
+    expect(types).toContain("dso-comparison");
+  });
+
+  it("drops a disabled DSO enterprise block after the callsite strip", () => {
+    const prompt = buildDsoSystemPrompt({ isDandyTenant: true, brandName: "Dandy" });
+    const kept = stripped(prompt, ["dso-comparison"]);
+    expect(kept).not.toContain("dso-comparison");
+    expect(kept).toContain("dso-heartland-hero");
+  });
+
+  it("drops a disabled DSO Practices block after the callsite strip", () => {
+    const prompt = buildDsoPracticesSystemPrompt({ isDandyTenant: true, brandName: "Dandy" });
+    const all = advertisedTypes(prompt);
+    expect(all.length).toBeGreaterThan(0);
+    const target = all[1] ?? all[0];
+    const kept = stripped(prompt, [target]);
+    expect(kept).not.toContain(target);
   });
 });
 

@@ -198,15 +198,6 @@ export function EditorialSplitHeroPanel({ props, onChange }: Props) {
           />
         </div>
         <div>
-          <Label className="text-[11px] text-muted-foreground">Headline accent word (italic)</Label>
-          <Input
-            value={props.headlineAccentWord ?? ""}
-            onChange={(e) => update({ headlineAccentWord: e.target.value })}
-            placeholder="Intention."
-            className="h-8 text-xs"
-          />
-        </div>
-        <div>
           <Label className="text-[11px] text-muted-foreground">Subheadline</Label>
           <AiTextField
             value={props.subheadline ?? ""}

@@ -3404,7 +3404,7 @@ SHOWCASE BLOCKS (use these to give each page a distinct, premium feel — NOT ev
 - "magazine-hero": Editorial split hero with a large photo, serif display headline, eyebrow tag and byline. Use for premium, brand-led, or storytelling pages. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (15–28 words), ctaText (2–5 words), ctaUrl ("#"), bylineLabel (e.g. "Featured"), bylineValue (e.g. "Issue 01"), imageUrl (""), layout ("split"|"stacked"|"cover"), imageAspect ("portrait"|"landscape"|"wide").
 - "cinematic-video-hero": Immersive full-bleed hero with a looping background video (or a poster image fallback), a glass nav, and a dark scrim. Renders its OWN nav — never precede it with a nav block. Use for atmospheric, cinematic, brand-led pages. Props: showNav (boolean, default true), logoText (brand name), navLinks (array of 3–5 of {label (1–2 words), href ("#")}), navCtaText (2–3 words), navCtaUrl ("#"), eyebrow (2–4 words), headline (5–12 words), subheadline (15–28 words), ctaText (2–5 words), ctaUrl ("#"), ctaSecondaryText (2–4 words, e.g. "Watch Film"), backgroundVideoUrl ("" — set ONLY with a REAL video URL), backgroundImageUrl (""), overlayOpacity (number 0.3–0.7), scrollCueLabel (1–2 words, or "").
 - "aurora-gradient-hero": Modern SaaS hero on an animated aurora gradient with floating glass feature chips. Renders its OWN nav — never precede it with a nav block. Use for software, AI, and tech brands. Props: showNav (boolean, default true), logoText (brand name), navLinks (array of 3–5 of {label, href ("#")}), navSignInText ("Sign in"), navSignInUrl ("#"), navCtaText (2–3 words), navCtaUrl ("#"), badgeText (3–6 words), headline (5–10 words), headlineGradientWord (one word from the headline to accent), subheadline (15–28 words), ctaText (2–5 words), ctaUrl ("#"), ctaSecondaryText (2–4 words), chips (array of EXACTLY 2 of {icon (lucide name e.g. "Zap","Shield"), title (1–3 words), subtitle (3–6 words)}).
-- "editorial-split-hero": Light, refined editorial split hero with a serif headline and a single side image. Renders its OWN nav — never precede it with a nav block. Use for premium, design-led, fashion, or luxury brands. Props: showNav (boolean, default true), logoText (brand name), navLinks (array of 3–5 of {label, href ("#")}), navCtaText (2–3 words), navCtaUrl ("#"), eyebrow (2–4 words), headline (5–12 words), headlineAccentWord (one word from the headline to italicize/accent), subheadline (15–28 words), ctaText (2–5 words), ctaUrl ("#"), imageUrl (""), imageSide ("left"|"right").
+- "editorial-split-hero": Light, refined editorial split hero with a serif headline and a single side image. Renders its OWN nav — never precede it with a nav block. Use for premium, design-led, fashion, or luxury brands. Props: showNav (boolean, default true), logoText (brand name), navLinks (array of 3–5 of {label, href ("#")}), navCtaText (2–3 words), navCtaUrl ("#"), eyebrow (2–4 words), headline (5–12 words), subheadline (15–28 words), ctaText (2–5 words), ctaUrl ("#"), imageUrl (""), imageSide ("left"|"right").
 - "parallax-layers-hero": Dark hero with drifting parallax shapes and an optional trusted-by logo marquee. Renders its OWN nav — never precede it with a nav block. Use for bold, cinematic, high-impact pages. Props: showNav (boolean, default true), logoText (brand name), navLinks (array of 3–5 of {label, href ("#")}), navCtaText (2–3 words), navCtaUrl ("#"), badgeText (3–6 words), headline (5–12 words), subheadline (15–28 words), ctaText (2–5 words), ctaUrl ("#"), ctaSecondaryText (2–4 words), shapeImage1Url (""), shapeImage2Url (""), shapeImage3Url (""), parallaxStrength (number 0.2–0.8), showMarquee (boolean), marqueeLabel (3–5 words), marqueeLogos (array of 4–6 short brand names).
 - "spotlight-glow-hero": Dark developer/SaaS hero with a cursor-follow glow and a bento product preview (dashboard image + code card + feature sidebar). Renders its OWN nav — never precede it with a nav block. Use for developer tools and technical SaaS. Props: showNav (boolean, default true), logoText (brand name), navLinks (array of 3–5 of {label, href ("#")}), navSignInText ("Sign in"), navSignInUrl ("#"), navCtaText (2–3 words), navCtaUrl ("#"), badgeText (2–5 words), headline (4–9 words), headlineGradientWord (one word from the headline to accent), subheadline (15–28 words), ctaText (2–5 words), ctaUrl ("#"), ctaSecondaryText (2–4 words), showPreview (boolean, default true), previewImageUrl (""), codeFileName (e.g. "config.ts"), codeSnippet (a short 2–4 line code snippet), sidebarItems (array of 2–4 of {icon (lucide name), label (2–4 words)}).
 
@@ -3592,6 +3592,39 @@ const GENERAL_SHOWCASE_INTRO_MARKER = "SHOWCASE BLOCKS (";
 const GENERAL_FOOTER_MARKER = "GLOBAL DENSITY ENFORCEMENT";
 const GENERAL_BLOCK_TYPE_RE = /^- "([a-z0-9-]+)":/;
 
+// Remove every block-catalog entry whose type is AI-disabled from an assembled
+// system prompt. Operates LINE-BY-LINE (a block entry is a line matching
+// GENERAL_BLOCK_TYPE_RE) rather than on blank-line paragraphs, because several
+// block entries can share one paragraph — e.g. the showcase hero cluster
+// (magazine/cinematic/aurora/editorial-split-hero/parallax-layers/spotlight).
+// Paragraph-level matching only inspected the FIRST line of such a paragraph, so
+// disabling a non-first block did nothing and disabling the first over-dropped
+// its siblings. This also drops a removed block's continuation lines (indented
+// EXAMPLE rows, etc.) up to the next block line or blank line. Fail-open: an
+// empty disabled set returns the prompt unchanged.
+function stripAiDisabledBlockLines(prompt: string, disabled: Set<string>): string {
+  if (disabled.size === 0) return prompt;
+  const out: string[] = [];
+  let dropping = false;
+  for (const line of prompt.split("\n")) {
+    const m = line.match(GENERAL_BLOCK_TYPE_RE);
+    if (m) {
+      dropping = disabled.has(m[1]);
+      if (dropping) continue;
+      out.push(line);
+      continue;
+    }
+    if (line.trim() === "") {
+      dropping = false;
+      out.push(line);
+      continue;
+    }
+    if (dropping) continue;
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
 // Keywords that indicate the request is for a podcast / webinar / content-series
 // page, which unlocks the full-page "content-series" block.
 export function isContentSeriesRequest(prompt: string): boolean {
@@ -3673,37 +3706,29 @@ export function buildGeneralSystemPrompt(opts?: {
   includeStorefront?: boolean;
 }): string {
   const disabled = opts?.aiDisabledTypes ?? new Set<string>();
-  const keep = (doc: string): boolean => {
-    const m = doc.match(GENERAL_BLOCK_TYPE_RE);
-    return !(m && disabled.has(m[1]));
-  };
   const paras = GENERAL_SYSTEM_PROMPT_TEMPLATE.split("\n\n");
   const out: string[] = [];
   let injectedCore = false;
   let injectedShowcase = false;
   for (const para of paras) {
     if (!injectedCore && para.startsWith(GENERAL_SHOWCASE_INTRO_MARKER)) {
-      for (const b of GENERAL_EXTRA_CORE_BLOCKS) if (keep(b)) out.push(b);
+      out.push(...GENERAL_EXTRA_CORE_BLOCKS);
       injectedCore = true;
     }
     if (!injectedShowcase && para.startsWith(GENERAL_FOOTER_MARKER)) {
-      for (const b of GENERAL_EXTRA_SHOWCASE_BLOCKS) if (keep(b)) out.push(b);
-      if (opts?.includeContentSeries && keep(GENERAL_CONTENT_SERIES_BLOCK)) {
-        out.push(GENERAL_CONTENT_SERIES_BLOCK);
-      }
-      if (opts?.includeBlogSeries && keep(GENERAL_BLOG_SERIES_BLOCK)) {
-        out.push(GENERAL_BLOG_SERIES_BLOCK);
-      }
-      if (opts?.includeStorefront && keep(GENERAL_STOREFRONT_BLOCK)) {
-        out.push(GENERAL_STOREFRONT_BLOCK);
-      }
+      out.push(...GENERAL_EXTRA_SHOWCASE_BLOCKS);
+      if (opts?.includeContentSeries) out.push(GENERAL_CONTENT_SERIES_BLOCK);
+      if (opts?.includeBlogSeries) out.push(GENERAL_BLOG_SERIES_BLOCK);
+      if (opts?.includeStorefront) out.push(GENERAL_STOREFRONT_BLOCK);
       injectedShowcase = true;
     }
-    // Drop existing block paragraphs that are AI-disabled; pass everything else.
-    if (!keep(para)) continue;
     out.push(para);
   }
-  return out.join("\n\n");
+  // Inject everything, then strip AI-disabled block entries line-by-line so
+  // blocks packed into a shared paragraph (the showcase hero cluster) are
+  // filtered individually rather than all-or-nothing on the paragraph's first
+  // line.
+  return stripAiDisabledBlockLines(out.join("\n\n"), disabled);
 }
 
 /**
@@ -5059,16 +5084,23 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // superadmin AI-eligibility flag; DSO paths build their prompts per-tenant so
   // Dandy-specific product language only fires for the real Dandy tenant
   // (task #871).
-  const systemPrompt = useDsoPractices
-    ? buildDsoPracticesSystemPrompt({ isDandyTenant, brandName: resolvedBrandName })
-    : useDso
-      ? buildDsoSystemPrompt({ isDandyTenant, brandName: resolvedBrandName })
-      : buildGeneralSystemPrompt({
-          aiDisabledTypes,
-          includeContentSeries: isContentSeriesRequest(prompt),
-          includeBlogSeries: isBlogSeriesRequest(prompt),
-          includeStorefront: isStorefrontRequest(prompt),
-        });
+  // The GENERAL builder already filters internally; wrapping the whole ternary
+  // also filters the DSO paths (which build hardcoded block lists) so the
+  // superadmin "Available to AI generation" toggle is honored on every path.
+  // Re-stripping the general prompt is idempotent.
+  const systemPrompt = stripAiDisabledBlockLines(
+    useDsoPractices
+      ? buildDsoPracticesSystemPrompt({ isDandyTenant, brandName: resolvedBrandName })
+      : useDso
+        ? buildDsoSystemPrompt({ isDandyTenant, brandName: resolvedBrandName })
+        : buildGeneralSystemPrompt({
+            aiDisabledTypes,
+            includeContentSeries: isContentSeriesRequest(prompt),
+            includeBlogSeries: isBlogSeriesRequest(prompt),
+            includeStorefront: isStorefrontRequest(prompt),
+          }),
+    aiDisabledTypes,
+  );
   logger.debug({ promptPath, segment: segmentContext?.name ?? "none", promptPreview: prompt.slice(0, 120).replace(/\n/g, " ") }, "[generate-page] generating with prompt");
 
   const segmentSection = segmentContext && typeof segmentContext === "object"
