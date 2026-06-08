@@ -1,0 +1,17 @@
+-- One-off cleanup: purge leftover manual Salesforce credentials from
+-- lp_integrations (Task #1251).
+--
+-- Background: tenants who configured Salesforce the OLD way (manual Instance
+-- URL / Client ID / Client Secret, stored as a `provider = 'salesforce'` row in
+-- lp_integrations under the client_credentials flow) still have those stale
+-- rows lingering. After the OAuth migration, the per-tenant Salesforce
+-- connection lives entirely in sfdc_connections — both the LP Integrations page
+-- (artifacts/api-server/src/routes/lp/integrations.ts) and form-lead write-back
+-- (routes/lp/leads.ts via sfdcService) read sfdc_connections, NOT lp_integrations.
+-- The lp_integrations salesforce rows are therefore dead data that still hold an
+-- (encrypted) client secret, so they should be removed.
+--
+-- This DELETE is safe and idempotent: no code path reads or writes
+-- `provider = 'salesforce'` rows in lp_integrations anymore, and once the rows
+-- are gone the statement is a no-op (0 rows) on every subsequent run / fresh DB.
+DELETE FROM lp_integrations WHERE provider = 'salesforce';

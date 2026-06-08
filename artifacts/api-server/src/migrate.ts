@@ -1471,6 +1471,32 @@ async function runMigrationsBody(): Promise<void> {
         "sfdc_leads industry/rating self-heal did not produce both columns — aborting release",
     });
 
+    // Durable cleanup for leftover manual Salesforce credentials (Task #1251).
+    // Tenants who configured Salesforce the OLD way (client_credentials: manual
+    // Instance URL / Client ID / Secret) still have a `provider = 'salesforce'`
+    // row in lp_integrations holding an encrypted client secret. After the OAuth
+    // migration NO code path reads or writes that row — the LP Integrations page
+    // and form-lead write-back both use sfdc_connections via sfdcService — so the
+    // row is dead data that should be purged. 0088 is a single idempotent DELETE.
+    //
+    // Drizzle's node-postgres migrator dedupes by the journal high-water mark, so
+    // on a drifted DB the DELETE could be recorded-as-applied without ever
+    // running, leaving the secrets in place. Re-running it here (independent of
+    // drizzle's dedup) guarantees the purge. The probe phrasing fits the
+    // >= expected contract: `present = 1` means "no salesforce rows remain"
+    // (satisfied — skip), `present = 0` means rows still exist (apply the DELETE).
+    // Fails CLOSED: if any salesforce row survives the DELETE the release aborts.
+    await runProbedSelfHeal({
+      name: "lp_integrations purge salesforce credentials (0088)",
+      applySqlFile: "0088_lp_integrations_purge_salesforce.sql",
+      expected: 1,
+      checkSql: `SELECT (CASE WHEN EXISTS (
+                   SELECT 1 FROM lp_integrations WHERE provider = 'salesforce'
+                 ) THEN 0 ELSE 1 END)::int AS present`,
+      shortfall: () =>
+        "lp_integrations salesforce purge left rows behind — aborting release",
+    });
+
     // Idempotent first-boot seed for the block_catalog table. Safe to run on
     // every boot — uses ON CONFLICT DO NOTHING so admin edits are never
     // clobbered. Adds rows only when missing.
