@@ -41,10 +41,41 @@ const IMPERATIVE_RX =
   /^(select|choose|pick|enter|click|tap|drag|toggle|upload|browse|filter|search)\b/i;
 const SELECTION_RANGE_RX = /\b\d{1,3}\s*[\u2013\u2014-]\s*\d{1,3}\s+[a-z]/i;
 const STRONG_STAT_MARKER_RX = /[%+]|\b(?:x|k|m)\b/i;
+// Comparative / benefit qualifiers that turn an otherwise-everyday numeric range
+// into a reviewable performance CLAIM. "3–5 business days" / "3–5 locations" are
+// everyday ranges, but "3–5 more leads", "10–20 additional signups", or a bare
+// "3–5" sitting under a label like "more revenue" are quantitative result claims
+// product wants reviewed. We look at the value AND its sibling label/units so a
+// range whose unit lives in the label (not the value) is still caught.
+const RANGE_BENEFIT_RX =
+  /\b(?:more|less|fewer|extra|additional|faster|slower|higher|lower|greater|better|bigger|stronger|double|triple|increase[ds]?|boost(?:ed|s)?|grow(?:th|s|n)?|leads?|sales|revenue|sign-?ups?|conversions?|roi|deals?)\b/i;
 
-export function isNonStatIdiom(value: string): boolean {
+/** Concatenate any human-readable sibling label/heading values describing a
+ *  numeric value, so range/idiom detection can read the units that often live in
+ *  the label rather than the value itself (e.g. value "3–5", label "more leads").
+ *  Shared by detect + generate-page telemetry so flags and warnings agree. */
+export function siblingLabelText(siblings: Record<string, unknown> | undefined): string {
+  if (!siblings) return "";
+  const out: string[] = [];
+  for (const [k, v] of Object.entries(siblings)) {
+    if (typeof v !== "string") continue;
+    if (!SIBLING_LABEL_KEYS.includes(k.toLowerCase())) continue;
+    const s = stripHtml(v).trim();
+    if (s && s.length <= 120) out.push(s);
+  }
+  return out.join(" ");
+}
+
+export function isNonStatIdiom(value: string, context?: string): boolean {
   const t = stripHtml(value).trim();
   if (!t) return true;
+  const rangeLike = TIME_RATIO_IDIOM_RX.test(t) || SELECTION_RANGE_RX.test(t);
+  // A numeric range chased by a comparative/benefit qualifier — in the value OR
+  // its sibling label — is a performance claim, not an everyday range. Review it.
+  if (rangeLike) {
+    const combined = context ? `${t} ${stripHtml(context)}` : t;
+    if (RANGE_BENEFIT_RX.test(combined)) return false;
+  }
   if (TIME_RATIO_IDIOM_RX.test(t)) return true;
   if (IMPERATIVE_RX.test(t)) return true;
   if (SELECTION_RANGE_RX.test(t) && !STRONG_STAT_MARKER_RX.test(t)) return true;
@@ -206,7 +237,7 @@ export function detectFacts(blocks: unknown): DetectedFact[] {
           // 2) Stat — number + unit, or a known stat field key. Numeric idioms
           //    (time/ratio shorthand, imperative UI copy, selection ranges) are
           //    NOT factual stats and are skipped.
-          if (/\d/.test(text) && !isNonStatIdiom(text)) {
+          if (/\d/.test(text) && !isNonStatIdiom(text, siblingLabelText(obj))) {
             const isStatField = STAT_FIELD_KEYS.has(lowerKey);
             if (isStatField || STAT_LIKE_RX.test(text)) {
               push("stat", childPath, text, undefined, captureContext(obj, blockProps, text));

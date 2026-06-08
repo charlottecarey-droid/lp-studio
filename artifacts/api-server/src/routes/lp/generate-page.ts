@@ -18,7 +18,7 @@ import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
 import { resolveBlockTags, BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS, type BlockRoleTag } from "@workspace/lp-template-engine";
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
-import { detectFacts, isNonStatIdiom } from "../../lib/factFlags";
+import { detectFacts, isNonStatIdiom, siblingLabelText } from "../../lib/factFlags";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
 import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
 import { readImageDimensions, type ImageDimensions } from "../../lib/imageDimensions";
@@ -2431,14 +2431,17 @@ function scanForUnapprovedStats(
         return;
       }
       if (typeof node !== "object") return;
-      for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+      const siblings = node as Record<string, unknown>;
+      for (const [k, v] of Object.entries(siblings)) {
         const childPath = path ? `${path}.${k}` : k;
         if (typeof v === "string") {
           if (!/\d/.test(v)) continue;
           // Numeric idioms (time/ratio shorthand, imperative UI copy, selection
           // ranges) are not factual stats — keep telemetry in sync with the
-          // detector so the persisted flags and the warnings agree.
-          if (isNonStatIdiom(v)) continue;
+          // detector so the persisted flags and the warnings agree. Pass the
+          // sibling label so a range whose unit lives in the label (e.g. value
+          // "3–5", label "more leads") is still treated as a reviewable claim.
+          if (isNonStatIdiom(v, siblingLabelText(siblings))) continue;
           const isStatField = STAT_FIELD_KEYS.has(k);
           const looksLikeStat = STAT_LIKE_RX.test(v);
           if ((isStatField || looksLikeStat) && !isApprovedStat(v, pool)) {

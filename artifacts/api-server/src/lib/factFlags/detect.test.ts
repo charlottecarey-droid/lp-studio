@@ -77,6 +77,52 @@ describe("detectFacts — stat false positives (Task #1197)", () => {
     expect(byKind(detectFacts(blocks), "stat")).toHaveLength(0);
   });
 
+  it("does NOT flag everyday duration/selection ranges (Task #1200)", () => {
+    const blocks = [
+      { type: "trust-bar", props: { items: [
+        { value: "3-5 business days", label: "turnaround" },
+        { value: "3-5 days", label: "shipping" },
+        { value: "3-5 locations", label: "coverage" },
+      ] } },
+    ];
+    expect(byKind(detectFacts(blocks), "stat")).toHaveLength(0);
+  });
+
+  it("DOES flag a benefit-claim range with no strong stat marker (Task #1200)", () => {
+    const blocks = [
+      { type: "trust-bar", props: { items: [
+        { value: "3-5 more leads", label: "results" },
+        { value: "10-20 additional signups", label: "growth" },
+      ] } },
+    ];
+    const texts = byKind(detectFacts(blocks), "stat").map((s) => s.originalText).sort();
+    expect(texts).toContain("3-5 more leads");
+    expect(texts).toContain("10-20 additional signups");
+  });
+
+  it("DOES flag a bare range whose benefit unit lives in the sibling label (Task #1200)", () => {
+    const blocks = [
+      { type: "trust-bar", props: { stats: [{ value: "3-5", label: "more leads per week" }] } },
+    ];
+    const texts = byKind(detectFacts(blocks), "stat").map((s) => s.originalText);
+    expect(texts).toContain("3-5");
+  });
+
+  it("keeps a bare range benign when the sibling label is an everyday unit (Task #1200)", () => {
+    const blocks = [
+      { type: "trust-bar", props: { stats: [{ value: "3-5", label: "business days to ship" }] } },
+    ];
+    expect(byKind(detectFacts(blocks), "stat")).toHaveLength(0);
+  });
+
+  it("STILL flags a benefit-claim range WITH a strong stat marker (Task #1200)", () => {
+    const blocks = [
+      { type: "hero", props: { headline: "Get 3-5x more leads every month" } },
+    ];
+    const texts = byKind(detectFacts(blocks), "stat").map((s) => s.originalText);
+    expect(texts.some((t) => /3-5x/.test(t))).toBe(true);
+  });
+
   it("STILL flags genuine stats (no regression from the new guards)", () => {
     const blocks = [
       { type: "trust-bar", props: { items: [
