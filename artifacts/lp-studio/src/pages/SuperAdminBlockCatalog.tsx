@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -665,6 +666,11 @@ export default function SuperAdminBlockCatalog() {
   const [bulkAiBusy, setBulkAiBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  // Bulk multi-select recategorize. Selection is keyed by `block_type::industry`.
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [bulkCategory, setBulkCategory] = useState("");
+  const [bulkRecatBusy, setBulkRecatBusy] = useState(false);
+
   const refresh = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
@@ -704,6 +710,54 @@ export default function SuperAdminBlockCatalog() {
       );
     });
   }, [merged, filterIndustry, filterSource, search]);
+
+  // Clear any selection whenever the active filters or search change so stale
+  // hidden rows can never be acted on by a bulk operation.
+  useEffect(() => {
+    setSelectedKeys(new Set());
+  }, [filterIndustry, filterSource, search]);
+
+  const rowKey = (r: { block_type: string; industry: Industry }) =>
+    `${r.block_type}::${r.industry}`;
+
+  // Selection restricted to rows that are still visible. Guards against acting
+  // on rows that scrolled out of the filter between selection and apply.
+  const selectedVisible = useMemo(
+    () => filtered.filter(r => selectedKeys.has(rowKey(r))),
+    [filtered, selectedKeys],
+  );
+
+  const allVisibleSelected =
+    filtered.length > 0 && selectedVisible.length === filtered.length;
+  const someVisibleSelected =
+    selectedVisible.length > 0 && !allVisibleSelected;
+
+  const toggleRowSelected = (r: DisplayRow) => {
+    const k = rowKey(r);
+    setSelectedKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedKeys(prev => {
+      if (filtered.length > 0 && filtered.every(r => prev.has(rowKey(r)))) {
+        // All visible are selected → clear only the visible ones.
+        const next = new Set(prev);
+        filtered.forEach(r => next.delete(rowKey(r)));
+        return next;
+      }
+      // Otherwise select all visible rows (preserving any other selection).
+      const next = new Set(prev);
+      filtered.forEach(r => next.add(rowKey(r)));
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedKeys(new Set());
 
   const counts = useMemo(() => {
     const list = merged ?? [];
@@ -964,6 +1018,76 @@ export default function SuperAdminBlockCatalog() {
     }
   };
 
+  // Bulk recategorize every selected (and still-visible) row to a single
+  // category. Each row is persisted via the catalog upsert path, preserving
+  // every other field; toggling a code-default row materializes a new DB
+  // override carrying its current label/tags/props. Per-row failures are
+  // collected so a partial failure is reported rather than silently dropped.
+  const applyBulkRecategorize = async () => {
+    const category = bulkCategory.trim();
+    if (!category) {
+      setActionError("Pick or type a category before applying.");
+      return;
+    }
+    const targets = selectedVisible;
+    if (targets.length === 0) return;
+
+    setBulkRecatBusy(true);
+    setActionError(null);
+    let updated = 0;
+    const failures: string[] = [];
+    for (const row of targets) {
+      try {
+        await apiFetch("/api/admin/block-catalog", {
+          method: "PUT",
+          body: JSON.stringify({
+            block_type: row.block_type,
+            industry: row.industry,
+            label: row.label,
+            category,
+            tags: sanitizeRoleTags(row.tags),
+            default_props: row.default_props ?? {},
+            is_enabled: row.is_enabled,
+            ai_enabled: row.ai_enabled,
+            sort_order: row.sort_order,
+          }),
+        });
+        updated += 1;
+      } catch (err: any) {
+        let msg = err?.message ?? "Save failed";
+        try { msg = JSON.parse(msg).error ?? msg; } catch { /* not json */ }
+        failures.push(`${row.block_type} (${INDUSTRY_LABEL[row.industry]}): ${msg}`);
+      }
+    }
+    await refresh();
+    setBulkRecatBusy(false);
+    setSelectedKeys(new Set());
+    setBulkCategory("");
+
+    if (failures.length === 0) {
+      toast({
+        title: "Blocks recategorized",
+        description: `${updated} block${updated === 1 ? "" : "s"} moved to “${category}”.`,
+      });
+    } else if (updated > 0) {
+      toast({
+        variant: "destructive",
+        title: "Some blocks couldn’t be recategorized",
+        description: `${updated} updated, ${failures.length} failed — see details above.`,
+      });
+      setActionError(
+        `Recategorized ${updated} block${updated === 1 ? "" : "s"} to “${category}”, but ${failures.length} failed: ${failures.join("; ")}`,
+      );
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Recategorize failed",
+        description: `None of the ${targets.length} block${targets.length === 1 ? "" : "s"} could be updated — see details above.`,
+      });
+      setActionError(`Could not recategorize any blocks: ${failures.join("; ")}`);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -1077,11 +1201,59 @@ export default function SuperAdminBlockCatalog() {
         </div>
       )}
 
+      {/* Bulk recategorize action bar — shown when one or more visible rows are selected */}
+      {selectedVisible.length > 0 && (
+        <div className="flex items-center gap-3 flex-wrap rounded-lg border bg-muted/40 p-2.5">
+          <span className="text-sm font-medium">
+            {selectedVisible.length} block{selectedVisible.length === 1 ? "" : "s"} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground">Set category to</Label>
+            <Input
+              value={bulkCategory}
+              onChange={e => setBulkCategory(e.target.value)}
+              list="bulk-categories-list"
+              placeholder="e.g. Hero"
+              className="h-8 text-sm w-48"
+              disabled={bulkRecatBusy}
+            />
+            <datalist id="bulk-categories-list">
+              {COMMON_CATEGORIES.map(c => <option key={c} value={c} />)}
+            </datalist>
+          </div>
+          <Button
+            size="sm"
+            className="h-8"
+            onClick={applyBulkRecategorize}
+            disabled={bulkRecatBusy || !bulkCategory.trim()}
+          >
+            {bulkRecatBusy ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Applying…</> : "Apply"}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 text-xs"
+            onClick={clearSelection}
+            disabled={bulkRecatBusy}
+          >
+            Clear selection
+          </Button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[4%]">
+                <Checkbox
+                  checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                  onCheckedChange={toggleSelectAll}
+                  disabled={filtered.length === 0}
+                  aria-label="Select all visible blocks"
+                />
+              </TableHead>
               <TableHead className="w-[18%]">Block type</TableHead>
               <TableHead className="w-[24%]">Label</TableHead>
               <TableHead className="w-[12%]">Status</TableHead>
@@ -1095,15 +1267,15 @@ export default function SuperAdminBlockCatalog() {
           </TableHeader>
           <TableBody>
             {merged === null && (
-              <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-12">Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-12">Loading…</TableCell></TableRow>
             )}
             {merged && merged.length === 0 && (
-              <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-12">
+              <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-12">
                 No blocks found.
               </TableCell></TableRow>
             )}
             {merged && merged.length > 0 && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-12">
+              <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-12">
                 No rows match your filter.
               </TableCell></TableRow>
             )}
@@ -1111,8 +1283,16 @@ export default function SuperAdminBlockCatalog() {
               const key = `${row.block_type}::${row.industry}`;
               const updatedBy = row.updated_by ? ` by ${row.updated_by}` : "";
               const isDb = row.source === "db";
+              const isSelected = selectedKeys.has(key);
               return (
-                <TableRow key={key} className={row.is_enabled ? "" : "opacity-60"}>
+                <TableRow key={key} className={row.is_enabled ? (isSelected ? "bg-muted/40" : "") : "opacity-60"}>
+                  <TableCell>
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleRowSelected(row)}
+                      aria-label={`Select ${row.block_type} (${INDUSTRY_LABEL[row.industry]})`}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{row.block_type}</TableCell>
                   <TableCell>
                     <div className="font-medium text-sm">{row.label}</div>
