@@ -9,6 +9,7 @@ import { CtaButton } from "@/components/CtaButton";
 import { VideoModal } from "@/components/VideoModal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { Reveal, GlowOrbs, GridOverlay, NoiseOverlay } from "@/lib/premium-toolkit";
 
 interface Props {
   props: MediaVideoSplitBlockProps;
@@ -18,6 +19,7 @@ interface Props {
 
 export function BlockMediaVideoSplit({ props, brand, onFieldChange }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
+  const isBuilder = !!onFieldChange;
 
   const surface = resolveSectionSurface(props, "#FFFFFF");
   const ink = props.textColor ?? surface.color ?? "#0F172A";
@@ -42,11 +44,21 @@ export function BlockMediaVideoSplit({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="w-full py-24 sm:py-32 overflow-hidden" style={{ background: surface.background, color: ink }}>
-      <div className="container mx-auto px-6 md:px-12 max-w-7xl">
+    <section className="relative w-full py-24 sm:py-32 overflow-hidden" style={{ background: surface.background, color: ink }}>
+      {surface.isDark ? (
+        <>
+          <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} opacity={0.24} blur={140} />
+          <GridOverlay color="rgba(255,255,255,0.05)" opacity={0.5} />
+          <NoiseOverlay opacity={0.04} />
+        </>
+      ) : (
+        <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} blend="normal" opacity={0.08} blur={160} />
+      )}
+
+      <div className="container relative z-10 mx-auto px-6 md:px-12 max-w-7xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
           {/* Content Side */}
-          <div className="flex flex-col justify-center order-2 lg:order-1">
+          <Reveal disabled={isBuilder} className="flex flex-col justify-center order-2 lg:order-1">
             {(props.eyebrow || onFieldChange) && (
               <InlineText
                 as="span"
@@ -116,10 +128,10 @@ export function BlockMediaVideoSplit({ props, brand, onFieldChange }: Props) {
                 )}
               </div>
             )}
-          </div>
+          </Reveal>
 
           {/* Video Side */}
-          <div className="relative order-1 lg:order-2 w-full aspect-video rounded-3xl overflow-hidden shadow-2xl group">
+          <Reveal disabled={isBuilder} delay={0.1} className="relative order-1 lg:order-2 w-full aspect-video rounded-3xl overflow-hidden shadow-2xl group transition-shadow duration-500 hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.45)]">
             <InlineImage
               src={props.posterUrl}
               alt={props.heading || "Video thumbnail"}
@@ -146,7 +158,7 @@ export function BlockMediaVideoSplit({ props, brand, onFieldChange }: Props) {
                 <Play className="h-8 w-8 sm:h-10 sm:w-10 ml-2" fill="currentColor" />
               </div>
             </button>
-          </div>
+          </Reveal>
         </div>
       </div>
 

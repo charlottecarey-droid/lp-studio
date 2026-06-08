@@ -7,6 +7,7 @@ import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { Reveal, GlowOrbs, GridOverlay, NoiseOverlay } from "@/lib/premium-toolkit";
 
 interface Props {
   props: SplitMediaRowBlockProps;
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function BlockSplitMediaRow({ props, brand, onFieldChange }: Props) {
+  const isBuilder = !!onFieldChange;
   const surface = resolveSectionSurface(props, "#FFFFFF");
   const ink = props.textColor ?? surface.color ?? "#0F172A";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
@@ -29,9 +31,19 @@ export function BlockSplitMediaRow({ props, brand, onFieldChange }: Props) {
     onFieldChange?.({ ...props, [key]: value });
 
   return (
-    <section className="w-full py-20 sm:py-28" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
-      <div className="container mx-auto grid grid-cols-1 items-center gap-12 px-6 md:grid-cols-2 md:px-12">
-        <div className={mediaRight ? "md:order-1" : "md:order-2"}>
+    <section className="relative w-full py-20 sm:py-28 overflow-hidden" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
+      {surface.isDark ? (
+        <>
+          <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} opacity={0.24} blur={140} />
+          <GridOverlay color="rgba(255,255,255,0.05)" opacity={0.5} />
+          <NoiseOverlay opacity={0.04} />
+        </>
+      ) : (
+        <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} blend="normal" opacity={0.07} blur={160} />
+      )}
+
+      <div className="container relative z-10 mx-auto grid grid-cols-1 items-center gap-12 px-6 md:grid-cols-2 md:px-12">
+        <Reveal disabled={isBuilder} className={mediaRight ? "md:order-1" : "md:order-2"}>
           {props.eyebrow !== undefined && (
             <InlineText
               as="p"
@@ -85,16 +97,18 @@ export function BlockSplitMediaRow({ props, brand, onFieldChange }: Props) {
               </CtaButton>
             </div>
           )}
-        </div>
-        <div className={mediaRight ? "md:order-2" : "md:order-1"}>
-          <InlineImage
-            src={props.imageUrl ?? ""}
-            alt={props.imageAlt || props.heading || "Section image"}
-            onUpdate={onFieldChange ? (src) => update("imageUrl", src) : undefined}
-            className="aspect-[4/3] w-full rounded-2xl object-cover shadow-lg"
-            wrapperClassName="block w-full"
-          />
-        </div>
+        </Reveal>
+        <Reveal disabled={isBuilder} delay={0.1} className={`group ${mediaRight ? "md:order-2" : "md:order-1"}`}>
+          <div className="relative overflow-hidden rounded-2xl shadow-lg transition-shadow duration-500 group-hover:shadow-2xl">
+            <InlineImage
+              src={props.imageUrl ?? ""}
+              alt={props.imageAlt || props.heading || "Section image"}
+              onUpdate={onFieldChange ? (src) => update("imageUrl", src) : undefined}
+              className="aspect-[4/3] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+              wrapperClassName="block w-full"
+            />
+          </div>
+        </Reveal>
       </div>
     </section>
   );

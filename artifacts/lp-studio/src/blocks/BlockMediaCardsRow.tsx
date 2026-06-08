@@ -6,6 +6,7 @@ import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { Reveal, RevealStagger, RevealItem, GlowOrbs, GridOverlay, NoiseOverlay } from "@/lib/premium-toolkit";
 
 interface Props {
   props: MediaCardsRowBlockProps;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function BlockMediaCardsRow({ props, brand, onFieldChange }: Props) {
+  const isBuilder = !!onFieldChange;
   const surface = resolveSectionSurface(props, "#FFFFFF");
   const ink = props.textColor ?? surface.color ?? "#0F172A";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
@@ -33,10 +35,20 @@ export function BlockMediaCardsRow({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="w-full py-20 sm:py-24" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
-      <div className="container mx-auto px-6 md:px-12">
+    <section className="relative w-full py-20 sm:py-24 overflow-hidden" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
+      {surface.isDark ? (
+        <>
+          <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} opacity={0.24} blur={140} />
+          <GridOverlay color="rgba(255,255,255,0.05)" opacity={0.5} />
+          <NoiseOverlay opacity={0.04} />
+        </>
+      ) : (
+        <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} blend="normal" opacity={0.07} blur={160} />
+      )}
+
+      <div className="container relative z-10 mx-auto px-6 md:px-12">
         {(props.eyebrow !== undefined || props.heading !== undefined || props.subheading !== undefined) && (
-          <div className="mx-auto mb-12 max-w-2xl text-center">
+          <Reveal disabled={isBuilder} className="mx-auto mb-12 max-w-2xl text-center">
             {props.eyebrow !== undefined && (
               <InlineText as="p" value={props.eyebrow} onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined} className="mb-3 text-xs font-bold uppercase tracking-[0.18em]" style={{ color: accent }} />
             )}
@@ -46,18 +58,20 @@ export function BlockMediaCardsRow({ props, brand, onFieldChange }: Props) {
             {props.subheading !== undefined && (
               <InlineText as="p" value={props.subheading} onUpdate={onFieldChange ? (v) => update("subheading", v) : undefined} className="mt-3 text-base" style={{ color: muted }} />
             )}
-          </div>
+          </Reveal>
         )}
-        <div className={`grid grid-cols-1 gap-8 ${colClass}`}>
+        <RevealStagger disabled={isBuilder} className={`grid grid-cols-1 gap-8 ${colClass}`}>
           {cards.map((c, i) => (
-            <div key={i} className="flex flex-col overflow-hidden rounded-2xl border shadow-sm" style={{ backgroundColor: cardSurface, borderColor: border }}>
-              <InlineImage
-                src={c.imageUrl ?? ""}
-                alt={c.imageAlt || c.heading || "Card image"}
-                onUpdate={onFieldChange ? (src) => updateCard(i, { imageUrl: src }) : undefined}
-                className="aspect-[16/10] w-full object-cover"
-                wrapperClassName="block w-full"
-              />
+            <RevealItem key={i} disabled={isBuilder} className="group flex flex-col overflow-hidden rounded-2xl border shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl" style={{ backgroundColor: cardSurface, borderColor: border }}>
+              <div className="relative w-full overflow-hidden">
+                <InlineImage
+                  src={c.imageUrl ?? ""}
+                  alt={c.imageAlt || c.heading || "Card image"}
+                  onUpdate={onFieldChange ? (src) => updateCard(i, { imageUrl: src }) : undefined}
+                  className="aspect-[16/10] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                  wrapperClassName="block w-full"
+                />
+              </div>
               <div className="flex flex-1 flex-col p-6">
                 <InlineText as="h3" value={c.heading} onUpdate={onFieldChange ? (v) => updateCard(i, { heading: v }) : undefined} className="text-lg font-bold" style={{ color: ink, fontFamily: DISPLAY }} />
                 {c.text !== undefined && (
@@ -70,9 +84,9 @@ export function BlockMediaCardsRow({ props, brand, onFieldChange }: Props) {
                   </a>
                 )}
               </div>
-            </div>
+            </RevealItem>
           ))}
-        </div>
+        </RevealStagger>
       </div>
     </section>
   );

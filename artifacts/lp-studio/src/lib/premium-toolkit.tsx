@@ -60,9 +60,10 @@ export interface RevealProps {
   /** Re-animate every time it enters the viewport (default: once). */
   repeat?: boolean;
   /**
-   * Render statically (a plain div) with no motion. Used inside the builder
-   * canvas, where editors need content visible and stable while editing rather
-   * than fading in on scroll.
+   * Render statically (a plain div) with no motion. Pass the block's builder
+   * flag here so live editing stays snappy and content is never stranded at
+   * opacity 0 inside the builder canvas, where editors need content visible
+   * and stable while editing rather than fading in on scroll.
    */
   disabled?: boolean;
 }
@@ -152,8 +153,8 @@ export interface GlowOrbsProps {
   /** Layer opacity 0–1 (default 0.5). */
   opacity?: number;
   /** Blend mode for the orbs (default `screen` — ideal on dark surfaces; pass
-   *  `normal` for soft tinted washes on light surfaces where `screen` against
-   *  white renders invisible). */
+   *  `normal` (or `multiply`) for soft tinted washes on light surfaces where
+   *  `screen` against white renders invisible). */
   blend?: CSSProperties["mixBlendMode"];
   className?: string;
 }

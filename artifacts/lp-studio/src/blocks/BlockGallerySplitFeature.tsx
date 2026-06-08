@@ -6,6 +6,7 @@ import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { Reveal, RevealStagger, RevealItem, GlowOrbs, GridOverlay, NoiseOverlay } from "@/lib/premium-toolkit";
 
 interface Props {
   props: GallerySplitFeatureBlockProps;
@@ -21,6 +22,7 @@ export function BlockGallerySplitFeature({ props, brand, onFieldChange }: Props)
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const muted = pickContrastingColor(undefined, surface.base, ["#64748B", "#94A3B8"]);
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
+  const isBuilder = !!onFieldChange;
 
   const images = props.images ?? [];
 
@@ -39,11 +41,21 @@ export function BlockGallerySplitFeature({ props, brand, onFieldChange }: Props)
   const grid1 = images[1];
 
   return (
-    <section className="w-full py-24 sm:py-32" style={{ background: surface.background, color: ink }}>
-      <div className="container mx-auto px-6 max-w-7xl">
+    <section className="relative w-full py-24 sm:py-32 overflow-hidden" style={{ background: surface.background, color: ink }}>
+      {surface.isDark ? (
+        <>
+          <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} opacity={0.24} blur={140} />
+          <GridOverlay color="rgba(255,255,255,0.05)" opacity={0.5} />
+          <NoiseOverlay opacity={0.04} />
+        </>
+      ) : (
+        <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} blend="normal" opacity={0.08} blur={160} />
+      )}
+
+      <div className="container relative z-10 mx-auto px-6 max-w-7xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
 
-          <div className="flex flex-col">
+          <Reveal disabled={isBuilder} className="flex flex-col">
             {(props.eyebrow || onFieldChange) && (
               <InlineText
                 as="span"
@@ -74,7 +86,7 @@ export function BlockGallerySplitFeature({ props, brand, onFieldChange }: Props)
                     ctaUrl={props.ctaUrl}
                     brand={brand}
                     source="gallery-split-feature-cta"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-7 py-3.5 text-base font-semibold"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl px-7 py-3.5 text-base font-semibold transition-transform duration-300 hover:scale-105"
                     style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY }}
                   >
                     {props.ctaLabel || "View open roles"}
@@ -94,39 +106,40 @@ export function BlockGallerySplitFeature({ props, brand, onFieldChange }: Props)
                 )}
               </div>
             )}
-          </div>
+          </Reveal>
 
-          <div className="grid grid-cols-12 grid-rows-12 gap-4 h-[600px] w-full">
-            <div className="col-span-8 row-span-12 relative rounded-3xl overflow-hidden shadow-xl">
+          <RevealStagger disabled={isBuilder} stagger={0.12} className="grid grid-cols-12 grid-rows-12 gap-4 h-[600px] w-full">
+            <RevealItem disabled={isBuilder} className="col-span-8 row-span-12 relative rounded-3xl overflow-hidden shadow-xl ring-1 ring-black/5 group">
               <InlineImage
                 src={props.imageUrl}
                 alt={props.headline || "Main gallery"}
                 onUpdate={onFieldChange ? (src: string) => update("imageUrl", src) : undefined}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                 wrapperClassName="block absolute inset-0 w-full h-full"
               />
-            </div>
-            <div className="col-span-4 row-span-6 relative rounded-2xl overflow-hidden shadow-lg">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            </RevealItem>
+            <RevealItem disabled={isBuilder} className="col-span-4 row-span-6 relative rounded-2xl overflow-hidden shadow-lg ring-1 ring-black/5 group">
               <InlineImage
                 src={grid0?.src ?? ""}
                 alt={grid0?.alt || grid0?.caption || "Gallery grid 1"}
                 onUpdate={onFieldChange ? (src: string) => updateImage(0, { src }) : undefined}
                 onAltUpdate={onFieldChange ? (alt: string) => updateImage(0, { alt }) : undefined}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
                 wrapperClassName="block absolute inset-0 w-full h-full"
               />
-            </div>
-            <div className="col-span-4 row-span-6 relative rounded-2xl overflow-hidden shadow-lg">
+            </RevealItem>
+            <RevealItem disabled={isBuilder} className="col-span-4 row-span-6 relative rounded-2xl overflow-hidden shadow-lg ring-1 ring-black/5 group">
               <InlineImage
                 src={grid1?.src ?? ""}
                 alt={grid1?.alt || grid1?.caption || "Gallery grid 2"}
                 onUpdate={onFieldChange ? (src: string) => updateImage(1, { src }) : undefined}
                 onAltUpdate={onFieldChange ? (alt: string) => updateImage(1, { alt }) : undefined}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
                 wrapperClassName="block absolute inset-0 w-full h-full"
               />
-            </div>
-          </div>
+            </RevealItem>
+          </RevealStagger>
 
         </div>
       </div>

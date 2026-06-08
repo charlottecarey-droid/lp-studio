@@ -11,6 +11,7 @@ import { CtaButton } from "@/components/CtaButton";
 import { VideoModal } from "@/components/VideoModal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { Reveal, RevealStagger, RevealItem, GlowOrbs, GridOverlay, NoiseOverlay } from "@/lib/premium-toolkit";
 
 interface Props {
   props: MediaFeatureReelBlockProps;
@@ -20,6 +21,7 @@ interface Props {
 
 export function BlockMediaFeatureReel({ props, brand, onFieldChange }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
+  const isBuilder = !!onFieldChange;
 
   const surface = resolveSectionSurface(props, "#FFFFFF");
   const ink = props.textColor ?? surface.color ?? "#0F172A";
@@ -45,16 +47,28 @@ export function BlockMediaFeatureReel({ props, brand, onFieldChange }: Props) {
 
   return (
     <section className="relative w-full py-24 sm:py-32 overflow-hidden" style={{ background: surface.background, color: ink }}>
+      {surface.isDark ? (
+        <>
+          <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} opacity={0.26} blur={140} />
+          <GridOverlay color="rgba(255,255,255,0.05)" opacity={0.5} />
+          <NoiseOverlay opacity={0.04} />
+        </>
+      ) : (
+        <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} blend="normal" opacity={0.08} blur={160} />
+      )}
+
       <div className="container relative z-10 mx-auto px-6 md:px-12 max-w-6xl text-center">
-        <InlineText
-          as="h2"
-          value={props.heading}
-          onUpdate={onFieldChange ? (v: string) => update("heading", v) : undefined}
-          className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-16 max-w-3xl mx-auto"
-          style={{ color: ink, fontFamily: DISPLAY }} />
+        <Reveal disabled={isBuilder}>
+          <InlineText
+            as="h2"
+            value={props.heading}
+            onUpdate={onFieldChange ? (v: string) => update("heading", v) : undefined}
+            className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-16 max-w-3xl mx-auto"
+            style={{ color: ink, fontFamily: DISPLAY }} />
+        </Reveal>
 
         {/* Video Card — poster image with play overlay; clicking opens the video */}
-        <div className="relative mx-auto max-w-4xl rounded-[2rem] overflow-hidden shadow-2xl mb-20 group border-4 border-white/20">
+        <Reveal disabled={isBuilder} delay={0.08} className="relative mx-auto max-w-4xl rounded-[2rem] overflow-hidden shadow-2xl mb-20 group border-4 border-white/20 transition-shadow duration-500 hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.45)]">
           <div className="aspect-video relative w-full overflow-hidden">
             <InlineImage
               src={props.posterUrl}
@@ -79,13 +93,13 @@ export function BlockMediaFeatureReel({ props, brand, onFieldChange }: Props) {
               </div>
             </button>
           </div>
-        </div>
+        </Reveal>
 
         {/* Feature Captions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16 max-w-5xl mx-auto">
+        <RevealStagger disabled={isBuilder} className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16 max-w-5xl mx-auto">
           {features.map((feat, i) => {
             return (
-              <div key={i} className="flex flex-col items-center text-center p-6 rounded-2xl">
+              <RevealItem key={i} disabled={isBuilder} className="flex flex-col items-center text-center p-6 rounded-2xl transition-transform duration-300 hover:-translate-y-1">
                 <div
                   className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
                   style={{ backgroundColor: `${accent}1A`, color: accent }}
@@ -104,10 +118,10 @@ export function BlockMediaFeatureReel({ props, brand, onFieldChange }: Props) {
                   onUpdate={onFieldChange ? (v: string) => updateFeature(i, { desc: v }) : undefined}
                   className="text-base"
                   style={{ color: muted, fontFamily: BODY }} />
-              </div>
+              </RevealItem>
             );
           })}
-        </div>
+        </RevealStagger>
 
         {(props.ctaLabel || props.ctaSecondaryLabel || onFieldChange) && (
           <div className="flex flex-wrap items-center justify-center gap-6 mt-8">

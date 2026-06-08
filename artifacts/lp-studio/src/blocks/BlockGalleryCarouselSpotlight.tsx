@@ -8,6 +8,7 @@ import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { Reveal, GlowOrbs, GridOverlay, NoiseOverlay } from "@/lib/premium-toolkit";
 
 interface Props {
   props: GalleryCarouselSpotlightBlockProps;
@@ -23,6 +24,7 @@ export function BlockGalleryCarouselSpotlight({ props, brand, onFieldChange }: P
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const muted = pickContrastingColor(undefined, surface.base, ["#64748B", "#94A3B8"]);
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
+  const isBuilder = !!onFieldChange;
 
   const images = props.images ?? [];
   const [activeIndex, setActiveIndex] = useState(0);
@@ -46,9 +48,19 @@ export function BlockGalleryCarouselSpotlight({ props, brand, onFieldChange }: P
   };
 
   return (
-    <section className="w-full py-24 sm:py-32" style={{ background: surface.background, color: ink }}>
-      <div className="container mx-auto px-6 max-w-6xl">
-        <div className="text-center mb-16 max-w-2xl mx-auto">
+    <section className="relative w-full py-24 sm:py-32 overflow-hidden" style={{ background: surface.background, color: ink }}>
+      {surface.isDark ? (
+        <>
+          <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} opacity={0.26} blur={140} />
+          <GridOverlay color="rgba(255,255,255,0.05)" opacity={0.5} />
+          <NoiseOverlay opacity={0.04} />
+        </>
+      ) : (
+        <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} blend="normal" opacity={0.09} blur={160} />
+      )}
+
+      <div className="container relative z-10 mx-auto px-6 max-w-6xl">
+        <Reveal disabled={isBuilder} className="text-center mb-16 max-w-2xl mx-auto">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
               as="span"
@@ -71,17 +83,19 @@ export function BlockGalleryCarouselSpotlight({ props, brand, onFieldChange }: P
               className="text-lg"
               style={{ color: muted, fontFamily: BODY }} />
           )}
-        </div>
+        </Reveal>
 
         <div className="flex flex-col gap-10">
-          <div className="relative w-full aspect-video rounded-3xl overflow-hidden shadow-2xl bg-black">
+          <div className="group relative w-full aspect-video rounded-3xl overflow-hidden shadow-2xl bg-black ring-1 ring-black/10">
+            {/* Soft accent glow behind the spotlight frame */}
+            <div className="pointer-events-none absolute -inset-8 -z-10 opacity-60" style={{ background: `radial-gradient(60% 60% at 50% 50%, ${accent}33, transparent 70%)`, filter: "blur(40px)" }} />
             {active && (
               <InlineImage
                 src={active.src}
                 alt={active.alt || active.caption}
                 onUpdate={onFieldChange ? (src: string) => updateImage(safeIndex, { src }) : undefined}
                 onAltUpdate={onFieldChange ? (alt: string) => updateImage(safeIndex, { alt }) : undefined}
-                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+                className="absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-105"
                 wrapperClassName="block absolute inset-0 w-full h-full"
               />
             )}
@@ -93,7 +107,7 @@ export function BlockGalleryCarouselSpotlight({ props, brand, onFieldChange }: P
                 <button
                   type="button"
                   onClick={handlePrev}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur text-white transition z-10"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur text-white transition hover:scale-110 z-10"
                   aria-label="Previous image"
                 >
                   <ChevronLeft className="w-6 h-6" />
@@ -101,7 +115,7 @@ export function BlockGalleryCarouselSpotlight({ props, brand, onFieldChange }: P
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur text-white transition z-10"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur text-white transition hover:scale-110 z-10"
                   aria-label="Next image"
                 >
                   <ChevronRight className="w-6 h-6" />
@@ -116,7 +130,7 @@ export function BlockGalleryCarouselSpotlight({ props, brand, onFieldChange }: P
                 type="button"
                 key={img.id}
                 onClick={() => setActiveIndex(idx)}
-                className={`relative shrink-0 w-32 aspect-video rounded-xl overflow-hidden transition-all duration-300 snap-center ${safeIndex === idx ? "scale-105" : "opacity-60 hover:opacity-100"}`}
+                className={`relative shrink-0 w-32 aspect-video rounded-xl overflow-hidden transition-all duration-300 snap-center ${safeIndex === idx ? "scale-105" : "opacity-60 hover:opacity-100 hover:scale-105"}`}
                 style={safeIndex === idx ? { boxShadow: `0 0 0 4px ${surface.base}, 0 0 0 8px ${accent}` } : {}}
                 aria-label={img.caption || `View image ${idx + 1}`}
               >
@@ -131,18 +145,18 @@ export function BlockGalleryCarouselSpotlight({ props, brand, onFieldChange }: P
         </div>
 
         {(props.ctaLabel || onFieldChange) && (
-          <div className="mt-16 flex justify-center">
+          <Reveal disabled={isBuilder} delay={0.1} className="mt-16 flex justify-center">
             <CtaButton
               ctaAction="url"
               ctaUrl={props.ctaUrl}
               brand={brand}
               source="gallery-carousel-spotlight-cta"
-              className="inline-flex items-center justify-center gap-2 rounded-xl px-7 py-3.5 text-base font-semibold"
+              className="inline-flex items-center justify-center gap-2 rounded-xl px-7 py-3.5 text-base font-semibold transition-transform duration-300 hover:scale-105"
               style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY }}
             >
               {props.ctaLabel || "Request a demo"}
             </CtaButton>
-          </div>
+          </Reveal>
         )}
       </div>
     </section>

@@ -9,6 +9,7 @@ import { CtaButton } from "@/components/CtaButton";
 import { VideoModal } from "@/components/VideoModal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { Reveal, RevealStagger, RevealItem, GlowOrbs, GridOverlay, NoiseOverlay } from "@/lib/premium-toolkit";
 
 interface Props {
   props: MediaThumbnailGridBlockProps;
@@ -18,6 +19,7 @@ interface Props {
 
 export function BlockMediaThumbnailGrid({ props, brand, onFieldChange }: Props) {
   const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const isBuilder = !!onFieldChange;
 
   const surface = resolveSectionSurface(props, "#F8FAFC");
   const ink = props.textColor ?? surface.color ?? "#0F172A";
@@ -26,6 +28,7 @@ export function BlockMediaThumbnailGrid({ props, brand, onFieldChange }: Props) 
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const muted = pickContrastingColor(undefined, surface.base, ["#64748B", "#94A3B8"]);
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
+  const cardBorder = surface.isDark ? "rgba(255,255,255,0.12)" : "#E2E8F0";
 
   const videos = props.videos ?? [];
 
@@ -43,10 +46,20 @@ export function BlockMediaThumbnailGrid({ props, brand, onFieldChange }: Props) 
   const activeVideo = openIdx !== null ? videos[openIdx] : undefined;
 
   return (
-    <section className="w-full py-24 sm:py-32" style={{ background: surface.background, color: ink }}>
-      <div className="container mx-auto px-6 md:px-12 max-w-7xl">
+    <section className="relative w-full py-24 sm:py-32 overflow-hidden" style={{ background: surface.background, color: ink }}>
+      {surface.isDark ? (
+        <>
+          <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} opacity={0.24} blur={140} />
+          <GridOverlay color="rgba(255,255,255,0.05)" opacity={0.5} />
+          <NoiseOverlay opacity={0.04} />
+        </>
+      ) : (
+        <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} blend="normal" opacity={0.07} blur={160} />
+      )}
+
+      <div className="container relative z-10 mx-auto px-6 md:px-12 max-w-7xl">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8">
+        <Reveal disabled={isBuilder} className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8">
           <div className="max-w-2xl">
             {(props.eyebrow || onFieldChange) && (
               <InlineText
@@ -86,15 +99,15 @@ export function BlockMediaThumbnailGrid({ props, brand, onFieldChange }: Props) 
               </CtaButton>
             </div>
           )}
-        </div>
+        </Reveal>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <RevealStagger disabled={isBuilder} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {videos.map((vid, i) => {
             const hasVideo = !!(vid.videoUrl && vid.videoUrl.trim() !== "");
             return (
-              <div key={vid.id ?? i} className="group flex flex-col">
-                <div className="relative w-full aspect-video rounded-2xl overflow-hidden mb-5 border shadow-sm" style={{ borderColor: "#E2E8F0" }}>
+              <RevealItem key={vid.id ?? i} disabled={isBuilder} className="group flex flex-col transition-transform duration-300 hover:-translate-y-1">
+                <div className="relative w-full aspect-video rounded-2xl overflow-hidden mb-5 border shadow-sm transition-shadow duration-500 group-hover:shadow-xl" style={{ borderColor: cardBorder }}>
                   <InlineImage
                     src={vid.posterUrl}
                     alt={vid.title || "Video thumbnail"}
@@ -134,10 +147,10 @@ export function BlockMediaThumbnailGrid({ props, brand, onFieldChange }: Props) 
                   onUpdate={onFieldChange ? (v: string) => updateVideo(i, { title: v }) : undefined}
                   className="text-xl font-semibold leading-snug transition-colors duration-200 group-hover:opacity-80"
                   style={{ color: ink, fontFamily: DISPLAY }} />
-              </div>
+              </RevealItem>
             );
           })}
-        </div>
+        </RevealStagger>
 
         {/* Mobile CTA */}
         {(props.ctaLabel || onFieldChange) && (

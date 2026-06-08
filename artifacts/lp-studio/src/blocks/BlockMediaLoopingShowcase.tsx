@@ -8,6 +8,7 @@ import { CtaButton } from "@/components/CtaButton";
 import { VideoModal } from "@/components/VideoModal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { Reveal, NoiseOverlay } from "@/lib/premium-toolkit";
 
 interface Props {
   props: MediaLoopingShowcaseBlockProps;
@@ -22,6 +23,7 @@ function isNativeVideo(url: string) {
 }
 
 export function BlockMediaLoopingShowcase({ props, brand, onFieldChange }: Props) {
+  const isBuilder = !!onFieldChange;
   const [modalOpen, setModalOpen] = useState(false);
 
   const surface = resolveSectionSurface(props, "#000000");
@@ -73,10 +75,11 @@ export function BlockMediaLoopingShowcase({ props, brand, onFieldChange }: Props
           className="absolute inset-0 opacity-30 mix-blend-overlay"
           style={{ background: `radial-gradient(circle at center, ${accent} 0%, transparent 60%)` }}
         />
+        <NoiseOverlay opacity={0.05} />
       </div>
 
       {/* Content overlay */}
-      <div className="relative z-10 container mx-auto px-6 md:px-12 flex flex-col items-center justify-center text-center max-w-4xl py-24">
+      <Reveal disabled={isBuilder} className="relative z-10 container mx-auto px-6 md:px-12 flex flex-col items-center justify-center text-center max-w-4xl py-24">
         <button
           type="button"
           onClick={() => hasVideo && setModalOpen(true)}
@@ -117,7 +120,7 @@ export function BlockMediaLoopingShowcase({ props, brand, onFieldChange }: Props
             </CtaButton>
           </div>
         )}
-      </div>
+      </Reveal>
 
       <VideoModal
         open={modalOpen && hasVideo}
