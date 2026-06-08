@@ -21,6 +21,28 @@ function isDarkSurfaceForTone(brand: BrandConfig, tone: BrandLogoTone): boolean 
   return relativeLuminance(hex) < 0.4;
 }
 
+/**
+ * True when the brand has *any* logo asset configured (light or dark). Use this
+ * to decide whether to render `<BrandLogo>` at all vs. falling back to a text
+ * wordmark — `BrandLogo` itself renders `null` when no source resolves.
+ */
+export function brandHasLogo(brand: BrandConfig, override?: string): boolean {
+  return !!(override?.trim() || brand.logoUrl?.trim() || brand.logoUrlDark?.trim());
+}
+
+/**
+ * Pick the right logo tone for a surface given the *foreground/text* color that
+ * sits on it. Light text implies a dark surface (→ `onDark`); dark text implies
+ * a light surface (→ `onLight`). Non-hex / unknown colors fall back to
+ * `onLight`, matching the default `BlockNavHeader` behavior.
+ */
+export function brandLogoToneForText(textColor?: string): BrandLogoTone {
+  if (textColor && HEX6_RE.test(textColor) && relativeLuminance(textColor) > 0.5) {
+    return "onDark";
+  }
+  return "onLight";
+}
+
 interface Props {
   brand: BrandConfig;
   /** Override the brand logo URL (e.g. block prop overrides). */

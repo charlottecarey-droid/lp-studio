@@ -5,6 +5,7 @@ import { ArrowRight, Menu } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { ParallaxLayersHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
 import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
@@ -401,8 +402,8 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
         {props.showNav !== false && (
           <header className={`plx-glass-nav w-full px-8 py-4 flex items-center justify-between ${isBuilder ? "relative z-auto" : "sticky top-0 z-50"}`}>
             <div className="flex items-center gap-2">
-              {props.logoImageUrl ? (
-                <img src={props.logoImageUrl} alt={logoLabel} className="h-8 w-auto object-contain" />
+              {brandHasLogo(brand, props.logoImageUrl) ? (
+                <BrandLogo brand={brand} url={props.logoImageUrl} tone="onDark" alt={logoLabel} className="h-8 w-auto" />
               ) : (
                 <>
                   <div

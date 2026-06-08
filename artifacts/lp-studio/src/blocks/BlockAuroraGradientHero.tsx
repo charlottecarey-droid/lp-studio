@@ -24,6 +24,7 @@ import {
 import type { BrandConfig } from "@/lib/brand-config";
 import type { AuroraGradientHeroBlockProps, AuroraHeroChip } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
 import { CtaButton } from "@/components/CtaButton";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { toFontFamilyValue } from "@/lib/font-catalog";
@@ -279,11 +280,13 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
       {props.showNav !== false && (
         <nav className="relative z-10 w-full px-6 py-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {props.logoImageUrl ? (
-              <img
-                src={props.logoImageUrl}
+            {brandHasLogo(brand, props.logoImageUrl) ? (
+              <BrandLogo
+                brand={brand}
+                url={props.logoImageUrl}
+                tone="onDark"
                 alt={logoText}
-                className="h-8 w-auto object-contain"
+                className="h-8 w-auto"
               />
             ) : (
               <>

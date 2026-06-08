@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
+import { BrandLogo, brandHasLogo, brandLogoToneForText } from "@/components/BrandLogo";
 import type { MegaMenuNavBlockProps } from "@/lib/block-types";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
@@ -33,8 +34,8 @@ export function BlockMegaMenuNav({ props, brand }: Props) {
     >
       <div className="container mx-auto flex items-center justify-between px-6 py-5">
         <div className="flex items-center gap-8">
-          {props.logoUrl ? (
-            <img src={props.logoUrl} alt={logoText} className="h-8 w-auto object-contain" />
+          {brandHasLogo(brand, props.logoUrl) ? (
+            <BrandLogo brand={brand} url={props.logoUrl} tone={brandLogoToneForText(text)} alt={logoText} className="h-8 w-auto" />
           ) : (
             <span className="text-xl font-extrabold tracking-tight" style={{ color: text, fontFamily: DISPLAY }}>
               {logoText}

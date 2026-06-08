@@ -5,6 +5,7 @@ import { Play, ChevronRight } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { CinematicVideoHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
 import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
@@ -324,11 +325,13 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
             className="flex items-center gap-2"
           >
-            {props.logoImageUrl ? (
-              <img
-                src={props.logoImageUrl}
+            {brandHasLogo(brand, props.logoImageUrl) ? (
+              <BrandLogo
+                brand={brand}
+                url={props.logoImageUrl}
+                tone="onDark"
                 alt={props.logoText || brand.brandName || "Logo"}
-                className="h-7 w-auto object-contain"
+                className="h-7 w-auto"
               />
             ) : (
               <>

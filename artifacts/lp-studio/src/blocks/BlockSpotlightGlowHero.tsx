@@ -24,6 +24,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { isValidHex, pickCtaButtonColors } from "@/lib/brand-config";
 import type { SpotlightGlowHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
 import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
@@ -294,11 +295,13 @@ export function BlockSpotlightGlowHero({
       {props.showNav !== false && (
         <nav className="sg-content w-full px-8 py-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {props.logoImageUrl ? (
-              <img
-                src={props.logoImageUrl}
+            {brandHasLogo(brand, props.logoImageUrl) ? (
+              <BrandLogo
+                brand={brand}
+                url={props.logoImageUrl}
+                tone="onDark"
                 alt={logoText}
-                className="h-8 w-auto object-contain"
+                className="h-8 w-auto"
               />
             ) : (
               <>

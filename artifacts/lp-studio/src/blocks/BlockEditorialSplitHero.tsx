@@ -5,6 +5,7 @@ import { ArrowRight, Menu } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { EditorialSplitHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
 import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
@@ -247,11 +248,13 @@ export function BlockEditorialSplitHero({
   const navBar = (props.showNav !== false) && (
     <nav className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-8 py-6 mix-blend-difference" style={{ color: MOCKUP_BG }}>
       <div className="text-xl tracking-widest uppercase font-medium" style={{ fontFamily: headlineFamily }}>
-        {props.logoImageUrl ? (
-          <img
-            src={props.logoImageUrl}
+        {brandHasLogo(brand, props.logoImageUrl) ? (
+          <BrandLogo
+            brand={brand}
+            url={props.logoImageUrl}
+            tone="onLight"
             alt={props.logoText || brandName}
-            style={{ height: 28, width: "auto", display: "block", objectFit: "contain" }}
+            style={{ height: 28, display: "block" }}
           />
         ) : (
           props.logoText || brandName

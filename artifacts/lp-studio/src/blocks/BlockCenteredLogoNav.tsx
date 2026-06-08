@@ -1,5 +1,6 @@
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
+import { BrandLogo, brandHasLogo, brandLogoToneForText } from "@/components/BrandLogo";
 import type { CenteredLogoNavBlockProps } from "@/lib/block-types";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
@@ -44,8 +45,8 @@ export function BlockCenteredLogoNav({ props, brand }: Props) {
       <div className="container mx-auto grid grid-cols-2 items-center gap-4 px-6 py-5 md:grid-cols-3">
         <div className="hidden md:block">{renderLinks(props.leftLinks ?? [], "start")}</div>
         <div className="flex items-center justify-start md:justify-center">
-          {props.logoUrl ? (
-            <img src={props.logoUrl} alt={logoText} className="h-8 w-auto object-contain" />
+          {brandHasLogo(brand, props.logoUrl) ? (
+            <BrandLogo brand={brand} url={props.logoUrl} tone={brandLogoToneForText(text)} alt={logoText} className="h-8 w-auto" />
           ) : (
             <span className="text-xl font-extrabold tracking-tight" style={{ color: text, fontFamily: DISPLAY }}>
               {logoText}
