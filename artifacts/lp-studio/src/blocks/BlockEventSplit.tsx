@@ -232,6 +232,20 @@ export function BlockEventSplit({ props: p, brand }: Props) {
   const ticketTiers = p.ticketTiers ?? [];
   const heroCard = ticketTiers[0];
 
+  // Hero registration card — gated by showHeroCard (visible when absent), with
+  // content sourced from dedicated fields and falling back to ticketTiers[0] so
+  // existing pages render unchanged.
+  const showHeroCard = p.showHeroCard !== false;
+  const heroCardLabel = firstNonEmpty(p.heroCardLabel, heroCard?.name) ?? "Registration";
+  const heroCardPrice = firstNonEmpty(p.heroCardPrice, heroCard?.price);
+  const heroCardPeriod = firstNonEmpty(p.heroCardPeriod, heroCard?.period);
+  const heroCardFeatures =
+    (p.heroCardFeatures && p.heroCardFeatures.length > 0
+      ? p.heroCardFeatures
+      : heroCard?.features) ?? ["Full access to all sessions", "Networking events", "Recorded sessions"];
+  const heroCardCtaLabel = firstNonEmpty(p.heroCardCtaLabel, heroCard?.ctaLabel, heroCtaLabel) ?? heroCtaLabel;
+  const heroCardCtaUrl = firstNonEmpty(p.heroCardCtaUrl, heroCard?.ctaUrl, heroCtaUrl) ?? heroCtaUrl;
+
   // ── countdown ──────────────────────────────────────────────────────────────
   const [timeLeft, setTimeLeft] = useState<{ d: number; h: number; m: number; s: number } | null>(null);
   useEffect(() => {
@@ -591,58 +605,60 @@ export function BlockEventSplit({ props: p, brand }: Props) {
               />
             </div>
 
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "clamp(1.5rem, 4vw, 3rem)",
-              }}
-            >
+            {showHeroCard && (
               <div
                 style={{
-                  width: "100%",
-                  maxWidth: "26rem",
-                  backgroundColor: dark,
-                  border: `1px solid ${border}`,
-                  padding: "2rem",
-                  borderRadius: radius,
-                  boxShadow: "0 25px 60px rgba(0,0,0,0.5)",
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "clamp(1.5rem, 4vw, 3rem)",
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
-                  <div>
-                    <div style={{ fontFamily: MONO, fontSize: "0.78rem", color: accent, marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                      {heroCard ? heroCard.name : "Registration"}
-                    </div>
-                    {heroCard?.price && (
-                      <div style={{ fontFamily: displayFont, fontWeight: 700, fontSize: "2.4rem", color: headline }}>
-                        {heroCard.price}
+                <div
+                  style={{
+                    width: "100%",
+                    maxWidth: "26rem",
+                    backgroundColor: dark,
+                    border: `1px solid ${border}`,
+                    padding: "2rem",
+                    borderRadius: radius,
+                    boxShadow: "0 25px 60px rgba(0,0,0,0.5)",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
+                    <div>
+                      <div style={{ fontFamily: MONO, fontSize: "0.78rem", color: accent, marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                        {heroCardLabel}
                       </div>
-                    )}
-                    {heroCard?.period && (
-                      <div style={{ fontSize: "0.85rem", color: muted }}>{heroCard.period}</div>
-                    )}
+                      {heroCardPrice && (
+                        <div style={{ fontFamily: displayFont, fontWeight: 700, fontSize: "2.4rem", color: headline }}>
+                          {heroCardPrice}
+                        </div>
+                      )}
+                      {heroCardPeriod && (
+                        <div style={{ fontSize: "0.85rem", color: muted }}>{heroCardPeriod}</div>
+                      )}
+                    </div>
+                    <Ticket size={30} style={{ color: accent }} />
                   </div>
-                  <Ticket size={30} style={{ color: accent }} />
+
+                  <ul style={{ listStyle: "none", margin: "0 0 1.5rem", padding: 0, display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+                    {heroCardFeatures.slice(0, 4).map((f, i) => (
+                      <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: "0.65rem", fontSize: "0.9rem", color: muted }}>
+                        <CheckCircle2 size={18} style={{ color: accent, flexShrink: 0 }} />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <a href={heroCardCtaUrl} style={accentBtn({ width: "100%" })}>
+                    {heroCardCtaLabel} <ArrowRight size={16} />
+                  </a>
                 </div>
-
-                <ul style={{ listStyle: "none", margin: "0 0 1.5rem", padding: 0, display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-                  {(heroCard?.features ?? ["Full access to all sessions", "Networking events", "Recorded sessions"]).slice(0, 4).map((f, i) => (
-                    <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: "0.65rem", fontSize: "0.9rem", color: muted }}>
-                      <CheckCircle2 size={18} style={{ color: accent, flexShrink: 0 }} />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <a href={heroCard?.ctaUrl ?? heroCtaUrl} style={accentBtn({ width: "100%" })}>
-                  {heroCard?.ctaLabel ?? heroCtaLabel} <ArrowRight size={16} />
-                </a>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}

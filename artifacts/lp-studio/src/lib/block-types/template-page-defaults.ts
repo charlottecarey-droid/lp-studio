@@ -142,6 +142,22 @@ export function eventPageDefaults(variant: EventVariant): EventPageCommonProps {
     heroImageUrl: v.heroImageUrl,
     heroOverlayOpacity: 45,
 
+    // Hero registration card — rendered by the Split Conference hero only.
+    // Mirrors the seeded first ticket tier so a freshly added Split block shows
+    // a configured, visible card. Scoped to "split" so the noir/luminous
+    // variants (which don't render this card) keep clean defaults.
+    ...(variant === "split"
+      ? {
+          showHeroCard: true,
+          heroCardLabel: "Early Bird",
+          heroCardPrice: "$399",
+          heroCardPeriod: "until Feb 1",
+          heroCardFeatures: ["All keynotes & sessions", "Workshop access", "Evening reception", "Lunch all three days"],
+          heroCardCtaLabel: "Get Early Bird",
+          heroCardCtaUrl: "#register",
+        }
+      : {}),
+
     countdownHeading: "Doors open in",
     countdownTargetDate: "2026-03-18T09:00:00",
 

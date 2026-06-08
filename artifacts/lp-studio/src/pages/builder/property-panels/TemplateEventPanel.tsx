@@ -25,6 +25,8 @@ import type {
 interface Props {
   props: EventPageCommonProps;
   onChange: (next: EventPageCommonProps) => void;
+  /** The block's variant type (e.g. "event-split"). Used to scope variant-only controls. */
+  blockType?: string;
 }
 
 const PALETTE_FB = {
@@ -164,7 +166,8 @@ function NativeSelect({
   );
 }
 
-export function TemplateEventPanel({ props, onChange }: Props) {
+export function TemplateEventPanel({ props, onChange, blockType }: Props) {
+  const isSplit = blockType === "event-split";
   const [open, setOpen] = useState({
     sections: true,
     palette: false,
@@ -172,6 +175,7 @@ export function TemplateEventPanel({ props, onChange }: Props) {
     layout: false,
     brand: false,
     hero: true,
+    heroCard: false,
     countdown: false,
     about: false,
     agenda: false,
@@ -199,6 +203,19 @@ export function TemplateEventPanel({ props, onChange }: Props) {
   const addNavLink = () => set("navLinks", [...navLinks, { label: "Link", href: "#" }]);
   const removeNavLink = (i: number) => set("navLinks", navLinks.filter((_, j) => j !== i));
   const moveNavLink = (i: number, dir: -1 | 1) => set("navLinks", moveItem(navLinks, i, dir));
+
+  // ── Hero registration card (split variant only) ─────────────────────────
+  const heroCardFeatures = props.heroCardFeatures ?? [];
+  const setHeroCardFeature = (i: number, value: string) => {
+    const next = [...heroCardFeatures];
+    next[i] = value;
+    set("heroCardFeatures", next);
+  };
+  const addHeroCardFeature = () => set("heroCardFeatures", [...heroCardFeatures, ""]);
+  const removeHeroCardFeature = (i: number) =>
+    set("heroCardFeatures", heroCardFeatures.filter((_, j) => j !== i));
+  const moveHeroCardFeature = (i: number, dir: -1 | 1) =>
+    set("heroCardFeatures", moveItem(heroCardFeatures, i, dir));
 
   // ── About stats ────────────────────────────────────────────────────────
   const aboutStats = props.aboutStats ?? [];
@@ -569,6 +586,61 @@ export function TemplateEventPanel({ props, onChange }: Props) {
           </div>
         )}
       </div>
+
+      {/* Hero registration card — split variant only */}
+      {isSplit && (
+        <div className="space-y-2">
+          <SectionHeader label="Hero card" open={open.heroCard} onToggle={() => toggle("heroCard")} />
+          {open.heroCard && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-1">
+                <Label className="text-xs cursor-pointer">Show hero card</Label>
+                <Switch
+                  checked={props.showHeroCard !== false}
+                  onCheckedChange={(v) => set("showHeroCard", v)}
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                The floating registration card in the hero. Leave a field blank to fall back to the first ticket tier.
+              </p>
+              <Field label="Label">
+                <Input value={props.heroCardLabel ?? ""} onChange={(e) => set("heroCardLabel", e.target.value)} placeholder="Early Bird" className="text-xs h-8" />
+              </Field>
+              <Field label="Price">
+                <Input value={props.heroCardPrice ?? ""} onChange={(e) => set("heroCardPrice", e.target.value)} placeholder="$399" className="text-xs h-8" />
+              </Field>
+              <Field label="Period / sub-text">
+                <Input value={props.heroCardPeriod ?? ""} onChange={(e) => set("heroCardPeriod", e.target.value)} placeholder="until Feb 1" className="text-xs h-8" />
+              </Field>
+              <div className="space-y-2">
+                <Label className="text-xs">Features</Label>
+                {heroCardFeatures.map((feature, i) => (
+                  <div key={i} className="space-y-2 rounded-md border border-border p-2">
+                    <ArrayItemHeader
+                      label="Feature"
+                      index={i}
+                      total={heroCardFeatures.length}
+                      onMoveUp={() => moveHeroCardFeature(i, -1)}
+                      onMoveDown={() => moveHeroCardFeature(i, 1)}
+                      onRemove={() => removeHeroCardFeature(i)}
+                    />
+                    <Input value={feature} onChange={(e) => setHeroCardFeature(i, e.target.value)} placeholder="Feature" className="text-xs h-8" />
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" className="w-full h-8 text-xs gap-1" onClick={addHeroCardFeature}>
+                  <Plus className="h-3.5 w-3.5" /> Add feature
+                </Button>
+              </div>
+              <Field label="Button label">
+                <Input value={props.heroCardCtaLabel ?? ""} onChange={(e) => set("heroCardCtaLabel", e.target.value)} placeholder="Get Early Bird" className="text-xs h-8" />
+              </Field>
+              <Field label="Button URL">
+                <Input value={props.heroCardCtaUrl ?? ""} onChange={(e) => set("heroCardCtaUrl", e.target.value)} placeholder="#register" className="text-xs h-8" />
+              </Field>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Countdown */}
       <div className="space-y-2">

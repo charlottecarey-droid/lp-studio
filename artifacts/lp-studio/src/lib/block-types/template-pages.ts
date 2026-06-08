@@ -211,6 +211,22 @@ export interface EventPageCommonProps extends TemplatePageStyle {
   /** 0–100 overlay darkness over a full-bleed hero image. */
   heroOverlayOpacity?: number;
 
+  // Hero registration card (used by the Split Conference hero only).
+  /** Show/hide the floating registration card. Visible when absent. */
+  showHeroCard?: boolean;
+  /** Card label, e.g. "Early Bird". Falls back to ticketTiers[0].name. */
+  heroCardLabel?: string;
+  /** Card price, e.g. "$399". Falls back to ticketTiers[0].price. */
+  heroCardPrice?: string;
+  /** Card period / sub-text, e.g. "until Feb 1". Falls back to ticketTiers[0].period. */
+  heroCardPeriod?: string;
+  /** Card feature bullets. Falls back to ticketTiers[0].features. */
+  heroCardFeatures?: string[];
+  /** Card button label. Falls back to ticketTiers[0].ctaLabel, then heroCtaLabel. */
+  heroCardCtaLabel?: string;
+  /** Card button URL. Falls back to ticketTiers[0].ctaUrl, then heroCtaUrl. */
+  heroCardCtaUrl?: string;
+
   // Countdown
   countdownHeading?: string;
   /** ISO datetime the countdown ticks toward. */

@@ -6759,7 +6759,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "event-noir":
       case "event-luminous":
       case "event-split":
-        return <TemplateEventPanel props={block.props} onChange={next => onChange({ ...block, props: next })} />;
+        return <TemplateEventPanel props={block.props} blockType={block.type} onChange={next => onChange({ ...block, props: next })} />;
       case "case-metrics":
       case "case-editorial":
       case "case-modular":
