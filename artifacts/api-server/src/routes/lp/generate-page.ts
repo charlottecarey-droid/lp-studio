@@ -2911,57 +2911,87 @@ function buildBlockRoleTagGuide(
 }
 
 /**
- * Brand-fit hero / proof selection directive ("it picks the same hero every
- * time" — but the fix is deliberate matching, NOT randomness).
+ * Brand-fit block selection directive ("it picks the same hero / trust-bar / PAS
+ * every time" — the fix is deliberate brand matching, applied to EVERY block
+ * role, NOT randomness).
  *
- * The AVAILABLE BLOCK TYPES menu lists the plain "hero" and "trust-bar" blocks
- * FIRST as the safe defaults, so even at temperature 0.9 the model anchors on
- * them on nearly every generation — the other AI-enabled hero / proof variants
- * almost never get chosen. Toggling them on in the Block Catalog only makes them
- * *eligible*; it does not change which one the model prefers.
+ * The AVAILABLE BLOCK TYPES menu lists the plainest block of each kind FIRST as
+ * the safe default (plain "hero", "trust-bar", "pas-section", …), so even at
+ * temperature 0.9 the model anchors on those on nearly every generation — the
+ * other AI-enabled variants almost never get chosen. Toggling them on in the
+ * Block Catalog only makes them *eligible*; it does not change which one the
+ * model prefers.
  *
- * This enumerates the FULL set of hero blocks and proof blocks actually
- * advertised for THIS path/industry (the same `- "type":` harvest + role-tag
- * resolution the role-tag guide uses, so it stays in sync with the catalog) and
- * instructs the model to deliberately pick the variant whose visual style best
- * matches the brand (personality, design feel, colors in BRAND CONTEXT), the
- * look/layout of the reference URL or screenshot when one is provided, and the
- * page topic — explicitly telling it NOT to reflexively fall back to the plain
- * "hero"/"trust-bar" out of habit. The choice is brand-driven, never random.
+ * This groups EVERY block actually advertised for THIS path/industry (the same
+ * `- "type":` harvest + role-tag resolution the role-tag guide uses, so it stays
+ * in sync with the catalog) by role, then, for every role that has more than one
+ * option, lists the variants and instructs the model to deliberately pick the
+ * one whose style best matches the brand (personality, design feel, colors in
+ * BRAND CONTEXT), the look of the reference URL / screenshot when provided, and
+ * the prompt — never defaulting to the first / same option and never at random.
  *
- * Listed in natural prompt order (deterministic) so the same brand + reference
- * reliably steers toward the same on-brand block. Returns "" when there is no
- * real choice to make (one or zero hero/proof blocks advertised), leaving the
- * prompt unchanged.
+ * A block is listed under EVERY role it fills (not a single "primary" role): a
+ * dual-role block like "trust-bar" (social-proof + stats) is a legitimate option
+ * whenever the model wants proof OR a stat section, and this is robust to the
+ * fact that per-industry override tags are reordered by `sanitizeRoleTags` (so
+ * "first tag" is not authoritative). The `layout` role is skipped entirely, so
+ * pure structural primitives (section/columns/grid/stack/spacer) never appear
+ * while layout-combo blocks still surface under their content/feature/etc role.
+ *
+ * Listed in natural prompt order (deterministic). Returns "" when no role has a
+ * real choice, leaving the prompt unchanged.
  */
-export function buildHeroProofSelectionDirective(
+const SELECTION_EXCLUDED_ROLES: ReadonlySet<BlockRoleTag> = new Set(["layout"]);
+
+const ROLE_SELECTION_LABEL: Record<BlockRoleTag, string> = {
+  hero: "HERO",
+  header: "HEADER / NAV",
+  footer: "FOOTER",
+  stats: "STATS",
+  "social-proof": "SOCIAL PROOF",
+  cta: "CALL TO ACTION",
+  features: "FEATURES / BENEFITS",
+  comparison: "COMPARISON",
+  pricing: "PRICING",
+  faq: "FAQ",
+  form: "LEAD FORM",
+  content: "CONTENT / NARRATIVE",
+  media: "MEDIA / GALLERY",
+  layout: "LAYOUT",
+};
+
+export function buildBlockSelectionDirective(
   systemPrompt: string,
   dbTagsByType: Map<string, unknown>,
 ): string {
   const types = extractPromptBlockTypes(systemPrompt);
   if (types.length === 0) return "";
-  const heroes: string[] = [];
-  const proof: string[] = [];
+  // Group each advertised block under EVERY role it fills (skipping the `layout`
+  // scaffolding role), so dual-role blocks surface wherever they fit and the
+  // grouping is robust to override-tag reordering.
+  const byRole = new Map<BlockRoleTag, string[]>();
   for (const t of types) {
     const tags = resolveBlockTags(t, dbTagsByType.get(t));
-    if (tags.includes("hero")) heroes.push(t);
-    if (tags.includes("social-proof") || tags.includes("stats")) proof.push(t);
+    for (const role of tags) {
+      if (SELECTION_EXCLUDED_ROLES.has(role)) continue;
+      const list = byRole.get(role) ?? [];
+      list.push(t);
+      byRole.set(role, list);
+    }
   }
   const fmt = (arr: string[]): string => arr.map((t) => `"${t}"`).join(", ");
   const lines: string[] = [];
-  if (heroes.length > 1) {
+  for (const role of BLOCK_ROLE_TAGS) {
+    if (SELECTION_EXCLUDED_ROLES.has(role)) continue;
+    const blocks = byRole.get(role);
+    if (!blocks || blocks.length < 2) continue;
     lines.push(
-      `- HERO: pick the hero block whose visual style and layout best match THIS brand and request. Read the brand's personality (tone, design feel, colors) from BRAND CONTEXT, mirror the look of the reference URL / screenshot when one is provided, and fit the page topic. Available heroes: ${fmt(heroes)}. Do NOT reflexively choose the plain "hero" — reserve it for genuinely minimal, no-frills brands. Match the brand; never pick at random.`,
-    );
-  }
-  if (proof.length > 1) {
-    lines.push(
-      `- SOCIAL PROOF: pick the proof / credibility block that best fits the brand and the kind of evidence available (numbers, quotes, logos, case studies). Available proof blocks: ${fmt(proof)}. Do NOT reflexively choose the plain "trust-bar" — use it only when a pure numeric stat bar is genuinely the strongest fit.`,
+      `- ${ROLE_SELECTION_LABEL[role]} (${BLOCK_ROLE_TAG_DESCRIPTIONS[role]}): ${fmt(blocks)}.`,
     );
   }
   if (lines.length === 0) return "";
   return [
-    "BLOCK SELECTION (match the brand — IMPORTANT): choose your hero and proof blocks deliberately to fit THIS brand, its reference URL/screenshot, and the prompt. Do not default to the first option listed out of habit, and do not pick at random:",
+    "BLOCK SELECTION (match the brand — IMPORTANT): for EACH section you add, deliberately pick the block variant whose visual style and layout best fit THIS brand — read its personality, design feel, and colors from BRAND CONTEXT, mirror the look of the reference URL / screenshot when one is provided, and fit the prompt and page topic. Do NOT default to the first option listed, do NOT reuse the same block out of habit, and never pick at random. Your options per section role:",
     ...lines,
   ].join("\n");
 }
@@ -4922,11 +4952,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   } catch (err) {
     logger.warn({ err: String(err) }, "[generate-page] role-tag guide build skipped");
   }
-  // Brand-fit selection: enumerate the hero / proof variants advertised for this
-  // path and tell the model to deliberately match the brand + reference URL +
-  // prompt instead of defaulting to the plain "hero"/"trust-bar". Best-effort.
+  // Brand-fit selection: group every advertised block by role and tell the model
+  // to deliberately match the brand + reference URL + prompt for each section
+  // instead of defaulting to the same plain block every time. Best-effort.
   try {
-    const selectionSection = buildHeroProofSelectionDirective(systemPrompt, dbTagsByType);
+    const selectionSection = buildBlockSelectionDirective(systemPrompt, dbTagsByType);
     if (selectionSection) userPromptParts.push(selectionSection);
   } catch (err) {
     logger.warn({ err: String(err) }, "[generate-page] selection directive build skipped");

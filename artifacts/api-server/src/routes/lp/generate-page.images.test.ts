@@ -9,7 +9,7 @@ import {
   collectImageSlots,
   isLogoImageUrl,
   buildBrandLogoUrlSet,
-  buildHeroProofSelectionDirective,
+  buildBlockSelectionDirective,
   type MediaImage,
 } from "./generate-page";
 
@@ -787,53 +787,82 @@ describe("Replace-imagery pipeline preserves logos", () => {
   });
 });
 
-describe("buildHeroProofSelectionDirective — brand-fit selection", () => {
-  // A minimal advertised-block menu in the same `- "type":` form the real
-  // system prompt uses. Includes the plain defaults plus several variants.
+describe("buildBlockSelectionDirective — brand-fit selection for every role", () => {
+  // A representative advertised-block menu in the same `- "type":` form the real
+  // system prompt uses: heroes, proof, stats, PAS/content, CTAs, plus layout
+  // primitives that must be ignored.
   const PROMPT = [
     '- "hero": Main hero section.',
     '- "full-bleed-hero": Immersive hero.',
     '- "magazine-hero": Editorial split hero.',
     '- "trust-bar": Numeric proof bar.',
-    '- "testimonial": A customer quote.',
     '- "logo-wall": A wall of customer logos.',
-    '- "benefits-grid": Feature grid.',
+    '- "testimonial": A customer quote.',
+    '- "stat-callout": A standout stat.',
+    '- "pas-section": Problem-agitate-solve.',
+    '- "pas-stat-agitate": PAS backed by a stat.',
+    '- "pas-before-after": PAS before/after.',
+    '- "how-it-works": Steps.',
+    '- "full-bleed-final-cta": Big closing CTA.',
+    '- "stat-backed-final-cta": CTA with a stat.',
+    '- "section": A generic container.',
+    '- "columns": A column layout.',
   ].join("\n\n");
 
-  it("enumerates all hero + proof blocks and instructs brand/reference matching", () => {
-    const out = buildHeroProofSelectionDirective(PROMPT, new Map());
+  it("groups every role and instructs deliberate brand/reference matching", () => {
+    const out = buildBlockSelectionDirective(PROMPT, new Map());
     expect(out).toContain("BLOCK SELECTION");
-    // The full menu of hero + proof blocks is offered, including the plain
-    // defaults (so the model can still pick them when they genuinely fit).
-    expect(out).toContain('"hero"');
-    expect(out).toContain('"full-bleed-hero"');
-    expect(out).toContain('"magazine-hero"');
-    expect(out).toContain('"trust-bar"');
-    expect(out).toContain('"testimonial"');
-    expect(out).toContain('"logo-wall"');
-    // It steers toward deliberate brand/reference matching, not randomness.
+    // Steers toward deliberate brand/reference matching, not randomness.
     expect(out).toContain("BRAND CONTEXT");
     expect(out).toContain("reference URL");
     expect(out).toContain("never pick at random");
-    // And explicitly discourages reflexively defaulting to the plain blocks.
-    expect(out).toContain('Do NOT reflexively choose the plain "hero"');
-    expect(out).toContain('Do NOT reflexively choose the plain "trust-bar"');
+
+    const line = (label: string): string =>
+      out.split("\n").find((l) => l.startsWith(`- ${label}`)) ?? "";
+
+    // HERO — all three heroes.
+    expect(line("HERO")).toContain('"hero"');
+    expect(line("HERO")).toContain('"full-bleed-hero"');
+    expect(line("HERO")).toContain('"magazine-hero"');
+
+    // SOCIAL PROOF — trust-bar fills this role, alongside logos and quotes.
+    expect(line("SOCIAL PROOF")).toContain('"trust-bar"');
+    expect(line("SOCIAL PROOF")).toContain('"logo-wall"');
+    expect(line("SOCIAL PROOF")).toContain('"testimonial"');
+    // Dual-role blocks surface under EVERY role they fill: trust-bar + stat-callout
+    // are both stats too, so STATS lists them when it has >1 option.
+    expect(line("STATS")).toContain('"trust-bar"');
+    expect(line("STATS")).toContain('"stat-callout"');
+
+    // CONTENT — the PAS variants the AI over-defaults on are all offered here.
+    expect(line("CONTENT / NARRATIVE")).toContain('"pas-section"');
+    expect(line("CONTENT / NARRATIVE")).toContain('"pas-stat-agitate"');
+    expect(line("CONTENT / NARRATIVE")).toContain('"pas-before-after"');
+    expect(line("CONTENT / NARRATIVE")).toContain('"how-it-works"');
+
+    // CALL TO ACTION — both closing CTAs.
+    expect(line("CALL TO ACTION")).toContain('"full-bleed-final-cta"');
+    expect(line("CALL TO ACTION")).toContain('"stat-backed-final-cta"');
+
+    // Pure layout primitives are scaffolding and must never be offered.
+    expect(out).not.toContain("- LAYOUT");
+    expect(out).not.toContain('"columns"');
   });
 
-  it("omits the hero line when only one hero block is advertised (no real choice)", () => {
-    const oneHero = [
+  it("omits a role's line when only one block of that role is advertised", () => {
+    const menu = [
       '- "hero": Main hero.',
       '- "trust-bar": Proof bar.',
       '- "testimonial": A quote.',
     ].join("\n\n");
-    const out = buildHeroProofSelectionDirective(oneHero, new Map());
-    // Proof has two options → a SOCIAL PROOF line; hero has one → no HERO line.
+    const out = buildBlockSelectionDirective(menu, new Map());
+    // Social proof has two options → a line; hero has one → no HERO line.
     expect(out).not.toContain("- HERO:");
-    expect(out).toContain("- SOCIAL PROOF:");
+    expect(out).toContain("- SOCIAL PROOF");
   });
 
-  it("returns empty when there is no real hero or proof choice", () => {
-    const onlyDefaults = ['- "hero": Main hero.', '- "trust-bar": Proof bar.'].join("\n\n");
-    expect(buildHeroProofSelectionDirective(onlyDefaults, new Map())).toBe("");
+  it("returns empty when no role has more than one option", () => {
+    const single = ['- "hero": Main hero.', '- "trust-bar": Proof bar.'].join("\n\n");
+    expect(buildBlockSelectionDirective(single, new Map())).toBe("");
   });
 });
