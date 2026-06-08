@@ -85,7 +85,7 @@ export class SfdcService {
       client_id: this.clientId,
       redirect_uri: redirectUri,
       response_type: "code",
-      scope: "api full",
+      scope: "api refresh_token",
       state: state ?? randomBytes(16).toString("base64url"),
     });
     return `${SFDC_AUTH_URL}/services/oauth2/authorize?${params.toString()}`;
