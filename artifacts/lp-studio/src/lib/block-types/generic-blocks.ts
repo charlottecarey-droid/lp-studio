@@ -106,6 +106,14 @@ export interface BenefitsGridBlockProps {
   headline: string;
   columns: 2 | 3 | 4 | 5;
   /**
+   * Block-level opt-in for per-card photos. Defaults to icon-only (false /
+   * undefined): the server only fills `items[].image` when this is explicitly
+   * `true`. Set true for visual / consumer brands or concrete, showable
+   * benefits; leave unset for clean B2B / SaaS / abstract benefits where icons
+   * read sharper. Applies to the whole block (all cards photo, or all icon-only).
+   */
+  useItemPhotos?: boolean;
+  /**
    * `image` is optional per-item photo imagery surfaced by microsite
    * generation. When present the card shows it (with the icon overlaid as a
    * badge); when absent the lucide icon is shown on its own as before.

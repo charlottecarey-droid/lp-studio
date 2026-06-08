@@ -636,6 +636,14 @@ export interface MediaImage {
    *  guard to refuse undersized images as full-bleed backgrounds (task #1065). */
   width?: number | null;
   height?: number | null;
+  /** True when this row belongs to a RECIPROCAL SIBLING tenant rather than the
+   *  calling tenant (computed at catalog-build time in fetchMediaCatalog where
+   *  the calling tenantId is known). The scorer applies a small −1 penalty so a
+   *  tenant prefers its OWN assets in close calls without excluding siblings —
+   *  the catalog text still lists them, so the model can pick a sibling URL when
+   *  it's genuinely the best match and validateAndDedupeAIImages won't clear it
+   *  (it's still in the scoring pool). Own-tenant / shared rows leave this unset. */
+  foreignTenant?: boolean;
 }
 
 const PURPOSE_TAGS = ["lp-hero", "lp-feature", "product-detail"] as const;
@@ -701,7 +709,7 @@ export async function fetchMediaCatalog(tenantId: number | null): Promise<{ imag
   try {
     const ownedTenantIds = await resolveOwnedTenantIds(tenantId);
     const rows = await db
-      .select({ url: lpMediaTable.url, title: lpMediaTable.title, tags: lpMediaTable.tags, width: lpMediaTable.width, height: lpMediaTable.height })
+      .select({ url: lpMediaTable.url, title: lpMediaTable.title, tags: lpMediaTable.tags, width: lpMediaTable.width, height: lpMediaTable.height, tenantId: lpMediaTable.tenantId })
       .from(lpMediaTable)
       .where(and(eq(lpMediaTable.mediaType, "image"), libraryReadablePredicate(ownedTenantIds)))
       .orderBy(desc(lpMediaTable.createdAt))
@@ -713,6 +721,10 @@ export async function fetchMediaCatalog(tenantId: number | null): Promise<{ imag
       tags: (r.tags as string[]) ?? [],
       width: r.width,
       height: r.height,
+      // A row owned by a DIFFERENT tenant (a reciprocal sibling in the shared
+      // drawer) is "foreign". Rows with no tenant (shared/global seeds) and the
+      // calling tenant's own rows are not penalised.
+      foreignTenant: r.tenantId != null && r.tenantId !== tenantId,
     }));
 
     // Exclude OG/social-sharing images — they are tagged "og-image" by the auto-tagger
@@ -757,7 +769,7 @@ export async function fetchMediaCatalog(tenantId: number | null): Promise<{ imag
       if (tagGroups.size === 0) return "";
       const lines = [...tagGroups.entries()]
         .sort((a, b) => b[1].length - a[1].length)
-        .map(([tag, grpImgs]) => `  "${tag}" (${grpImgs.length}): ${grpImgs.slice(0, 3).map(i => i.url).join(" , ")}`);
+        .map(([tag, grpImgs]) => `  "${tag}" (${grpImgs.length}): ${grpImgs.slice(0, 8).map(i => i.url).join(" , ")}`);
       return `[${label}]\n${lines.join("\n")}`;
     };
 
@@ -832,6 +844,13 @@ function scoreImage(
   // Title match
   const titleLower = (img.title ?? "").toLowerCase();
   if (titleLower && contextWords.some(w => w.length > 3 && titleLower.includes(w))) score += 1;
+
+  // Sibling-tenant tie-breaker: a reciprocal sibling's image (flagged at
+  // catalog-build time in fetchMediaCatalog) gets a small −1 nudge so a tenant
+  // prefers its OWN assets when scores are otherwise close. It is deliberately
+  // tiny — a clearly more on-topic sibling image (extra purpose/tag points) still
+  // wins, we only break near-ties toward the tenant's own library.
+  if (img.foreignTenant) score -= 1;
 
   return score;
 }
@@ -1239,20 +1258,21 @@ export function validateAndDedupeAIImages(
   //
   // CLEAR_GAP rationale (validated against the scoring model — see
   // generate-page.images.test.ts "CLEAR_GAP threshold" cases):
-  //   We only clear an assigned, correct-purpose image when a *free* library
-  //   alternative scores CLEAR_GAP (= 2 × TAG_MATCH_SCORE = 6) or more higher.
-  //   An on-topic content tag contributes TAG_MATCH_SCORE (+3 when its text
-  //   appears in the page context, plus up to +1 more for a word-level hit), so
-  //   a gap of 6 means the alternative is roughly two content-tag matches more
-  //   on-topic than the model's pick. Below that (e.g. a one-tag difference) we
-  //   keep the model's choice rather than churn a perfectly good on-topic pick
-  //   for a marginally-higher-scoring sibling. At/above it the alternative is
-  //   decisively better — e.g. a bare purpose-only hero (score =
-  //   PURPOSE_MATCH_BOOST, no topic tags) loses to a hero that also matches two
-  //   of the page's topic keywords. Deriving the gap from TAG_MATCH_SCORE keeps
-  //   this semantic intact if the weights are ever re-tuned. Wrong-purpose
-  //   picks are handled separately (assignedScore < 0) and cleared regardless.
-  const CLEAR_GAP = 2 * TAG_MATCH_SCORE;
+  //   We only override the model's pick when a *free* library alternative has a
+  //   PURPOSE-CLASS advantage — i.e. the gap is at least one full
+  //   PURPOSE_MATCH_BOOST (8). That covers the legitimate "model picked from the
+  //   wrong/no purpose section while an alt is in the right one" case (e.g. the
+  //   model's pick scores 0 in OTHER, an alt scores 8 in the matching purpose
+  //   section). It deliberately does NOT clear on a pure tag-count difference
+  //   inside the SAME purpose section: a model pick scoring 8 (purpose only) vs.
+  //   an alt scoring 14 (purpose + 2 tag hits) is a gap of 6 — below the gate —
+  //   so the model keeps its pick. The model reads the catalog descriptions
+  //   better than the scorer's substring matching does; second-guessing it on
+  //   tag counts inside the right section caused the "relevance lost" regression.
+  //   Deriving the gap from PURPOSE_MATCH_BOOST keeps this semantic intact if the
+  //   weights are ever re-tuned. Wrong-purpose picks are handled separately
+  //   (assignedScore < 0) and cleared regardless.
+  const CLEAR_GAP = PURPOSE_MATCH_BOOST;
   // Track used image IDENTITIES (not raw URLs) so a free alternative that is
   // merely a near-duplicate of an already-placed image isn't treated as a
   // distinct, better candidate.
@@ -1472,8 +1492,9 @@ export function buildReferenceFillPool(
   const otherScraped: MediaImage[] = [];
   for (const img of catalogImages) {
     if (!isScrapedImage(img)) {
-      // Generic starter seeds rank below the current reference's scrapes (see 3
-      // in the doc above); genuine brand/upload/AI assets still win first.
+      // Generic starter seeds are the ABSOLUTE last resort — they rank below
+      // every scraped reference image too (see ordering below). Genuine
+      // brand/upload/AI assets still win first.
       if (isStarterImage(img)) starterImages.push(img);
       else curatedImages.push(img);
       continue;
@@ -1485,7 +1506,7 @@ export function buildReferenceFillPool(
     if (host && currentRefHosts.has(host)) currentRefScraped.push(img);
     else otherScraped.push(img);
   }
-  return [...curatedImages, ...freshScrapedMedia, ...currentRefScraped, ...starterImages, ...otherScraped];
+  return [...curatedImages, ...freshScrapedMedia, ...currentRefScraped, ...otherScraped, ...starterImages];
 }
 
 /**
@@ -1605,7 +1626,16 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
     // items that omit it keep falling back to icons. trust-bar / stats are
     // numeric bars: NEVER auto-fill a photo (a stat label above a screenshot or
     // text graphic reads as broken — the library has no iconic/logo purpose).
-    if (Array.isArray(props.items) && !STAT_BAR_BLOCK_TYPES.has(blockType)) {
+    //
+    // benefits-grid / features are ICON-ONLY by default: only fill their per-item
+    // photos when the model explicitly opted the whole block in via
+    // `useItemPhotos === true`. product-grid (and other non-ITEM_PHOTO item
+    // blocks) are inherently photo-driven, so they always fill.
+    if (
+      Array.isArray(props.items) &&
+      !STAT_BAR_BLOCK_TYPES.has(blockType) &&
+      (!ITEM_PHOTO_BLOCK_TYPES.has(blockType) || props.useItemPhotos === true)
+    ) {
       const itemsPurpose = ITEM_PHOTO_BLOCK_TYPES.has(blockType) ? "lp-feature" : "product-detail";
       props.items = (props.items as Record<string, unknown>[]).map((item) => {
         if ("image" in item && !item.image) {
@@ -1929,6 +1959,10 @@ export async function aiFillEmptyImages(
     // reintroduce the "label above a random photo" mismatch.
     for (const arrKey of ["items", "cases"] as const) {
       if (arrKey === "items" && STAT_BAR_BLOCK_TYPES.has(blockType)) continue;
+      // benefits-grid / features per-item photos are icon-only by default — only
+      // AI-generate them when the block opted in via useItemPhotos === true
+      // (mirrors the library-fill gate above).
+      if (arrKey === "items" && ITEM_PHOTO_BLOCK_TYPES.has(blockType) && props.useItemPhotos !== true) continue;
       const arr = props[arrKey];
       if (!Array.isArray(arr)) continue;
       arr.forEach((item, i) => {
@@ -3265,7 +3299,7 @@ AVAILABLE BLOCK TYPES (use these exact type strings — mirror the EXAMPLE for v
 
 - "stat-callout": Single big stat. Props: stat (a short, vivid metric phrase like "98% on-time delivery" or "$8,400 saved per team per year"), description (15–28 words, expands the stat with a concrete mechanism — what the stat measures, why it matters), footnote (6–14 words, attribution: source + timeframe, e.g. "Independent customer audit, Q4 2025 (n=1,240 accounts)"), countUpEnabled (boolean, default true).
 
-- "benefits-grid": Feature/benefit cards. Props: headline (5–12 words), columns (2 or 3), items (array of {icon, title, description, image (OPTIONAL — leave "" to let the server add a brand photo to the card when a benefit is concrete and SHOWABLE — a product, a place, a person, a tangible result — especially for visual / consumer / lifestyle brands; omit for a clean icon-only card when the benefit is abstract (security, support, pricing, uptime) or the brand is clean B2B / SaaS / finance, where icons read sharper than stock-feeling photos)} — EXACTLY 4–6 items, title 3–6 words SPECIFIC capability not a generic noun, description 18–28 words with a concrete mechanism — what it does, why it matters, who it's for). Keep image presence consistent across all items — either every card carries a photo or none do, never a mix. Available icons: "Zap","ScanLine","RefreshCcw","HeadphonesIcon","BarChart2","DollarSign","Shield","Clock","Star","Check","Target","TrendingUp","Award","Heart","Users","Globe","Lock","Sparkles".
+- "benefits-grid": Feature/benefit cards. Cards are ICON-ONLY by default. Props: headline (5–12 words), columns (2 or 3), useItemPhotos (boolean, default false — see rule 9a; set true ONLY to turn the whole block into photo cards), items (array of {icon (ALWAYS a Lucide icon NAME from the list below — e.g. "Shield" — NEVER a URL, file path, or image), title, description, image (OPTIONAL — ONLY meaningful when useItemPhotos is true; leave "" for the server to fill it, or omit for icon-only)} — EXACTLY 4–6 items, title 3–6 words SPECIFIC capability not a generic noun, description 18–28 words with a concrete mechanism — what it does, why it matters, who it's for). The `icon` field is ALWAYS a Lucide name regardless of useItemPhotos. Available icons: "Zap","ScanLine","RefreshCcw","HeadphonesIcon","BarChart2","DollarSign","Shield","Clock","Star","Check","Target","TrendingUp","Award","Heart","Users","Globe","Lock","Sparkles".
   EXAMPLE item: { icon: "ScanLine", title: "Automated review on every job", description: "Every submission is auto-checked for errors, gaps, and missing details before it moves forward — so issues get caught up front, not after the work is delivered." }
   NEVER write: { title: "Quality", description: "Better quality." } — that is failure-grade output.
 

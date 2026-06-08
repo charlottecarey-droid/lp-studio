@@ -6,6 +6,20 @@ export type BrandLogoTone = "onDark" | "onLight" | "onPrimary" | "onAccent";
 const HEX6_RE = /^#[0-9a-f]{6}$/i;
 
 /**
+ * Multi-color brand marks that must NEVER be mask-recolored. The auto-recolor
+ * mask paints the whole SVG silhouette one flat color (great for monochrome
+ * wordmarks), but it destroys multi-color logos — e.g. the Dandy mark renders
+ * as a solid brand-primary (pink/coral) blob. These paths opt out explicitly so
+ * they always render as a plain `<img>` in their native colors, regardless of
+ * the `logoAutoRecolor` setting.
+ */
+const KNOWN_MULTICOLOR_LOGOS = new Set([
+  "/dandy-logo.svg",
+  "/dandy-logo-white.svg",
+  "/dandy-logo-dark.svg",
+]);
+
+/**
  * A surface is "dark enough that we want the dark-mode logo asset" when its
  * relative luminance falls below ~0.4 (WCAG-ish). Used by `tone === "onPrimary"`
  * and `onAccent` so a brand whose primary/accent happens to be dark (Zoom
@@ -93,7 +107,16 @@ export function BrandLogo({
   if (!src) return null;
 
   const isSvg = src.toLowerCase().split("?")[0].endsWith(".svg");
-  const autoRecolor = isSvg && (brand.logoAutoRecolor ?? true);
+  // Resolve the URL's pathname so a known multi-color mark is matched whether
+  // it's referenced root-relative ("/dandy-logo.svg") or as an absolute URL.
+  const pathname = (() => {
+    try { return new URL(src, window.location.origin).pathname; }
+    catch { return src; }
+  })();
+  const isKnownMulticolor = KNOWN_MULTICOLOR_LOGOS.has(pathname);
+  // Runtime fallback stays `?? true` (no implicit behavior change for existing
+  // monochrome-wordmark tenants); the multi-color opt-out is the only new gate.
+  const autoRecolor = isSvg && !isKnownMulticolor && (brand.logoAutoRecolor ?? true);
 
   if (!autoRecolor) {
     return <img src={src} alt={alt} className={className} style={style} />;
