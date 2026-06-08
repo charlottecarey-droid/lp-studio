@@ -1059,6 +1059,48 @@ describe("icon-only item photos (benefits-grid / features)", () => {
     expect((out[0].props as any).items[0].image).toBe("");
   });
 
+  it("blanks a URL-valued benefits-grid item icon (renders Lucide, not a tiny img)", () => {
+    const blocks = [
+      {
+        type: "benefits-grid",
+        props: {
+          items: [
+            { icon: "/objects/dental-feature-1", title: "A", description: "d" },
+            { icon: "Shield", title: "B", description: "d" },
+          ],
+        },
+      },
+    ];
+    const out = sanitizeAIImageUrls(blocks, LIB) as typeof blocks;
+    const items = (out[0].props as any).items;
+    expect(items[0].icon).toBe("");
+    expect(items[1].icon).toBe("Shield");
+  });
+
+  it("blanks URL-valued icons across non-(benefits/features) icon blocks", () => {
+    const blocks = [
+      { type: "dso-partnership-perks", props: { perks: [{ icon: "https://x.com/objects/y.png", title: "P" }] } },
+      { type: "how-it-works-alternating", props: { steps: [{ icon: "/api/storage/objects/z", title: "S" }] } },
+      { type: "dso-promises", props: { promises: [{ icon: "data:image/png;base64,AAA", title: "Q" }] } },
+    ];
+    const out = sanitizeAIImageUrls(blocks, LIB) as typeof blocks;
+    expect((out[0].props as any).perks[0].icon).toBe("");
+    expect((out[1].props as any).steps[0].icon).toBe("");
+    expect((out[2].props as any).promises[0].icon).toBe("");
+  });
+
+  it("preserves curated icon keys and Lucide names (only URLs are stripped)", () => {
+    const blocks = [
+      { type: "dso-problem", props: { panels: [{ icon: "alert-triangle", title: "T" }] } },
+      { type: "benefits-grid", props: { items: [{ icon: "Zap", title: "Z", description: "d" }] } },
+      { type: "storefront", props: { valueProps: [{ icon: "leaf", title: "L" }] } },
+    ];
+    const out = sanitizeAIImageUrls(blocks, LIB) as typeof blocks;
+    expect((out[0].props as any).panels[0].icon).toBe("alert-triangle");
+    expect((out[1].props as any).items[0].icon).toBe("Zap");
+    expect((out[2].props as any).valueProps[0].icon).toBe("leaf");
+  });
+
   it("does not fill icon-only benefits-grid items downstream (full pipeline)", () => {
     const blocks = [
       {

@@ -2039,6 +2039,47 @@ export async function aiFillEmptyImages(
  *
  * Also clears URLs that don't exist in the media library at all (hallucinated URLs).
  */
+/**
+ * In AI-generated content an `icon` field must ALWAYS be a Lucide icon NAME
+ * (e.g. "Shield") or a curated icon key (e.g. "alert-triangle") — NEVER an
+ * image. The prompt says so, but on tenants with a large IMAGE LIBRARY the model
+ * still drops a library URL into an `icon` field. `IconOrImage`/`isImageIcon`
+ * (lp-studio/src/lib/icon-value.tsx) then treats any URL/path/data value as an
+ * image and renders a tiny broken-looking <img> instead of the icon — exactly
+ * the "icons are tiny random images" report. The per-block image gates above
+ * only sanitize *image* fields; they never touch `icon`. This walks the whole
+ * block props and blanks any `icon` value that LOOKS like a URL/path/data-URI,
+ * so the renderer falls back to a real Lucide icon. Block-agnostic by design:
+ * covers every icon-bearing array (items, perks, panels, promises, valueProps,
+ * steps, products, features, heroTrustBadges, bundleGuarantees, …) plus nested
+ * shapes, without enumerating each one. Mirrors isImageIcon's URL detection.
+ * Curated keys ("alert-triangle") and Lucide names ("Shield") are left intact.
+ */
+function looksLikeUrlIcon(value: string): boolean {
+  const s = value.trim();
+  return (
+    s.startsWith("http://") ||
+    s.startsWith("https://") ||
+    s.startsWith("/") ||
+    s.startsWith("data:") ||
+    s.startsWith("blob:")
+  );
+}
+
+export function stripUrlValuedIcons(value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const v of value) stripUrlValuedIcons(v);
+    return;
+  }
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    if (typeof obj.icon === "string" && looksLikeUrlIcon(obj.icon)) {
+      obj.icon = "";
+    }
+    for (const v of Object.values(obj)) stripUrlValuedIcons(v);
+  }
+}
+
 export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], logoUrls?: ReadonlySet<string>): unknown[] {
   // Build a lookup: url → tags
   const urlToTags = new Map<string, string[]>();
@@ -2234,6 +2275,11 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
         typeof u === "string" ? cleanUrl(u) : "",
       );
     }
+
+    // Final block-agnostic pass: an `icon` field is ALWAYS a Lucide name / curated
+    // key in AI output — never an image. Blank any icon the model filled with a
+    // library/hallucinated URL so the renderer shows a real icon, not a tiny img.
+    stripUrlValuedIcons(props);
 
     b.props = props;
     return b;
