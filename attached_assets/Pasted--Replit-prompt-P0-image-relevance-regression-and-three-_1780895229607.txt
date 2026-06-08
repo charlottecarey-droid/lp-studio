@@ -1,0 +1,379 @@
+# Replit prompt — P0: image-relevance regression (and three siblings)
+
+> **Priority: ship before the S0 list.** This is visible on live customer pages right now (Dandy OSA sleep-appliances page: pink logo, photos in icon slots, same scanner image everywhere, generic photos for everything).
+
+> **⚠️ Running in parallel with Task #1288.** Task #1288 is wiring the unified `IconPicker` (Lucide dropdown + embedded image picker) into every remaining editor icon field. The contract established by #1288 is: **icons always win on icon-led blocks** (benefits-grid, features-*, how-it-works-*, etc.). The `icon` field holds either a Lucide name OR a customer-provided icon-style image URL, and the renderer (`IconOrImage`) resolves both. **This prompt is server-side ONLY** — do not touch editor panels, the `IconPicker` component, the `IconOrImage` renderer, `BlockBenefitsGrid.tsx`, or any block-render file. Those belong to #1288.
+
+## What's broken
+
+Generated pages used to pick topically-correct imagery — dentures on dental pages, business shots on DSO pages, technology on tech pages. They no longer do. Symptoms:
+
+1. **Relevance gone**: Random images placed everywhere; the model's catalog picks get cleared by a tag-driven scorer that has no signal when tags are missing.
+2. **Cross-tenant repetition**: Dandy ENT and Dandy SMB share images. The same scanner image fills slot after slot.
+3. **Photos in icon slots**: Feature/benefit cards that should show Lucide icons now show full photos with the icon demoted to a tiny badge.
+4. **Dandy logo renders pink**: SVG mask-recolor is repainting the multi-color Dandy logo with the tenant's brand-primary.
+
+## Root cause — DO NOT REVERT
+
+The scorer landed May 30 in `1b1c1c920` ("Make AI page generation pick relevant, non-duplicate images (Task #469)") and was stable for a week. The regression is the **interaction of three Jun 6 commits** on top of an under-tagged catalog:
+
+| Commit | What it did | Side effect |
+|---|---|---|
+| `26b16eff6` | `resolveOwnedTenantIds` lets reciprocal-sibling tenants share read access to media catalogs (Dandy ↔ Dandy SMB seeded as canonical pair) | Cross-tenant images now compete for the same slots; nothing favors the calling tenant's own assets |
+| `b0a9a6586` | Adds `benefits-grid` to `ITEM_PHOTO_BLOCK_TYPES`; registers `props.items[].image` as an image slot; prompt tells model to emit `image: ""` | Server unconditionally fills every benefit card's `image` field with a photo, demoting Lucide icons to 44px badges |
+| `7a9be32be` | Strict-pass gate softened to `score >= 0` (curated) / `> 0` (scraped); adds unconditional relaxed last-resort pass at line 4804 | Once strict pass can't find a positive scorer (common — most candidates tie at 0), last-resort places ANY unused image with zero relevance gate |
+
+Each fix on its own was correct. The interaction with an **under-tagged catalog** is what blew up:
+
+- `mirrorReferenceImages` at `lib/brand-import/assets-uploader.ts:585-608` writes scraped rows with only `["page-reference", "scraped", "refhost:<host>", "refsrc:<url>"]` — all in `SKIP_TAGS` or prefix-matched out by `scoreImage`. **Scraped images score 0 against everything.**
+- `autoTagImage` at `routes/storage.ts:252-334` only fires on the **upload** path (`setImmediate` at line 491), silently no-ops when `AI_INTEGRATIONS_OPENAI_API_KEY` is absent, and silently swallows all errors. **Not called by `mirrorReferenceImages`.**
+- `STARTER_IMAGE_SEEDS` (`seeds/starterImages.ts`) have only `["starter","flagship"]` or `["starter","generic"]` tags. **Score 0 against everything.**
+
+Net result: in a typical tenant, nearly every candidate ties at 0; `scoreImage`'s deterministic "first max-scorer wins" rule (line 783, `score > bestScore` strictly) makes the same starter or first-scraped row win every slot; `validateAndDedupeAIImages` clears the model's catalog picks whenever any other candidate happens to have one content-tag hit (6+ score gap).
+
+---
+
+## Step 1 — Audit
+
+Read these end-to-end and put a 6-line summary in the PR description:
+
+- `artifacts/api-server/src/routes/lp/generate-page.ts:587-588, 670-697, 709-747, 783, 830, 914-1078, 1094-1177, 1141, 1145-1177, 1318-1349, 1357-1583, 1429-1438, 4670-4810, 4804`
+- `artifacts/api-server/src/lib/brand-import/assets-uploader.ts:496-620, 566-574`
+- `artifacts/api-server/src/routes/storage.ts:252-334, 491`
+- `artifacts/api-server/src/lib/libraryScope.ts` (full file)
+- `artifacts/api-server/src/seeds/starterImages.ts` (skim)
+- `artifacts/lp-studio/src/components/BrandLogo.tsx:14-110`
+- `artifacts/lp-studio/src/lib/brand-config.ts:645`
+
+**Do NOT read or modify** `artifacts/lp-studio/src/blocks/BlockBenefitsGrid.tsx`, `IconPicker.tsx`, `IconOrImage.tsx`, or any editor panel under `artifacts/lp-studio/src/components/blocks/*Panel.tsx` — those are Task #1288's scope. Trust that on icon-led blocks, the renderer will resolve the `icon` field correctly when this PR stops auto-filling `image`.
+
+---
+
+## Step 2 — Tag scraped images at mirror time
+
+**File:** `artifacts/api-server/src/lib/brand-import/assets-uploader.ts:496-620` (`mirrorReferenceImages`)
+
+The mirror currently writes scraped rows with only provenance tags. None of them score above 0 in `scoreImage`. The async upload-path tagger never fires on this code path.
+
+**Change:**
+
+When mirroring a reference page's images, after upload but before returning, call `autoTagImage` (or its equivalent classifier) for each newly-mirrored image. Pass the page's title, h1, and first paragraph as a `pageContext` argument so the classifier has semantic input. Wait synchronously (or `await Promise.all`) before returning the mirror result — the brand-import endpoint already has a multi-second budget and the page-gen LLM call hasn't started yet, so latency is fine.
+
+If `AI_INTEGRATIONS_OPENAI_API_KEY` is missing, log a structured warning (`Sentry.captureMessage("image_tagger_no_api_key", level: "warning", tags: { route: "mirror-reference-images" })`) and fall through with provenance-only tags. **Do not crash mirror-reference if tagging fails** — failure to tag is degraded mode, not error.
+
+Add a `purpose` tag based on the slot the reference image came from on the source page (hero → `lp-hero`, feature card → `lp-feature`, etc.) — this is signal the scorer can use even when content tags are weak.
+
+### Tests
+
+- `mirrorReferenceImages.test.ts`: scrape a page with 5 images → assert each persisted row has at least one content tag AND a `lp-*` purpose tag
+- Missing API key path → assert provenance-only tags are written + warning logged + no throw
+- Tagger timeout (mock) → assert provenance-only tags + warning + no throw
+
+---
+
+## Step 3 — Gate validateAndDedupeAIImages on real signal
+
+**File:** `artifacts/api-server/src/routes/lp/generate-page.ts:1145-1177` (Pass 2 of `validateAndDedupeAIImages`)
+
+Today: Pass 2 clears the model's pick if `bestAlt - assignedScore >= CLEAR_GAP` (= 6) OR `assignedScore < 0`. When everything ties at 0, any other candidate with even one content-tag hit (3 points) plus a purpose match (8 points) overrides the model's choice — even though the model's choice scored 0 because IT was the one with no content tags either.
+
+**Change:**
+
+Only clear a model pick when the alternative has **real positive signal** — i.e. `bestAlt > 0`. Concretely:
+
+```ts
+// Today (simplified)
+if (bestAlt - assignedScore >= CLEAR_GAP || assignedScore < 0) {
+  clearPick(slot);
+}
+
+// Change to:
+const altHasRealSignal = bestAlt > 0;
+const modelPickIsWrongPurpose = assignedScore < 0;  // e.g. og-image in a hero slot
+const altClearlyBetter = altHasRealSignal && (bestAlt - assignedScore >= CLEAR_GAP);
+
+if (modelPickIsWrongPurpose || altClearlyBetter) {
+  clearPick(slot);
+}
+// else: keep the model's pick — it knew the catalog descriptions better than the scorer
+```
+
+When the catalog has no semantic signal (everything ties at 0), this preserves the model's topical judgment instead of replacing it with first-seen randomness.
+
+### Tests
+
+- Add to `generate-page.images.test.ts`:
+  - Catalog with all-0-score images: model's pick survives Pass 2
+  - Catalog with one image scoring 8 (content-tag match), model picked a 0-score image: model's pick is cleared (alt has real signal, gap >= 6)
+  - Catalog with one image scoring -5 (wrong purpose) assigned by model: that pick is cleared regardless of alt scores
+  - Catalog with two images both scoring 2: model's 2-score pick survives (no alt is meaningfully better)
+
+---
+
+## Step 4 — Icon fields always get icons; item photos become opt-in
+
+**Files (server-side only):**
+- `artifacts/api-server/src/routes/lp/generate-page.ts:830` (`ITEM_PHOTO_BLOCK_TYPES`)
+- `artifacts/api-server/src/routes/lp/generate-page.ts:1429-1438` (`fillEmptyImages` items-image pass)
+- `artifacts/api-server/src/routes/lp/generate-page.ts:985, 914-1078` (`collectImageSlots`)
+- `artifacts/api-server/src/routes/lp/generate-page.ts:2823` (prompt instruction)
+
+**Do NOT touch:** any block renderer (`BlockBenefitsGrid.tsx`, etc.), the `IconPicker` component, `IconOrImage`, or any editor panel. Task #1288 owns the editor + renderer side.
+
+### The contract — at the field level, not the block level
+
+Many blocks (`benefits-grid`, `features-*`, `how-it-works-*`, etc.) legitimately have BOTH icon fields AND image fields. Those blocks are not banned from having images. The contract is per-field:
+
+- **`icon` field** (anything wired to `IconPicker` — single string holding either a Lucide name or a customer icon-style image URL): the AI **always** sets a Lucide icon name from the catalog. The image-picker side of `IconPicker` exists for editors who want to swap in their own icon asset; the AI never puts a generated photo URL into an icon field.
+- **`image` field** (separate field for full photos, wired to `ImagePicker`): valid to exist on the same block as `icon`. The server can fill it, but **only when the model has explicitly decided this block uses item photos** — never as a default.
+
+Today the prompt teaches the model to emit `image: ""` on every item, the server registers `items[].image` as an `lp-feature` slot, and `fillEmptyImages` drops a random photo into each one regardless of brand context. That's how Dandy OSA's B2B benefit cards got photos demoting their icons to badges.
+
+### Change A — Keep `ITEM_PHOTO_BLOCK_TYPES` populated; gate fill on an opt-in boolean
+
+```ts
+// generate-page.ts:830 — leave the set membership ALONE
+const ITEM_PHOTO_BLOCK_TYPES = new Set([
+  "benefits-grid",
+  "features",
+  // ...all current members stay
+]);
+
+// generate-page.ts:1429-1438 — add the opt-in gate
+if (
+  ITEM_PHOTO_BLOCK_TYPES.has(block.type) &&
+  block.props.useItemPhotos === true
+) {
+  for (const item of block.props.items ?? []) {
+    if (!item.image) item.image = pickFromPool(...);
+  }
+}
+```
+
+Add `useItemPhotos: boolean` (default `false`) to the block schema for every block currently in `ITEM_PHOTO_BLOCK_TYPES`. This is a non-breaking additive prop — existing pages with no `useItemPhotos` set behave as if it's `false` (no auto-fill, icons-only).
+
+### Change B — Update the prompt at line 2823
+
+Replace any instruction that tells the model to emit `image: ""` on benefits/features/how-it-works items with:
+
+> **Icon fields (every field wired to `IconPicker`)**: set to a Lucide icon name from the catalog. Never set an icon field to a photo URL. The image-picker inside `IconPicker` is for human editors to swap in custom icon assets — not for the AI to drop photography into.
+>
+> **`items[].image` fields on benefits-grid, features-*, how-it-works-*, etc.**: these are optional photo slots that coexist with the per-item icon. Default behavior is icon-only cards. To enable per-item photography on a block, set `useItemPhotos: true` at the block level AND set `image` on each item. Only do this when the brand is visual/consumer/lifestyle (e-commerce, restaurant, hospitality, fashion, real estate) AND the items have distinct visual referents. For B2B, SaaS, healthcare, or any block where each card is an abstract benefit ("Boost outcomes", "Easy billing"), leave `useItemPhotos` unset or `false` and omit `image` on each item.
+
+### Change C — Don't backfill `useItemPhotos` on existing pages
+
+Migration / load behavior: when reading an existing page that has `items[].image` filled but no `useItemPhotos` field, do NOT retroactively set `useItemPhotos: true`. Existing pages render whatever's already in the props. The new gate only applies to NEW generation. Existing pages keep their old photos until regenerated.
+
+### Tests
+
+- B2B brief (`"Build me a sleep apnea page for a dental practice"`) → `benefits-grid` generated → `useItemPhotos` is `false` or omitted → no item has `image` filled by the server → assertion: every item has `icon` set to a Lucide name, no item has `image` set
+- Restaurant brief → `benefits-grid` (or other amenity block) → model sets `useItemPhotos: true` → server fills `items[].image` per item
+- AI is given an icon catalog → assertion: no `icon` field on any generated block contains a URL or an extension like `.jpg/.png/.webp/.svg`. Icons are always Lucide names.
+- Existing page with `items[].image` filled but no `useItemPhotos` → loads and renders identically (no retroactive scrub)
+
+---
+
+## Step 5 — Don't let cross-tenant sibling images dominate the scorer
+
+**File:** `artifacts/api-server/src/routes/lp/generate-page.ts:610-700` (`fetchMediaCatalog`)
+**File:** `artifacts/api-server/src/lib/libraryScope.ts:21-44` (`resolveOwnedTenantIds`)
+
+The sibling-shared catalog is intentional for the picker UI (Dandy ENT user wants to see Dandy SMB's uploads in the media drawer). But sharing the same pool with the scorer means sibling images compete for the calling tenant's page slots — and when both pools are largely untagged, the "first-seen wins" determinism leaks the same images across tenants.
+
+**Change — split catalog query by caller:**
+
+```ts
+// New signature
+function fetchMediaCatalog(
+  tenantId: string,
+  options: { scope: "picker" | "ai-scoring" }
+): Promise<MediaRow[]>
+```
+
+- `scope: "picker"` — current behaviour: own tenant + reciprocal siblings + `is_shared=true` starter pool. Used by the media drawer and the model-facing catalog text in the prompt (so the model can still pick from sibling-shared assets).
+- `scope: "ai-scoring"` — own tenant + `is_shared=true` starter pool, NO siblings. Used by `validateAndDedupeAIImages` and `fillEmptyImages` so the scorer doesn't accidentally elevate a sibling-tenant image over the calling tenant's own.
+
+Even better (additive): tag every sibling-sourced row with `tenant-source:<sourceTenantId>` and add a tiny score penalty (-1) when the source tenant doesn't match the calling tenant. That way the picker still surfaces siblings but the scorer naturally prefers the calling tenant's own assets when scores are otherwise tied.
+
+### Tests
+
+- Tenant `dandy` generating a page: catalog passed to `validateAndDedupeAIImages` contains NO `dandy-smb` rows
+- Tenant `dandy` generating a page: catalog passed to the model's prompt text still LISTS `dandy-smb` assets (they're available, just not scorer-preferred)
+- Tenant with no sibling: both scopes return identical pools
+
+---
+
+## Step 6 — Dandy logo pink
+
+**File:** `artifacts/lp-studio/src/components/BrandLogo.tsx:74-95`
+**File:** `artifacts/lp-studio/src/lib/brand-config.ts:645`
+
+Today `BrandLogo` defaults `logoAutoRecolor: true` for any SVG and mask-paints the SVG silhouette with `var(--brand-primary)`. That works for monochrome wordmarks (Stripe, Mutiny) but destroys multi-color marks (Dandy).
+
+**Change — three-layer defense:**
+
+### 6a. Flip the default
+
+```ts
+// brand-config.ts:645
+logoAutoRecolor: false,  // was: true
+```
+
+Tenants who want recolor opt in explicitly. Existing tenants with the seed default of `true` keep their setting (don't backfill).
+
+### 6b. Detect multi-color SVGs at upload time
+
+When a logo SVG is uploaded, parse it and count distinct non-`currentColor` `fill=` / `stroke=` values. If more than one distinct color, set `logoIsMonochrome: false` on the brand record. The renderer checks this flag and skips recolor regardless of `logoAutoRecolor`.
+
+### 6c. Hard-code an opt-out for known multi-color marks
+
+In `BrandLogo.tsx`, add a `KNOWN_MULTICOLOR_LOGOS` set (or pattern match) covering Dandy's logo paths:
+
+```ts
+const KNOWN_MULTICOLOR_LOGOS = new Set([
+  "/dandy-logo.svg",
+  "/dandy-logo-white.svg",
+  "/dandy-logo-dark.svg",
+]);
+
+const isKnownMulticolor = KNOWN_MULTICOLOR_LOGOS.has(new URL(src, location.origin).pathname);
+const autoRecolor = isSvg && !isKnownMulticolor && (brand.logoAutoRecolor ?? false);
+```
+
+This is belt-and-braces — even if 6a or 6b somehow miss, the Dandy logo will never get repainted.
+
+### Tests
+
+- Render Dandy brand with default settings → logo renders in its native colors, NOT pink
+- Render a known monochrome brand (e.g. one in seeds with `logoAutoRecolor: true`) → logo gets recolored to `var(--brand-primary)`
+- Upload a multi-color SVG → `logoIsMonochrome: false` set on brand record
+- Upload a monochrome SVG → `logoIsMonochrome: true` set
+
+---
+
+## Step 7 — Preserve library catalog variety for well-tagged tenants
+
+**Files (server-side only):**
+- `artifacts/api-server/src/routes/lp/generate-page.ts:660-678` (catalog text rendering, `buildSection`)
+- `artifacts/api-server/src/routes/lp/generate-page.ts:677` (per-tag URL cap)
+
+**Why this matters specifically:** Tenants like Dandy have dozens of product images correctly tagged with specific terms (`denture`, `acrylic`, `scanner`, `crown`, etc.) plus a purpose tag (`product-detail`). The catalog rendering already groups these correctly into sections like `[PRODUCT DETAIL] "denture" (12): url1, url2, url3` — but caps each group at **3 URLs**. For a 6-card product showcase that needs 6 distinct dentures, the model only sees 3 URLs in the "denture" group and either repeats or falls back to a less-specific group (which might pull a non-denture product). This is the "same product showing up in multiple squares" and "wrong product in some squares" pattern.
+
+### Change A — Bump per-tag URL cap to 8 (or per-purpose, see Change B)
+
+```ts
+// generate-page.ts:677
+// BEFORE
+.map(([tag, grpImgs]) => `  "${tag}" (${grpImgs.length}): ${grpImgs.slice(0, 3).map(i => i.url).join(" , ")}`);
+
+// AFTER
+.map(([tag, grpImgs]) => `  "${tag}" (${grpImgs.length}): ${grpImgs.slice(0, 8).map(i => i.url).join(" , ")}`);
+```
+
+The catalog stays bounded because tag overlap is high (an image with 3 content tags appears in 3 groups). Token impact is modest; benefit to product-grid variety is large.
+
+### Change B — Per-purpose URL cap (optional, more refined)
+
+If Change A bloats the prompt for tenants with very large libraries, cap by purpose section instead:
+
+| Section | URLs per tag |
+|---|---|
+| HERO & LIFESTYLE | 6 |
+| FEATURE IMAGES | 6 |
+| **PRODUCT DETAIL** | **10** (Dandy-style product-grid variety lives here) |
+| OTHER | 4 |
+
+Make the cap a parameter to `buildSection`. Defaults can stay at 8 for simplicity; bump to 10 only for product-detail.
+
+### Change C — Catalog text is shared by picker and scorer
+
+When Step 5 splits the catalog query into `scope: "picker" | "ai-scoring"`, the **catalog text rendered to the model must continue to come from the picker scope** — the model should still see the full sibling-shared library it can choose from (Dandy ENT user generating a page CAN legitimately pick a Dandy SMB asset if it's the best match). The split applies to the post-pick re-scoring pool ONLY. This preserves the model's library-picking quality for tenants with deeply-tagged libraries.
+
+Concretely: in `generate-page.ts:619` the existing query feeds `catalogText` (model-facing). Don't change that. Add the narrow scoring-pool query as a separate fetch (called from `validateAndDedupeAIImages` and `fillEmptyImages`), and have those consumers filter the existing in-memory image pool by tenant/source.
+
+### Change D — Pass 2 (Step 3 above) keeps tagged-library picks together
+
+This is a clarification, not a new code change. When Step 3's `bestAlt > 0` gate is in place, the model's good tagged-library picks survive even when the scorer has a tied-or-similar alternative. For Dandy's product-grid: model picks `denture-1.jpg` (scores 11 via purpose + tag), scorer finds `denture-2.jpg` also scoring 11 → gap is 0, far below `CLEAR_GAP=6` → model's pick survives. The combination of Steps 3 + 5 + 7 is what restores "6 distinct dentures in 6 squares."
+
+### Tests
+
+- Dandy tenant with 12+ tagged denture images: regenerate a 6-card product-grid for a denture page → assertion: 6 distinct URLs, all from the `product-detail` purpose section, all matching the "denture" tag group
+- Dandy tenant with both ENT and SMB siblings: regenerate the same page on each → assertion: model can see both libraries in the catalog text, but the scoring pool excludes sibling images so neither tenant ships the other's photos by accident
+- Tenant with sparse library (1 tagged denture, lots of starters): the 1 denture is picked for the most-relevant slot; starters only fill remaining slots
+- Tenant with completely untagged library: catalog falls back to `(untagged, N): url1...` blocks (existing behaviour, preserved)
+
+---
+
+## Step 8 — Demote starter seeds (defense in depth)
+
+**File:** `artifacts/api-server/src/routes/lp/generate-page.ts:1318-1349` (`buildReferenceFillPool`)
+
+Confirm the fill-pool ordering is: curated tenant images → fresh-scraped reference images → other reference scraped → starter seeds (last). Starter seeds should ONLY be reached when nothing else is available.
+
+Today the order is curated → freshScraped → currentRefScraped → otherScraped. Verify that "curated" doesn't include starter seeds inline — they should be a separate tail of the pool, not mixed in.
+
+If starter seeds ARE mixed into curated, split them out:
+
+```ts
+const pool = [
+  ...tenantCuratedImages,    // tenant's own uploads
+  ...freshScrapedImages,
+  ...currentRefScrapedImages,
+  ...otherScrapedImages,
+  ...starterSeedImages,       // last resort only
+];
+```
+
+### Test
+
+- Tenant with one curated image + many starter seeds → curated image is picked first; starter only used if curated is exhausted
+
+---
+
+## Acceptance criteria
+
+- [ ] `mirrorReferenceImages` calls `autoTagImage` synchronously for every scraped image before returning
+- [ ] Missing API key on tagger path logs warning + falls through with provenance-only tags + does not throw
+- [ ] `validateAndDedupeAIImages` Pass 2 only clears a model pick when `bestAlt > 0` (real signal exists) OR the model's pick was wrong-purpose
+- [ ] `ITEM_PHOTO_BLOCK_TYPES` membership unchanged — benefits-grid, features-*, how-it-works-* etc. still listed (they CAN have item photos)
+- [ ] `items[].image` server-fill is gated on `block.props.useItemPhotos === true`
+- [ ] `useItemPhotos: boolean` (default `false`) added to schema for every block in `ITEM_PHOTO_BLOCK_TYPES`
+- [ ] Existing pages with `items[].image` set but no `useItemPhotos` field load + render unchanged (no retroactive scrub)
+- [ ] Prompt updated: icon fields always get Lucide names (never URLs / file extensions); item photos opt-in via `useItemPhotos` for visual/consumer brands only
+- [ ] AI catalog generation test: no generated `icon` field contains a URL or image-file extension
+- [ ] **Editor panels, IconPicker, IconOrImage, and block renderers are NOT touched** (Task #1288's scope)
+- [ ] `fetchMediaCatalog` accepts `scope: "picker" | "ai-scoring"` and excludes sibling rows in `ai-scoring` mode
+- [ ] `BrandLogo` defaults `logoAutoRecolor: false` and hard-opts-out for `KNOWN_MULTICOLOR_LOGOS`
+- [ ] Starter seeds are the last tier of `buildReferenceFillPool`, not mixed with curated
+- [ ] Per-tag URL cap in catalog text bumped from 3 to 8 (or per-purpose: 10 for `product-detail`)
+- [ ] Model-facing catalog text still comes from the picker-scope query (sibling-shared library visible)
+- [ ] AI-scoring pool excludes siblings — but the catalog the model picks FROM still includes them
+- [ ] Smoke: Dandy 6-card denture product-grid ships 6 distinct denture URLs
+- [ ] **Smoke test pages**: generate one each for dental / DSO / tech / restaurant / Dandy ENT / Dandy SMB — assert images are topically relevant, no cross-tenant leakage, B2B grids show icons not photos, Dandy logo renders in native colors
+- [ ] Existing `generate-page.images.test.ts` + `imagePipeline.test.ts` still pass (update assertions where they encoded the regression)
+- [ ] `pnpm typecheck` clean
+
+## Don't
+
+- **Don't revert any of the Jun 6 commits.** Each one fixed a real bug. Targeted re-engineering only.
+- **Don't delete `validateAndDedupeAIImages`.** The dedupe pass is the only thing catching the model repeating URLs.
+- **Don't raise `CLEAR_GAP` past 6.** That just lets bad model picks through. The fix is to gate on `bestAlt > 0`, not to widen the gap.
+- **Don't add `icon`, `iconName`, `cardIcon` to `collectImageSlots`.** The icon field is the renderer's job (Task #1288's `IconOrImage` resolves it). The fix is to stop the server from putting a photo into the SIBLING `image` field.
+- **Don't remove `benefits-grid`, `features-*`, `how-it-works-*` from `ITEM_PHOTO_BLOCK_TYPES`.** These blocks legitimately have both icon AND image fields per item. Visual/consumer brands genuinely want photo cards. The fix is gating the auto-fill on `useItemPhotos === true`, not banning images from the block.
+- **Don't backfill `useItemPhotos: true` on existing pages.** Existing pages with `items[].image` already filled should load and render unchanged. The opt-in gate only applies to fresh generation.
+- **Don't touch any file under `artifacts/lp-studio/src/blocks/` or `artifacts/lp-studio/src/components/blocks/*Panel.tsx` or `IconPicker.tsx` or `IconOrImage.tsx`.** Those belong to Task #1288. Coordinate by contract, not by code-touch.
+- **Don't remove the logo recolor feature entirely.** Monochrome wordmark tenants (Mutiny, etc.) use it for dark-nav contrast. Make it opt-in with multi-color detection.
+- **Don't backfill `logoAutoRecolor: false` on existing tenants.** Only change the seed default for new tenants. Existing tenants who explicitly enabled it (or whose seed wrote `true`) keep their choice.
+- **Don't fire the auto-tagger asynchronously in `mirrorReferenceImages`.** The whole point is that scraped images need tags BEFORE the page-gen LLM call runs. Async = same bug.
+- **Don't merge picker and scoring catalogs.** Two different consumers, two different needs.
+- **Don't add an ML relevance model.** The model already picks well when it has signal — give it signal instead of replacing it.
+
+## Verification screenshots
+
+After deploy, regenerate the Dandy OSA sleep-appliances page (https://dandy.lpstudio.ai/...) and check:
+
+1. Hero image is dental/sleep-appliance themed, not generic
+2. The six benefit cards show Lucide icons (lightning, person, dollar-sign, briefcase, settings, plus) at full size — NOT photo + tiny icon badge
+3. The "scanner image" doesn't appear in multiple slots
+4. Dandy logo in the nav renders in native colors (not pink/coral)
+5. Regenerate the same page on Dandy SMB tenant — assert NO image from the Dandy ENT page reappears
