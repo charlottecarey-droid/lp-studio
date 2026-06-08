@@ -1309,6 +1309,47 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
+    // Task #1219 — create-microsite dropdown gating rollout. Backfill the new
+    // lp_pages.microsite_enabled flag for every existing template row that has
+    // no explicit value yet (NULL): compatible templates are enabled, the rest
+    // disabled, using the shared getMicrositeTemplateCompatibility() helper.
+    // This freezes the current decision for existing templates; templates
+    // created AFTER this rollout keep micrositeEnabled NULL and fall back to the
+    // computed default at read time. Marker-guarded so reboots are no-ops and an
+    // admin's later toggle via Template settings is never overwritten.
+    await runStep("microsite template enabled backfill (1219)", async () => {
+    try {
+      const micrositeMarker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'microsite_template_enabled_backfill_v1'`
+      );
+      if (micrositeMarker.rows.length === 0) {
+        const { getMicrositeTemplateCompatibility } = await import("@workspace/lp-template-engine");
+        const templateRows = await db.execute<{ id: number; blocks: unknown }>(
+          sql`SELECT id, blocks FROM lp_pages WHERE is_template = true AND microsite_enabled IS NULL`
+        );
+        let enabled = 0;
+        let disabled = 0;
+        for (const row of templateRows.rows) {
+          const blocks = Array.isArray(row.blocks) ? row.blocks : [];
+          const { compatible } = getMicrositeTemplateCompatibility(
+            blocks as ReadonlyArray<{ type?: unknown }>,
+          );
+          await db.execute(
+            sql`UPDATE lp_pages SET microsite_enabled = ${compatible} WHERE id = ${row.id}`
+          );
+          if (compatible) enabled++;
+          else disabled++;
+        }
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES ('microsite_template_enabled_backfill_v1') ON CONFLICT DO NOTHING`
+        );
+        logger.info({ enabled, disabled }, "microsite template enabled backfill applied");
+      }
+    } catch (micrositeErr) {
+      logger.error({ err: micrositeErr }, "microsite template enabled backfill failed (non-fatal)");
+    }
+    });
+
     // Task #967 — seed the Dandy tenant(s) with a "Default share card" (OG)
     // title + image so every Dandy page that lacks a per-page override advertises
     // the brand card to scrapers. We only set columns that are still NULL/empty

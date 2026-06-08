@@ -18,6 +18,7 @@ import { triggerPublishedRender, triggerPublishedDelete } from "../../lib/trigge
 import { withDbRetry, isTransientDbError } from "../../lib/dbResilience";
 import { handlePagePublishNotifications } from "../../lib/contentSeriesNotify";
 import { triggerTemplateThumbnailCapture } from "../../lib/captureTemplateThumbnail";
+import { getMicrositeTemplateCompatibility } from "@workspace/lp-template-engine";
 import { enforceFactFlagPublishGate } from "./fact-flags";
 import { isRootSuperadminEmail } from "../../lib/rootSuperadmin";
 
@@ -317,6 +318,10 @@ router.get("/lp/templates", async (req, res): Promise<void> => {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const ownedOnly = String(req.query.ownedOnly ?? "").toLowerCase() === "true";
     const salesMode = String(req.query.salesMode ?? "").toLowerCase() === "true";
+    // forMicrosite: restrict to templates that are effectively enabled for the
+    // create-microsite dropdown (task #1219). Effective = explicit
+    // micrositeEnabled override, else the computed compatibility default.
+    const forMicrosite = String(req.query.forMicrosite ?? "").toLowerCase() === "true";
     // The first block's type — business-case templates are single-block
     // "monograph" documents whose first (only) block is business-case-*.
     const isBusinessCaseGlobal = and(
@@ -349,7 +354,16 @@ router.get("/lp/templates", async (req, res): Promise<void> => {
         ),
       )
       .orderBy(asc(lpPagesTable.templateLabel));
-    res.json(templates);
+    const result = forMicrosite
+      ? templates.filter((t) => {
+          if (typeof t.micrositeEnabled === "boolean") return t.micrositeEnabled;
+          const blocks = Array.isArray(t.blocks) ? t.blocks : [];
+          return getMicrositeTemplateCompatibility(
+            blocks as ReadonlyArray<{ type?: unknown }>,
+          ).compatible;
+        })
+      : templates;
+    res.json(result);
   } catch (err) {
     console.error("GET /lp/templates error:", String(err));
     res.status(500).json({ error: "Failed to load templates" });

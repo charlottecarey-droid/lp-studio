@@ -169,7 +169,9 @@ export function NewMicrositeModal({ open, onClose }: Props) {
         .then(r => (r.ok ? r.json() : []))
         .catch(() => []),
       // ownedOnly=true → no global starter templates, only this tenant's.
-      fetch(`${API_BASE}/lp/templates?ownedOnly=true`)
+      // forMicrosite=true → only templates enabled for the create-microsite
+      // dropdown (admin override, else computed compatibility — task #1219).
+      fetch(`${API_BASE}/lp/templates?ownedOnly=true&forMicrosite=true`)
         .then(r => (r.ok ? r.json() : []))
         .catch(() => []),
       // Audience segments come from the tenant's brand config — same source
@@ -668,7 +670,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                   </div>
                   {!loadingData && templates.length === 0 && (
                     <p className="text-[11px] text-muted-foreground mt-2">
-                      No saved templates yet. Marketing can save any page as a template from the Builder.
+                      No templates available — start from Blank. Admins can enable templates for this dropdown under Settings → Templates.
                     </p>
                   )}
                   {selectedTemplateId > 0 && (
@@ -777,7 +779,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                   </select>
                   {!loadingData && templates.length === 0 && (
                     <p className="text-[11px] text-muted-foreground mt-2">
-                      No saved templates yet. Marketing can save any page as a template from the Builder.
+                      No templates available — generate from scratch. Admins can enable templates for this dropdown under Settings → Templates.
                     </p>
                   )}
                   {aiTemplateId && (

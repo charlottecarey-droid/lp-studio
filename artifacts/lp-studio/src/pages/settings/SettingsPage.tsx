@@ -1,21 +1,23 @@
 import { useLocation, Redirect } from "wouter";
 import { AppLayout } from "@/components/layout/app-layout";
 import { useAuth } from "@/context/AuthContext";
-import { Settings as SettingsIcon, Globe, Search, Mail } from "lucide-react";
+import { Settings as SettingsIcon, Globe, Search, Mail, LayoutTemplate } from "lucide-react";
 import { GeneralContent } from "./GeneralPage";
 import { DomainContent } from "./DomainPage";
 import { SeoContent } from "./SeoPage";
 import { NotificationsContent } from "./NotificationsPage";
 import { EmailTemplatesContent } from "./EmailPage";
 import { AlertRecipientsContent } from "./AlertRecipients";
+import { TemplateSettingsContent } from "./TemplateSettingsPage";
 
-type TabId = "general" | "domain" | "seo" | "email";
+type TabId = "general" | "domain" | "seo" | "templates" | "email";
 type EmailSubTab = "templates" | "recipients" | "preferences";
 
 const TABS: { id: TabId; label: string; icon: typeof SettingsIcon; path: string; adminOnly: boolean }[] = [
   { id: "general", label: "General", icon: SettingsIcon, path: "/settings/general", adminOnly: true },
   { id: "domain", label: "Domain", icon: Globe, path: "/settings/domain", adminOnly: true },
   { id: "seo", label: "SEO", icon: Search, path: "/settings/seo", adminOnly: true },
+  { id: "templates", label: "Templates", icon: LayoutTemplate, path: "/settings/templates", adminOnly: true },
   { id: "email", label: "Email", icon: Mail, path: "/settings/email", adminOnly: false },
 ];
 
@@ -25,6 +27,7 @@ const TABS: { id: TabId; label: string; icon: typeof SettingsIcon; path: string;
 function resolveRoute(location: string): { tab: TabId; emailSub: EmailSubTab } {
   if (location.startsWith("/settings/domain")) return { tab: "domain", emailSub: "templates" };
   if (location.startsWith("/settings/seo")) return { tab: "seo", emailSub: "templates" };
+  if (location.startsWith("/settings/templates")) return { tab: "templates", emailSub: "templates" };
   if (location.startsWith("/settings/notifications")) return { tab: "email", emailSub: "preferences" };
   if (location.startsWith("/settings/email/recipients")) return { tab: "email", emailSub: "recipients" };
   if (location.startsWith("/settings/email")) return { tab: "email", emailSub: "templates" };
@@ -103,6 +106,7 @@ export default function SettingsPage() {
         {tab === "general" && <GeneralContent />}
         {tab === "domain" && <DomainContent />}
         {tab === "seo" && <SeoContent />}
+        {tab === "templates" && canManage && <TemplateSettingsContent />}
         {tab === "email" && (
           <div className="space-y-6">
             <div className="flex gap-1 rounded-lg bg-muted p-1 w-fit" role="tablist">

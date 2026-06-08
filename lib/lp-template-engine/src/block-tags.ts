@@ -364,6 +364,77 @@ export function isFullPageTemplate(
   );
 }
 
+/**
+ * Microsite-create compatibility (task #1219).
+ *
+ * The create-microsite flow (NewMicrositeModal → /lp/generate-page or the sales
+ * generate-microsite path) can only reliably build a page from templates whose
+ * blocks the generation paths know how to compose. Two kinds of template work:
+ *
+ *   1. business-case-* "monograph" templates, which have dedicated deep-merge
+ *      handling in the generators.
+ *   2. templates built entirely from composable section blocks — i.e. NONE of
+ *      their blocks is a special full-page / curated-only block type.
+ *
+ * Everything else (one-pager-*, the FULL_PAGE_BLOCK_TYPES standalone blocks,
+ * and the Dandy-only dso-* blocks) gets discarded or has no schema the
+ * generator can rewrite, often leaving nothing to build. Those templates are
+ * flagged incompatible so the create-microsite dropdown can hide them by
+ * default (Template settings lets an admin override either way).
+ *
+ * Reuses FULL_PAGE_BLOCK_TYPES so this classification stays in sync with the
+ * marketplace's existing full-page notion.
+ */
+export interface MicrositeTemplateCompatibility {
+  compatible: boolean;
+  /** Short human-readable reason; null when compatible. */
+  reason: string | null;
+}
+
+/** True for a block type the create-microsite generators can't build from. */
+function isUnsupportedMicrositeBlockType(type: string): boolean {
+  // business-case-* are full-page but have dedicated generator handling.
+  if (type.startsWith("business-case")) return false;
+  if (FULL_PAGE_BLOCK_TYPES.has(type)) return true;
+  if (type.startsWith("one-pager")) return true;
+  // dso-* are Dandy-curated blocks the freeform/template generators strip.
+  if (type.startsWith("dso-")) return true;
+  return false;
+}
+
+/**
+ * Classify a template's blocks for the create-microsite dropdown. `compatible`
+ * is the computed default (used when an admin hasn't explicitly toggled the
+ * template); `reason` explains an incompatibility for the Template settings UI.
+ */
+export function getMicrositeTemplateCompatibility(
+  blocks: ReadonlyArray<{ type?: unknown }> | null | undefined,
+): MicrositeTemplateCompatibility {
+  if (!Array.isArray(blocks) || blocks.length === 0) {
+    return { compatible: false, reason: "Template has no blocks to build a page from." };
+  }
+  const types = blocks
+    .map((b) => (b && typeof b.type === "string" ? b.type : ""))
+    .filter((t): t is string => t.length > 0);
+  if (types.length === 0) {
+    return { compatible: false, reason: "Template has no recognizable blocks." };
+  }
+  // business-case monograph templates: dedicated generator handling.
+  if (types[0].startsWith("business-case")) {
+    return { compatible: true, reason: null };
+  }
+  const unsupported = Array.from(new Set(types.filter(isUnsupportedMicrositeBlockType)));
+  if (unsupported.length > 0) {
+    const shown = unsupported.slice(0, 3).join(", ");
+    const more = unsupported.length > 3 ? `, +${unsupported.length - 3} more` : "";
+    return {
+      compatible: false,
+      reason: `Built from full-page block${unsupported.length > 1 ? "s" : ""} the create flow can't generate yet (${shown}${more}).`,
+    };
+  }
+  return { compatible: true, reason: null };
+}
+
 /** Code-default tags for a block type. Returns a fresh array (never shared). */
 export function getDefaultBlockTags(type: string): BlockRoleTag[] {
   const def = DEFAULT_BLOCK_TAGS[type];

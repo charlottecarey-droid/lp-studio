@@ -6,11 +6,11 @@ import { Router } from "express";
 import { eq, and, or } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { lpPagesTable, lpTemplateUsageTable } from "@workspace/db";
-import { getTenantId } from "../../middleware/requireAuth";
+import { getTenantId, requirePermission } from "../../middleware/requireAuth";
 import { getRequestHost } from "../../lib/requestHost";
 import { captureTemplateThumbnail } from "../../lib/captureTemplateThumbnail";
 import { PREMIUM_RANK_BY_SLUG } from "../../seeds/globalTemplates";
-import { isFullPageTemplate } from "@workspace/lp-template-engine";
+import { isFullPageTemplate, getMicrositeTemplateCompatibility } from "@workspace/lp-template-engine";
 
 const router = Router();
 
@@ -233,5 +233,107 @@ router.post("/lp/templates/:id/refresh-thumbnail", async (req, res): Promise<voi
     res.status(500).json({ error: "Failed to refresh thumbnail" });
   }
 });
+
+// GET /lp/templates/manage — admin-only listing for the Template settings
+// screen (task #1219). Returns the caller's tenant-owned templates (never
+// global starters) with their create-microsite compatibility, the raw admin
+// override flag, and the resulting effective state. Gated on the "settings"
+// permission; the server re-checks here even though the client hides the tab.
+router.get("/lp/templates/manage", requirePermission("settings"), async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return;
+
+    const templates = await db
+      .select()
+      .from(lpPagesTable)
+      .where(
+        and(
+          eq(lpPagesTable.isTemplate, true),
+          eq(lpPagesTable.tenantId, tenantId),
+          eq(lpPagesTable.isGlobal, false),
+        ),
+      );
+
+    const out = templates
+      .filter((t) => !isPlaceholderTemplateLabel(t.templateLabel || t.title))
+      .map((t) => {
+        const blocks = Array.isArray(t.blocks) ? t.blocks : [];
+        const { compatible, reason } = getMicrositeTemplateCompatibility(
+          blocks as ReadonlyArray<{ type?: unknown }>,
+        );
+        const effectiveEnabled =
+          typeof t.micrositeEnabled === "boolean" ? t.micrositeEnabled : compatible;
+        return {
+          id: t.id,
+          templateLabel: t.templateLabel || t.title,
+          templateDescription: t.templateDescription || "",
+          blockCount: blocks.length,
+          // Computed compatibility (the auto default).
+          compatible,
+          compatibilityReason: reason,
+          // Raw admin override: true/false = explicit, null = auto.
+          micrositeEnabled: t.micrositeEnabled ?? null,
+          // What the create-microsite dropdown actually uses.
+          effectiveEnabled,
+          updatedAt: t.updatedAt,
+        };
+      })
+      .sort((a, b) => a.templateLabel.localeCompare(b.templateLabel));
+
+    res.json(out);
+  } catch (err) {
+    console.error("GET /lp/templates/manage error:", String(err));
+    res.status(500).json({ error: "Failed to load templates" });
+  }
+});
+
+// PATCH /lp/templates/:id/microsite-enabled — admin-only override of whether a
+// tenant-owned template appears in the create-microsite dropdown (task #1219).
+// body { enabled: boolean }. Tenant-scoped; refuses global templates and
+// cross-tenant rows. Gated on the "settings" permission.
+router.patch(
+  "/lp/templates/:id/microsite-enabled",
+  requirePermission("settings"),
+  async (req, res): Promise<void> => {
+    try {
+      const tenantId = getTenantId(req, res);
+      if (tenantId === null) return;
+      const id = parseInt(String(req.params.id), 10);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid template id" });
+        return;
+      }
+      const { enabled } = req.body as { enabled?: unknown };
+      if (typeof enabled !== "boolean") {
+        res.status(400).json({ error: "enabled must be a boolean" });
+        return;
+      }
+
+      const [existing] = await db
+        .select({
+          id: lpPagesTable.id,
+          tenantId: lpPagesTable.tenantId,
+          isGlobal: lpPagesTable.isGlobal,
+        })
+        .from(lpPagesTable)
+        .where(and(eq(lpPagesTable.id, id), eq(lpPagesTable.isTemplate, true)));
+      if (!existing || existing.isGlobal || existing.tenantId !== tenantId) {
+        res.status(404).json({ error: "Template not found" });
+        return;
+      }
+
+      await db
+        .update(lpPagesTable)
+        .set({ micrositeEnabled: enabled })
+        .where(eq(lpPagesTable.id, id));
+
+      res.json({ ok: true, micrositeEnabled: enabled });
+    } catch (err) {
+      console.error("PATCH /lp/templates/:id/microsite-enabled error:", String(err));
+      res.status(500).json({ error: "Failed to update template" });
+    }
+  },
+);
 
 export default router;

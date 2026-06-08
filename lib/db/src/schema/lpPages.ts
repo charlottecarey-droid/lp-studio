@@ -34,6 +34,13 @@ export const lpPagesTable = pgTable("lp_pages", {
   isTemplate: boolean("is_template").notNull().default(false),
   templateLabel: text("template_label"),
   templateDescription: text("template_description"),
+  // Create-microsite dropdown gating (task #1219). Tri-state:
+  //   NULL  = auto — fall back to the computed compatibility default
+  //           (getMicrositeTemplateCompatibility(blocks).compatible).
+  //   true  = admin force-enabled in the create-microsite dropdown.
+  //   false = admin force-disabled.
+  // Effective visibility = micrositeEnabled ?? computed compatibility.
+  micrositeEnabled: boolean("microsite_enabled"),
   // Template-gallery preview thumbnail (task #736). A thum.io screenshot URL
   // captured from this page's /preview/:slug render, distinct from `ogImage`
   // (which is the social/share card). NULL = never captured → the gallery
