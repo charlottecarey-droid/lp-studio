@@ -17,11 +17,11 @@ import {
   validateAndDedupeAIImages,
   fillEmptyImages,
   isScrapedImage,
-  // Reference-image fill helpers shared with the marketing generator (Task
-  // #1218): order the pool curated → current-reference scraped → other-host
-  // scraped, and trust THIS run's scrapes to fill slots on the curated gate.
+  // Reference-image fill helper shared with the marketing generator: order the
+  // pool curated → current-reference scraped → other-host scraped, and rotate
+  // within each bucket per generation so the same on-topic asset doesn't win the
+  // first slot every page (Task #1287).
   buildReferenceFillPool,
-  buildTrustedScrapedIds,
   aiFillEmptyImages,
   inferDesignIntensity,
   buildTypographySection,
@@ -2143,11 +2143,16 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       scrapedMediaPromise,
       new Promise<MediaImage[]>((resolve) => setTimeout(() => resolve([]), SCRAPED_MEDIA_GRACE_MS)),
     ]);
-    // Reference-image fidelity (Task #1218): order curated → current-reference
-    // scraped → other-host scraped so the site the user referenced this run wins
-    // empty slots over stale scrapes; trust THIS run's scrapes on the curated gate.
-    const imageFillPool: MediaImage[] = buildReferenceFillPool(images, scrapedMedia, mergedReferenceUrls);
-    const trustedScrapedIds = buildTrustedScrapedIds(images, scrapedMedia, mergedReferenceUrls);
+    // Reference-image fidelity: order curated → current-reference scraped →
+    // other-host scraped so the site the user referenced this run wins empty
+    // slots over stale scrapes. Rotate within each bucket per generation so the
+    // same on-topic asset doesn't win the first slot every page (Task #1287).
+    const imageFillPool: MediaImage[] = buildReferenceFillPool(
+      images,
+      scrapedMedia,
+      mergedReferenceUrls,
+      Math.floor(Math.random() * 1_000_000) + 1,
+    );
 
     // Task #1106 — when generating from a template AND the caller opted into
     // replacing imagery, clear every image slot up front so the fill passes
@@ -2172,7 +2177,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     normalizedBlocks = validateAndDedupeAIImages(normalizedBlocks, imageFillPool, pageImageContext, brandLogoUrls) as AiBlock[];
     // Fill remaining empty image slots from the tenant media library + scraped
     // reference imagery (surfaces untagged images + broad block-type coverage).
-    normalizedBlocks = fillEmptyImages(normalizedBlocks, imageFillPool, pageImageContext, false, brandLogoUrls, trustedScrapedIds) as AiBlock[];
+    normalizedBlocks = fillEmptyImages(normalizedBlocks, imageFillPool, pageImageContext, false, brandLogoUrls) as AiBlock[];
     // Replace invented / missing video URLs with real library videos.
     normalizedBlocks = fillEmptyVideos(normalizedBlocks, videoUrls) as AiBlock[];
     normalizedBlocks = injectBrandIntoBlocks(normalizedBlocks, brand, ctaOverride) as AiBlock[];

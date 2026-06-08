@@ -806,19 +806,26 @@ function scoreImage(
   contextLower: string,
   contextWords: string[],
   preferredPurpose?: string,
-): number {
-  let score = 0;
+): { score: number; contentScore: number } {
+  let purposeScore = 0;
+  // `contentScore` is the TOPICAL relevance signal alone — content-tag and title
+  // overlap with the page context, WITHOUT the purpose boost/penalty or the
+  // sibling-tenant nudge. The strict-pass scraped gate keys off this so a
+  // generic reference-site photo can't win a slot on a bare purpose match
+  // (a "lp-hero"-tagged but off-topic office shot) — it needs a real topical
+  // signal. See findBestImage. (Task #1287)
+  let contentScore = 0;
   const imgPurpose = getImagePurpose(img);
 
   // Purpose scoring
   if (preferredPurpose) {
     if (imgPurpose === preferredPurpose) {
-      score += PURPOSE_MATCH_BOOST; // strong boost for matching purpose
+      purposeScore += PURPOSE_MATCH_BOOST; // strong boost for matching purpose
     } else if (imgPurpose !== "" && imgPurpose !== preferredPurpose) {
       // penalise mismatches — especially keep product-detail out of hero slots
-      if (preferredPurpose === "lp-hero" && imgPurpose === "product-detail") score -= 10;
-      else if (preferredPurpose === "lp-feature" && imgPurpose === "product-detail") score -= 4;
-      else score -= 2;
+      if (preferredPurpose === "lp-hero" && imgPurpose === "product-detail") purposeScore -= 10;
+      else if (preferredPurpose === "lp-feature" && imgPurpose === "product-detail") purposeScore -= 4;
+      else purposeScore -= 2;
     }
     // unclassified images (imgPurpose === "") are neutral — no bonus, no penalty
   }
@@ -828,7 +835,7 @@ function scoreImage(
     const tagLower = tag.toLowerCase();
     // Skip non-semantic tags, incl. the dynamic per-host scrape provenance tag.
     if (SKIP_TAGS.has(tagLower) || tagLower.startsWith("refhost:")) continue;
-    if (contextLower.includes(tagLower)) score += TAG_MATCH_SCORE;
+    if (contextLower.includes(tagLower)) contentScore += TAG_MATCH_SCORE;
     for (const word of tagLower.split(/\s+/)) {
       // Guard against EMPTY context words: contextWords comes from splitting a
       // space-padded template (`${a} ${b} ${c}`) so it routinely contains ""
@@ -837,13 +844,15 @@ function scoreImage(
       // word — silently inflating scraped images (whose only tags are the
       // "scraped"/"refhost:…"/"page-reference" meta tags) to a positive score
       // and defeating the strict-pass relevance gate in findBestImage.
-      if (word.length > 3 && contextWords.some(w => w.length > 0 && (w.includes(word) || word.includes(w)))) score += 1;
+      if (word.length > 3 && contextWords.some(w => w.length > 0 && (w.includes(word) || word.includes(w)))) contentScore += 1;
     }
   }
 
   // Title match
   const titleLower = (img.title ?? "").toLowerCase();
-  if (titleLower && contextWords.some(w => w.length > 3 && titleLower.includes(w))) score += 1;
+  if (titleLower && contextWords.some(w => w.length > 3 && titleLower.includes(w))) contentScore += 1;
+
+  let score = purposeScore + contentScore;
 
   // Sibling-tenant tie-breaker: a reciprocal sibling's image (flagged at
   // catalog-build time in fetchMediaCatalog) gets a small −1 nudge so a tenant
@@ -852,7 +861,7 @@ function scoreImage(
   // wins, we only break near-ties toward the tenant's own library.
   if (img.foreignTenant) score -= 1;
 
-  return score;
+  return { score, contentScore };
 }
 
 /**
@@ -867,53 +876,57 @@ function findBestImage(
   usedIds: Set<string>,
   preferredPurpose?: string,
   relaxed = false,
-  trustedScrapedIds?: ReadonlySet<string>,
 ): string {
   if (images.length === 0) return "";
   const contextLower = context.toLowerCase();
   const contextWords = contextLower.split(/\s+/);
 
-  let best: MediaImage | null = null;
-  let bestScore = -Infinity;
-
+  // Per-candidate acceptability gate. We pick the highest-scoring unused image
+  // that PASSES its gate (not the global best then gate it once) — so when the
+  // top scorer is ineligible, a lower but acceptable candidate behind it still
+  // fills the slot instead of leaving it empty.
+  //
+  //  • Curated library images (drawer uploads, brand-import photography) need
+  //    only a NON-NEGATIVE score — this avoids forcing a product-detail into a
+  //    hero slot while still preferring the tenant's own assets.
+  //  • SCRAPED page-reference harvests are auto-tagged for PURPOSE (lp-hero /
+  //    lp-feature), so a generic off-topic reference photo scores the full
+  //    purpose boost on a matching slot with ZERO topical relevance — the
+  //    "wrong images" symptom (a generic office shot from the reference site
+  //    treated as on-topic). Require a positive CONTENT-relevance signal
+  //    (topical tag/title overlap, independent of the purpose boost) so only
+  //    genuinely on-topic scrapes win a slot in the strict pass; the rest fall
+  //    to the relaxed last-resort pass (which runs AFTER AI image generation).
+  //    This holds for THIS run's reference scrape too: the user pointing us at a
+  //    site doesn't make its generic imagery on-topic. (Task #1287)
+  // In `relaxed` mode we drop the curated/scraped distinction but keep a minimum
+  // acceptability FLOOR — never place a negative (purpose-mismatched / clearly
+  // off-topic) candidate. A slot left empty for the editor's storage default or
+  // AI fill reads better than an obviously wrong image. (Task #1287)
+  //
   // `usedIds` holds normalized image IDENTITIES (see imageIdentity), not raw
   // URLs, so a photo already placed under one URL can't be re-selected for
   // another slot via a near-duplicate URL of the same visual asset.
+  let best: MediaImage | null = null;
+  let bestScore = -Infinity;
   for (const img of images) {
     if (usedIds.has(imageIdentity(img))) continue;
-    const score = scoreImage(img, contextLower, contextWords, preferredPurpose);
+    const { score, contentScore } = scoreImage(img, contextLower, contextWords, preferredPurpose);
+    const acceptable = relaxed
+      ? score >= 0
+      : isScrapedImage(img)
+        ? contentScore > 0
+        : score >= 0;
+    if (!acceptable) continue;
     if (score > bestScore) {
       bestScore = score;
       best = img;
     }
   }
 
-  // Strict-pass gate.
-  //  • Curated library images (drawer uploads, brand-import photography) need
-  //    only a NON-NEGATIVE score — this avoids forcing a product-detail into a
-  //    hero slot while still preferring the tenant's own assets.
-  //  • SCRAPED page-reference harvests are untagged-for-purpose, so they score 0
-  //    against most slots. Placing them on a bare `>= 0` gate fills slots with
-  //    off-topic brand-site photos (the "wrong images" symptom). Require a
-  //    POSITIVE relevance signal for scraped images here so only genuinely
-  //    on-topic scrapes win a slot in the strict pass; off-topic scrapes fall to
-  //    the relaxed last-resort pass (which runs AFTER AI image generation).
-  // In `relaxed` mode we drop the gate entirely and return the best available
-  // unused image regardless of score — the final pass to exhaust the library.
-  //
-  // Task #1218 — a scrape from the CURRENT request (freshScrapedMedia or a
-  // catalog scrape whose refhost matches a current reference host) is TRUSTED:
-  // it passes on the same non-negative gate as curated library images. The user
-  // pointed us at that site this run, so its imagery should fill empty slots
-  // before AI generation. Stale/other-host scrapes keep the strict `> 0` gate so
-  // an unrelated prior brand-site scrape never wins a slot.
   if (best) {
-    const trusted = isScrapedImage(best) && !!trustedScrapedIds?.has(imageIdentity(best));
-    const passesStrict = (isScrapedImage(best) && !trusted) ? bestScore > 0 : bestScore >= 0;
-    if (relaxed || passesStrict) {
-      usedIds.add(imageIdentity(best));
-      return best.url;
-    }
+    usedIds.add(imageIdentity(best));
+    return best.url;
   }
   return "";
 }
@@ -1290,14 +1303,14 @@ export function validateAndDedupeAIImages(
     const ctx = `${slot.context} ${pageContext}`.toLowerCase();
     const ctxWords = ctx.split(/\s+/);
     const purpose = slot.purpose || undefined;
-    const assignedScore = scoreImage(assigned, ctx, ctxWords, purpose);
+    const assignedScore = scoreImage(assigned, ctx, ctxWords, purpose).score;
 
     // Best free alternative for this slot (exclude every currently-used
     // identity, so near-duplicates of placed images don't count as available).
     let bestAlt = -Infinity;
     for (const img of images) {
       if (used.has(imageIdentity(img))) continue;
-      const s = scoreImage(img, ctx, ctxWords, purpose);
+      const s = scoreImage(img, ctx, ctxWords, purpose).score;
       if (s > bestAlt) bestAlt = s;
     }
 
@@ -1465,8 +1478,8 @@ function identityForUrl(url: string, byUrl: Map<string, MediaImage>): string {
  * @param referenceUrls the reference URL(s) used for the current generation.
  */
 /** Normalized host set for the current generation's reference URL(s)
- *  (lowercased, leading "www." stripped). Shared by buildReferenceFillPool and
- *  buildTrustedScrapedIds so "current reference host" is derived identically. */
+ *  (lowercased, leading "www." stripped). Used by buildReferenceFillPool to
+ *  separate current-reference scrapes from stale other-host scrapes. */
 function currentReferenceHosts(referenceUrls: string[]): Set<string> {
   const hosts = new Set<string>();
   for (const u of referenceUrls) {
@@ -1479,10 +1492,30 @@ function currentReferenceHosts(referenceUrls: string[]): Set<string> {
   return hosts;
 }
 
+/**
+ * Rotate a bucket's order by a per-generation seed so the SAME on-topic asset
+ * doesn't win the first eligible slot of every page (the "same photo on every
+ * page / across tenants" symptom). Selection ties at equal score otherwise
+ * always resolve to the first DB row, so the newest curated hero (or a shared
+ * starter) wins page after page. Bucket BOUNDARIES are preserved by rotating
+ * each bucket independently, so cross-bucket priority (curated → current-ref →
+ * … → starter) is unaffected — only the starting offset WITHIN a bucket of
+ * interchangeable assets rotates. seed <= 0 (the unit-test default) is a no-op,
+ * keeping fixture ordering deterministic. (Task #1287)
+ */
+function rotateBucket<T>(bucket: T[], seed: number): T[] {
+  const n = bucket.length;
+  if (n <= 1 || !Number.isFinite(seed) || seed <= 0) return bucket;
+  const offset = Math.floor(seed) % n;
+  if (offset === 0) return bucket;
+  return [...bucket.slice(offset), ...bucket.slice(0, offset)];
+}
+
 export function buildReferenceFillPool(
   catalogImages: MediaImage[],
   freshScrapedMedia: MediaImage[],
   referenceUrls: string[],
+  rotationSeed = 0,
 ): MediaImage[] {
   const currentRefHosts = currentReferenceHosts(referenceUrls);
   const freshScrapedUrls = new Set(freshScrapedMedia.map((m) => m.url));
@@ -1506,39 +1539,15 @@ export function buildReferenceFillPool(
     if (host && currentRefHosts.has(host)) currentRefScraped.push(img);
     else otherScraped.push(img);
   }
-  return [...curatedImages, ...freshScrapedMedia, ...currentRefScraped, ...otherScraped, ...starterImages];
-}
-
-/**
- * Identities of the scraped images that THIS generation is allowed to place on
- * the same relaxed footing as curated library images (i.e. at a NON-NEGATIVE
- * score in the strict pass, instead of requiring a strictly-positive relevance
- * signal). A scrape is "trusted" when it came from the current request:
- *   • freshScrapedMedia — images mirrored from the reference URL(s) this run, or
- *   • a catalog scrape whose refhost matches a current reference host (resilient
- *     to the harvest grace window timing out and to repeat generations of the
- *     same site, which surface the existing rows instead of re-mirroring).
- *
- * Stale scrapes from unrelated prior generations (other hosts) are NOT trusted —
- * they keep the strict `> 0` gate so an off-topic brand-site photo never wins a
- * slot ahead of AI generation. Keyed by imageIdentity so it matches the dedup
- * keys used in findBestImage.
- */
-export function buildTrustedScrapedIds(
-  catalogImages: MediaImage[],
-  freshScrapedMedia: MediaImage[],
-  referenceUrls: string[],
-): Set<string> {
-  const trusted = new Set<string>();
-  for (const m of freshScrapedMedia) trusted.add(imageIdentity(m));
-  const currentRefHosts = currentReferenceHosts(referenceUrls);
-  if (currentRefHosts.size === 0) return trusted;
-  for (const img of catalogImages) {
-    if (!isScrapedImage(img)) continue;
-    const host = refHostOf(img);
-    if (host && currentRefHosts.has(host)) trusted.add(imageIdentity(img));
-  }
-  return trusted;
+  // Rotate WITHIN each bucket (preserving cross-bucket priority) so the first
+  // eligible slot of every page doesn't always resolve to the same first DB row.
+  return [
+    ...rotateBucket(curatedImages, rotationSeed),
+    ...rotateBucket(freshScrapedMedia, rotationSeed),
+    ...rotateBucket(currentRefScraped, rotationSeed),
+    ...rotateBucket(otherScraped, rotationSeed),
+    ...rotateBucket(starterImages, rotationSeed),
+  ];
 }
 
 /** Post-process blocks to fill in empty image URLs from the media library.
@@ -1548,17 +1557,17 @@ export function buildTrustedScrapedIds(
  *    photo-strip    → "lp-feature"
  *    product-grid   → "product-detail" (close-ups OK here)
  */
-export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageContext = "", relaxed = false, logoUrls?: ReadonlySet<string>, trustedScrapedIds?: ReadonlySet<string>): unknown[] {
+export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageContext = "", relaxed = false, logoUrls?: ReadonlySet<string>): unknown[] {
   if (images.length === 0) return blocks;
   const usedIds = new Set<string>();
   // Bias every selection toward the page's industry/topic so a block with a
   // generic headline still prefers on-topic imagery. When `relaxed` is set the
-  // score gate is dropped so any still-empty slot grabs the best remaining
-  // library image rather than being left for AI generation. `trustedScrapedIds`
-  // lets the current request's scrapes fill slots on the same gate as curated
-  // images (Task #1218).
+  // score gate relaxes to a non-negative FLOOR so any still-empty slot grabs the
+  // best remaining (not clearly off-topic) library image rather than being left
+  // for AI generation. Scraped page-reference images must clear a positive
+  // content-relevance bar in the strict pass — see findBestImage. (Task #1287)
   const pick = (context: string, imgs: MediaImage[], used: Set<string>, purpose?: string): string =>
-    findBestImage(pageContext ? `${context} ${pageContext}` : context, imgs, used, purpose, relaxed, trustedScrapedIds);
+    findBestImage(pageContext ? `${context} ${pageContext}` : context, imgs, used, purpose, relaxed);
 
   // First pass: collect already-used image IDENTITIES across EVERY image-bearing
   // shape (reuses collectImageSlots so heroImageUrl, cards/panels/pairs/slides,
@@ -4803,22 +4812,18 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           getIndustryImageKeywords(industryForImages).join(" "),
           prompt.trim(),
         ].join(" ").trim().slice(0, 240);
+        // Rotate within each fill-pool bucket so the same on-topic asset doesn't
+        // win the first eligible slot of every generation (Task #1287).
         const fillPool: MediaImage[] = buildReferenceFillPool(
           mediaCatalog.images,
           scrapedRefMedia,
           scrapedUrls,
-        );
-        // This run's scrapes are trusted to fill empty slots on the same gate as
-        // curated images (Task #1218).
-        const trustedScrapedIds = buildTrustedScrapedIds(
-          mediaCatalog.images,
-          scrapedRefMedia,
-          scrapedUrls,
+          Math.floor(Math.random() * 1_000_000) + 1,
         );
 
         mergedBlocks = sanitizeAIImageUrls(mergedBlocks, mediaCatalog.allImages, brandLogoUrls) as typeof mergedBlocks;
         mergedBlocks = validateAndDedupeAIImages(mergedBlocks, fillPool, pageImageContext, brandLogoUrls) as typeof mergedBlocks;
-        mergedBlocks = fillEmptyImages(mergedBlocks, fillPool, pageImageContext, false, brandLogoUrls, trustedScrapedIds) as typeof mergedBlocks;
+        mergedBlocks = fillEmptyImages(mergedBlocks, fillPool, pageImageContext, false, brandLogoUrls) as typeof mergedBlocks;
       }
 
       const slug = String(parsed.slug)
@@ -5546,17 +5551,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // scraped → other-host scraped, so the site the user actually referenced
     // wins empty slots over stale scrapes from prior generations. See
     // buildReferenceFillPool for the full rationale.
+    // Rotate within each fill-pool bucket so the same on-topic asset doesn't win
+    // the first eligible slot of every generation (Task #1287).
     const fillPool: MediaImage[] = buildReferenceFillPool(
       mediaCatalog.images,
       scrapedMedia,
       scrapedUrls,
-    );
-    // This run's scrapes are trusted to fill empty slots on the same gate as
-    // curated images (Task #1218).
-    const trustedScrapedIds = buildTrustedScrapedIds(
-      mediaCatalog.images,
-      scrapedMedia,
-      scrapedUrls,
+      Math.floor(Math.random() * 1_000_000) + 1,
     );
 
     // Subject the model's OWN image picks to the same dedup + purpose/relevance
@@ -5565,7 +5566,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     parsed.blocks = validateAndDedupeAIImages(parsed.blocks, fillPool, pageImageContext, brandLogoUrls);
 
     // Fill in any remaining empty image URLs from the media library
-    parsed.blocks = fillEmptyImages(parsed.blocks, fillPool, pageImageContext, false, brandLogoUrls, trustedScrapedIds);
+    parsed.blocks = fillEmptyImages(parsed.blocks, fillPool, pageImageContext, false, brandLogoUrls);
 
     // An empty media catalog is the upstream cause of the brand-import
     // broken-image symptom (task #592): if nothing was mirrored into

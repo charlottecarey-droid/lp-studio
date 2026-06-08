@@ -24,7 +24,6 @@ import {
   sanitizeAIImageUrls,
   validateAndDedupeAIImages,
   buildReferenceFillPool,
-  buildTrustedScrapedIds,
   type MediaImage,
 } from "../lp/generate-page";
 import { restoreTemplateImages, mergeAuthored } from "./generate-microsite";
@@ -260,11 +259,11 @@ describe("sales image pipeline — backgroundImage slot (event-landing-hero / ds
   });
 });
 
-// ── Task #1218: reference-image fidelity parity ─────────────────────────────
-// The microsite generator now builds its fill pool + trusted-scrape set with the
-// SAME shared helpers as the marketing generator, so a site the rep referenced
-// this run wins empty slots over stale scrapes and fills on the curated gate.
-describe("sales image pipeline — reference-image fidelity (Task #1218)", () => {
+// ── Reference-image fidelity parity ─────────────────────────────────────────
+// The microsite generator builds its fill pool with the SAME shared helper as
+// the marketing generator, so a site the rep referenced this run wins empty
+// slots over stale scrapes from prior generations.
+describe("sales image pipeline — reference-image fidelity", () => {
   const curated: MediaImage = { url: "/objects/brand-photo", title: "office lobby", tags: ["brand-import", "photography"] };
   const staleApple: MediaImage = { url: "/objects/apple-1", title: "product shot", tags: ["scraped", "refhost:apple.com"] };
   const freshClay: MediaImage = { url: "/objects/clay-fresh", title: "abstract gradient", tags: ["scraped", "refhost:clay.com", "refsrc:ccc"] };
@@ -274,21 +273,20 @@ describe("sales image pipeline — reference-image fidelity (Task #1218)", () =>
     expect(pool.map(p => p.url)).toEqual(["/objects/brand-photo", "/objects/clay-fresh", "/objects/apple-1"]);
   });
 
-  it("places this run's off-topic reference scrape in the strict pass via the trusted set", () => {
-    const trusted = buildTrustedScrapedIds([curated], [freshClay], ["https://clay.com/x"]);
-    let blocks: any[] = [
-      { type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } },
-    ];
-    blocks = fillEmptyImages(blocks, [freshClay], "saas pipeline", false, undefined, trusted) as any[];
-    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/clay-fresh");
-  });
+  it("holds back an off-topic reference scrape in the strict pass, then places it relaxed (Task #1287)", () => {
+    // freshClay's title ("abstract gradient") has no topical overlap with "saas
+    // pipeline" → contentScore 0 → fails the strict scraped gate, but the
+    // relaxed last-resort floor admits it.
+    const strict = fillEmptyImages(
+      [{ type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } }],
+      [freshClay], "saas pipeline", false,
+    ) as any[];
+    expect(strict[0].props.rows[0].imageUrl).toBe("");
 
-  it("holds back a stale other-host scrape in the strict pass (untrusted)", () => {
-    const trusted = buildTrustedScrapedIds([staleApple], [], ["https://clay.com/x"]);
-    let blocks: any[] = [
-      { type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } },
-    ];
-    blocks = fillEmptyImages(blocks, [staleApple], "saas pipeline", false, undefined, trusted) as any[];
-    expect(blocks[0].props.rows[0].imageUrl).toBe("");
+    const relaxed = fillEmptyImages(
+      [{ type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } }],
+      [freshClay], "saas pipeline", true,
+    ) as any[];
+    expect(relaxed[0].props.rows[0].imageUrl).toBe("/objects/clay-fresh");
   });
 });

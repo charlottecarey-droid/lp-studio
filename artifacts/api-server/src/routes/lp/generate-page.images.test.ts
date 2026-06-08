@@ -5,7 +5,6 @@ import {
   sanitizeAIImageUrls,
   aiFillEmptyImages,
   buildReferenceFillPool,
-  buildTrustedScrapedIds,
   collectImageSlots,
   isLogoImageUrl,
   buildBrandLogoUrlSet,
@@ -464,19 +463,20 @@ describe("buildReferenceFillPool — reference-image fidelity", () => {
     ]);
   });
 
-  it("a tie between a starter seed and the current reference's scrape resolves to the scrape", () => {
-    // Starter seeds are purpose-neutral → score 0, same as an untagged scrape;
-    // ordering must let the requested site's image win the slot. The current
-    // reference's scrape is trusted (buildTrustedScrapedIds), so it passes the
-    // strict non-negative gate just like the curated/starter assets.
+  it("a tie between a starter seed and the current reference's scrape resolves to the scrape (relaxed pass)", () => {
+    // Starter seeds are purpose-neutral → score 0, same as an off-topic scrape;
+    // pool ordering must let the requested site's image win the slot. An
+    // off-topic scrape no longer clears the strict content-relevance gate
+    // (Task #1287), so this is exercised in the RELAXED last-resort pass where
+    // the non-negative floor admits both and ordering (current-ref scrape ahead
+    // of starter seeds) decides the winner.
     const starter: MediaImage = { url: "/objects/starter-1", title: "Starter 14142350", tags: ["starter", "generic"] };
     const refUrls = ["https://clay.com/x"];
     const pool = buildReferenceFillPool([starter, freshClay], [freshClay], refUrls);
-    const trusted = buildTrustedScrapedIds([starter, freshClay], [freshClay], refUrls);
     const blocks: any[] = [
       { type: "zigzag-features", props: { rows: [{ headline: "Workflow", body: "", imageUrl: "" }] } },
     ];
-    const filled = fillEmptyImages(blocks, pool, "saas pipeline", false, undefined, trusted) as any[];
+    const filled = fillEmptyImages(blocks, pool, "saas pipeline", true, undefined) as any[];
     expect(filled[0].props.rows[0].imageUrl).toBe("/objects/clay-fresh");
   });
 });
@@ -695,46 +695,19 @@ describe("findBestImage — scraped images need positive relevance in the strict
   });
 });
 
-// ── Task #1218: THIS run's scrapes are trusted in the strict pass ────────────
-// A scrape harvested from the reference URL the user pointed us at THIS run
-// (freshScrapedMedia) or already in the catalog under a current-reference host
-// should fill empty slots on the same non-negative gate as curated images —
-// even when its title doesn't lexically overlap the slot context. Stale scrapes
-// from unrelated prior generations keep the strict `> 0` gate.
-describe("buildTrustedScrapedIds — current-run scrape trust", () => {
-  const freshClay: MediaImage = { url: "/objects/clay-fresh", title: "abstract gradient", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:ccc"] };
-  const priorClay: MediaImage = { url: "/objects/clay-prior", title: "team offsite", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:bbb"] };
-  const staleApple: MediaImage = { url: "/objects/apple-1", title: "product shot", tags: ["page-reference", "scraped", "refhost:apple.com", "refsrc:aaa"] };
-  const curated: MediaImage = { url: "/objects/brand-photo", title: "office lobby", tags: ["brand-import", "photography"] };
+// ── Task #1287: off-topic scrapes need content relevance in the strict pass ──
+// A page-reference scrape is auto-tagged for PURPOSE (lp-hero / lp-feature), so
+// without a content-relevance gate a generic off-topic reference photo wins a
+// slot on the bare purpose match. The strict pass requires a positive CONTENT
+// signal (topical tag/title overlap) for scraped images; off-topic scrapes —
+// even from THIS run's reference — defer to the relaxed last-resort pass.
+describe("scraped-image content-relevance gate (Task #1287)", () => {
+  const freshClay: MediaImage = { url: "/objects/clay-fresh", title: "abstract gradient", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:ccc", "lp-feature"] };
 
-  // The set is keyed by imageIdentity (scrapes fold to `s:<host>:<title-stem>`),
-  // so we assert membership by SIZE — the fillEmptyImages tests below exercise
-  // the exact keys end-to-end. Inputs are chosen so size pins WHICH rows count:
-  // fresh clay (1) + catalog clay same-host (1) = 2; apple (other host) and the
-  // curated row must NOT be counted, or the size would be 3+.
-  it("trusts freshly-harvested scrapes and catalog scrapes from the current reference host", () => {
-    const trusted = buildTrustedScrapedIds([priorClay, staleApple, curated], [freshClay], ["https://www.clay.com/x"]);
-    expect(trusted.size).toBe(2); // clay-fresh + clay-prior; NOT apple, NOT curated
-  });
-
-  it("trusts ONLY fresh scrapes when there is no reference URL", () => {
-    const trusted = buildTrustedScrapedIds([priorClay, staleApple], [freshClay], []);
-    expect(trusted.size).toBe(1); // only the freshly-harvested clay row
-  });
-
-  it("fillEmptyImages PLACES a trusted off-topic scrape in the strict pass", () => {
-    // freshClay's title ("abstract gradient") does NOT overlap "saas pipeline" →
-    // scores 0. Untrusted it would be held back, but as a current-run scrape it
-    // fills the slot on the curated (>= 0) gate.
-    const trusted = buildTrustedScrapedIds([curated], [freshClay], ["https://clay.com/x"]);
-    let blocks: any[] = [
-      { type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } },
-    ];
-    blocks = fillEmptyImages(blocks, [freshClay], "saas pipeline", false, undefined, trusted) as any[];
-    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/clay-fresh");
-  });
-
-  it("WITHOUT the trusted set, that same off-topic scrape is held back in the strict pass", () => {
+  it("holds back an off-topic scrape (purpose match only, no topical overlap) in the strict pass", () => {
+    // freshClay carries an "lp-feature" purpose tag but its title/content tags do
+    // NOT overlap "saas pipeline" → contentScore 0 → fails the strict gate even
+    // though the purpose boost makes its total score positive.
     let blocks: any[] = [
       { type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } },
     ];
@@ -742,13 +715,21 @@ describe("buildTrustedScrapedIds — current-run scrape trust", () => {
     expect(blocks[0].props.rows[0].imageUrl).toBe("");
   });
 
-  it("does NOT trust a stale other-host scrape even with a reference URL set", () => {
-    const trusted = buildTrustedScrapedIds([staleApple], [], ["https://clay.com/x"]);
+  it("places an ON-TOPIC scrape (real content overlap) in the strict pass", () => {
+    const onTopic: MediaImage = { url: "/objects/clay-topic", title: "workflow automation pipeline", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:ddd", "lp-feature", "workflow"] };
     let blocks: any[] = [
       { type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } },
     ];
-    blocks = fillEmptyImages(blocks, [staleApple], "saas pipeline", false, undefined, trusted) as any[];
-    expect(blocks[0].props.rows[0].imageUrl).toBe("");
+    blocks = fillEmptyImages(blocks, [onTopic], "saas pipeline workflow", false) as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/clay-topic");
+  });
+
+  it("places that same off-topic scrape in the relaxed last-resort pass", () => {
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, [freshClay], "saas pipeline", true) as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/clay-fresh");
   });
 });
 
