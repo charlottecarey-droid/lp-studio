@@ -58,6 +58,30 @@ export function CaseStudyCardGridPanel({ props, onChange }: Props) {
       </div>
 
       <div className="space-y-3">
+        <div className="space-y-2">
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Image display</Label>
+          <div className="grid grid-cols-2 gap-1">
+            {([
+              { value: "icon", label: "Icons" },
+              { value: "logo", label: "Logos" },
+            ] as const).map((opt) => {
+              const active = (props.displayMode ?? "icon") === opt.value;
+              return (
+                <Button
+                  key={opt.value}
+                  size="sm"
+                  variant={active ? "default" : "outline"}
+                  className="h-8 text-xs"
+                  onClick={() => update({ displayMode: opt.value })}
+                >
+                  {opt.label}
+                </Button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground">Logos render larger and centered above the company name.</p>
+        </div>
+
         <div className="flex items-center justify-between">
           <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cards</Label>
           <Button size="sm" variant="outline" onClick={addCard}><Plus className="h-3 w-3 mr-1" />Card</Button>

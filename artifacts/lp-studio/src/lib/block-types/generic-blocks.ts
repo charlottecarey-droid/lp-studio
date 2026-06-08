@@ -65,6 +65,13 @@ export interface TrustBarBlockProps {
    * logos or product shots that read better at scale.
    */
   imageSize?: "sm" | "md" | "lg" | "xl";
+  /**
+   * How each item's image is shown: a compact inline "icon" (default, sized by
+   * {@link imageSize}) or a larger, centered "logo" treatment so real company
+   * logos read at a legible size. Mirrors the Case Study — Logo Results Row
+   * block's display toggle. Absent === "icon" so existing pages are unchanged.
+   */
+  displayMode?: "icon" | "logo";
 }
 
 export interface PasSectionBlockProps {
@@ -1548,6 +1555,10 @@ export interface CaseStudyCardGridBlockProps {
   heading: string;
   subheading?: string;
   cards: CaseStudyCard[];
+  /** How each card's image is shown: a small inline "icon" (default) next to
+   *  the company name, or a larger "logo" centered above it. Mirrors the
+   *  Case Study — Logo Results Row block. Absent === "icon" (no page change). */
+  displayMode?: "icon" | "logo";
   /** Optional link/CTA below the grid. */
   ctaLabel?: string;
   ctaUrl?: string;

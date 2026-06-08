@@ -45,14 +45,21 @@ export function BlockTrustBar({ props, brand, animationsEnabled = true, onFieldC
     onFieldChange({ ...props, items: next });
   };
   const bg = props.bgColor ?? "#F8FAF9";
+  // "logo" display mode renders every item image at a larger, centered size so
+  // real company logos read legibly — mirroring the Case Study — Logo Results
+  // Row block. The default "icon" mode keeps the compact, imageSize-driven band
+  // so existing pages are unchanged.
+  const isLogo = props.displayMode === "logo";
   // Per-item images share one global height so the row reads evenly. "md"
   // preserves the original h-12 md:h-14 band; larger steps suit logos/photos.
-  const imageHeightClass = {
-    sm: "h-10 md:h-12",
-    md: "h-12 md:h-14",
-    lg: "h-16 md:h-20",
-    xl: "h-20 md:h-28",
-  }[props.imageSize ?? "md"];
+  const imageHeightClass = isLogo
+    ? "h-16 md:h-24"
+    : {
+        sm: "h-10 md:h-12",
+        md: "h-12 md:h-14",
+        lg: "h-16 md:h-20",
+        xl: "h-20 md:h-28",
+      }[props.imageSize ?? "md"];
   // The trust bar always sits on a light surface, so the stat numbers must use
   // the contrast-guarded on-light heading token rather than raw brand-primary.
   // resolveHeadingColor keeps brand-primary when it clears WCAG AA on the page

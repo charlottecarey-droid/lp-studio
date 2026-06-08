@@ -25,6 +25,7 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
   const border = `${ink}14`;
 
   const cards = props.cards ?? [];
+  const isLogo = props.displayMode === "logo";
 
   const update = <K extends keyof CaseStudyCardGridBlockProps>(
     key: K,
@@ -68,27 +69,48 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
               className="flex flex-col h-full p-8 rounded-3xl border shadow-sm transition-shadow hover:shadow-md group"
               style={{ backgroundColor: surface, borderColor: border }}
             >
-              <div className="flex items-center gap-3 mb-8 pb-8 border-b" style={{ borderColor: border }}>
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-                  style={{ backgroundColor: `${accent}15`, color: accent }}
-                >
-                  <InlineImage
-                    src={card.imageUrl}
-                    alt={card.imageAlt || card.company}
-                    onUpdate={onFieldChange ? (src: string) => updateCard(i, { imageUrl: src }) : undefined}
-                    onAltUpdate={onFieldChange ? (alt: string) => updateCard(i, { imageAlt: alt }) : undefined}
-                    className="w-full h-full object-contain"
-                    wrapperClassName="block w-full h-full"
-                  />
+              {isLogo ? (
+                <div className="flex flex-col items-center text-center gap-4 mb-8 pb-8 border-b" style={{ borderColor: border }}>
+                  <div className="h-14 sm:h-16 w-full flex items-center justify-center" style={{ color: accent }}>
+                    <InlineImage
+                      src={card.imageUrl}
+                      alt={card.imageAlt || card.company}
+                      onUpdate={onFieldChange ? (src: string) => updateCard(i, { imageUrl: src }) : undefined}
+                      onAltUpdate={onFieldChange ? (alt: string) => updateCard(i, { imageAlt: alt }) : undefined}
+                      className="max-h-full max-w-[160px] w-auto h-auto object-contain"
+                      wrapperClassName="inline-flex items-center justify-center max-h-full"
+                    />
+                  </div>
+                  <InlineText
+                    as="span"
+                    value={card.company}
+                    onUpdate={onFieldChange ? (v: string) => updateCard(i, { company: v }) : undefined}
+                    className="text-xl font-bold tracking-tight"
+                    style={{ color: ink, fontFamily: DISPLAY }} />
                 </div>
-                <InlineText
-                  as="span"
-                  value={card.company}
-                  onUpdate={onFieldChange ? (v: string) => updateCard(i, { company: v }) : undefined}
-                  className="text-xl font-bold tracking-tight"
-                  style={{ color: ink, fontFamily: DISPLAY }} />
-              </div>
+              ) : (
+                <div className="flex items-center gap-3 mb-8 pb-8 border-b" style={{ borderColor: border }}>
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+                    style={{ backgroundColor: `${accent}15`, color: accent }}
+                  >
+                    <InlineImage
+                      src={card.imageUrl}
+                      alt={card.imageAlt || card.company}
+                      onUpdate={onFieldChange ? (src: string) => updateCard(i, { imageUrl: src }) : undefined}
+                      onAltUpdate={onFieldChange ? (alt: string) => updateCard(i, { imageAlt: alt }) : undefined}
+                      className="w-full h-full object-contain"
+                      wrapperClassName="block w-full h-full"
+                    />
+                  </div>
+                  <InlineText
+                    as="span"
+                    value={card.company}
+                    onUpdate={onFieldChange ? (v: string) => updateCard(i, { company: v }) : undefined}
+                    className="text-xl font-bold tracking-tight"
+                    style={{ color: ink, fontFamily: DISPLAY }} />
+                </div>
+              )}
 
               <div className="flex-grow">
                 <InlineText

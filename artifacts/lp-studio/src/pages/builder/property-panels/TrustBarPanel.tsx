@@ -189,24 +189,55 @@ export function TrustBarPanel({ props, onChange }: Props) {
         </div>
       </div>
 
-      {/* Image size — applies to every item image so the row stays even. Only
+      {/* Image display — Icons (compact, imageSize-driven) vs Logos (larger,
+          centered). Mirrors the Case Study — Logo Results Row toggle. Only
           relevant once at least one item has an image. */}
       {anyImages && (
-        <div className="space-y-2">
-          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Image size</Label>
-          <Select
-            value={props.imageSize ?? "md"}
-            onValueChange={v => onChange({ ...props, imageSize: v as NonNullable<TrustBarBlockProps["imageSize"]> })}
-          >
-            <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="sm">Small</SelectItem>
-              <SelectItem value="md">Medium (default)</SelectItem>
-              <SelectItem value="lg">Large</SelectItem>
-              <SelectItem value="xl">Extra large</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">Applies to all trust-bar images.</p>
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Image display</Label>
+            <div className="grid grid-cols-2 gap-1">
+              {([
+                { value: "icon", label: "Icons" },
+                { value: "logo", label: "Logos" },
+              ] as const).map(opt => {
+                const active = (props.displayMode ?? "icon") === opt.value;
+                return (
+                  <Button
+                    key={opt.value}
+                    size="sm"
+                    variant={active ? "default" : "outline"}
+                    className="h-8 text-xs"
+                    onClick={() => onChange({ ...props, displayMode: opt.value })}
+                  >
+                    {opt.label}
+                  </Button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">Logos render larger and centered.</p>
+          </div>
+
+          {/* Image size only fine-tunes Icons mode; Logos mode uses a fixed
+              large, centered treatment. */}
+          {(props.displayMode ?? "icon") === "icon" && (
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Image size</Label>
+              <Select
+                value={props.imageSize ?? "md"}
+                onValueChange={v => onChange({ ...props, imageSize: v as NonNullable<TrustBarBlockProps["imageSize"]> })}
+              >
+                <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sm">Small</SelectItem>
+                  <SelectItem value="md">Medium (default)</SelectItem>
+                  <SelectItem value="lg">Large</SelectItem>
+                  <SelectItem value="xl">Extra large</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Applies to all trust-bar images.</p>
+            </div>
+          )}
         </div>
       )}
 
