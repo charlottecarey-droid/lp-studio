@@ -31,3 +31,19 @@ logo renders white in both the recolor and non-recolor paths.
 **How to apply:** any newer hero/nav block that renders `BrandLogo` over a dark
 or blend-mode surface should use `tone="onDark"`; reserve `tone="onLight"` /
 `brandLogoToneForText` for genuinely light, non-blended surfaces.
+
+# Logo tone must follow the surface the logo is PAINTED on
+
+A block whose logo sits on a surface DIFFERENT from the block body must derive
+the logo tone from that local surface, not the body. `BlockHero`'s logo is in
+the top `<nav>` painted `brand.navBgColor` (default `#000000`), independent of
+the hero-body `isDarkBg(backgroundStyle)`. Pin it to `brandLogoToneForSurface(
+relativeLuminance(navBgColor) < 0.4)`, not a hardcoded `tone="onDark"`.
+
+**Why:** once `BrandLogo` force-whitens raster/multicolor marks on `onDark`,
+any hardcoded `onDark` over a light surface renders white-on-light (invisible).
+A configurable or separate surface makes a hardcoded tone wrong half the time.
+
+**How to apply:** guard the hex (`isValidHex` → fallback `#000000`) before
+luminance, since `navBgColor` is a free string. Heroes that are inherently dark
+(gradient/video/image, or a fixed dark scrim like DSO Heartland) keep `onDark`.

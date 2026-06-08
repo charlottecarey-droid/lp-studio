@@ -37,7 +37,8 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
   // body surface), so its tone must follow THAT color — not the hero `isDark`.
   // A light nav must use `onLight` or the logo whitens into a white-on-light
   // silhouette; a dark nav uses `onDark` for a legible white mark.
-  const navIsDark = relativeLuminance(brand.navBgColor || "#000000") < 0.4;
+  const navHex = isValidHex(brand.navBgColor) ? brand.navBgColor : "#000000";
+  const navIsDark = relativeLuminance(navHex) < 0.4;
   // The hero CTA sits on the section surface: brand primary on dark
   // backgrounds, white on light ones. Guard the accent-colored fill so it
   // can't collapse onto a same-hue surface (the classic "blue-on-blue"
