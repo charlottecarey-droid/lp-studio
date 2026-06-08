@@ -442,6 +442,7 @@ export interface ImportedButtonStyle {
   fontWeight: number | null;
   textTransform: string | null;
   background: { type: "solid" | "gradient" | "transparent"; value: string } | null;
+  textColor: string | null;
   boxShadow: string | null;
   raw: Record<string, string>;
   visionAgreed: boolean;
@@ -1106,6 +1107,61 @@ function sanitizeCssValue(v: string): string | null {
 }
 
 /**
+ * Best-effort conversion of a CSS color value (hex, rgb/rgba, common named
+ * color, or the first stop of a gradient) into a `#rrggbb` hex so it can be
+ * fed to the contrast helpers. Returns null when no concrete color can be
+ * derived (e.g. a `var(...)` reference).
+ */
+function cssColorToHex(value: string): string | null {
+  const v = value.trim().toLowerCase();
+  if (!v) return null;
+  if (/gradient/.test(v)) {
+    const stop = v.match(/#[0-9a-f]{3,8}\b|rgba?\([^)]*\)/);
+    return stop ? cssColorToHex(stop[0]) : null;
+  }
+  let m = v.match(/^#([0-9a-f]{3})$/);
+  if (m) {
+    const [r, g, b] = m[1].split("");
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
+  m = v.match(/^#([0-9a-f]{6})(?:[0-9a-f]{2})?$/);
+  if (m) return `#${m[1]}`;
+  m = v.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/);
+  if (m) {
+    const to2 = (n: number) =>
+      Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0");
+    return `#${to2(parseFloat(m[1]))}${to2(parseFloat(m[2]))}${to2(parseFloat(m[3]))}`;
+  }
+  const named: Record<string, string> = { white: "#ffffff", black: "#000000" };
+  return named[v] ?? null;
+}
+
+/**
+ * Resolve the label color for an imported primary button. Prefers the text
+ * color scraped from the source's primary CTA rule; when none was captured (or
+ * it's a non-color keyword), derives a guaranteed-legible color that contrasts
+ * the resolved button background. Returns null only when neither a scraped
+ * color nor a parseable background is available (block default then applies).
+ */
+function resolveImportedButtonLabelColor(raw: ImportedButtonStyle): string | null {
+  const scraped = raw.textColor ? sanitizeCssValue(raw.textColor) : null;
+  // Only trust a scraped color that resolves to a concrete value here. Tokenized
+  // forms (var(...), color-mix(...)) depend on custom properties that the source
+  // site defined but our landing page does not, so they'd silently collapse and
+  // could leave the label illegible — fall through to the contrast fallback.
+  if (
+    scraped
+    && !/^(transparent|inherit|initial|unset|currentcolor|none)$/i.test(scraped)
+    && !/\bvar\(|\bcolor-mix\(/i.test(scraped)
+  ) {
+    return scraped;
+  }
+  const bgHex = raw.background?.value ? cssColorToHex(raw.background.value) : null;
+  if (bgHex) return contrastTextColor(bgHex);
+  return null;
+}
+
+/**
  * Inline-style form of the imported "Primary button CSS" (buttonStyleRaw).
  * Used for the Brand Settings live preview, where a React style object wins
  * over the utility classes from getButtonClasses. Only emits properties that
@@ -1122,6 +1178,8 @@ export function getImportedButtonInlineStyle(brand: BrandConfig): CSSProperties 
   if (raw.paddingY) { s.paddingTop = raw.paddingY; s.paddingBottom = raw.paddingY; }
   if (typeof raw.fontWeight === "number") s.fontWeight = raw.fontWeight;
   if (raw.textTransform) s.textTransform = raw.textTransform as CSSProperties["textTransform"];
+  const labelColor = resolveImportedButtonLabelColor(raw);
+  if (labelColor) s.color = labelColor;
   return s;
 }
 
@@ -1152,6 +1210,9 @@ export function getBrandButtonCss(brand: BrandConfig): string {
   }
   const tt = raw.textTransform ? sanitizeCssValue(raw.textTransform) : null;
   if (tt) decls.push(`text-transform:${tt} !important`);
+  const labelColor = resolveImportedButtonLabelColor(raw);
+  const col = labelColor ? sanitizeCssValue(labelColor) : null;
+  if (col) decls.push(`color:${col} !important`);
   if (decls.length === 0) return "";
   return `.lp-brand-btn{${decls.join(";")}}`;
 }

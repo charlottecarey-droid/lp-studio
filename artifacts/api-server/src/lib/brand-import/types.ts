@@ -151,6 +151,7 @@ export interface ButtonStyleData {
   fontWeight: number | null;
   textTransform: string | null;
   background: { type: "solid" | "gradient" | "transparent"; value: string } | null;
+  textColor: string | null;
   boxShadow: string | null;
   raw: Record<string, string>;
   visionAgreed: boolean;

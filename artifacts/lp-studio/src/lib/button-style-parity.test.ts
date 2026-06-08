@@ -97,6 +97,7 @@ const IMPORTED_STYLE: ImportedButtonStyle = {
   fontWeight: 700,
   textTransform: "uppercase",
   background: { type: "solid", value: "#ff0066" },
+  textColor: null,
   boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
   raw: {},
   visionAgreed: true,
@@ -119,6 +120,40 @@ describe("getBrandButtonCss import gating", () => {
   it("emits nothing when the brand has no imported button style", () => {
     expect(getBrandButtonCss(DEFAULT_BRAND)).toBe("");
     expect(getBrandButtonCss({ ...DEFAULT_BRAND, buttonStyleRaw: undefined })).toBe("");
+  });
+
+  it("uses the scraped text color for the label when present", () => {
+    const brand: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, textColor: "#fffbe6" },
+    };
+    expect(getBrandButtonCss(brand)).toContain("color:#fffbe6 !important");
+  });
+
+  it("derives a legible label color from the background when none was scraped", () => {
+    // #ff0066 is a dark-ish pink → contrast helper resolves to white text,
+    // preventing the white-on-white "blank label" failure mode.
+    const css = getBrandButtonCss(IMPORTED_BRAND);
+    expect(css).toContain("color:#ffffff !important");
+  });
+
+  it("ignores a tokenized scraped color (var/color-mix) and derives a legible one instead", () => {
+    const brand: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, textColor: "var(--site-fg)" },
+    };
+    const css = getBrandButtonCss(brand);
+    expect(css).not.toContain("var(--site-fg)");
+    // #ff0066 fill → contrast fallback resolves to white text.
+    expect(css).toContain("color:#ffffff !important");
+  });
+
+  it("derives black label text on a light/white imported fill", () => {
+    const brand: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, textColor: null, background: { type: "solid", value: "#ffffff" } },
+    };
+    expect(getBrandButtonCss(brand)).toContain("color:#000000 !important");
   });
 
   it("produces identical CSS for structurally-equal brands regardless of caller (no surface-specific branching)", () => {

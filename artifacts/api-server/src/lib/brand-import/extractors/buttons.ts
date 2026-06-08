@@ -127,6 +127,22 @@ function parseRadiusToPx(value: string): number | null {
   return n;
 }
 
+// True when a background is pure white or fully transparent. Such fills are
+// the hallmark of secondary/ghost/utility buttons (or the page itself showing
+// through), never the primary CTA. We use this to deprioritize those rules so
+// a real solid/gradient primary candidate wins, and to keep the composite
+// merge from inheriting a white fill that hides the (white) label text.
+function isWhiteOrTransparentBg(bg: string | null | undefined): boolean {
+  if (!bg) return false;
+  const v = bg.trim().toLowerCase();
+  if (/gradient/.test(v)) return false; // gradients are real fills
+  if (/\btransparent\b/.test(v)) return true;
+  if (/rgba\([^)]*,\s*0(?:\.0+)?\s*\)/.test(v)) return true; // alpha 0
+  if (v === "#fff" || v === "#ffffff" || v === "white") return true;
+  if (/rgba?\(\s*255\s*,\s*255\s*,\s*255\b/.test(v)) return true;
+  return false;
+}
+
 function categorize(radiusPx: number | null, bg: string | null): ButtonCategory {
   const isGradient = !!bg && /gradient/i.test(bg);
   const isTransparent = !!bg && /transparent|rgba\([^)]*,\s*0\s*\)/i.test(bg);
@@ -158,6 +174,7 @@ function buildButtonStyle(decls: Record<string, string>): ButtonStyleData {
           value: bg,
         }
       : null,
+    textColor: decls["color"] ?? null,
     boxShadow: decls["box-shadow"] ?? null,
     raw: decls,
     visionAgreed: false,
@@ -197,7 +214,14 @@ export async function extractButtons(
       if (btnScore > 0
         && (r.declarations["border-radius"] || r.declarations["padding"] || r.declarations["background"] || r.declarations["background-color"])
         && !isSquareIconButtonRule(r.declarations)) {
-        buttonHits.push({ ...r, score: btnScore });
+        // Deprioritize rules whose *own* background is white/transparent: these
+        // are almost always secondary/ghost/utility buttons, not the primary
+        // CTA. A real solid/gradient primary candidate should outrank them.
+        // Rules with no background at all (e.g. a base `.btn` that only sets
+        // padding/radius) are NOT penalized — they still feed the composite.
+        const bg = r.declarations["background"] ?? r.declarations["background-color"] ?? null;
+        const score = bg && isWhiteOrTransparentBg(bg) ? btnScore - 60 : btnScore;
+        buttonHits.push({ ...r, score });
       }
       const surfaceScore = scoreSurfaceSelector(r.selector);
       if (surfaceScore > 0 && r.declarations["border-radius"]) {
@@ -214,6 +238,29 @@ export async function extractButtons(
   const top = buttonHits.slice(0, 5);
   const merged: Record<string, string> = {};
   for (const h of [...top].reverse()) Object.assign(merged, h.declarations);
+
+  // The fill, label color, padding and radius must come from a *real* primary
+  // CTA rule — not a higher-scored white/transparent utility rule that merged
+  // last. Find the highest-scored candidate with a genuine fill and let it own
+  // the visual identity, so a white utility button can't blank out the fill or
+  // override the primary's padding/radius. Declarations the chosen rule does
+  // NOT set (e.g. padding inherited from a base `.btn`) keep their merged
+  // value, preserving the composite behavior.
+  const realBgHit = top.find((h) => {
+    const bg = h.declarations["background"] ?? h.declarations["background-color"];
+    return bg && !isWhiteOrTransparentBg(bg);
+  });
+  if (realBgHit) {
+    delete merged["background"];
+    delete merged["background-color"];
+    for (const k of [
+      "background", "background-color", "color", "border-radius",
+      "padding", "padding-inline", "padding-block",
+      "padding-left", "padding-right", "padding-top", "padding-bottom",
+    ]) {
+      if (realBgHit.declarations[k]) merged[k] = realBgHit.declarations[k];
+    }
+  }
 
   let primaryButton: ButtonStyleData | null = top.length ? buildButtonStyle(merged) : null;
   let surface: SurfaceStyleData | null = surfaceHits.length ? buildSurfaceStyle(surfaceHits[0].declarations) : null;
@@ -259,7 +306,7 @@ CSS-parsed summary: ${parsedSummary}`,
         primaryButton = {
           category: v.category,
           radiusPx: null, paddingX: null, paddingY: null, fontWeight: null,
-          textTransform: null, background: null, boxShadow: null,
+          textTransform: null, background: null, textColor: null, boxShadow: null,
           raw: {}, visionAgreed: false, visionNotes: (v.notes ?? "").slice(0, 200),
         };
       }

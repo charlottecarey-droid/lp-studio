@@ -2452,7 +2452,7 @@ export default function BrandSettings() {
     setConfig((prev) => {
       const cur: ImportedButtonStyle = prev.buttonStyleRaw ?? {
         category: "rounded", radiusPx: null, paddingX: null, paddingY: null,
-        fontWeight: null, textTransform: null, background: null, boxShadow: null,
+        fontWeight: null, textTransform: null, background: null, textColor: null, boxShadow: null,
         raw: {}, visionAgreed: false, visionNotes: "",
       };
       return { ...prev, buttonStyleRaw: { ...cur, [key]: value } };
@@ -2505,6 +2505,7 @@ export default function BrandSettings() {
       background: b.background && typeof b.background === "object" && typeof b.background.value === "string"
         ? { type: b.background.type === "gradient" || b.background.type === "transparent" ? b.background.type : "solid", value: b.background.value }
         : null,
+      textColor: typeof b.textColor === "string" ? b.textColor : null,
       boxShadow: typeof b.boxShadow === "string" ? b.boxShadow : null,
       raw: b.raw && typeof b.raw === "object" && !Array.isArray(b.raw) ? b.raw : {},
       visionAgreed: b.visionAgreed === true,
