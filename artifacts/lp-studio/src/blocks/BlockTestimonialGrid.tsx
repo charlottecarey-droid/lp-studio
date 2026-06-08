@@ -18,6 +18,7 @@ interface Props {
 export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
   const bg = props.bgColor ?? "#F8FAFC";
   const text = props.textColor ?? "#0F172A";
+  const headlineColor = props.headlineColor ?? text;
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const surface = pickContrastingColor(undefined, bg, ["#FFFFFF", "#1E293B"]);
   const muted = pickContrastingColor(undefined, bg, ["#64748B", "#94A3B8"]);
@@ -52,7 +53,7 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
             value={props.headline}
             onUpdate={onFieldChange ? (v) => update("headline", v) : undefined}
             className="text-3xl md:text-5xl font-extrabold tracking-tight"
-            style={{ color: text, fontFamily: DISPLAY }} />
+            style={{ color: headlineColor, fontFamily: DISPLAY }} />
           {(props.subheadline || onFieldChange) && (
             <InlineText
               as="p"

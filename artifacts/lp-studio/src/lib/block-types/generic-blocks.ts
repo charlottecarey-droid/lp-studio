@@ -3508,6 +3508,7 @@ export interface TestimonialGridBlockProps extends BenefitsCtaConfig {
   bgColor?: string;
   textColor?: string;
   accentColor?: string;
+  headlineColor?: string;
 }
 
 // ── New section blocks batch (navbars / layout rows / PAS / final CTAs) ──────
