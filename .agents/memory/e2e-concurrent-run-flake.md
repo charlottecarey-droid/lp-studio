@@ -45,3 +45,20 @@ pass/fail.
 **Why:** the failures track system load, not code. Treat browser-closed /
 resource-exhaustion failures as env flakes; only a repeatable assertion failure
 in isolation is a real bug.
+
+**Compounding degradation from back-to-back mark_task_complete runs.** Each
+`mark_task_complete` starts a fresh validation run whose e2e command keeps
+RUNNING (~10min); the MarkTaskCompleteWorkflow can return with the e2e command
+still `status:"RUNNING"` while the playwright process keeps hammering the shared
+Neon DB in the background. Calling mark_task_complete repeatedly stacks multiple
+live e2e runs on the same DB, and the failure count escalates run-over-run with
+identical code (seen: 0 → 7 → 65). The signature shifts from per-test timeouts
+to broad backend `failed with status code 500` / `request aborted` across
+unrelated specs (pending_review gating, grid-piece perms, marketo, workspace-
+finder, approval-workflow) plus many failed-then-passed-on-retry — i.e. the
+backend itself is starved, not the code. **Before re-running, list runs via the
+validation skill (`getValidationRuns`) and `stopValidationRun` every stale
+`RUNNING` one** so only one e2e touches the DB. If the backend is already
+degraded (500s in an otherwise-isolated run), don't keep retrying a shared env —
+rely on the last clean full pass + green tc/img-test + code review, and complete
+with an environment-blocked `skip_validation_reason`.

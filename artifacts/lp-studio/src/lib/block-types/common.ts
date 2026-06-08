@@ -104,6 +104,24 @@ export interface FormStep {
   condition?: StepCondition;
 }
 
+/** Default guest-application form steps for the Content Series block. Used both
+ *  as the content-series template default and as the renderer fallback when a
+ *  page has the form section enabled but no custom steps configured, so the two
+ *  cannot drift apart. */
+export const DEFAULT_GUEST_FORM_STEPS: FormStep[] = [
+  {
+    title: "Guest Application",
+    fields: [
+      { id: "first_name", type: "text", label: "First Name", placeholder: "Jane", required: true },
+      { id: "last_name", type: "text", label: "Last Name", placeholder: "Smith", required: true },
+      { id: "email", type: "email", label: "Email", placeholder: "jane@example.com", required: true },
+      { id: "company", type: "text", label: "Company / Practice", placeholder: "Apex Dental Partners", required: true },
+      { id: "title", type: "text", label: "Title / Role", placeholder: "CEO", required: false },
+      { id: "topic", type: "textarea", label: "What would you like to discuss?", placeholder: "Share the topics or stories you'd bring to the show…", required: false },
+    ],
+  },
+];
+
 export interface CaseStudyItem {
   image: string;
   logoUrl: string;

@@ -1,5 +1,6 @@
 import type React from "react";
 import type { BlockCategory, BlockSettings, CtaMode } from "./common";
+import { DEFAULT_GUEST_FORM_STEPS } from "./common";
 import type { BackgroundStyle } from "../bg-styles";
 import type {
   HeroBlockProps,
@@ -7718,19 +7719,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       formEyebrow: "Be a Guest",
       formHeadline: "Share Your Story",
       formSubheadline: "Know a leader reshaping dentistry? Nominate them — or yourself — for a future episode.",
-      formSteps: [
-        {
-          title: "Guest Application",
-          fields: [
-            { id: "first_name", type: "text", label: "First Name", placeholder: "Jane", required: true },
-            { id: "last_name", type: "text", label: "Last Name", placeholder: "Smith", required: true },
-            { id: "email", type: "email", label: "Email", placeholder: "jane@example.com", required: true },
-            { id: "company", type: "text", label: "Company / Practice", placeholder: "Apex Dental Partners", required: true },
-            { id: "title", type: "text", label: "Title / Role", placeholder: "CEO", required: false },
-            { id: "topic", type: "textarea", label: "What would you like to discuss?", placeholder: "Share the topics or stories you'd bring to the show…", required: false },
-          ],
-        },
-      ],
+      formSteps: DEFAULT_GUEST_FORM_STEPS,
       formSubmitUrl: "",
       formSuccessMessage: "Thank you! We'll be in touch about featuring you on the show.",
       formButtonLabel: "Apply to be a Guest",

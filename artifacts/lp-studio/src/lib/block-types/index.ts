@@ -32,6 +32,7 @@ export type {
 // Common types and utilities
 export type { BlockCategory, CtaMode, CtaModalConfig, FormFieldType, BlockSettings } from "./common";
 export type { StepCondition, FormField, FormStep } from "./common";
+export { DEFAULT_GUEST_FORM_STEPS } from "./common";
 export type { CaseStudyItem, ResourceItem } from "./common";
 export type { NavHeaderLink, NavHeaderCta } from "./common";
 export type { FooterLink, FooterColumn } from "./common";

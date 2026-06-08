@@ -35,6 +35,7 @@ import type {
   EpisodeStatus,
 } from "@/lib/block-types";
 import type { FormStep, FormField } from "@/lib/block-types";
+import { DEFAULT_GUEST_FORM_STEPS } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
@@ -2691,9 +2692,10 @@ function SectionTransition({ C }: { C: ResolvedTheme }) {
 }
 
 function FormSection({ p, C, onOpenForm, hasFollowingTransition }: { p: ContentSeriesBlockProps; C: ResolvedTheme; onOpenForm: () => void; hasFollowingTransition?: boolean }) {
-  const steps = p.formSteps ?? [];
-  if (!steps.length) return null;
-
+  // Visibility is controlled solely by the `showForm` toggle (gated at the
+  // callsite). An empty `formSteps` array must NOT hide the section — the
+  // modal falls back to DEFAULT_GUEST_FORM_STEPS so the apply button always
+  // opens a usable form.
   const eyebrow = p.formEyebrow ?? "Be a Guest";
   const headline = p.formHeadline ?? "Share Your Story";
   const subtitle = p.formSubheadline ?? "";
@@ -3143,7 +3145,7 @@ export function BlockContentSeries({ props: p, brand, onFieldChange: _onFieldCha
         eyebrow: effective.formEyebrow ?? "Be a Guest",
         headline: effective.formHeadline ?? "Share Your Story",
         subtitle: effective.formSubheadline ?? "",
-        steps: effective.formSteps ?? [],
+        steps: (effective.formSteps && effective.formSteps.length) ? effective.formSteps : DEFAULT_GUEST_FORM_STEPS,
         submitUrl: effective.formSubmitUrl || "/api/lp/leads",
         successMessage: effective.formSuccessMessage ?? "Thank you! We'll be in touch.",
         successTitle: "Application Received",

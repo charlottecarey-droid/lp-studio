@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ArrowUp, ArrowDown, Pin, Eye, EyeOff, Download, RefreshCw, Users } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ArrowUp, ArrowDown, Pin, Eye, EyeOff, Download, RefreshCw, Users, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -252,6 +252,115 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       <Label className="text-xs">{label}</Label>
       {children}
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
+// Header row + a few upcoming-weekday example rows matching exactly what the
+// /api/lp/podcast-availability parser expects (reads columns C:E — Status,
+// Date, Time Range — so columns A & B are filler so Status lands in column C).
+const SCHEDULING_TEMPLATE_HEADERS = ["Notes (optional)", "Guest (optional)", "Status", "Date", "Time Range"];
+
+function buildSampleAvailabilityRows(): string[][] {
+  const rows: string[][] = [];
+  const ranges = ["10:00 AM - 11:00 AM", "1:00 PM - 4:00 PM", "9:00 AM - 12:00 PM", "2:00 PM - 3:00 PM"];
+  const cursor = new Date();
+  cursor.setDate(cursor.getDate() + 7);
+  let added = 0;
+  while (added < ranges.length) {
+    const day = cursor.getDay();
+    if (day !== 0 && day !== 6) {
+      const iso = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
+      rows.push(["", "", "OPEN", iso, ranges[added]]);
+      added++;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return rows;
+}
+
+function toCsv(headers: string[], rows: string[][]): string {
+  const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  return [headers, ...rows].map(r => r.map(esc).join(",")).join("\r\n");
+}
+
+function SchedulingTemplate() {
+  const [copied, setCopied] = useState(false);
+  const rows = buildSampleAvailabilityRows();
+  const csv = toCsv(SCHEDULING_TEMPLATE_HEADERS, rows);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(csv);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* clipboard unavailable — download is still offered */
+    }
+  };
+
+  const handleDownload = () => {
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "recording-availability-template.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="rounded border border-border bg-muted/30 p-2.5 space-y-2">
+      <p className="text-[11px] font-semibold text-foreground">How to set up your availability sheet</p>
+      <ol className="text-[11px] text-muted-foreground leading-snug space-y-1 list-decimal pl-4">
+        <li>Create a Google Sheet and choose a tab. Its name must match the <span className="font-medium text-foreground">Sheet Tab</span> field below (defaults to <code className="font-mono">Scheduled</code>).</li>
+        <li>Use row 1 for headers; put your slots from row 2 down in these columns:
+          <ul className="list-disc pl-4 mt-1 space-y-0.5">
+            <li><span className="font-medium text-foreground">Column C — Status:</span> type <code className="font-mono">OPEN</code> for any slot you want bookable. Anything else is ignored.</li>
+            <li><span className="font-medium text-foreground">Column D — Date:</span> <code className="font-mono">YYYY-MM-DD</code> or <code className="font-mono">M/D/YYYY</code>. Past dates are skipped automatically.</li>
+            <li><span className="font-medium text-foreground">Column E — Time Range:</span> e.g. <code className="font-mono">10:00 AM - 11:00 AM</code>. Ranges longer than 1 hour split into hourly slots.</li>
+          </ul>
+        </li>
+        <li>Share the sheet so the Google account connected to this workspace can read it.</li>
+        <li>Copy the Sheet ID from the URL — <code className="font-mono break-all">/spreadsheets/d/&lt;ID&gt;/edit</code> — into the field below.</li>
+      </ol>
+      <div className="rounded bg-background border border-border/60 p-1.5 overflow-x-auto">
+        <table className="text-[10px] font-mono border-collapse">
+          <thead>
+            <tr className="text-muted-foreground">
+              {["A", "B", "C", "D", "E"].map(c => (
+                <th key={c} className="text-left font-normal px-1.5 pb-0.5 border-b border-border/60">{c}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="text-foreground">
+            <tr className="text-muted-foreground">
+              {SCHEDULING_TEMPLATE_HEADERS.map((h, i) => (
+                <td key={i} className="px-1.5 py-0.5 whitespace-nowrap">{h}</td>
+              ))}
+            </tr>
+            {rows.slice(0, 3).map((r, ri) => (
+              <tr key={ri}>
+                {r.map((cell, ci) => (
+                  <td key={ci} className="px-1.5 py-0.5 whitespace-nowrap">{cell || "—"}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px] flex-1" onClick={handleCopy}>
+          {copied ? <Check className="w-3 h-3 mr-1" /> : <Copy className="w-3 h-3 mr-1" />}
+          {copied ? "Copied" : "Copy sample layout"}
+        </Button>
+        <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px] flex-1" onClick={handleDownload}>
+          <Download className="w-3 h-3 mr-1" /> Download CSV
+        </Button>
+      </div>
+      <p className="text-[10px] text-muted-foreground leading-snug">Paste the copied rows into cell A1 of your sheet (or import the CSV) — Status lands in column C automatically.</p>
     </div>
   );
 }
@@ -989,7 +1098,8 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet, pageId }
 
           <div className="border-t border-border pt-3 mt-2 space-y-2">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recording Slot Picker</Label>
-            <p className="text-[11px] text-muted-foreground leading-snug">Reads "OPEN" rows from a Google Sheet (column C = OPEN, D = date, E = time range) and renders date cards as the final step of the guest form. Ranges over 1 hour split into hourly slots. Leave Sheet ID blank to disable.</p>
+            <p className="text-[11px] text-muted-foreground leading-snug">Reads "OPEN" rows from a Google Sheet and renders date cards as the final step of the guest form. Leave Sheet ID blank to disable.</p>
+            <SchedulingTemplate />
             <Field label="Google Sheet ID" hint="From the sheet URL: /spreadsheets/d/<ID>/edit">
               <Input value={p.availabilitySheetId ?? ""} onChange={e => set({ availabilitySheetId: e.target.value || undefined })} className="text-xs h-7 font-mono" placeholder="19le6P9-bhUDm-1EteGhYBUXA_TDqbKeRzWMVGgkE664" />
             </Field>
@@ -1022,12 +1132,12 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet, pageId }
                 <div className="space-y-1.5 pl-2">
                   {(fStep.fields ?? []).map((field, fi) => (
                     <div key={fi} className="border border-border/50 rounded p-1.5 space-y-1.5">
+                      <Input value={field.label} onChange={e => updateFormField(si, fi, { label: e.target.value })} placeholder="Field label" className="text-xs h-6 w-full" />
                       <div className="flex items-center gap-1">
-                        <Input value={field.label} onChange={e => updateFormField(si, fi, { label: e.target.value })} placeholder="Label" className="text-xs h-6 flex-1" />
                         <select
                           value={field.type}
                           onChange={e => updateFormField(si, fi, { type: e.target.value as FormFieldType })}
-                          className="text-xs h-6 border border-border rounded px-1 bg-background"
+                          className="text-xs h-6 border border-border rounded px-1 bg-background flex-1 min-w-0"
                         >
                           {(["text", "email", "phone", "textarea", "select", "hidden"] as FormFieldType[]).map(t => (
                             <option key={t} value={t}>{t}</option>
@@ -1148,12 +1258,12 @@ export function ContentSeriesPanel({ props: p, onChange, brandVoiceSet, pageId }
                     <div className="space-y-1.5 pl-2">
                       {(fStep.fields ?? []).map((field, fi) => (
                         <div key={fi} className="border border-border/50 rounded p-1.5 space-y-1.5">
+                          <Input value={field.label} onChange={e => updateSubscribeField(si, fi, { label: e.target.value })} placeholder="Field label" className="text-xs h-6 w-full" />
                           <div className="flex items-center gap-1">
-                            <Input value={field.label} onChange={e => updateSubscribeField(si, fi, { label: e.target.value })} placeholder="Label" className="text-xs h-6 flex-1" />
                             <select
                               value={field.type}
                               onChange={e => updateSubscribeField(si, fi, { type: e.target.value as FormFieldType })}
-                              className="text-xs h-6 border border-border rounded px-1 bg-background"
+                              className="text-xs h-6 border border-border rounded px-1 bg-background flex-1 min-w-0"
                             >
                               {(["text", "email", "phone", "textarea", "select", "hidden"] as FormFieldType[]).map(t => (
                                 <option key={t} value={t}>{t}</option>
