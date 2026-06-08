@@ -414,7 +414,9 @@ export default function PagesGallery() {
     });
     // Task #1138 — detect + persist per-page fact flags so the builder can
     // surface the review banner + publish gate. Best-effort: a failed sync
-    // must not block page creation.
+    // must not block page creation. Task #1295 — the builder no longer depends
+    // on this fire-and-forget call winning the race: it re-runs the idempotent
+    // sync on load as the source of truth. This stays as a harmless head start.
     void syncFactFlags(page.id).catch(() => {});
     rememberCritiqueAnnotations(page.id, generated.critiqueAnnotations);
     if (activeSeg) {

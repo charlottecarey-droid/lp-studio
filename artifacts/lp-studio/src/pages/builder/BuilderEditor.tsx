@@ -35,6 +35,7 @@ import { useAuth } from "@/context/AuthContext";
 import { fetchBrandConfig, saveBrandConfig, DEFAULT_BRAND, getBrandStyleVars, getBrandButtonCss, type BrandConfig } from "@/lib/brand-config";
 import { consumeCritiqueAnnotations, type CritiqueAnnotation } from "@/lib/critiqueAnnotations";
 import { useFactFlags } from "@/hooks/use-fact-flags";
+import { syncFactFlags } from "@/lib/fact-flags-api";
 import { FactReviewModal } from "@/components/FactReviewModal";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1551,6 +1552,32 @@ export default function BuilderEditor() {
         setIsLoading(false);
       });
   }, [pageId]);
+
+  // Task #1295 — Strict Facts banner race fix. The page-creation handoff fires a
+  // best-effort fact-flags sync before navigating here, but the builder's
+  // one-shot GET on mount usually wins that race and reads pendingCount=0, so the
+  // banner never appears. Re-run the idempotent, regen-memory-aware sync once per
+  // page load as the source of truth, then refresh the flags off the result.
+  // Resolved decisions (approved/edited/swapped/removed) and trusted url-sourced
+  // forms are preserved server-side, so this never resurrects resolved flags.
+  const factSyncedRef = useRef<string | null>(null);
+  const refreshFactFlags = factFlags.refresh;
+  useEffect(() => {
+    if (isLoading) return;            // wait until the page itself has loaded
+    if (catalogMode) return;          // throwaway block-catalog scratch page
+    const idNum = parseInt(pageId, 10);
+    if (isNaN(idNum) || idNum <= 0) return; // no real persisted page to sync
+    if (factSyncedRef.current === pageId) return; // run once per page load
+    factSyncedRef.current = pageId;
+    void (async () => {
+      try {
+        await syncFactFlags(pageId);
+        await refreshFactFlags();
+      } catch {
+        /* best-effort — a sync hiccup must never block the editor */
+      }
+    })();
+  }, [isLoading, catalogMode, pageId, refreshFactFlags]);
 
   const handleCreateAbTest = async () => {
     if (!abTestName.trim() || !abTestSlug.trim()) return;
