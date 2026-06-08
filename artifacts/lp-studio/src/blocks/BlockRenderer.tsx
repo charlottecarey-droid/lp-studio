@@ -680,6 +680,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
             brand={brand}
             pageId={pageId}
             variantId={variantId}
+            isBuilder={isBuilder}
             onFieldChange={onBlockChange
               ? (updated: NavHeaderBlockProps) => onBlockChange({ ...block, props: updated })
               : undefined}
@@ -700,6 +701,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
           <BlockFullBleedHero
             props={block.props}
             brand={brand}
+            isBuilder={isBuilder}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
             onFieldChange={onBlockChange
               ? (updated: FullBleedHeroBlockProps) => onBlockChange({ ...block, props: updated })
@@ -906,7 +908,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
       case "dso-testimonials":
         return <BlockDsoTestimonials props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-practice-nav":
-        return <BlockDsoPracticeNav props={block.props} brand={brand} pageId={pageId} variantId={variantId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDsoPracticeNav props={block.props} brand={brand} pageId={pageId} variantId={variantId} isBuilder={isBuilder} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-practice-hero":
         return <BlockDsoPracticeHero props={block.props} brand={brand} pageId={pageId} variantId={variantId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-stat-row":
@@ -1097,6 +1099,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
             brand={brand}
             pageId={pageId}
             variantId={variantId}
+            isBuilder={isBuilder}
             onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })

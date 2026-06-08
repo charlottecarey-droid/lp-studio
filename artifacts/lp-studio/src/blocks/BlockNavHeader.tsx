@@ -21,6 +21,10 @@ interface Props {
   onFieldChange?: (updated: NavHeaderBlockProps) => void;
   pageId?: number;
   variantId?: number;
+  /** When true (builder canvas), render the header in-flow (relative, no
+   *  sticky/high z-index) so it doesn't pin over the builder chrome while
+   *  scrolling. Published/preview keeps the sticky behaviour. */
+  isBuilder?: boolean;
 }
 
 type CtaActionMode = "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
@@ -29,7 +33,7 @@ function normalizeAction(a: NavHeaderBlockProps["cta1Action"]): CtaActionMode {
   return a === "chilipiper" || a === "modal-form" || a === "modal-chilipiper" ? a : "url";
 }
 
-export function BlockNavHeader({ props, brand, onFieldChange, pageId, variantId }: Props) {
+export function BlockNavHeader({ props, brand, onFieldChange, pageId, variantId, isBuilder }: Props) {
   // Load any catalog Google Font referenced by the per-header font override.
   useBlockFonts(props.fontFamily);
   const [modalOpen, setModalOpen] = useState<false | "form" | "chilipiper">(false);
@@ -108,7 +112,8 @@ export function BlockNavHeader({ props, brand, onFieldChange, pageId, variantId 
   return (
     <header
       className={cn(
-        "w-full border-b border-slate-200 shadow-sm sticky top-0 z-50",
+        "w-full border-b border-slate-200 shadow-sm",
+        isBuilder ? "relative z-auto" : "sticky top-0 z-50",
         !hasBgOverride && "bg-white",
       )}
       style={headerStyle}

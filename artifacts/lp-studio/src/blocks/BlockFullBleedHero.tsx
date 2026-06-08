@@ -37,6 +37,10 @@ interface Props {
    *  of the hero content. Mirrors `BlockHero`'s overlay slot so users can
    *  drop additional blocks (CTAs, badges, marquees) into the hero. */
   childrenSlot?: ReactNode;
+  /** When true (builder canvas), render the sticky header in-flow (relative,
+   *  no high z-index) so it doesn't pin over the builder chrome while
+   *  scrolling. Published/preview keeps the sticky behaviour. */
+  isBuilder?: boolean;
 }
 
 function hexToRgbParts(hex: string): string {
@@ -48,7 +52,7 @@ function hexToRgbParts(hex: string): string {
   return `${r}, ${g}, ${b}`;
 }
 
-export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true, pageId, variantId, sessionId, childrenSlot }: Props) {
+export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, animationsEnabled = true, pageId, variantId, sessionId, childrenSlot, isBuilder }: Props) {
   const [scrolled, setScrolled] = useState(false);
   const [cpOpen, setCpOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -143,7 +147,10 @@ export function BlockFullBleedHero({ props, brand, onCtaClick, onFieldChange, an
     <div ref={containerRef} className="relative w-full font-sans">
       {/* Sticky transparent → opaque header */}
       <header
-        className="sticky top-0 z-50 transition-all duration-300 ease-in-out"
+        className={cn(
+          "transition-all duration-300 ease-in-out",
+          isBuilder ? "relative z-auto" : "sticky top-0 z-50",
+        )}
         style={{
           backgroundColor: scrolled
             ? `rgba(${headerRgb}, 0.96)`

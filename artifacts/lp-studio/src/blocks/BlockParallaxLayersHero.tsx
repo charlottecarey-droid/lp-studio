@@ -19,6 +19,10 @@ interface Props {
   onFieldChange?: (updated: ParallaxLayersHeroBlockProps) => void;
   pageId?: number;
   variantId?: number;
+  /** When true (builder canvas), render the nav in-flow (relative, no
+   *  sticky/high z-index) so it doesn't pin over the builder chrome while
+   *  scrolling. Published/preview keeps the sticky behaviour. */
+  isBuilder?: boolean;
 }
 
 /** Mockup surface / ink defaults (dark hero). */
@@ -35,7 +39,7 @@ const DEFAULT_NAV_LINKS = [
 
 const DEFAULT_MARQUEE_LOGOS = ["LUMINA", "NEXUS", "ELEVATE", "SYNTH", "VERTEX"];
 
-export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChange, pageId, variantId }: Props) {
+export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChange, pageId, variantId, isBuilder }: Props) {
   const field = (key: keyof ParallaxLayersHeroBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
@@ -395,7 +399,7 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
       <div className="relative z-20 flex flex-col h-[100vh]">
         {/* Navigation */}
         {props.showNav !== false && (
-          <header className="plx-glass-nav sticky top-0 w-full z-50 px-8 py-4 flex items-center justify-between">
+          <header className={`plx-glass-nav w-full px-8 py-4 flex items-center justify-between ${isBuilder ? "relative z-auto" : "sticky top-0 z-50"}`}>
             <div className="flex items-center gap-2">
               {props.logoImageUrl ? (
                 <img src={props.logoImageUrl} alt={logoLabel} className="h-8 w-auto object-contain" />

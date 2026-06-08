@@ -28,9 +28,13 @@ interface Props {
   onFieldChange?: (updated: DsoPracticeNavBlockProps) => void;
   pageId?: number;
   variantId?: number;
+  /** When true (builder canvas), render in-flow (relative, no sticky/high
+   *  z-index) so the nav doesn't pin over the builder chrome while scrolling.
+   *  Published/preview keeps the sticky behaviour. */
+  isBuilder?: boolean;
 }
 
-export function BlockDsoPracticeNav({ props, brand, onFieldChange, pageId, variantId }: Props) {
+export function BlockDsoPracticeNav({ props, brand, onFieldChange, pageId, variantId, isBuilder }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState<false | "form" | "chilipiper">(false);
 
@@ -92,7 +96,7 @@ export function BlockDsoPracticeNav({ props, brand, onFieldChange, pageId, varia
 
   return (
     <header
-      className="w-full sticky top-0 z-50"
+      className={cn("w-full", isBuilder ? "relative z-auto" : "sticky top-0 z-50")}
       style={{ backgroundColor: BG, borderBottom: `1px solid ${BORDER}` }}
     >
       <div className="max-w-7xl mx-auto px-5 md:px-8 h-16 flex items-center gap-6">

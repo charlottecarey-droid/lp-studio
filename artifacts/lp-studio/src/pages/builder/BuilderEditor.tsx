@@ -3132,6 +3132,7 @@ export default function BuilderEditor() {
                 className="w-full max-w-5xl bg-white rounded-xl overflow-hidden ring-1 ring-black/5 shadow-[0_1px_3px_rgba(15,23,42,0.04),0_12px_40px_-8px_rgba(15,23,42,0.12)] transition-all duration-300"
                 style={getBrandStyleVars(effectiveBrand)}
                 data-lp-page
+                data-lp-builder
               >
                 <BrandFontLoader brand={effectiveBrand} />
                 <style>{`

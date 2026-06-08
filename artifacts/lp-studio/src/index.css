@@ -275,6 +275,28 @@
     --font-display: var(--brand-font-display, var(--app-font-display));
     --font-sans: var(--brand-font-body, var(--app-font-sans));
   }
+
+  /* Builder-canvas containment catch-all. The builder canvas carries BOTH
+     `data-lp-page` and `data-lp-builder`; the published/preview viewer only
+     carries `data-lp-page`, so this scope never affects the live render.
+
+     `contain: layout` makes the canvas the containing block for any descendant
+     `position: fixed` element, so a navbar/header that escapes the per-block
+     `isBuilder` handling (e.g. a future template) is reparented into the canvas
+     and clipped by the existing `overflow: hidden` instead of pinning to the
+     viewport over the builder's top toolbar. It also establishes a stacking
+     context, which `isolation: isolate` makes explicit — so no block z-index
+     (even z-[9998]) can ever paint above the editor chrome outside the canvas.
+
+     This intentionally does NOT neutralize `position: sticky`: legitimate
+     in-block scroll-effect panels (scroll-story, vertical-tabs, switchback,
+     sticky-stack, etc.) must keep working in the builder exactly as today.
+     Layout containment does not create a scroll container, so their sticky
+     offsets still resolve normally (and are clipped by the canvas as before). */
+  [data-lp-builder] {
+    contain: layout;
+    isolation: isolate;
+  }
 }
 
 @layer utilities {
