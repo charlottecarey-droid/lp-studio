@@ -72,9 +72,16 @@ export interface RevealProps {
  * viewport. Uses `whileInView` so it works for any section without a scroll
  * controller.
  */
-export function Reveal({ children, className, style, delay = 0, y = 24, repeat = false, disabled = false }: RevealProps) {
-  if (disabled) {
-    return <div className={className} style={style}>{children}</div>;
+export function Reveal({ children, className, style, delay = 0, y = 24, repeat = false, disabled = false, isBuilder = false }: RevealProps & { isBuilder?: boolean }) {
+  // In the builder canvas the content must render immediately at its natural
+  // state — a `whileInView` wrapper would leave freshly-inserted blocks blank.
+  // `disabled` and `isBuilder` are aliases for this static render mode.
+  if (disabled || isBuilder) {
+    return (
+      <div className={className} style={style}>
+        {children}
+      </div>
+    );
   }
   return (
     <motion.div
@@ -144,6 +151,10 @@ export interface GlowOrbsProps {
   blur?: number;
   /** Layer opacity 0–1 (default 0.5). */
   opacity?: number;
+  /** Blend mode for the orbs (default `screen` — ideal on dark surfaces; pass
+   *  `normal` for soft tinted washes on light surfaces where `screen` against
+   *  white renders invisible). */
+  blend?: CSSProperties["mixBlendMode"];
   className?: string;
 }
 
@@ -155,6 +166,7 @@ export function GlowOrbs({
   colors = ["var(--brand-primary, #6366f1)", "var(--brand-accent, #9333ea)"],
   blur = 120,
   opacity = 0.5,
+  blend = "screen",
   className,
 }: GlowOrbsProps) {
   const positions = [
@@ -185,7 +197,7 @@ export function GlowOrbs({
               borderRadius: "50%",
               opacity,
               filter: `blur(${blur}px)`,
-              mixBlendMode: "screen",
+              mixBlendMode: blend,
               animation: `${p.anim} infinite ease-in-out`,
               background: `radial-gradient(circle, color-mix(in srgb, ${color} 80%, transparent) 0%, transparent 70%)`,
             }}
@@ -315,6 +327,50 @@ export function NoiseOverlay({ opacity = 0.05, className }: NoiseOverlayProps) {
           "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E\")",
       }}
     />
+  );
+}
+
+export interface SectionDecorProps {
+  /** Brand accent driving the glow tint. */
+  accent: string;
+  /** Whether the host surface is dark (drives blend mode + intensity). */
+  isDark: boolean;
+  /** Render nothing — pass `true` in the builder canvas to keep editing crisp. */
+  disabled?: boolean;
+  /** Also lay down a faint blueprint grid behind content. */
+  grid?: boolean;
+}
+
+/**
+ * Surface-adaptive decorative backdrop — the one-line atmosphere layer for
+ * section blocks. Composes {@link GlowOrbs} (+ optional {@link GridOverlay} /
+ * {@link NoiseOverlay}) tuned to the host surface: bright `screen`-blend orbs
+ * and a faint grid on dark/gradient surfaces, soft `normal`-blend brand washes
+ * on light ones. Place as the first child of a `relative overflow-hidden`
+ * section, then lift the content with `relative z-10`.
+ */
+export function SectionDecor({ accent, isDark, disabled = false, grid = false }: SectionDecorProps) {
+  if (disabled) return null;
+  if (isDark) {
+    return (
+      <>
+        <GlowOrbs colors={[accent, accent, accent]} opacity={0.3} blur={130} />
+        {grid && <GridOverlay opacity={0.5} />}
+        <NoiseOverlay opacity={0.04} />
+      </>
+    );
+  }
+  return (
+    <>
+      <GlowOrbs colors={[accent, accent, accent]} opacity={0.09} blur={150} blend="normal" />
+      {grid && (
+        <GridOverlay
+          color={`color-mix(in srgb, ${accent} 12%, transparent)`}
+          opacity={0.6}
+          size={56}
+        />
+      )}
+    </>
   );
 }
 

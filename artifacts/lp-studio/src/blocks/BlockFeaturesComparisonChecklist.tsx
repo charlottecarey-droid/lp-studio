@@ -10,6 +10,8 @@ import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { motion } from "framer-motion";
+import { SectionDecor } from "@/lib/premium-toolkit";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -31,6 +33,7 @@ export function BlockFeaturesComparisonChecklist({ props, brand, onFieldChange }
   const showCta = props.showCta ?? true;
   const showBespokeCard = props.showBespokeCard ?? true;
   const categories = props.categories ?? [];
+  const isBuilder = !!onFieldChange;
 
   const update = <K extends keyof FeaturesComparisonChecklistBlockProps>(key: K, value: FeaturesComparisonChecklistBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -57,8 +60,9 @@ export function BlockFeaturesComparisonChecklist({ props, brand, onFieldChange }
   };
 
   return (
-    <section className="flex w-full flex-col items-center px-6 py-24" style={{ background: surface.background, color: text }}>
-      <div className="w-full max-w-5xl">
+    <section className="relative flex w-full flex-col items-center overflow-hidden px-6 py-24" style={{ background: surface.background, color: text }}>
+      <SectionDecor accent={accent} isDark={surface.isDark} disabled={isBuilder} />
+      <div className="relative z-10 w-full max-w-5xl">
         <div className="mb-16 text-center">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
@@ -114,12 +118,16 @@ export function BlockFeaturesComparisonChecklist({ props, brand, onFieldChange }
                 </div>
                 {category.features.map((feature, featIndex) => {
                   return (
-                    <div
+                    <motion.div
                       key={featIndex}
-                      className="grid grid-cols-1 items-center gap-4 px-6 py-5 transition-colors hover:bg-neutral-50 md:grid-cols-[1fr_200px] md:px-8 md:py-6"
+                      className="group grid grid-cols-1 items-center gap-4 px-6 py-5 transition-colors hover:bg-neutral-50 md:grid-cols-[1fr_200px] md:px-8 md:py-6"
+                      initial={isBuilder ? false : { opacity: 0, y: 12 }}
+                      whileInView={isBuilder ? undefined : { opacity: 1, y: 0 }}
+                      viewport={{ once: true, amount: 0.4 }}
+                      transition={isBuilder ? undefined : { duration: 0.45, delay: featIndex * 0.05, ease: [0.22, 1, 0.36, 1] }}
                     >
                       <div className="flex items-start gap-4">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: tint, color: accent }}>
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-transform duration-300 group-hover:scale-105" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
                           <IconOrImage value={feature.icon} fallback={Layers} className="h-5 w-5" />
                         </div>
                         <div>
@@ -139,12 +147,12 @@ export function BlockFeaturesComparisonChecklist({ props, brand, onFieldChange }
                         </div>
                       </div>
                       <div className="flex items-center gap-2 md:justify-center">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full" style={{ backgroundColor: tint, color: accent }}>
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
                           <Check className="h-5 w-5 stroke-[3]" />
                         </div>
                         <span className="text-sm font-medium text-neutral-600 md:hidden">Included in all plans</span>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </Fragment>

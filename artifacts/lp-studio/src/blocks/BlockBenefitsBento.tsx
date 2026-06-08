@@ -10,6 +10,8 @@ import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { motion } from "framer-motion";
+import { SectionDecor } from "@/lib/premium-toolkit";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -38,6 +40,7 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
   const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
   const darkOnAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const showCta = props.showCta ?? true;
+  const isBuilder = !!onFieldChange;
 
   const update = <K extends keyof BenefitsBentoBlockProps>(key: K, value: BenefitsBentoBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -48,8 +51,9 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="w-full px-6 py-24 lg:px-8" style={{ background: surface.background, color: text }}>
-      <div className="mx-auto max-w-[1280px]">
+    <section className="relative w-full overflow-hidden px-6 py-24 lg:px-8" style={{ background: surface.background, color: text }}>
+      <SectionDecor accent={accent} isDark={surface.isDark} disabled={isBuilder} />
+      <div className="relative z-10 mx-auto max-w-[1280px]">
         <div className="mb-16 max-w-2xl">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
@@ -82,10 +86,14 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
             const isHero = i === 0;
             if (isDark) {
               return (
-                <div
+                <motion.div
                   key={i}
                   className={`relative flex flex-col justify-center overflow-hidden rounded-3xl p-8 shadow-sm ${spanFor(i)}`}
                   style={{ backgroundColor: accent }}
+                  initial={isBuilder ? false : { opacity: 0, y: 20 }}
+                  whileInView={isBuilder ? undefined : { opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={isBuilder ? undefined : { duration: 0.5, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] }}
                 >
                   <div className="absolute -right-12 -top-12 h-64 w-64 rounded-full opacity-20 blur-3xl" style={{ backgroundColor: darkOnAccent }} />
                   <div className="relative z-10">
@@ -106,15 +114,19 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
                       style={{ color: onAccent, opacity: 0.85, fontFamily: BODY }}
                       multiline />
                   </div>
-                </div>
+                </motion.div>
               );
             }
             return (
-              <div
+              <motion.div
                 key={i}
-                className={`group relative flex flex-col overflow-hidden rounded-3xl bg-white p-8 shadow-sm ring-1 ring-black/5 transition-all hover:shadow-md ${spanFor(i)}`}
+                className={`group relative flex flex-col overflow-hidden rounded-3xl bg-white p-8 shadow-sm ring-1 ring-black/5 transition-all hover:-translate-y-1 hover:shadow-md ${spanFor(i)}`}
+                initial={isBuilder ? false : { opacity: 0, y: 20 }}
+                whileInView={isBuilder ? undefined : { opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={isBuilder ? undefined : { duration: 0.5, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] }}
               >
-                <div className={`mb-4 flex items-center justify-center rounded-xl ${isHero ? "h-12 w-12" : "h-10 w-10"}`} style={{ backgroundColor: tint }}>
+                <div className={`mb-4 flex items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 ${isHero ? "h-12 w-12" : "h-10 w-10"}`} style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
                   <IconOrImage value={tile.icon} fallback={Layers} className={isHero ? "h-6 w-6" : "h-5 w-5"} />
                 </div>
                 <InlineText
@@ -130,7 +142,7 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
                   className={`mt-2 ${isHero ? "max-w-md" : ""}`}
                   style={{ color: "#525252", fontFamily: BODY }}
                   multiline />
-              </div>
+              </motion.div>
             );
           })}
         </div>

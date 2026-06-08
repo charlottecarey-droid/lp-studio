@@ -10,6 +10,8 @@ import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT, BRAND_NUMBERS_FONT } from "@/lib/brand-fonts";
+import { motion } from "framer-motion";
+import { SectionDecor } from "@/lib/premium-toolkit";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -31,6 +33,7 @@ export function BlockBenefitsStatLed({ props, brand, onFieldChange }: Props) {
   const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
   const showCta = props.showCta ?? true;
   const centered = props.headingAlign === "center";
+  const isBuilder = !!onFieldChange;
 
   const update = <K extends keyof BenefitsStatLedBlockProps>(key: K, value: BenefitsStatLedBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -41,8 +44,9 @@ export function BlockBenefitsStatLed({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="flex w-full items-center justify-center px-4 py-24 sm:py-32 md:px-8" style={{ background: surface.background, color: text }}>
-      <div className="mx-auto w-full max-w-[1200px]">
+    <section className="relative flex w-full items-center justify-center overflow-hidden px-4 py-24 sm:py-32 md:px-8" style={{ background: surface.background, color: text }}>
+      <SectionDecor accent={accent} isDark={surface.isDark} disabled={isBuilder} />
+      <div className="relative z-10 mx-auto w-full max-w-[1200px]">
         <div className={`mb-20 max-w-2xl${centered ? " mx-auto text-center" : ""}`}>
           {(props.eyebrow || onFieldChange) && (
             <InlineText
@@ -72,7 +76,14 @@ export function BlockBenefitsStatLed({ props, brand, onFieldChange }: Props) {
         <div className="grid grid-cols-1 gap-12 md:grid-cols-3 lg:gap-16">
           {props.stats.map((stat, i) => {
             return (
-              <div key={i} className="group flex flex-col">
+              <motion.div
+                key={i}
+                className="group flex flex-col"
+                initial={isBuilder ? false : { opacity: 0, y: 24 }}
+                whileInView={isBuilder ? undefined : { opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.3 }}
+                transition={isBuilder ? undefined : { duration: 0.55, delay: i * 0.1, ease: [0.22, 1, 0.36, 1] }}
+              >
                 <div className="mb-6 transition-transform duration-500 ease-out group-hover:-translate-y-2">
                   <InlineText
                     as="div"
@@ -81,9 +92,15 @@ export function BlockBenefitsStatLed({ props, brand, onFieldChange }: Props) {
                     className="mb-2 text-7xl font-extrabold leading-none tracking-tighter lg:text-[7.5rem]"
                     style={{ color: accent, fontFamily: NUMBERS }} />
                 </div>
-                <div className="mb-8 h-px w-full" style={{ backgroundColor: `${text}1f` }} />
+                <motion.div
+                  className="mb-8 h-px w-full origin-left"
+                  style={{ backgroundColor: `${text}1f` }}
+                  initial={isBuilder ? false : { scaleX: 0 }}
+                  whileInView={isBuilder ? undefined : { scaleX: 1 }}
+                  viewport={{ once: true, amount: 0.3 }}
+                  transition={isBuilder ? undefined : { duration: 0.6, delay: i * 0.1 + 0.2, ease: [0.22, 1, 0.36, 1] }} />
                 <div className="flex items-start gap-4">
-                  <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: tint }}>
+                  <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
                     <IconOrImage value={stat.icon} fallback={TrendingUp} className="h-5 w-5" />
                   </div>
                   <div>
@@ -102,7 +119,7 @@ export function BlockBenefitsStatLed({ props, brand, onFieldChange }: Props) {
                       multiline />
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>

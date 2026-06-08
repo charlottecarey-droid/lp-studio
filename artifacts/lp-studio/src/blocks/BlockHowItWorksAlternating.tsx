@@ -10,6 +10,8 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { motion } from "framer-motion";
+import { SectionDecor } from "@/lib/premium-toolkit";
 
 
 interface Props {
@@ -60,6 +62,7 @@ export function BlockHowItWorksAlternating({ props, brand, onFieldChange }: Prop
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
   const showCta = props.showCta ?? true;
+  const isBuilder = !!onFieldChange;
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const steps = props.steps ?? [];
@@ -73,8 +76,9 @@ export function BlockHowItWorksAlternating({ props, brand, onFieldChange }: Prop
   };
 
   return (
-    <section className="w-full px-6 py-24 sm:py-32 lg:px-8" style={{ background: surface.background, color: text }}>
-      <div className="mx-auto w-full max-w-7xl">
+    <section className="relative w-full overflow-hidden px-6 py-24 sm:py-32 lg:px-8" style={{ background: surface.background, color: text }}>
+      <SectionDecor accent={accent} isDark={surface.isDark} disabled={isBuilder} />
+      <div className="relative z-10 mx-auto w-full max-w-7xl">
         <div className="mx-auto mb-20 max-w-2xl text-center">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
@@ -105,12 +109,16 @@ export function BlockHowItWorksAlternating({ props, brand, onFieldChange }: Prop
           {steps.map((step, index) => {
             const isReversed = index % 2 !== 0;
             return (
-              <div
+              <motion.div
                 key={index}
                 className={`flex flex-col items-center gap-12 lg:gap-20 ${isReversed ? "lg:flex-row-reverse" : "lg:flex-row"}`}
+                initial={isBuilder ? false : { opacity: 0, y: 32 }}
+                whileInView={isBuilder ? undefined : { opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={isBuilder ? undefined : { duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
               >
-                <div className="flex flex-col items-start lg:w-1/2">
-                  <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: tint, color: accent }}>
+                <div className="group flex flex-col items-start lg:w-1/2">
+                  <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
                     <IconOrImage value={step.icon} fallback={LayoutTemplate} className="h-6 w-6" />
                   </div>
                   <InlineText
@@ -139,10 +147,16 @@ export function BlockHowItWorksAlternating({ props, brand, onFieldChange }: Prop
                     ))}
                   </ul>
                 </div>
-                <div className="w-full lg:w-1/2">
+                <motion.div
+                  className="w-full lg:w-1/2"
+                  initial={isBuilder ? false : { opacity: 0, scale: 0.96 }}
+                  whileInView={isBuilder ? undefined : { opacity: 1, scale: 1 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={isBuilder ? undefined : { duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+                >
                   <DecorativePanel accent={accent} tint={tint} />
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
             );
           })}
         </div>

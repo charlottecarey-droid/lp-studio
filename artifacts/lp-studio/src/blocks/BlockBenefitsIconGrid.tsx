@@ -11,6 +11,8 @@ import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { motion } from "framer-motion";
+import { SectionDecor } from "@/lib/premium-toolkit";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -30,6 +32,7 @@ export function BlockBenefitsIconGrid({ props, brand, onFieldChange }: Props) {
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
   const showCta = props.showCta ?? true;
+  const isBuilder = !!onFieldChange;
 
   const update = <K extends keyof BenefitsIconGridBlockProps>(key: K, value: BenefitsIconGridBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -40,8 +43,9 @@ export function BlockBenefitsIconGrid({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="w-full px-6 py-24 sm:py-32" style={{ background: surface.background, color: text }}>
-      <div className="mx-auto max-w-7xl">
+    <section className="relative w-full overflow-hidden px-6 py-24 sm:py-32" style={{ background: surface.background, color: text }}>
+      <SectionDecor accent={accent} isDark={surface.isDark} disabled={isBuilder} />
+      <div className="relative z-10 mx-auto max-w-7xl">
         <div className="mb-16 max-w-2xl">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
@@ -71,8 +75,15 @@ export function BlockBenefitsIconGrid({ props, brand, onFieldChange }: Props) {
         <div className={cn("grid grid-cols-1 gap-x-12 gap-y-16 sm:grid-cols-2", (props.columns ?? 3) === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2")}>
           {props.items.map((item, i) => {
             return (
-              <div key={i} className="flex flex-col">
-                <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: tint }}>
+              <motion.div
+                key={i}
+                className="group flex flex-col"
+                initial={isBuilder ? false : { opacity: 0, y: 16 }}
+                whileInView={isBuilder ? undefined : { opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.3 }}
+                transition={isBuilder ? undefined : { duration: 0.5, delay: i * 0.07, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-0.5" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
                   <IconOrImage value={item.icon} fallback={Zap} className="h-6 w-6" />
                 </div>
                 <InlineText
@@ -88,7 +99,7 @@ export function BlockBenefitsIconGrid({ props, brand, onFieldChange }: Props) {
                   className="mt-2 text-base leading-7"
                   style={{ color: muted, fontFamily: BODY }}
                   multiline />
-              </div>
+              </motion.div>
             );
           })}
         </div>

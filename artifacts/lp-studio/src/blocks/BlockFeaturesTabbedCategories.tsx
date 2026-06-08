@@ -11,6 +11,8 @@ import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { motion } from "framer-motion";
+import { SectionDecor } from "@/lib/premium-toolkit";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -177,6 +179,7 @@ export function BlockFeaturesTabbedCategories({ props, brand, onFieldChange }: P
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
   const showCta = props.showCta ?? true;
+  const isBuilder = !!onFieldChange;
 
   const categories = props.categories ?? [];
   const [activeTabId, setActiveTabId] = useState(categories[0]?.id ?? "");
@@ -201,8 +204,9 @@ export function BlockFeaturesTabbedCategories({ props, brand, onFieldChange }: P
   };
 
   return (
-    <section className="w-full px-4 py-24 sm:px-6 sm:py-32 lg:px-8" style={{ background: surface.background, color: text }}>
-      <div className="mx-auto max-w-7xl">
+    <section className="relative w-full overflow-hidden px-4 py-24 sm:px-6 sm:py-32 lg:px-8" style={{ background: surface.background, color: text }}>
+      <SectionDecor accent={accent} isDark={surface.isDark} disabled={isBuilder} />
+      <div className="relative z-10 mx-auto max-w-7xl">
         {/* Section Header */}
         <div className="mb-16 max-w-3xl">
           {(props.eyebrow || onFieldChange) && (
@@ -278,9 +282,15 @@ export function BlockFeaturesTabbedCategories({ props, brand, onFieldChange }: P
               <dl className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-1">
                 {activeCategory.features.map((feature, fi) => {
                   return (
-                    <div key={fi} className="relative pl-12">
+                    <motion.div
+                      key={`${activeTabId}-${fi}`}
+                      className="group relative pl-12"
+                      initial={isBuilder ? false : { opacity: 0, y: 12 }}
+                      animate={isBuilder ? undefined : { opacity: 1, y: 0 }}
+                      transition={isBuilder ? undefined : { duration: 0.45, delay: fi * 0.07, ease: [0.22, 1, 0.36, 1] }}
+                    >
                       <dt className="mb-1 text-lg font-semibold leading-7 text-neutral-900" style={{ fontFamily: DISPLAY }}>
-                        <div className="absolute left-0 top-1 flex h-8 w-8 items-center justify-center rounded-lg" style={{ backgroundColor: tint }}>
+                        <div className="absolute left-0 top-1 flex h-8 w-8 items-center justify-center rounded-lg transition-transform duration-300 group-hover:scale-110" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
                           <IconOrImage value={feature.icon} fallback={Layers} className="h-5 w-5" />
                         </div>
                         <InlineText
@@ -297,7 +307,7 @@ export function BlockFeaturesTabbedCategories({ props, brand, onFieldChange }: P
                           style={{ fontFamily: BODY }}
                           multiline />
                       </dd>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </dl>

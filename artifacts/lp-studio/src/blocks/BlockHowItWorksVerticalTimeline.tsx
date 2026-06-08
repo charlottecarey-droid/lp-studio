@@ -10,6 +10,8 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { motion } from "framer-motion";
+import { SectionDecor } from "@/lib/premium-toolkit";
 
 
 interface Props {
@@ -26,6 +28,7 @@ export function BlockHowItWorksVerticalTimeline({ props, brand, onFieldChange }:
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
   const showCta = props.showCta ?? true;
+  const isBuilder = !!onFieldChange;
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const steps = props.steps ?? [];
@@ -39,8 +42,9 @@ export function BlockHowItWorksVerticalTimeline({ props, brand, onFieldChange }:
   };
 
   return (
-    <section className="w-full px-6 py-24 sm:py-32 lg:px-8" style={{ background: surface.background, color: text }}>
-      <div className="mx-auto max-w-4xl">
+    <section className="relative w-full overflow-hidden px-6 py-24 sm:py-32 lg:px-8" style={{ background: surface.background, color: text }}>
+      <SectionDecor accent={accent} isDark={surface.isDark} disabled={isBuilder} />
+      <div className="relative z-10 mx-auto max-w-4xl">
         <div className="mb-16 max-w-2xl">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
@@ -68,22 +72,37 @@ export function BlockHowItWorksVerticalTimeline({ props, brand, onFieldChange }:
         </div>
 
         <div className="relative">
-          <div className="absolute left-[27px] bottom-4 top-4 w-px" style={{ backgroundColor: `${text}1a` }} aria-hidden="true" />
+          <div className="absolute left-[27px] bottom-4 top-4 w-px overflow-hidden" style={{ backgroundColor: `${text}1a` }} aria-hidden="true">
+            <motion.div
+              className="h-full w-full origin-top"
+              style={{ background: `linear-gradient(180deg, ${accent}, ${accent}33)` }}
+              initial={isBuilder ? false : { scaleY: 0 }}
+              whileInView={isBuilder ? undefined : { scaleY: 1 }}
+              viewport={{ once: true, amount: 0.2 }}
+              transition={isBuilder ? undefined : { duration: 1.1, ease: [0.22, 1, 0.36, 1] }} />
+          </div>
 
           <div className="flex flex-col gap-12 sm:gap-16">
             {steps.map((step, index) => {
               return (
-                <div key={index} className="relative flex items-start gap-8">
+                <motion.div
+                  key={index}
+                  className="group relative flex items-start gap-8"
+                  initial={isBuilder ? false : { opacity: 0, x: -16 }}
+                  whileInView={isBuilder ? undefined : { opacity: 1, x: 0 }}
+                  viewport={{ once: true, amount: 0.4 }}
+                  transition={isBuilder ? undefined : { duration: 0.5, delay: index * 0.1, ease: [0.22, 1, 0.36, 1] }}
+                >
                   <div
-                    className="relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-full border shadow-sm ring-8"
-                    style={{ backgroundColor: surface.base, borderColor: `${text}1f`, color: text, ["--tw-ring-color" as string]: surface.base }}
+                    className="relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-full border shadow-sm ring-8 transition-transform duration-300 group-hover:scale-110"
+                    style={{ backgroundColor: surface.base, borderColor: `${accent}33`, color: accent, ["--tw-ring-color" as string]: surface.base }}
                   >
                     <span className="text-lg font-bold">{index + 1}</span>
                   </div>
 
                   <div className="flex flex-col pt-3 sm:pt-4">
                     <div className="mb-2 flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ backgroundColor: tint, color: accent }}>
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg transition-transform duration-300 group-hover:scale-110" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
                         <IconOrImage value={step.icon} fallback={Palette} className="h-4 w-4" />
                       </div>
                       <InlineText
@@ -101,7 +120,7 @@ export function BlockHowItWorksVerticalTimeline({ props, brand, onFieldChange }:
                       style={{ color: muted, fontFamily: BODY }}
                       multiline />
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>

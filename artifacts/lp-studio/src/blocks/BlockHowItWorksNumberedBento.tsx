@@ -10,6 +10,8 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { motion } from "framer-motion";
+import { SectionDecor } from "@/lib/premium-toolkit";
 
 
 interface Props {
@@ -27,6 +29,7 @@ export function BlockHowItWorksNumberedBento({ props, brand, onFieldChange }: Pr
   const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
   const onAccentMuted = `${onAccent}cc`;
   const showCta = props.showCta ?? true;
+  const isBuilder = !!onFieldChange;
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const steps = props.steps ?? [];
@@ -40,8 +43,9 @@ export function BlockHowItWorksNumberedBento({ props, brand, onFieldChange }: Pr
   };
 
   return (
-    <section className="w-full px-6 py-24 sm:py-32 lg:px-8" style={{ background: surface.background, color: text }}>
-      <div className="mx-auto w-full max-w-7xl">
+    <section className="relative w-full overflow-hidden px-6 py-24 sm:py-32 lg:px-8" style={{ background: surface.background, color: text }}>
+      <SectionDecor accent={accent} isDark={surface.isDark} disabled={isBuilder} />
+      <div className="relative z-10 mx-auto w-full max-w-7xl">
         <div className="mb-16 max-w-2xl">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
@@ -73,14 +77,18 @@ export function BlockHowItWorksNumberedBento({ props, brand, onFieldChange }: Pr
             const isAccent = index === steps.length - 1;
             const span = index === 0 || index === steps.length - 1 ? "md:col-span-2" : "md:col-span-1";
             return (
-              <div
+              <motion.div
                 key={index}
-                className={`group relative overflow-hidden rounded-3xl p-10 shadow-sm ring-1 transition-all hover:shadow-md ${span}`}
+                className={`group relative overflow-hidden rounded-3xl p-10 shadow-sm ring-1 transition-all hover:-translate-y-1 hover:shadow-md ${span}`}
                 style={
                   isAccent
                     ? { backgroundColor: accent, color: onAccent, boxShadow: `0 0 0 1px ${accent}` }
                     : { backgroundColor: "#ffffff", boxShadow: "0 0 0 1px rgba(0,0,0,0.06)" }
                 }
+                initial={isBuilder ? false : { opacity: 0, y: 24 }}
+                whileInView={isBuilder ? undefined : { opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={isBuilder ? undefined : { duration: 0.5, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
               >
                 <div
                   className="pointer-events-none absolute -bottom-10 -right-10 select-none text-[12rem] font-black leading-none transition-transform duration-500 group-hover:-translate-x-4 group-hover:-translate-y-4"
@@ -91,8 +99,8 @@ export function BlockHowItWorksNumberedBento({ props, brand, onFieldChange }: Pr
                 </div>
                 <div className="relative z-10 flex h-full flex-col justify-between gap-8">
                   <div
-                    className="inline-flex h-14 w-14 items-center justify-center rounded-2xl"
-                    style={isAccent ? { backgroundColor: `${onAccent}26`, color: onAccent } : { backgroundColor: tint, color: accent }}
+                    className="inline-flex h-14 w-14 items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-110"
+                    style={isAccent ? { backgroundColor: `${onAccent}26`, color: onAccent } : { background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}
                   >
                     <IconOrImage value={step.icon} fallback={Plug} className="h-7 w-7" />
                   </div>
@@ -111,7 +119,7 @@ export function BlockHowItWorksNumberedBento({ props, brand, onFieldChange }: Pr
                       multiline />
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>

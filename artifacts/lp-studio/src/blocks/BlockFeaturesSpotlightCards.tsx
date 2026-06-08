@@ -10,6 +10,8 @@ import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { motion } from "framer-motion";
+import { SectionDecor } from "@/lib/premium-toolkit";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -98,6 +100,7 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
   const showCta = props.showCta ?? true;
+  const isBuilder = !!onFieldChange;
 
   const update = <K extends keyof FeaturesSpotlightCardsBlockProps>(key: K, value: FeaturesSpotlightCardsBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -108,8 +111,9 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
   };
 
   return (
-    <section className="flex w-full justify-center px-6 py-24 lg:px-8" style={{ background: surface.background, color: text }}>
-      <div className="w-full max-w-[1280px]">
+    <section className="relative flex w-full justify-center overflow-hidden px-6 py-24 lg:px-8" style={{ background: surface.background, color: text }}>
+      <SectionDecor accent={accent} isDark={surface.isDark} disabled={isBuilder} />
+      <div className="relative z-10 w-full max-w-[1280px]">
         <div className="mb-16 text-center">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
@@ -131,7 +135,7 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
           {/* Spotlight Feature */}
           <div className="grid grid-cols-1 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-neutral-200/50 md:grid-cols-2">
             <div className="flex flex-col justify-center p-10 md:p-16">
-              <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: tint, color: accent }}>
+              <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
                 <IconOrImage value={props.spotlightIcon} fallback={Layers} className="h-6 w-6" />
               </div>
               <InlineText
@@ -171,11 +175,16 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3 lg:grid-cols-5">
             {props.secondaryFeatures.map((feature, i) => {
               return (
-                <div
+                <motion.div
                   key={i}
-                  className="flex flex-col rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200/50 transition-shadow hover:shadow-md"
+                  className="group flex flex-col rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200/50 transition-shadow hover:shadow-lg"
+                  initial={isBuilder ? false : { opacity: 0, y: 16 }}
+                  whileInView={isBuilder ? undefined : { opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.3 }}
+                  transition={isBuilder ? undefined : { duration: 0.5, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] }}
+                  whileHover={isBuilder ? undefined : { y: -4 }}
                 >
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-50 text-neutral-600">
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg transition-transform duration-300 group-hover:scale-105" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
                     <IconOrImage value={feature.icon} fallback={Layers} className="h-5 w-5" />
                   </div>
                   <InlineText
@@ -191,7 +200,7 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
                     className="text-sm leading-relaxed text-neutral-600"
                     style={{ fontFamily: BODY }}
                     multiline />
-                </div>
+                </motion.div>
               );
             })}
           </div>

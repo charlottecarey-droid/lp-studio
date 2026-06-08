@@ -10,6 +10,8 @@ import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { motion } from "framer-motion";
+import { SectionDecor } from "@/lib/premium-toolkit";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -63,6 +65,7 @@ export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Pr
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
   const showCta = props.showCta ?? true;
+  const isBuilder = !!onFieldChange;
 
   const update = <K extends keyof BenefitsAlternatingRowsBlockProps>(key: K, value: BenefitsAlternatingRowsBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -73,8 +76,9 @@ export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Pr
   };
 
   return (
-    <section className="w-full px-6 py-24 md:py-32 md:px-12" style={{ background: surface.background, color: text }}>
-      <div className="mx-auto w-full max-w-[1280px]">
+    <section className="relative w-full overflow-hidden px-6 py-24 md:py-32 md:px-12" style={{ background: surface.background, color: text }}>
+      <SectionDecor accent={accent} isDark={surface.isDark} disabled={isBuilder} />
+      <div className="relative z-10 mx-auto w-full max-w-[1280px]">
         <div className="mx-auto mb-20 max-w-3xl text-center md:mb-28">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
@@ -104,12 +108,16 @@ export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Pr
           {props.rows.map((row, index) => {
             const isReversed = index % 2 !== 0;
             return (
-              <div
+              <motion.div
                 key={index}
                 className={`flex flex-col items-center gap-12 md:gap-24 ${isReversed ? "md:flex-row-reverse" : "md:flex-row"}`}
+                initial={isBuilder ? false : { opacity: 0, y: 32 }}
+                whileInView={isBuilder ? undefined : { opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={isBuilder ? undefined : { duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
               >
-                <div className="flex flex-1 flex-col justify-center">
-                  <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ backgroundColor: tint }}>
+                <div className="group flex flex-1 flex-col justify-center">
+                  <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-105" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
                     <IconOrImage value={row.icon} fallback={Zap} className="h-6 w-6" />
                   </div>
                   <InlineText
@@ -154,13 +162,19 @@ export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Pr
                   )}
                 </div>
 
-                <div className="relative w-full flex-1 md:w-1/2">
+                <motion.div
+                  className="relative w-full flex-1 md:w-1/2"
+                  initial={isBuilder ? false : { opacity: 0, scale: 0.96 }}
+                  whileInView={isBuilder ? undefined : { opacity: 1, scale: 1 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={isBuilder ? undefined : { duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+                >
                   <div className="absolute inset-0 -m-8 rounded-[3rem] opacity-0 md:opacity-100" style={{ backgroundColor: tint }} />
                   <div className="relative">
                     <DecorativePanel accent={accent} tint={tint} />
                   </div>
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
             );
           })}
         </div>

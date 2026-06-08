@@ -10,6 +10,8 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { motion } from "framer-motion";
+import { Reveal, SectionDecor } from "@/lib/premium-toolkit";
 
 
 interface Props {
@@ -26,6 +28,7 @@ export function BlockHowItWorksHorizontalStepper({ props, brand, onFieldChange }
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
   const showCta = props.showCta ?? true;
+  const isBuilder = !!onFieldChange;
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const steps = props.steps ?? [];
@@ -40,9 +43,10 @@ export function BlockHowItWorksHorizontalStepper({ props, brand, onFieldChange }
   };
 
   return (
-    <section className="w-full px-4 py-24 md:px-8" style={{ background: surface.background, color: text }}>
-      <div className="container mx-auto max-w-6xl">
-        <div className="mb-16 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
+    <section className="relative w-full overflow-hidden px-4 py-24 md:px-8" style={{ background: surface.background, color: text }}>
+      <SectionDecor accent={accent} isDark={surface.isDark} disabled={isBuilder} />
+      <div className="relative z-10 container mx-auto max-w-6xl">
+        <Reveal isBuilder={isBuilder} className="mb-16 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
           <div className="max-w-2xl">
             {(props.eyebrow || onFieldChange) && (
               <InlineText
@@ -81,20 +85,28 @@ export function BlockHowItWorksHorizontalStepper({ props, brand, onFieldChange }
               <ArrowRight className="h-4 w-4" />
             </CtaButton>
           )}
-        </div>
+        </Reveal>
 
         <div className="relative">
           {/* Progress rail */}
-          <div className="absolute left-0 top-8 -z-0 hidden h-[2px] w-full md:block" style={{ backgroundColor: `${text}1f` }} />
+          <div className="absolute left-0 top-8 -z-0 hidden h-[2px] w-full overflow-hidden md:block" style={{ backgroundColor: `${text}1f` }}>
+            <motion.div
+              className="h-full w-full origin-left"
+              style={{ background: `linear-gradient(90deg, ${accent}, ${accent}66)` }}
+              initial={isBuilder ? false : { scaleX: 0 }}
+              whileInView={isBuilder ? undefined : { scaleX: 1 }}
+              viewport={{ once: true, amount: 0.5 }}
+              transition={isBuilder ? undefined : { duration: 1, ease: [0.22, 1, 0.36, 1] }} />
+          </div>
 
           <div className="relative z-10 grid snap-x snap-mandatory auto-cols-[80%] grid-flow-col gap-8 overflow-x-auto pb-2 md:auto-cols-auto md:grid-flow-row md:grid-cols-3 md:gap-4 md:overflow-visible md:pb-0">
             {steps.map((step, index) => {
               return (
                 <div key={index} className="group relative flex snap-start flex-col items-center text-center md:items-start md:text-left">
                   <div className="mb-6 flex w-full items-center justify-center gap-4 md:mb-8 md:justify-start">
-                    <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-black/5 bg-white shadow-sm transition-transform group-hover:scale-105 group-hover:shadow-md">
-                      <IconOrImage value={step.icon} fallback={UserPlus} className="h-5 w-5" />
-                      <div className="absolute -right-3 -top-3 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-sm font-bold shadow-sm" style={{ backgroundColor: tint, color: accent }}>
+                    <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-black/5 bg-white shadow-sm transition-transform group-hover:scale-105 group-hover:shadow-md" style={{ boxShadow: `inset 0 0 0 1px ${accent}1f, 0 1px 2px rgba(0,0,0,0.05)` }}>
+                      <IconOrImage value={step.icon} fallback={UserPlus} className="h-5 w-5" style={{ color: accent }} />
+                      <div className="absolute -right-3 -top-3 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-sm font-bold shadow-sm" style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)`, color: onAccent }}>
                         {index + 1}
                       </div>
                     </div>

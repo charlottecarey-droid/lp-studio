@@ -9,6 +9,8 @@ import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { motion } from "framer-motion";
+import { SectionDecor } from "@/lib/premium-toolkit";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -157,6 +159,7 @@ export function BlockFeaturesBentoShowcase({ props, brand, onFieldChange }: Prop
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
   const showCta = props.showCta ?? true;
+  const isBuilder = !!onFieldChange;
 
   const update = <K extends keyof FeaturesBentoShowcaseBlockProps>(key: K, value: FeaturesBentoShowcaseBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -167,8 +170,9 @@ export function BlockFeaturesBentoShowcase({ props, brand, onFieldChange }: Prop
   };
 
   return (
-    <section className="w-full px-6 py-24 lg:px-8" style={{ background: surface.background, color: text }}>
-      <div className="mx-auto max-w-[1280px]">
+    <section className="relative w-full overflow-hidden px-6 py-24 lg:px-8" style={{ background: surface.background, color: text }}>
+      <SectionDecor accent={accent} isDark={surface.isDark} disabled={isBuilder} />
+      <div className="relative z-10 mx-auto max-w-[1280px]">
         <div className="mb-16 max-w-2xl">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
@@ -199,12 +203,16 @@ export function BlockFeaturesBentoShowcase({ props, brand, onFieldChange }: Prop
           {props.tiles.map((tile, i) => {
             const isHero = i === 0;
             return (
-              <div
+              <motion.div
                 key={i}
-                className={`group relative flex flex-col overflow-hidden rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-shadow hover:shadow-md ${spanFor(i)}`}
+                className={`group relative flex flex-col overflow-hidden rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md ${spanFor(i)}`}
+                initial={isBuilder ? false : { opacity: 0, y: 20 }}
+                whileInView={isBuilder ? undefined : { opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.2 }}
+                transition={isBuilder ? undefined : { duration: 0.5, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] }}
               >
                 <div className={isHero ? "relative z-10 mb-8 flex flex-col items-start gap-4" : "mb-6"}>
-                  <div className={`${isHero ? "" : "mb-4 inline-flex"} flex w-fit items-center justify-center rounded-xl p-3`} style={{ backgroundColor: tint, color: accent }}>
+                  <div className={`${isHero ? "" : "mb-4 inline-flex"} flex w-fit items-center justify-center rounded-xl p-3 transition-transform duration-300 group-hover:scale-110`} style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
                     <IconOrImage value={tile.icon} fallback={Layers} className={isHero ? "h-6 w-6" : "h-5 w-5"} />
                   </div>
                   <div>
@@ -224,7 +232,7 @@ export function BlockFeaturesBentoShowcase({ props, brand, onFieldChange }: Prop
                   </div>
                 </div>
                 <TileMockup index={i} accent={accent} />
-              </div>
+              </motion.div>
             );
           })}
         </div>

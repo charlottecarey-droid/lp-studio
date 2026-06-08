@@ -8,6 +8,7 @@ import { InlineImage } from "@/components/InlineImage";
 import { InlineText } from "@/components/InlineText";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
+import { SectionDecor } from "@/lib/premium-toolkit";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
@@ -26,6 +27,8 @@ interface Props {
 
 export function BlockBenefitsGrid({ props, brand, onFieldChange, animationsEnabled = true }: Props) {
   const sectionPy = SECTION_PY[brand.sectionPadding];
+  const isBuilder = !!onFieldChange;
+  const accent = brand.primaryColor ?? "#4f46e5";
 
   const updateItem = (index: number, field: "title" | "description", value: string) => {
     if (!onFieldChange) return;
@@ -38,8 +41,9 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange, animationsEnabl
   };
 
   return (
-    <section className={cn("w-full bg-white px-6", sectionPy)}>
-      <div className="max-w-7xl mx-auto">
+    <section className={cn("relative w-full overflow-hidden bg-white px-6", sectionPy)}>
+      <SectionDecor accent={accent} isDark={false} disabled={isBuilder} />
+      <div className="relative z-10 max-w-7xl mx-auto">
         {props.headline && (
           <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display text-center text-[var(--brand-heading-on-light)] mb-12 lg:mb-16 max-w-3xl mx-auto leading-tight", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }} />
         )}
