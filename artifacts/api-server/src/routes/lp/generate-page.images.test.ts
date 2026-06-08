@@ -847,6 +847,39 @@ describe("buildBlockSelectionDirective — brand-fit selection for every role", 
     // Pure layout primitives are scaffolding and must never be offered.
     expect(out).not.toContain("- LAYOUT");
     expect(out).not.toContain('"columns"');
+
+    // Roles are listed in a natural landing-page flow with HERO first.
+    const roleLines = out
+      .split("\n")
+      .filter((l) => l.startsWith("- "))
+      .map((l) => l.slice(2).split(" (")[0]);
+    expect(roleLines[0]).toBe("HERO");
+    const idx = (label: string) => roleLines.indexOf(label);
+    expect(idx("HERO")).toBeLessThan(idx("SOCIAL PROOF"));
+    expect(idx("SOCIAL PROOF")).toBeLessThan(idx("CONTENT / NARRATIVE"));
+    expect(idx("CONTENT / NARRATIVE")).toBeLessThan(idx("CALL TO ACTION"));
+  });
+
+  it("orders roles by the superadmin sort_order, overriding the default flow", () => {
+    const roleOrder = (out: string) =>
+      out
+        .split("\n")
+        .filter((l) => l.startsWith("- "))
+        .map((l) => l.slice(2).split(" (")[0]);
+
+    // Default (no sort_order) leads with HERO.
+    expect(roleOrder(buildBlockSelectionDirective(PROMPT, new Map()))[0]).toBe("HERO");
+
+    // Superadmin pushes every HERO block to the bottom via sort_order; the role
+    // follows the lowest sort_order of its blocks, so HERO moves to the end.
+    const sort = new Map<string, number>([
+      ["hero", 100],
+      ["full-bleed-hero", 100],
+      ["magazine-hero", 100],
+    ]);
+    const ordered = roleOrder(buildBlockSelectionDirective(PROMPT, new Map(), sort));
+    expect(ordered[0]).not.toBe("HERO");
+    expect(ordered[ordered.length - 1]).toBe("HERO");
   });
 
   it("omits a role's line when only one block of that role is advertised", () => {

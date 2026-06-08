@@ -2960,9 +2960,36 @@ const ROLE_SELECTION_LABEL: Record<BlockRoleTag, string> = {
   layout: "LAYOUT",
 };
 
+// Tiebreaker order for the per-role selection lines, used only when the
+// superadmin `sort_order` doesn't differentiate two roles (e.g. nothing has
+// been customized yet). A natural landing-page flow with HERO first and the
+// page chrome (header/footer) last. Any role not listed here (a future
+// addition) is appended in vocabulary order so none is silently dropped;
+// `layout` is excluded at emit time.
+const SELECTION_ROLE_FALLBACK_ORDER: readonly BlockRoleTag[] = (() => {
+  const preferred: BlockRoleTag[] = [
+    "hero",
+    "social-proof",
+    "stats",
+    "features",
+    "comparison",
+    "content",
+    "media",
+    "pricing",
+    "faq",
+    "cta",
+    "form",
+    "header",
+    "footer",
+  ];
+  const seen = new Set<BlockRoleTag>(preferred);
+  return [...preferred, ...BLOCK_ROLE_TAGS.filter((r) => !seen.has(r))];
+})();
+
 export function buildBlockSelectionDirective(
   systemPrompt: string,
   dbTagsByType: Map<string, unknown>,
+  dbSortByType?: Map<string, number>,
 ): string {
   const types = extractPromptBlockTypes(systemPrompt);
   if (types.length === 0) return "";
@@ -2980,11 +3007,27 @@ export function buildBlockSelectionDirective(
     }
   }
   const fmt = (arr: string[]): string => arr.map((t) => `"${t}"`).join(", ");
+  // Role order is controlled by the superadmin-editable block_catalog
+  // `sort_order` (same field that sorts the builder library): a role sorts by
+  // the lowest sort_order among the blocks that fill it. Blocks with no catalog
+  // override use the column default (0), so when nothing is customized all roles
+  // tie and fall back to the natural hero-first flow above.
+  const fallbackIndex = (role: BlockRoleTag): number => {
+    const i = SELECTION_ROLE_FALLBACK_ORDER.indexOf(role);
+    return i === -1 ? SELECTION_ROLE_FALLBACK_ORDER.length : i;
+  };
+  const roleSort = (role: BlockRoleTag, blocks: string[]): number =>
+    Math.min(...blocks.map((t) => dbSortByType?.get(t) ?? 0));
+  const orderedRoles = [...byRole.entries()]
+    .filter(([role, blocks]) => !SELECTION_EXCLUDED_ROLES.has(role) && blocks.length >= 2)
+    .sort(([roleA, blocksA], [roleB, blocksB]) => {
+      const sa = roleSort(roleA, blocksA);
+      const sb = roleSort(roleB, blocksB);
+      if (sa !== sb) return sa - sb;
+      return fallbackIndex(roleA) - fallbackIndex(roleB);
+    });
   const lines: string[] = [];
-  for (const role of BLOCK_ROLE_TAGS) {
-    if (SELECTION_EXCLUDED_ROLES.has(role)) continue;
-    const blocks = byRole.get(role);
-    if (!blocks || blocks.length < 2) continue;
+  for (const [role, blocks] of orderedRoles) {
     lines.push(
       `- ${ROLE_SELECTION_LABEL[role]} (${BLOCK_ROLE_TAG_DESCRIPTIONS[role]}): ${fmt(blocks)}.`,
     );
@@ -4873,16 +4916,20 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // best-effort — any failure leaves dbTagsByType empty (no role guide) and
   // aiDisabledTypes empty (fail-open: full block library advertised).
   const dbTagsByType = new Map<string, unknown>();
+  const dbSortByType = new Map<string, number>();
   const aiDisabledTypes = new Set<string>();
   try {
     const industry = await getTenantIndustry(tenantId);
     const catRows = await pool.query(
-      `SELECT block_type, tags, ai_enabled FROM block_catalog WHERE industry = $1`,
+      `SELECT block_type, tags, ai_enabled, sort_order FROM block_catalog WHERE industry = $1`,
       [industry],
     );
     for (const row of catRows.rows) {
       if (row.tags !== null && row.tags !== undefined) {
         dbTagsByType.set(row.block_type as string, row.tags);
+      }
+      if (typeof row.sort_order === "number") {
+        dbSortByType.set(row.block_type as string, row.sort_order);
       }
       // Fail-open: only an explicit `false` excludes a block from AI generation.
       if (row.ai_enabled === false) {
@@ -4956,7 +5003,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // to deliberately match the brand + reference URL + prompt for each section
   // instead of defaulting to the same plain block every time. Best-effort.
   try {
-    const selectionSection = buildBlockSelectionDirective(systemPrompt, dbTagsByType);
+    const selectionSection = buildBlockSelectionDirective(systemPrompt, dbTagsByType, dbSortByType);
     if (selectionSection) userPromptParts.push(selectionSection);
   } catch (err) {
     logger.warn({ err: String(err) }, "[generate-page] selection directive build skipped");
