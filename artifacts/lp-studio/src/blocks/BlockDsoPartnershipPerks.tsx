@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { Gift, Star, Shield, Sparkles, Zap, Users, Clock, TrendingUp, CheckCircle, Award, Heart, Layers } from "lucide-react";
+import { Star } from "lucide-react";
+import { IconOrImage, isImageIcon } from "@/lib/icon-value";
 import type { DsoPartnershipPerksBlockProps } from "@/lib/block-types";
 import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -24,24 +25,16 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY = BRAND_DISPLAY_STACK;
 
-const ICON_MAP: Record<string, React.ElementType> = {
-  gift: Gift,
-  star: Star,
-  shield: Shield,
-  sparkles: Sparkles,
-  zap: Zap,
-  users: Users,
-  clock: Clock,
-  "trending-up": TrendingUp,
-  trending: TrendingUp,
-  "check-circle": CheckCircle,
-  award: Award,
-  heart: Heart,
-  layers: Layers,
-};
+/** Legacy perk icons were stored lowercase/kebab ("trending-up"); Lucide names are PascalCase. */
+function normalizeIconValue(value?: string): string | undefined {
+  if (!value || isImageIcon(value) || /^[A-Z]/.test(value)) return value;
+  return value
+    .split(/[-_\s]+/)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("");
+}
 
 function PerkIcon({ name, dark }: { name: string; dark: boolean }) {
-  const Ic = ICON_MAP[name.toLowerCase()] ?? Star;
   return (
     <div
       style={{
@@ -56,7 +49,7 @@ function PerkIcon({ name, dark }: { name: string; dark: boolean }) {
         flexShrink: 0,
       }}
     >
-      <Ic style={{ width: 20, height: 20, color: dark ? LIME : BRAND }} />
+      <IconOrImage value={normalizeIconValue(name)} fallback={Star} style={{ width: 20, height: 20, color: dark ? LIME : BRAND }} />
     </div>
   );
 }
