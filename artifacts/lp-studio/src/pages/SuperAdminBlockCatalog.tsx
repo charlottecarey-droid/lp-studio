@@ -64,7 +64,7 @@ const INDUSTRY_LABEL: Record<Industry, string> = {
 
 const COMMON_CATEGORIES = [
   "Layout", "Hero", "Content", "Social Proof", "CTA", "Forms", "Lead Capture",
-  "Comparison", "Benefits", "DSO", "Utility",
+  "Comparison", "Benefits", "DSO", "Utility", "Full Page Templates",
 ];
 
 interface RowFormState {

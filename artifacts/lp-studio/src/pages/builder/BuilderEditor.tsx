@@ -59,6 +59,7 @@ import { BuilderTopBar } from "@/components/layout/builder-top-bar";
 import { OgCharCount, OgDimensionWarning, ShareCardPreview } from "@/components/og-share-card";
 import { AdCopyDialog } from "@/components/builder/AdCopyDialog";
 import { LP_TEMPLATES, getTemplatesForIndustry } from "@/lib/templates";
+import { isFullPageTemplate } from "@workspace/lp-template-engine";
 import { TiptapEditor } from "@/components/TiptapEditor";
 import { MediaLibraryDrawer } from "@/components/MediaLibraryDrawer";
 import { refreshBlockCopy } from "@/lib/copy-api";
@@ -221,7 +222,7 @@ function BlockLibrary({ onAdd, customBlocks, visibleBlocks, prefs, onCustomize }
   // known non-core (SegmentLibrary) category is a tenant-created shelf — a
   // user moved a block into a new bucket via the Customize dialog. Surface
   // those in the Blocks tab so the block is reachable.
-  const knownNonCore = new Set(["DSO", "DSO Practices", "Events", "Grid Pieces", "Showcase"]);
+  const knownNonCore = new Set(["DSO", "DSO Practices", "Events", "Grid Pieces", "Showcase", "Full Page Templates"]);
   const tenantExtras = Array.from(new Set(
     visibleBlocks
       .map(b => b.category)
@@ -337,7 +338,7 @@ function SegmentLibrary({ onAdd, customBlocks, segments, visibleBlocks, prefs }:
   // Stable category order so DSO Practices is prominent and consistent. Any
   // extra categories not in this list (custom tenant shelves) fall through to
   // the prefs-based ordering after the preferred ones.
-  const preferredOrder = ["DSO", "DSO Practices", "Showcase", "Grid Pieces", "Events"];
+  const preferredOrder = ["Full Page Templates", "DSO", "DSO Practices", "Showcase", "Grid Pieces", "Events"];
   const presentCategories = Object.keys(segmentGroupMap);
   const orderedGroupNames = [
     ...preferredOrder.filter(c => presentCategories.includes(c)),
@@ -489,26 +490,43 @@ function TemplateLibrary({ onSelect, industry }: { onSelect: (templateId: string
       </div>
     );
   }
+  // Split full-page templates (their first block renders an entire standalone
+  // page) from regular multi-block templates so they read as their own group.
+  // Detection uses the shared isFullPageTemplate helper against each template's
+  // expanded blocks, keeping the grouping aligned with FULL_PAGE_BLOCK_TYPES.
+  const fullPage = visible.filter(t => isFullPageTemplate(templateToBlocks(t.id)));
+  const regular = visible.filter(t => !isFullPageTemplate(templateToBlocks(t.id)));
+  const renderTemplateButton = (t: (typeof visible)[number]) => (
+    <button
+      key={t.id}
+      onClick={() => onSelect(t.id)}
+      className="w-full text-left p-3 rounded-xl border border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-all"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-xs font-semibold text-foreground">{t.name}</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{t.description}</p>
+        </div>
+        {t.badge && (
+          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">{t.badge}</Badge>
+        )}
+      </div>
+    </button>
+  );
   return (
-    <div className="p-4 space-y-3">
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Templates</p>
-      {visible.map(t => (
-        <button
-          key={t.id}
-          onClick={() => onSelect(t.id)}
-          className="w-full text-left p-3 rounded-xl border border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-all"
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-xs font-semibold text-foreground">{t.name}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{t.description}</p>
-            </div>
-            {t.badge && (
-              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">{t.badge}</Badge>
-            )}
-          </div>
-        </button>
-      ))}
+    <div className="p-4 space-y-5">
+      {regular.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Templates</p>
+          {regular.map(renderTemplateButton)}
+        </div>
+      )}
+      {fullPage.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Full Page Templates</p>
+          {fullPage.map(renderTemplateButton)}
+        </div>
+      )}
     </div>
   );
 }
@@ -668,7 +686,7 @@ interface InsertBlockDialogProps {
 }
 
 function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlocks, prefs, nestedTarget, initialSearch }: InsertBlockDialogProps) {
-  const defaultCategories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces", "DSO", "DSO Practices", "Showcase", "Events"] as const;
+  const defaultCategories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Full Page Templates", "Grid Pieces", "DSO", "DSO Practices", "Showcase", "Events"] as const;
   // Append any extra categories that exist in the (prefs-applied) catalog but
   // aren't in the default list, then sort the whole thing per tenant prefs.
   const seen = new Set<string>(defaultCategories);

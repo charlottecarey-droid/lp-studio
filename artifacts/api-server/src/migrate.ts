@@ -17,6 +17,7 @@ import pg from "pg";
 import { db, pool } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { migrate as drizzleMigrate } from "drizzle-orm/node-postgres/migrator";
+import { FULL_PAGE_BLOCK_TYPES } from "@workspace/lp-template-engine";
 import { logger } from "./lib/logger";
 
 // Schema SQL lives in `lib/db/migrations/*.sql` and is applied via
@@ -1493,6 +1494,45 @@ async function runMigrationsBody(): Promise<void> {
     } catch (seedErr) {
       // Don't block boot on seed errors — admins can re-run scripts/seed-block-catalog.cjs
       logger.error({ err: seedErr }, "block_catalog seed failed (non-fatal)");
+    }
+    });
+
+    // One-time re-shelf of full-page template blocks into the dedicated
+    // "Full Page Templates" category. Full-page templates (content-series,
+    // blog-series, storefront, event-*, case-*, business-case-*) used to live
+    // under "Events" / "Showcase" / "DSO Microsites" in the registry, and
+    // already-provisioned tenants may carry block_catalog rows pinning those
+    // stale categories as per-block overrides. Without this, such tenants keep
+    // seeing the full-page blocks in their old categories even though the
+    // registry default now groups them together. Marker-guarded so reboots are
+    // no-ops; non-fatal (purely cosmetic grouping, never route-critical).
+    await runStep("block_catalog full-page re-shelf", async () => {
+    try {
+      const marker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'block_catalog_full_page_category_v1'`
+      );
+      if (marker.rows.length === 0) {
+        const fullPageTypes = Array.from(FULL_PAGE_BLOCK_TYPES);
+        const updated = await db.execute<{ block_type: string }>(sql`
+          UPDATE block_catalog
+             SET category = 'Full Page Templates'
+           WHERE block_type IN (${sql.join(
+             fullPageTypes.map((t) => sql`${t}`),
+             sql`, `,
+           )})
+             AND category IS DISTINCT FROM 'Full Page Templates'
+          RETURNING block_type
+        `);
+        await db.execute(sql`
+          INSERT INTO _schema_migration_markers (key) VALUES ('block_catalog_full_page_category_v1') ON CONFLICT DO NOTHING
+        `);
+        logger.info(
+          { updated: updated.rows.length, types: fullPageTypes.length },
+          "block_catalog full-page re-shelf applied"
+        );
+      }
+    } catch (reshelfErr) {
+      logger.error({ err: reshelfErr }, "block_catalog full-page re-shelf failed (non-fatal)");
     }
     });
 

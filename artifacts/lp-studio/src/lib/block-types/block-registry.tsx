@@ -211,7 +211,7 @@ import type {
 } from "./template-pages";
 import { eventPageDefaults, caseStudyDefaults } from "./template-page-defaults";
 import type { BlockType, PageBlock } from "./block-variant";
-import { type BlockRoleTag, getDefaultBlockTags } from "@workspace/lp-template-engine";
+import { type BlockRoleTag, getDefaultBlockTags, FULL_PAGE_BLOCK_TYPES } from "@workspace/lp-template-engine";
 
 export interface BlockDefinition {
   type: BlockType;
@@ -3673,7 +3673,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "business-case-split" as const,
     label: "Business Case — Split Hero",
-    category: "DSO Microsites" as BlockCategory,
+    category: "Full Page Templates",
     defaultProps: (): BusinessCaseSplitBlockProps => ({
       forCompanyLabel: "For {{company_name}}",
       logoUrl: "/dandy-logo-white.svg",
@@ -3790,7 +3790,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "business-case-centered" as const,
     label: "Business Case — Centered Hero",
-    category: "DSO Microsites" as BlockCategory,
+    category: "Full Page Templates",
     defaultProps: (): BusinessCaseCenteredBlockProps => ({
       forCompanyLabel: "For {{company_name}}",
       logoUrl: "/dandy-logo-white.svg",
@@ -3908,7 +3908,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   {
     type: "business-case-premium" as const,
     label: "Business Case — Premium Editorial",
-    category: "DSO Microsites" as BlockCategory,
+    category: "Full Page Templates",
     defaultProps: (): BusinessCasePremiumBlockProps => ({
       forCompanyLabel: "For {{company_name}}",
       forPillMode: "pill",
@@ -8132,6 +8132,18 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
 for (const def of BLOCK_REGISTRY) {
   if (!def.tags || def.tags.length === 0) {
     def.tags = getDefaultBlockTags(def.type);
+  }
+}
+
+// Force every full-page template block into the single dedicated "Full Page
+// Templates" category, driven off the shared FULL_PAGE_BLOCK_TYPES set so the
+// grouping can never drift from the canonical classification. This overrides
+// whatever category an individual entry declared above (e.g. legacy "Events" /
+// "Showcase" assignments), keeping these "pick-as-is whole page" templates out
+// of the regular section categories everywhere the registry drives the UI.
+for (const def of BLOCK_REGISTRY) {
+  if (FULL_PAGE_BLOCK_TYPES.has(def.type)) {
+    def.category = "Full Page Templates";
   }
 }
 
