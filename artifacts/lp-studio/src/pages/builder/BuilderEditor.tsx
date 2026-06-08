@@ -2760,7 +2760,7 @@ export default function BuilderEditor() {
           the approved pool). The values stay on the page — this opens the
           review modal so editors can approve, edit, swap or remove each one. */}
       {factFlags.pendingCount > 0 && !strictBannerDismissed && (
-        <div className="relative mx-4 mt-2 flex items-start gap-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-4 py-3">
+        <div data-testid="fact-review-banner" className="relative mx-4 mt-2 flex items-start gap-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-4 py-3">
           <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
           </div>
