@@ -28,10 +28,6 @@ args = "artifacts/dandy-insights-video: web"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "e2e"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "img-test"
 
 [[workflows.workflow.tasks]]
@@ -41,6 +37,10 @@ args = "tc-api"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "tc-lp"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "e2e"
 
 [[workflows.workflow]]
 name = "artifacts/dandy-insights-video: web"
@@ -53,17 +53,6 @@ waitForPort = 19876
 
 [workflows.workflow.metadata]
 outputType = "webview"
-
-[[workflows.workflow]]
-name = "e2e"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/lp-studio exec playwright test"
-
-[workflows.workflow.metadata]
-isValidation = true
 
 [[workflows.workflow]]
 name = "img-test"
@@ -91,12 +80,23 @@ args = "pnpm --filter @workspace/api-server run typecheck"
 name = "tc-lp"
 author = "agent"
 
+[workflows.workflow.metadata]
+isValidation = true
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/lp-studio run typecheck"
 
+[[workflows.workflow]]
+name = "e2e"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/lp-studio exec playwright test"
+
 [workflows.workflow.metadata]
-isValidation = true
+outputType = "console"
 
 [agent]
 stack = "PNPM_WORKSPACE"

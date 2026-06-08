@@ -1360,6 +1360,43 @@ function buildSegmentSection(segment: BrandAudienceSegment | undefined): string 
   return lines.join("\n");
 }
 
+// Task #1220 — Prop-schema guidance for full-page / one-pager template block
+// types that have no hand-written BLOCK_PROP_SCHEMAS entry. We derive a compact
+// key-list hint straight from the AUTHORED block props so the model knows which
+// human-readable fields to personalize (without a hint it under-personalizes
+// schemaless blocks). Technical fields (urls/colors/ids) are omitted so the
+// model leaves them alone; the structure-preserving merge restores them anyway.
+function isTechnicalSchemaField(k: string): boolean {
+  return /url$/i.test(k) || /color$/i.test(k) || k === "id" || k === "anchor" || k === "href" || k === "src";
+}
+export function deriveSchemaHintFromProps(props: unknown): string {
+  if (!props || typeof props !== "object" || Array.isArray(props)) return "{ ...fields }";
+  const parts: string[] = [];
+  for (const [k, v] of Object.entries(props as Record<string, unknown>)) {
+    if (isTechnicalSchemaField(k)) continue;
+    if (Array.isArray(v)) {
+      const firstObj = v.find((it) => it && typeof it === "object" && !Array.isArray(it));
+      if (firstObj) {
+        const itemKeys = Object.keys(firstObj as Record<string, unknown>)
+          .filter((ik) => !isTechnicalSchemaField(ik))
+          .slice(0, 10);
+        parts.push(`${k}: [{ ${itemKeys.join(", ")} }]`);
+      } else {
+        parts.push(`${k}: string[]`);
+      }
+    } else if (v && typeof v === "object") {
+      const nestedKeys = Object.keys(v as Record<string, unknown>)
+        .filter((nk) => !isTechnicalSchemaField(nk))
+        .slice(0, 10);
+      parts.push(`${k}: { ${nestedKeys.join(", ")} }`);
+    } else {
+      parts.push(k);
+    }
+  }
+  if (parts.length === 0) return "{ ...fields }";
+  return `{ ${parts.join(", ")} } — rewrite ALL human-readable copy for this account; keep the same shape and array lengths`;
+}
+
 export function buildSystemPrompt(
   segment: BrandAudienceSegment,
   brand: Record<string, unknown>,
@@ -1369,6 +1406,10 @@ export function buildSystemPrompt(
   // freely composes a varied layout from the neutral freeform vocabulary
   // instead of filling a fixed block list.
   useFreeform = false,
+  // Task #1220 — the authored template blocks (when a template is used) so
+  // schemaless full-page / one-pager types can advertise a derived key-list
+  // schema to the model instead of a generic "{ ...fields }".
+  templateBlocks?: AiBlock[],
 ): string {
   const tone            = brand.toneOfVoice as string | undefined;
   const pillars         = brand.messagingPillars as Array<{ label: string; description: string }> | undefined;
@@ -1529,7 +1570,11 @@ export function buildSystemPrompt(
   // When a template layout is provided, override the default block order with the template's blocks
   if (templateBlockTypes && templateBlockTypes.length > 0) {
     const blockList = templateBlockTypes.map((type, i) => {
-      const schema = BLOCK_PROP_SCHEMAS[type] ?? "{ ...fields }";
+      // Task #1220 — prefer a hand-written schema; otherwise derive a key-list
+      // hint from the authored block props so full-page / one-pager types still
+      // tell the model which fields to personalize.
+      const schema = BLOCK_PROP_SCHEMAS[type]
+        ?? deriveSchemaHintFromProps(templateBlocks?.[i]?.props);
       return `${i + 1}. "${type}": ${schema}`;
     }).join("\n");
 
@@ -1783,7 +1828,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       (segment.micrositeBlockList?.length ?? 0) > 0 || (brandDefaultBlockList?.length ?? 0) > 0;
     const useFreeform = !templateBlockTypes && !hasCuratedBlockList;
 
-    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment, useFreeform);
+    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment, useFreeform, templateBlocks);
 
     // Task #976 — REFERENCE PAGE (voice) + VISUAL REFERENCE (style) sections,
     // appended to the user prompt exactly like /lp/generate-page. The brand's
@@ -2146,14 +2191,20 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         { onlyEmpty: replaceImagery === true },
       ) as AiBlock[];
 
+      // Task #1220 — account placeholder vars ({{company_name}} /
+      // {{practice_count}}) are a template-authoring convention, not a
+      // business-case-only feature. Resolve them once and substitute on EVERY
+      // template below so any full-page / one-pager template that uses them
+      // renders real account data. A template with no placeholders is unaffected.
+      const companyName = deriveCompanyName(account);
+      const practiceCount = derivePracticeCount(briefingData, account);
+
       // Compound business-case templates are a single rich monograph block.
       // Rather than trust the AI to emit every nested field, merge its copy
       // over the authored template props and substitute account placeholders,
       // guaranteeing a complete, on-brand, personalised page.
       if (templateBlocks.length === 1 && isBusinessCaseType(templateBlocks[0]?.type)) {
         const tmpl = templateBlocks[0];
-        const companyName = deriveCompanyName(account);
-        const practiceCount = derivePracticeCount(briefingData, account);
         const aiProps = (normalizedBlocks[0]?.props ?? {}) as Record<string, unknown>;
         const mergedProps = substituteAccountVars(
           mergeAuthored((tmpl.props ?? {}) as Record<string, unknown>, aiProps),
@@ -2166,24 +2217,31 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
           props: mergedProps,
         }];
       } else {
-        // Task #1126 / #1135 — every other template: the authored template
-        // layout is authoritative. The AI re-emits each block's COPY only and
-        // does NOT re-emit the authored structural props it doesn't know about
-        // (the event-landing-hero embedded form config + backgroundImage, the
-        // content sections, layout knobs, etc.). Iterate over the TEMPLATE
-        // blocks (not the AI's) so the generated page always carries the full
-        // authored layout in order, merging the AI copy OVER each authored block
-        // by position. This makes the route resilient to malformed/partial AI
-        // output: a block the AI omitted is restored from the template, an
-        // extra/unknown block the AI invented is dropped, and every authored
-        // structural prop (embedded form, hero image, content sections)
-        // survives. mergeAuthored keeps a non-empty AI value (personalised copy
-        // + any replaced image) and falls back to the authored value otherwise.
+        // Task #1126 / #1135 / #1220 — every other template (full-page,
+        // one-pager, crowns, and ordinary section-composed pages alike): the
+        // authored template layout is authoritative. The AI re-emits each
+        // block's COPY only and does NOT re-emit the authored structural props
+        // it doesn't know about (the event-landing-hero embedded form config +
+        // backgroundImage, the content sections, layout knobs, etc.). Iterate
+        // over the TEMPLATE blocks (not the AI's) so the generated page always
+        // carries the full authored layout in order, deep-merging the AI copy
+        // OVER each authored block by position. This makes the route resilient
+        // to malformed/partial AI output: a block the AI omitted is restored
+        // from the template, an extra/unknown block the AI invented is dropped,
+        // and every authored structural prop (embedded form, hero image,
+        // content sections) survives. mergeAuthored keeps a non-empty AI value
+        // (personalised copy + any replaced image) and falls back to the
+        // authored value otherwise; substituteAccountVars then fills any
+        // placeholder the author left in the template.
         normalizedBlocks = templateBlocks.map((tmpl, i) => {
           const aiBlock = normalizedBlocks[i];
-          const merged = mergeAuthored(
-            (tmpl.props ?? {}) as Record<string, unknown>,
-            (aiBlock?.props ?? {}) as Record<string, unknown>,
+          const merged = substituteAccountVars(
+            mergeAuthored(
+              (tmpl.props ?? {}) as Record<string, unknown>,
+              (aiBlock?.props ?? {}) as Record<string, unknown>,
+            ),
+            companyName,
+            practiceCount,
           ) as Record<string, unknown>;
           return {
             id: (aiBlock?.id as string | undefined) ?? (tmpl.id as string | undefined),

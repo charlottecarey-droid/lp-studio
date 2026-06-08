@@ -436,6 +436,50 @@ type KnownDims = { width?: number | null; height?: number | null };
 
 const heroProbeStorage = new ObjectStorageService();
 
+// Task #1220 — recursive structure-preserving copy-merge for the
+// template-rewrite path. The authored template defines the complete structure;
+// the AI may only rewrite human-readable TEXT. At EVERY nesting level: keys
+// absent from the authored object are dropped (no hallucinated keys), technical
+// fields (…url / …color / id / anchor / href / src) are kept verbatim, arrays
+// keep the AUTHORED length/order (merged by index), nested objects recurse, and
+// scalars take the AI string/number/boolean. Used for nested objects/arrays the
+// flat top-level merge would otherwise leave un-personalized (full-page /
+// one-pager / crowns templates). The dso-case-study `position` new-key exception
+// is handled by the top-level merge, not here.
+function isTechnicalCopyField(k: string): boolean {
+  return /url$/i.test(k) || /color$/i.test(k) || k === "id" || k === "anchor" || k === "href" || k === "src";
+}
+function deepMergeTemplateCopy(origVal: unknown, aiVal: unknown): unknown {
+  if (Array.isArray(origVal)) {
+    if (!Array.isArray(aiVal)) return origVal;
+    return origVal.map((origItem, idx) => {
+      const aiItem = aiVal[idx];
+      if (
+        origItem && typeof origItem === "object" && !Array.isArray(origItem) &&
+        aiItem && typeof aiItem === "object" && !Array.isArray(aiItem)
+      ) {
+        return deepMergeTemplateCopy(origItem, aiItem);
+      }
+      if (typeof aiItem === "string") return aiItem;
+      return origItem;
+    });
+  }
+  if (origVal && typeof origVal === "object") {
+    if (!aiVal || typeof aiVal !== "object" || Array.isArray(aiVal)) return origVal;
+    const o = origVal as Record<string, unknown>;
+    const a = aiVal as Record<string, unknown>;
+    const out: Record<string, unknown> = { ...o };
+    for (const [k, v] of Object.entries(a)) {
+      if (!(k in o)) continue;
+      if (isTechnicalCopyField(k)) continue;
+      out[k] = deepMergeTemplateCopy(o[k], v);
+    }
+    return out;
+  }
+  if (typeof aiVal === "string" || typeof aiVal === "number" || typeof aiVal === "boolean") return aiVal;
+  return origVal;
+}
+
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
   return Promise.race([
     p.catch(() => null),
@@ -4445,7 +4489,15 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
                   const isAllowedNewKey = allowPosition && ik === "position";
                   if (!(ik in oi) && !isAllowedNewKey) continue;
                   if (/url$/i.test(ik) || /color$/i.test(ik) || ik === "id" || ik === "anchor" || ik === "href" || ik === "src") continue;
-                  if (typeof iv === "string") merged[ik] = iv;
+                  const oiv = oi[ik];
+                  // Task #1220 — recurse into nested objects/arrays within an item
+                  // (full-page templates) so their copy personalizes too; scalars
+                  // keep the prior string-only behavior.
+                  if (oiv && typeof oiv === "object" && iv && typeof iv === "object") {
+                    merged[ik] = deepMergeTemplateCopy(oiv, iv);
+                  } else if (typeof iv === "string") {
+                    merged[ik] = iv;
+                  }
                 }
                 return merged;
               }
@@ -4453,6 +4505,17 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
               if (typeof aiItem === "string") return aiItem;
               return origItem;
             });
+            continue;
+          }
+          // Task #1220 — nested plain-object prop (full-page / one-pager / crowns
+          // templates carry structured copy objects the flat merge above would
+          // otherwise leave verbatim). Recurse so nested human-readable text is
+          // personalized while structure + technical fields are preserved.
+          if (
+            origVal && typeof origVal === "object" && !Array.isArray(origVal) &&
+            v && typeof v === "object" && !Array.isArray(v)
+          ) {
+            mergedProps[k] = deepMergeTemplateCopy(origVal, v);
             continue;
           }
           if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
