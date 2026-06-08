@@ -2066,6 +2066,15 @@ function looksLikeUrlIcon(value: string): boolean {
   );
 }
 
+/**
+ * Every key whose value the renderer feeds to `IconOrImage` (lp-studio blocks).
+ * Most blocks use `icon`, but a couple use non-literal names — keep this list in
+ * sync with `<IconOrImage value={…}>` callsites (BlockFeaturesSpotlightCards →
+ * `spotlightIcon`, BlockDsoCaseFlow → `iconName`). A URL in ANY of these renders
+ * a tiny <img> instead of a Lucide icon.
+ */
+const URL_VALUED_ICON_KEYS = new Set(["icon", "spotlightIcon", "iconName"]);
+
 export function stripUrlValuedIcons(value: unknown): void {
   if (Array.isArray(value)) {
     for (const v of value) stripUrlValuedIcons(v);
@@ -2073,8 +2082,9 @@ export function stripUrlValuedIcons(value: unknown): void {
   }
   if (value && typeof value === "object") {
     const obj = value as Record<string, unknown>;
-    if (typeof obj.icon === "string" && looksLikeUrlIcon(obj.icon)) {
-      obj.icon = "";
+    for (const key of URL_VALUED_ICON_KEYS) {
+      const v = obj[key];
+      if (typeof v === "string" && looksLikeUrlIcon(v)) obj[key] = "";
     }
     for (const v of Object.values(obj)) stripUrlValuedIcons(v);
   }

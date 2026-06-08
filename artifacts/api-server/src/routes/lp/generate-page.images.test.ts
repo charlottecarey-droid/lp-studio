@@ -1089,6 +1089,27 @@ describe("icon-only item photos (benefits-grid / features)", () => {
     expect((out[2].props as any).promises[0].icon).toBe("");
   });
 
+  it("blanks URL-valued non-literal icon keys (spotlightIcon, iconName)", () => {
+    const blocks = [
+      { type: "features-spotlight-cards", props: { spotlightIcon: "/objects/spot.png", features: [{ icon: "https://x.com/objects/f.png", title: "F" }] } },
+      { type: "dso-case-flow", props: { stages: [{ iconName: "data:image/svg+xml,AAA", label: "S" }] } },
+    ];
+    const out = sanitizeAIImageUrls(blocks, LIB) as typeof blocks;
+    expect((out[0].props as any).spotlightIcon).toBe("");
+    expect((out[0].props as any).features[0].icon).toBe("");
+    expect((out[1].props as any).stages[0].iconName).toBe("");
+  });
+
+  it("preserves Lucide/curated values on non-literal icon keys", () => {
+    const blocks = [
+      { type: "features-spotlight-cards", props: { spotlightIcon: "Layers" } },
+      { type: "dso-case-flow", props: { stages: [{ iconName: "alert-triangle", label: "S" }] } },
+    ];
+    const out = sanitizeAIImageUrls(blocks, LIB) as typeof blocks;
+    expect((out[0].props as any).spotlightIcon).toBe("Layers");
+    expect((out[1].props as any).stages[0].iconName).toBe("alert-triangle");
+  });
+
   it("preserves curated icon keys and Lucide names (only URLs are stripped)", () => {
     const blocks = [
       { type: "dso-problem", props: { panels: [{ icon: "alert-triangle", title: "T" }] } },
