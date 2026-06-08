@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
+import { IconPicker } from "@/components/IconPicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 import { VideoPicker } from "@/components/VideoPicker";
@@ -86,10 +87,7 @@ export function MediaFeatureReelPanel({ props, onChange, brandVoiceSet }: Props)
                 <Button size="icon" variant="ghost" onClick={() => removeFeature(i)}><Trash2 className="h-3 w-3" /></Button>
               </div>
             </div>
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Icon (Lucide name)</Label>
-              <Input value={feat.icon} onChange={(e) => updateFeature(i, { icon: e.target.value })} placeholder="Sparkles" className="h-8 text-xs" />
-            </div>
+            <IconPicker label="Icon" value={feat.icon} onChange={(v) => updateFeature(i, { icon: v })} aiHint="Feature icon" />
             <div>
               <Label className="text-[11px] text-muted-foreground">Title</Label>
               <AiTextField type="input" value={feat.title} onChange={(v) => updateFeature(i, { title: v })} className="h-8 text-xs" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy("media-feature-reel", "title", feat.title, { heading: props.heading ?? "" })} fieldLabel="Feature title" />

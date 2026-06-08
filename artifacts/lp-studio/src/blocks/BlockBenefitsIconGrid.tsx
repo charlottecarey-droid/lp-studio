@@ -2,6 +2,7 @@ import {
   Zap, Layers, TrendingUp, BarChart3, Users, ShieldCheck, CloudLightning,
   Globe2, Clock, Sparkles, ArrowRight,
 } from "lucide-react";
+import { IconOrImage } from "@/lib/icon-value";
 import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
@@ -13,10 +14,6 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Zap, Layers, TrendingUp, BarChart3, Users, ShieldCheck, CloudLightning,
-  Globe2, Clock, Sparkles,
-};
 
 interface Props {
   props: BenefitsIconGridBlockProps;
@@ -72,11 +69,10 @@ export function BlockBenefitsIconGrid({ props, brand, onFieldChange }: Props) {
 
         <div className={cn("grid grid-cols-1 gap-x-12 gap-y-16 sm:grid-cols-2", (props.columns ?? 3) === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2")}>
           {props.items.map((item, i) => {
-            const Icon = ICON_MAP[item.icon] || Zap;
             return (
               <div key={i} className="flex flex-col">
                 <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: tint }}>
-                  <Icon className="h-6 w-6" />
+                  <IconOrImage value={item.icon} fallback={Zap} className="h-6 w-6" />
                 </div>
                 <InlineText
                   as="h3"

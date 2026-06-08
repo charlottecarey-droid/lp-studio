@@ -1,4 +1,5 @@
 import * as Icons from "lucide-react";
+import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { BentoShowcaseBlockProps, BentoShowcaseTile } from "@/lib/block-types";
 import { cn } from "@/lib/utils";
@@ -148,7 +149,6 @@ function Tile({
   }
 
   // feature
-  const Icon = (tile.icon && (Icons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[tile.icon]) || Icons.Sparkles;
   return (
     <div
       className={cn(
@@ -161,7 +161,7 @@ function Tile({
         className="w-12 h-12 rounded-2xl flex items-center justify-center"
         style={{ backgroundColor: `${accent}1F`, color: accent }}
       >
-        <Icon className="w-6 h-6" />
+        <IconOrImage value={tile.icon} fallback={Icons.Sparkles} className="w-6 h-6" />
       </div>
       <div className="mt-6">
         <div className="font-semibold text-xl lg:text-2xl leading-tight">

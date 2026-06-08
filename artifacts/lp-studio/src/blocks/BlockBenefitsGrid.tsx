@@ -1,4 +1,5 @@
 import { Zap, ScanLine, RefreshCcw, HeadphonesIcon, BarChart2, DollarSign, Users, MessageCircle, Bot, Activity, Clipboard, Bell, Package, Monitor, BookOpen, Star, CheckCircle } from "lucide-react";
+import { IconOrImage } from "@/lib/icon-value";
 import { cn } from "@/lib/utils";
 import type { BenefitsGridBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -12,10 +13,6 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Zap, ScanLine, RefreshCcw, HeadphonesIcon, BarChart2, DollarSign,
-  Users, MessageCircle, Bot, Activity, Clipboard, Bell, Package, Monitor, BookOpen, Star, CheckCircle,
-};
 
 const CARD_SPRING = { type: "spring" as const, stiffness: 320, damping: 22 };
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -53,7 +50,6 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange, animationsEnabl
           5: "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5",
         }[props.columns ?? 3])}>
           {props.items.map((benefit, i) => {
-            const Icon = ICON_MAP[benefit.icon] || Zap;
             const hasImage = !!benefit.image;
             return (
               <motion.div
@@ -84,12 +80,12 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange, animationsEnabl
                       onUpdate={onFieldChange ? (url) => updateItemImage(i, url) : undefined}
                     />
                     <div className="absolute bottom-3 left-3 w-11 h-11 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-sm">
-                      <Icon className="w-6 h-6 text-[var(--brand-primary)]" />
+                      <IconOrImage value={benefit.icon} fallback={Zap} className="w-6 h-6 text-[var(--brand-primary)]" />
                     </div>
                   </div>
                 ) : (
                   <div className="w-14 h-14 rounded-full bg-[#E8F5F2] flex items-center justify-center mb-6">
-                    <Icon className="w-7 h-7 text-[var(--brand-primary)]" />
+                    <IconOrImage value={benefit.icon} fallback={Zap} className="w-7 h-7 text-[var(--brand-primary)]" />
                   </div>
                 )}
                 <div className={cn(hasImage && "p-8 pt-6 flex flex-col flex-1")}>

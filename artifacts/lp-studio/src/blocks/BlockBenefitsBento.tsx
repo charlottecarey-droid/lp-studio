@@ -2,6 +2,7 @@ import {
   Zap, Layers, TrendingUp, BarChart3, Users, ShieldCheck, CloudLightning,
   Globe2, Clock, Sparkles, ArrowRight,
 } from "lucide-react";
+import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { BenefitsBentoBlockProps } from "@/lib/block-types";
@@ -12,10 +13,6 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Zap, Layers, TrendingUp, BarChart3, Users, ShieldCheck, CloudLightning,
-  Globe2, Clock, Sparkles,
-};
 
 interface Props {
   props: BenefitsBentoBlockProps;
@@ -80,7 +77,6 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:grid-rows-3">
           {props.tiles.map((tile, i) => {
-            const Icon = ICON_MAP[tile.icon] || Layers;
             const isDark = i === 4;
             const isHero = i === 0;
             if (isDark) {
@@ -93,7 +89,7 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
                   <div className="absolute -right-12 -top-12 h-64 w-64 rounded-full opacity-20 blur-3xl" style={{ backgroundColor: darkOnAccent }} />
                   <div className="relative z-10">
                     <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: `${darkOnAccent}26` }}>
-                      <Icon className="h-5 w-5" />
+                      <IconOrImage value={tile.icon} fallback={Layers} className="h-5 w-5" />
                     </div>
                     <InlineText
                       as="h3"
@@ -118,7 +114,7 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
                 className={`group relative flex flex-col overflow-hidden rounded-3xl bg-white p-8 shadow-sm ring-1 ring-black/5 transition-all hover:shadow-md ${spanFor(i)}`}
               >
                 <div className={`mb-4 flex items-center justify-center rounded-xl ${isHero ? "h-12 w-12" : "h-10 w-10"}`} style={{ backgroundColor: tint }}>
-                  <Icon className={isHero ? "h-6 w-6" : "h-5 w-5"} />
+                  <IconOrImage value={tile.icon} fallback={Layers} className={isHero ? "h-6 w-6" : "h-5 w-5"} />
                 </div>
                 <InlineText
                   as="h3"

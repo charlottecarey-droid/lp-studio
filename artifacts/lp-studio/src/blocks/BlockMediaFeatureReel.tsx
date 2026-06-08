@@ -1,6 +1,7 @@
 import { useState } from "react";
 import * as LucideIcons from "lucide-react";
 import { Play } from "lucide-react";
+import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { MediaFeatureReelBlockProps } from "@/lib/block-types";
@@ -14,13 +15,6 @@ interface Props {
   props: MediaFeatureReelBlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: MediaFeatureReelBlockProps) => void;
-}
-
-type IconComp = React.ComponentType<{ className?: string }>;
-
-function resolveIcon(name: string): IconComp {
-  const map = LucideIcons as unknown as Record<string, IconComp>;
-  return map[name] ?? LucideIcons.Sparkles;
 }
 
 export function BlockMediaFeatureReel({ props, brand, onFieldChange }: Props) {
@@ -89,14 +83,13 @@ export function BlockMediaFeatureReel({ props, brand, onFieldChange }: Props) {
         {/* Feature Captions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16 max-w-5xl mx-auto">
           {features.map((feat, i) => {
-            const Icon = resolveIcon(feat.icon);
             return (
               <div key={i} className="flex flex-col items-center text-center p-6 rounded-2xl">
                 <div
                   className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
                   style={{ backgroundColor: `${accent}1A`, color: accent }}
                 >
-                  <Icon className="w-5 h-5" />
+                  <IconOrImage value={feat.icon} fallback={LucideIcons.Sparkles} className="w-5 h-5" />
                 </div>
                 <InlineText
                   as="h3"

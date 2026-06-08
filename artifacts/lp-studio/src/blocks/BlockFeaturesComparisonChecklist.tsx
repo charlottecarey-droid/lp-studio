@@ -1,6 +1,7 @@
 import {
   Check, Shield, Zap, Globe, Layers, MessageSquare, Database,
 } from "lucide-react";
+import { IconOrImage } from "@/lib/icon-value";
 import { Fragment } from "react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
@@ -12,9 +13,6 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Shield, Zap, Globe, Layers, MessageSquare, Database, Check,
-};
 
 interface Props {
   props: FeaturesComparisonChecklistBlockProps;
@@ -114,7 +112,6 @@ export function BlockFeaturesComparisonChecklist({ props, brand, onFieldChange }
                     style={{ fontFamily: DISPLAY }} />
                 </div>
                 {category.features.map((feature, featIndex) => {
-                  const Icon = ICON_MAP[feature.icon] || Layers;
                   return (
                     <div
                       key={featIndex}
@@ -122,7 +119,7 @@ export function BlockFeaturesComparisonChecklist({ props, brand, onFieldChange }
                     >
                       <div className="flex items-start gap-4">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: tint, color: accent }}>
-                          <Icon className="h-5 w-5" />
+                          <IconOrImage value={feature.icon} fallback={Layers} className="h-5 w-5" />
                         </div>
                         <div>
                           <InlineText

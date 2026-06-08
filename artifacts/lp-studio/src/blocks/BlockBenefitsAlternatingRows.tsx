@@ -2,6 +2,7 @@ import {
   Zap, Layers, TrendingUp, BarChart3, Users, ShieldCheck, CloudLightning,
   Globe2, Clock, Sparkles, CheckCircle2, ArrowRight,
 } from "lucide-react";
+import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { BenefitsAlternatingRowsBlockProps } from "@/lib/block-types";
@@ -12,10 +13,6 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Zap, Layers, TrendingUp, BarChart3, Users, ShieldCheck, CloudLightning,
-  Globe2, Clock, Sparkles,
-};
 
 interface Props {
   props: BenefitsAlternatingRowsBlockProps;
@@ -104,7 +101,6 @@ export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Pr
 
         <div className="flex flex-col gap-24 md:gap-40">
           {props.rows.map((row, index) => {
-            const Icon = ICON_MAP[row.icon] || Zap;
             const isReversed = index % 2 !== 0;
             return (
               <div
@@ -113,7 +109,7 @@ export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Pr
               >
                 <div className="flex flex-1 flex-col justify-center">
                   <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ backgroundColor: tint }}>
-                    <Icon className="h-6 w-6" />
+                    <IconOrImage value={row.icon} fallback={Zap} className="h-6 w-6" />
                   </div>
                   <InlineText
                     as="h4"

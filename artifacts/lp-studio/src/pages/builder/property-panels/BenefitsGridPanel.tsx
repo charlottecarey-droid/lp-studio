@@ -8,6 +8,7 @@ import { Plus, Trash2, GripVertical, ImagePlus, ImageOff } from "lucide-react";
 import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
+import { IconPicker } from "@/components/IconPicker";
 import { ImagePicker } from "@/components/ImagePicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { useState } from "react";
@@ -147,14 +148,7 @@ export function BenefitsGridPanel({ blockType, props, onChange, brandVoiceSet }:
                 </Button>
               </div>
             </div>
-            <Select value={item.icon} onValueChange={v => updateItem(i, "icon", v)}>
-              <SelectTrigger className="text-xs h-7"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {["Zap", "ScanLine", "RefreshCcw", "HeadphonesIcon", "BarChart2", "DollarSign"].map(ic => (
-                  <SelectItem key={ic} value={ic}>{ic}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <IconPicker label="Icon" value={item.icon} onChange={v => updateItem(i, "icon", v)} aiHint="Benefit icon" />
             <AiTextField
               type="input"
               value={item.title}

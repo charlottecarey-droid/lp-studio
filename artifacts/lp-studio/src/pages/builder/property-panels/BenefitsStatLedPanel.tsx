@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
+import { IconPicker } from "@/components/IconPicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 import { BenefitsCtaSection } from "./BenefitsAlternatingRowsPanel";
@@ -93,10 +94,7 @@ export function BenefitsStatLedPanel({ props, onChange }: Props) {
                 <Label className="text-[11px] text-muted-foreground">Stat value</Label>
                 <Input value={s.stat} onChange={(e) => updateStat(i, { stat: e.target.value })} placeholder="3.5x" className="h-8 text-xs" />
               </div>
-              <div>
-                <Label className="text-[11px] text-muted-foreground">Icon (Lucide name)</Label>
-                <Input value={s.icon} onChange={(e) => updateStat(i, { icon: e.target.value })} placeholder="TrendingUp" className="h-8 text-xs" />
-              </div>
+              <IconPicker label="Icon" value={s.icon} onChange={(v) => updateStat(i, { icon: v })} aiHint="Stat icon" />
             </div>
             <div>
               <Label className="text-[11px] text-muted-foreground">Title</Label>

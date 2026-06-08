@@ -7,6 +7,7 @@ import type {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
+import { IconPicker } from "@/components/IconPicker";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
@@ -261,16 +262,7 @@ function TileEditor({
 
       {tile.kind === "feature" && (
         <div>
-          <Label className="text-[11px] text-muted-foreground">Icon (Lucide name)</Label>
-          <Input
-            value={tile.icon ?? ""}
-            onChange={e => onChange({ icon: e.target.value })}
-            placeholder="e.g. Zap, BarChart2, Sparkles"
-            className="h-8 text-xs"
-          />
-          <p className="text-[10px] text-muted-foreground mt-1">
-            Browse names at lucide.dev/icons. Defaults to Sparkles.
-          </p>
+          <IconPicker label="Icon" value={tile.icon ?? ""} onChange={v => onChange({ icon: v })} aiHint="Feature icon" />
         </div>
       )}
 

@@ -1,6 +1,7 @@
 import {
   Layout, Palette, Users, LineChart, Shield, Rocket, Layers,
 } from "lucide-react";
+import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { FeaturesBentoShowcaseBlockProps } from "@/lib/block-types";
@@ -11,9 +12,6 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Layout, Palette, Users, LineChart, Shield, Rocket, Layers,
-};
 
 interface Props {
   props: FeaturesBentoShowcaseBlockProps;
@@ -198,7 +196,6 @@ export function BlockFeaturesBentoShowcase({ props, brand, onFieldChange }: Prop
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:grid-rows-3 lg:gap-6">
           {props.tiles.map((tile, i) => {
-            const Icon = ICON_MAP[tile.icon] || Layers;
             const isHero = i === 0;
             return (
               <div
@@ -207,7 +204,7 @@ export function BlockFeaturesBentoShowcase({ props, brand, onFieldChange }: Prop
               >
                 <div className={isHero ? "relative z-10 mb-8 flex flex-col items-start gap-4" : "mb-6"}>
                   <div className={`${isHero ? "" : "mb-4 inline-flex"} flex w-fit items-center justify-center rounded-xl p-3`} style={{ backgroundColor: tint, color: accent }}>
-                    <Icon className={isHero ? "h-6 w-6" : "h-5 w-5"} />
+                    <IconOrImage value={tile.icon} fallback={Layers} className={isHero ? "h-6 w-6" : "h-5 w-5"} />
                   </div>
                   <div>
                     <InlineText

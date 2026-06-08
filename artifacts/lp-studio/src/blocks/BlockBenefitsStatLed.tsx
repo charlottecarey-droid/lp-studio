@@ -2,6 +2,7 @@ import {
   Zap, Layers, TrendingUp, BarChart3, Users, ShieldCheck, CloudLightning,
   Globe2, Clock, Sparkles, ArrowRight,
 } from "lucide-react";
+import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { BenefitsStatLedBlockProps } from "@/lib/block-types";
@@ -13,10 +14,6 @@ const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
 const NUMBERS = BRAND_NUMBERS_FONT;
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Zap, Layers, TrendingUp, BarChart3, Users, ShieldCheck, CloudLightning,
-  Globe2, Clock, Sparkles,
-};
 
 interface Props {
   props: BenefitsStatLedBlockProps;
@@ -73,7 +70,6 @@ export function BlockBenefitsStatLed({ props, brand, onFieldChange }: Props) {
 
         <div className="grid grid-cols-1 gap-12 md:grid-cols-3 lg:gap-16">
           {props.stats.map((stat, i) => {
-            const Icon = ICON_MAP[stat.icon] || TrendingUp;
             return (
               <div key={i} className="group flex flex-col">
                 <div className="mb-6 transition-transform duration-500 ease-out group-hover:-translate-y-2">
@@ -87,7 +83,7 @@ export function BlockBenefitsStatLed({ props, brand, onFieldChange }: Props) {
                 <div className="mb-8 h-px w-full" style={{ backgroundColor: `${text}1f` }} />
                 <div className="flex items-start gap-4">
                   <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: tint }}>
-                    <Icon className="h-5 w-5" />
+                    <IconOrImage value={stat.icon} fallback={TrendingUp} className="h-5 w-5" />
                   </div>
                   <div>
                     <InlineText

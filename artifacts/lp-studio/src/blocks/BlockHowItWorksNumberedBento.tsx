@@ -2,6 +2,7 @@ import {
   Plug, Palette, Wand2, BarChart3, Zap, Rocket, Settings, Layers,
   TrendingUp, Sparkles, ArrowRight,
 } from "lucide-react";
+import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { HowItWorksNumberedBentoBlockProps } from "@/lib/block-types";
@@ -9,10 +10,6 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Plug, Palette, Wand2, BarChart3, Zap, Rocket, Settings, Layers,
-  TrendingUp, Sparkles,
-};
 
 interface Props {
   props: HowItWorksNumberedBentoBlockProps;
@@ -72,7 +69,6 @@ export function BlockHowItWorksNumberedBento({ props, brand, onFieldChange }: Pr
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {steps.map((step, index) => {
-            const Icon = ICON_MAP[step.icon] || Plug;
             const isAccent = index === steps.length - 1;
             const span = index === 0 || index === steps.length - 1 ? "md:col-span-2" : "md:col-span-1";
             return (
@@ -97,7 +93,7 @@ export function BlockHowItWorksNumberedBento({ props, brand, onFieldChange }: Pr
                     className="inline-flex h-14 w-14 items-center justify-center rounded-2xl"
                     style={isAccent ? { backgroundColor: `${onAccent}26`, color: onAccent } : { backgroundColor: tint, color: accent }}
                   >
-                    <Icon className="h-7 w-7" />
+                    <IconOrImage value={step.icon} fallback={Plug} className="h-7 w-7" />
                   </div>
                   <div className="max-w-md">
                     <InlineText

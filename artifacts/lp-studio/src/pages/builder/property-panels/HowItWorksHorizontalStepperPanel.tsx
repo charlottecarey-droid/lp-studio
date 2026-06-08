@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
+import { IconPicker } from "@/components/IconPicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 import { BenefitsCtaSection } from "./BenefitsAlternatingRowsPanel";
@@ -82,10 +83,7 @@ export function HowItWorksHorizontalStepperPanel({ props, onChange }: Props) {
                 <Button size="icon" variant="ghost" onClick={() => removeStep(i)}><Trash2 className="h-3 w-3" /></Button>
               </div>
             </div>
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Icon (Lucide name)</Label>
-              <Input value={step.icon} onChange={(e) => updateStep(i, { icon: e.target.value })} placeholder="UserPlus" className="h-8 text-xs" />
-            </div>
+            <IconPicker label="Icon" value={step.icon} onChange={(v) => updateStep(i, { icon: v })} aiHint="Step icon" />
             <div>
               <Label className="text-[11px] text-muted-foreground">Title</Label>
               <Input value={step.title} onChange={(e) => updateStep(i, { title: e.target.value })} className="h-8 text-xs" />

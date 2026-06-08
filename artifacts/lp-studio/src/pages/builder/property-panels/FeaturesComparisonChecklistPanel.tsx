@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
+import { IconPicker } from "@/components/IconPicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 import { BenefitsCtaSection } from "./BenefitsAlternatingRowsPanel";
@@ -115,10 +116,7 @@ export function FeaturesComparisonChecklistPanel({ props, onChange }: Props) {
                       <Button size="icon" variant="ghost" onClick={() => removeFeature(ci, fi)}><Trash2 className="h-3 w-3" /></Button>
                     </div>
                   </div>
-                  <div>
-                    <Label className="text-[11px] text-muted-foreground">Icon (Lucide name)</Label>
-                    <Input value={feature.icon} onChange={(e) => updateFeature(ci, fi, { icon: e.target.value })} placeholder="Shield" className="h-8 text-xs" />
-                  </div>
+                  <IconPicker label="Icon" value={feature.icon} onChange={(v) => updateFeature(ci, fi, { icon: v })} aiHint="Feature icon" />
                   <div>
                     <Label className="text-[11px] text-muted-foreground">Name</Label>
                     <Input value={feature.name} onChange={(e) => updateFeature(ci, fi, { name: e.target.value })} className="h-8 text-xs" />

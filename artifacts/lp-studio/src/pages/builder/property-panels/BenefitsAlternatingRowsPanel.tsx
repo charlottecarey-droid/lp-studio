@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
+import { IconPicker } from "@/components/IconPicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 
@@ -71,10 +72,7 @@ export function BenefitsAlternatingRowsPanel({ props, onChange }: Props) {
                 <Button size="icon" variant="ghost" onClick={() => removeRow(i)}><Trash2 className="h-3 w-3" /></Button>
               </div>
             </div>
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Icon (Lucide name)</Label>
-              <Input value={row.icon} onChange={(e) => updateRow(i, { icon: e.target.value })} placeholder="Zap" className="h-8 text-xs" />
-            </div>
+            <IconPicker label="Icon" value={row.icon} onChange={(v) => updateRow(i, { icon: v })} aiHint="Benefit icon" />
             <div>
               <Label className="text-[11px] text-muted-foreground">Title</Label>
               <Input value={row.title} onChange={(e) => updateRow(i, { title: e.target.value })} className="h-8 text-xs" />

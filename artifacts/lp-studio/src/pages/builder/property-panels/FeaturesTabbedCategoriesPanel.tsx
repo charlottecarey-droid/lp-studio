@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
+import { IconPicker } from "@/components/IconPicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 import { BenefitsCtaSection } from "./BenefitsAlternatingRowsPanel";
@@ -95,10 +96,7 @@ export function FeaturesTabbedCategoriesPanel({ props, onChange }: Props) {
                 <Label className="text-[11px] text-muted-foreground">Tab label</Label>
                 <Input value={category.label} onChange={(e) => updateCategory(ci, { label: e.target.value })} className="h-8 text-xs" />
               </div>
-              <div>
-                <Label className="text-[11px] text-muted-foreground">Tab icon (Lucide)</Label>
-                <Input value={category.icon} onChange={(e) => updateCategory(ci, { icon: e.target.value })} placeholder="Zap" className="h-8 text-xs" />
-              </div>
+              <IconPicker label="Tab icon" value={category.icon} onChange={(v) => updateCategory(ci, { icon: v })} aiHint="Tab icon" />
             </div>
             <div>
               <Label className="text-[11px] text-muted-foreground">Heading</Label>
@@ -124,10 +122,7 @@ export function FeaturesTabbedCategoriesPanel({ props, onChange }: Props) {
                       <Button size="icon" variant="ghost" onClick={() => removeFeature(ci, fi)}><Trash2 className="h-3 w-3" /></Button>
                     </div>
                   </div>
-                  <div>
-                    <Label className="text-[11px] text-muted-foreground">Icon (Lucide name)</Label>
-                    <Input value={feature.icon} onChange={(e) => updateFeature(ci, fi, { icon: e.target.value })} placeholder="Paintbrush" className="h-8 text-xs" />
-                  </div>
+                  <IconPicker label="Icon" value={feature.icon} onChange={(v) => updateFeature(ci, fi, { icon: v })} aiHint="Feature icon" />
                   <div>
                     <Label className="text-[11px] text-muted-foreground">Title</Label>
                     <Input value={feature.title} onChange={(e) => updateFeature(ci, fi, { title: e.target.value })} className="h-8 text-xs" />

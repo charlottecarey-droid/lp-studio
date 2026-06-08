@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
+import { IconPicker } from "@/components/IconPicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 import { BenefitsCtaSection } from "./BenefitsAlternatingRowsPanel";
@@ -71,10 +72,7 @@ export function FeaturesBentoShowcasePanel({ props, onChange }: Props) {
                 <Button size="icon" variant="ghost" onClick={() => removeTile(i)}><Trash2 className="h-3 w-3" /></Button>
               </div>
             </div>
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Icon (Lucide name)</Label>
-              <Input value={tile.icon} onChange={(e) => updateTile(i, { icon: e.target.value })} placeholder="Layout" className="h-8 text-xs" />
-            </div>
+            <IconPicker label="Icon" value={tile.icon} onChange={(v) => updateTile(i, { icon: v })} aiHint="Feature icon" />
             <div>
               <Label className="text-[11px] text-muted-foreground">Title</Label>
               <Input value={tile.title} onChange={(e) => updateTile(i, { title: e.target.value })} className="h-8 text-xs" />

@@ -2,6 +2,7 @@ import {
   UserPlus, Zap, Rocket, Settings, Plug, Workflow, Sparkles,
   ShieldCheck, CheckCircle2, ArrowRight,
 } from "lucide-react";
+import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { HowItWorksHorizontalStepperBlockProps } from "@/lib/block-types";
@@ -9,9 +10,6 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  UserPlus, Zap, Rocket, Settings, Plug, Workflow, Sparkles, ShieldCheck,
-};
 
 interface Props {
   props: HowItWorksHorizontalStepperBlockProps;
@@ -90,12 +88,11 @@ export function BlockHowItWorksHorizontalStepper({ props, brand, onFieldChange }
 
           <div className="relative z-10 grid snap-x snap-mandatory auto-cols-[80%] grid-flow-col gap-8 overflow-x-auto pb-2 md:auto-cols-auto md:grid-flow-row md:grid-cols-3 md:gap-4 md:overflow-visible md:pb-0">
             {steps.map((step, index) => {
-              const Icon = ICON_MAP[step.icon] || UserPlus;
               return (
                 <div key={index} className="group relative flex snap-start flex-col items-center text-center md:items-start md:text-left">
                   <div className="mb-6 flex w-full items-center justify-center gap-4 md:mb-8 md:justify-start">
                     <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-black/5 bg-white shadow-sm transition-transform group-hover:scale-105 group-hover:shadow-md">
-                      <Icon className="h-5 w-5" />
+                      <IconOrImage value={step.icon} fallback={UserPlus} className="h-5 w-5" />
                       <div className="absolute -right-3 -top-3 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-sm font-bold shadow-sm" style={{ backgroundColor: tint, color: accent }}>
                         {index + 1}
                       </div>

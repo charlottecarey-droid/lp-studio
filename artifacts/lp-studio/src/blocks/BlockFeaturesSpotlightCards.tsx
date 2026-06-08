@@ -2,6 +2,7 @@ import {
   LayoutTemplate, SplitSquareHorizontal, LineChart, Globe, Users, Search,
   MousePointer2, ChevronRight, Layers,
 } from "lucide-react";
+import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { FeaturesSpotlightCardsBlockProps } from "@/lib/block-types";
@@ -12,9 +13,6 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutTemplate, SplitSquareHorizontal, LineChart, Globe, Users, Search, Layers,
-};
 
 interface Props {
   props: FeaturesSpotlightCardsBlockProps;
@@ -108,8 +106,6 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
     onFieldChange({ ...props, secondaryFeatures: props.secondaryFeatures.map((f, idx) => (idx === i ? { ...f, ...patch } : f)) });
   };
 
-  const SpotlightIcon = ICON_MAP[props.spotlightIcon] || Layers;
-
   return (
     <section className="flex w-full justify-center px-6 py-24 lg:px-8" style={{ backgroundColor: bg, color: text }}>
       <div className="w-full max-w-[1280px]">
@@ -135,7 +131,7 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
           <div className="grid grid-cols-1 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-neutral-200/50 md:grid-cols-2">
             <div className="flex flex-col justify-center p-10 md:p-16">
               <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: tint, color: accent }}>
-                <SpotlightIcon className="h-6 w-6" />
+                <IconOrImage value={props.spotlightIcon} fallback={Layers} className="h-6 w-6" />
               </div>
               <InlineText
                 as="h3"
@@ -173,14 +169,13 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
           {/* Secondary Features Row */}
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3 lg:grid-cols-5">
             {props.secondaryFeatures.map((feature, i) => {
-              const Icon = ICON_MAP[feature.icon] || Layers;
               return (
                 <div
                   key={i}
                   className="flex flex-col rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200/50 transition-shadow hover:shadow-md"
                 >
                   <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-50 text-neutral-600">
-                    <Icon className="h-5 w-5" />
+                    <IconOrImage value={feature.icon} fallback={Layers} className="h-5 w-5" />
                   </div>
                   <InlineText
                     as="h4"

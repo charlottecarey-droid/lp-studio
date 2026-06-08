@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
+import { IconPicker } from "@/components/IconPicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 import { BenefitsCtaSection } from "./BenefitsAlternatingRowsPanel";
@@ -53,10 +54,7 @@ export function FeaturesSpotlightCardsPanel({ props, onChange }: Props) {
 
       <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Spotlight feature</div>
-        <div>
-          <Label className="text-[11px] text-muted-foreground">Icon (Lucide name)</Label>
-          <Input value={props.spotlightIcon} onChange={(e) => update({ spotlightIcon: e.target.value })} placeholder="LayoutTemplate" className="h-8 text-xs" />
-        </div>
+        <IconPicker label="Icon" value={props.spotlightIcon} onChange={(v) => update({ spotlightIcon: v })} aiHint="Spotlight icon" />
         <div>
           <Label className="text-[11px] text-muted-foreground">Title</Label>
           <AiTextField type="input" value={props.spotlightTitle} onChange={(v) => update({ spotlightTitle: v })} className="h-8 text-xs" onSuggest={() => suggestCopy("features-spotlight-cards", "spotlightTitle", props.spotlightTitle ?? "", { spotlightDescription: props.spotlightDescription ?? "" })} fieldLabel="Spotlight title" />
@@ -92,10 +90,7 @@ export function FeaturesSpotlightCardsPanel({ props, onChange }: Props) {
                 <Button size="icon" variant="ghost" onClick={() => removeFeature(i)}><Trash2 className="h-3 w-3" /></Button>
               </div>
             </div>
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Icon (Lucide name)</Label>
-              <Input value={feature.icon} onChange={(e) => updateFeature(i, { icon: e.target.value })} placeholder="LineChart" className="h-8 text-xs" />
-            </div>
+            <IconPicker label="Icon" value={feature.icon} onChange={(v) => updateFeature(i, { icon: v })} aiHint="Feature icon" />
             <div>
               <Label className="text-[11px] text-muted-foreground">Title</Label>
               <Input value={feature.title} onChange={(e) => updateFeature(i, { title: e.target.value })} className="h-8 text-xs" />

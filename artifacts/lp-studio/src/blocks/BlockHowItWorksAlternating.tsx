@@ -2,6 +2,7 @@ import {
   LayoutTemplate, MousePointerClick, Zap, Layers, TrendingUp, Rocket,
   Sparkles, Settings, BarChart3, CheckCircle2, ArrowRight,
 } from "lucide-react";
+import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { HowItWorksAlternatingBlockProps } from "@/lib/block-types";
@@ -9,10 +10,6 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutTemplate, MousePointerClick, Zap, Layers, TrendingUp, Rocket,
-  Sparkles, Settings, BarChart3,
-};
 
 interface Props {
   props: HowItWorksAlternatingBlockProps;
@@ -105,7 +102,6 @@ export function BlockHowItWorksAlternating({ props, brand, onFieldChange }: Prop
 
         <div className="flex flex-col gap-24">
           {steps.map((step, index) => {
-            const Icon = ICON_MAP[step.icon] || LayoutTemplate;
             const isReversed = index % 2 !== 0;
             return (
               <div
@@ -114,7 +110,7 @@ export function BlockHowItWorksAlternating({ props, brand, onFieldChange }: Prop
               >
                 <div className="flex flex-col items-start lg:w-1/2">
                   <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: tint, color: accent }}>
-                    <Icon className="h-6 w-6" />
+                    <IconOrImage value={step.icon} fallback={LayoutTemplate} className="h-6 w-6" />
                   </div>
                   <InlineText
                     as="h3"

@@ -2,6 +2,7 @@ import {
   Palette, Users, Zap, BarChart3, Plug, Wand2, Rocket, Settings,
   Layers, TrendingUp, Sparkles, ArrowRight,
 } from "lucide-react";
+import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { HowItWorksVerticalTimelineBlockProps } from "@/lib/block-types";
@@ -9,10 +10,6 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Palette, Users, Zap, BarChart3, Plug, Wand2, Rocket, Settings,
-  Layers, TrendingUp, Sparkles,
-};
 
 interface Props {
   props: HowItWorksVerticalTimelineBlockProps;
@@ -74,7 +71,6 @@ export function BlockHowItWorksVerticalTimeline({ props, brand, onFieldChange }:
 
           <div className="flex flex-col gap-12 sm:gap-16">
             {steps.map((step, index) => {
-              const Icon = ICON_MAP[step.icon] || Palette;
               return (
                 <div key={index} className="relative flex items-start gap-8">
                   <div
@@ -87,7 +83,7 @@ export function BlockHowItWorksVerticalTimeline({ props, brand, onFieldChange }:
                   <div className="flex flex-col pt-3 sm:pt-4">
                     <div className="mb-2 flex items-center gap-3">
                       <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ backgroundColor: tint, color: accent }}>
-                        <Icon className="h-4 w-4" />
+                        <IconOrImage value={step.icon} fallback={Palette} className="h-4 w-4" />
                       </div>
                       <InlineText
                         as="h3"

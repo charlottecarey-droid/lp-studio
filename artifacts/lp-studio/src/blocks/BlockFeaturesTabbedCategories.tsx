@@ -3,6 +3,7 @@ import {
   Paintbrush, Palette, Layers, Split, ListChecks, Sparkles, Route,
   DollarSign, MousePointerClick, MonitorSmartphone, Zap, BarChart3,
 } from "lucide-react";
+import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { FeaturesTabbedCategoriesBlockProps } from "@/lib/block-types";
@@ -13,10 +14,6 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
 
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Paintbrush, Palette, Layers, Split, ListChecks, Sparkles, Route,
-  DollarSign, MousePointerClick, MonitorSmartphone, Zap, BarChart3,
-};
 
 interface Props {
   props: FeaturesTabbedCategoriesBlockProps;
@@ -236,7 +233,6 @@ export function BlockFeaturesTabbedCategories({ props, brand, onFieldChange }: P
         <div className="mb-12 flex flex-wrap gap-2 border-b border-neutral-200 pb-px">
           {categories.map((category) => {
             const isActive = category.id === (activeCategory?.id ?? "");
-            const Icon = ICON_MAP[category.icon] || Layers;
             return (
               <button
                 key={category.id}
@@ -250,7 +246,7 @@ export function BlockFeaturesTabbedCategories({ props, brand, onFieldChange }: P
                 }}
                 aria-current={isActive ? "page" : undefined}
               >
-                <Icon className="h-4 w-4" />
+                <IconOrImage value={category.icon} fallback={Layers} className="h-4 w-4" />
                 {category.label}
               </button>
             );
@@ -280,12 +276,11 @@ export function BlockFeaturesTabbedCategories({ props, brand, onFieldChange }: P
 
               <dl className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-1">
                 {activeCategory.features.map((feature, fi) => {
-                  const Icon = ICON_MAP[feature.icon] || Layers;
                   return (
                     <div key={fi} className="relative pl-12">
                       <dt className="mb-1 text-lg font-semibold leading-7 text-neutral-900" style={{ fontFamily: DISPLAY }}>
                         <div className="absolute left-0 top-1 flex h-8 w-8 items-center justify-center rounded-lg" style={{ backgroundColor: tint }}>
-                          <Icon className="h-5 w-5" />
+                          <IconOrImage value={feature.icon} fallback={Layers} className="h-5 w-5" />
                         </div>
                         <InlineText
                           as="span"
