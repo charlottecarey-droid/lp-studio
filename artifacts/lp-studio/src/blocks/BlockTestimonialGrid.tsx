@@ -20,9 +20,16 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
   const text = props.textColor ?? "#0F172A";
   const headlineColor = props.headlineColor ?? text;
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const surface = pickContrastingColor(undefined, bg, ["#FFFFFF", "#1E293B"]);
+  // Section-level colors sit directly on the section background.
   const muted = pickContrastingColor(undefined, bg, ["#64748B", "#94A3B8"]);
   const border = `${text}1f`;
+  // Cards sit on `surface`, which contrasts with the section background. Every
+  // in-card color must therefore be derived from the card surface (not the
+  // section bg/text), or a dark AI section yields dark text on a dark card.
+  const surface = pickContrastingColor(undefined, bg, ["#FFFFFF", "#1E293B"]);
+  const cardText = pickContrastingColor(props.textColor, surface, ["#0F172A", "#F8FAFC"]);
+  const cardMuted = pickContrastingColor(undefined, surface, ["#64748B", "#94A3B8"]);
+  const cardBorder = `${cardText}1f`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const showCta = props.showCta ?? true;
 
@@ -79,9 +86,9 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
             <div
               key={t.id || i}
               className="relative flex flex-col p-8 rounded-3xl border shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl"
-              style={{ backgroundColor: surface, borderColor: border }}
+              style={{ backgroundColor: surface, borderColor: cardBorder }}
             >
-              <Quote className="absolute top-8 right-8 w-12 h-12" style={{ color: border, opacity: 0.6 }} strokeWidth={1} />
+              <Quote className="absolute top-8 right-8 w-12 h-12" style={{ color: cardBorder, opacity: 0.6 }} strokeWidth={1} />
 
               {(t.rating ?? 5) > 0 && (
                 <div className="flex items-center gap-1 mb-6 z-10" style={{ color: accent }}>
@@ -96,10 +103,10 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
                 value={t.quote}
                 onUpdate={onFieldChange ? (v) => updateTestimonial(i, { quote: v }) : undefined}
                 className="text-lg leading-relaxed mb-8 flex-1 z-10"
-                style={{ color: text, fontFamily: BODY }}
+                style={{ color: cardText, fontFamily: BODY }}
                 multiline />
 
-              <div className="flex items-center gap-4 mt-auto z-10 pt-4 border-t" style={{ borderColor: border }}>
+              <div className="flex items-center gap-4 mt-auto z-10 pt-4 border-t" style={{ borderColor: cardBorder }}>
                 <div
                   className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
                   style={{ backgroundColor: `${accent}1a`, color: accent }}
@@ -112,21 +119,21 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
                     value={t.author}
                     onUpdate={onFieldChange ? (v) => updateTestimonial(i, { author: v }) : undefined}
                     className="font-semibold text-base"
-                    style={{ color: text, fontFamily: BODY }} />
-                  <span className="text-sm font-medium" style={{ color: muted, fontFamily: BODY }}>
+                    style={{ color: cardText, fontFamily: BODY }} />
+                  <span className="text-sm font-medium" style={{ color: cardMuted, fontFamily: BODY }}>
                     <InlineText
                       as="span"
                       value={t.role}
                       onUpdate={onFieldChange ? (v) => updateTestimonial(i, { role: v }) : undefined}
                       className="inline"
-                      style={{ color: muted }} />
+                      style={{ color: cardMuted }} />
                     {", "}
                     <InlineText
                       as="span"
                       value={t.company}
                       onUpdate={onFieldChange ? (v) => updateTestimonial(i, { company: v }) : undefined}
                       className="inline"
-                      style={{ color: muted }} />
+                      style={{ color: cardMuted }} />
                   </span>
                 </div>
               </div>
