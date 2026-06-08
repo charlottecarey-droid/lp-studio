@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { AccountCombobox } from "@/components/AccountCombobox";
 import { Link, useLocation } from "wouter";
 import { format } from "date-fns";
@@ -133,6 +134,112 @@ function initials(name: string | null | undefined) {
   return name.split(" ").map(w => w[0] ?? "").join("").toUpperCase().slice(0, 2) || "?";
 }
 
+function MicrositeRowMenu({
+  status,
+  actionLoading,
+  onToggleStatus,
+  onDelete,
+}: {
+  status: string;
+  actionLoading: boolean;
+  onToggleStatus: () => void;
+  onDelete: () => void | Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [pos, setPos] = useState<{ top: number; right: number; placement: "bottom" | "top" } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const updatePos = useCallback(() => {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const right = window.innerWidth - r.right;
+    const menuH = menuRef.current?.offsetHeight ?? 0;
+    const spaceBelow = window.innerHeight - r.bottom;
+    if (menuH > 0 && spaceBelow < menuH + 8 && r.top > menuH + 8) {
+      setPos({ top: r.top - menuH - 4, right, placement: "top" });
+    } else {
+      setPos({ top: r.bottom + 4, right, placement: "bottom" });
+    }
+  }, []);
+
+  const close = useCallback(() => {
+    setOpen(false);
+    setConfirming(false);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePos();
+    const raf = requestAnimationFrame(updatePos);
+    const onScroll = () => updatePos();
+    const onResize = () => updatePos();
+    const onDown = (e: MouseEvent) => {
+      if (
+        menuRef.current?.contains(e.target as Node) ||
+        btnRef.current?.contains(e.target as Node)
+      ) return;
+      close();
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, confirming, updatePos, close]);
+
+  return (
+    <>
+      <Button
+        ref={btnRef}
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground"
+        onClick={() => setOpen(o => !o)}
+      >
+        <MoreVertical className="w-3.5 h-3.5" />
+      </Button>
+      {open && pos && createPortal(
+        <div
+          ref={menuRef}
+          style={{ position: "fixed", top: pos.top, right: pos.right }}
+          className="z-[100] w-40 rounded-lg border border-border bg-card shadow-lg py-1"
+        >
+          <button
+            onClick={() => { onToggleStatus(); close(); }}
+            disabled={actionLoading}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+          >
+            {status === "published" ? <><EyeOff className="w-3.5 h-3.5" /> Unpublish</> : <><Eye className="w-3.5 h-3.5" /> Publish</>}
+          </button>
+          {confirming ? (
+            <div className="px-3 py-2 border-t border-border">
+              <p className="text-xs text-muted-foreground mb-2">Delete this microsite?</p>
+              <div className="flex gap-1.5">
+                <button onClick={() => onDelete()} disabled={actionLoading} className="flex-1 text-xs px-2 py-1 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 font-medium">{actionLoading ? "Deleting…" : "Delete"}</button>
+                <button onClick={close} className="flex-1 text-xs px-2 py-1 rounded border border-border hover:bg-muted">Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setConfirming(true)} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors">
+              <Trash2 className="w-3.5 h-3.5" /> Delete
+            </button>
+          )}
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
+
 
 export default function SalesPages() {
   const [, navigate] = useLocation();
@@ -145,9 +252,7 @@ export default function SalesPages() {
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
-  const [menuOpen, setMenuOpen] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<"recent" | "name" | "status">("recent");
-  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [showNewMicrosite, setShowNewMicrosite] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
@@ -490,7 +595,6 @@ export default function SalesPages() {
       console.error("Failed to update page status:", err);
     } finally {
       setActionLoading(false);
-      setMenuOpen(null);
     }
   }
 
@@ -498,13 +602,11 @@ export default function SalesPages() {
     setActionLoading(true);
     try {
       await fetch(`${API_BASE}/lp/pages/${pageId}`, { method: "DELETE" });
-      setConfirmDelete(null);
       load();
     } catch (err) {
       console.error("Failed to delete page:", err);
     } finally {
       setActionLoading(false);
-      setMenuOpen(null);
     }
   }
 
@@ -1169,29 +1271,12 @@ export default function SalesPages() {
                                 <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground hidden sm:inline-flex" title="Generate hotlinks" onClick={() => openHotlinksModal(page.pageId, page.pageTitle)}><Globe className="w-3.5 h-3.5" /></Button>
                               </>
                             )}
-                            <div className="relative">
-                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground/40 hover:text-foreground" onClick={() => setMenuOpen(menuOpen === page.pageId ? null : page.pageId)}><MoreVertical className="w-3.5 h-3.5" /></Button>
-                              {menuOpen === page.pageId && (
-                                <div className="absolute right-0 top-full mt-1 z-50 w-40 rounded-lg border border-border bg-card shadow-lg py-1">
-                                  <button onClick={() => togglePageStatus(page.pageId, page.pageStatus)} disabled={actionLoading} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted transition-colors">
-                                    {page.pageStatus === "published" ? <><EyeOff className="w-3.5 h-3.5" /> Unpublish</> : <><Eye className="w-3.5 h-3.5" /> Publish</>}
-                                  </button>
-                                  {confirmDelete === page.pageId ? (
-                                    <div className="px-3 py-2 border-t border-border">
-                                      <p className="text-xs text-muted-foreground mb-2">Delete this microsite?</p>
-                                      <div className="flex gap-1.5">
-                                        <button onClick={() => deletePage(page.pageId)} disabled={actionLoading} className="flex-1 text-xs px-2 py-1 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 font-medium">{actionLoading ? "Deleting…" : "Delete"}</button>
-                                        <button onClick={() => { setConfirmDelete(null); setMenuOpen(null); }} className="flex-1 text-xs px-2 py-1 rounded border border-border hover:bg-muted">Cancel</button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <button onClick={() => setConfirmDelete(page.pageId)} className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors">
-                                      <Trash2 className="w-3.5 h-3.5" /> Delete
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
+                            <MicrositeRowMenu
+                              status={page.pageStatus}
+                              actionLoading={actionLoading}
+                              onToggleStatus={() => togglePageStatus(page.pageId, page.pageStatus)}
+                              onDelete={() => deletePage(page.pageId)}
+                            />
                           </div>
                         </div>
                       </div>
