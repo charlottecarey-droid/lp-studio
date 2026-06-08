@@ -670,6 +670,8 @@ export default function SuperAdminBlockCatalog() {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkRecatBusy, setBulkRecatBusy] = useState(false);
+  // Selection-scoped bulk Enable/Disable and Include/Exclude-from-AI.
+  const [bulkSelectionBusy, setBulkSelectionBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -972,6 +974,27 @@ export default function SuperAdminBlockCatalog() {
     });
   };
 
+  // Persist a single row with the given is_enabled value. Shared by the inline
+  // per-row enable toggle and the selection-scoped bulk Enable / Disable
+  // actions. Toggling a code-default block materializes a new DB override row
+  // carrying its current label/category/tags/props so nothing else drifts.
+  const putEnabled = async (row: DisplayRow, enabled: boolean): Promise<void> => {
+    await apiFetch("/api/admin/block-catalog", {
+      method: "PUT",
+      body: JSON.stringify({
+        block_type: row.block_type,
+        industry: row.industry,
+        label: row.label,
+        category: row.category,
+        tags: sanitizeRoleTags(row.tags),
+        default_props: row.default_props ?? {},
+        is_enabled: enabled,
+        ai_enabled: row.ai_enabled,
+        sort_order: row.sort_order,
+      }),
+    });
+  };
+
   const toggleAiEnabled = async (row: DisplayRow) => {
     const key = `${row.block_type}::${row.industry}`;
     setTogglingAiKey(key);
@@ -1087,6 +1110,85 @@ export default function SuperAdminBlockCatalog() {
       setActionError(`Could not recategorize any blocks: ${failures.join("; ")}`);
     }
   };
+
+  // Selection-scoped bulk apply for a per-row PUT. Only persists rows that
+  // actually change (skipped via `shouldSkip`), collecting per-row failures so a
+  // partial failure is reported rather than silently dropped. Clears the
+  // selection on success and refreshes once at the end. `noun` powers the toast
+  // copy (e.g. "enabled", "excluded from AI generation").
+  const applyBulkSelection = async (
+    put: (row: DisplayRow) => Promise<void>,
+    shouldSkip: (row: DisplayRow) => boolean,
+    noun: string,
+    nothingDesc: string,
+  ) => {
+    const targets = selectedVisible.filter(r => !shouldSkip(r));
+    if (targets.length === 0) {
+      toast({ title: "Nothing to update", description: nothingDesc });
+      return;
+    }
+    setBulkSelectionBusy(true);
+    setActionError(null);
+    let updated = 0;
+    const failures: string[] = [];
+    for (const row of targets) {
+      try {
+        await put(row);
+        updated += 1;
+      } catch (err: any) {
+        let msg = err?.message ?? "Save failed";
+        try { msg = JSON.parse(msg).error ?? msg; } catch { /* not json */ }
+        failures.push(`${row.block_type} (${INDUSTRY_LABEL[row.industry]}): ${msg}`);
+      }
+    }
+    await refresh();
+    setBulkSelectionBusy(false);
+    // Clear the selection after every apply, regardless of outcome — the rows
+    // have been re-fetched and any failures are surfaced via actionError.
+    setSelectedKeys(new Set());
+
+    if (failures.length === 0) {
+      toast({
+        title: `Blocks ${noun}`,
+        description: `${updated} block${updated === 1 ? "" : "s"} ${noun}.`,
+      });
+    } else if (updated > 0) {
+      toast({
+        variant: "destructive",
+        title: `Some blocks couldn’t be updated`,
+        description: `${updated} ${noun}, ${failures.length} failed — see details above.`,
+      });
+      setActionError(
+        `${updated} block${updated === 1 ? "" : "s"} ${noun}, but ${failures.length} failed: ${failures.join("; ")}`,
+      );
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Bulk update failed",
+        description: `None of the ${targets.length} block${targets.length === 1 ? "" : "s"} could be updated — see details above.`,
+      });
+      setActionError(`Could not update any blocks: ${failures.join("; ")}`);
+    }
+  };
+
+  // Bulk Enable / Disable every selected (and still-visible) row.
+  const applyBulkEnabled = (enabled: boolean) =>
+    applyBulkSelection(
+      row => putEnabled(row, enabled),
+      row => row.is_enabled === enabled,
+      enabled ? "enabled" : "disabled",
+      `All selected blocks are already ${enabled ? "enabled" : "disabled"}.`,
+    );
+
+  // Bulk Include in / Exclude from AI generation for every selected (and
+  // still-visible) row.
+  const applyBulkSelectionAi = (aiEnabled: boolean) =>
+    applyBulkSelection(
+      row => putAiEnabled(row, aiEnabled),
+      row => row.ai_enabled === aiEnabled,
+      aiEnabled ? "included in AI generation" : "excluded from AI generation",
+      `All selected blocks are already ${aiEnabled ? "included" : "excluded"}.`,
+    );
 
   return (
     <div className="space-y-4">
@@ -1215,7 +1317,7 @@ export default function SuperAdminBlockCatalog() {
               list="bulk-categories-list"
               placeholder="e.g. Hero"
               className="h-8 text-sm w-48"
-              disabled={bulkRecatBusy}
+              disabled={bulkRecatBusy || bulkSelectionBusy}
             />
             <datalist id="bulk-categories-list">
               {COMMON_CATEGORIES.map(c => <option key={c} value={c} />)}
@@ -1225,16 +1327,67 @@ export default function SuperAdminBlockCatalog() {
             size="sm"
             className="h-8"
             onClick={applyBulkRecategorize}
-            disabled={bulkRecatBusy || !bulkCategory.trim()}
+            disabled={bulkRecatBusy || bulkSelectionBusy || !bulkCategory.trim()}
           >
             {bulkRecatBusy ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Applying…</> : "Apply"}
           </Button>
+          <div className="h-6 w-px bg-border" />
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground mr-0.5">Status:</span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              onClick={() => applyBulkEnabled(true)}
+              disabled={bulkRecatBusy || bulkSelectionBusy}
+              title="Enable the selected blocks for tenants"
+            >
+              {bulkSelectionBusy ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+              Enable
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              onClick={() => applyBulkEnabled(false)}
+              disabled={bulkRecatBusy || bulkSelectionBusy}
+              title="Disable the selected blocks for tenants"
+            >
+              {bulkSelectionBusy ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+              Disable
+            </Button>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground mr-0.5">AI:</span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              onClick={() => applyBulkSelectionAi(true)}
+              disabled={bulkRecatBusy || bulkSelectionBusy}
+              title="Include the selected blocks in AI page generation"
+            >
+              {bulkSelectionBusy ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+              Include
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              onClick={() => applyBulkSelectionAi(false)}
+              disabled={bulkRecatBusy || bulkSelectionBusy}
+              title="Exclude the selected blocks from AI page generation"
+            >
+              {bulkSelectionBusy ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+              Exclude
+            </Button>
+          </div>
           <Button
             size="sm"
             variant="ghost"
-            className="h-8 text-xs"
+            className="h-8 text-xs ml-auto"
             onClick={clearSelection}
-            disabled={bulkRecatBusy}
+            disabled={bulkRecatBusy || bulkSelectionBusy}
           >
             Clear selection
           </Button>
