@@ -25,6 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -49,7 +50,17 @@ const STATE_BADGE: Partial<Record<FactFlag["triageState"], string>> = {
   removed: "Removed",
 };
 
-function FactRow({ flag, ff }: { flag: FactFlag; ff: UseFactFlags }) {
+function FactRow({
+  flag,
+  ff,
+  selected,
+  onToggleSelect,
+}: {
+  flag: FactFlag;
+  ff: UseFactFlags;
+  selected: boolean;
+  onToggleSelect: (checked: boolean) => void;
+}) {
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(flag.replacementText ?? flag.originalText);
@@ -84,8 +95,20 @@ function FactRow({ flag, ff }: { flag: FactFlag; ff: UseFactFlags }) {
     if (options.length === 0) setOptions(await getProofPointsForKind(flag.factKind));
   };
 
+  const selectable = !resolved && !editing && !swapOpen && !savingLib;
+
   return (
-    <div className="rounded-lg border border-border p-3">
+    <div className={`rounded-lg border p-3 flex gap-2.5 ${selected ? "border-primary/60 bg-primary/5" : "border-border"}`}>
+      {selectable ? (
+        <Checkbox
+          checked={selected}
+          onCheckedChange={(c) => onToggleSelect(c === true)}
+          disabled={busy !== null}
+          className="mt-0.5 shrink-0"
+          aria-label="Select fact for bulk approve"
+        />
+      ) : null}
+      <div className="min-w-0 flex-1">
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <div className="min-w-0">
           {contextLabel ? (
@@ -204,6 +227,7 @@ function FactRow({ flag, ff }: { flag: FactFlag; ff: UseFactFlags }) {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -218,11 +242,17 @@ export function FactReviewModal({
   ff: UseFactFlags;
 }) {
   const { toast } = useToast();
-  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState<"all" | "selected" | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (open) void ff.refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Reset the selection whenever the modal closes so a re-open starts clean.
+  useEffect(() => {
+    if (!open) setSelected(new Set());
   }, [open]);
 
   const grouped = useMemo(() => {
@@ -232,6 +262,75 @@ export function FactReviewModal({
   }, [ff.flags]);
 
   const kinds: FactKind[] = (["stat", "claim", "quote"] as FactKind[]).filter((k) => grouped[k].length > 0);
+
+  // Only pending flags are selectable; prune any stale ids (resolved elsewhere,
+  // undone, refreshed away) so the selection never references a missing flag.
+  const pendingIds = useMemo(
+    () => new Set(ff.flags.filter((f) => f.triageState === "pending").map((f) => f.id)),
+    [ff.flags],
+  );
+  useEffect(() => {
+    setSelected((prev) => {
+      const next = new Set<number>();
+      for (const id of prev) if (pendingIds.has(id)) next.add(id);
+      return next.size === prev.size ? prev : next;
+    });
+  }, [pendingIds]);
+
+  const toggleOne = (id: number, checked: boolean) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id); else next.delete(id);
+      return next;
+    });
+
+  const pendingInKind = (kind: FactKind) =>
+    grouped[kind].filter((f) => f.triageState === "pending");
+
+  const toggleKind = (kind: FactKind, checked: boolean) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const f of pendingInKind(kind)) {
+        if (checked) next.add(f.id); else next.delete(f.id);
+      }
+      return next;
+    });
+
+  const approveSelected = async () => {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    setBulkBusy("selected");
+    try {
+      const n = await ff.bulkApprove(ids);
+      setSelected(new Set());
+      toast({ title: `Approved ${n} fact${n === 1 ? "" : "s"} for this page` });
+    } catch (err) {
+      toast({
+        title: "Couldn't approve selected",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkBusy(null);
+    }
+  };
+
+  const approveAll = async () => {
+    setBulkBusy("all");
+    try {
+      const n = await ff.bulkApprove();
+      setSelected(new Set());
+      toast({ title: `Approved ${n} fact${n === 1 ? "" : "s"} for this page` });
+    } catch (err) {
+      toast({
+        title: "Couldn't approve all",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkBusy(null);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -250,40 +349,60 @@ export function FactReviewModal({
               Nothing to review — every fact on this page is approved.
             </p>
           )}
-          {kinds.map((kind) => (
-            <div key={kind} className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                {KIND_LABEL[kind]}
-              </p>
-              {grouped[kind].map((flag) => (
-                <FactRow key={flag.id} flag={flag} ff={ff} />
-              ))}
-            </div>
-          ))}
+          {kinds.map((kind) => {
+            const pend = pendingInKind(kind);
+            const selectedInKind = pend.filter((f) => selected.has(f.id)).length;
+            const allSelected = pend.length > 0 && selectedInKind === pend.length;
+            return (
+              <div key={kind} className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    {KIND_LABEL[kind]}
+                  </p>
+                  {pend.length > 0 && (
+                    <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer select-none">
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={(c) => toggleKind(kind, c === true)}
+                        disabled={bulkBusy !== null}
+                        aria-label={`Select all ${KIND_LABEL[kind].toLowerCase()}`}
+                      />
+                      Select all
+                    </label>
+                  )}
+                </div>
+                {grouped[kind].map((flag) => (
+                  <FactRow
+                    key={flag.id}
+                    flag={flag}
+                    ff={ff}
+                    selected={selected.has(flag.id)}
+                    onToggleSelect={(checked) => toggleOne(flag.id, checked)}
+                  />
+                ))}
+              </div>
+            );
+          })}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
+          {selected.size > 0 && (
+            <Button
+              variant="default"
+              disabled={bulkBusy !== null}
+              onClick={approveSelected}
+            >
+              {bulkBusy === "selected" ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+              Approve selected ({selected.size})
+            </Button>
+          )}
           {ff.pendingCount > 0 && (
             <Button
               variant="outline"
-              disabled={bulkBusy}
-              onClick={async () => {
-                setBulkBusy(true);
-                try {
-                  const n = await ff.bulkApprove();
-                  toast({ title: `Approved ${n} fact${n === 1 ? "" : "s"} for this page` });
-                } catch (err) {
-                  toast({
-                    title: "Couldn't approve all",
-                    description: err instanceof Error ? err.message : "Please try again.",
-                    variant: "destructive",
-                  });
-                } finally {
-                  setBulkBusy(false);
-                }
-              }}
+              disabled={bulkBusy !== null}
+              onClick={approveAll}
             >
-              {bulkBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+              {bulkBusy === "all" ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
               Approve all ({ff.pendingCount})
             </Button>
           )}

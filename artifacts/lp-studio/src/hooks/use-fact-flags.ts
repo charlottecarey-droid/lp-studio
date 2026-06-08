@@ -26,7 +26,8 @@ export interface UseFactFlags {
   remove: (id: number) => Promise<void>;
   saveToLibrary: (id: number, opts?: { value?: string; label?: string }) => Promise<void>;
   undo: (id: number) => Promise<void>;
-  bulkApprove: () => Promise<number>;
+  /** Approve all pending flags, or — when `flagIds` is passed — just that subset. */
+  bulkApprove: (flagIds?: number[]) => Promise<number>;
 }
 
 export function useFactFlags(pageId: number | string | undefined): UseFactFlags {
@@ -69,9 +70,9 @@ export function useFactFlags(pageId: number | string | undefined): UseFactFlags 
     [run],
   );
   const undo = useCallback((id: number) => run(() => undoFactFlag(id)), [run]);
-  const bulkApprove = useCallback(async () => {
+  const bulkApprove = useCallback(async (flagIds?: number[]) => {
     if (pageId === undefined) return 0;
-    const res = await bulkApproveFactFlags(pageId);
+    const res = await bulkApproveFactFlags(pageId, flagIds);
     await refresh();
     return res.approved;
   }, [pageId, refresh]);

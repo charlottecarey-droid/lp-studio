@@ -245,6 +245,64 @@ describe("Strict Facts review flow endpoints (#1138)", () => {
     }
   });
 
+  it("bulk-approve with a flagIds subset approves only the selected pending flags (tenant/page scoped)", async () => {
+    const pageId = await seedPage(tenantId, "draft");
+    await injectAs(SID, { method: "POST", url: `/lp/pages/${pageId}/fact-flags/sync` });
+    const list = await injectAs(SID, { method: "GET", url: `/lp/pages/${pageId}/fact-flags` });
+    const flags = (list.json as ListResponse).flags;
+    expect(flags.length).toBeGreaterThan(1);
+
+    // Approve only the first flag's id via the subset path.
+    const target = flags[0];
+    const sub = await injectAs(SID, {
+      method: "POST",
+      url: `/lp/pages/${pageId}/fact-flags/bulk-approve`,
+      body: { flagIds: [target.id] },
+    });
+    expect(sub.status).toBe(200);
+    expect((sub.json as { approved: number }).approved).toBe(1);
+
+    const after = await injectAs(SID, { method: "GET", url: `/lp/pages/${pageId}/fact-flags` });
+    const afterBody = after.json as ListResponse;
+    // Exactly one fewer pending; the rest stay pending.
+    expect(afterBody.pendingCount).toBe(flags.length - 1);
+    expect(afterBody.flags.find((f) => f.id === target.id)?.triageState).toBe("approved_for_page");
+    for (const f of afterBody.flags.filter((x) => x.id !== target.id)) {
+      expect(f.triageState).toBe("pending");
+    }
+  });
+
+  it("bulk-approve with an empty flagIds array is a no-op (does not approve all)", async () => {
+    const pageId = await seedPage(tenantId, "draft");
+    await injectAs(SID, { method: "POST", url: `/lp/pages/${pageId}/fact-flags/sync` });
+    const before = await injectAs(SID, { method: "GET", url: `/lp/pages/${pageId}/fact-flags` });
+    const beforePending = (before.json as ListResponse).pendingCount;
+    expect(beforePending).toBeGreaterThan(0);
+
+    const res = await injectAs(SID, {
+      method: "POST",
+      url: `/lp/pages/${pageId}/fact-flags/bulk-approve`,
+      body: { flagIds: [] },
+    });
+    expect(res.status).toBe(200);
+    expect((res.json as { approved: number }).approved).toBe(0);
+
+    const after = await injectAs(SID, { method: "GET", url: `/lp/pages/${pageId}/fact-flags` });
+    expect((after.json as ListResponse).pendingCount).toBe(beforePending);
+  });
+
+  it("bulk-approve without flagIds still approves every pending flag", async () => {
+    const pageId = await seedPage(tenantId, "draft");
+    await injectAs(SID, { method: "POST", url: `/lp/pages/${pageId}/fact-flags/sync` });
+    const res = await injectAs(SID, {
+      method: "POST",
+      url: `/lp/pages/${pageId}/fact-flags/bulk-approve`,
+    });
+    expect(res.status).toBe(200);
+    const after = await injectAs(SID, { method: "GET", url: `/lp/pages/${pageId}/fact-flags` });
+    expect((after.json as ListResponse).pendingCount).toBe(0);
+  });
+
   it("save-to-library falls back to the captured context label when the body label is blank", async () => {
     const { pool } = pgMod;
     const pageId = await seedPage(tenantId, "draft");

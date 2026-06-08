@@ -94,8 +94,14 @@ export async function undoFactFlag(id: number): Promise<{ flag: FactFlag }> {
 }
 export async function bulkApproveFactFlags(
   pageId: number | string,
+  flagIds?: number[],
 ): Promise<{ approved: number; flags: FactFlag[] }> {
-  return post(`/lp/pages/${pageId}/fact-flags/bulk-approve`);
+  // Omit the body field entirely for the approve-all case so the server keeps
+  // its "no flagIds → all pending" default; pass the subset only when selecting.
+  return post(
+    `/lp/pages/${pageId}/fact-flags/bulk-approve`,
+    flagIds === undefined ? undefined : { flagIds },
+  );
 }
 export async function getProofPointsForKind(factKind: FactKind): Promise<ProofPointOption[]> {
   const res = await fetch(`${API_BASE}/lp/fact-flags/proof-points?factKind=${encodeURIComponent(factKind)}`);

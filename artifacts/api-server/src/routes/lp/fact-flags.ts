@@ -392,19 +392,53 @@ router.post("/lp/fact-flags/:id/undo", async (req, res): Promise<void> => {
   }
 });
 
-// ── POST: bulk-approve all pending flags on a page ─────────────────────────
+// ── POST: bulk-approve pending flags on a page ─────────────────────────────
+// Approves every pending flag by default, OR — when the body carries a
+// `flagIds` array — only that subset (e.g. the reviewer multi-selected one
+// block or one fact kind in the modal). Both modes stay strictly tenant- AND
+// page-scoped and only ever touch `pending` rows, so an out-of-page or
+// already-resolved id sent by a stale client is silently ignored rather than
+// flipped. This shares the same UPDATE the publish gate runs, so the publish
+// gate is honoured either way.
 router.post("/lp/pages/:pageId/fact-flags/bulk-approve", async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const pageId = parseInt(req.params.pageId, 10);
   if (isNaN(pageId)) { res.status(400).json({ error: "Invalid page ID" }); return; }
+
+  // Optional subset selection. Coerce to a clean list of positive integers; an
+  // explicitly-empty selection is a no-op (approve nothing) rather than an
+  // accidental approve-all.
+  let flagIds: number[] | null = null;
+  if (req.body?.flagIds !== undefined) {
+    if (!Array.isArray(req.body.flagIds)) { res.status(400).json({ error: "flagIds must be an array" }); return; }
+    flagIds = Array.from(
+      new Set(
+        (req.body.flagIds as unknown[])
+          .map((x) => (typeof x === "number" ? x : parseInt(String(x), 10)))
+          .filter((n) => Number.isInteger(n) && n > 0),
+      ),
+    );
+  }
+
   try {
+    // Subset requested but nothing valid to approve — succeed as a no-op so the
+    // client can refresh without special-casing an empty selection.
+    if (flagIds !== null && flagIds.length === 0) {
+      res.json({ ok: true, approved: 0, flags: await listFactFlags(tenantId, pageId) });
+      return;
+    }
+    const subsetClause = flagIds !== null
+      ? sql` AND id IN (${sql.join(flagIds.map((n) => sql`${n}`), sql`, `)})`
+      : sql``;
     const r = await db.execute(
       sql`UPDATE lp_page_fact_flags
           SET triage_state = 'approved_for_page', resolved_at = now(), updated_at = now()
-          WHERE tenant_id = ${tenantId} AND page_id = ${pageId} AND triage_state = 'pending'
+          WHERE tenant_id = ${tenantId} AND page_id = ${pageId} AND triage_state = 'pending'${subsetClause}
           RETURNING id`,
     );
-    trackFactEvent("fact_flag_bulk_approved", { tenantId, pageId, approved: r.rows.length });
+    trackFactEvent("fact_flag_bulk_approved", {
+      tenantId, pageId, approved: r.rows.length, subset: flagIds !== null,
+    });
     res.json({ ok: true, approved: r.rows.length, flags: await listFactFlags(tenantId, pageId) });
   } catch (err) {
     logger.error({ err }, "fact-flags route error");
