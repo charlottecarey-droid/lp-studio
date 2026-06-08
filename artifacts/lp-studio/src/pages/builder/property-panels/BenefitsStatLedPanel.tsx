@@ -53,6 +53,24 @@ export function BenefitsStatLedPanel({ props, onChange }: Props) {
           <Label className="text-[11px] text-muted-foreground">Subheadline</Label>
           <AiTextField value={props.subheadline ?? ""} onChange={(v) => update({ subheadline: v })} rows={3} className="text-xs" placeholder="Leave blank to hide" onSuggest={() => suggestCopy("benefits-stat-led", "subheadline", props.subheadline ?? "", { headline: props.headline ?? "" })} fieldLabel="Subheadline" />
         </div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Heading alignment</Label>
+          <div className="mt-1 grid grid-cols-2 gap-1 rounded-md border p-0.5">
+            {(["left", "center"] as const).map((align) => {
+              const active = (props.headingAlign ?? "left") === align;
+              return (
+                <button
+                  key={align}
+                  type="button"
+                  onClick={() => update({ headingAlign: align })}
+                  className={`rounded px-2 py-1 text-xs capitalize transition-colors ${active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+                >
+                  {align}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       <div className="space-y-3">

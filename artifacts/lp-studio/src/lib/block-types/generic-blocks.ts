@@ -3385,6 +3385,7 @@ export interface BenefitsStatLedBlockProps extends BenefitsCtaConfig {
   eyebrow?: string;
   headline: string;
   subheadline?: string;
+  headingAlign?: "left" | "center";
   stats: BenefitsStatLedItem[];
   bgColor?: string;
   textColor?: string;

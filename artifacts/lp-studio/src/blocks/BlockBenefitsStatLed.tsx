@@ -32,6 +32,7 @@ export function BlockBenefitsStatLed({ props, brand, onFieldChange }: Props) {
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const muted = pickContrastingColor(undefined, bg, ["#525252", "#a3a3a3"]);
   const showCta = props.showCta ?? true;
+  const centered = props.headingAlign === "center";
 
   const update = <K extends keyof BenefitsStatLedBlockProps>(key: K, value: BenefitsStatLedBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -44,7 +45,7 @@ export function BlockBenefitsStatLed({ props, brand, onFieldChange }: Props) {
   return (
     <section className="flex w-full items-center justify-center px-4 py-24 sm:py-32 md:px-8" style={{ backgroundColor: bg, color: text }}>
       <div className="mx-auto w-full max-w-[1200px]">
-        <div className="mb-20 max-w-2xl">
+        <div className={`mb-20 max-w-2xl${centered ? " mx-auto text-center" : ""}`}>
           {(props.eyebrow || onFieldChange) && (
             <InlineText
               as="span"
