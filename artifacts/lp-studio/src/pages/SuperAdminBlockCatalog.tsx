@@ -1042,10 +1042,11 @@ export default function SuperAdminBlockCatalog() {
   };
 
   // Bulk recategorize every selected (and still-visible) row to a single
-  // category. Each row is persisted via the catalog upsert path, preserving
-  // every other field; toggling a code-default row materializes a new DB
-  // override carrying its current label/tags/props. Per-row failures are
-  // collected so a partial failure is reported rather than silently dropped.
+  // category. All rows are persisted in ONE batched request (the server upserts
+  // them with bounded concurrency), preserving every other field; toggling a
+  // code-default row materializes a new DB override carrying its current
+  // label/tags/props. The batch response reports per-row outcomes so partial
+  // failures are surfaced rather than silently dropped.
   const applyBulkRecategorize = async () => {
     const category = bulkCategory.trim();
     if (!category) {
@@ -1059,11 +1060,11 @@ export default function SuperAdminBlockCatalog() {
     setActionError(null);
     let updated = 0;
     const failures: string[] = [];
-    for (const row of targets) {
-      try {
-        await apiFetch("/api/admin/block-catalog", {
-          method: "PUT",
-          body: JSON.stringify({
+    try {
+      const data = (await apiFetch("/api/admin/block-catalog/batch", {
+        method: "PUT",
+        body: JSON.stringify({
+          rows: targets.map((row) => ({
             block_type: row.block_type,
             industry: row.industry,
             label: row.label,
@@ -1073,12 +1074,27 @@ export default function SuperAdminBlockCatalog() {
             is_enabled: row.is_enabled,
             ai_enabled: row.ai_enabled,
             sort_order: row.sort_order,
-          }),
-        });
-        updated += 1;
-      } catch (err: any) {
-        let msg = err?.message ?? "Save failed";
-        try { msg = JSON.parse(msg).error ?? msg; } catch { /* not json */ }
+          })),
+        }),
+      })) as {
+        updated?: number;
+        results?: Array<{ index: number; ok: boolean; error?: string }>;
+      };
+      const perRow = Array.isArray(data.results) ? data.results : [];
+      for (const r of perRow) {
+        if (r.ok) {
+          updated += 1;
+        } else {
+          const row = targets[r.index];
+          const label = row ? `${row.block_type} (${INDUSTRY_LABEL[row.industry]})` : `row ${r.index}`;
+          failures.push(`${label}: ${r.error ?? "Save failed"}`);
+        }
+      }
+    } catch (err: any) {
+      // A transport/server-level failure means the whole batch did not apply.
+      let msg = err?.message ?? "Save failed";
+      try { msg = JSON.parse(msg).error ?? msg; } catch { /* not json */ }
+      for (const row of targets) {
         failures.push(`${row.block_type} (${INDUSTRY_LABEL[row.industry]}): ${msg}`);
       }
     }

@@ -250,6 +250,110 @@ describe("PUT /api/admin/block-catalog (ai_enabled round-trip)", () => {
   });
 });
 
+describe("PUT /api/admin/block-catalog/batch (bulk upsert)", () => {
+  const BATCH_BLOCK_A = `${SENTINEL_BLOCK}_batch_a`;
+  const BATCH_BLOCK_B = `${SENTINEL_BLOCK}_batch_b`;
+
+  afterAll(async () => {
+    await pool
+      .query(`DELETE FROM block_catalog WHERE block_type = ANY($1)`, [[BATCH_BLOCK_A, BATCH_BLOCK_B]])
+      .catch(() => {});
+  });
+
+  it("upserts many rows in a single request and reports per-row success", async () => {
+    const res = await injectSid({
+      method: "PUT",
+      url: "/api/admin/block-catalog/batch",
+      sid: SUPER_SID,
+      body: {
+        rows: [
+          { block_type: BATCH_BLOCK_A, industry: "generic", label: "Batch A", category: "Content", default_props: {} },
+          { block_type: BATCH_BLOCK_A, industry: "dental", label: "Batch A Dental", category: "Content", default_props: {} },
+          { block_type: BATCH_BLOCK_B, industry: "generic", label: "Batch B", category: "Hero", default_props: {} },
+        ],
+      },
+    });
+    expect(res.status).toBe(200);
+    const body = res.json as { updated: number; failed: number; results: Array<{ ok: boolean; index: number }> };
+    expect(body.updated).toBe(3);
+    expect(body.failed).toBe(0);
+    expect(body.results.map(r => r.index)).toEqual([0, 1, 2]);
+    expect(body.results.every(r => r.ok)).toBe(true);
+
+    const cnt = await pool.query(
+      `SELECT count(*)::int AS n FROM block_catalog WHERE block_type = ANY($1)`,
+      [[BATCH_BLOCK_A, BATCH_BLOCK_B]],
+    );
+    expect(cnt.rows[0].n).toBe(3);
+  });
+
+  it("reports partial failure per row (valid rows still persist)", async () => {
+    const res = await injectSid({
+      method: "PUT",
+      url: "/api/admin/block-catalog/batch",
+      sid: SUPER_SID,
+      body: {
+        rows: [
+          { block_type: BATCH_BLOCK_A, industry: "generic", label: "Batch A v2", category: "Updated", default_props: {} },
+          { block_type: BATCH_BLOCK_B, industry: "not-a-real-industry", label: "Bad", category: "X", default_props: {} },
+          { block_type: "", industry: "generic", label: "Missing type", category: "X", default_props: {} },
+        ],
+      },
+    });
+    expect(res.status).toBe(200);
+    const body = res.json as {
+      updated: number;
+      failed: number;
+      results: Array<{ ok: boolean; index: number; error?: string }>;
+    };
+    expect(body.updated).toBe(1);
+    expect(body.failed).toBe(2);
+    expect(body.results[0].ok).toBe(true);
+    expect(body.results[1].ok).toBe(false);
+    expect(body.results[1].error).toBe("Invalid industry");
+    expect(body.results[2].ok).toBe(false);
+    expect(body.results[2].error).toBe("block_type, industry, label, category required");
+
+    // The valid row was updated despite the sibling failures.
+    const r = await pool.query(
+      `SELECT category FROM block_catalog WHERE block_type = $1 AND industry = 'generic'`,
+      [BATCH_BLOCK_A],
+    );
+    expect(r.rows[0].category).toBe("Updated");
+  });
+
+  it("returns an empty result for an empty rows array", async () => {
+    const res = await injectSid({
+      method: "PUT",
+      url: "/api/admin/block-catalog/batch",
+      sid: SUPER_SID,
+      body: { rows: [] },
+    });
+    expect(res.status).toBe(200);
+    expect(res.json).toEqual({ updated: 0, failed: 0, results: [] });
+  });
+
+  it("rejects a malformed body (no rows array)", async () => {
+    const res = await injectSid({
+      method: "PUT",
+      url: "/api/admin/block-catalog/batch",
+      sid: SUPER_SID,
+      body: { notRows: true },
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects non-superadmin callers", async () => {
+    const res = await injectSid({
+      method: "PUT",
+      url: "/api/admin/block-catalog/batch",
+      sid: TENANT_SID,
+      body: { rows: [{ block_type: BATCH_BLOCK_A, industry: "generic", label: "x", category: "Content", default_props: {} }] },
+    });
+    expect(res.status).toBe(403);
+  });
+});
+
 describe("GET /api/block-catalog (tenant inherits the override)", () => {
   it("returns the override for a tenant of that industry and does not leak another industry's row", async () => {
     const res = await injectSid({ method: "GET", url: "/api/block-catalog", sid: TENANT_SID });

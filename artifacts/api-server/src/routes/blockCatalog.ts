@@ -52,22 +52,36 @@ router.get("/admin/block-catalog", requireSuperadmin, async (_req, res): Promise
   }
 });
 
-// PUT /api/admin/block-catalog — upsert a row
-// Body: { block_type, industry, label, category, default_props, is_enabled?, sort_order? }
-router.put("/admin/block-catalog", requireSuperadmin, async (req, res): Promise<void> => {
-  const { block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, sort_order } = req.body ?? {};
+// Shared upsert used by both the single PUT and the batch endpoint. Returns
+// `{ ok: true, row }` on success or `{ ok: false, error }` on a validation or
+// DB failure so callers can report partial outcomes without throwing.
+type CatalogUpsertInput = {
+  block_type?: unknown;
+  industry?: unknown;
+  label?: unknown;
+  category?: unknown;
+  tags?: unknown;
+  default_props?: unknown;
+  is_enabled?: unknown;
+  ai_enabled?: unknown;
+  sort_order?: unknown;
+};
+type CatalogUpsertResult =
+  | { ok: true; row: any }
+  | { ok: false; error: string };
+
+async function upsertCatalogRow(input: CatalogUpsertInput): Promise<CatalogUpsertResult> {
+  const { block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, sort_order } = input;
   if (!block_type || !industry || !label || !category) {
-    res.status(400).json({ error: "block_type, industry, label, category required" });
-    return;
+    return { ok: false, error: "block_type, industry, label, category required" };
   }
-  if (!VALID_INDUSTRIES.has(industry)) {
-    res.status(400).json({ error: "Invalid industry" });
-    return;
+  if (!VALID_INDUSTRIES.has(industry as never)) {
+    return { ok: false, error: "Invalid industry" };
   }
   // Role tags are validated against the controlled vocabulary; unknown/invalid
   // entries are dropped (fail-closed). An empty array clears the override so
   // the block falls back to its in-code default tags.
-  const cleanTags = sanitizeRoleTags(tags);
+  const cleanTags = sanitizeRoleTags(tags as never);
   try {
     const result = await pool.query(
       `INSERT INTO block_catalog (block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, sort_order)
@@ -84,11 +98,83 @@ router.put("/admin/block-catalog", requireSuperadmin, async (req, res): Promise<
        RETURNING *`,
       [block_type, industry, label, category, cleanTags, JSON.stringify(default_props ?? {}), is_enabled, ai_enabled, sort_order]
     );
-    res.json(result.rows[0]);
+    return { ok: true, row: result.rows[0] };
   } catch (err: any) {
-    console.error("[block-catalog admin] PUT error:", err);
-    res.status(500).json({ error: err.message || "Server error" });
+    console.error("[block-catalog admin] upsert error:", err);
+    return { ok: false, error: err?.message || "Server error" };
   }
+}
+
+// PUT /api/admin/block-catalog — upsert a row
+// Body: { block_type, industry, label, category, default_props, is_enabled?, sort_order? }
+router.put("/admin/block-catalog", requireSuperadmin, async (req, res): Promise<void> => {
+  const result = await upsertCatalogRow(req.body ?? {});
+  if (!result.ok) {
+    // Preserve prior status semantics: validation errors → 400, DB errors → 500.
+    const isValidation =
+      result.error === "block_type, industry, label, category required" ||
+      result.error === "Invalid industry";
+    res.status(isValidation ? 400 : 500).json({ error: result.error });
+    return;
+  }
+  res.json(result.row);
+});
+
+// PUT /api/admin/block-catalog/batch — upsert many rows in a single request.
+// Body: { rows: Array<{ block_type, industry, label, category, ... }> }
+//
+// Each row is upserted independently with bounded concurrency. The endpoint
+// always returns 200 (unless the body itself is malformed) and reports a
+// per-row outcome so the caller can surface partial failures (which blocks
+// failed and why) exactly like the previous one-request-per-block loop.
+const BATCH_MAX_ROWS = 1000;
+const BATCH_CONCURRENCY = 16;
+
+router.put("/admin/block-catalog/batch", requireSuperadmin, async (req, res): Promise<void> => {
+  const rows = (req.body as { rows?: unknown })?.rows;
+  if (!Array.isArray(rows)) {
+    res.status(400).json({ error: "rows array required" });
+    return;
+  }
+  if (rows.length === 0) {
+    res.json({ updated: 0, failed: 0, results: [] });
+    return;
+  }
+  if (rows.length > BATCH_MAX_ROWS) {
+    res.status(400).json({ error: `Too many rows (max ${BATCH_MAX_ROWS})` });
+    return;
+  }
+  const inputs: unknown[] = rows;
+
+  // Stable per-row result objects, filled as each upsert settles. Index keeps
+  // the response aligned with the request order regardless of completion order.
+  const results: Array<{
+    index: number;
+    block_type: string | null;
+    industry: string | null;
+    ok: boolean;
+    error?: string;
+  }> = new Array(inputs.length);
+
+  let cursor = 0;
+  async function worker(): Promise<void> {
+    while (cursor < inputs.length) {
+      const i = cursor++;
+      const input = (inputs[i] ?? {}) as CatalogUpsertInput;
+      const blockType = typeof input.block_type === "string" ? input.block_type : null;
+      const industry = typeof input.industry === "string" ? input.industry : null;
+      const r = await upsertCatalogRow(input);
+      results[i] = r.ok
+        ? { index: i, block_type: blockType, industry, ok: true }
+        : { index: i, block_type: blockType, industry, ok: false, error: r.error };
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(BATCH_CONCURRENCY, rows.length) }, () => worker());
+  await Promise.all(workers);
+
+  const updated = results.filter(r => r.ok).length;
+  res.json({ updated, failed: results.length - updated, results });
 });
 
 // DELETE /api/admin/block-catalog/:blockType/:industry — remove a row
