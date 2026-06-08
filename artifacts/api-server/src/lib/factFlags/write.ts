@@ -105,6 +105,10 @@ export function applyResolutionToBlocks(blocks: unknown[], row: FactFlagRow): bo
  *
  * `templateForms` are normalized forms known to be template-authored (vetted) —
  * they never become flags.
+ *
+ * `trustedForms` are normalized forms persisted as trusted for THIS page (e.g.
+ * quotes sourced from the per-request generation reference URL — see
+ * lp_pages.trusted_fact_forms). Like templateForms, they never become flags.
  */
 export async function syncFactFlags(opts: {
   tenantId: number;
@@ -112,10 +116,12 @@ export async function syncFactFlags(opts: {
   blocks: unknown[];
   approved: ApprovedFacts;
   templateForms?: Set<string>;
+  trustedForms?: Set<string>;
 }): Promise<{ blocks: unknown[]; mutated: boolean; pendingCount: number; created: number }> {
   const { tenantId, pageId, approved } = opts;
   const blocks = opts.blocks;
   const templateForms = opts.templateForms ?? new Set<string>();
+  const trustedForms = opts.trustedForms ?? new Set<string>();
 
   const detected = detectFacts(blocks);
   const existing = await listFactFlags(tenantId, pageId);
@@ -137,8 +143,9 @@ export async function syncFactFlags(opts: {
     const norm = fact.normalizedForm;
     detectedNorms.add(norm);
 
-    // Vetted template content or an already-approved fact never flags.
-    if (templateForms.has(norm)) continue;
+    // Vetted template content, a page-trusted form (url-sourced), or an
+    // already-approved fact never flags.
+    if (templateForms.has(norm) || trustedForms.has(norm)) continue;
     if (matchesApproved(fact, approved)) continue;
 
     const prior = byNorm.get(norm);
@@ -234,6 +241,7 @@ export async function detectAndWriteFlagsForPage(opts: {
   pageId: number;
   blocks: unknown[];
   templateForms?: Set<string>;
+  trustedForms?: Set<string>;
 }): Promise<{ blocks: unknown[]; mutated: boolean; pendingCount: number; created: number }> {
   const approved = await buildApprovedFacts(opts.tenantId);
   return syncFactFlags({
@@ -242,6 +250,7 @@ export async function detectAndWriteFlagsForPage(opts: {
     blocks: opts.blocks,
     approved,
     templateForms: opts.templateForms,
+    trustedForms: opts.trustedForms,
   });
 }
 

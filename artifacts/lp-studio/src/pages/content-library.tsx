@@ -1395,6 +1395,12 @@ interface ProofPoint {
   as_of_date: string | null;
   approved_for_ai: boolean;
   sort_order: number;
+  // "stat" (numeric metric — the default) or "quote" (a verbatim testimonial).
+  // Quotes carry attribution so Strict Facts can vet them against the page copy.
+  fact_kind?: "stat" | "quote";
+  attribution_name?: string;
+  attribution_title?: string;
+  attribution_company?: string;
 }
 
 // One row in the "review before save" list returned by either of the
@@ -1409,14 +1415,19 @@ interface ImportCandidate {
   as_of_date: string | null;
   context: string;
   selected: boolean;
+  fact_kind: "stat" | "quote";
+  attribution_name: string;
+  attribution_title: string;
+  attribution_company: string;
 }
 
 function ProofPointsTab() {
   const [items, setItems] = useState<ProofPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [draft, setDraft] = useState<{ value: string; label: string; source_url: string; as_of_date: string; approved_for_ai: boolean }>({
+  const [draft, setDraft] = useState<{ value: string; label: string; source_url: string; as_of_date: string; approved_for_ai: boolean; fact_kind: "stat" | "quote"; attribution_name: string; attribution_title: string; attribution_company: string }>({
     value: "", label: "", source_url: "", as_of_date: "", approved_for_ai: true,
+    fact_kind: "stat", attribution_name: "", attribution_title: "", attribution_company: "",
   });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<typeof draft>(draft);
@@ -1458,9 +1469,13 @@ function ProofPointsTab() {
         source_url: draft.source_url,
         as_of_date: draft.as_of_date || null,
         approved_for_ai: draft.approved_for_ai,
+        fact_kind: draft.fact_kind,
+        attribution_name: draft.attribution_name,
+        attribution_title: draft.attribution_title,
+        attribution_company: draft.attribution_company,
       }),
     });
-    setDraft({ value: "", label: "", source_url: "", as_of_date: "", approved_for_ai: true });
+    setDraft({ value: "", label: "", source_url: "", as_of_date: "", approved_for_ai: true, fact_kind: "stat", attribution_name: "", attribution_title: "", attribution_company: "" });
     setAdding(false);
     reload();
   };
@@ -1473,6 +1488,12 @@ function ProofPointsTab() {
       source_url: p.source_url,
       as_of_date: p.as_of_date ?? "",
       approved_for_ai: p.approved_for_ai !== false,
+      // Preserve attribution on edit — omitting these would let the PUT wipe
+      // a scraped quote's attribution back to blank.
+      fact_kind: p.fact_kind === "quote" ? "quote" : "stat",
+      attribution_name: p.attribution_name ?? "",
+      attribution_title: p.attribution_title ?? "",
+      attribution_company: p.attribution_company ?? "",
     });
   };
 
@@ -1486,6 +1507,10 @@ function ProofPointsTab() {
         source_url: editDraft.source_url,
         as_of_date: editDraft.as_of_date || null,
         approved_for_ai: editDraft.approved_for_ai,
+        fact_kind: editDraft.fact_kind,
+        attribution_name: editDraft.attribution_name,
+        attribution_title: editDraft.attribution_title,
+        attribution_company: editDraft.attribution_company,
       }),
     });
     setEditingId(null);
@@ -1530,6 +1555,10 @@ function ProofPointsTab() {
         as_of_date: typeof p.as_of_date === "string" ? p.as_of_date : null,
         context: typeof p.context === "string" ? p.context : "",
         selected: true,
+        fact_kind: p.fact_kind === "quote" ? "quote" : "stat",
+        attribution_name: typeof p.attribution_name === "string" ? p.attribution_name : "",
+        attribution_title: typeof p.attribution_title === "string" ? p.attribution_title : "",
+        attribution_company: typeof p.attribution_company === "string" ? p.attribution_company : "",
       })));
     } catch (err) {
       setImportError(String(err));
@@ -1556,6 +1585,10 @@ function ProofPointsTab() {
             source_url: c.source_url,
             as_of_date: c.as_of_date || null,
             approved_for_ai: true,
+            fact_kind: c.fact_kind,
+            attribution_name: c.attribution_name,
+            attribution_title: c.attribution_title,
+            attribution_company: c.attribution_company,
           }),
         });
       }
@@ -1602,10 +1635,25 @@ function ProofPointsTab() {
         <div key={p.id} className="border rounded-lg p-4 bg-card">
           {editingId === p.id ? (
             <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input className="text-xs h-7 w-32 shrink-0" placeholder="Value e.g. 98%" value={editDraft.value} onChange={(e) => setEditDraft({ ...editDraft, value: e.target.value })} />
-                <Input className="text-xs h-7 flex-1" placeholder="Label e.g. acceptance rate" value={editDraft.label} onChange={(e) => setEditDraft({ ...editDraft, label: e.target.value })} />
+              <div className="flex gap-1 bg-white rounded-md p-1 border border-slate-200 w-fit">
+                <button type="button" className={`text-[11px] px-2.5 py-0.5 rounded ${editDraft.fact_kind === "stat" ? "bg-violet-100 text-violet-700" : "text-slate-500 hover:text-slate-700"}`} onClick={() => setEditDraft({ ...editDraft, fact_kind: "stat" })}>Stat</button>
+                <button type="button" className={`text-[11px] px-2.5 py-0.5 rounded ${editDraft.fact_kind === "quote" ? "bg-violet-100 text-violet-700" : "text-slate-500 hover:text-slate-700"}`} onClick={() => setEditDraft({ ...editDraft, fact_kind: "quote" })}>Quote</button>
               </div>
+              {editDraft.fact_kind === "quote" ? (
+                <Textarea className="text-xs min-h-[60px]" placeholder="Verbatim quote text" value={editDraft.value} onChange={(e) => setEditDraft({ ...editDraft, value: e.target.value })} />
+              ) : (
+                <div className="flex gap-2">
+                  <Input className="text-xs h-7 w-32 shrink-0" placeholder="Value e.g. 98%" value={editDraft.value} onChange={(e) => setEditDraft({ ...editDraft, value: e.target.value })} />
+                  <Input className="text-xs h-7 flex-1" placeholder="Label e.g. acceptance rate" value={editDraft.label} onChange={(e) => setEditDraft({ ...editDraft, label: e.target.value })} />
+                </div>
+              )}
+              {editDraft.fact_kind === "quote" && (
+                <div className="flex gap-2">
+                  <Input className="text-xs h-7 flex-1" placeholder="Attributed to (name)" value={editDraft.attribution_name} onChange={(e) => setEditDraft({ ...editDraft, attribution_name: e.target.value })} />
+                  <Input className="text-xs h-7 flex-1" placeholder="Title" value={editDraft.attribution_title} onChange={(e) => setEditDraft({ ...editDraft, attribution_title: e.target.value })} />
+                  <Input className="text-xs h-7 flex-1" placeholder="Company" value={editDraft.attribution_company} onChange={(e) => setEditDraft({ ...editDraft, attribution_company: e.target.value })} />
+                </div>
+              )}
               <Input className="text-xs h-7" placeholder="Source URL (optional)" value={editDraft.source_url} onChange={(e) => setEditDraft({ ...editDraft, source_url: e.target.value })} />
               <div className="flex items-center gap-2">
                 <Label className="text-[11px] text-slate-500 shrink-0">As of</Label>
@@ -1623,15 +1671,34 @@ function ProofPointsTab() {
           ) : (
             <div className="flex items-start gap-3">
               <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2 flex-wrap mb-0.5">
-                  <span className="text-sm font-semibold text-slate-800">{p.value || "(no value)"}</span>
-                  <span className="text-sm text-slate-600">{p.label}</span>
-                  {p.approved_for_ai !== false ? (
-                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-emerald-300 text-emerald-600 shrink-0">AI</Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-slate-300 text-slate-400 shrink-0">AI off</Badge>
-                  )}
-                </div>
+                {p.fact_kind === "quote" ? (
+                  <div className="mb-0.5">
+                    <div className="flex items-start gap-2 flex-wrap">
+                      <span className="text-sm text-slate-700 italic flex-1 min-w-0">"{p.value || "(no quote)"}"</span>
+                      <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-violet-300 text-violet-600 shrink-0">Quote</Badge>
+                      {p.approved_for_ai !== false ? (
+                        <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-emerald-300 text-emerald-600 shrink-0">AI</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-slate-300 text-slate-400 shrink-0">AI off</Badge>
+                      )}
+                    </div>
+                    {(p.attribution_name || p.attribution_title || p.attribution_company) && (
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        — {[p.attribution_name, p.attribution_title, p.attribution_company].filter(Boolean).join(", ")}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-baseline gap-2 flex-wrap mb-0.5">
+                    <span className="text-sm font-semibold text-slate-800">{p.value || "(no value)"}</span>
+                    <span className="text-sm text-slate-600">{p.label}</span>
+                    {p.approved_for_ai !== false ? (
+                      <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-emerald-300 text-emerald-600 shrink-0">AI</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-slate-300 text-slate-400 shrink-0">AI off</Badge>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center gap-3 text-[11px] text-slate-400 flex-wrap">
                   {p.as_of_date && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{p.as_of_date}</span>}
                   {p.source_url && (
@@ -1656,10 +1723,25 @@ function ProofPointsTab() {
 
       {adding ? (
         <div className="border-2 border-dashed border-border rounded-lg p-4 space-y-2 bg-background">
-          <div className="flex gap-2">
-            <Input className="text-xs h-7 w-32 shrink-0" placeholder="Value e.g. 98%" value={draft.value} onChange={(e) => setDraft({ ...draft, value: e.target.value })} />
-            <Input className="text-xs h-7 flex-1" placeholder="Label e.g. acceptance rate" value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} />
+          <div className="flex gap-1 bg-white rounded-md p-1 border border-slate-200 w-fit">
+            <button type="button" className={`text-[11px] px-2.5 py-0.5 rounded ${draft.fact_kind === "stat" ? "bg-violet-100 text-violet-700" : "text-slate-500 hover:text-slate-700"}`} onClick={() => setDraft({ ...draft, fact_kind: "stat" })}>Stat</button>
+            <button type="button" className={`text-[11px] px-2.5 py-0.5 rounded ${draft.fact_kind === "quote" ? "bg-violet-100 text-violet-700" : "text-slate-500 hover:text-slate-700"}`} onClick={() => setDraft({ ...draft, fact_kind: "quote" })}>Quote</button>
           </div>
+          {draft.fact_kind === "quote" ? (
+            <>
+              <Textarea className="text-xs min-h-[60px]" placeholder="Verbatim quote text" value={draft.value} onChange={(e) => setDraft({ ...draft, value: e.target.value })} />
+              <div className="flex gap-2">
+                <Input className="text-xs h-7 flex-1" placeholder="Attributed to (name)" value={draft.attribution_name} onChange={(e) => setDraft({ ...draft, attribution_name: e.target.value })} />
+                <Input className="text-xs h-7 flex-1" placeholder="Title" value={draft.attribution_title} onChange={(e) => setDraft({ ...draft, attribution_title: e.target.value })} />
+                <Input className="text-xs h-7 flex-1" placeholder="Company" value={draft.attribution_company} onChange={(e) => setDraft({ ...draft, attribution_company: e.target.value })} />
+              </div>
+            </>
+          ) : (
+            <div className="flex gap-2">
+              <Input className="text-xs h-7 w-32 shrink-0" placeholder="Value e.g. 98%" value={draft.value} onChange={(e) => setDraft({ ...draft, value: e.target.value })} />
+              <Input className="text-xs h-7 flex-1" placeholder="Label e.g. acceptance rate" value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} />
+            </div>
+          )}
           <Input className="text-xs h-7" placeholder="Source URL (optional)" value={draft.source_url} onChange={(e) => setDraft({ ...draft, source_url: e.target.value })} />
           <div className="flex items-center gap-2">
             <Label className="text-[11px] text-slate-500 shrink-0">As of</Label>
@@ -1784,10 +1866,24 @@ function ProofPointsTab() {
                         onChange={(e) => updateCandidate(idx, { selected: e.target.checked })}
                       />
                       <div className="flex-1 min-w-0 space-y-1.5">
-                        <div className="flex gap-2">
-                          <Input className="text-xs h-7 w-28 shrink-0 font-semibold" placeholder="Value" value={c.value} onChange={(e) => updateCandidate(idx, { value: e.target.value })} />
-                          <Input className="text-xs h-7 flex-1" placeholder="Label" value={c.label} onChange={(e) => updateCandidate(idx, { label: e.target.value })} />
-                        </div>
+                        {c.fact_kind === "quote" ? (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-violet-300 text-violet-600 shrink-0">Quote</Badge>
+                            </div>
+                            <Textarea className="text-xs min-h-[56px]" placeholder="Quote text" value={c.value} onChange={(e) => updateCandidate(idx, { value: e.target.value })} />
+                            <div className="flex gap-2">
+                              <Input className="text-xs h-7 flex-1" placeholder="Name" value={c.attribution_name} onChange={(e) => updateCandidate(idx, { attribution_name: e.target.value })} />
+                              <Input className="text-xs h-7 flex-1" placeholder="Title" value={c.attribution_title} onChange={(e) => updateCandidate(idx, { attribution_title: e.target.value })} />
+                              <Input className="text-xs h-7 flex-1" placeholder="Company" value={c.attribution_company} onChange={(e) => updateCandidate(idx, { attribution_company: e.target.value })} />
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex gap-2">
+                            <Input className="text-xs h-7 w-28 shrink-0 font-semibold" placeholder="Value" value={c.value} onChange={(e) => updateCandidate(idx, { value: e.target.value })} />
+                            <Input className="text-xs h-7 flex-1" placeholder="Label" value={c.label} onChange={(e) => updateCandidate(idx, { label: e.target.value })} />
+                          </div>
+                        )}
                         <Input className="text-xs h-7" placeholder="Source URL" value={c.source_url} onChange={(e) => updateCandidate(idx, { source_url: e.target.value })} />
                         <div className="flex items-center gap-2">
                           <Label className="text-[11px] text-slate-500 shrink-0">As of</Label>

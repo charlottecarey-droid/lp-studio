@@ -20,6 +20,7 @@ import { handlePagePublishNotifications } from "../../lib/contentSeriesNotify";
 import { triggerTemplateThumbnailCapture } from "../../lib/captureTemplateThumbnail";
 import { getMicrositeTemplateCompatibility } from "@workspace/lp-template-engine";
 import { enforceFactFlagPublishGate } from "./fact-flags";
+import { detectFacts } from "../../lib/factFlags/detect";
 import { isRootSuperadminEmail } from "../../lib/rootSuperadmin";
 
 const router = Router();
@@ -375,6 +376,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
   const {
     title, slug, blocks, status, customCss, metaTitle, metaDescription,
     ogImage, animationsEnabled, smoothScroll, pageVariables, fromTemplateId, audienceType, segmentId,
+    trustedFactForms,
   } = req.body as {
     title?: unknown;
     slug?: unknown;
@@ -390,6 +392,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     fromTemplateId?: unknown;
     audienceType?: unknown;
     segmentId?: unknown;
+    trustedFactForms?: unknown;
   };
   if (!title || typeof title !== "string") {
     res.status(400).json({ error: "title is required" });
@@ -558,14 +561,31 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
 
   try {
     const finalCustomCss = (typeof customCss === "string" && customCss.length > 0) ? sanitizeCSS(customCss) : sanitizeCSS(sourceCss);
+    // When fromTemplateId is set, source content wins unless caller sends explicit non-empty overrides
+    const effectiveBlocks = (Array.isArray(blocks) && blocks.length > 0) ? blocks : sourceBlocks;
+    // Strict Facts — harden the client-supplied trusted (url-sourced) quote
+    // fact-forms: only persist forms that correspond to a quote ACTUALLY present
+    // on the page being saved. This prevents a client from pre-whitelisting
+    // arbitrary normalized forms to suppress future flags. Tenant-scoped page.
+    const onPageQuoteForms = new Set(
+      detectFacts(effectiveBlocks).filter((f) => f.factKind === "quote").map((f) => f.normalizedForm),
+    );
+    const safeTrustedFactForms = Array.isArray(trustedFactForms)
+      ? Array.from(
+          new Set(
+            (trustedFactForms as unknown[]).filter(
+              (x): x is string => typeof x === "string" && onPageQuoteForms.has(x),
+            ),
+          ),
+        )
+      : [];
     const [page] = await withDbRetry(() => db
       .insert(lpPagesTable)
       .values({
         tenantId,
         title,
         slug,
-        // When fromTemplateId is set, source content wins unless caller sends explicit non-empty overrides
-        blocks: (Array.isArray(blocks) && blocks.length > 0) ? blocks : sourceBlocks,
+        blocks: effectiveBlocks,
         status: effectiveStatus,
         customCss: finalCustomCss,
         metaTitle: prefillMetaTitle,
@@ -578,6 +598,10 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
           : sourcePageVariables,
         audienceType: typeof audienceType === "string" && audienceType ? audienceType : null,
         segmentId: typeof segmentId === "string" && segmentId ? segmentId : null,
+        // Strict Facts — persist trusted (url-sourced) quote fact-forms so the
+        // later /fact-flags/sync never flags quotes that came from the
+        // generation reference URL. Validated against on-page quotes above.
+        trustedFactForms: safeTrustedFactForms,
         createdBy: req.authUser?.email ?? null,
       })
       .returning());
@@ -1273,6 +1297,12 @@ router.post("/lp/pages/:pageId/clone", async (req, res): Promise<void> => {
         animationsEnabled: source.animationsEnabled ?? true,
         smoothScroll: source.smoothScroll ?? true,
         pageVariables: (source.pageVariables && typeof source.pageVariables === "object" && !Array.isArray(source.pageVariables)) ? source.pageVariables as Record<string, string> : {},
+        // Strict Facts — carry over trusted (url-sourced) quote fact-forms so a
+        // cloned page does not re-flag quotes that were already vetted as
+        // coming from the generation reference URL.
+        trustedFactForms: Array.isArray(source.trustedFactForms)
+          ? (source.trustedFactForms as unknown[]).filter((x): x is string => typeof x === "string")
+          : [],
         createdBy: req.authUser?.email ?? null,
         ...(linkAccountId ? { accountId: linkAccountId } : {}),
       })

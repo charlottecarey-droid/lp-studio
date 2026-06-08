@@ -106,11 +106,19 @@ async function firecrawlMarkdown(apiKey: string, url: string): Promise<string | 
 }
 
 interface ProposedProofPoint {
+  // For a quote, `value` carries the verbatim quote body (longer than a stat).
   value: string;
   label: string;
   source_url: string;
   as_of_date: string | null;
   context: string;
+  // "stat" (numeric metric / award / milestone — the default) or "quote"
+  // (a verbatim customer testimonial). Quotes carry attribution so the Strict
+  // Facts approval matcher (buildApprovedFacts.addQuote) can vet them.
+  fact_kind: "stat" | "quote";
+  attribution_name: string;
+  attribution_title: string;
+  attribution_company: string;
 }
 
 // Loose ISO-date / year-only acceptance. We don't reject — we just normalize
@@ -138,13 +146,18 @@ function normalizeDate(raw: unknown): string | null {
   return null;
 }
 
-function sanitizeProposed(raw: unknown, fallbackSourceUrl: string): ProposedProofPoint[] {
+export function sanitizeProposed(raw: unknown, fallbackSourceUrl: string): ProposedProofPoint[] {
   if (!Array.isArray(raw)) return [];
   const out: ProposedProofPoint[] = [];
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
     const r = item as Record<string, unknown>;
-    const value = typeof r.value === "string" ? r.value.trim().slice(0, 80) : "";
+    const factKindRaw = typeof r.fact_kind === "string" ? r.fact_kind.trim().toLowerCase() : "";
+    const fact_kind: "stat" | "quote" = factKindRaw === "quote" ? "quote" : "stat";
+    // A quote body is a sentence (or two), not a short metric — give it a much
+    // longer slice than a stat value so the verbatim testimonial survives.
+    const valueLimit = fact_kind === "quote" ? 600 : 80;
+    const value = typeof r.value === "string" ? r.value.trim().slice(0, valueLimit) : "";
     const label = typeof r.label === "string" ? r.label.trim().slice(0, 200) : "";
     if (!value && !label) continue;
     const sourceUrlRaw = typeof r.source_url === "string" ? r.source_url.trim() : "";
@@ -156,39 +169,51 @@ function sanitizeProposed(raw: unknown, fallbackSourceUrl: string): ProposedProo
       } catch { /* ignore */ }
     }
     if (!source_url) source_url = fallbackSourceUrl;
+    const attrSlice = (k: string): string =>
+      typeof r[k] === "string" ? (r[k] as string).trim().slice(0, 120) : "";
     out.push({
       value,
       label,
       source_url,
       as_of_date: normalizeDate(r.as_of_date),
       context: typeof r.context === "string" ? r.context.trim().slice(0, 300) : "",
+      fact_kind,
+      attribution_name: fact_kind === "quote" ? attrSlice("attribution_name") : "",
+      attribution_title: fact_kind === "quote" ? attrSlice("attribution_title") : "",
+      attribution_company: fact_kind === "quote" ? attrSlice("attribution_company") : "",
     });
     if (out.length >= 30) break;
   }
   return out;
 }
 
-const SYSTEM_PROMPT = `You extract concrete, verifiable proof points (numeric metrics, statistics, awards, certifications, dated milestones) from a piece of source text.
+const SYSTEM_PROMPT = `You extract two kinds of proof point from a piece of source text:
+  1. STATS — concrete, verifiable numeric metrics, statistics, awards, certifications, dated milestones.
+  2. QUOTES — verbatim customer testimonials / endorsements with a named attribution.
 
 Return STRICT JSON in this shape:
 {
   "proofPoints": [
     {
-      "value": "98%",                       // the headline number / metric — short. Required.
-      "label": "case acceptance rate",      // what the value represents — concise. Required.
-      "source_url": "https://...",          // the page/article the stat appears on, if visible in the text. Optional.
+      "fact_kind": "stat",                  // "stat" or "quote". Required.
+      "value": "98%",                       // STAT: the headline number/metric (short). QUOTE: the verbatim quote text. Required.
+      "label": "case acceptance rate",      // STAT: what the value represents (concise). QUOTE: a short description, e.g. "customer testimonial". Required.
+      "source_url": "https://...",          // the page/article it appears on, if visible in the text. Optional.
       "as_of_date": "2024-03-15" | "2024",  // ISO date, or bare year if only the year is given. Optional.
-      "context": "From Q1 2024 customer survey" // 1 short sentence of surrounding context. Optional.
+      "context": "From Q1 2024 customer survey", // 1 short sentence of surrounding context. Optional.
+      "attribution_name": "Dr. Jane Lopez", // QUOTES ONLY — who said it. Optional but strongly preferred.
+      "attribution_title": "Owner",         // QUOTES ONLY — their role/title. Optional.
+      "attribution_company": "Bright Smiles Dental" // QUOTES ONLY — their company/practice. Optional.
     }
   ]
 }
 
 Rules:
-- ONLY extract proof points that are explicitly stated in the source. Do NOT invent or estimate.
-- Skip vague claims ("industry-leading", "many customers"). Skip pricing. Skip generic feature lists.
-- Prefer the most marketing-quotable form: "$2B in revenue" not "two billion dollars".
-- Deduplicate — if the same stat appears multiple times, return it once.
-- Return at most 25 proof points, ordered by how strong/quotable they are.
+- ONLY extract proof points that are explicitly stated in the source. Do NOT invent, estimate, or paraphrase.
+- STATS: skip vague claims ("industry-leading", "many customers"), pricing, and generic feature lists. Prefer the most marketing-quotable form: "$2B in revenue" not "two billion dollars".
+- QUOTES: extract the testimonial VERBATIM (do not reword). Only extract a quote if it reads like a genuine customer/partner endorsement — skip generic marketing copy and headlines. Fill attribution_name/title/company from the nearby byline when present; leave blank if truly unknown.
+- Deduplicate — if the same stat or quote appears multiple times, return it once.
+- Return at most 25 proof points total, ordered by how strong/quotable they are.
 - If nothing concrete is found, return {"proofPoints": []}.
 - Return ONLY valid JSON. No prose, no markdown.`;
 
@@ -201,7 +226,9 @@ async function extractWithLLM(text: string, fallbackSourceUrl: string): Promise<
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      max_completion_tokens: 2048,
+      // Quotes are verbatim sentences (much longer than a stat value), so the
+      // combined stat+quote payload needs more headroom than the stats-only one.
+      max_completion_tokens: 4096,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },

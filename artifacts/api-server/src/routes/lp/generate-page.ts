@@ -4822,6 +4822,15 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         // client persists these as pending flags via the page's /fact-flags/sync
         // endpoint once the page row exists.
         detectedFacts: detectFacts(mergedBlocks),
+        // Strict Facts — when this generation used the per-request reference URL
+        // as a fact source, its quotes are trusted. Persist their normalized
+        // forms on the page (lp_pages.trusted_fact_forms) so the later
+        // /fact-flags/sync re-detect (which has no URL context) never flags them.
+        trustedFactForms: urlSourcedFacts
+          ? detectFacts(mergedBlocks)
+              .filter((f) => f.factKind === "quote")
+              .map((f) => f.normalizedForm)
+          : [],
         bannedPhraseHits,
         critiqueAnnotations,
         referenceUrl: scrapeResult.scraped?.url ?? null,
@@ -5911,6 +5920,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // Task #1138 — raw candidate facts persisted as pending flags by the
       // client via /fact-flags/sync after the page row is created.
       detectedFacts: detectFacts(parsed.blocks),
+      // Strict Facts — trusted (url-sourced) quote forms persisted on the page so
+      // the later /fact-flags/sync re-detect never flags them. See above.
+      trustedFactForms: urlSourcedFacts
+        ? detectFacts(parsed.blocks)
+            .filter((f) => f.factKind === "quote")
+            .map((f) => f.normalizedForm)
+        : [],
       bannedPhraseHits,
       critiqueAnnotations,
       referenceUrl: scrapeResult.scraped?.url ?? null,

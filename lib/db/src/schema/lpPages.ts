@@ -75,6 +75,14 @@ export const lpPagesTable = pgTable("lp_pages", {
   // "healthy" is derived (hadHtml && checked > 0 && brokenAssets.length === 0).
   assetHealthCheckedAt: timestamp("asset_health_checked_at", { withTimezone: true }),
   assetHealthResult: jsonb("asset_health_result"),
+  // Strict Facts — persistent per-page list of normalized quote fact-forms that
+  // are TRUSTED (never flagged) because they came from the per-request
+  // generation reference URL (urlSourcedFacts). Detection at generation time has
+  // the URL context; the later /fact-flags/sync re-detect does NOT, so the trust
+  // signal is persisted here and re-applied on every sync. Array of
+  // `normalizedFormFor("quote", …)` strings. Empty for pages with no url-sourced
+  // facts.
+  trustedFactForms: jsonb("trusted_fact_forms").notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

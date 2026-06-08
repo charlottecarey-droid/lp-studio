@@ -58,6 +58,10 @@ export interface CreatePageData {
   audienceType?: string | null;
   segmentId?: string | null;
   fromTemplateId?: number | null;
+  /** Strict Facts — normalized quote fact-forms trusted because they came from
+   *  the per-request generation reference URL. Persisted on the page so the
+   *  later /fact-flags/sync never flags them. */
+  trustedFactForms?: string[];
 }
 
 export interface ApiTemplate {

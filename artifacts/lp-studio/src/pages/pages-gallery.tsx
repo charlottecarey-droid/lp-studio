@@ -400,7 +400,7 @@ export default function PagesGallery() {
       const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
       throw new Error((err as { error?: string }).error ?? "Generation failed");
     }
-    const generated = await genRes.json() as { title: string; slug: string; blocks: PageBlock[]; critiqueAnnotations?: unknown };
+    const generated = await genRes.json() as { title: string; slug: string; blocks: PageBlock[]; critiqueAnnotations?: unknown; trustedFactForms?: string[] };
     const page = await createPage({
       title: generated.title,
       slug: generated.slug,
@@ -408,6 +408,9 @@ export default function PagesGallery() {
       status: "draft",
       segmentId: activeSeg?.id ?? null,
       audienceType: activeSeg ? inferAudienceType(activeSeg.name) : null,
+      // Strict Facts — persist trusted (url-sourced) quote forms so the later
+      // fact-flags sync never flags quotes that came from the reference URL.
+      trustedFactForms: Array.isArray(generated.trustedFactForms) ? generated.trustedFactForms : undefined,
     });
     // Task #1138 — detect + persist per-page fact flags so the builder can
     // surface the review banner + publish gate. Best-effort: a failed sync

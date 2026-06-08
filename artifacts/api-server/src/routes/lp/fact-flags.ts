@@ -27,15 +27,26 @@ interface PageRow {
   id: number;
   blocks: unknown[];
   status: string;
+  trustedFactForms: string[];
 }
 
 async function loadPage(tenantId: number, pageId: number): Promise<PageRow | null> {
   const r = await db.execute(
-    sql`SELECT id, blocks, status FROM lp_pages WHERE id = ${pageId} AND tenant_id = ${tenantId} LIMIT 1`,
+    sql`SELECT id, blocks, status, trusted_fact_forms AS "trustedFactForms"
+        FROM lp_pages WHERE id = ${pageId} AND tenant_id = ${tenantId} LIMIT 1`,
   );
-  const row = r.rows[0] as { id?: number; blocks?: unknown; status?: string } | undefined;
+  const row = r.rows[0] as
+    | { id?: number; blocks?: unknown; status?: string; trustedFactForms?: unknown }
+    | undefined;
   if (!row || typeof row.id !== "number") return null;
-  return { id: row.id, blocks: Array.isArray(row.blocks) ? row.blocks : [], status: row.status ?? "draft" };
+  return {
+    id: row.id,
+    blocks: Array.isArray(row.blocks) ? row.blocks : [],
+    status: row.status ?? "draft",
+    trustedFactForms: Array.isArray(row.trustedFactForms)
+      ? (row.trustedFactForms as unknown[]).filter((x): x is string => typeof x === "string")
+      : [],
+  };
 }
 
 async function saveBlocks(tenantId: number, pageId: number, blocks: unknown[]): Promise<void> {
@@ -192,7 +203,11 @@ router.post("/lp/pages/:pageId/fact-flags/sync", async (req, res): Promise<void>
         : [],
     );
     const approved = await buildApprovedFacts(tenantId);
-    const result = await syncFactFlags({ tenantId, pageId, blocks: page.blocks, approved, templateForms });
+    // Quotes sourced from the per-request generation reference URL are persisted
+    // as trusted on the page; re-apply that trust on every sync (this re-detect
+    // has no URL context of its own).
+    const trustedForms = new Set<string>(page.trustedFactForms);
+    const result = await syncFactFlags({ tenantId, pageId, blocks: page.blocks, approved, templateForms, trustedForms });
     if (result.mutated) await saveBlocks(tenantId, pageId, result.blocks);
     const flags = await listFactFlags(tenantId, pageId);
     res.json({ flags, pendingCount: result.pendingCount, created: result.created, mutated: result.mutated });
