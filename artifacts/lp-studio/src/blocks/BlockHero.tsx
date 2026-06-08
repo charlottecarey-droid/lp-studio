@@ -1,8 +1,8 @@
 import { ArrowRight, ShieldCheck, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, pickContrastingColor, isValidHex, DEFAULT_BRAND, getLogoLinkUrl, type BrandConfig } from "@/lib/brand-config";
+import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, pickContrastingColor, isValidHex, DEFAULT_BRAND, getLogoLinkUrl, relativeLuminance, type BrandConfig } from "@/lib/brand-config";
 import type { HeroBlockProps } from "@/lib/block-types";
-import { BrandLogo } from "@/components/BrandLogo";
+import { BrandLogo, brandLogoToneForSurface } from "@/components/BrandLogo";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { getHeadlineSizeClass } from "@/lib/typography";
@@ -33,6 +33,11 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
   const FOREST = brand.primaryColor;
   const isFullWidth = props.buttonWidth === "full";
   const isDark = isDarkBg(props.backgroundStyle);
+  // The logo lives in the top nav, which paints `brand.navBgColor` (NOT the hero
+  // body surface), so its tone must follow THAT color — not the hero `isDark`.
+  // A light nav must use `onLight` or the logo whitens into a white-on-light
+  // silhouette; a dark nav uses `onDark` for a legible white mark.
+  const navIsDark = relativeLuminance(brand.navBgColor || "#000000") < 0.4;
   // The hero CTA sits on the section surface: brand primary on dark
   // backgrounds, white on light ones. Guard the accent-colored fill so it
   // can't collapse onto a same-hue surface (the classic "blue-on-blue"
@@ -216,7 +221,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
       <div className="min-h-[70vh] flex flex-col">
         <nav className="w-full px-6 pt-1 pb-[7px] flex items-center justify-between z-40 relative" style={{ backgroundColor: brand.navBgColor }}>
           {(() => {
-            const logo = <BrandLogo brand={brand} tone="onDark" alt={brand.brandName || "Logo"} className="h-8 w-auto" />;
+            const logo = <BrandLogo brand={brand} tone={brandLogoToneForSurface(navIsDark)} alt={brand.brandName || "Logo"} className="h-8 w-auto" />;
             const logoLink = getLogoLinkUrl(brand);
             return logoLink ? (
               <a href={logoLink} target="_blank" rel="noopener noreferrer" className="inline-block">

@@ -191,6 +191,34 @@ describe.each([
   });
 });
 
+/**
+ * The hero logo lives in the top nav, which paints `brand.navBgColor` (not the
+ * hero body surface). A raster logo (auto-recolor off) is force-whitened only on
+ * a DARK surface; on a light nav it must render in its native colors so it does
+ * not vanish into a white-on-light silhouette. These guard that the nav logo
+ * tone tracks `navBgColor`.
+ */
+function heroImgTag(markup: string): string {
+  const imgIdx = markup.indexOf(`<img src="${LOGO_SRC}"`);
+  if (imgIdx === -1) throw new Error("logo <img> not found in rendered markup");
+  const end = markup.indexOf(">", imgIdx);
+  return markup.slice(imgIdx, end + 1);
+}
+
+const WHITEN_FILTER = "filter:brightness(0) invert(1)";
+
+describe("BlockHero nav logo tone follows navBgColor", () => {
+  it("whitens the logo on a dark nav background", () => {
+    const markup = heroMarkup(brandWith({ navBgColor: "#000000" }));
+    expect(heroImgTag(markup)).toContain(WHITEN_FILTER);
+  });
+
+  it("leaves the logo in native colors on a light nav background", () => {
+    const markup = heroMarkup(brandWith({ navBgColor: "#ffffff" }));
+    expect(heroImgTag(markup)).not.toContain(WHITEN_FILTER);
+  });
+});
+
 describe("BlockFullBleedHero logo link", () => {
   it("wraps the logo in a new-tab anchor to the website when enabled", () => {
     const markup = fullBleedMarkup(brandWith({ logoLinkEnabled: true, websiteUrl: WEBSITE_URL }));
