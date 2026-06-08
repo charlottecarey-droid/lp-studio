@@ -6,6 +6,7 @@ import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: CaseStudyLogoResultsRowBlockProps;
@@ -14,12 +15,12 @@ interface Props {
 }
 
 export function BlockCaseStudyLogoResultsRow({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#ffffff";
-  const ink = props.textColor ?? "#0f172a";
+  const surface = resolveSectionSurface(props, "#ffffff");
+  const ink = props.textColor ?? surface.color ?? "#0f172a";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
-  const muted = pickContrastingColor(undefined, bg, ["#64748b", "#94a3b8"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#64748b", "#94a3b8"]);
   const onAccent = pickContrastingColor(undefined, accent, ["#ffffff", "#0f172a"]);
   const border = `${ink}14`;
 
@@ -41,7 +42,7 @@ export function BlockCaseStudyLogoResultsRow({ props, brand, onFieldChange }: Pr
   };
 
   return (
-    <section className="w-full py-16 sm:py-24 border-y" style={{ backgroundColor: bg, borderColor: border }}>
+    <section className="w-full py-16 sm:py-24 border-y" style={{ background: surface.background, borderColor: border }}>
       <div className="container mx-auto px-6 md:px-12 max-w-7xl">
         {(props.heading || onFieldChange) && (
           <InlineText

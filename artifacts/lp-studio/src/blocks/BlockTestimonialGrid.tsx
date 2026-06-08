@@ -5,6 +5,7 @@ import type { TestimonialGridBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -16,17 +17,17 @@ interface Props {
 }
 
 export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#F8FAFC";
-  const text = props.textColor ?? "#0F172A";
+  const bgSurface = resolveSectionSurface(props, "#F8FAFC");
+  const text = props.textColor ?? bgSurface.color ?? "#0F172A";
   const headlineColor = props.headlineColor ?? text;
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   // Section-level colors sit directly on the section background.
-  const muted = pickContrastingColor(undefined, bg, ["#64748B", "#94A3B8"]);
+  const muted = pickContrastingColor(undefined, bgSurface.base, ["#64748B", "#94A3B8"]);
   const border = `${text}1f`;
   // Cards sit on `surface`, which contrasts with the section background. Every
   // in-card color must therefore be derived from the card surface (not the
   // section bg/text), or a dark AI section yields dark text on a dark card.
-  const surface = pickContrastingColor(undefined, bg, ["#FFFFFF", "#1E293B"]);
+  const surface = pickContrastingColor(undefined, bgSurface.base, ["#FFFFFF", "#1E293B"]);
   const cardText = pickContrastingColor(props.textColor, surface, ["#0F172A", "#F8FAFC"]);
   const cardMuted = pickContrastingColor(undefined, surface, ["#64748B", "#94A3B8"]);
   const cardBorder = `${cardText}1f`;
@@ -36,7 +37,7 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
   // CTA button styling. Each field is an optional override; when unset we
   // derive a contrast-aware default from the CTA band background (`bg`) so the
   // secondary button never renders illegible white-on-light text.
-  const ctaBandText = pickContrastingColor(undefined, bg, ["#0F172A", "#FFFFFF"]);
+  const ctaBandText = pickContrastingColor(undefined, bgSurface.base, ["#0F172A", "#FFFFFF"]);
   const primaryBg = props.ctaPrimaryBgColor ?? accent;
   const primaryText = props.ctaPrimaryTextColor ?? pickContrastingColor(undefined, primaryBg, ["#FFFFFF", "#0f172a"]);
   const secondaryText = props.ctaSecondaryTextColor ?? ctaBandText;
@@ -53,7 +54,7 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="w-full py-24 sm:py-32 px-6 lg:px-8 flex flex-col justify-center" style={{ backgroundColor: bg, color: text }}>
+    <section className="w-full py-24 sm:py-32 px-6 lg:px-8 flex flex-col justify-center" style={{ background: bgSurface.background, color: text }}>
       <div className="mx-auto w-full max-w-7xl flex flex-col gap-16 lg:gap-20">
         <div className="flex flex-col items-center text-center gap-4 max-w-3xl mx-auto">
           {(props.eyebrow || onFieldChange) && (

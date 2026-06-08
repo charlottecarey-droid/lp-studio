@@ -5,6 +5,7 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: FullBleedFinalCtaBlockProps;
@@ -14,9 +15,9 @@ interface Props {
 
 export function BlockFullBleedFinalCta({ props, brand, onFieldChange }: Props) {
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const bg = props.bgColor ?? accent;
+  const surface = resolveSectionSurface(props, accent);
   const hasImage = !!props.backgroundImageUrl;
-  const ink = props.textColor ?? pickContrastingColor(undefined, hasImage ? "#0F172A" : bg, ["#FFFFFF", "#0F172A"]);
+  const ink = props.textColor ?? surface.color ?? pickContrastingColor(undefined, hasImage ? "#0F172A" : surface.base, ["#FFFFFF", "#0F172A"]);
   const muted = `${ink}D9`;
   const btnBg = hasImage ? "#FFFFFF" : ink;
   const onBtn = pickContrastingColor(undefined, btnBg, ["#0F172A", "#FFFFFF"]);
@@ -31,13 +32,20 @@ export function BlockFullBleedFinalCta({ props, brand, onFieldChange }: Props) {
     <section
       className="relative w-full overflow-hidden px-6 py-24 sm:py-32"
       style={{
-        backgroundColor: bg,
-        backgroundImage: hasImage ? `url(${props.backgroundImageUrl})` : undefined,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
+        background: surface.background,
         fontFamily: BODY,
       }}
     >
+      {hasImage && (
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `url(${props.backgroundImageUrl})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        />
+      )}
       {hasImage && <div className="absolute inset-0" style={{ backgroundColor: `rgba(15,23,42,${overlay})` }} />}
       <div className="container relative mx-auto max-w-3xl text-center" style={{ color: ink }}>
         {(props.eyebrow || onFieldChange) && (

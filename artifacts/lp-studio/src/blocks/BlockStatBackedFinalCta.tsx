@@ -5,6 +5,7 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: StatBackedFinalCtaBlockProps;
@@ -20,8 +21,8 @@ const COL_CLASS: Record<number, string> = {
 
 export function BlockStatBackedFinalCta({ props, brand, onFieldChange }: Props) {
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const bg = props.bgColor ?? "#0F172A";
-  const ink = props.textColor ?? pickContrastingColor(undefined, bg, ["#FFFFFF", "#0F172A"]);
+  const surface = resolveSectionSurface(props, "#0F172A");
+  const ink = props.textColor ?? surface.color ?? pickContrastingColor(undefined, surface.base, ["#FFFFFF", "#0F172A"]);
   const muted = `${ink}B3`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
@@ -37,7 +38,7 @@ export function BlockStatBackedFinalCta({ props, brand, onFieldChange }: Props) 
   };
 
   return (
-    <section className="w-full px-6 py-20 sm:py-28" style={{ backgroundColor: bg, color: ink, fontFamily: BODY }}>
+    <section className="w-full px-6 py-20 sm:py-28" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
       <div className="container mx-auto max-w-4xl text-center">
         {(props.eyebrow || onFieldChange) && (
           <InlineText as="p" value={props.eyebrow ?? ""} onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined} className="mb-3 text-xs font-bold uppercase tracking-[0.18em]" style={{ color: accent }} />

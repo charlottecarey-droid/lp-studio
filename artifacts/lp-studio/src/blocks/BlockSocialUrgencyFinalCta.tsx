@@ -6,6 +6,7 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: SocialUrgencyFinalCtaBlockProps;
@@ -15,9 +16,9 @@ interface Props {
 
 export function BlockSocialUrgencyFinalCta({ props, brand, onFieldChange }: Props) {
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const bg = props.bgColor ?? "#FFFFFF";
-  const ink = props.textColor ?? pickContrastingColor(undefined, bg, ["#0F172A", "#FFFFFF"]);
-  const muted = pickContrastingColor(undefined, bg, ["#64748B", "#94A3B8"]);
+  const surface = resolveSectionSurface(props, "#FFFFFF");
+  const ink = props.textColor ?? surface.color ?? pickContrastingColor(undefined, surface.base, ["#0F172A", "#FFFFFF"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#64748B", "#94A3B8"]);
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
@@ -27,7 +28,7 @@ export function BlockSocialUrgencyFinalCta({ props, brand, onFieldChange }: Prop
     onFieldChange?.({ ...props, [key]: value });
 
   return (
-    <section className="w-full px-6 py-20 sm:py-28" style={{ backgroundColor: bg, color: ink, fontFamily: BODY }}>
+    <section className="w-full px-6 py-20 sm:py-28" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
       <div className="container mx-auto max-w-3xl text-center">
         {(props.urgencyText || onFieldChange) && (
           <div className="mb-6 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold" style={{ backgroundColor: `${accent}1A`, color: accent }}>
@@ -65,7 +66,7 @@ export function BlockSocialUrgencyFinalCta({ props, brand, onFieldChange }: Prop
             {avatars.length > 0 && (
               <div className="flex -space-x-3">
                 {avatars.slice(0, 6).map((src, i) => (
-                  <img key={i} src={src} alt="" className="h-9 w-9 rounded-full border-2 object-cover" style={{ borderColor: bg }} />
+                  <img key={i} src={src} alt="" className="h-9 w-9 rounded-full border-2 object-cover" style={{ borderColor: surface.base }} />
                 ))}
               </div>
             )}

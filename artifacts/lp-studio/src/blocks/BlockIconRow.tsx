@@ -4,6 +4,7 @@ import type { IconRowBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { IconOrImage } from "@/lib/icon-value";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: IconRowBlockProps;
@@ -18,10 +19,10 @@ const COL_CLASS: Record<number, string> = {
 };
 
 export function BlockIconRow({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#FFFFFF";
-  const ink = props.textColor ?? "#0F172A";
+  const surface = resolveSectionSurface(props, "#FFFFFF");
+  const ink = props.textColor ?? surface.color ?? "#0F172A";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const muted = pickContrastingColor(undefined, bg, ["#64748B", "#94A3B8"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#64748B", "#94A3B8"]);
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const items = props.items ?? [];
@@ -35,7 +36,7 @@ export function BlockIconRow({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="w-full py-20 sm:py-24" style={{ backgroundColor: bg, color: ink, fontFamily: BODY }}>
+    <section className="w-full py-20 sm:py-24" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
       <div className="container mx-auto px-6 md:px-12">
         {(props.eyebrow !== undefined || props.heading !== undefined || props.subheading !== undefined) && (
           <div className="mx-auto mb-12 max-w-2xl text-center">

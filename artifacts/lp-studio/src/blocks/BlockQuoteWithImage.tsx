@@ -6,6 +6,7 @@ import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -17,10 +18,10 @@ interface Props {
 }
 
 export function BlockQuoteWithImage({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#FFFFFF";
-  const text = props.textColor ?? "#0F172A";
+  const surface = resolveSectionSurface(props, "#FFFFFF");
+  const text = props.textColor ?? surface.color ?? "#0F172A";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const muted = pickContrastingColor(undefined, bg, ["#64748B", "#94A3B8"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#64748B", "#94A3B8"]);
   const border = `${text}1f`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const showCta = props.showCta ?? true;
@@ -135,7 +136,7 @@ export function BlockQuoteWithImage({ props, brand, onFieldChange }: Props) {
   );
 
   return (
-    <section className="w-full flex items-center justify-center py-24 sm:py-32" style={{ backgroundColor: bg, color: text }}>
+    <section className="w-full flex items-center justify-center py-24 sm:py-32" style={{ background: surface.background, color: text }}>
       <div className="container mx-auto px-6 md:px-12 max-w-6xl">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-24 items-center">
           {imageCol}

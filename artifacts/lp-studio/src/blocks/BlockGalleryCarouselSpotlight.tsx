@@ -7,6 +7,7 @@ import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: GalleryCarouselSpotlightBlockProps;
@@ -15,14 +16,13 @@ interface Props {
 }
 
 export function BlockGalleryCarouselSpotlight({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#FFFFFF";
-  const ink = props.textColor ?? "#0F172A";
+  const surface = resolveSectionSurface(props, "#FFFFFF");
+  const ink = props.textColor ?? surface.color ?? "#0F172A";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
-  const muted = pickContrastingColor(undefined, bg, ["#64748B", "#94A3B8"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#64748B", "#94A3B8"]);
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
-  const surface = bg;
 
   const images = props.images ?? [];
   const [activeIndex, setActiveIndex] = useState(0);
@@ -46,7 +46,7 @@ export function BlockGalleryCarouselSpotlight({ props, brand, onFieldChange }: P
   };
 
   return (
-    <section className="w-full py-24 sm:py-32" style={{ backgroundColor: bg, color: ink }}>
+    <section className="w-full py-24 sm:py-32" style={{ background: surface.background, color: ink }}>
       <div className="container mx-auto px-6 max-w-6xl">
         <div className="text-center mb-16 max-w-2xl mx-auto">
           {(props.eyebrow || onFieldChange) && (
@@ -117,7 +117,7 @@ export function BlockGalleryCarouselSpotlight({ props, brand, onFieldChange }: P
                 key={img.id}
                 onClick={() => setActiveIndex(idx)}
                 className={`relative shrink-0 w-32 aspect-video rounded-xl overflow-hidden transition-all duration-300 snap-center ${safeIndex === idx ? "scale-105" : "opacity-60 hover:opacity-100"}`}
-                style={safeIndex === idx ? { boxShadow: `0 0 0 4px ${surface}, 0 0 0 8px ${accent}` } : {}}
+                style={safeIndex === idx ? { boxShadow: `0 0 0 4px ${surface.base}, 0 0 0 8px ${accent}` } : {}}
                 aria-label={img.caption || `View image ${idx + 1}`}
               >
                 {img.src ? (

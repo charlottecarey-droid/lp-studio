@@ -4,6 +4,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { useBlockFonts } from "@/lib/use-block-fonts";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { BRAND_DISPLAY_STACK, BRAND_BODY_STACK } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: LogoWallBlockProps;
@@ -68,8 +69,8 @@ function LogoMark({
 }
 
 export function BlockLogoWall({ props }: Props) {
-  const bg = props.bgColor || "#ffffff";
-  const textColor = props.textColor || "#334155";
+  const surface = resolveSectionSurface(props, "#ffffff");
+  const textColor = props.textColor || surface.color || "#334155";
   const grayscale = props.grayscale !== false;
   const logos = props.logos && props.logos.length > 0 ? props.logos : DEFAULT_LOGOS;
 
@@ -82,7 +83,7 @@ export function BlockLogoWall({ props }: Props) {
     : BRAND_BODY_STACK;
 
   return (
-    <section className="w-full" style={{ backgroundColor: bg }}>
+    <section className="w-full" style={{ background: surface.background }}>
       <div className="max-w-6xl mx-auto px-6 py-14 md:py-20 flex flex-col items-center gap-10 md:gap-12">
         {props.eyebrow && (
           <h2

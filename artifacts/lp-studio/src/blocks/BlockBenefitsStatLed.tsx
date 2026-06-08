@@ -6,6 +6,7 @@ import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { BenefitsStatLedBlockProps } from "@/lib/block-types";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT, BRAND_NUMBERS_FONT } from "@/lib/brand-fonts";
@@ -22,12 +23,12 @@ interface Props {
 }
 
 export function BlockBenefitsStatLed({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#FFFFFF";
-  const text = props.textColor ?? "#171717";
+  const surface = resolveSectionSurface(props, "#FFFFFF");
+  const text = props.textColor ?? surface.color ?? "#171717";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const tint = `${accent}14`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
-  const muted = pickContrastingColor(undefined, bg, ["#525252", "#a3a3a3"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
   const showCta = props.showCta ?? true;
   const centered = props.headingAlign === "center";
 
@@ -40,7 +41,7 @@ export function BlockBenefitsStatLed({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="flex w-full items-center justify-center px-4 py-24 sm:py-32 md:px-8" style={{ backgroundColor: bg, color: text }}>
+    <section className="flex w-full items-center justify-center px-4 py-24 sm:py-32 md:px-8" style={{ background: surface.background, color: text }}>
       <div className="mx-auto w-full max-w-[1200px]">
         <div className={`mb-20 max-w-2xl${centered ? " mx-auto text-center" : ""}`}>
           {(props.eyebrow || onFieldChange) && (

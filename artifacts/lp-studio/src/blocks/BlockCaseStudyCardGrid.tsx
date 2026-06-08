@@ -6,6 +6,7 @@ import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: CaseStudyCardGridBlockProps;
@@ -14,14 +15,14 @@ interface Props {
 }
 
 export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#f8fafc";
-  const surface = props.surfaceColor ?? "#ffffff";
-  const ink = props.textColor ?? "#0f172a";
+  const surface = resolveSectionSurface(props, "#f8fafc");
+  const cardSurface = props.surfaceColor ?? "#ffffff";
+  const ink = props.textColor ?? surface.color ?? "#0f172a";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
-  const muted = pickContrastingColor(undefined, bg, ["#64748b", "#94a3b8"]);
-  const surfaceMuted = pickContrastingColor(undefined, surface, ["#64748b", "#94a3b8"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#64748b", "#94a3b8"]);
+  const surfaceMuted = pickContrastingColor(undefined, cardSurface, ["#64748b", "#94a3b8"]);
   const border = `${ink}14`;
 
   const cards = props.cards ?? [];
@@ -42,7 +43,7 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="w-full py-24 sm:py-32" style={{ backgroundColor: bg }}>
+    <section className="w-full py-24 sm:py-32" style={{ background: surface.background }}>
       <div className="container mx-auto px-6 md:px-12 max-w-7xl">
         <div className="text-center max-w-3xl mx-auto mb-16 md:mb-24">
           <InlineText
@@ -67,7 +68,7 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
             <div
               key={i}
               className="flex flex-col h-full p-8 rounded-3xl border shadow-sm transition-shadow hover:shadow-md group"
-              style={{ backgroundColor: surface, borderColor: border }}
+              style={{ backgroundColor: cardSurface, borderColor: border }}
             >
               {isLogo ? (
                 <div className="flex flex-col items-center text-center gap-4 mb-8 pb-8 border-b" style={{ borderColor: border }}>

@@ -43,6 +43,81 @@ export function isDarkBg(style: string | undefined): boolean {
   return ["dark", "dandy-green", "black", "gradient"].includes(style ?? "");
 }
 
+/** Parse "#rgb" / "#rrggbb" to [r,g,b] 0-255, or null when unparseable. */
+function hexToRgb(hex: string): [number, number, number] | null {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  let h = m[1];
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  const n = parseInt(h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/** WCAG relative luminance (0–1) for a hex color; returns 1 (treat as light)
+ *  when the value can't be parsed, so non-hex tokens never read as "dark". */
+function hexLuminance(hex: string): number {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return 1;
+  const [r, g, b] = rgb.map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+export interface ResolvedSectionSurface {
+  /** Value for the CSS `background` shorthand (a solid hex or a gradient image). */
+  background: string;
+  /** Preset-dictated text color (the dark/gradient presets resolve to a light
+   *  foreground). Undefined for custom solid colors so callers keep their own
+   *  contrast logic / explicit textColor override. */
+  color?: string;
+  /** True when the surface reads dark → callers should use light text and the
+   *  dark-surface ("onDark") brand logo asset. */
+  isDark: boolean;
+  /** A representative *solid* hex for contrast helpers (pickContrastingColor,
+   *  derived muted/border colors) — gradients map to a dark slate. */
+  base: string;
+}
+
+/** Solid hex fed to contrast helpers when a (necessarily non-solid) dark preset
+ *  such as the brand gradient is active. */
+const DARK_SURFACE_BASE = "#0f172a";
+
+/**
+ * Resolve a section block's background into render-ready values, bridging the
+ * legacy custom-hex `bgColor` field and the shared `backgroundStyle` preset
+ * system (white / light-gray / muted / dark / brand-color / black / gradient).
+ *
+ * Renderers should:
+ *   - apply `background` to the section element (use the `background` shorthand,
+ *     not `backgroundColor`, so the gradient image resolves),
+ *   - prefer their explicit `textColor` ?? `surface.color` for the text default,
+ *   - feed `surface.base` to `pickContrastingColor` / derived colors,
+ *   - drive light/dark logo + accent choices off `surface.isDark`.
+ *
+ * When `backgroundStyle` is unset (or "custom") the block falls back to its
+ * historical `bgColor` hex, so existing saved rows render unchanged.
+ */
+export function resolveSectionSurface(
+  opts: { backgroundStyle?: string; bgColor?: string },
+  fallbackHex = "#ffffff",
+): ResolvedSectionSurface {
+  const style = opts.backgroundStyle;
+  if (style && style !== "custom" && BACKGROUND_STYLE_KEYS.includes(style as BackgroundStyle)) {
+    const css = getBgStyle(style);
+    const dark = isDarkBg(style);
+    return {
+      background: (css.background as string) ?? fallbackHex,
+      color: css.color as string | undefined,
+      isDark: dark,
+      base: dark ? DARK_SURFACE_BASE : "#ffffff",
+    };
+  }
+  const hex = opts.bgColor?.trim() || fallbackHex;
+  return { background: hex, color: undefined, isDark: hexLuminance(hex) < 0.4, base: hex };
+}
+
 /** Returns section inline styles when an image background is used. */
 export function getImageBgSectionStyle(imageUrl: string): React.CSSProperties {
   return {

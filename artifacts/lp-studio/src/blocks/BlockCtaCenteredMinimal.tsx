@@ -5,6 +5,7 @@ import type { CtaCenteredMinimalBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: CtaCenteredMinimalBlockProps;
@@ -13,7 +14,7 @@ interface Props {
 }
 
 export function BlockCtaCenteredMinimal({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#ffffff";
+  const sectionBg = resolveSectionSurface(props, "#ffffff");
   const surface = props.surfaceColor ?? "#ffffff";
   const text = props.textColor ?? "#0f172a";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
@@ -27,7 +28,7 @@ export function BlockCtaCenteredMinimal({ props, brand, onFieldChange }: Props) 
     onFieldChange?.({ ...props, [key]: value });
 
   return (
-    <section className="w-full px-6 py-32 sm:py-48" style={{ backgroundColor: bg }}>
+    <section className="w-full px-6 py-32 sm:py-48" style={{ background: sectionBg.background }}>
       <div
         className="container mx-auto max-w-4xl rounded-[3rem] border border-black/5 p-12 text-center shadow-sm sm:p-24"
         style={{ backgroundColor: surface, borderColor: border }}

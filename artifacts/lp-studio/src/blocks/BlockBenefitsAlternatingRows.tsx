@@ -6,6 +6,7 @@ import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { BenefitsAlternatingRowsBlockProps } from "@/lib/block-types";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
@@ -55,12 +56,12 @@ function DecorativePanel({ accent, tint }: { accent: string; tint: string }) {
 }
 
 export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#FFFFFF";
-  const text = props.textColor ?? "#171717";
+  const surface = resolveSectionSurface(props, "#FFFFFF");
+  const text = props.textColor ?? surface.color ?? "#171717";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const tint = `${accent}14`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
-  const muted = pickContrastingColor(undefined, bg, ["#525252", "#a3a3a3"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
   const showCta = props.showCta ?? true;
 
   const update = <K extends keyof BenefitsAlternatingRowsBlockProps>(key: K, value: BenefitsAlternatingRowsBlockProps[K]) =>
@@ -72,7 +73,7 @@ export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Pr
   };
 
   return (
-    <section className="w-full px-6 py-24 md:py-32 md:px-12" style={{ backgroundColor: bg, color: text }}>
+    <section className="w-full px-6 py-24 md:py-32 md:px-12" style={{ background: surface.background, color: text }}>
       <div className="mx-auto w-full max-w-[1280px]">
         <div className="mx-auto mb-20 max-w-3xl text-center md:mb-28">
           {(props.eyebrow || onFieldChange) && (

@@ -5,6 +5,7 @@ import type { QuoteLibraryBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -16,11 +17,11 @@ interface Props {
 }
 
 export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#F8FAFC";
-  const text = props.textColor ?? "#0F172A";
+  const bgSurface = resolveSectionSurface(props, "#F8FAFC");
+  const text = props.textColor ?? bgSurface.color ?? "#0F172A";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const surface = pickContrastingColor(undefined, bg, ["#FFFFFF", "#1E293B"]);
-  const muted = pickContrastingColor(undefined, bg, ["#64748B", "#94A3B8"]);
+  const surface = pickContrastingColor(undefined, bgSurface.base, ["#FFFFFF", "#1E293B"]);
+  const muted = pickContrastingColor(undefined, bgSurface.base, ["#64748B", "#94A3B8"]);
   const border = `${text}1f`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const showCta = props.showCta ?? true;
@@ -36,7 +37,7 @@ export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="w-full py-24 sm:py-32 flex flex-col items-center" style={{ backgroundColor: bg, color: text }}>
+    <section className="w-full py-24 sm:py-32 flex flex-col items-center" style={{ background: bgSurface.background, color: text }}>
       <div className="container mx-auto px-6 max-w-7xl">
         <div className="max-w-3xl mx-auto text-center mb-16 md:mb-24 flex flex-col items-center gap-4">
           {(props.eyebrow || onFieldChange) && (

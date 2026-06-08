@@ -7,7 +7,8 @@ import { getButtonClasses, getLogoLinkUrl } from "@/lib/brand-config";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { NavHeaderBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
-import { BrandLogo } from "@/components/BrandLogo";
+import { BrandLogo, brandLogoToneForSurface, brandLogoToneForText } from "@/components/BrandLogo";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 import { useBlockFonts } from "@/lib/use-block-fonts";
 import { motion } from "framer-motion";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
@@ -56,6 +57,15 @@ export function BlockNavHeader({ props, brand, onFieldChange, pageId, variantId,
   };
   const hasBgOverride = !!(props.backgroundColor || props.backgroundImage);
   const hasFgOverride = !!props.textColor;
+  // Pick the brand logo tone from the header surface so a light/white logo is
+  // used on dark headers (image / dark color) and the dark logo on light ones.
+  const logoTone = props.backgroundImage
+    ? "onDark"
+    : props.textColor
+      ? brandLogoToneForText(props.textColor)
+      : brandLogoToneForSurface(
+          resolveSectionSurface({ bgColor: props.backgroundColor }, "#ffffff").isDark,
+        );
 
   const cta1Action = normalizeAction(props.cta1Action);
   const cta2Action = normalizeAction(props.cta2Action);
@@ -125,7 +135,7 @@ export function BlockNavHeader({ props, brand, onFieldChange, pageId, variantId,
               <BrandLogo
                 brand={brand}
                 url={props.logoUrl}
-                tone="onLight"
+                tone={logoTone}
                 alt={props.logoText || brand.brandName || "Logo"}
                 className="h-8 w-auto"
               />

@@ -5,6 +5,7 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: VideoBackgroundFinalCtaBlockProps;
@@ -14,8 +15,8 @@ interface Props {
 
 export function BlockVideoBackgroundFinalCta({ props, brand, onFieldChange }: Props) {
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const bg = props.bgColor ?? "#0F172A";
-  const ink = props.textColor ?? "#FFFFFF";
+  const surface = resolveSectionSurface(props, "#0F172A");
+  const ink = props.textColor ?? surface.color ?? "#FFFFFF";
   const muted = `${ink}D9`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
@@ -26,7 +27,7 @@ export function BlockVideoBackgroundFinalCta({ props, brand, onFieldChange }: Pr
     onFieldChange?.({ ...props, [key]: value });
 
   return (
-    <section className="relative w-full overflow-hidden px-6 py-28 sm:py-36" style={{ backgroundColor: bg, fontFamily: BODY }}>
+    <section className="relative w-full overflow-hidden px-6 py-28 sm:py-36" style={{ background: surface.background, fontFamily: BODY }}>
       {props.backgroundVideoUrl ? (
         <video
           className="absolute inset-0 h-full w-full object-cover"

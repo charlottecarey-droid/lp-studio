@@ -5,6 +5,7 @@ import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { FeaturesBentoShowcaseBlockProps } from "@/lib/block-types";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
@@ -149,12 +150,12 @@ function TileMockup({ index, accent }: { index: number; accent: string }) {
 }
 
 export function BlockFeaturesBentoShowcase({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#FAFAFA";
-  const text = props.textColor ?? "#171717";
+  const surface = resolveSectionSurface(props, "#FAFAFA");
+  const text = props.textColor ?? surface.color ?? "#171717";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const tint = `${accent}14`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
-  const muted = pickContrastingColor(undefined, bg, ["#525252", "#a3a3a3"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
   const showCta = props.showCta ?? true;
 
   const update = <K extends keyof FeaturesBentoShowcaseBlockProps>(key: K, value: FeaturesBentoShowcaseBlockProps[K]) =>
@@ -166,7 +167,7 @@ export function BlockFeaturesBentoShowcase({ props, brand, onFieldChange }: Prop
   };
 
   return (
-    <section className="w-full px-6 py-24 lg:px-8" style={{ backgroundColor: bg, color: text }}>
+    <section className="w-full px-6 py-24 lg:px-8" style={{ background: surface.background, color: text }}>
       <div className="mx-auto max-w-[1280px]">
         <div className="mb-16 max-w-2xl">
           {(props.eyebrow || onFieldChange) && (

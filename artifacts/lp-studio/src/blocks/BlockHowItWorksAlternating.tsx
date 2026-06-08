@@ -9,6 +9,7 @@ import type { HowItWorksAlternatingBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 
 interface Props {
@@ -52,12 +53,12 @@ function DecorativePanel({ accent, tint }: { accent: string; tint: string }) {
 }
 
 export function BlockHowItWorksAlternating({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#FAFAFA";
-  const text = props.textColor ?? "#171717";
+  const surface = resolveSectionSurface(props, "#FAFAFA");
+  const text = props.textColor ?? surface.color ?? "#171717";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const tint = `${accent}1a`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
-  const muted = pickContrastingColor(undefined, bg, ["#525252", "#a3a3a3"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
   const showCta = props.showCta ?? true;
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
@@ -72,7 +73,7 @@ export function BlockHowItWorksAlternating({ props, brand, onFieldChange }: Prop
   };
 
   return (
-    <section className="w-full px-6 py-24 sm:py-32 lg:px-8" style={{ backgroundColor: bg, color: text }}>
+    <section className="w-full px-6 py-24 sm:py-32 lg:px-8" style={{ background: surface.background, color: text }}>
       <div className="mx-auto w-full max-w-7xl">
         <div className="mx-auto mb-20 max-w-2xl text-center">
           {(props.eyebrow || onFieldChange) && (

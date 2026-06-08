@@ -5,6 +5,7 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: PasStatAgitateBlockProps;
@@ -19,8 +20,8 @@ const COL_CLASS: Record<number, string> = {
 };
 
 export function BlockPasStatAgitate({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#0F172A";
-  const ink = props.textColor ?? pickContrastingColor(undefined, bg, ["#FFFFFF", "#0F172A"]);
+  const surface = resolveSectionSurface(props, "#0F172A");
+  const ink = props.textColor ?? surface.color ?? pickContrastingColor(undefined, surface.base, ["#FFFFFF", "#0F172A"]);
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
   const muted = `${ink}B3`;
@@ -37,7 +38,7 @@ export function BlockPasStatAgitate({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="w-full py-20 sm:py-28" style={{ backgroundColor: bg, color: ink, fontFamily: BODY }}>
+    <section className="w-full py-20 sm:py-28" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
       <div className="container mx-auto px-6 md:px-12">
         <div className="mx-auto mb-12 max-w-3xl text-center">
           {(props.eyebrow || onFieldChange) && (

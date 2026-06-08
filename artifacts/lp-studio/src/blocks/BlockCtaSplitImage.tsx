@@ -6,6 +6,7 @@ import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: CtaSplitImageBlockProps;
@@ -14,11 +15,11 @@ interface Props {
 }
 
 export function BlockCtaSplitImage({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#ffffff";
-  const text = props.textColor ?? "#0f172a";
+  const surface = resolveSectionSurface(props, "#ffffff");
+  const text = props.textColor ?? surface.color ?? "#0f172a";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const onAccent = pickContrastingColor(undefined, accent, ["#ffffff", "#0f172a"]);
-  const muted = pickContrastingColor(undefined, bg, ["#64748b", "#94a3b8"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#64748b", "#94a3b8"]);
   const border = `${text}14`;
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
@@ -27,7 +28,7 @@ export function BlockCtaSplitImage({ props, brand, onFieldChange }: Props) {
     onFieldChange?.({ ...props, [key]: value });
 
   return (
-    <section className="w-full py-24 sm:py-32" style={{ backgroundColor: bg }}>
+    <section className="w-full py-24 sm:py-32" style={{ background: surface.background }}>
       <div className="container mx-auto px-6 md:px-12 max-w-7xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
           <div className="order-2 lg:order-1 relative aspect-[4/3] lg:aspect-square rounded-3xl overflow-hidden shadow-2xl">

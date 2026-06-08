@@ -4,6 +4,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { useBlockFonts } from "@/lib/use-block-fonts";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { BRAND_DISPLAY_STACK, BRAND_BODY_STACK } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: LogoMarqueeBlockProps;
@@ -70,8 +71,8 @@ function Logo({
 }
 
 export function BlockLogoMarquee({ props }: Props) {
-  const bg = props.bgColor || "#ffffff";
-  const textColor = props.textColor || "#334155";
+  const surface = resolveSectionSurface(props, "#ffffff");
+  const textColor = props.textColor || surface.color || "#334155";
   const grayscale = props.grayscale !== false;
   const twoRows = props.twoRows !== false;
   const duration = SPEED_SECONDS[props.speed ?? "medium"];
@@ -108,7 +109,7 @@ export function BlockLogoMarquee({ props }: Props) {
   );
 
   return (
-    <section className="w-full overflow-hidden" style={{ backgroundColor: bg }}>
+    <section className="w-full overflow-hidden" style={{ background: surface.background }}>
       <style>{`
         @keyframes lmqScrollX {
           from { transform: translateX(0); }
@@ -129,11 +130,11 @@ export function BlockLogoMarquee({ props }: Props) {
         <div className="relative flex w-full flex-col gap-7">
           <div
             className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 md:w-48"
-            style={{ background: `linear-gradient(to right, ${bg}, transparent)` }}
+            style={{ background: `linear-gradient(to right, ${surface.base}, transparent)` }}
           />
           <div
             className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 md:w-48"
-            style={{ background: `linear-gradient(to left, ${bg}, transparent)` }}
+            style={{ background: `linear-gradient(to left, ${surface.base}, transparent)` }}
           />
           <Track />
           {twoRows && <Track reverse />}

@@ -57,6 +57,17 @@ export function brandLogoToneForText(textColor?: string): BrandLogoTone {
   return "onLight";
 }
 
+/**
+ * Pick the logo tone for a section surface by its darkness. Dark surfaces
+ * (including the brand gradient preset) → `onDark`, which selects the tenant's
+ * dark-background ("light/white") logo asset; light surfaces → `onLight`.
+ * Pair with `resolveSectionSurface(...).isDark` so a block's logo always
+ * follows whatever background the editor picked.
+ */
+export function brandLogoToneForSurface(isDark: boolean): BrandLogoTone {
+  return isDark ? "onDark" : "onLight";
+}
+
 interface Props {
   brand: BrandConfig;
   /** Override the brand logo URL (e.g. block prop overrides). */

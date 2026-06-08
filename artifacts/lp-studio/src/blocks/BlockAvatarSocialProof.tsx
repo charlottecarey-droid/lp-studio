@@ -4,6 +4,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { useBlockFonts } from "@/lib/use-block-fonts";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { BRAND_DISPLAY_STACK, BRAND_BODY_STACK } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: AvatarSocialProofBlockProps;
@@ -41,8 +42,8 @@ function Stars({ rating, max, color }: { rating: number; max: number; color: str
 }
 
 export function BlockAvatarSocialProof({ props }: Props) {
-  const bg = props.bgColor || "#ffffff";
-  const textColor = props.textColor || "#0f172a";
+  const surface = resolveSectionSurface(props, "#ffffff");
+  const textColor = props.textColor || surface.color || "#0f172a";
   const accent = props.accentColor || "var(--brand-accent, #6366f1)";
   const ratingMax = props.ratingMax && props.ratingMax > 0 ? props.ratingMax : 5;
   const avatars = props.avatars && props.avatars.length > 0 ? props.avatars : DEFAULT_AVATARS;
@@ -57,7 +58,7 @@ export function BlockAvatarSocialProof({ props }: Props) {
     : BRAND_BODY_STACK;
 
   return (
-    <section className="w-full" style={{ backgroundColor: bg }}>
+    <section className="w-full" style={{ background: surface.background }}>
       <div className="max-w-3xl mx-auto px-6 py-16 md:py-20 flex flex-col items-center gap-6 text-center">
         <div className="flex items-center">
           <div className="flex">
@@ -65,7 +66,7 @@ export function BlockAvatarSocialProof({ props }: Props) {
               <div
                 key={i}
                 className="-ml-3 first:ml-0 flex h-12 w-12 items-center justify-center rounded-full ring-4 text-sm font-semibold text-white overflow-hidden"
-                style={{ backgroundColor: AVATAR_TINTS[i % AVATAR_TINTS.length], boxShadow: `0 0 0 4px ${bg}` }}
+                style={{ backgroundColor: AVATAR_TINTS[i % AVATAR_TINTS.length], boxShadow: `0 0 0 4px ${surface.base}` }}
               >
                 {a.imageUrl ? (
                   <img src={a.imageUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
@@ -78,7 +79,7 @@ export function BlockAvatarSocialProof({ props }: Props) {
           {props.extraCountLabel && (
             <div
               className="-ml-3 flex h-12 min-w-12 items-center justify-center rounded-full px-3 text-sm font-bold text-white"
-              style={{ backgroundColor: accent, boxShadow: `0 0 0 4px ${bg}` }}
+              style={{ backgroundColor: accent, boxShadow: `0 0 0 4px ${surface.base}` }}
             >
               {props.extraCountLabel}
             </div>

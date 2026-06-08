@@ -6,6 +6,7 @@ import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: SplitMediaRowBlockProps;
@@ -14,11 +15,11 @@ interface Props {
 }
 
 export function BlockSplitMediaRow({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#FFFFFF";
-  const ink = props.textColor ?? "#0F172A";
+  const surface = resolveSectionSurface(props, "#FFFFFF");
+  const ink = props.textColor ?? surface.color ?? "#0F172A";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
-  const muted = pickContrastingColor(undefined, bg, ["#64748B", "#94A3B8"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#64748B", "#94A3B8"]);
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const mediaRight = (props.mediaSide ?? "right") === "right";
@@ -28,7 +29,7 @@ export function BlockSplitMediaRow({ props, brand, onFieldChange }: Props) {
     onFieldChange?.({ ...props, [key]: value });
 
   return (
-    <section className="w-full py-20 sm:py-28" style={{ backgroundColor: bg, color: ink, fontFamily: BODY }}>
+    <section className="w-full py-20 sm:py-28" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
       <div className="container mx-auto grid grid-cols-1 items-center gap-12 px-6 md:grid-cols-2 md:px-12">
         <div className={mediaRight ? "md:order-1" : "md:order-2"}>
           {props.eyebrow !== undefined && (

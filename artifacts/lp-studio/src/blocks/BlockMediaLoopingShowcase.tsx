@@ -7,6 +7,7 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { VideoModal } from "@/components/VideoModal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: MediaLoopingShowcaseBlockProps;
@@ -23,10 +24,10 @@ function isNativeVideo(url: string) {
 export function BlockMediaLoopingShowcase({ props, brand, onFieldChange }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
 
-  const bg = props.bgColor ?? "#000000";
-  const ink = props.textColor ?? "#FFFFFF";
+  const surface = resolveSectionSurface(props, "#000000");
+  const ink = props.textColor ?? surface.color ?? "#FFFFFF";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const muted = props.mutedColor ?? pickContrastingColor(undefined, bg, ["#94A3B8", "#64748B"]);
+  const muted = props.mutedColor ?? pickContrastingColor(undefined, surface.base, ["#94A3B8", "#64748B"]);
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
@@ -42,7 +43,7 @@ export function BlockMediaLoopingShowcase({ props, brand, onFieldChange }: Props
   return (
     <section
       className="relative w-full min-h-[600px] sm:min-h-[800px] flex items-center justify-center overflow-hidden"
-      style={{ backgroundColor: bg }}
+      style={{ background: surface.background }}
     >
       {/* Background video (autoplay / muted / loop) with poster fallback */}
       <div className="absolute inset-0 w-full h-full overflow-hidden">

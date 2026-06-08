@@ -6,6 +6,7 @@ import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: CaseStudySpotlightFeatureBlockProps;
@@ -14,14 +15,14 @@ interface Props {
 }
 
 export function BlockCaseStudySpotlightFeature({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#ffffff";
-  const surface = props.surfaceColor ?? "#ffffff";
-  const ink = props.textColor ?? "#0f172a";
+  const surface = resolveSectionSurface(props, "#ffffff");
+  const cardSurface = props.surfaceColor ?? "#ffffff";
+  const ink = props.textColor ?? surface.color ?? "#0f172a";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
-  const muted = pickContrastingColor(undefined, bg, ["#64748b", "#94a3b8"]);
-  const surfaceMuted = pickContrastingColor(undefined, surface, ["#64748b", "#94a3b8"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#64748b", "#94a3b8"]);
+  const surfaceMuted = pickContrastingColor(undefined, cardSurface, ["#64748b", "#94a3b8"]);
   const border = `${ink}14`;
 
   const update = <K extends keyof CaseStudySpotlightFeatureBlockProps>(
@@ -30,7 +31,7 @@ export function BlockCaseStudySpotlightFeature({ props, brand, onFieldChange }: 
   ) => onFieldChange?.({ ...props, [key]: value });
 
   return (
-    <section className="w-full py-24 sm:py-32" style={{ backgroundColor: bg }}>
+    <section className="w-full py-24 sm:py-32" style={{ background: surface.background }}>
       <div className="container mx-auto px-6 md:px-12 max-w-7xl">
         {(props.eyebrow || onFieldChange) && (
           <div className="mb-12">
@@ -101,7 +102,7 @@ export function BlockCaseStudySpotlightFeature({ props, brand, onFieldChange }: 
 
             <div
               className="p-6 rounded-2xl mb-10 border"
-              style={{ backgroundColor: surface, borderColor: border }}
+              style={{ backgroundColor: cardSurface, borderColor: border }}
             >
               <div className="flex items-center gap-4">
                 <div
@@ -150,7 +151,7 @@ export function BlockCaseStudySpotlightFeature({ props, brand, onFieldChange }: 
             />
             <div
               className="relative aspect-[4/3] rounded-2xl overflow-hidden border shadow-xl"
-              style={{ borderColor: border, backgroundColor: surface }}
+              style={{ borderColor: border, backgroundColor: cardSurface }}
             >
               <InlineImage
                 src={props.imageUrl}

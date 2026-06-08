@@ -8,6 +8,7 @@ import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { VideoModal } from "@/components/VideoModal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: MediaThumbnailGridBlockProps;
@@ -18,12 +19,12 @@ interface Props {
 export function BlockMediaThumbnailGrid({ props, brand, onFieldChange }: Props) {
   const [openIdx, setOpenIdx] = useState<number | null>(null);
 
-  const bg = props.bgColor ?? "#F8FAFC";
-  const ink = props.textColor ?? "#0F172A";
+  const surface = resolveSectionSurface(props, "#F8FAFC");
+  const ink = props.textColor ?? surface.color ?? "#0F172A";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
-  const muted = pickContrastingColor(undefined, bg, ["#64748B", "#94A3B8"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#64748B", "#94A3B8"]);
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
 
   const videos = props.videos ?? [];
@@ -42,7 +43,7 @@ export function BlockMediaThumbnailGrid({ props, brand, onFieldChange }: Props) 
   const activeVideo = openIdx !== null ? videos[openIdx] : undefined;
 
   return (
-    <section className="w-full py-24 sm:py-32" style={{ backgroundColor: bg, color: ink }}>
+    <section className="w-full py-24 sm:py-32" style={{ background: surface.background, color: ink }}>
       <div className="container mx-auto px-6 md:px-12 max-w-7xl">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8">

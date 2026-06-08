@@ -7,6 +7,7 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 import { usePageContext } from "@/lib/page-context";
 
 interface Props {
@@ -26,8 +27,8 @@ interface Props {
 export function BlockSplitFormFinalCta({ props, brand, onFieldChange }: Props) {
   const ctx = usePageContext();
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const bg = props.bgColor ?? accent;
-  const ink = props.textColor ?? pickContrastingColor(undefined, bg, ["#FFFFFF", "#0F172A"]);
+  const surface = resolveSectionSurface(props, accent);
+  const ink = props.textColor ?? surface.color ?? pickContrastingColor(undefined, surface.base, ["#FFFFFF", "#0F172A"]);
   const muted = `${ink}D9`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
@@ -68,7 +69,7 @@ export function BlockSplitFormFinalCta({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="w-full px-6 py-20 sm:py-28" style={{ backgroundColor: bg, color: ink, fontFamily: BODY }}>
+    <section className="w-full px-6 py-20 sm:py-28" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
       <div className="container mx-auto grid max-w-5xl grid-cols-1 items-center gap-12 md:grid-cols-2">
         <div>
           {(props.eyebrow || onFieldChange) && (

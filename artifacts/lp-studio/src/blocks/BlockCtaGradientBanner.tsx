@@ -5,6 +5,7 @@ import type { CtaGradientBannerBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: CtaGradientBannerBlockProps;
@@ -13,7 +14,7 @@ interface Props {
 }
 
 export function BlockCtaGradientBanner({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#ffffff";
+  const surface = resolveSectionSurface(props, "#ffffff");
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const onAccent = props.textColor ?? pickContrastingColor(undefined, accent, ["#ffffff", "#0f172a"]);
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
@@ -23,7 +24,7 @@ export function BlockCtaGradientBanner({ props, brand, onFieldChange }: Props) {
     onFieldChange?.({ ...props, [key]: value });
 
   return (
-    <section className="w-full px-6 py-24 sm:py-32" style={{ backgroundColor: bg }}>
+    <section className="w-full px-6 py-24 sm:py-32" style={{ background: surface.background }}>
       <div className="container mx-auto max-w-5xl">
         <div
           className="relative overflow-hidden rounded-[2.5rem] p-12 text-center shadow-2xl md:p-24"

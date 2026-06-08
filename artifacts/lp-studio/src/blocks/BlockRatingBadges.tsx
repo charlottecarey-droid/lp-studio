@@ -5,6 +5,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { useBlockFonts } from "@/lib/use-block-fonts";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { BRAND_DISPLAY_STACK, BRAND_BODY_STACK } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: RatingBadgesBlockProps;
@@ -44,8 +45,8 @@ function Stars({ rating, max, size, color }: { rating: number; max: number; size
 }
 
 export function BlockRatingBadges({ props }: Props) {
-  const bg = props.bgColor || "#f8fafc";
-  const textColor = props.textColor || "#0f172a";
+  const surface = resolveSectionSurface(props, "#f8fafc");
+  const textColor = props.textColor || surface.color || "#0f172a";
   const accent = props.accentColor || "var(--brand-accent, #6366f1)";
   const ratingMax = props.ratingMax && props.ratingMax > 0 ? props.ratingMax : 5;
   const badges = props.badges && props.badges.length > 0 ? props.badges : DEFAULT_BADGES;
@@ -60,7 +61,7 @@ export function BlockRatingBadges({ props }: Props) {
     : BRAND_BODY_STACK;
 
   return (
-    <section className="w-full" style={{ backgroundColor: bg }}>
+    <section className="w-full" style={{ background: surface.background }}>
       <div className="max-w-6xl mx-auto px-6 py-16 md:py-20 flex flex-col items-center gap-10 md:gap-12">
         {props.eyebrow && (
           <h2

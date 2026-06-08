@@ -5,6 +5,7 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: GradientGlowFinalCtaBlockProps;
@@ -16,8 +17,8 @@ export function BlockGradientGlowFinalCta({ props, brand, onFieldChange }: Props
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const gradStart = props.gradientStart ?? accent;
   const gradEnd = props.gradientEnd ?? brand.primaryColor ?? "#0F172A";
-  const bg = props.bgColor ?? "#0B1120";
-  const ink = props.textColor ?? "#FFFFFF";
+  const surface = resolveSectionSurface(props, "#0B1120");
+  const ink = props.textColor ?? surface.color ?? "#FFFFFF";
   const muted = `${ink}CC`;
   const onAccent = pickContrastingColor("#FFFFFF", accent, ["#0F172A", "#FFFFFF"]);
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
@@ -27,7 +28,7 @@ export function BlockGradientGlowFinalCta({ props, brand, onFieldChange }: Props
     onFieldChange?.({ ...props, [key]: value });
 
   return (
-    <section className="relative w-full overflow-hidden px-6 py-24 sm:py-32" style={{ backgroundColor: bg, fontFamily: BODY }}>
+    <section className="relative w-full overflow-hidden px-6 py-24 sm:py-32" style={{ background: surface.background, fontFamily: BODY }}>
       <div
         className="pointer-events-none absolute left-1/2 top-1/2 h-[120%] w-[120%] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-60 blur-3xl"
         style={{ background: `radial-gradient(closest-side, ${gradStart}, ${gradEnd}00)` }}

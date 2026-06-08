@@ -5,6 +5,7 @@ import type { CaseStudyMetricTriptychBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: CaseStudyMetricTriptychBlockProps;
@@ -13,13 +14,13 @@ interface Props {
 }
 
 export function BlockCaseStudyMetricTriptych({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#fafafa";
-  const surface = props.surfaceColor ?? "#ffffff";
-  const ink = props.textColor ?? "#0f172a";
+  const surface = resolveSectionSurface(props, "#fafafa");
+  const cardSurface = props.surfaceColor ?? "#ffffff";
+  const ink = props.textColor ?? surface.color ?? "#0f172a";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
-  const muted = pickContrastingColor(undefined, bg, ["#64748b", "#94a3b8"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#64748b", "#94a3b8"]);
   const border = `${ink}14`;
 
   const metrics = props.metrics ?? [];
@@ -39,12 +40,12 @@ export function BlockCaseStudyMetricTriptych({ props, brand, onFieldChange }: Pr
   };
 
   return (
-    <section className="w-full py-24 sm:py-32" style={{ backgroundColor: bg }}>
+    <section className="w-full py-24 sm:py-32" style={{ background: surface.background }}>
       <div className="container mx-auto px-6 md:px-12 max-w-6xl text-center">
         <div className="flex flex-col items-center justify-center mb-16">
           <div
             className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-sm border"
-            style={{ backgroundColor: surface, borderColor: border, color: accent }}
+            style={{ backgroundColor: cardSurface, borderColor: border, color: accent }}
           >
             <Sparkles className="w-8 h-8" />
           </div>

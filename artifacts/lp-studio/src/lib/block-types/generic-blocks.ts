@@ -214,6 +214,7 @@ export interface MediaFeatureReelFeature {
 }
 
 export interface MediaFeatureReelBlockProps {
+  backgroundStyle?: BackgroundStyle;
   heading: string;
   /** Video shown in the framed player; the poster image is shown until play. */
   videoUrl: string;
@@ -234,6 +235,7 @@ export interface MediaFeatureReelBlockProps {
 }
 
 export interface MediaLoopingShowcaseBlockProps {
+  backgroundStyle?: BackgroundStyle;
   heading: string;
   subheading?: string;
   /** Autoplaying, muted, looping background video. */
@@ -266,6 +268,7 @@ export interface MediaThumbnailGridItem {
 }
 
 export interface MediaThumbnailGridBlockProps {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   heading: string;
   subheading?: string;
@@ -282,6 +285,7 @@ export interface MediaThumbnailGridBlockProps {
 }
 
 export interface MediaVideoSplitBlockProps {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   heading: string;
   description?: string;
@@ -1449,6 +1453,7 @@ export interface BeforeAfterGalleryBlockProps {
 /** CTA — Centered Minimal: an eyebrow + headline + subheading centered on a
  *  rounded surface card, with a primary + secondary button row below. */
 export interface CtaCenteredMinimalBlockProps {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   heading: string;
   subheading?: string;
@@ -1470,6 +1475,7 @@ export interface CtaCenteredMinimalBlockProps {
  *  gradient banner (linear-gradient from the accent color), with a primary +
  *  secondary button row below. */
 export interface CtaGradientBannerBlockProps {
+  backgroundStyle?: BackgroundStyle;
   heading: string;
   subheading?: string;
   ctaPrimaryLabel?: string;
@@ -1490,6 +1496,7 @@ export interface CtaGradientBannerBlockProps {
  *  product image on one side with eyebrow + heading + subheading copy and a
  *  primary + secondary button row on the other. */
 export interface CtaSplitImageBlockProps {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   heading: string;
   subheading?: string;
@@ -1517,6 +1524,7 @@ export interface CtaStat {
  *  primary + secondary button row on one side with a column of big-number
  *  stat cards (value + label) on the other. */
 export interface CtaStatBackedBlockProps {
+  backgroundStyle?: BackgroundStyle;
   heading: string;
   subheading?: string;
   stats: CtaStat[];
@@ -1560,6 +1568,7 @@ export interface CaseStudyCard {
 /** Case Study — Card Grid: a grid of customer-story cards, each with a logo,
  *  result quote, and a headline metric, plus an optional closing CTA. */
 export interface CaseStudyCardGridBlockProps {
+  backgroundStyle?: BackgroundStyle;
   heading: string;
   subheading?: string;
   cards: CaseStudyCard[];
@@ -1597,6 +1606,7 @@ export interface CaseStudyResult {
 /** Case Study — Logo Results Row: a row of customer logos paired with a
  *  headline result metric + outcome, plus an optional CTA. */
 export interface CaseStudyLogoResultsRowBlockProps {
+  backgroundStyle?: BackgroundStyle;
   heading?: string;
   results: CaseStudyResult[];
   /** How each item's image is shown: a small inline "icon" (default) or a
@@ -1624,6 +1634,7 @@ export interface CaseStudyMetric {
  *  three big headline metrics with a customer pull-quote, attribution, and an
  *  optional closing CTA. No images — a pure stats + quote social-proof band. */
 export interface CaseStudyMetricTriptychBlockProps {
+  backgroundStyle?: BackgroundStyle;
   /** Customer / company name shown above the metrics. */
   company: string;
   /** Exactly three (1–3) headline metrics. */
@@ -1651,6 +1662,7 @@ export interface CaseStudyMetricTriptychBlockProps {
  *  two-column split — Challenge/Solution/Result narrative + a headline metric +
  *  CTA on one side, and a prominent hero photo on the other. */
 export interface CaseStudySpotlightFeatureBlockProps {
+  backgroundStyle?: BackgroundStyle;
   /** Small uppercase label above the story (e.g. "Featured Case Study"). */
   eyebrow?: string;
   /** Customer / company name. */
@@ -1700,6 +1712,7 @@ export interface GalleryImage {
 }
 
 export interface GalleryCarouselSpotlightBlockProps {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   headline: string;
   subheadline?: string;
@@ -1715,6 +1728,7 @@ export interface GalleryCarouselSpotlightBlockProps {
 }
 
 export interface GalleryFilmstripBlockProps {
+  backgroundStyle?: BackgroundStyle;
   headline: string;
   images: GalleryImage[];
   /** Optional CTA link beside the heading. */
@@ -1728,6 +1742,7 @@ export interface GalleryFilmstripBlockProps {
 }
 
 export interface GalleryMasonryBlockProps {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   headline: string;
   subheadline?: string;
@@ -1744,6 +1759,7 @@ export interface GalleryMasonryBlockProps {
 }
 
 export interface GallerySplitFeatureBlockProps {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   headline: string;
   subheadline?: string;
@@ -3016,6 +3032,7 @@ export interface SocialProofLogo {
 /** 6. Logo Wall — a calm, editorial "trusted by" logo cloud on a light surface;
  *  a static row/grid of monochrome client marks. */
 export interface LogoWallBlockProps extends HeroBrandStyleConfig {
+  backgroundStyle?: BackgroundStyle;
   /** Small kicker above the logos, e.g. "Trusted by teams at". */
   eyebrow?: string;
   logos: SocialProofLogo[];
@@ -3026,6 +3043,7 @@ export interface LogoWallBlockProps extends HeroBrandStyleConfig {
 /** 7. Logo Marquee — infinite auto-scrolling logo ribbon(s) with edge fade masks.
  *  Communicates momentum / volume. */
 export interface LogoMarqueeBlockProps extends HeroBrandStyleConfig {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   logos: SocialProofLogo[];
   /** Two opposing rows (true) vs a single row. Default true. */
@@ -3052,6 +3070,7 @@ export interface RatingBadge {
 /** 8. Rating Badges — a row of review-platform badge cards (third-party
  *  validation): platform name, star score, review count and an award pill. */
 export interface RatingBadgesBlockProps extends HeroBrandStyleConfig {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   /** Max stars (denominator). Default 5. */
   ratingMax?: number;
@@ -3068,6 +3087,7 @@ export interface SocialProofAvatar {
 /** 9. Avatar Social Proof — overlapping avatar stack + bold volume line + inline
  *  star rating + a short testimonial. Human / community angle. */
 export interface AvatarSocialProofBlockProps extends HeroBrandStyleConfig {
+  backgroundStyle?: BackgroundStyle;
   avatars: SocialProofAvatar[];
   /** Trailing "+N" chip after the stack, e.g. "+2k". Empty hides it. */
   extraCountLabel?: string;
@@ -3090,6 +3110,9 @@ export interface AvatarSocialProofBlockProps extends HeroBrandStyleConfig {
 
 /** Shared optional CTA suite appended below each benefits section. */
 export interface BenefitsCtaConfig {
+  /** Shared section-background preset (white/dark/brand/gradient/…). When unset
+   *  the block falls back to its custom `bgColor` hex. */
+  backgroundStyle?: BackgroundStyle;
   /** Hide the trailing CTA band entirely. Default true (shown). */
   showCta?: boolean;
   ctaEyebrow?: string;
@@ -3664,6 +3687,7 @@ export interface TransparentOverlayNavBlockProps extends CtaModalConfig {
  * toggle, optional eyebrow, bullet list and CTA.
  */
 export interface SplitMediaRowBlockProps extends CtaModalConfig {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   heading: string;
   body?: string;
@@ -3725,6 +3749,7 @@ export interface IconRowItem {
  * No image; low detail.
  */
 export interface IconRowBlockProps {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   heading?: string;
   subheading?: string;
@@ -3753,6 +3778,7 @@ export interface MediaRowCard {
  * optional link.
  */
 export interface MediaCardsRowBlockProps {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   heading?: string;
   subheading?: string;
@@ -3775,6 +3801,7 @@ export interface StatRowItem {
  * No image.
  */
 export interface StatRowBlockProps {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   heading?: string;
   stats: StatRowItem[];
@@ -3797,6 +3824,7 @@ export interface PasIconGridItem {
  * then a solution statement + optional CTA.
  */
 export interface PasIconGridBlockProps extends CtaModalConfig {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   problemHeading: string;
   problemBody?: string;
@@ -3822,6 +3850,7 @@ export interface PasIconGridBlockProps extends CtaModalConfig {
  * then a solution statement + optional CTA.
  */
 export interface PasSplitImageBlockProps extends CtaModalConfig {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   problemHeading: string;
   problemBody?: string;
@@ -3855,6 +3884,7 @@ export interface PasAgitateStat {
  * then a solution statement + optional CTA.
  */
 export interface PasStatAgitateBlockProps extends CtaModalConfig {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   problemHeading: string;
   problemBody?: string;
@@ -3885,6 +3915,7 @@ export interface PasBeforeAfterRow {
  * improved "after", with an optional CTA.
  */
 export interface PasBeforeAfterBlockProps extends CtaModalConfig {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   heading: string;
   subheading?: string;
@@ -3909,6 +3940,7 @@ export interface PasBeforeAfterBlockProps extends CtaModalConfig {
  * or background image, with primary + optional secondary CTA.
  */
 export interface FullBleedFinalCtaBlockProps extends CtaModalConfig {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   heading: string;
   subheading?: string;
@@ -3934,6 +3966,7 @@ export interface FullBleedFinalCtaBlockProps extends CtaModalConfig {
  * form on the other.
  */
 export interface SplitFormFinalCtaBlockProps extends CtaModalConfig {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   heading: string;
   subheading?: string;
@@ -3963,6 +3996,7 @@ export interface SplitFormFinalCtaBlockProps extends CtaModalConfig {
  * Final CTA — Stat backed: a final CTA reinforced by a row of proof stats.
  */
 export interface StatBackedFinalCtaBlockProps extends CtaModalConfig {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   heading: string;
   subheading?: string;
@@ -3985,6 +4019,7 @@ export interface StatBackedFinalCtaBlockProps extends CtaModalConfig {
  * urgency line (limited time / spots).
  */
 export interface SocialUrgencyFinalCtaBlockProps extends CtaModalConfig {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   heading: string;
   subheading?: string;
@@ -4009,6 +4044,7 @@ export interface SocialUrgencyFinalCtaBlockProps extends CtaModalConfig {
  * gradient-glow backdrop.
  */
 export interface GradientGlowFinalCtaBlockProps extends CtaModalConfig {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   heading: string;
   subheading?: string;
@@ -4034,6 +4070,7 @@ export interface GradientGlowFinalCtaBlockProps extends CtaModalConfig {
  * (user-supplied URL) with a poster fallback image.
  */
 export interface VideoBackgroundFinalCtaBlockProps extends CtaModalConfig {
+  backgroundStyle?: BackgroundStyle;
   eyebrow?: string;
   heading: string;
   subheading?: string;

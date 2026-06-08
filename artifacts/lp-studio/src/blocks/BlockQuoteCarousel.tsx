@@ -6,6 +6,7 @@ import type { QuoteCarouselBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -17,11 +18,11 @@ interface Props {
 }
 
 export function BlockQuoteCarousel({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#FAFAFA";
-  const text = props.textColor ?? "#0F172A";
+  const bgSurface = resolveSectionSurface(props, "#FAFAFA");
+  const text = props.textColor ?? bgSurface.color ?? "#0F172A";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const surface = pickContrastingColor(undefined, bg, ["#FFFFFF", "#1E293B"]);
-  const muted = pickContrastingColor(undefined, bg, ["#64748B", "#94A3B8"]);
+  const surface = pickContrastingColor(undefined, bgSurface.base, ["#FFFFFF", "#1E293B"]);
+  const muted = pickContrastingColor(undefined, bgSurface.base, ["#64748B", "#94A3B8"]);
   const border = `${text}1f`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const showCta = props.showCta ?? true;
@@ -71,7 +72,7 @@ export function BlockQuoteCarousel({ props, brand, onFieldChange }: Props) {
   return (
     <section
       className="w-full py-24 sm:py-32 flex flex-col items-center relative overflow-hidden"
-      style={{ backgroundColor: bg, color: text }}
+      style={{ background: bgSurface.background, color: text }}
     >
       <div className="container mx-auto px-6 md:px-12 max-w-5xl flex flex-col items-center">
         <div className="text-center max-w-2xl mb-16 sm:mb-24">

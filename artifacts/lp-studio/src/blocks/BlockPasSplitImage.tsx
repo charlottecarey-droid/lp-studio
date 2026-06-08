@@ -6,6 +6,7 @@ import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: PasSplitImageBlockProps;
@@ -14,11 +15,11 @@ interface Props {
 }
 
 export function BlockPasSplitImage({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#FFFFFF";
-  const ink = props.textColor ?? "#0F172A";
+  const surface = resolveSectionSurface(props, "#FFFFFF");
+  const ink = props.textColor ?? surface.color ?? "#0F172A";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
-  const muted = pickContrastingColor(undefined, bg, ["#64748B", "#94A3B8"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#64748B", "#94A3B8"]);
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const mediaRight = (props.mediaSide ?? "right") === "right";
@@ -27,7 +28,7 @@ export function BlockPasSplitImage({ props, brand, onFieldChange }: Props) {
     onFieldChange?.({ ...props, [key]: value });
 
   const copy = (
-    <div className="flex items-center px-6 py-16 sm:px-12 lg:px-16" style={{ backgroundColor: bg, color: ink, fontFamily: BODY }}>
+    <div className="flex items-center px-6 py-16 sm:px-12 lg:px-16" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
       <div className="mx-auto w-full max-w-lg">
         {(props.eyebrow || onFieldChange) && (
           <InlineText as="p" value={props.eyebrow ?? ""} onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined} className="mb-3 text-xs font-bold uppercase tracking-[0.18em]" style={{ color: accent }} />

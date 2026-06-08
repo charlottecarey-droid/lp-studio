@@ -7,6 +7,7 @@ import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
+import { SectionBackgroundControl } from "./SectionBackgroundControl";
 
 interface Props {
   props: StatRowBlockProps;
@@ -59,8 +60,13 @@ export function StatRowPanel({ props, onChange }: Props) {
 
       <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Style</div>
+        <SectionBackgroundControl
+          backgroundStyle={props.backgroundStyle}
+          bgColor={props.bgColor}
+          defaultBgColor="#FFFFFF"
+          onChange={(patch) => update(patch)}
+        />
         <div className="grid grid-cols-2 gap-2">
-          <ColorField label="Background" value={props.bgColor ?? "#FFFFFF"} onChange={(v) => update({ bgColor: v })} />
           <ColorField label="Text" value={props.textColor ?? "#0F172A"} onChange={(v) => update({ textColor: v })} />
           <ColorField label="Accent" value={props.accentColor ?? "#4f46e5"} onChange={(v) => update({ accentColor: v })} />
         </div>

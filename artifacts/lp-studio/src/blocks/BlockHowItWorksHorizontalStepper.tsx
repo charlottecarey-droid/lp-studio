@@ -9,6 +9,7 @@ import type { HowItWorksHorizontalStepperBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 
 interface Props {
@@ -18,12 +19,12 @@ interface Props {
 }
 
 export function BlockHowItWorksHorizontalStepper({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#FAFAFA";
-  const text = props.textColor ?? "#171717";
+  const surface = resolveSectionSurface(props, "#FAFAFA");
+  const text = props.textColor ?? surface.color ?? "#171717";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const tint = `${accent}1a`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
-  const muted = pickContrastingColor(undefined, bg, ["#525252", "#a3a3a3"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
   const showCta = props.showCta ?? true;
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
@@ -39,7 +40,7 @@ export function BlockHowItWorksHorizontalStepper({ props, brand, onFieldChange }
   };
 
   return (
-    <section className="w-full px-4 py-24 md:px-8" style={{ backgroundColor: bg, color: text }}>
+    <section className="w-full px-4 py-24 md:px-8" style={{ background: surface.background, color: text }}>
       <div className="container mx-auto max-w-6xl">
         <div className="mb-16 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
           <div className="max-w-2xl">

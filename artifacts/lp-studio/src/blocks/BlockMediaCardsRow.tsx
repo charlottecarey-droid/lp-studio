@@ -5,6 +5,7 @@ import type { MediaCardsRowBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 interface Props {
   props: MediaCardsRowBlockProps;
@@ -13,11 +14,11 @@ interface Props {
 }
 
 export function BlockMediaCardsRow({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#FFFFFF";
-  const ink = props.textColor ?? "#0F172A";
+  const surface = resolveSectionSurface(props, "#FFFFFF");
+  const ink = props.textColor ?? surface.color ?? "#0F172A";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const muted = pickContrastingColor(undefined, bg, ["#64748B", "#94A3B8"]);
-  const surface = pickContrastingColor(undefined, bg, ["#FFFFFF", "#1E293B"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#64748B", "#94A3B8"]);
+  const cardSurface = pickContrastingColor(undefined, surface.base, ["#FFFFFF", "#1E293B"]);
   const border = `${ink}14`;
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
@@ -32,7 +33,7 @@ export function BlockMediaCardsRow({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="w-full py-20 sm:py-24" style={{ backgroundColor: bg, color: ink, fontFamily: BODY }}>
+    <section className="w-full py-20 sm:py-24" style={{ background: surface.background, color: ink, fontFamily: BODY }}>
       <div className="container mx-auto px-6 md:px-12">
         {(props.eyebrow !== undefined || props.heading !== undefined || props.subheading !== undefined) && (
           <div className="mx-auto mb-12 max-w-2xl text-center">
@@ -49,7 +50,7 @@ export function BlockMediaCardsRow({ props, brand, onFieldChange }: Props) {
         )}
         <div className={`grid grid-cols-1 gap-8 ${colClass}`}>
           {cards.map((c, i) => (
-            <div key={i} className="flex flex-col overflow-hidden rounded-2xl border shadow-sm" style={{ backgroundColor: surface, borderColor: border }}>
+            <div key={i} className="flex flex-col overflow-hidden rounded-2xl border shadow-sm" style={{ backgroundColor: cardSurface, borderColor: border }}>
               <InlineImage
                 src={c.imageUrl ?? ""}
                 alt={c.imageAlt || c.heading || "Card image"}

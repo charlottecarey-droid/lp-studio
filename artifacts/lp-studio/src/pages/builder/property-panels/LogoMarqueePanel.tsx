@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ImagePicker } from "@/components/ImagePicker";
 import { FontSelect } from "@/components/FontSelect";
 import { ColorField } from "./BlockSettingsPanel";
+import { SectionBackgroundControl } from "./SectionBackgroundControl";
 import { Plus, Trash2 } from "lucide-react";
 
 interface Props {
@@ -72,7 +73,12 @@ export function LogoMarqueePanel({ props, onChange }: Props) {
 
       <div className="space-y-3">
         <Heading>Colors</Heading>
-        <ColorField label="Background" value={props.bgColor} onChange={(v) => onChange({ ...props, bgColor: v })} />
+        <SectionBackgroundControl
+          backgroundStyle={props.backgroundStyle}
+          bgColor={props.bgColor}
+          defaultBgColor="#ffffff"
+          onChange={(patch) => onChange({ ...props, ...patch })}
+        />
         <ColorField label="Logo text" value={props.textColor} onChange={(v) => onChange({ ...props, textColor: v })} />
       </div>
 

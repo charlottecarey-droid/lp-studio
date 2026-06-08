@@ -5,6 +5,7 @@ import type { SingleQuoteBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { resolveSectionSurface } from "@/lib/bg-styles";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -16,10 +17,10 @@ interface Props {
 }
 
 export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
-  const bg = props.bgColor ?? "#FFFFFF";
-  const text = props.textColor ?? "#0F172A";
+  const surface = resolveSectionSurface(props, "#FFFFFF");
+  const text = props.textColor ?? surface.color ?? "#0F172A";
   const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const muted = pickContrastingColor(undefined, bg, ["#64748B", "#94A3B8"]);
+  const muted = pickContrastingColor(undefined, surface.base, ["#64748B", "#94A3B8"]);
   const border = `${text}1f`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const showCta = props.showCta ?? true;
@@ -30,7 +31,7 @@ export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
   return (
     <section
       className="relative flex w-full flex-col items-center justify-center overflow-hidden px-6 py-24 sm:px-12 md:py-32"
-      style={{ backgroundColor: bg, color: text }}
+      style={{ background: surface.background, color: text }}
     >
       <div className="mx-auto flex w-full max-w-5xl flex-col items-center justify-center text-center">
         <div className="mb-10 flex h-20 w-20 items-center justify-center rounded-full" style={{ backgroundColor: `${accent}12` }}>
