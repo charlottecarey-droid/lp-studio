@@ -279,18 +279,49 @@ async function uploadAndRecord(asset: FetchedAsset, opts: UploadOpts): Promise<U
   }
 }
 
-/** Fire-and-forget content/purpose auto-tagging for a freshly mirrored image.
- *  Reuses the same GPT-4o vision tagger the media-drawer upload path uses so
- *  scraped reference photography + brand-import photos earn real relevance tags
- *  (and a landing-page purpose) for FUTURE generations. Never awaited and never
- *  throws into the caller — the mirror returns immediately with provenance-only
- *  tags; the richer tags land asynchronously. Existing provenance tags
- *  (page-reference / scraped / refhost: / refsrc:) are preserved by autoTagImage
- *  (it strips only stale purpose/og tags before merging). */
-function scheduleAutoTag(rec: UploadedRecord, asset: FetchedAsset, tags: string[]): void {
-  setImmediate(() => {
-    void autoTagImage(rec.id, asset.buffer, asset.mimeType, tags).catch(() => {});
+/** True when the GPT-4o vision tagger has credentials configured. Mirrors the
+ *  guard inside autoTagImage so the mirror can warn ONCE (and skip the awaited
+ *  tagging) rather than awaiting N no-op calls. */
+function imageTaggerConfigured(): boolean {
+  return !!process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"] && !!process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
+}
+
+/** Upper bound on how long we wait for a single image's vision tagging before
+ *  giving up and keeping provenance-only tags. Keeps the brand-import / generate
+ *  path responsive if the tagger is slow or hanging. */
+const AUTO_TAG_TIMEOUT_MS = 25_000;
+
+/** Content/purpose auto-tagging for a freshly mirrored image, AWAITED by the
+ *  mirror so the immediately-following page generation sees real content +
+ *  purpose tags (lp-hero / lp-feature / product-detail) instead of provenance-
+ *  only tags. Reuses the same GPT-4o vision tagger the media-drawer upload path
+ *  uses. Never throws into the caller and is bounded by AUTO_TAG_TIMEOUT_MS —
+ *  on failure / timeout / missing key the image simply keeps its provenance
+ *  tags. Existing provenance tags (page-reference / scraped / refhost: /
+ *  refsrc:) are preserved by autoTagImage (it strips only stale purpose/og tags
+ *  before merging). */
+function runAutoTag(rec: UploadedRecord, asset: FetchedAsset, tags: string[]): Promise<void> {
+  // Cleared the instant tagging settles so a fast success/failure never leaves a
+  // live timer that fires a spurious "timed out" warning ~25s later.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const tagging = autoTagImage(rec.id, asset.buffer, asset.mimeType, tags)
+    .catch((err) => {
+      logger.warn(
+        { mediaId: rec.id, err: String(err) },
+        "[page-reference] auto-tag failed — image keeps provenance-only tags",
+      );
+    })
+    .finally(() => {
+      if (timer) clearTimeout(timer);
+    });
+  const timeout = new Promise<void>((resolve) => {
+    timer = setTimeout(() => {
+      logger.warn({ mediaId: rec.id }, "[page-reference] auto-tag timed out — image keeps provenance-only tags");
+      resolve();
+    }, AUTO_TAG_TIMEOUT_MS);
+    if (typeof timer.unref === "function") timer.unref();
   });
+  return Promise.race([tagging, timeout]);
 }
 
 function titleFromUrl(url: string, fallback: string): string {
@@ -424,8 +455,11 @@ export async function mirrorBrandAssets(inputs: MirrorInputs): Promise<MirrorOut
       title: titleFromUrl(sourceUrl, `${inputs.brandName || "Brand"} photo ${i + 1}`),
     });
     // Best-effort, non-blocking: enrich brand-import photos with real content +
-    // purpose tags so future generations can place them relevantly.
-    if (rec) scheduleAutoTag(rec, fetched.asset, photoTags);
+    // purpose tags so future generations can place them relevantly. Unlike the
+    // reference-mirror path, the brand-asset import isn't immediately followed by
+    // a generation from these photos, so it stays fire-and-forget (bounded +
+    // never throws via runAutoTag).
+    if (rec && imageTaggerConfigured()) void runAutoTag(rec, fetched.asset, photoTags);
     return { sourceUrl, url: rec?.url ?? null, reason: rec ? null : "upload-failed" };
   }));
   for (const r of results) {
@@ -607,6 +641,19 @@ export async function mirrorReferenceImages(inputs: {
 
   const baseTags = ["page-reference", "scraped", ...(refHost ? [`refhost:${refHost}`] : [])];
 
+  // Enrich scraped reference images with real content + purpose tags BEFORE the
+  // mirror returns, so the page generation that follows this import can place
+  // them by relevance/purpose instead of via the relaxed provenance-only gate.
+  // If the tagger isn't configured we warn once and keep provenance-only tags
+  // (the generation still works, just with weaker placement).
+  const taggerOn = imageTaggerConfigured();
+  if (!taggerOn) {
+    logger.warn(
+      { tenantId: inputs.tenantId, refHost },
+      "[page-reference] image tagger not configured (AI_INTEGRATIONS_OPENAI_* missing) — scraped images keep provenance-only tags",
+    );
+  }
+
   const results = await Promise.all(toMirror.map(async (c, i) => {
     const tags = [...baseTags, c.tag];
     const title = titleFromUrl(c.sourceUrl, `${refHost || "Reference"} image ${i + 1}`);
@@ -615,10 +662,9 @@ export async function mirrorReferenceImages(inputs: {
       return { rec: null as UploadedRecord | null, reason: fetched.reason, sourceUrl: c.sourceUrl, tags, title };
     }
     const rec = await uploadAndRecord(fetched.asset, { tenantId: inputs.tenantId, tags, title });
-    // Best-effort, non-blocking: enrich the scraped reference image with real
-    // content + purpose tags so future generations can place it relevantly.
-    // This run still selects via the relaxed trust gate (provenance-only tags).
-    if (rec) scheduleAutoTag(rec, fetched.asset, tags);
+    // Awaited (bounded) so this run's generation sees the richer tags. Never
+    // throws — on failure/timeout the image keeps its provenance-only tags.
+    if (rec && taggerOn) await runAutoTag(rec, fetched.asset, tags);
     return { rec, reason: rec ? null : "upload-failed", sourceUrl: c.sourceUrl, tags, title };
   }));
 

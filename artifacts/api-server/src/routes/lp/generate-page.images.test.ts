@@ -224,16 +224,101 @@ describe("validateAndDedupeAIImages", () => {
   });
 });
 
+// ── benefits-grid per-card photos are opt-in (useItemPhotos) ────────────────
+// benefits-grid / features are ICON-ONLY by default. Their per-item `image`
+// slots are only back-filled when the model opts the whole block in with
+// `useItemPhotos === true`; otherwise an empty `image` stays empty so the card
+// falls back to its Lucide icon. product-grid (a non-ITEM_PHOTO item block) is
+// inherently photo-driven and always fills regardless of the flag.
+describe("fillEmptyImages — benefits-grid per-card photos (useItemPhotos opt-in)", () => {
+  const featLib: MediaImage[] = [
+    { url: "/objects/feat-a", title: "A", tags: ["lp-feature", "dentures"] },
+    { url: "/objects/feat-b", title: "B", tags: ["lp-feature", "dentures"] },
+  ];
+
+  it("does NOT fill benefits-grid item images when useItemPhotos is unset (icon-only default)", () => {
+    let blocks: any[] = [
+      { type: "benefits-grid", props: { items: [
+        { icon: "Shield", title: "Custom fit", description: "Dentures", image: "" },
+        { icon: "Clock", title: "Fast turnaround", description: "Dentures", image: "" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, featLib, PAGE_CTX) as any[];
+    for (const item of blocks[0].props.items as Array<{ image: string }>) {
+      expect(item.image).toBe("");
+    }
+  });
+
+  it("fills benefits-grid item images when useItemPhotos === true", () => {
+    let blocks: any[] = [
+      { type: "benefits-grid", props: { useItemPhotos: true, items: [
+        { icon: "Shield", title: "Custom fit", description: "Dentures", image: "" },
+        { icon: "Clock", title: "Fast turnaround", description: "Dentures", image: "" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, featLib, PAGE_CTX) as any[];
+    const imgs = (blocks[0].props.items as Array<{ image: string }>).map((i) => i.image);
+    for (const img of imgs) expect(img).toBeTruthy();
+    expect(new Set(imgs).size).toBe(imgs.length); // distinct
+  });
+
+  it("product-grid item images fill regardless of useItemPhotos (inherently photo-driven)", () => {
+    const prodLib: MediaImage[] = [
+      { url: "/objects/prod-a", title: "A", tags: ["product-detail", "dentures"] },
+    ];
+    let blocks: any[] = [
+      { type: "product-grid", props: { items: [
+        { title: "Denture set", description: "Dentures", image: "" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, prodLib, PAGE_CTX) as any[];
+    expect((blocks[0].props.items as Array<{ image: string }>)[0].image).toBe("/objects/prod-a");
+  });
+});
+
+// ── sibling-tenant tie-breaker (foreignTenant penalty) ──────────────────────
+// A reciprocal sibling's image is flagged foreignTenant at catalog-build time and
+// gets a small −1 nudge so a tenant prefers its OWN assets when scores are
+// otherwise tied. The penalty is deliberately tiny: a clearly more on-topic
+// sibling image still wins on real relevance points.
+describe("scoreImage foreignTenant penalty — sibling tie-break", () => {
+  it("prefers the tenant's own image over an equally-scored sibling image", () => {
+    // foreign image is listed FIRST; findBestImage keeps the first max-scorer, so
+    // only the −1 penalty lets the tenant's own (second) image win the tie.
+    const lib: MediaImage[] = [
+      { url: "/objects/sibling-feat", title: "x", tags: ["lp-feature", "dentures"], foreignTenant: true },
+      { url: "/objects/own-feat", title: "x", tags: ["lp-feature", "dentures"] },
+    ];
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Dentures", body: "", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, lib, PAGE_CTX) as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/own-feat");
+  });
+
+  it("a clearly more on-topic sibling image still beats the tenant's own (penalty is tiny)", () => {
+    const lib: MediaImage[] = [
+      { url: "/objects/sibling-feat", title: "x", tags: ["lp-feature", "dentures", "patient"], foreignTenant: true },
+      { url: "/objects/own-feat", title: "x", tags: ["lp-feature"] },
+    ];
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Dentures patient", body: "", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, lib, PAGE_CTX) as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/sibling-feat");
+  });
+});
+
 // ── CLEAR_GAP threshold validation ─────────────────────────────────────────
-// These cases pin the documented rationale for CLEAR_GAP (= 2 × TAG_MATCH_SCORE
-// = 6). A correct-purpose image whose purpose matches scores PURPOSE_MATCH_BOOST
+// These cases pin the documented rationale for CLEAR_GAP (= PURPOSE_MATCH_BOOST
+// = 8). A correct-purpose image whose purpose matches scores PURPOSE_MATCH_BOOST
 // (+8); each on-topic single-word content tag adds +4 (a +3 text-match plus a +1
 // word-level bonus). So:
-//   - one topic tag behind the best free alternative → gap 4 (< 6): KEEP. One
+//   - one topic tag behind the best free alternative → gap 4 (< 8): KEEP. One
 //     extra tag of difference is treated as noise; we don't churn a good pick.
-//   - two topic tags behind → gap 8 (≥ 6): CLEAR. The alternative is decisively
-//     more on-topic, so the model's bare pick is dropped for smart-fill to
-//     replace. CLEAR_GAP=6 sits squarely between these two cases.
+//   - two topic tags behind → gap 8 (≥ 8): CLEAR. The alternative is decisively
+//     more on-topic — a full purpose-match's worth of relevance ahead — so the
+//     model's bare pick is dropped for smart-fill to replace.
 // Headline + page context share the same two tokens so the gap is predictable.
 describe("validateAndDedupeAIImages — CLEAR_GAP threshold", () => {
   const CTX = "alpha bravo";
