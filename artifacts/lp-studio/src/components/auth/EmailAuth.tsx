@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,16 +73,41 @@ export function useTurnstileSiteKey(): string | null | undefined {
   return siteKey;
 }
 
-export function TurnstileWidget({ siteKey, onToken }: { siteKey: string; onToken: (t: string | null) => void }) {
-  const ref = useRef<HTMLDivElement>(null);
+export interface TurnstileWidgetHandle {
+  /** Reset the rendered widget so it discards a stale "Success!" state and
+      issues a fresh token. */
+  reset: () => void;
+}
+
+export const TurnstileWidget = forwardRef<
+  TurnstileWidgetHandle,
+  { siteKey: string; onToken: (t: string | null) => void }
+>(function TurnstileWidget({ siteKey, onToken }, ref) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      reset() {
+        if (widgetId.current && window.turnstile) {
+          try {
+            window.turnstile.reset(widgetId.current);
+          } catch {
+            /* widget already gone */
+          }
+        }
+      },
+    }),
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
     loadTurnstileScript()
       .then(() => {
-        if (cancelled || !ref.current || !window.turnstile) return;
-        widgetId.current = window.turnstile.render(ref.current, {
+        if (cancelled || !containerRef.current || !window.turnstile) return;
+        widgetId.current = window.turnstile.render(containerRef.current, {
           sitekey: siteKey,
           callback: (token: string) => onToken(token),
           "expired-callback": () => onToken(null),
@@ -107,8 +132,8 @@ export function TurnstileWidget({ siteKey, onToken }: { siteKey: string; onToken
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteKey]);
 
-  return <div ref={ref} className="flex justify-center" />;
-}
+  return <div ref={containerRef} className="flex justify-center" />;
+});
 
 // ── Email auth forms ────────────────────────────────────────────────────────
 
@@ -125,6 +150,7 @@ export function EmailAuthForms({ mode, allowSignup }: { mode: "signup" | "signin
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
+  const turnstileWidgetRef = useRef<TurnstileWidgetHandle>(null);
 
   const isSignup = mode === "signup";
   const unmetPasswordRequirements = getUnmetPasswordRequirements(password);
@@ -148,6 +174,16 @@ export function EmailAuthForms({ mode, allowSignup }: { mode: "signup" | "signin
 
   function resetToken() {
     setTurnstileToken(null);
+    // Re-arm the rendered widget so it discards its stale "Success!" state and
+    // issues a fresh token, rather than leaving the submit button disabled.
+    turnstileWidgetRef.current?.reset();
+  }
+
+  // Clear any lingering error/notice text as soon as the user edits a field, so
+  // a prior rejection doesn't persist after the input that caused it changed.
+  function clearMessages() {
+    if (error) setError("");
+    if (notice) setNotice("");
   }
 
   async function postJson(url: string, payload: Record<string, unknown>) {
@@ -279,7 +315,10 @@ export function EmailAuthForms({ mode, allowSignup }: { mode: "signup" | "signin
               type="text"
               autoComplete="name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                clearMessages();
+              }}
             />
           </div>
         )}
@@ -291,7 +330,10 @@ export function EmailAuthForms({ mode, allowSignup }: { mode: "signup" | "signin
             type="email"
             autoComplete="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              clearMessages();
+            }}
             required
           />
         </div>
@@ -315,7 +357,10 @@ export function EmailAuthForms({ mode, allowSignup }: { mode: "signup" | "signin
               type="password"
               autoComplete={isSignup ? "new-password" : "current-password"}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                clearMessages();
+              }}
               required
             />
             {isSignup && password.length > 0 && unmetPasswordRequirements.length > 0 && (
@@ -326,7 +371,9 @@ export function EmailAuthForms({ mode, allowSignup }: { mode: "signup" | "signin
           </div>
         )}
 
-        {turnstileRequired && siteKey && <TurnstileWidget siteKey={siteKey} onToken={setTurnstileToken} />}
+        {turnstileRequired && siteKey && (
+          <TurnstileWidget ref={turnstileWidgetRef} siteKey={siteKey} onToken={setTurnstileToken} />
+        )}
 
         {error && <p className="text-sm text-destructive">{error}</p>}
         {notice && <p className="text-sm text-emerald-600">{notice}</p>}
