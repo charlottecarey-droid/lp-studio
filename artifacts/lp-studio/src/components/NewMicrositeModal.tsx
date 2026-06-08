@@ -364,6 +364,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
             segmentId: templateSegmentId,
             prompt: synthPrompt,
             templateId: selectedTemplateId,
+            replaceImagery,
           });
         } else {
           // No account (or no segment): the generic create path.
@@ -378,19 +379,32 @@ export function NewMicrositeModal({ open, onClose }: Props) {
             ? buildSegmentContext(templateSegmentId)
             : undefined;
 
-          if (tplSegmentContext) {
+          // Route through the AI template-rewrite generator when a real
+          // template is chosen AND either a segment is selected (retune copy
+          // for that audience) OR the rep asked to replace imagery. The
+          // pure-clone path below can do neither — it copies the template
+          // verbatim — so without this the "Replace imagery" checkbox would be
+          // a silent no-op whenever no segment is picked. With the box off and
+          // no segment, we keep the existing pure-clone behaviour.
+          const useAiRewrite =
+            selectedTemplateId > 0 && (!!tplSegmentContext || replaceImagery);
+
+          if (useAiRewrite) {
             // Synthesise a short prompt — the endpoint requires `prompt`, and
-            // it gives the AI a clear instruction alongside the segment data.
-            const synthPrompt =
-              `Tailor this template's copy for the ${tplSegmentContext.name} audience` +
-              (selectedAccount ? `, for ${selectedAccount.name}.` : ".");
+            // it gives the AI a clear instruction alongside any segment data.
+            const synthPrompt = tplSegmentContext
+              ? `Tailor this template's copy for the ${tplSegmentContext.name} audience` +
+                (selectedAccount ? `, for ${selectedAccount.name}.` : ".")
+              : `Tailor this template's copy` +
+                (selectedAccount ? ` for ${selectedAccount.name}.` : ".");
             const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 prompt: synthPrompt,
                 templateId: selectedTemplateId,
-                segmentContext: tplSegmentContext,
+                ...(tplSegmentContext ? { segmentContext: tplSegmentContext } : {}),
+                ...(replaceImagery ? { replaceImagery: true } : {}),
               }),
             });
             if (!genRes.ok) {
@@ -656,6 +670,19 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                     <p className="text-[11px] text-muted-foreground mt-2">
                       No saved templates yet. Marketing can save any page as a template from the Builder.
                     </p>
+                  )}
+                  {selectedTemplateId > 0 && (
+                    <label className="mt-2 flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5"
+                        checked={replaceImagery}
+                        onChange={(e) => setReplaceImagery(e.target.checked)}
+                      />
+                      <span className="text-[11px] text-muted-foreground">
+                        <span className="font-medium text-foreground">Replace imagery</span> — swap the template's photos for on-brand images from your library (and any reference URL). Off keeps the template's original images; copy is rewritten either way.
+                      </span>
+                    </label>
                   )}
                 </div>
                 <div>
