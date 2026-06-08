@@ -1038,11 +1038,21 @@ export function buildBrandLogoUrlSet(
 export function collectImageSlots(
   block: Record<string, unknown>,
   logoUrls?: ReadonlySet<string>,
+  includeEmpty = false,
 ): AIImageSlot[] {
   const slots: AIImageSlot[] = [];
   if (typeof block !== "object" || block === null) return slots;
   const props = block.props as Record<string, unknown> | undefined;
   if (!props || typeof props !== "object") return slots;
+
+  // Task #1290 — most callers want only POPULATED image slots (clear loop,
+  // dedupe, fill). The template-path image restore (restoreTemplateImages)
+  // passes includeEmpty=true so an empty string slot is still enumerated,
+  // letting it align orig↔merged by index even when the model blanked or filled
+  // a slot — without it the two slot lists would diverge and the restore would
+  // be skipped.
+  const want = (v: unknown): v is string =>
+    typeof v === "string" && (includeEmpty || v.length > 0);
 
   const blockType = (block.type as string) ?? "";
   const headline = (props.headline as string) ?? "";
@@ -1057,7 +1067,7 @@ export function collectImageSlots(
     blockType === "dso-scroll-story-hero";
 
   const pushScalar = (key: string, purpose: string, context: string) => {
-    if (typeof props[key] === "string" && props[key]) {
+    if (want(props[key])) {
       slots.push({
         get: () => (props[key] as string) ?? "",
         set: (v) => { props[key] = v; },
@@ -1089,7 +1099,7 @@ export function collectImageSlots(
     const a = arr as Record<string, unknown>[];
     a.forEach((item, i) => {
       if (typeof item !== "object" || item === null) return;
-      if (typeof item[key] === "string" && item[key]) {
+      if (want(item[key])) {
         slots.push({
           get: () => (a[i][key] as string) ?? "",
           set: (v) => { a[i][key] = v; },
@@ -1131,7 +1141,7 @@ export function collectImageSlots(
   if (props.featuredArticle && typeof props.featuredArticle === "object") {
     const fa = props.featuredArticle as Record<string, unknown>;
     (["imageUrl", "avatarUrl"] as const).forEach((key) => {
-      if (typeof fa[key] === "string" && fa[key]) {
+      if (want(fa[key])) {
         slots.push({
           get: () => (fa[key] as string) ?? "",
           set: (v) => { fa[key] = v; },
@@ -1148,7 +1158,7 @@ export function collectImageSlots(
     const a = props.tiles as Record<string, unknown>[];
     a.forEach((tile, i) => {
       if (typeof tile !== "object" || tile === null) return;
-      if (typeof tile.imageUrl === "string" && tile.imageUrl) {
+      if (want(tile.imageUrl)) {
         slots.push({
           get: () => (a[i].imageUrl as string) ?? "",
           set: (v) => { a[i].imageUrl = v; },
@@ -1156,7 +1166,7 @@ export function collectImageSlots(
           context: `${tile.caption ?? ""} ${blockContext}`,
         });
       }
-      if (tile.kind === "image" && typeof tile.primary === "string" && tile.primary) {
+      if (tile.kind === "image" && want(tile.primary)) {
         slots.push({
           get: () => (a[i].primary as string) ?? "",
           set: (v) => { a[i].primary = v; },
@@ -1173,7 +1183,7 @@ export function collectImageSlots(
     a.forEach((pair, i) => {
       if (typeof pair !== "object" || pair === null) return;
       (["beforeSrc", "afterSrc"] as const).forEach((key) => {
-        if (typeof pair[key] === "string" && pair[key]) {
+        if (want(pair[key])) {
           slots.push({
             get: () => (a[i][key] as string) ?? "",
             set: (v) => { a[i][key] = v; },
@@ -1189,7 +1199,7 @@ export function collectImageSlots(
   if (Array.isArray(props.imageUrls)) {
     const a = props.imageUrls as unknown[];
     a.forEach((u, i) => {
-      if (typeof u === "string" && u) {
+      if (want(u)) {
         slots.push({
           get: () => (a[i] as string) ?? "",
           set: (v) => { a[i] = v; },
@@ -1204,7 +1214,7 @@ export function collectImageSlots(
   if (Array.isArray(props.avatarUrls)) {
     const a = props.avatarUrls as unknown[];
     a.forEach((u, i) => {
-      if (typeof u === "string" && u) {
+      if (want(u)) {
         slots.push({
           get: () => (a[i] as string) ?? "",
           set: (v) => { a[i] = v; },
@@ -1219,6 +1229,43 @@ export function collectImageSlots(
   // filter protects every caller (the "Replace imagery" clear loop, dedupe/
   // validation, and used-URL tracking) so the brand mark is preserved.
   return slots.filter((s) => !isLogoImageUrl(s.get(), logoUrls));
+}
+
+/**
+ * Task #1290 — deterministic "same image in the same slot" guarantee for the
+ * template path when "Replace imagery" is OFF.
+ *
+ * The structure-preserving merge keeps url-suffixed / `src` image fields
+ * verbatim, but a handful of image slots live in NON-url-named string fields
+ * (bento image tiles store the URL in `primary`; resources/benefits items store
+ * it in `image`). The copy merge would happily overwrite those with whatever
+ * URL the model echoed back. This restores every image slot from the original
+ * template block so a generated page keeps the template's exact photos in the
+ * exact same positions — e.g. the image in bento square 1 stays put.
+ *
+ * `collectImageSlots` (with includeEmpty=true) enumerates the SAME slots in the
+ * SAME order for two blocks that share a structure — the merge guarantees
+ * identical keys/array lengths, and including empty slots means a model-blanked
+ * or model-filled slot no longer changes the slot COUNT, so the restore still
+ * aligns (a blanked image is restored to the template's photo; a slot the
+ * template left empty is forced back to empty). Brand-logo slots are filtered
+ * out on both sides, so the brand mark is untouched. The counts only diverge if
+ * the model mutated a STRUCTURAL discriminator (e.g. a bento tile's `kind`);
+ * we skip that block rather than risk a misaligned restore — url-named fields
+ * were already preserved by the merge. Returns true when a clean index-aligned
+ * restore was applied.
+ */
+export function restoreTemplateImages(
+  origBlock: Record<string, unknown>,
+  mergedBlock: Record<string, unknown>,
+  logoUrls?: ReadonlySet<string>,
+): boolean {
+  const origSlots = collectImageSlots(origBlock, logoUrls, true);
+  const mergedSlots = collectImageSlots(mergedBlock, logoUrls, true);
+  if (origSlots.length === 0) return true;
+  if (origSlots.length !== mergedSlots.length) return false;
+  origSlots.forEach((s, i) => mergedSlots[i].set(s.get()));
+  return true;
 }
 
 /**
@@ -4042,6 +4089,134 @@ export function buildTeamMembersSection(members: TeamMember[]): string {
   return `TEAM MEMBERS (the only real people you may put in a "dso-meet-team" block — populate its \`members\` ONLY from this list, copying each person's name, role, email, and Photo URL VERBATIM into the member's name/role/email/photo. Never invent a person and never place any other image — group, lifestyle, or dinner photos from the library — into a member's photo slot):\n${lines}`;
 }
 
+/** Task #1290 — a saved resource from the Content Library (lp_library_items
+ *  type 'resource'). Subset consumed when populating a `resources` block:
+ *  title, description, category, link URL, and an optional image. */
+export interface LibraryResource {
+  title: string;
+  description: string;
+  category: string;
+  url: string;
+  image: string;
+}
+
+/** Task #1290 — fetch the tenant's saved resources so a template's `resources`
+ *  block can only ever surface REAL library resources (never AI-invented ones).
+ *  Mirrors fetchTeamMembers. Respects the per-row `approved_for_ai` opt-out
+ *  (legacy NULL rows count as approved). Returns up to 50. */
+export async function fetchResources(tenantId: number | null): Promise<LibraryResource[]> {
+  if (tenantId == null) return [];
+  try {
+    const rows = await db.execute(
+      sql`SELECT name, content FROM lp_library_items
+          WHERE tenant_id = ${tenantId} AND type = 'resource' AND approved_for_ai IS NOT FALSE
+          ORDER BY sort_order ASC, id ASC LIMIT 50`,
+    );
+    const str = (v: unknown): string => (typeof v === "string" ? v : v == null ? "" : String(v));
+    return (rows.rows as Array<{ name: string; content: Record<string, unknown> }>).map((r) => {
+      const c = (r.content ?? {}) as Record<string, unknown>;
+      return {
+        title: str(c.title) || r.name,
+        description: str(c.description),
+        category: str(c.category),
+        url: str(c.url),
+        image: str(c.image),
+      };
+    }).filter((x) => x.title);
+  } catch {
+    return [];
+  }
+}
+
+/** Task #1290 — normalize a resource title for matching the model's echoed item
+ *  back to a library resource (case/punctuation/whitespace-insensitive). */
+export function normalizeResourceKey(s: unknown): string {
+  return (typeof s === "string" ? s : "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Task #1290 — prompt section for a template's `resources` block. The AI must
+ *  NOT invent resources or rewrite the template's resource items. It keeps the
+ *  template's resources as-is by default and may ONLY swap a template resource
+ *  for one of these library resources when the template resource clearly
+ *  conflicts with THIS page's subject (e.g. a guide tied to a different account
+ *  than the page is about) AND a library resource is relevant. The deterministic
+ *  enforceResourcesFromLibrary post-pass guarantees this regardless of output. */
+export function buildResourcesSection(resources: LibraryResource[]): string {
+  if (resources.length === 0) {
+    return "RESOURCES LIBRARY: (none) — if a \"resources\" block is present, keep EVERY resource item EXACTLY as it appears in the template. Do NOT invent, rename, reword, or re-link any resource (title, description, category, or link).";
+  }
+  const lines = resources.map((r) => {
+    const bits = [`- Title: ${r.title}`];
+    if (r.category) bits.push(`Category: ${r.category}`);
+    if (r.description) bits.push(`Description: ${r.description}`);
+    if (r.url) bits.push(`Link: ${r.url}`);
+    return bits.join(" | ");
+  }).join("\n");
+  return `RESOURCES LIBRARY (the ONLY resources you may place in a "resources" block):\n${lines}\n\nRESOURCE RULES:\n- By DEFAULT keep the template's existing resource items EXACTLY as they are — do not rename, reword, re-categorize, or re-link them.\n- ONLY replace a template resource when it clearly CONFLICTS with this page's subject (e.g. a price guide or doc tied to a DIFFERENT company/account than this page is about) AND one of the resources above is relevant to this page.\n- When you replace one, copy the chosen library resource's Title, Description, Category, and Link VERBATIM from the list above.\n- NEVER invent a resource that is not in the list above, and never fabricate a resource title, description, category, or link.`;
+}
+
+/** Task #1290 — deterministic guarantee that every item in a template's
+ *  `resources` block is EITHER the original template item (verbatim) OR a real
+ *  library resource (verbatim) — never an AI-invented one.
+ *
+ *  For each item (index-aligned to the original template block):
+ *   - If the model's echoed item title normalizes to a known library resource,
+ *     snap to that library resource verbatim (title/description/category/url,
+ *     and its image when it has one, else keep the template item's image).
+ *   - Otherwise restore the ORIGINAL template item verbatim (this also undoes
+ *     any stray AI rewrite of a kept resource's copy).
+ *
+ *  With an empty library this restores every resource to the template item, so
+ *  the AI can never invent resources. Mutates the merged blocks in place. */
+export function enforceResourcesFromLibrary(
+  mergedBlocks: Array<Record<string, unknown>>,
+  tplBlocks: Array<Record<string, unknown>>,
+  resources: LibraryResource[],
+): void {
+  const byTitle = new Map<string, LibraryResource>();
+  for (const r of resources) {
+    const key = normalizeResourceKey(r.title);
+    if (key && !byTitle.has(key)) byTitle.set(key, r);
+  }
+  mergedBlocks.forEach((blk, i) => {
+    if (!blk || (blk as { type?: string }).type !== "resources") return;
+    const origBlk = tplBlocks[i] as Record<string, unknown> | undefined;
+    const origProps = (origBlk?.props && typeof origBlk.props === "object")
+      ? origBlk.props as Record<string, unknown>
+      : undefined;
+    const blkProps = (blk.props && typeof blk.props === "object")
+      ? blk.props as Record<string, unknown>
+      : undefined;
+    if (!origProps || !blkProps) return;
+    const origItems = origProps.items;
+    if (!Array.isArray(origItems)) return;
+    const aiItems = Array.isArray(blkProps.items) ? blkProps.items : [];
+    blkProps.items = origItems.map((origRaw, idx) => {
+      const origItem = (origRaw && typeof origRaw === "object")
+        ? origRaw as Record<string, unknown>
+        : {};
+      const aiItem = (aiItems[idx] && typeof aiItems[idx] === "object")
+        ? aiItems[idx] as Record<string, unknown>
+        : {};
+      const lib = byTitle.get(normalizeResourceKey(aiItem.title));
+      if (lib) {
+        return {
+          ...origItem,
+          title: lib.title,
+          description: lib.description,
+          category: lib.category,
+          url: lib.url,
+          image: lib.image || (typeof origItem.image === "string" ? origItem.image : ""),
+        };
+      }
+      return { ...origItem };
+    });
+  });
+}
+
 /** Task #1168 — deterministic team-photo reconciliation for `dso-meet-team`.
  *
  * Task #1158 has the AI copy each saved team member's headshot URL verbatim into
@@ -4523,6 +4698,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // gated push at the two prompt-assembly call sites below.
   const teamMembers = await fetchTeamMembers(tenantId);
   const teamMembersSection = buildTeamMembersSection(teamMembers);
+  // Task #1290 — the tenant's saved resources (Content Library) so a template's
+  // `resources` block can only ever surface REAL library resources. Only
+  // consumed by the template path, and only when the template carries a
+  // `resources` block (gated push below); also drives the deterministic
+  // enforceResourcesFromLibrary post-pass so the AI can never invent resources.
+  const resources = await fetchResources(tenantId);
+  const resourcesSection = buildResourcesSection(resources);
   // The AI Scan Review motion video is a Dandy-only internal asset (it shows
   // Dandy product UI). It must NEVER be exposed to partner / customer
   // tenants. Storage layer also gates this video by tenant slug.
@@ -4608,6 +4790,14 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         tplBlocks.some((b) => (b as { type?: string })?.type === "dso-meet-team")
       ) {
         templateUserPromptParts.push(teamMembersSection);
+      }
+      // Task #1290 — only surface the resources library + its "don't invent /
+      // keep template resources unless they conflict" rules when the template
+      // actually contains a `resources` block (the block that consumes them).
+      if (
+        tplBlocks.some((b) => (b as { type?: string })?.type === "resources")
+      ) {
+        templateUserPromptParts.push(resourcesSection);
       }
       // Reference URL + screenshot (May 2026 audit follow-up). The brand
       // sections above already include the WRITE IN THIS VOICE / BANNED
@@ -4849,7 +5039,37 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         mergedBlocks = sanitizeAIImageUrls(mergedBlocks, mediaCatalog.allImages, brandLogoUrls) as typeof mergedBlocks;
         mergedBlocks = validateAndDedupeAIImages(mergedBlocks, fillPool, pageImageContext, brandLogoUrls) as typeof mergedBlocks;
         mergedBlocks = fillEmptyImages(mergedBlocks, fillPool, pageImageContext, false, brandLogoUrls) as typeof mergedBlocks;
+      } else {
+        // Task #1290 — "Replace imagery" OFF (default): GUARANTEE the same image
+        // stays in the same slot. The copy merge keeps url-named / `src` image
+        // fields verbatim, but non-url image slots (bento image tiles in
+        // `primary`, resources/benefits items in `image`) could otherwise be
+        // overwritten by the model. Restore every image slot from the original
+        // template block, index-aligned. Logo slots are excluded by
+        // collectImageSlots on both sides, so the brand mark is untouched.
+        tplBlocks.forEach((orig, i) => {
+          const merged = mergedBlocks[i];
+          if (merged) {
+            restoreTemplateImages(
+              orig as Record<string, unknown>,
+              merged as Record<string, unknown>,
+              brandLogoUrls,
+            );
+          }
+        });
       }
+
+      // Task #1290 — deterministic resource integrity for any `resources` block:
+      // every item is forced to be EITHER the original template item (verbatim)
+      // or a real library resource (verbatim) — never an AI-invented one. Runs
+      // AFTER the imagery pass so a library-swapped resource keeps its library
+      // image (when "Replace imagery" is ON, the fill pass would have touched
+      // resource item images; this restores the correct library/template image).
+      enforceResourcesFromLibrary(
+        mergedBlocks as Array<Record<string, unknown>>,
+        tplBlocks as Array<Record<string, unknown>>,
+        resources,
+      );
 
       const slug = String(parsed.slug)
         .toLowerCase()
