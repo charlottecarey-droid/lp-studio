@@ -110,7 +110,8 @@ export function BrandLogo({
   // is still correct. Auto-recolor still wins for monochrome SVGs
   // (handled below); the dark variant exists for multi-color marks and
   // raster files that don't recolor cleanly. Falls back to `logoUrl`.
-  const brandSrc = isDarkSurfaceForTone(brand, tone) && brand.logoUrlDark?.trim()
+  const onDarkSurface = isDarkSurfaceForTone(brand, tone);
+  const brandSrc = onDarkSurface && brand.logoUrlDark?.trim()
     ? brand.logoUrlDark.trim()
     : brand.logoUrl?.trim() ?? "";
   const src = (url && url.trim()) || brandSrc;
@@ -129,8 +130,25 @@ export function BrandLogo({
   // monochrome-wordmark tenants); the multi-color opt-out is the only new gate.
   const autoRecolor = isSvg && !isKnownMulticolor && (brand.logoAutoRecolor ?? true);
 
+  // A logo that can't be auto-recolored (raster file or a known multi-color
+  // mark) renders as a plain `<img>` in its native colors. On a dark surface
+  // that's typically a dark mark → invisible "dark-on-dark". When the tenant
+  // hasn't supplied a dedicated dark asset (`logoUrlDark`) for us to swap in,
+  // force the mark to a clean white silhouette via the same filter the partner
+  // logos already use, so it always reads on dark headers/heroes.
+  const usingDedicatedDarkAsset =
+    onDarkSurface && !(url && url.trim()) && !!brand.logoUrlDark?.trim();
+  const whitenForDark = onDarkSurface && !usingDedicatedDarkAsset;
+
   if (!autoRecolor) {
-    return <img src={src} alt={alt} className={className} style={style} />;
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        style={whitenForDark ? { ...style, filter: "brightness(0) invert(1)" } : style}
+      />
+    );
   }
 
   const color =

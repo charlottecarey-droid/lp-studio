@@ -252,7 +252,10 @@ export function BlockEditorialSplitHero({
           <BrandLogo
             brand={brand}
             url={props.logoImageUrl}
-            tone="onLight"
+            // The nav is `mix-blend-difference` (built for a white wordmark), so
+            // the logo must render white — `onLight` would recolor a mono SVG to
+            // the brand primary (e.g. pink) and read wrong under the blend.
+            tone="onDark"
             alt={props.logoText || brandName}
             style={{ height: 28, display: "block" }}
           />
