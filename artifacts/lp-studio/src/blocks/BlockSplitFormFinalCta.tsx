@@ -4,6 +4,8 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { SplitFormFinalCtaBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { CtaButton } from "@/components/CtaButton";
+import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { usePageContext } from "@/lib/page-context";
 
@@ -14,12 +16,12 @@ interface Props {
 }
 
 /**
- * Split-form final CTA. Unlike the other final-CTA blocks (which expose the
- * shared CtaButton action suite — url / chilipiper / modal-form / video), this
- * block is intentionally an INLINE lead-capture form: the on-page email input
- * IS the conversion action. It therefore submits the lead directly through the
- * shared `/api/lp/leads` pipeline (same endpoint as EmailCaptureModal) rather
- * than wiring a CtaActionConfigSection. This inline-form scope is deliberate.
+ * Split-form final CTA. Persuasive copy on one side, a lead-capture form on the
+ * other. Like every other final-CTA block, the submit control routes through the
+ * shared CtaButton action suite (url / chilipiper / modal-form / modal-chilipiper
+ * / video-modal). In the default "url" mode the on-page email field IS the
+ * conversion: the lead is captured inline via the shared `/api/lp/leads` pipeline
+ * (same endpoint as EmailCaptureModal). Non-url modes defer capture to CtaButton.
  */
 export function BlockSplitFormFinalCta({ props, brand, onFieldChange }: Props) {
   const ctx = usePageContext();
@@ -32,6 +34,7 @@ export function BlockSplitFormFinalCta({ props, brand, onFieldChange }: Props) {
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const bullets = props.bullets ?? [];
   const editing = !!onFieldChange;
+  const ctaAction = props.ctaAction ?? "url";
 
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -43,8 +46,8 @@ export function BlockSplitFormFinalCta({ props, brand, onFieldChange }: Props) {
     onFieldChange({ ...props, bullets: bullets.map((b, idx) => (idx === i ? v : b)) });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (editing || !email) return;
     setSubmitted(true);
     const pageId = ctx.pageId;
@@ -95,26 +98,50 @@ export function BlockSplitFormFinalCta({ props, brand, onFieldChange }: Props) {
               <p className="text-base font-semibold text-slate-900">{props.successMessage || "Thanks — we'll be in touch shortly."}</p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={(e) => void handleSubmit(e)}>
               {(props.formTitle || onFieldChange) && (
                 <InlineText as="h3" value={props.formTitle ?? ""} onUpdate={onFieldChange ? (v) => update("formTitle", v) : undefined} className="mb-4 text-lg font-bold text-slate-900" style={{ fontFamily: DISPLAY }} />
               )}
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                disabled={editing}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base text-slate-900 outline-none focus:border-slate-400"
-              />
-              <button
-                type="submit"
-                className="mt-3 w-full rounded-xl px-6 py-3.5 text-base font-semibold shadow-sm"
-                style={{ backgroundColor: accent, color: onAccent }}
-              >
-                {props.formButtonLabel || "Get started"}
-              </button>
+              {ctaAction === "url" ? (
+                // Default mode: the inline email field IS the conversion. A native
+                // submit button enforces HTML5 email validation for both click and
+                // Enter, then handleSubmit captures the lead via /api/lp/leads.
+                <>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    disabled={editing}
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base text-slate-900 outline-none focus:border-slate-400"
+                  />
+                  <button
+                    type="submit"
+                    className="mt-3 w-full rounded-xl px-6 py-3.5 text-base font-semibold shadow-sm"
+                    style={{ backgroundColor: accent, color: onAccent }}
+                  >
+                    {props.formButtonLabel || "Get started"}
+                  </button>
+                </>
+              ) : (
+                // Other modes route the submit control through the shared CTA suite
+                // (Chili Piper, modal form, video) like every other final-CTA block.
+                <CtaButton
+                  {...pickCtaModalConfig(props)}
+                  ctaAction={ctaAction}
+                  ctaUrl={props.ctaUrl}
+                  chilipiperUrl={props.chilipiperUrl}
+                  videoUrl={props.videoUrl}
+                  videoPosterUrl={props.videoPosterUrl}
+                  brand={brand}
+                  source="split-form-final-cta"
+                  className="w-full rounded-xl px-6 py-3.5 text-center text-base font-semibold shadow-sm"
+                  style={{ backgroundColor: accent, color: onAccent }}
+                >
+                  {props.formButtonLabel || "Get started"}
+                </CtaButton>
+              )}
             </form>
           )}
         </div>

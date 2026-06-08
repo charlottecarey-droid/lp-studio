@@ -3909,6 +3909,17 @@ export interface SplitFormFinalCtaBlockProps extends CtaModalConfig {
   formTitle?: string;
   formButtonLabel?: string;
   successMessage?: string;
+  /**
+   * Submit-button behavior. Defaults to "url", where the on-page email field is
+   * the conversion and the lead is captured inline. Other modes (chilipiper /
+   * modal-form / modal-chilipiper / video-modal) route through the shared
+   * CtaButton suite like every other final-CTA block.
+   */
+  ctaAction?: HeroCtaActionMode;
+  ctaUrl?: string;
+  chilipiperUrl?: string;
+  videoUrl?: string;
+  videoPosterUrl?: string;
   bgColor?: string;
   textColor?: string;
   accentColor?: string;
