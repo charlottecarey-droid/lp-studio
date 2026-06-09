@@ -17,6 +17,7 @@ import {
   validateAndDedupeAIImages,
   fillEmptyImages,
   isScrapedImage,
+  isStarterImage,
   // Reference-image fill helper shared with the marketing generator: order the
   // pool curated → current-reference scraped → other-host scraped, and rotate
   // within each bucket per generation so the same on-topic asset doesn't win the
@@ -2294,8 +2295,11 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     try {
       // CURATED images only — off-topic scraped reference harvests are held back
       // from the relaxed pre-AI pass so AI generation fills those slots with
-      // on-topic imagery instead of an unrelated brand-site scrape.
-      const curatedFillPool = imageFillPool.filter((img) => !isScrapedImage(img));
+      // on-topic imagery instead of an unrelated brand-site scrape. Generic
+      // STARTER seeds are likewise excluded — they are the absolute last resort
+      // and must not fill a slot ahead of the tenant's own scraped reference
+      // imagery (which only competes in the last-resort pass below).
+      const curatedFillPool = imageFillPool.filter((img) => !isScrapedImage(img) && !isStarterImage(img));
       const [outsideBuilderOn, imageGenStatus] = await Promise.all([
         getAiImageGenOutsideBuilderEnabled(tenantId),
         getAiImageGenStatus(tenantId),

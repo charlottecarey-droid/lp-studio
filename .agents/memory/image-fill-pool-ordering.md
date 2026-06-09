@@ -28,9 +28,25 @@ starting offset WITHIN a bucket of interchangeable assets varies — fixes "same
 on-topic photo wins the first slot on every page / across tenants". seed<=0 is a
 deterministic no-op so unit fixtures keep fixed ordering.
 
-**How to apply:** Never fold "starter"-tagged rows back into curatedImages. The
-old trusted-scrape set (buildTrustedScrapedIds) is GONE — scraped images now pass
-the strict gate only on `contentScore > 0` (see scraped-image-relevance-gate.md);
-to exercise an off-topic current-ref scrape filling a slot, use relaxed-mode in
-tests (it no longer passes strict). Keep seed defaulting to 0 in tests asserting
-exact pool order.
+**Pool order alone is NOT enough — starters need a hard two-tier demotion.**
+Because the strict gate rejects scraped images (contentScore<=0) but a score-0
+starter still satisfied findBestImage's `score>=0` branch on hero slots, the
+starter filled the slot in the STRICT pass before scraped ever competed — so
+brand-import tenants (only scraped imagery) saw generic starters in prime slots.
+Fix: findBestImage tracks starters in a SEPARATE `bestStarter` tier, skips them
+entirely in the strict pass (`if (starter && !relaxed) continue;`), and returns
+them only as the absolute last resort (`chosen = best ?? bestStarter`). ALSO
+`curatedFillPool` (relaxed pre-AI pass) must exclude starters in BOTH generators
+(`!isScrapedImage(img) && !isStarterImage(img)`), or starters fill feature slots
+before scraped images get their turn. New-tenant-only-starters still fills via the
+FINAL relaxed full-pool pass — the strict-pass skip is safe ONLY because every
+generation flow guarantees that later relaxed pass.
+
+**How to apply:** Never fold "starter"-tagged rows back into curatedImages, and
+never let a starter win in the strict pass — it is below the tenant's own
+curated+scraped assets, period. isStarterImage/isScrapedImage are mutually
+exclusive. The old trusted-scrape set (buildTrustedScrapedIds) is GONE — scraped
+images now pass the strict gate only on `contentScore > 0` (see
+scraped-image-relevance-gate.md); to exercise an off-topic current-ref scrape
+filling a slot, use relaxed-mode in tests (it no longer passes strict). Keep seed
+defaulting to 0 in tests asserting exact pool order.

@@ -566,6 +566,42 @@ describe("buildReferenceFillPool — reference-image fidelity", () => {
     const filled = fillEmptyImages(blocks, pool, "saas pipeline", true, undefined) as any[];
     expect(filled[0].props.rows[0].imageUrl).toBe("/objects/clay-fresh");
   });
+
+  // ── Starter seeds are the absolute last resort (image-fill regression) ──────
+  // Starters carry no purpose/topical tag → they score 0, identical to an
+  // off-topic current-reference scrape. The strict scraped-relevance gate
+  // (contentScore > 0) holds the tenant's own scraped images back to the relaxed
+  // pass; before the fix a score-0 starter filled the slot first (strict hero
+  // branch / relaxed pre-AI pass), so tenants saw "random starter images instead
+  // of their own / scraped images". These lock in: starters never fill in the
+  // strict pass, never beat a genuine asset, but still fill as a true last resort.
+  const starter: MediaImage = { url: "/objects/starter-1", title: "Starter 14142350", tags: ["starter", "generic"] };
+
+  it("STRICT pass: a starter never fills a hero slot (deferred to the relaxed pass)", () => {
+    const blocks: any[] = [{ type: "hero", props: { headline: "Anything", imageUrl: "" } }];
+    // Strict pass (relaxed=false): starter is the only candidate → slot stays empty.
+    const strict = fillEmptyImages(structuredClone(blocks), [starter], "saas pipeline", false) as any[];
+    expect(strict[0].props.imageUrl).toBe("");
+    // Relaxed last-resort pass: the starter now fills it (true last resort).
+    const relaxed = fillEmptyImages(structuredClone(blocks), [starter], "saas pipeline", true) as any[];
+    expect(relaxed[0].props.imageUrl).toBe("/objects/starter-1");
+  });
+
+  it("RELAXED pass: a score-0 scraped reference image beats a score-0 starter regardless of pool order", () => {
+    // Put the starter FIRST in the pool to prove the win isn't just ordering: the
+    // two-tier selection prefers any non-starter (the tenant's scrape) over a starter.
+    const pool = [starter, freshClay];
+    const blocks: any[] = [{ type: "hero", props: { headline: "Workflow", imageUrl: "" } }];
+    const filled = fillEmptyImages(blocks, pool, "saas pipeline", true) as any[];
+    expect(filled[0].props.imageUrl).toBe("/objects/clay-fresh");
+  });
+
+  it("RELAXED pass: a curated brand asset beats a starter even when the starter sorts first", () => {
+    const pool = [starter, curated];
+    const blocks: any[] = [{ type: "hero", props: { headline: "Workflow", imageUrl: "" } }];
+    const filled = fillEmptyImages(blocks, pool, "saas pipeline", true) as any[];
+    expect(filled[0].props.imageUrl).toBe("/objects/brand-photo");
+  });
 });
 
 // ── Near-duplicate-URL dedup ────────────────────────────────────────────────

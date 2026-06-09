@@ -1055,8 +1055,26 @@ function findBestImage(
   // another slot via a near-duplicate URL of the same visual asset.
   let best: MediaImage | null = null;
   let bestScore = -Infinity;
+  // Generic STARTER seeds (STARTER_IMAGE_SEEDS, tagged "starter") are the
+  // ABSOLUTE last resort. A tenant's OWN assets — curated uploads, brand-import
+  // photography, and the scraped imagery from the site they pointed us at — must
+  // always win a slot over a generic starter. Starters carry no purpose or
+  // topical tag, so they score ~0; the strict scraped-relevance gate
+  // (contentScore > 0) holds the tenant's scraped reference images back to the
+  // relaxed pass, and WITHOUT special-casing here a score-0 starter would fill
+  // the slot first (in the strict hero branch and the relaxed pre-AI pass),
+  // producing the "random starter images instead of the tenant's own / scraped
+  // images" regression. Fix: track starters in a SEPARATE tier and only fall
+  // back to one when no genuine candidate qualifies — and never let a starter
+  // fill in the strict pass at all.
+  let bestStarter: MediaImage | null = null;
+  let bestStarterScore = -Infinity;
   for (const img of images) {
     if (usedIds.has(imageIdentity(img))) continue;
+    const starter = isStarterImage(img);
+    // Starters never fill in the strict pass — defer them to the relaxed
+    // last-resort pass so genuine reference/library imagery is tried first.
+    if (starter && !relaxed) continue;
     const { score, contentScore } = scoreImage(img, contextLower, contextWords, preferredPurpose);
     const acceptable = relaxed
       ? score >= 0
@@ -1080,15 +1098,23 @@ function findBestImage(
           ? contentScore > 0
           : score >= 0;
     if (!acceptable) continue;
-    if (score > bestScore) {
+    if (starter) {
+      if (score > bestStarterScore) {
+        bestStarterScore = score;
+        bestStarter = img;
+      }
+    } else if (score > bestScore) {
       bestScore = score;
       best = img;
     }
   }
 
-  if (best) {
-    usedIds.add(imageIdentity(best));
-    return best.url;
+  // Prefer any genuine (non-starter) candidate; fall back to the best starter
+  // seed only when nothing else qualifies for this slot.
+  const chosen = best ?? bestStarter;
+  if (chosen) {
+    usedIds.add(imageIdentity(chosen));
+    return chosen.url;
   }
   return "";
 }
@@ -6117,8 +6143,12 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // CURATED images only (drawer uploads, brand-import photography). Off-topic
     // SCRAPED reference harvests are deliberately held back from the relaxed
     // pre-AI pass below so an unrelated brand-site scrape never beats a relevant
-    // AI image; they fill in the last-resort pass after AI generation.
-    const curatedFillPool = fillPool.filter((img) => !isScrapedImage(img));
+    // AI image; they fill in the last-resort pass after AI generation. Generic
+    // STARTER seeds are likewise excluded here — they are the absolute last
+    // resort, so they must not fill a slot ahead of the tenant's own scraped
+    // reference imagery (which only competes in the last-resort pass). Without
+    // this, a score-0 starter filled prime slots before scraped images ever ran.
+    const curatedFillPool = fillPool.filter((img) => !isScrapedImage(img) && !isStarterImage(img));
     const [outsideBuilderOn, imageGenStatus] = await Promise.all([
       getAiImageGenOutsideBuilderEnabled(tenantId),
       getAiImageGenStatus(tenantId),
