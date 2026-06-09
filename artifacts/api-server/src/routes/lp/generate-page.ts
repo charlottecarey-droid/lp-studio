@@ -1320,8 +1320,12 @@ export function collectImageSlots(
   pushArrField(props.tabs, "imageUrl", "lp-feature", it => `${it.title ?? ""} ${it.description ?? ""}`);
   pushArrField(props.cases, "image", "lp-feature", it => `${it.name ?? ""} ${it.author ?? ""}`);
   pushArrField(props.slides, "src", "lp-feature", it => `${it.caption ?? ""} ${it.headline ?? ""}`);
-  // case-study-logo-results-row results[].logoUrl (customer logos)
-  pushArrField(props.results, "logoUrl", "lp-feature", it => `${it.company ?? ""} ${it.outcome ?? ""}`);
+  // NOTE: case-study-logo-results-row results[].logoUrl is intentionally NOT
+  // collected — these are *customer/company logo* slots, not stock-photo slots.
+  // For AI-invented placeholder companies we have no real logo, and auto-filling
+  // from the library drops a headshot/lifestyle photo into a tiny logo box
+  // (renders as "tiny images where icons should be"). Left empty, the block
+  // falls back to the company name only. Mirrors the trust-bar exclusion.
   // NOTE: media-thumbnail-grid videos[].posterUrl is intentionally NOT collected —
   // video thumbnails are author-controlled and must never be auto-added/swapped.
 
@@ -2134,17 +2138,11 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
         return card;
       });
     }
-    // case-study-logo-results-row results[].logoUrl (customer logos paired with a
-    // headline result metric; starts "" so the library pass fills each logo)
-    if (blockType === "case-study-logo-results-row" && Array.isArray(props.results)) {
-      props.results = (props.results as Record<string, unknown>[]).map((result) => {
-        if (!result.logoUrl) {
-          const ctx = `${result.company ?? ""} ${result.outcome ?? ""} ${blockContext}`;
-          return { ...result, logoUrl: pick(ctx, images, usedIds, "lp-feature") };
-        }
-        return result;
-      });
-    }
+    // NOTE: case-study-logo-results-row results[].logoUrl is intentionally NOT
+    // auto-filled. These are customer/company logo slots — a library photo
+    // (headshot/lifestyle) dropped into the tiny logo box reads as a broken
+    // "tiny image where an icon should be". Empty logoUrl renders the company
+    // name only, which is the correct fallback for placeholder companies.
     // NOTE: video poster stills are intentionally NOT auto-filled. A video block's
     // thumbnail/poster (posterUrl) and its videoUrl are author-controlled. When a
     // page is created from a template, the template's video thumbnails must pass

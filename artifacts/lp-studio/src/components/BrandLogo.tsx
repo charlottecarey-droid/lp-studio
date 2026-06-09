@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { type BrandConfig, relativeLuminance } from "@/lib/brand-config";
 
 export type BrandLogoTone = "onDark" | "onLight" | "onPrimary" | "onAccent";
@@ -127,8 +127,6 @@ export function BrandLogo({
     ? brand.logoUrlDark.trim()
     : brand.logoUrl?.trim() ?? "";
   const src = (url && url.trim()) || brandSrc;
-  const [aspect, setAspect] = useState<number | null>(null);
-  if (!src) return null;
 
   const isSvg = src.toLowerCase().split("?")[0].endsWith(".svg");
   // Resolve the URL's pathname so a known multi-color mark is matched whether
@@ -154,20 +152,71 @@ export function BrandLogo({
 
   // Symmetric guard for the *light* direction (opt-in via `autoContrast`). A
   // non-recolorable logo on a light surface renders in its native colors — fine
-  // for a normal dark/colored mark, but a white/light wordmark vanishes
-  // ("white-on-white"). We can't pixel-sample a cross-origin raster, so we use
-  // the tenant's own signal: if they uploaded a dedicated dark-surface logo
-  // (`logoUrlDark`), `logoUrl` is trustworthy as the light-surface mark and we
-  // leave it alone; if they did NOT (e.g. Televerde uploaded only a white
-  // wordmark), the single logo is ambiguous, so we paint it to a clean dark
-  // silhouette so it always reads on light. Known multi-color marks and
-  // explicit URL overrides are never touched.
-  const darkenForLight =
+  // for a normal dark/colored mark (e.g. a colorful Clay raster), but a
+  // white/light wordmark vanishes ("white-on-white"). The previous heuristic
+  // darkened *any* single logo with no `logoUrlDark` to a solid black
+  // silhouette — which destroyed colored marks (rendered them as a black blob).
+  // Instead we pixel-sample the mark's luminance (logos are same-origin storage
+  // assets, so the canvas isn't tainted) and only darken a *predominantly light*
+  // mark. Cross-origin taint / load failure → leave native (the safe default
+  // for the common dark/colored logo).
+  const darkenCandidate =
     autoContrast &&
     !onDarkSurface &&
     !isKnownMulticolor &&
     !(url && url.trim()) &&
-    !brand.logoUrlDark?.trim();
+    !brand.logoUrlDark?.trim() &&
+    !autoRecolor;
+
+  const [aspect, setAspect] = useState<number | null>(null);
+  // null = not yet sampled. Default to NOT darkening so a colored mark never
+  // flashes to black before the sample resolves; only a sample proving the mark
+  // is light flips the darken filter on.
+  const [markIsLight, setMarkIsLight] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!src || !darkenCandidate) {
+      setMarkIsLight(null);
+      return;
+    }
+    let cancelled = false;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      if (cancelled) return;
+      try {
+        const w = 32;
+        const ratio = img.naturalWidth ? img.naturalHeight / img.naturalWidth : 1;
+        const h = Math.max(1, Math.round(ratio * w)) || w;
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { setMarkIsLight(null); return; }
+        ctx.drawImage(img, 0, 0, w, h);
+        const { data } = ctx.getImageData(0, 0, w, h);
+        let sum = 0;
+        let count = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] < 16) continue; // ignore transparent padding
+          sum += (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255;
+          count++;
+        }
+        // A predominantly light mark (white/near-white wordmark) is the only
+        // case that needs darkening to read on a light surface.
+        setMarkIsLight(count > 0 ? sum / count > 0.7 : null);
+      } catch {
+        setMarkIsLight(null);
+      }
+    };
+    img.onerror = () => { if (!cancelled) setMarkIsLight(null); };
+    img.src = src;
+    return () => { cancelled = true; };
+  }, [src, darkenCandidate]);
+
+  if (!src) return null;
+
+  const darkenForLight = darkenCandidate && markIsLight === true;
 
   if (!autoRecolor) {
     const plainFilter = whitenForDark

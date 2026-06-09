@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Loader2, CheckCircle2, Calendar } from "lucide-react";
-import { type BrandConfig, isValidHex, pickCtaButtonColors } from "@/lib/brand-config";
+import { type BrandConfig, isValidHex, pickCtaButtonColors, pickContrastingColor } from "@/lib/brand-config";
 import type { DandyHeroV7S3BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
@@ -40,12 +40,32 @@ export function BlockDandyHeroV7S3({ props, brand, onFieldChange, pageId, varian
   const ctaAction = props.ctaAction ?? "inline-form";
 
   const bg = props.bgColor ?? "var(--brand-primary)";
-  // When the section bg is an AI/tenant-chosen hex (not the brand-primary
-  // CSS-var fallback), resolve CTA colors with a WCAG contrast guard so the
-  // `bg-[var(--brand-accent)]` buttons don't vanish on an accent/primary bg.
-  const ctaColors = isValidHex(bg) ? pickCtaButtonColors(brand, bg) : null;
+  // Resolve the *effective* section background hex so the contrast guards work
+  // even when `bg` is the `var(--brand-primary)` fallback (no explicit bgColor).
+  // Previously the guard only ran for an AI/tenant-chosen hex; when the hero fell
+  // back to the brand primary, the CTA (`var(--brand-accent)`) and the trust
+  // stats (`var(--brand-accent)`) rendered accent-on-primary — i.e. blue button
+  // and blue stats on a blue hero. Resolving the primary hex lets the same WCAG
+  // guard pick contrasting colors in that case too.
+  const bgHex = isValidHex(bg)
+    ? bg
+    : isValidHex(brand.primaryColor)
+      ? brand.primaryColor
+      : null;
+  const ctaColors = bgHex ? pickCtaButtonColors(brand, bgHex) : null;
   const ctaBtnCls = ctaColors ? "" : "bg-[var(--brand-accent)] text-[var(--brand-cta-text)]";
   const ctaBtnStyle = ctaColors ? { backgroundColor: ctaColors.bg, color: ctaColors.text } : undefined;
+  // Accent text (eyebrow + trust stats) must read on the hero bg. The brand
+  // accent often equals/approximates the primary, so use it only when it
+  // contrasts; otherwise fall back to white/near-black against the actual bg.
+  const accentOnBg = bgHex
+    ? pickContrastingColor(
+        isValidHex(brand.accentColor) ? brand.accentColor : null,
+        bgHex,
+        ["#ffffff", "#0f172a"],
+        4.5,
+      )
+    : null;
   const bgImage = props.backgroundImageUrl;
 
   const field = (key: keyof DandyHeroV7S3BlockProps) =>
@@ -99,7 +119,10 @@ export function BlockDandyHeroV7S3({ props, brand, onFieldChange, pageId, varian
 
       <div className="relative z-10 flex flex-col items-center text-center py-24 md:py-32 px-6 w-full max-w-4xl mx-auto">
         {props.eyebrow && (
-          <p className="text-xs font-bold uppercase tracking-widest text-[var(--brand-accent)] mb-5" style={{ fontFamily: BODY }}>
+          <p
+            className={`text-xs font-bold uppercase tracking-widest mb-5 ${accentOnBg ? "" : "text-[var(--brand-accent)]"}`}
+            style={accentOnBg ? { fontFamily: BODY, color: accentOnBg } : { fontFamily: BODY }}
+          >
             <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
           </p>
         )}
@@ -198,7 +221,10 @@ export function BlockDandyHeroV7S3({ props, brand, onFieldChange, pageId, varian
           <div className="mt-14 flex flex-wrap justify-center gap-x-12 gap-y-4 pt-10 border-t border-white/10 w-full">
             {(props.trustItems ?? []).map((item, i) => (
               <div key={i} className="flex flex-col items-center gap-0.5">
-                <span className="text-3xl font-bold text-[var(--brand-accent)]" style={{ fontFamily: BODY }}>{item.value}</span>
+                <span
+                  className={`text-3xl font-bold ${accentOnBg ? "" : "text-[var(--brand-accent)]"}`}
+                  style={accentOnBg ? { fontFamily: BODY, color: accentOnBg } : { fontFamily: BODY }}
+                >{item.value}</span>
                 <span className="text-sm text-white/70" style={{ fontFamily: BODY }}>{item.label}</span>
               </div>
             ))}

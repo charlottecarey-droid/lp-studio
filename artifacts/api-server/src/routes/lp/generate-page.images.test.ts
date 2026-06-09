@@ -221,6 +221,35 @@ describe("validateAndDedupeAIImages", () => {
     for (const item of out[0].props.items as Array<{ image: string }>) expect(item.image).toBe("");
     expect((out[1].props.items as Array<{ image: string }>)[0].image).toBe("");
   });
+
+  it("fillEmptyImages never back-fills a case-study-logo-results-row logoUrl (customer logos, not stock photos)", () => {
+    // These are customer/company *logo* slots. Auto-filling a library
+    // headshot/lifestyle photo drops a tiny mismatched image into the logo box
+    // ("tiny images where icons should be"). Empty logoUrl → company-name
+    // fallback, mirroring the trust-bar numeric-only exclusion.
+    const featLib: MediaImage[] = [
+      { url: "/objects/feat-a", title: "A", tags: ["lp-feature", "dentures"] },
+    ];
+    let blocks: any[] = [
+      { type: "case-study-logo-results-row", props: { results: [
+        { company: "Acme Dental", outcome: "2x revenue", logoUrl: "" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, featLib, PAGE_CTX) as any[];
+    expect((blocks[0].props.results as Array<{ logoUrl: string }>)[0].logoUrl).toBe("");
+  });
+
+  it("aiFillEmptyImages collects no slot for a case-study-logo-results-row logoUrl", async () => {
+    const blocks: any[] = [
+      { type: "case-study-logo-results-row", props: { results: [
+        { company: "Acme Dental", outcome: "2x revenue", logoUrl: "" },
+        { company: "Bright Smiles", outcome: "+40% bookings", logoUrl: "" },
+      ] } },
+    ];
+    const brand = { brandName: "Acme", primaryColor: "#000", accentColor: "#111", productLines: [] } as any;
+    const out = (await aiFillEmptyImages(blocks, 1, brand, "test brief")) as any[];
+    for (const r of out[0].props.results as Array<{ logoUrl: string }>) expect(r.logoUrl).toBe("");
+  });
 });
 
 describe("dandy premium blocks — items[]/tabs[] imageUrl wiring", () => {

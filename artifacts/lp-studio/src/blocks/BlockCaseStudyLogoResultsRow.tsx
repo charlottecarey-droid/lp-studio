@@ -64,16 +64,21 @@ export function BlockCaseStudyLogoResultsRow({ props, brand, onFieldChange }: Pr
             <RevealItem key={i} disabled={!animate} className={`group flex flex-col ${isLogo ? "items-center text-center" : ""}`}>
               {isLogo ? (
                 <>
-                  <div className="h-16 sm:h-20 w-full flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-105" style={{ color: ink }}>
-                    <InlineImage
-                      src={item.logoUrl}
-                      alt={item.logoAlt || item.company}
-                      onUpdate={onFieldChange ? (src: string) => updateResult(i, { logoUrl: src }) : undefined}
-                      onAltUpdate={onFieldChange ? (alt: string) => updateResult(i, { logoAlt: alt }) : undefined}
-                      className="max-h-full max-w-[180px] w-auto h-auto object-contain"
-                      wrapperClassName="inline-flex items-center justify-center max-h-full"
-                    />
-                  </div>
+                  {/* Only render the logo box when there's a real logo (or in
+                      edit mode). Empty customer-logo slots must NOT leave a gap
+                      or show a stray photo — the company name is the fallback. */}
+                  {(item.logoUrl?.trim() || onFieldChange) && (
+                    <div className="h-16 sm:h-20 w-full flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-105" style={{ color: ink }}>
+                      <InlineImage
+                        src={item.logoUrl}
+                        alt={item.logoAlt || item.company}
+                        onUpdate={onFieldChange ? (src: string) => updateResult(i, { logoUrl: src }) : undefined}
+                        onAltUpdate={onFieldChange ? (alt: string) => updateResult(i, { logoAlt: alt }) : undefined}
+                        className="max-h-full max-w-[180px] w-auto h-auto object-contain"
+                        wrapperClassName="inline-flex items-center justify-center max-h-full"
+                      />
+                    </div>
+                  )}
                   <InlineText
                     as="span"
                     value={item.company}
@@ -83,16 +88,18 @@ export function BlockCaseStudyLogoResultsRow({ props, brand, onFieldChange }: Pr
                 </>
               ) : (
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="w-8 h-8 flex items-center justify-center shrink-0 overflow-hidden transition-transform duration-300 group-hover:scale-110" style={{ color: ink }}>
-                    <InlineImage
-                      src={item.logoUrl}
-                      alt={item.logoAlt || item.company}
-                      onUpdate={onFieldChange ? (src: string) => updateResult(i, { logoUrl: src }) : undefined}
-                      onAltUpdate={onFieldChange ? (alt: string) => updateResult(i, { logoAlt: alt }) : undefined}
-                      className="w-full h-full object-contain"
-                      wrapperClassName="block w-full h-full"
-                    />
-                  </div>
+                  {(item.logoUrl?.trim() || onFieldChange) && (
+                    <div className="w-8 h-8 flex items-center justify-center shrink-0 overflow-hidden transition-transform duration-300 group-hover:scale-110" style={{ color: ink }}>
+                      <InlineImage
+                        src={item.logoUrl}
+                        alt={item.logoAlt || item.company}
+                        onUpdate={onFieldChange ? (src: string) => updateResult(i, { logoUrl: src }) : undefined}
+                        onAltUpdate={onFieldChange ? (alt: string) => updateResult(i, { logoAlt: alt }) : undefined}
+                        className="w-full h-full object-contain"
+                        wrapperClassName="block w-full h-full"
+                      />
+                    </div>
+                  )}
                   <InlineText
                     as="span"
                     value={item.company}
