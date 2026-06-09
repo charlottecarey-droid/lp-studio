@@ -123,7 +123,7 @@ All values must be 6-digit hex starting with #. Use solid colors only (no rgba).
   let raw = "{}";
   try {
     const completion = await withOpenAIConcurrency(() => openai.chat.completions.create({
-      model: "gpt-5-mini",
+      model: "gpt-4o-mini",
       max_completion_tokens: 1200,
       response_format: { type: "json_object" },
       messages: [

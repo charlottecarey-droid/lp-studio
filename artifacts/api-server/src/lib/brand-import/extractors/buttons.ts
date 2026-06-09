@@ -287,7 +287,7 @@ CSS-parsed summary: ${parsedSummary}`,
         { type: "image_url", image_url: { url: evidence.screenshotDataUrl ?? evidence.screenshotUrl ?? "" } },
       ];
       const c = await withOpenAIConcurrency(() => openai.chat.completions.create({
-        model: "gpt-5-mini",
+        model: "gpt-4o-mini",
         max_completion_tokens: 200,
         response_format: { type: "json_object" },
         messages: [{ role: "user", content: userParts }],

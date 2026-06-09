@@ -158,7 +158,7 @@ Rules:
   let raw = "{}";
   try {
     const c = await withOpenAIConcurrency(() => openai.chat.completions.create({
-      model: "gpt-5-mini",
+      model: "gpt-4o-mini",
       max_completion_tokens: 1500,
       response_format: { type: "json_object" },
       messages: [

@@ -22,3 +22,18 @@ other endpoint. If a reasoning model is genuinely required, give it a much large
 `max_completion_tokens` (thousands, to cover reasoning + output) AND verify
 `message.content` is non-empty before trusting it. Watch for any frontend caller
 with a silent `catch` that hides the empty/failed response.
+
+**Bulk-swap incident (the bigger blast radius):** a commit titled "Upgrade LLM
+model from gpt-4o-mini to gpt-5-mini" swapped ~14 cheap-extractor call sites
+(brand-import extractors: colors/typography/buttons/photography/structure/
+content/voice; imageAutoTag; storage image-classification; extract-guests;
+proof-points-import) to `gpt-5-mini` in one shot. Most had tiny budgets (storage
+20, several 200, photography 500) and silently returned empty — degrading brand
+import and image auto-tagging the same way SEO broke. Resolution: reverted all of
+them back to `gpt-4o-mini`. **Standard for these cheap structured-JSON/vision
+extractor tasks is `gpt-4o-mini`** (non-reasoning), `gpt-4o` for copy/SEO. Do NOT
+"upgrade" extractors to a gpt-5 reasoning model — it's not a drop-in; it needs a
+much larger budget and adds latency/cost for marginal benefit on extraction.
+(Pre-existing `gpt-5` full-model uses in dso/index.ts, sales/person-brief.ts,
+sales/draft-email.ts each have a gemini-2.5-flash fallback and were not part of
+the swap — leave them.)

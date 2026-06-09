@@ -225,7 +225,7 @@ async function extractWithLLM(text: string, fallbackSourceUrl: string): Promise<
   let raw = "{}";
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-5-mini",
+      model: "gpt-4o-mini",
       // Quotes are verbatim sentences (much longer than a stat value), so the
       // combined stat+quote payload needs more headroom than the stats-only one.
       max_completion_tokens: 4096,
