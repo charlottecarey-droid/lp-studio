@@ -145,6 +145,7 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "how-it-works": ["content", "features"],
   "video-section": ["media", "content"],
   resources: ["content"],
+  "resource-link-list": ["content"],
   "rich-text": ["content"],
   "custom-html": ["content"],
   "zigzag-features": ["features", "media"],

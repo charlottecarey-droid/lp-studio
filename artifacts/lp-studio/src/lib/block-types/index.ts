@@ -57,6 +57,8 @@ export type {
   VideoSectionBlockProps,
   CaseStudiesBlockProps,
   ResourcesBlockProps,
+  ResourceLinkListBlockProps,
+  ResourceLinkListGroup,
   RichTextBlockProps,
   CustomHtmlBlockProps,
   SpacerBlockProps,

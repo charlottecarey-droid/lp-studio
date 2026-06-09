@@ -22,6 +22,7 @@ import type {
   VideoSectionBlockProps,
   CaseStudiesBlockProps,
   ResourcesBlockProps,
+  ResourceLinkListBlockProps,
   RichTextBlockProps,
   CustomHtmlBlockProps,
   GridImageBlockProps,
@@ -227,6 +228,7 @@ export type BlockVariant =
   | { type: "media-video-split"; props: MediaVideoSplitBlockProps }
   | { type: "case-studies"; props: CaseStudiesBlockProps }
   | { type: "resources"; props: ResourcesBlockProps }
+  | { type: "resource-link-list"; props: ResourceLinkListBlockProps }
   | { type: "rich-text"; props: RichTextBlockProps }
   | { type: "custom-html"; props: CustomHtmlBlockProps }
   | { type: "grid-image"; props: GridImageBlockProps }

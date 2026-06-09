@@ -17,6 +17,7 @@ import type {
   VideoSectionBlockProps,
   CaseStudiesBlockProps,
   ResourcesBlockProps,
+  ResourceLinkListBlockProps,
   RichTextBlockProps,
   CustomHtmlBlockProps,
   GridImageBlockProps,
@@ -778,6 +779,61 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         <rect x="82" y="5" width="33" height="22" rx="2" fill="#e2e8f0" />
         <rect x="82" y="30" width="28" height="3" rx="1" fill="#334155" />
         <rect x="82" y="35" width="33" height="2" rx="1" fill="#94a3b8" />
+      </svg>
+    ),
+  },
+  {
+    type: "resource-link-list",
+    label: "Resource Link List",
+    category: "Content",
+    defaultProps: (): ResourceLinkListBlockProps => ({
+      eyebrow: "",
+      headline: "Getting Started & Onboarding",
+      subheadline: "Resources for new users to get up and running.",
+      columns: 3,
+      backgroundStyle: "white",
+      groups: [
+        {
+          title: "Account Setup",
+          links: [
+            { label: "Configure Pre-Prep Scan Settings", url: "#" },
+            { label: "Manage Staff Profiles in the Portal", url: "#" },
+          ],
+        },
+        {
+          title: "Equipment Setup",
+          links: [
+            { label: "Cart Overview: Equipment & Set-Up", url: "#" },
+            { label: "Prepare for Your Transition", url: "#" },
+            { label: "Equipment Setup Guide", url: "#" },
+          ],
+        },
+        {
+          title: "Training & Education",
+          links: [
+            { label: "Additional Resources After Training", url: "#" },
+            { label: "Pre-Training Setup Guide", url: "#" },
+            { label: "Log in to the Academy", url: "#" },
+          ],
+          ctaLabel: "See all articles",
+          ctaUrl: "#",
+        },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="8" y="8" width="48" height="6" rx="2" fill="#003A30" />
+        <rect x="8" y="18" width="70" height="3" rx="1" fill="#94a3b8" opacity="0.6" />
+        <rect x="8" y="25" width="104" height="1.5" fill="#003A30" opacity="0.5" />
+        {[8, 46, 84].map((x) => (
+          <g key={x}>
+            <rect x={x} y="32" width="22" height="4" rx="1" fill="#334155" />
+            <rect x={x} y="41" width="28" height="2.5" rx="1" fill="#1f7a4d" />
+            <rect x={x} y="47" width="24" height="2.5" rx="1" fill="#1f7a4d" />
+            <rect x={x} y="53" width="26" height="2.5" rx="1" fill="#1f7a4d" />
+          </g>
+        ))}
       </svg>
     ),
   },
@@ -8239,6 +8295,7 @@ export function createBlock(type: "media-thumbnail-grid"): Extract<PageBlock, { 
 export function createBlock(type: "media-video-split"): Extract<PageBlock, { type: "media-video-split" }>;
 export function createBlock(type: "case-studies"): Extract<PageBlock, { type: "case-studies" }>;
 export function createBlock(type: "resources"): Extract<PageBlock, { type: "resources" }>;
+export function createBlock(type: "resource-link-list"): Extract<PageBlock, { type: "resource-link-list" }>;
 export function createBlock(type: "rich-text"): Extract<PageBlock, { type: "rich-text" }>;
 export function createBlock(type: "custom-html"): Extract<PageBlock, { type: "custom-html" }>;
 export function createBlock(type: "grid-image"): Extract<PageBlock, { type: "grid-image" }>;
@@ -8361,6 +8418,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "media-video-split": return { id, type: "media-video-split", props: props as MediaVideoSplitBlockProps };
     case "case-studies": return { id, type: "case-studies", props: props as CaseStudiesBlockProps };
     case "resources": return { id, type: "resources", props: props as ResourcesBlockProps };
+    case "resource-link-list": return { id, type: "resource-link-list", props: props as ResourceLinkListBlockProps };
     case "rich-text": return { id, type: "rich-text", props: props as RichTextBlockProps };
     case "custom-html": return { id, type: "custom-html", props: props as CustomHtmlBlockProps };
     case "grid-image": return { id, type: "grid-image", props: props as GridImageBlockProps };

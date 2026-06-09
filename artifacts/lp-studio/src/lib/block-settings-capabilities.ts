@@ -187,6 +187,9 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   "rating-badges": SELF_STYLED,
   "avatar-social-proof": SELF_STYLED,
 
+  // Self-styled content directory (owns its bg / surface) ------------------
+  "resource-link-list": SELF_STYLED,
+
   // Card-less content blocks -----------------------------------------------
   "rich-text":      { ...ALL, cardBgColor: false, bgImage: false, minHeight: false },
   "trust-bar":      { ...ALL, cardBgColor: false, bgImage: false, minHeight: false },

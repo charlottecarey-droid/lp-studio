@@ -326,6 +326,25 @@ export interface ResourcesBlockProps {
   backgroundStyle: BackgroundStyle;
 }
 
+export interface ResourceLinkListGroup {
+  title: string;
+  links: Array<{ label: string; url: string }>;
+  ctaLabel?: string;
+  ctaUrl?: string;
+}
+
+export interface ResourceLinkListBlockProps {
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
+  groups: ResourceLinkListGroup[];
+  columns?: 2 | 3 | 4;
+  backgroundStyle?: BackgroundStyle;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
 export interface RichTextBlockProps {
   html: string;
 }

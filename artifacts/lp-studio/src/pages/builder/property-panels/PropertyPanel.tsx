@@ -23,6 +23,7 @@ import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
 import { VideoSectionPanel } from "./VideoSectionPanel";
 import CaseStudiesPanel from "./CaseStudiesPanel";
 import ResourcesPanel from "./ResourcesPanel";
+import ResourceLinkListPanel from "./ResourceLinkListPanel";
 import { RichTextPanel } from "./RichTextPanel";
 import { CustomHtmlPanel } from "./CustomHtmlPanel";
 // --- Graduated section blocks (auto-batched routing) ---
@@ -1577,6 +1578,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             props={block.props}
             onChange={props => onChange({ ...block, props })}
             bgOptions={bgOptions}
+          />
+        );
+      case "resource-link-list":
+        return (
+          <ResourceLinkListPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
           />
         );
       case "rich-text":

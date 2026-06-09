@@ -67,6 +67,7 @@ import { BlockMediaThumbnailGrid } from "./BlockMediaThumbnailGrid";
 import { BlockMediaVideoSplit } from "./BlockMediaVideoSplit";
 import BlockCaseStudies from "./BlockCaseStudies";
 import BlockResources from "./BlockResources";
+import { BlockResourceLinkList } from "./BlockResourceLinkList";
 import { BlockRichText } from "./BlockRichText";
 import { BlockCustomHtml } from "./BlockCustomHtml";
 import {
@@ -626,6 +627,8 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
         return <BlockCaseStudies props={block.props} brand={brand} animationsEnabled={animationsEnabled} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "resources":
         return <BlockResources props={block.props} brand={brand} animationsEnabled={animationsEnabled} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "resource-link-list":
+        return <BlockResourceLinkList props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "rich-text":
         return <BlockRichText props={block.props} brand={brand} />;
       case "custom-html":
