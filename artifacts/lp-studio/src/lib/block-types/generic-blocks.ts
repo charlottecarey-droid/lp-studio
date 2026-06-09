@@ -3556,6 +3556,10 @@ export interface TestimonialGridBlockProps extends BenefitsCtaConfig {
   textColor?: string;
   accentColor?: string;
   headlineColor?: string;
+  /** Optional override for the testimonial card background color. When unset,
+   *  the card surface is auto-derived to contrast with the section background
+   *  (white on light sections, dark slate on dark sections). */
+  cardBgColor?: string;
   /** Optional CTA button style overrides. When unset, the renderer derives
    *  contrast-aware defaults from the CTA band background so the buttons
    *  stay legible. Kept on this block (not BenefitsCtaConfig) so the ~17

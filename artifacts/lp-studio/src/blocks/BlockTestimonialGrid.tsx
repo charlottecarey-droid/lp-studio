@@ -28,7 +28,7 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
   // Cards sit on `surface`, which contrasts with the section background. Every
   // in-card color must therefore be derived from the card surface (not the
   // section bg/text), or a dark AI section yields dark text on a dark card.
-  const surface = pickContrastingColor(undefined, bgSurface.base, ["#FFFFFF", "#1E293B"]);
+  const surface = props.cardBgColor ?? pickContrastingColor(undefined, bgSurface.base, ["#FFFFFF", "#1E293B"]);
   const cardText = pickContrastingColor(props.textColor, surface, ["#0F172A", "#F8FAFC"]);
   const cardMuted = pickContrastingColor(undefined, surface, ["#64748B", "#94A3B8"]);
   const cardBorder = `${cardText}1f`;

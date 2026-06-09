@@ -116,6 +116,7 @@ export function TestimonialGridPanel({ props, onChange }: Props) {
           <ColorField label="Text" value={props.textColor ?? "#0F172A"} onChange={(v) => update({ textColor: v })} />
           <ColorField label="Headline" value={props.headlineColor ?? props.textColor ?? "#0F172A"} onChange={(v) => update({ headlineColor: v })} />
           <ColorField label="Accent" value={props.accentColor ?? "#4f46e5"} onChange={(v) => update({ accentColor: v })} />
+          <ColorField label="Card background" value={props.cardBgColor ?? "#FFFFFF"} onChange={(v) => update({ cardBgColor: v })} />
         </div>
       </div>
 
