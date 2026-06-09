@@ -322,6 +322,11 @@ function BlockLibrary({ onAdd, customBlocks, visibleBlocks, prefs, onCustomize }
 }
 
 const CORE_CATEGORIES = new Set(["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"]);
+// Catalog category (set in superadmin) that marks a block as a whole-page
+// template. These render in the builder's Templates tab — never in the block
+// library shelf (Segment tab) or the Insert Block dialog — so a full-page
+// template can't be dropped in as a mid-page draggable block.
+const FULL_PAGE_TEMPLATE_CATEGORY = "Full Page Templates";
 
 function SegmentLibrary({ onAdd, customBlocks, segments, visibleBlocks, prefs }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; segments: AudienceSegment[]; visibleBlocks: ResolvedBlockDef[]; prefs: BlockLibraryPrefs }) {
   const [search, setSearch] = useState("");
@@ -331,6 +336,8 @@ function SegmentLibrary({ onAdd, customBlocks, segments, visibleBlocks, prefs }:
   // different category — that change is honored here.
   const segmentGroupMap = visibleBlocks.reduce((acc, block) => {
     if (CORE_CATEGORIES.has(block.category)) return acc;
+    // Full-page templates live in the Templates tab only — never in this shelf.
+    if (block.category === FULL_PAGE_TEMPLATE_CATEGORY) return acc;
     if (!matchesBlockSearch(block, search)) return acc;
     if (!acc[block.category]) acc[block.category] = [];
     acc[block.category].push(block);
@@ -339,7 +346,7 @@ function SegmentLibrary({ onAdd, customBlocks, segments, visibleBlocks, prefs }:
   // Stable category order so DSO Practices is prominent and consistent. Any
   // extra categories not in this list (custom tenant shelves) fall through to
   // the prefs-based ordering after the preferred ones.
-  const preferredOrder = ["Full Page Templates", "DSO", "DSO Practices", "Showcase", "Grid Pieces", "Events"];
+  const preferredOrder = ["DSO", "DSO Practices", "Showcase", "Grid Pieces", "Events"];
   const presentCategories = Object.keys(segmentGroupMap);
   const orderedGroupNames = [
     ...preferredOrder.filter(c => presentCategories.includes(c)),
@@ -474,13 +481,26 @@ function BlockThumbnail({ type }: { type: string }) {
   );
 }
 
-function TemplateLibrary({ onSelect, industry }: { onSelect: (templateId: string) => void; industry?: string | null }) {
+function TemplateLibrary({ onSelect, onSelectBlock, industry, fullPageBlocks }: { onSelect: (templateId: string) => void; onSelectBlock: (type: string) => void; industry?: string | null; fullPageBlocks: ResolvedBlockDef[] }) {
   // Hide Dandy/dental built-in templates from non-dental tenants — every
   // shipped template currently contains hardcoded Dandy copy / dental
   // imagery. Dental tenants still see the full set.
   const visible =
     industry === undefined ? LP_TEMPLATES : getTemplatesForIndustry(industry);
-  if (visible.length === 0) {
+  // Split full-page templates (their first block renders an entire standalone
+  // page) from regular multi-block templates so they read as their own group.
+  // Detection uses the shared isFullPageTemplate helper against each template's
+  // expanded blocks, keeping the grouping aligned with FULL_PAGE_BLOCK_TYPES.
+  const fullPage = visible.filter(t => isFullPageTemplate(templateToBlocks(t.id)));
+  const regular = visible.filter(t => !isFullPageTemplate(templateToBlocks(t.id)));
+  // Catalog blocks tagged "Full Page Templates" in superadmin join the same
+  // group, de-duplicated against any hardcoded template that already maps to
+  // the same first block type (e.g. business-case-*) so they don't double up.
+  const hardcodedFullPageTypes = new Set(
+    fullPage.map(t => templateToBlocks(t.id)[0]?.type).filter(Boolean) as string[],
+  );
+  const catalogFullPage = fullPageBlocks.filter(b => !hardcodedFullPageTypes.has(b.type));
+  if (visible.length === 0 && catalogFullPage.length === 0) {
     return (
       <div className="p-4">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Templates</p>
@@ -491,12 +511,6 @@ function TemplateLibrary({ onSelect, industry }: { onSelect: (templateId: string
       </div>
     );
   }
-  // Split full-page templates (their first block renders an entire standalone
-  // page) from regular multi-block templates so they read as their own group.
-  // Detection uses the shared isFullPageTemplate helper against each template's
-  // expanded blocks, keeping the grouping aligned with FULL_PAGE_BLOCK_TYPES.
-  const fullPage = visible.filter(t => isFullPageTemplate(templateToBlocks(t.id)));
-  const regular = visible.filter(t => !isFullPageTemplate(templateToBlocks(t.id)));
   const renderTemplateButton = (t: (typeof visible)[number]) => (
     <button
       key={t.id}
@@ -514,6 +528,19 @@ function TemplateLibrary({ onSelect, industry }: { onSelect: (templateId: string
       </div>
     </button>
   );
+  const renderCatalogFullPageButton = (b: ResolvedBlockDef) => (
+    <button
+      key={b.type}
+      onClick={() => onSelectBlock(b.type)}
+      className="w-full text-left p-3 rounded-xl border border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-all"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-xs font-semibold text-foreground">{b.label}</p>
+        </div>
+      </div>
+    </button>
+  );
   return (
     <div className="p-4 space-y-5">
       {regular.length > 0 && (
@@ -522,10 +549,11 @@ function TemplateLibrary({ onSelect, industry }: { onSelect: (templateId: string
           {regular.map(renderTemplateButton)}
         </div>
       )}
-      {fullPage.length > 0 && (
+      {(fullPage.length > 0 || catalogFullPage.length > 0) && (
         <div className="space-y-3">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Full Page Templates</p>
           {fullPage.map(renderTemplateButton)}
+          {catalogFullPage.map(renderCatalogFullPageButton)}
         </div>
       )}
     </div>
@@ -687,10 +715,12 @@ interface InsertBlockDialogProps {
 }
 
 function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlocks, prefs, nestedTarget, initialSearch }: InsertBlockDialogProps) {
-  const defaultCategories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Full Page Templates", "Grid Pieces", "DSO", "DSO Practices", "Showcase", "Events"] as const;
+  const defaultCategories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces", "DSO", "DSO Practices", "Showcase", "Events"] as const;
   // Append any extra categories that exist in the (prefs-applied) catalog but
   // aren't in the default list, then sort the whole thing per tenant prefs.
-  const seen = new Set<string>(defaultCategories);
+  // Full-page templates are intentionally excluded — they belong in the
+  // Templates tab, not the mid-page Insert Block dialog.
+  const seen = new Set<string>([...defaultCategories, FULL_PAGE_TEMPLATE_CATEGORY]);
   const extras = visibleBlocks.map(b => b.category).filter(c => !seen.has(c));
   for (const c of extras) seen.add(c);
   const categories = applyCategoryOrder([...defaultCategories, ...new Set(extras)], prefs);
@@ -1261,6 +1291,14 @@ export default function BuilderEditor() {
   const tenantCatalogBlocks = useMemo<ResolvedBlockDef[]>(
     () => applyBlockLibraryPrefs(catalogBlocks, libraryPrefs),
     [catalogBlocks, libraryPrefs],
+  );
+  // Full-page templates from the catalog (superadmin "Full Page Templates"
+  // category). Sourced from the same resolved/visible list so enabled-state,
+  // audience filtering and library prefs carry over; rendered in the Templates
+  // tab's "Full Page Templates" group rather than the block library shelf.
+  const fullPageCatalogBlocks = useMemo<ResolvedBlockDef[]>(
+    () => tenantCatalogBlocks.filter(b => b.category === FULL_PAGE_TEMPLATE_CATEGORY),
+    [tenantCatalogBlocks],
   );
   // Segment tab is the home for industry-specific blocks (DSO, DSO Practices,
   // Showcase, Grid Pieces, Events). It intentionally skips audience gating so
@@ -1844,6 +1882,33 @@ export default function BuilderEditor() {
   const applyTemplate = (templateId: string) => {
     const newBlocks = templateToBlocks(templateId);
     setBlocks(newBlocks);
+    setSelectedBlockId(null);
+  };
+
+  // Seed the page from a catalog full-page template: a single full-page block,
+  // built via the SAME precedence the block library uses (tenant-saved block
+  // default → catalog default → in-code registry default), behind the same
+  // isBlockType type guard as addBlock.
+  const applyFullPageBlock = (type: string) => {
+    if (!isBlockType(type)) return;
+    const savedDefault = blockDefaults[type] as { props?: unknown; blockSettings?: unknown } | undefined;
+    let newBlock: PageBlock;
+    if (savedDefault?.props) {
+      newBlock = {
+        id: genBlockId(type),
+        type,
+        props: savedDefault.props,
+        ...(savedDefault.blockSettings && Object.keys(savedDefault.blockSettings as object).length > 0
+          ? { blockSettings: savedDefault.blockSettings }
+          : {}),
+      } as PageBlock;
+    } else {
+      const catalogDef = catalogGetDef(type);
+      newBlock = catalogDef && catalogDef.source === "catalog"
+        ? ({ id: genBlockId(type), type, props: catalogDef.defaultProps() } as PageBlock)
+        : createBlock(type);
+    }
+    setBlocks([newBlock]);
     setSelectedBlockId(null);
   };
 
@@ -3149,9 +3214,15 @@ export default function BuilderEditor() {
             <TabsContent value="templates" className="mt-0">
               <TemplateLibrary
                 industry={tenantIndustry}
+                fullPageBlocks={fullPageCatalogBlocks}
                 onSelect={templateId => {
                   if (blocks.length === 0 || confirm("Replace current blocks with this template?")) {
                     applyTemplate(templateId);
+                  }
+                }}
+                onSelectBlock={type => {
+                  if (blocks.length === 0 || confirm("Replace current blocks with this template?")) {
+                    applyFullPageBlock(type);
                   }
                 }}
               />
