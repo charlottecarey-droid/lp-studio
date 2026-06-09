@@ -99,7 +99,7 @@ export function BlockDsoPracticeNav({ props, brand, onFieldChange, pageId, varia
       className={cn("w-full", isBuilder ? "relative z-auto" : "sticky top-0 z-50")}
       style={{ backgroundColor: BG, borderBottom: `1px solid ${BORDER}` }}
     >
-      <div className="max-w-7xl mx-auto px-5 md:px-8 h-16 flex items-center gap-6">
+      <div className="w-full px-5 sm:px-6 md:px-10 lg:px-12 h-16 flex items-center gap-6">
 
         {/* Logo + co-brand */}
         <div className="flex items-center gap-2 shrink-0">
