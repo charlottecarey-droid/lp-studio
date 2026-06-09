@@ -74,6 +74,17 @@ interface Props {
   url?: string;
   /** Surface this logo will sit on. Drives the auto-recolor color when enabled. */
   tone?: BrandLogoTone;
+  /**
+   * Opt-in for callers that can sit on either a light *or* a dark surface
+   * (e.g. footers). On a *dark* surface a non-recolorable logo is already
+   * forced to a white silhouette so it always reads. With `autoContrast`, the
+   * *light* direction is guarded too: a single white/light raster mark
+   * (uploaded as the only logo, with no dedicated dark variant) is painted to a
+   * dark silhouette instead of rendering invisibly "white-on-white". Off by
+   * default so surfaces that intentionally show the native logo colors are
+   * unaffected.
+   */
+  autoContrast?: boolean;
   alt?: string;
   className?: string;
   style?: CSSProperties;
