@@ -312,89 +312,127 @@ og-image       → any of: social-sharing / Open Graph card, text or logo overla
   }
 }
 
+/** Purpose/og tags that mark an image as "already classified". */
+const ALL_PURPOSE_TAGS = new Set([...VALID_PURPOSES as readonly string[], "og-image"]);
+
+/** Max images a single /lp/media/classify-batch call will process. The client
+ *  drives the whole library by calling repeatedly in chunks of this size. */
+const CLASSIFY_BATCH_MAX = 20;
+
 /**
- * Reclassify all images that don't yet have a purpose tag.
- * Superadmin only — this is a global maintenance op that touches
- * every tenant's images, not a per-tenant user feature.
+ * "Classify for AI" — discovery step. Returns the ids of the CALLER'S OWN images
+ * that still need a landing-page purpose tag, so the client can drive
+ * classification in bounded batches (POST /lp/media/classify-batch), show real
+ * progress, and resume after any interruption. `?force=true` returns ALL of the
+ * tenant's images (re-scan to fix mis-tagged OG/social images).
  *
- * Task #1218 backfill path: scraped reference images and brand-import
- * photography mirrored BEFORE auto-tagging was wired into the upload path lack a
- * purpose tag, so they score 0 and can't win empty slots in the strict pass.
- * Running this endpoint (POST /lp/media/reclassify) tags those legacy rows via
- * the same autoTagImage classifier so existing libraries gain relevant imagery
- * without a re-import. Use ?force=true to also re-examine already-tagged rows.
+ * Tenant-scoped (own + reciprocal-sibling library rows only — never shared/global
+ * rows) and authenticated via the normal tenant session, so every tenant can
+ * classify their own library to improve AI page-generation relevance.
+ *
+ * Replaces the old superadmin-only GLOBAL background loop, which ran across every
+ * tenant, died silently on any API restart, and abandoned images once the AI
+ * proxy rate-limited (~20 in — the "stops at 20" bug).
  */
-router.post("/lp/media/reclassify", requireSuperadmin, async (req: Request, res: Response) => {
+router.get("/lp/media/classify-targets", async (req: Request, res: Response) => {
   try {
-    // force=true re-examines ALL images, including those already tagged.
-    // Use this to fix images that were misclassified before the OG-detection prompt was tightened.
-    const force = req.query.force === "true" || req.body?.force === true;
+    const scope = await resolveLibraryTenantScope(req, res);
+    if (!scope) { res.status(401).json({ error: "Not authenticated" }); return; }
+    const force = req.query.force === "true";
 
     const rows = await db
-      .select({ id: lpMediaTable.id, url: lpMediaTable.url, mimeType: lpMediaTable.mimeType, tags: lpMediaTable.tags })
+      .select({ id: lpMediaTable.id, tags: lpMediaTable.tags })
       .from(lpMediaTable)
-      .where(eq(lpMediaTable.mediaType, "image"));
+      .where(and(libraryWritablePredicate(scope.ownedTenantIds), eq(lpMediaTable.mediaType, "image")));
 
-    const ALL_PURPOSE_TAGS = new Set([...VALID_PURPOSES, "og-image"]);
-    const toProcess = force
+    const ids = (force
       ? rows
       : rows.filter(r => {
           const tags = (r.tags as string[]) ?? [];
           return !tags.some(t => ALL_PURPOSE_TAGS.has(t));
-        });
+        })
+    ).map(r => r.id);
 
-    res.json({
-      total: toProcess.length,
-      force,
-      message: force
-        ? `Force-reclassifying all ${toProcess.length} images (including already-tagged) in the background…`
-        : `Reclassifying ${toProcess.length} unclassified images in the background…`,
-    });
-
-    // Process in background — fetch each image buffer from local serve URL.
-    // Throttled + logged so the batch survives the AI proxy's rate limit and a
-    // superadmin can see real progress (the old silent loop "stopped" at ~20).
-    const log = req.log;
-    setImmediate(async () => {
-      const port = process.env.PORT ?? "8080";
-      let tagged = 0, skipped = 0, failed = 0;
-      log.info({ total: toProcess.length, force }, "reclassify: starting background batch");
-      for (let i = 0; i < toProcess.length; i++) {
-        const row = toProcess[i];
-        try {
-          const resp = await fetch(`http://localhost:${port}${row.url}`);
-          if (!resp.ok) { failed++; continue; }
-          const buffer = Buffer.from(await resp.arrayBuffer());
-          const mimeType = row.mimeType ?? "image/jpeg";
-          let result = await classifyPurposeOnly(row.id, buffer, mimeType, (row.tags as string[]) ?? []);
-          // A 429 that escaped the SDK's own retries means the proxy is saturated:
-          // cool down hard, then make one final attempt for this row.
-          if (result === "rate-limited") {
-            await sleep(20_000);
-            result = await classifyPurposeOnly(row.id, buffer, mimeType, (row.tags as string[]) ?? []);
-          }
-          if (result === "no-config") {
-            log.warn("reclassify: AI integration not configured — aborting batch");
-            break;
-          }
-          if (result === "tagged") tagged++;
-          else if (result === "skipped") skipped++;
-          else failed++;
-        } catch (err) {
-          failed++;
-          log.warn({ err, mediaId: row.id }, "reclassify: image failed");
-        }
-        // Gentle throttle keeps the batch under the proxy's per-minute rate limit.
-        await sleep(250);
-        if ((i + 1) % 25 === 0) {
-          log.info({ done: i + 1, total: toProcess.length, tagged, skipped, failed }, "reclassify: progress");
-        }
-      }
-      log.info({ total: toProcess.length, tagged, skipped, failed }, "reclassify: batch complete");
-    });
+    res.json({ ids, total: ids.length, force });
   } catch (error) {
-    req.log.error({ err: error }, "Error starting reclassification");
-    res.status(500).json({ error: "Failed to start reclassification" });
+    req.log.error({ err: error }, "classify-targets failed");
+    res.status(500).json({ error: "Failed to list images to classify" });
+  }
+});
+
+/**
+ * Classify ONE bounded batch (max CLASSIFY_BATCH_MAX) of the caller's own images.
+ * Synchronous: returns a per-id status so the client can advance progress and
+ * re-queue any id that came back "rate-limited" — the batch never silently drops
+ * an image. Ownership is re-verified against the caller's tenant scope for every
+ * id, so a client cannot classify another tenant's media by passing foreign ids.
+ *
+ * Under sustained rate limiting the loop stops early and reports the remaining
+ * ids as "rate-limited", keeping the HTTP request bounded; the client backs off
+ * and retries them in a later batch.
+ */
+router.post("/lp/media/classify-batch", async (req: Request, res: Response) => {
+  try {
+    const scope = await resolveLibraryTenantScope(req, res);
+    if (!scope) { res.status(401).json({ error: "Not authenticated" }); return; }
+
+    const rawIds: unknown = req.body?.ids;
+    const ids = Array.isArray(rawIds)
+      ? [...new Set(rawIds.filter((n): n is number => Number.isInteger(n)))].slice(0, CLASSIFY_BATCH_MAX)
+      : [];
+    if (ids.length === 0) { res.json({ results: [] }); return; }
+
+    // Re-fetch ONLY rows the caller owns — never trust the client's id list.
+    const rows = await db
+      .select({ id: lpMediaTable.id, url: lpMediaTable.url, mimeType: lpMediaTable.mimeType, tags: lpMediaTable.tags })
+      .from(lpMediaTable)
+      .where(and(
+        libraryWritablePredicate(scope.ownedTenantIds),
+        eq(lpMediaTable.mediaType, "image"),
+        inArray(lpMediaTable.id, ids),
+      ));
+
+    const port = process.env.PORT ?? "8080";
+    const results: { id: number; status: ClassifyResult }[] = [];
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      let status: ClassifyResult;
+      try {
+        const resp = await fetch(`http://localhost:${port}${row.url}`);
+        if (!resp.ok) { results.push({ id: row.id, status: "error" }); continue; }
+        const buffer = Buffer.from(await resp.arrayBuffer());
+        const mimeType = row.mimeType ?? "image/jpeg";
+        status = await classifyPurposeOnly(row.id, buffer, mimeType, (row.tags as string[]) ?? []);
+        // One short in-request retry smooths a transient 429.
+        if (status === "rate-limited") {
+          await sleep(3_000);
+          status = await classifyPurposeOnly(row.id, buffer, mimeType, (row.tags as string[]) ?? []);
+        }
+      } catch (err) {
+        req.log.warn({ err, mediaId: row.id }, "classify-batch: image failed");
+        status = "error";
+      }
+      results.push({ id: row.id, status });
+
+      if (status === "no-config") {
+        // AI integration unavailable — pointless to keep trying this batch.
+        for (const r of rows.slice(i + 1)) results.push({ id: r.id, status: "no-config" });
+        break;
+      }
+      if (status === "rate-limited") {
+        // Proxy saturated — stop now and report the rest as rate-limited so the
+        // client backs off and retries them (keeps this request bounded).
+        for (const r of rows.slice(i + 1)) results.push({ id: r.id, status: "rate-limited" });
+        break;
+      }
+      // Gentle throttle keeps the batch under the proxy's per-minute rate limit.
+      await sleep(200);
+    }
+
+    res.json({ results });
+  } catch (error) {
+    req.log.error({ err: error }, "classify-batch failed");
+    res.status(500).json({ error: "Failed to classify batch" });
   }
 });
 

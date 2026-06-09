@@ -38,7 +38,6 @@ export const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "GET",  pattern: /^\/lp\/preview\// },        // GET /lp/preview/:slug — does its own auth-or-token check; must skip blanket auth so unauth requests 404 instead of 401 (no enumeration)
   { method: "GET",  pattern: /^\/lp\/brand$/ },           // GET /lp/brand — brand for the published page (tenant resolved from host)
   { method: "POST", pattern: /^\/lp\/media\/shared\/upload$/ }, // POST /lp/media/shared/upload — superadmin only (requireSuperadmin)
-  { method: "POST", pattern: /^\/lp\/media\/reclassify$/ },     // POST /lp/media/reclassify — superadmin only (requireSuperadmin)
   { method: "POST", pattern: /^\/lp\/leads$/ },           // POST /lp/leads (form submissions)
   { method: "POST", pattern: /^\/lp\/heatmap$/ },         // POST /lp/heatmap — anonymous visitor click/scroll ingest from published pages. Aggregate GET /lp/pages/:id/heatmap stays auth-gated.
   { method: "GET",  pattern: /^\/lp\/forms\/\d+$/ },      // GET /lp/forms/:id — public form config for landing page rendering (writes still require auth)

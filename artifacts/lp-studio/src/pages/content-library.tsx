@@ -698,17 +698,74 @@ function MediaTab() {
     setTagMenuOpen(false);
   };
 
+  // Classify the tenant's own images in client-driven batches of 20 so the
+  // whole library finishes (nothing left untagged) with visible progress. The
+  // server reports rate-limited ids instead of dropping them; we back off and
+  // re-queue those (capped) so a saturated AI proxy can't strand images — the
+  // old "stops at ~20" bug. Resumable: re-running picks up whatever is left.
   const handleReclassify = async (force = false) => {
     if (reclassifying) return;
     setReclassifying(true);
-    setReclassifyMsg(force ? "Re-scanning all images…" : "Starting…");
+    setReclassifyMsg(force ? "Finding images to re-scan…" : "Finding images to classify…");
     try {
-      const url = force ? "/api/lp/media/reclassify?force=true" : "/api/lp/media/reclassify";
-      const res = await fetch(url, { method: "POST" });
-      const data = await res.json() as { total: number; message?: string };
-      setReclassifyMsg(data.total === 0
-        ? "All images already classified!"
-        : `Classifying ${data.total} images in the background — refresh in a moment.`);
+      const targetsRes = await fetch(`/api/lp/media/classify-targets${force ? "?force=true" : ""}`);
+      if (!targetsRes.ok) throw new Error("targets");
+      const { total, ids } = await targetsRes.json() as { total: number; ids: number[] };
+      if (total === 0) {
+        setReclassifyMsg("All images already classified!");
+        setTimeout(() => { setReclassifyMsg(""); setReclassifying(false); }, 6000);
+        return;
+      }
+
+      const MAX_ATTEMPTS = 5;
+      const attempts = new Map<number, number>();
+      let queue = [...ids];
+      let done = 0;
+      setReclassifyMsg(`Classifying 0 of ${total}…`);
+
+      while (queue.length > 0) {
+        const batch = queue.slice(0, 20);
+        queue = queue.slice(20);
+        let backoff = false;
+
+        const requeue = (id: number) => {
+          const n = (attempts.get(id) ?? 0) + 1;
+          attempts.set(id, n);
+          if (n < MAX_ATTEMPTS) queue.push(id);
+          else done++; // give up gracefully so the run can finish
+        };
+
+        try {
+          const res = await fetch("/api/lp/media/classify-batch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids: batch }),
+          });
+          if (!res.ok) throw new Error("batch");
+          const { results } = await res.json() as { results: { id: number; status: string }[] };
+          for (const r of results) {
+            if (r.status === "rate-limited" || r.status === "no-config") {
+              backoff = true;
+              requeue(r.id);
+            } else {
+              done++; // tagged | skipped | error — all genuinely processed
+            }
+          }
+        } catch {
+          // Whole-batch failure (network/5xx): re-queue with attempt accounting.
+          backoff = true;
+          for (const id of batch) requeue(id);
+        }
+
+        setReclassifyMsg(`Classifying ${Math.min(done, total)} of ${total}…`);
+        if (queue.length > 0 && backoff) {
+          setReclassifyMsg(`Rate limit reached — pausing… (${Math.min(done, total)} of ${total})`);
+          await new Promise(r => setTimeout(r, 15000));
+        }
+      }
+
+      setReclassifyMsg(`Done — classified ${total} image${total === 1 ? "" : "s"}.`);
+      fetchImages(page);
       setTimeout(() => { setReclassifyMsg(""); setReclassifying(false); }, 6000);
     } catch {
       setReclassifyMsg("Failed to start.");
