@@ -1299,6 +1299,8 @@ export function collectImageSlots(
   };
 
   pushArrField(props.rows, "imageUrl", "lp-feature", it => `${it.tag ?? ""} ${it.headline ?? ""} ${it.body ?? ""}`);
+  // how-it-works-alternating steps[].image — real per-step product/feature photo.
+  pushArrField(props.steps, "image", "lp-feature", it => `${it.title ?? ""} ${it.description ?? ""}`);
   pushArrField(props.chapters, "imageUrl", "lp-feature", it => `${it.headline ?? ""} ${it.body ?? ""}`);
   pushArrField(props.cards, "imageUrl", "lp-feature", it => `${it.tag ?? ""} ${it.title ?? ""} ${it.body ?? ""}`);
   pushArrField(props.panels, "imageUrl", "lp-feature", it => `${it.tag ?? ""} ${it.title ?? ""} ${it.body ?? ""}`);
@@ -1861,6 +1863,19 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       });
     }
 
+    // how-it-works-alternating steps → per-step feature images (inherently
+    // photo-driven, like zigzag rows). Empty slots stay empty when no suitable
+    // library image is found and fall back to the neutral image placeholder.
+    if (blockType === "how-it-works-alternating" && Array.isArray(props.steps)) {
+      props.steps = (props.steps as Record<string, unknown>[]).map((step) => {
+        if (!step.image) {
+          const stepContext = `${step.title ?? ""} ${step.description ?? ""}`;
+          return { ...step, image: pick(stepContext, images, usedIds, "lp-feature") };
+        }
+        return step;
+      });
+    }
+
     // photo-strip → feature images (lifestyle/environment variety)
     if (blockType === "photo-strip" && Array.isArray(props.images)) {
       props.images = (props.images as Record<string, unknown>[]).map((img) => {
@@ -2287,6 +2302,23 @@ export async function aiFillEmptyImages(
       });
     }
 
+    // how-it-works-alternating steps[].image — real per-step feature photo.
+    if (blockType === "how-it-works-alternating" && Array.isArray(props.steps)) {
+      const arr = props.steps as Array<Record<string, unknown>>;
+      arr.forEach((step, i) => {
+        if (typeof step !== "object" || step === null) return;
+        if (typeof step.image !== "string" || !step.image) {
+          const ctx = `${blockContext} ${step.title ?? ""} ${step.description ?? ""}`.trim();
+          slots.push({
+            aspectRatio: featureAR,
+            fieldLabel: `${blockType} steps ${i + 1}`,
+            blockContext: ctx,
+            apply: (url) => { (arr[i] as Record<string, unknown>).image = url; },
+          });
+        }
+      });
+    }
+
     // photo-strip images[].src
     if (blockType === "photo-strip" && Array.isArray(props.images)) {
       const arr = props.images as Array<Record<string, unknown>>;
@@ -2584,6 +2616,16 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
       props.cases = (props.cases as Record<string, unknown>[]).map(c => ({
         ...c,
         image: typeof c.image === "string" ? cleanUrl(c.image) : c.image,
+      }));
+    }
+
+    // how-it-works-alternating steps[].image — the model is told to leave it
+    // blank for the server to fill, but clean any URL it does emit so a
+    // hallucinated host is cleared and fillEmptyImages can substitute.
+    if (blockType === "how-it-works-alternating" && Array.isArray(props.steps)) {
+      props.steps = (props.steps as Record<string, unknown>[]).map(step => ({
+        ...step,
+        image: typeof step.image === "string" ? cleanUrl(step.image) : step.image,
       }));
     }
 
@@ -3779,7 +3821,7 @@ SHOWCASE BLOCKS (use these to give each page a distinct, premium feel — NOT ev
 - "video-background-final-cta": A closing call-to-action over a looping background video with a poster fallback image. Leave backgroundVideoUrl blank unless a video URL is given in the prompt. Props: eyebrow (2–4 words), heading (5–10 words), subheading (14–28 words, optional), backgroundVideoUrl (""), posterUrl (""), overlayOpacity (0–100, default 60), ctaLabel (2–4 words), ctaUrl ("#").
 - "benefits-alternating-rows": Benefits laid out as alternating left/right rows, each pairing a benefit with a checklist and a visual placeholder — great for explaining a few deep value props. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (12–28 words), rows (array of EXACTLY 3–4 of {icon (lucide name e.g. Zap/Layers/TrendingUp/ShieldCheck), title (3–7 words), description (15–30 words), features (array of EXACTLY 3 of 3–6 words), linkLabel (2–4 words, optional), linkUrl ("#")}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 
-- "how-it-works-alternating": A step-by-step "how it works" section laid out as alternating left/right rows, each numbered step pairing an icon + copy + a feature checklist with a decorative product placeholder — great for explaining a 3-step process or onboarding flow. Props: eyebrow (2–4 words, e.g. "How it works"), headline (5–10 words), subheadline (14–28 words), steps (array of EXACTLY 3–4 of {icon (lucide name e.g. LayoutTemplate/MousePointerClick/Zap/Rocket/Settings), title (3–7 words), description (18–36 words), features (array of EXACTLY 3 of 3–6 words)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "how-it-works-alternating": A step-by-step "how it works" section laid out as alternating left/right rows, each numbered step pairing an icon + copy + a feature checklist with a real product/feature image — great for explaining a 3-step process or onboarding flow. Props: eyebrow (2–4 words, e.g. "How it works"), headline (5–10 words), subheadline (14–28 words), steps (array of EXACTLY 3–4 of {icon (lucide name e.g. LayoutTemplate/MousePointerClick/Zap/Rocket/Settings), title (3–7 words), description (18–36 words), features (array of EXACTLY 3 of 3–6 words), image ("" — leave blank, filled from FEATURE IMAGES)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 - "how-it-works-numbered-bento": A "how it works" section laid out as an asymmetric bento grid of numbered steps (oversized background numerals, the last tile accent-colored), with a centered primary button below — great for a punchy, modern 3–4 step process overview. Props: eyebrow (2–4 words, e.g. "How it works"), headline (5–10 words), subheadline (14–28 words), steps (array of EXACTLY 3–4 of {icon (lucide name e.g. Plug/Palette/Wand2/BarChart3/Zap/Rocket/Settings), title (2–5 words), description (16–32 words)}), buttonLabel (2–4 words, optional), buttonUrl ("#"), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 - "how-it-works-vertical-timeline": A "how it works" section laid out as a vertical numbered timeline (connecting rail with node circles, each step pairing an icon + title + description), with a primary + secondary button row below — great for a clear, sequential onboarding or process flow. Props: eyebrow (2–4 words, e.g. "How it works"), headline (5–10 words), subheadline (14–28 words), steps (array of EXACTLY 3–4 of {icon (lucide name e.g. Palette/Users/Zap/BarChart3/Plug/Rocket/Settings), title (2–5 words), description (16–32 words)}), primaryButtonLabel (2–4 words, optional), primaryButtonUrl ("#"), secondaryButtonLabel (2–4 words, optional), secondaryButtonUrl ("#"), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 - "how-it-works-horizontal-stepper": A compact "how it works" section showing numbered steps in a horizontal row over a progress rail, with a header CTA button and a trailing trust-badge row — great for a quick 3-step process overview. Props: eyebrow (2–4 words, e.g. "How it works"), headline (5–10 words), subheadline (14–28 words), headerCtaLabel (2–4 words, optional), headerCtaUrl ("#"), steps (array of EXACTLY 3–4 of {icon (lucide name e.g. UserPlus/Zap/Rocket/Settings/Plug/Workflow), title (2–5 words), description (8–18 words)}), trustItems (array of EXACTLY 2–3 of 3–5 words, e.g. "No credit card required"), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
@@ -3837,7 +3879,7 @@ RULES:
 8. The slug should be a URL-friendly version of the topic (lowercase, hyphens, no special chars).
 9. IMAGES: The IMAGE LIBRARY is divided into sections — you MUST follow these rules strictly:
    - hero imageUrl → use ONLY images from the "HERO & LIFESTYLE" section (lifestyle, people, clinic, results shots). NEVER use product-detail or close-up images in a hero.
-   - zigzag-features imageUrl and photo-strip src → use images from "FEATURE IMAGES" section. "HERO & LIFESTYLE" is also acceptable here.
+   - zigzag-features imageUrl, photo-strip src, and how-it-works-alternating steps[].image → use images from "FEATURE IMAGES" section. "HERO & LIFESTYLE" is also acceptable here. (Leave how-it-works-alternating steps[].image "" for the server to fill.)
    - product-grid image → use images from "PRODUCT DETAIL" section. "FEATURE IMAGES" is also acceptable.
    - Match images to the specific content topic (e.g. product images for product content, team photos for people-focused sections).
    - Set heroType "static-image" when you assign a hero imageUrl. If no suitable image exists for a slot, use empty string "".

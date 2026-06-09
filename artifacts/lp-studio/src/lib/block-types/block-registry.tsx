@@ -6882,9 +6882,9 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       textColor: "#171717",
       accentColor: "#4f46e5",
       steps: [
-        { icon: "LayoutTemplate", title: "Select a brand template", description: "Start with a high-converting baseline. Choose from dozens of battle-tested layouts designed specifically for B2B SaaS, then instantly apply your company's colors and fonts.", features: ["One-click brand import", "Mobile-responsive by default", "Accessible color palettes"] },
-        { icon: "MousePointerClick", title: "Customize without code", description: "Drag, drop, and edit directly on the canvas. Our visual editor gives you complete control over spacing, typography, and content without writing a single line of CSS.", features: ["Inline text editing", "Global component libraries", "Version history"] },
-        { icon: "Zap", title: "Publish and optimize", description: "Hit publish to deploy instantly to our global edge network. Track conversions, run A/B tests, and iterate rapidly based on real user data.", features: ["Instant edge deployment", "Built-in analytics", "SEO optimization tools"] },
+        { icon: "LayoutTemplate", title: "Select a brand template", description: "Start with a high-converting baseline. Choose from dozens of battle-tested layouts designed specifically for B2B SaaS, then instantly apply your company's colors and fonts.", features: ["One-click brand import", "Mobile-responsive by default", "Accessible color palettes"], image: "" },
+        { icon: "MousePointerClick", title: "Customize without code", description: "Drag, drop, and edit directly on the canvas. Our visual editor gives you complete control over spacing, typography, and content without writing a single line of CSS.", features: ["Inline text editing", "Global component libraries", "Version history"], image: "" },
+        { icon: "Zap", title: "Publish and optimize", description: "Hit publish to deploy instantly to our global edge network. Track conversions, run A/B tests, and iterate rapidly based on real user data.", features: ["Instant edge deployment", "Built-in analytics", "SEO optimization tools"], image: "" },
       ],
       showCta: true,
       ctaEyebrow: "Get a guided tour",

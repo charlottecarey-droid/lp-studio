@@ -6,6 +6,7 @@ import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { IconPicker } from "@/components/IconPicker";
+import { ImagePicker } from "@/components/ImagePicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 import { SectionBackgroundControl } from "./SectionBackgroundControl";
@@ -32,7 +33,7 @@ export function HowItWorksAlternatingPanel({ props, onChange }: Props) {
   const removeStep = (i: number) => update({ steps: steps.filter((_, idx) => idx !== i) });
   const moveStep = (i: number, dir: -1 | 1) => update({ steps: moveArr(steps, i, i + dir) });
   const addStep = () =>
-    update({ steps: [...steps, { icon: "Zap", title: "New step", description: "", features: ["Feature one", "Feature two", "Feature three"] }] });
+    update({ steps: [...steps, { icon: "Zap", title: "New step", description: "", features: ["Feature one", "Feature two", "Feature three"], image: "" }] });
 
   return (
     <div className="space-y-5">
@@ -90,6 +91,10 @@ export function HowItWorksAlternatingPanel({ props, onChange }: Props) {
                 rows={3}
                 className="w-full rounded-md border px-2 py-1 text-xs"
               />
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Image</Label>
+              <ImagePicker value={step.image ?? ""} onChange={(v) => updateStep(i, { image: v })} />
             </div>
           </div>
         ))}

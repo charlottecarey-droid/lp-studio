@@ -3155,20 +3155,22 @@ export interface BenefitsAlternatingRowsBlockProps extends BenefitsCtaConfig {
   accentColor?: string;
 }
 
-/** A single step in the alternating "how it works" showcase: number badge +
- *  icon + title + description + feature checklist. The visual side is a
- *  decorative placeholder (no real imagery). */
+/** A single step in the alternating "how it works" showcase: icon + title +
+ *  description + feature checklist beside a real product/feature image. */
 export interface HowItWorksAlternatingStep {
   /** Lucide icon name (see ICON_MAP in the block component). */
   icon: string;
   title: string;
   description: string;
   features: string[];
+  /** Real product/feature image shown on the step's visual side. Empty renders
+   *  a neutral image placeholder; the AI image-fill pipeline populates it. */
+  image?: string;
 }
 
 /** How It Works — Alternating Showcase: header + alternating left/right rows,
- *  each numbered with an icon, copy, and a feature checklist beside a decorative
- *  product panel, plus an optional trailing CTA band. */
+ *  each numbered with an icon, copy, and a feature checklist beside a real
+ *  product/feature image, plus an optional trailing CTA band. */
 export interface HowItWorksAlternatingBlockProps extends BenefitsCtaConfig {
   eyebrow?: string;
   headline: string;

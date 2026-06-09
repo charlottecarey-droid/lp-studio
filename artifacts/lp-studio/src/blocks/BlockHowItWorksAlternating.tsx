@@ -1,6 +1,6 @@
 import {
   LayoutTemplate, MousePointerClick, Zap, Layers, TrendingUp, Rocket,
-  Sparkles, Settings, BarChart3, CheckCircle2, ArrowRight,
+  Sparkles, Settings, BarChart3, CheckCircle2, ArrowRight, ImageIcon,
 } from "lucide-react";
 import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -20,36 +20,19 @@ interface Props {
   onFieldChange?: (updated: HowItWorksAlternatingBlockProps) => void;
 }
 
-/** Decorative abstract product panel shown on each step's "visual" side.
- *  Faithful to the mockup's CSS placeholder (no real imagery). */
-function DecorativePanel({ accent, tint }: { accent: string; tint: string }) {
+/** Real product/feature image shown on each step's "visual" side. Renders the
+ *  step's image when present; otherwise a neutral image placeholder (populated by
+ *  the image-fill pipeline or uploaded in the builder). */
+function StepImage({ image, alt, accent, tint }: { image?: string; alt: string; accent: string; tint: string }) {
   return (
-    <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-black/5">
-      <div className="flex h-full w-full flex-col gap-4 bg-neutral-100 p-6">
-        <div className="flex h-8 w-full items-center gap-4 rounded-md border border-neutral-200 bg-white px-4 shadow-sm">
-          <div className="h-3 w-24 rounded-full bg-neutral-200" />
-          <div className="h-3 w-16 rounded-full bg-neutral-200" />
-          <div className="h-3 w-16 rounded-full bg-neutral-200" />
-          <div className="ml-auto h-4 w-8 rounded-md" style={{ backgroundColor: tint }} />
+    <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-slate-100 shadow-xl ring-1 ring-black/5">
+      {image ? (
+        <img src={image} alt={alt} className="h-full w-full object-cover" loading="lazy" />
+      ) : (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-3" style={{ backgroundColor: tint }}>
+          <ImageIcon className="h-10 w-10" style={{ color: accent, opacity: 0.5 }} />
         </div>
-        <div className="flex flex-1 gap-4">
-          <div className="flex w-40 flex-col gap-3 rounded-md border border-neutral-200 bg-white p-4 shadow-sm">
-            <div className="mb-2 h-4 w-24 rounded-full bg-neutral-800" />
-            <div className="h-16 w-full rounded-md border border-neutral-200 bg-neutral-100" />
-            <div className="relative h-16 w-full rounded-md border-2" style={{ borderColor: accent, backgroundColor: tint }}>
-              <div className="absolute right-2 top-2 h-4 w-4 rounded-full" style={{ backgroundColor: accent }} />
-            </div>
-            <div className="h-16 w-full rounded-md border border-neutral-200 bg-neutral-100" />
-          </div>
-          <div className="flex flex-1 flex-col items-center gap-6 rounded-md border border-neutral-200 bg-white p-8 shadow-sm">
-            <div className="h-8 w-3/4 rounded-md bg-neutral-200" />
-            <div className="h-4 w-1/2 rounded-full bg-neutral-200" />
-            <div className="mt-4 flex h-28 w-full items-center justify-center rounded-lg border" style={{ borderColor: tint, backgroundColor: tint }}>
-              <div className="h-8 w-16 rounded-md" style={{ backgroundColor: accent }} />
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -154,7 +137,7 @@ export function BlockHowItWorksAlternating({ props, brand, onFieldChange }: Prop
                   viewport={{ once: true, amount: 0.2 }}
                   transition={isBuilder ? undefined : { duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
                 >
-                  <DecorativePanel accent={accent} tint={tint} />
+                  <StepImage image={step.image} alt={step.title} accent={accent} tint={tint} />
                 </motion.div>
               </motion.div>
             );
