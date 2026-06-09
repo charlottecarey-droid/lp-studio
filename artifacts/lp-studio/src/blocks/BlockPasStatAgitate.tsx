@@ -24,7 +24,7 @@ const COL_CLASS: Record<number, string> = {
 export function BlockPasStatAgitate({ props, brand, onFieldChange }: Props) {
   const surface = resolveSectionSurface(props, "#0F172A");
   const ink = props.textColor ?? surface.color ?? pickContrastingColor(undefined, surface.base, ["#FFFFFF", "#0F172A"]);
-  const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
+  const accent = props.accentColor || brand.accentColor || brand.primaryColor || "#4f46e5";
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
   const muted = `${ink}B3`;
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;

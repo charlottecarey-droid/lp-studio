@@ -14,7 +14,7 @@ interface Props {
 }
 
 export function BlockGradientGlowFinalCta({ props, brand, onFieldChange }: Props) {
-  const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
+  const accent = props.accentColor || brand.accentColor || brand.primaryColor || "#4f46e5";
   const gradStart = props.gradientStart ?? accent;
   const gradEnd = props.gradientEnd ?? brand.primaryColor ?? "#0F172A";
   const surface = resolveSectionSurface(props, "#0B1120");

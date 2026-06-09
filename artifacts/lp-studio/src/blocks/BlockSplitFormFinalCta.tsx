@@ -26,7 +26,7 @@ interface Props {
  */
 export function BlockSplitFormFinalCta({ props, brand, onFieldChange }: Props) {
   const ctx = usePageContext();
-  const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
+  const accent = props.accentColor || brand.accentColor || brand.primaryColor || "#4f46e5";
   const surface = resolveSectionSurface(props, accent);
   const ink = props.textColor ?? surface.color ?? pickContrastingColor(undefined, surface.base, ["#FFFFFF", "#0F172A"]);
   const muted = `${ink}D9`;

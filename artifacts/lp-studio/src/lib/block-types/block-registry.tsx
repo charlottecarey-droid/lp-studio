@@ -5176,7 +5176,6 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       ],
       gradientFrom: "#0B0B1A",
       gradientTo: "#1F1147",
-      accentColor: "#A78BFA",
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -5983,7 +5982,6 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       ctaUrl: "#",
       bgColor: "#0F172A",
       textColor: "#FFFFFF",
-      accentColor: "#818cf8",
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -6078,7 +6076,6 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       successMessage: "Thanks! We'll be in touch shortly.",
       bgColor: "#0F172A",
       textColor: "#FFFFFF",
-      accentColor: "#818cf8",
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -6165,8 +6162,6 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       eyebrow: "",
       heading: "The future starts now",
       subheading: "Everything you need to grow, in one beautiful platform.",
-      gradientStart: "#6366f1",
-      gradientEnd: "#a855f7",
       ctaLabel: "Get started",
       ctaAction: "url",
       ctaUrl: "#",
@@ -6174,7 +6169,6 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       ctaSecondaryUrl: "#",
       bgColor: "#0B1020",
       textColor: "#FFFFFF",
-      accentColor: "#FFFFFF",
     }),
     thumbnail: () => (
       <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
