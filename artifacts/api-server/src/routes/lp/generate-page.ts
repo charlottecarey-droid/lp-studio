@@ -1273,9 +1273,10 @@ export function collectImageSlots(
   pushScalar("backgroundImage", "lp-hero", blockContext);
   pushScalar("heroImageUrl", "lp-hero", blockContext);
   pushScalar("bundleImageUrl", "lp-feature", blockContext); // storefront closing-CTA bundle
-  // media block video poster still (the videoUrl is user-picked, never collected).
-  // looping-showcase poster doubles as a full-bleed backdrop → lp-hero; others framed → lp-feature.
-  pushScalar("posterUrl", blockType === "media-looping-showcase" ? "lp-hero" : "lp-feature", blockContext);
+  // NOTE: video poster stills (`posterUrl`) are intentionally NOT collected. A
+  // video's thumbnail/poster and its videoUrl are author-controlled — the image
+  // pipeline must never auto-add or swap a video thumbnail (e.g. when creating a
+  // page from a template), so posters are left exactly as authored.
 
   const pushArrField = (
     arr: unknown,
@@ -1321,8 +1322,8 @@ export function collectImageSlots(
   pushArrField(props.slides, "src", "lp-feature", it => `${it.caption ?? ""} ${it.headline ?? ""}`);
   // case-study-logo-results-row results[].logoUrl (customer logos)
   pushArrField(props.results, "logoUrl", "lp-feature", it => `${it.company ?? ""} ${it.outcome ?? ""}`);
-  // media-thumbnail-grid videos[].posterUrl (per-card video poster still; videoUrl is user-picked)
-  pushArrField(props.videos, "posterUrl", "lp-feature", it => `${it.title ?? ""} ${blockContext}`);
+  // NOTE: media-thumbnail-grid videos[].posterUrl is intentionally NOT collected —
+  // video thumbnails are author-controlled and must never be auto-added/swapped.
 
   // blog-series (editorial archive) + storefront (DTC shop) premium full-page blocks
   pushArrField(props.articles, "imageUrl", "lp-feature", it => `${it.category ?? ""} ${it.title ?? ""} ${it.excerpt ?? ""}`);
@@ -2144,32 +2145,11 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
         return result;
       });
     }
-    // media-feature-reel / media-looping-showcase / media-video-split poster
-    // image (the videoUrl itself is never auto-filled — there is no stock-video
-    // pass, so the user picks it). The looping-showcase poster doubles as a
-    // full-bleed hero backdrop → lp-hero; the feature-reel / video-split poster
-    // is a framed still → lp-feature.
-    if (
-      (blockType === "media-feature-reel" ||
-        blockType === "media-looping-showcase" ||
-        blockType === "media-video-split") &&
-      !props.posterUrl
-    ) {
-      const posterPurpose = blockType === "media-looping-showcase" ? "lp-hero" : "lp-feature";
-      props.posterUrl = pick(blockContext, images, usedIds, posterPurpose);
-    }
-    // media-thumbnail-grid video cards: each card's posterUrl starts "" so the
-    // library pass fills each thumbnail. The per-card videoUrl is NEVER
-    // auto-filled (no stock-video pass — the user picks each one).
-    if (blockType === "media-thumbnail-grid" && Array.isArray(props.videos)) {
-      props.videos = (props.videos as Record<string, unknown>[]).map((vid) => {
-        if (!vid.posterUrl) {
-          const ctx = `${vid.title ?? ""} ${blockContext}`;
-          return { ...vid, posterUrl: pick(ctx, images, usedIds, "lp-feature") };
-        }
-        return vid;
-      });
-    }
+    // NOTE: video poster stills are intentionally NOT auto-filled. A video block's
+    // thumbnail/poster (posterUrl) and its videoUrl are author-controlled. When a
+    // page is created from a template, the template's video thumbnails must pass
+    // through untouched — we never substitute a library photo for a video still,
+    // which would mismatch (e.g. a headshot shown as a product-demo thumbnail).
 
     b.props = props;
     return b;
@@ -2497,10 +2477,9 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     if (typeof props.heroImageUrl === "string" && props.heroImageUrl) {
       props.heroImageUrl = cleanUrl(props.heroImageUrl);
     }
-    // media block video poster still (the videoUrl is user-picked, not an image URL)
-    if (typeof props.posterUrl === "string" && props.posterUrl) {
-      props.posterUrl = cleanUrl(props.posterUrl);
-    }
+    // NOTE: video poster stills (posterUrl) are intentionally left untouched here.
+    // A video's thumbnail is author-controlled and must never be cleared/swapped by
+    // the image pipeline (e.g. on template creation or "replace imagery").
 
     // Arrays with imageUrl (rows, chapters, tiles)
     if (Array.isArray(props.rows)) {
@@ -2569,13 +2548,8 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
       }));
     }
 
-    // media-thumbnail-grid videos[].posterUrl (per-card video poster still)
-    if (Array.isArray(props.videos)) {
-      props.videos = (props.videos as Record<string, unknown>[]).map(vid => ({
-        ...vid,
-        posterUrl: typeof vid.posterUrl === "string" ? cleanUrl(vid.posterUrl) : vid.posterUrl,
-      }));
-    }
+    // NOTE: media-thumbnail-grid videos[].posterUrl is intentionally left untouched —
+    // per-card video thumbnails are author-controlled and must never be cleared/swapped.
 
     // Arrays with src (photo-strip images)
     if (Array.isArray(props.images)) {

@@ -1316,3 +1316,62 @@ describe("off-topic curated images do not auto-fill content/strip slots", () => 
     expect(blocks[0].props.imageUrl).toBe("/objects/brand-hero");
   });
 });
+
+describe("video thumbnails / videos are never auto-added or swapped", () => {
+  // A video block's posterUrl (thumbnail) and videoUrl are author-controlled.
+  // The image pipeline must leave them exactly as authored — most importantly
+  // when a page is created from a template — so a library headshot is never
+  // substituted as a video still.
+
+  it("fillEmptyImages does NOT fill an empty posterUrl on media video blocks", () => {
+    let blocks: any[] = [
+      { type: "media-feature-reel", props: { heading: "Demo", videoUrl: "", posterUrl: "" } },
+      { type: "media-looping-showcase", props: { heading: "Brand film", videoUrl: "", posterUrl: "" } },
+      { type: "media-video-split", props: { heading: "Walkthrough", videoUrl: "", posterUrl: "" } },
+    ];
+    blocks = fillEmptyImages(blocks, LIB, PAGE_CTX) as any[];
+    expect(blocks[0].props.posterUrl).toBe("");
+    expect(blocks[1].props.posterUrl).toBe("");
+    expect(blocks[2].props.posterUrl).toBe("");
+  });
+
+  it("fillEmptyImages does NOT fill empty per-card posterUrl in media-thumbnail-grid", () => {
+    let blocks: any[] = [
+      { type: "media-thumbnail-grid", props: { heading: "Library", videos: [
+        { id: "a", title: "Intro", videoUrl: "", posterUrl: "" },
+        { id: "b", title: "Setup", videoUrl: "", posterUrl: "" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, LIB, PAGE_CTX) as any[];
+    const vids = blocks[0].props.videos as Array<{ posterUrl: string; videoUrl: string }>;
+    expect(vids.every(v => v.posterUrl === "")).toBe(true);
+    expect(vids.every(v => v.videoUrl === "")).toBe(true);
+  });
+
+  it("sanitizeAIImageUrls preserves an authored poster verbatim (even a non-library URL)", () => {
+    // A template's poster may be an external/non-library URL; it must survive
+    // the sanitize pass untouched rather than being cleared for a refill.
+    const externalPoster = "https://cdn.example.com/template-video-poster.jpg";
+    let blocks: any[] = [
+      { type: "media-feature-reel", props: { heading: "Demo", videoUrl: "https://cdn.example.com/clip.mp4", posterUrl: externalPoster } },
+      { type: "media-thumbnail-grid", props: { videos: [
+        { id: "a", title: "Intro", videoUrl: "https://cdn.example.com/intro.mp4", posterUrl: externalPoster },
+      ] } },
+    ];
+    blocks = sanitizeAIImageUrls(blocks, LIB) as any[];
+    expect(blocks[0].props.posterUrl).toBe(externalPoster);
+    expect(blocks[0].props.videoUrl).toBe("https://cdn.example.com/clip.mp4");
+    expect(blocks[1].props.videos[0].posterUrl).toBe(externalPoster);
+  });
+
+  it("collectImageSlots does NOT expose posterUrl as a fillable/dedupe image slot", () => {
+    const block = { type: "media-thumbnail-grid", props: {
+      heading: "Library",
+      posterUrl: "/objects/denture-hero-1",
+      videos: [{ id: "a", title: "Intro", videoUrl: "", posterUrl: "/objects/denture-hero-1" }],
+    } };
+    const slots = collectImageSlots(block as any, undefined, true);
+    const values = (slots as any[]).map(s => s.get());
+    expect(values).not.toContain("/objects/denture-hero-1");
+  });
+});
