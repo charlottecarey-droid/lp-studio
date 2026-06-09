@@ -1162,23 +1162,93 @@ function resolveImportedButtonLabelColor(raw: ImportedButtonStyle): string | nul
 }
 
 /**
+ * A scraped button background is only usable as a real CTA fill when it's a
+ * visible color/gradient — NOT "none"/transparent and NOT a near-white wash.
+ * The URL importer regularly lands on a light card/surface/utility element
+ * instead of the real primary CTA (e.g. rasta scraped `rgb(241,241,241)`),
+ * which — emitted with `!important` — makes every CTA invisible. Returns the
+ * sanitized value when usable, or null so the block's own brand fill applies.
+ */
+/**
+ * A scraped box-shadow only "defines" a button (lets a near-white fill read as a
+ * real CTA) when it's an actual shadow — `"none"`/`"transparent"` are truthy
+ * strings but draw nothing, so they must NOT count.
+ */
+function hasDefiningShadow(boxShadow: string | null | undefined): boolean {
+  if (!boxShadow) return false;
+  const v = boxShadow.trim().toLowerCase();
+  return v !== "" && v !== "none" && v !== "transparent";
+}
+
+function usableImportedBg(
+  value: string | null | undefined,
+  hasShadow: boolean,
+): string | null {
+  if (!value) return null;
+  const safe = sanitizeCssValue(value);
+  if (!safe) return null;
+  const v = safe.toLowerCase();
+  if (/gradient/.test(v)) return safe; // gradients are always real fills
+  if (/\b(none|transparent|currentcolor|inherit|initial|unset)\b/.test(v)) return null;
+  if (/rgba?\([^)]*,\s*0(?:\.0+)?\s*\)/.test(v)) return null; // rgba(...,0)
+  if (/\/\s*0(?:\.0+)?%?\s*\)/.test(v)) return null; // modern rgb(.. / 0) / hsl(.. / 0%)
+  if (/^#(?:[0-9a-f]{3}0|[0-9a-f]{6}00)$/.test(v)) return null; // hex alpha-0 (#rgb0 / #rrggbb00)
+  const hex = cssColorToHex(v);
+  if (hex && !hasShadow) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    // A near-white fill with no shadow to define its edge is almost never a real
+    // CTA — it's the importer landing on a flat light surface/utility element
+    // (rasta: rgb(241,241,241)). A white *pill with a shadow* is legitimate, so
+    // only reject near-white when there's nothing giving the button definition.
+    if (r >= 235 && g >= 235 && b >= 235) return null;
+  }
+  return safe;
+}
+
+/**
+ * A scraped padding value is only usable as a CTA override when it's a single
+ * POSITIVE CSS length. Rejects "0"/"0px" (collapses the button to no padding —
+ * rasta's bug) and multi-value shorthands like "16px 88px" (invalid for
+ * padding-left/padding-top so the browser drops them anyway). When unusable we
+ * emit nothing and the brand's own buttonPaddingX/Y utility classes own the
+ * padding, so every CTA keeps a real, sane hit area.
+ */
+function usableImportedPadding(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const safe = sanitizeCssValue(value);
+  if (!safe) return null;
+  const m = safe.match(/^(\d*\.?\d+)\s*(px|rem|em)$/i);
+  if (!m) return null;
+  return parseFloat(m[1]) > 0 ? safe : null;
+}
+
+/**
  * Inline-style form of the imported "Primary button CSS" (buttonStyleRaw).
  * Used for the Brand Settings live preview, where a React style object wins
  * over the utility classes from getButtonClasses. Only emits properties that
- * are actually present so an empty import leaves buttons untouched.
+ * are actually present AND usable so an empty/garbage import leaves buttons
+ * with their normal brand styling.
  */
 export function getImportedButtonInlineStyle(brand: BrandConfig): CSSProperties {
   const raw = brand.buttonStyleRaw;
   if (!raw) return {};
   const s: CSSProperties = {};
-  if (raw.background?.value) s.background = raw.background.value;
+  const bg = usableImportedBg(raw.background?.value, hasDefiningShadow(raw.boxShadow));
+  if (bg) s.background = bg;
   if (raw.boxShadow) s.boxShadow = raw.boxShadow;
   if (typeof raw.radiusPx === "number") s.borderRadius = `${raw.radiusPx}px`;
-  if (raw.paddingX) { s.paddingLeft = raw.paddingX; s.paddingRight = raw.paddingX; }
-  if (raw.paddingY) { s.paddingTop = raw.paddingY; s.paddingBottom = raw.paddingY; }
+  const px = usableImportedPadding(raw.paddingX);
+  if (px) { s.paddingLeft = px; s.paddingRight = px; }
+  const py = usableImportedPadding(raw.paddingY);
+  if (py) { s.paddingTop = py; s.paddingBottom = py; }
   if (typeof raw.fontWeight === "number") s.fontWeight = raw.fontWeight;
   if (raw.textTransform) s.textTransform = raw.textTransform as CSSProperties["textTransform"];
-  const labelColor = resolveImportedButtonLabelColor(raw);
+  // Only force a label color when we're also forcing a (usable) fill — deriving
+  // contrast against a rejected near-white background would mis-color the label
+  // on the block's real brand fill.
+  const labelColor = bg ? resolveImportedButtonLabelColor(raw) : null;
   if (labelColor) s.color = labelColor;
   return s;
 }
@@ -1194,23 +1264,26 @@ export function getBrandButtonCss(brand: BrandConfig): string {
   const raw = brand.buttonStyleRaw;
   if (!raw) return "";
   const decls: string[] = [];
-  const bg = raw.background?.value ? sanitizeCssValue(raw.background.value) : null;
+  const bg = usableImportedBg(raw.background?.value, hasDefiningShadow(raw.boxShadow));
   if (bg) decls.push(`background:${bg} !important`);
   const shadow = raw.boxShadow ? sanitizeCssValue(raw.boxShadow) : null;
   if (shadow) decls.push(`box-shadow:${shadow} !important`);
   if (typeof raw.radiusPx === "number" && Number.isFinite(raw.radiusPx)) {
     decls.push(`border-radius:${raw.radiusPx}px !important`);
   }
-  const px = raw.paddingX ? sanitizeCssValue(raw.paddingX) : null;
+  const px = usableImportedPadding(raw.paddingX);
   if (px) decls.push(`padding-left:${px} !important`, `padding-right:${px} !important`);
-  const py = raw.paddingY ? sanitizeCssValue(raw.paddingY) : null;
+  const py = usableImportedPadding(raw.paddingY);
   if (py) decls.push(`padding-top:${py} !important`, `padding-bottom:${py} !important`);
   if (typeof raw.fontWeight === "number" && Number.isFinite(raw.fontWeight)) {
     decls.push(`font-weight:${raw.fontWeight} !important`);
   }
   const tt = raw.textTransform ? sanitizeCssValue(raw.textTransform) : null;
   if (tt) decls.push(`text-transform:${tt} !important`);
-  const labelColor = resolveImportedButtonLabelColor(raw);
+  // Only force a label color when we're also forcing a (usable) fill — deriving
+  // contrast against a rejected near-white background would mis-color the label
+  // on the block's real brand fill.
+  const labelColor = bg ? resolveImportedButtonLabelColor(raw) : null;
   const col = labelColor ? sanitizeCssValue(labelColor) : null;
   if (col) decls.push(`color:${col} !important`);
   if (decls.length === 0) return "";

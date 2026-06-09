@@ -8,6 +8,7 @@ import {
   DEFAULT_BRAND,
   getBrandButtonCss,
   getButtonClasses,
+  getImportedButtonInlineStyle,
   type BrandConfig,
   type ImportedButtonStyle,
 } from "./brand-config";
@@ -156,6 +157,79 @@ describe("getBrandButtonCss import gating", () => {
     expect(getBrandButtonCss(brand)).toContain("color:#000000 !important");
   });
 
+  it("rejects zero / multi-value scraped padding so the brand's own padding controls win", () => {
+    // rasta scraped "0px" (collapses the button); test-lp/a-town scraped a
+    // multi-value "16px 88px" (invalid for padding-left). Neither should be
+    // emitted — the CTA must keep a real hit area from the brand utilities.
+    const zero: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, paddingX: "0px", paddingY: "0px" },
+    };
+    const multi: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, paddingX: "16px 88px", paddingY: "16px" },
+    };
+    expect(getBrandButtonCss(zero)).not.toContain("padding-left");
+    expect(getBrandButtonCss(zero)).not.toContain("padding-top");
+    expect(getBrandButtonCss(multi)).not.toContain("padding-left");
+    // a single positive length on the other axis is still honored
+    expect(getBrandButtonCss(multi)).toContain("padding-top:16px !important");
+  });
+
+  it("rejects invisible / near-white shadowless scraped backgrounds so the brand fill applies", () => {
+    // rasta scraped rgb(241,241,241) (near-white wash) with no shadow to define
+    // it; test-lp/a-town scraped "none". An imported fill this light/absent would
+    // make every CTA invisible.
+    const nearWhite: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, boxShadow: null, background: { type: "solid", value: "rgb(241, 241, 241)" } },
+    };
+    const none: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, background: { type: "solid", value: "none" } },
+    };
+    expect(getBrandButtonCss(nearWhite)).not.toContain("background:");
+    expect(getBrandButtonCss(none)).not.toContain("background:");
+    // and with no usable fill we must NOT force a (contrast-derived) label color
+    expect(getBrandButtonCss(nearWhite)).not.toContain("color:");
+    expect(getBrandButtonCss(none)).not.toContain("color:");
+  });
+
+  it("keeps a near-white imported fill when it has a shadow to define it (legit white pill)", () => {
+    // A white/near-white CTA pill WITH a shadow is a real, common style on a
+    // colored hero — IMPORTED_STYLE carries a boxShadow, so it must survive.
+    const whitePill: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, background: { type: "solid", value: "#ffffff" } },
+    };
+    expect(getBrandButtonCss(whitePill)).toContain("background:#ffffff !important");
+  });
+
+  it("collapses to an empty stylesheet when only garbage was scraped", () => {
+    // The exact rasta shape: 0 padding, near-white fill, radius 0. Nothing here
+    // is a usable override, so emit no rule at all and let the block render its
+    // own brand button untouched.
+    const rasta: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: {
+        ...IMPORTED_STYLE,
+        radiusPx: 0,
+        paddingX: "0px",
+        paddingY: "0px",
+        fontWeight: undefined as unknown as number,
+        textTransform: null as unknown as string,
+        boxShadow: null as unknown as string,
+        background: { type: "solid", value: "rgb(241, 241, 241)" },
+      },
+    };
+    // radius 0 is still a legitimate (square) override, so the rule may carry
+    // border-radius; what must NOT appear is padding/background/color garbage.
+    const css = getBrandButtonCss(rasta);
+    expect(css).not.toContain("padding-left");
+    expect(css).not.toContain("background:");
+    expect(css).not.toContain("color:");
+  });
+
   it("produces identical CSS for structurally-equal brands regardless of caller (no surface-specific branching)", () => {
     // Both surfaces call getBrandButtonCss(brand) with the SAME BrandConfig
     // values, so the emitted stylesheet must depend only on the brand data —
@@ -167,6 +241,51 @@ describe("getBrandButtonCss import gating", () => {
     };
     expect(clone).not.toBe(IMPORTED_BRAND);
     expect(getBrandButtonCss(clone)).toBe(getBrandButtonCss(IMPORTED_BRAND));
+  });
+});
+
+describe("emitter parity: getBrandButtonCss vs getImportedButtonInlineStyle gate identically", () => {
+  // The CSS stylesheet (published/builder) and the inline-style object (Brand
+  // Settings preview) must accept/reject the SAME imported values, or the
+  // preview lies about what visitors will see. Compare presence-of-property
+  // across the gated fields for a spread of valid and garbage imports.
+  const cases: Array<[string, ImportedButtonStyle]> = [
+    ["valid", IMPORTED_STYLE],
+    ["zero-padding", { ...IMPORTED_STYLE, paddingX: "0px", paddingY: "0px" }],
+    ["multi-padding", { ...IMPORTED_STYLE, paddingX: "16px 88px", paddingY: "16px" }],
+    ["near-white-no-shadow", { ...IMPORTED_STYLE, boxShadow: null, background: { type: "solid", value: "rgb(241, 241, 241)" } }],
+    ["near-white-with-shadow", { ...IMPORTED_STYLE, background: { type: "solid", value: "#ffffff" } }],
+    ["bg-none", { ...IMPORTED_STYLE, background: { type: "solid", value: "none" } }],
+    ["shadow-none-near-white", { ...IMPORTED_STYLE, boxShadow: "none", background: { type: "solid", value: "rgb(244, 244, 244)" } }],
+  ];
+
+  for (const [name, raw] of cases) {
+    it(`agrees on background/padding/color presence for "${name}"`, () => {
+      const brand: BrandConfig = { ...DEFAULT_BRAND, buttonStyleRaw: raw };
+      const css = getBrandButtonCss(brand);
+      const inline = getImportedButtonInlineStyle(brand);
+      expect(css.includes("background:")).toBe(inline.background !== undefined);
+      expect(css.includes("padding-left")).toBe(inline.paddingLeft !== undefined);
+      expect(css.includes("padding-top")).toBe(inline.paddingTop !== undefined);
+      expect(css.includes("color:")).toBe(inline.color !== undefined);
+    });
+  }
+
+  it("a box-shadow of \"none\" does not rescue a near-white fill (truthy-but-empty shadow)", () => {
+    const brand: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, boxShadow: "none", background: { type: "solid", value: "rgb(244, 244, 244)" } },
+    };
+    expect(getBrandButtonCss(brand)).not.toContain("background:");
+    expect(getImportedButtonInlineStyle(brand).background).toBeUndefined();
+  });
+
+  it("rejects a hex alpha-0 fill (#rrggbb00) as fully transparent", () => {
+    const brand: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, background: { type: "solid", value: "#11223300" } },
+    };
+    expect(getBrandButtonCss(brand)).not.toContain("background:");
   });
 });
 

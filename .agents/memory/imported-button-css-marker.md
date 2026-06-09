@@ -24,6 +24,20 @@ marker-class + injected-stylesheet mechanism, NOT per-callsite inline styles.
 **Why:** the field had been saved/editable for ages but never consumed by any rendered
 button; a central marker+stylesheet avoids editing ~20 block callsites.
 
+**Garbage-scrape guard (render-time, fixes all tenants without migration):** the
+untrusted importer regularly lands on a NON-CTA element, so `buttonStyleRaw` holds
+values that — emitted with `!important` page-wide — break every CTA: zero padding
+(`0px`), invalid multi-value padding (`16px 88px`), or invisible/near-white fills
+(`none`, `rgb(241,241,241)`). Both emitters (`getBrandButtonCss` AND
+`getImportedButtonInlineStyle`) MUST validate before emitting: padding only when a
+single positive length (else brand `buttonPaddingX/Y` utilities own it); background
+only when visible (reject none/transparent/alpha-0, and near-white ONLY when there's
+no `boxShadow` to define it — a white pill *with* a shadow is a legit style); and
+skip the contrast-derived label color whenever the fill was rejected (else it
+mis-colors the label on the block's real brand fill). Keep both emitters in lockstep
+(button-style-parity.test.ts). Validate at render, not just import — existing tenants
+already have garbage stored.
+
 **How to apply:** any outline/secondary button that *reuses* `getButtonClasses` only
 for sizing (e.g. `BlockNavHeader` cta1, white bg + slate border) must pass
 `{ imported: false }` or it will wrongly inherit the primary imported CSS via the
