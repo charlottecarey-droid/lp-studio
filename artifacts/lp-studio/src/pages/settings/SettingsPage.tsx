@@ -1,22 +1,24 @@
 import { useLocation, Redirect } from "wouter";
 import { AppLayout } from "@/components/layout/app-layout";
 import { useAuth } from "@/context/AuthContext";
-import { Settings as SettingsIcon, Globe, Search, Mail, LayoutTemplate } from "lucide-react";
+import { Settings as SettingsIcon, Globe, Search, Mail, LayoutTemplate, Flame } from "lucide-react";
 import { GeneralContent } from "./GeneralPage";
 import { DomainContent } from "./DomainPage";
 import { SeoContent } from "./SeoPage";
+import { HeatScoringContent } from "./HeatScoringPage";
 import { NotificationsContent } from "./NotificationsPage";
 import { EmailTemplatesContent } from "./EmailPage";
 import { AlertRecipientsContent } from "./AlertRecipients";
 import { TemplateSettingsContent } from "./TemplateSettingsPage";
 
-type TabId = "general" | "domain" | "seo" | "templates" | "email";
+type TabId = "general" | "domain" | "seo" | "scoring" | "templates" | "email";
 type EmailSubTab = "templates" | "recipients" | "preferences";
 
 const TABS: { id: TabId; label: string; icon: typeof SettingsIcon; path: string; adminOnly: boolean }[] = [
   { id: "general", label: "General", icon: SettingsIcon, path: "/settings/general", adminOnly: true },
   { id: "domain", label: "Domain", icon: Globe, path: "/settings/domain", adminOnly: true },
   { id: "seo", label: "SEO", icon: Search, path: "/settings/seo", adminOnly: true },
+  { id: "scoring", label: "Lead scoring", icon: Flame, path: "/settings/scoring", adminOnly: true },
   { id: "templates", label: "Templates", icon: LayoutTemplate, path: "/settings/templates", adminOnly: true },
   { id: "email", label: "Email", icon: Mail, path: "/settings/email", adminOnly: false },
 ];
@@ -27,6 +29,7 @@ const TABS: { id: TabId; label: string; icon: typeof SettingsIcon; path: string;
 function resolveRoute(location: string): { tab: TabId; emailSub: EmailSubTab } {
   if (location.startsWith("/settings/domain")) return { tab: "domain", emailSub: "templates" };
   if (location.startsWith("/settings/seo")) return { tab: "seo", emailSub: "templates" };
+  if (location.startsWith("/settings/scoring")) return { tab: "scoring", emailSub: "templates" };
   if (location.startsWith("/settings/templates")) return { tab: "templates", emailSub: "templates" };
   if (location.startsWith("/settings/notifications")) return { tab: "email", emailSub: "preferences" };
   if (location.startsWith("/settings/email/recipients")) return { tab: "email", emailSub: "recipients" };
@@ -106,6 +109,7 @@ export default function SettingsPage() {
         {tab === "general" && <GeneralContent />}
         {tab === "domain" && <DomainContent />}
         {tab === "seo" && <SeoContent />}
+        {tab === "scoring" && canManage && <HeatScoringContent />}
         {tab === "templates" && canManage && <TemplateSettingsContent />}
         {tab === "email" && (
           <div className="space-y-6">

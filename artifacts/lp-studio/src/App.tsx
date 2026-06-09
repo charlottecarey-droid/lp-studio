@@ -337,6 +337,7 @@ function AppRouter() {
         <Route path="/settings/general" component={SettingsPage} />
         <Route path="/settings/domain" component={SettingsPage} />
         <Route path="/settings/seo" component={SettingsPage} />
+        <Route path="/settings/scoring" component={SettingsPage} />
         <Route path="/settings/templates" component={SettingsPage} />
         <Route path="/settings/notifications" component={SettingsPage} />
         <Route path="/settings/email/recipients" component={SettingsPage} />

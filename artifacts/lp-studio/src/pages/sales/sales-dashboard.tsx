@@ -30,9 +30,11 @@ import {
   FOURTEEN_DAYS_MS,
   computeHeatScore,
   computeHeatTier,
+  normalizeHeatScoringConfig,
   type HeatTier,
 } from "@/lib/heat-tier";
 import { useAuth } from "@/context/AuthContext";
+import { useBrandConfig } from "@/context/BrandConfigContext";
 import { NewMicrositeModal } from "@/components/NewMicrositeModal";
 
 const API_BASE = "/api";
@@ -155,7 +157,7 @@ function BriefingPickerButton({ accounts }: { accounts: Account[] }) {
 const HEAT_CONFIG = {
   hot:  { label: "Hot",  icon: <Flame className="w-3 h-3" />,       className: "bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400" },
   warm: { label: "Warm", icon: <Thermometer className="w-3 h-3" />, className: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400" },
-  cool: { label: "Cool", icon: <Zap className="w-3 h-3" />,          className: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400" },
+  cool: { label: "Warming Up", icon: <Zap className="w-3 h-3" />,    className: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400" },
 };
 
 function getGreeting() {
@@ -313,6 +315,10 @@ export default function SalesDashboard() {
   const uniqueAbmStages  = useMemo(() => Array.from(new Set(accounts.map(a => a.abmStage).filter(Boolean))).sort() as string[], [accounts]);
   const uniqueSegments   = useMemo(() => Array.from(new Set(accounts.map(a => a.practiceSegment).filter(Boolean))).sort() as string[], [accounts]);
 
+  // Workspace-configurable heat scoring (points per signal + tier thresholds).
+  const { brand } = useBrandConfig();
+  const heatScoring = useMemo(() => normalizeHeatScoringConfig(brand.heatScoring), [brand.heatScoring]);
+
   const { hotAccounts, needsAttention, hotCount, filteredAccountCount } = useMemo(() => {
     if (!accounts.length) return { hotAccounts: [], needsAttention: [], hotCount: 0, filteredAccountCount: 0 };
 
@@ -346,10 +352,10 @@ export default function SalesDashboard() {
       const acctSignals = sigsByAccount.get(acct.id) ?? [];
       // Weighted recent-engagement score + tier from the shared helper so the
       // dashboard's heat always matches the Accounts page.
-      const score = computeHeatScore(acctSignals, now);
+      const score = computeHeatScore(acctSignals, now, heatScoring);
       const fourteenDaysAgo = now - FOURTEEN_DAYS_MS;
       const signalCount14d = acctSignals.filter(s => new Date(s.createdAt).getTime() > fourteenDaysAgo).length;
-      const heat = computeHeatTier(acctSignals, now);
+      const heat = computeHeatTier(acctSignals, now, heatScoring);
       const sorted = [...acctSignals].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       const lastSignal = sorted[0] ?? null;
       const hasMicrosite = (micrositeCounts.get(acct.id) ?? 0) > 0;
@@ -396,7 +402,7 @@ export default function SalesDashboard() {
     const hotTierCount = ownerFiltered.filter(a => a.heat === "hot").length;
 
     return { hotAccounts: hot, needsAttention: attention, hotCount: hotTierCount, filteredAccountCount: ownerFiltered.length };
-  }, [accounts, signals, micrositeGroups, ownerFilters, abmTierFilters, abmStageFilters, segmentFilters]);
+  }, [accounts, signals, micrositeGroups, ownerFilters, abmTierFilters, abmStageFilters, segmentFilters, heatScoring]);
 
   const recentSignals = useMemo(() => {
     const isFiltered = ownerFilters.length > 0 || abmTierFilters.length > 0 || abmStageFilters.length > 0 || segmentFilters.length > 0;

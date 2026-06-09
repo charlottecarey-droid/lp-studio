@@ -4,6 +4,7 @@ import type { BackgroundPresetLabels, BackgroundPresetColors } from "./bg-styles
 import { BACKGROUND_STYLE_KEYS } from "./bg-styles";
 import type { FormStyling } from "./form-styling";
 import type { BrandPdfFonts, EmbeddedFontFaces } from "@workspace/one-pager-types/generators";
+import { DEFAULT_HEAT_SCORING, type HeatScoringConfig } from "./heat-tier";
 
 export type { BackgroundPresetLabels, BackgroundPresetColors };
 
@@ -396,6 +397,13 @@ export interface BrandConfig {
    *  the user can see what their site looked like at import time. Replaced
    *  on every rebrand / brand refresh that re-scrapes the site. */
   homepageScreenshotUrl?: string;
+  /**
+   * Per-workspace account heat-scoring configuration (points per signal type
+   * + Warm/Hot thresholds), edited in Settings → Lead scoring. Drives the
+   * Hot / Warm / Warming Up tier shown on the sales dashboard and Accounts
+   * page. Unset → the neutral `DEFAULT_HEAT_SCORING` defaults apply.
+   */
+  heatScoring?: HeatScoringConfig;
 }
 
 export interface ImportedLogoCandidate {
@@ -579,6 +587,7 @@ export const DEFAULT_BRAND: BrandConfig = {
   defaultOgTitle: "",
   defaultOgDescription: "",
   defaultOgImageUrl: "",
+  heatScoring: DEFAULT_HEAT_SCORING,
   copyrightName: "",
   socialUrls: {
     facebook: "",

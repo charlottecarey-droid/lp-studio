@@ -57,7 +57,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
-import { Flame, Thermometer, Zap, Snowflake, TrendingDown, ArrowRight } from "lucide-react";
+import { Flame, Thermometer, Zap, TrendingDown, ArrowRight } from "lucide-react";
 import { PageHint } from "@/components/ui/page-hint";
 import { InfoTip } from "@/components/ui/info-tip";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -67,8 +67,10 @@ import {
   type HeatSignal,
   type HeatTier,
   computeHeatTier,
+  normalizeHeatScoringConfig,
   FOURTEEN_DAYS_MS,
 } from "@/lib/heat-tier";
+import { useBrandConfig } from "@/context/BrandConfigContext";
 
 const API_BASE = "/api";
 
@@ -223,26 +225,19 @@ const HEAT_TIERS: { tier: HeatTier; label: string; icon: ReactNode; bg: string; 
   },
   {
     tier: "cool",
-    label: "Cool",
+    label: "Warming Up",
     icon: <Zap className="w-4 h-4" />,
     bg: "bg-blue-50 dark:bg-blue-950/20",
     border: "border-blue-200 dark:border-blue-800/40",
     active: "ring-2 ring-blue-400 dark:ring-blue-500",
     text: "text-blue-600 dark:text-blue-400",
   },
-  {
-    tier: "cold",
-    label: "Cold",
-    icon: <Snowflake className="w-4 h-4" />,
-    bg: "bg-slate-50 dark:bg-slate-900/30",
-    border: "border-slate-200 dark:border-slate-700/50",
-    active: "ring-2 ring-slate-400 dark:ring-slate-500",
-    text: "text-slate-500 dark:text-slate-400",
-  },
 ];
 
 function EngagementFunnel({ counts, trend, activeFilter, onFilter, loading }: FunnelProps) {
-  const total = counts.hot + counts.warm + counts.cool + counts.cold;
+  // "cold" (zero engagement) is intentionally unlabeled — only the three earned
+  // tiers are shown, matching the dashboard and the per-row badge behavior.
+  const total = counts.hot + counts.warm + counts.cool;
 
   return (
     <div className="flex flex-col gap-2">
@@ -264,7 +259,7 @@ function EngagementFunnel({ counts, trend, activeFilter, onFilter, loading }: Fu
         )}
       </div>
 
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         {HEAT_TIERS.map(({ tier, label, icon, bg, border, active, text }) => {
           const count = counts[tier];
           const { delta, pct } = trend[tier];
@@ -573,6 +568,9 @@ function AccountListView() {
   useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
 
   // ── Heat scoring ─────────────────────────────────────────────────────────
+  const { brand } = useBrandConfig();
+  const heatScoring = useMemo(() => normalizeHeatScoringConfig(brand.heatScoring), [brand.heatScoring]);
+
   const { accountHeatMap, funnelCounts, funnelTrend } = useMemo(() => {
     const now = Date.now();
     const prevRef = now - FOURTEEN_DAYS_MS; // 14d ago = "prior 2 weeks" reference point
@@ -602,11 +600,11 @@ function AccountListView() {
     const prevCounts: Record<HeatTier, number> = { hot: 0, warm: 0, cool: 0, cold: 0 };
 
     for (const acct of accounts) {
-      const tier = computeHeatTier(sigsByAccount.get(acct.id) ?? [], now);
+      const tier = computeHeatTier(sigsByAccount.get(acct.id) ?? [], now, heatScoring);
       heatMap.set(acct.id, tier);
       counts[tier]++;
 
-      const prevTier = computeHeatTier(prevSigsByAccount.get(acct.id) ?? [], prevRef);
+      const prevTier = computeHeatTier(prevSigsByAccount.get(acct.id) ?? [], prevRef, heatScoring);
       prevCounts[prevTier]++;
     }
 
@@ -618,7 +616,7 @@ function AccountListView() {
     });
 
     return { accountHeatMap: heatMap, funnelCounts: counts, funnelTrend: trend };
-  }, [accounts, signals]);
+  }, [accounts, signals, heatScoring]);
 
   const uniqueAbmTiers    = Array.from(new Set(accounts.map(a => a.abmTier).filter(Boolean))).sort() as string[];
   const uniqueAbmStages   = Array.from(new Set(accounts.map(a => a.abmStage).filter(Boolean))).sort() as string[];
