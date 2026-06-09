@@ -157,6 +157,7 @@ TEMPLATE RULES:
       ]}
     ]}]
     template: {{#each columns}}<div>{{this.heading}}<ul>{{#each this.links}}<li><a href="{{this.url}}">{{this.label}}</a></li>{{/each}}</ul></div>{{/each}}
+- CRITICAL — list subfields are NEVER top-level tokens. The moment you declare a field as type "list" with an itemSchema, EVERY one of its subfields can ONLY be referenced inside that list's {{#each list_id}}…{{/each}} block, using the {{this.subfield}} prefix (or {{#each this.sub_list}} for a nested list). Writing a bare {{subfield}} or {{#each sub_list}} for something that lives in an itemSchema is INVALID — it will fail validation with "no field with that id exists" AND "subfield defined but never used". If a heading/subheadline/etc. should appear ONCE above the repeated rows (not per-row), declare it as a SEPARATE top-level scalar field, do not bury it inside the list's itemSchema.
 - For repeating content (nav links, social icons, pricing tiers, etc.) PREFER a single "list" field with #each over many numbered scalar fields.
 - Every {{token}} MUST map to a declared field/subfield id, AND every schema field (and every list subfield) MUST appear in the template at least once. Do not declare unused fields.
 - Scope CSS by wrapping the block in a single root element with a unique class (e.g. .blk-{kebab-of-name}) and prefixing every selector inside <style> with that class. Never use bare element selectors that would bleed (e.g. "h1 { ... }" — use ".blk-foo h1 { ... }").
@@ -1009,74 +1010,132 @@ router.post("/lp/custom-blocks/generate", requireAuth, aiHeavyLimiter, aiHeavyHo
     return;
   }
 
-  const userText = buildUserPrompt({
-    prompt: prompt || "(refine the prior output)",
-    refineInstruction: body.refineInstruction,
-    prior: body.prior ?? null,
-    brand,
-    scraped,
-    hasVisionImage: !!visionImage,
-  });
-
-  const userParts: ChatCompletionContentPart[] = [{ type: "text", text: userText }];
-  if (visionImage) {
-    userParts.push({ type: "image_url", image_url: { url: visionImage } });
-  }
-
   const systemContent = [brandSystem, briefSystem, buildSystemPrompt()].filter(Boolean).join("\n\n");
 
-  let raw = "{}";
+  // Self-repair retry loop. The model occasionally emits an INCONSISTENT
+  // template+schema — most commonly declaring a "list" field but then
+  // referencing its subfields as bare top-level {{tokens}} instead of
+  // wrapping them in {{#each list}}…{{this.sub}}…{{/each}}. validateAst then
+  // reports "template uses {{x}} but no field with that id exists" plus the
+  // unused-subfield parity error, and the user is stranded behind the
+  // "fix before saving" wall with no way to fix it themselves. So when an
+  // attempt has validation errors we feed those errors (and the failed draft)
+  // back to the model to self-correct, keeping whichever attempt has the
+  // fewest errors. buildUserPrompt already supports prior/priorIssues for
+  // exactly this — previously only used for client-driven refine.
+  const MAX_GEN_ATTEMPTS = 3;
   let usage: { prompt_tokens?: number; completion_tokens?: number } | undefined;
-  try {
-    // May 2026 audit follow-up: 4096 was tight for a full schema + template
-    // + sample block. Raise budget and lift temperature out of the "safe
-    // median" zone where the model defaults to bare-bones output.
-    const completion = await withOpenAIConcurrency(() =>
-      openai.chat.completions.create({
-        model: "gpt-4o",
-        temperature: 0.85,
-        max_completion_tokens: 8192,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemContent },
-          { role: "user", content: userParts },
-        ],
-      }),
-    );
-    raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
-    usage = completion.usage;
-  } catch (err) {
-    logCopyCall({
-      endpoint: "custom-blocks-generate",
-      tenantId,
-      briefPresent,
-      sparkleMode: body.prior ? "refine" : "generate",
-      success: false,
-      errorMessage: err instanceof Error ? err.message : String(err),
+  let best: {
+    payload: SchemaBlockPayload;
+    issues: ValidationIssue[];
+    errors: ValidationIssue[];
+    warnings: ValidationIssue[];
+  } | null = null;
+
+  for (let attempt = 0; attempt < MAX_GEN_ATTEMPTS; attempt++) {
+    const isRepair = attempt > 0 && best !== null;
+    const userText = buildUserPrompt({
+      prompt: prompt || "(refine the prior output)",
+      refineInstruction: body.refineInstruction,
+      // On a repair pass, hand the model its own just-generated (invalid)
+      // draft so it edits in place rather than rebuilding from scratch.
+      prior: isRepair ? best!.payload : (body.prior ?? null),
+      brand,
+      scraped,
+      // Keep the prompt's "attached image" claim in lockstep with the actual
+      // message payload below — the image part is only attached on attempt 0.
+      hasVisionImage: !!visionImage && !isRepair,
+      priorIssues: isRepair ? best!.errors : undefined,
     });
-    res.status(502).json({ error: `AI generation failed: ${err instanceof Error ? err.message : String(err)}` });
-    return;
+
+    const userParts: ChatCompletionContentPart[] = [{ type: "text", text: userText }];
+    // The vision image grounds the first (design) pass only; repair passes are
+    // a pure structural fix, so skip it to save tokens/latency.
+    if (visionImage && !isRepair) {
+      userParts.push({ type: "image_url", image_url: { url: visionImage } });
+    }
+
+    let raw = "{}";
+    try {
+      // May 2026 audit follow-up: 4096 was tight for a full schema + template
+      // + sample block. Raise budget and lift temperature out of the "safe
+      // median" zone where the model defaults to bare-bones output.
+      const completion = await withOpenAIConcurrency(() =>
+        openai.chat.completions.create({
+          model: "gpt-4o",
+          temperature: 0.85,
+          max_completion_tokens: 8192,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: systemContent },
+            { role: "user", content: userParts },
+          ],
+        }),
+      );
+      raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
+      // Accumulate token usage across attempts for accurate cost logging.
+      if (completion.usage) {
+        usage = {
+          prompt_tokens: (usage?.prompt_tokens ?? 0) + (completion.usage.prompt_tokens ?? 0),
+          completion_tokens: (usage?.completion_tokens ?? 0) + (completion.usage.completion_tokens ?? 0),
+        };
+      }
+    } catch (err) {
+      // A mid-loop API failure after we already have a usable draft should
+      // return that draft (the user can still edit it) rather than 502.
+      if (best !== null) break;
+      logCopyCall({
+        endpoint: "custom-blocks-generate",
+        tenantId,
+        briefPresent,
+        sparkleMode: body.prior ? "refine" : "generate",
+        success: false,
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
+      res.status(502).json({ error: `AI generation failed: ${err instanceof Error ? err.message : String(err)}` });
+      return;
+    }
+
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+    let parsedJson: Record<string, unknown> = {};
+    try { parsedJson = JSON.parse(cleaned); } catch {
+      // Same fallback: keep any earlier draft instead of failing outright.
+      if (best !== null) break;
+      logCopyCall({
+        endpoint: "custom-blocks-generate",
+        tenantId,
+        briefPresent,
+        sparkleMode: body.prior ? "refine" : "generate",
+        promptTokens: usage?.prompt_tokens,
+        completionTokens: usage?.completion_tokens,
+        success: false,
+        errorMessage: "invalid_json",
+      });
+      res.status(502).json({ error: "AI returned invalid JSON", raw: cleaned.slice(0, 1000) });
+      return;
+    }
+
+    const { payload: attemptPayload, issues: attemptIssues } = validateRawSchemaBlock(parsedJson);
+    const split = splitIssues(attemptIssues);
+    // Keep the attempt with the fewest errors (ties keep the earliest, which
+    // best honours the user's original design intent).
+    if (best === null || split.errors.length < best.errors.length) {
+      best = {
+        payload: attemptPayload,
+        issues: attemptIssues,
+        errors: split.errors,
+        warnings: split.warnings,
+      };
+    }
+    if (split.errors.length === 0) break;
   }
 
-  const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
-  let parsedJson: Record<string, unknown> = {};
-  try { parsedJson = JSON.parse(cleaned); } catch {
-    logCopyCall({
-      endpoint: "custom-blocks-generate",
-      tenantId,
-      briefPresent,
-      sparkleMode: body.prior ? "refine" : "generate",
-      promptTokens: usage?.prompt_tokens,
-      completionTokens: usage?.completion_tokens,
-      success: false,
-      errorMessage: "invalid_json",
-    });
-    res.status(502).json({ error: "AI returned invalid JSON", raw: cleaned.slice(0, 1000) });
-    return;
-  }
-
-  const { payload, issues } = validateRawSchemaBlock(parsedJson);
-  const { errors, warnings } = splitIssues(issues);
+  // best is non-null here: the loop always runs at least once and the early
+  // `return` paths only fire while best is still null.
+  const payload = best!.payload;
+  const issues = best!.issues;
+  const errors = best!.errors;
+  const warnings = best!.warnings;
 
   // Optional: replace any "image" sample values with on-brand AI images
   // before responding. Off by default — generation is opt-in per page.
