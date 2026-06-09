@@ -2062,6 +2062,18 @@ function WorkflowComposer() {
     }
   };
 
+  const deleteWorkflowById = async (w: ComposerWorkflow) => {
+    if (!window.confirm(`Delete workflow "${w.name}"? This cannot be undone.`)) return;
+    setErr(null);
+    try {
+      await apiFetch(`/api/admin/email-workflows/${w.id}`, { method: "DELETE" });
+      if (view.kind === "workflow" && view.id === w.id) setView({ kind: "empty" });
+      await load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Failed to delete workflow");
+    }
+  };
+
   const selectedWorkflow =
     view.kind === "workflow" && view.id !== null
       ? workflows.find((w) => w.id === view.id) ?? null
@@ -2106,24 +2118,43 @@ function WorkflowComposer() {
             <Plus className="mr-1 h-3.5 w-3.5" /> New workflow
           </Button>
           <div className="space-y-1">
-            {workflows.map((w) => (
-              <button
-                key={w.id}
-                type="button"
-                onClick={() => setView({ kind: "workflow", id: w.id })}
-                className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-1.5 text-left text-sm ${
-                  view.kind === "workflow" && view.id === w.id
-                    ? "bg-primary/10 font-medium text-primary"
-                    : "hover:bg-accent"
-                }`}
-              >
-                <span className="truncate">{w.name}</span>
-                <span className="flex shrink-0 items-center gap-1">
-                  {w.locked && <Badge variant="secondary" className="px-1 py-0 text-[9px]">lock</Badge>}
-                  {!w.enabled && <span className="text-[9px] text-muted-foreground">off</span>}
-                </span>
-              </button>
-            ))}
+            {workflows.map((w) => {
+              const selected = view.kind === "workflow" && view.id === w.id;
+              const canDelete = !w.is_system && !w.locked;
+              return (
+                <div
+                  key={w.id}
+                  className={`group flex items-center gap-1 rounded-md ${
+                    selected ? "bg-primary/10" : "hover:bg-accent"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setView({ kind: "workflow", id: w.id })}
+                    className={`flex min-w-0 flex-1 items-center justify-between gap-2 px-3 py-1.5 text-left text-sm ${
+                      selected ? "font-medium text-primary" : ""
+                    }`}
+                  >
+                    <span className="truncate">{w.name}</span>
+                    <span className="flex shrink-0 items-center gap-1">
+                      {w.locked && <Badge variant="secondary" className="px-1 py-0 text-[9px]">lock</Badge>}
+                      {!w.enabled && <span className="text-[9px] text-muted-foreground">off</span>}
+                    </span>
+                  </button>
+                  {canDelete && (
+                    <button
+                      type="button"
+                      aria-label={`Delete workflow ${w.name}`}
+                      title="Delete workflow"
+                      onClick={() => void deleteWorkflowById(w)}
+                      className="mr-1 shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus:opacity-100 group-hover:opacity-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
             {workflows.length === 0 && !loading && (
               <p className="px-1 py-2 text-xs text-muted-foreground">No workflows yet.</p>
             )}
