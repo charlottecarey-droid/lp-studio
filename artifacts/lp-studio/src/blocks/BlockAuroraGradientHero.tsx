@@ -204,16 +204,7 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
   const navCtaText = props.navCtaText ?? "Get Started";
   const badgeText = props.badgeText ?? "Introducing Lumina AI Generation";
   const badgeLinkText = props.badgeLinkText ?? "Read announcement";
-  const gradientWord = props.headlineGradientWord ?? "pure thought.";
   const chips = props.chips && props.chips.length > 0 ? props.chips : DEFAULT_CHIPS;
-
-  // Accent gradient applied to the highlighted headline word.
-  const gradientTextStyle: CSSProperties = {
-    background: `linear-gradient(to right, ${text}, ${accent})`,
-    WebkitBackgroundClip: "text",
-    backgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-  };
 
   const blobStyle = (color: string): CSSProperties => ({
     background: `radial-gradient(circle, color-mix(in srgb, ${color} 80%, transparent) 0%, transparent 70%)`,
@@ -373,18 +364,6 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
             style={{ fontFamily: headlineFamily, color: text }}
           >
             <InlineText as="span" value={props.headline} onUpdate={field("headline")} />
-            {(gradientWord || onFieldChange) && (
-              <>
-                {" "}
-                <br className="hidden md:block" />
-                <InlineText
-                  as="span"
-                  value={gradientWord}
-                  onUpdate={field("headlineGradientWord")}
-                  style={gradientTextStyle}
-                />
-              </>
-            )}
           </motion.h1>
 
           {/* Subheadline */}

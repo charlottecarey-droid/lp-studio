@@ -50,7 +50,6 @@
 - [plan='free' writes close trial](plan-free-write-trial-close.md) — every downgrade-to-free path must splice CLOSE_TRIAL_ON_FREE_SQL or effectivePlan re-lifts the open trial back to Growth and gates leak.
 - [Cross-instance notification broker](notification-cross-instance-broker.md) — SSE pushes fan out via LISTEN/NOTIFY; NOTIFY ok on pooler, LISTEN needs non-pooled (strip `-pooler`); INSTANCE_ID skips own echo.
 - [drizzle multi-statement = extended protocol fail](drizzle-multistatement-extended-protocol.md) — run a whole .sql file via raw `pool.query(string)` (simple protocol); `db.execute(sql.raw(...))` sends params → extended → "cannot insert multiple commands".
-- [e2e concurrent-run flake](e2e-concurrent-run-flake.md) — lp-studio e2e "browser/page closed" + api-server dist clobber are env flakes from running alongside dev workflows; clean isolated run = 108/108; trust test-results/.last-run.json not /tmp snapshots.
 - [jsPDF fill-color encoding](jspdf-fill-color-encoding.md) — PDF byte color guards: fills=2-decimal `rg`, text=3-decimal; hardcode brand RGB literals, not DANDY_PALETTE-derived.
 - [Workflow engine hard-fallback](workflow-engine-hard-fallback.md) — a MATCHED-but-non-executable email workflow must still run the code-default fallback; gate on isWorkflowExecutable (template existence) at runtime + save-time.
 - [Tenant email audit metadata-only](tenant-email-audit-pii.md) — tenant test-send audit must NOT store recipient address (unlike platform editor's sentTo); log a flag + actor only.

@@ -227,15 +227,6 @@ export function AuroraGradientHeroPanel({ props, onChange }: Props) {
           />
         </div>
         <div>
-          <Label className="text-[11px] text-muted-foreground">Headline gradient word</Label>
-          <Input
-            value={props.headlineGradientWord ?? ""}
-            onChange={(e) => update({ headlineGradientWord: e.target.value })}
-            placeholder="pure thought."
-            className="h-8 text-xs"
-          />
-        </div>
-        <div>
           <Label className="text-[11px] text-muted-foreground">Subheadline</Label>
           <AiTextField
             value={props.subheadline ?? ""}

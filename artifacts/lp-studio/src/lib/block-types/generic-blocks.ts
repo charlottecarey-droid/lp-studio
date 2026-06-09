@@ -2937,8 +2937,6 @@ export interface AuroraGradientHeroBlockProps
   badgeLinkText?: string;
   badgeLinkUrl?: string;
   headline: string;
-  /** Portion of the headline rendered with the accent gradient. */
-  headlineGradientWord?: string;
   subheadline?: string;
   /** Floating glass chips (defaults provided). */
   chips?: AuroraHeroChip[];

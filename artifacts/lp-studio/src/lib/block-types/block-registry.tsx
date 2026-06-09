@@ -4445,7 +4445,6 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       badgeLinkText: "Read announcement",
       badgeLinkUrl: "#",
       headline: "The intelligent canvas for modern teams",
-      headlineGradientWord: "intelligent",
       subheadline:
         "Design, build, and ship faster with an aurora of tools that adapt to the way you work.",
       ctaText: "Get started free",
