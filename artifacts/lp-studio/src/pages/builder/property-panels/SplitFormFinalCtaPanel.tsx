@@ -7,7 +7,6 @@ import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 import { SectionBackgroundControl } from "./SectionBackgroundControl";
-import { CtaActionConfigSection } from "./CtaActionConfigSection";
 
 interface Props {
   props: SplitFormFinalCtaBlockProps;
@@ -79,12 +78,21 @@ export function SplitFormFinalCtaPanel({ props, onChange }: Props) {
       </div>
 
       <div className="space-y-3">
-        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Button action</div>
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Booking (optional)</div>
         <p className="text-[11px] leading-snug text-muted-foreground">
-          Default (<span className="font-medium">Link / URL</span>) captures the on-page email inline. Other actions route the
-          submit button through the shared CTA suite (Chili Piper, modal form, video).
+          The form captures the lead (name, email, phone) inline on submit. Add a Chili Piper URL to also offer a
+          "Schedule a call" button on the success screen.
         </p>
-        <CtaActionConfigSection value={props} onChange={(v) => onChange({ ...props, ...v })} />
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Chili Piper URL</Label>
+          <input
+            type="url"
+            value={props.chilipiperUrl ?? ""}
+            onChange={(e) => update({ chilipiperUrl: e.target.value })}
+            placeholder="https://yourcompany.chilipiper.com/..."
+            className="mt-1 h-8 w-full rounded-md border border-input bg-background px-2 text-xs outline-none focus:border-ring"
+          />
+        </div>
       </div>
 
       <div className="space-y-3">
