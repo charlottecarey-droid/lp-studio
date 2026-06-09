@@ -1124,3 +1124,72 @@ describe("icon-only item photos (benefits-grid / features)", () => {
     }
   });
 });
+
+describe("off-topic curated images do not auto-fill content/strip slots", () => {
+  // A curated (non-scraped) library that is purpose-classified for feature
+  // slots but topically OFF-TOPIC for a dentures page — e.g. an intraoral
+  // scanner product shot. This reproduces the "scanner photos on a dentures
+  // page" strip regression.
+  const SCANNER_ONLY: MediaImage[] = [
+    { url: "/objects/scanner-device", title: "Intraoral scanner hardware", tags: ["lp-feature", "scanner", "device"] },
+  ];
+  const ON_TOPIC_FEATURE: MediaImage[] = [
+    { url: "/objects/denture-strip-1", title: "Denture smile", tags: ["lp-feature", "dentures", "smile"] },
+  ];
+
+  const stripBlock = () => [
+    {
+      type: "photo-strip",
+      props: {
+        headline: "Real stories from real practices",
+        images: [{ alt: "", src: "" }, { alt: "", src: "" }],
+      },
+    },
+  ];
+
+  it("strict pass leaves a photo-strip slot empty rather than fill it with an off-topic curated image", () => {
+    const blocks = fillEmptyImages(stripBlock(), SCANNER_ONLY, PAGE_CTX, false) as any[];
+    for (const img of blocks[0].props.images) {
+      expect(img.src).toBe("");
+    }
+  });
+
+  it("relaxed (last-resort) pass still fills the strip from the curated library when nothing better exists", () => {
+    const blocks = fillEmptyImages(stripBlock(), SCANNER_ONLY, PAGE_CTX, true) as any[];
+    expect(blocks[0].props.images[0].src).toBe("/objects/scanner-device");
+  });
+
+  it("strict pass DOES fill a photo-strip slot with an on-topic curated image", () => {
+    const blocks = fillEmptyImages(stripBlock(), ON_TOPIC_FEATURE, PAGE_CTX, false) as any[];
+    expect(blocks[0].props.images[0].src).toBe("/objects/denture-strip-1");
+  });
+
+  it("ACCEPTED RESIDUAL: an UNTAGGED off-topic curated upload still fills in the strict pass (preserves the deliberate tenant-asset preference)", () => {
+    // The fix only holds back curated images the auto-tagger DESCRIBED (a
+    // topical tag present). An untagged upload has no subject signal, so we keep
+    // the prior "prefer the tenant's own assets" decision and let it fill. If a
+    // future report involves genuinely untagged off-topic assets, this is the
+    // line that would need to change (and it's covered, not accidental).
+    const untaggedOffTopic: MediaImage[] = [
+      { url: "/objects/raw-upload", title: "office lobby", tags: [] },
+    ];
+    const blocks = fillEmptyImages(stripBlock(), untaggedOffTopic, PAGE_CTX, false) as any[];
+    expect(blocks[0].props.images[0].src).toBe("/objects/raw-upload");
+  });
+
+  it("does NOT tighten hero slots: a purpose-matched curated hero still fills even without topical overlap", () => {
+    // Guard against over-reach — hero/product-detail keep the tenant-asset
+    // preference. A generic brand hero (lp-hero, no dentures keyword) must still
+    // fill a hero slot in the strict pass.
+    const heroLib: MediaImage[] = [
+      { url: "/objects/brand-hero", title: "Bright modern office", tags: ["lp-hero", "office"] },
+    ];
+    const blocks = fillEmptyImages(
+      [{ type: "hero", props: { headline: "Affordable dentures", imageUrl: "" } }],
+      heroLib,
+      PAGE_CTX,
+      false,
+    ) as any[];
+    expect(blocks[0].props.imageUrl).toBe("/objects/brand-hero");
+  });
+});

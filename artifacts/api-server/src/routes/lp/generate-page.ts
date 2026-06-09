@@ -687,6 +687,22 @@ function getImagePurpose(img: MediaImage): string {
   return "";
 }
 
+/** True when a curated image carries at least one DESCRIPTIVE (topical) tag —
+ *  i.e. a tag that isn't a purpose marker (PURPOSE_TAGS), a non-semantic
+ *  descriptor (SKIP_TAGS), an OG/social/role tag (EXCLUDE_TAGS), or a scrape
+ *  provenance tag. When true, the auto-tagger DID describe the photo's subject,
+ *  so a zero topical-relevance score means it is actively OFF-TOPIC (not merely
+ *  unlabeled). Untagged uploads return false and keep the benefit of the doubt. */
+function hasTopicalTag(img: MediaImage): boolean {
+  return img.tags.some((t) => {
+    const tl = t.toLowerCase().trim();
+    if (!tl) return false;
+    if (SKIP_TAGS.has(tl) || EXCLUDE_TAGS.has(tl)) return false;
+    if (tl.startsWith("refhost:") || tl === "scraped" || tl === "page-reference") return false;
+    return true;
+  });
+}
+
 /** Fetch all images from the media library, separated by purpose for AI context.
  *
  * Tenant isolation: when a tenantId is supplied, images readable by that
@@ -916,7 +932,23 @@ function findBestImage(
       ? score >= 0
       : isScrapedImage(img)
         ? contentScore > 0
-        : score >= 0;
+        : preferredPurpose === "lp-feature" && hasTopicalTag(img)
+          // A curated image whose auto-tagger DESCRIBED its subject (has a
+          // topical tag) yet scores ZERO topical relevance for this slot is
+          // actively OFF-TOPIC — e.g. an intraoral-scanner product shot tagged
+          // "scanner" landing on a "what dentists say" strip on a dentures page
+          // (the reported "wrong images" symptom). For lp-feature CONTENT slots
+          // (photo-strip, zigzag rows, cards/panels, feature items) require a
+          // real topical signal. UNTAGGED curated uploads (no descriptive tag)
+          // fall through to `score >= 0` and keep the deliberate tenant-asset
+          // preference — we don't know their subject, so they get the benefit of
+          // the doubt. Hero (lp-hero) and product-detail slots are unaffected: a
+          // brand hero or product photo is expected there without topical
+          // overlap. Any rejected off-topic curated image still fills as a LAST
+          // resort in the relaxed pass, which runs AFTER AI image generation
+          // gets a chance to produce an on-topic image. (Task #1287 follow-up)
+          ? contentScore > 0
+          : score >= 0;
     if (!acceptable) continue;
     if (score > bestScore) {
       bestScore = score;
