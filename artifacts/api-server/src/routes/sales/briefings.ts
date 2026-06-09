@@ -5,6 +5,7 @@ import { salesBriefingsTable, salesAccountsTable, lpBrandSettingsTable } from "@
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { callAIChat, AIChatError, aiErrorMessage, fetchWithTimeout } from "../../lib/ai-utils";
 import { slackService } from "../../lib/slack-service";
+import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
 
 const router = Router();
 
@@ -135,26 +136,87 @@ async function scrapeWebsite(url: string): Promise<string> {
 
 // ─── AI Synthesis ───────────────────────────────────────────
 
-async function synthesizeBriefing(
-  account: AccountContext,
-  researchText: string,
-  websiteContent: string,
-  sources: string[],
-): Promise<Record<string, unknown>> {
-  const sellerDesc = account.brandCompanyDescription
-    ?? (account.brandName && account.brandTargetAudience
-      ? `${account.brandName}, which sells to ${account.brandTargetAudience}`
-      : (account.brandName ?? "a B2B company"));
+export interface AccountBriefingPromptArgs {
+  account: AccountContext;
+  /** Per-tenant Sales Console brand context — identifies THE SELLER. */
+  brandCtx: SalesBrandContext;
+  researchText: string;
+  websiteContent: string;
+  sources: string[];
+}
+
+/**
+ * Pure prompt builder for the account briefing — extracted from
+ * synthesizeBriefing so the seller→prospect framing can be unit-tested
+ * without hitting the live LLM.
+ *
+ * DIRECTION CONTRACT: the tenant is always THE SELLER and the researched
+ * account is always THE PROSPECT (buyer). Every generated value prop,
+ * talking point, recommended message, objection, and page recommendation
+ * must position the tenant's services being sold TO the account — never
+ * the account selling to its own customers. The original prompt named the
+ * seller only once and left the schema entirely prospect-shaped, so the
+ * model would sometimes flip the perspective and brief "the account on how
+ * to sell to itself". The explicit SELLER / PROSPECT blocks + direction
+ * rules below lock the orientation in.
+ */
+export function buildAccountBriefingPrompt(args: AccountBriefingPromptArgs): {
+  systemPrompt: string;
+  userPrompt: string;
+} {
+  const { account, brandCtx, researchText, websiteContent, sources } = args;
+
+  // ─── THE SELLER (the tenant doing the selling) ───
+  // Robust identity: prefer the Sales Console brand name, then the brand
+  // config name, then a neutral fallback — never the prospect's name.
+  const sellerName =
+    brandCtx.brandName.trim()
+    || (account.brandName ?? "").trim()
+    || "our company";
+  const sellerDescriptor =
+    (account.brandCompanyDescription ?? "").trim()
+    || brandCtx.briefBlurb.replace(/^\(|\)$/g, "").trim()
+    || (account.brandTargetAudience ? `a company that sells to ${account.brandTargetAudience}` : "");
+  const sellerLine = sellerDescriptor ? `${sellerName} — ${sellerDescriptor}` : sellerName;
+
+  const valuePropPairs = Array.isArray(brandCtx.valuePropPairs) ? brandCtx.valuePropPairs : [];
+  const sellerOfferLines = [
+    brandCtx.salesIntroLine.trim() && `Positioning / voice: ${brandCtx.salesIntroLine.trim()}`,
+    ...valuePropPairs.map(p => {
+      const roles = (p.roles ?? []).filter(Boolean).join(" / ");
+      const header = roles ? `For ${roles} → ${p.theme}` : p.theme;
+      return [header, p.pain && `  Pain: ${p.pain}`, p.proof && `  Proof: ${p.proof}`].filter(Boolean).join("\n");
+    }),
+  ].filter(Boolean).join("\n");
+
+  // ─── THE PROSPECT (the researched account being sold to) ───
   const prospectIndustry = account.industry
     ?? (account.brandTargetAudience ? `companies in this space: ${account.brandTargetAudience}` : null)
     ?? "B2B companies";
 
   const systemPrompt = [
-    `You are a B2B sales intelligence analyst. Given research data about a prospect, synthesize a structured account briefing for the sales team at ${sellerDesc}. The prospect being researched is: ${prospectIndustry}.`,
+    `You are a B2B sales-intelligence analyst working for THE SELLER defined below. Your job is to brief THE SELLER's sales team on how to win THE PROSPECT as a customer — i.e. how THE SELLER should sell ITS OWN products and services TO THE PROSPECT.`,
+    "",
+    "=== THE SELLER (your employer — the company doing the selling) ===",
+    sellerLine,
+    sellerOfferLines ? `\nWhat ${sellerName} offers:\n${sellerOfferLines}` : "",
+    "",
+    "=== THE PROSPECT (the company being researched — the buyer) ===",
+    `${account.name}${prospectIndustry ? ` — ${prospectIndustry}` : ""}`,
+    "",
+    "CRITICAL DIRECTION RULES — follow these without exception:",
+    `- Write the entire briefing from ${sellerName}'s point of view as the SELLER. ${account.name} is the BUYER/prospect, not the seller.`,
+    `- NEVER describe how ${account.name} should sell to ITS OWN customers, and never position ${account.name}'s own products. Every recommendation is about ${sellerName} selling TO ${account.name}.`,
+    `- "fitAnalysis.primaryValueProp" = why ${account.name} should buy from ${sellerName} (lead with ${sellerName}'s value).`,
+    `- "fitAnalysis.proofPoints" = ${sellerName}'s proof points, not ${account.name}'s.`,
+    `- "buyingCommittee[].recommendedMessage" = what a ${sellerName} sales rep should say to that person at ${account.name}.`,
+    `- "talkingPoints" = points a ${sellerName} rep raises in a conversation with ${account.name}.`,
+    `- "pageRecommendations" = guidance for a personalized landing page ${sellerName} will show ${account.name} to win the deal.`,
+    "",
     "Return ONLY valid JSON matching this exact schema:",
     JSON.stringify({
-      companyName: "string",
-      overview: "2-3 sentence company overview",
+      companyName: "string (the PROSPECT company name)",
+      overview: "2-3 sentence overview of the PROSPECT",
       tier: "Enterprise / Mid-Market / SMB / Unknown",
       organizationalModel: "Centralized / Decentralized / Hybrid / Unknown",
       leadership: [{ name: "string", title: "string" }],
@@ -182,7 +244,7 @@ async function synthesizeBriefing(
       },
     }, null, 2),
     "If data is insufficient for a field, use null or empty arrays. Never fabricate data.",
-  ].join("\n");
+  ].filter(line => line !== "").join("\n");
 
   const accountMeta = [
     account.domain ? `Website: ${account.domain}` : null,
@@ -195,12 +257,30 @@ async function synthesizeBriefing(
   ].filter(Boolean).join("\n");
 
   const userPrompt = [
-    `Company: ${account.name}`,
-    accountMeta ? `\n--- Account Info ---\n${accountMeta}` : "",
-    researchText ? `\n--- Research Data ---\n${researchText}` : "",
-    websiteContent ? `\n--- Website Content ---\n${websiteContent.slice(0, 4000)}` : "",
+    `PROSPECT company to brief ${sellerName}'s sales team on: ${account.name}`,
+    accountMeta ? `\n--- Prospect Account Info ---\n${accountMeta}` : "",
+    researchText ? `\n--- Research Data (about the prospect ${account.name}) ---\n${researchText}` : "",
+    websiteContent ? `\n--- Prospect Website Content ---\n${websiteContent.slice(0, 4000)}` : "",
     sources.length > 0 ? `\n--- Sources ---\n${sources.join("\n")}` : "",
   ].filter(Boolean).join("\n");
+
+  return { systemPrompt, userPrompt };
+}
+
+async function synthesizeBriefing(
+  account: AccountContext,
+  brandCtx: SalesBrandContext,
+  researchText: string,
+  websiteContent: string,
+  sources: string[],
+): Promise<Record<string, unknown>> {
+  const { systemPrompt, userPrompt } = buildAccountBriefingPrompt({
+    account,
+    brandCtx,
+    researchText,
+    websiteContent,
+    sources,
+  });
 
   const raw = await callAIChat({
     model: "gpt-4o",
@@ -299,10 +379,14 @@ router.post("/accounts/:accountId/briefing", requireAuth, async (req, res): Prom
         : Promise.resolve(""),
     ]);
 
+    // Seller identity (the tenant) for the briefing's direction framing.
+    const brandCtx = await getSalesBrandContext(tenantId);
+
     let briefingData: Record<string, unknown>;
     try {
       briefingData = await synthesizeBriefing(
         accountCtx,
+        brandCtx,
         research.text,
         website,
         research.sources,
