@@ -535,6 +535,8 @@ export interface DsoMeetTeamMember {
   photo?: string;
   email?: string;
   chilipiperUrl?: string;
+  /** Vertical focal point for the cropped headshot. Defaults to "top". */
+  photoPosition?: "top" | "center" | "bottom";
 }
 
 export interface DsoMeetTeamBlockProps {

@@ -139,7 +139,7 @@ export function BlockDsoMeetTeam({ props, brand, onFieldChange }: Props) {
                   <InlineImage
                     src={m.photo}
                     alt={m.name}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center" }}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: `center ${m.photoPosition ?? "top"}` }}
                     wrapperClassName="block w-full h-full"
                     onUpdate={updateMember ? (url) => updateMember(i, { photo: url }) : undefined}
                   />

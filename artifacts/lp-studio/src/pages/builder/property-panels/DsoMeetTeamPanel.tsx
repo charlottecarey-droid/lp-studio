@@ -150,6 +150,19 @@ export function DsoMeetTeamPanel({ block, onChange, brandVoiceSet, bgOptions }: 
               <Input value={m.email ?? ""} onChange={e => updateMember(i, { email: e.target.value })} placeholder="email@example.com" className="h-8 text-xs" />
               <Input value={m.chilipiperUrl ?? ""} onChange={e => updateMember(i, { chilipiperUrl: e.target.value })} placeholder="Chili Piper / booking URL" className="h-8 text-xs" />
               <ImagePicker label="Headshot" value={m.photo ?? ""} onChange={url => updateMember(i, { photo: url })} />
+              {m.photo && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Image Focus</Label>
+                  <Select value={m.photoPosition ?? "top"} onValueChange={v => updateMember(i, { photoPosition: v as "top" | "center" | "bottom" })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="top" className="text-xs">Top</SelectItem>
+                      <SelectItem value="center" className="text-xs">Center</SelectItem>
+                      <SelectItem value="bottom" className="text-xs">Bottom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           ))}
         </div>
