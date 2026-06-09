@@ -474,6 +474,8 @@ function MediaTab() {
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [removingTag, setRemovingTag] = useState(false);
+  const [tagMenuOpen, setTagMenuOpen] = useState(false);
   const [reclassifying, setReclassifying] = useState(false);
   const [reclassifyMsg, setReclassifyMsg] = useState("");
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
@@ -633,6 +635,42 @@ function MediaTab() {
     fetchRefSources();
   };
 
+  // Tags present across the currently-selected images, with how many of the
+  // selection carry each tag — drives the "Remove tag" menu so the user can
+  // strip a mis-applied tag (e.g. lp-hero on off-topic shots) in one action.
+  const selectedTagCounts = (() => {
+    const counts = new Map<string, number>();
+    for (const item of items) {
+      if (!selected.has(item.id)) continue;
+      for (const t of item.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+  })();
+
+  // Remove a single tag from every selected image that carries it. Done in one
+  // server-side call so it covers the whole selection — including images on other
+  // pages that aren't currently loaded (the menu's tag list is built from the
+  // visible page, but removal applies to all selected ids). Selection is kept so
+  // the user can strip several tags in a row.
+  const handleBulkRemoveTag = async (tag: string) => {
+    if (selected.size === 0) return;
+    if (!confirm(`Remove the "${tag}" tag from the selected image${selected.size === 1 ? "" : "s"} that carry it?`)) return;
+    setRemovingTag(true);
+    setTagMenuOpen(false);
+    try {
+      await fetch(`/api/lp/media/remove-tag`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [...selected], tag }),
+      });
+    } catch { /* result is reflected by the refresh below */ }
+    setRemovingTag(false);
+    await fetchImages();
+    fetchRefSources();
+  };
+
   // Bulk-remove reference-sourced images. With a host filter active, deletes
   // only that site's images; otherwise wipes every reference-sourced image.
   const handleDeleteReference = async (host: string) => {
@@ -657,6 +695,7 @@ function MediaTab() {
   const exitSelectMode = () => {
     setSelectMode(false);
     setSelected(new Set());
+    setTagMenuOpen(false);
   };
 
   const handleReclassify = async (force = false) => {
@@ -909,6 +948,43 @@ function MediaTab() {
               </button>
               <span className="text-sm text-slate-500 shrink-0">{selected.size} selected</span>
               <div className="flex-1" />
+              {selected.size > 0 && (
+                <div className="relative shrink-0">
+                  <Button
+                    variant="outline" size="sm" className="h-9 gap-1.5"
+                    onClick={() => setTagMenuOpen(v => !v)}
+                    disabled={removingTag || deleting}
+                  >
+                    {removingTag ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Tag className="w-3.5 h-3.5" />}
+                    Remove tag
+                    <ChevronRight className={`w-3.5 h-3.5 transition-transform ${tagMenuOpen ? "rotate-90" : ""}`} />
+                  </Button>
+                  {tagMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setTagMenuOpen(false)} />
+                      <div className="absolute right-0 top-full mt-1 z-50 w-64 max-h-72 overflow-y-auto rounded-lg border border-border bg-white shadow-lg py-1">
+                        {selectedTagCounts.length === 0 ? (
+                          <p className="px-3 py-2 text-xs text-slate-500">The selected images have no tags.</p>
+                        ) : (
+                          <>
+                            <p className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">Remove from selected</p>
+                            {selectedTagCounts.map(({ tag, count }) => (
+                              <button
+                                key={tag}
+                                onClick={() => handleBulkRemoveTag(tag)}
+                                className="w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left text-sm hover:bg-red-50 hover:text-red-700 transition-colors"
+                              >
+                                <span className="truncate">{tag}</span>
+                                <span className="text-xs text-slate-400 shrink-0">{count}</span>
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
               {selected.size > 0 && (
                 <Button
                   size="sm" className="h-9 gap-1.5 shrink-0 bg-red-600 hover:bg-red-700 text-white"

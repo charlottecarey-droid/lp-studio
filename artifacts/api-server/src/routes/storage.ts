@@ -243,16 +243,27 @@ const PRELOADED_VIDEOS = [
 /** Re-classify just the purpose (lp-hero/lp-feature/product-detail/og-image) for an image that already has content tags.
  *  Much lighter than full autoTagImage — only updates the purpose prefix tag.
  */
-async function classifyPurposeOnly(mediaId: number, imageBuffer: Buffer, mimeType: string, existingTags: string[]): Promise<void> {
+const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+
+/** Outcome of a single purpose-classification attempt, so the batch loop can
+ *  log progress and react to rate limiting instead of silently giving up. */
+type ClassifyResult = "tagged" | "skipped" | "no-config" | "rate-limited" | "error";
+
+async function classifyPurposeOnly(mediaId: number, imageBuffer: Buffer, mimeType: string, existingTags: string[]): Promise<ClassifyResult> {
+  const baseURL = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"];
+  const apiKey = process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
+  if (!baseURL || !apiKey) return "no-config";
+
+  // The OpenAI SDK auto-retries 429/5xx with exponential backoff, honoring the
+  // Retry-After header. Without a raised maxRetries the batch reclassify bursts
+  // past the AI proxy's rate limit after ~20 images; every later call then 429s
+  // and (previously, behind a silent catch) failed invisibly — the "only tags 20
+  // then stops" bug.
+  const openai = new OpenAI({ baseURL, apiKey, maxRetries: 6, timeout: 30_000 });
+  const base64 = imageBuffer.toString("base64");
+  const dataUri = `data:${mimeType};base64,${base64}`;
+
   try {
-    const baseURL = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"];
-    const apiKey = process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
-    if (!baseURL || !apiKey) return;
-
-    const openai = new OpenAI({ baseURL, apiKey });
-    const base64 = imageBuffer.toString("base64");
-    const dataUri = `data:${mimeType};base64,${base64}`;
-
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       max_completion_tokens: 20,
@@ -284,18 +295,20 @@ og-image       → any of: social-sharing / Open Graph card, text or logo overla
       const cleanedTags = existingTags.filter(t => !staleTagSet.has(t));
       const merged = ["og-image", ...cleanedTags].slice(0, 11);
       await db.update(lpMediaTable).set({ tags: merged }).where(eq(lpMediaTable.id, mediaId));
-      return;
+      return "tagged";
     }
 
     const purpose = VALID_PURPOSES.find(p => raw.includes(p));
-    if (!purpose) return;
+    if (!purpose) return "skipped";
 
     // Remove any stale purpose/og tags, prepend new one
     const cleanedTags = existingTags.filter(t => !staleTagSet.has(t));
     const merged = [purpose, ...cleanedTags].slice(0, 11);
     await db.update(lpMediaTable).set({ tags: merged }).where(eq(lpMediaTable.id, mediaId));
-  } catch {
-    // best-effort
+    return "tagged";
+  } catch (err) {
+    const status = (err as { status?: number } | null)?.status;
+    return status === 429 ? "rate-limited" : "error";
   }
 }
 
@@ -338,19 +351,46 @@ router.post("/lp/media/reclassify", requireSuperadmin, async (req: Request, res:
         : `Reclassifying ${toProcess.length} unclassified images in the background…`,
     });
 
-    // Process in background — fetch each image buffer from local serve URL
+    // Process in background — fetch each image buffer from local serve URL.
+    // Throttled + logged so the batch survives the AI proxy's rate limit and a
+    // superadmin can see real progress (the old silent loop "stopped" at ~20).
+    const log = req.log;
     setImmediate(async () => {
       const port = process.env.PORT ?? "8080";
-      for (const row of toProcess) {
+      let tagged = 0, skipped = 0, failed = 0;
+      log.info({ total: toProcess.length, force }, "reclassify: starting background batch");
+      for (let i = 0; i < toProcess.length; i++) {
+        const row = toProcess[i];
         try {
-          const fullUrl = `http://localhost:${port}${row.url}`;
-          const resp = await fetch(fullUrl);
-          if (!resp.ok) continue;
+          const resp = await fetch(`http://localhost:${port}${row.url}`);
+          if (!resp.ok) { failed++; continue; }
           const buffer = Buffer.from(await resp.arrayBuffer());
           const mimeType = row.mimeType ?? "image/jpeg";
-          await classifyPurposeOnly(row.id, buffer, mimeType, (row.tags as string[]) ?? []);
-        } catch { /* skip on error */ }
+          let result = await classifyPurposeOnly(row.id, buffer, mimeType, (row.tags as string[]) ?? []);
+          // A 429 that escaped the SDK's own retries means the proxy is saturated:
+          // cool down hard, then make one final attempt for this row.
+          if (result === "rate-limited") {
+            await sleep(20_000);
+            result = await classifyPurposeOnly(row.id, buffer, mimeType, (row.tags as string[]) ?? []);
+          }
+          if (result === "no-config") {
+            log.warn("reclassify: AI integration not configured — aborting batch");
+            break;
+          }
+          if (result === "tagged") tagged++;
+          else if (result === "skipped") skipped++;
+          else failed++;
+        } catch (err) {
+          failed++;
+          log.warn({ err, mediaId: row.id }, "reclassify: image failed");
+        }
+        // Gentle throttle keeps the batch under the proxy's per-minute rate limit.
+        await sleep(250);
+        if ((i + 1) % 25 === 0) {
+          log.info({ done: i + 1, total: toProcess.length, tagged, skipped, failed }, "reclassify: progress");
+        }
       }
+      log.info({ total: toProcess.length, tagged, skipped, failed }, "reclassify: batch complete");
     });
   } catch (error) {
     req.log.error({ err: error }, "Error starting reclassification");
@@ -977,6 +1017,45 @@ router.patch("/lp/media/:id/tags", async (req: Request, res: Response) => {
   } catch (error) {
     req.log.error({ err: error }, "Error updating tags");
     res.status(500).json({ error: "Failed to update tags" });
+  }
+});
+
+/** Bulk-remove a single tag from many images at once. Operates on the full set
+ *  of ids the client sends (which may span pagination), reading + rewriting each
+ *  row's tags server-side so the caller doesn't need every row loaded. Tenant-
+ *  scoped: only rows the requester can write are touched; the rest are ignored. */
+router.post("/lp/media/remove-tag", async (req: Request, res: Response) => {
+  try {
+    const scope = await resolveLibraryTenantScope(req, res);
+    if (!scope) return;
+    const { ids, tag } = req.body as { ids?: unknown; tag?: unknown };
+    const cleanIds = Array.isArray(ids)
+      ? [...new Set(ids.map(n => Number(n)).filter(n => Number.isInteger(n)))]
+      : [];
+    const cleanTag = typeof tag === "string" ? tag.trim().toLowerCase() : "";
+    if (cleanIds.length === 0 || !cleanTag) {
+      res.status(400).json({ error: "ids (non-empty) and tag are required" });
+      return;
+    }
+    const rows = await db
+      .select({ id: lpMediaTable.id, tags: lpMediaTable.tags })
+      .from(lpMediaTable)
+      .where(and(inArray(lpMediaTable.id, cleanIds), libraryWritablePredicate(scope.ownedTenantIds)));
+    let updated = 0;
+    await Promise.all(rows.map(async (row) => {
+      const current = (row.tags as string[]) ?? [];
+      if (!current.includes(cleanTag)) return;
+      const next = current.filter(t => t !== cleanTag);
+      await db
+        .update(lpMediaTable)
+        .set({ tags: next })
+        .where(and(eq(lpMediaTable.id, row.id), libraryWritablePredicate(scope.ownedTenantIds)));
+      updated++;
+    }));
+    res.json({ updated });
+  } catch (error) {
+    req.log.error({ err: error }, "Error bulk-removing tag");
+    res.status(500).json({ error: "Failed to remove tag" });
   }
 });
 
