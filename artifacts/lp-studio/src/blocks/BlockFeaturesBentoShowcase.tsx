@@ -7,6 +7,7 @@ import { pickContrastingColor } from "@/lib/brand-config";
 import type { FeaturesBentoShowcaseBlockProps } from "@/lib/block-types";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
+import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { motion } from "framer-motion";
@@ -231,7 +232,20 @@ export function BlockFeaturesBentoShowcase({ props, brand, onFieldChange }: Prop
                       multiline />
                   </div>
                 </div>
-                <TileMockup index={i} accent={accent} />
+                {tile.image && tile.image.trim() ? (
+                  <InlineImage
+                    src={tile.image}
+                    alt={tile.imageAlt ?? tile.title}
+                    className={`mt-auto w-full rounded-xl object-cover ${isHero ? "h-[280px]" : "h-[140px]"}`}
+                    wrapperClassName="mt-auto block w-full"
+                    onUpdate={onFieldChange ? (url) => updateTile(i, { image: url }) : undefined}
+                    onAltUpdate={onFieldChange ? (v) => updateTile(i, { imageAlt: v }) : undefined}
+                    focalPoint={tile.imageFocal}
+                    onFocalUpdate={onFieldChange ? (v) => updateTile(i, { imageFocal: v }) : undefined}
+                  />
+                ) : (
+                  <TileMockup index={i} accent={accent} />
+                )}
               </motion.div>
             );
           })}

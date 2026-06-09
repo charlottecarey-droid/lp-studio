@@ -3154,6 +3154,13 @@ export interface BenefitsAlternatingRow {
   /** Optional inline "learn more" link below the checklist. */
   linkLabel?: string;
   linkUrl?: string;
+  /** Optional real image shown on the row's visual side. When empty, a
+   *  decorative CSS mockup is rendered instead. */
+  image?: string;
+  /** Alt text for the row image (accessibility). */
+  imageAlt?: string;
+  /** Focal point as `"x% y%"` (CSS object-position) for the row image. */
+  imageFocal?: string;
 }
 
 /** Benefits — Alternating Rows: header + alternating text/visual rows, each
@@ -3308,6 +3315,13 @@ export interface FeaturesBentoShowcaseTile {
   icon: string;
   title: string;
   description: string;
+  /** Optional real image shown in the tile's visual area. When empty, a
+   *  decorative CSS mini-mockup is rendered instead. */
+  image?: string;
+  /** Alt text for the tile image (accessibility). */
+  imageAlt?: string;
+  /** Focal point as `"x% y%"` (CSS object-position) for the tile image. */
+  imageFocal?: string;
 }
 
 /** Features — Bento Showcase: an asymmetric 6-tile bento grid (large flagship
@@ -3342,6 +3356,13 @@ export interface FeaturesSpotlightCardsBlockProps extends BenefitsCtaConfig {
   /** Inline button rendered inside the spotlight card. Hidden when blank. */
   spotlightButtonLabel?: string;
   spotlightButtonUrl?: string;
+  /** Optional real image shown beside the spotlight feature. When empty, a
+   *  decorative builder-canvas mockup is rendered instead. */
+  spotlightImage?: string;
+  /** Alt text for the spotlight image (accessibility). */
+  spotlightImageAlt?: string;
+  /** Focal point as `"x% y%"` (CSS object-position) for the spotlight image. */
+  spotlightImageFocal?: string;
   secondaryFeatures: FeaturesSpotlightCardsSecondaryFeature[];
   bgColor?: string;
   textColor?: string;
@@ -3366,6 +3387,13 @@ export interface FeaturesTabbedCategoriesCategory {
   heading: string;
   subheading: string;
   features: FeaturesTabbedCategoriesFeature[];
+  /** Optional real image shown in the active tab's visual column. When empty, a
+   *  decorative CSS mockup is rendered instead. */
+  image?: string;
+  /** Alt text for the tab image (accessibility). */
+  imageAlt?: string;
+  /** Focal point as `"x% y%"` (CSS object-position) for the tab image. */
+  imageFocal?: string;
 }
 
 /** Features — Tabbed Categories: a header + a row of category tabs that swap an

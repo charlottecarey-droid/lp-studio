@@ -9,6 +9,7 @@ import { pickContrastingColor } from "@/lib/brand-config";
 import type { FeaturesTabbedCategoriesBlockProps } from "@/lib/block-types";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
+import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { motion } from "framer-motion";
@@ -314,9 +315,24 @@ export function BlockFeaturesTabbedCategories({ props, brand, onFieldChange }: P
             </div>
 
             {/* Visual Column */}
-            <div className="relative h-[400px] rounded-2xl border border-neutral-100 bg-neutral-100/50 p-2 sm:p-4 lg:h-auto lg:min-h-[500px]">
-              <CategoryVisual index={activeIndex} accent={accent} />
-            </div>
+            {activeCategory.image && activeCategory.image.trim() ? (
+              <div className="relative h-[400px] overflow-hidden rounded-2xl border border-neutral-100 bg-neutral-100/50 lg:h-auto lg:min-h-[500px]">
+                <InlineImage
+                  src={activeCategory.image}
+                  alt={activeCategory.imageAlt ?? activeCategory.heading}
+                  className="h-full min-h-[400px] w-full object-cover lg:min-h-[500px]"
+                  wrapperClassName="block h-full w-full"
+                  onUpdate={onFieldChange ? (url) => updateCategory(activeIndex, { image: url }) : undefined}
+                  onAltUpdate={onFieldChange ? (v) => updateCategory(activeIndex, { imageAlt: v }) : undefined}
+                  focalPoint={activeCategory.imageFocal}
+                  onFocalUpdate={onFieldChange ? (v) => updateCategory(activeIndex, { imageFocal: v }) : undefined}
+                />
+              </div>
+            ) : (
+              <div className="relative h-[400px] rounded-2xl border border-neutral-100 bg-neutral-100/50 p-2 sm:p-4 lg:h-auto lg:min-h-[500px]">
+                <CategoryVisual index={activeIndex} accent={accent} />
+              </div>
+            )}
           </div>
         )}
 

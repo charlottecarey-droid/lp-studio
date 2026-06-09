@@ -7,6 +7,7 @@ import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { IconPicker } from "@/components/IconPicker";
+import { ImagePicker } from "@/components/ImagePicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 import { SectionBackgroundControl } from "./SectionBackgroundControl";
@@ -101,6 +102,7 @@ export function BenefitsAlternatingRowsPanel({ props, onChange }: Props) {
                 <Input value={row.linkUrl ?? ""} onChange={(e) => updateRow(i, { linkUrl: e.target.value })} placeholder="#" className="h-8 text-xs" />
               </div>
             </div>
+            <ImagePicker label="Image (optional — decorative mockup if blank)" value={row.image ?? ""} onChange={(url) => updateRow(i, { image: url })} aiHint={`${row.title} feature visual`} />
           </div>
         ))}
       </div>

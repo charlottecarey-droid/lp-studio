@@ -1875,6 +1875,11 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 </SelectContent>
               </Select>
             </div>
+            <div className="border-t pt-3 space-y-2">
+              <Label className="text-xs font-semibold">Dashboard Image</Label>
+              <p className="text-[11px] text-muted-foreground -mt-1">Optional. Replaces the simulated dashboard with a real image. Leave blank to keep the interactive demo. (Video takes priority if set.)</p>
+              <ImagePicker value={p.dashboardImage ?? ""} onChange={v => onChange({ ...block, props: { ...p, dashboardImage: v || undefined } })} aiHint="Product dashboard screenshot" />
+            </div>
             <div className="border-t pt-3 space-y-3">
               <Label className="text-xs font-semibold">Dashboard Video</Label>
               <p className="text-[11px] text-muted-foreground -mt-1">Upload or paste a video URL. Replaces the interactive dashboard when set.</p>

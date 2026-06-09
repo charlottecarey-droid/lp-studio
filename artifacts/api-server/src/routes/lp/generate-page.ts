@@ -1273,6 +1273,12 @@ export function collectImageSlots(
   pushScalar("backgroundImage", "lp-hero", blockContext);
   pushScalar("heroImageUrl", "lp-hero", blockContext);
   pushScalar("bundleImageUrl", "lp-feature", blockContext); // storefront closing-CTA bundle
+  // Decorative-mockup blocks with an OPTIONAL real-image override (mockup shows
+  // when blank): features-spotlight-cards spotlight visual + dso-insights-dashboard
+  // dashboard override. Per-item variants (benefits rows, tabbed categories, bento
+  // tiles) are handled by the array passes below.
+  pushScalar("spotlightImage", "lp-feature", blockContext);
+  pushScalar("dashboardImage", "lp-feature", blockContext);
   // NOTE: video poster stills (`posterUrl`) are intentionally NOT collected. A
   // video's thumbnail/poster and its videoUrl are author-controlled — the image
   // pipeline must never auto-add or swap a video thumbnail (e.g. when creating a
@@ -1300,6 +1306,11 @@ export function collectImageSlots(
   };
 
   pushArrField(props.rows, "imageUrl", "lp-feature", it => `${it.tag ?? ""} ${it.headline ?? ""} ${it.body ?? ""}`);
+  // benefits-alternating-rows rows[].image + features-tabbed-categories
+  // categories[].image — OPTIONAL real-image overrides (decorative mockup when
+  // blank). Distinct `image` key (zigzag rows above use `imageUrl`).
+  pushArrField(props.rows, "image", "lp-feature", it => `${it.title ?? ""} ${it.description ?? ""}`);
+  pushArrField(props.categories, "image", "lp-feature", it => `${it.heading ?? it.label ?? ""} ${it.subheading ?? ""}`);
   // how-it-works-alternating steps[].image — real per-step product/feature photo.
   pushArrField(props.steps, "image", "lp-feature", it => `${it.title ?? ""} ${it.description ?? ""}`);
   pushArrField(props.chapters, "imageUrl", "lp-feature", it => `${it.headline ?? ""} ${it.body ?? ""}`);
@@ -1375,6 +1386,16 @@ export function collectImageSlots(
           set: (v) => { a[i].primary = v; },
           purpose: "lp-feature",
           context: `${tile.secondary ?? ""} ${blockContext}`,
+        });
+      }
+      // features-bento-showcase tiles[].image — OPTIONAL real-image override
+      // (decorative mockup when blank); distinct from legacy imageUrl/primary.
+      if (want(tile.image)) {
+        slots.push({
+          get: () => (a[i].image as string) ?? "",
+          set: (v) => { a[i].image = v; },
+          purpose: "lp-feature",
+          context: `${tile.title ?? ""} ${tile.description ?? ""}`,
         });
       }
     });
@@ -1881,6 +1902,44 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       });
     }
 
+    // Decorative-mockup blocks with an OPTIONAL real image: fill the per-item /
+    // scalar `image` slot only when blank; pick() returns "" if the library has
+    // no suitable match, so the block keeps its CSS mockup fallback.
+    if (blockType === "benefits-alternating-rows" && Array.isArray(props.rows)) {
+      props.rows = (props.rows as Record<string, unknown>[]).map((row) => {
+        if (!row.image) {
+          const ctx = `${row.title ?? ""} ${row.description ?? ""}`;
+          return { ...row, image: pick(ctx, images, usedIds, "lp-feature") };
+        }
+        return row;
+      });
+    }
+    if (blockType === "features-tabbed-categories" && Array.isArray(props.categories)) {
+      props.categories = (props.categories as Record<string, unknown>[]).map((cat) => {
+        if (!cat.image) {
+          const ctx = `${cat.heading ?? cat.label ?? ""} ${cat.subheading ?? ""}`;
+          return { ...cat, image: pick(ctx, images, usedIds, "lp-feature") };
+        }
+        return cat;
+      });
+    }
+    if (blockType === "features-bento-showcase" && Array.isArray(props.tiles)) {
+      props.tiles = (props.tiles as Record<string, unknown>[]).map((tile) => {
+        if (!tile.image) {
+          const ctx = `${tile.title ?? ""} ${tile.description ?? ""}`;
+          return { ...tile, image: pick(ctx, images, usedIds, "lp-feature") };
+        }
+        return tile;
+      });
+    }
+    if (blockType === "features-spotlight-cards" && !props.spotlightImage) {
+      const ctx = `${props.spotlightTitle ?? ""} ${props.spotlightDescription ?? ""}`;
+      props.spotlightImage = pick(ctx, images, usedIds, "lp-feature");
+    }
+    if (blockType === "dso-insights-dashboard" && !props.dashboardImage && !props.videoUrl) {
+      props.dashboardImage = pick(blockContext, images, usedIds, "lp-feature");
+    }
+
     // photo-strip → feature images (lifestyle/environment variety)
     if (blockType === "photo-strip" && Array.isArray(props.images)) {
       props.images = (props.images as Record<string, unknown>[]).map((img) => {
@@ -2297,6 +2356,71 @@ export async function aiFillEmptyImages(
       });
     }
 
+    // Decorative-mockup blocks with an OPTIONAL real image — generate one only
+    // when the slot is still blank after the library fill pass.
+    if (blockType === "benefits-alternating-rows" && Array.isArray(props.rows)) {
+      const arr = props.rows as Array<Record<string, unknown>>;
+      arr.forEach((row, i) => {
+        if (typeof row !== "object" || row === null) return;
+        if (typeof row.image !== "string" || !row.image) {
+          const ctx = `${blockContext} ${row.title ?? ""} ${row.description ?? ""}`.trim();
+          slots.push({
+            aspectRatio: featureAR,
+            fieldLabel: `${blockType} rows ${i + 1}`,
+            blockContext: ctx,
+            apply: (url) => { (arr[i] as Record<string, unknown>).image = url; },
+          });
+        }
+      });
+    }
+    if (blockType === "features-tabbed-categories" && Array.isArray(props.categories)) {
+      const arr = props.categories as Array<Record<string, unknown>>;
+      arr.forEach((cat, i) => {
+        if (typeof cat !== "object" || cat === null) return;
+        if (typeof cat.image !== "string" || !cat.image) {
+          const ctx = `${blockContext} ${cat.heading ?? cat.label ?? ""} ${cat.subheading ?? ""}`.trim();
+          slots.push({
+            aspectRatio: featureAR,
+            fieldLabel: `${blockType} categories ${i + 1}`,
+            blockContext: ctx,
+            apply: (url) => { (arr[i] as Record<string, unknown>).image = url; },
+          });
+        }
+      });
+    }
+    if (blockType === "features-bento-showcase" && Array.isArray(props.tiles)) {
+      const arr = props.tiles as Array<Record<string, unknown>>;
+      arr.forEach((tile, i) => {
+        if (typeof tile !== "object" || tile === null) return;
+        if (typeof tile.image !== "string" || !tile.image) {
+          const ctx = `${blockContext} ${tile.title ?? ""} ${tile.description ?? ""}`.trim();
+          slots.push({
+            aspectRatio: featureAR,
+            fieldLabel: `${blockType} tiles ${i + 1}`,
+            blockContext: ctx,
+            apply: (url) => { (arr[i] as Record<string, unknown>).image = url; },
+          });
+        }
+      });
+    }
+    if (blockType === "features-spotlight-cards" && (typeof props.spotlightImage !== "string" || !props.spotlightImage)) {
+      const ctx = `${blockContext} ${props.spotlightTitle ?? ""} ${props.spotlightDescription ?? ""}`.trim();
+      slots.push({
+        aspectRatio: featureAR,
+        fieldLabel: `${blockType} spotlightImage`,
+        blockContext: ctx,
+        apply: (url) => { props.spotlightImage = url; },
+      });
+    }
+    if (blockType === "dso-insights-dashboard" && !props.videoUrl && (typeof props.dashboardImage !== "string" || !props.dashboardImage)) {
+      slots.push({
+        aspectRatio: featureAR,
+        fieldLabel: `${blockType} dashboardImage`,
+        blockContext,
+        apply: (url) => { props.dashboardImage = url; },
+      });
+    }
+
     // photo-strip images[].src
     if (blockType === "photo-strip" && Array.isArray(props.images)) {
       const arr = props.images as Array<Record<string, unknown>>;
@@ -2599,6 +2723,35 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
         ...step,
         image: typeof step.image === "string" ? cleanUrl(step.image) : step.image,
       }));
+    }
+
+    // Decorative-mockup blocks with an OPTIONAL real image — clean any URL the
+    // model emits on the new `image`/`spotlightImage`/`dashboardImage` slots so a
+    // hallucinated host is cleared and the fill pass can substitute (or the CSS
+    // mockup fallback shows).
+    if (blockType === "benefits-alternating-rows" && Array.isArray(props.rows)) {
+      props.rows = (props.rows as Record<string, unknown>[]).map(row => ({
+        ...row,
+        image: typeof row.image === "string" ? cleanUrl(row.image) : row.image,
+      }));
+    }
+    if (blockType === "features-tabbed-categories" && Array.isArray(props.categories)) {
+      props.categories = (props.categories as Record<string, unknown>[]).map(cat => ({
+        ...cat,
+        image: typeof cat.image === "string" ? cleanUrl(cat.image) : cat.image,
+      }));
+    }
+    if (blockType === "features-bento-showcase" && Array.isArray(props.tiles)) {
+      props.tiles = (props.tiles as Record<string, unknown>[]).map(tile => ({
+        ...tile,
+        image: typeof tile.image === "string" ? cleanUrl(tile.image) : tile.image,
+      }));
+    }
+    if (blockType === "features-spotlight-cards" && typeof props.spotlightImage === "string") {
+      props.spotlightImage = cleanUrl(props.spotlightImage);
+    }
+    if (blockType === "dso-insights-dashboard" && typeof props.dashboardImage === "string") {
+      props.dashboardImage = cleanUrl(props.dashboardImage);
     }
 
     // dandy-vertical-tabs tabs[].imageUrl
@@ -3791,16 +3944,16 @@ SHOWCASE BLOCKS (use these to give each page a distinct, premium feel — NOT ev
 - "social-urgency-final-cta": A closing call-to-action with social-proof avatars and an urgency line (limited time / spots). Props: eyebrow (2–4 words), heading (5–10 words), subheading (14–28 words, optional), urgencyText (3–8 words, e.g. "Only 12 spots left this month", optional), avatarUrls (array of 3–5 of "", optional), proofText (4–10 words, e.g. "Join 2,000+ growing practices", optional), ctaLabel (2–4 words), ctaUrl ("#").
 - "gradient-glow-final-cta": A centered closing call-to-action over an elevated gradient-glow backdrop, with a primary + optional secondary CTA. Props: eyebrow (2–4 words), heading (5–10 words), subheading (14–28 words, optional), gradientStart (hex color, optional), gradientEnd (hex color, optional), ctaLabel (2–4 words), ctaUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 - "video-background-final-cta": A closing call-to-action over a looping background video with a poster fallback image. Leave backgroundVideoUrl blank unless a video URL is given in the prompt. Props: eyebrow (2–4 words), heading (5–10 words), subheading (14–28 words, optional), backgroundVideoUrl (""), posterUrl (""), overlayOpacity (0–100, default 60), ctaLabel (2–4 words), ctaUrl ("#").
-- "benefits-alternating-rows": Benefits laid out as alternating left/right rows, each pairing a benefit with a checklist and a visual placeholder — great for explaining a few deep value props. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (12–28 words), rows (array of EXACTLY 3–4 of {icon (lucide name e.g. Zap/Layers/TrendingUp/ShieldCheck), title (3–7 words), description (15–30 words), features (array of EXACTLY 3 of 3–6 words), linkLabel (2–4 words, optional), linkUrl ("#")}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "benefits-alternating-rows": Benefits laid out as alternating left/right rows, each pairing a benefit with a checklist and a visual placeholder — great for explaining a few deep value props. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (12–28 words), rows (array of EXACTLY 3–4 of {icon (lucide name e.g. Zap/Layers/TrendingUp/ShieldCheck), title (3–7 words), description (15–30 words), features (array of EXACTLY 3 of 3–6 words), linkLabel (2–4 words, optional), linkUrl ("#"), image ("" — leave blank, the server fills a real image or shows a decorative mockup)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 
 - "how-it-works-alternating": A step-by-step "how it works" section laid out as alternating left/right rows, each numbered step pairing an icon + copy + a feature checklist with a real product/feature image — great for explaining a 3-step process or onboarding flow. Props: eyebrow (2–4 words, e.g. "How it works"), headline (5–10 words), subheadline (14–28 words), steps (array of EXACTLY 3–4 of {icon (lucide name e.g. LayoutTemplate/MousePointerClick/Zap/Rocket/Settings), title (3–7 words), description (18–36 words), features (array of EXACTLY 3 of 3–6 words), image ("" — leave blank, filled from FEATURE IMAGES)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 - "how-it-works-numbered-bento": A "how it works" section laid out as an asymmetric bento grid of numbered steps (oversized background numerals, the last tile accent-colored), with a centered primary button below — great for a punchy, modern 3–4 step process overview. Props: eyebrow (2–4 words, e.g. "How it works"), headline (5–10 words), subheadline (14–28 words), steps (array of EXACTLY 3–4 of {icon (lucide name e.g. Plug/Palette/Wand2/BarChart3/Zap/Rocket/Settings), title (2–5 words), description (16–32 words)}), buttonLabel (2–4 words, optional), buttonUrl ("#"), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 - "how-it-works-vertical-timeline": A "how it works" section laid out as a vertical numbered timeline (connecting rail with node circles, each step pairing an icon + title + description), with a primary + secondary button row below — great for a clear, sequential onboarding or process flow. Props: eyebrow (2–4 words, e.g. "How it works"), headline (5–10 words), subheadline (14–28 words), steps (array of EXACTLY 3–4 of {icon (lucide name e.g. Palette/Users/Zap/BarChart3/Plug/Rocket/Settings), title (2–5 words), description (16–32 words)}), primaryButtonLabel (2–4 words, optional), primaryButtonUrl ("#"), secondaryButtonLabel (2–4 words, optional), secondaryButtonUrl ("#"), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 - "how-it-works-horizontal-stepper": A compact "how it works" section showing numbered steps in a horizontal row over a progress rail, with a header CTA button and a trailing trust-badge row — great for a quick 3-step process overview. Props: eyebrow (2–4 words, e.g. "How it works"), headline (5–10 words), subheadline (14–28 words), headerCtaLabel (2–4 words, optional), headerCtaUrl ("#"), steps (array of EXACTLY 3–4 of {icon (lucide name e.g. UserPlus/Zap/Rocket/Settings/Plug/Workflow), title (2–5 words), description (8–18 words)}), trustItems (array of EXACTLY 2–3 of 3–5 words, e.g. "No credit card required"), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 - "benefits-bento": Benefits in an asymmetric bento grid — one large feature tile plus smaller supporting tiles for a modern product feel. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (12–28 words), tiles (array of EXACTLY 5 of {icon (lucide name e.g. Layers/CloudLightning/Users/ShieldCheck/BarChart3), title (2–5 words), description (10–24 words)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
-- "features-bento-showcase": Product features in an asymmetric bento grid with one large flagship tile plus supporting tiles, each rendering a decorative product mockup — best for a polished, modern SaaS feature overview. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (12–28 words), tiles (array of EXACTLY 6 of {icon (lucide name e.g. Layout/Palette/Users/LineChart/Shield/Rocket), title (2–5 words), description (10–24 words); the first tile is the large flagship), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
-- "features-spotlight-cards": A large flagship "spotlight" feature card (icon + title + description + button beside a decorative builder mockup) above a row of compact supporting feature cards, with an optional CTA — best for leading with one headline capability then listing the rest. Props: eyebrow (2–4 words), headline (6–12 words), spotlightIcon (lucide name e.g. LayoutTemplate), spotlightTitle (3–7 words), spotlightDescription (20–40 words), spotlightButtonLabel (2–4 words, optional), spotlightButtonUrl ("#"), secondaryFeatures (array of EXACTLY 5 of {icon (lucide name e.g. SplitSquareHorizontal/LineChart/Globe/Users/Search), title (2–5 words), description (8–16 words)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
-- "features-tabbed-categories": Feature categories presented as clickable tabs that swap an active panel (per-tab heading/subheading + feature list + decorative product mockup), with an optional CTA — best for organizing many features into a few themes. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (15–32 words), categories (array of EXACTLY 3 of {id (unique short slug e.g. "design"), label (2–4 words), icon (lucide name e.g. MonitorSmartphone/Zap/BarChart3), heading (5–10 words), subheading (12–24 words), features (array of EXACTLY 3 of {icon (lucide name e.g. Paintbrush/Palette/Layers/Split/ListChecks/Sparkles/Route/DollarSign/MousePointerClick), title (2–4 words), description (10–20 words)})}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "features-bento-showcase": Product features in an asymmetric bento grid with one large flagship tile plus supporting tiles, each rendering a decorative product mockup — best for a polished, modern SaaS feature overview. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (12–28 words), tiles (array of EXACTLY 6 of {icon (lucide name e.g. Layout/Palette/Users/LineChart/Shield/Rocket), title (2–5 words), description (10–24 words), image ("" — leave blank, the server fills a real image or shows a decorative mockup); the first tile is the large flagship), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "features-spotlight-cards": A large flagship "spotlight" feature card (icon + title + description + button beside a decorative builder mockup) above a row of compact supporting feature cards, with an optional CTA — best for leading with one headline capability then listing the rest. Props: eyebrow (2–4 words), headline (6–12 words), spotlightIcon (lucide name e.g. LayoutTemplate), spotlightTitle (3–7 words), spotlightDescription (20–40 words), spotlightButtonLabel (2–4 words, optional), spotlightButtonUrl ("#"), spotlightImage ("" — leave blank, the server fills a real image or shows a decorative mockup), secondaryFeatures (array of EXACTLY 5 of {icon (lucide name e.g. SplitSquareHorizontal/LineChart/Globe/Users/Search), title (2–5 words), description (8–16 words)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "features-tabbed-categories": Feature categories presented as clickable tabs that swap an active panel (per-tab heading/subheading + feature list + decorative product mockup), with an optional CTA — best for organizing many features into a few themes. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (15–32 words), categories (array of EXACTLY 3 of {id (unique short slug e.g. "design"), label (2–4 words), icon (lucide name e.g. MonitorSmartphone/Zap/BarChart3), heading (5–10 words), subheading (12–24 words), image ("" — leave blank, the server fills a real image or shows a decorative mockup), features (array of EXACTLY 3 of {icon (lucide name e.g. Paintbrush/Palette/Layers/Split/ListChecks/Sparkles/Route/DollarSign/MousePointerClick), title (2–4 words), description (10–20 words)})}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 - "features-comparison-checklist": A grouped feature table with included-checkmarks organized into categories, a bespoke "need something custom?" card, and an optional CTA — best for showing everything included across plans. Props: eyebrow (2–4 words), headline (4–8 words), subheadline (15–30 words), featureColumnLabel (2–4 words), includedColumnLabel (1–2 words), categories (array of EXACTLY 3 of {title (2–4 words), features (array of EXACTLY 2 of {icon (lucide name e.g. Database/Shield/Globe/Zap/Layers/MessageSquare), name (2–5 words), description (8–18 words)})}), showBespokeCard (boolean, default true), bespokeHeading (3–6 words), bespokeSubheading (8–16 words), bespokeButtonLabel (2–4 words), bespokeButtonUrl ("#"), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 
 - "benefits-icon-grid": Benefits in a clean icon grid (2 or 3 columns) — best for presenting many short value props at a glance. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (12–28 words), columns (2 or 3, default 3), items (array of EXACTLY 6 of {icon (lucide name e.g. Zap/BarChart3/ShieldCheck/Users/Globe2/Clock), title (3–6 words), description (12–26 words)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
@@ -4123,7 +4276,7 @@ export function buildDsoSystemPrompt(opts: { isDandyTenant: boolean; brandName: 
   // only for the Dandy tenant. Other tenants must not see them.
   const dandyInsightsBlocks = isDandyTenant
     ? `
-- "dso-insights-dashboard": "Dandy Insights" analytics dashboard showcase rendered in a simulated browser frame. Use this (NOT dso-ai-feature) when the page should present Dandy Insights — network analytics, benchmarking, multi-location dashboards. Props: eyebrow (string, e.g. "Dandy Insights"), headline (string), subheadline (string), practiceLabel (string), backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER "white"/"light-gray"), dashboardVariant ("light"|"dark"), browserUrl (string, optional, e.g. "insights/dashboard")
+- "dso-insights-dashboard": "Dandy Insights" analytics dashboard showcase rendered in a simulated browser frame. Use this (NOT dso-ai-feature) when the page should present Dandy Insights — network analytics, benchmarking, multi-location dashboards. Props: eyebrow (string, e.g. "Dandy Insights"), headline (string), subheadline (string), practiceLabel (string), backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER "white"/"light-gray"), dashboardVariant ("light"|"dark"), browserUrl (string, optional, e.g. "insights/dashboard"), dashboardImage ("" — leave blank, the server fills a real image or shows the simulated dashboard)
 - "dso-insights-video": "Dandy Insights" product walkthrough with a video / rotating dashboard screenshots and outcome callouts. Use this for a richer Dandy Insights story. Props: eyebrow (string, e.g. "Dandy Insights"), title (string), subtitle (string), description (string), callouts (array of {label, desc}), quote (string), quoteAttribution (string), ctaLabel (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"), backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER "white"/"light-gray"), imageUrl (string), videoUrl (string, OPTIONAL — only a real provided URL, NEVER invented)`
     : "";
 

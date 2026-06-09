@@ -6,6 +6,7 @@ import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { IconPicker } from "@/components/IconPicker";
+import { ImagePicker } from "@/components/ImagePicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 import { SectionBackgroundControl } from "./SectionBackgroundControl";
@@ -74,6 +75,7 @@ export function FeaturesSpotlightCardsPanel({ props, onChange }: Props) {
             <Input value={props.spotlightButtonUrl ?? ""} onChange={(e) => update({ spotlightButtonUrl: e.target.value })} placeholder="#" className="h-8 text-xs" />
           </div>
         </div>
+        <ImagePicker label="Spotlight image (optional — decorative mockup if blank)" value={props.spotlightImage ?? ""} onChange={(url) => update({ spotlightImage: url })} aiHint={`${props.spotlightTitle} spotlight visual`} />
       </div>
 
       <div className="space-y-3">

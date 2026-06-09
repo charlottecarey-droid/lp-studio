@@ -21,6 +21,7 @@ import type { DsoInsightsDashboardBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { isNativeVideoUrl, getAutoplayEmbedUrl } from "@/lib/video-utils";
 import { InlineText } from "@/components/InlineText";
+import { InlineImage } from "@/components/InlineImage";
 
 interface Props {
   props: DsoInsightsDashboardBlockProps;
@@ -956,6 +957,17 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
                   allowFullScreen
                 />
               )}
+            </div>
+          ) : props.dashboardImage && props.dashboardImage.trim() ? (
+            <div className="relative w-full">
+              <InlineImage
+                src={props.dashboardImage}
+                alt={props.dashboardImageAlt ?? props.headline ?? "Dashboard"}
+                className="w-full object-cover"
+                wrapperClassName="block w-full"
+                onUpdate={field("dashboardImage")}
+                onAltUpdate={field("dashboardImageAlt")}
+              />
             </div>
           ) : (
           <div className={`p-5 md:p-7 min-h-[400px] ${t.contentBg}`}>

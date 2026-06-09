@@ -8,6 +8,7 @@ import { pickContrastingColor } from "@/lib/brand-config";
 import type { BenefitsAlternatingRowsBlockProps } from "@/lib/block-types";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
+import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { motion } from "framer-motion";
@@ -171,7 +172,20 @@ export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Pr
                 >
                   <div className="absolute inset-0 -m-8 rounded-[3rem] opacity-0 md:opacity-100" style={{ backgroundColor: tint }} />
                   <div className="relative">
-                    <DecorativePanel accent={accent} tint={tint} />
+                    {row.image && row.image.trim() ? (
+                      <InlineImage
+                        src={row.image}
+                        alt={row.imageAlt ?? row.title}
+                        className="aspect-[4/3] w-full rounded-2xl object-cover shadow-sm ring-1 ring-black/10"
+                        wrapperClassName="block w-full"
+                        onUpdate={onFieldChange ? (url) => updateRow(index, { image: url }) : undefined}
+                        onAltUpdate={onFieldChange ? (v) => updateRow(index, { imageAlt: v }) : undefined}
+                        focalPoint={row.imageFocal}
+                        onFocalUpdate={onFieldChange ? (v) => updateRow(index, { imageFocal: v }) : undefined}
+                      />
+                    ) : (
+                      <DecorativePanel accent={accent} tint={tint} />
+                    )}
                   </div>
                 </motion.div>
               </motion.div>

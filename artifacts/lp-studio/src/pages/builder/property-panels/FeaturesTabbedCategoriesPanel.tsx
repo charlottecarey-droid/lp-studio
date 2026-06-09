@@ -6,6 +6,7 @@ import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { IconPicker } from "@/components/IconPicker";
+import { ImagePicker } from "@/components/ImagePicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 import { SectionBackgroundControl } from "./SectionBackgroundControl";
@@ -107,6 +108,7 @@ export function FeaturesTabbedCategoriesPanel({ props, onChange }: Props) {
               <Label className="text-[11px] text-muted-foreground">Subheading</Label>
               <AiTextField value={category.subheading} onChange={(v) => updateCategory(ci, { subheading: v })} rows={2} className="text-xs" onSuggest={() => suggestCopy("features-tabbed-categories", "subheading", category.subheading ?? "", { heading: category.heading ?? "" })} fieldLabel="Tab subheading" />
             </div>
+            <ImagePicker label="Tab image (optional — decorative mockup if blank)" value={category.image ?? ""} onChange={(url) => updateCategory(ci, { image: url })} aiHint={`${category.heading} tab visual`} />
 
             <div className="space-y-2 border-t pt-2">
               <div className="flex items-center justify-between">

@@ -25,6 +25,11 @@ export interface DsoInsightsDashboardBlockProps {
   /** URL string shown in the simulated browser address bar at the top of the
    *  dashboard chrome. Defaults to a generic "app/dashboard". */
   browserUrl?: string;
+  /** Optional real image that replaces the simulated dashboard inside the
+   *  browser frame. When empty, the interactive simulated dashboard renders. */
+  dashboardImage?: string;
+  /** Alt text for the dashboard override image (accessibility). */
+  dashboardImageAlt?: string;
   videoUrl?: string;
   videoAutoplay?: boolean;
   videoPlayOnScroll?: boolean;

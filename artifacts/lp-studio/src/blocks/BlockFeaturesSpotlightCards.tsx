@@ -8,6 +8,7 @@ import { pickContrastingColor } from "@/lib/brand-config";
 import type { FeaturesSpotlightCardsBlockProps } from "@/lib/block-types";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
+import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { motion } from "framer-motion";
@@ -166,9 +167,24 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
                 </div>
               )}
             </div>
-            <div className="relative min-h-[400px] bg-neutral-100 p-8">
-              <BuilderMockup accent={accent} />
-            </div>
+            {props.spotlightImage && props.spotlightImage.trim() ? (
+              <div className="relative min-h-[400px] bg-neutral-100">
+                <InlineImage
+                  src={props.spotlightImage}
+                  alt={props.spotlightImageAlt ?? props.spotlightTitle}
+                  className="h-full min-h-[400px] w-full object-cover"
+                  wrapperClassName="block h-full w-full"
+                  onUpdate={onFieldChange ? (url) => update("spotlightImage", url) : undefined}
+                  onAltUpdate={onFieldChange ? (v) => update("spotlightImageAlt", v) : undefined}
+                  focalPoint={props.spotlightImageFocal}
+                  onFocalUpdate={onFieldChange ? (v) => update("spotlightImageFocal", v) : undefined}
+                />
+              </div>
+            ) : (
+              <div className="relative min-h-[400px] bg-neutral-100 p-8">
+                <BuilderMockup accent={accent} />
+              </div>
+            )}
           </div>
 
           {/* Secondary Features Row */}

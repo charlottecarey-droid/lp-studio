@@ -6,6 +6,7 @@ import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { IconPicker } from "@/components/IconPicker";
+import { ImagePicker } from "@/components/ImagePicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 import { SectionBackgroundControl } from "./SectionBackgroundControl";
@@ -82,6 +83,7 @@ export function FeaturesBentoShowcasePanel({ props, onChange }: Props) {
               <Label className="text-[11px] text-muted-foreground">Description</Label>
               <Input value={tile.description} onChange={(e) => updateTile(i, { description: e.target.value })} className="h-8 text-xs" />
             </div>
+            <ImagePicker label="Image (optional — decorative mockup if blank)" value={tile.image ?? ""} onChange={(url) => updateTile(i, { image: url })} aiHint={`${tile.title} feature visual`} />
           </div>
         ))}
       </div>
