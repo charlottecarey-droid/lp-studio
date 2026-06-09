@@ -879,6 +879,19 @@ export interface DandyFormRightAltBlockProps {
   successMessage?: string;
   chilipiperUrl?: string;
   bgColor?: string;
+  /** Background preset (white / dark / brand / gradient / …). When set it takes
+   *  precedence over the legacy `bgColor` via resolveSectionSurface. */
+  backgroundStyle?: BackgroundStyle;
+  /** Optional text color override for the left copy. Falls back to a
+   *  surface-derived heading color when unset. */
+  textColor?: string;
+  /** Optional accent color override (eyebrow + bullet checkmarks). Falls back to
+   *  the brand accent/primary when unset. */
+  accentColor?: string;
+  /** Optional heading font override. Falls back to the brand display font. */
+  headlineFont?: string;
+  /** Optional body font override. Falls back to the brand body font. */
+  bodyFont?: string;
 
   /** Form mode. "native" (default) renders our own fields; "marketo" embeds a Marketo form. */
   formMode?: "native" | "marketo";

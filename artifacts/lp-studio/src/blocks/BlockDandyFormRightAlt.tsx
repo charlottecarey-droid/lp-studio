@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Check, Loader2, Calendar } from "lucide-react";
-import { type BrandConfig, headingColorVarForBg, pickCtaButtonColors } from "@/lib/brand-config";
+import { type BrandConfig, headingColorVarForBg, pickCtaButtonColors, pickContrastingColor } from "@/lib/brand-config";
+import { resolveSectionSurface } from "@/lib/bg-styles";
+import { useBlockFonts } from "@/lib/use-block-fonts";
 import type {
   DandyFormRightAltBlockProps,
   ChiliPiperHandoffConfig,
@@ -14,9 +16,6 @@ import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
 import { safeNavigate } from "@/lib/safe-url";
 import { pushMarketoSubmissionToDataLayer, type GtmDataLayerConfig } from "@/lib/gtm-datalayer";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
-
-const DISPLAY = BRAND_DISPLAY_FONT;
-const BODY = BRAND_BODY_FONT;
 
 const API_BASE = "/api";
 
@@ -208,11 +207,25 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
     }
   };
 
-  const bg = props.bgColor ?? "#FDFCFA";
+  // Resolve the section surface from the shared preset system, bridging the
+  // legacy custom-hex bgColor and the brand-aware/gradient presets.
+  const surface = resolveSectionSurface(props, "#FDFCFA");
+  // Heading honors an explicit override, then the preset's foreground, then a
+  // surface-aware default (white on dark surfaces, brand heading on light).
+  const heading = props.textColor ?? surface.color ?? (surface.isDark ? "#FFFFFF" : headingColorVarForBg(surface.base));
+  // Body/muted copy: honor the override, else derive a readable muted color
+  // against the actual section surface.
+  const mutedText = props.textColor ?? pickContrastingColor(undefined, surface.base, ["#475569", "#94A3B8"]);
+  // Accent drives the eyebrow and bullet checkmark badges.
+  const accent = props.accentColor || brand.accentColor || brand.primaryColor || "#006651";
+  const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
   // The submit button sits on the white form card, so resolve its colors
   // against white with a WCAG contrast guard. This keeps the button visible
   // even when a tenant's accent is itself near-white.
   const ctaColors = pickCtaButtonColors(brand, "#ffffff");
+  const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
+  const BODY = props.bodyFont || BRAND_BODY_FONT;
+  useBlockFonts(props.headlineFont, props.bodyFont);
   const leftMode = props.leftMode ?? "bullets";
   const headlineLayout = props.headlineLayout ?? "default";
   const aspect = ASPECT_CLASS[props.imageAspect ?? "portrait"];
@@ -221,15 +234,15 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
   const headlineGroup = (centered: boolean) => (
     <div className={`flex flex-col gap-5 ${centered ? "items-center text-center max-w-3xl mx-auto" : ""}`}>
       {props.eyebrow && (
-        <p className="text-xs font-bold uppercase tracking-widest text-[#006651]" style={{ fontFamily: BODY }}>
+        <p className="text-xs font-bold uppercase tracking-widest" style={{ fontFamily: BODY, color: accent }}>
           <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
         </p>
       )}
-      <h2 className="text-4xl md:text-5xl font-bold leading-[1.1] tracking-tight" style={{ fontFamily: DISPLAY, color: headingColorVarForBg(bg) }}>
+      <h2 className="text-4xl md:text-5xl font-bold leading-[1.1] tracking-tight" style={{ fontFamily: DISPLAY, color: heading }}>
         <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: DISPLAY }}/>
       </h2>
       {props.subheadline && (
-        <p className="text-lg text-slate-600 leading-relaxed" style={{ fontFamily: BODY }}>
+        <p className="text-lg leading-relaxed" style={{ fontFamily: BODY, color: mutedText }}>
           <InlineText value={props.subheadline} onUpdate={field("subheadline")} multiline style={{ fontFamily: BODY }}/>
         </p>
       )}
@@ -254,9 +267,9 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
         (props.bullets ?? []).length > 0 && (
           <ul className="space-y-4">
             {(props.bullets ?? []).map((b, i) => (
-              <li key={i} className="flex items-start gap-4 text-base text-slate-700" style={{ fontFamily: BODY }}>
-                <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-[var(--brand-accent)] flex items-center justify-center" style={{ fontFamily: BODY }}>
-                  <Check className="w-3.5 h-3.5 text-[var(--brand-primary)]" />
+              <li key={i} className="flex items-start gap-4 text-base" style={{ fontFamily: BODY, color: mutedText }}>
+                <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full flex items-center justify-center" style={{ fontFamily: BODY, backgroundColor: accent }}>
+                  <Check className="w-3.5 h-3.5" style={{ color: onAccent }} />
                 </span>
                 <InlineText
                   value={b}
@@ -269,7 +282,7 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
         )
       )}
       {props.trustNote && (
-        <p className="text-sm text-slate-400 mt-1" style={{ fontFamily: BODY }}>
+        <p className="text-sm mt-1 opacity-70" style={{ fontFamily: BODY, color: mutedText }}>
           <InlineText value={props.trustNote} onUpdate={field("trustNote")} multiline style={{ fontFamily: BODY }}/>
         </p>
       )}
@@ -525,7 +538,7 @@ export function BlockDandyFormRightAlt({ props, brand, onFieldChange, pageId, va
   );
 
   return (
-    <section className="w-full py-20 md:py-28" style={{ backgroundColor: bg }}>
+    <section className="w-full py-20 md:py-28" style={{ background: surface.background }}>
       <div className="max-w-7xl mx-auto px-6 md:px-10">
         {headlineLayout === "centered-over-block" && (
           <div className="mb-14 md:mb-16">

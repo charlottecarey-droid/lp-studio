@@ -4,8 +4,10 @@ import { Label } from "@/components/ui/label";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Trash2, Plus, Link2, Link2Off } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BrandSwatches } from "@/components/BrandSwatches";
 import { ImagePicker } from "@/components/ImagePicker";
+import { FontSelect } from "@/components/FontSelect";
+import { ColorField } from "./BlockSettingsPanel";
+import { SectionBackgroundControl } from "./SectionBackgroundControl";
 import {
   Select,
   SelectContent,
@@ -53,12 +55,27 @@ export function DandyFormRightAltPanel({ props: p, onChange }: Props) {
         values={{ eyebrow: p.eyebrow ?? "", headline: p.headline, subheadline: p.subheadline ?? "" }}
         onApply={(u) => onChange({ ...p, ...u })}
       />
-      <div className="space-y-1.5">
-        <Label className="text-xs">Background Color</Label>
-        <div className="flex gap-2 items-center">
-          <input type="color" value={p.bgColor ?? "#FDFCFA"} onChange={e => set("bgColor", e.target.value)} className="w-9 h-8 rounded border cursor-pointer p-0.5" />
-          <BrandSwatches className="ml-1" current={p.bgColor} onPick={hex => set("bgColor", hex)} />
-          <Input value={p.bgColor ?? "#FDFCFA"} onChange={e => set("bgColor", e.target.value)} className="h-8 text-xs font-mono flex-1" />
+      <div className="space-y-3">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Style</p>
+        <SectionBackgroundControl
+          backgroundStyle={p.backgroundStyle}
+          bgColor={p.bgColor}
+          defaultBgColor="#FDFCFA"
+          onChange={(patch) => onChange({ ...p, ...patch })}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <ColorField label="Text" value={p.textColor ?? "#0F172A"} onChange={(v) => set("textColor", v)} />
+          <ColorField label="Accent" value={p.accentColor ?? "#006651"} onChange={(v) => set("accentColor", v)} />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Headline font</Label>
+            <FontSelect value={p.headlineFont} onChange={(v) => set("headlineFont", v)} inheritLabel="Inherit from brand (display)" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Body font</Label>
+            <FontSelect value={p.bodyFont} onChange={(v) => set("bodyFont", v)} inheritLabel="Inherit from brand (body)" />
+          </div>
         </div>
       </div>
 
