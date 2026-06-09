@@ -2940,6 +2940,12 @@ export interface AuroraGradientHeroBlockProps
   subheadline?: string;
   /** Floating glass chips (defaults provided). */
   chips?: AuroraHeroChip[];
+  /** Optional full-bleed background image rendered behind the aurora effect. */
+  backgroundImageUrl?: string;
+  /** Color overlay drawn over the background image for text legibility. */
+  overlayColor?: string;
+  /** Overlay opacity as a 0–100 percent. */
+  overlayOpacity?: number;
 }
 
 /** 3. Light editorial split — eyebrow, large Playfair-style headline, a sub, a

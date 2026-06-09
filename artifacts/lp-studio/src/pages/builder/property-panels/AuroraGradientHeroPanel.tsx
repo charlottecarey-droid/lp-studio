@@ -11,7 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { ImagePicker } from "@/components/ImagePicker";
+import { BrandSwatches } from "@/components/BrandSwatches";
 import { FontSelect } from "@/components/FontSelect";
 import { ColorField } from "./BlockSettingsPanel";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
@@ -440,6 +442,67 @@ export function AuroraGradientHeroPanel({ props, onChange }: Props) {
             value={props}
             onChange={(next) => onChange({ ...props, ...next })}
           />
+        )}
+      </div>
+
+      {/* ── Background ── */}
+      <div className="space-y-3">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Background</div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Background image</Label>
+          <ImagePicker
+            value={props.backgroundImageUrl ?? ""}
+            onChange={(v) => update({ backgroundImageUrl: v || undefined })}
+            placeholder="Leave empty for the aurora gradient only"
+          />
+        </div>
+
+        {props.backgroundImageUrl && (
+          <div className="rounded-lg border border-border p-3 space-y-3 bg-muted/20">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Overlay</p>
+            <div>
+              <Label className="text-[11px] text-muted-foreground mb-1.5 block">Overlay color</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={props.overlayColor ?? "#050505"}
+                  onChange={(e) => update({ overlayColor: e.target.value })}
+                  className="w-9 h-9 rounded border cursor-pointer shrink-0"
+                />
+                <Input
+                  value={props.overlayColor ?? ""}
+                  onChange={(e) => update({ overlayColor: e.target.value || undefined })}
+                  className="text-sm font-mono"
+                  placeholder="var(--brand-primary)"
+                />
+              </div>
+              <BrandSwatches
+                className="mt-1.5"
+                current={props.overlayColor}
+                onPick={(hex) => update({ overlayColor: hex })}
+              />
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-[11px] text-muted-foreground">Opacity</Label>
+                <span className="text-xs tabular-nums text-muted-foreground font-medium">
+                  {props.overlayOpacity ?? 50}%
+                </span>
+              </div>
+              <Slider
+                min={0}
+                max={100}
+                step={1}
+                value={[props.overlayOpacity ?? 50]}
+                onValueChange={([v]) => update({ overlayOpacity: v })}
+                className="w-full"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                <span>0% (transparent)</span>
+                <span>100% (solid)</span>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 

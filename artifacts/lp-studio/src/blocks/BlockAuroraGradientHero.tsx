@@ -29,7 +29,7 @@ import { CtaButton } from "@/components/CtaButton";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { useBlockFonts } from "@/lib/use-block-fonts";
-import { pickCtaButtonColors } from "@/lib/brand-config";
+import { pickCtaButtonColors, resolveBrandColor } from "@/lib/brand-config";
 
 interface Props {
   props: AuroraGradientHeroBlockProps;
@@ -257,6 +257,28 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
           box-shadow: 0 30px 60px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
         }
       `}</style>
+
+      {/* Full-bleed background image (optional) + color overlay */}
+      {props.backgroundImageUrl && (
+        <>
+          <div
+            className="absolute inset-0 z-0 pointer-events-none"
+            style={{
+              backgroundImage: `url(${props.backgroundImageUrl})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+            }}
+          />
+          <div
+            className="absolute inset-0 z-0 pointer-events-none"
+            style={{
+              backgroundColor: resolveBrandColor(brand, props.overlayColor, bg),
+              opacity: (props.overlayOpacity ?? 50) / 100,
+            }}
+          />
+        </>
+      )}
 
       {/* Background Animation */}
       <div className="aurora-bg">
