@@ -15,6 +15,8 @@ import {
   buildTypographySection,
   buildDesignIntensitySection,
   applyDesignIntensityBackgrounds,
+  seedLandingPageSectionBackgrounds,
+  applyLandingPageSectionRhythm,
   enforceHeroLegibility,
   cleanFamilyName,
 } from "./generate-page";
@@ -155,13 +157,14 @@ describe("applyDesignIntensityBackgrounds", () => {
     expect(bgOf(out[2])).toBe("white");
   });
 
-  it("airy-minimal forces all backgrounds to white", () => {
+  it("airy-minimal alternates light neutrals instead of one identical white wall", () => {
     const input = [
       { type: "hero", id: "a", props: { backgroundStyle: "dark" } },
       { type: "benefits-grid", id: "b", props: { backgroundStyle: "muted" } },
     ];
     const out = applyDesignIntensityBackgrounds(input, "airy-minimal");
-    expect(out.map(bgOf)).toEqual(["white", "white"]);
+    // Both light, but adjacent sections differ (no all-white stack).
+    expect(out.map(bgOf)).toEqual(["white", "light-gray"]);
   });
 
   it("airy-minimal preserves dark-required blocks (dso-problem etc.)", () => {
@@ -243,5 +246,113 @@ describe("enforceHeroLegibility", () => {
       { type: "hero", id: "a", props: { overlayOpacity: 5 } },
     ]);
     expect(overlayOf(out[0])).toBe(5);
+  });
+});
+
+// Task #1315 — landing-page section-background rhythm. Stop generated landing
+// pages rendering as a stack of identical-white sections.
+describe("seedLandingPageSectionBackgrounds", () => {
+  it("seeds 'white' on a supporting section that has no backgroundStyle", () => {
+    const input = [{ type: "benefits-grid", id: "a", props: { headline: "Hi" } }];
+    seedLandingPageSectionBackgrounds(input);
+    expect((input[0] as { props: Record<string, unknown> }).props.backgroundStyle).toBe("white");
+  });
+
+  it("does not overwrite an explicit backgroundStyle", () => {
+    const input = [{ type: "benefits-grid", id: "a", props: { backgroundStyle: "dark" } }];
+    seedLandingPageSectionBackgrounds(input);
+    expect((input[0] as { props: Record<string, unknown> }).props.backgroundStyle).toBe("dark");
+  });
+
+  it("skips heroes (they manage their own surface)", () => {
+    const input = [
+      { type: "hero", id: "a", props: { headline: "x" } },
+      { type: "full-bleed-hero", id: "b", props: { headline: "y" } },
+    ];
+    seedLandingPageSectionBackgrounds(input);
+    expect((input[0] as { props: Record<string, unknown> }).props).not.toHaveProperty("backgroundStyle");
+    expect((input[1] as { props: Record<string, unknown> }).props).not.toHaveProperty("backgroundStyle");
+  });
+
+  it("skips dark-required, dso-*, chrome, layout, and full-page blocks", () => {
+    const input = [
+      { type: "dso-problem", id: "a", props: {} },
+      { type: "dso-stat-showcase", id: "b", props: {} },
+      { type: "nav-header", id: "c", props: {} },
+      { type: "footer", id: "d", props: {} },
+      { type: "rich-text", id: "e", props: {} },
+      { type: "columns", id: "f", props: {} },
+      { type: "content-series", id: "g", props: {} },
+      { type: "storefront", id: "h", props: {} },
+    ];
+    seedLandingPageSectionBackgrounds(input);
+    for (const block of input) {
+      expect((block as { props: Record<string, unknown> }).props).not.toHaveProperty("backgroundStyle");
+    }
+  });
+});
+
+describe("applyLandingPageSectionRhythm", () => {
+  const SUPPORTING = ["benefits-grid", "features", "trust-bar", "how-it-works", "testimonial", "form"];
+  const bg = (b: unknown) => (b as { props: { backgroundStyle?: string } }).props.backgroundStyle;
+
+  it("never leaves the supporting sections as one identical-white stack", () => {
+    // The exact regression: every supporting section starts 'white'.
+    const input = SUPPORTING.map((type, i) => ({ type, id: `b-${i}`, props: { backgroundStyle: "white" } }));
+    applyLandingPageSectionRhythm(input, "tenant-1::Acme::a calm dental landing page");
+    const bgs = input.map(bg) as string[];
+    // All stay light-neutral…
+    expect(bgs.every((v) => ["white", "light-gray", "muted"].includes(v))).toBe(true);
+    // …but not all identical (the all-white wall is gone).
+    expect(new Set(bgs).size).toBeGreaterThan(1);
+    // …and every adjacent pair differs (true alternating rhythm).
+    for (let i = 1; i < bgs.length; i++) expect(bgs[i]).not.toBe(bgs[i - 1]);
+  });
+
+  it("is deterministic for the same seed key and varies across seed keys", () => {
+    const make = () => SUPPORTING.map((type, i) => ({ type, id: `b-${i}`, props: { backgroundStyle: "white" } }));
+    const a1 = make(); applyLandingPageSectionRhythm(a1, "k1");
+    const a2 = make(); applyLandingPageSectionRhythm(a2, "k1");
+    expect(a1.map(bg)).toEqual(a2.map(bg));
+
+    // Across a spread of seed keys, at least one produces a different scheme.
+    const baseline = a1.map(bg).join(",");
+    let sawDifferent = false;
+    for (let i = 0; i < 50; i++) {
+      const b = make();
+      applyLandingPageSectionRhythm(b, `seed-${i}`);
+      if (b.map(bg).join(",") !== baseline) sawDifferent = true;
+    }
+    expect(sawDifferent).toBe(true);
+  });
+
+  it("leaves heroes, dark-required, dso-*, and dark/accent sections untouched", () => {
+    const input = [
+      { type: "hero", id: "a", props: { backgroundStyle: "dark" } },
+      { type: "benefits-grid", id: "b", props: { backgroundStyle: "white" } },
+      { type: "dso-problem", id: "c", props: { backgroundStyle: "black" } },
+      { type: "bottom-cta", id: "d", props: { backgroundStyle: "dandy-green" } },
+      { type: "features", id: "e", props: { backgroundStyle: "white" } },
+    ];
+    applyLandingPageSectionRhythm(input, "tenant-1::Acme::prompt");
+    expect(bg(input[0])).toBe("dark"); // hero untouched
+    expect(bg(input[2])).toBe("black"); // dso-* untouched
+    expect(bg(input[3])).toBe("dandy-green"); // accent untouched
+    // The two light supporting sections get distinct neutrals.
+    expect(["white", "light-gray", "muted"]).toContain(bg(input[1]));
+    expect(["white", "light-gray", "muted"]).toContain(bg(input[4]));
+    expect(bg(input[1])).not.toBe(bg(input[4]));
+  });
+
+  it("seed + design(balanced) + rhythm yields a non-all-white page end to end", () => {
+    // Models often omit backgroundStyle entirely; the full pipeline must still
+    // produce visual separation between supporting sections.
+    const input = SUPPORTING.map((type, i) => ({ type, id: `b-${i}`, props: { headline: `H${i}` } }));
+    seedLandingPageSectionBackgrounds(input);
+    applyDesignIntensityBackgrounds(input, "balanced");
+    applyLandingPageSectionRhythm(input, "tenant-1::Acme::ordinary saas page");
+    const bgs = input.map(bg) as string[];
+    expect(bgs.every((v) => ["white", "light-gray", "muted"].includes(v))).toBe(true);
+    expect(new Set(bgs).size).toBeGreaterThan(1);
   });
 });

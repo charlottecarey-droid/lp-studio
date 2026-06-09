@@ -298,17 +298,29 @@ export function applyDesignIntensityBackgrounds(
     !!props && "backgroundStyle" in props;
 
   if (intensity === "airy-minimal") {
-    const light: GenBackgroundStyle = "white";
+    // Stay light + minimal, but do NOT collapse every section to the identical
+    // white — that produces the all-white "wall" this pass is meant to avoid
+    // (task #1315). Walk the non-dark sections and alternate between two airy
+    // neutrals so adjacent light sections still read as distinct bands. (On the
+    // landing-page path applyLandingPageSectionRhythm runs after this and may
+    // re-spread the neutrals with a seeded scheme; on the microsite path the
+    // supporting-variability pass does the same — either way the result stays
+    // light-neutral, so this branch only sets the airy baseline.)
+    const airyRhythm: GenBackgroundStyle[] = ["white", "light-gray"];
+    let lightIdx = 0;
     for (const block of blocks) {
       const t = blockType(block);
-      // Never force a block to white when it renders light-on-dark text. The
-      // explicit DARK_REQUIRED set covers the always-dark non-DSO blocks; every
-      // `dso-*` block is part of the dark-by-design premium system (heroes,
-      // CTAs, feature sections all hard-render white copy), so forcing them to
-      // white produces white-on-white text — the hero-illegibility bug.
+      // Never force a block to a light neutral when it renders light-on-dark
+      // text. The explicit DARK_REQUIRED set covers the always-dark non-DSO
+      // blocks; every `dso-*` block is part of the dark-by-design premium
+      // system (heroes, CTAs, feature sections all hard-render white copy), so
+      // forcing them light produces white-on-white text — the hero-
+      // illegibility bug.
       if (DARK_REQUIRED_BLOCK_TYPES.has(t) || t.startsWith("dso-")) continue;
       const props = getProps(block);
-      if (supportsBg(props)) props.backgroundStyle = light;
+      if (!supportsBg(props)) continue;
+      props.backgroundStyle = airyRhythm[lightIdx % airyRhythm.length];
+      lightIdx++;
     }
     return blocks;
   }
@@ -342,6 +354,124 @@ export function applyDesignIntensityBackgrounds(
     const target = window.find((block) => supportsBg(getProps(block)));
     const props = getProps(target);
     if (supportsBg(props)) props.backgroundStyle = accent;
+  }
+  return blocks;
+}
+
+// ── Task #1315 — landing-page section-background rhythm ───────────────────────
+// The generate-page (landing-page) path historically rendered as a stack of
+// all-white sections: in "balanced" mode applyDesignIntensityBackgrounds is a
+// no-op, and the model frequently omits or repeats `backgroundStyle`, so every
+// section falls back to the renderer's white default. The microsite path
+// already solved the equivalent regression (seed a light-neutral default in
+// mergeWithDefaults, then alternate it in applyDandySupportingVariability).
+// These helpers port that fix to landing pages WITHOUT changing microsites or
+// already-published rows — they run only at generation time, here.
+
+/** Light-neutral presets that are always safe to swap among (dark text on a
+ *  light surface stays legible). Mirror of the microsite neutral set. */
+const LP_LIGHT_NEUTRAL_BGS = ["white", "light-gray", "muted"] as const;
+type LpLightNeutralBg = (typeof LP_LIGHT_NEUTRAL_BGS)[number];
+
+/** Alternating rhythms between two DISTINCT light neutrals so consecutive light
+ *  sections always differ → the page can never read as uniformly white. */
+const LP_SUPPORTING_BG_SCHEMES: LpLightNeutralBg[][] = [
+  ["white", "muted"],
+  ["muted", "white"],
+  ["white", "light-gray"],
+  ["light-gray", "white"],
+  ["muted", "light-gray"],
+  ["light-gray", "muted"],
+];
+
+function isLpLightNeutralBg(v: unknown): v is LpLightNeutralBg {
+  return typeof v === "string" && (LP_LIGHT_NEUTRAL_BGS as readonly string[]).includes(v);
+}
+
+/** Stable 32-bit hash (FNV-1a + Murmur3 fmix32 avalanche) so the rhythm scheme
+ *  is deterministic per page. Duplicated locally rather than imported from the
+ *  microsite route to avoid a circular import — that route already imports from
+ *  this one. */
+function lpHashSeed(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  h ^= h >>> 16;
+  h = Math.imul(h, 2246822507);
+  h ^= h >>> 13;
+  h = Math.imul(h, 3266489909);
+  h ^= h >>> 16;
+  return h >>> 0;
+}
+
+/** Block types that do NOT render a `backgroundStyle` section surface and so
+ *  must be skipped by the seed + rhythm passes: page chrome, layout containers,
+ *  and plain rich-text. (Self-contained full-page blocks — which paint their
+ *  own internal surfaces — are excluded separately via
+ *  SELF_CONTAINED_FULL_PAGE_TYPES, referenced lazily at call time because it is
+ *  declared later in this module.) dark-required / `dso-*` blocks and any hero
+ *  (it manages its own surface) are handled inside isLpSupportingSectionBlock. */
+const LP_NON_SECTION_BLOCK_TYPES = new Set<string>([
+  "nav-header", "footer", "sticky-bar", "popup",
+  "columns", "grid", "stack",
+  "rich-text",
+  "spatial-tour", "event-page",
+]);
+
+/** A landing-page block that participates in the neutral section rhythm — a
+ *  standard supporting/content section. Excludes heroes (own surface),
+ *  dark-required + every `dso-*` block (light-on-dark), page chrome, layout
+ *  containers, and self-contained full-page blocks. */
+function isLpSupportingSectionBlock(block: unknown): boolean {
+  const b = block as Record<string, unknown>;
+  const t = typeof b?.type === "string" ? b.type : "";
+  if (!t) return false;
+  if (t.includes("hero")) return false;
+  if (DARK_REQUIRED_BLOCK_TYPES.has(t) || t.startsWith("dso-")) return false;
+  if (LP_NON_SECTION_BLOCK_TYPES.has(t)) return false;
+  if (SELF_CONTAINED_FULL_PAGE_TYPES.has(t)) return false;
+  return !!b.props && typeof b.props === "object";
+}
+
+/** Step 1 — seed a light-neutral default `backgroundStyle` on every supporting
+ *  section that lacks one, so the design-intensity + rhythm passes always have
+ *  a value to vary. A section with no backgroundStyle already renders white (the
+ *  renderer's fallback), so seeding "white" preserves current appearance while
+ *  making the section visible to the rhythm pass. Mutates + returns. */
+export function seedLandingPageSectionBackgrounds(blocks: unknown[]): unknown[] {
+  for (const block of blocks) {
+    if (!isLpSupportingSectionBlock(block)) continue;
+    const props = (block as Record<string, unknown>).props as Record<string, unknown>;
+    const bs = props.backgroundStyle;
+    if (typeof bs !== "string" || bs.trim() === "") {
+      props.backgroundStyle = "white";
+    }
+  }
+  return blocks;
+}
+
+/** Step 2 — deterministic neutral rhythm. Walk the supporting sections that
+ *  currently carry a light-neutral background and spread a two-tone alternating
+ *  scheme across them so adjacent light sections always differ. Dark / accent
+ *  sections (set by the model or the design-intensity pass), heroes, and
+ *  dark-required blocks are left intact. Guarantees the page is never a stack of
+ *  identical-white sections. Run AFTER applyDesignIntensityBackgrounds. Mutates
+ *  + returns. */
+export function applyLandingPageSectionRhythm(
+  blocks: unknown[],
+  seedKey: string,
+): unknown[] {
+  const seed = lpHashSeed(`${seedKey}::lp-supporting`);
+  const scheme = LP_SUPPORTING_BG_SCHEMES[seed % LP_SUPPORTING_BG_SCHEMES.length];
+  let neutralIdx = 0;
+  for (const block of blocks) {
+    if (!isLpSupportingSectionBlock(block)) continue;
+    const props = (block as Record<string, unknown>).props as Record<string, unknown>;
+    if (!isLpLightNeutralBg(props.backgroundStyle)) continue;
+    props.backgroundStyle = scheme[neutralIdx % scheme.length];
+    neutralIdx++;
   }
   return blocks;
 }
@@ -5866,10 +5996,26 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       }
     }
 
+    // Task #1315 — seed a light-neutral default on every supporting section
+    // that lacks a backgroundStyle (mirrors the microsite mergeWithDefaults
+    // seed). A section with no backgroundStyle already renders white, so this
+    // preserves appearance while making the section visible to the rhythm pass.
+    parsed.blocks = seedLandingPageSectionBackgrounds(parsed.blocks);
+
     // Task #900 — deterministic backgroundStyle post-pass. Enforce the brand's
     // design intensity structurally (mirroring the ctaColor/accentColor loop
     // above) instead of trusting the LLM to honor the prompt guidance.
     parsed.blocks = applyDesignIntensityBackgrounds(parsed.blocks, designIntensity);
+
+    // Task #1315 — deterministic neutral section rhythm. Spread a seeded
+    // two-tone alternating scheme across the light-neutral supporting sections
+    // so adjacent light sections always differ and the landing page is never a
+    // stack of identical-white sections. Runs AFTER the design-intensity pass so
+    // it only re-spreads the still-light sections (dark/accent ones are left).
+    parsed.blocks = applyLandingPageSectionRhythm(
+      parsed.blocks,
+      `${tenantId ?? ""}::${(brand.brandName ?? "").trim()}::${prompt}`,
+    );
 
     // Deterministic hero legibility guard — clamp image-overlay heroes to a
     // minimum dimming so their always-white copy never lands on a too-bright
