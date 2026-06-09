@@ -1166,7 +1166,10 @@ export function collectImageSlots(
   pushArrField(props.articles, "avatarUrl", "lp-feature", it => `${it.author ?? ""} author portrait`);
   pushArrField(props.contributors, "avatarUrl", "lp-feature", it => `${it.name ?? ""} ${it.role ?? ""} portrait`);
   pushArrField(props.collections, "imageUrl", "lp-feature", it => `${it.title ?? ""} ${it.description ?? ""}`);
-  pushArrField(props.products, "imageUrl", "product-detail", it => `${it.name ?? ""} ${it.category ?? ""}`);
+  // products[].imageUrl — context leads with the topical `imageKey` (hyphens →
+  // spaces) so a dedupe-replacement re-pick uses the same subject signal as the
+  // fill pass in fillEmptyImages; `category` isn't part of the product schema.
+  pushArrField(props.products, "imageUrl", "product-detail", it => `${typeof it.imageKey === "string" ? it.imageKey.replace(/-/g, " ") : ""} ${it.name ?? ""} ${it.detail ?? ""}`);
   pushArrField(props.reviews, "avatarUrl", "lp-feature", it => `${it.name ?? ""} customer portrait`);
 
   // blog-series featuredArticle is a single nested object (imageUrl + avatarUrl)
@@ -1731,6 +1734,31 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
           return { ...item, image: pick(itemContext, images, usedIds, itemsPurpose) };
         }
         return item;
+      });
+    }
+
+    // products[].imageUrl: dso-products-grid + storefront product cards are
+    // inherently photo-driven (the card renders the icon ONLY when imageUrl is
+    // empty). The AI schema has the model emit a topical `imageKey` (e.g.
+    // "dentures", "aligners", "posterior-crowns") and leave imageUrl blank, so
+    // this is the ONLY place those slots get a real library image. Build the
+    // scoring context from imageKey (hyphens → spaces) FIRST — it's the most
+    // reliable subject signal — then name/category/detail. product-detail
+    // purpose, so it pulls from product shots and isn't held back by the
+    // lp-feature topical gate. Slots with no matching library image stay empty
+    // and the card keeps its icon fallback.
+    if (Array.isArray(props.products)) {
+      props.products = (props.products as Record<string, unknown>[]).map((product) => {
+        // Fill whenever imageUrl is empty/absent — the AI schema emits products
+        // as {name, detail, price, icon, imageKey} with NO imageUrl key, so we
+        // must NOT gate on `"imageUrl" in product` (it would skip every card).
+        if (!product.imageUrl) {
+          const key = typeof product.imageKey === "string" ? product.imageKey.replace(/-/g, " ") : "";
+          const productContext = `${key} ${product.name ?? ""} ${product.detail ?? ""}`;
+          const picked = pick(productContext, images, usedIds, "product-detail");
+          if (picked) return { ...product, imageUrl: picked };
+        }
+        return product;
       });
     }
 

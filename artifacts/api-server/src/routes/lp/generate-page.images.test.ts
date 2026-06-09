@@ -273,6 +273,36 @@ describe("fillEmptyImages — benefits-grid per-card photos (useItemPhotos opt-i
     blocks = fillEmptyImages(blocks, prodLib, PAGE_CTX) as any[];
     expect((blocks[0].props.items as Array<{ image: string }>)[0].image).toBe("/objects/prod-a");
   });
+
+  it("dso-products-grid products[].imageUrl fill: matches the AI imageKey subject (no imageUrl key emitted)", () => {
+    const lib: MediaImage[] = [
+      { url: "/objects/aligner-shot", title: "Clear aligner tray", tags: ["product-detail", "aligners"] },
+      { url: "/objects/denture-shot", title: "Denture closeup", tags: ["product-detail", "dentures"] },
+    ];
+    // The AI schema emits products as {name, detail, price, icon, imageKey} —
+    // crucially with NO imageUrl key — so the fill must still populate by topic.
+    let blocks: any[] = [
+      { type: "dso-products-grid", props: { headline: "Our services", products: [
+        { name: "Clear Aligners", detail: "Straighten teeth", price: "$$", icon: "sparkles", imageKey: "aligners" },
+        { name: "Dentures", detail: "Full + partial", price: "$$", icon: "smile", imageKey: "dentures" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, lib, PAGE_CTX) as any[];
+    const products = blocks[0].props.products as Array<{ imageUrl?: string }>;
+    expect(products[0].imageUrl).toBe("/objects/aligner-shot");
+    expect(products[1].imageUrl).toBe("/objects/denture-shot");
+  });
+
+  it("dso-products-grid leaves imageUrl empty when no library image matches (keeps icon fallback)", () => {
+    let blocks: any[] = [
+      { type: "dso-products-grid", props: { headline: "Our services", products: [
+        { name: "Implants", detail: "", price: "$$", icon: "target", imageKey: "implants" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, [], PAGE_CTX) as any[];
+    const products = blocks[0].props.products as Array<{ imageUrl?: string }>;
+    expect(products[0].imageUrl).toBeFalsy();
+  });
 });
 
 // ── sibling-tenant tie-breaker (foreignTenant penalty) ──────────────────────

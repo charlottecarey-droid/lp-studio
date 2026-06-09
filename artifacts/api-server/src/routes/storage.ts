@@ -1097,6 +1097,47 @@ router.post("/lp/media/remove-tag", async (req: Request, res: Response) => {
   }
 });
 
+/** Bulk-add a single tag to many images at once. Mirror of /remove-tag:
+ *  operates on the full set of ids the client sends (which may span pagination),
+ *  reading + rewriting each row's tags server-side. Tenant-scoped: only rows the
+ *  requester can write are touched. Idempotent (a row already carrying the tag is
+ *  left unchanged) and honours the same 12-tag-per-image cap as PATCH /:id/tags
+ *  (rows already at the cap that lack the tag are skipped). */
+router.post("/lp/media/add-tag", async (req: Request, res: Response) => {
+  try {
+    const scope = await resolveLibraryTenantScope(req, res);
+    if (!scope) return;
+    const { ids, tag } = req.body as { ids?: unknown; tag?: unknown };
+    const cleanIds = Array.isArray(ids)
+      ? [...new Set(ids.map(n => Number(n)).filter(n => Number.isInteger(n)))]
+      : [];
+    const cleanTag = typeof tag === "string" ? tag.trim().toLowerCase() : "";
+    if (cleanIds.length === 0 || !cleanTag) {
+      res.status(400).json({ error: "ids (non-empty) and tag are required" });
+      return;
+    }
+    const rows = await db
+      .select({ id: lpMediaTable.id, tags: lpMediaTable.tags })
+      .from(lpMediaTable)
+      .where(and(inArray(lpMediaTable.id, cleanIds), libraryWritablePredicate(scope.ownedTenantIds)));
+    let updated = 0;
+    await Promise.all(rows.map(async (row) => {
+      const current = (row.tags as string[]) ?? [];
+      if (current.includes(cleanTag) || current.length >= 12) return;
+      const next = [...current, cleanTag];
+      await db
+        .update(lpMediaTable)
+        .set({ tags: next })
+        .where(and(eq(lpMediaTable.id, row.id), libraryWritablePredicate(scope.ownedTenantIds)));
+      updated++;
+    }));
+    res.json({ updated, tag: cleanTag });
+  } catch (error) {
+    req.log.error({ err: error }, "Error bulk-adding tag");
+    res.status(500).json({ error: "Failed to add tag" });
+  }
+});
+
 router.delete("/lp/media/:id", async (req: Request, res: Response) => {
   try {
     const scope = await resolveLibraryTenantScope(req, res);

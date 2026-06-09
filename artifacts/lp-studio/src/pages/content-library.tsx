@@ -476,6 +476,9 @@ function MediaTab() {
   const [deleting, setDeleting] = useState(false);
   const [removingTag, setRemovingTag] = useState(false);
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
+  const [addingTag, setAddingTag] = useState(false);
+  const [addTagMenuOpen, setAddTagMenuOpen] = useState(false);
+  const [addTagValue, setAddTagValue] = useState("");
   const [reclassifying, setReclassifying] = useState(false);
   const [reclassifyMsg, setReclassifyMsg] = useState("");
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
@@ -671,6 +674,28 @@ function MediaTab() {
     fetchRefSources();
   };
 
+  // Add a tag to every selected image in one server-side call (covers ids on
+  // other pages too). Idempotent server-side, so images that already carry the
+  // tag are untouched. Selection is kept so the user can add several tags in a
+  // row.
+  const handleBulkAddTag = async () => {
+    const tag = addTagValue.trim().toLowerCase();
+    if (selected.size === 0 || !tag) return;
+    setAddingTag(true);
+    try {
+      await fetch(`/api/lp/media/add-tag`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [...selected], tag }),
+      });
+    } catch { /* result is reflected by the refresh below */ }
+    setAddingTag(false);
+    setAddTagValue("");
+    setAddTagMenuOpen(false);
+    await fetchImages();
+    fetchRefSources();
+  };
+
   // Bulk-remove reference-sourced images. With a host filter active, deletes
   // only that site's images; otherwise wipes every reference-sourced image.
   const handleDeleteReference = async (host: string) => {
@@ -696,6 +721,8 @@ function MediaTab() {
     setSelectMode(false);
     setSelected(new Set());
     setTagMenuOpen(false);
+    setAddTagMenuOpen(false);
+    setAddTagValue("");
   };
 
   // Classify the tenant's own images in client-driven batches of 20 so the
@@ -1037,6 +1064,46 @@ function MediaTab() {
                             ))}
                           </>
                         )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+              {selected.size > 0 && (
+                <div className="relative shrink-0">
+                  <Button
+                    variant="outline" size="sm" className="h-9 gap-1.5"
+                    onClick={() => setAddTagMenuOpen(v => !v)}
+                    disabled={addingTag || deleting}
+                  >
+                    {addingTag ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                    Add tag
+                    <ChevronRight className={`w-3.5 h-3.5 transition-transform ${addTagMenuOpen ? "rotate-90" : ""}`} />
+                  </Button>
+                  {addTagMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setAddTagMenuOpen(false)} />
+                      <div className="absolute right-0 top-full mt-1 z-50 w-64 rounded-lg border border-border bg-white shadow-lg p-2">
+                        <p className="px-1 pb-1.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                          Add to {selected.size} selected
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            autoFocus
+                            value={addTagValue}
+                            onChange={e => setAddTagValue(e.target.value)}
+                            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleBulkAddTag(); } }}
+                            placeholder="Tag name…"
+                            className="h-8 text-sm"
+                          />
+                          <Button
+                            size="sm" className="h-8 shrink-0"
+                            onClick={handleBulkAddTag}
+                            disabled={addingTag || !addTagValue.trim()}
+                          >
+                            {addingTag ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Add"}
+                          </Button>
+                        </div>
                       </div>
                     </>
                   )}
