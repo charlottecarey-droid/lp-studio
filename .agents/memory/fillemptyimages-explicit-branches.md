@@ -11,7 +11,12 @@ description: Why a new image-bearing array prop can be "collected" yet never fil
 
 **Why:** a prop array can have a `collectImageSlots` entry (so it's tracked/deduped) and still render empty, because nothing in the second pass writes its URL. This is exactly how `dso-products-grid`/storefront `products[].imageUrl` shipped broken — present in collect, absent in fill, so cards always fell back to the lucide icon.
 
-**How to apply:** to make a new image-bearing array actually populate on AI-generated pages, add BOTH a `collectImageSlots` `pushArrField` entry AND a matching explicit branch in `fillEmptyImages`' second pass. Keep their scoring context in sync.
+**How to apply:** a new image-bearing array prop needs THREE coordinated edits in generate-page.ts, not two:
+1. `collectImageSlots` `pushArrField` entry — dedupe / used-slot accounting.
+2. an explicit branch in `fillEmptyImages`' second pass — actually populates empty URLs (keep its scoring context in sync with #1).
+3. a clean pass in `sanitizeAIImageUrls` — runs the field through `cleanUrl()` so a hallucinated/Unsplash/external host the model invents is stripped instead of shipping to render.
+
+Miss #2 → renders empty (the `products[]` bug). Miss #3 → a non-library URL leaks straight to the page (caught in review when the dandy-* `items[].imageUrl`/`tabs[].imageUrl` fields were added — `items[].image` was sanitized but the distinct `imageUrl` key was not). Gate fills on `!x.imageUrl` (truthiness), never `"imageUrl" in x`, so an omitted key still backfills.
 
 Extra gotchas for `products`:
 - The AI schema emits products as `{name, detail, price, icon, imageKey}` with **no `imageUrl` key** — gate the fill on `!product.imageUrl`, never on `"imageUrl" in product` (the latter skips every card).
