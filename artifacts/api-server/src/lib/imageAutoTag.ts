@@ -35,7 +35,7 @@ export async function autoTagImage(
     const dataUri = `data:${mimeType};base64,${base64}`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       max_completion_tokens: 200,
       messages: [
         {

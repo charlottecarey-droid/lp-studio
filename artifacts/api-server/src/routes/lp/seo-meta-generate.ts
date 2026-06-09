@@ -185,8 +185,7 @@ router.post("/lp/seo-meta-generate", aiLightLimiter, aiLightHourlyLimiter, async
   try {
     const completion = await withOpenAIConcurrency(() =>
       openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        temperature: 0.6,
+        model: "gpt-5-mini",
         max_completion_tokens: 256,
         messages: [
           { role: "system", content: systemContent },

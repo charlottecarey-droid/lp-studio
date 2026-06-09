@@ -278,7 +278,7 @@ Return strict JSON only.`,
   let raw = "{}";
   try {
     const c = await withOpenAIConcurrency(() => openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       max_completion_tokens: 500,
       response_format: { type: "json_object" },
       messages: [{ role: "user", content: userParts }],

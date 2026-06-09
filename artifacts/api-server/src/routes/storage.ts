@@ -265,7 +265,7 @@ async function classifyPurposeOnly(mediaId: number, imageBuffer: Buffer, mimeTyp
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       max_completion_tokens: 20,
       messages: [
         {

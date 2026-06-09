@@ -294,7 +294,7 @@ router.post("/lp/brand-import/from-url", requireAuth, aiLightLimiter, aiLightHou
   let raw = "{}";
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       max_completion_tokens: 4096,
       response_format: { type: "json_object" },
       messages: [

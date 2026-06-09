@@ -61,7 +61,7 @@ function corpusToWordCount(corpus: CorpusEntry[]): number {
 
 async function llmCall(openai: OpenAI, system: string, user: string, maxTokens: number): Promise<string> {
   const c = await withOpenAIConcurrency(() => openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "gpt-5-mini",
     max_completion_tokens: maxTokens,
     response_format: { type: "json_object" },
     messages: [

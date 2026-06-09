@@ -83,12 +83,11 @@ router.post(
 
     try {
       const content = await callAIChat({
-        model: "gpt-4o-mini",
+        model: "gpt-5-mini",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userPayload },
         ],
-        temperature: 0,
         responseFormat: { type: "json_object" },
         geminiFallbackModel: "gemini-2.5-flash",
       });
