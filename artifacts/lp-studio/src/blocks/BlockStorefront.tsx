@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, Component, type ReactNode, type ErrorInfo } from "react";
+import { useCallback, useMemo, useState, Component, type ReactNode, type ErrorInfo } from "react";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 
 const BODY = BRAND_BODY_FONT;
@@ -35,6 +35,8 @@ import type {
 } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
+import { toFontFamilyValue } from "@/lib/font-catalog";
+import { useBlockFonts } from "@/lib/use-block-fonts";
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /*  Error boundary                                                           */
@@ -153,10 +155,8 @@ function resolveTheme(t: StorefrontBlockProps["theme"], brand?: BrandConfig): Re
     Object.entries({ ...base, ...raw }).map(([k, v]) => [k, (typeof v === "string" && v.trim() === "") ? (base as Record<string, unknown>)[k] ?? v : v])
   ) as typeof base;
   const heading = m.headingColor || m.fg;
-  const bodyFont = m.bodyFontFamily
-    ? `'${m.bodyFontFamily}', sans-serif`
-    : `${BRAND_BODY_FONT}, 'Inter', sans-serif`;
-  const displayFont = m.displayFontFamily ? `'${m.displayFontFamily}', serif` : "'Fraunces', serif";
+  const bodyFont = toFontFamilyValue(m.bodyFontFamily, "sans") ?? `${BRAND_BODY_FONT}, 'Inter', sans-serif`;
+  const displayFont = toFontFamilyValue(m.displayFontFamily, "display") ?? "'Fraunces', serif";
   return {
     bg: m.bg,
     altBg: m.altBg,
@@ -178,26 +178,6 @@ function resolveTheme(t: StorefrontBlockProps["theme"], brand?: BrandConfig): Re
   };
 }
 
-function useGoogleFonts(displayFamily: string, bodyFamily: string) {
-  useEffect(() => {
-    const families: string[] = [];
-    if (displayFamily) {
-      families.push(`${displayFamily.replace(/\s+/g, "+")}:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400`);
-    }
-    if (bodyFamily && bodyFamily !== displayFamily) {
-      families.push(`${bodyFamily.replace(/\s+/g, "+")}:wght@300;400;500;600;700`);
-    }
-    if (!families.length) return;
-    const href = `https://fonts.googleapis.com/css2?${families.map(f => `family=${f}`).join("&")}&display=swap`;
-    const id = `bsf-fonts-${href}`;
-    if (document.getElementById(id)) return;
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href = href;
-    document.head.appendChild(link);
-  }, [displayFamily, bodyFamily]);
-}
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /*  Small shared building blocks                                             */
@@ -969,7 +949,7 @@ export function BlockStorefront({ props: p, brand, onFieldChange: _onFieldChange
   void _onFieldChange;
   const C = useMemo(() => resolveTheme(p?.theme, brand), [p?.theme, brand]);
   const base = brandDefaults(brand);
-  useGoogleFonts(
+  useBlockFonts(
     p?.theme?.displayFontFamily ?? base.displayFontFamily,
     p?.theme?.bodyFontFamily ?? base.bodyFontFamily,
   );
