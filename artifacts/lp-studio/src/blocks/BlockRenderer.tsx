@@ -1,5 +1,6 @@
 import type { PageBlock, BlockSettings, HeroBlockProps, PasSectionBlockProps, ComparisonBlockProps, StatCalloutBlockProps, BenefitsGridBlockProps, TestimonialBlockProps, HowItWorksBlockProps, BottomCtaBlockProps, ZigzagFeaturesBlockProps, ProductShowcaseBlockProps, NavHeaderBlockProps, CtaButtonBlockProps, FullBleedHeroBlockProps, PopupBlockProps, StickyBarBlockProps, ProductGridBlockProps, PhotoStripBlockProps } from "@/lib/block-types";
 import { PageContextProvider } from "@/lib/page-context";
+import { getBlockSettingsCapabilities } from "@/lib/block-settings-capabilities";
 import { BlockRoiCalculator } from "./BlockRoiCalculator";
 import { BlockDsoInsightsDashboard } from "./BlockDsoInsightsDashboard";
 import { BlockDsoLabTour } from "./BlockDsoLabTour";
@@ -288,6 +289,27 @@ function BgImageLayer({ url, opacity, parallax }: { url: string; opacity: number
       )}
     </div>
   );
+}
+
+/** Strip any saved block-setting that the block type does not actually support
+ *  (per its declared capabilities). Capabilities only govern which controls the
+ *  inspector shows — `wrapWithSettings` would otherwise still apply orphaned
+ *  values (e.g. a `paddingX` / `minHeight` left on a chrome block such as a nav),
+ *  producing layout artifacts the user can no longer see or edit. Gating here
+ *  keeps the rendered result aligned with the editable surface. */
+function gateSettingsByCapabilities(blockType: string, settings?: BlockSettings): BlockSettings | undefined {
+  if (!settings) return settings;
+  const caps = getBlockSettingsCapabilities(blockType);
+  const gated: BlockSettings = { ...settings };
+  if (!caps.spacing) { gated.spacingTop = undefined; gated.spacingBottom = undefined; }
+  if (!caps.textScale) gated.textScale = undefined;
+  if (!caps.paddingX) gated.paddingX = undefined;
+  if (!caps.minHeight) gated.minHeight = undefined;
+  if (!caps.bgColor) gated.bgColor = undefined;
+  if (!caps.textColors) { gated.textColor = undefined; gated.headlineColor = undefined; gated.bodyColor = undefined; }
+  if (!caps.cardBgColor) gated.cardBgColor = undefined;
+  if (!caps.bgImage) { gated.bgImageUrl = undefined; gated.bgImageParallax = undefined; gated.bgImageOpacity = undefined; }
+  return gated;
 }
 
 function wrapWithSettings(children: ReactNode, settings?: BlockSettings, animationsEnabled = true): ReactNode {
@@ -1338,9 +1360,10 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
     }
   })();
 
-  const outerSettings = heroContentPaddingX && block.blockSettings
-    ? { ...block.blockSettings, paddingX: undefined }
-    : block.blockSettings;
+  const gatedSettings = gateSettingsByCapabilities(block.type, block.blockSettings);
+  const outerSettings = heroContentPaddingX && gatedSettings
+    ? { ...gatedSettings, paddingX: undefined }
+    : gatedSettings;
 
   // Skip the inner reveal for the same blocks the outer viewer skips
   // (layout chrome, self-contained scroll-driven blocks, first-paint heroes),

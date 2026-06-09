@@ -130,6 +130,7 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   "footer": ANCHOR_ONLY,
   "dandy-site-header": ANCHOR_ONLY,
   "dandy-site-footer": ANCHOR_ONLY,
+  "dso-practice-nav": ANCHOR_ONLY,
 
   // Pure structural --------------------------------------------------------
   "spacer": SPACER_CAPS,
