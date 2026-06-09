@@ -5,9 +5,7 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
-
-const DISPLAY = BRAND_DISPLAY_FONT;
-const BODY = BRAND_BODY_FONT;
+import { useBlockFonts } from "@/lib/use-block-fonts";
 
 const PLACEHOLDER = "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=1200&h=900&fit=crop";
 
@@ -18,20 +16,27 @@ interface Props {
 }
 
 export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
+  useBlockFonts(props.headlineFont, props.bodyFont);
+  const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
+  const BODY = props.bodyFont || BRAND_BODY_FONT;
   const reversed = props.imagePosition === "left";
   const surface = resolveSectionSurface(props, "#FDFCFA");
-  // Heading: keep the branded near-black on light surfaces; fall back to a
-  // light foreground on dark/gradient surfaces (presets expose surface.color;
-  // a custom dark hex only reports isDark, so handle that too).
-  const heading = surface.color ?? (surface.isDark ? "#FFFFFF" : "var(--brand-heading-on-light, #0F172A)");
-  const muted = pickContrastingColor(undefined, surface.base, ["#475569", "#94A3B8"]);
-  // Eyebrow reads as the brand accent but must stay legible on the section bg.
-  const eyebrow = pickContrastingColor(brand.accentColor, surface.base, [brand.primaryColor, "#006651"], 3.0);
+  // Heading: an explicit override wins; otherwise keep the branded near-black on
+  // light surfaces and fall back to a light foreground on dark/gradient surfaces
+  // (presets expose surface.color; a custom dark hex only reports isDark, so
+  // handle that too).
+  const heading = props.textColor ?? surface.color ?? (surface.isDark ? "#FFFFFF" : "var(--brand-heading-on-light, #0F172A)");
+  const muted = props.textColor ?? pickContrastingColor(undefined, surface.base, ["#475569", "#94A3B8"]);
+  // Eyebrow reads as the accent override (or brand accent) but must stay legible
+  // on the section bg.
+  const eyebrow = pickContrastingColor(props.accentColor ?? brand.accentColor, surface.base, [brand.primaryColor, "#006651"], 3.0);
   // CTA colors guard against "brand button on brand-colored section" by
   // resolving against the actual section surface.
   const ctaColors = pickCtaButtonColors(brand, surface.base);
   const outlineColors = pickOutlineButtonColors(brand, surface.base);
-  const glow = brand.accentColor || brand.primaryColor || "#006651";
+  const accent = props.accentColor || brand.accentColor || brand.primaryColor || "#006651";
+  const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
+  const glow = accent;
 
   const field = (key: keyof DandySideImageV6BlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
@@ -62,8 +67,8 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
         <ul className="mt-1 space-y-4">
           {(props.bullets ?? []).map((b, i) => (
             <li key={i} className="flex items-start gap-4 text-base" style={{ color: muted, fontFamily: BODY }}>
-              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--brand-accent)]" style={{ fontFamily: BODY }}>
-                <Check className="h-3.5 w-3.5 text-[var(--brand-primary)]" />
+              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: accent, fontFamily: BODY }}>
+                <Check className="h-3.5 w-3.5" style={{ color: onAccent }} />
               </span>
               <InlineText value={b} onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined} style={{ fontFamily: BODY }} />
             </li>
@@ -148,7 +153,7 @@ export function BlockDandySideImageV6({ props, brand, onFieldChange }: Props) {
         <div aria-hidden className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-black/10" />
       </div>
       {props.badgeText && (
-        <div className="absolute -bottom-5 -right-5 rounded-2xl bg-[var(--brand-accent)] px-6 py-3.5 text-base font-bold text-[var(--brand-cta-text)] shadow-lg">
+        <div className="absolute -bottom-5 -right-5 rounded-2xl px-6 py-3.5 text-base font-bold shadow-lg" style={{ backgroundColor: accent, color: onAccent }}>
           <InlineText value={props.badgeText} onUpdate={field("badgeText")} style={{ fontFamily: BODY }} />
         </div>
       )}

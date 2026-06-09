@@ -826,7 +826,12 @@ export interface DandySideImageV6BlockProps extends CtaModalConfig {
   imageUrl?: string;
   badgeText?: string;
   imagePosition?: "left" | "right";
+  backgroundStyle?: BackgroundStyle;
   bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  headlineFont?: string;
+  bodyFont?: string;
 }
 
 export interface DandyHeroV7S3TrustItem {

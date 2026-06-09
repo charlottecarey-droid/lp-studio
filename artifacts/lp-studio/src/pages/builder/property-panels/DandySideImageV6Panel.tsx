@@ -4,10 +4,12 @@ import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BrandSwatches } from "@/components/BrandSwatches";
 import { ImagePicker } from "@/components/ImagePicker";
+import { FontSelect } from "@/components/FontSelect";
 import type { DandySideImageV6BlockProps } from "@/lib/block-types";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
+import { ColorField } from "./BlockSettingsPanel";
+import { SectionBackgroundControl } from "./SectionBackgroundControl";
 
 interface Props {
   props: DandySideImageV6BlockProps;
@@ -49,12 +51,25 @@ export function DandySideImageV6Panel({ props: p, onChange }: Props) {
         <Label className="text-xs">Image Badge Text</Label>
         <Input value={p.badgeText ?? ""} onChange={e => set("badgeText", e.target.value || undefined)} className="h-8 text-xs" placeholder="e.g. 96% first-time right" />
       </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs">Background Color</Label>
-        <div className="flex gap-2 items-center">
-          <input type="color" value={p.bgColor ?? "#FDFCFA"} onChange={e => set("bgColor", e.target.value)} className="w-9 h-8 rounded border cursor-pointer p-0.5" />
-          <BrandSwatches className="ml-1" current={p.bgColor} onPick={hex => set("bgColor", hex)} />
-          <Input value={p.bgColor ?? "#FDFCFA"} onChange={e => set("bgColor", e.target.value)} className="h-8 text-xs font-mono flex-1" />
+      <div className="border-t pt-3 space-y-3">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Style</p>
+        <SectionBackgroundControl
+          backgroundStyle={p.backgroundStyle}
+          bgColor={p.bgColor}
+          defaultBgColor="#FDFCFA"
+          onChange={(patch) => onChange({ ...p, ...patch })}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <ColorField label="Text" value={p.textColor ?? "#0F172A"} onChange={(v) => set("textColor", v)} />
+          <ColorField label="Accent" value={p.accentColor ?? "#006651"} onChange={(v) => set("accentColor", v)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-[11px] text-muted-foreground">Headline font</Label>
+          <FontSelect value={p.headlineFont} onChange={(v) => set("headlineFont", v)} inheritLabel="Inherit from brand (display)" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-[11px] text-muted-foreground">Body font</Label>
+          <FontSelect value={p.bodyFont} onChange={(v) => set("bodyFont", v)} inheritLabel="Inherit from brand (body)" />
         </div>
       </div>
       <div className="border-t pt-3 space-y-3">
