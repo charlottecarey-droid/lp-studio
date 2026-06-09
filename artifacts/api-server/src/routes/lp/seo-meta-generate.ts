@@ -185,8 +185,14 @@ router.post("/lp/seo-meta-generate", aiLightLimiter, aiLightHourlyLimiter, async
   try {
     const completion = await withOpenAIConcurrency(() =>
       openai.chat.completions.create({
-        model: "gpt-5-mini",
-        max_completion_tokens: 256,
+        // gpt-4o (non-reasoning) to match every other copy/SEO endpoint in
+        // this project. A reasoning model (e.g. gpt-5-mini) spends the token
+        // budget on internal reasoning and returns EMPTY content under a tight
+        // max_completion_tokens, so the JSON parse falls back to "{}" and the
+        // "Auto-fill all" button silently populates nothing. Do not swap this
+        // back to a reasoning model without giving it a much larger budget.
+        model: "gpt-4o",
+        max_completion_tokens: 512,
         messages: [
           { role: "system", content: systemContent },
           { role: "user", content: userPrompt },

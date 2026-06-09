@@ -3812,6 +3812,7 @@ function AutoMetaButton({
 }) {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
+  const { toast } = useToast();
   const tenantHost = user?.tenantHost ?? null;
 
   const handleAutoFill = async () => {
@@ -3830,6 +3831,14 @@ function AutoMetaButton({
       if (!res.ok) throw new Error("Failed to generate");
       const data = await res.json() as { metaTitle: string; metaDescription: string; suggestedSlug: string };
 
+      // The AI returns blanks if it produces no usable content. Surface that
+      // instead of silently "succeeding" with empty fields — this is exactly
+      // how the regression looked to users ("button does nothing").
+      if (!data.metaTitle && !data.metaDescription) {
+        toast({ title: "Couldn't auto-fill", description: "The AI didn't return any metadata. Please try again.", variant: "destructive" });
+        return;
+      }
+
       // Generate OG screenshot URL from the live page
       const pageSlug = data.suggestedSlug || currentSlug;
       const pageUrl = getLpPageUrl(pageSlug, micrositeDomain, tenantHost);
@@ -3837,7 +3846,7 @@ function AutoMetaButton({
 
       onGenerated(data.metaTitle, data.metaDescription, data.suggestedSlug, ogScreenshot);
     } catch {
-      // Silent fail — button just stops loading
+      toast({ title: "Couldn't auto-fill", description: "Something went wrong generating SEO metadata. Please try again.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
