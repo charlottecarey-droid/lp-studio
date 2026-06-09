@@ -1154,6 +1154,11 @@ export function collectImageSlots(
   if (!STAT_BAR_BLOCK_TYPES.has(blockType)) {
     pushArrField(props.items, "image", itemsPurpose, it => `${it.title ?? it.label ?? ""} ${it.description ?? ""}`);
   }
+  // Dandy premium blocks carry a per-item/-tab photo under a distinct `imageUrl`
+  // key (not the `image` key handled above): columns-v2 / switchback items[] and
+  // vertical-tabs tabs[]. Tracked here so the fill pass dedupes them too.
+  pushArrField(props.items, "imageUrl", "lp-feature", it => `${it.title ?? ""} ${it.description ?? ""}`);
+  pushArrField(props.tabs, "imageUrl", "lp-feature", it => `${it.title ?? ""} ${it.description ?? ""}`);
   pushArrField(props.cases, "image", "lp-feature", it => `${it.name ?? ""} ${it.author ?? ""}`);
   pushArrField(props.slides, "src", "lp-feature", it => `${it.caption ?? ""} ${it.headline ?? ""}`);
   // case-study-logo-results-row results[].logoUrl (customer logos)
@@ -1759,6 +1764,36 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
           if (picked) return { ...product, imageUrl: picked };
         }
         return product;
+      });
+    }
+
+    // ── Dandy premium blocks ────────────────────────────────────────────
+    // columns-v2 / switchback rows + vertical-tabs tabs carry a per-item
+    // `imageUrl` photo (distinct from the `image` key handled above) →
+    // lp-feature. columns-v3 items are numbered-step layouts whose imageUrl is a
+    // small icon, not a photo, so it is deliberately left empty (the renderer
+    // shows the step number when imageUrl is ""). The scalar imageUrl on
+    // dandy-product-hero / dandy-side-image-v6 / dandy-form-right-alt is filled
+    // by the generic non-dso single-imageUrl path above.
+    if (
+      (blockType === "dandy-columns-v2" || blockType === "dandy-switchback") &&
+      Array.isArray(props.items)
+    ) {
+      props.items = (props.items as Record<string, unknown>[]).map((item) => {
+        if (!item.imageUrl) {
+          const ctx = `${item.title ?? ""} ${item.description ?? ""}`;
+          return { ...item, imageUrl: pick(ctx, images, usedIds, "lp-feature") };
+        }
+        return item;
+      });
+    }
+    if (blockType === "dandy-vertical-tabs" && Array.isArray(props.tabs)) {
+      props.tabs = (props.tabs as Record<string, unknown>[]).map((tab) => {
+        if (!tab.imageUrl) {
+          const ctx = `${tab.title ?? ""} ${tab.description ?? ""}`;
+          return { ...tab, imageUrl: pick(ctx, images, usedIds, "lp-feature") };
+        }
+        return tab;
       });
     }
 
@@ -2383,12 +2418,24 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
         image: isStatBar || isIconOnlyItemPhotos
           ? ""
           : typeof item.image === "string" ? cleanUrl(item.image) : item.image,
+        // Dandy premium blocks (columns-v2/v3, switchback) carry the photo on a
+        // distinct `imageUrl` key — clean it through the same allowlist so a
+        // hallucinated / Unsplash host can't bypass sanitization.
+        imageUrl: typeof item.imageUrl === "string" ? cleanUrl(item.imageUrl) : item.imageUrl,
       }));
     }
     if (Array.isArray(props.cases)) {
       props.cases = (props.cases as Record<string, unknown>[]).map(c => ({
         ...c,
         image: typeof c.image === "string" ? cleanUrl(c.image) : c.image,
+      }));
+    }
+
+    // dandy-vertical-tabs tabs[].imageUrl
+    if (Array.isArray(props.tabs)) {
+      props.tabs = (props.tabs as Record<string, unknown>[]).map(tab => ({
+        ...tab,
+        imageUrl: typeof tab.imageUrl === "string" ? cleanUrl(tab.imageUrl) : tab.imageUrl,
       }));
     }
 
@@ -3627,7 +3674,7 @@ RULES:
 1. Return ONLY a valid JSON object — no markdown, no explanation, no code fences.
 2. The JSON must have: { "title": string, "slug": string, "blocks": [...] }
 3. Each block must have: { "id": string (unique, format "block-TYPE-INDEX"), "type": string, "props": {...} }
-4. Generate 5-10 blocks per page. START with exactly ONE hero-class block, chosen to fit the brand's personality (see BRAND CONTEXT): "hero" (clean SaaS/B2B), "full-bleed-hero" (visual / consumer / lifestyle brands), "magazine-hero" (premium / editorial / storytelling brands), "parallax-image-hero" (cinematic brands), "dso-heartland-hero" (bold B2B/enterprise hero with a built-in nav and stat bar), "cinematic-video-hero" (atmospheric, video-led brands), "aurora-gradient-hero" (modern software / AI / tech), "editorial-split-hero" (premium / design-led / luxury), "parallax-layers-hero" (bold, cinematic, high-impact), or "spotlight-glow-hero" (developer tools / technical SaaS). NEVER use more than one hero-class block on a page. End the page with a closing "bottom-cta" followed by a "footer" block.
+4. Generate 5-10 blocks per page. START with exactly ONE hero-class block, chosen to fit the brand's personality (see BRAND CONTEXT): "hero" (clean SaaS/B2B), "full-bleed-hero" (visual / consumer / lifestyle brands), "magazine-hero" (premium / editorial / storytelling brands), "parallax-image-hero" (cinematic brands), "dso-heartland-hero" (bold B2B/enterprise hero with a built-in nav and stat bar), "cinematic-video-hero" (atmospheric, video-led brands), "aurora-gradient-hero" (modern software / AI / tech), "editorial-split-hero" (premium / design-led / luxury), "parallax-layers-hero" (bold, cinematic, high-impact), "spotlight-glow-hero" (developer tools / technical SaaS), "dandy-product-hero" (premium product-led hero with an inline email-capture pill and a product image that bleeds off the corner), or "dandy-hero-v7-s3" (centered conversion hero with an inline email form and a row of trust stats). NEVER use more than one hero-class block on a page. End the page with a closing "bottom-cta" followed by a "footer" block.
 5. All copy must be specific, punchy, and conversion-focused — never use placeholder or lorem ipsum text. Every multi-item array MUST hit the per-block minimum count stated in AVAILABLE BLOCK TYPES above. Empty arrays, 1–3 word stubs ("Slow", "Fast", "Better"), and generic platitudes ("industry-leading", "best-in-class") are failures — the block renders broken.
 6. Make the copy match the prompt's topic, industry, and audience.
 7. For form blocks, create realistic fields with proper types (email, phone, text, select, textarea).
@@ -3671,6 +3718,19 @@ const GENERAL_EXTRA_CORE_BLOCKS: string[] = [
   `- "roi-calculator": Interactive ROI / savings calculator with live inputs and computed outputs. Props: headline (5–12 words), subheadline (12–24 words), resultsPanelLabel (2–4 words, e.g. "Your estimated savings"), disclaimer (8–16 words), ctaEnabled (boolean), ctaText (2–5 words), ctaUrl ("#"), inputFields (array of EXACTLY 2–4 of {id (slug), label (2–5 words), defaultValue (number), min (number), max (number), step (number), suffix (e.g. "cases/mo", "$"), inputType ("number"|"slider")}), outputFields (array of EXACTLY 1–3 of {id (slug), label (2–5 words), formula (arithmetic over input ids, e.g. "cases * 480 * 12"), format ("currency"|"number"|"percent"), decimals (number), highlight (boolean)}).`,
   `- "story-hub": Customer-story hub with a featured story, filter chips, a story grid, and stats. Props: eyebrow (2–4 words), heroTitle (5–12 words), subhead (12–24 words), filters (array of 3–5 short category labels), featured ({tag (1–3 words), title (5–12 words), practice (name), location (city, state), imageUrl (""), href ("#")}), stories (array of EXACTLY 3–6 of {practice (name), location (city, state), headline (5–12 words), tag (1–3 words), imageUrl (""), href ("#")}), stats (array of EXACTLY 3–4 of {number (metric), label (2–5 words)}), ctaHeadline (5–12 words), ctaPrimaryText (2–5 words), ctaPrimaryUrl ("#").`,
   `- "resources": Grid of resource / blog / guide cards. Props: headline (5–12 words), subheadline (12–24 words), columns (3 or 4), backgroundStyle ("white"|"muted"|"dark"), items (array of EXACTLY 3–6 of {title (5–12 words), description (14–24 words), category (1–3 words, e.g. "Guide", "Webinar"), image (""), url ("#")}).`,
+  // Premium B2B section blocks — polished, conversion-oriented layouts. All colors
+  // resolve from the brand palette automatically, so use them freely for any brand.
+  `- "dandy-product-hero": Premium split hero — a solid brand-color left half with an eyebrow, headline, subheadline, and an inline email-capture pill, paired with a large product/app image on the right that bleeds off the corner. A strong single hero for product-led B2B brands. Props: eyebrow (2–4 words), headline (4–9 words), subheadline (15–28 words), emailPlaceholder ("Email address"), primaryCtaText (2–3 words, action verb first), primaryCtaUrl ("#"), disclaimer (6–14 words), variant ("split"|"card"|"gradient"), imageUrl ("" — server fills).`,
+  `- "dandy-hero-v7-s3": Centered conversion hero — an eyebrow, headline, and subheadline above an inline email-capture form, with a row of trust stats beneath it, all on a brand-color background. A strong single hero for conversion-focused B2B/SaaS pages. Props: eyebrow (2–4 words), headline (4–9 words), subheadline (15–28 words), inputPlaceholder ("Work email"), ctaText (2–3 words, action verb first), formDisclaimer (6–14 words), trustItems (array of EXACTLY 3–4 of {value (metric, e.g. "6,000+"), label (2–5 words)}), backgroundImageUrl ("").`,
+  `- "dandy-side-image-v6": Premium side-by-side feature section — a headline, supporting copy, a checkmark bullet list, and a CTA on one side with a framed editorial image on the other. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (15–28 words), bullets (array of EXACTLY 3–5 short benefit phrases, 3–7 words each), ctaText (2–4 words), ctaUrl ("#"), badgeText (1–3 words or ""), imagePosition ("left"|"right"), imageUrl ("" — server fills).`,
+  `- "dandy-switchback": Alternating image/text feature sequence — each row pairs a framed image with a title, description, and CTA, flipping sides row to row. Great for walking through 2–4 capabilities. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (15–28 words), items (array of EXACTLY 2–4 of {title (3–7 words), description (16–28 words), ctaText (2–4 words), ctaUrl ("#"), imageUrl ("" — server fills)}).`,
+  `- "dandy-columns-v2": A 3-up card grid where each card has an image, title, short description, a checkmark bullet list, and a CTA — ideal for plans, audiences, or product lines. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (15–28 words), items (array of EXACTLY 3 of {title (2–5 words), description (12–22 words), bullets (array of 2–4 short phrases), ctaText (2–4 words), ctaUrl ("#"), imageUrl ("" — server fills)}).`,
+  `- "dandy-columns-v3": Clean 3-up "numbered steps" section — each column shows a large step number, a title, and a short description. Ideal for an onboarding / how-it-works flow. Keep it text-only: set showNumbers true and leave every imageUrl "". Props: eyebrow (2–4 words), headline (5–12 words), subheadline (15–28 words), showNumbers (true), items (array of EXACTLY 3–4 of {title (3–7 words), description (14–24 words), imageUrl ("")}).`,
+  `- "dandy-vertical-tabs": Interactive feature switcher — a vertical list of tabs on one side, each revealing a description, CTA, and image on the other. Use for 3–5 related features or use-cases. Props: headline (5–12 words), subheadline (15–28 words), tabs (array of EXACTLY 3–5 of {title (2–5 words), description (16–28 words), ctaText (2–4 words), ctaUrl ("#"), imageUrl ("" — server fills)}).`,
+  `- "dandy-versus": A two-column "before vs after" comparison on a brand-color background — a left card listing the pain of the old/alternative way (rendered with ✗ marks) and a right card listing the wins of your approach (✓ marks), with a centered "VS" badge. Props: eyebrow (2–4 words), headline (5–12 words), leftLabel (1–3 words, e.g. "The old way"), leftTitle (2–5 words), leftDesc (12–22 words), leftBullets (array of EXACTLY 3–5 short pain phrases), leftCtaText (2–4 words or ""), leftCtaUrl ("#"), rightLabel (1–3 words naming your brand, e.g. "With Acme"), rightTitle (2–5 words), rightDesc (12–22 words), rightBullets (array of EXACTLY 3–5 short benefit phrases), rightCtaText (2–4 words), rightCtaUrl ("#").`,
+  `- "dandy-conversion-panel-1": Bold full-width CTA panel on a brand-color background with a headline, subheadline, one or two CTAs, and an optional row of proof stats. Use near the end of the page to drive action. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (12–24 words), primaryCtaText (2–4 words), primaryCtaUrl ("#"), secondaryCtaText (2–4 words or ""), secondaryCtaUrl ("#"), style ("teal"|"lime"|"medium"|"white"), stats (array of 0–4 of {value (metric), label (2–5 words)}).`,
+  `- "dandy-cta-block": Clean, focused closing CTA — eyebrow, headline, subheadline, and one or two buttons with an optional fine-print line. A simpler alternative to "bottom-cta". Props: eyebrow (2–4 words), headline (5–12 words), subheadline (12–24 words), primaryCtaText (2–4 words), primaryCtaUrl ("#"), secondaryCtaText (2–4 words or ""), secondaryCtaUrl ("#"), disclaimer (6–14 words or ""), alignment ("left"|"center"|"right").`,
+  `- "dandy-form-right-alt": Lead-capture section pairing a value pitch (headline, subheadline, checkmark bullets, trust note) with a native contact-form card on the right. A strong mid/late-page conversion block. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (15–28 words), bullets (array of EXACTLY 3–5 short benefit phrases), trustNote (5–12 words), formHeadline (3–6 words), formSubheadline (8–16 words), submitText (2–3 words), leftMode ("bullets").`,
 ];
 
 // Extra SHOWCASE blocks — injected just before the GLOBAL DENSITY ENFORCEMENT

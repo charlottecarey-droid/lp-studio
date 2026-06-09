@@ -9,8 +9,6 @@ import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
 
-const PLACEHOLDER_ICON = "https://www.meetdandy.com/wp-content/uploads/2025/06/col-type-1.svg";
-
 interface Props {
   props: DandyColumnsV3BlockProps;
   brand: BrandConfig;
@@ -70,14 +68,16 @@ export function BlockDandyColumnsV3({ props, brand, onFieldChange }: Props) {
         <div className="grid md:grid-cols-3 gap-12 md:gap-16">
           {(props.items ?? []).map((item, i) => (
             <div key={i} className="flex flex-col gap-5">
-              <div className="w-16 h-16 flex items-center justify-center">
-                <img
-                  src={item.imageUrl || PLACEHOLDER_ICON}
-                  alt=""
-                  className="w-16 h-16 object-contain"
-                  loading="lazy"
-                />
-              </div>
+              {item.imageUrl && (
+                <div className="w-16 h-16 flex items-center justify-center">
+                  <img
+                    src={item.imageUrl}
+                    alt=""
+                    className="w-16 h-16 object-contain"
+                    loading="lazy"
+                  />
+                </div>
+              )}
               <div
                 className={cn(
                   "flex items-center",

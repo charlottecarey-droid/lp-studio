@@ -223,6 +223,63 @@ describe("validateAndDedupeAIImages", () => {
   });
 });
 
+describe("dandy premium blocks — items[]/tabs[] imageUrl wiring", () => {
+  it("sanitizeAIImageUrls strips a non-library items[].imageUrl but keeps a library one", () => {
+    let blocks: any[] = [
+      { type: "dandy-columns-v2", props: { items: [
+        { title: "Plan A", imageUrl: "https://images.unsplash.com/photo-123" },
+        { title: "Plan B", imageUrl: "/objects/dental-feature-1" },
+      ] } },
+    ];
+    blocks = sanitizeAIImageUrls(blocks, LIB) as any[];
+    expect(blocks[0].props.items[0].imageUrl).toBe("");
+    expect(blocks[0].props.items[1].imageUrl).toBe("/objects/dental-feature-1");
+  });
+
+  it("sanitizeAIImageUrls strips a non-library tabs[].imageUrl", () => {
+    let blocks: any[] = [
+      { type: "dandy-vertical-tabs", props: { tabs: [
+        { title: "Scan", imageUrl: "https://evil.example.com/x.png" },
+      ] } },
+    ];
+    blocks = sanitizeAIImageUrls(blocks, LIB) as any[];
+    expect(blocks[0].props.tabs[0].imageUrl).toBe("");
+  });
+
+  it("fillEmptyImages fills dandy-columns-v2 items[].imageUrl whether the key is empty or omitted", () => {
+    let blocks: any[] = [
+      { type: "dandy-columns-v2", props: { items: [
+        { title: "Custom denture fit", description: "fitting", imageUrl: "" },
+        { title: "Dental scan", description: "scanner" }, // key omitted
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, LIB, PAGE_CTX) as any[];
+    const items = blocks[0].props.items as Array<{ imageUrl?: string }>;
+    expect(items[0].imageUrl).toBeTruthy();
+    expect(items[1].imageUrl).toBeTruthy();
+  });
+
+  it("fillEmptyImages fills dandy-vertical-tabs tabs[].imageUrl", () => {
+    let blocks: any[] = [
+      { type: "dandy-vertical-tabs", props: { tabs: [
+        { title: "Denture fitting", description: "fit" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, LIB, PAGE_CTX) as any[];
+    expect(blocks[0].props.tabs[0].imageUrl).toBeTruthy();
+  });
+
+  it("fillEmptyImages does NOT fill dandy-columns-v3 items[].imageUrl (numbered steps stay text-only)", () => {
+    let blocks: any[] = [
+      { type: "dandy-columns-v3", props: { showNumbers: true, items: [
+        { title: "Step one", description: "do this", imageUrl: "" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, LIB, PAGE_CTX) as any[];
+    expect(blocks[0].props.items[0].imageUrl).toBe("");
+  });
+});
+
 // ── benefits-grid per-card photos are opt-in (useItemPhotos) ────────────────
 // benefits-grid / features are ICON-ONLY by default. Their per-item `image`
 // slots are only back-filled when the model opts the whole block in with
