@@ -71,7 +71,8 @@ export function BlockFooter({ props, brand, onFieldChange }: Props) {
               const logo = (
                 <BrandLogo
                   brand={brand}
-                  tone={isDarkBg ? "onPrimary" : "onLight"}
+                  tone={isDarkBg ? "onDark" : "onLight"}
+                  autoContrast
                   alt={brand.brandName || "Logo"}
                   className="w-40 h-auto"
                   style={{ opacity: 0.9 }}

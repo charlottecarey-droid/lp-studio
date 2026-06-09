@@ -110,6 +110,7 @@ export function BrandLogo({
   brand,
   url,
   tone = "onLight",
+  autoContrast = false,
   alt = "Logo",
   className,
   style,
@@ -151,13 +152,35 @@ export function BrandLogo({
     onDarkSurface && !(url && url.trim()) && !!brand.logoUrlDark?.trim();
   const whitenForDark = onDarkSurface && !usingDedicatedDarkAsset;
 
+  // Symmetric guard for the *light* direction (opt-in via `autoContrast`). A
+  // non-recolorable logo on a light surface renders in its native colors — fine
+  // for a normal dark/colored mark, but a white/light wordmark vanishes
+  // ("white-on-white"). We can't pixel-sample a cross-origin raster, so we use
+  // the tenant's own signal: if they uploaded a dedicated dark-surface logo
+  // (`logoUrlDark`), `logoUrl` is trustworthy as the light-surface mark and we
+  // leave it alone; if they did NOT (e.g. Televerde uploaded only a white
+  // wordmark), the single logo is ambiguous, so we paint it to a clean dark
+  // silhouette so it always reads on light. Known multi-color marks and
+  // explicit URL overrides are never touched.
+  const darkenForLight =
+    autoContrast &&
+    !onDarkSurface &&
+    !isKnownMulticolor &&
+    !(url && url.trim()) &&
+    !brand.logoUrlDark?.trim();
+
   if (!autoRecolor) {
+    const plainFilter = whitenForDark
+      ? "brightness(0) invert(1)"
+      : darkenForLight
+        ? "brightness(0)"
+        : undefined;
     return (
       <img
         src={src}
         alt={alt}
         className={className}
-        style={whitenForDark ? { ...style, filter: "brightness(0) invert(1)" } : style}
+        style={plainFilter ? { ...style, filter: plainFilter } : style}
       />
     );
   }
