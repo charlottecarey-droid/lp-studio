@@ -512,7 +512,13 @@ function AppShell() {
   // Block Replit dev/preview URLs in open mode — these are ephemeral workspace
   // URLs that should never serve the admin UI publicly. Legitimate custom domains
   // (e.g. lpstudio.ai) are allowed through so users can log in.
-  if (domainContext?.mode === "open") {
+  //
+  // This guard only applies to PRODUCTION builds (e.g. an accidental
+  // *.replit.app deploy). The local/staging vite dev server runs under
+  // import.meta.env.DEV and must render the full app on its *.replit.dev host
+  // so operators can log in and work; AuthGate still gates everything behind
+  // sign-in there, so nothing is exposed publicly.
+  if (!import.meta.env.DEV && domainContext?.mode === "open") {
     const hostname = typeof window !== "undefined" ? window.location.hostname : "";
     const isReplitDevUrl =
       hostname.endsWith(".replit.dev") ||
@@ -520,11 +526,7 @@ function AppShell() {
       hostname.endsWith(".replit.app") ||
       hostname.includes(".replit.dev") ||
       hostname.includes("repl.co");
-    // Allow sign-in and the superadmin platform through on dev/staging replit
-    // hosts so operators can actually log in; everything else stays blocked.
-    const isAdminEntryPath =
-      location === "/login" || location.startsWith("/superadmin");
-    if (isReplitDevUrl && !isAdminEntryPath) {
+    if (isReplitDevUrl) {
       return null;
     }
   }
