@@ -1405,11 +1405,12 @@ describe("icon-only item photos (benefits-grid / features)", () => {
   });
 });
 
-describe("off-topic curated images do not auto-fill content/strip slots", () => {
-  // A curated (non-scraped) library that is purpose-classified for feature
-  // slots but topically OFF-TOPIC for a dentures page — e.g. an intraoral
-  // scanner product shot. This reproduces the "scanner photos on a dentures
-  // page" strip regression.
+describe("curated purpose-matched images fill content/strip slots", () => {
+  // Restored (pre-late-May) behavior: a tenant's OWN curated library image that
+  // is purpose-classified for feature slots fills the slot even when its content
+  // tags don't textually overlap the page context. The user prefers their own
+  // product/feature photos in the grid/strip over an empty slot or a generic
+  // fill. (e.g. a feature-tagged product shot on a dentures page.)
   const SCANNER_ONLY: MediaImage[] = [
     { url: "/objects/scanner-device", title: "Intraoral scanner hardware", tags: ["lp-feature", "scanner", "device"] },
   ];
@@ -1427,14 +1428,12 @@ describe("off-topic curated images do not auto-fill content/strip slots", () => 
     },
   ];
 
-  it("strict pass leaves a photo-strip slot empty rather than fill it with an off-topic curated image", () => {
+  it("strict pass fills a photo-strip slot with the tenant's own purpose-matched curated image", () => {
     const blocks = fillEmptyImages(stripBlock(), SCANNER_ONLY, PAGE_CTX, false) as any[];
-    for (const img of blocks[0].props.images) {
-      expect(img.src).toBe("");
-    }
+    expect(blocks[0].props.images[0].src).toBe("/objects/scanner-device");
   });
 
-  it("relaxed (last-resort) pass still fills the strip from the curated library when nothing better exists", () => {
+  it("relaxed (last-resort) pass also fills the strip from the curated library", () => {
     const blocks = fillEmptyImages(stripBlock(), SCANNER_ONLY, PAGE_CTX, true) as any[];
     expect(blocks[0].props.images[0].src).toBe("/objects/scanner-device");
   });

@@ -826,22 +826,6 @@ function getImagePurpose(img: MediaImage): string {
   return "";
 }
 
-/** True when a curated image carries at least one DESCRIPTIVE (topical) tag —
- *  i.e. a tag that isn't a purpose marker (PURPOSE_TAGS), a non-semantic
- *  descriptor (SKIP_TAGS), an OG/social/role tag (EXCLUDE_TAGS), or a scrape
- *  provenance tag. When true, the auto-tagger DID describe the photo's subject,
- *  so a zero topical-relevance score means it is actively OFF-TOPIC (not merely
- *  unlabeled). Untagged uploads return false and keep the benefit of the doubt. */
-function hasTopicalTag(img: MediaImage): boolean {
-  return img.tags.some((t) => {
-    const tl = t.toLowerCase().trim();
-    if (!tl) return false;
-    if (SKIP_TAGS.has(tl) || EXCLUDE_TAGS.has(tl)) return false;
-    if (tl.startsWith("refhost:") || tl === "scraped" || tl === "page-reference") return false;
-    return true;
-  });
-}
-
 /** Fetch all images from the media library, separated by purpose for AI context.
  *
  * Tenant isolation: when a tenantId is supplied, images readable by that
@@ -965,10 +949,12 @@ function scoreImage(
   let purposeScore = 0;
   // `contentScore` is the TOPICAL relevance signal alone — content-tag and title
   // overlap with the page context, WITHOUT the purpose boost/penalty or the
-  // sibling-tenant nudge. The strict-pass scraped gate keys off this so a
-  // generic reference-site photo can't win a slot on a bare purpose match
-  // (a "lp-hero"-tagged but off-topic office shot) — it needs a real topical
-  // signal. See findBestImage. (Task #1287)
+  // sibling-tenant nudge. It is folded into the returned total `score`; it is NO
+  // LONGER a separate strict-pass rejection gate. A tenant's OWN purpose-matched
+  // library photo fills its slot on a non-negative total score even when its tags
+  // don't textually overlap the page context — keeping the empty-word/meta-tag
+  // guards below still matters so stale scrapes don't inflate past real assets.
+  // See findBestImage.
   let contentScore = 0;
   const imgPurpose = getImagePurpose(img);
 
@@ -1096,31 +1082,15 @@ function findBestImage(
     // relaxed last-resort pass so the tenant's genuine library + the current
     // prompt's reference scrape are tried first.
     if (deferred && !relaxed) continue;
-    const { score, contentScore } = scoreImage(img, contextLower, contextWords, preferredPurpose);
+    const { score } = scoreImage(img, contextLower, contextWords, preferredPurpose);
     // Never place a clearly off-topic / purpose-mismatched image: a slot left
     // empty (for AI fill or the editor's storage default) reads better than an
-    // obviously wrong photo.
+    // obviously wrong photo. (Restored to the simpler pre-late-May behavior: a
+    // tenant's OWN purpose-matched library image is used whenever its score is
+    // non-negative — we no longer reject a curated image just because its tags
+    // don't textually overlap the slot context, which was starving dentures /
+    // product-grid slots of the tenant's own on-topic photos.)
     if (score < 0) continue;
-    // Strict pass: an off-topic CURATED content image — one whose auto-tagger
-    // DESCRIBED its subject (carries a topical tag) yet scores ZERO topical
-    // relevance for this slot — must not fill an lp-feature CONTENT slot
-    // (photo-strip, zigzag rows, cards). e.g. an intraoral-scanner product shot
-    // tagged "scanner" landing on a "what dentists say" strip on a dentures page
-    // (the reported "wrong images" symptom). UNTAGGED uploads keep the benefit of
-    // the doubt (score >= 0); CURRENT-reference scrapes are exempt (the user
-    // pointed us at that URL); hero and product-detail slots are unaffected.
-    // Rejected images still fill in the relaxed last-resort pass, which runs
-    // AFTER AI image generation gets a chance at an on-topic image. (Task #1287)
-    if (
-      !relaxed &&
-      !deferred &&
-      !isScrapedImage(img) &&
-      preferredPurpose === "lp-feature" &&
-      contentScore <= 0 &&
-      hasTopicalTag(img)
-    ) {
-      continue;
-    }
     if (starter) {
       if (score > bestStarterScore) {
         bestStarterScore = score;
