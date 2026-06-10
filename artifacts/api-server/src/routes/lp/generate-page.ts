@@ -774,6 +774,15 @@ export interface MediaImage {
    *  it's genuinely the best match and validateAndDedupeAIImages won't clear it
    *  (it's still in the scoring pool). Own-tenant / shared rows leave this unset. */
   foreignTenant?: boolean;
+  /** True when this is a SCRAPED row harvested from a reference URL supplied in
+   *  the CURRENT prompt — either freshly scraped this run, or a catalog row whose
+   *  host matches one of this run's reference URLs (set in buildReferenceFillPool).
+   *  These are the images the user explicitly asked us to use ("make my page look
+   *  like this site", or a new tenant whose only library IS their own website), so
+   *  they compete in the STRICT image pass alongside curated assets and may win a
+   *  hero/feature slot. STALE scrapes from unrelated prior generations leave this
+   *  unset and stay last-resort. */
+  currentReference?: boolean;
 }
 
 const PURPOSE_TAGS = ["lp-hero", "lp-feature", "product-detail"] as const;
@@ -1032,76 +1041,85 @@ function findBestImage(
   // top scorer is ineligible, a lower but acceptable candidate behind it still
   // fills the slot instead of leaving it empty.
   //
-  //  • Curated library images (drawer uploads, brand-import photography) need
-  //    only a NON-NEGATIVE score — this avoids forcing a product-detail into a
-  //    hero slot while still preferring the tenant's own assets.
-  //  • SCRAPED page-reference harvests are auto-tagged for PURPOSE (lp-hero /
-  //    lp-feature), so a generic off-topic reference photo scores the full
-  //    purpose boost on a matching slot with ZERO topical relevance — the
-  //    "wrong images" symptom (a generic office shot from the reference site
-  //    treated as on-topic). Require a positive CONTENT-relevance signal
-  //    (topical tag/title overlap, independent of the purpose boost) so only
-  //    genuinely on-topic scrapes win a slot in the strict pass; the rest fall
-  //    to the relaxed last-resort pass (which runs AFTER AI image generation).
-  //    This holds for THIS run's reference scrape too: the user pointing us at a
-  //    site doesn't make its generic imagery on-topic. (Task #1287)
-  // In `relaxed` mode we drop the curated/scraped distinction but keep a minimum
-  // acceptability FLOOR — never place a negative (purpose-mismatched / clearly
-  // off-topic) candidate. A slot left empty for the editor's storage default or
-  // AI fill reads better than an obviously wrong image. (Task #1287)
+  // Candidates are sorted into THREE priority tiers (see below) so that the
+  // tenant's OWN curated assets and the CURRENT prompt's reference scrape always
+  // beat stale scrapes and generic starters, regardless of raw score. Every tier
+  // still keeps a minimum acceptability FLOOR — a negative (purpose-mismatched /
+  // clearly off-topic) candidate is never placed. A slot left empty for the
+  // editor's storage default or AI fill reads better than an obviously wrong
+  // image. (Task #1287)
   //
   // `usedIds` holds normalized image IDENTITIES (see imageIdentity), not raw
   // URLs, so a photo already placed under one URL can't be re-selected for
   // another slot via a near-duplicate URL of the same visual asset.
+  // THREE priority tiers, picked in order (curated/current-ref → stale scrape →
+  // starter):
+  //  • `best`        — the tenant's OWN curated assets (drawer uploads, brand-
+  //    import photography, AI-generated, purpose-tagged) AND scrapes from a
+  //    reference URL supplied in THIS prompt (img.currentReference). These are
+  //    the only images allowed to fill in the STRICT pass.
+  //  • `bestScraped` — STALE scrapes harvested for an unrelated prior generation.
+  //    Last-resort only (relaxed pass), but ABOVE starters.
+  //  • `bestStarter` — generic STARTER seeds (tagged "starter"). The ABSOLUTE
+  //    last resort, below every scrape.
+  // Both scrapes and starters are auto-tagged for PURPOSE, so without this
+  // tiering a generic scraped photo (e.g. an intraoral-scanner shot from the
+  // reference site) would score the full purpose boost and beat the tenant's own
+  // on-topic library for a hero/feature slot — the reported "wrong / scraped
+  // images instead of our own" regression.
   let best: MediaImage | null = null;
   let bestScore = -Infinity;
-  // Generic STARTER seeds (STARTER_IMAGE_SEEDS, tagged "starter") are the
-  // ABSOLUTE last resort. A tenant's OWN assets — curated uploads, brand-import
-  // photography, and the scraped imagery from the site they pointed us at — must
-  // always win a slot over a generic starter. Starters carry no purpose or
-  // topical tag, so they score ~0; the strict scraped-relevance gate
-  // (contentScore > 0) holds the tenant's scraped reference images back to the
-  // relaxed pass, and WITHOUT special-casing here a score-0 starter would fill
-  // the slot first (in the strict hero branch and the relaxed pre-AI pass),
-  // producing the "random starter images instead of the tenant's own / scraped
-  // images" regression. Fix: track starters in a SEPARATE tier and only fall
-  // back to one when no genuine candidate qualifies — and never let a starter
-  // fill in the strict pass at all.
+  let bestScraped: MediaImage | null = null;
+  let bestScrapedScore = -Infinity;
   let bestStarter: MediaImage | null = null;
   let bestStarterScore = -Infinity;
   for (const img of images) {
     if (usedIds.has(imageIdentity(img))) continue;
     const starter = isStarterImage(img);
-    // Starters never fill in the strict pass — defer them to the relaxed
-    // last-resort pass so genuine reference/library imagery is tried first.
-    if (starter && !relaxed) continue;
+    // CURRENT-prompt reference scrapes (img.currentReference) are NOT deferred —
+    // the user explicitly pointed us at that URL (or it's a new tenant whose only
+    // library is their own website), so they compete in the strict pass alongside
+    // curated assets. Only STALE scrapes from unrelated prior runs defer.
+    const staleScrape = isScrapedImage(img) && !img.currentReference;
+    const deferred = starter || staleScrape;
+    // Starters + stale scrapes never fill in the strict pass — defer them to the
+    // relaxed last-resort pass so the tenant's genuine library + the current
+    // prompt's reference scrape are tried first.
+    if (deferred && !relaxed) continue;
     const { score, contentScore } = scoreImage(img, contextLower, contextWords, preferredPurpose);
-    const acceptable = relaxed
-      ? score >= 0
-      : isScrapedImage(img)
-        ? contentScore > 0
-        : preferredPurpose === "lp-feature" && hasTopicalTag(img)
-          // A curated image whose auto-tagger DESCRIBED its subject (has a
-          // topical tag) yet scores ZERO topical relevance for this slot is
-          // actively OFF-TOPIC — e.g. an intraoral-scanner product shot tagged
-          // "scanner" landing on a "what dentists say" strip on a dentures page
-          // (the reported "wrong images" symptom). For lp-feature CONTENT slots
-          // (photo-strip, zigzag rows, cards/panels, feature items) require a
-          // real topical signal. UNTAGGED curated uploads (no descriptive tag)
-          // fall through to `score >= 0` and keep the deliberate tenant-asset
-          // preference — we don't know their subject, so they get the benefit of
-          // the doubt. Hero (lp-hero) and product-detail slots are unaffected: a
-          // brand hero or product photo is expected there without topical
-          // overlap. Any rejected off-topic curated image still fills as a LAST
-          // resort in the relaxed pass, which runs AFTER AI image generation
-          // gets a chance to produce an on-topic image. (Task #1287 follow-up)
-          ? contentScore > 0
-          : score >= 0;
-    if (!acceptable) continue;
+    // Never place a clearly off-topic / purpose-mismatched image: a slot left
+    // empty (for AI fill or the editor's storage default) reads better than an
+    // obviously wrong photo.
+    if (score < 0) continue;
+    // Strict pass: an off-topic CURATED content image — one whose auto-tagger
+    // DESCRIBED its subject (carries a topical tag) yet scores ZERO topical
+    // relevance for this slot — must not fill an lp-feature CONTENT slot
+    // (photo-strip, zigzag rows, cards). e.g. an intraoral-scanner product shot
+    // tagged "scanner" landing on a "what dentists say" strip on a dentures page
+    // (the reported "wrong images" symptom). UNTAGGED uploads keep the benefit of
+    // the doubt (score >= 0); CURRENT-reference scrapes are exempt (the user
+    // pointed us at that URL); hero and product-detail slots are unaffected.
+    // Rejected images still fill in the relaxed last-resort pass, which runs
+    // AFTER AI image generation gets a chance at an on-topic image. (Task #1287)
+    if (
+      !relaxed &&
+      !deferred &&
+      !isScrapedImage(img) &&
+      preferredPurpose === "lp-feature" &&
+      contentScore <= 0 &&
+      hasTopicalTag(img)
+    ) {
+      continue;
+    }
     if (starter) {
       if (score > bestStarterScore) {
         bestStarterScore = score;
         bestStarter = img;
+      }
+    } else if (staleScrape) {
+      if (score > bestScrapedScore) {
+        bestScrapedScore = score;
+        bestScraped = img;
       }
     } else if (score > bestScore) {
       bestScore = score;
@@ -1109,9 +1127,9 @@ function findBestImage(
     }
   }
 
-  // Prefer any genuine (non-starter) candidate; fall back to the best starter
-  // seed only when nothing else qualifies for this slot.
-  const chosen = best ?? bestStarter;
+  // Prefer a genuine curated / current-reference candidate; then a stale scrape;
+  // then a generic starter seed — only the latter two fill in the relaxed pass.
+  const chosen = best ?? bestScraped ?? bestStarter;
   if (chosen) {
     usedIds.add(imageIdentity(chosen));
     return chosen.url;
@@ -1810,12 +1828,18 @@ export function buildReferenceFillPool(
     if (host && currentRefHosts.has(host)) currentRefScraped.push(img);
     else otherScraped.push(img);
   }
+  // Flag the CURRENT-prompt reference scrapes (freshly harvested this run + any
+  // catalog row whose host matches a reference URL in this prompt) so the strict
+  // image pass lets them compete with curated assets — these are the images the
+  // user explicitly asked us to use. STALE scrapes from unrelated prior runs
+  // (otherScraped) and generic starters stay unflagged → last-resort only.
+  const flagCurrent = (img: MediaImage): MediaImage => ({ ...img, currentReference: true });
   // Rotate WITHIN each bucket (preserving cross-bucket priority) so the first
   // eligible slot of every page doesn't always resolve to the same first DB row.
   return [
     ...rotateBucket(curatedImages, rotationSeed),
-    ...rotateBucket(freshScrapedMedia, rotationSeed),
-    ...rotateBucket(currentRefScraped, rotationSeed),
+    ...rotateBucket(freshScrapedMedia, rotationSeed).map(flagCurrent),
+    ...rotateBucket(currentRefScraped, rotationSeed).map(flagCurrent),
     ...rotateBucket(otherScraped, rotationSeed),
     ...rotateBucket(starterImages, rotationSeed),
   ];

@@ -782,7 +782,7 @@ describe("fillEmptyImages — single-image domination cap (scraped resize varian
   });
 });
 
-describe("findBestImage — scraped images need positive relevance in the strict pass", () => {
+describe("findBestImage — only current-reference scrapes compete in the strict pass", () => {
   // A scraped page-reference harvest whose title does NOT overlap the slot
   // context → scores 0 against "dental clinic dentures".
   const offTopicScrape: MediaImage = {
@@ -830,12 +830,26 @@ describe("findBestImage — scraped images need positive relevance in the strict
     expect(blocks[0].props.rows[0].imageUrl).toBe("");
   });
 
-  it("places a RELEVANT scraped image in the strict pass (positive relevance signal)", () => {
+  it("places a CURRENT-REFERENCE scrape in the strict pass (the user pointed us at that URL)", () => {
+    // A scrape harvested from a reference URL in THIS prompt is flagged
+    // `currentReference` by buildReferenceFillPool, so it competes in the strict
+    // pass alongside curated assets and may win a content slot.
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Dental implants", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, [{ ...onTopicScrape, currentReference: true }], "dental implants clinic") as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/scrape-dent");
+  });
+
+  it("defers an UNFLAGGED (stale) scrape in the strict pass even when it is on-topic", () => {
+    // Without the currentReference flag a scrape is treated as a stale harvest from
+    // an unrelated prior generation → last-resort pass only, so the tenant's own
+    // library + the current prompt's reference are always tried first.
     let blocks: any[] = [
       { type: "zigzag-features", props: { rows: [{ headline: "Dental implants", imageUrl: "" }] } },
     ];
     blocks = fillEmptyImages(blocks, [onTopicScrape], "dental implants clinic") as any[];
-    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/scrape-dent");
+    expect(blocks[0].props.rows[0].imageUrl).toBe("");
   });
 
   it("still places an untagged CURATED image in the strict pass (scoping is scraped-only)", () => {
@@ -847,19 +861,21 @@ describe("findBestImage — scraped images need positive relevance in the strict
   });
 });
 
-// ── Task #1287: off-topic scrapes need content relevance in the strict pass ──
-// A page-reference scrape is auto-tagged for PURPOSE (lp-hero / lp-feature), so
-// without a content-relevance gate a generic off-topic reference photo wins a
-// slot on the bare purpose match. The strict pass requires a positive CONTENT
-// signal (topical tag/title overlap) for scraped images; off-topic scrapes —
-// even from THIS run's reference — defer to the relaxed last-resort pass.
-describe("scraped-image content-relevance gate (Task #1287)", () => {
+// ── current-reference scrapes are eligible in the strict pass ────────────────
+// A scrape is auto-tagged for PURPOSE (lp-hero / lp-feature). Whether it competes
+// in the strict pass is gated on the `currentReference` flag (set by
+// buildReferenceFillPool for scrapes harvested from a reference URL in THIS
+// prompt), NOT on topical overlap: when the user points us at a URL — or a new
+// tenant whose only library IS their own website — we use that site's imagery
+// even if it is topically generic. Stale scrapes from unrelated prior runs stay
+// last-resort.
+describe("current-reference scrape eligibility (strict pass)", () => {
   const freshClay: MediaImage = { url: "/objects/clay-fresh", title: "abstract gradient", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:ccc", "lp-feature"] };
 
-  it("holds back an off-topic scrape (purpose match only, no topical overlap) in the strict pass", () => {
-    // freshClay carries an "lp-feature" purpose tag but its title/content tags do
-    // NOT overlap "saas pipeline" → contentScore 0 → fails the strict gate even
-    // though the purpose boost makes its total score positive.
+  it("holds back an UNFLAGGED (stale) scrape in the strict pass", () => {
+    // freshClay carries no currentReference flag → treated as a stale harvest from
+    // an unrelated prior generation → deferred to the relaxed last-resort pass even
+    // though its purpose boost makes its total score positive.
     let blocks: any[] = [
       { type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } },
     ];
@@ -867,13 +883,23 @@ describe("scraped-image content-relevance gate (Task #1287)", () => {
     expect(blocks[0].props.rows[0].imageUrl).toBe("");
   });
 
-  it("places an ON-TOPIC scrape (real content overlap) in the strict pass", () => {
-    const onTopic: MediaImage = { url: "/objects/clay-topic", title: "workflow automation pipeline", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:ddd", "lp-feature", "workflow"] };
+  it("places an ON-TOPIC current-reference scrape in the strict pass", () => {
+    const onTopic: MediaImage = { url: "/objects/clay-topic", title: "workflow automation pipeline", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:ddd", "lp-feature", "workflow"], currentReference: true };
     let blocks: any[] = [
       { type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } },
     ];
     blocks = fillEmptyImages(blocks, [onTopic], "saas pipeline workflow", false) as any[];
     expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/clay-topic");
+  });
+
+  it("places an OFF-TOPIC current-reference scrape in the strict pass ('make my page look like this URL')", () => {
+    // freshClay is topically generic for "saas pipeline", but the user pointed us
+    // at its source URL this run → flagged currentReference → eligible in strict.
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, [{ ...freshClay, currentReference: true }], "saas pipeline", false) as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/clay-fresh");
   });
 
   it("places that same off-topic scrape in the relaxed last-resort pass", () => {
