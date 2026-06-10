@@ -4346,7 +4346,7 @@ RULES:
 2. The JSON must have: { "title": string, "slug": string, "blocks": [...] }
 3. Each block must have: { "id": string (unique, format "block-TYPE-INDEX"), "type": string, "props": {...} }
 4. Generate 6–10 blocks per page. Always start with "dso-heartland-hero" or "dso-scroll-story-hero", and always end with "dso-cta-capture" or "dso-final-cta".
-5. Recommended page flow: hero → problem/challenges → ai-feature or scroll-story → stat-showcase or bento-outcomes → case-flow or network-map → comparison → success-stories → pilot-steps → cta
+5. BLOCK SELECTION — choose the block mix that best fits THIS specific account, audience, and prompt (and any reference site provided). Do NOT emit the same block sequence for every page: deliberately vary which blocks you use and their order from account to account based on what the brief emphasizes (e.g. a data-heavy network → stat-showcase + network-map + comparison; a single flagship customer → case-study + scroll-story; a pilot push → pilot-steps + bento-outcomes). A loose flow that works is hero → problem/challenges → ai-feature or scroll-story → stat-showcase or bento-outcomes → case-flow or network-map → comparison → success-stories → pilot-steps → cta — but treat this as ONE option, never a fixed template you must follow.
 6. All copy must be enterprise B2B — specific, credible, and ROI-focused. Mention DSO scale, multi-location benefits, network-wide metrics. No lorem ipsum.
 ${rule7}
 8. The slug should be a URL-friendly version of the topic (lowercase, hyphens, no special chars).
@@ -4428,7 +4428,7 @@ RULES:
 2. The JSON must have: { "title": string, "slug": string, "blocks": [...] }
 3. Each block must have: { "id": string (unique, format "block-TYPE-INDEX"), "type": string, "props": {...} }
 4. Generate 6–9 blocks per page. Always start with "dso-practice-hero". Always end with "dso-meet-team" or "dso-promises".
-5. Recommended page flow: practice-hero → stat-row → paradigm-shift → products-grid OR split-feature → partnership-perks → activation-steps → faq → promises OR testimonials → meet-team
+5. BLOCK SELECTION — choose the block mix that best fits THIS specific practice/audience and prompt (and any reference site provided). Do NOT emit the same block sequence for every page: deliberately vary which blocks you use and their order from page to page based on what the brief emphasizes (e.g. an onboarding story → activation-steps + promises; a product push → products-grid + split-feature; objection handling → faq + paradigm-shift). A loose flow that works is practice-hero → stat-row → paradigm-shift → products-grid OR split-feature → partnership-perks → activation-steps → faq → promises OR testimonials → meet-team — but treat this as ONE option, never a fixed template you must follow.
 6. All copy must be practice-level B2B — warm, credible, specific. Mention chair-time savings, scanner support, fit rate, dedicated reps, onboarding speed.
 ${rule7}
 8. The slug should be a URL-friendly version of the topic (lowercase, hyphens, no special chars).
@@ -4764,7 +4764,7 @@ interface SegmentContext {
 
 export function buildSegmentSection(
   seg: SegmentContext,
-  opts: { strict?: boolean; proofPoints?: ProofPoint[] } = {},
+  opts: { strict?: boolean; proofPoints?: ProofPoint[]; dsoFreeChoice?: boolean } = {},
 ): string {
   const parts: string[] = [];
   if (seg.name) parts.push(`Target Audience Segment: ${seg.name}`);
@@ -4815,7 +4815,15 @@ export function buildSegmentSection(
   // dedicated microsite generator). These are the block types this audience's
   // page should be built from, in order — use them as the page's backbone and
   // only deviate when a listed block clearly does not fit the user request.
-  if (seg.micrositeBlockList?.length) {
+  //
+  // EXCEPTION (DSO / DSO-Practices landing pages, `dsoFreeChoice`): the
+  // segment's stored block list is the *microsite* vocabulary. Injecting it as
+  // a rigid ordered backbone collapsed every DSO landing page into the same
+  // microsite lineup and overrode the free block choice the DSO system prompt
+  // advertises ("uses the exact same blocks as microsites every time"). On
+  // those paths we skip the rigid list entirely and let the model choose the
+  // block mix that best fits each account, for deliberate per-account variety.
+  if (seg.micrositeBlockList?.length && !opts.dsoFreeChoice) {
     const list = seg.micrositeBlockList
       .filter((b) => b && typeof b.type === "string" && b.type)
       .map((b) => `- "${b.type}"${b.schemaHint ? ` — ${b.schemaHint}` : ""}`)
@@ -5796,7 +5804,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   logger.debug({ promptPath, segment: segmentContext?.name ?? "none", promptPreview: prompt.slice(0, 120).replace(/\n/g, " ") }, "[generate-page] generating with prompt");
 
   const segmentSection = segmentContext && typeof segmentContext === "object"
-    ? buildSegmentSection(segmentContext, { strict, proofPoints })
+    ? buildSegmentSection(segmentContext, { strict, proofPoints, dsoFreeChoice: useDso || useDsoPractices })
     : "";
 
   let userPromptParts: string[] = [];

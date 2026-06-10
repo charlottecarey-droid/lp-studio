@@ -1203,6 +1203,135 @@ function buildFreeformBlockGuide(): string {
     .join("\n");
 }
 
+// ── DSO-aware freeform vocabulary (DSO block-variety regression) ────────────
+// Dandy DSO segments ship a curated micrositeBlockList, which previously forced
+// every DSO account's microsite into the SAME fixed order ("AVAILABLE BLOCKS —
+// use only these, in this order"), so every DSO microsite came out identical.
+// Instead, when the segment carries a genuine DSO vocabulary we let the model
+// CHOOSE from the full DSO block set and vary the mix/order per account — while
+// keeping the microsite DSO vocabulary SEPARATE from the landing-page DSO
+// vocabulary so the two products stay visually distinct. The two DSO
+// vocabularies (enterprise vs practices) never mix on a single page. Only the
+// dso-* types that have a server-side BLOCK_PROP_SCHEMAS entry are listed.
+const DSO_ENTERPRISE_BLOCK_TYPES = [
+  "dso-heartland-hero",
+  "dso-stat-bar",
+  "dso-challenges",
+  "dso-insights-dashboard",
+  "dso-success-stories",
+  "dso-case-study",
+  "dso-pilot-steps",
+  "dso-comparison",
+  "dso-lab-tour",
+  "dso-final-cta",
+] as const;
+
+const DSO_PRACTICES_BLOCK_TYPES = [
+  "dso-practice-nav",
+  "dso-practice-hero",
+  "dso-stat-row",
+  "dso-partnership-perks",
+  "dso-split-feature",
+  "dso-software-showcase",
+  "dso-faq",
+  "dso-activation-steps",
+  "dso-promo-cards",
+  "dso-final-cta",
+] as const;
+
+// General, industry-agnostic supporting blocks a DSO page MAY mix in for extra
+// variety. Deliberately small + content-neutral (a standalone testimonial, an
+// embedded video, a short prose section, an explicit footer) so they add layout
+// variety without clashing with the dso-* design system or duplicating a dso-*
+// block's job. business-case-* monographs and the OTHER product's vocabulary
+// are intentionally excluded.
+const DSO_GENERAL_SUPPORTING_TYPES = [
+  "testimonial",
+  "video-section",
+  "rich-text",
+  "footer",
+] as const;
+
+// Short role / use-case hint per DSO block so the model understands each
+// section's job and can pick the ones that fit THIS account.
+const DSO_ROLE_HINTS: Record<string, string> = {
+  "dso-heartland-hero": "hero — opens the page; exactly ONE, always first",
+  "dso-stat-bar": "stats — network-wide metrics bar",
+  "dso-challenges": "problem — the operational pain points this account feels at scale",
+  "dso-insights-dashboard": "product — shows the analytics/insights product surface",
+  "dso-success-stories": "social proof — 3-card roundup of customer outcomes (approved case studies only)",
+  "dso-case-study": "social proof — ONE deep-dive customer story (approved case studies only)",
+  "dso-pilot-steps": "process — how a pilot / phased rollout works, step by step",
+  "dso-comparison": "comparison — the modern approach vs the traditional way",
+  "dso-lab-tour": "feature — narrative behind-the-scenes tour with a quote",
+  "dso-practice-nav": "nav — sticky in-page navigation; optional, first if used",
+  "dso-practice-hero": "hero — opens the page; exactly ONE, first (after the nav if present)",
+  "dso-stat-row": "stats — quick metrics row",
+  "dso-partnership-perks": "benefits — exactly 6 partnership benefit cards",
+  "dso-split-feature": "feature — alternating image + copy feature section",
+  "dso-software-showcase": "product — software feature showcase",
+  "dso-faq": "faq — 4–5 common questions",
+  "dso-activation-steps": "process — onboarding / activation steps",
+  "dso-promo-cards": "offers — promotional offer cards",
+  "dso-final-cta": "cta — closing call to action; place last",
+  "testimonial": "social proof — a single real-sounding customer quote",
+  "video-section": "media — embedded video",
+  "rich-text": "content — short narrative prose section",
+  "footer": "footer — closes the page; last if used",
+};
+
+export type DsoVocabMode = "enterprise" | "practices";
+
+// The block types a given DSO vocab mode may emit: the mode's dso-* vocabulary
+// plus the shared general supporting set.
+function dsoVocabTypes(mode: DsoVocabMode): readonly string[] {
+  const base = mode === "practices" ? DSO_PRACTICES_BLOCK_TYPES : DSO_ENTERPRISE_BLOCK_TYPES;
+  return [...base, ...DSO_GENERAL_SUPPORTING_TYPES];
+}
+
+// Validation allow-set per mode (canonicalized — matches normalizeBlock output).
+const DSO_ENTERPRISE_ALLOWED_SET: ReadonlySet<string> = new Set(
+  dsoVocabTypes("enterprise").map((t) => canonicalizeBlockType(t)),
+);
+const DSO_PRACTICES_ALLOWED_SET: ReadonlySet<string> = new Set(
+  dsoVocabTypes("practices").map((t) => canonicalizeBlockType(t)),
+);
+function dsoAllowedSet(mode: DsoVocabMode): ReadonlySet<string> {
+  return mode === "practices" ? DSO_PRACTICES_ALLOWED_SET : DSO_ENTERPRISE_ALLOWED_SET;
+}
+
+// Detect whether a curated block list is a genuine DSO vocabulary, and which
+// one. This ties DSO-freeform mode to lists that ALREADY carry dso-* blocks
+// (i.e. Dandy's seeded DSO segments) — so the DSO vocabulary can NEVER leak
+// onto a non-DSO tenant's page, and the practices-vs-enterprise split is driven
+// by the curated list's own contents. Returns null for non-DSO lists. The
+// shared dso-final-cta does not disambiguate, so it's ignored for the split.
+export function detectDsoVocabMode(
+  blockList: BrandMicrositeBlockListEntry[] | undefined,
+): DsoVocabMode | null {
+  if (!blockList?.length) return null;
+  const practicesSet = new Set<string>(DSO_PRACTICES_BLOCK_TYPES);
+  const enterpriseSet = new Set<string>(DSO_ENTERPRISE_BLOCK_TYPES);
+  let practices = 0;
+  let enterprise = 0;
+  for (const b of blockList) {
+    const t = (b.type ?? "").trim().toLowerCase();
+    if (t === "dso-final-cta") continue;
+    if (practicesSet.has(t)) practices++;
+    else if (enterpriseSet.has(t)) enterprise++;
+  }
+  if (practices === 0 && enterprise === 0) return null;
+  return practices > enterprise ? "practices" : "enterprise";
+}
+
+// Build the DSO freeform "AVAILABLE BLOCKS" guide for the given mode: the dso-*
+// vocabulary + general supporting blocks, each with its role hint and schema.
+function buildDsoFreeformBlockGuide(mode: DsoVocabMode): string {
+  return dsoVocabTypes(mode)
+    .map((t) => `- "${t}" (${DSO_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`)
+    .join("\n");
+}
+
 // Three-tier schema resolution for a block-list entry: explicit per-entry
 // schemaHint → server-side BLOCK_PROP_SCHEMAS registry default → generic
 // "{ ...fields }" placeholder. Never throws on missing data.
@@ -1411,6 +1540,10 @@ export function buildSystemPrompt(
   // schemaless full-page / one-pager types can advertise a derived key-list
   // schema to the model instead of a generic "{ ...fields }".
   templateBlocks?: AiBlock[],
+  // DSO block-variety regression — when set, the model freely composes a varied
+  // layout from the DSO (enterprise or practices) vocabulary instead of filling
+  // the segment's fixed curated block list. Mutually exclusive with useFreeform.
+  dsoFreeformMode: DsoVocabMode | null = null,
 ): string {
   const tone            = brand.toneOfVoice as string | undefined;
   const pillars         = brand.messagingPillars as Array<{ label: string; description: string }> | undefined;
@@ -1589,6 +1722,41 @@ export function buildSystemPrompt(
       "BLOCKS TO GENERATE (fixed order):",
       blockList,
       footer,
+    ].join("\n");
+  }
+
+  // DSO block-variety regression — DSO-aware freeform. The segment carries a
+  // curated DSO vocabulary, but rather than forcing the SAME fixed order on
+  // every account, advertise the full DSO (enterprise or practices) vocabulary
+  // + a few general supporting blocks and let the model pick a varied layout.
+  // Falls back to the curated DSO list in the route if it yields nothing usable.
+  if (dsoFreeformMode) {
+    const isPractices = dsoFreeformMode === "practices";
+    const countRange = isPractices ? "6–9" : "6–10";
+    const heroLine = isPractices
+      ? "- Open with EXACTLY ONE \"dso-practice-hero\" (first). You MAY precede it with a single \"dso-practice-nav\"."
+      : "- Open with EXACTLY ONE hero (\"dso-heartland-hero\") first.";
+    const dsoFreeformFooter = [
+      "",
+      "LAYOUT — YOU choose the sections (this page has NO fixed block list):",
+      heroLine,
+      `- Pick ${countRange} blocks TOTAL from the AVAILABLE BLOCKS that best tell THIS account's story, and END with \"dso-final-cta\" (add a \"footer\" after it only if you include one).`,
+      "- Vary BOTH the selection AND the order across accounts — do NOT emit the same sequence every time. Choose based on THIS account: the brief's emphasis, account size/segment, the REFERENCE PAGE, and the EXAMPLES above.",
+      "- Include at least one proof/metrics section and at least one feature/benefit section where they fit. Skip sections that don't fit; NEVER pad with empty or stub blocks.",
+      "- Use ONLY the exact block type strings listed above. NEVER invent block types, NEVER use business-case blocks, and NEVER mix in the other DSO product's blocks.",
+      "Every block's copy must feel written specifically for this account — their name, scale, and situation woven in naturally.",
+      "Use plain, direct language. If a phrase sounds like it belongs in a pitch deck or a press release, rewrite it.",
+      "FINAL CAPITALIZATION REMINDER: Every single string value — headlines, eyebrows, subheadlines, bullet points, step titles, labels, FAQ questions — MUST start with a capital letter. NEVER start any text value with a lowercase letter. NEVER title-case (capitalize every word). Only the first word + proper nouns + acronyms get capitals.",
+    ].join("\n");
+
+    return [
+      header,
+      "",
+      audienceSection,
+      "",
+      "AVAILABLE BLOCKS (choose from these — you decide which and in what order):",
+      buildDsoFreeformBlockGuide(dsoFreeformMode),
+      dsoFreeformFooter,
     ].join("\n");
   }
 
@@ -1827,9 +1995,17 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     const brandDefaultBlockList = brand.defaultMicrositeBlockList as BrandMicrositeBlockListEntry[] | undefined;
     const hasCuratedBlockList =
       (segment.micrositeBlockList?.length ?? 0) > 0 || (brandDefaultBlockList?.length ?? 0) > 0;
-    const useFreeform = !templateBlockTypes && !hasCuratedBlockList;
+    // DSO block-variety regression — a genuine DSO segment (its curated list is
+    // dso-* vocabulary) gets free block CHOICE from the DSO vocab instead of the
+    // fixed curated order, so each account's microsite varies. Detected from the
+    // resolved curated list's own contents → can NEVER fire for a non-DSO
+    // tenant. A picked template always wins (explicit authored layout).
+    const curatedForDetect = (segment.micrositeBlockList?.length ? segment.micrositeBlockList : brandDefaultBlockList);
+    const dsoFreeformMode = templateBlockTypes ? null : detectDsoVocabMode(curatedForDetect);
+    const useDsoFreeform = dsoFreeformMode !== null;
+    const useFreeform = !templateBlockTypes && !hasCuratedBlockList && !useDsoFreeform;
 
-    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment, useFreeform, templateBlocks);
+    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment, useFreeform, templateBlocks, dsoFreeformMode);
 
     // Task #976 — REFERENCE PAGE (voice) + VISUAL REFERENCE (style) sections,
     // appended to the user prompt exactly like /lp/generate-page. The brand's
@@ -1979,7 +2155,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       // last-resort. Treat the response as empty and let the freeform safety
       // net below produce NEUTRAL rather than 500. Only the curated-block-list
       // path (no template, not freeform) keeps the hard error.
-      if (!templateBlocks && !useFreeform) {
+      if (!templateBlocks && !useFreeform && !useDsoFreeform) {
         res.status(500).json({ error: "AI returned invalid JSON", raw });
         return;
       }
@@ -1999,12 +2175,13 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       if (!parsed.slug || typeof parsed.slug !== "string") {
         parsed.slug = account.displayName ?? account.name;
       }
-    } else if (useFreeform) {
-      // Task #1153 — freeform has no authored template to fall back to, but a
-      // missing/malformed title, slug, or block list must still never 500 or
-      // ship a blank page. Backfill title/slug from the account and normalise
-      // blocks to an array; if it ends up empty (or all-unknown), the freeform
-      // safety net below substitutes the static NEUTRAL layout.
+    } else if (useFreeform || useDsoFreeform) {
+      // Task #1153 — freeform (and DSO-freeform) has no authored template to
+      // fall back to, but a missing/malformed title, slug, or block list must
+      // still never 500 or ship a blank page. Backfill title/slug from the
+      // account and normalise blocks to an array; if it ends up empty (or
+      // all-unknown), the safety net below substitutes the NEUTRAL layout
+      // (freeform) or the curated DSO list (DSO-freeform).
       if (!parsed.title || typeof parsed.title !== "string") {
         parsed.title = account.displayName ?? account.name;
       }
@@ -2057,6 +2234,30 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         normalizedBlocks = NEUTRAL_MICROSITE_BLOCK_LIST.map((entry, i) =>
           normalizeBlock({ type: entry.type, props: {} } as AiBlock, i, fallbackBrand),
         );
+      }
+    } else if (useDsoFreeform && dsoFreeformMode) {
+      // DSO block-variety regression — DSO-freeform safety: drop any block whose
+      // type is outside the DSO vocab for this mode (defence-in-depth so the
+      // other DSO product's blocks, business-case-*, or invented types can never
+      // leak in). If nothing usable remains, fall back to the segment's curated
+      // DSO block list (NOT the neutral non-DSO layout) so the page stays on the
+      // DSO design system rather than shipping blank.
+      const allowed = dsoAllowedSet(dsoFreeformMode);
+      const filtered = normalizedBlocks.filter((b) => allowed.has(String(b.type ?? "")));
+      if (filtered.length > 0) {
+        normalizedBlocks = filtered;
+      } else {
+        logger.warn(
+          { accountId, tenantId, dsoFreeformMode },
+          "generate-microsite: DSO-freeform output had no usable blocks; falling back to curated DSO block list",
+        );
+        const curatedFallback =
+          (segment.micrositeBlockList?.length
+            ? segment.micrositeBlockList
+            : (brand.defaultMicrositeBlockList as BrandMicrositeBlockListEntry[] | undefined)) ?? [];
+        normalizedBlocks = curatedFallback
+          .filter((entry) => (entry.type ?? "").trim())
+          .map((entry, i) => normalizeBlock({ type: entry.type, props: {} } as AiBlock, i, fallbackBrand));
       }
     }
 
