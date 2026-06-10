@@ -1,0 +1,50 @@
+import { useSearch } from "wouter";
+import { useAuth } from "@/context/AuthContext";
+import { EmailAuthForms } from "@/components/auth/EmailAuth";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function safeRedirectTarget(raw: string | null): string {
+  // Only allow same-app relative paths to avoid open-redirects.
+  if (!raw) return "/";
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/";
+  return raw;
+}
+
+/**
+ * Standalone sign-in screen. Linked to from SuperAdminPage's "Sign in"
+ * button (`${BASE}/login?redirect=...`) and usable directly on dev/staging
+ * hosts where the open-domain landing flow is otherwise blocked. On a
+ * successful login EmailAuthForms reloads the page; once the session is
+ * present we forward to the requested redirect target.
+ */
+export default function LoginPage() {
+  const { user, loading } = useAuth();
+  const search = useSearch();
+  const redirect = safeRedirectTarget(new URLSearchParams(search).get("redirect"));
+
+  if (user) {
+    window.location.href = `${BASE}${redirect}`;
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+      <div className="w-full max-w-sm space-y-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Sign in</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Sign in to your LP Studio account.
+          </p>
+        </div>
+        {loading ? (
+          <div className="flex justify-center py-6">
+            <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+          </div>
+        ) : (
+          <EmailAuthForms mode="signin" allowSignup={false} />
+        )}
+      </div>
+    </div>
+  );
+}

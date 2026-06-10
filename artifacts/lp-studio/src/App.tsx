@@ -163,6 +163,7 @@ const BillingPage = lazy(() => import("@/pages/settings/BillingPage"));
 
 // Superadmin (no auth gate)
 const SuperAdminPage = lazy(() => import("@/pages/SuperAdminPage"));
+const LoginPage = lazy(() => import("@/pages/login"));
 const TemplatePreview = lazy(() => import("@/pages/template-preview"));
 const GenericCatalogFixture = lazy(() => import("@/pages/generic-catalog-fixture"));
 
@@ -519,7 +520,11 @@ function AppShell() {
       hostname.endsWith(".replit.app") ||
       hostname.includes(".replit.dev") ||
       hostname.includes("repl.co");
-    if (isReplitDevUrl) {
+    // Allow sign-in and the superadmin platform through on dev/staging replit
+    // hosts so operators can actually log in; everything else stays blocked.
+    const isAdminEntryPath =
+      location === "/login" || location.startsWith("/superadmin");
+    if (isReplitDevUrl && !isAdminEntryPath) {
       return null;
     }
   }
@@ -602,6 +607,7 @@ function AppShell() {
     new URLSearchParams(window.location.search).has("reviewToken");
 
   const isPublicRoute =
+    location === "/login" ||
     location.startsWith("/lp/") ||
     location.startsWith("/p/") ||
     location.startsWith("/review/") || location === "/review" ||
@@ -615,6 +621,7 @@ function AppShell() {
       <>
         <Suspense fallback={<LoadingFallback />}>
           <Switch>
+            <Route path="/login" component={LoginPage} />
             <Route path="/lp/:slug" component={LandingPageViewer} />
             <Route path="/p/:token" component={PersonalizedLinkResolver} />
             <Route path="/review/:token" component={ReviewShell} />
