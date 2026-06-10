@@ -6476,27 +6476,27 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // with images too — without this branch, AI-page generation produced
     // empty image slots for every non-superadmin-flagged tenant even
     // though they had the feature turned on.
-    // CURATED images only (drawer uploads, brand-import photography). Off-topic
-    // SCRAPED reference harvests are deliberately held back from the relaxed
-    // pre-AI pass below so an unrelated brand-site scrape never beats a relevant
-    // AI image; they fill in the last-resort pass after AI generation. Generic
-    // STARTER seeds are likewise excluded here — they are the absolute last
-    // resort, so they must not fill a slot ahead of the tenant's own scraped
-    // reference imagery (which only competes in the last-resort pass). Without
-    // this, a score-0 starter filled prime slots before scraped images ever ran.
-    const curatedFillPool = fillPool.filter((img) => !isScrapedImage(img) && !isStarterImage(img));
     const [outsideBuilderOn, imageGenStatus] = await Promise.all([
       getAiImageGenOutsideBuilderEnabled(tenantId),
       getAiImageGenStatus(tenantId),
     ]);
     if (outsideBuilderOn || imageGenStatus.enabled) {
-      // Exhaust the CURATED brand library FIRST. The strict fillEmptyImages pass
-      // above only places topically-relevant images; this relaxed pass drops the
-      // relevance gate for curated images so any slot a real brand photo can
-      // cover gets it instead of an AI-generated one. Off-topic scraped harvests
-      // are excluded here (see curatedFillPool) so AI generation fills those
-      // slots with on-topic imagery rather than an unrelated brand-site scrape.
-      parsed.blocks = fillEmptyImages(parsed.blocks, curatedFillPool, pageImageContext, true, brandLogoUrls);
+      // AI-generate every imageUrl slot the STRICT topical fill pass above left
+      // empty. We deliberately do NOT run a relaxed CURATED fill before this.
+      // The strict pass already placed every curated image that passes its
+      // strict topical scoring (findBestImage's lp-feature gate only rejects
+      // curated photos whose auto-tagger DESCRIBED a subject yet score ZERO
+      // topical relevance for the slot). A relaxed curated pass here would drop
+      // that gate and place those OFF-TOPIC-but-described library photos — e.g.
+      // a "machining / manufacturing"
+      // lab shot landing on a dentures-page gallery slot whose AI-authored caption
+      // reads "Dentist scanning patient" — pre-empting an on-topic AI image AND
+      // leaving a confident-but-false caption glued to a clearly-wrong photo (the
+      // reported "images are super random and the alt text makes them seem right"
+      // symptom on rich-but-diverse libraries like Dandy's ~900-image catalog).
+      // Those off-topic curated/scraped/starter images instead fill ONLY in the
+      // final last-resort pass BELOW, after AI generation has had its chance —
+      // matching the documented intent in findBestImage. (Task #1287)
       parsed.blocks = await aiFillEmptyImages(
         parsed.blocks as Array<Record<string, unknown>>,
         tenantId!,
