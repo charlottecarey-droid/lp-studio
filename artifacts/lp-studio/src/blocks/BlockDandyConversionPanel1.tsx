@@ -1,5 +1,13 @@
 import { cn } from "@/lib/utils";
-import { type BrandConfig, isValidHex, pickCtaButtonColors, pickOutlineButtonColors } from "@/lib/brand-config";
+import {
+  type BrandConfig,
+  DEFAULT_BRAND,
+  isValidHex,
+  pickContrastingColor,
+  pickCtaButtonColors,
+  pickOutlineButtonColors,
+  relativeLuminance,
+} from "@/lib/brand-config";
 import type { DandyConversionPanel1BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
@@ -7,6 +15,18 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
+
+/** Darken a hex toward black by `amount` (0-1). Used to resolve the "medium"
+ *  preset (a darkened primary) to a concrete hex for contrast math. */
+function darkenHex(hex: string, amount: number): string {
+  if (!isValidHex(hex)) return hex;
+  const f = Math.max(0, Math.min(1, 1 - amount));
+  const c = (i: number) =>
+    Math.round(parseInt(hex.slice(i, i + 2), 16) * f)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${c(1)}${c(3)}${c(5)}`;
+}
 
 interface Props {
   props: DandyConversionPanel1BlockProps;
@@ -22,45 +42,41 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
   const field = (key: keyof DandyConversionPanel1BlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;
 
-  const bgMap: Record<string, string> = {
-    teal: "var(--brand-primary)",
-    lime: "var(--brand-accent)",
-    medium: "color-mix(in srgb, var(--brand-primary) 80%, #000)",
+  // Resolve the section background to a concrete hex so the WCAG contrast
+  // guards below run for the preset CSS-var styles too — not just when the
+  // tenant/AI sets a literal `bgColor`. Pairing two brand vars (heading =
+  // --brand-primary on a --brand-accent section, or button bg=primary /
+  // text=accent) goes invisible when a brand's primary and accent are the
+  // same hue. Deriving every color from the actual background hex keeps the
+  // panel legible on any palette.
+  const primaryHex = isValidHex(brand.primaryColor) ? brand.primaryColor : DEFAULT_BRAND.primaryColor;
+  const accentHex = isValidHex(brand.accentColor) ? brand.accentColor : DEFAULT_BRAND.accentColor;
+  const styleBg: Record<string, string> = {
+    teal: primaryHex,
+    lime: accentHex,
+    medium: darkenHex(primaryHex, 0.2),
     white: "#FFFFFF",
   };
-  const textMap: Record<string, { eyebrow: string; heading: string; sub: string; divider: string }> = {
-    teal:   { eyebrow: "text-[var(--brand-accent)]", heading: "text-white",      sub: "text-white/70",   divider: "border-white/10" },
-    lime:   { eyebrow: "text-[var(--brand-eyebrow-on-light)]", heading: "text-[var(--brand-heading-on-light,var(--brand-primary))]",  sub: "text-[rgb(var(--brand-primary-rgb)/0.7)]",   divider: "border-[rgb(var(--brand-primary-rgb)/0.1)]" },
-    medium: { eyebrow: "text-[var(--brand-accent)]", heading: "text-white",      sub: "text-white/70",   divider: "border-white/10" },
-    white:  { eyebrow: "text-[var(--brand-eyebrow-on-light)]", heading: "text-[var(--brand-heading-on-light,var(--brand-primary))]",  sub: "text-slate-500",      divider: "border-slate-200" },
-  };
+  const bg = props.bgColor && isValidHex(props.bgColor) ? props.bgColor : styleBg[style] ?? primaryHex;
 
-  const bg = props.bgColor ?? bgMap[style] ?? bgMap.teal;
-  const colors = textMap[style] ?? textMap.teal;
+  const onDark = relativeLuminance(bg) < 0.4;
+  const headingColor = onDark ? "#ffffff" : pickContrastingColor(primaryHex, bg, ["#0f172a"], 4.5);
+  const eyebrowColor = pickContrastingColor(
+    accentHex,
+    bg,
+    onDark ? ["#ffffff"] : [primaryHex, "#0f172a"],
+    4.5,
+  );
+  const subColor = onDark ? "rgba(255,255,255,0.72)" : "rgba(15,23,42,0.70)";
+  const dividerColor = onDark ? "rgba(255,255,255,0.16)" : "rgba(15,23,42,0.12)";
 
-  // When the section bg is an AI/tenant-chosen hex (not one of the preset
-  // CSS-var styles), resolve the primary button colors with a WCAG contrast
-  // guard so a `bg-[var(--brand-accent)]` button doesn't vanish on an
-  // accent/primary-colored section. Preset styles keep their tuned classes.
-  const ctaColors = isValidHex(bg) ? pickCtaButtonColors(brand, bg) : null;
-
-  const primaryBtnCls = ctaColors
-    ? "hover:brightness-105"
-    : style === "lime"
-    ? "bg-[var(--brand-primary)] text-[var(--brand-accent)] hover:brightness-90"
-    : "bg-[var(--brand-accent)] text-[var(--brand-cta-text)] hover:brightness-105";
-
-  // When the section bg is an AI/tenant-chosen hex, the outline button's
-  // border + text must contrast with it too — otherwise a
-  // `border-[var(--brand-primary)]` outline vanishes on a primary-colored
-  // section the same way the filled CTA used to.
-  const outlineColors = isValidHex(bg) ? pickOutlineButtonColors(brand, bg) : null;
-
-  const secondaryBtnCls = outlineColors
-    ? "border-2 hover:opacity-80"
-    : style === "lime" || style === "white"
-    ? "border-2 border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white"
-    : "border-2 border-white text-white hover:bg-white hover:text-[var(--brand-primary)]";
+  // Buttons always resolve through the contrast guards now that `bg` is a
+  // concrete hex, so a brand-colored section can never hide the CTA fill or
+  // its label.
+  const ctaColors = pickCtaButtonColors(brand, bg);
+  const outlineColors = pickOutlineButtonColors(brand, bg);
+  const primaryBtnCls = "hover:brightness-105";
+  const secondaryBtnCls = "border-2 hover:opacity-80";
 
   // Resolve the runtime CTA mode with a legacy fallback. The current panel
   // writes `{primary,secondary}CtaAction`, but the "Apply CTA to All Sections"
@@ -102,15 +118,15 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
     <section className="w-full py-20 md:py-28" style={{ backgroundColor: bg }}>
       <div className="max-w-4xl mx-auto px-6 md:px-10 text-center flex flex-col items-center gap-6">
         {props.eyebrow && (
-          <p className={cn("text-xs font-bold uppercase tracking-widest", colors.eyebrow)} style={{ fontFamily: BODY }}>
+          <p className="text-xs font-bold uppercase tracking-widest" style={{ fontFamily: BODY, color: eyebrowColor }}>
             <InlineText value={props.eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
           </p>
         )}
-        <h2 className={cn("text-4xl md:text-5xl font-bold leading-[1.1] tracking-tight", colors.heading)} style={{ fontFamily: DISPLAY }}>
+        <h2 className="text-4xl md:text-5xl font-bold leading-[1.1] tracking-tight" style={{ fontFamily: DISPLAY, color: headingColor }}>
           <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: DISPLAY }}/>
         </h2>
         {props.subheadline && (
-          <p className={cn("text-lg leading-relaxed max-w-2xl", colors.sub)} style={{ fontFamily: BODY }}>
+          <p className="text-lg leading-relaxed max-w-2xl" style={{ fontFamily: BODY, color: subColor }}>
             <InlineText value={props.subheadline} onUpdate={field("subheadline")} style={{ fontFamily: BODY }}/>
           </p>
         )}
@@ -126,7 +142,7 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
               chilipiperUrl={props.primaryChilipiperUrl}
               {...modalCfg}
               className={cn("font-bold px-10 py-4 rounded-xl text-base transition-all", primaryBtnCls)}
-              style={ctaColors ? { backgroundColor: ctaColors.bg, color: ctaColors.text } : undefined}
+              style={{ backgroundColor: ctaColors.bg, color: ctaColors.text }}
               brand={brand}
               pageId={pageId}
               variantId={variantId}
@@ -145,7 +161,7 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
               chilipiperUrl={props.secondaryChilipiperUrl}
               {...modalCfg}
               className={cn("font-semibold px-10 py-4 rounded-xl text-base transition-all", secondaryBtnCls)}
-              style={outlineColors ? { borderColor: outlineColors.border, color: outlineColors.text } : undefined}
+              style={{ borderColor: outlineColors.border, color: outlineColors.text }}
               brand={brand}
               pageId={pageId}
               variantId={variantId}
@@ -157,11 +173,11 @@ export function BlockDandyConversionPanel1({ props, brand, onFieldChange, pageId
         </div>
 
         {(props.stats ?? []).length > 0 && (
-          <div className={cn("flex flex-wrap justify-center gap-x-14 gap-y-5 mt-8 pt-10 border-t w-full", colors.divider)}>
+          <div className="flex flex-wrap justify-center gap-x-14 gap-y-5 mt-8 pt-10 border-t w-full" style={{ borderColor: dividerColor }}>
             {(props.stats ?? []).map((s, i) => (
               <div key={i} className="text-center">
-                <div className={cn("text-3xl font-bold", colors.heading)}>{s.value}</div>
-                <div className={cn("text-sm mt-0.5", colors.sub)}>{s.label}</div>
+                <div className="text-3xl font-bold" style={{ color: headingColor }}>{s.value}</div>
+                <div className="text-sm mt-0.5" style={{ color: subColor }}>{s.label}</div>
               </div>
             ))}
           </div>
