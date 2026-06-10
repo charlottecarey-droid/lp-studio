@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { eq, desc, and, or } from "drizzle-orm";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import { salesAccountsTable, salesBriefingsTable, salesContactsTable, salesContactBriefingsTable, lpPagesTable, lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import OpenAI from "openai";
@@ -1197,10 +1197,33 @@ const FREEFORM_ROLE_HINTS: Record<string, string> = {
 /** Build the freeform "AVAILABLE BLOCKS" guide: each allowed neutral block
  *  with its role hint and prop schema. The model chooses which to use and in
  *  what order (constrained by the best-practice rules in the freeform footer). */
-function buildFreeformBlockGuide(): string {
-  return FREEFORM_MICROSITE_DISPLAY_TYPES
-    .map((t) => `- "${t}" (${FREEFORM_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`)
-    .join("\n");
+export function buildFreeformBlockGuide(extraTypes: string[] = []): string {
+  const lines = FREEFORM_MICROSITE_DISPLAY_TYPES
+    .map((t) => `- "${t}" (${FREEFORM_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`);
+  // Segment-approval expansion — append superadmin-approved blocks for this
+  // segment that aren't already in the freeform vocab, deduped by canonical
+  // type. Unioned ON TOP of the freeform set (not a clamp).
+  appendApprovedBlockGuideLines(lines, FREEFORM_MICROSITE_DISPLAY_TYPES, extraTypes);
+  return lines.join("\n");
+}
+
+// Append guide lines for superadmin-approved extra block types not already
+// present in `baseTypes` (compared by canonical type). Each extra type gets a
+// best-effort role hint (DSO or freeform vocab) and its registry prop schema.
+function appendApprovedBlockGuideLines(
+  lines: string[],
+  baseTypes: readonly string[],
+  extraTypes: string[],
+): void {
+  if (!extraTypes.length) return;
+  const shown = new Set(baseTypes.map((t) => canonicalizeBlockType(t)));
+  for (const raw of extraTypes) {
+    const t = canonicalizeBlockType(raw);
+    if (!t || shown.has(t)) continue;
+    shown.add(t);
+    const hint = DSO_ROLE_HINTS[t] ?? FREEFORM_ROLE_HINTS[t] ?? "section";
+    lines.push(`- "${t}" (${hint}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`);
+  }
 }
 
 // ── DSO-aware freeform vocabulary (DSO block-variety regression) ────────────
@@ -1326,10 +1349,48 @@ export function detectDsoVocabMode(
 
 // Build the DSO freeform "AVAILABLE BLOCKS" guide for the given mode: the dso-*
 // vocabulary + general supporting blocks, each with its role hint and schema.
-function buildDsoFreeformBlockGuide(mode: DsoVocabMode): string {
-  return dsoVocabTypes(mode)
-    .map((t) => `- "${t}" (${DSO_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`)
-    .join("\n");
+export function buildDsoFreeformBlockGuide(mode: DsoVocabMode, extraTypes: string[] = []): string {
+  const base = dsoVocabTypes(mode);
+  const lines = base
+    .map((t) => `- "${t}" (${DSO_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`);
+  // Segment-approval expansion — append superadmin-approved blocks for this
+  // segment that aren't already in the DSO vocab, deduped by canonical type.
+  // Unioned ON TOP of the DSO set (occasional non-DSO blocks are OK).
+  appendApprovedBlockGuideLines(lines, base, extraTypes);
+  return lines.join("\n");
+}
+
+// Segment-approval expansion — load the canonical block types a superadmin has
+// approved for THIS segment in the Block Catalog (for the tenant's industry).
+// These are unioned ON TOP of the freeform/DSO vocabulary so an approved block
+// becomes selectable for the segment without clamping the existing vocab. Only
+// AI-eligible, enabled rows count. Fails closed (empty) on any error so a DB
+// hiccup never blocks generation.
+async function fetchSegmentApprovedBlockTypes(
+  industry: string,
+  segmentId: string,
+): Promise<string[]> {
+  const id = (segmentId ?? "").trim();
+  if (!id || !industry) return [];
+  try {
+    const result = await pool.query(
+      `SELECT block_type FROM block_catalog
+       WHERE industry = $1 AND ai_enabled = true AND is_enabled = true AND $2 = ANY(approved_segments)`,
+      [industry, id],
+    );
+    const out = new Set<string>();
+    for (const row of result.rows) {
+      const canon = canonicalizeBlockType(String(row.block_type ?? "").trim());
+      if (canon) out.add(canon);
+    }
+    return [...out];
+  } catch (err) {
+    logger.warn(
+      { err, industry, segmentId: id },
+      "generate-microsite: failed to load segment-approved block types",
+    );
+    return [];
+  }
 }
 
 // Three-tier schema resolution for a block-list entry: explicit per-entry
@@ -1544,6 +1605,10 @@ export function buildSystemPrompt(
   // layout from the DSO (enterprise or practices) vocabulary instead of filling
   // the segment's fixed curated block list. Mutually exclusive with useFreeform.
   dsoFreeformMode: DsoVocabMode | null = null,
+  // Segment-approval expansion — canonical block types a superadmin has approved
+  // for THIS segment in the Block Catalog. Unioned ON TOP of the freeform/DSO
+  // vocabulary in the AVAILABLE BLOCKS guide (and the route's validation set).
+  segmentApprovedTypes: string[] = [],
 ): string {
   const tone            = brand.toneOfVoice as string | undefined;
   const pillars         = brand.messagingPillars as Array<{ label: string; description: string }> | undefined;
@@ -1755,7 +1820,7 @@ export function buildSystemPrompt(
       audienceSection,
       "",
       "AVAILABLE BLOCKS (choose from these — you decide which and in what order):",
-      buildDsoFreeformBlockGuide(dsoFreeformMode),
+      buildDsoFreeformBlockGuide(dsoFreeformMode, segmentApprovedTypes),
       dsoFreeformFooter,
     ].join("\n");
   }
@@ -1785,7 +1850,7 @@ export function buildSystemPrompt(
       audienceSection,
       "",
       "AVAILABLE BLOCKS (choose from these — you decide which and in what order):",
-      buildFreeformBlockGuide(),
+      buildFreeformBlockGuide(segmentApprovedTypes),
       freeformFooter,
     ].join("\n");
   }
@@ -2005,7 +2070,19 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     const useDsoFreeform = dsoFreeformMode !== null;
     const useFreeform = !templateBlockTypes && !hasCuratedBlockList && !useDsoFreeform;
 
-    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment, useFreeform, templateBlocks, dsoFreeformMode);
+    // Tenant industry — used both for segment-approval lookup and the image
+    // pipeline below; computed once here.
+    const tenantIndustry = await getTenantIndustry(tenantId);
+
+    // Segment-approval expansion — when the model is free-composing (freeform or
+    // DSO-freeform), union any superadmin-approved blocks for this segment ON TOP
+    // of the base vocabulary. Skipped for fixed-template / curated-list pages,
+    // whose layout is an explicit authored choice.
+    const segmentApprovedTypes = (useFreeform || useDsoFreeform)
+      ? await fetchSegmentApprovedBlockTypes(tenantIndustry, segment.id ?? "")
+      : [];
+
+    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes);
 
     // Task #976 — REFERENCE PAGE (voice) + VISUAL REFERENCE (style) sections,
     // appended to the user prompt exactly like /lp/generate-page. The brand's
@@ -2221,8 +2298,13 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // prompt). If filtering leaves nothing usable, fall back to the static
     // NEUTRAL layout (the last-resort safety net) rather than ship a blank page.
     if (useFreeform) {
+      // Segment-approval expansion — allow superadmin-approved blocks for this
+      // segment IN ADDITION to the neutral freeform vocab (union, not a clamp).
+      const allowed = segmentApprovedTypes.length
+        ? new Set<string>([...FREEFORM_ALLOWED_TYPE_SET, ...segmentApprovedTypes])
+        : FREEFORM_ALLOWED_TYPE_SET;
       const filtered = normalizedBlocks.filter((b) =>
-        FREEFORM_ALLOWED_TYPE_SET.has(String(b.type ?? "")),
+        allowed.has(String(b.type ?? "")),
       );
       if (filtered.length > 0) {
         normalizedBlocks = filtered;
@@ -2242,7 +2324,12 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       // leak in). If nothing usable remains, fall back to the segment's curated
       // DSO block list (NOT the neutral non-DSO layout) so the page stays on the
       // DSO design system rather than shipping blank.
-      const allowed = dsoAllowedSet(dsoFreeformMode);
+      // Segment-approval expansion — allow superadmin-approved blocks for this
+      // segment IN ADDITION to the DSO vocab (union, not a clamp).
+      const dsoBase = dsoAllowedSet(dsoFreeformMode);
+      const allowed = segmentApprovedTypes.length
+        ? new Set<string>([...dsoBase, ...segmentApprovedTypes])
+        : dsoBase;
       const filtered = normalizedBlocks.filter((b) => allowed.has(String(b.type ?? "")));
       if (filtered.length > 0) {
         normalizedBlocks = filtered;
@@ -2328,7 +2415,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // ── Image pipeline (parity with the marketing generator) ──────────────
     // Page-level topic context biases image scoring toward on-topic library
     // imagery even when a block headline is generic.
-    const industryForImages = await getTenantIndustry(tenantId);
+    const industryForImages = tenantIndustry;
     const pageImageContext = [
       getIndustryImageKeywords(industryForImages).join(" "),
       account.industry ?? "",

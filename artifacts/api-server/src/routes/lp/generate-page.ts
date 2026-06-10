@@ -3478,7 +3478,7 @@ function isDsoPrompt(prompt: string): boolean {
  * are actually selectable for this generation path (GENERAL vs DSO vs DSO
  * Practices) and tag only those.
  */
-function extractPromptBlockTypes(systemPrompt: string): string[] {
+export function extractPromptBlockTypes(systemPrompt: string): string[] {
   const types: string[] = [];
   const re = /^\s*-\s*"([a-z0-9-]+)":/gm;
   let m: RegExpExecArray | null;
@@ -3486,6 +3486,44 @@ function extractPromptBlockTypes(systemPrompt: string): string[] {
     if (!types.includes(m[1])) types.push(m[1]);
   }
   return types;
+}
+
+/**
+ * Pull the full markdown bullet (the `- "type": …` line plus any indented /
+ * continuation lines that follow it, up to the next bullet or blank line) for
+ * each requested block type out of a source system prompt. Used to lift the
+ * canonical description of a superadmin-approved block out of the GENERAL
+ * library so it can be advertised on the curated DSO paths too (segment-approval
+ * vocab expansion). Returns only the bullets found, in `wantedTypes` order.
+ */
+export function extractGeneralBlockBullets(
+  sourcePrompt: string,
+  wantedTypes: string[],
+): string[] {
+  const wanted = new Set(wantedTypes);
+  if (wanted.size === 0) return [];
+  const byType = new Map<string, string[]>();
+  const lines = sourcePrompt.split("\n");
+  let current: string | null = null;
+  for (const line of lines) {
+    const m = line.match(GENERAL_BLOCK_TYPE_RE);
+    if (m) {
+      current = wanted.has(m[1]) ? m[1] : null;
+      if (current) byType.set(current, [line]);
+      continue;
+    }
+    if (line.trim() === "") {
+      current = null;
+      continue;
+    }
+    if (current) byType.get(current)?.push(line);
+  }
+  const out: string[] = [];
+  for (const t of wantedTypes) {
+    const captured = byType.get(t);
+    if (captured && captured.length) out.push(captured.join("\n"));
+  }
+  return out;
 }
 
 /**
@@ -4746,6 +4784,10 @@ export function reconcileTeamMemberPhotos(
 }
 
 interface SegmentContext {
+  /** Brand audience-segment id. Used to look up superadmin-approved blocks for
+   *  this segment so its allowed vocabulary can expand beyond the curated DSO
+   *  set (segment-approval feature). Optional — older callers omit it. */
+  id?: string;
   name?: string;
   description?: string;
   messagingAngle?: string;
@@ -5758,10 +5800,17 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   const dbTagsByType = new Map<string, unknown>();
   const dbSortByType = new Map<string, number>();
   const aiDisabledTypes = new Set<string>();
+  // Segment-approval vocab expansion: canonical block types the superadmin has
+  // approved for the active segment. Unioned ON TOP of the curated DSO vocab so
+  // a non-DSO block tagged for this segment becomes selectable on the DSO paths
+  // (the GENERAL path already advertises every ai_enabled block). Mirrors the
+  // microsite generator's ai_enabled + is_enabled + approved_segments filter.
+  const segmentApprovedTypes = new Set<string>();
+  const segmentApprovalId = (segmentContext?.id ?? "").trim();
   try {
     const industry = await getTenantIndustry(tenantId);
     const catRows = await pool.query(
-      `SELECT block_type, tags, ai_enabled, sort_order FROM block_catalog WHERE industry = $1`,
+      `SELECT block_type, tags, ai_enabled, is_enabled, sort_order, approved_segments FROM block_catalog WHERE industry = $1`,
       [industry],
     );
     for (const row of catRows.rows) {
@@ -5774,6 +5823,18 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // Fail-open: only an explicit `false` excludes a block from AI generation.
       if (row.ai_enabled === false) {
         aiDisabledTypes.add(row.block_type as string);
+      }
+      // Fail-closed segment approval: only union blocks that are explicitly
+      // ai-eligible, enabled, and list this segment id in approved_segments.
+      if (
+        segmentApprovalId &&
+        row.ai_enabled === true &&
+        row.is_enabled === true &&
+        Array.isArray(row.approved_segments) &&
+        row.approved_segments.includes(segmentApprovalId)
+      ) {
+        const canon = canonicalizeBlockType(String(row.block_type ?? "").trim());
+        if (canon) segmentApprovedTypes.add(canon);
       }
     }
   } catch (err) {
@@ -5855,12 +5916,55 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   } catch (err) {
     logger.warn({ err: String(err) }, "[generate-page] selection directive build skipped");
   }
+  // Segment-approval vocab expansion (DSO paths only). The DSO/DSO-Practices
+  // prompts advertise a curated, hardcoded block list; the GENERAL path already
+  // advertises every ai_enabled block, so it needs no expansion. When the
+  // superadmin has approved extra block types for this segment that the DSO
+  // prompt does not already list, lift their canonical descriptions out of the
+  // GENERAL library and advertise them as ADDITIONAL allowed blocks. Best-effort.
+  let injectedSegmentBlocks: string[] = [];
+  if ((useDso || useDsoPractices) && segmentApprovedTypes.size > 0) {
+    try {
+      const alreadyAdvertised = new Set(extractPromptBlockTypes(systemPrompt));
+      const extraTypes = [...segmentApprovedTypes].filter((t) => !alreadyAdvertised.has(t));
+      if (extraTypes.length > 0) {
+        const generalLibrary = buildGeneralSystemPrompt({
+          includeContentSeries: true,
+          includeBlogSeries: true,
+          includeStorefront: true,
+        });
+        const bullets = extractGeneralBlockBullets(generalLibrary, extraTypes);
+        if (bullets.length > 0) {
+          // Only the types we could actually describe count as injected — the
+          // trailing "use only DSO blocks" directive is softened just for these.
+          injectedSegmentBlocks = extraTypes.filter((t) =>
+            bullets.some((b) => b.startsWith(`- "${t}":`)),
+          );
+          userPromptParts.push(
+            [
+              "ADDITIONAL APPROVED BLOCKS — these block types have been approved for this audience segment. You MAY use them IN ADDITION to the blocks listed in the system prompt, where they fit the page; they are optional, not required:",
+              ...bullets,
+            ].join("\n"),
+          );
+        }
+      }
+    } catch (err) {
+      logger.warn({ err: String(err) }, "[generate-page] segment-approved block injection skipped");
+    }
+  }
+  // When segment-approved extras were injected, the page is no longer limited to
+  // the DSO vocabulary alone — name the approved extras so the closing directive
+  // does not contradict the ADDITIONAL APPROVED BLOCKS section above.
+  const approvedExtrasClause =
+    injectedSegmentBlocks.length > 0
+      ? ` You may also use these approved blocks where they fit: ${injectedSegmentBlocks.map((t) => `"${t}"`).join(", ")}.`
+      : "";
   userPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
   userPromptParts.push(
     useDsoPractices
-      ? "Generate a complete DSO Practices landing page using only DSO Practices block types. Make the copy practice-level B2B — warm, specific, and focused on chair-time savings, clinical quality, onboarding support, and per-practice ROI. Targeted at dentists, office managers, and practice owners within a DSO network."
+      ? `Generate a complete DSO Practices landing page using DSO Practices block types.${approvedExtrasClause} Make the copy practice-level B2B — warm, specific, and focused on chair-time savings, clinical quality, onboarding support, and per-practice ROI. Targeted at dentists, office managers, and practice owners within a DSO network.`
       : useDso
-        ? "Generate a complete DSO enterprise landing page using only DSO block types. Make the copy credible, data-driven, and targeted at DSO executives (CEO, COO, VP of Operations). Use real image URLs from the image library for all imageUrl fields including chapter arrays."
+        ? `Generate a complete DSO enterprise landing page using DSO block types.${approvedExtrasClause} Make the copy credible, data-driven, and targeted at DSO executives (CEO, COO, VP of Operations). Use real image URLs from the image library for all imageUrl fields including chapter arrays.`
         : "Generate a complete landing page for this request. Use the brand context to inform tone, audience, and messaging. Use real image URLs from the image library where relevant."
   );
 

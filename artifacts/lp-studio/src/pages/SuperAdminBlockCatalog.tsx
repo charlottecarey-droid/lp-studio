@@ -20,6 +20,7 @@ import {
 import { useLocation } from "wouter";
 import { ToastAction } from "@/components/ui/toast";
 import { useToast } from "@/hooks/use-toast";
+import { useBrandConfig } from "@/context/BrandConfigContext";
 import { BLOCK_REGISTRY } from "@/lib/block-types";
 import {
   BLOCK_ROLE_TAGS,
@@ -77,6 +78,7 @@ interface RowFormState {
   default_props_json: string;
   is_enabled: boolean;
   ai_enabled: boolean;
+  approved_segments: string[];
   sort_order: number;
 }
 
@@ -89,6 +91,7 @@ const EMPTY_FORM: RowFormState = {
   default_props_json: "{}",
   is_enabled: true,
   ai_enabled: true,
+  approved_segments: [],
   sort_order: 0,
 };
 
@@ -119,6 +122,26 @@ function CatalogRowEditor({
   const [error, setError] = useState<string | null>(null);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [jsonStatus, setJsonStatus] = useState<string | null>(null);
+
+  // Audience segments come from the current tenant's brand config. The catalog
+  // is global/per-industry, but segment-approval is matched by segment id at
+  // generation time, so we offer the admin's own brand segments as the picker
+  // options. Any approved id not in the current segment list is still shown
+  // (and kept) as a chip so a stale/cross-tenant id is never silently dropped.
+  const { brand } = useBrandConfig();
+  const brandSegments = brand.segments ?? [];
+  const segmentNameById = new Map(brandSegments.map((s) => [s.id, s.name]));
+  const segmentOptionIds = [
+    ...brandSegments.map((s) => s.id),
+    ...form.approved_segments.filter((id) => !segmentNameById.has(id)),
+  ];
+  const toggleSegment = (id: string) =>
+    setForm((f) => ({
+      ...f,
+      approved_segments: f.approved_segments.includes(id)
+        ? f.approved_segments.filter((s) => s !== id)
+        : [...f.approved_segments, id],
+    }));
 
   useEffect(() => {
     if (open) {
@@ -167,6 +190,7 @@ function CatalogRowEditor({
           default_props: JSON.parse(form.default_props_json),
           is_enabled: form.is_enabled,
           ai_enabled: form.ai_enabled,
+          approved_segments: form.approved_segments,
           sort_order: form.sort_order,
         }),
       });
@@ -347,6 +371,42 @@ function CatalogRowEditor({
                 <Label htmlFor="ai_enabled" className="text-sm cursor-pointer">
                   Available to AI generation — let the page generator use this block for the {INDUSTRY_LABEL[form.industry]} industry
                 </Label>
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs">Approved segments</Label>
+                {segmentOptionIds.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {segmentOptionIds.map((id) => {
+                      const active = form.approved_segments.includes(id);
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          title={id}
+                          onClick={() => toggleSegment(id)}
+                          className={
+                            "rounded-full border px-2.5 py-1 text-xs transition-colors " +
+                            (active
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-input bg-background text-muted-foreground hover:bg-accent")
+                          }
+                        >
+                          {segmentNameById.get(id) ?? id}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">
+                    No audience segments configured for this workspace yet. Add segments in
+                    Brand Settings to approve this block for specific audiences.
+                  </p>
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  Approve this block for one or more audience segments. When the AI generates a
+                  microsite/page for an approved segment, this block is added on top of that
+                  segment&apos;s normal block vocabulary. Leave empty for no change.
+                </p>
               </div>
               <div className="space-y-1.5 col-span-2">
                 <div className="flex items-center justify-between">
@@ -796,6 +856,7 @@ export default function SuperAdminBlockCatalog() {
           default_props: row.default_props ?? {},
           is_enabled: row.is_enabled,
           ai_enabled: row.ai_enabled,
+          approved_segments: row.approved_segments ?? [],
           sort_order: row.sort_order,
         }),
       });
@@ -839,6 +900,7 @@ export default function SuperAdminBlockCatalog() {
           default_props: row.default_props ?? {},
           is_enabled: row.is_enabled,
           ai_enabled: row.ai_enabled,
+          approved_segments: row.approved_segments ?? [],
           sort_order: row.sort_order,
         }),
       });
@@ -883,6 +945,7 @@ export default function SuperAdminBlockCatalog() {
       default_props_json: JSON.stringify(row.default_props ?? {}, null, 2),
       is_enabled: row.is_enabled,
       ai_enabled: row.ai_enabled,
+      approved_segments: row.approved_segments ?? [],
       sort_order: row.sort_order,
     });
     setEditorIsNew(false);
