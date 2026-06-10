@@ -24,7 +24,15 @@ export default function LoginPage() {
   const redirect = safeRedirectTarget(new URLSearchParams(search).get("redirect"));
 
   if (user) {
-    window.location.href = `${BASE}${redirect}`;
+    let dest = `${BASE}${redirect}`;
+    // In dev/staging the SaaS app is only served when `preview=app` is present
+    // (otherwise marketing paths like "/" render the marketing site). Force it
+    // so a freshly logged-in operator always lands in the app, not marketing.
+    // The flag is ignored entirely in production builds.
+    if (import.meta.env.DEV && !/[?&]preview=/.test(dest)) {
+      dest += (dest.includes("?") ? "&" : "?") + "preview=app";
+    }
+    window.location.href = dest;
     return null;
   }
 
