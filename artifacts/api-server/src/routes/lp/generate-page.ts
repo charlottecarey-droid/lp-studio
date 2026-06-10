@@ -1292,11 +1292,23 @@ export function collectImageSlots(
   pushScalar("heroImageUrl", "lp-hero", blockContext);
   pushScalar("bundleImageUrl", "lp-feature", blockContext); // storefront closing-CTA bundle
   // Decorative-mockup blocks with an OPTIONAL real-image override (mockup shows
-  // when blank): features-spotlight-cards spotlight visual + dso-insights-dashboard
-  // dashboard override. Per-item variants (benefits rows, tabbed categories, bento
-  // tiles) are handled by the array passes below.
+  // when blank): features-spotlight-cards spotlight visual. Per-item variants
+  // (benefits rows, tabbed categories, bento tiles) are handled by the array
+  // passes below.
   pushScalar("spotlightImage", "lp-feature", blockContext);
-  pushScalar("dashboardImage", "lp-feature", blockContext);
+  // dso-insights-dashboard `dashboardImage` is MANUAL-ONLY: never auto-filled,
+  // deduped, harvested, or cleared by the image pipeline. The block renders a
+  // polished built-in simulated dashboard when blank, and no library asset
+  // reliably reads as a real analytics dashboard — auto-fill kept dropping tiny
+  // icons / off-subject photos into the dashboard frame. It is therefore omitted
+  // from every fill/dedupe/replace callsite (includeEmpty=false). It IS
+  // enumerated for the template-restore path (includeEmpty=true) ONLY, so a
+  // template author's deliberately-set dashboard image survives "create page
+  // from template" with replaceImagery=false (restore aligns orig↔merged by
+  // index). Any human/AI-supplied URL is still sanitized below.
+  if (includeEmpty) {
+    pushScalar("dashboardImage", "lp-feature", blockContext);
+  }
   // NOTE: video poster stills (`posterUrl`) are intentionally NOT collected. A
   // video's thumbnail/poster and its videoUrl are author-controlled — the image
   // pipeline must never auto-add or swap a video thumbnail (e.g. when creating a
@@ -1968,9 +1980,8 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       const ctx = `${props.spotlightTitle ?? ""} ${props.spotlightDescription ?? ""}`;
       props.spotlightImage = pick(ctx, images, usedIds, "lp-feature");
     }
-    if (blockType === "dso-insights-dashboard" && !props.dashboardImage && !props.videoUrl) {
-      props.dashboardImage = pick(blockContext, images, usedIds, "lp-feature");
-    }
+    // dso-insights-dashboard intentionally NOT auto-filled (manual-only override;
+    // blank → built-in simulated dashboard). See collectImageSlots note above.
 
     // photo-strip → feature images (lifestyle/environment variety)
     if (blockType === "photo-strip" && Array.isArray(props.images)) {
@@ -2441,14 +2452,8 @@ export async function aiFillEmptyImages(
         apply: (url) => { props.spotlightImage = url; },
       });
     }
-    if (blockType === "dso-insights-dashboard" && !props.videoUrl && (typeof props.dashboardImage !== "string" || !props.dashboardImage)) {
-      slots.push({
-        aspectRatio: featureAR,
-        fieldLabel: `${blockType} dashboardImage`,
-        blockContext,
-        apply: (url) => { props.dashboardImage = url; },
-      });
-    }
+    // dso-insights-dashboard dashboardImage intentionally NOT auto-filled from the
+    // reference pool (manual-only override). See collectImageSlots note above.
 
     // photo-strip images[].src
     if (blockType === "photo-strip" && Array.isArray(props.images)) {
@@ -4343,7 +4348,7 @@ export function buildDsoSystemPrompt(opts: { isDandyTenant: boolean; brandName: 
   // only for the Dandy tenant. Other tenants must not see them.
   const dandyInsightsBlocks = isDandyTenant
     ? `
-- "dso-insights-dashboard": "Dandy Insights" analytics dashboard showcase rendered in a simulated browser frame. Use this (NOT dso-ai-feature) when the page should present Dandy Insights — network analytics, benchmarking, multi-location dashboards. Props: eyebrow (string, e.g. "Dandy Insights"), headline (string), subheadline (string), practiceLabel (string), backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER "white"/"light-gray"), dashboardVariant ("light"|"dark"), browserUrl (string, optional, e.g. "insights/dashboard"), dashboardImage ("" — leave blank, the server fills a real image or shows the simulated dashboard)
+- "dso-insights-dashboard": "Dandy Insights" analytics dashboard showcase rendered in a simulated browser frame. Use this (NOT dso-ai-feature) when the page should present Dandy Insights — network analytics, benchmarking, multi-location dashboards. Props: eyebrow (string, e.g. "Dandy Insights"), headline (string), subheadline (string), practiceLabel (string), backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER "white"/"light-gray"), dashboardVariant ("light"|"dark"), browserUrl (string, optional, e.g. "insights/dashboard"), dashboardImage ("" — ALWAYS leave blank; the block renders a polished built-in simulated dashboard)
 - "dso-insights-video": "Dandy Insights" product walkthrough with a video / rotating dashboard screenshots and outcome callouts. Use this for a richer Dandy Insights story. Props: eyebrow (string, e.g. "Dandy Insights"), title (string), subtitle (string), description (string), callouts (array of {label, desc}), quote (string), quoteAttribution (string), ctaLabel (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"), backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER "white"/"light-gray"), imageUrl (string), videoUrl (string, OPTIONAL — only a real provided URL, NEVER invented)`
     : "";
 

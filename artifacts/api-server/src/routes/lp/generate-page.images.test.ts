@@ -6,6 +6,7 @@ import {
   aiFillEmptyImages,
   buildReferenceFillPool,
   collectImageSlots,
+  restoreTemplateImages,
   isLogoImageUrl,
   buildBrandLogoUrlSet,
   buildBlockSelectionDirective,
@@ -1011,6 +1012,36 @@ describe("collectImageSlots — excludes logo slots", () => {
     };
     const values = collectImageSlots(block as any, logoUrls).map((s) => s.get());
     expect(values).toEqual(["/objects/dental-feature-1"]);
+  });
+
+  it("dso-insights-dashboard `dashboardImage` is a restore-only slot (excluded from fill/dedupe, enumerated only with includeEmpty)", () => {
+    const block = {
+      type: "dso-insights-dashboard",
+      props: { headline: "Insights", dashboardImage: "/objects/author-dashboard" },
+    };
+    // Fill/dedupe/replace callsites (includeEmpty=false) must NEVER see it, so the
+    // image pipeline can't drop an icon / off-subject photo into the dashboard.
+    const fillSlots = collectImageSlots(block as any).map((s) => s.get());
+    expect(fillSlots).not.toContain("/objects/author-dashboard");
+    // The template-restore path (includeEmpty=true) MUST enumerate it so a
+    // template author's deliberately-set dashboard image survives generation.
+    const restoreSlots = collectImageSlots(block as any, undefined, true).map((s) => s.get());
+    expect(restoreSlots).toContain("/objects/author-dashboard");
+  });
+
+  it("restoreTemplateImages preserves a template author's dashboardImage when the model blanks it (replaceImagery=false)", () => {
+    const origBlock = {
+      type: "dso-insights-dashboard",
+      props: { headline: "Insights", dashboardImage: "/objects/author-dashboard" },
+    };
+    // The model is prompted to leave dashboardImage blank on regeneration.
+    const mergedBlock = {
+      type: "dso-insights-dashboard",
+      props: { headline: "Insights", dashboardImage: "" },
+    };
+    const applied = restoreTemplateImages(origBlock as any, mergedBlock as any);
+    expect(applied).toBe(true);
+    expect(mergedBlock.props.dashboardImage).toBe("/objects/author-dashboard");
   });
 });
 

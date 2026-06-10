@@ -2237,9 +2237,14 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         ]
       : contextParts.join("\n");
 
+    // Freeform / DSO-freeform pages compose their OWN block lineup, so a slightly
+    // higher temperature widens structural diversity across accounts — the single
+    // per-audience exemplar otherwise anchors every page to the same sequence.
+    // Fixed-template and curated-list pages keep the lower temperature for tighter
+    // copy fidelity to their authored layout.
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
-      temperature: 0.7,
+      temperature: (useFreeform || useDsoFreeform) ? 0.85 : 0.7,
       max_completion_tokens: 4096,
       response_format: { type: "json_object" },
       messages: [
