@@ -452,6 +452,22 @@ function TenantRow({
   tenants: Tenant[];
   domainHelp: DomainHelp | null;
 }) {
+  const { switchTenant } = useAuth();
+  const [entering, setEntering] = useState(false);
+  // Switch the superadmin's session into this tenant, then land in the app
+  // shell. In dev/staging the SaaS app only renders with `?preview=app`
+  // (otherwise "/" is the marketing site); the flag is ignored in prod.
+  const enterTenant = useCallback(async () => {
+    setEntering(true);
+    try {
+      await switchTenant(tenant.id);
+      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const dest = import.meta.env.DEV ? `${base}/?preview=app` : `${base}/`;
+      window.location.href = dest;
+    } catch {
+      setEntering(false);
+    }
+  }, [switchTenant, tenant.id]);
   const [open, setOpen] = useState(false);
   const [members, setMembers] = useState<Member[] | null>(null);
   const [loadingMembers, setLoadingMembers] = useState(false);
@@ -759,7 +775,19 @@ function TenantRow({
             <span className="flex items-center gap-1"><FileText className="w-3.5 h-3.5" />{tenant.page_count}</span>
           </div>
         </TableCell>
-        <TableCell className="text-sm text-muted-foreground">{fmtDate(tenant.created_at)}</TableCell>
+        <TableCell className="text-sm text-muted-foreground">
+          <div className="flex items-center justify-between gap-3">
+            <span>{fmtDate(tenant.created_at)}</span>
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              disabled={entering}
+              onClick={(e) => { e.stopPropagation(); enterTenant(); }}
+            >
+              {entering ? "Entering…" : "Enter →"}
+            </Button>
+          </div>
+        </TableCell>
       </TableRow>
 
       {open && (
