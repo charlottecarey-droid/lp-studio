@@ -854,7 +854,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         // BlockDsoComparison — it renders as the tenant's "us" column.
         // Leaving the key name unchanged here to keep stored block JSON
         // compatible with the renderer; copy is brand-neutral.
-        rows: rows.map(r => ({ feature: r.feature ?? "", dandy: r.dandy ?? r.us ?? "", traditional: r.traditional ?? "" })),
+        rows: rows.map(r => ({ need: r.need ?? r.feature ?? "", dandy: r.dandy ?? r.us ?? "", traditional: r.traditional ?? "" })),
         backgroundStyle: p.backgroundStyle ?? "muted",
       };
     }
@@ -1056,7 +1056,7 @@ const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   "dso-case-study": "{ eyebrow, headline, subheadline, quote, stats: [{ value, label }], challenge: { heading, body }, solution: { heading, body }, whyItMatters: { heading, body }, results: [{ value, label, description }], sections: [{ heading, body, quote, position (\"before-results\"|\"after-results\") }], ctaText, ctaUrl, backgroundStyle } — a single deep-dive customer success story for ONE company (hero → challenge/solution narrative → results → CTA). Use this instead of dso-success-stories when one in-depth story fits better than a 3-card roundup. Use ONLY a customer story from the APPROVED CASE STUDIES section of the brief; never invent a company, stat, quote, author, or result. Omit this block entirely when no approved case studies are provided.",
   "dso-pilot-steps": "{ eyebrow, headline, subheadline, backgroundStyle, steps: [{ title, subtitle, desc, details: string[] }] }",
   "dso-final-cta": "{ eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, backgroundStyle }",
-  "dso-comparison": "{ eyebrow, headline, subheadline, companyName, ctaText, ctaUrl, rows: [{ feature, dandy, traditional }], backgroundStyle }",
+  "dso-comparison": "{ eyebrow, headline, subheadline, companyName, ctaText, ctaUrl, rows: [{ need, dandy, traditional }], backgroundStyle }",
   "dso-lab-tour": "{ eyebrow, headline, body, quote, quoteAttribution, ctaText, ctaUrl, backgroundStyle }",
   "dso-practice-nav": "{ dsoName, links: [{ label, anchor }], ctaText, ctaUrl } — sticky nav bar; use the DSO/practice name for dsoName; keep links to 3–4 section anchors on this page",
   "dso-practice-hero": "{ eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, trustLine, backgroundStyle }",
