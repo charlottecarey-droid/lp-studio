@@ -649,10 +649,52 @@ describe("buildReferenceFillPool — reference-image fidelity", () => {
   it("RELAXED pass: a score-0 scraped reference image beats a score-0 starter regardless of pool order", () => {
     // Put the starter FIRST in the pool to prove the win isn't just ordering: the
     // two-tier selection prefers any non-starter (the tenant's scrape) over a starter.
+    // Uses a non-hero (lp-feature) slot: a purposeless scrape can fill a feature
+    // slot but is barred from a hero slot by the source-page hero rule (below).
     const pool = [starter, freshClay];
-    const blocks: any[] = [{ type: "hero", props: { headline: "Workflow", imageUrl: "" } }];
+    const blocks: any[] = [{ type: "feature", props: { headline: "Workflow", imageUrl: "" } }];
     const filled = fillEmptyImages(blocks, pool, "saas pipeline", true) as any[];
     expect(filled[0].props.imageUrl).toBe("/objects/clay-fresh");
+  });
+
+  it("HERO slot: a scraped image may fill it ONLY if it was the source-page hero (lp-hero)", () => {
+    // The user's rule: a scraped image can be a hero image only if it WAS the hero
+    // on the scraped page (mirror tags only that one image "lp-hero"; every other
+    // scrape is downgraded to lp-feature). A non-lp-hero scrape must never win a
+    // hero slot — even with a strong topical score / as the sole candidate — so a
+    // mid-page team headshot can no longer surface as a microsite hero.
+    const scrapedNonHero: MediaImage = { url: "/objects/headshot", title: "saas pipeline team", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:hh", "lp-feature"] };
+    const scrapedHero: MediaImage = { url: "/objects/page-hero", title: "saas pipeline", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:ph", "lp-hero"] };
+
+    // Non-hero scrape only → hero slot stays empty in BOTH passes (no soft win).
+    const strict = fillEmptyImages([{ type: "hero", props: { headline: "x", imageUrl: "" } }], [scrapedNonHero], "saas pipeline", false) as any[];
+    expect(strict[0].props.imageUrl).toBe("");
+    const relaxed = fillEmptyImages([{ type: "hero", props: { headline: "x", imageUrl: "" } }], [scrapedNonHero], "saas pipeline", true) as any[];
+    expect(relaxed[0].props.imageUrl).toBe("");
+
+    // The source-page hero (lp-hero) is allowed to fill the hero slot (shown in
+    // the relaxed pass; the strict pass additionally requires a currentReference
+    // flag, an unrelated gate covered elsewhere).
+    const allowed = fillEmptyImages([{ type: "hero", props: { headline: "x", imageUrl: "" } }], [scrapedHero], "saas pipeline", true) as any[];
+    expect(allowed[0].props.imageUrl).toBe("/objects/page-hero");
+  });
+
+  it("VALIDATION path: clears an AI-assigned non-hero scrape from a hero slot, keeps a source-page hero scrape", () => {
+    // The same source-page hero rule must hold when the MODEL (not the fill pass)
+    // assigns the image: validateAndDedupeAIImages re-scores model picks, and a
+    // topically-strong non-hero scrape would otherwise survive the soft CLEAR_GAP
+    // check. A non-lp-hero scrape in a hero slot must be cleared unconditionally;
+    // a source-page hero (lp-hero) scrape must be kept.
+    const scrapedNonHero: MediaImage = { url: "/objects/headshot", title: "saas pipeline team", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:hh", "lp-feature"] };
+    const scrapedHero: MediaImage = { url: "/objects/page-hero", title: "saas pipeline", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:ph", "lp-hero"] };
+
+    const blocksA: any[] = [{ type: "hero", props: { headline: "x", imageUrl: "/objects/headshot" } }];
+    const cleared = validateAndDedupeAIImages(blocksA, [scrapedNonHero], "saas pipeline") as any[];
+    expect(cleared[0].props.imageUrl).toBe("");
+
+    const blocksB: any[] = [{ type: "hero", props: { headline: "x", imageUrl: "/objects/page-hero" } }];
+    const kept = validateAndDedupeAIImages(blocksB, [scrapedHero], "saas pipeline") as any[];
+    expect(kept[0].props.imageUrl).toBe("/objects/page-hero");
   });
 
   it("RELAXED pass: a curated brand asset beats a starter even when the starter sorts first", () => {

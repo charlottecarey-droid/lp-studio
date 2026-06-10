@@ -1075,6 +1075,16 @@ function findBestImage(
   let bestStarterScore = -Infinity;
   for (const img of images) {
     if (usedIds.has(imageIdentity(img))) continue;
+    // Source-page hero rule: a SCRAPED image may fill a hero slot ONLY if it was
+    // the hero on its source page — encoded by the "lp-hero" purpose, which the
+    // mirror now grants solely to the source-page hero (later scraped images are
+    // downgraded to lp-feature). Without this hard gate a non-hero scraped photo
+    // (e.g. a team headshot) could still win a hero slot via a strong topical
+    // score, since purpose mismatch is only a soft penalty. Curated / brand-
+    // import / AI / starter images keep the existing soft scoring.
+    if (preferredPurpose === "lp-hero" && isScrapedImage(img) && getImagePurpose(img) !== "lp-hero") {
+      continue;
+    }
     const starter = isStarterImage(img);
     // CURRENT-prompt reference scrapes (img.currentReference) are NOT deferred —
     // the user explicitly pointed us at that URL (or it's a new tenant whose only
@@ -1612,6 +1622,19 @@ export function validateAndDedupeAIImages(
     const ctx = `${slot.context} ${pageContext}`.toLowerCase();
     const ctxWords = ctx.split(/\s+/);
     const purpose = slot.purpose || undefined;
+
+    // Source-page hero rule (hard gate, mirrors findBestImage): a SCRAPED image
+    // may occupy a hero slot ONLY if it was the hero on its source page (purpose
+    // "lp-hero"). The model sometimes assigns a non-hero scrape (lp-feature, e.g.
+    // a team headshot) to a hero slot, and a positive content score would let it
+    // survive the soft CLEAR_GAP check below. Clear it unconditionally so the slot
+    // falls through to AI/editor fill instead of shipping a wrong hero.
+    if (purpose === "lp-hero" && isScrapedImage(assigned) && getImagePurpose(assigned) !== "lp-hero") {
+      slot.set("");
+      used.delete(identityForUrl(url, byUrl));
+      continue;
+    }
+
     const assignedScore = scoreImage(assigned, ctx, ctxWords, purpose).score;
 
     // Best free alternative for this slot (exclude every currently-used
