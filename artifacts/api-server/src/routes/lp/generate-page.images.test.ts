@@ -250,6 +250,35 @@ describe("validateAndDedupeAIImages", () => {
     const out = (await aiFillEmptyImages(blocks, 1, brand, "test brief")) as any[];
     for (const r of out[0].props.results as Array<{ logoUrl: string }>) expect(r.logoUrl).toBe("");
   });
+
+  it("fillEmptyImages never back-fills a case-study-card-grid card imageUrl (customer logos, not stock photos)", () => {
+    // Same class as case-study-logo-results-row: each card's imageUrl is a
+    // customer/company *logo* slot rendered in a tiny icon / small logo box.
+    // Auto-filling a library photo drops a tiny mismatched image into the box
+    // ("tiny images where icons should be"). Empty imageUrl → company-name fallback.
+    const featLib: MediaImage[] = [
+      { url: "/objects/feat-a", title: "A", tags: ["lp-feature", "dentures"] },
+    ];
+    let blocks: any[] = [
+      { type: "case-study-card-grid", props: { cards: [
+        { company: "Acme Dental", result: "2x revenue", metricValue: "2x", metricLabel: "growth", imageUrl: "" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, featLib, PAGE_CTX) as any[];
+    expect((blocks[0].props.cards as Array<{ imageUrl: string }>)[0].imageUrl).toBe("");
+  });
+
+  it("aiFillEmptyImages collects no slot for a case-study-card-grid card imageUrl", async () => {
+    const blocks: any[] = [
+      { type: "case-study-card-grid", props: { cards: [
+        { company: "Acme Dental", result: "2x revenue", metricValue: "2x", metricLabel: "growth", imageUrl: "" },
+        { company: "Bright Smiles", result: "+40% bookings", metricValue: "+40%", metricLabel: "bookings", imageUrl: "" },
+      ] } },
+    ];
+    const brand = { brandName: "Acme", primaryColor: "#000", accentColor: "#111", productLines: [] } as any;
+    const out = (await aiFillEmptyImages(blocks, 1, brand, "test brief")) as any[];
+    for (const c of out[0].props.cards as Array<{ imageUrl: string }>) expect(c.imageUrl).toBe("");
+  });
 });
 
 describe("dandy premium blocks — items[]/tabs[] imageUrl wiring", () => {

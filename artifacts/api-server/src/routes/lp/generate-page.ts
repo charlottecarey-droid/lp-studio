@@ -1332,7 +1332,15 @@ export function collectImageSlots(
   // how-it-works-alternating steps[].image — real per-step product/feature photo.
   pushArrField(props.steps, "image", "lp-feature", it => `${it.title ?? ""} ${it.description ?? ""}`);
   pushArrField(props.chapters, "imageUrl", "lp-feature", it => `${it.headline ?? ""} ${it.body ?? ""}`);
-  pushArrField(props.cards, "imageUrl", "lp-feature", it => `${it.tag ?? ""} ${it.title ?? ""} ${it.body ?? ""}`);
+  // case-study-card-grid cards[].imageUrl is a customer-LOGO slot (rendered in a
+  // tiny icon / small logo box), NOT a stock-photo slot — excluded for the same
+  // reason as case-study-logo-results-row results[].logoUrl (see note below): a
+  // library headshot/lifestyle photo dropped into the tiny box renders as "tiny
+  // images where icons should be". Empty imageUrl → company-name fallback. Other
+  // card blocks (sticky-stack) keep their real photo fill.
+  if (blockType !== "case-study-card-grid") {
+    pushArrField(props.cards, "imageUrl", "lp-feature", it => `${it.tag ?? ""} ${it.title ?? ""} ${it.body ?? ""}`);
+  }
   pushArrField(props.panels, "imageUrl", "lp-feature", it => `${it.tag ?? ""} ${it.title ?? ""} ${it.body ?? ""}`);
   pushArrField(props.images, "src", "lp-feature", it => `${it.alt ?? ""} ${blockContext}`);
   // benefits-grid (+ its features alias) carries an OPTIONAL per-item photo
@@ -2210,17 +2218,14 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
         return img;
       });
     }
-    // case-study-card-grid cards[].imageUrl (customer logo / photo shown in each
-    // card header; starts "" so the library pass fills each card)
-    if (blockType === "case-study-card-grid" && Array.isArray(props.cards)) {
-      props.cards = (props.cards as Record<string, unknown>[]).map((card) => {
-        if (!card.imageUrl) {
-          const ctx = `${card.company ?? ""} ${card.result ?? ""} ${blockContext}`;
-          return { ...card, imageUrl: pick(ctx, images, usedIds, "lp-feature") };
-        }
-        return card;
-      });
-    }
+    // NOTE: case-study-card-grid cards[].imageUrl is intentionally NOT auto-filled.
+    // These are customer/company *logo* slots rendered in a tiny icon / small logo
+    // box — a library headshot/lifestyle photo dropped in reads as a broken "tiny
+    // image where an icon should be". Empty imageUrl renders the company name only,
+    // which is the correct fallback for AI-invented placeholder companies. Mirrors
+    // the case-study-logo-results-row exclusion below. (Real authored/template logos
+    // pass through untouched — collectImageSlots also skips this slot, so dedupe and
+    // the AI-gen fill never touch it either.)
     // NOTE: case-study-logo-results-row results[].logoUrl is intentionally NOT
     // auto-filled. These are customer/company logo slots — a library photo
     // (headshot/lifestyle) dropped into the tiny logo box reads as a broken

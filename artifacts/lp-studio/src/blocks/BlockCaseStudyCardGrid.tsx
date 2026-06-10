@@ -31,6 +31,16 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
   const cards = props.cards ?? [];
   const isLogo = props.displayMode === "logo";
 
+  // These are customer/company *logo* slots. For AI-invented placeholder
+  // companies we usually have no real logo (the image pipeline no longer
+  // auto-fills a stock photo here, which used to render as a "tiny image where
+  // an icon should be"). Show the logo/icon box only when a real image exists,
+  // or in the builder so the editor keeps the Replace affordance; otherwise the
+  // card header falls back to the company name alone.
+  const hasCardImage = (c: { imageUrl?: string }) =>
+    typeof c.imageUrl === "string" && c.imageUrl.trim().length > 0;
+  const showCardImage = (c: { imageUrl?: string }) => hasCardImage(c) || !!onFieldChange;
+
   const update = <K extends keyof CaseStudyCardGridBlockProps>(
     key: K,
     value: CaseStudyCardGridBlockProps[K],
@@ -90,6 +100,7 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
               <div className="relative z-10 flex h-full flex-col">
               {isLogo ? (
                 <div className="flex flex-col items-center text-center gap-4 mb-8 pb-8 border-b" style={{ borderColor: border }}>
+                  {showCardImage(card) && (
                   <div className="h-14 sm:h-16 w-full flex items-center justify-center" style={{ color: accent }}>
                     <InlineImage
                       src={card.imageUrl}
@@ -100,6 +111,7 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
                       wrapperClassName="inline-flex items-center justify-center max-h-full"
                     />
                   </div>
+                  )}
                   <InlineText
                     as="span"
                     value={card.company}
@@ -109,6 +121,7 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
                 </div>
               ) : (
                 <div className="flex items-center gap-3 mb-8 pb-8 border-b" style={{ borderColor: border }}>
+                  {showCardImage(card) && (
                   <div
                     className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ring-1 transition-transform duration-300 group-hover:scale-105"
                     style={{ backgroundColor: `${accent}15`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}26` }}
@@ -122,6 +135,7 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
                       wrapperClassName="block w-full h-full"
                     />
                   </div>
+                  )}
                   <InlineText
                     as="span"
                     value={card.company}
