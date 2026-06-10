@@ -2558,6 +2558,33 @@ export function stripUrlValuedIcons(value: unknown): void {
   }
 }
 
+// Dandy's brand palette literals (forest #003A30 + lime #C7E738). Only the
+// real Dandy tenant should ever render these. A non-Dandy footer that carries
+// one of them — leaked from a Dandy-derived prompt example or hallucinated by
+// the model — shows the Dandy green/lime instead of the tenant's own brand.
+// Dropping a leaked literal lets the footer fall back to the tenant's brand CSS
+// vars (var(--n) for the background, brand.accentColor / var(--brand-accent)
+// for the accent), which resolve to Dandy's own colors for the Dandy tenant and
+// to the correct color for everyone else — so this guard is tenant-agnostic and
+// safe to run unconditionally (no isDandy branch, no regression for Dandy).
+const DANDY_PALETTE_LITERALS = new Set(["#003a30", "#c7e738"]);
+
+export function isDandyPaletteLiteral(v: unknown): boolean {
+  return typeof v === "string" && DANDY_PALETTE_LITERALS.has(v.trim().toLowerCase());
+}
+
+/**
+ * Strip Dandy palette literals from a footer block's color props in place so a
+ * non-Dandy tenant never renders a Dandy-green/lime footer. No-op for any block
+ * that is not a footer or whose colors are already brand-neutral.
+ */
+export function deBrandFooterColors(block: { type?: string; props?: Record<string, unknown> }): void {
+  if (block.type !== "footer" || !block.props) return;
+  const p = block.props;
+  if (isDandyPaletteLiteral(p.backgroundColor)) p.backgroundColor = "";
+  if (isDandyPaletteLiteral(p.accentColor)) p.accentColor = "";
+}
+
 export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], logoUrls?: ReadonlySet<string>): unknown[] {
   // Build a lookup: url → tags
   const urlToTags = new Map<string, string[]>();
@@ -6646,6 +6673,12 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // Dandy tenant. For every other tenant we emit a minimal, brand-derived
     // footer using their own brandName, defaultCtaUrl, and social links so
     // the AI never leaks meetdandy.com links into a non-Dandy workspace.
+    // De-brand any AI-emitted footer that leaked Dandy's forest/lime palette so
+    // a non-Dandy tenant never renders a Dandy-green footer (falls back to the
+    // tenant's own brand CSS var). Runs before the injection below, which is
+    // already correctly Dandy-vs-brand branched.
+    for (const b of blocks) deBrandFooterColors(b as { type?: string; props?: Record<string, unknown> });
+
     const hasFooter = blocks.some(b => b.type === "footer");
     if (!hasFooter && !isSingleFullPage) {
       const year = new Date().getFullYear();

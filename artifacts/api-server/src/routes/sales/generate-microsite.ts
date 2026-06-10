@@ -55,6 +55,9 @@ import {
   // Task #1134 — builds the tenant's brand logo URL set so logo images survive
   // "Replace imagery" (never cleared, swapped, or AI-regenerated).
   buildBrandLogoUrlSet,
+  // Strips Dandy's forest/lime palette literals off a footer so a non-Dandy
+  // microsite never renders a Dandy-green footer (falls back to the brand var).
+  isDandyPaletteLiteral,
 } from "../lp/generate-page";
 // Mirror harvested reference imagery into the tenant's media library so the
 // image-fill pass can use real site images for empty slots.
@@ -1003,8 +1006,10 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         columns: Array.isArray(columns) ? columns : [],
         copyrightText: p.copyrightText ?? (brand.name ? `© ${new Date().getFullYear()} ${us}. All rights reserved.` : `© ${new Date().getFullYear()}. All rights reserved.`),
         showSocialLinks: p.showSocialLinks ?? false,
-        backgroundColor: p.backgroundColor,
-        accentColor: p.accentColor,
+        // Drop a leaked Dandy palette literal so a non-Dandy footer falls back
+        // to the tenant's own brand CSS var instead of rendering Dandy green.
+        backgroundColor: isDandyPaletteLiteral(p.backgroundColor) ? "" : p.backgroundColor,
+        accentColor: isDandyPaletteLiteral(p.accentColor) ? "" : p.accentColor,
       };
     }
 
@@ -1067,7 +1072,7 @@ const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   "dso-faq": "{ eyebrow, headline, subheadline, items: [{ question, answer }], backgroundStyle } — 4–5 questions",
   "dso-activation-steps": "{ eyebrow, headline, subheadline, steps: [{ step, title, desc }], ctaText, ctaUrl, backgroundStyle }",
   "dso-promo-cards": "{ eyebrow, headline, subheadline, cards: [{ title, desc, badge, ctaText }], backgroundStyle }",
-  "footer": "{ columns: [] (always empty array), copyrightText, showSocialLinks: false, backgroundColor: \"#003A30\" }",
+  "footer": "{ columns: [] (always empty array), copyrightText, showSocialLinks: false, backgroundColor: \"\" (leave empty — the page fills the tenant's own brand color) }",
   "video-section": "{ headline, subheadline, videoUrl, backgroundStyle }",
   "business-case-split": "{ heroEyebrow, heroHeadline, heroSubhead, situationHeading, situationBody, situationStats: [{ value, label }], signalHeading, signalCards: [{ icon, stat, body, attribution }], costHeading, costItems: [{ stat, label, description }], shiftHeading, shiftOldBullets: [{ title, body }], shiftNewBullets: [{ title, body }], mathHeading, mathSubhead, mathOfficeCount, mathVolumeLabel, mathVolumeValue, mathStats: [{ label, value, caption }], proofHeading, proofFeatured: { quote, name, title }, proofSecondary: [{ quote, name, title }], planHeading, planSteps: [{ num, title, timeframe, description }], finalCtaHeading, finalCtaSubhead } — a single full-page consultative DSO business-case document; rewrite ALL copy specifically for this account; keep the same array lengths; keep stats realistic; do NOT invent image URLs",
   "business-case-centered": "{ heroEyebrow, heroHeadline, heroSubhead, situationHeading, situationBody, situationBodyExtra, situationStats: [{ value, label, description }], signalHeading, signalCards: [{ stat, body, attribution }], costHeading, costSubhead, costItems: [{ num, stat, label, description }], shiftHeading, shiftRows: [{ category, oldWay, withDandy }], mathHeading, mathSubhead, mathOfficeCount, mathVolumeLabel, mathVolumeValue, mathStats: [{ label, value, caption }], proofHeading, proofFeatured: { quote, name, title }, proofSecondary: [{ quote, name, title }], planHeading, planSubhead, planSteps: [{ num, title, timeframe, description }], finalCtaHeading, finalCtaSubhead } — a single full-page centered DSO business-case document; rewrite ALL copy specifically for this account; keep the same array lengths; keep stats realistic; do NOT invent image URLs",

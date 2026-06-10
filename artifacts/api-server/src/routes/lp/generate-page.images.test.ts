@@ -10,6 +10,8 @@ import {
   isLogoImageUrl,
   buildBrandLogoUrlSet,
   buildBlockSelectionDirective,
+  isDandyPaletteLiteral,
+  deBrandFooterColors,
   type MediaImage,
 } from "./generate-page";
 
@@ -1529,5 +1531,37 @@ describe("video thumbnails / videos are never auto-added or swapped", () => {
     const slots = collectImageSlots(block as any, undefined, true);
     const values = (slots as any[]).map(s => s.get());
     expect(values).not.toContain("/objects/denture-hero-1");
+  });
+});
+
+describe("deBrandFooterColors (Dandy palette leak guard)", () => {
+  it("detects Dandy forest/lime literals regardless of case or whitespace", () => {
+    expect(isDandyPaletteLiteral("#003A30")).toBe(true);
+    expect(isDandyPaletteLiteral("#003a30")).toBe(true);
+    expect(isDandyPaletteLiteral("  #C7E738 ")).toBe(true);
+    expect(isDandyPaletteLiteral("#0f172a")).toBe(false);
+    expect(isDandyPaletteLiteral("")).toBe(false);
+    expect(isDandyPaletteLiteral(undefined)).toBe(false);
+  });
+
+  it("strips a leaked Dandy green/lime from a footer so it falls back to the brand var", () => {
+    const footer = { type: "footer", props: { backgroundColor: "#003A30", accentColor: "#C7E738", copyrightText: "© 2026" } };
+    deBrandFooterColors(footer as any);
+    expect(footer.props.backgroundColor).toBe("");
+    expect(footer.props.accentColor).toBe("");
+    expect(footer.props.copyrightText).toBe("© 2026");
+  });
+
+  it("keeps a non-Dandy footer's own brand colors untouched", () => {
+    const footer = { type: "footer", props: { backgroundColor: "#1d4ed8", accentColor: "#f59e0b" } };
+    deBrandFooterColors(footer as any);
+    expect(footer.props.backgroundColor).toBe("#1d4ed8");
+    expect(footer.props.accentColor).toBe("#f59e0b");
+  });
+
+  it("is a no-op for non-footer blocks even if they carry a Dandy literal", () => {
+    const hero = { type: "hero", props: { backgroundColor: "#003A30" } };
+    deBrandFooterColors(hero as any);
+    expect(hero.props.backgroundColor).toBe("#003A30");
   });
 });
