@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSystemPrompt, detectDsoVocabMode } from "./generate-microsite";
+import {
+  buildSystemPrompt,
+  detectDsoVocabMode,
+  detectDsoVocabModeFromName,
+} from "./generate-microsite";
 
 // Regression guard for the DSO block-variety fix. Dandy DSO segments ship a
 // curated micrositeBlockList that previously forced every account's microsite
@@ -61,6 +65,31 @@ describe("detectDsoVocabMode", () => {
     // Only dso-final-cta (shared by both vocabularies) → no disambiguating
     // signal → not a DSO page.
     expect(detectDsoVocabMode([{ type: "dso-final-cta" }])).toBeNull();
+  });
+});
+
+describe("detectDsoVocabModeFromName", () => {
+  // Name-based fallback (Dandy-gated by the caller) for when a DSO segment's
+  // curated list doesn't disambiguate. Mirrors the landing-page detection.
+  it("maps a 'practice' name to the practices vocabulary", () => {
+    expect(detectDsoVocabModeFromName("DSO Practices")).toBe("practices");
+    expect(detectDsoVocabModeFromName("Practice owners")).toBe("practices");
+  });
+
+  it("maps a 'dso' name (without 'practice') to the enterprise vocabulary", () => {
+    expect(detectDsoVocabModeFromName("Enterprise DSOs")).toBe("enterprise");
+    expect(detectDsoVocabModeFromName("DSO networks")).toBe("enterprise");
+  });
+
+  it("prefers practices when a name mentions both DSO and practice", () => {
+    expect(detectDsoVocabModeFromName("DSO practice groups")).toBe("practices");
+  });
+
+  it("returns null for a non-DSO segment name", () => {
+    expect(detectDsoVocabModeFromName("Enterprise SaaS")).toBeNull();
+    expect(detectDsoVocabModeFromName("")).toBeNull();
+    expect(detectDsoVocabModeFromName(undefined)).toBeNull();
+    expect(detectDsoVocabModeFromName(null)).toBeNull();
   });
 });
 

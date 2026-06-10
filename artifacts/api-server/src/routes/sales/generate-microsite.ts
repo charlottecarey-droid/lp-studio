@@ -1347,6 +1347,24 @@ export function detectDsoVocabMode(
   return practices > enterprise ? "practices" : "enterprise";
 }
 
+// Name-based DSO vocab detection — mirrors the landing-page path's detection
+// (segment name containing "practice" → DSO Practices, "dso" → DSO enterprise).
+// This is a FALLBACK used only when the curated list doesn't disambiguate (e.g.
+// a DSO-named segment whose micrositeBlockList is empty or non-DSO), so a DSO
+// segment still composes from the DSO vocabulary instead of the neutral set.
+// The CALLER gates this to the Dandy tenant (the DSO product owner) so the
+// DSO/dental vocabulary can NEVER leak onto a non-DSO tenant's microsite.
+// "practice" is checked first because a name can mention both ("DSO practices").
+export function detectDsoVocabModeFromName(
+  name: string | undefined | null,
+): DsoVocabMode | null {
+  const n = (name ?? "").toLowerCase();
+  if (!n) return null;
+  if (n.includes("practice")) return "practices";
+  if (n.includes("dso")) return "enterprise";
+  return null;
+}
+
 // Build the DSO freeform "AVAILABLE BLOCKS" guide for the given mode: the dso-*
 // vocabulary + general supporting blocks, each with its role hint and schema.
 export function buildDsoFreeformBlockGuide(mode: DsoVocabMode, extraTypes: string[] = []): string {
@@ -2066,7 +2084,20 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // resolved curated list's own contents → can NEVER fire for a non-DSO
     // tenant. A picked template always wins (explicit authored layout).
     const curatedForDetect = (segment.micrositeBlockList?.length ? segment.micrositeBlockList : brandDefaultBlockList);
-    const dsoFreeformMode = templateBlockTypes ? null : detectDsoVocabMode(curatedForDetect);
+    // Dandy is the DSO product owner — resolved once and reused for the hero
+    // variability pass below. Computed lazily: fixed-template pages use neither
+    // the name-based DSO fallback nor the hero-variability pass, so they skip the
+    // DB lookup entirely.
+    const dandyTenant = templateBlocks ? false : await isDandyTenant(tenantId);
+    // List-based detection is precise (tied to the curated dso-* vocabulary, so
+    // it can never fire for a non-DSO tenant). Name-based detection mirrors the
+    // landing-page path and acts as a FALLBACK when the curated list doesn't
+    // disambiguate (e.g. a DSO-named segment with an empty/non-DSO list) — gated
+    // to the Dandy tenant so the DSO/dental vocabulary can never leak elsewhere.
+    const dsoFreeformMode = templateBlockTypes
+      ? null
+      : (detectDsoVocabMode(curatedForDetect)
+        ?? (dandyTenant ? detectDsoVocabModeFromName(segment.name) : null));
     const useDsoFreeform = dsoFreeformMode !== null;
     const useFreeform = !templateBlockTypes && !hasCuratedBlockList && !useDsoFreeform;
 
@@ -2551,7 +2582,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // account (see applyDandyHeroVariability). Skipped for fixed-template
     // layouts (the template's hero is an explicit choice) and for non-Dandy
     // tenants (the generic / white-label path is unchanged).
-    if (!templateBlocks && (await isDandyTenant(tenantId))) {
+    if (!templateBlocks && dandyTenant) {
       const heroImageUrls = images
         .filter(i => (i.tags ?? []).some(t => t.toLowerCase() === "lp-hero"))
         .map(i => i.url);
