@@ -50,6 +50,7 @@ import { getHeadlineSizeClass } from "@/lib/typography";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/BrandLogo";
 import { ImagePicker } from "@/components/ImagePicker";
+import { MediaLibraryDrawer } from "@/components/MediaLibraryDrawer";
 import { useBrandConfig } from "@/context/BrandConfigContext";
 import { streamBrandImportFromUrl } from "@/lib/brand-import-client";
 
@@ -345,6 +346,55 @@ function ProductLineCard({ product, onChange, onRemove, strictMode }: {
   onRemove: () => void;
 }) {
   const [open, setOpen] = useState(true);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [autoFilling, setAutoFilling] = useState(false);
+  const { toast } = useToast();
+
+  const MAX_CONTENT_IMAGES = 12;
+  const appendContentImages = (urls: string[]) => {
+    const existing = product.contentImages ?? [];
+    const seen = new Set(existing);
+    const merged = [...existing];
+    for (const u of urls) {
+      if (!u || seen.has(u)) continue;
+      seen.add(u);
+      merged.push(u);
+      if (merged.length >= MAX_CONTENT_IMAGES) break;
+    }
+    return merged;
+  };
+
+  const handleAutoFill = async () => {
+    setAutoFilling(true);
+    try {
+      const res = await fetch(`${BASE}/api/lp/media/suggest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: product.name || "",
+          keywords: product.keywords ?? [],
+          exclude: product.contentImages ?? [],
+          limit: 5,
+        }),
+      });
+      if (!res.ok) throw new Error(`Suggest failed (${res.status})`);
+      const data = (await res.json()) as { urls?: string[] };
+      const urls = Array.isArray(data.urls) ? data.urls : [];
+      if (urls.length === 0) {
+        toast({ title: "No matches found", description: "No library images matched this product's name or keywords. Try tagging more images." });
+        return;
+      }
+      const before = (product.contentImages ?? []).length;
+      const merged = appendContentImages(urls);
+      onChange("contentImages", merged);
+      toast({ title: `Added ${merged.length - before} image${merged.length - before === 1 ? "" : "s"}`, description: "Auto-filled from your media library by tag match." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Auto-fill failed", description: e instanceof Error ? e.message : "Could not reach the media library." });
+    } finally {
+      setAutoFilling(false);
+    }
+  };
+
   return (
     <div className="border rounded-lg overflow-hidden">
       <div
@@ -516,49 +566,75 @@ function ProductLineCard({ product, onChange, onRemove, strictMode }: {
                 aiHint={`${product.name || "Product"} hero image`}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Content images</Label>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Label className="text-xs">Content images</Label>
+                <span className="text-[11px] text-muted-foreground">
+                  ({(product.contentImages ?? []).length}/{MAX_CONTENT_IMAGES})
+                </span>
+              </div>
               <p className="text-[11px] text-muted-foreground -mt-0.5">
                 Extra images rotated across content sections about this product — add a few to cut down on repeats.
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {(product.contentImages ?? []).map((img, ci) => (
-                  <div key={ci} className="relative">
-                    <ImagePicker
-                      value={img}
-                      onChange={(url) => {
-                        const next = [...(product.contentImages ?? [])];
-                        next[ci] = url;
-                        onChange("contentImages", next);
-                      }}
-                      placeholder="Paste URL or upload"
-                      aiHint={`${product.name || "Product"} content image`}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute -top-1 -right-1 h-6 w-6 p-0 text-muted-foreground hover:text-destructive bg-background/80 rounded-full"
-                      title="Remove content image"
-                      onClick={() => {
-                        const next = (product.contentImages ?? []).filter((_, j) => j !== ci);
-                        onChange("contentImages", next);
-                      }}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                ))}
+              {(product.contentImages ?? []).length > 0 ? (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {(product.contentImages ?? []).map((img, ci) => (
+                    <div key={`${img}-${ci}`} className="group relative aspect-video rounded-md border border-border overflow-hidden bg-muted/20">
+                      <img
+                        src={img}
+                        alt={`${product.name || "Product"} content image`}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0.3"; }}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-0.5 right-0.5 h-5 w-5 p-0 text-white bg-black/50 hover:bg-destructive hover:text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Remove content image"
+                        onClick={() => {
+                          const next = (product.contentImages ?? []).filter((_, j) => j !== ci);
+                          onChange("contentImages", next);
+                        }}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground italic">No content images yet.</p>
+              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  disabled={(product.contentImages?.length ?? 0) >= MAX_CONTENT_IMAGES}
+                  onClick={() => setLibraryOpen(true)}
+                >
+                  <ImageIcon className="w-3 h-3" />
+                  Select from library
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  disabled={autoFilling || (product.contentImages?.length ?? 0) >= MAX_CONTENT_IMAGES}
+                  onClick={handleAutoFill}
+                  title="Find matching images in your media library by this product's name & keywords"
+                >
+                  {autoFilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                  Auto-fill from library
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1"
-                disabled={(product.contentImages?.length ?? 0) >= 12}
-                onClick={() => onChange("contentImages", [...(product.contentImages ?? []), ""])}
-              >
-                <Plus className="w-3 h-3" />
-                Add content image
-              </Button>
+              <MediaLibraryDrawer
+                open={libraryOpen}
+                onOpenChange={setLibraryOpen}
+                onSelect={() => {}}
+                multiSelect
+                onSelectMany={(urls) => onChange("contentImages", appendContentImages(urls))}
+              />
             </div>
           </div>
         </div>

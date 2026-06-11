@@ -55,6 +55,13 @@ export interface MediaLibraryDrawerProps {
   onSelect: (url: string) => void;
   /** If provided, open directly on this tab */
   defaultTab?: "images" | "videos" | "pdfs" | "og-images";
+  /**
+   * Multi-select mode: show only the Images tab with checkable tiles and a
+   * confirm footer. On confirm, `onSelectMany` fires with every picked URL and
+   * the drawer closes. `onSelect` is ignored in this mode. Default false.
+   */
+  multiSelect?: boolean;
+  onSelectMany?: (urls: string[]) => void;
 }
 
 const DRAWER_PAGE_SIZE = 24;
@@ -117,7 +124,13 @@ function dedupeBySourceImage(items: MediaItem[]): MediaItem[] {
 
 // ─── Images tab ─────────────────────────────────────────────────────────────
 
-function ImagesTab({ onSelect }: { onSelect: (url: string) => void }) {
+function ImagesTab({ onSelect, selectable = false, selectedUrls, onToggle }: {
+  onSelect: (url: string) => void;
+  /** Multi-select mode: tiles toggle selection instead of selecting+closing. */
+  selectable?: boolean;
+  selectedUrls?: Set<string>;
+  onToggle?: (url: string) => void;
+}) {
   const [items, setItems] = useState<MediaItem[]>([]);
   const [tagCounts, setTagCounts] = useState<TagCount[]>([]);
   const [total, setTotal] = useState(0);
@@ -285,10 +298,17 @@ function ImagesTab({ onSelect }: { onSelect: (url: string) => void }) {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {visibleItems.map(item => (
-              <div key={item.id} className="group relative rounded-lg border border-border overflow-hidden bg-muted/20 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
-                <div className="aspect-video" onClick={() => onSelect(item.url)}>
+            {visibleItems.map(item => {
+              const isSelected = selectable && !!selectedUrls?.has(item.url);
+              return (
+              <div key={item.id} className={`group relative rounded-lg border overflow-hidden bg-muted/20 hover:shadow-md transition-all cursor-pointer ${isSelected ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/50"}`}>
+                <div className="aspect-video relative" onClick={() => (selectable ? onToggle?.(item.url) : onSelect(item.url))}>
                   <img src={item.url} alt={item.title} className="w-full h-full object-cover" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  {selectable && (
+                    <div className={`absolute top-1.5 right-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? "bg-primary border-primary text-primary-foreground" : "bg-black/30 border-white/80"}`}>
+                      {isSelected && <Check className="w-3 h-3" />}
+                    </div>
+                  )}
                 </div>
                 {item.tags.includes("scraped") && (() => {
                   const host = referenceHostOf(item.tags);
@@ -326,7 +346,8 @@ function ImagesTab({ onSelect }: { onSelect: (url: string) => void }) {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -918,11 +939,49 @@ function PdfsTab({ onSelect }: { onSelect: (url: string) => void }) {
 
 // ─── Main drawer ─────────────────────────────────────────────────────────────
 
-export function MediaLibraryDrawer({ open, onOpenChange, onSelect, defaultTab = "images" }: MediaLibraryDrawerProps) {
+export function MediaLibraryDrawer({ open, onOpenChange, onSelect, defaultTab = "images", multiSelect = false, onSelectMany }: MediaLibraryDrawerProps) {
   const handleSelect = (url: string) => {
     onSelect(url);
     onOpenChange(false);
   };
+
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Reset the pending selection each time the drawer opens in multi-select mode.
+  useEffect(() => { if (open) setSelected(new Set()); }, [open]);
+  const toggle = (url: string) => setSelected(prev => {
+    const next = new Set(prev);
+    if (next.has(url)) next.delete(url); else next.add(url);
+    return next;
+  });
+  const confirmMany = () => {
+    onSelectMany?.([...selected]);
+    onOpenChange(false);
+  };
+
+  if (multiSelect) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="right" className="w-full sm:max-w-lg p-0 flex flex-col">
+          <SheetHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0">
+            <SheetTitle className="text-lg">Select images</SheetTitle>
+            <SheetDescription className="text-xs">Tap images to add several at once.</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 flex flex-col min-h-0">
+            <ImagesTab onSelect={handleSelect} selectable selectedUrls={selected} onToggle={toggle} />
+          </div>
+          <div className="border-t border-border px-6 py-3 flex items-center justify-between shrink-0">
+            <span className="text-xs text-muted-foreground">{selected.size} selected</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button size="sm" disabled={selected.size === 0} onClick={confirmMany}>
+                Add {selected.size > 0 ? selected.size : ""} image{selected.size === 1 ? "" : "s"}
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

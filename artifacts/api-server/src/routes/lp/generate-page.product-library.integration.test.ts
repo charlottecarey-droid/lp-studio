@@ -381,6 +381,82 @@ describe("enforceProductLibraryBlocks", () => {
     expect((blocks[0].props as { imageUrl: string }).imageUrl).toBe("https://brand/aligners-card.jpg");
   });
 
+  it("a generic hero block whose headline names a product gets that product's heroImage", async () => {
+    const blocks = [
+      {
+        id: "generic-hero",
+        type: "hero",
+        props: { headline: "Same-day Crowns for your practice", imageUrl: "https://random/hero.jpg", imageAlt: "" },
+      },
+    ];
+    await enforceProductLibraryBlocks(blocks, tenantId, [
+      brandLine("Crowns", { heroImage: "https://brand/crowns-hero.jpg" }),
+    ]);
+    expect((blocks[0].props as { imageUrl: string }).imageUrl).toBe("https://brand/crowns-hero.jpg");
+    // Empty alt is back-filled from the hero copy.
+    expect((blocks[0].props as { imageAlt?: string }).imageAlt).toBeTruthy();
+  });
+
+  it("the generic-hero pass targets backgroundImage when that's the block's active image prop", async () => {
+    const blocks = [
+      {
+        id: "bg-hero",
+        type: "full-bleed-hero",
+        props: { headline: "Clear Aligners for adults", backgroundImage: "https://random/bg.jpg" },
+      },
+    ];
+    await enforceProductLibraryBlocks(blocks, tenantId, [
+      brandLine("Aligners", { heroImage: "https://brand/aligners-hero.jpg" }),
+    ]);
+    // The block has no imageUrl → the pass writes the prop it actually renders.
+    expect((blocks[0].props as { backgroundImage: string }).backgroundImage).toBe("https://brand/aligners-hero.jpg");
+  });
+
+  it("the generic-hero pass uses heroImage ONLY (a product with just a cardImage never overrides a generic hero)", async () => {
+    const blocks = [
+      {
+        id: "hero-cardonly",
+        type: "hero",
+        props: { headline: "Same-day Crowns for your practice", imageUrl: "https://random/hero.jpg" },
+      },
+    ];
+    await enforceProductLibraryBlocks(blocks, tenantId, [
+      brandLine("Crowns", { cardImage: "https://brand/crowns-card.jpg" }),
+    ]);
+    // No heroImage in the brand pool → the generic hero is left untouched.
+    expect((blocks[0].props as { imageUrl: string }).imageUrl).toBe("https://random/hero.jpg");
+  });
+
+  it("the generic-hero pass leaves an unmatched hero alone", async () => {
+    const blocks = [
+      {
+        id: "hero-nomatch",
+        type: "hero",
+        props: { headline: "A reliable lab partner", imageUrl: "https://random/keep.jpg" },
+      },
+    ];
+    await enforceProductLibraryBlocks(blocks, tenantId, [
+      brandLine("Crowns", { heroImage: "https://brand/crowns-hero.jpg" }),
+    ]);
+    expect((blocks[0].props as { imageUrl: string }).imageUrl).toBe("https://random/keep.jpg");
+  });
+
+  it("the generic-hero pass never touches the bespoke dandy-product-hero (handled by the name-match pass)", async () => {
+    const blocks = [
+      {
+        id: "dandy-hero",
+        type: "dandy-product-hero",
+        props: { headline: "Same-day Crowns for your practice", imageUrl: "https://random/hero.jpg" },
+      },
+    ];
+    await enforceProductLibraryBlocks(blocks, tenantId, [
+      brandLine("Crowns", { heroImage: "https://brand/crowns-hero.jpg" }),
+    ]);
+    // dandy-product-hero is excluded from the generic pass but the name-match
+    // pass still applies the brand hero pool → same result, single source.
+    expect((blocks[0].props as { imageUrl: string }).imageUrl).toBe("https://brand/crowns-hero.jpg");
+  });
+
   it("dso-products-grid prefers the brand card image over the library image", async () => {
     const blocks = [
       {

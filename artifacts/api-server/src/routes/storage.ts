@@ -963,6 +963,87 @@ router.get("/lp/media/images", async (req: Request, res: Response) => {
 });
 
 /**
+ * Suggest content images from the tenant's media library by tag/keyword match.
+ * Powers the "Auto-fill from library" button on a product's content images in
+ * Brand Settings: given the product name + keywords, return the best-matching
+ * library images (ranked by how many query tokens hit each image's title/tags).
+ *
+ * Tenant-scoped. Never returns logos, OG images, or hero-tagged images (those
+ * aren't content imagery). Hard-capped at 5 so a product can't pull in dozens.
+ */
+const SUGGEST_EXCLUDE_TAGS = ["logo", "og-image", "lp-hero"] as const;
+const SUGGEST_STOPWORDS = new Set([
+  "the", "and", "for", "with", "our", "your", "from", "that", "this", "are",
+  "you", "all", "new", "get", "use", "best", "more", "into", "over",
+]);
+router.post("/lp/media/suggest", async (req: Request, res: Response) => {
+  try {
+    const scope = await resolveLibraryTenantScope(req, res);
+    if (!scope) return;
+    const body = (req.body ?? {}) as { query?: unknown; keywords?: unknown; exclude?: unknown; limit?: unknown };
+    const queryStr = typeof body.query === "string" ? body.query : "";
+    const keywords = Array.isArray(body.keywords) ? body.keywords.filter((k): k is string => typeof k === "string") : [];
+    const exclude = new Set(Array.isArray(body.exclude) ? body.exclude.filter((u): u is string => typeof u === "string") : []);
+    const limit = Math.min(5, Math.max(1, typeof body.limit === "number" ? Math.floor(body.limit) : 5));
+
+    // Tokenize the product name + keywords into significant lowercase words.
+    const tokens = [...new Set(
+      [queryStr, ...keywords]
+        .join(" ")
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((t) => t.length >= 3 && !SUGGEST_STOPWORDS.has(t)),
+    )];
+    if (tokens.length === 0) {
+      res.json({ urls: [] });
+      return;
+    }
+
+    const conditions = [
+      libraryReadablePredicate(scope.ownedTenantIds),
+      eq(lpMediaTable.mediaType, "image"),
+    ];
+    for (const t of SUGGEST_EXCLUDE_TAGS) {
+      conditions.push(sql`NOT (${lpMediaTable.tags}::jsonb @> ${JSON.stringify([t])}::jsonb)`);
+    }
+    const rows = await db
+      .select({ url: lpMediaTable.url, title: lpMediaTable.title, tags: lpMediaTable.tags, createdAt: lpMediaTable.createdAt })
+      .from(lpMediaTable)
+      .where(and(...conditions))
+      .orderBy(asc(lpMediaTable.isShared), desc(lpMediaTable.createdAt));
+
+    // Score by distinct query tokens that appear in the title or any tag. Tag
+    // hits weigh slightly higher than title hits (tags are curated subjects).
+    const scored = rows
+      .map((r) => {
+        if (exclude.has(r.url)) return null;
+        const title = (r.title ?? "").toLowerCase();
+        const tagText = ((r.tags as string[]) ?? []).join(" ").toLowerCase();
+        let score = 0;
+        for (const t of tokens) {
+          if (tagText.includes(t)) score += 2;
+          else if (title.includes(t)) score += 1;
+        }
+        return score > 0 ? { url: r.url, score } : null;
+      })
+      .filter((x): x is { url: string; score: number } => x !== null);
+
+    const seen = new Set<string>();
+    const urls: string[] = [];
+    for (const s of scored.sort((a, b) => b.score - a.score)) {
+      if (seen.has(s.url)) continue;
+      seen.add(s.url);
+      urls.push(s.url);
+      if (urls.length >= limit) break;
+    }
+    res.json({ urls });
+  } catch (error) {
+    req.log.error({ err: error }, "Error suggesting media");
+    res.status(500).json({ error: "Failed to suggest media" });
+  }
+});
+
+/**
  * List the reference sites this tenant has scraped images from, with per-host
  * counts. Powers the "Reference sites" section of the media library so users
  * can see which images were pulled in from a reference website during page

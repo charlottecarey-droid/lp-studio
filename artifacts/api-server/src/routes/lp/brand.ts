@@ -219,6 +219,45 @@ router.put("/lp/brand", async (req, res): Promise<void> => {
       req.log?.warn?.({ err, tenantId }, "[brand] failed to tag brand logo media row");
     }
   }
+
+  // A product's hero image is the ONLY product image meant to serve as a page
+  // hero, so it self-identifies in the media library with the `lp-hero` purpose
+  // tag. We strip any conflicting purpose/og tags first (a hero is never also a
+  // feature / product-detail / og image). Best-effort + tenant-scoped + idempotent;
+  // skips external URLs that don't match a stored media row.
+  const STRIP_PURPOSE_TAGS = new Set(["lp-hero", "lp-feature", "product-detail", "og-image"]);
+  const productLines = Array.isArray(config["productLines"]) ? (config["productLines"] as Record<string, unknown>[]) : [];
+  const heroImageUrls = productLines
+    .map((p) => (p && typeof p["heroImage"] === "string" ? (p["heroImage"] as string).trim() : ""))
+    .filter((u) => u !== "");
+  for (const heroUrl of [...new Set(heroImageUrls)]) {
+    try {
+      await db.transaction(async (tx) => {
+        const [media] = await tx
+          .select({ id: lpMediaTable.id, tags: lpMediaTable.tags })
+          .from(lpMediaTable)
+          .where(and(eq(lpMediaTable.tenantId, tenantId), eq(lpMediaTable.url, heroUrl)))
+          .limit(1);
+        if (!media) return;
+        const existingTags = Array.isArray(media.tags) ? (media.tags as string[]) : [];
+        const cleaned = existingTags.filter((t) => !STRIP_PURPOSE_TAGS.has(t));
+        const desired = ["lp-hero", ...cleaned];
+        // Idempotent: skip the write only when tags already match exactly. We
+        // cannot short-circuit on `existingTags[0] === "lp-hero"` alone — a row
+        // tagged ["lp-hero", "lp-feature"] still needs its conflicting purpose
+        // tags stripped.
+        if (existingTags.length === desired.length && existingTags.every((t, i) => t === desired[i])) {
+          return;
+        }
+        await tx
+          .update(lpMediaTable)
+          .set({ tags: desired })
+          .where(eq(lpMediaTable.id, media.id));
+      });
+    } catch (err) {
+      req.log?.warn?.({ err, tenantId }, "[brand] failed to tag brand hero media row");
+    }
+  }
 });
 
 export default router;

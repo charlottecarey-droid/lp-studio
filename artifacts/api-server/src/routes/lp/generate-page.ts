@@ -3589,6 +3589,14 @@ export async function enforceProductLibraryBlocks(
     .map((p) => ({ name: p.name, image: trimStr(p.heroImage) || trimStr(p.cardImage) }))
     .filter((x) => x.image)
     .map((x) => toItem(x.name, x.image));
+  // The hero image is the ONLY product image allowed to drive a page's main
+  // hero block (no cardImage fallback here — that's reserved for the bespoke
+  // dandy-product-hero block above). Used to override the generic page hero
+  // whenever the page is confidently about one product.
+  const brandHeroOnlyPool: ProductLibraryItem[] = brandLines
+    .map((p) => ({ name: p.name, image: trimStr(p.heroImage) }))
+    .filter((x) => x.image)
+    .map((x) => toItem(x.name, x.image));
   const brandContentLines = brandLines
     .map((p) => ({
       name: p.name,
@@ -3603,7 +3611,7 @@ export async function enforceProductLibraryBlocks(
     productsGridTargets.length > 0;
 
   // Nothing on the page to touch and no content-image rotation to apply.
-  if (!hasProductBlocks && brandContentLines.length === 0) return;
+  if (!hasProductBlocks && brandContentLines.length === 0 && brandHeroOnlyPool.length === 0) return;
 
   if (hasProductBlocks) {
     // Name-matching (hero + dso-products-grid) draws from BOTH library types so a
@@ -3727,6 +3735,37 @@ export async function enforceProductLibraryBlocks(
           const img = bestLibraryImageFor(name, productGridPool);
           if (img) p.imageUrl = img;
         }
+      }
+    }
+  }
+
+  // The product hero image is the ONLY product image allowed to be a page hero.
+  // Whenever the page's main hero block is CONFIDENTLY about one product, swap in
+  // that product's hero image (overriding whatever generic image-fill chose). The
+  // bespoke dandy-product-hero block is already handled above, so it's skipped
+  // here. Runs even with no product blocks present (a plain hero about a product).
+  if (brandHeroOnlyPool.length > 0) {
+    const HERO_IMAGE_KEYS = ["heroImageUrl", "imageUrl", "backgroundImageUrl", "backgroundImage"] as const;
+    for (const b of blocks) {
+      if (!isBlock(b) || typeof b.type !== "string") continue;
+      if (b.type === DANDY_PRODUCT_HERO_BLOCK_TYPE) continue;
+      if (!resolveBlockTags(b.type).includes("hero")) continue;
+      if (!b.props || typeof b.props !== "object") continue;
+      const props = b.props;
+      const copy = [props.headline, props.eyebrow, props.subheadline, props.title]
+        .filter((v): v is string => typeof v === "string")
+        .join(" ");
+      const img = bestLibraryImageFor(copy, brandHeroOnlyPool);
+      if (!img) continue;
+      // Target the prop the block actually renders: prefer the one already holding
+      // an image (image-fill ran first), else the first declared key, else imageUrl.
+      const key =
+        HERO_IMAGE_KEYS.find((k) => typeof props[k] === "string" && (props[k] as string).trim() !== "") ??
+        HERO_IMAGE_KEYS.find((k) => k in props) ??
+        "imageUrl";
+      props[key] = img;
+      if (typeof props.imageAlt === "string" && props.imageAlt.trim() === "") {
+        props.imageAlt = copy.trim() || "Product image";
       }
     }
   }
