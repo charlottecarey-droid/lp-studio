@@ -17,6 +17,10 @@ import { findBannedPhrases, type BannedPhraseHit } from "../../lib/ai-prompts/ba
 import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-prompts/critique-pass";
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
 import { resolveBlockTags, BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS, type BlockRoleTag } from "@workspace/lp-template-engine";
+import {
+  governanceMapFromRows,
+  type GovernanceMap,
+} from "@workspace/lp-template-engine";
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
 import { detectFacts, isNonStatIdiom, siblingLabelText } from "../../lib/factFlags";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
@@ -1869,6 +1873,194 @@ export function buildReferenceFillPool(
     ...rotateBucket(otherScraped, rotationSeed),
     ...rotateBucket(starterImages, rotationSeed),
   ];
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Tenant block governance — AI-mode enforcement (task #4).
+//
+// The tenant governance table assigns each block an AI mode (see
+// `@workspace/lp-template-engine/block-governance.ts` for the precedence
+// model). After the model has generated/merged a page AND the image/product
+// fill passes have run, we reconcile each block against its tenant's mode:
+//
+//   • open   → no change (today's full behaviour, also the fail-open default
+//              for any block with no governance row).
+//   • locked → "place only": reset the block's props to the superadmin catalog
+//              default_props so neither AI copy nor AI/filled imagery survives.
+//              Fail-safe: if the catalog has no (or empty) default_props for the
+//              type we fall back to the `copy` treatment rather than wiping the
+//              block to nothing.
+//   • copy   → keep the AI copy but restore every image-bearing field to the
+//              catalog default (or clear it), so AI/filled imagery is reverted.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Field names that carry an image URL (or array of them) across block schemas. */
+const GOVERNANCE_IMAGE_FIELD_KEYS = new Set<string>([
+  "image",
+  "imageUrl",
+  "imageSrc",
+  "src",
+  "url",
+  "photo",
+  "photoUrl",
+  "avatar",
+  "avatarUrl",
+  "logo",
+  "logoUrl",
+  "logoUrlDark",
+  "icon",
+  "iconUrl",
+  "backgroundImage",
+  "bgImage",
+  "background",
+  "media",
+  "mediaUrl",
+  "poster",
+  "thumbnail",
+  "thumbnailUrl",
+  "primary",
+  "images",
+  "gallery",
+]);
+
+function cloneJson<T>(v: T): T {
+  return v === undefined ? v : (JSON.parse(JSON.stringify(v)) as T);
+}
+
+/**
+ * Recursively restore every image-bearing field in `node` to the value found at
+ * the structurally-matching location in `def` (the catalog default props),
+ * clearing to "" / [] when the default has no value. Keeps all non-image
+ * (copy) fields untouched. Bounded by the block's own prop depth.
+ */
+function restoreImageFieldsDeep(node: unknown, def: unknown): void {
+  if (Array.isArray(node)) {
+    const defArr = Array.isArray(def) ? def : undefined;
+    node.forEach((item, i) => restoreImageFieldsDeep(item, defArr ? defArr[i] : undefined));
+    return;
+  }
+  if (!node || typeof node !== "object") return;
+  const obj = node as Record<string, unknown>;
+  const defObj = def && typeof def === "object" && !Array.isArray(def) ? (def as Record<string, unknown>) : undefined;
+  for (const key of Object.keys(obj)) {
+    const cur = obj[key];
+    if (GOVERNANCE_IMAGE_FIELD_KEYS.has(key)) {
+      const defVal = defObj ? defObj[key] : undefined;
+      if (typeof cur === "string") {
+        obj[key] = typeof defVal === "string" ? defVal : "";
+      } else if (Array.isArray(cur)) {
+        obj[key] = Array.isArray(defVal) ? cloneJson(defVal) : [];
+      } else if (cur && typeof cur === "object") {
+        // Nested image object (rare) — recurse so inner url-ish keys are reset.
+        restoreImageFieldsDeep(cur, defVal);
+      }
+    } else {
+      restoreImageFieldsDeep(cur, defObj ? defObj[key] : undefined);
+    }
+  }
+}
+
+/**
+ * Enforce tenant AI modes on a generated/merged block list, IN PLACE. Runs
+ * after the image/product fill passes. Fail-open: blocks with no governance
+ * row, or governance with `aiMode === 'open'`, are left untouched.
+ */
+export function enforceAiModes(
+  blocks: unknown[],
+  governanceByType: GovernanceMap,
+  defaultPropsByType: Map<string, Record<string, unknown>>,
+): unknown[] {
+  if (!Array.isArray(blocks) || !governanceByType || governanceByType.size === 0) return blocks;
+  for (const b of blocks) {
+    if (!b || typeof b !== "object") continue;
+    const block = b as { type?: unknown; props?: unknown };
+    const rawType = typeof block.type === "string" ? block.type : "";
+    if (!rawType) continue;
+    const type = canonicalizeBlockType(rawType);
+    const gov = governanceByType.get(type) ?? governanceByType.get(rawType);
+    if (!gov || gov.aiMode === "open") continue;
+    const defaults = defaultPropsByType.get(type) ?? defaultPropsByType.get(rawType);
+    const hasDefaults = !!defaults && Object.keys(defaults).length > 0;
+    if (gov.aiMode === "locked" && hasDefaults) {
+      // Place only — reset to the curated catalog default props.
+      block.props = cloneJson(defaults);
+      continue;
+    }
+    // `copy` (or `locked` with no usable defaults): keep copy, revert imagery.
+    if (block.props && typeof block.props === "object") {
+      restoreImageFieldsDeep(block.props, defaults ?? {});
+    }
+  }
+  return blocks;
+}
+
+/**
+ * Load a tenant's block-governance rows and the per-type superadmin catalog
+ * default props, returning everything the generator needs to (a) constrain /
+ * expand the AI vocabulary and (b) enforce AI modes after generation.
+ *
+ * Best-effort: any failure yields empty maps so generation falls back to
+ * today's behaviour (fail-open). Keys are canonical block types.
+ */
+async function loadBlockGovernanceContext(
+  tenantId: number | null,
+  industry: string | null,
+): Promise<{
+  governanceByType: GovernanceMap;
+  defaultPropsByType: Map<string, Record<string, unknown>>;
+  governanceDisabledTypes: Set<string>;
+}> {
+  const governanceByType: GovernanceMap = new Map();
+  const defaultPropsByType = new Map<string, Record<string, unknown>>();
+  const governanceDisabledTypes = new Set<string>();
+  if (tenantId === null) {
+    return { governanceByType, defaultPropsByType, governanceDisabledTypes };
+  }
+  try {
+    const govRows = await pool.query<{
+      block_type: string;
+      enabled: boolean | null;
+      ai_mode: string;
+      segments: string[] | null;
+    }>(
+      `SELECT block_type, enabled, ai_mode, segments
+         FROM tenant_block_governance WHERE tenant_id = $1`,
+      [tenantId],
+    );
+    const map = governanceMapFromRows(
+      govRows.rows.map((r) => ({
+        blockType: canonicalizeBlockType(r.block_type),
+        enabled: r.enabled,
+        aiMode: r.ai_mode,
+        segments: r.segments ?? [],
+      })),
+    );
+    for (const [type, entry] of map) {
+      governanceByType.set(type, entry);
+      if (entry.enabled === false) governanceDisabledTypes.add(type);
+    }
+  } catch (err) {
+    logger.warn({ err: String(err) }, "[generate-page] tenant_block_governance fetch skipped");
+  }
+  if (industry) {
+    try {
+      const propRows = await pool.query<{ block_type: string; default_props: unknown }>(
+        `SELECT block_type, default_props FROM block_catalog WHERE industry = $1`,
+        [industry],
+      );
+      for (const row of propRows.rows) {
+        if (row.default_props && typeof row.default_props === "object" && !Array.isArray(row.default_props)) {
+          defaultPropsByType.set(
+            canonicalizeBlockType(String(row.block_type ?? "")),
+            row.default_props as Record<string, unknown>,
+          );
+        }
+      }
+    } catch (err) {
+      logger.warn({ err: String(err) }, "[generate-page] block_catalog default_props fetch skipped");
+    }
+  }
+  return { governanceByType, defaultPropsByType, governanceDisabledTypes };
 }
 
 /** Post-process blocks to fill in empty image URLs from the media library.
@@ -6281,6 +6473,16 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // is the source of truth for the tenant's own products.
       await enforceProductLibraryBlocks(mergedBlocks, tenantId, brand.productLines);
 
+      // Task #4 — enforce tenant AI modes on the template path too. `locked`/
+      // `copy` blocks revert the model's rewritten copy/imagery to the curated
+      // catalog defaults. Fail-open: a no-governance tenant is untouched.
+      try {
+        const tplGov = await loadBlockGovernanceContext(tenantId, await getTenantIndustry(tenantId));
+        enforceAiModes(mergedBlocks, tplGov.governanceByType, tplGov.defaultPropsByType);
+      } catch (err) {
+        logger.warn({ err: String(err) }, "[generate-page] template AI-mode enforcement skipped");
+      }
+
       // Task #1136 — ensure every generated dso-case-study carries explicit
       // values so the React component never falls back to its hardcoded DCA
       // demo constants. Runs in all cases (AI values are kept; only missing
@@ -6459,8 +6661,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // microsite generator's ai_enabled + is_enabled + approved_segments filter.
   const segmentApprovedTypes = new Set<string>();
   const segmentApprovalId = (segmentContext?.id ?? "").trim();
+  let catalogIndustry: string | null = null;
   try {
     const industry = await getTenantIndustry(tenantId);
+    catalogIndustry = industry;
     const catRows = await pool.query(
       `SELECT block_type, tags, ai_enabled, is_enabled, sort_order, approved_segments FROM block_catalog WHERE industry = $1`,
       [industry],
@@ -6491,6 +6695,23 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     }
   } catch (err) {
     logger.warn({ err: String(err) }, "[generate-page] block_catalog fetch skipped");
+  }
+
+  // Tenant block governance (task #4). Loaded once here so it can (a) CONSTRAIN
+  // the AI vocabulary — governance-disabled blocks join `aiDisabledTypes` — and
+  // (b) EXPAND it — blocks the tenant has approved for the active segment join
+  // `segmentApprovedTypes`, exactly like the superadmin `approved_segments`
+  // union above. `defaultPropsByType` + `governanceByType` are reused after
+  // generation by `enforceAiModes`. Fail-open: empty maps on any failure.
+  const { governanceByType, defaultPropsByType, governanceDisabledTypes } =
+    await loadBlockGovernanceContext(tenantId, catalogIndustry);
+  for (const t of governanceDisabledTypes) aiDisabledTypes.add(t);
+  if (segmentApprovalId) {
+    for (const [type, entry] of governanceByType) {
+      if (entry.enabled !== false && entry.segments.includes(segmentApprovalId)) {
+        segmentApprovedTypes.add(type);
+      }
+    }
   }
 
   // GENERAL path assembles its block library at request time, filtered by the
@@ -7488,6 +7709,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // leave on these blocks. Runs in all modes — the library is the source of
     // truth for the tenant's own products.
     await enforceProductLibraryBlocks(parsed.blocks, tenantId, brand.productLines);
+
+    // Task #4 — enforce tenant AI modes AFTER every copy/image/product pass so
+    // `locked`/`copy` blocks revert AI-authored copy/imagery to the curated
+    // catalog defaults. Fail-open: a no-governance tenant is untouched.
+    parsed.blocks = enforceAiModes(parsed.blocks, governanceByType, defaultPropsByType) as typeof parsed.blocks;
 
     // Task #1136 — ensure every generated dso-case-study carries explicit values
     // so the React component never falls back to its hardcoded DCA demo

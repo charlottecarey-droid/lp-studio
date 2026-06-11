@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ContentLibraryContent } from "@/pages/content-library";
+import { BlockGovernancePanel } from "@/components/BlockGovernancePanel";
 import {
   Loader2, Save, Palette, Layout, Link2, Facebook, Instagram, Linkedin,
   SlidersHorizontal, LayoutGrid, Type, BookMarked, Sparkles, Trash2, ImageIcon,
@@ -3184,10 +3185,11 @@ export default function BrandSettings() {
             history.replaceState(null, "", `${window.location.pathname}${window.location.search}${hash}`);
           }
         }} className="w-full">
-          <TabsList className="grid w-full max-w-xl grid-cols-3">
+          <TabsList className="grid w-full max-w-2xl grid-cols-4">
             <TabsTrigger value="brand-settings">Brand Settings</TabsTrigger>
             <TabsTrigger value="sales-console">Sales Console</TabsTrigger>
             <TabsTrigger value="content-library">Content Library</TabsTrigger>
+            <TabsTrigger value="block-governance">Block Governance</TabsTrigger>
           </TabsList>
 
           <TabsContent value="brand-settings" className="space-y-8">
@@ -5105,6 +5107,10 @@ export default function BrandSettings() {
 
           <TabsContent value="content-library" className="space-y-8">
             <ContentLibraryContent />
+          </TabsContent>
+
+          <TabsContent value="block-governance" className="space-y-8">
+            <BlockGovernancePanel segments={config.segments ?? []} />
           </TabsContent>
         </Tabs>
 
