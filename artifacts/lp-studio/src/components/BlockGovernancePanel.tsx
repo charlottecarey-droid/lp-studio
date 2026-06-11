@@ -2,20 +2,16 @@ import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { useBlockCatalog, type ResolvedBlockDef } from "@/hooks/use-block-catalog";
 import { useTenantBlockGovernance } from "@/hooks/use-tenant-block-governance";
-import type { AiMode, TenantBlockGovernanceEntry } from "@/lib/block-governance-client";
+import type { TenantBlockGovernanceEntry } from "@/lib/block-governance-client";
 import type { AudienceSegment } from "@/lib/brand-config";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import {
+  BlockGovernanceControls,
+  isDefaultGovernanceEntry as isDefault,
+  type WorkingGovernanceEntry as WorkingEntry,
+} from "@/components/BlockGovernanceControls";
 
 /**
  * Tenant block-governance editor (task #4). Per built-in block: an Enabled
@@ -23,23 +19,11 @@ import { useToast } from "@/hooks/use-toast";
  * and a checkbox per brand segment (segment approval). Grouped by category and
  * searchable. Persists via PUT /api/tenant/block-governance (full-replace; the
  * server drops all-default rows so an untouched tenant keeps today's behaviour).
+ *
+ * The per-block controls themselves live in the shared `BlockGovernanceControls`
+ * component (task #6) so this overview panel and the per-block Governance tab in
+ * the Block Defaults editor stay in lock-step.
  */
-
-type WorkingEntry = {
-  enabled: boolean | null;
-  aiMode: AiMode;
-  segments: Set<string>;
-};
-
-const AI_MODE_LABELS: Record<AiMode, string> = {
-  locked: "Locked (place only)",
-  copy: "Copy only",
-  open: "Open (default)",
-};
-
-function isDefault(e: WorkingEntry): boolean {
-  return e.enabled === null && e.aiMode === "open" && e.segments.size === 0;
-}
 
 export function BlockGovernancePanel({ segments }: { segments: AudienceSegment[] }) {
   const { blocks, loading: catalogLoading } = useBlockCatalog();
@@ -151,66 +135,20 @@ export function BlockGovernancePanel({ segments }: { segments: AudienceSegment[]
               <div className="rounded-lg border border-border divide-y divide-border">
                 {catBlocks.map((b) => {
                   const e = entryFor(b.type);
-                  const enabled = e.enabled !== false;
                   return (
                     <div key={b.type} className="flex flex-wrap items-center gap-x-6 gap-y-3 px-3 py-3">
-                      <div className="flex items-center gap-3 min-w-[200px] flex-1">
-                        <Switch
-                          checked={enabled}
-                          onCheckedChange={(checked) =>
-                            setEntry(b.type, { ...e, segments: new Set(e.segments), enabled: checked ? null : false })
-                          }
-                          aria-label={`Enable ${b.label}`}
-                        />
+                      <div className="flex items-center gap-3 min-w-[200px] flex-1 order-first">
                         <div className="min-w-0">
                           <p className="text-sm font-medium truncate">{b.label}</p>
                           <p className="text-[10px] text-muted-foreground truncate">{b.type}</p>
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-muted-foreground">AI</span>
-                        <Select
-                          value={e.aiMode}
-                          onValueChange={(v) =>
-                            setEntry(b.type, { ...e, segments: new Set(e.segments), aiMode: v as AiMode })
-                          }
-                        >
-                          <SelectTrigger className="h-8 w-[180px] text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {(["locked", "copy", "open"] as AiMode[]).map((m) => (
-                              <SelectItem key={m} value={m} className="text-xs">
-                                {AI_MODE_LABELS[m]}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {segments.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                          {segments.map((seg) => {
-                            const sid = String(seg.id);
-                            const checked = e.segments.has(sid);
-                            return (
-                              <label key={sid} className="flex items-center gap-1.5 text-xs cursor-pointer">
-                                <Checkbox
-                                  checked={checked}
-                                  onCheckedChange={(c) => {
-                                    const nextSegs = new Set(e.segments);
-                                    if (c) nextSegs.add(sid);
-                                    else nextSegs.delete(sid);
-                                    setEntry(b.type, { ...e, segments: nextSegs });
-                                  }}
-                                />
-                                <span className="truncate max-w-[120px]">{seg.name}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      )}
+                      <BlockGovernanceControls
+                        entry={e}
+                        segments={segments}
+                        onChange={(next) => setEntry(b.type, next)}
+                        enableLabel={b.label}
+                      />
                     </div>
                   );
                 })}
