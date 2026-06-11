@@ -5,6 +5,9 @@ import { BACKGROUND_STYLE_KEYS } from "./bg-styles";
 import type { FormStyling } from "./form-styling";
 import type { BrandPdfFonts, EmbeddedFontFaces } from "@workspace/one-pager-types/generators";
 import { DEFAULT_HEAT_SCORING, type HeatScoringConfig } from "./heat-tier";
+import type { PageOutline } from "@workspace/lp-template-engine";
+
+export type { PageOutline };
 
 export type { BackgroundPresetLabels, BackgroundPresetColors };
 
@@ -140,6 +143,15 @@ export interface AudienceSegment {
    * `defaultMicrositeBlockList`, then to a built-in neutral set.
    */
   micrositeBlockList?: MicrositeBlockListEntry[];
+  /**
+   * Task #6 — optional ordered page outline ("recipe") for this segment. Each
+   * step is either a CATEGORY/role (brand-matched from the segment's approved
+   * pool at generation) or a SPECIFIC block (forced). Supersedes
+   * `micrositeBlockList`: when present, it is THE structure config for both
+   * landing pages and microsites; when absent, the legacy block list (then free
+   * AI choice) applies.
+   */
+  pageOutline?: PageOutline;
 }
 
 /**
@@ -303,6 +315,14 @@ export interface BrandConfig {
    * which doesn't mention DSOs or dentistry.
    */
   defaultMicrositeBlockList?: MicrositeBlockListEntry[];
+  /**
+   * Task #6 — brand-default page outline used when the selected segment has no
+   * `pageOutline` of its own. Same step model as the per-segment outline;
+   * supersedes `defaultMicrositeBlockList`. When both this and the segment
+   * outline are unset, generation falls back to the legacy block lists and then
+   * to today's free AI choice.
+   */
+  defaultPageOutline?: PageOutline;
   /** Stats pulled directly from the brand's marketing pages during URL
    *  brand-import (e.g. "10M+ patients served", "99.9% uptime"). Surfaced
    *  in Brand Settings under "Scraped facts" and fed into AI page

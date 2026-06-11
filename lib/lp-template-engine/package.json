@@ -7,7 +7,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "tsx --test src/index.test.ts src/robots.test.ts src/block-governance.test.ts"
+    "test": "tsx --test src/index.test.ts src/robots.test.ts src/block-governance.test.ts src/page-outline.test.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",

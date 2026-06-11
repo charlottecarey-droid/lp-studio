@@ -20,9 +20,9 @@ describe("resolveMicrositeBlockSource — precedence", () => {
   const base = {
     hasTemplate: false,
     dsoFreeformMode: null,
-    hasSegmentLock: false,
+    hasSegmentOutline: false,
     hasSegmentPool: false,
-    hasBrandDefault: false,
+    hasBrandOutline: false,
   } as const;
 
   it("template wins over everything", () => {
@@ -31,50 +31,50 @@ describe("resolveMicrositeBlockSource — precedence", () => {
         ...base,
         hasTemplate: true,
         dsoFreeformMode: "enterprise",
-        hasSegmentLock: true,
+        hasSegmentOutline: true,
         hasSegmentPool: true,
-        hasBrandDefault: true,
+        hasBrandOutline: true,
       }),
     ).toBe("template");
   });
 
-  it("dso-freeform beats lock/pool/brand-default", () => {
+  it("dso-freeform beats outline/pool/brand-outline", () => {
     expect(
       resolveMicrositeBlockSource({
         ...base,
         dsoFreeformMode: "practices",
-        hasSegmentLock: true,
+        hasSegmentOutline: true,
         hasSegmentPool: true,
-        hasBrandDefault: true,
+        hasBrandOutline: true,
       }),
     ).toBe("dso-freeform");
   });
 
-  it("an explicit segment lock is honored OVER the approved pool", () => {
+  it("an explicit segment outline is honored OVER the approved pool", () => {
     expect(
       resolveMicrositeBlockSource({
         ...base,
-        hasSegmentLock: true,
+        hasSegmentOutline: true,
         hasSegmentPool: true,
-        hasBrandDefault: true,
+        hasBrandOutline: true,
       }),
-    ).toBe("segment-lock");
+    ).toBe("segment-outline");
   });
 
-  it("the approved pool drives the layout when there is no lock", () => {
+  it("the approved pool drives the layout when there is no segment outline", () => {
     expect(
       resolveMicrositeBlockSource({
         ...base,
         hasSegmentPool: true,
-        hasBrandDefault: true,
+        hasBrandOutline: true,
       }),
     ).toBe("segment-pool");
   });
 
-  it("falls back to the brand-default fixed list when there is no pool", () => {
+  it("falls back to the brand outline when there is no pool", () => {
     expect(
-      resolveMicrositeBlockSource({ ...base, hasBrandDefault: true }),
-    ).toBe("brand-default");
+      resolveMicrositeBlockSource({ ...base, hasBrandOutline: true }),
+    ).toBe("brand-outline");
   });
 
   it("falls back to neutral freeform when nothing applies (today's behavior)", () => {

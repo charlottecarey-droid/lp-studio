@@ -40,7 +40,13 @@ import type {
   ClaimEntry, SalesConsoleConfig, SalesConsoleValuePropPair, SalesConsoleMicrositeExemplar,
   ImportedButtonStyle, ImportedSurfaceStyle,
   ImportedVoiceProfile, ImportedPhotographyProfile,
+  PageOutline,
 } from "@/lib/brand-config";
+import {
+  BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS,
+  type PageOutlineStep, type PageOutlineStepKind,
+} from "@workspace/lp-template-engine";
+import { BLOCK_REGISTRY as OUTLINE_BLOCK_REGISTRY } from "@/lib/block-types";
 import { FONT_CATALOG, isSelfHostedFont, toFontFamilyValue } from "@/lib/font-catalog";
 import { OgCharCount, OgDimensionWarning, ShareCardPreview, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "@/components/og-share-card";
 import { getBgOptions, type BackgroundStyle, type BackgroundPresetLabels, type BackgroundPresetColors, BACKGROUND_PRESET_DISPLAY_NAMES, BACKGROUND_PRESET_DEFAULT_COLORS } from "@/lib/bg-styles";
@@ -644,6 +650,145 @@ function ProductLineCard({ product, onChange, onRemove, strictMode }: {
   );
 }
 
+// Task #6 — the ordered "recipe" editor reused at both the per-segment and the
+// brand-default levels. Each step is either a CATEGORY (a structural role the
+// generator brand-matches from the segment's approved pool) or a specific BLOCK
+// (forced into place). Steps can be mixed, reordered, and removed. An empty
+// outline is stored as `undefined` so it cleanly falls back to today's behavior.
+const OUTLINE_ROLE_OPTIONS = BLOCK_ROLE_TAGS.map((role) => ({
+  value: role,
+  label: role
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" "),
+  description: BLOCK_ROLE_TAG_DESCRIPTIONS[role],
+}));
+const OUTLINE_BLOCK_OPTIONS = [...OUTLINE_BLOCK_REGISTRY]
+  .map((d) => ({ value: d.type as string, label: d.label }))
+  .sort((a, b) => a.label.localeCompare(b.label));
+
+function PageOutlineEditor({ outline, onChange }: {
+  outline?: PageOutline;
+  onChange: (next: PageOutline | undefined) => void;
+}) {
+  const steps = outline?.steps ?? [];
+  const commit = (next: PageOutlineStep[]) =>
+    onChange(next.length ? { steps: next } : undefined);
+  const addStep = (kind: PageOutlineStepKind) =>
+    commit([
+      ...steps,
+      kind === "category"
+        ? { kind: "category", role: BLOCK_ROLE_TAGS[0], required: true }
+        : { kind: "block", type: OUTLINE_BLOCK_OPTIONS[0]?.value ?? "hero", required: true },
+    ]);
+  const updateStep = (i: number, patch: Partial<PageOutlineStep>) => {
+    const arr = steps.map((s, idx) => (idx === i ? { ...s, ...patch } : s));
+    commit(arr);
+  };
+  const removeStep = (i: number) => commit(steps.filter((_, idx) => idx !== i));
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= steps.length) return;
+    const arr = [...steps];
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    commit(arr);
+  };
+
+  return (
+    <div className="space-y-2">
+      {steps.length === 0 ? (
+        <p className="text-[11px] text-muted-foreground italic">
+          No outline set — pages are built with the AI's free block choice (today's behavior).
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {steps.map((step, i) => (
+            <div key={i} className="flex items-start gap-2 rounded-md border p-2 bg-muted/20">
+              <div className="flex flex-col gap-0.5 pt-0.5">
+                <Button
+                  type="button" variant="ghost" size="sm"
+                  className="h-5 w-5 p-0 text-muted-foreground disabled:opacity-30"
+                  disabled={i === 0}
+                  onClick={() => move(i, -1)}
+                >
+                  <ChevronUp className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  type="button" variant="ghost" size="sm"
+                  className="h-5 w-5 p-0 text-muted-foreground disabled:opacity-30"
+                  disabled={i === steps.length - 1}
+                  onClick={() => move(i, 1)}
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-[110px_1fr] gap-2">
+                <Select
+                  value={step.kind}
+                  onValueChange={(v) =>
+                    updateStep(
+                      i,
+                      v === "category"
+                        ? { kind: "category", role: BLOCK_ROLE_TAGS[0], type: undefined, schemaHint: undefined }
+                        : { kind: "block", type: OUTLINE_BLOCK_OPTIONS[0]?.value ?? "hero", role: undefined },
+                    )
+                  }
+                >
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="category">Category</SelectItem>
+                    <SelectItem value="block">Block</SelectItem>
+                  </SelectContent>
+                </Select>
+                {step.kind === "category" ? (
+                  <Select
+                    value={step.role ?? BLOCK_ROLE_TAGS[0]}
+                    onValueChange={(v) => updateStep(i, { role: v })}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {OUTLINE_ROLE_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Select
+                    value={step.type ?? (OUTLINE_BLOCK_OPTIONS[0]?.value ?? "hero")}
+                    onValueChange={(v) => updateStep(i, { type: v })}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {OUTLINE_BLOCK_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <Button
+                type="button" variant="ghost" size="sm"
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                onClick={() => removeStep(i)}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addStep("category")}>
+          <Plus className="w-3 h-3 mr-1" /> Category
+        </Button>
+        <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addStep("block")}>
+          <Plus className="w-3 h-3 mr-1" /> Block
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function SegmentCard({ segment, onChange, onRemove, strictMode }: {
   segment: AudienceSegment;
   onChange: (updated: AudienceSegment) => void;
@@ -1020,6 +1165,22 @@ function SegmentCard({ segment, onChange, onRemove, strictMode }: {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Page outline (task #6) */}
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <Label className="text-xs">Page Outline (optional)</Label>
+            </div>
+            <p className="text-[11px] text-muted-foreground mb-2">
+              Define the ordered structure ("recipe") for this segment's landing pages and microsites. Each step is a
+              category (the generator picks a matching block from this segment's approved blocks) or a specific block.
+              Supersedes the legacy block list; leave empty for the AI's free choice.
+            </p>
+            <PageOutlineEditor
+              outline={segment.pageOutline}
+              onChange={(o) => set("pageOutline", o)}
+            />
           </div>
         </div>
       )}
@@ -4998,6 +5159,20 @@ export default function BrandSettings() {
               </Button>
             </div>
             <Separator />
+
+            {/* Brand-default page outline (task #6) — applies when a segment has
+                no outline of its own. */}
+            <div className="rounded-lg border bg-muted/10 p-4">
+              <Label className="text-xs">Brand-Default Page Outline (optional)</Label>
+              <p className="text-[11px] text-muted-foreground mt-0.5 mb-2">
+                The default ordered structure for any page whose segment has no outline of its own. Mix categories
+                (matched from approved blocks) and specific blocks; reorder freely. Leave empty for the AI's free choice.
+              </p>
+              <PageOutlineEditor
+                outline={config.defaultPageOutline}
+                onChange={(o) => setConfig((prev) => ({ ...prev, defaultPageOutline: o }))}
+              />
+            </div>
 
             {(config.segments ?? []).length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">

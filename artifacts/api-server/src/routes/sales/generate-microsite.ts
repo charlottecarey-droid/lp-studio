@@ -65,7 +65,16 @@ import { mirrorReferenceImages } from "../../lib/brand-import/assets-uploader";
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
-import { governanceMapFromRows, blocksApprovedForSegment } from "@workspace/lp-template-engine";
+import {
+  governanceMapFromRows,
+  blocksApprovedForSegment,
+  resolveBlockTags,
+  effectiveOutline,
+  outlineHasSteps,
+  normalizePageOutline,
+  resolvePageOutline,
+  type PageOutline,
+} from "@workspace/lp-template-engine";
 import { detectAndWriteFlagsForPage, templateFactForms } from "../../lib/factFlags";
 import { deriveCompanyName, derivePracticeCount } from "../../lib/businessCaseVars";
 import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../lib/tenantSettings";
@@ -1128,6 +1137,9 @@ interface BrandAudienceSegment {
   stats?: BrandSegmentStat[];
   comparisonRows?: BrandSegmentComparisonRow[];
   micrositeBlockList?: BrandMicrositeBlockListEntry[];
+  /** Task #6 — optional ordered page outline ("recipe"); supersedes
+   *  micrositeBlockList for both landing pages and microsites. */
+  pageOutline?: PageOutline;
 }
 
 // Built-in neutral microsite block list — the legacy "independent" set,
@@ -1278,36 +1290,40 @@ export function segmentPoolFallbackBlockList(poolTypes: string[]): string[] {
   ];
 }
 
-// The documented block-source precedence for a microsite (task #5). A pure
-// decision so it is unit-testable in isolation and the route + tests can never
-// drift. Highest priority first:
+// The documented block-source precedence for a microsite (task #5 + task #6).
+// A pure decision so it is unit-testable in isolation and the route + tests can
+// never drift. Highest priority first:
 //   1. template        — an explicit authored layout always wins.
 //   2. dso-freeform    — a genuine DSO segment composes from the DSO vocab.
-//   3. segment-lock    — an explicit per-segment `micrositeBlockList` is THE
-//                        structure lock: a fixed lineup, honored over the pool.
+//   3. segment-outline — the segment's page outline ("recipe") is THE structure
+//                        for this audience: an ordered, brand-matched lineup
+//                        honored over the pool. Task #6 generalizes the legacy
+//                        per-segment `micrositeBlockList` (adapted to an outline
+//                        of forced block steps) into this same source.
 //   4. segment-pool    — the segment's approved pool drives a varied freeform.
-//   5. brand-default   — the brand's default fixed list (fallback).
+//   5. brand-outline   — the brand's default outline (fallback). Generalizes the
+//                        legacy `defaultMicrositeBlockList` the same way.
 //   6. neutral-freeform— today's neutral freeform (final fallback).
 export type MicrositeBlockSource =
   | "template"
   | "dso-freeform"
-  | "segment-lock"
+  | "segment-outline"
   | "segment-pool"
-  | "brand-default"
+  | "brand-outline"
   | "neutral-freeform";
 
 export function resolveMicrositeBlockSource(input: {
   hasTemplate: boolean;
   dsoFreeformMode: DsoVocabMode | null;
-  hasSegmentLock: boolean;
+  hasSegmentOutline: boolean;
   hasSegmentPool: boolean;
-  hasBrandDefault: boolean;
+  hasBrandOutline: boolean;
 }): MicrositeBlockSource {
   if (input.hasTemplate) return "template";
   if (input.dsoFreeformMode) return "dso-freeform";
-  if (input.hasSegmentLock) return "segment-lock";
+  if (input.hasSegmentOutline) return "segment-outline";
   if (input.hasSegmentPool) return "segment-pool";
-  if (input.hasBrandDefault) return "brand-default";
+  if (input.hasBrandOutline) return "brand-outline";
   return "neutral-freeform";
 }
 
@@ -1775,6 +1791,11 @@ export function buildSystemPrompt(
   // drawing ONLY from that pool (+ structural essentials). Mutually exclusive
   // with useFreeform / dsoFreeformMode / a template.
   usePoolFreeform = false,
+  // Task #6 — the page outline resolved to a fixed, ordered block list (category
+  // steps already drawn from the segment's approved pool, block steps forced).
+  // When present it is THE fixed-list backbone, taking precedence over the legacy
+  // segment/brand block lists; empty/undefined falls back to that legacy chain.
+  outlineBlockList?: BrandMicrositeBlockListEntry[],
 ): string {
   const tone            = brand.toneOfVoice as string | undefined;
   const pillars         = brand.messagingPillars as Array<{ label: string; description: string }> | undefined;
@@ -1914,11 +1935,16 @@ export function buildSystemPrompt(
     themes.length ? `Messaging themes: ${themes.join(", ")}.` : null,
   ].filter(Boolean).join("\n");
 
-  // Block list resolution order: selected segment's micrositeBlockList →
-  // brand-level defaultMicrositeBlockList → built-in neutral fallback.
+  // Block list resolution order (task #6): the resolved page outline (segment or
+  // brand, category steps already matched from the pool) → selected segment's
+  // legacy micrositeBlockList → brand-level defaultMicrositeBlockList → built-in
+  // neutral fallback. The outline supersedes the legacy lists; an outline that
+  // resolves empty (e.g. all-optional categories with an empty pool) degrades
+  // gracefully down this same chain.
   const brandDefaultBlockList = brand.defaultMicrositeBlockList as BrandMicrositeBlockListEntry[] | undefined;
   const resolvedBlockList: BrandMicrositeBlockListEntry[] =
-    (segment.micrositeBlockList?.length ? segment.micrositeBlockList : undefined)
+    (outlineBlockList?.length ? outlineBlockList : undefined)
+    ?? (segment.micrositeBlockList?.length ? segment.micrositeBlockList : undefined)
     ?? (brandDefaultBlockList?.length ? brandDefaultBlockList : undefined)
     ?? NEUTRAL_MICROSITE_BLOCK_LIST;
   const resolvedBlockTypes = resolvedBlockList.filter(b => (b.type ?? "").trim());
@@ -2287,22 +2313,64 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       ? []
       : await fetchSegmentApprovedBlockTypes(tenantIndustry, segment.id ?? "", tenantId);
 
-    // Block-source precedence (task #5) — see resolveMicrositeBlockSource.
-    // segment-lock (an explicit per-segment micrositeBlockList) beats the pool;
-    // the pool beats the brand-default fixed list; neutral-freeform is the final
-    // fallback. DSO-freeform and templates keep their existing priority.
+    // Effective page outlines (task #6) — the outline supersedes the legacy
+    // block lists. The segment outline is segment.pageOutline (when set) else the
+    // adapted legacy micrositeBlockList; the brand outline is
+    // brand.defaultPageOutline else the adapted defaultMicrositeBlockList. Both
+    // are pure model objects (no DB) so a category step is later matched against
+    // the segment's approved pool.
+    const segmentOutline = effectiveOutline({
+      outline: normalizePageOutline(segment.pageOutline),
+      legacyBlockList: (segment.micrositeBlockList ?? []).map((e) => ({
+        type: e.type ?? "",
+        schemaHint: e.schemaHint,
+      })),
+    });
+    const brandOutline = effectiveOutline({
+      outline: normalizePageOutline((brand as { defaultPageOutline?: PageOutline }).defaultPageOutline),
+      legacyBlockList: (brandDefaultBlockList ?? []).map((e) => ({
+        type: e.type ?? "",
+        schemaHint: e.schemaHint,
+      })),
+    });
+
+    // Block-source precedence (task #5 + task #6) — see resolveMicrositeBlockSource.
+    // segment-outline (the segment's recipe, or its legacy fixed list adapted to
+    // one) beats the pool; the pool beats the brand-outline; neutral-freeform is
+    // the final fallback. DSO-freeform and templates keep their existing priority.
     const blockSource = resolveMicrositeBlockSource({
       hasTemplate: Boolean(templateBlockTypes && templateBlockTypes.length > 0),
       dsoFreeformMode,
-      hasSegmentLock: (segment.micrositeBlockList?.length ?? 0) > 0,
+      hasSegmentOutline: outlineHasSteps(segmentOutline),
       hasSegmentPool: segmentApprovedTypes.length > 0,
-      hasBrandDefault: (brandDefaultBlockList?.length ?? 0) > 0,
+      hasBrandOutline: outlineHasSteps(brandOutline),
     });
     const useDsoFreeform = blockSource === "dso-freeform";
     const usePoolFreeform = blockSource === "segment-pool";
     const useFreeform = blockSource === "neutral-freeform";
 
-    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes, usePoolFreeform);
+    // Task #6 — when an outline drives the page, resolve it to a fixed, ordered
+    // block list NOW (in the route, where the approved pool + role tags are
+    // available): category steps draw a brand-matched block of that role from
+    // the segment's approved pool, specific-block steps are forced, order is
+    // respected, and a required category with no pool match falls back to a
+    // structural default (hero/cta/footer). The resolved list is the fixed-list
+    // backbone for the prompt; an empty resolution degrades to the legacy chain
+    // inside buildSystemPrompt.
+    const activeOutline =
+      blockSource === "segment-outline" ? segmentOutline
+      : blockSource === "brand-outline" ? brandOutline
+      : null;
+    const outlineBlockList: BrandMicrositeBlockListEntry[] | undefined = activeOutline
+      ? resolvePageOutline(activeOutline, {
+          pool: segmentApprovedTypes,
+          rolesOf: (t) => resolveBlockTags(t),
+          roleDefaults: { hero: "hero", cta: "bottom-cta", footer: "footer" },
+          canonicalize: (t) => canonicalizeBlockType(t),
+        }).map((r) => ({ type: r.type, schemaHint: r.schemaHint }))
+      : undefined;
+
+    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes, usePoolFreeform, outlineBlockList);
 
     // Task #976 — REFERENCE PAGE (voice) + VISUAL REFERENCE (style) sections,
     // appended to the user prompt exactly like /lp/generate-page. The brand's

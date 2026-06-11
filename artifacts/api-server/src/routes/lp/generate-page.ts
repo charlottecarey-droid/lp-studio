@@ -22,6 +22,12 @@ import {
   blocksApprovedForSegment,
   type GovernanceMap,
 } from "@workspace/lp-template-engine";
+import {
+  effectiveOutline,
+  outlineHasSteps,
+  resolvePageOutline,
+  type PageOutline,
+} from "@workspace/lp-template-engine";
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
 import { detectFacts, isNonStatIdiom, siblingLabelText } from "../../lib/factFlags";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
@@ -142,6 +148,11 @@ interface BrandConfig {
    *  settings UI owns writing these; we only read them here. */
   logoUrl?: string;
   logoUrlDark?: string;
+  /** Task #6 — brand-default page outline ("recipe"), applied to a page whose
+   *  segment has no outline of its own. Supersedes the legacy
+   *  `defaultMicrositeBlockList`. Both are read here only. */
+  defaultPageOutline?: PageOutline;
+  defaultMicrositeBlockList?: { type?: string; schemaHint?: string }[];
 }
 
 /** Task #253 — short, assertive instruction appended to AI prompts when
@@ -5645,11 +5656,16 @@ interface SegmentContext {
    *  generator honors it the same way the dedicated microsite generator does —
    *  the listed block types become the preferred structure for the page. */
   micrositeBlockList?: { type: string; schemaHint?: string }[];
+  /** Task #6 — optional ordered page outline ("recipe"). When present it
+   *  supersedes the legacy `micrositeBlockList` as the page's preferred
+   *  structure; category steps are resolved against the segment's approved
+   *  pool, specific-block steps are forced, order is respected. */
+  pageOutline?: PageOutline;
 }
 
 export function buildSegmentSection(
   seg: SegmentContext,
-  opts: { strict?: boolean; proofPoints?: ProofPoint[]; dsoFreeChoice?: boolean } = {},
+  opts: { strict?: boolean; proofPoints?: ProofPoint[]; dsoFreeChoice?: boolean; approvedPool?: readonly string[]; brandOutline?: PageOutline | null } = {},
 ): string {
   const parts: string[] = [];
   if (seg.name) parts.push(`Target Audience Segment: ${seg.name}`);
@@ -5708,9 +5724,30 @@ export function buildSegmentSection(
   // advertises ("uses the exact same blocks as microsites every time"). On
   // those paths we skip the rigid list entirely and let the model choose the
   // block mix that best fits each account, for deliberate per-account variety.
-  if (seg.micrositeBlockList?.length && !opts.dsoFreeChoice) {
-    const list = seg.micrositeBlockList
-      .filter((b) => b && typeof b.type === "string" && b.type)
+  //
+  // Task #6 — the segment's preferred structure is now expressed as an ordered
+  // page OUTLINE: each step is either a specific block (forced) or a CATEGORY
+  // (resolved to a brand-matched block of that role from the segment's approved
+  // pool). The new `pageOutline` supersedes the legacy `micrositeBlockList`,
+  // which is adapted into forced-block steps so existing tenants keep working.
+  // Precedence (parity with the microsite generator): the segment's own
+  // outline (or its legacy list adapted) wins; when the segment has none, fall
+  // back to the brand-default outline supplied by the caller.
+  const segmentOutline = effectiveOutline({
+    outline: seg.pageOutline,
+    legacyBlockList: seg.micrositeBlockList,
+  });
+  const outline = outlineHasSteps(segmentOutline)
+    ? segmentOutline
+    : (opts.brandOutline ?? null);
+  if (outlineHasSteps(outline) && !opts.dsoFreeChoice) {
+    const resolved = resolvePageOutline(outline, {
+      pool: opts.approvedPool ?? [],
+      rolesOf: (t) => resolveBlockTags(t),
+      canonicalize: (t) => canonicalizeBlockType(t),
+      roleDefaults: { hero: "hero", cta: "bottom-cta", footer: "footer" },
+    });
+    const list = resolved
       .map((b) => `- "${b.type}"${b.schemaHint ? ` — ${b.schemaHint}` : ""}`)
       .join("\n");
     if (list) {
@@ -6753,8 +6790,20 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   );
   logger.debug({ promptPath, segment: segmentContext?.name ?? "none", promptPreview: prompt.slice(0, 120).replace(/\n/g, " ") }, "[generate-page] generating with prompt");
 
+  // Task #6 — brand-default outline ("recipe"), applied only when the segment
+  // has no outline of its own (resolved inside buildSegmentSection).
+  const brandOutline = effectiveOutline({
+    outline: brand.defaultPageOutline,
+    legacyBlockList: brand.defaultMicrositeBlockList,
+  });
   const segmentSection = segmentContext && typeof segmentContext === "object"
-    ? buildSegmentSection(segmentContext, { strict, proofPoints, dsoFreeChoice: useDso || useDsoPractices })
+    ? buildSegmentSection(segmentContext, {
+        strict,
+        proofPoints,
+        dsoFreeChoice: useDso || useDsoPractices,
+        approvedPool: [...segmentApprovedTypes],
+        brandOutline,
+      })
     : "";
 
   let userPromptParts: string[] = [];
