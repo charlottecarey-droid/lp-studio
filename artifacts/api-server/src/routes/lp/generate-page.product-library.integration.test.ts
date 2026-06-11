@@ -227,4 +227,201 @@ describe("enforceProductLibraryBlocks", () => {
     // the specific "Posterior Crowns" row wins.
     expect(products[0].imageUrl).toBe("https://lib/posterior.jpg");
   });
+
+  // ── Task #3 — Brand Settings product images as the source of truth ────────
+  const brandLine = (
+    name: string,
+    extra: { cardImage?: string; heroImage?: string; contentImages?: string[] },
+  ) => ({
+    name,
+    description: "",
+    valueProps: [] as string[],
+    claims: [] as never[],
+    keywords: [] as string[],
+    ...extra,
+  });
+
+  it("brand card images win over the Content Library and KEEP the AI items (no wipe-replace)", async () => {
+    // The tenant has library rows (Crowns/Aligners) but the brand also defines a
+    // card image for Crowns — the brand image must take precedence and the AI's
+    // own items must be preserved (not replaced by the full library list).
+    const blocks = [
+      {
+        id: "pg-brand",
+        type: "product-grid",
+        props: {
+          headline: "Our products",
+          columns: 3,
+          items: [
+            { image: "https://random/stock.jpg", title: "Same-day Crowns", description: "AI copy" },
+            { image: "https://random/other.jpg", title: "Veneers", description: "no brand image" },
+          ],
+        },
+      },
+    ];
+    await enforceProductLibraryBlocks(blocks, tenantId, [
+      brandLine("Crowns", { cardImage: "https://brand/crowns-card.jpg" }),
+    ]);
+    const items = (blocks[0].props as { items: Array<Record<string, string>> }).items;
+    // AI items are kept (length unchanged, no library wipe-replace).
+    expect(items).toHaveLength(2);
+    // Brand card image overrides the AI/stock image on the matched product.
+    expect(items[0].image).toBe("https://brand/crowns-card.jpg");
+    expect(items[0].title).toBe("Same-day Crowns");
+    // Unmatched product keeps its existing image (no library leak).
+    expect(items[1].image).toBe("https://random/other.jpg");
+  });
+
+  it("brand card images override product-showcase cards while preserving AI copy", async () => {
+    const blocks = [
+      {
+        id: "ps-brand",
+        type: "product-showcase",
+        props: {
+          headline: "Showcase",
+          columns: 3,
+          cards: [{ name: "Implants", description: "AI copy", badge: "New", image: "https://random/x.jpg" }],
+        },
+      },
+    ];
+    await enforceProductLibraryBlocks(blocks, tenantId, [
+      brandLine("Implants", { cardImage: "https://brand/implants-card.jpg" }),
+    ]);
+    const cards = (blocks[0].props as { cards: Array<Record<string, string>> }).cards;
+    expect(cards).toHaveLength(1);
+    expect(cards[0].image).toBe("https://brand/implants-card.jpg");
+    expect(cards[0].name).toBe("Implants");
+    expect(cards[0].description).toBe("AI copy");
+    expect(cards[0].badge).toBe("New");
+  });
+
+  it("brand hero image beats the Content Library on a dandy-product-hero match", async () => {
+    const blocks = [
+      {
+        id: "hero-brand",
+        type: "dandy-product-hero",
+        props: { headline: "Same-day Crowns for your practice", imageUrl: "https://random/hero.jpg" },
+      },
+    ];
+    await enforceProductLibraryBlocks(blocks, tenantId, [
+      brandLine("Crowns", { heroImage: "https://brand/crowns-hero.jpg" }),
+    ]);
+    // Brand hero pool is first → wins the tie over the "Crowns" library row.
+    expect((blocks[0].props as { imageUrl: string }).imageUrl).toBe("https://brand/crowns-hero.jpg");
+  });
+
+  it("dandy-product-hero falls back to cardImage when no heroImage is set", async () => {
+    const blocks = [
+      {
+        id: "hero-cardfallback",
+        type: "dandy-product-hero",
+        props: { headline: "Clear Aligners for adults", imageUrl: "https://random/hero.jpg" },
+      },
+    ];
+    await enforceProductLibraryBlocks(blocks, tenantId, [
+      brandLine("Aligners", { cardImage: "https://brand/aligners-card.jpg" }),
+    ]);
+    expect((blocks[0].props as { imageUrl: string }).imageUrl).toBe("https://brand/aligners-card.jpg");
+  });
+
+  it("dso-products-grid prefers the brand card image over the library image", async () => {
+    const blocks = [
+      {
+        id: "dso-brand",
+        type: "dso-products-grid",
+        props: {
+          products: [
+            { name: "Crowns", detail: "x", price: "$99" },
+            { name: "Aligners", detail: "y", price: "$199" },
+          ],
+        },
+      },
+    ];
+    await enforceProductLibraryBlocks(blocks, tenantId, [
+      brandLine("Crowns", { cardImage: "https://brand/crowns-card.jpg" }),
+    ]);
+    const products = (blocks[0].props as { products: Array<Record<string, unknown>> }).products;
+    // Crowns resolves from the brand pool (first → wins tie vs library row).
+    expect(products[0].imageUrl).toBe("https://brand/crowns-card.jpg");
+    // Aligners has no brand image → falls back to the library row.
+    expect(products[1].imageUrl).toBe("https://lib/aligners.jpg");
+  });
+
+  it("rotates brand content images across content sections about the same product (no repeats)", async () => {
+    const blocks = [
+      {
+        id: "c1",
+        type: "feature-section",
+        props: { headline: "How Crowns transform your day", imageUrl: "https://random/a.jpg" },
+      },
+      {
+        id: "c2",
+        type: "split-content",
+        props: { title: "Crowns, delivered same day", imageUrl: "https://random/b.jpg" },
+      },
+      {
+        id: "c3",
+        type: "image-text",
+        props: { heading: "Why labs choose Crowns", imageUrl: "https://random/c.jpg" },
+      },
+      // Unrelated content section → untouched.
+      {
+        id: "c4",
+        type: "feature-section",
+        props: { headline: "About our team", imageUrl: "https://random/keep.jpg" },
+      },
+    ];
+    await enforceProductLibraryBlocks(blocks, tenantId, [
+      brandLine("Crowns", { contentImages: ["https://brand/c-1.jpg", "https://brand/c-2.jpg"] }),
+    ]);
+    const img = (i: number) => (blocks[i].props as { imageUrl: string }).imageUrl;
+    // Three Crowns sections rotate through the two content images (1,2,1).
+    expect(img(0)).toBe("https://brand/c-1.jpg");
+    expect(img(1)).toBe("https://brand/c-2.jpg");
+    expect(img(2)).toBe("https://brand/c-1.jpg");
+    // The non-Crowns section is left alone.
+    expect(img(3)).toBe("https://random/keep.jpg");
+  });
+
+  it("content-image rotation never touches chrome or product blocks", async () => {
+    const blocks = [
+      { id: "nav", type: "navbar", props: { headline: "Crowns", imageUrl: "https://random/nav.jpg" } },
+      { id: "ftr", type: "footer", props: { title: "Crowns", image: "https://random/ftr.jpg" } },
+      {
+        id: "pg",
+        type: "product-grid",
+        props: { headline: "Crowns", items: [{ title: "Crowns", image: "https://random/pg.jpg", description: "" }] },
+      },
+    ];
+    await enforceProductLibraryBlocks(blocks, tenantId, [
+      brandLine("Crowns", { cardImage: "https://brand/crowns-card.jpg", contentImages: ["https://brand/c-1.jpg"] }),
+    ]);
+    // Chrome blocks keep their images (skipped by the content-image pass).
+    expect((blocks[0].props as { imageUrl: string }).imageUrl).toBe("https://random/nav.jpg");
+    expect((blocks[1].props as { image: string }).image).toBe("https://random/ftr.jpg");
+    // The product-grid item is handled by the card pass (brand card), not the
+    // content rotation, so it gets the card image — never a content image.
+    const items = (blocks[2].props as { items: Array<Record<string, string>> }).items;
+    expect(items[0].image).toBe("https://brand/crowns-card.jpg");
+  });
+
+  it("with no brand product lines, behavior is identical to the legacy library path (no regression)", async () => {
+    const blocks = [
+      {
+        id: "pg-legacy",
+        type: "product-grid",
+        props: {
+          headline: "Our products",
+          columns: 3,
+          items: [{ image: "https://random/stock.jpg", title: "AI", description: "x" }],
+        },
+      },
+    ];
+    // Passing an empty brand array must keep the legacy wipe-and-replace.
+    await enforceProductLibraryBlocks(blocks, tenantId, []);
+    const items = (blocks[0].props as { items: Array<Record<string, string>> }).items;
+    expect(items).toHaveLength(2);
+    expect(items[0].title).toBe("Crowns");
+    expect(items[0].image).toBe("https://lib/crowns.jpg");
+  });
 });

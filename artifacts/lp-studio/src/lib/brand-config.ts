@@ -56,6 +56,15 @@ export interface ProductLine {
   valueProps: string[];
   claims: ClaimEntry[];
   keywords: string[];
+  /** Task #3 — approved product imagery. Brand Settings is the single source of
+   *  truth for a product's pictures: `cardImage` fills product-grid /
+   *  product-showcase cards, `heroImage` fills product hero blocks, and
+   *  `contentImages` is a pool rotated across content sections about this
+   *  product (to reduce repeated photos). All optional — when unset the legacy
+   *  Content-Library / image-fill behavior is preserved (no regression). */
+  cardImage?: string;
+  heroImage?: string;
+  contentImages?: string[];
 }
 
 export interface SegmentPersona {

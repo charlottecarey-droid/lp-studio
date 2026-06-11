@@ -55,3 +55,30 @@ carries the real product line + its curated image); the random fill pool is not.
 **Pre-existing note:** these same library product images live in `lp_media` (the
 shared pool), so the generic image-fill can ALSO place them on other blocks
 (hero/feature) independent of this enforce step — that's by-design, not a bug.
+
+**Brand Settings is the source of truth (layered ON TOP of the library).**
+`ProductLine` (mirrored in lp-studio `brand-config.ts` AND api-server
+`generate-page.ts`) carries optional `cardImage` / `heroImage` / `contentImages[]`.
+`enforceProductLibraryBlocks(blocks, tenantId, brandProductLines?)` takes the brand
+lines as a 3rd arg (both callsites pass `brand.productLines`).
+- Brand pools are built first and the library is the FALLBACK. For
+  `product-grid`/`product-showcase`, when ANY brand `cardImage` exists, KEEP the AI
+  items and only swap the matched brand card image per item (no library
+  wipe-replace); only when no brand card images exist does the legacy
+  wipe-and-replace run. Hero + dso-products-grid prepend brand pools to the library
+  pool.
+- **Brand-wins-on-tie depends on `bestLibraryImageFor` using `>` (not `>=`)**: at
+  equal token specificity the FIRST-seen candidate is kept, so putting the brand
+  pool first makes brand win ties. Do not change that comparison without revisiting
+  precedence.
+- **No regression:** `brandProductLines` undefined/empty (or no image fields set)
+  → identical to the legacy library-only path. Guarded by tests that call enforce
+  with 2 args and with `[]`.
+- Content-image rotation (`applyBrandProductContentImages`) rotates a product's
+  `contentImages` across content sections CONFIDENTLY about that product
+  (token-coverage on heading-like keys `CONTENT_IMAGE_COPY_KEYS`, per-product
+  cursor) so repeats get different photos. Deliberately conservative: only a
+  block's single root `imageUrl`/`image` slot, never product blocks or chrome
+  (`CONTENT_IMAGE_SKIP_TYPES` = the 4 product types + nav/navbar/header/footer/
+  cta/cta-button). It's a DENYLIST — a new content-block type with those props +
+  product copy could be rotated; tighten to an allowlist if that bites.

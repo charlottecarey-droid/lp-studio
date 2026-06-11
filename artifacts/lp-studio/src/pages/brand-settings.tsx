@@ -489,6 +489,78 @@ function ProductLineCard({ product, onChange, onRemove, strictMode }: {
               max={12}
             />
           </div>
+
+          {/* Task #3 — approved product images. Brand Settings is the single
+              source of truth for this product's pictures so generation pulls the
+              correct, non-repeating image per product. */}
+          <div className="pt-2 border-t space-y-4">
+            <div>
+              <Label className="text-xs">Approved Product Images</Label>
+              <p className="text-[11px] text-muted-foreground -mt-0.5">
+                Pictures the AI uses for this product. Select from your media library or upload. Leave any blank to keep the current automatic image behavior.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <ImagePicker
+                label="Card image"
+                value={product.cardImage ?? ""}
+                onChange={(url) => onChange("cardImage", url)}
+                placeholder="Used on product grid & showcase cards"
+                aiHint={`${product.name || "Product"} card image`}
+              />
+              <ImagePicker
+                label="Hero image"
+                value={product.heroImage ?? ""}
+                onChange={(url) => onChange("heroImage", url)}
+                placeholder="Used on this product's hero section"
+                aiHint={`${product.name || "Product"} hero image`}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Content images</Label>
+              <p className="text-[11px] text-muted-foreground -mt-0.5">
+                Extra images rotated across content sections about this product — add a few to cut down on repeats.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {(product.contentImages ?? []).map((img, ci) => (
+                  <div key={ci} className="relative">
+                    <ImagePicker
+                      value={img}
+                      onChange={(url) => {
+                        const next = [...(product.contentImages ?? [])];
+                        next[ci] = url;
+                        onChange("contentImages", next);
+                      }}
+                      placeholder="Paste URL or upload"
+                      aiHint={`${product.name || "Product"} content image`}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute -top-1 -right-1 h-6 w-6 p-0 text-muted-foreground hover:text-destructive bg-background/80 rounded-full"
+                      title="Remove content image"
+                      onClick={() => {
+                        const next = (product.contentImages ?? []).filter((_, j) => j !== ci);
+                        onChange("contentImages", next);
+                      }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                disabled={(product.contentImages?.length ?? 0) >= 12}
+                onClick={() => onChange("contentImages", [...(product.contentImages ?? []), ""])}
+              >
+                <Plus className="w-3 h-3" />
+                Add content image
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -2937,7 +3009,7 @@ export default function BrandSettings() {
   // ── Product Lines ──────────────────────────────────────────────────
   const addProductLine = () => {
     if ((config.productLines?.length ?? 0) >= 12) return;
-    update("productLines", [...(config.productLines || []), { name: "", description: "", valueProps: [], claims: [], keywords: [] }]);
+    update("productLines", [...(config.productLines || []), { name: "", description: "", valueProps: [], claims: [], keywords: [], cardImage: "", heroImage: "", contentImages: [] }]);
   };
 
   const updateProductLine = (idx: number, key: keyof ProductLine, value: unknown) => {

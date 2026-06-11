@@ -54,6 +54,14 @@ interface ProductLine {
   valueProps: string[];
   claims: ClaimEntry[];
   keywords: string[];
+  /** Task #3 — approved product imagery (mirror of the client `brand-config.ts`
+   *  ProductLine). Brand Settings is the source of truth: `cardImage` →
+   *  product-grid/showcase cards, `heroImage` → product hero blocks,
+   *  `contentImages` → rotated across content sections about this product.
+   *  Unset = legacy Content-Library / image-fill behavior (no regression). */
+  cardImage?: string;
+  heroImage?: string;
+  contentImages?: string[];
 }
 
 /** Task #900 — the design-density axis fed into AI page generation. Inferred
@@ -3546,6 +3554,7 @@ function bestLibraryImageFor(
 export async function enforceProductLibraryBlocks(
   blocks: unknown,
   tenantId: number | null,
+  brandProductLines?: ProductLine[],
 ): Promise<void> {
   if (!Array.isArray(blocks)) return;
   const isBlock = (b: unknown): b is { type?: string; props?: Record<string, unknown> } =>
@@ -3559,64 +3568,129 @@ export async function enforceProductLibraryBlocks(
   const showcaseTargets = targetsOfType(PRODUCT_SHOWCASE_BLOCK_TYPE);
   const heroTargets = targetsOfType(DANDY_PRODUCT_HERO_BLOCK_TYPE);
   const productsGridTargets = targetsOfType(DSO_PRODUCTS_GRID_BLOCK_TYPE);
-  if (
-    gridTargets.length === 0 &&
-    showcaseTargets.length === 0 &&
-    heroTargets.length === 0 &&
-    productsGridTargets.length === 0
-  ) {
-    return;
-  }
 
-  // Name-matching (hero + dso-products-grid) draws from BOTH library types so a
-  // product line stored under either section can supply its image.
-  const needMatchPool = heroTargets.length > 0 || productsGridTargets.length > 0;
-  const gridItems =
-    gridTargets.length > 0 || needMatchPool
-      ? await fetchProductLibraryItems(tenantId, "product_grid")
-      : [];
-  const showcaseItems =
-    showcaseTargets.length > 0 || needMatchPool
-      ? await fetchProductLibraryItems(tenantId, "product_showcase")
-      : [];
+  // Task #3 — Brand Settings product images are the SINGLE SOURCE OF TRUTH and
+  // take precedence over the Content Library + generic image-fill. Build the
+  // brand pools first (no DB); the Content Library stays a fallback for any
+  // product/image a brand line doesn't supply, so library-only tenants and the
+  // no-brand-images case keep their existing behavior (no regression).
+  const trimStr = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
+  const toItem = (name: string, image: string): ProductLibraryItem => ({
+    name, title: name, description: "", badge: "", image,
+  });
+  const brandLines = (brandProductLines ?? []).filter(
+    (p): p is ProductLine => !!p && typeof p.name === "string" && p.name.trim() !== "",
+  );
+  const brandCardPool: ProductLibraryItem[] = brandLines
+    .map((p) => ({ name: p.name, image: trimStr(p.cardImage) }))
+    .filter((x) => x.image)
+    .map((x) => toItem(x.name, x.image));
+  const brandHeroPool: ProductLibraryItem[] = brandLines
+    .map((p) => ({ name: p.name, image: trimStr(p.heroImage) || trimStr(p.cardImage) }))
+    .filter((x) => x.image)
+    .map((x) => toItem(x.name, x.image));
+  const brandContentLines = brandLines
+    .map((p) => ({
+      name: p.name,
+      images: (p.contentImages ?? []).map(trimStr).filter(Boolean),
+    }))
+    .filter((p) => p.images.length > 0);
 
-  if (gridTargets.length > 0 && gridItems.length > 0) {
-    const capped = gridItems.slice(0, 12);
-    for (const b of gridTargets) {
-      if (!b.props || typeof b.props !== "object") b.props = {};
-      b.props.items = capped.map((p) => ({
-        image: p.image,
-        title: p.title,
-        description: p.description,
-      }));
+  const hasProductBlocks =
+    gridTargets.length > 0 ||
+    showcaseTargets.length > 0 ||
+    heroTargets.length > 0 ||
+    productsGridTargets.length > 0;
+
+  // Nothing on the page to touch and no content-image rotation to apply.
+  if (!hasProductBlocks && brandContentLines.length === 0) return;
+
+  if (hasProductBlocks) {
+    // Name-matching (hero + dso-products-grid) draws from BOTH library types so a
+    // product line stored under either section can supply its fallback image.
+    const needMatchPool = heroTargets.length > 0 || productsGridTargets.length > 0;
+    const gridItems =
+      gridTargets.length > 0 || needMatchPool
+        ? await fetchProductLibraryItems(tenantId, "product_grid")
+        : [];
+    const showcaseItems =
+      showcaseTargets.length > 0 || needMatchPool
+        ? await fetchProductLibraryItems(tenantId, "product_showcase")
+        : [];
+
+    // product-grid: when the brand defines card images, KEEP the AI items (their
+    // copy already reflects the brand's product lines) and swap in the matched
+    // brand card image per item. Otherwise fall back to the legacy Content
+    // Library wipe-and-replace.
+    if (gridTargets.length > 0) {
+      for (const b of gridTargets) {
+        if (!b.props || typeof b.props !== "object") b.props = {};
+        if (brandCardPool.length > 0) {
+          const items = (b.props as Record<string, unknown>).items;
+          if (Array.isArray(items)) {
+            for (const it of items) {
+              if (!it || typeof it !== "object") continue;
+              const item = it as Record<string, unknown>;
+              const copy = [item.title, item.name, item.description]
+                .filter((v): v is string => typeof v === "string")
+                .join(" ");
+              const img = bestLibraryImageFor(copy, brandCardPool);
+              if (img) item.image = img;
+            }
+          }
+        } else if (gridItems.length > 0) {
+          const capped = gridItems.slice(0, 12);
+          (b.props as Record<string, unknown>).items = capped.map((p) => ({
+            image: p.image,
+            title: p.title,
+            description: p.description,
+          }));
+        }
+      }
     }
-  }
 
-  if (showcaseTargets.length > 0 && showcaseItems.length > 0) {
-    const capped = showcaseItems.slice(0, 12);
-    for (const b of showcaseTargets) {
-      if (!b.props || typeof b.props !== "object") b.props = {};
-      b.props.cards = capped.map((p) => ({
-        name: p.name,
-        description: p.description,
-        badge: p.badge,
-        image: p.image,
-      }));
+    // product-showcase: same precedence as product-grid (brand card images win;
+    // legacy library wipe-and-replace as fallback).
+    if (showcaseTargets.length > 0) {
+      for (const b of showcaseTargets) {
+        if (!b.props || typeof b.props !== "object") b.props = {};
+        if (brandCardPool.length > 0) {
+          const cards = (b.props as Record<string, unknown>).cards;
+          if (Array.isArray(cards)) {
+            for (const c of cards) {
+              if (!c || typeof c !== "object") continue;
+              const card = c as Record<string, unknown>;
+              const copy = [card.name, card.title, card.description]
+                .filter((v): v is string => typeof v === "string")
+                .join(" ");
+              const img = bestLibraryImageFor(copy, brandCardPool);
+              if (img) card.image = img;
+            }
+          }
+        } else if (showcaseItems.length > 0) {
+          const capped = showcaseItems.slice(0, 12);
+          (b.props as Record<string, unknown>).cards = capped.map((p) => ({
+            name: p.name,
+            description: p.description,
+            badge: p.badge,
+            image: p.image,
+          }));
+        }
+      }
     }
-  }
 
-  if (needMatchPool) {
-    const matchPool = [...gridItems, ...showcaseItems].filter((p) => p.image);
-    if (matchPool.length > 0) {
-      // dandy-product-hero: one product, one image. Match the hero copy
-      // (headline + eyebrow + subheadline) to the library product it describes.
+    // dandy-product-hero: one product, one image. Match pool = brand hero images
+    // FIRST, then library (brand wins on a token-count tie — bestLibraryImageFor
+    // keeps the first-seen entry at equal specificity).
+    const heroPool = [...brandHeroPool, ...gridItems, ...showcaseItems].filter((p) => p.image);
+    if (heroTargets.length > 0 && heroPool.length > 0) {
       for (const b of heroTargets) {
         if (!b.props || typeof b.props !== "object") continue;
         const props = b.props;
         const copy = [props.headline, props.eyebrow, props.subheadline]
           .filter((v): v is string => typeof v === "string")
           .join(" ");
-        const img = bestLibraryImageFor(copy, matchPool);
+        const img = bestLibraryImageFor(copy, heroPool);
         if (img) {
           props.imageUrl = img;
           if (typeof props.imageAlt !== "string" || props.imageAlt.trim() === "") {
@@ -3624,9 +3698,12 @@ export async function enforceProductLibraryBlocks(
           }
         }
       }
+    }
 
-      // dso-products-grid: one image per product. Match each product's name and
-      // set its imageUrl; products with no confident match keep their fallback.
+    // dso-products-grid: one image per product. Match pool = brand card images
+    // FIRST, then library. Products with no confident match keep their fallback.
+    const productGridPool = [...brandCardPool, ...gridItems, ...showcaseItems].filter((p) => p.image);
+    if (productsGridTargets.length > 0 && productGridPool.length > 0) {
       for (const b of productsGridTargets) {
         if (!b.props || typeof b.props !== "object") continue;
         const products = (b.props as Record<string, unknown>).products;
@@ -3635,11 +3712,102 @@ export async function enforceProductLibraryBlocks(
           if (!product || typeof product !== "object") continue;
           const p = product as Record<string, unknown>;
           const name = typeof p.name === "string" ? p.name : "";
-          const img = bestLibraryImageFor(name, matchPool);
+          const img = bestLibraryImageFor(name, productGridPool);
           if (img) p.imageUrl = img;
         }
       }
     }
+  }
+
+  // Task #3 — content-image rotation. For content sections CONFIDENTLY about a
+  // specific product, rotate through that product's content images so repeated
+  // sections don't reuse the same photo. Runs only when the brand supplies
+  // content images; conservative on which slots it touches (see helper).
+  if (brandContentLines.length > 0) {
+    applyBrandProductContentImages(blocks, brandContentLines);
+  }
+}
+
+/** Block types whose images are owned by the product passes above, plus chrome
+ *  blocks, which the content-image rotation must never touch. */
+const CONTENT_IMAGE_SKIP_TYPES = new Set<string>([
+  PRODUCT_GRID_BLOCK_TYPE,
+  PRODUCT_SHOWCASE_BLOCK_TYPE,
+  DANDY_PRODUCT_HERO_BLOCK_TYPE,
+  DSO_PRODUCTS_GRID_BLOCK_TYPE,
+  "nav",
+  "navbar",
+  "header",
+  "footer",
+  "cta",
+  "cta-button",
+]);
+
+/** Short, product-naming text fields used to decide which product a content
+ *  section is about. Deliberately excludes long HTML bodies so the match stays
+ *  precise (the product name must appear in a heading-like field). */
+const CONTENT_IMAGE_COPY_KEYS = [
+  "headline", "eyebrow", "subheadline", "subhead", "title", "heading", "label", "kicker",
+] as const;
+
+/** Pick the brand content line whose name is confidently described by the copy
+ *  (every significant token of the product name appears in the copy; the most
+ *  specific name wins). Mirrors `bestLibraryImageFor`'s token-coverage rule. */
+function bestContentLineFor(
+  copy: string,
+  lines: Array<{ name: string; images: string[] }>,
+): { name: string; images: string[] } | null {
+  const targetTokens = new Set(productMatchTokens(copy));
+  if (targetTokens.size === 0) return null;
+  let best: { name: string; images: string[] } | null = null;
+  let bestScore = 0;
+  for (const line of lines) {
+    const nameTokens = productMatchTokens(line.name);
+    if (nameTokens.length === 0) continue;
+    if (!nameTokens.every((t) => targetTokens.has(t))) continue;
+    if (nameTokens.length > bestScore) {
+      best = line;
+      bestScore = nameTokens.length;
+    }
+  }
+  return best;
+}
+
+/** Rotate each product's approved content images across the content sections
+ *  about that product (reducing repeated photos). Only touches a block's single
+ *  primary image slot (`imageUrl` or `image`), never product/chrome blocks, and
+ *  only when the block copy confidently names a product with content images. */
+export function applyBrandProductContentImages(
+  blocks: unknown[],
+  contentLines: Array<{ name: string; images: string[] }>,
+): void {
+  const usable = contentLines.filter((l) => l.name && l.images.length > 0);
+  if (usable.length === 0) return;
+  // Per-product cursor so repeated sections each advance to the next image.
+  const cursor = new Map<string, number>();
+  for (const b of blocks) {
+    if (!b || typeof b !== "object") continue;
+    const block = b as { type?: string; props?: Record<string, unknown> };
+    const type = typeof block.type === "string" ? block.type : "";
+    if (CONTENT_IMAGE_SKIP_TYPES.has(type)) continue;
+    const props = block.props;
+    if (!props || typeof props !== "object") continue;
+    const slotKey =
+      typeof props.imageUrl === "string"
+        ? "imageUrl"
+        : typeof props.image === "string"
+          ? "image"
+          : null;
+    if (!slotKey) continue;
+    const copy = CONTENT_IMAGE_COPY_KEYS
+      .map((k) => props[k])
+      .filter((v): v is string => typeof v === "string")
+      .join(" ");
+    const line = bestContentLineFor(copy, usable);
+    if (!line) continue;
+    const idx = cursor.get(line.name) ?? 0;
+    props[slotKey] = line.images[idx % line.images.length];
+    cursor.set(line.name, idx + 1);
   }
 }
 
@@ -6060,7 +6228,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // images), overriding the random media-pool images the fill pipeline
       // would otherwise leave on these blocks. Runs in all modes — the library
       // is the source of truth for the tenant's own products.
-      await enforceProductLibraryBlocks(mergedBlocks, tenantId);
+      await enforceProductLibraryBlocks(mergedBlocks, tenantId, brand.productLines);
 
       // Task #1136 — ensure every generated dso-case-study carries explicit
       // values so the React component never falls back to its hardcoded DCA
@@ -7268,7 +7436,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // overriding the random media-pool images the fill pipeline would otherwise
     // leave on these blocks. Runs in all modes — the library is the source of
     // truth for the tenant's own products.
-    await enforceProductLibraryBlocks(parsed.blocks, tenantId);
+    await enforceProductLibraryBlocks(parsed.blocks, tenantId, brand.productLines);
 
     // Task #1136 — ensure every generated dso-case-study carries explicit values
     // so the React component never falls back to its hardcoded DCA demo
