@@ -5717,22 +5717,20 @@ export function buildSegmentSection(
   // page should be built from, in order — use them as the page's backbone and
   // only deviate when a listed block clearly does not fit the user request.
   //
-  // EXCEPTION (DSO / DSO-Practices landing pages, `dsoFreeChoice`): the
-  // segment's stored block list is the *microsite* vocabulary. Injecting it as
-  // a rigid ordered backbone collapsed every DSO landing page into the same
-  // microsite lineup and overrode the free block choice the DSO system prompt
-  // advertises ("uses the exact same blocks as microsites every time"). On
-  // those paths we skip the rigid list entirely and let the model choose the
-  // block mix that best fits each account, for deliberate per-account variety.
-  //
-  // Task #6 — the segment's preferred structure is now expressed as an ordered
-  // page OUTLINE: each step is either a specific block (forced) or a CATEGORY
+  // Task #6 — the segment's preferred structure is expressed as an ordered page
+  // OUTLINE: each step is either a specific block (forced) or a CATEGORY
   // (resolved to a brand-matched block of that role from the segment's approved
-  // pool). The new `pageOutline` supersedes the legacy `micrositeBlockList`,
-  // which is adapted into forced-block steps so existing tenants keep working.
-  // Precedence (parity with the microsite generator): the segment's own
-  // outline (or its legacy list adapted) wins; when the segment has none, fall
-  // back to the brand-default outline supplied by the caller.
+  // pool). `pageOutline` supersedes the legacy `micrositeBlockList`, which is
+  // adapted into forced-block steps so existing tenants keep working.
+  // Precedence (parity with the microsite generator): the segment's own outline
+  // (or its legacy list adapted) wins; when the segment has none, fall back to
+  // the brand-default outline supplied by the caller.
+  //
+  // A CONFIGURED outline is honored on EVERY path, including DSO / DSO-Practices
+  // landing pages (`dsoFreeChoice`): when a tenant has authored a recipe, its
+  // forced blocks and order must be respected — there is no DSO exception. Only
+  // a truly unconfigured segment (no outline after legacy adaptation, and no
+  // brand-default outline) falls through to the model's free block choice.
   const segmentOutline = effectiveOutline({
     outline: seg.pageOutline,
     legacyBlockList: seg.micrositeBlockList,
@@ -5740,7 +5738,7 @@ export function buildSegmentSection(
   const outline = outlineHasSteps(segmentOutline)
     ? segmentOutline
     : (opts.brandOutline ?? null);
-  if (outlineHasSteps(outline) && !opts.dsoFreeChoice) {
+  if (outlineHasSteps(outline)) {
     const resolved = resolvePageOutline(outline, {
       pool: opts.approvedPool ?? [],
       rolesOf: (t) => resolveBlockTags(t),

@@ -1294,16 +1294,22 @@ export function segmentPoolFallbackBlockList(poolTypes: string[]): string[] {
 // A pure decision so it is unit-testable in isolation and the route + tests can
 // never drift. Highest priority first:
 //   1. template        — an explicit authored layout always wins.
-//   2. dso-freeform    — a genuine DSO segment composes from the DSO vocab.
-//   3. segment-outline — the segment's page outline ("recipe") is THE structure
-//                        for this audience: an ordered, brand-matched lineup
-//                        honored over the pool. Task #6 generalizes the legacy
-//                        per-segment `micrositeBlockList` (adapted to an outline
-//                        of forced block steps) into this same source.
-//   4. segment-pool    — the segment's approved pool drives a varied freeform.
-//   5. brand-outline   — the brand's default outline (fallback). Generalizes the
-//                        legacy `defaultMicrositeBlockList` the same way.
+//   2. segment-outline — the segment's page outline ("recipe") is THE structure
+//                        for this audience: an ordered, brand-matched lineup.
+//                        Task #6 generalizes the legacy per-segment
+//                        `micrositeBlockList` (adapted to an outline of forced
+//                        block steps) into this same source.
+//   3. brand-outline   — the brand's default outline. Generalizes the legacy
+//                        `defaultMicrositeBlockList` the same way.
+//   4. dso-freeform    — a genuine DSO segment composes from the DSO vocab when
+//                        no outline is configured.
+//   5. segment-pool    — the segment's approved pool drives a varied freeform.
 //   6. neutral-freeform— today's neutral freeform (final fallback).
+//
+// A CONFIGURED outline (segment or brand) is honored on EVERY path, including
+// DSO: its forced blocks and order must be respected, with no DSO exception.
+// Only a truly unconfigured segment (no outline after legacy adaptation) falls
+// through to dso-freeform / segment-pool / neutral-freeform.
 export type MicrositeBlockSource =
   | "template"
   | "dso-freeform"
@@ -1320,10 +1326,10 @@ export function resolveMicrositeBlockSource(input: {
   hasBrandOutline: boolean;
 }): MicrositeBlockSource {
   if (input.hasTemplate) return "template";
-  if (input.dsoFreeformMode) return "dso-freeform";
   if (input.hasSegmentOutline) return "segment-outline";
-  if (input.hasSegmentPool) return "segment-pool";
   if (input.hasBrandOutline) return "brand-outline";
+  if (input.dsoFreeformMode) return "dso-freeform";
+  if (input.hasSegmentPool) return "segment-pool";
   return "neutral-freeform";
 }
 
@@ -2335,9 +2341,9 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     });
 
     // Block-source precedence (task #5 + task #6) — see resolveMicrositeBlockSource.
-    // segment-outline (the segment's recipe, or its legacy fixed list adapted to
-    // one) beats the pool; the pool beats the brand-outline; neutral-freeform is
-    // the final fallback. DSO-freeform and templates keep their existing priority.
+    // A configured outline (segment first, then brand) is honored on EVERY path,
+    // including DSO: it beats dso-freeform and the pool. Only when no outline is
+    // configured does dso-freeform → segment-pool → neutral-freeform apply.
     const blockSource = resolveMicrositeBlockSource({
       hasTemplate: Boolean(templateBlockTypes && templateBlockTypes.length > 0),
       dsoFreeformMode,

@@ -10,7 +10,8 @@
  *   3. The segment outline always wins over the brand-default outline.
  *   4. A category step with no approved block in the pool degrades gracefully
  *      (role-default for chrome roles, otherwise skipped) rather than throwing.
- *   5. `dsoFreeChoice` still omits the rigid list so the model chooses.
+ *   5. A configured outline is honored even on DSO paths (`dsoFreeChoice`); only
+ *      a fully unconfigured segment falls through to the model's free choice.
  */
 import { describe, it, expect } from "vitest";
 import { buildSegmentSection } from "./generate-page";
@@ -83,16 +84,24 @@ describe("buildSegmentSection — page outline precedence (Task #6)", () => {
     expect(section).toContain('- "dso-problem"');
   });
 
-  it("omits the rigid list on DSO landing pages (dsoFreeChoice)", () => {
+  it("honors a configured outline even on DSO landing pages (dsoFreeChoice)", () => {
     const outline: PageOutline = {
       steps: [{ kind: "block", type: "dso-heartland-hero" }],
     };
     const section = buildSegmentSection(
       { name: "DSO Operators", pageOutline: outline },
+      { dsoFreeChoice: true, approvedPool: ["dso-heartland-hero"] },
+    );
+    expect(section).toContain("PREFERRED BLOCK LIST");
+    expect(section).toContain('- "dso-heartland-hero"');
+  });
+
+  it("uses the model's free block choice when nothing is configured (no outline)", () => {
+    const section = buildSegmentSection(
+      { name: "DSO Operators" },
       { dsoFreeChoice: true },
     );
     expect(section).not.toContain("PREFERRED BLOCK LIST");
-    expect(section).not.toContain('- "dso-heartland-hero"');
     expect(section).toContain("DSO Operators");
   });
 });

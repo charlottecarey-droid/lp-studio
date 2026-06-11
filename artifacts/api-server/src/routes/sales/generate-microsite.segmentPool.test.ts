@@ -38,7 +38,7 @@ describe("resolveMicrositeBlockSource — precedence", () => {
     ).toBe("template");
   });
 
-  it("dso-freeform beats outline/pool/brand-outline", () => {
+  it("a configured segment outline overrides dso-freeform, the pool, and the brand outline", () => {
     expect(
       resolveMicrositeBlockSource({
         ...base,
@@ -47,27 +47,33 @@ describe("resolveMicrositeBlockSource — precedence", () => {
         hasSegmentPool: true,
         hasBrandOutline: true,
       }),
-    ).toBe("dso-freeform");
-  });
-
-  it("an explicit segment outline is honored OVER the approved pool", () => {
-    expect(
-      resolveMicrositeBlockSource({
-        ...base,
-        hasSegmentOutline: true,
-        hasSegmentPool: true,
-        hasBrandOutline: true,
-      }),
     ).toBe("segment-outline");
   });
 
-  it("the approved pool drives the layout when there is no segment outline", () => {
+  it("a configured brand outline overrides dso-freeform and the pool when there is no segment outline", () => {
     expect(
       resolveMicrositeBlockSource({
         ...base,
+        dsoFreeformMode: "practices",
         hasSegmentPool: true,
         hasBrandOutline: true,
       }),
+    ).toBe("brand-outline");
+  });
+
+  it("dso-freeform drives the page when no outline is configured (even with a pool)", () => {
+    expect(
+      resolveMicrositeBlockSource({
+        ...base,
+        dsoFreeformMode: "enterprise",
+        hasSegmentPool: true,
+      }),
+    ).toBe("dso-freeform");
+  });
+
+  it("the approved pool drives the layout when there is no outline and no DSO vocab", () => {
+    expect(
+      resolveMicrositeBlockSource({ ...base, hasSegmentPool: true }),
     ).toBe("segment-pool");
   });
 
