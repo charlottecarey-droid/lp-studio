@@ -1874,8 +1874,16 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
   // best remaining (not clearly off-topic) library image rather than being left
   // for AI generation. Scraped page-reference images must clear a positive
   // content-relevance bar in the strict pass — see findBestImage. (Task #1287)
-  const pick = (context: string, imgs: MediaImage[], used: Set<string>, purpose?: string): string =>
-    findBestImage(pageContext ? `${context} ${pageContext}` : context, imgs, used, purpose, relaxed);
+  // `biasPage` appends the page's industry/topic vocabulary to the per-slot
+  // context. That bias helps generic-headline hero/feature slots, but it MUST be
+  // OFF for product-detail slots: a product card has a SPECIFIC subject (its
+  // imageKey/title, e.g. "dentures"), and folding in the page's generic industry
+  // words (e.g. "dental dentistry dentist clinic teeth") lets any on-vertical
+  // product shot — a crown, even a logo — score positive and drown out the real
+  // subject match. Before the May-2026 page-bias change (Task #469) product
+  // slots scored against the subject alone; product-detail picks keep that.
+  const pick = (context: string, imgs: MediaImage[], used: Set<string>, purpose?: string, biasPage = true): string =>
+    findBestImage(biasPage && pageContext ? `${context} ${pageContext}` : context, imgs, used, purpose, relaxed);
 
   // First pass: collect already-used image IDENTITIES across EVERY image-bearing
   // shape (reuses collectImageSlots so heroImageUrl, cards/panels/pairs/slides,
@@ -2004,10 +2012,14 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       (!ITEM_PHOTO_BLOCK_TYPES.has(blockType) || props.useItemPhotos === true)
     ) {
       const itemsPurpose = ITEM_PHOTO_BLOCK_TYPES.has(blockType) ? "lp-feature" : "product-detail";
+      // Feature item photos (benefits-grid w/ useItemPhotos) keep the page bias;
+      // product-detail item slots match on the item's OWN subject only so a
+      // generic on-vertical shot can't outscore the real subject. (See pick().)
+      const itemsBiasPage = ITEM_PHOTO_BLOCK_TYPES.has(blockType);
       props.items = (props.items as Record<string, unknown>[]).map((item) => {
         if ("image" in item && !item.image) {
           const itemContext = `${item.title ?? item.label ?? ""} ${item.description ?? ""}`;
-          return { ...item, image: pick(itemContext, images, usedIds, itemsPurpose) };
+          return { ...item, image: pick(itemContext, images, usedIds, itemsPurpose, itemsBiasPage) };
         }
         return item;
       });
@@ -2031,7 +2043,7 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
         if (!product.imageUrl) {
           const key = typeof product.imageKey === "string" ? product.imageKey.replace(/-/g, " ") : "";
           const productContext = `${key} ${product.name ?? ""} ${product.detail ?? ""}`;
-          const picked = pick(productContext, images, usedIds, "product-detail");
+          const picked = pick(productContext, images, usedIds, "product-detail", false);
           if (picked) return { ...product, imageUrl: picked };
         }
         return product;

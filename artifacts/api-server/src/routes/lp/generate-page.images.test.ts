@@ -421,6 +421,45 @@ describe("fillEmptyImages — benefits-grid per-card photos (useItemPhotos opt-i
     const products = blocks[0].props.products as Array<{ imageUrl?: string }>;
     expect(products[0].imageUrl).toBeFalsy();
   });
+
+  // ── product-detail slots ignore the page-vocabulary bias (Task #469 regression) ──
+  // The May-2026 page-bias change appended the page's generic industry words
+  // (e.g. "dental dentistry dentist clinic teeth") to EVERY slot's scoring
+  // context. For a product card that has a SPECIFIC subject, that let any
+  // on-vertical product shot — a crown rich in generic dental tags — outscore
+  // the real subject match (a denture) and land in the wrong card. These two
+  // images both have the +8 product-detail purpose boost; the crown also matches
+  // three page-vocabulary tags (dental/teeth/dentistry) so WITH the page bias it
+  // would beat the denture. The fix scores product-detail slots on the subject
+  // alone, so the denture must win.
+  const subjectVsPageLib: MediaImage[] = [
+    { url: "/objects/crown-shot", title: "Zirconia crown", tags: ["product-detail", "crown", "dental", "teeth", "dentistry"] },
+    { url: "/objects/denture-shot", title: "Milled denture", tags: ["product-detail", "dentures"] },
+  ];
+  // Page context carries exactly the generic dental keywords the crown matches.
+  const dentalPageCtx = "dental dentistry dentist clinic teeth dentures";
+
+  it("dso-products-grid products[] match the imageKey subject, not the page's generic vocabulary", () => {
+    let blocks: any[] = [
+      { type: "dso-products-grid", props: { headline: "Our services", products: [
+        { name: "Digital Dentures", detail: "Milled precision", price: "$$", icon: "smile", imageKey: "digital-dentures" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, subjectVsPageLib, dentalPageCtx) as any[];
+    const products = blocks[0].props.products as Array<{ imageUrl?: string }>;
+    expect(products[0].imageUrl).toBe("/objects/denture-shot");
+    expect(products[0].imageUrl).not.toBe("/objects/crown-shot");
+  });
+
+  it("product-grid item slots match the item subject, not the page's generic vocabulary", () => {
+    let blocks: any[] = [
+      { type: "product-grid", props: { items: [
+        { title: "Digital dentures", description: "Milled precision", image: "" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, subjectVsPageLib, dentalPageCtx) as any[];
+    expect((blocks[0].props.items as Array<{ image: string }>)[0].image).toBe("/objects/denture-shot");
+  });
 });
 
 // ── sibling-tenant tie-breaker (foreignTenant penalty) ──────────────────────
