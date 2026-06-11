@@ -6217,7 +6217,12 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           })
       : Promise.resolve([] as MediaImage[]);
 
-  const useDsoPractices = isDsoPracticesPrompt(prompt) || segmentContext?.name?.toLowerCase().includes("practice");
+  // DSO Practices = practice-level staff WITHIN a DSO network. Match the segment
+  // name on "dso practice" specifically — a bare "practice" substring wrongly
+  // routed standalone segments like "Private Practice" into the DSO Practices path.
+  const useDsoPractices =
+    isDsoPracticesPrompt(prompt) ||
+    (segmentContext?.name?.toLowerCase().includes("dso practice") ?? false);
   const useDso = !useDsoPractices && (isDsoPrompt(prompt) || (segmentContext?.name?.toLowerCase().includes("dso") ?? false));
   const promptPath = useDsoPractices ? "DSO_PRACTICES" : useDso ? "DSO_ENTERPRISE" : "GENERAL";
 
