@@ -695,3 +695,9 @@ id = "oMdX3l6j7kOokj4bO7J3I"
 uri = "file://artifacts/mockup-sandbox/public/images/gallery-team_6.jpg"
 type = "image"
 title = "modern creative team working in bright office"
+
+[[outputs]]
+id = "AdzAW7zWgEbFPKkV8azQ4"
+uri = "file://.local/why-visit-block.txt"
+type = "text"
+title = "Why visit block — Bagoss headings + Inter body"
