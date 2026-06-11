@@ -6473,16 +6473,6 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // is the source of truth for the tenant's own products.
       await enforceProductLibraryBlocks(mergedBlocks, tenantId, brand.productLines);
 
-      // Task #4 — enforce tenant AI modes on the template path too. `locked`/
-      // `copy` blocks revert the model's rewritten copy/imagery to the curated
-      // catalog defaults. Fail-open: a no-governance tenant is untouched.
-      try {
-        const tplGov = await loadBlockGovernanceContext(tenantId, await getTenantIndustry(tenantId));
-        enforceAiModes(mergedBlocks, tplGov.governanceByType, tplGov.defaultPropsByType);
-      } catch (err) {
-        logger.warn({ err: String(err) }, "[generate-page] template AI-mode enforcement skipped");
-      }
-
       // Task #1136 — ensure every generated dso-case-study carries explicit
       // values so the React component never falls back to its hardcoded DCA
       // demo constants. Runs in all cases (AI values are kept; only missing
@@ -6533,6 +6523,18 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
             "[generate-page] two-pass critique rewrote low-quality blocks",
           );
         }
+      }
+
+      // Task #4 — enforce tenant AI modes as the FINAL pass on the template
+      // path too, AFTER every copy/image/product/critique mutation, so no later
+      // pass can override governance: `locked` blocks revert to the curated
+      // catalog defaults and `copy` blocks keep AI copy but restore image fields
+      // to defaults. Fail-open: a no-governance tenant is untouched.
+      try {
+        const tplGov = await loadBlockGovernanceContext(tenantId, await getTenantIndustry(tenantId));
+        enforceAiModes(mergedBlocks, tplGov.governanceByType, tplGov.defaultPropsByType);
+      } catch (err) {
+        logger.warn({ err: String(err) }, "[generate-page] template AI-mode enforcement skipped");
       }
 
       res.json({
@@ -7710,11 +7712,6 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // truth for the tenant's own products.
     await enforceProductLibraryBlocks(parsed.blocks, tenantId, brand.productLines);
 
-    // Task #4 — enforce tenant AI modes AFTER every copy/image/product pass so
-    // `locked`/`copy` blocks revert AI-authored copy/imagery to the curated
-    // catalog defaults. Fail-open: a no-governance tenant is untouched.
-    parsed.blocks = enforceAiModes(parsed.blocks, governanceByType, defaultPropsByType) as typeof parsed.blocks;
-
     // Task #1136 — ensure every generated dso-case-study carries explicit values
     // so the React component never falls back to its hardcoded DCA demo
     // constants (AI values kept; only missing fields get neutral/empty values).
@@ -7777,6 +7774,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         );
       }
     }
+
+    // Task #4 — enforce tenant AI modes as the FINAL pass, AFTER every
+    // copy/image/product/team/critique mutation, so no later pass can override
+    // governance: `locked` blocks revert to the curated catalog defaults and
+    // `copy` blocks keep AI copy but restore image fields to defaults.
+    // Fail-open: a no-governance tenant is untouched.
+    parsed.blocks = enforceAiModes(parsed.blocks, governanceByType, defaultPropsByType) as typeof parsed.blocks;
 
     res.json({
       title: parsed.title,
