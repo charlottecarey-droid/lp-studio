@@ -41,7 +41,19 @@ vi.mock("openai", () => ({
 import { pool } from "@workspace/db";
 import { SESSION_COOKIE, requireAuth, type AuthUser } from "../../middleware/requireAuth";
 import { inject } from "../../test-utils/injectRequest";
+import {
+  deleteTenantCascade,
+  purgeStaleTestTenants,
+  purgeExpiredTestSessionsBySid,
+} from "../../test-utils/tenantCleanup";
 import salesRouter from "./index";
+
+// Slug + session-sid prefix and the exact name every tenant/session this suite
+// seeds shares, so a crashed run (or an older run whose teardown predated the
+// robust cascade) is purged from the shared DB on the next run instead of
+// accumulating — without ever matching a real tenant (see purgeStaleTestTenants).
+const TEST_SLUG_PREFIX = "it-ms-smoke-";
+const TEST_TENANT_NAME = "IT Microsite Tenant";
 
 let app: Express;
 const createdTenantIds: number[] = [];
@@ -187,7 +199,14 @@ function authed(sid: string, method: string, url: string, body?: unknown) {
   });
 }
 
-beforeAll(() => {
+beforeAll(async () => {
+  // Purge stragglers from any earlier run (crash, or an older teardown that
+  // swallowed an FK error) so the shared DB doesn't accumulate test tenants.
+  // Guarded by slug prefix + exact seeded name + a 30-min age floor so it can
+  // never touch a real tenant or a concurrent run's fresh fixture.
+  await purgeStaleTestTenants(pool, { slugPrefix: TEST_SLUG_PREFIX, name: TEST_TENANT_NAME });
+  await purgeExpiredTestSessionsBySid(pool, TEST_SLUG_PREFIX);
+
   // getOpenAIClient() returns null without a key (→ 503). The OpenAI ctor is
   // mocked above, so the actual value is irrelevant — it just has to be present.
   process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || "test-key-not-used";
@@ -200,7 +219,10 @@ beforeAll(() => {
   app.use(express.json());
   app.use(requireAuth);
   app.use("/sales", salesRouter);
-});
+  // Generous timeout: the first run after this fix lands cascade-deletes the
+  // backlog of orphaned it-ms-smoke tenants from older (pre-fix) runs, which is
+  // heavy against the shared DB. Steady-state runs purge ~nothing and finish fast.
+}, 120_000);
 
 // Reset the raw-content override before every test so a non-JSON case can't
 // leak its garbage payload into a later test (tests share the hoisted aiState).
@@ -209,18 +231,24 @@ beforeEach(() => {
 });
 
 afterAll(async () => {
+  // Robust cascade: discovers EVERY tenant-FK table from the catalog and clears
+  // it before deleting the tenant, so a child row the generate route writes
+  // (ai_generation_log, lp_media, sales_signals, …) can't 23503 and orphan the
+  // tenant — the bug that let earlier runs pile up leftover it-ms-smoke tenants.
   for (const id of createdTenantIds) {
-    await pool.query(`DELETE FROM lp_pages WHERE tenant_id = $1`, [id]).catch(() => {});
-    await pool.query(`DELETE FROM sales_accounts WHERE tenant_id = $1`, [id]).catch(() => {});
-    await pool.query(`DELETE FROM lp_brand_settings WHERE tenant_id = $1`, [id]).catch(() => {});
+    await deleteTenantCascade(pool, id).catch((err: Error) => {
+      // Surface (don't swallow) so a newly-added unhandled FK doesn't silently
+      // start leaking tenants again — the exact failure mode this test fixes.
+      console.warn(`[generate-microsite.smoke] failed to delete tenant ${id}:`, err.message);
+    });
   }
   for (const sid of createdSids) {
     await pool.query(`DELETE FROM app_sessions WHERE sid = $1`, [sid]).catch(() => {});
   }
-  for (const id of createdTenantIds) {
-    await pool.query(`DELETE FROM tenants WHERE id = $1`, [id]).catch(() => {});
-  }
-});
+  // Generous timeout: each cascade delete runs catalog discovery + per-table
+  // deletes against the shared DB, so clearing this run's tenants exceeds the
+  // 10s default hook timeout.
+}, 120_000);
 
 describe("Microsite generation smoke", () => {
   it("creates a draft sales page for the tenant with non-empty blocks referencing the account", async () => {
