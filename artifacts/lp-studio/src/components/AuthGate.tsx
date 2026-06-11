@@ -157,6 +157,11 @@ function SignInPanel() {
   const isLocked = domainContext?.mode === "tenant-locked";
   const tenantSlug = domainContext?.tenantSlug ?? null;
   const isDandyTenant = isLocked && tenantSlug === "dandy";
+  // Dandy-owned login hosts (ent.meetdandy.com → "dandy",
+  // meetdandy-lp.com → "dandy-smb") are restricted to Google OAuth only:
+  // GitHub and email/password (incl. magic-link) sign-in are hidden on these
+  // tenants per Dandy's security requirement.
+  const isDandyOwned = isLocked && (tenantSlug === "dandy" || tenantSlug === "dandy-smb");
 
   // Fetch the tenant's published brand (logo + name) on tenant-locked sign-in pages
   // so the panel reflects the workspace the visitor is signing into, not Dandy.
@@ -199,7 +204,7 @@ function SignInPanel() {
             Continue with Google
           </Button>
 
-          {githubEnabled && (
+          {githubEnabled && !isDandyOwned && (
             <Button
               variant="outline"
               className="w-full gap-2.5 h-11 bg-white border-border hover:bg-muted/40 text-foreground font-medium shadow-sm"
@@ -210,9 +215,11 @@ function SignInPanel() {
             </Button>
           )}
 
-          <div className="text-left">
-            <EmailAuthForms mode="signin" allowSignup={false} />
-          </div>
+          {!isDandyOwned && (
+            <div className="text-left">
+              <EmailAuthForms mode="signin" allowSignup={false} />
+            </div>
+          )}
 
           {isDandyTenant && (
             <a
