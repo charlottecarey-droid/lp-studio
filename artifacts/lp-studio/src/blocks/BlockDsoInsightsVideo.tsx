@@ -96,15 +96,27 @@ const DEFAULT_CALLOUTS: Array<{ label: string; desc: string }> = [
 export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange }: Props) {
   const field = (key: keyof DsoInsightsVideoBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoInsightsVideoBlockProps[typeof key] }) : undefined;
-  // Support both new array prop and legacy named props
-  const rawCallouts: Array<{ label: string; desc: string }> = props.callouts != null
+  // Support both new array prop and legacy named props.
+  // Defensive: props.callouts may be malformed (a non-array, or an array with
+  // missing/holey entries) from older saves or AI-generated content. Normalize
+  // to a stable array of exactly DEFAULT_CALLOUTS.length valid entries so the
+  // block never throws while rendering (it would otherwise show a "failed to
+  // render" error box in the builder, or vanish on a published page).
+  const sourceCallouts: Array<unknown> = Array.isArray(props.callouts)
     ? props.callouts
     : [
-        { label: props.callout1Label || "Remake Rates",         desc: props.callout1Desc || "Track quality by provider, not just practice" },
-        { label: props.callout2Label || "Spend Tracking",       desc: props.callout2Desc || "Know where every dollar goes across all locations" },
-        { label: props.callout3Label || "Scan Quality",         desc: props.callout3Desc || "Catch clinical issues before they become remakes" },
-        { label: props.callout4Label || "Provider Performance", desc: props.callout4Desc || "Coach with data, not instinct" },
+        { label: props.callout1Label || DEFAULT_CALLOUTS[0].label, desc: props.callout1Desc || DEFAULT_CALLOUTS[0].desc },
+        { label: props.callout2Label || DEFAULT_CALLOUTS[1].label, desc: props.callout2Desc || DEFAULT_CALLOUTS[1].desc },
+        { label: props.callout3Label || DEFAULT_CALLOUTS[2].label, desc: props.callout3Desc || DEFAULT_CALLOUTS[2].desc },
+        { label: props.callout4Label || DEFAULT_CALLOUTS[3].label, desc: props.callout4Desc || DEFAULT_CALLOUTS[3].desc },
       ];
+  const rawCallouts: Array<{ label: string; desc: string }> = DEFAULT_CALLOUTS.map((fallback, i) => {
+    const entry = sourceCallouts[i] as { label?: unknown; desc?: unknown } | null | undefined;
+    return {
+      label: typeof entry?.label === "string" ? entry.label : fallback.label,
+      desc: typeof entry?.desc === "string" ? entry.desc : fallback.desc,
+    };
+  });
   const updateCallout = onFieldChange
     ? (idx: number, patch: Partial<{ label: string; desc: string }>) => {
         const seeded = rawCallouts.map(c => ({ ...c }));
