@@ -32,5 +32,26 @@ carries the real product line + its curated image); the random fill pool is not.
 - Run it unconditionally (not gated on `urlSourcedFacts`): a tenant's own product
   catalog is authoritative even when a reference URL was scraped.
 - `approved_for_ai` is NOT NULL / default-true; filter with `IS NOT FALSE`.
-- Scope so far is `product-grid` + `product-showcase` only; `dso-products-grid` uses
-  a different `imageKey`-enum mechanism and was intentionally left out.
+
+**Two strategies, four block types (all in `enforceProductLibraryBlocks`):**
+- REPLACE whole list (the two grid blocks): `product-grid` items[] from
+  `product_grid`; `product-showcase` cards[] from `product_showcase`.
+- MATCH-by-name (keep AI copy, swap only the image): `dandy-product-hero`
+  (single `imageUrl`, matched against headline+eyebrow+subheadline) and
+  `dso-products-grid` (per-product `imageUrl`, matched on `product.name`).
+  `DsoProductItem.imageUrl` already exists and the renderer
+  (`BlockDsoProductsGrid.tsx`) does `product.imageUrl || icon-fallback`.
+- Match pool = `product_grid` ∪ `product_showcase` rows (a line stored under
+  either section supplies its image). Candidate name = `ProductLibraryItem.name`
+  (falls back to the row `name` column).
+- Matching is **token-coverage**: every significant token of the library name
+  must appear in the target's tokens (stopwords + `&`→and stripped), most
+  specific (most tokens) wins. **Why:** "guaranteed correct" — "Posterior Crowns"
+  must never grab the generic "Crowns & Bridges" image, and an unrelated hero
+  headline must keep its existing image rather than get a wrong product photo.
+- Match blocks only SET an image on a confident match; never blank an existing
+  image when nothing matches.
+
+**Pre-existing note:** these same library product images live in `lp_media` (the
+shared pool), so the generic image-fill can ALSO place them on other blocks
+(hero/feature) independent of this enforce step — that's by-design, not a bug.

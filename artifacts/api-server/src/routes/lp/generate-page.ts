@@ -3477,16 +3477,72 @@ export async function fetchProductLibraryItems(
 
 const PRODUCT_GRID_BLOCK_TYPE = "product-grid";
 const PRODUCT_SHOWCASE_BLOCK_TYPE = "product-showcase";
+const DANDY_PRODUCT_HERO_BLOCK_TYPE = "dandy-product-hero";
+const DSO_PRODUCTS_GRID_BLOCK_TYPE = "dso-products-grid";
 
-/** Always-on guard for the `product-grid` and `product-showcase` blocks:
- *  populate them straight from the tenant's Content Library product rows so the
- *  generated page shows the REAL product lines and their curated images instead
- *  of random AI/stock imagery filled in from the shared media pool. Runs AFTER
- *  the image-fill pipeline, so the library image is the final value for each
- *  card. No-op for a block type that has no approved library rows (the block
- *  keeps whatever the AI/template produced). The library `content` field names
- *  map 1:1 onto the renderer props: `product_grid` → items[]{image,title,
- *  description}; `product_showcase` → cards[]{name,description,badge,image}. */
+/** Short connective words ignored when matching a block's copy against a
+ *  Content Library product-line name. */
+const PRODUCT_MATCH_STOPWORDS = new Set([
+  "the", "and", "for", "with", "a", "an", "of", "to", "your", "our", "in", "on",
+]);
+
+/** Tokenize a string into significant lowercase words for product-name matching
+ *  (`"Night Guards & TMJ"` → `["night","guards","tmj"]`). Treats `&` as "and"
+ *  (then dropped as a stopword) and strips all other punctuation. */
+function productMatchTokens(s: string): string[] {
+  return (s || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .filter((t) => t.length > 0 && !PRODUCT_MATCH_STOPWORDS.has(t));
+}
+
+/** Find the Content Library product whose name is "guaranteed" to describe the
+ *  given target copy: EVERY significant token of the library name must appear in
+ *  the target's tokens (so "Posterior Crowns" matches a product literally named
+ *  "Posterior Crowns" but never the generic "Crowns & Bridges"). When several
+ *  library names qualify, the most specific one (most matched tokens) wins.
+ *  Returns the library image URL, or null when nothing matches confidently or
+ *  the matched row has no image. */
+function bestLibraryImageFor(
+  target: string,
+  candidates: ProductLibraryItem[],
+): string | null {
+  const targetTokens = new Set(productMatchTokens(target));
+  if (targetTokens.size === 0) return null;
+  let best: ProductLibraryItem | null = null;
+  let bestScore = 0;
+  for (const cand of candidates) {
+    if (!cand.image) continue;
+    const libTokens = productMatchTokens(cand.name);
+    if (libTokens.length === 0) continue;
+    if (!libTokens.every((t) => targetTokens.has(t))) continue;
+    if (libTokens.length > bestScore) {
+      best = cand;
+      bestScore = libTokens.length;
+    }
+  }
+  return best ? best.image : null;
+}
+
+/** Always-on guard that sources product imagery straight from the tenant's
+ *  Content Library so a generated page shows the REAL product lines and their
+ *  curated images instead of random AI/stock imagery filled in from the shared
+ *  media pool. Runs AFTER the image-fill pipeline so the library image is the
+ *  final value. No-op for any block whose product can't be resolved against an
+ *  approved library row (the block keeps whatever the AI/template produced).
+ *
+ *  Covers four block types with two strategies:
+ *  - `product-grid` / `product-showcase`: REPLACE the whole list with the
+ *    tenant's library rows (each row = one product line + image). Library
+ *    `content` field names map 1:1 onto the renderer props: `product_grid` →
+ *    items[]{image,title,description}; `product_showcase` →
+ *    cards[]{name,description,badge,image}.
+ *  - `dandy-product-hero` (single product image) / `dso-products-grid` (one
+ *    image per product): MATCH by name — keep the AI copy and only swap in the
+ *    guaranteed-correct library image when the block/product name confidently
+ *    matches a library product line. */
 export async function enforceProductLibraryBlocks(
   blocks: unknown,
   tenantId: number | null,
@@ -3494,43 +3550,94 @@ export async function enforceProductLibraryBlocks(
   if (!Array.isArray(blocks)) return;
   const isBlock = (b: unknown): b is { type?: string; props?: Record<string, unknown> } =>
     !!b && typeof b === "object";
-  const gridTargets = blocks.filter(
-    (b): b is { type?: string; props?: Record<string, unknown> } =>
-      isBlock(b) && b.type === PRODUCT_GRID_BLOCK_TYPE,
-  );
-  const showcaseTargets = blocks.filter(
-    (b): b is { type?: string; props?: Record<string, unknown> } =>
-      isBlock(b) && b.type === PRODUCT_SHOWCASE_BLOCK_TYPE,
-  );
-  if (gridTargets.length === 0 && showcaseTargets.length === 0) return;
+  const targetsOfType = (type: string) =>
+    blocks.filter(
+      (b): b is { type?: string; props?: Record<string, unknown> } =>
+        isBlock(b) && b.type === type,
+    );
+  const gridTargets = targetsOfType(PRODUCT_GRID_BLOCK_TYPE);
+  const showcaseTargets = targetsOfType(PRODUCT_SHOWCASE_BLOCK_TYPE);
+  const heroTargets = targetsOfType(DANDY_PRODUCT_HERO_BLOCK_TYPE);
+  const productsGridTargets = targetsOfType(DSO_PRODUCTS_GRID_BLOCK_TYPE);
+  if (
+    gridTargets.length === 0 &&
+    showcaseTargets.length === 0 &&
+    heroTargets.length === 0 &&
+    productsGridTargets.length === 0
+  ) {
+    return;
+  }
 
-  if (gridTargets.length > 0) {
-    const items = await fetchProductLibraryItems(tenantId, "product_grid");
-    if (items.length > 0) {
-      const capped = items.slice(0, 12);
-      for (const b of gridTargets) {
-        if (!b.props || typeof b.props !== "object") b.props = {};
-        b.props.items = capped.map((p) => ({
-          image: p.image,
-          title: p.title,
-          description: p.description,
-        }));
-      }
+  // Name-matching (hero + dso-products-grid) draws from BOTH library types so a
+  // product line stored under either section can supply its image.
+  const needMatchPool = heroTargets.length > 0 || productsGridTargets.length > 0;
+  const gridItems =
+    gridTargets.length > 0 || needMatchPool
+      ? await fetchProductLibraryItems(tenantId, "product_grid")
+      : [];
+  const showcaseItems =
+    showcaseTargets.length > 0 || needMatchPool
+      ? await fetchProductLibraryItems(tenantId, "product_showcase")
+      : [];
+
+  if (gridTargets.length > 0 && gridItems.length > 0) {
+    const capped = gridItems.slice(0, 12);
+    for (const b of gridTargets) {
+      if (!b.props || typeof b.props !== "object") b.props = {};
+      b.props.items = capped.map((p) => ({
+        image: p.image,
+        title: p.title,
+        description: p.description,
+      }));
     }
   }
 
-  if (showcaseTargets.length > 0) {
-    const cards = await fetchProductLibraryItems(tenantId, "product_showcase");
-    if (cards.length > 0) {
-      const capped = cards.slice(0, 12);
-      for (const b of showcaseTargets) {
-        if (!b.props || typeof b.props !== "object") b.props = {};
-        b.props.cards = capped.map((p) => ({
-          name: p.name,
-          description: p.description,
-          badge: p.badge,
-          image: p.image,
-        }));
+  if (showcaseTargets.length > 0 && showcaseItems.length > 0) {
+    const capped = showcaseItems.slice(0, 12);
+    for (const b of showcaseTargets) {
+      if (!b.props || typeof b.props !== "object") b.props = {};
+      b.props.cards = capped.map((p) => ({
+        name: p.name,
+        description: p.description,
+        badge: p.badge,
+        image: p.image,
+      }));
+    }
+  }
+
+  if (needMatchPool) {
+    const matchPool = [...gridItems, ...showcaseItems].filter((p) => p.image);
+    if (matchPool.length > 0) {
+      // dandy-product-hero: one product, one image. Match the hero copy
+      // (headline + eyebrow + subheadline) to the library product it describes.
+      for (const b of heroTargets) {
+        if (!b.props || typeof b.props !== "object") continue;
+        const props = b.props;
+        const copy = [props.headline, props.eyebrow, props.subheadline]
+          .filter((v): v is string => typeof v === "string")
+          .join(" ");
+        const img = bestLibraryImageFor(copy, matchPool);
+        if (img) {
+          props.imageUrl = img;
+          if (typeof props.imageAlt !== "string" || props.imageAlt.trim() === "") {
+            props.imageAlt = copy.trim() || "Product image";
+          }
+        }
+      }
+
+      // dso-products-grid: one image per product. Match each product's name and
+      // set its imageUrl; products with no confident match keep their fallback.
+      for (const b of productsGridTargets) {
+        if (!b.props || typeof b.props !== "object") continue;
+        const products = (b.props as Record<string, unknown>).products;
+        if (!Array.isArray(products)) continue;
+        for (const product of products) {
+          if (!product || typeof product !== "object") continue;
+          const p = product as Record<string, unknown>;
+          const name = typeof p.name === "string" ? p.name : "";
+          const img = bestLibraryImageFor(name, matchPool);
+          if (img) p.imageUrl = img;
+        }
       }
     }
   }
