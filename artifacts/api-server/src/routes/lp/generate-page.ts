@@ -808,7 +808,12 @@ const SKIP_TAGS = new Set(["untitled folder", "web res", "high res", "abstract",
 // the scored pool and `sanitizeAIImageUrls` clears any team-photo URL the model
 // assigns. The "Meet the Team" block populates from saved team_member rows (via
 // reconcileTeamMemberPhotos), not this catalog, so the headshots still render.
-const EXCLUDE_TAGS = new Set(["og-image", "og", "social", "open-graph", "text-based", "call to action", "advertisement", "ad creative", "homepage-screenshot", "team-photo"]);
+// `logo` is reserved the same way: a brand mark must never be auto-filled into a
+// hero/feature/product-detail slot (it reads as a floating mark, and a logo
+// mistagged with a subject term — e.g. a "...Dentures...Logo" tagged
+// product-detail+dentures — would otherwise win a product card). Brand logos are
+// placed via the BrandLogo component / brand logoUrl, not this catalog.
+const EXCLUDE_TAGS = new Set(["og-image", "og", "social", "open-graph", "text-based", "call to action", "advertisement", "ad creative", "homepage-screenshot", "team-photo", "logo"]);
 
 /** Relevance scoring weights — kept as named constants so the validation
  *  threshold (CLEAR_GAP, below) can be derived from them and stays meaningful
