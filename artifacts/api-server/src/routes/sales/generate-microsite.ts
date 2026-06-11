@@ -1251,6 +1251,33 @@ export function segmentPoolAllowedSet(poolTypes: string[]): ReadonlySet<string> 
   return set;
 }
 
+/** Last-resort fallback layout for segment-pool mode (task #5). When the model
+ *  emits ZERO usable pool blocks we must still ship a non-blank page, but it
+ *  must stay strictly pool-contained — the generic NEUTRAL list would leak
+ *  off-pool blocks (trust-bar/benefits-grid/testimonial/…) and break the
+ *  pool-only contract. So we frame the approved body pool with the structural
+ *  essentials: a hero opens, the approved blocks fill the body, a CTA + footer
+ *  close. Canonicalized + deduped; hero/cta/footer always present. */
+export function segmentPoolFallbackBlockList(poolTypes: string[]): string[] {
+  const canonPool = poolTypes
+    .map((t) => canonicalizeBlockType(t))
+    .filter((t): t is string => !!t);
+  const structural = new Set(SEGMENT_POOL_STRUCTURAL_TYPES.map((t) => canonicalizeBlockType(t)));
+  const body: string[] = [];
+  const seen = new Set<string>();
+  for (const t of canonPool) {
+    if (structural.has(t) || seen.has(t)) continue;
+    seen.add(t);
+    body.push(t);
+  }
+  return [
+    canonicalizeBlockType("hero"),
+    ...body,
+    canonicalizeBlockType("bottom-cta"),
+    canonicalizeBlockType("footer"),
+  ];
+}
+
 // The documented block-source precedence for a microsite (task #5). A pure
 // decision so it is unit-testable in isolation and the route + tests can never
 // drift. Highest priority first:
@@ -2510,10 +2537,13 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       } else {
         logger.warn(
           { accountId, tenantId },
-          "generate-microsite: segment-pool output had no usable blocks; falling back to NEUTRAL layout",
+          "generate-microsite: segment-pool output had no usable blocks; falling back to pool-contained layout",
         );
-        normalizedBlocks = NEUTRAL_MICROSITE_BLOCK_LIST.map((entry, i) =>
-          normalizeBlock({ type: entry.type, props: {} } as AiBlock, i, fallbackBrand),
+        // Stay strictly pool-contained even in the degenerate fallback — the
+        // generic NEUTRAL list would leak off-pool blocks and break the
+        // pool-only contract (task #5).
+        normalizedBlocks = segmentPoolFallbackBlockList(segmentApprovedTypes).map((type, i) =>
+          normalizeBlock({ type, props: {} } as AiBlock, i, fallbackBrand),
         );
       }
     } else if (useFreeform) {
@@ -2580,6 +2610,13 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
           ctaOverride?.url ??
           (brand.chilipiperUrl as string | undefined) ??
           (brand.defaultCtaUrl as string | undefined),
+        // Segment-pool mode (task #5) — restrict required-role backfill to the
+        // approved pool ∪ structural essentials so it can never reintroduce an
+        // off-pool block (benefits-grid/testimonial/trust-bar) after the clamp.
+        // Other modes keep the legacy "backfill every missing role" behavior.
+        allowedTypes: usePoolFreeform
+          ? segmentPoolAllowedSet(segmentApprovedTypes)
+          : undefined,
       });
     }
 

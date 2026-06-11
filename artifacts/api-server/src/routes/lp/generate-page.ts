@@ -4501,6 +4501,14 @@ export function enforceRequiredRoles(
     dbTagsByType?: Map<string, unknown>;
     brandName?: string;
     ctaUrl?: string;
+    // Segment-pool generation (task #5) — when supplied, a default role block is
+    // injected ONLY if its block type is in this allow-set. This keeps the
+    // pool-mode contract intact: required-role backfill can never reintroduce an
+    // off-pool block (e.g. benefits-grid/testimonial/trust-bar) after the
+    // post-parse pool clamp. The pool's structural essentials (hero/bottom-cta/
+    // footer) are always in this set, so they are still backfilled. Omit it to
+    // keep the legacy behavior (every missing role is backfilled).
+    allowedTypes?: ReadonlySet<string>;
   } = {},
 ): Array<Record<string, unknown>> {
   if (!Array.isArray(blocks) || blocks.length === 0) return blocks;
@@ -4508,6 +4516,13 @@ export function enforceRequiredRoles(
   const ctx = {
     brandName: (opts.brandName ?? "").trim(),
     ctaUrl: opts.ctaUrl?.trim() || "#",
+  };
+  // A default-role block may only be injected when its type is permitted. With
+  // no allow-set, everything is permitted (legacy behavior).
+  const typeAllowed = (block: Record<string, unknown> | null): boolean => {
+    if (!block) return false;
+    if (!opts.allowedTypes) return true;
+    return opts.allowedTypes.has(String(block.type ?? ""));
   };
 
   const rolesOf = (block: Record<string, unknown> | undefined): BlockRoleTag[] => {
@@ -4533,34 +4548,34 @@ export function enforceRequiredRoles(
   for (const role of ["features", "social-proof", "stats"] as const) {
     if (!missing.includes(role)) continue;
     const block = buildDefaultRoleBlock(role, ctx);
-    if (!block) continue;
+    if (!typeAllowed(block)) continue;
     const footerIdx = firstIndexWithRole("footer");
     const ctaIdx = firstIndexWithRole("cta");
     const anchor = footerIdx !== -1 ? footerIdx : ctaIdx !== -1 ? ctaIdx : blocks.length;
-    blocks.splice(anchor, 0, block);
+    blocks.splice(anchor, 0, block!);
   }
 
   // Closing CTA before any footer.
   if (missing.includes("cta")) {
     const block = buildDefaultRoleBlock("cta", ctx);
-    if (block) {
+    if (typeAllowed(block)) {
       const footerIdx = firstIndexWithRole("footer");
-      blocks.splice(footerIdx !== -1 ? footerIdx : blocks.length, 0, block);
+      blocks.splice(footerIdx !== -1 ? footerIdx : blocks.length, 0, block!);
     }
   }
 
   // Footer last.
   if (missing.includes("footer")) {
     const block = buildDefaultRoleBlock("footer", ctx);
-    if (block) blocks.push(block);
+    if (typeAllowed(block)) blocks.push(block!);
   }
 
   // Hero first, after any leading header block.
   if (missing.includes("hero")) {
     const block = buildDefaultRoleBlock("hero", ctx);
-    if (block) {
+    if (typeAllowed(block)) {
       const leadingHeader = rolesOf(blocks[0]).includes("header");
-      blocks.splice(leadingHeader ? 1 : 0, 0, block);
+      blocks.splice(leadingHeader ? 1 : 0, 0, block!);
     }
   }
 
