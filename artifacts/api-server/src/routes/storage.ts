@@ -887,7 +887,19 @@ router.get("/lp/media/images", async (req: Request, res: Response) => {
       libraryReadablePredicate(scope.ownedTenantIds),
       eq(lpMediaTable.mediaType, "image"),
     ];
-    if (q) conditions.push(ilike(lpMediaTable.title, `%${q}%`));
+    // Search matches the title OR any tag (case-insensitive substring). Most
+    // uploaded/scraped product images have hash-y or generic titles with the
+    // real subject living in `tags` (e.g. "crown", "veneers"), so a title-only
+    // search silently returned nothing for them.
+    if (q) {
+      const like = `%${q}%`;
+      conditions.push(
+        sql`(${lpMediaTable.title} ILIKE ${like} OR EXISTS (
+          SELECT 1 FROM jsonb_array_elements_text(COALESCE(${lpMediaTable.tags}, '[]'::jsonb)) AS qt(val)
+          WHERE qt.val ILIKE ${like}
+        ))`
+      );
+    }
     if (tag) conditions.push(sql`${lpMediaTable.tags}::jsonb @> ${JSON.stringify([tag])}::jsonb`);
     // excludeTag: hide images that have this tag (e.g. "og-image")
     if (excludeTag) conditions.push(sql`NOT (${lpMediaTable.tags}::jsonb @> ${JSON.stringify([excludeTag])}::jsonb)`);
