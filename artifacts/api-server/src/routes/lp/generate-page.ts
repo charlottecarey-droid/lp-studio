@@ -4610,7 +4610,7 @@ export function buildDsoSystemPrompt(opts: { isDandyTenant: boolean; brandName: 
   // forbid the relabel explicitly. Dandy-only (non-Dandy tenants don't use
   // either product name).
   const rule21 = isDandyTenant
-    ? `\n21. DANDY INSIGHTS vs AI SCAN REVIEW: These are two DISTINCT Dandy products with dedicated blocks. "Dandy Insights" is the analytics dashboard — represent it ONLY with "dso-insights-dashboard" or "dso-insights-video". "AI Scan Review" is the scan-QA feature — represent it ONLY with "dso-ai-feature", and keep that block's eyebrow/headline about AI Scan Review. NEVER rename, relabel, or repurpose a "dso-ai-feature" block as "Dandy Insights" (and vice versa). Choosing the wrong block or mislabeling it is a FAILURE.`
+    ? `\n21. DANDY INSIGHTS vs AI SCAN REVIEW: These are two DISTINCT Dandy products with dedicated blocks. "Dandy Insights" is the analytics dashboard — represent it ONLY with "dso-insights-dashboard" or "dso-insights-video". "AI Scan Review" is the scan-QA feature — represent it ONLY with "dso-ai-feature", and keep that block's eyebrow/headline about AI Scan Review. NEVER rename, relabel, or repurpose a "dso-ai-feature" block as "Dandy Insights" (and vice versa). Choosing the wrong block or mislabeling it is a FAILURE. MANDATORY WHEN REQUESTED: if the USER REQUEST mentions Dandy Insights (or asks for an analytics / network / multi-location dashboard or benchmarking), you MUST include a "dso-insights-dashboard" block — or "dso-insights-video" when it asks for a video / walkthrough. If the USER REQUEST mentions AI Scan Review (or AI scan QA / AI quality checks / AI review), you MUST include a "dso-ai-feature" block. Omitting a block the user explicitly asked for is a FAILURE.`
     : "";
 
   return `${intro}
@@ -4641,7 +4641,7 @@ RULES:
 2. The JSON must have: { "title": string, "slug": string, "blocks": [...] }
 3. Each block must have: { "id": string (unique, format "block-TYPE-INDEX"), "type": string, "props": {...} }
 4. Generate 6–10 blocks per page. Always start with "dso-heartland-hero" or "dso-scroll-story-hero", and always end with "dso-cta-capture" or "dso-final-cta".
-5. BLOCK SELECTION — choose the block mix that best fits THIS specific account, audience, and prompt (and any reference site provided). Do NOT emit the same block sequence for every page: deliberately vary which blocks you use and their order from account to account based on what the brief emphasizes (e.g. a data-heavy network → stat-showcase + network-map + comparison; a single flagship customer → case-study + scroll-story; a pilot push → pilot-steps + bento-outcomes). A loose flow that works is hero → problem/challenges → ai-feature or scroll-story → stat-showcase or bento-outcomes → case-flow or network-map → comparison → success-stories → pilot-steps → cta — but treat this as ONE option, never a fixed template you must follow.
+5. BLOCK SELECTION — choose the block mix that best fits THIS specific account, audience, and prompt (and any reference site provided). Do NOT emit the same block sequence for every page: deliberately vary which blocks you use and their order from account to account based on what the brief emphasizes (e.g. a data-heavy network → stat-showcase + network-map + comparison; a single flagship customer → case-study + scroll-story; a pilot push → pilot-steps + bento-outcomes). A loose flow that works is hero → problem/challenges → ai-feature or scroll-story → stat-showcase or bento-outcomes → case-flow or network-map → comparison → success-stories → pilot-steps → cta — but treat this as ONE option, never a fixed template you must follow. EXPLICIT REQUESTS OVERRIDE VARIETY: when the USER REQUEST names a specific block, section, feature, topic, or product (e.g. "Dandy Insights", "AI Scan Review", a comparison table, a pilot timeline, a customer story, a video), you MUST include the block that delivers it — varying the mix NEVER justifies dropping a block the user explicitly asked for. Honoring explicit requests outranks this entire BLOCK SELECTION rule.
 6. All copy must be enterprise B2B — specific, credible, and ROI-focused. Mention DSO scale, multi-location benefits, network-wide metrics. No lorem ipsum.
 ${rule7}
 8. The slug should be a URL-friendly version of the topic (lowercase, hyphens, no special chars).
@@ -4723,7 +4723,7 @@ RULES:
 2. The JSON must have: { "title": string, "slug": string, "blocks": [...] }
 3. Each block must have: { "id": string (unique, format "block-TYPE-INDEX"), "type": string, "props": {...} }
 4. Generate 6–9 blocks per page. Always start with "dso-practice-hero". Always end with "dso-meet-team" or "dso-promises".
-5. BLOCK SELECTION — choose the block mix that best fits THIS specific practice/audience and prompt (and any reference site provided). Do NOT emit the same block sequence for every page: deliberately vary which blocks you use and their order from page to page based on what the brief emphasizes (e.g. an onboarding story → activation-steps + promises; a product push → products-grid + split-feature; objection handling → faq + paradigm-shift). A loose flow that works is practice-hero → stat-row → paradigm-shift → products-grid OR split-feature → partnership-perks → activation-steps → faq → promises OR testimonials → meet-team — but treat this as ONE option, never a fixed template you must follow.
+5. BLOCK SELECTION — choose the block mix that best fits THIS specific practice/audience and prompt (and any reference site provided). Do NOT emit the same block sequence for every page: deliberately vary which blocks you use and their order from page to page based on what the brief emphasizes (e.g. an onboarding story → activation-steps + promises; a product push → products-grid + split-feature; objection handling → faq + paradigm-shift). A loose flow that works is practice-hero → stat-row → paradigm-shift → products-grid OR split-feature → partnership-perks → activation-steps → faq → promises OR testimonials → meet-team — but treat this as ONE option, never a fixed template you must follow. EXPLICIT REQUESTS OVERRIDE VARIETY: when the USER REQUEST names a specific block, section, feature, or topic (e.g. a products grid, an FAQ, an onboarding/activation flow, partnership perks, the team), you MUST include the block that delivers it — varying the mix NEVER justifies dropping a block the user explicitly asked for. Honoring explicit requests outranks this entire BLOCK SELECTION rule.
 6. All copy must be practice-level B2B — warm, credible, specific. Mention chair-time savings, scanner support, fit rate, dedicated reps, onboarding speed.
 ${rule7}
 8. The slug should be a URL-friendly version of the topic (lowercase, hyphens, no special chars).
@@ -4732,6 +4732,165 @@ ${rule9}
 11. For backgroundStyle, alternate between "dark" and "white"/"muted" to create visual rhythm. Always set backgroundStyle "dark" for the hero, team, and promises sections.
 12. NEVER SHIP AN EMPTY PARADIGM SHIFT: When you use "dso-paradigm-shift", oldWayItems and newWayItems MUST each contain 4–5 fully written strings (6–12 words each), and the items must pair 1:1 (oldWayItems[i] is the pain that newWayItems[i] solves). Empty arrays, fewer than 4 items, or 1–3 word stubs ("Slow", "Manual", "Better", "Fast") are a FAILURE — the block renders empty columns. If you cannot write 4 substantive paired items for the segment, do NOT use this block; pick a different block instead. Mirror the verbosity of the EXAMPLE shown in the dso-paradigm-shift schema above.
 13. TEAM MEMBERS = REAL PEOPLE ONLY: When you use "dso-meet-team", populate the members array ONLY from the TEAM MEMBERS section of this brief — copy each real person's name, role, email, and Photo URL VERBATIM into that member's name/role/email/photo. NEVER invent a person (name, role, or email) and NEVER place any other library image — a group, lifestyle, or dinner photo — into a member's photo slot. If the TEAM MEMBERS section says "(none)", leave members as placeholders rather than fabricating people; the system will render neutral placeholder cards.`;
+}
+
+// Default block builders for the requested-block safety net below. These are
+// Dandy product surfaces (the caller gates on the Dandy tenant), so the copy
+// names real Dandy products. Image-bearing blocks leave imageUrl "" for the
+// downstream image-fill pass; the dashboard renders a built-in simulated UI.
+function makeRequestedAiFeatureBlock(id: string): Record<string, unknown> {
+  return {
+    id,
+    type: "dso-ai-feature",
+    props: {
+      eyebrow: "AI Scan Review",
+      headline: "Catch scan issues before they cost you a remake",
+      body: "AI Scan Review checks every scan for margin errors, gaps, and missing detail the moment it's submitted — so problems get flagged up front instead of surfacing as remakes after delivery.",
+      bullets: [
+        "Automated margin, prep, and clearance checks on every scan",
+        "Real-time feedback to the operatory before the case ships",
+        "Fewer remakes and faster first-time-right turnaround",
+        "Consistent scan quality across every location in your network",
+      ],
+      stats: [
+        { value: "96%", label: "First-time fit rate" },
+        { value: "35%", label: "Fewer remakes" },
+      ],
+      imageUrl: "",
+      backgroundStyle: "dandy-green",
+      ctaText: "Schedule a demo",
+      ctaUrl: "#",
+      ctaMode: "link",
+    },
+  };
+}
+
+function makeRequestedInsightsDashboardBlock(id: string): Record<string, unknown> {
+  return {
+    id,
+    type: "dso-insights-dashboard",
+    props: {
+      eyebrow: "Dandy Insights",
+      headline: "Every location's performance in one dashboard",
+      subheadline: "Track turnaround, fit rate, remakes, and case volume across every practice in your network — benchmark sites against each other and spot issues before they spread.",
+      practiceLabel: "Network overview",
+      backgroundStyle: "dandy-green",
+      dashboardVariant: "dark",
+      browserUrl: "insights/dashboard",
+      dashboardImage: "",
+    },
+  };
+}
+
+function makeRequestedInsightsVideoBlock(id: string): Record<string, unknown> {
+  return {
+    id,
+    type: "dso-insights-video",
+    props: {
+      eyebrow: "Dandy Insights",
+      title: "See Dandy Insights in action",
+      subtitle: "A guided walkthrough of your network analytics",
+      description: "Watch how Dandy Insights brings turnaround, fit rate, remakes, and case volume from every location into a single live view — so your ops team can benchmark practices and act on what's slipping.",
+      callouts: [
+        { label: "Network-wide visibility", desc: "Every location's metrics in one place, updated in real time." },
+        { label: "Benchmark practices", desc: "Compare sites side by side and surface outliers fast." },
+        { label: "Act before issues spread", desc: "Catch turnaround and quality dips early across the network." },
+      ],
+      quote: "",
+      quoteAttribution: "",
+      ctaLabel: "Schedule a demo",
+      ctaUrl: "#",
+      ctaMode: "link",
+      backgroundStyle: "dandy-green",
+      imageUrl: "",
+      videoUrl: "",
+    },
+  };
+}
+
+/**
+ * Deterministic safety net for explicit block requests (Dandy enterprise DSO
+ * path only — the caller gates on `isDandyTenant && useDso`).
+ *
+ * The DSO system prompt now tells the model that explicit requests are mandatory
+ * (RULE 5 + rule21), but model compliance is not guaranteed — historically the
+ * model drops these specialized topical blocks even when asked. This pass
+ * guarantees the named Dandy product blocks the user explicitly requested are
+ * present, mirroring rule21's topic→block mapping:
+ *   - "Dandy Insights" / analytics dashboard / benchmarking → "dso-insights-dashboard"
+ *     (or "dso-insights-video" when a video / walkthrough is requested)
+ *   - "AI Scan Review" / AI scan QA / AI quality checks → "dso-ai-feature"
+ *
+ * Detection is intentionally conservative — it keys on specific product phrasing
+ * (not a bare "ai" or "insights" substring that could appear incidentally) so we
+ * never inject a block the user did not actually ask for. When a requested block
+ * is already present (any of the insights variants count for the insights ask),
+ * nothing is added. Injected blocks carry sensible Dandy defaults and leave image
+ * slots empty for the downstream image-fill pass, and are inserted just before
+ * the page's closing CTA block(s) so the hero stays first and the CTA stays last.
+ */
+export function enforceRequestedDandyDsoBlocks(
+  blocks: unknown[],
+  prompt: string,
+): unknown[] {
+  if (!Array.isArray(blocks) || blocks.length === 0) return blocks;
+  const lower = (prompt ?? "").toLowerCase();
+  if (!lower.trim()) return blocks;
+
+  const typeOf = (b: unknown): string | undefined =>
+    b && typeof b === "object" && typeof (b as { type?: unknown }).type === "string"
+      ? ((b as { type: string }).type)
+      : undefined;
+  const present = new Set(blocks.map(typeOf).filter((t): t is string => !!t));
+
+  const wantsAiScanReview =
+    /\bai[\s-]*scan[\s-]*review\b/.test(lower) ||
+    /\bscan[\s-]*review\b/.test(lower) ||
+    /\bai[\s-]*scan\b/.test(lower) ||
+    /\bscan[\s-]*qa\b/.test(lower) ||
+    (/\bai\b/.test(lower) && /\b(scan|qa|quality\s*check|quality\s*control|review)\b/.test(lower));
+
+  // Require explicit product-intent phrasing — never a bare "insights" or
+  // "benchmark" substring, which appear incidentally ("insights from the data",
+  // "benchmark competitors") without referring to the Dandy Insights product.
+  const wantsInsights =
+    /\bdandy\s+insights\b/.test(lower) ||
+    /\binsights\s+dashboard\b/.test(lower) ||
+    /\banalytics\s+dashboard\b/.test(lower) ||
+    /\bnetwork\s+(analytics|dashboard|insights)\b/.test(lower) ||
+    /\bmulti-?location\s+dashboard\b/.test(lower);
+  const wantsInsightsVideo =
+    wantsInsights && /\b(video|walkthrough|walk-through)\b/.test(lower);
+
+  const additions: Record<string, unknown>[] = [];
+  if (wantsAiScanReview && !present.has("dso-ai-feature")) {
+    additions.push(makeRequestedAiFeatureBlock("block-dso-ai-feature-req"));
+  }
+  if (
+    wantsInsights &&
+    !present.has("dso-insights-dashboard") &&
+    !present.has("dso-insights-video")
+  ) {
+    additions.push(
+      wantsInsightsVideo
+        ? makeRequestedInsightsVideoBlock("block-dso-insights-video-req")
+        : makeRequestedInsightsDashboardBlock("block-dso-insights-dashboard-req"),
+    );
+  }
+  if (additions.length === 0) return blocks;
+
+  // Insert before the trailing run of closing CTA blocks (keep hero first / CTA
+  // last). Falls back to appending when no closing block is present.
+  const CLOSING = new Set(["dso-cta-capture", "dso-final-cta"]);
+  const out = [...blocks];
+  let insertAt = out.length;
+  for (let i = out.length - 1; i >= 0; i--) {
+    const t = typeOf(out[i]);
+    if (t && CLOSING.has(t)) insertAt = i;
+    else break;
+  }
+  out.splice(insertAt, 0, ...additions);
+  return out;
 }
 
 interface SegmentStat { value: string; label: string; approvedForAi?: boolean; linkProofPointId?: number }
@@ -6230,6 +6389,9 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       : "";
   userPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
   userPromptParts.push(
+    "REQUESTED SECTIONS ARE MANDATORY: If the USER REQUEST above explicitly asks for a specific block, section, feature, topic, or product, you MUST include a block that delivers it — even when your default block selection, the \"vary the mix\" guidance, or the brand-fit selection guidance would otherwise omit it. Explicit user requests outrank variety and selection guidance. Name and use the exact block type that matches the request.",
+  );
+  userPromptParts.push(
     useDsoPractices
       ? `Generate a complete DSO Practices landing page using DSO Practices block types.${approvedExtrasClause} Make the copy practice-level B2B — warm, specific, and focused on chair-time savings, clinical quality, onboarding support, and per-practice ROI. Targeted at dentists, office managers, and practice owners within a DSO network.`
       : useDso
@@ -6532,6 +6694,20 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
 
       return b;
     });
+
+    // Deterministic safety net: when the user explicitly asks for a named Dandy
+    // product surface (Dandy Insights / AI Scan Review) the model is told it is
+    // mandatory (RULE 5 + rule21), but compliance is not guaranteed — it has been
+    // dropping these specialized topical blocks. Guarantee the requested block is
+    // present BEFORE the image-fill pass so an injected dso-ai-feature /
+    // dso-insights-video gets an image. Scoped to the Dandy enterprise DSO path
+    // (these blocks are only advertised + relevant there).
+    if (isDandyTenant && useDso) {
+      parsed.blocks = enforceRequestedDandyDsoBlocks(
+        parsed.blocks as unknown[],
+        prompt,
+      ) as typeof parsed.blocks;
+    }
 
     // Task #1173 — bake the brand accent + logo onto a generated content-series
     // page (see applyContentSeriesBranding for the rationale).
