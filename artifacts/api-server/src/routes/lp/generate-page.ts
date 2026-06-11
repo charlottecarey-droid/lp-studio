@@ -3428,6 +3428,114 @@ export async function enforceDsoSuccessStoriesApproved(
   for (const b of targets) enforceApprovedCaseStudies(b, ranked, { strict: opts.strict === true });
 }
 
+/** A tenant's curated product line from the Content Library ("Product Grid" /
+ *  "Product Showcase" tabs). Each row carries the product's own image, so these
+ *  are the source of truth for the matching page blocks. */
+interface ProductLibraryItem {
+  name: string;
+  title: string;
+  description: string;
+  badge: string;
+  image: string;
+}
+
+/** Fetch the tenant's product-line rows from `lp_library_items` for one of the
+ *  two product types. Mirrors `fetchApprovedCaseStudies`: tenant-scoped, ordered
+ *  by the tenant's saved order, and excludes rows explicitly un-approved for AI
+ *  (`approved_for_ai IS NOT FALSE` — the column is NOT NULL/default-true, so this
+ *  keeps every approved row and is a defensive guard against any NULL).
+ *  Reads both `name`/`title` so a `product_grid` row (content.title) and a
+ *  `product_showcase` row (content.name) both resolve a heading. */
+export async function fetchProductLibraryItems(
+  tenantId: number | null,
+  type: "product_grid" | "product_showcase",
+): Promise<ProductLibraryItem[]> {
+  if (tenantId == null) return [];
+  try {
+    const rows = await db.execute(
+      sql`SELECT name, content FROM lp_library_items
+          WHERE tenant_id = ${tenantId} AND type = ${type} AND approved_for_ai IS NOT FALSE
+          ORDER BY sort_order ASC, id ASC LIMIT 24`,
+    );
+    const str = (v: unknown): string => (typeof v === "string" ? v : v == null ? "" : String(v));
+    return (rows.rows as Array<{ name: string; content: Record<string, unknown> }>)
+      .map((r) => {
+        const c = (r.content ?? {}) as Record<string, unknown>;
+        return {
+          name: str(c.name) || r.name,
+          title: str(c.title) || r.name,
+          description: str(c.description),
+          badge: str(c.badge),
+          image: str(c.image),
+        };
+      })
+      .filter((p) => p.title || p.name || p.image);
+  } catch {
+    return [];
+  }
+}
+
+const PRODUCT_GRID_BLOCK_TYPE = "product-grid";
+const PRODUCT_SHOWCASE_BLOCK_TYPE = "product-showcase";
+
+/** Always-on guard for the `product-grid` and `product-showcase` blocks:
+ *  populate them straight from the tenant's Content Library product rows so the
+ *  generated page shows the REAL product lines and their curated images instead
+ *  of random AI/stock imagery filled in from the shared media pool. Runs AFTER
+ *  the image-fill pipeline, so the library image is the final value for each
+ *  card. No-op for a block type that has no approved library rows (the block
+ *  keeps whatever the AI/template produced). The library `content` field names
+ *  map 1:1 onto the renderer props: `product_grid` → items[]{image,title,
+ *  description}; `product_showcase` → cards[]{name,description,badge,image}. */
+export async function enforceProductLibraryBlocks(
+  blocks: unknown,
+  tenantId: number | null,
+): Promise<void> {
+  if (!Array.isArray(blocks)) return;
+  const isBlock = (b: unknown): b is { type?: string; props?: Record<string, unknown> } =>
+    !!b && typeof b === "object";
+  const gridTargets = blocks.filter(
+    (b): b is { type?: string; props?: Record<string, unknown> } =>
+      isBlock(b) && b.type === PRODUCT_GRID_BLOCK_TYPE,
+  );
+  const showcaseTargets = blocks.filter(
+    (b): b is { type?: string; props?: Record<string, unknown> } =>
+      isBlock(b) && b.type === PRODUCT_SHOWCASE_BLOCK_TYPE,
+  );
+  if (gridTargets.length === 0 && showcaseTargets.length === 0) return;
+
+  if (gridTargets.length > 0) {
+    const items = await fetchProductLibraryItems(tenantId, "product_grid");
+    if (items.length > 0) {
+      const capped = items.slice(0, 12);
+      for (const b of gridTargets) {
+        if (!b.props || typeof b.props !== "object") b.props = {};
+        b.props.items = capped.map((p) => ({
+          image: p.image,
+          title: p.title,
+          description: p.description,
+        }));
+      }
+    }
+  }
+
+  if (showcaseTargets.length > 0) {
+    const cards = await fetchProductLibraryItems(tenantId, "product_showcase");
+    if (cards.length > 0) {
+      const capped = cards.slice(0, 12);
+      for (const b of showcaseTargets) {
+        if (!b.props || typeof b.props !== "object") b.props = {};
+        b.props.cards = capped.map((p) => ({
+          name: p.name,
+          description: p.description,
+          badge: p.badge,
+          image: p.image,
+        }));
+      }
+    }
+  }
+}
+
 /**
  * Strip inline `color:` declarations (and the now-empty `<span style="">`
  * wrappers they leave behind) from any AI-generated text. The model has a
@@ -5681,6 +5789,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         });
       }
 
+      // Populate product-grid / product-showcase blocks from the tenant's
+      // Content Library product rows (the real product lines + their curated
+      // images), overriding the random media-pool images the fill pipeline
+      // would otherwise leave on these blocks. Runs in all modes — the library
+      // is the source of truth for the tenant's own products.
+      await enforceProductLibraryBlocks(mergedBlocks, tenantId);
+
       // Task #1136 — ensure every generated dso-case-study carries explicit
       // values so the React component never falls back to its hardcoded DCA
       // demo constants. Runs in all cases (AI values are kept; only missing
@@ -6859,6 +6974,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         segment: segmentContext?.name ?? "",
       });
     }
+
+    // Populate product-grid / product-showcase blocks from the tenant's Content
+    // Library product rows (the real product lines + their curated images),
+    // overriding the random media-pool images the fill pipeline would otherwise
+    // leave on these blocks. Runs in all modes — the library is the source of
+    // truth for the tenant's own products.
+    await enforceProductLibraryBlocks(parsed.blocks, tenantId);
 
     // Task #1136 — ensure every generated dso-case-study carries explicit values
     // so the React component never falls back to its hardcoded DCA demo
