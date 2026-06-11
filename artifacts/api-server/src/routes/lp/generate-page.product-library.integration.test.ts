@@ -268,8 +268,65 @@ describe("enforceProductLibraryBlocks", () => {
     // Brand card image overrides the AI/stock image on the matched product.
     expect(items[0].image).toBe("https://brand/crowns-card.jpg");
     expect(items[0].title).toBe("Same-day Crowns");
-    // Unmatched product keeps its existing image (no library leak).
+    // "Veneers" matches neither a brand image nor a library row → existing kept.
     expect(items[1].image).toBe("https://random/other.jpg");
+  });
+
+  it("product-grid per-item precedence: brand cardImage > library image > existing", async () => {
+    // Mixed config: the brand supplies a card image for Crowns only. Aligners has
+    // no brand image but HAS a library row → it must fall back to the library
+    // image (not keep the random AI photo). Veneers has neither → keep existing.
+    const blocks = [
+      {
+        id: "pg-mixed",
+        type: "product-grid",
+        props: {
+          headline: "Our products",
+          columns: 3,
+          items: [
+            { image: "https://random/1.jpg", title: "Same-day Crowns", description: "AI" },
+            { image: "https://random/2.jpg", title: "Clear Aligners", description: "AI" },
+            { image: "https://random/3.jpg", title: "Veneers", description: "AI" },
+          ],
+        },
+      },
+    ];
+    await enforceProductLibraryBlocks(blocks, tenantId, [
+      brandLine("Crowns", { cardImage: "https://brand/crowns-card.jpg" }),
+    ]);
+    const items = (blocks[0].props as { items: Array<Record<string, string>> }).items;
+    expect(items).toHaveLength(3);
+    expect(items[0].image).toBe("https://brand/crowns-card.jpg"); // brand wins
+    expect(items[1].image).toBe("https://lib/aligners.jpg"); // library fallback
+    expect(items[2].image).toBe("https://random/3.jpg"); // existing kept
+  });
+
+  it("product-showcase per-item precedence: brand cardImage > library image > existing", async () => {
+    // The brand supplies a card image for Implants only. Crowns falls back to its
+    // library row; Veneers (no brand, no library) keeps its existing image.
+    const blocks = [
+      {
+        id: "ps-mixed",
+        type: "product-showcase",
+        props: {
+          headline: "Showcase",
+          columns: 3,
+          cards: [
+            { name: "Implants", description: "AI", badge: "", image: "https://random/a.jpg" },
+            { name: "Crowns", description: "AI", badge: "", image: "https://random/b.jpg" },
+            { name: "Veneers", description: "AI", badge: "", image: "https://random/c.jpg" },
+          ],
+        },
+      },
+    ];
+    await enforceProductLibraryBlocks(blocks, tenantId, [
+      brandLine("Implants", { cardImage: "https://brand/implants-card.jpg" }),
+    ]);
+    const cards = (blocks[0].props as { cards: Array<Record<string, string>> }).cards;
+    expect(cards).toHaveLength(3);
+    expect(cards[0].image).toBe("https://brand/implants-card.jpg"); // brand wins
+    expect(cards[1].image).toBe("https://lib/crowns.jpg"); // library fallback
+    expect(cards[2].image).toBe("https://random/c.jpg"); // existing kept
   });
 
   it("brand card images override product-showcase cards while preserving AI copy", async () => {

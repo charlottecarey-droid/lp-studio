@@ -61,12 +61,16 @@ shared pool), so the generic image-fill can ALSO place them on other blocks
 `generate-page.ts`) carries optional `cardImage` / `heroImage` / `contentImages[]`.
 `enforceProductLibraryBlocks(blocks, tenantId, brandProductLines?)` takes the brand
 lines as a 3rd arg (both callsites pass `brand.productLines`).
-- Brand pools are built first and the library is the FALLBACK. For
-  `product-grid`/`product-showcase`, when ANY brand `cardImage` exists, KEEP the AI
-  items and only swap the matched brand card image per item (no library
-  wipe-replace); only when no brand card images exist does the legacy
-  wipe-and-replace run. Hero + dso-products-grid prepend brand pools to the library
-  pool.
+- Precedence is **PER ITEM**: brand image > Content Library image > the item's
+  existing image. For `product-grid`/`product-showcase`, when ANY brand `cardImage`
+  exists, KEEP the AI items (no wipe-replace) and resolve each item's image as
+  `bestLibraryImageFor(copy, brandCardPool) ?? bestLibraryImageFor(copy, libraryMatchPool)`
+  — so a product WITHOUT a brand image still falls back to its library row instead
+  of keeping a random AI photo (a regression caught in review — global brand-mode
+  that skipped the library fallback is WRONG). Only when NO brand card images exist
+  does the legacy whole-list wipe-and-replace run. Hero + dso-products-grid prepend
+  brand pools to the library pool. Fetch BOTH library types whenever any product
+  block is present (`needAnyLibrary`) so the per-item fallback pool is complete.
 - **Brand-wins-on-tie depends on `bestLibraryImageFor` using `>` (not `>=`)**: at
   equal token specificity the FIRST-seen candidate is kept, so putting the brand
   pool first makes brand win ties. Do not change that comparison without revisiting

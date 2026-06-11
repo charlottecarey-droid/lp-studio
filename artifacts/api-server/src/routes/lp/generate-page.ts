@@ -3609,19 +3609,27 @@ export async function enforceProductLibraryBlocks(
     // Name-matching (hero + dso-products-grid) draws from BOTH library types so a
     // product line stored under either section can supply its fallback image.
     const needMatchPool = heroTargets.length > 0 || productsGridTargets.length > 0;
-    const gridItems =
-      gridTargets.length > 0 || needMatchPool
-        ? await fetchProductLibraryItems(tenantId, "product_grid")
-        : [];
-    const showcaseItems =
-      showcaseTargets.length > 0 || needMatchPool
-        ? await fetchProductLibraryItems(tenantId, "product_showcase")
-        : [];
+    // Fetch BOTH library types whenever any product block is present so a
+    // product line stored under either section can supply a per-item fallback
+    // image (a brand line without a cardImage still resolves to its library
+    // image instead of keeping a random AI photo).
+    const needAnyLibrary =
+      needMatchPool || gridTargets.length > 0 || showcaseTargets.length > 0;
+    const gridItems = needAnyLibrary
+      ? await fetchProductLibraryItems(tenantId, "product_grid")
+      : [];
+    const showcaseItems = needAnyLibrary
+      ? await fetchProductLibraryItems(tenantId, "product_showcase")
+      : [];
+    // Combined library pool for per-item image fallback (brand image first, then
+    // this pool, then the item's existing image).
+    const libraryMatchPool = [...gridItems, ...showcaseItems].filter((p) => p.image);
 
-    // product-grid: when the brand defines card images, KEEP the AI items (their
-    // copy already reflects the brand's product lines) and swap in the matched
-    // brand card image per item. Otherwise fall back to the legacy Content
-    // Library wipe-and-replace.
+    // product-grid: when the brand defines ANY card image, KEEP the AI items
+    // (their copy already reflects the brand's product lines) and resolve each
+    // item's image with per-item precedence — brand cardImage > Content Library
+    // image > the item's existing image. Only when the brand has NO card images
+    // does the legacy Content Library wipe-and-replace run (no regression).
     if (gridTargets.length > 0) {
       for (const b of gridTargets) {
         if (!b.props || typeof b.props !== "object") b.props = {};
@@ -3634,7 +3642,9 @@ export async function enforceProductLibraryBlocks(
               const copy = [item.title, item.name, item.description]
                 .filter((v): v is string => typeof v === "string")
                 .join(" ");
-              const img = bestLibraryImageFor(copy, brandCardPool);
+              const img =
+                bestLibraryImageFor(copy, brandCardPool) ??
+                bestLibraryImageFor(copy, libraryMatchPool);
               if (img) item.image = img;
             }
           }
@@ -3649,8 +3659,8 @@ export async function enforceProductLibraryBlocks(
       }
     }
 
-    // product-showcase: same precedence as product-grid (brand card images win;
-    // legacy library wipe-and-replace as fallback).
+    // product-showcase: same per-item precedence as product-grid (brand card
+    // image > library image > existing); legacy wipe-and-replace as fallback.
     if (showcaseTargets.length > 0) {
       for (const b of showcaseTargets) {
         if (!b.props || typeof b.props !== "object") b.props = {};
@@ -3663,7 +3673,9 @@ export async function enforceProductLibraryBlocks(
               const copy = [card.name, card.title, card.description]
                 .filter((v): v is string => typeof v === "string")
                 .join(" ");
-              const img = bestLibraryImageFor(copy, brandCardPool);
+              const img =
+                bestLibraryImageFor(copy, brandCardPool) ??
+                bestLibraryImageFor(copy, libraryMatchPool);
               if (img) card.image = img;
             }
           }
