@@ -382,11 +382,11 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
         {/* ── ALL FOUR IMAGE CARDS ── */}
         <div className="w-full max-w-3xl flex flex-col gap-6 mb-16">
           {[
-            { img: closeUpRemakeRates, alt: "Remake rates detail",        callout: callouts[0], delay: 2.0, offsetX: "0%"  },
-            { img: provPerf,           alt: "Provider performance detail", callout: callouts[3], delay: 2.2, offsetX: "8%"  },
-            { img: closeUpSpend,       alt: "Spend tracking detail",       callout: callouts[1], delay: 2.4, offsetX: "8%"  },
-            { img: scanQuality,        alt: "Scan quality detail",         callout: callouts[2], delay: 2.6, offsetX: "16%" },
-          ].map(({ img, alt, callout, delay, offsetX }, i) => (
+            { img: closeUpRemakeRates, alt: "Remake rates detail",        calloutIndex: 0, callout: callouts[0], delay: 2.0, offsetX: "0%"  },
+            { img: provPerf,           alt: "Provider performance detail", calloutIndex: 3, callout: callouts[3], delay: 2.2, offsetX: "8%"  },
+            { img: closeUpSpend,       alt: "Spend tracking detail",       calloutIndex: 1, callout: callouts[1], delay: 2.4, offsetX: "8%"  },
+            { img: scanQuality,        alt: "Scan quality detail",         calloutIndex: 2, callout: callouts[2], delay: 2.6, offsetX: "16%" },
+          ].map(({ img, alt, calloutIndex, callout, delay, offsetX }, i) => (
             <motion.div
               key={i}
               className="rounded-2xl overflow-hidden"
@@ -418,10 +418,10 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
                 </div>
                 <div>
                   <h4 className="text-[#F2EEE3] font-semibold text-base mb-1 tracking-tight" style={{ fontFamily: DISPLAY }}>
-                    <InlineText as="span" value={callout.label} onUpdate={updateCallout ? (v) => updateCallout(i, { label: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
+                    <InlineText as="span" value={callout.label} onUpdate={updateCallout ? (v) => updateCallout(calloutIndex, { label: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
                   </h4>
                   <p className="text-[#F2EEE3]/50 text-sm leading-relaxed" style={{ fontFamily: BODY }}>
-                    <InlineText as="span" value={callout.desc} onUpdate={updateCallout ? (v) => updateCallout(i, { desc: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
+                    <InlineText as="span" value={callout.desc} onUpdate={updateCallout ? (v) => updateCallout(calloutIndex, { desc: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
                   </p>
                 </div>
               </div>
