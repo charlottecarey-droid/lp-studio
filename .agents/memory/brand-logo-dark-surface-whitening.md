@@ -18,6 +18,15 @@ when `markLum === null || markLum < 0.35`; a multi-color or light mark
 (`markLum >= 0.35`) renders in its native colors. This is symmetric with the
 existing light-surface `darkenForLight` guard (which darkens only `markLum > 0.7`).
 
+**`whitenCandidate` is NOT gated by `KNOWN_MULTICOLOR_LOGOS`.** That set opts a
+mark out of the brand-primary MASK-RECOLOR only (so the single-color Dandy mark
+stays its native green on light, not pink) — it must NOT also suppress dark-
+surface whitening. Dandy's `/dandy-logo*.svg` are SINGLE-color (`#003A30` green,
+samples ~0.18 < 0.35) so they correctly whiten to a clean silhouette on dark
+again; a genuinely multi-color mark is still left native by the sample. If you
+ever re-add `!isKnownMulticolor` to `whitenCandidate`, the Dandy logo goes
+invisible (dark-on-dark) on dark heroes/navs.
+
 **Why:** blindly whitening turned multi-color marks (e.g. a tenant's colorful
 raster logo) into a flat white blob on dark footers/heroes. Keeping whiten as the
 DEFAULT (not native) avoids a flash and avoids a regression for the common dark

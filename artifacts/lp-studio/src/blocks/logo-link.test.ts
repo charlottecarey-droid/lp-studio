@@ -217,6 +217,20 @@ describe("BlockHero nav logo tone follows navBgColor", () => {
     const markup = heroMarkup(brandWith({ navBgColor: "#ffffff" }));
     expect(heroImgTag(markup)).not.toContain(WHITEN_FILTER);
   });
+
+  // The Dandy mark opts out of brand-primary mask-recolor (so it stays its
+  // native green on light) but is a SINGLE-color SVG — on a dark nav it must
+  // still lighten to a white silhouette so it reads, just like it used to
+  // before the mask-recolor opt-out was introduced.
+  it("whitens a mask-recolor-opt-out brand SVG (Dandy) on a dark nav", () => {
+    const markup = heroMarkup(
+      brandWith({ logoUrl: "/dandy-logo.svg", logoUrlDark: "", navBgColor: "#000000" }),
+    );
+    const idx = markup.indexOf('<img src="/dandy-logo.svg"');
+    expect(idx).toBeGreaterThan(-1);
+    const tag = markup.slice(idx, markup.indexOf(">", idx) + 1);
+    expect(tag).toContain(WHITEN_FILTER);
+  });
 });
 
 describe("BlockFullBleedHero logo link", () => {
