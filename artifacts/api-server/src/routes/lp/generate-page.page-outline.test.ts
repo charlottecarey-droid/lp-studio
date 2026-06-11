@@ -17,22 +17,56 @@ import { describe, it, expect } from "vitest";
 import { buildSegmentSection } from "./generate-page";
 import type { PageOutline } from "@workspace/lp-template-engine";
 
+/**
+ * Extract the ordered block types from the "PREFERRED BLOCK LIST" the segment
+ * section advertises to the model ("- \"type\" — hint" lines after the header).
+ * Returns [] when no preferred list is present (free-choice path).
+ */
+function preferredListTypes(section: string): string[] {
+  const idx = section.indexOf("PREFERRED BLOCK LIST");
+  if (idx === -1) return [];
+  return [...section.slice(idx).matchAll(/^- "([a-z0-9-]+)"/gm)].map((m) => m[1]);
+}
+
 describe("buildSegmentSection — page outline precedence (Task #6)", () => {
   it("resolves a segment category step from the approved pool, honoring order", () => {
     const outline: PageOutline = {
       steps: [
         { kind: "block", type: "dso-heartland-hero", schemaHint: "network value prop" },
         { kind: "category", role: "social-proof" },
+        { kind: "block", type: "bottom-cta" },
       ],
     };
     const section = buildSegmentSection(
       { name: "DSO Operators", pageOutline: outline },
-      { approvedPool: ["testimonial", "dso-heartland-hero"] },
+      // Only `testimonial` carries the social-proof role; `benefits-grid`
+      // (features) must NOT be picked for the category step.
+      { approvedPool: ["testimonial", "benefits-grid", "dso-heartland-hero"] },
     );
     expect(section).toContain("PREFERRED BLOCK LIST");
     expect(section).toContain('- "dso-heartland-hero" — network value prop');
-    // The category step resolved to a pooled block of that role.
-    expect(section).toContain('"testimonial"');
+    // The forced blocks are emitted verbatim and the category step resolved to
+    // the one pooled block of that role — IN THE CONFIGURED ORDER.
+    expect(preferredListTypes(section)).toEqual([
+      "dso-heartland-hero",
+      "testimonial",
+      "bottom-cta",
+    ]);
+  });
+
+  it("resolves a category step differently when the approved pool differs", () => {
+    const outline: PageOutline = {
+      steps: [
+        { kind: "block", type: "dso-heartland-hero" },
+        { kind: "category", role: "social-proof" },
+      ],
+    };
+    const section = buildSegmentSection(
+      { name: "DSO Operators", pageOutline: outline },
+      // `trust-bar` is the only social-proof block in this pool.
+      { approvedPool: ["trust-bar", "benefits-grid"] },
+    );
+    expect(preferredListTypes(section)).toEqual(["dso-heartland-hero", "trust-bar"]);
   });
 
   it("falls back to the brand-default outline when the segment has none", () => {
