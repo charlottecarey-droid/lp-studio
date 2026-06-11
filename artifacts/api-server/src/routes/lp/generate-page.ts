@@ -19,6 +19,7 @@ import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantInd
 import { resolveBlockTags, BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS, type BlockRoleTag } from "@workspace/lp-template-engine";
 import {
   governanceMapFromRows,
+  blocksApprovedForSegment,
   type GovernanceMap,
 } from "@workspace/lp-template-engine";
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
@@ -6709,10 +6710,8 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     await loadBlockGovernanceContext(tenantId, catalogIndustry);
   for (const t of governanceDisabledTypes) aiDisabledTypes.add(t);
   if (segmentApprovalId) {
-    for (const [type, entry] of governanceByType) {
-      if (entry.enabled !== false && entry.segments.includes(segmentApprovalId)) {
-        segmentApprovedTypes.add(type);
-      }
+    for (const type of blocksApprovedForSegment(governanceByType, segmentApprovalId)) {
+      segmentApprovedTypes.add(type);
     }
   }
 

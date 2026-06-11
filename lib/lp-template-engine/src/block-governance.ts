@@ -162,6 +162,29 @@ export function isBlockApprovedForSegment(
 }
 
 /**
+ * The segment-approval POOL from tenant governance: every block type the tenant
+ * has approved for `segmentId` that is not tenant-disabled (`enabled !== false`).
+ * This is the EXPAND half of the AI vocabulary — superadmin `approved_segments`
+ * is unioned on top by the caller. Map keys are stored canonical, so the
+ * returned types are canonical too; callers may canonicalize defensively.
+ *
+ * Returns [] for a blank segmentId or an empty map (fail-open: no approvals ⇒
+ * generation falls back to its base vocabulary / curated list).
+ */
+export function blocksApprovedForSegment(
+  map: GovernanceMap,
+  segmentId: string,
+): string[] {
+  const id = (segmentId ?? "").trim();
+  if (!id) return [];
+  const out: string[] = [];
+  for (const [type, entry] of map) {
+    if (entry.enabled !== false && entry.segments.includes(id)) out.push(type);
+  }
+  return out;
+}
+
+/**
  * AI eligibility (layer applied to generation): a block may be generated only
  * when it is available AND not AI-disabled by the superadmin AND not disabled
  * by tenant governance. `catalogAiEnabled === false` excludes; undefined =

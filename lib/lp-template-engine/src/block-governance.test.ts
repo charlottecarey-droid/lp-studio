@@ -13,6 +13,7 @@ import {
   resolveAiMode,
   resolveBlockSegments,
   isBlockApprovedForSegment,
+  blocksApprovedForSegment,
   resolveAiEligible,
   DEFAULT_AI_MODE,
   type TenantBlockGovernanceEntry,
@@ -146,5 +147,36 @@ describe("resolveAiEligible", () => {
   });
   it("not eligible when superadmin ai_enabled:false even if available", () => {
     assert.equal(resolveAiEligible({ blockType: "hero", catalogAiEnabled: false }), false);
+  });
+});
+
+describe("blocksApprovedForSegment — the segment-generation pool (task #5)", () => {
+  const map = governanceMapFromRows([
+    { blockType: "hero", enabled: null, aiMode: "open", segments: ["s1", "s2"] },
+    { blockType: "benefits-grid", enabled: true, aiMode: "open", segments: ["s1"] },
+    // tenant-DISABLED block — must NEVER enter the pool even when approved.
+    { blockType: "faq", enabled: false, aiMode: "open", segments: ["s1"] },
+    // approved for a different segment only.
+    { blockType: "pricing", enabled: null, aiMode: "open", segments: ["s2"] },
+  ]);
+
+  it("returns the approved, non-disabled block types for the segment", () => {
+    const pool = blocksApprovedForSegment(map, "s1").sort();
+    assert.deepEqual(pool, ["benefits-grid", "hero"]);
+  });
+
+  it("excludes tenant-disabled blocks even when they are segment-approved", () => {
+    assert.equal(blocksApprovedForSegment(map, "s1").includes("faq"), false);
+  });
+
+  it("scopes strictly to the requested segment", () => {
+    assert.deepEqual(blocksApprovedForSegment(map, "s2").sort(), ["hero", "pricing"]);
+    assert.deepEqual(blocksApprovedForSegment(map, "s9"), []);
+  });
+
+  it("fails open to [] on a blank segment id or empty map", () => {
+    assert.deepEqual(blocksApprovedForSegment(map, ""), []);
+    assert.deepEqual(blocksApprovedForSegment(map, "   "), []);
+    assert.deepEqual(blocksApprovedForSegment(new Map(), "s1"), []);
   });
 });
