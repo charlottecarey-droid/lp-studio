@@ -48,7 +48,7 @@ export default function BlockDefaultsPage() {
  * drift. Saves a merged full-replace payload (this block's entry swapped in,
  * all-default entries dropped) so editing one block never clobbers others.
  */
-function BlockGovernanceTab({
+export function BlockGovernanceTab({
   blockType,
   blockLabel,
   segments,
