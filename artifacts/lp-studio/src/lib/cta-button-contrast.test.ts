@@ -162,11 +162,8 @@ describe("hardcoded accent-fill button pattern", () => {
 
   const ALLOWLIST = new Set([
     // Fallback only when `ctaColors` is null (invalid section bg).
-    "BlockDandyConversionPanel1.tsx",
     "BlockDandyHeroV7S3.tsx",
     "BlockDandySiteHeader.tsx",
-    // Decorative floating badge, not the CTA button.
-    "BlockDandySideImageV6.tsx",
   ]);
 
   it("is not reintroduced in any block outside the allowlist", () => {

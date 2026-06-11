@@ -8,10 +8,10 @@
 // dynamic imports of internal modules get inlined back into a single bundle,
 // so by the time `Sentry.init` runs, the bundled express has already been
 // evaluated.
-import { config } from "dotenv";
-import { resolve } from "path";
-config({ path: resolve(process.cwd(), "../../.env") });
-config({ path: resolve(process.cwd(), ".env") });
+// Loads the root/local `.env` with `override: true` BEFORE anything else so a
+// stale injected env var (e.g. a cached Replit Secret) cannot win over the
+// checked-in dev `.env`. See src/loadEnv.ts.
+import "./loadEnv";
 
 import { initSentry } from "./lib/sentry";
 initSentry();

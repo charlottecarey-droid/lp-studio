@@ -300,11 +300,16 @@ const AUTO_TAG_TIMEOUT_MS = 25_000;
  *  tags. Existing provenance tags (page-reference / scraped / refhost: /
  *  refsrc:) are preserved by autoTagImage (it strips only stale purpose/og tags
  *  before merging). */
-function runAutoTag(rec: UploadedRecord, asset: FetchedAsset, tags: string[]): Promise<void> {
+function runAutoTag(
+  rec: UploadedRecord,
+  asset: FetchedAsset,
+  tags: string[],
+  opts: { forbidHeroPurpose?: boolean } = {},
+): Promise<void> {
   // Cleared the instant tagging settles so a fast success/failure never leaves a
   // live timer that fires a spurious "timed out" warning ~25s later.
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const tagging = autoTagImage(rec.id, asset.buffer, asset.mimeType, tags)
+  const tagging = autoTagImage(rec.id, asset.buffer, asset.mimeType, tags, opts)
     .catch((err) => {
       logger.warn(
         { mediaId: rec.id, err: String(err) },
@@ -459,7 +464,10 @@ export async function mirrorBrandAssets(inputs: MirrorInputs): Promise<MirrorOut
     // reference-mirror path, the brand-asset import isn't immediately followed by
     // a generation from these photos, so it stays fire-and-forget (bounded +
     // never throws via runAutoTag).
-    if (rec && imageTaggerConfigured()) void runAutoTag(rec, fetched.asset, photoTags);
+    // Same source-page hero rule as the reference mirror: photoUrls arrive in
+    // document order (collectImagesFromDom content[]), so only the first photo
+    // is hero-eligible; later photos are forbidden the lp-hero purpose.
+    if (rec && imageTaggerConfigured()) void runAutoTag(rec, fetched.asset, photoTags, { forbidHeroPurpose: i !== 0 });
     return { sourceUrl, url: rec?.url ?? null, reason: rec ? null : "upload-failed" };
   }));
   for (const r of results) {
@@ -541,6 +549,21 @@ function normalizeForDedup(u: string): string {
   }
 }
 
+/** Replace a stale "lp-hero" purpose tag with "lp-feature" (deduped), preserving
+ *  every other tag. Used to correct a scraped row that was mirrored before the
+ *  source-page hero rule existed when it is reused on a later generation. */
+function downgradeHeroPurpose(tags: string[]): string[] {
+  const out: string[] = [];
+  let hasFeature = false;
+  for (const t of tags) {
+    if (t.toLowerCase() === "lp-hero") continue;
+    if (t.toLowerCase() === "lp-feature") hasFeature = true;
+    out.push(t);
+  }
+  if (!hasFeature) out.push("lp-feature");
+  return out;
+}
+
 /**
  * Mirror the reference site's content images into the tenant's media library.
  * Tags each row `["page-reference", "scraped", "refhost:<host>", "refsrc:<hash>"]`
@@ -576,6 +599,13 @@ export async function mirrorReferenceImages(inputs: {
   }
   if (candidates.length === 0) return out;
 
+  // A scraped image may only earn "lp-hero" if it was the actual hero on the
+  // source page. collectImagesFromDom returns content images in document order
+  // (chrome / logos / icons / sub-200px assets already excluded), so the FIRST
+  // candidate is the page's hero region; every later candidate (team headshots,
+  // mid-page lifestyle/product shots) is forbidden the hero purpose.
+  const heroTag = candidates[0]?.tag;
+
   // De-dup across prior page-create harvests for this tenant: map each refsrc
   // tag already present on a "scraped" row to that existing library row. We
   // skip re-uploading those sources, but we still RETURN their existing rows
@@ -584,9 +614,11 @@ export async function mirrorReferenceImages(inputs: {
   // second generation would get an empty `images[]` and silently fall back to
   // generic catalog photos.
   const alreadyMirrored = new Map<string, MirroredImage>();
+  const idByTag = new Map<string, number>();
   try {
     const existing = await db
       .select({
+        id: lpMediaTable.id,
         url: lpMediaTable.url,
         title: lpMediaTable.title,
         tags: lpMediaTable.tags,
@@ -611,6 +643,7 @@ export async function mirrorReferenceImages(inputs: {
             width: row.width,
             height: row.height,
           });
+          idByTag.set(t, row.id);
         }
       }
     }
@@ -629,10 +662,38 @@ export async function mirrorReferenceImages(inputs: {
   // Capped at MAX_REFERENCE_PHOTOS to match the fresh-upload path — a content
   // page can expose dozens of images, and an oversized reference pool would
   // skew the generator's selection.
+  // Rows mirrored before the source-page hero rule may still carry "lp-hero"
+  // even though they were NOT the page hero. Strip it from non-hero deduped rows
+  // on reuse (downgrade to lp-feature) and persist, so already-scraped imagery
+  // also obeys the rule — including the Dandy hero pool, which hard-filters on
+  // the lp-hero tag and would otherwise keep surfacing a stale mis-tagged shot.
+  const heroDowngrades: { id: number; tags: string[] }[] = [];
   for (const c of candidates) {
     if (out.images.length >= MAX_REFERENCE_PHOTOS) break;
     const existingImg = alreadyMirrored.get(c.tag);
-    if (existingImg) out.images.push(existingImg);
+    if (!existingImg) continue;
+    if (c.tag !== heroTag && existingImg.tags.some((t) => t.toLowerCase() === "lp-hero")) {
+      const correctedTags = downgradeHeroPurpose(existingImg.tags);
+      const id = idByTag.get(c.tag);
+      if (typeof id === "number") heroDowngrades.push({ id, tags: correctedTags });
+      out.images.push({ ...existingImg, tags: correctedTags });
+    } else {
+      out.images.push(existingImg);
+    }
+  }
+  if (heroDowngrades.length > 0) {
+    await Promise.all(
+      heroDowngrades.map(async (d) => {
+        try {
+          await db.update(lpMediaTable).set({ tags: d.tags }).where(eq(lpMediaTable.id, d.id));
+        } catch (e) {
+          logger.warn(
+            { tenantId: inputs.tenantId, mediaId: d.id, err: String(e) },
+            "[page-reference] stale lp-hero downgrade failed — row keeps its tags",
+          );
+        }
+      }),
+    );
   }
 
   const toMirror = fresh.slice(0, MAX_REFERENCE_PHOTOS);
@@ -664,7 +725,7 @@ export async function mirrorReferenceImages(inputs: {
     const rec = await uploadAndRecord(fetched.asset, { tenantId: inputs.tenantId, tags, title });
     // Awaited (bounded) so this run's generation sees the richer tags. Never
     // throws — on failure/timeout the image keeps its provenance-only tags.
-    if (rec && taggerOn) await runAutoTag(rec, fetched.asset, tags);
+    if (rec && taggerOn) await runAutoTag(rec, fetched.asset, tags, { forbidHeroPurpose: c.tag !== heroTag });
     return { rec, reason: rec ? null : "upload-failed", sourceUrl: c.sourceUrl, tags, title };
   }));
 

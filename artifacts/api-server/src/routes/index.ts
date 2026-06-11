@@ -19,6 +19,7 @@ import authRouter from "./auth";
 import adminRouter from "./admin";
 import blockCatalogRouter from "./blockCatalog";
 import tenantBlockLibraryRouter from "./tenantBlockLibrary";
+import tenantBlockGovernanceRouter from "./tenantBlockGovernance";
 import webhooksRouter from "./webhooks";
 import cspReportRouter from "./cspReport";
 import billingRouter from "./billing";
@@ -107,6 +108,7 @@ router.use(videoRouter);
 // adminRouter gets a chance to swallow the request.
 router.use(blockCatalogRouter);
 router.use(tenantBlockLibraryRouter);
+router.use(tenantBlockGovernanceRouter);
 // notificationsRouter owns /notifications/* (requireAuth) AND
 // /admin/notification-templates (requireSuperadmin). Like blockCatalogRouter it
 // MUST mount before adminRouter so its specific /admin paths match before

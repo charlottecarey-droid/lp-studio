@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { pgTable, text, integer, timestamp, jsonb, boolean, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -34,6 +35,15 @@ export const blockCatalogTable = pgTable("block_catalog", {
    * silently loses blocks when no catalog row exists.
    */
   aiEnabled: boolean("ai_enabled").notNull().default(true),
+  /**
+   * Audience-segment ids (from a tenant's brand.segments) this block is
+   * explicitly approved for. When the AI microsite/page generator builds a
+   * page for one of these segments, the block is unioned ON TOP of that
+   * segment's normal vocabulary (DSO / freeform) — it expands the allowed
+   * block menu, it does not clamp it. Empty `{}` = not approved for any
+   * segment (the default, no behaviour change).
+   */
+  approvedSegments: text("approved_segments").array().notNull().default(sql`'{}'::text[]`),
   sortOrder: integer("sort_order").notNull().default(0),
   updatedBy: integer("updated_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

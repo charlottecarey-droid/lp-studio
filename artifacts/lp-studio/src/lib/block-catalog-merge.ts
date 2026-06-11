@@ -211,6 +211,13 @@ export interface CatalogRow {
    * (fail-open). Synthetic "code default" rows are filled with `true`.
    */
   ai_enabled: boolean;
+  /**
+   * Audience-segment ids (from brand.segments) this block is explicitly
+   * approved for. The AI microsite/page generator unions these blocks ON TOP
+   * of a segment's normal vocabulary when generating for that segment. Empty
+   * = not approved for any segment. Synthetic "code default" rows are `[]`.
+   */
+  approved_segments?: string[] | null;
   sort_order: number;
   updated_at: string;
   updated_by?: string | null;
@@ -273,6 +280,7 @@ export function mergeSuperadminCatalog(rows: CatalogRow[]): DisplayRow[] {
           default_props: defaultProps,
           is_enabled: true,
           ai_enabled: true,
+          approved_segments: [],
           sort_order: 0,
           updated_at: "",
           updated_by: null,

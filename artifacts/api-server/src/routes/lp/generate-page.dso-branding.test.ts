@@ -90,6 +90,23 @@ describe("buildSegmentSection — preferred block list (Task #935)", () => {
     expect(section).toContain('- "dso-problem"');
     expect(section).not.toContain('- ""');
   });
+
+  it("omits the rigid block list on DSO landing pages (dsoFreeChoice) so the model chooses", () => {
+    const section = buildSegmentSection(
+      {
+        name: "DSO Operators",
+        micrositeBlockList: [
+          { type: "dso-heartland-hero" },
+          { type: "dso-insights-dashboard" },
+        ],
+      },
+      { dsoFreeChoice: true },
+    );
+    expect(section).not.toContain("PREFERRED BLOCK LIST");
+    expect(section).not.toContain('- "dso-heartland-hero"');
+    // Other segment context (the audience name) is still emitted.
+    expect(section).toContain("DSO Operators");
+  });
 });
 
 describe("buildDsoSystemPrompt — non-Dandy tenant is neutral", () => {

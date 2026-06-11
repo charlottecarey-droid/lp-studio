@@ -71,6 +71,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useComments, useReviews, usePresence, getAuthorName, type BlockComments } from "@/hooks/use-collaboration";
 import { useBlockCatalog, type ResolvedBlockDef } from "@/hooks/use-block-catalog";
 import { useTenantBlockLibraryPrefs } from "@/hooks/use-tenant-block-library-prefs";
+import { useTenantBlockGovernance } from "@/hooks/use-tenant-block-governance";
+import {
+  applyGovernanceAvailability,
+  blocksApprovedForSegment,
+  type GovernanceMap,
+} from "@/lib/block-governance-client";
 import {
   applyBlockLibraryPrefs,
   applyCategoryOrder,
@@ -328,7 +334,7 @@ const CORE_CATEGORIES = new Set(["Layout", "Content", "Social Proof", "CTA", "Le
 // template can't be dropped in as a mid-page draggable block.
 const FULL_PAGE_TEMPLATE_CATEGORY = "Full Page Templates";
 
-function SegmentLibrary({ onAdd, customBlocks, segments, visibleBlocks, prefs }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; segments: AudienceSegment[]; visibleBlocks: ResolvedBlockDef[]; prefs: BlockLibraryPrefs }) {
+function SegmentLibrary({ onAdd, customBlocks, segments, visibleBlocks, prefs, governance }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; segments: AudienceSegment[]; visibleBlocks: ResolvedBlockDef[]; prefs: BlockLibraryPrefs; governance: GovernanceMap }) {
   const [search, setSearch] = useState("");
   const q = search.trim().toLowerCase();
   // Group catalog-resolved blocks by their (catalog-overriding) category, keeping
@@ -382,13 +388,18 @@ function SegmentLibrary({ onAdd, customBlocks, segments, visibleBlocks, prefs }:
   // Pre-compute custom-block sections (search-filtered) so we can render an
   // empty state when nothing matches across both built-in and custom lists.
   const knownSegmentNames = new Set(segments.map(s => s.name));
+  // Task #4 — built-in catalog blocks the tenant approved for each brand
+  // segment (governance.segments) surface under that segment's section here,
+  // merged with the segment's custom blocks.
   const customSections = segments
     .map(seg => ({
       id: String(seg.id),
       label: seg.name,
+      builtinBlocks: blocksApprovedForSegment(visibleBlocks, governance, String(seg.id))
+        .filter(b => matchesBlockSearch(b, search)),
       blocks: customBlocks.filter(b => b.segment === seg.name && matchesCustom(b.name)),
     }))
-    .filter(s => s.blocks.length > 0);
+    .filter(s => s.blocks.length > 0 || s.builtinBlocks.length > 0);
   const orphanedCustom = customBlocks.filter(
     b => b.segment && b.segment !== "core" && !knownSegmentNames.has(b.segment) && matchesCustom(b.name),
   );
@@ -435,9 +446,12 @@ function SegmentLibrary({ onAdd, customBlocks, segments, visibleBlocks, prefs }:
         <div key={sec.id}>
           <div className="flex items-center gap-2 mb-3">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{sec.label}</p>
-            <span className="text-[10px] text-muted-foreground ml-auto">{sec.blocks.length}</span>
+            <span className="text-[10px] text-muted-foreground ml-auto">{sec.builtinBlocks.length + sec.blocks.length}</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
+            {sec.builtinBlocks.map(block =>
+              renderBlockButton(block.type, block.label, <BlockThumbnail type={block.type} />, () => onAdd(block.type))
+            )}
             {sec.blocks.map(block =>
               renderBlockButton(
                 String(block.id),
@@ -1120,6 +1134,10 @@ export default function BuilderEditor() {
   // used registry/dental defaults.
   const { blocks: allCatalogBlocks, getDef: catalogGetDef } = useBlockCatalog();
   const { prefs: libraryPrefs, save: saveLibraryPrefs, saving: librarySaving } = useTenantBlockLibraryPrefs();
+  // Task #4 — tenant block governance. Layer 2 of the precedence model: a block
+  // with `enabled === false` is removed from every palette below. Fail-open: an
+  // empty map (no rows / failed read) leaves the catalog untouched.
+  const { governanceMap } = useTenantBlockGovernance();
   const [customizeLibraryOpen, setCustomizeLibraryOpen] = useState(false);
   const [customBlocks, setCustomBlocks] = useState<CustomBlock[]>([]);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
@@ -1279,10 +1297,10 @@ export default function BuilderEditor() {
   const { user: gridGateUser } = useAuth();
   const canGridPieces = canUseGridPieces(gridGateUser);
   const catalogBlocks = useMemo<ResolvedBlockDef[]>(
-    () => allCatalogBlocks
+    () => applyGovernanceAvailability(allCatalogBlocks, governanceMap)
       .filter(b => isBlockVisibleForAudience(b.category, pageAudienceType))
       .filter(b => canGridPieces || b.category !== "Grid Pieces"),
-    [allCatalogBlocks, pageAudienceType, canGridPieces],
+    [allCatalogBlocks, pageAudienceType, canGridPieces, governanceMap],
   );
   // Apply tenant block-library prefs (hide / rename / re-shelve / reorder) on
   // top of the audience-filtered catalog. The unfiltered `catalogBlocks` is
@@ -1306,10 +1324,11 @@ export default function BuilderEditor() {
   // practice category — gating only filters the core Blocks tab.
   const segmentCatalogBlocks = useMemo<ResolvedBlockDef[]>(
     () => applyBlockLibraryPrefs(
-      allCatalogBlocks.filter(b => canGridPieces || b.category !== "Grid Pieces"),
+      applyGovernanceAvailability(allCatalogBlocks, governanceMap)
+        .filter(b => canGridPieces || b.category !== "Grid Pieces"),
       libraryPrefs,
     ),
-    [allCatalogBlocks, canGridPieces, libraryPrefs],
+    [allCatalogBlocks, canGridPieces, libraryPrefs, governanceMap],
   );
   // Segment-scoped custom blocks: keep the grid-pieces perm gate (real
   // permission) but skip the audience gate (intentional, matches segment
@@ -3200,6 +3219,7 @@ export default function BuilderEditor() {
                 segments={brand.segments ?? []}
                 visibleBlocks={segmentCatalogBlocks}
                 prefs={libraryPrefs}
+                governance={governanceMap}
               />
             </TabsContent>
             <TabsContent value="layers" className="mt-0">

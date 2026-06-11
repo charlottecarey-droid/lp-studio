@@ -50,6 +50,8 @@ export * from "./tenantMembers";
 
 // Block catalog (per-industry library configuration)
 export * from "./blockCatalog";
+// Tenant block governance (per-tenant enabled / AI-mode / segment approval)
+export * from "./tenantBlockGovernance";
 export * from "./aiGenerationLog";
 
 // Per-tenant inbound webhook secrets

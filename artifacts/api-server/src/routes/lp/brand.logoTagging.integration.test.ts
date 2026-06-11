@@ -32,12 +32,15 @@ const LOGO_URL = `/api/storage/it-brandlogo-${randomUUID().slice(0, 8)}.png`;
 const LOGO_URL_DARK = `/api/storage/it-brandlogo-dark-${randomUUID().slice(0, 8)}.png`;
 const EXTERNAL_LOGO_URL = `https://cdn.example.com/it-brandlogo-${randomUUID().slice(0, 8)}.png`;
 
+const HERO_URL = `/api/storage/it-brandhero-${randomUUID().slice(0, 8)}.png`;
+
 let app: Express;
 let tenantId = 0;
 let otherTenantId = 0;
 let lightMediaId = 0;
 let darkMediaId = 0;
 let otherMediaId = 0;
+let heroMediaId = 0;
 
 function injectSid(opts: {
   method: string;
@@ -110,7 +113,7 @@ async function waitForTags(
 
 async function cleanup(): Promise<void> {
   await pool.query(`DELETE FROM app_sessions WHERE sid = $1`, [SID]).catch(() => {});
-  for (const id of [lightMediaId, darkMediaId, otherMediaId]) {
+  for (const id of [lightMediaId, darkMediaId, otherMediaId, heroMediaId]) {
     if (id) await pool.query(`DELETE FROM lp_media WHERE id = $1`, [id]).catch(() => {});
   }
   for (const tid of [tenantId, otherTenantId]) {
@@ -139,6 +142,10 @@ beforeAll(async () => {
   // Another tenant owns a row with the SAME url as our light logo — must NOT be
   // tagged when our tenant saves its brand (tenant-scoped match).
   otherMediaId = await seedMedia(otherTenantId, LOGO_URL, []);
+  // A product hero row pre-tagged lp-hero PLUS conflicting purpose tags — saving
+  // the brand must normalize it to ["lp-hero", ...non-purpose], stripping the
+  // conflicting lp-feature/product-detail tags even though lp-hero is already first.
+  heroMediaId = await seedMedia(tenantId, HERO_URL, ["lp-hero", "lp-feature", "product-detail", "dental"]);
 
   await seedSession(SID, { userId: UID, tenantId, role: "admin", isAdmin: true });
 
@@ -202,5 +209,30 @@ describe("PUT /lp/brand — logo media tagging", () => {
     // No row matches the external URL, so nothing new is tagged. The previously
     // tagged rows still carry their 'logo' tag (untouched by this save).
     expect(await tagsOf(lightMediaId)).toContain("logo");
+  });
+
+  it("tags a product's heroImage 'lp-hero' and strips conflicting purpose tags even when lp-hero is already first", async () => {
+    const res = await injectSid({
+      method: "PUT",
+      url: "/api/lp/brand",
+      sid: SID,
+      body: {
+        productLines: [{ name: "Crowns", heroImage: HERO_URL }],
+      },
+    });
+    expect(res.status).toBe(200);
+
+    // Normalization runs even though the row was already tagged lp-hero first:
+    // the conflicting lp-feature/product-detail tags must be stripped.
+    const heroTags = await waitForTags(
+      heroMediaId,
+      (t) => !t.includes("lp-feature") && !t.includes("product-detail"),
+    );
+    expect(heroTags[0]).toBe("lp-hero");
+    expect(heroTags).toContain("dental"); // non-purpose tag preserved
+    expect(heroTags).not.toContain("lp-feature");
+    expect(heroTags).not.toContain("product-detail");
+    // lp-hero is not duplicated.
+    expect(heroTags.filter((t) => t === "lp-hero")).toHaveLength(1);
   });
 });

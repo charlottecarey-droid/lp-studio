@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { eq, desc, and, or } from "drizzle-orm";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import { salesAccountsTable, salesBriefingsTable, salesContactsTable, salesContactBriefingsTable, lpPagesTable, lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import OpenAI from "openai";
@@ -55,6 +55,9 @@ import {
   // Task #1134 — builds the tenant's brand logo URL set so logo images survive
   // "Replace imagery" (never cleared, swapped, or AI-regenerated).
   buildBrandLogoUrlSet,
+  // Strips Dandy's forest/lime palette literals off a footer so a non-Dandy
+  // microsite never renders a Dandy-green footer (falls back to the brand var).
+  isDandyPaletteLiteral,
 } from "../lp/generate-page";
 // Mirror harvested reference imagery into the tenant's media library so the
 // image-fill pass can use real site images for empty slots.
@@ -62,6 +65,16 @@ import { mirrorReferenceImages } from "../../lib/brand-import/assets-uploader";
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
+import {
+  governanceMapFromRows,
+  blocksApprovedForSegment,
+  resolveBlockTags,
+  effectiveOutline,
+  outlineHasSteps,
+  normalizePageOutline,
+  resolvePageOutline,
+  type PageOutline,
+} from "@workspace/lp-template-engine";
 import { detectAndWriteFlagsForPage, templateFactForms } from "../../lib/factFlags";
 import { deriveCompanyName, derivePracticeCount } from "../../lib/businessCaseVars";
 import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../lib/tenantSettings";
@@ -854,7 +867,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         // BlockDsoComparison — it renders as the tenant's "us" column.
         // Leaving the key name unchanged here to keep stored block JSON
         // compatible with the renderer; copy is brand-neutral.
-        rows: rows.map(r => ({ feature: r.feature ?? "", dandy: r.dandy ?? r.us ?? "", traditional: r.traditional ?? "" })),
+        rows: rows.map(r => ({ need: r.need ?? r.feature ?? "", dandy: r.dandy ?? r.us ?? "", traditional: r.traditional ?? "" })),
         backgroundStyle: p.backgroundStyle ?? "muted",
       };
     }
@@ -1003,8 +1016,10 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         columns: Array.isArray(columns) ? columns : [],
         copyrightText: p.copyrightText ?? (brand.name ? `© ${new Date().getFullYear()} ${us}. All rights reserved.` : `© ${new Date().getFullYear()}. All rights reserved.`),
         showSocialLinks: p.showSocialLinks ?? false,
-        backgroundColor: p.backgroundColor,
-        accentColor: p.accentColor,
+        // Drop a leaked Dandy palette literal so a non-Dandy footer falls back
+        // to the tenant's own brand CSS var instead of rendering Dandy green.
+        backgroundColor: isDandyPaletteLiteral(p.backgroundColor) ? "" : p.backgroundColor,
+        accentColor: isDandyPaletteLiteral(p.accentColor) ? "" : p.accentColor,
       };
     }
 
@@ -1056,7 +1071,7 @@ const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   "dso-case-study": "{ eyebrow, headline, subheadline, quote, stats: [{ value, label }], challenge: { heading, body }, solution: { heading, body }, whyItMatters: { heading, body }, results: [{ value, label, description }], sections: [{ heading, body, quote, position (\"before-results\"|\"after-results\") }], ctaText, ctaUrl, backgroundStyle } — a single deep-dive customer success story for ONE company (hero → challenge/solution narrative → results → CTA). Use this instead of dso-success-stories when one in-depth story fits better than a 3-card roundup. Use ONLY a customer story from the APPROVED CASE STUDIES section of the brief; never invent a company, stat, quote, author, or result. Omit this block entirely when no approved case studies are provided.",
   "dso-pilot-steps": "{ eyebrow, headline, subheadline, backgroundStyle, steps: [{ title, subtitle, desc, details: string[] }] }",
   "dso-final-cta": "{ eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, backgroundStyle }",
-  "dso-comparison": "{ eyebrow, headline, subheadline, companyName, ctaText, ctaUrl, rows: [{ feature, dandy, traditional }], backgroundStyle }",
+  "dso-comparison": "{ eyebrow, headline, subheadline, companyName, ctaText, ctaUrl, rows: [{ need, dandy, traditional }], backgroundStyle }",
   "dso-lab-tour": "{ eyebrow, headline, body, quote, quoteAttribution, ctaText, ctaUrl, backgroundStyle }",
   "dso-practice-nav": "{ dsoName, links: [{ label, anchor }], ctaText, ctaUrl } — sticky nav bar; use the DSO/practice name for dsoName; keep links to 3–4 section anchors on this page",
   "dso-practice-hero": "{ eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, trustLine, backgroundStyle }",
@@ -1067,7 +1082,7 @@ const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   "dso-faq": "{ eyebrow, headline, subheadline, items: [{ question, answer }], backgroundStyle } — 4–5 questions",
   "dso-activation-steps": "{ eyebrow, headline, subheadline, steps: [{ step, title, desc }], ctaText, ctaUrl, backgroundStyle }",
   "dso-promo-cards": "{ eyebrow, headline, subheadline, cards: [{ title, desc, badge, ctaText }], backgroundStyle }",
-  "footer": "{ columns: [] (always empty array), copyrightText, showSocialLinks: false, backgroundColor: \"#003A30\" }",
+  "footer": "{ columns: [] (always empty array), copyrightText, showSocialLinks: false, backgroundColor: \"\" (leave empty — the page fills the tenant's own brand color) }",
   "video-section": "{ headline, subheadline, videoUrl, backgroundStyle }",
   "business-case-split": "{ heroEyebrow, heroHeadline, heroSubhead, situationHeading, situationBody, situationStats: [{ value, label }], signalHeading, signalCards: [{ icon, stat, body, attribution }], costHeading, costItems: [{ stat, label, description }], shiftHeading, shiftOldBullets: [{ title, body }], shiftNewBullets: [{ title, body }], mathHeading, mathSubhead, mathOfficeCount, mathVolumeLabel, mathVolumeValue, mathStats: [{ label, value, caption }], proofHeading, proofFeatured: { quote, name, title }, proofSecondary: [{ quote, name, title }], planHeading, planSteps: [{ num, title, timeframe, description }], finalCtaHeading, finalCtaSubhead } — a single full-page consultative DSO business-case document; rewrite ALL copy specifically for this account; keep the same array lengths; keep stats realistic; do NOT invent image URLs",
   "business-case-centered": "{ heroEyebrow, heroHeadline, heroSubhead, situationHeading, situationBody, situationBodyExtra, situationStats: [{ value, label, description }], signalHeading, signalCards: [{ stat, body, attribution }], costHeading, costSubhead, costItems: [{ num, stat, label, description }], shiftHeading, shiftRows: [{ category, oldWay, withDandy }], mathHeading, mathSubhead, mathOfficeCount, mathVolumeLabel, mathVolumeValue, mathStats: [{ label, value, caption }], proofHeading, proofFeatured: { quote, name, title }, proofSecondary: [{ quote, name, title }], planHeading, planSubhead, planSteps: [{ num, title, timeframe, description }], finalCtaHeading, finalCtaSubhead } — a single full-page centered DSO business-case document; rewrite ALL copy specifically for this account; keep the same array lengths; keep stats realistic; do NOT invent image URLs",
@@ -1122,6 +1137,9 @@ interface BrandAudienceSegment {
   stats?: BrandSegmentStat[];
   comparisonRows?: BrandSegmentComparisonRow[];
   micrositeBlockList?: BrandMicrositeBlockListEntry[];
+  /** Task #6 — optional ordered page outline ("recipe"); supersedes
+   *  micrositeBlockList for both landing pages and microsites. */
+  pageOutline?: PageOutline;
 }
 
 // Built-in neutral microsite block list — the legacy "independent" set,
@@ -1197,10 +1215,365 @@ const FREEFORM_ROLE_HINTS: Record<string, string> = {
 /** Build the freeform "AVAILABLE BLOCKS" guide: each allowed neutral block
  *  with its role hint and prop schema. The model chooses which to use and in
  *  what order (constrained by the best-practice rules in the freeform footer). */
-function buildFreeformBlockGuide(): string {
-  return FREEFORM_MICROSITE_DISPLAY_TYPES
-    .map((t) => `- "${t}" (${FREEFORM_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`)
-    .join("\n");
+export function buildFreeformBlockGuide(extraTypes: string[] = []): string {
+  const lines = FREEFORM_MICROSITE_DISPLAY_TYPES
+    .map((t) => `- "${t}" (${FREEFORM_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`);
+  // Segment-approval expansion — append superadmin-approved blocks for this
+  // segment that aren't already in the freeform vocab, deduped by canonical
+  // type. Unioned ON TOP of the freeform set (not a clamp).
+  appendApprovedBlockGuideLines(lines, FREEFORM_MICROSITE_DISPLAY_TYPES, extraTypes);
+  return lines.join("\n");
+}
+
+// ── Segment-pool freeform vocabulary (task #5) ──────────────────────────────
+// When a segment has an approved block POOL (superadmin approved_segments ∪
+// tenant governance approvals) and the tenant has NOT pinned an explicit
+// per-segment block list, the model free-composes a layout drawing ONLY from
+// that pool — instead of the brand-default fixed list (which made every account
+// identical) or the broad neutral freeform vocab. The pool is the constraint;
+// the page draws from exactly the blocks the tenant approved for this audience.
+//
+// Three structural essentials are ALWAYS permitted on top of the pool so the
+// page is never malformed even when the tenant did not approve them explicitly:
+// a hero (opens the page), a closing CTA, and a footer (closes the page).
+// enforceRequiredRoles still backfills any missing required role afterwards.
+const SEGMENT_POOL_STRUCTURAL_TYPES = ["hero", "bottom-cta", "footer"] as const;
+
+/** Build the segment-pool "AVAILABLE BLOCKS" guide: the structural essentials
+ *  plus every approved block in the pool, each with its role hint and schema.
+ *  The model picks which to use and in what order. */
+export function buildSegmentPoolBlockGuide(poolTypes: string[]): string {
+  const lines = SEGMENT_POOL_STRUCTURAL_TYPES.map(
+    (t) => `- "${t}" (${FREEFORM_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`,
+  );
+  appendApprovedBlockGuideLines(lines, SEGMENT_POOL_STRUCTURAL_TYPES, poolTypes);
+  return lines.join("\n");
+}
+
+/** Validation allow-set for segment-pool mode: the pool ∪ structural essentials,
+ *  canonicalized to match normalizeBlock output. Anything outside is dropped. */
+export function segmentPoolAllowedSet(poolTypes: string[]): ReadonlySet<string> {
+  const set = new Set<string>(
+    SEGMENT_POOL_STRUCTURAL_TYPES.map((t) => canonicalizeBlockType(t)),
+  );
+  for (const t of poolTypes) {
+    const canon = canonicalizeBlockType(t);
+    if (canon) set.add(canon);
+  }
+  return set;
+}
+
+/** Last-resort fallback layout for segment-pool mode (task #5). When the model
+ *  emits ZERO usable pool blocks we must still ship a non-blank page, but it
+ *  must stay strictly pool-contained — the generic NEUTRAL list would leak
+ *  off-pool blocks (trust-bar/benefits-grid/testimonial/…) and break the
+ *  pool-only contract. So we frame the approved body pool with the structural
+ *  essentials: a hero opens, the approved blocks fill the body, a CTA + footer
+ *  close. Canonicalized + deduped; hero/cta/footer always present. */
+export function segmentPoolFallbackBlockList(poolTypes: string[]): string[] {
+  const canonPool = poolTypes
+    .map((t) => canonicalizeBlockType(t))
+    .filter((t): t is string => !!t);
+  const structural = new Set(SEGMENT_POOL_STRUCTURAL_TYPES.map((t) => canonicalizeBlockType(t)));
+  const body: string[] = [];
+  const seen = new Set<string>();
+  for (const t of canonPool) {
+    if (structural.has(t) || seen.has(t)) continue;
+    seen.add(t);
+    body.push(t);
+  }
+  return [
+    canonicalizeBlockType("hero"),
+    ...body,
+    canonicalizeBlockType("bottom-cta"),
+    canonicalizeBlockType("footer"),
+  ];
+}
+
+// The documented block-source precedence for a microsite (task #5 + task #6).
+// A pure decision so it is unit-testable in isolation and the route + tests can
+// never drift. Highest priority first:
+//   1. template        — an explicit authored layout always wins.
+//   2. segment-outline — the segment's page outline ("recipe") is THE structure
+//                        for this audience: an ordered, brand-matched lineup.
+//                        Task #6 generalizes the legacy per-segment
+//                        `micrositeBlockList` (adapted to an outline of forced
+//                        block steps) into this same source.
+//   3. brand-outline   — the brand's default outline. Generalizes the legacy
+//                        `defaultMicrositeBlockList` the same way.
+//   4. dso-freeform    — a genuine DSO segment composes from the DSO vocab when
+//                        no outline is configured.
+//   5. segment-pool    — the segment's approved pool drives a varied freeform.
+//   6. neutral-freeform— today's neutral freeform (final fallback).
+//
+// A CONFIGURED outline (segment or brand) is honored on EVERY path, including
+// DSO: its forced blocks and order must be respected, with no DSO exception.
+// Only a truly unconfigured segment (no outline after legacy adaptation) falls
+// through to dso-freeform / segment-pool / neutral-freeform.
+export type MicrositeBlockSource =
+  | "template"
+  | "dso-freeform"
+  | "segment-outline"
+  | "segment-pool"
+  | "brand-outline"
+  | "neutral-freeform";
+
+export function resolveMicrositeBlockSource(input: {
+  hasTemplate: boolean;
+  dsoFreeformMode: DsoVocabMode | null;
+  hasSegmentOutline: boolean;
+  hasSegmentPool: boolean;
+  hasBrandOutline: boolean;
+}): MicrositeBlockSource {
+  if (input.hasTemplate) return "template";
+  if (input.hasSegmentOutline) return "segment-outline";
+  if (input.hasBrandOutline) return "brand-outline";
+  if (input.dsoFreeformMode) return "dso-freeform";
+  if (input.hasSegmentPool) return "segment-pool";
+  return "neutral-freeform";
+}
+
+// Append guide lines for superadmin-approved extra block types not already
+// present in `baseTypes` (compared by canonical type). Each extra type gets a
+// best-effort role hint (DSO or freeform vocab) and its registry prop schema.
+function appendApprovedBlockGuideLines(
+  lines: string[],
+  baseTypes: readonly string[],
+  extraTypes: string[],
+): void {
+  if (!extraTypes.length) return;
+  const shown = new Set(baseTypes.map((t) => canonicalizeBlockType(t)));
+  for (const raw of extraTypes) {
+    const t = canonicalizeBlockType(raw);
+    if (!t || shown.has(t)) continue;
+    shown.add(t);
+    const hint = DSO_ROLE_HINTS[t] ?? FREEFORM_ROLE_HINTS[t] ?? "section";
+    lines.push(`- "${t}" (${hint}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`);
+  }
+}
+
+// ── DSO-aware freeform vocabulary (DSO block-variety regression) ────────────
+// Dandy DSO segments ship a curated micrositeBlockList, which previously forced
+// every DSO account's microsite into the SAME fixed order ("AVAILABLE BLOCKS —
+// use only these, in this order"), so every DSO microsite came out identical.
+// Instead, when the segment carries a genuine DSO vocabulary we let the model
+// CHOOSE from the full DSO block set and vary the mix/order per account — while
+// keeping the microsite DSO vocabulary SEPARATE from the landing-page DSO
+// vocabulary so the two products stay visually distinct. The two DSO
+// vocabularies (enterprise vs practices) never mix on a single page. Only the
+// dso-* types that have a server-side BLOCK_PROP_SCHEMAS entry are listed.
+const DSO_ENTERPRISE_BLOCK_TYPES = [
+  "dso-heartland-hero",
+  "dso-stat-bar",
+  "dso-challenges",
+  "dso-insights-dashboard",
+  "dso-success-stories",
+  "dso-case-study",
+  "dso-pilot-steps",
+  "dso-comparison",
+  "dso-lab-tour",
+  "dso-final-cta",
+] as const;
+
+const DSO_PRACTICES_BLOCK_TYPES = [
+  "dso-practice-nav",
+  "dso-practice-hero",
+  "dso-stat-row",
+  "dso-partnership-perks",
+  "dso-split-feature",
+  "dso-software-showcase",
+  "dso-faq",
+  "dso-activation-steps",
+  "dso-promo-cards",
+  "dso-final-cta",
+] as const;
+
+// General, industry-agnostic supporting blocks a DSO page MAY mix in for extra
+// variety. Deliberately small + content-neutral (a standalone testimonial, an
+// embedded video, a short prose section, an explicit footer) so they add layout
+// variety without clashing with the dso-* design system or duplicating a dso-*
+// block's job. business-case-* monographs and the OTHER product's vocabulary
+// are intentionally excluded.
+const DSO_GENERAL_SUPPORTING_TYPES = [
+  "testimonial",
+  "video-section",
+  "rich-text",
+  "footer",
+] as const;
+
+// Short role / use-case hint per DSO block so the model understands each
+// section's job and can pick the ones that fit THIS account.
+const DSO_ROLE_HINTS: Record<string, string> = {
+  "dso-heartland-hero": "hero — opens the page; exactly ONE, always first",
+  "dso-stat-bar": "stats — network-wide metrics bar",
+  "dso-challenges": "problem — the operational pain points this account feels at scale",
+  "dso-insights-dashboard": "product — shows the analytics/insights product surface",
+  "dso-success-stories": "social proof — 3-card roundup of customer outcomes (approved case studies only)",
+  "dso-case-study": "social proof — ONE deep-dive customer story (approved case studies only)",
+  "dso-pilot-steps": "process — how a pilot / phased rollout works, step by step",
+  "dso-comparison": "comparison — the modern approach vs the traditional way",
+  "dso-lab-tour": "feature — narrative behind-the-scenes tour with a quote",
+  "dso-practice-nav": "nav — sticky in-page navigation; optional, first if used",
+  "dso-practice-hero": "hero — opens the page; exactly ONE, first (after the nav if present)",
+  "dso-stat-row": "stats — quick metrics row",
+  "dso-partnership-perks": "benefits — exactly 6 partnership benefit cards",
+  "dso-split-feature": "feature — alternating image + copy feature section",
+  "dso-software-showcase": "product — software feature showcase",
+  "dso-faq": "faq — 4–5 common questions",
+  "dso-activation-steps": "process — onboarding / activation steps",
+  "dso-promo-cards": "offers — promotional offer cards",
+  "dso-final-cta": "cta — closing call to action; place last",
+  "testimonial": "social proof — a single real-sounding customer quote",
+  "video-section": "media — embedded video",
+  "rich-text": "content — short narrative prose section",
+  "footer": "footer — closes the page; last if used",
+};
+
+export type DsoVocabMode = "enterprise" | "practices";
+
+// The block types a given DSO vocab mode may emit: the mode's dso-* vocabulary
+// plus the shared general supporting set.
+function dsoVocabTypes(mode: DsoVocabMode): readonly string[] {
+  const base = mode === "practices" ? DSO_PRACTICES_BLOCK_TYPES : DSO_ENTERPRISE_BLOCK_TYPES;
+  return [...base, ...DSO_GENERAL_SUPPORTING_TYPES];
+}
+
+// Validation allow-set per mode (canonicalized — matches normalizeBlock output).
+const DSO_ENTERPRISE_ALLOWED_SET: ReadonlySet<string> = new Set(
+  dsoVocabTypes("enterprise").map((t) => canonicalizeBlockType(t)),
+);
+const DSO_PRACTICES_ALLOWED_SET: ReadonlySet<string> = new Set(
+  dsoVocabTypes("practices").map((t) => canonicalizeBlockType(t)),
+);
+function dsoAllowedSet(mode: DsoVocabMode): ReadonlySet<string> {
+  return mode === "practices" ? DSO_PRACTICES_ALLOWED_SET : DSO_ENTERPRISE_ALLOWED_SET;
+}
+
+// Detect whether a curated block list is a genuine DSO vocabulary, and which
+// one. This ties DSO-freeform mode to lists that ALREADY carry dso-* blocks
+// (i.e. Dandy's seeded DSO segments) — so the DSO vocabulary can NEVER leak
+// onto a non-DSO tenant's page, and the practices-vs-enterprise split is driven
+// by the curated list's own contents. Returns null for non-DSO lists. The
+// shared dso-final-cta does not disambiguate, so it's ignored for the split.
+export function detectDsoVocabMode(
+  blockList: BrandMicrositeBlockListEntry[] | undefined,
+): DsoVocabMode | null {
+  if (!blockList?.length) return null;
+  const practicesSet = new Set<string>(DSO_PRACTICES_BLOCK_TYPES);
+  const enterpriseSet = new Set<string>(DSO_ENTERPRISE_BLOCK_TYPES);
+  let practices = 0;
+  let enterprise = 0;
+  for (const b of blockList) {
+    const t = (b.type ?? "").trim().toLowerCase();
+    if (t === "dso-final-cta") continue;
+    if (practicesSet.has(t)) practices++;
+    else if (enterpriseSet.has(t)) enterprise++;
+  }
+  if (practices === 0 && enterprise === 0) return null;
+  return practices > enterprise ? "practices" : "enterprise";
+}
+
+// Name-based DSO vocab detection — mirrors the landing-page path's detection
+// (segment name containing "practice" → DSO Practices, "dso" → DSO enterprise).
+// This is a FALLBACK used only when the curated list doesn't disambiguate (e.g.
+// a DSO-named segment whose micrositeBlockList is empty or non-DSO), so a DSO
+// segment still composes from the DSO vocabulary instead of the neutral set.
+// The CALLER gates this to the Dandy tenant (the DSO product owner) so the
+// DSO/dental vocabulary can NEVER leak onto a non-DSO tenant's microsite.
+// "practice" is checked first because a name can mention both ("DSO practices").
+export function detectDsoVocabModeFromName(
+  name: string | undefined | null,
+): DsoVocabMode | null {
+  const n = (name ?? "").toLowerCase();
+  if (!n) return null;
+  if (n.includes("practice")) return "practices";
+  if (n.includes("dso")) return "enterprise";
+  return null;
+}
+
+// Build the DSO freeform "AVAILABLE BLOCKS" guide for the given mode: the dso-*
+// vocabulary + general supporting blocks, each with its role hint and schema.
+export function buildDsoFreeformBlockGuide(mode: DsoVocabMode, extraTypes: string[] = []): string {
+  const base = dsoVocabTypes(mode);
+  const lines = base
+    .map((t) => `- "${t}" (${DSO_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`);
+  // Segment-approval expansion — append superadmin-approved blocks for this
+  // segment that aren't already in the DSO vocab, deduped by canonical type.
+  // Unioned ON TOP of the DSO set (occasional non-DSO blocks are OK).
+  appendApprovedBlockGuideLines(lines, base, extraTypes);
+  return lines.join("\n");
+}
+
+// Segment-approval expansion — load the canonical block types a superadmin has
+// approved for THIS segment in the Block Catalog (for the tenant's industry).
+// These are unioned ON TOP of the freeform/DSO vocabulary so an approved block
+// becomes selectable for the segment without clamping the existing vocab. Only
+// AI-eligible, enabled rows count. Fails closed (empty) on any error so a DB
+// hiccup never blocks generation.
+async function fetchSegmentApprovedBlockTypes(
+  industry: string,
+  segmentId: string,
+  // Segment-pool generation (task #5) — when a tenant id is supplied, the
+  // segment pool is the superadmin `approved_segments` union UNIONED with the
+  // tenant's own governance approvals (the EXPAND half of the AI vocabulary,
+  // matching the landing-page generator). Omitting it preserves the legacy
+  // superadmin-only behaviour.
+  tenantId?: number | null,
+): Promise<string[]> {
+  const id = (segmentId ?? "").trim();
+  if (!id || !industry) return [];
+  try {
+    const result = await pool.query(
+      `SELECT block_type FROM block_catalog
+       WHERE industry = $1 AND ai_enabled = true AND is_enabled = true AND $2 = ANY(approved_segments)`,
+      [industry, id],
+    );
+    const out = new Set<string>();
+    for (const row of result.rows) {
+      const canon = canonicalizeBlockType(String(row.block_type ?? "").trim());
+      if (canon) out.add(canon);
+    }
+    // Tenant governance approvals (task #4 data → task #5 generation pool).
+    // Fail-open: a governance fetch hiccup leaves the superadmin set intact.
+    if (tenantId !== null && tenantId !== undefined) {
+      try {
+        const govRows = await pool.query<{
+          block_type: string;
+          enabled: boolean | null;
+          ai_mode: string;
+          segments: string[] | null;
+        }>(
+          `SELECT block_type, enabled, ai_mode, segments
+             FROM tenant_block_governance WHERE tenant_id = $1`,
+          [tenantId],
+        );
+        const map = governanceMapFromRows(
+          govRows.rows.map((r) => ({
+            blockType: canonicalizeBlockType(r.block_type),
+            enabled: r.enabled,
+            aiMode: r.ai_mode,
+            segments: r.segments ?? [],
+          })),
+        );
+        for (const t of blocksApprovedForSegment(map, id)) {
+          const canon = canonicalizeBlockType(t);
+          if (canon) out.add(canon);
+        }
+      } catch (govErr) {
+        logger.warn(
+          { err: govErr, tenantId, segmentId: id },
+          "generate-microsite: tenant_block_governance pool fetch skipped",
+        );
+      }
+    }
+    return [...out];
+  } catch (err) {
+    logger.warn(
+      { err, industry, segmentId: id },
+      "generate-microsite: failed to load segment-approved block types",
+    );
+    return [];
+  }
 }
 
 // Three-tier schema resolution for a block-list entry: explicit per-entry
@@ -1411,6 +1784,24 @@ export function buildSystemPrompt(
   // schemaless full-page / one-pager types can advertise a derived key-list
   // schema to the model instead of a generic "{ ...fields }".
   templateBlocks?: AiBlock[],
+  // DSO block-variety regression — when set, the model freely composes a varied
+  // layout from the DSO (enterprise or practices) vocabulary instead of filling
+  // the segment's fixed curated block list. Mutually exclusive with useFreeform.
+  dsoFreeformMode: DsoVocabMode | null = null,
+  // Segment-approval expansion — canonical block types a superadmin has approved
+  // for THIS segment in the Block Catalog. Unioned ON TOP of the freeform/DSO
+  // vocabulary in the AVAILABLE BLOCKS guide (and the route's validation set).
+  segmentApprovedTypes: string[] = [],
+  // Segment-pool generation (task #5) — when true, the segment has an approved
+  // block POOL and no explicit per-segment lock, so the model free-composes
+  // drawing ONLY from that pool (+ structural essentials). Mutually exclusive
+  // with useFreeform / dsoFreeformMode / a template.
+  usePoolFreeform = false,
+  // Task #6 — the page outline resolved to a fixed, ordered block list (category
+  // steps already drawn from the segment's approved pool, block steps forced).
+  // When present it is THE fixed-list backbone, taking precedence over the legacy
+  // segment/brand block lists; empty/undefined falls back to that legacy chain.
+  outlineBlockList?: BrandMicrositeBlockListEntry[],
 ): string {
   const tone            = brand.toneOfVoice as string | undefined;
   const pillars         = brand.messagingPillars as Array<{ label: string; description: string }> | undefined;
@@ -1550,11 +1941,16 @@ export function buildSystemPrompt(
     themes.length ? `Messaging themes: ${themes.join(", ")}.` : null,
   ].filter(Boolean).join("\n");
 
-  // Block list resolution order: selected segment's micrositeBlockList →
-  // brand-level defaultMicrositeBlockList → built-in neutral fallback.
+  // Block list resolution order (task #6): the resolved page outline (segment or
+  // brand, category steps already matched from the pool) → selected segment's
+  // legacy micrositeBlockList → brand-level defaultMicrositeBlockList → built-in
+  // neutral fallback. The outline supersedes the legacy lists; an outline that
+  // resolves empty (e.g. all-optional categories with an empty pool) degrades
+  // gracefully down this same chain.
   const brandDefaultBlockList = brand.defaultMicrositeBlockList as BrandMicrositeBlockListEntry[] | undefined;
   const resolvedBlockList: BrandMicrositeBlockListEntry[] =
-    (segment.micrositeBlockList?.length ? segment.micrositeBlockList : undefined)
+    (outlineBlockList?.length ? outlineBlockList : undefined)
+    ?? (segment.micrositeBlockList?.length ? segment.micrositeBlockList : undefined)
     ?? (brandDefaultBlockList?.length ? brandDefaultBlockList : undefined)
     ?? NEUTRAL_MICROSITE_BLOCK_LIST;
   const resolvedBlockTypes = resolvedBlockList.filter(b => (b.type ?? "").trim());
@@ -1592,6 +1988,71 @@ export function buildSystemPrompt(
     ].join("\n");
   }
 
+  // DSO block-variety regression — DSO-aware freeform. The segment carries a
+  // curated DSO vocabulary, but rather than forcing the SAME fixed order on
+  // every account, advertise the full DSO (enterprise or practices) vocabulary
+  // + a few general supporting blocks and let the model pick a varied layout.
+  // Falls back to the curated DSO list in the route if it yields nothing usable.
+  if (dsoFreeformMode) {
+    const isPractices = dsoFreeformMode === "practices";
+    const countRange = isPractices ? "6–9" : "6–10";
+    const heroLine = isPractices
+      ? "- Open with EXACTLY ONE \"dso-practice-hero\" (first). You MAY precede it with a single \"dso-practice-nav\"."
+      : "- Open with EXACTLY ONE hero (\"dso-heartland-hero\") first.";
+    const dsoFreeformFooter = [
+      "",
+      "LAYOUT — YOU choose the sections (this page has NO fixed block list):",
+      heroLine,
+      `- Pick ${countRange} blocks TOTAL from the AVAILABLE BLOCKS that best tell THIS account's story, and END with \"dso-final-cta\" (add a \"footer\" after it only if you include one).`,
+      "- Vary BOTH the selection AND the order across accounts — do NOT emit the same sequence every time. Choose based on THIS account: the brief's emphasis, account size/segment, the REFERENCE PAGE, and the EXAMPLES above.",
+      "- Include at least one proof/metrics section and at least one feature/benefit section where they fit. Skip sections that don't fit; NEVER pad with empty or stub blocks.",
+      "- Use ONLY the exact block type strings listed above. NEVER invent block types, NEVER use business-case blocks, and NEVER mix in the other DSO product's blocks.",
+      "Every block's copy must feel written specifically for this account — their name, scale, and situation woven in naturally.",
+      "Use plain, direct language. If a phrase sounds like it belongs in a pitch deck or a press release, rewrite it.",
+      "FINAL CAPITALIZATION REMINDER: Every single string value — headlines, eyebrows, subheadlines, bullet points, step titles, labels, FAQ questions — MUST start with a capital letter. NEVER start any text value with a lowercase letter. NEVER title-case (capitalize every word). Only the first word + proper nouns + acronyms get capitals.",
+    ].join("\n");
+
+    return [
+      header,
+      "",
+      audienceSection,
+      "",
+      "AVAILABLE BLOCKS (choose from these — you decide which and in what order):",
+      buildDsoFreeformBlockGuide(dsoFreeformMode, segmentApprovedTypes),
+      dsoFreeformFooter,
+    ].join("\n");
+  }
+
+  // Segment-pool generation (task #5) — the segment has an approved block POOL
+  // and no explicit per-segment lock. Advertise ONLY the pool (+ structural
+  // hero/cta/footer) and let the model compose a varied layout from it, so
+  // accounts in the same segment no longer share one identical brand-default
+  // lineup. The route validation clamps output to the same pool ∪ structural
+  // set, falling back to NEUTRAL if nothing usable remains.
+  if (usePoolFreeform) {
+    const poolFooter = [
+      "",
+      "LAYOUT — YOU choose the sections from the APPROVED BLOCKS for this audience (no fixed list):",
+      "- Open with EXACTLY ONE \"hero\" block (first) and END with a \"footer\" block.",
+      "- Between them, pick the approved blocks that best tell THIS account's story, and place a closing CTA (\"bottom-cta\") immediately before the footer. Vary the selection and order across accounts — do NOT emit the same sequence every time.",
+      "- Sequence sections as a logical narrative: hook → problem/value → proof → benefits → closing CTA → footer. Skip blocks that don't fit THIS account; never pad with empty or stub blocks.",
+      "- Use ONLY the block types listed above (exact type strings). NEVER invent block types and NEVER use any block not listed above.",
+      "Every block's copy must feel written specifically for this account — their name, scale, and situation woven in naturally.",
+      "Use plain, direct language. If a phrase sounds like it belongs in a pitch deck or a press release, rewrite it.",
+      "FINAL CAPITALIZATION REMINDER: Every single string value — headlines, eyebrows, subheadlines, bullet points, step titles, labels, FAQ questions — MUST start with a capital letter. NEVER start any text value with a lowercase letter. NEVER title-case (capitalize every word). Only the first word + proper nouns + acronyms get capitals.",
+    ].join("\n");
+
+    return [
+      header,
+      "",
+      audienceSection,
+      "",
+      "AVAILABLE BLOCKS (these are approved for this audience — you decide which and in what order):",
+      buildSegmentPoolBlockGuide(segmentApprovedTypes),
+      poolFooter,
+    ].join("\n");
+  }
+
   // Task #976 — Freeform layout. No template and no curated/brand block list:
   // give the model the neutral block vocabulary + best-practice ordering rules
   // and let IT compose a varied layout, instead of emitting the flat 7-block
@@ -1617,7 +2078,7 @@ export function buildSystemPrompt(
       audienceSection,
       "",
       "AVAILABLE BLOCKS (choose from these — you decide which and in what order):",
-      buildFreeformBlockGuide(),
+      buildFreeformBlockGuide(segmentApprovedTypes),
       freeformFooter,
     ].join("\n");
   }
@@ -1825,11 +2286,97 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // DSO segments, brand defaults) stay authoritative and short-circuit to the
     // fixed-list path; only the previously-static NEUTRAL fallback is replaced.
     const brandDefaultBlockList = brand.defaultMicrositeBlockList as BrandMicrositeBlockListEntry[] | undefined;
-    const hasCuratedBlockList =
-      (segment.micrositeBlockList?.length ?? 0) > 0 || (brandDefaultBlockList?.length ?? 0) > 0;
-    const useFreeform = !templateBlockTypes && !hasCuratedBlockList;
+    // DSO block-variety regression — a genuine DSO segment (its curated list is
+    // dso-* vocabulary) gets free block CHOICE from the DSO vocab instead of the
+    // fixed curated order, so each account's microsite varies. Detected from the
+    // resolved curated list's own contents → can NEVER fire for a non-DSO
+    // tenant. A picked template always wins (explicit authored layout).
+    const curatedForDetect = (segment.micrositeBlockList?.length ? segment.micrositeBlockList : brandDefaultBlockList);
+    // Dandy is the DSO product owner — resolved once and reused for the hero
+    // variability pass below. Computed lazily: fixed-template pages use neither
+    // the name-based DSO fallback nor the hero-variability pass, so they skip the
+    // DB lookup entirely.
+    const dandyTenant = templateBlocks ? false : await isDandyTenant(tenantId);
+    // List-based detection is precise (tied to the curated dso-* vocabulary, so
+    // it can never fire for a non-DSO tenant). Name-based detection mirrors the
+    // landing-page path and acts as a FALLBACK when the curated list doesn't
+    // disambiguate (e.g. a DSO-named segment with an empty/non-DSO list) — gated
+    // to the Dandy tenant so the DSO/dental vocabulary can never leak elsewhere.
+    const dsoFreeformMode = templateBlockTypes
+      ? null
+      : (detectDsoVocabMode(curatedForDetect)
+        ?? (dandyTenant ? detectDsoVocabModeFromName(segment.name) : null));
+    // Tenant industry — used both for segment-approval lookup and the image
+    // pipeline below; computed once here.
+    const tenantIndustry = await getTenantIndustry(tenantId);
 
-    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment, useFreeform, templateBlocks);
+    // Segment pool (task #5) — the blocks approved for this segment: the
+    // superadmin Block-Catalog `approved_segments` union UNIONED with the
+    // tenant's own governance approvals. Fetched for every non-template page so
+    // the block-source decision can prefer this pool over the brand-default
+    // fixed list. Skipped for fixed templates (an explicit authored layout).
+    const segmentApprovedTypes = templateBlockTypes
+      ? []
+      : await fetchSegmentApprovedBlockTypes(tenantIndustry, segment.id ?? "", tenantId);
+
+    // Effective page outlines (task #6) — the outline supersedes the legacy
+    // block lists. The segment outline is segment.pageOutline (when set) else the
+    // adapted legacy micrositeBlockList; the brand outline is
+    // brand.defaultPageOutline else the adapted defaultMicrositeBlockList. Both
+    // are pure model objects (no DB) so a category step is later matched against
+    // the segment's approved pool.
+    const segmentOutline = effectiveOutline({
+      outline: normalizePageOutline(segment.pageOutline),
+      legacyBlockList: (segment.micrositeBlockList ?? []).map((e) => ({
+        type: e.type ?? "",
+        schemaHint: e.schemaHint,
+      })),
+    });
+    const brandOutline = effectiveOutline({
+      outline: normalizePageOutline((brand as { defaultPageOutline?: PageOutline }).defaultPageOutline),
+      legacyBlockList: (brandDefaultBlockList ?? []).map((e) => ({
+        type: e.type ?? "",
+        schemaHint: e.schemaHint,
+      })),
+    });
+
+    // Block-source precedence (task #5 + task #6) — see resolveMicrositeBlockSource.
+    // A configured outline (segment first, then brand) is honored on EVERY path,
+    // including DSO: it beats dso-freeform and the pool. Only when no outline is
+    // configured does dso-freeform → segment-pool → neutral-freeform apply.
+    const blockSource = resolveMicrositeBlockSource({
+      hasTemplate: Boolean(templateBlockTypes && templateBlockTypes.length > 0),
+      dsoFreeformMode,
+      hasSegmentOutline: outlineHasSteps(segmentOutline),
+      hasSegmentPool: segmentApprovedTypes.length > 0,
+      hasBrandOutline: outlineHasSteps(brandOutline),
+    });
+    const useDsoFreeform = blockSource === "dso-freeform";
+    const usePoolFreeform = blockSource === "segment-pool";
+    const useFreeform = blockSource === "neutral-freeform";
+
+    // Task #6 — when an outline drives the page, resolve it to a fixed, ordered
+    // block list NOW (in the route, where the approved pool + role tags are
+    // available): category steps draw a brand-matched block of that role from
+    // the segment's approved pool, specific-block steps are forced, order is
+    // respected, and a required category with no pool match falls back to a
+    // structural default (hero/cta/footer). The resolved list is the fixed-list
+    // backbone for the prompt; an empty resolution degrades to the legacy chain
+    // inside buildSystemPrompt.
+    const activeOutline =
+      blockSource === "segment-outline" ? segmentOutline
+      : blockSource === "brand-outline" ? brandOutline
+      : null;
+    const outlineBlockList: BrandMicrositeBlockListEntry[] | undefined = activeOutline
+      ? resolvePageOutline(activeOutline, {
+          pool: segmentApprovedTypes,
+          rolesOf: (t) => resolveBlockTags(t),
+          roleDefaults: { hero: "hero", cta: "bottom-cta", footer: "footer" },
+          canonicalize: (t) => canonicalizeBlockType(t),
+        }).map((r) => ({ type: r.type, schemaHint: r.schemaHint }))
+      : undefined;
+
+    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes, usePoolFreeform, outlineBlockList);
 
     // Task #976 — REFERENCE PAGE (voice) + VISUAL REFERENCE (style) sections,
     // appended to the user prompt exactly like /lp/generate-page. The brand's
@@ -1953,9 +2500,14 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         ]
       : contextParts.join("\n");
 
+    // Freeform / DSO-freeform pages compose their OWN block lineup, so a slightly
+    // higher temperature widens structural diversity across accounts — the single
+    // per-audience exemplar otherwise anchors every page to the same sequence.
+    // Fixed-template and curated-list pages keep the lower temperature for tighter
+    // copy fidelity to their authored layout.
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
-      temperature: 0.7,
+      temperature: (useFreeform || useDsoFreeform || usePoolFreeform) ? 0.85 : 0.7,
       max_completion_tokens: 4096,
       response_format: { type: "json_object" },
       messages: [
@@ -1979,7 +2531,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       // last-resort. Treat the response as empty and let the freeform safety
       // net below produce NEUTRAL rather than 500. Only the curated-block-list
       // path (no template, not freeform) keeps the hard error.
-      if (!templateBlocks && !useFreeform) {
+      if (!templateBlocks && !useFreeform && !useDsoFreeform && !usePoolFreeform) {
         res.status(500).json({ error: "AI returned invalid JSON", raw });
         return;
       }
@@ -1999,12 +2551,13 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       if (!parsed.slug || typeof parsed.slug !== "string") {
         parsed.slug = account.displayName ?? account.name;
       }
-    } else if (useFreeform) {
-      // Task #1153 — freeform has no authored template to fall back to, but a
-      // missing/malformed title, slug, or block list must still never 500 or
-      // ship a blank page. Backfill title/slug from the account and normalise
-      // blocks to an array; if it ends up empty (or all-unknown), the freeform
-      // safety net below substitutes the static NEUTRAL layout.
+    } else if (useFreeform || useDsoFreeform || usePoolFreeform) {
+      // Task #1153 — freeform (and DSO-freeform) has no authored template to
+      // fall back to, but a missing/malformed title, slug, or block list must
+      // still never 500 or ship a blank page. Backfill title/slug from the
+      // account and normalise blocks to an array; if it ends up empty (or
+      // all-unknown), the safety net below substitutes the NEUTRAL layout
+      // (freeform) or the curated DSO list (DSO-freeform).
       if (!parsed.title || typeof parsed.title !== "string") {
         parsed.title = account.displayName ?? account.name;
       }
@@ -2043,9 +2596,38 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // never leak into a non-Dandy freeform page even if the model ignores the
     // prompt). If filtering leaves nothing usable, fall back to the static
     // NEUTRAL layout (the last-resort safety net) rather than ship a blank page.
-    if (useFreeform) {
+    if (usePoolFreeform) {
+      // Segment-pool safety (task #5) — clamp output to the approved pool ∪ the
+      // structural essentials (hero/cta/footer). Anything outside the pool the
+      // tenant approved for this segment is dropped (defence-in-depth so an
+      // off-pool block the model invents can never ship). If nothing usable
+      // remains, fall back to the static NEUTRAL layout rather than a blank page.
+      const allowed = segmentPoolAllowedSet(segmentApprovedTypes);
       const filtered = normalizedBlocks.filter((b) =>
-        FREEFORM_ALLOWED_TYPE_SET.has(String(b.type ?? "")),
+        allowed.has(String(b.type ?? "")),
+      );
+      if (filtered.length > 0) {
+        normalizedBlocks = filtered;
+      } else {
+        logger.warn(
+          { accountId, tenantId },
+          "generate-microsite: segment-pool output had no usable blocks; falling back to pool-contained layout",
+        );
+        // Stay strictly pool-contained even in the degenerate fallback — the
+        // generic NEUTRAL list would leak off-pool blocks and break the
+        // pool-only contract (task #5).
+        normalizedBlocks = segmentPoolFallbackBlockList(segmentApprovedTypes).map((type, i) =>
+          normalizeBlock({ type, props: {} } as AiBlock, i, fallbackBrand),
+        );
+      }
+    } else if (useFreeform) {
+      // Segment-approval expansion — allow superadmin-approved blocks for this
+      // segment IN ADDITION to the neutral freeform vocab (union, not a clamp).
+      const allowed = segmentApprovedTypes.length
+        ? new Set<string>([...FREEFORM_ALLOWED_TYPE_SET, ...segmentApprovedTypes])
+        : FREEFORM_ALLOWED_TYPE_SET;
+      const filtered = normalizedBlocks.filter((b) =>
+        allowed.has(String(b.type ?? "")),
       );
       if (filtered.length > 0) {
         normalizedBlocks = filtered;
@@ -2057,6 +2639,35 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         normalizedBlocks = NEUTRAL_MICROSITE_BLOCK_LIST.map((entry, i) =>
           normalizeBlock({ type: entry.type, props: {} } as AiBlock, i, fallbackBrand),
         );
+      }
+    } else if (useDsoFreeform && dsoFreeformMode) {
+      // DSO block-variety regression — DSO-freeform safety: drop any block whose
+      // type is outside the DSO vocab for this mode (defence-in-depth so the
+      // other DSO product's blocks, business-case-*, or invented types can never
+      // leak in). If nothing usable remains, fall back to the segment's curated
+      // DSO block list (NOT the neutral non-DSO layout) so the page stays on the
+      // DSO design system rather than shipping blank.
+      // Segment-approval expansion — allow superadmin-approved blocks for this
+      // segment IN ADDITION to the DSO vocab (union, not a clamp).
+      const dsoBase = dsoAllowedSet(dsoFreeformMode);
+      const allowed = segmentApprovedTypes.length
+        ? new Set<string>([...dsoBase, ...segmentApprovedTypes])
+        : dsoBase;
+      const filtered = normalizedBlocks.filter((b) => allowed.has(String(b.type ?? "")));
+      if (filtered.length > 0) {
+        normalizedBlocks = filtered;
+      } else {
+        logger.warn(
+          { accountId, tenantId, dsoFreeformMode },
+          "generate-microsite: DSO-freeform output had no usable blocks; falling back to curated DSO block list",
+        );
+        const curatedFallback =
+          (segment.micrositeBlockList?.length
+            ? segment.micrositeBlockList
+            : (brand.defaultMicrositeBlockList as BrandMicrositeBlockListEntry[] | undefined)) ?? [];
+        normalizedBlocks = curatedFallback
+          .filter((entry) => (entry.type ?? "").trim())
+          .map((entry, i) => normalizeBlock({ type: entry.type, props: {} } as AiBlock, i, fallbackBrand));
       }
     }
 
@@ -2073,6 +2684,13 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
           ctaOverride?.url ??
           (brand.chilipiperUrl as string | undefined) ??
           (brand.defaultCtaUrl as string | undefined),
+        // Segment-pool mode (task #5) — restrict required-role backfill to the
+        // approved pool ∪ structural essentials so it can never reintroduce an
+        // off-pool block (benefits-grid/testimonial/trust-bar) after the clamp.
+        // Other modes keep the legacy "backfill every missing role" behavior.
+        allowedTypes: usePoolFreeform
+          ? segmentPoolAllowedSet(segmentApprovedTypes)
+          : undefined,
       });
     }
 
@@ -2127,7 +2745,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // ── Image pipeline (parity with the marketing generator) ──────────────
     // Page-level topic context biases image scoring toward on-topic library
     // imagery even when a block headline is generic.
-    const industryForImages = await getTenantIndustry(tenantId);
+    const industryForImages = tenantIndustry;
     const pageImageContext = [
       getIndustryImageKeywords(industryForImages).join(" "),
       account.industry ?? "",
@@ -2263,7 +2881,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // account (see applyDandyHeroVariability). Skipped for fixed-template
     // layouts (the template's hero is an explicit choice) and for non-Dandy
     // tenants (the generic / white-label path is unchanged).
-    if (!templateBlocks && (await isDandyTenant(tenantId))) {
+    if (!templateBlocks && dandyTenant) {
       const heroImageUrls = images
         .filter(i => (i.tags ?? []).some(t => t.toLowerCase() === "lp-hero"))
         .map(i => i.url);

@@ -11,6 +11,11 @@
 // Behavior is otherwise unchanged: the same advisory-lock contract, the same
 // idempotent DDL/seed batch, the same per-step logging. Failure exits non-zero
 // so deploy hooks abort the release.
+// MUST be the first import: loads the root/local `.env` with `override: true`
+// before `@workspace/db` is evaluated (its module body builds the pg pool from
+// process.env at import time). Without this the migrate process would run
+// against a stale injected DATABASE_URL. See src/loadEnv.ts.
+import "./loadEnv";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import pg from "pg";

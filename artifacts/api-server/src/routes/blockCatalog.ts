@@ -10,6 +10,25 @@ const router = Router();
 
 const VALID_INDUSTRIES = INDUSTRY_SET;
 
+// Audience-segment ids a block is approved for. Accepts an array of strings;
+// trims, drops empties, dedupes, and caps the count so a malformed/huge body
+// can't bloat the row. Returns a clean string[] (defaults to []).
+const MAX_APPROVED_SEGMENTS = 100;
+function sanitizeApprovedSegments(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const v of input) {
+    if (typeof v !== "string") continue;
+    const t = v.trim();
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+    if (out.length >= MAX_APPROVED_SEGMENTS) break;
+  }
+  return out;
+}
+
 // ─── Authenticated: tenant-aware catalog read ───────────────────────────────
 // GET /api/block-catalog
 //   Always returns rows for the *caller's tenant industry*. The optional
@@ -24,7 +43,7 @@ router.get("/block-catalog", requireAuth, async (req, res): Promise<void> => {
   const industry = await tenantIndustry(user.tenantId);
   try {
     const result = await pool.query(
-      `SELECT block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, sort_order, updated_at
+      `SELECT block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, approved_segments, sort_order, updated_at
        FROM block_catalog WHERE industry = $1
        ORDER BY sort_order ASC, label ASC`,
       [industry]
@@ -42,7 +61,7 @@ router.get("/block-catalog", requireAuth, async (req, res): Promise<void> => {
 router.get("/admin/block-catalog", requireSuperadmin, async (_req, res): Promise<void> => {
   try {
     const result = await pool.query(
-      `SELECT block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, sort_order, updated_at, updated_by
+      `SELECT block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, approved_segments, sort_order, updated_at, updated_by
        FROM block_catalog ORDER BY industry, sort_order, label`
     );
     res.json(result.rows);
@@ -64,6 +83,7 @@ type CatalogUpsertInput = {
   default_props?: unknown;
   is_enabled?: unknown;
   ai_enabled?: unknown;
+  approved_segments?: unknown;
   sort_order?: unknown;
 };
 type CatalogUpsertResult =
@@ -71,7 +91,7 @@ type CatalogUpsertResult =
   | { ok: false; error: string };
 
 async function upsertCatalogRow(input: CatalogUpsertInput): Promise<CatalogUpsertResult> {
-  const { block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, sort_order } = input;
+  const { block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, approved_segments, sort_order } = input;
   if (!block_type || !industry || !label || !category) {
     return { ok: false, error: "block_type, industry, label, category required" };
   }
@@ -82,10 +102,13 @@ async function upsertCatalogRow(input: CatalogUpsertInput): Promise<CatalogUpser
   // entries are dropped (fail-closed). An empty array clears the override so
   // the block falls back to its in-code default tags.
   const cleanTags = sanitizeRoleTags(tags as never);
+  // Approved audience-segment ids; cleaned + capped. Empty array = not approved
+  // for any segment (no generation behaviour change).
+  const cleanApprovedSegments = sanitizeApprovedSegments(approved_segments);
   try {
     const result = await pool.query(
-      `INSERT INTO block_catalog (block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, true), COALESCE($8, true), COALESCE($9, 0))
+      `INSERT INTO block_catalog (block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, approved_segments, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, true), COALESCE($8, true), $9, COALESCE($10, 0))
        ON CONFLICT (block_type, industry) DO UPDATE SET
          label = EXCLUDED.label,
          category = EXCLUDED.category,
@@ -93,10 +116,11 @@ async function upsertCatalogRow(input: CatalogUpsertInput): Promise<CatalogUpser
          default_props = EXCLUDED.default_props,
          is_enabled = EXCLUDED.is_enabled,
          ai_enabled = EXCLUDED.ai_enabled,
+         approved_segments = EXCLUDED.approved_segments,
          sort_order = EXCLUDED.sort_order,
          updated_at = now()
        RETURNING *`,
-      [block_type, industry, label, category, cleanTags, JSON.stringify(default_props ?? {}), is_enabled, ai_enabled, sort_order]
+      [block_type, industry, label, category, cleanTags, JSON.stringify(default_props ?? {}), is_enabled, ai_enabled, cleanApprovedSegments, sort_order]
     );
     return { ok: true, row: result.rows[0] };
   } catch (err: any) {
@@ -208,22 +232,23 @@ router.post("/admin/block-catalog/duplicate", requireSuperadmin, async (req, res
   }
   try {
     const src = await pool.query(
-      `SELECT label, category, tags, default_props, is_enabled, ai_enabled, sort_order FROM block_catalog
+      `SELECT label, category, tags, default_props, is_enabled, ai_enabled, approved_segments, sort_order FROM block_catalog
        WHERE block_type = $1 AND industry = $2`,
       [block_type, from_industry]
     );
     if (!src.rows.length) { res.status(404).json({ error: "Source row not found" }); return; }
     const r = src.rows[0];
     const result = await pool.query(
-      `INSERT INTO block_catalog (block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO block_catalog (block_type, industry, label, category, tags, default_props, is_enabled, ai_enabled, approved_segments, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        ON CONFLICT (block_type, industry) DO UPDATE SET
          label = EXCLUDED.label, category = EXCLUDED.category, tags = EXCLUDED.tags,
          default_props = EXCLUDED.default_props, is_enabled = EXCLUDED.is_enabled,
          ai_enabled = EXCLUDED.ai_enabled,
+         approved_segments = EXCLUDED.approved_segments,
          sort_order = EXCLUDED.sort_order, updated_at = now()
        RETURNING *`,
-      [block_type, to_industry, r.label, r.category, sanitizeRoleTags(r.tags), JSON.stringify(r.default_props), r.is_enabled, r.ai_enabled, r.sort_order]
+      [block_type, to_industry, r.label, r.category, sanitizeRoleTags(r.tags), JSON.stringify(r.default_props), r.is_enabled, r.ai_enabled, sanitizeApprovedSegments(r.approved_segments), r.sort_order]
     );
     res.json(result.rows[0]);
   } catch (err) {

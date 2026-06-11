@@ -360,6 +360,7 @@ export default function PagesGallery() {
   const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null, templateId?: number | null, referenceUrls?: string[], replaceImagery?: boolean) => {
     const activeSeg = seg !== undefined ? seg : selectedSegment;
     const segmentContext = activeSeg ? {
+      id: activeSeg.id,
       name: activeSeg.name,
       description: activeSeg.description,
       messagingAngle: activeSeg.messagingAngle,

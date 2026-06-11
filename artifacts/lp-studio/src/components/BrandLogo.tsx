@@ -6,12 +6,18 @@ export type BrandLogoTone = "onDark" | "onLight" | "onPrimary" | "onAccent";
 const HEX6_RE = /^#[0-9a-f]{6}$/i;
 
 /**
- * Multi-color brand marks that must NEVER be mask-recolored. The auto-recolor
- * mask paints the whole SVG silhouette one flat color (great for monochrome
- * wordmarks), but it destroys multi-color logos — e.g. the Dandy mark renders
- * as a solid brand-primary (pink/coral) blob. These paths opt out explicitly so
- * they always render as a plain `<img>` in their native colors, regardless of
- * the `logoAutoRecolor` setting.
+ * Brand marks that must NEVER be mask-recolored. The auto-recolor mask paints
+ * the whole SVG silhouette one flat brand-primary color (great for a generic
+ * monochrome wordmark), but it's wrong for a mark whose own color is part of
+ * the brand — e.g. the Dandy mark would render as a solid brand-primary
+ * (pink/coral) blob instead of its native green. These paths opt out explicitly
+ * so they render as a plain `<img>` in their native colors on light surfaces,
+ * regardless of the `logoAutoRecolor` setting.
+ *
+ * This opt-out is SCOPED to mask-recolor only. On a DARK surface these marks
+ * still go through the pixel-sample-gated white-silhouette path below, so a
+ * single-color mark (like Dandy's green) lightens to read on dark, while a
+ * genuinely multi-color mark is left native by the sample.
  */
 const KNOWN_MULTICOLOR_LOGOS = new Set([
   "/dandy-logo.svg",
@@ -148,7 +154,21 @@ export function BrandLogo({
   // logos already use, so it always reads on dark headers/heroes.
   const usingDedicatedDarkAsset =
     onDarkSurface && !(url && url.trim()) && !!brand.logoUrlDark?.trim();
-  const whitenForDark = onDarkSurface && !usingDedicatedDarkAsset;
+  // Whitening a mark to a flat silhouette reads great for a dark monochrome
+  // wordmark but DESTROYS a genuinely multi-color mark (renders it as a solid
+  // white blob — the Clay-on-dark-footer bug). So whitening is a *candidate*
+  // here, resolved below by the pixel-sample alone: it stays on by default (the
+  // safety net for dark wordmarks) and is suppressed once a sample proves the
+  // mark isn't predominantly dark (multi-color or light → already reads on dark).
+  //
+  // NOTE: `isKnownMulticolor` deliberately does NOT gate this. That set only
+  // opts a mark out of the brand-primary *mask-recolor* (so the single-color
+  // Dandy mark stays its native green on light surfaces instead of turning
+  // pink). On a dark surface that same single-color mark SHOULD whiten to a
+  // clean silhouette like it used to — and the sample correctly keeps it on
+  // (Dandy green samples dark) while a true multi-color mark is suppressed.
+  const whitenCandidate =
+    onDarkSurface && !usingDedicatedDarkAsset && !autoRecolor;
 
   // Symmetric guard for the *light* direction (opt-in via `autoContrast`). A
   // non-recolorable logo on a light surface renders in its native colors — fine
@@ -169,14 +189,17 @@ export function BrandLogo({
     !autoRecolor;
 
   const [aspect, setAspect] = useState<number | null>(null);
-  // null = not yet sampled. Default to NOT darkening so a colored mark never
-  // flashes to black before the sample resolves; only a sample proving the mark
-  // is light flips the darken filter on.
-  const [markIsLight, setMarkIsLight] = useState<boolean | null>(null);
+  // Average luminance (0-1) of the mark's non-transparent pixels. null = not
+  // yet sampled, or sampling unavailable (cross-origin canvas taint / load
+  // error). Drives BOTH the light-surface darken guard and the dark-surface
+  // whiten guard.
+  const [markLum, setMarkLum] = useState<number | null>(null);
+
+  const needsSample = darkenCandidate || whitenCandidate;
 
   useEffect(() => {
-    if (!src || !darkenCandidate) {
-      setMarkIsLight(null);
+    if (!src || !needsSample) {
+      setMarkLum(null);
       return;
     }
     let cancelled = false;
@@ -192,7 +215,7 @@ export function BrandLogo({
         canvas.width = w;
         canvas.height = h;
         const ctx = canvas.getContext("2d");
-        if (!ctx) { setMarkIsLight(null); return; }
+        if (!ctx) { setMarkLum(null); return; }
         ctx.drawImage(img, 0, 0, w, h);
         const { data } = ctx.getImageData(0, 0, w, h);
         let sum = 0;
@@ -202,21 +225,28 @@ export function BrandLogo({
           sum += (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255;
           count++;
         }
-        // A predominantly light mark (white/near-white wordmark) is the only
-        // case that needs darkening to read on a light surface.
-        setMarkIsLight(count > 0 ? sum / count > 0.7 : null);
+        setMarkLum(count > 0 ? sum / count : null);
       } catch {
-        setMarkIsLight(null);
+        setMarkLum(null);
       }
     };
-    img.onerror = () => { if (!cancelled) setMarkIsLight(null); };
+    img.onerror = () => { if (!cancelled) setMarkLum(null); };
     img.src = src;
     return () => { cancelled = true; };
-  }, [src, darkenCandidate]);
+  }, [src, needsSample]);
 
   if (!src) return null;
 
-  const darkenForLight = darkenCandidate && markIsLight === true;
+  // Light surface: darken only a *predominantly light* mark (a white wordmark
+  // that would vanish "white-on-white"). Default off so a colored mark never
+  // flashes to black before the sample resolves.
+  const darkenForLight = darkenCandidate && markLum !== null && markLum > 0.7;
+  // Dark surface: keep the white-silhouette safety net ON by default (so a dark
+  // wordmark always reads, no flash), but SUPPRESS it once a sample proves the
+  // mark isn't predominantly dark — i.e. it's multi-color or light and already
+  // reads on dark. An unsampleable cross-origin mark stays whitened (uploading
+  // a dedicated dark logo is the way to show such a mark in its native colors).
+  const whitenForDark = whitenCandidate && !(markLum !== null && markLum >= 0.35);
 
   if (!autoRecolor) {
     const plainFilter = whitenForDark
