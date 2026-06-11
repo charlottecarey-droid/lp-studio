@@ -2186,17 +2186,13 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
         return img;
       });
     }
-    // case-study-card-grid cards[].imageUrl (customer logo / photo shown in each
-    // card header; starts "" so the library pass fills each card)
-    if (blockType === "case-study-card-grid" && Array.isArray(props.cards)) {
-      props.cards = (props.cards as Record<string, unknown>[]).map((card) => {
-        if (!card.imageUrl) {
-          const ctx = `${card.company ?? ""} ${card.result ?? ""} ${blockContext}`;
-          return { ...card, imageUrl: pick(ctx, images, usedIds, "lp-feature") };
-        }
-        return card;
-      });
-    }
+    // NOTE: case-study-card-grid cards[].imageUrl is intentionally NOT
+    // auto-filled. The card header renders this field as a small customer LOGO /
+    // brand mark (a logo box in displayMode "logo", a 12×12 icon box otherwise),
+    // so a library content photo (clinic / product / lifestyle shot) dropped in
+    // there reads as a "tiny image where a logo should be". Empty imageUrl
+    // renders the company name only — the correct fallback for placeholder
+    // customers — exactly like case-study-logo-results-row below.
     // NOTE: case-study-logo-results-row results[].logoUrl is intentionally NOT
     // auto-filled. These are customer/company logo slots — a library photo
     // (headshot/lifestyle) dropped into the tiny logo box reads as a broken
