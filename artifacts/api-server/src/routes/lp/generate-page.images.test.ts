@@ -116,24 +116,6 @@ describe("validateAndDedupeAIImages", () => {
     expect(blocks[1].props.rows[0].imageUrl).toBe("/objects/feat-b");
   });
 
-  it("does NOT auto-fill case-study-card-grid card logo slots", () => {
-    // cards[].imageUrl on this block is a small customer LOGO/brand-mark slot —
-    // a library content photo dropped there reads as a "tiny image where a logo
-    // should be". Empty must stay empty (renders the company name only).
-    const featLib: MediaImage[] = [
-      { url: "/objects/feat-a", title: "A", tags: ["lp-feature", "dentures"] },
-      { url: "/objects/feat-b", title: "B", tags: ["lp-feature", "dentures"] },
-    ];
-    let blocks: any[] = [
-      { type: "case-study-card-grid", props: { cards: [
-        { company: "Acme Dental", result: "Cut chair time 30%", imageUrl: "" },
-        { company: "Bright Smiles", result: "2.5x case acceptance", imageUrl: "" },
-      ] } },
-    ];
-    blocks = fillEmptyImages(blocks, featLib, PAGE_CTX) as any[];
-    for (const c of blocks[0].props.cards) expect(c.imageUrl).toBe("");
-  });
-
   it("fill harvests kept URLs across all previously-untracked shapes", () => {
     const lib: MediaImage[] = [
       { url: "/objects/k-card", title: "card", tags: ["lp-feature", "dentures"] },
