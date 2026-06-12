@@ -5,7 +5,7 @@ import type { Evidence, DimensionResult, TypographyData, TypographyFont } from "
 import { matchFont } from "../font-catalog";
 import { withOpenAIConcurrency } from "../openai-semaphore";
 
-interface FontEvidence {
+export interface FontEvidence {
   family: string;
   weights: number[];
   source: TypographyFont["source"];
@@ -102,6 +102,21 @@ function isMonoFontFamily(family: string): boolean {
   return MONO_FONT_RE.test(family);
 }
 
+// Script / handwriting / decorative-accent faces. Brand sites frequently load
+// one of these via a Google Fonts <link> for a tiny accent (a signature, a
+// "handwritten" callout) at heavy weights. The weight->=600 heading heuristic
+// then crowns the script font as the H1 face, beating the site's real brand
+// font (which often arrives weightless from Typekit/@font-face). No serious
+// brand uses these as their heading or body face, so exclude them from those
+// roles entirely. Kept to well-known Google script families to avoid false
+// positives against legit display serifs (Playfair Display, DM Serif Display).
+const SCRIPT_FONT_RE =
+  /\b(?:caveat|pacifico|lobster(?:[\s_-]?two)?|satisfy|courgette|cookie|allura|parisienne|sacramento|tangerine|yellowtail|kaushan(?:[\s_-]?script)?|amatic(?:[\s_-]?sc)?|gloria[\s_-]?hallelujah|patrick[\s_-]?hand|permanent[\s_-]?marker|indie[\s_-]?flower|shadows[\s_-]?into[\s_-]?light|dancing[\s_-]?script|great[\s_-]?vibes|homemade[\s_-]?apple|rock[\s_-]?salt|reenie[\s_-]?beanie|marck[\s_-]?script|alex[\s_-]?brush|pinyon[\s_-]?script|brush[\s_-]?script|grand[\s_-]?hotel|sacramento)\b/i;
+
+function isScriptFontFamily(family: string): boolean {
+  return SCRIPT_FONT_RE.test(family);
+}
+
 function parseFontFaceBlocks(css: string): FontEvidence[] {
   const out: FontEvidence[] = [];
   const blockRe = /@font-face\s*\{([^}]+)\}/g;
@@ -140,7 +155,7 @@ function detectComputedFamilies($: cheerio.CheerioAPI): { heading: string | null
   };
 }
 
-function assignRoles(
+export function assignRoles(
   candidates: FontEvidence[],
   hints: { heading: string | null; body: string | null; mono: string | null },
 ): { heading: FontEvidence | null; body: FontEvidence | null; mono: FontEvidence | null } {
@@ -169,19 +184,26 @@ function assignRoles(
   // If we accidentally picked a mono-family for heading/body, throw it back.
   if (heading && isMonoFontFamily(heading.family)) { mono = mono ?? heading; heading = null; }
   if (body && isMonoFontFamily(body.family)) { mono = mono ?? body; body = null; }
+  // Script/handwriting faces are decorative accents only — never heading/body.
+  // (They have no dedicated slot, so a script pick is simply dropped here and
+  // the heuristic below re-selects the real brand font.)
+  if (heading && isScriptFontFamily(heading.family)) heading = null;
+  if (body && isScriptFontFamily(body.family)) body = null;
 
   // Heuristic fallback when no hints land:
-  // - heading = candidate with heaviest weight loaded (>=600), else first non-mono
+  // - heading = candidate with heaviest weight loaded (>=600), else first usable
   // - body = candidate with regular weight loaded (300-500), preferring different family from heading
-  const nonMono = candidates.filter((c) => !isMonoFontFamily(c.family));
+  // "usable" excludes BOTH mono and script faces so an accent script font
+  // loaded at heavy weights can't outrank the site's real brand font.
+  const usable = candidates.filter((c) => !isMonoFontFamily(c.family) && !isScriptFontFamily(c.family));
   if (!heading) {
-    heading = nonMono.find((c) => c.weights.some((w) => w >= 600))
-      ?? nonMono[0]
+    heading = usable.find((c) => c.weights.some((w) => w >= 600))
+      ?? usable[0]
       ?? null;
   }
   if (!body) {
-    body = nonMono.find((c) => c.family !== heading?.family && c.weights.some((w) => w >= 300 && w <= 500))
-      ?? nonMono.find((c) => c.family !== heading?.family)
+    body = usable.find((c) => c.family !== heading?.family && c.weights.some((w) => w >= 300 && w <= 500))
+      ?? usable.find((c) => c.family !== heading?.family)
       ?? heading; // single-font sites: body = heading
   }
   // Degenerate case: the only loaded font(s) are mono-family. Better to

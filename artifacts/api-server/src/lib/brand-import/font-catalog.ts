@@ -54,6 +54,33 @@ const HANDWRITTEN_FALLBACKS: Record<string, string> = {
   "publico": "Playfair Display",
   "gt super": "Playfair Display",
   "canela": "Playfair Display",
+  // Common Adobe Typekit / licensed faces. Brand sites load these as
+  // hyphen-slugged families ("adelle-sans", "proxima-nova") that aren't on
+  // Google Fonts, so without a fallback they import with NO loadable webfont
+  // and render as system Arial. Keys are space-separated; the hyphenated slug
+  // form is matched via the de-hyphenated probe in matchFont. Values are the
+  // closest widely-used free Google substitute.
+  "adelle sans": "Source Sans 3",
+  "adelle": "Source Serif 4",
+  "proxima nova": "Montserrat",
+  "proxima": "Montserrat",
+  "futura pt": "Jost",
+  "futura": "Jost",
+  "brandon grotesque": "Nunito Sans",
+  "brandon text": "Nunito Sans",
+  "freight sans": "Source Sans 3",
+  "freight text": "Source Serif 4",
+  "museo sans": "Work Sans",
+  "museo": "Work Sans",
+  "gotham": "Montserrat",
+  "avenir": "Nunito Sans",
+  "avenir next": "Nunito Sans",
+  "gilroy": "Poppins",
+  "sofia pro": "Montserrat",
+  "europa": "Work Sans",
+  "din": "Barlow",
+  "din next": "Barlow",
+  "din 2014": "Barlow",
 };
 
 let googleFonts: GoogleFontEntry[] | null = null;
@@ -140,15 +167,23 @@ function leven(a: string, b: string): number {
 export function matchFont(rawFamily: string, observedWeights: number[] = []): FontMatch {
   const norm = normalizeFamily(rawFamily);
   const stripped = stripWeightStyle(norm);
+  // Adobe Typekit (and many self-hosted) families arrive as hyphen/underscore
+  // slugs — "adelle-sans", "proxima-nova", "futura-pt". Collapse separators to
+  // spaces so they can match a Google family ("source-sans-pro" → "source sans
+  // pro") or a handwritten fallback keyed by the spaced form. Used only as a
+  // lookup probe; the returned `family` keeps the original input.
+  const dehyphenated = stripWeightStyle(stripped.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim());
 
-  // 1. Direct Google match (exact, then weight-stripped)
+  // 1. Direct Google match (exact, then weight-stripped, then de-hyphenated)
   const fonts = loadGoogleFonts();
   let direct = fonts.find((f) => normalizeFamily(f.family) === norm)
-    ?? fonts.find((f) => normalizeFamily(f.family) === stripped);
+    ?? fonts.find((f) => normalizeFamily(f.family) === stripped)
+    ?? (dehyphenated !== stripped ? fonts.find((f) => normalizeFamily(f.family) === dehyphenated) : undefined);
   // 1b. Single-character typo correction against Google catalog, but only
   // for names long enough that the distance is meaningful (>=5 chars).
   if (!direct && stripped.length >= 5) {
-    direct = fonts.find((f) => leven(normalizeFamily(f.family), stripped) <= 1);
+    direct = fonts.find((f) => leven(normalizeFamily(f.family), stripped) <= 1)
+      ?? (dehyphenated !== stripped ? fonts.find((f) => leven(normalizeFamily(f.family), dehyphenated) <= 1) : undefined);
   }
   if (direct) {
     return {
@@ -160,8 +195,8 @@ export function matchFont(rawFamily: string, observedWeights: number[] = []): Fo
     };
   }
 
-  // 2. Handwritten fallback
-  const fb = HANDWRITTEN_FALLBACKS[norm] ?? HANDWRITTEN_FALLBACKS[stripped];
+  // 2. Handwritten fallback (exact, weight-stripped, or de-hyphenated slug)
+  const fb = HANDWRITTEN_FALLBACKS[norm] ?? HANDWRITTEN_FALLBACKS[stripped] ?? HANDWRITTEN_FALLBACKS[dehyphenated];
   if (fb) {
     return {
       inputFamily: rawFamily,
