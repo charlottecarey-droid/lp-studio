@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ContentLibraryContent } from "@/pages/content-library";
+import { BlockGovernancePanel } from "@/components/BlockGovernancePanel";
 import {
   Loader2, Save, Palette, Layout, Link2, Facebook, Instagram, Linkedin,
   SlidersHorizontal, LayoutGrid, Type, BookMarked, Sparkles, Trash2, ImageIcon,
@@ -39,7 +40,13 @@ import type {
   ClaimEntry, SalesConsoleConfig, SalesConsoleValuePropPair, SalesConsoleMicrositeExemplar,
   ImportedButtonStyle, ImportedSurfaceStyle,
   ImportedVoiceProfile, ImportedPhotographyProfile,
+  PageOutline,
 } from "@/lib/brand-config";
+import {
+  BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS,
+  type PageOutlineStep, type PageOutlineStepKind,
+} from "@workspace/lp-template-engine";
+import { BLOCK_REGISTRY as OUTLINE_BLOCK_REGISTRY } from "@/lib/block-types";
 import { FONT_CATALOG, isSelfHostedFont, toFontFamilyValue } from "@/lib/font-catalog";
 import { OgCharCount, OgDimensionWarning, ShareCardPreview, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "@/components/og-share-card";
 import { getBgOptions, type BackgroundStyle, type BackgroundPresetLabels, type BackgroundPresetColors, BACKGROUND_PRESET_DISPLAY_NAMES, BACKGROUND_PRESET_DEFAULT_COLORS } from "@/lib/bg-styles";
@@ -50,6 +57,7 @@ import { getHeadlineSizeClass } from "@/lib/typography";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/BrandLogo";
 import { ImagePicker } from "@/components/ImagePicker";
+import { MediaLibraryDrawer } from "@/components/MediaLibraryDrawer";
 import { useBrandConfig } from "@/context/BrandConfigContext";
 import { streamBrandImportFromUrl } from "@/lib/brand-import-client";
 
@@ -345,6 +353,55 @@ function ProductLineCard({ product, onChange, onRemove, strictMode }: {
   onRemove: () => void;
 }) {
   const [open, setOpen] = useState(true);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [autoFilling, setAutoFilling] = useState(false);
+  const { toast } = useToast();
+
+  const MAX_CONTENT_IMAGES = 12;
+  const appendContentImages = (urls: string[]) => {
+    const existing = product.contentImages ?? [];
+    const seen = new Set(existing);
+    const merged = [...existing];
+    for (const u of urls) {
+      if (!u || seen.has(u)) continue;
+      seen.add(u);
+      merged.push(u);
+      if (merged.length >= MAX_CONTENT_IMAGES) break;
+    }
+    return merged;
+  };
+
+  const handleAutoFill = async () => {
+    setAutoFilling(true);
+    try {
+      const res = await fetch(`${BASE}/api/lp/media/suggest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: product.name || "",
+          keywords: product.keywords ?? [],
+          exclude: product.contentImages ?? [],
+          limit: 5,
+        }),
+      });
+      if (!res.ok) throw new Error(`Suggest failed (${res.status})`);
+      const data = (await res.json()) as { urls?: string[] };
+      const urls = Array.isArray(data.urls) ? data.urls : [];
+      if (urls.length === 0) {
+        toast({ title: "No matches found", description: "No library images matched this product's name or keywords. Try tagging more images." });
+        return;
+      }
+      const before = (product.contentImages ?? []).length;
+      const merged = appendContentImages(urls);
+      onChange("contentImages", merged);
+      toast({ title: `Added ${merged.length - before} image${merged.length - before === 1 ? "" : "s"}`, description: "Auto-filled from your media library by tag match." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Auto-fill failed", description: e instanceof Error ? e.message : "Could not reach the media library." });
+    } finally {
+      setAutoFilling(false);
+    }
+  };
+
   return (
     <div className="border rounded-lg overflow-hidden">
       <div
@@ -489,8 +546,245 @@ function ProductLineCard({ product, onChange, onRemove, strictMode }: {
               max={12}
             />
           </div>
+
+          {/* Task #3 — approved product images. Brand Settings is the single
+              source of truth for this product's pictures so generation pulls the
+              correct, non-repeating image per product. */}
+          <div className="pt-2 border-t space-y-4">
+            <div>
+              <Label className="text-xs">Approved Product Images</Label>
+              <p className="text-[11px] text-muted-foreground -mt-0.5">
+                Pictures the AI uses for this product. Select from your media library or upload. Leave any blank to keep the current automatic image behavior.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <ImagePicker
+                label="Card image"
+                value={product.cardImage ?? ""}
+                onChange={(url) => onChange("cardImage", url)}
+                placeholder="Used on product grid & showcase cards"
+                aiHint={`${product.name || "Product"} card image`}
+              />
+              <ImagePicker
+                label="Hero image"
+                value={product.heroImage ?? ""}
+                onChange={(url) => onChange("heroImage", url)}
+                placeholder="Used on this product's hero section"
+                aiHint={`${product.name || "Product"} hero image`}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Label className="text-xs">Content images</Label>
+                <span className="text-[11px] text-muted-foreground">
+                  ({(product.contentImages ?? []).length}/{MAX_CONTENT_IMAGES})
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground -mt-0.5">
+                Extra images rotated across content sections about this product — add a few to cut down on repeats.
+              </p>
+              {(product.contentImages ?? []).length > 0 ? (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {(product.contentImages ?? []).map((img, ci) => (
+                    <div key={`${img}-${ci}`} className="group relative aspect-video rounded-md border border-border overflow-hidden bg-muted/20">
+                      <img
+                        src={img}
+                        alt={`${product.name || "Product"} content image`}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0.3"; }}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-0.5 right-0.5 h-5 w-5 p-0 text-white bg-black/50 hover:bg-destructive hover:text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Remove content image"
+                        onClick={() => {
+                          const next = (product.contentImages ?? []).filter((_, j) => j !== ci);
+                          onChange("contentImages", next);
+                        }}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground italic">No content images yet.</p>
+              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  disabled={(product.contentImages?.length ?? 0) >= MAX_CONTENT_IMAGES}
+                  onClick={() => setLibraryOpen(true)}
+                >
+                  <ImageIcon className="w-3 h-3" />
+                  Select from library
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  disabled={autoFilling || (product.contentImages?.length ?? 0) >= MAX_CONTENT_IMAGES}
+                  onClick={handleAutoFill}
+                  title="Find matching images in your media library by this product's name & keywords"
+                >
+                  {autoFilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                  Auto-fill from library
+                </Button>
+              </div>
+              <MediaLibraryDrawer
+                open={libraryOpen}
+                onOpenChange={setLibraryOpen}
+                onSelect={() => {}}
+                multiSelect
+                onSelectMany={(urls) => onChange("contentImages", appendContentImages(urls))}
+              />
+            </div>
+          </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Task #6 — the ordered "recipe" editor reused at both the per-segment and the
+// brand-default levels. Each step is either a CATEGORY (a structural role the
+// generator brand-matches from the segment's approved pool) or a specific BLOCK
+// (forced into place). Steps can be mixed, reordered, and removed. An empty
+// outline is stored as `undefined` so it cleanly falls back to today's behavior.
+const OUTLINE_ROLE_OPTIONS = BLOCK_ROLE_TAGS.map((role) => ({
+  value: role,
+  label: role
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" "),
+  description: BLOCK_ROLE_TAG_DESCRIPTIONS[role],
+}));
+const OUTLINE_BLOCK_OPTIONS = [...OUTLINE_BLOCK_REGISTRY]
+  .map((d) => ({ value: d.type as string, label: d.label }))
+  .sort((a, b) => a.label.localeCompare(b.label));
+
+function PageOutlineEditor({ outline, onChange }: {
+  outline?: PageOutline;
+  onChange: (next: PageOutline | undefined) => void;
+}) {
+  const steps = outline?.steps ?? [];
+  const commit = (next: PageOutlineStep[]) =>
+    onChange(next.length ? { steps: next } : undefined);
+  const addStep = (kind: PageOutlineStepKind) =>
+    commit([
+      ...steps,
+      kind === "category"
+        ? { kind: "category", role: BLOCK_ROLE_TAGS[0], required: true }
+        : { kind: "block", type: OUTLINE_BLOCK_OPTIONS[0]?.value ?? "hero", required: true },
+    ]);
+  const updateStep = (i: number, patch: Partial<PageOutlineStep>) => {
+    const arr = steps.map((s, idx) => (idx === i ? { ...s, ...patch } : s));
+    commit(arr);
+  };
+  const removeStep = (i: number) => commit(steps.filter((_, idx) => idx !== i));
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= steps.length) return;
+    const arr = [...steps];
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    commit(arr);
+  };
+
+  return (
+    <div className="space-y-2">
+      {steps.length === 0 ? (
+        <p className="text-[11px] text-muted-foreground italic">
+          No outline set — pages are built with the AI's free block choice (today's behavior).
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {steps.map((step, i) => (
+            <div key={i} className="flex items-start gap-2 rounded-md border p-2 bg-muted/20">
+              <div className="flex flex-col gap-0.5 pt-0.5">
+                <Button
+                  type="button" variant="ghost" size="sm"
+                  className="h-5 w-5 p-0 text-muted-foreground disabled:opacity-30"
+                  disabled={i === 0}
+                  onClick={() => move(i, -1)}
+                >
+                  <ChevronUp className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  type="button" variant="ghost" size="sm"
+                  className="h-5 w-5 p-0 text-muted-foreground disabled:opacity-30"
+                  disabled={i === steps.length - 1}
+                  onClick={() => move(i, 1)}
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-[110px_1fr] gap-2">
+                <Select
+                  value={step.kind}
+                  onValueChange={(v) =>
+                    updateStep(
+                      i,
+                      v === "category"
+                        ? { kind: "category", role: BLOCK_ROLE_TAGS[0], type: undefined, schemaHint: undefined }
+                        : { kind: "block", type: OUTLINE_BLOCK_OPTIONS[0]?.value ?? "hero", role: undefined },
+                    )
+                  }
+                >
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="category">Category</SelectItem>
+                    <SelectItem value="block">Block</SelectItem>
+                  </SelectContent>
+                </Select>
+                {step.kind === "category" ? (
+                  <Select
+                    value={step.role ?? BLOCK_ROLE_TAGS[0]}
+                    onValueChange={(v) => updateStep(i, { role: v })}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {OUTLINE_ROLE_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Select
+                    value={step.type ?? (OUTLINE_BLOCK_OPTIONS[0]?.value ?? "hero")}
+                    onValueChange={(v) => updateStep(i, { type: v })}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {OUTLINE_BLOCK_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <Button
+                type="button" variant="ghost" size="sm"
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                onClick={() => removeStep(i)}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addStep("category")}>
+          <Plus className="w-3 h-3 mr-1" /> Category
+        </Button>
+        <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => addStep("block")}>
+          <Plus className="w-3 h-3 mr-1" /> Block
+        </Button>
+      </div>
     </div>
   );
 }
@@ -871,6 +1165,22 @@ function SegmentCard({ segment, onChange, onRemove, strictMode }: {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Page outline (task #6) */}
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <Label className="text-xs">Page Outline (optional)</Label>
+            </div>
+            <p className="text-[11px] text-muted-foreground mb-2">
+              Define the ordered structure ("recipe") for this segment's landing pages and microsites. Each step is a
+              category (the generator picks a matching block from this segment's approved blocks) or a specific block.
+              Supersedes the legacy block list; leave empty for the AI's free choice.
+            </p>
+            <PageOutlineEditor
+              outline={segment.pageOutline}
+              onChange={(o) => set("pageOutline", o)}
+            />
           </div>
         </div>
       )}
@@ -2937,7 +3247,7 @@ export default function BrandSettings() {
   // ── Product Lines ──────────────────────────────────────────────────
   const addProductLine = () => {
     if ((config.productLines?.length ?? 0) >= 12) return;
-    update("productLines", [...(config.productLines || []), { name: "", description: "", valueProps: [], claims: [], keywords: [] }]);
+    update("productLines", [...(config.productLines || []), { name: "", description: "", valueProps: [], claims: [], keywords: [], cardImage: "", heroImage: "", contentImages: [] }]);
   };
 
   const updateProductLine = (idx: number, key: keyof ProductLine, value: unknown) => {
@@ -3036,10 +3346,11 @@ export default function BrandSettings() {
             history.replaceState(null, "", `${window.location.pathname}${window.location.search}${hash}`);
           }
         }} className="w-full">
-          <TabsList className="grid w-full max-w-xl grid-cols-3">
+          <TabsList className="grid w-full max-w-2xl grid-cols-4">
             <TabsTrigger value="brand-settings">Brand Settings</TabsTrigger>
             <TabsTrigger value="sales-console">Sales Console</TabsTrigger>
             <TabsTrigger value="content-library">Content Library</TabsTrigger>
+            <TabsTrigger value="block-governance">Block Governance</TabsTrigger>
           </TabsList>
 
           <TabsContent value="brand-settings" className="space-y-8">
@@ -4849,6 +5160,20 @@ export default function BrandSettings() {
             </div>
             <Separator />
 
+            {/* Brand-default page outline (task #6) — applies when a segment has
+                no outline of its own. */}
+            <div className="rounded-lg border bg-muted/10 p-4">
+              <Label className="text-xs">Brand-Default Page Outline (optional)</Label>
+              <p className="text-[11px] text-muted-foreground mt-0.5 mb-2">
+                The default ordered structure for any page whose segment has no outline of its own. Mix categories
+                (matched from approved blocks) and specific blocks; reorder freely. Leave empty for the AI's free choice.
+              </p>
+              <PageOutlineEditor
+                outline={config.defaultPageOutline}
+                onChange={(o) => setConfig((prev) => ({ ...prev, defaultPageOutline: o }))}
+              />
+            </div>
+
             {(config.segments ?? []).length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Users className="w-8 h-8 mx-auto mb-3 opacity-30" />
@@ -4957,6 +5282,10 @@ export default function BrandSettings() {
 
           <TabsContent value="content-library" className="space-y-8">
             <ContentLibraryContent />
+          </TabsContent>
+
+          <TabsContent value="block-governance" className="space-y-8">
+            <BlockGovernancePanel segments={config.segments ?? []} />
           </TabsContent>
         </Tabs>
 

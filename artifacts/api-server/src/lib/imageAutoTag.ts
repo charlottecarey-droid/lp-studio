@@ -24,6 +24,7 @@ export async function autoTagImage(
   imageBuffer: Buffer,
   mimeType: string,
   existingTags: string[] = [],
+  opts: { forbidHeroPurpose?: boolean } = {},
 ): Promise<void> {
   try {
     const baseURL = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"];
@@ -86,6 +87,17 @@ Rules:
       }
     } catch {
       // JSON parse failed — skip tagging
+    }
+
+    // Scraped reference images may only carry "lp-hero" when they were the
+    // actual hero on the source page (the caller sets forbidHeroPurpose for
+    // every scraped image except the page hero). Vision tags any people /
+    // lifestyle / clinic photo as "lp-hero", so mid-page shots like team
+    // headshots would otherwise leak into generated hero slots. Downgrade to
+    // "lp-feature" so the image stays usable as feature imagery but never as an
+    // auto-selected hero.
+    if (opts.forbidHeroPurpose && purpose === "lp-hero") {
+      purpose = "lp-feature";
     }
 
     if (aiTags.length > 0 || purpose || isOg) {

@@ -1,0 +1,20 @@
+You are working in a FORKED copy of the Dandy LP Studio project (pnpm monorepo: artifacts/api-server + artifacts/lp-studio). This fork is a safe experimentation sandbox. Your mission, in order:
+
+STEP 1 — Repoint this fork OFF production data (do this before running ANY page/microsite generation).
+
+The danger: this project's dev environment normally points at the PRODUCTION database and PRODUCTION image storage. Experiments could corrupt live tenant data or overwrite/garbage-collect live published images. Fix that first:
+
+Database. The app resolves its connection in lib/db/src/index.ts as process.env.NEON_DATABASE_URL ?? process.env.DATABASE_URL. The dev workflow loads env from the root .env file (via node --env-file-if-exists=../../.env ...), NOT from Replit Secrets. So updating a Secret alone will NOT repoint the dev server. Set the new staging database URL in the root .env file: add/replace NEON_DATABASE_URL=<the new staging DB url> (it takes precedence over DATABASE_URL). The staging DB URL has been put in the NEON_DATABASE_URL Secret — read that value and write it into .env.
+
+Object storage (R2). Open artifacts/api-server/src/lib/r2Storage.ts (and assetsGc.ts, assetHealthCheck.ts, assetPresenceCheck.ts) and find the env var names for the R2 account ID and bucket. Point them at a SEPARATE staging/dev bucket via .env so image experiments can't touch the production bucket. If no separate bucket exists yet, ask the user to create one before doing anything that writes images.
+
+Seed staging. The api-server runs migrations automatically on workflow start (pnpm run migrate). After it points at the staging DB, confirm migrations ran, then make sure there's at least one normal tenant and a Dandy tenant so generation has data.
+
+VERIFY isolation before generating anything. Print the DB host and the R2 bucket name and confirm neither is the production one. Do not run generation until this is confirmed.
+
+STEP 2 — The actual work (after isolation is verified):
+Fix two regressions in sales microsite/page generation: (1) IMAGE PICKING is broken/low-quality (wrong, repeated, or off-topic images); (2) overall PAGE and MICROSITE quality has regressed. Experiment freely; the user will port confirmed wins back to the main project.
+
+Note on DSO blocks (verify, don't assume): the DSO block family was reportedly already generalized for all tenants — the superadmin global block library has DENTAL and SaaS versions of most DSO blocks. Older code comments may say dso-* are excluded from the generic catalog. Trust the live catalog: query /api/block-catalog (or the block_catalog table) in the staging DB to see the real current state before doing any DSO work.
+
+Once the fork's Agent confirms isolation is verified and it's generating against staging, you're safe to go crazy. When you've got a fix you want in production, come back here and I'll port it into main cleanly. Anything else you need on the main side meanwhile?

@@ -570,7 +570,7 @@ export function formatExemplarsSection(
   if (exemplars.length === 0 && custom.length === 0) return "";
 
   const intro = [
-    "EXEMPLARS — these are the gold standard for what a great microsite looks like. Study them. Match this register, this level of specificity, this structure. Do NOT copy them — write something equally good for the new account.",
+    "EXEMPLARS — these are the gold standard for the QUALITY of a great microsite: voice, register, level of specificity, and information density. Study them for THOSE qualities. Their block selection and section order are just ONE example, NOT a layout to reproduce — choose the section lineup and order that best fit THIS account (follow the LAYOUT rules below). Do NOT copy their words OR their structure — write something equally good, but structurally its own, for the new account.",
     "",
   ].join("\n");
 

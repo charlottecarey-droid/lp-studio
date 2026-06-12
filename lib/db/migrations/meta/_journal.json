@@ -631,6 +631,20 @@
       "when": 1754300000000,
       "tag": "0089_lp_pages_trusted_fact_forms",
       "breakpoints": false
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1754400000000,
+      "tag": "0090_block_catalog_approved_segments",
+      "breakpoints": false
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1754500000000,
+      "tag": "0091_tenant_block_governance",
+      "breakpoints": false
     }
   ]
 }

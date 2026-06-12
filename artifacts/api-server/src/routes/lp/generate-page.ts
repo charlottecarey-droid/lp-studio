@@ -17,6 +17,17 @@ import { findBannedPhrases, type BannedPhraseHit } from "../../lib/ai-prompts/ba
 import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-prompts/critique-pass";
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
 import { resolveBlockTags, BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS, type BlockRoleTag } from "@workspace/lp-template-engine";
+import {
+  governanceMapFromRows,
+  blocksApprovedForSegment,
+  type GovernanceMap,
+} from "@workspace/lp-template-engine";
+import {
+  effectiveOutline,
+  outlineHasSteps,
+  resolvePageOutline,
+  type PageOutline,
+} from "@workspace/lp-template-engine";
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
 import { detectFacts, isNonStatIdiom, siblingLabelText } from "../../lib/factFlags";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
@@ -54,6 +65,14 @@ interface ProductLine {
   valueProps: string[];
   claims: ClaimEntry[];
   keywords: string[];
+  /** Task #3 — approved product imagery (mirror of the client `brand-config.ts`
+   *  ProductLine). Brand Settings is the source of truth: `cardImage` →
+   *  product-grid/showcase cards, `heroImage` → product hero blocks,
+   *  `contentImages` → rotated across content sections about this product.
+   *  Unset = legacy Content-Library / image-fill behavior (no regression). */
+  cardImage?: string;
+  heroImage?: string;
+  contentImages?: string[];
 }
 
 /** Task #900 — the design-density axis fed into AI page generation. Inferred
@@ -129,6 +148,11 @@ interface BrandConfig {
    *  settings UI owns writing these; we only read them here. */
   logoUrl?: string;
   logoUrlDark?: string;
+  /** Task #6 — brand-default page outline ("recipe"), applied to a page whose
+   *  segment has no outline of its own. Supersedes the legacy
+   *  `defaultMicrositeBlockList`. Both are read here only. */
+  defaultPageOutline?: PageOutline;
+  defaultMicrositeBlockList?: { type?: string; schemaHint?: string }[];
 }
 
 /** Task #253 — short, assertive instruction appended to AI prompts when
@@ -774,6 +798,15 @@ export interface MediaImage {
    *  it's genuinely the best match and validateAndDedupeAIImages won't clear it
    *  (it's still in the scoring pool). Own-tenant / shared rows leave this unset. */
   foreignTenant?: boolean;
+  /** True when this is a SCRAPED row harvested from a reference URL supplied in
+   *  the CURRENT prompt — either freshly scraped this run, or a catalog row whose
+   *  host matches one of this run's reference URLs (set in buildReferenceFillPool).
+   *  These are the images the user explicitly asked us to use ("make my page look
+   *  like this site", or a new tenant whose only library IS their own website), so
+   *  they compete in the STRICT image pass alongside curated assets and may win a
+   *  hero/feature slot. STALE scrapes from unrelated prior generations leave this
+   *  unset and stay last-resort. */
+  currentReference?: boolean;
 }
 
 const PURPOSE_TAGS = ["lp-hero", "lp-feature", "product-detail"] as const;
@@ -799,7 +832,12 @@ const SKIP_TAGS = new Set(["untitled folder", "web res", "high res", "abstract",
 // the scored pool and `sanitizeAIImageUrls` clears any team-photo URL the model
 // assigns. The "Meet the Team" block populates from saved team_member rows (via
 // reconcileTeamMemberPhotos), not this catalog, so the headshots still render.
-const EXCLUDE_TAGS = new Set(["og-image", "og", "social", "open-graph", "text-based", "call to action", "advertisement", "ad creative", "homepage-screenshot", "team-photo"]);
+// `logo` is reserved the same way: a brand mark must never be auto-filled into a
+// hero/feature/product-detail slot (it reads as a floating mark, and a logo
+// mistagged with a subject term — e.g. a "...Dentures...Logo" tagged
+// product-detail+dentures — would otherwise win a product card). Brand logos are
+// placed via the BrandLogo component / brand logoUrl, not this catalog.
+const EXCLUDE_TAGS = new Set(["og-image", "og", "social", "open-graph", "text-based", "call to action", "advertisement", "ad creative", "homepage-screenshot", "team-photo", "logo"]);
 
 /** Relevance scoring weights — kept as named constants so the validation
  *  threshold (CLEAR_GAP, below) can be derived from them and stays meaningful
@@ -815,22 +853,6 @@ function getImagePurpose(img: MediaImage): string {
     if (PURPOSE_TAGS.includes(t as typeof PURPOSE_TAGS[number])) return t;
   }
   return "";
-}
-
-/** True when a curated image carries at least one DESCRIPTIVE (topical) tag —
- *  i.e. a tag that isn't a purpose marker (PURPOSE_TAGS), a non-semantic
- *  descriptor (SKIP_TAGS), an OG/social/role tag (EXCLUDE_TAGS), or a scrape
- *  provenance tag. When true, the auto-tagger DID describe the photo's subject,
- *  so a zero topical-relevance score means it is actively OFF-TOPIC (not merely
- *  unlabeled). Untagged uploads return false and keep the benefit of the doubt. */
-function hasTopicalTag(img: MediaImage): boolean {
-  return img.tags.some((t) => {
-    const tl = t.toLowerCase().trim();
-    if (!tl) return false;
-    if (SKIP_TAGS.has(tl) || EXCLUDE_TAGS.has(tl)) return false;
-    if (tl.startsWith("refhost:") || tl === "scraped" || tl === "page-reference") return false;
-    return true;
-  });
 }
 
 /** Fetch all images from the media library, separated by purpose for AI context.
@@ -956,10 +978,12 @@ function scoreImage(
   let purposeScore = 0;
   // `contentScore` is the TOPICAL relevance signal alone — content-tag and title
   // overlap with the page context, WITHOUT the purpose boost/penalty or the
-  // sibling-tenant nudge. The strict-pass scraped gate keys off this so a
-  // generic reference-site photo can't win a slot on a bare purpose match
-  // (a "lp-hero"-tagged but off-topic office shot) — it needs a real topical
-  // signal. See findBestImage. (Task #1287)
+  // sibling-tenant nudge. It is folded into the returned total `score`; it is NO
+  // LONGER a separate strict-pass rejection gate. A tenant's OWN purpose-matched
+  // library photo fills its slot on a non-negative total score even when its tags
+  // don't textually overlap the page context — keeping the empty-word/meta-tag
+  // guards below still matters so stale scrapes don't inflate past real assets.
+  // See findBestImage.
   let contentScore = 0;
   const imgPurpose = getImagePurpose(img);
 
@@ -1032,76 +1056,79 @@ function findBestImage(
   // top scorer is ineligible, a lower but acceptable candidate behind it still
   // fills the slot instead of leaving it empty.
   //
-  //  • Curated library images (drawer uploads, brand-import photography) need
-  //    only a NON-NEGATIVE score — this avoids forcing a product-detail into a
-  //    hero slot while still preferring the tenant's own assets.
-  //  • SCRAPED page-reference harvests are auto-tagged for PURPOSE (lp-hero /
-  //    lp-feature), so a generic off-topic reference photo scores the full
-  //    purpose boost on a matching slot with ZERO topical relevance — the
-  //    "wrong images" symptom (a generic office shot from the reference site
-  //    treated as on-topic). Require a positive CONTENT-relevance signal
-  //    (topical tag/title overlap, independent of the purpose boost) so only
-  //    genuinely on-topic scrapes win a slot in the strict pass; the rest fall
-  //    to the relaxed last-resort pass (which runs AFTER AI image generation).
-  //    This holds for THIS run's reference scrape too: the user pointing us at a
-  //    site doesn't make its generic imagery on-topic. (Task #1287)
-  // In `relaxed` mode we drop the curated/scraped distinction but keep a minimum
-  // acceptability FLOOR — never place a negative (purpose-mismatched / clearly
-  // off-topic) candidate. A slot left empty for the editor's storage default or
-  // AI fill reads better than an obviously wrong image. (Task #1287)
+  // Candidates are sorted into THREE priority tiers (see below) so that the
+  // tenant's OWN curated assets and the CURRENT prompt's reference scrape always
+  // beat stale scrapes and generic starters, regardless of raw score. Every tier
+  // still keeps a minimum acceptability FLOOR — a negative (purpose-mismatched /
+  // clearly off-topic) candidate is never placed. A slot left empty for the
+  // editor's storage default or AI fill reads better than an obviously wrong
+  // image. (Task #1287)
   //
   // `usedIds` holds normalized image IDENTITIES (see imageIdentity), not raw
   // URLs, so a photo already placed under one URL can't be re-selected for
   // another slot via a near-duplicate URL of the same visual asset.
+  // THREE priority tiers, picked in order (curated/current-ref → stale scrape →
+  // starter):
+  //  • `best`        — the tenant's OWN curated assets (drawer uploads, brand-
+  //    import photography, AI-generated, purpose-tagged) AND scrapes from a
+  //    reference URL supplied in THIS prompt (img.currentReference). These are
+  //    the only images allowed to fill in the STRICT pass.
+  //  • `bestScraped` — STALE scrapes harvested for an unrelated prior generation.
+  //    Last-resort only (relaxed pass), but ABOVE starters.
+  //  • `bestStarter` — generic STARTER seeds (tagged "starter"). The ABSOLUTE
+  //    last resort, below every scrape.
+  // Both scrapes and starters are auto-tagged for PURPOSE, so without this
+  // tiering a generic scraped photo (e.g. an intraoral-scanner shot from the
+  // reference site) would score the full purpose boost and beat the tenant's own
+  // on-topic library for a hero/feature slot — the reported "wrong / scraped
+  // images instead of our own" regression.
   let best: MediaImage | null = null;
   let bestScore = -Infinity;
-  // Generic STARTER seeds (STARTER_IMAGE_SEEDS, tagged "starter") are the
-  // ABSOLUTE last resort. A tenant's OWN assets — curated uploads, brand-import
-  // photography, and the scraped imagery from the site they pointed us at — must
-  // always win a slot over a generic starter. Starters carry no purpose or
-  // topical tag, so they score ~0; the strict scraped-relevance gate
-  // (contentScore > 0) holds the tenant's scraped reference images back to the
-  // relaxed pass, and WITHOUT special-casing here a score-0 starter would fill
-  // the slot first (in the strict hero branch and the relaxed pre-AI pass),
-  // producing the "random starter images instead of the tenant's own / scraped
-  // images" regression. Fix: track starters in a SEPARATE tier and only fall
-  // back to one when no genuine candidate qualifies — and never let a starter
-  // fill in the strict pass at all.
+  let bestScraped: MediaImage | null = null;
+  let bestScrapedScore = -Infinity;
   let bestStarter: MediaImage | null = null;
   let bestStarterScore = -Infinity;
   for (const img of images) {
     if (usedIds.has(imageIdentity(img))) continue;
+    // Source-page hero rule: a SCRAPED image may fill a hero slot ONLY if it was
+    // the hero on its source page — encoded by the "lp-hero" purpose, which the
+    // mirror now grants solely to the source-page hero (later scraped images are
+    // downgraded to lp-feature). Without this hard gate a non-hero scraped photo
+    // (e.g. a team headshot) could still win a hero slot via a strong topical
+    // score, since purpose mismatch is only a soft penalty. Curated / brand-
+    // import / AI / starter images keep the existing soft scoring.
+    if (preferredPurpose === "lp-hero" && isScrapedImage(img) && getImagePurpose(img) !== "lp-hero") {
+      continue;
+    }
     const starter = isStarterImage(img);
-    // Starters never fill in the strict pass — defer them to the relaxed
-    // last-resort pass so genuine reference/library imagery is tried first.
-    if (starter && !relaxed) continue;
-    const { score, contentScore } = scoreImage(img, contextLower, contextWords, preferredPurpose);
-    const acceptable = relaxed
-      ? score >= 0
-      : isScrapedImage(img)
-        ? contentScore > 0
-        : preferredPurpose === "lp-feature" && hasTopicalTag(img)
-          // A curated image whose auto-tagger DESCRIBED its subject (has a
-          // topical tag) yet scores ZERO topical relevance for this slot is
-          // actively OFF-TOPIC — e.g. an intraoral-scanner product shot tagged
-          // "scanner" landing on a "what dentists say" strip on a dentures page
-          // (the reported "wrong images" symptom). For lp-feature CONTENT slots
-          // (photo-strip, zigzag rows, cards/panels, feature items) require a
-          // real topical signal. UNTAGGED curated uploads (no descriptive tag)
-          // fall through to `score >= 0` and keep the deliberate tenant-asset
-          // preference — we don't know their subject, so they get the benefit of
-          // the doubt. Hero (lp-hero) and product-detail slots are unaffected: a
-          // brand hero or product photo is expected there without topical
-          // overlap. Any rejected off-topic curated image still fills as a LAST
-          // resort in the relaxed pass, which runs AFTER AI image generation
-          // gets a chance to produce an on-topic image. (Task #1287 follow-up)
-          ? contentScore > 0
-          : score >= 0;
-    if (!acceptable) continue;
+    // CURRENT-prompt reference scrapes (img.currentReference) are NOT deferred —
+    // the user explicitly pointed us at that URL (or it's a new tenant whose only
+    // library is their own website), so they compete in the strict pass alongside
+    // curated assets. Only STALE scrapes from unrelated prior runs defer.
+    const staleScrape = isScrapedImage(img) && !img.currentReference;
+    const deferred = starter || staleScrape;
+    // Starters + stale scrapes never fill in the strict pass — defer them to the
+    // relaxed last-resort pass so the tenant's genuine library + the current
+    // prompt's reference scrape are tried first.
+    if (deferred && !relaxed) continue;
+    const { score } = scoreImage(img, contextLower, contextWords, preferredPurpose);
+    // Never place a clearly off-topic / purpose-mismatched image: a slot left
+    // empty (for AI fill or the editor's storage default) reads better than an
+    // obviously wrong photo. (Restored to the simpler pre-late-May behavior: a
+    // tenant's OWN purpose-matched library image is used whenever its score is
+    // non-negative — we no longer reject a curated image just because its tags
+    // don't textually overlap the slot context, which was starving dentures /
+    // product-grid slots of the tenant's own on-topic photos.)
+    if (score < 0) continue;
     if (starter) {
       if (score > bestStarterScore) {
         bestStarterScore = score;
         bestStarter = img;
+      }
+    } else if (staleScrape) {
+      if (score > bestScrapedScore) {
+        bestScrapedScore = score;
+        bestScraped = img;
       }
     } else if (score > bestScore) {
       bestScore = score;
@@ -1109,9 +1136,9 @@ function findBestImage(
     }
   }
 
-  // Prefer any genuine (non-starter) candidate; fall back to the best starter
-  // seed only when nothing else qualifies for this slot.
-  const chosen = best ?? bestStarter;
+  // Prefer a genuine curated / current-reference candidate; then a stale scrape;
+  // then a generic starter seed — only the latter two fill in the relaxed pass.
+  const chosen = best ?? bestScraped ?? bestStarter;
   if (chosen) {
     usedIds.add(imageIdentity(chosen));
     return chosen.url;
@@ -1274,11 +1301,23 @@ export function collectImageSlots(
   pushScalar("heroImageUrl", "lp-hero", blockContext);
   pushScalar("bundleImageUrl", "lp-feature", blockContext); // storefront closing-CTA bundle
   // Decorative-mockup blocks with an OPTIONAL real-image override (mockup shows
-  // when blank): features-spotlight-cards spotlight visual + dso-insights-dashboard
-  // dashboard override. Per-item variants (benefits rows, tabbed categories, bento
-  // tiles) are handled by the array passes below.
+  // when blank): features-spotlight-cards spotlight visual. Per-item variants
+  // (benefits rows, tabbed categories, bento tiles) are handled by the array
+  // passes below.
   pushScalar("spotlightImage", "lp-feature", blockContext);
-  pushScalar("dashboardImage", "lp-feature", blockContext);
+  // dso-insights-dashboard `dashboardImage` is MANUAL-ONLY: never auto-filled,
+  // deduped, harvested, or cleared by the image pipeline. The block renders a
+  // polished built-in simulated dashboard when blank, and no library asset
+  // reliably reads as a real analytics dashboard — auto-fill kept dropping tiny
+  // icons / off-subject photos into the dashboard frame. It is therefore omitted
+  // from every fill/dedupe/replace callsite (includeEmpty=false). It IS
+  // enumerated for the template-restore path (includeEmpty=true) ONLY, so a
+  // template author's deliberately-set dashboard image survives "create page
+  // from template" with replaceImagery=false (restore aligns orig↔merged by
+  // index). Any human/AI-supplied URL is still sanitized below.
+  if (includeEmpty) {
+    pushScalar("dashboardImage", "lp-feature", blockContext);
+  }
   // NOTE: video poster stills (`posterUrl`) are intentionally NOT collected. A
   // video's thumbnail/poster and its videoUrl are author-controlled — the image
   // pipeline must never auto-add or swap a video thumbnail (e.g. when creating a
@@ -1314,7 +1353,15 @@ export function collectImageSlots(
   // how-it-works-alternating steps[].image — real per-step product/feature photo.
   pushArrField(props.steps, "image", "lp-feature", it => `${it.title ?? ""} ${it.description ?? ""}`);
   pushArrField(props.chapters, "imageUrl", "lp-feature", it => `${it.headline ?? ""} ${it.body ?? ""}`);
-  pushArrField(props.cards, "imageUrl", "lp-feature", it => `${it.tag ?? ""} ${it.title ?? ""} ${it.body ?? ""}`);
+  // case-study-card-grid cards[].imageUrl is a customer-LOGO slot (rendered in a
+  // tiny icon / small logo box), NOT a stock-photo slot — excluded for the same
+  // reason as case-study-logo-results-row results[].logoUrl (see note below): a
+  // library headshot/lifestyle photo dropped into the tiny box renders as "tiny
+  // images where icons should be". Empty imageUrl → company-name fallback. Other
+  // card blocks (sticky-stack) keep their real photo fill.
+  if (blockType !== "case-study-card-grid") {
+    pushArrField(props.cards, "imageUrl", "lp-feature", it => `${it.tag ?? ""} ${it.title ?? ""} ${it.body ?? ""}`);
+  }
   pushArrField(props.panels, "imageUrl", "lp-feature", it => `${it.tag ?? ""} ${it.title ?? ""} ${it.body ?? ""}`);
   pushArrField(props.images, "src", "lp-feature", it => `${it.alt ?? ""} ${blockContext}`);
   // benefits-grid (+ its features alias) carries an OPTIONAL per-item photo
@@ -1574,6 +1621,19 @@ export function validateAndDedupeAIImages(
     const ctx = `${slot.context} ${pageContext}`.toLowerCase();
     const ctxWords = ctx.split(/\s+/);
     const purpose = slot.purpose || undefined;
+
+    // Source-page hero rule (hard gate, mirrors findBestImage): a SCRAPED image
+    // may occupy a hero slot ONLY if it was the hero on its source page (purpose
+    // "lp-hero"). The model sometimes assigns a non-hero scrape (lp-feature, e.g.
+    // a team headshot) to a hero slot, and a positive content score would let it
+    // survive the soft CLEAR_GAP check below. Clear it unconditionally so the slot
+    // falls through to AI/editor fill instead of shipping a wrong hero.
+    if (purpose === "lp-hero" && isScrapedImage(assigned) && getImagePurpose(assigned) !== "lp-hero") {
+      slot.set("");
+      used.delete(identityForUrl(url, byUrl));
+      continue;
+    }
+
     const assignedScore = scoreImage(assigned, ctx, ctxWords, purpose).score;
 
     // Best free alternative for this slot (exclude every currently-used
@@ -1810,15 +1870,209 @@ export function buildReferenceFillPool(
     if (host && currentRefHosts.has(host)) currentRefScraped.push(img);
     else otherScraped.push(img);
   }
+  // Flag the CURRENT-prompt reference scrapes (freshly harvested this run + any
+  // catalog row whose host matches a reference URL in this prompt) so the strict
+  // image pass lets them compete with curated assets — these are the images the
+  // user explicitly asked us to use. STALE scrapes from unrelated prior runs
+  // (otherScraped) and generic starters stay unflagged → last-resort only.
+  const flagCurrent = (img: MediaImage): MediaImage => ({ ...img, currentReference: true });
   // Rotate WITHIN each bucket (preserving cross-bucket priority) so the first
   // eligible slot of every page doesn't always resolve to the same first DB row.
   return [
     ...rotateBucket(curatedImages, rotationSeed),
-    ...rotateBucket(freshScrapedMedia, rotationSeed),
-    ...rotateBucket(currentRefScraped, rotationSeed),
+    ...rotateBucket(freshScrapedMedia, rotationSeed).map(flagCurrent),
+    ...rotateBucket(currentRefScraped, rotationSeed).map(flagCurrent),
     ...rotateBucket(otherScraped, rotationSeed),
     ...rotateBucket(starterImages, rotationSeed),
   ];
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Tenant block governance — AI-mode enforcement (task #4).
+//
+// The tenant governance table assigns each block an AI mode (see
+// `@workspace/lp-template-engine/block-governance.ts` for the precedence
+// model). After the model has generated/merged a page AND the image/product
+// fill passes have run, we reconcile each block against its tenant's mode:
+//
+//   • open   → no change (today's full behaviour, also the fail-open default
+//              for any block with no governance row).
+//   • locked → "place only": reset the block's props to the superadmin catalog
+//              default_props so neither AI copy nor AI/filled imagery survives.
+//              Fail-safe: if the catalog has no (or empty) default_props for the
+//              type we fall back to the `copy` treatment rather than wiping the
+//              block to nothing.
+//   • copy   → keep the AI copy but restore every image-bearing field to the
+//              catalog default (or clear it), so AI/filled imagery is reverted.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Field names that carry an image URL (or array of them) across block schemas. */
+const GOVERNANCE_IMAGE_FIELD_KEYS = new Set<string>([
+  "image",
+  "imageUrl",
+  "imageSrc",
+  "src",
+  "url",
+  "photo",
+  "photoUrl",
+  "avatar",
+  "avatarUrl",
+  "logo",
+  "logoUrl",
+  "logoUrlDark",
+  "icon",
+  "iconUrl",
+  "backgroundImage",
+  "bgImage",
+  "background",
+  "media",
+  "mediaUrl",
+  "poster",
+  "thumbnail",
+  "thumbnailUrl",
+  "primary",
+  "images",
+  "gallery",
+]);
+
+function cloneJson<T>(v: T): T {
+  return v === undefined ? v : (JSON.parse(JSON.stringify(v)) as T);
+}
+
+/**
+ * Recursively restore every image-bearing field in `node` to the value found at
+ * the structurally-matching location in `def` (the catalog default props),
+ * clearing to "" / [] when the default has no value. Keeps all non-image
+ * (copy) fields untouched. Bounded by the block's own prop depth.
+ */
+function restoreImageFieldsDeep(node: unknown, def: unknown): void {
+  if (Array.isArray(node)) {
+    const defArr = Array.isArray(def) ? def : undefined;
+    node.forEach((item, i) => restoreImageFieldsDeep(item, defArr ? defArr[i] : undefined));
+    return;
+  }
+  if (!node || typeof node !== "object") return;
+  const obj = node as Record<string, unknown>;
+  const defObj = def && typeof def === "object" && !Array.isArray(def) ? (def as Record<string, unknown>) : undefined;
+  for (const key of Object.keys(obj)) {
+    const cur = obj[key];
+    if (GOVERNANCE_IMAGE_FIELD_KEYS.has(key)) {
+      const defVal = defObj ? defObj[key] : undefined;
+      if (typeof cur === "string") {
+        obj[key] = typeof defVal === "string" ? defVal : "";
+      } else if (Array.isArray(cur)) {
+        obj[key] = Array.isArray(defVal) ? cloneJson(defVal) : [];
+      } else if (cur && typeof cur === "object") {
+        // Nested image object (rare) — recurse so inner url-ish keys are reset.
+        restoreImageFieldsDeep(cur, defVal);
+      }
+    } else {
+      restoreImageFieldsDeep(cur, defObj ? defObj[key] : undefined);
+    }
+  }
+}
+
+/**
+ * Enforce tenant AI modes on a generated/merged block list, IN PLACE. Runs
+ * after the image/product fill passes. Fail-open: blocks with no governance
+ * row, or governance with `aiMode === 'open'`, are left untouched.
+ */
+export function enforceAiModes(
+  blocks: unknown[],
+  governanceByType: GovernanceMap,
+  defaultPropsByType: Map<string, Record<string, unknown>>,
+): unknown[] {
+  if (!Array.isArray(blocks) || !governanceByType || governanceByType.size === 0) return blocks;
+  for (const b of blocks) {
+    if (!b || typeof b !== "object") continue;
+    const block = b as { type?: unknown; props?: unknown };
+    const rawType = typeof block.type === "string" ? block.type : "";
+    if (!rawType) continue;
+    const type = canonicalizeBlockType(rawType);
+    const gov = governanceByType.get(type) ?? governanceByType.get(rawType);
+    if (!gov || gov.aiMode === "open") continue;
+    const defaults = defaultPropsByType.get(type) ?? defaultPropsByType.get(rawType);
+    const hasDefaults = !!defaults && Object.keys(defaults).length > 0;
+    if (gov.aiMode === "locked" && hasDefaults) {
+      // Place only — reset to the curated catalog default props.
+      block.props = cloneJson(defaults);
+      continue;
+    }
+    // `copy` (or `locked` with no usable defaults): keep copy, revert imagery.
+    if (block.props && typeof block.props === "object") {
+      restoreImageFieldsDeep(block.props, defaults ?? {});
+    }
+  }
+  return blocks;
+}
+
+/**
+ * Load a tenant's block-governance rows and the per-type superadmin catalog
+ * default props, returning everything the generator needs to (a) constrain /
+ * expand the AI vocabulary and (b) enforce AI modes after generation.
+ *
+ * Best-effort: any failure yields empty maps so generation falls back to
+ * today's behaviour (fail-open). Keys are canonical block types.
+ */
+async function loadBlockGovernanceContext(
+  tenantId: number | null,
+  industry: string | null,
+): Promise<{
+  governanceByType: GovernanceMap;
+  defaultPropsByType: Map<string, Record<string, unknown>>;
+  governanceDisabledTypes: Set<string>;
+}> {
+  const governanceByType: GovernanceMap = new Map();
+  const defaultPropsByType = new Map<string, Record<string, unknown>>();
+  const governanceDisabledTypes = new Set<string>();
+  if (tenantId === null) {
+    return { governanceByType, defaultPropsByType, governanceDisabledTypes };
+  }
+  try {
+    const govRows = await pool.query<{
+      block_type: string;
+      enabled: boolean | null;
+      ai_mode: string;
+      segments: string[] | null;
+    }>(
+      `SELECT block_type, enabled, ai_mode, segments
+         FROM tenant_block_governance WHERE tenant_id = $1`,
+      [tenantId],
+    );
+    const map = governanceMapFromRows(
+      govRows.rows.map((r) => ({
+        blockType: canonicalizeBlockType(r.block_type),
+        enabled: r.enabled,
+        aiMode: r.ai_mode,
+        segments: r.segments ?? [],
+      })),
+    );
+    for (const [type, entry] of map) {
+      governanceByType.set(type, entry);
+      if (entry.enabled === false) governanceDisabledTypes.add(type);
+    }
+  } catch (err) {
+    logger.warn({ err: String(err) }, "[generate-page] tenant_block_governance fetch skipped");
+  }
+  if (industry) {
+    try {
+      const propRows = await pool.query<{ block_type: string; default_props: unknown }>(
+        `SELECT block_type, default_props FROM block_catalog WHERE industry = $1`,
+        [industry],
+      );
+      for (const row of propRows.rows) {
+        if (row.default_props && typeof row.default_props === "object" && !Array.isArray(row.default_props)) {
+          defaultPropsByType.set(
+            canonicalizeBlockType(String(row.block_type ?? "")),
+            row.default_props as Record<string, unknown>,
+          );
+        }
+      }
+    } catch (err) {
+      logger.warn({ err: String(err) }, "[generate-page] block_catalog default_props fetch skipped");
+    }
+  }
+  return { governanceByType, defaultPropsByType, governanceDisabledTypes };
 }
 
 /** Post-process blocks to fill in empty image URLs from the media library.
@@ -1837,8 +2091,16 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
   // best remaining (not clearly off-topic) library image rather than being left
   // for AI generation. Scraped page-reference images must clear a positive
   // content-relevance bar in the strict pass — see findBestImage. (Task #1287)
-  const pick = (context: string, imgs: MediaImage[], used: Set<string>, purpose?: string): string =>
-    findBestImage(pageContext ? `${context} ${pageContext}` : context, imgs, used, purpose, relaxed);
+  // `biasPage` appends the page's industry/topic vocabulary to the per-slot
+  // context. That bias helps generic-headline hero/feature slots, but it MUST be
+  // OFF for product-detail slots: a product card has a SPECIFIC subject (its
+  // imageKey/title, e.g. "dentures"), and folding in the page's generic industry
+  // words (e.g. "dental dentistry dentist clinic teeth") lets any on-vertical
+  // product shot — a crown, even a logo — score positive and drown out the real
+  // subject match. Before the May-2026 page-bias change (Task #469) product
+  // slots scored against the subject alone; product-detail picks keep that.
+  const pick = (context: string, imgs: MediaImage[], used: Set<string>, purpose?: string, biasPage = true): string =>
+    findBestImage(biasPage && pageContext ? `${context} ${pageContext}` : context, imgs, used, purpose, relaxed);
 
   // First pass: collect already-used image IDENTITIES across EVERY image-bearing
   // shape (reuses collectImageSlots so heroImageUrl, cards/panels/pairs/slides,
@@ -1936,9 +2198,8 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       const ctx = `${props.spotlightTitle ?? ""} ${props.spotlightDescription ?? ""}`;
       props.spotlightImage = pick(ctx, images, usedIds, "lp-feature");
     }
-    if (blockType === "dso-insights-dashboard" && !props.dashboardImage && !props.videoUrl) {
-      props.dashboardImage = pick(blockContext, images, usedIds, "lp-feature");
-    }
+    // dso-insights-dashboard intentionally NOT auto-filled (manual-only override;
+    // blank → built-in simulated dashboard). See collectImageSlots note above.
 
     // photo-strip → feature images (lifestyle/environment variety)
     if (blockType === "photo-strip" && Array.isArray(props.images)) {
@@ -1968,10 +2229,14 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       (!ITEM_PHOTO_BLOCK_TYPES.has(blockType) || props.useItemPhotos === true)
     ) {
       const itemsPurpose = ITEM_PHOTO_BLOCK_TYPES.has(blockType) ? "lp-feature" : "product-detail";
+      // Feature item photos (benefits-grid w/ useItemPhotos) keep the page bias;
+      // product-detail item slots match on the item's OWN subject only so a
+      // generic on-vertical shot can't outscore the real subject. (See pick().)
+      const itemsBiasPage = ITEM_PHOTO_BLOCK_TYPES.has(blockType);
       props.items = (props.items as Record<string, unknown>[]).map((item) => {
         if ("image" in item && !item.image) {
           const itemContext = `${item.title ?? item.label ?? ""} ${item.description ?? ""}`;
-          return { ...item, image: pick(itemContext, images, usedIds, itemsPurpose) };
+          return { ...item, image: pick(itemContext, images, usedIds, itemsPurpose, itemsBiasPage) };
         }
         return item;
       });
@@ -1995,7 +2260,7 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
         if (!product.imageUrl) {
           const key = typeof product.imageKey === "string" ? product.imageKey.replace(/-/g, " ") : "";
           const productContext = `${key} ${product.name ?? ""} ${product.detail ?? ""}`;
-          const picked = pick(productContext, images, usedIds, "product-detail");
+          const picked = pick(productContext, images, usedIds, "product-detail", false);
           if (picked) return { ...product, imageUrl: picked };
         }
         return product;
@@ -2186,13 +2451,14 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
         return img;
       });
     }
-    // NOTE: case-study-card-grid cards[].imageUrl is intentionally NOT
-    // auto-filled. The card header renders this field as a small customer LOGO /
-    // brand mark (a logo box in displayMode "logo", a 12×12 icon box otherwise),
-    // so a library content photo (clinic / product / lifestyle shot) dropped in
-    // there reads as a "tiny image where a logo should be". Empty imageUrl
-    // renders the company name only — the correct fallback for placeholder
-    // customers — exactly like case-study-logo-results-row below.
+    // NOTE: case-study-card-grid cards[].imageUrl is intentionally NOT auto-filled.
+    // These are customer/company *logo* slots rendered in a tiny icon / small logo
+    // box — a library headshot/lifestyle photo dropped in reads as a broken "tiny
+    // image where an icon should be". Empty imageUrl renders the company name only,
+    // which is the correct fallback for AI-invented placeholder companies. Mirrors
+    // the case-study-logo-results-row exclusion below. (Real authored/template logos
+    // pass through untouched — collectImageSlots also skips this slot, so dedupe and
+    // the AI-gen fill never touch it either.)
     // NOTE: case-study-logo-results-row results[].logoUrl is intentionally NOT
     // auto-filled. These are customer/company logo slots — a library photo
     // (headshot/lifestyle) dropped into the tiny logo box reads as a broken
@@ -2408,14 +2674,8 @@ export async function aiFillEmptyImages(
         apply: (url) => { props.spotlightImage = url; },
       });
     }
-    if (blockType === "dso-insights-dashboard" && !props.videoUrl && (typeof props.dashboardImage !== "string" || !props.dashboardImage)) {
-      slots.push({
-        aspectRatio: featureAR,
-        fieldLabel: `${blockType} dashboardImage`,
-        blockContext,
-        apply: (url) => { props.dashboardImage = url; },
-      });
-    }
+    // dso-insights-dashboard dashboardImage intentionally NOT auto-filled from the
+    // reference pool (manual-only override). See collectImageSlots note above.
 
     // photo-strip images[].src
     if (blockType === "photo-strip" && Array.isArray(props.images)) {
@@ -2525,6 +2785,33 @@ export function stripUrlValuedIcons(value: unknown): void {
     }
     for (const v of Object.values(obj)) stripUrlValuedIcons(v);
   }
+}
+
+// Dandy's brand palette literals (forest #003A30 + lime #C7E738). Only the
+// real Dandy tenant should ever render these. A non-Dandy footer that carries
+// one of them — leaked from a Dandy-derived prompt example or hallucinated by
+// the model — shows the Dandy green/lime instead of the tenant's own brand.
+// Dropping a leaked literal lets the footer fall back to the tenant's brand CSS
+// vars (var(--n) for the background, brand.accentColor / var(--brand-accent)
+// for the accent), which resolve to Dandy's own colors for the Dandy tenant and
+// to the correct color for everyone else — so this guard is tenant-agnostic and
+// safe to run unconditionally (no isDandy branch, no regression for Dandy).
+const DANDY_PALETTE_LITERALS = new Set(["#003a30", "#c7e738"]);
+
+export function isDandyPaletteLiteral(v: unknown): boolean {
+  return typeof v === "string" && DANDY_PALETTE_LITERALS.has(v.trim().toLowerCase());
+}
+
+/**
+ * Strip Dandy palette literals from a footer block's color props in place so a
+ * non-Dandy tenant never renders a Dandy-green/lime footer. No-op for any block
+ * that is not a footer or whose colors are already brand-neutral.
+ */
+export function deBrandFooterColors(block: { type?: string; props?: Record<string, unknown> }): void {
+  if (block.type !== "footer" || !block.props) return;
+  const p = block.props;
+  if (isDandyPaletteLiteral(p.backgroundColor)) p.backgroundColor = "";
+  if (isDandyPaletteLiteral(p.accentColor)) p.accentColor = "";
 }
 
 export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], logoUrls?: ReadonlySet<string>): unknown[] {
@@ -3353,6 +3640,432 @@ export async function enforceDsoSuccessStoriesApproved(
   for (const b of targets) enforceApprovedCaseStudies(b, ranked, { strict: opts.strict === true });
 }
 
+/** A tenant's curated product line from the Content Library ("Product Grid" /
+ *  "Product Showcase" tabs). Each row carries the product's own image, so these
+ *  are the source of truth for the matching page blocks. */
+interface ProductLibraryItem {
+  name: string;
+  title: string;
+  description: string;
+  badge: string;
+  image: string;
+}
+
+/** Fetch the tenant's product-line rows from `lp_library_items` for one of the
+ *  two product types. Mirrors `fetchApprovedCaseStudies`: tenant-scoped, ordered
+ *  by the tenant's saved order, and excludes rows explicitly un-approved for AI
+ *  (`approved_for_ai IS NOT FALSE` — the column is NOT NULL/default-true, so this
+ *  keeps every approved row and is a defensive guard against any NULL).
+ *  Reads both `name`/`title` so a `product_grid` row (content.title) and a
+ *  `product_showcase` row (content.name) both resolve a heading. */
+export async function fetchProductLibraryItems(
+  tenantId: number | null,
+  type: "product_grid" | "product_showcase",
+): Promise<ProductLibraryItem[]> {
+  if (tenantId == null) return [];
+  try {
+    const rows = await db.execute(
+      sql`SELECT name, content FROM lp_library_items
+          WHERE tenant_id = ${tenantId} AND type = ${type} AND approved_for_ai IS NOT FALSE
+          ORDER BY sort_order ASC, id ASC LIMIT 24`,
+    );
+    const str = (v: unknown): string => (typeof v === "string" ? v : v == null ? "" : String(v));
+    return (rows.rows as Array<{ name: string; content: Record<string, unknown> }>)
+      .map((r) => {
+        const c = (r.content ?? {}) as Record<string, unknown>;
+        return {
+          name: str(c.name) || r.name,
+          title: str(c.title) || r.name,
+          description: str(c.description),
+          badge: str(c.badge),
+          image: str(c.image),
+        };
+      })
+      .filter((p) => p.title || p.name || p.image);
+  } catch {
+    return [];
+  }
+}
+
+const PRODUCT_GRID_BLOCK_TYPE = "product-grid";
+const PRODUCT_SHOWCASE_BLOCK_TYPE = "product-showcase";
+const DANDY_PRODUCT_HERO_BLOCK_TYPE = "dandy-product-hero";
+const DSO_PRODUCTS_GRID_BLOCK_TYPE = "dso-products-grid";
+
+/** Short connective words ignored when matching a block's copy against a
+ *  Content Library product-line name. */
+const PRODUCT_MATCH_STOPWORDS = new Set([
+  "the", "and", "for", "with", "a", "an", "of", "to", "your", "our", "in", "on",
+]);
+
+/** Tokenize a string into significant lowercase words for product-name matching
+ *  (`"Night Guards & TMJ"` → `["night","guards","tmj"]`). Treats `&` as "and"
+ *  (then dropped as a stopword) and strips all other punctuation. */
+function productMatchTokens(s: string): string[] {
+  return (s || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .filter((t) => t.length > 0 && !PRODUCT_MATCH_STOPWORDS.has(t));
+}
+
+/** Find the Content Library product whose name is "guaranteed" to describe the
+ *  given target copy: EVERY significant token of the library name must appear in
+ *  the target's tokens (so "Posterior Crowns" matches a product literally named
+ *  "Posterior Crowns" but never the generic "Crowns & Bridges"). When several
+ *  library names qualify, the most specific one (most matched tokens) wins.
+ *  Returns the library image URL, or null when nothing matches confidently or
+ *  the matched row has no image. */
+function bestLibraryImageFor(
+  target: string,
+  candidates: ProductLibraryItem[],
+): string | null {
+  const targetTokens = new Set(productMatchTokens(target));
+  if (targetTokens.size === 0) return null;
+  let best: ProductLibraryItem | null = null;
+  let bestScore = 0;
+  for (const cand of candidates) {
+    if (!cand.image) continue;
+    const libTokens = productMatchTokens(cand.name);
+    if (libTokens.length === 0) continue;
+    if (!libTokens.every((t) => targetTokens.has(t))) continue;
+    if (libTokens.length > bestScore) {
+      best = cand;
+      bestScore = libTokens.length;
+    }
+  }
+  return best ? best.image : null;
+}
+
+/** Always-on guard that sources product imagery straight from the tenant's
+ *  Content Library so a generated page shows the REAL product lines and their
+ *  curated images instead of random AI/stock imagery filled in from the shared
+ *  media pool. Runs AFTER the image-fill pipeline so the library image is the
+ *  final value. No-op for any block whose product can't be resolved against an
+ *  approved library row (the block keeps whatever the AI/template produced).
+ *
+ *  Covers four block types with two strategies:
+ *  - `product-grid` / `product-showcase`: REPLACE the whole list with the
+ *    tenant's library rows (each row = one product line + image). Library
+ *    `content` field names map 1:1 onto the renderer props: `product_grid` →
+ *    items[]{image,title,description}; `product_showcase` →
+ *    cards[]{name,description,badge,image}.
+ *  - `dandy-product-hero` (single product image) / `dso-products-grid` (one
+ *    image per product): MATCH by name — keep the AI copy and only swap in the
+ *    guaranteed-correct library image when the block/product name confidently
+ *    matches a library product line. */
+export async function enforceProductLibraryBlocks(
+  blocks: unknown,
+  tenantId: number | null,
+  brandProductLines?: ProductLine[],
+): Promise<void> {
+  if (!Array.isArray(blocks)) return;
+  const isBlock = (b: unknown): b is { type?: string; props?: Record<string, unknown> } =>
+    !!b && typeof b === "object";
+  const targetsOfType = (type: string) =>
+    blocks.filter(
+      (b): b is { type?: string; props?: Record<string, unknown> } =>
+        isBlock(b) && b.type === type,
+    );
+  const gridTargets = targetsOfType(PRODUCT_GRID_BLOCK_TYPE);
+  const showcaseTargets = targetsOfType(PRODUCT_SHOWCASE_BLOCK_TYPE);
+  const heroTargets = targetsOfType(DANDY_PRODUCT_HERO_BLOCK_TYPE);
+  const productsGridTargets = targetsOfType(DSO_PRODUCTS_GRID_BLOCK_TYPE);
+
+  // Task #3 — Brand Settings product images are the SINGLE SOURCE OF TRUTH and
+  // take precedence over the Content Library + generic image-fill. Build the
+  // brand pools first (no DB); the Content Library stays a fallback for any
+  // product/image a brand line doesn't supply, so library-only tenants and the
+  // no-brand-images case keep their existing behavior (no regression).
+  const trimStr = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
+  const toItem = (name: string, image: string): ProductLibraryItem => ({
+    name, title: name, description: "", badge: "", image,
+  });
+  const brandLines = (brandProductLines ?? []).filter(
+    (p): p is ProductLine => !!p && typeof p.name === "string" && p.name.trim() !== "",
+  );
+  const brandCardPool: ProductLibraryItem[] = brandLines
+    .map((p) => ({ name: p.name, image: trimStr(p.cardImage) }))
+    .filter((x) => x.image)
+    .map((x) => toItem(x.name, x.image));
+  const brandHeroPool: ProductLibraryItem[] = brandLines
+    .map((p) => ({ name: p.name, image: trimStr(p.heroImage) || trimStr(p.cardImage) }))
+    .filter((x) => x.image)
+    .map((x) => toItem(x.name, x.image));
+  // The hero image is the ONLY product image allowed to drive a page's main
+  // hero block (no cardImage fallback here — that's reserved for the bespoke
+  // dandy-product-hero block above). Used to override the generic page hero
+  // whenever the page is confidently about one product.
+  const brandHeroOnlyPool: ProductLibraryItem[] = brandLines
+    .map((p) => ({ name: p.name, image: trimStr(p.heroImage) }))
+    .filter((x) => x.image)
+    .map((x) => toItem(x.name, x.image));
+  const brandContentLines = brandLines
+    .map((p) => ({
+      name: p.name,
+      images: (p.contentImages ?? []).map(trimStr).filter(Boolean),
+    }))
+    .filter((p) => p.images.length > 0);
+
+  const hasProductBlocks =
+    gridTargets.length > 0 ||
+    showcaseTargets.length > 0 ||
+    heroTargets.length > 0 ||
+    productsGridTargets.length > 0;
+
+  // Nothing on the page to touch and no content-image rotation to apply.
+  if (!hasProductBlocks && brandContentLines.length === 0 && brandHeroOnlyPool.length === 0) return;
+
+  if (hasProductBlocks) {
+    // Name-matching (hero + dso-products-grid) draws from BOTH library types so a
+    // product line stored under either section can supply its fallback image.
+    const needMatchPool = heroTargets.length > 0 || productsGridTargets.length > 0;
+    // Fetch BOTH library types whenever any product block is present so a
+    // product line stored under either section can supply a per-item fallback
+    // image (a brand line without a cardImage still resolves to its library
+    // image instead of keeping a random AI photo).
+    const needAnyLibrary =
+      needMatchPool || gridTargets.length > 0 || showcaseTargets.length > 0;
+    const gridItems = needAnyLibrary
+      ? await fetchProductLibraryItems(tenantId, "product_grid")
+      : [];
+    const showcaseItems = needAnyLibrary
+      ? await fetchProductLibraryItems(tenantId, "product_showcase")
+      : [];
+    // Combined library pool for per-item image fallback (brand image first, then
+    // this pool, then the item's existing image).
+    const libraryMatchPool = [...gridItems, ...showcaseItems].filter((p) => p.image);
+
+    // product-grid: when the brand defines ANY card image, KEEP the AI items
+    // (their copy already reflects the brand's product lines) and resolve each
+    // item's image with per-item precedence — brand cardImage > Content Library
+    // image > the item's existing image. Only when the brand has NO card images
+    // does the legacy Content Library wipe-and-replace run (no regression).
+    if (gridTargets.length > 0) {
+      for (const b of gridTargets) {
+        if (!b.props || typeof b.props !== "object") b.props = {};
+        if (brandCardPool.length > 0) {
+          const items = (b.props as Record<string, unknown>).items;
+          if (Array.isArray(items)) {
+            for (const it of items) {
+              if (!it || typeof it !== "object") continue;
+              const item = it as Record<string, unknown>;
+              const copy = [item.title, item.name, item.description]
+                .filter((v): v is string => typeof v === "string")
+                .join(" ");
+              const img =
+                bestLibraryImageFor(copy, brandCardPool) ??
+                bestLibraryImageFor(copy, libraryMatchPool);
+              if (img) item.image = img;
+            }
+          }
+        } else if (gridItems.length > 0) {
+          const capped = gridItems.slice(0, 12);
+          (b.props as Record<string, unknown>).items = capped.map((p) => ({
+            image: p.image,
+            title: p.title,
+            description: p.description,
+          }));
+        }
+      }
+    }
+
+    // product-showcase: same per-item precedence as product-grid (brand card
+    // image > library image > existing); legacy wipe-and-replace as fallback.
+    if (showcaseTargets.length > 0) {
+      for (const b of showcaseTargets) {
+        if (!b.props || typeof b.props !== "object") b.props = {};
+        if (brandCardPool.length > 0) {
+          const cards = (b.props as Record<string, unknown>).cards;
+          if (Array.isArray(cards)) {
+            for (const c of cards) {
+              if (!c || typeof c !== "object") continue;
+              const card = c as Record<string, unknown>;
+              const copy = [card.name, card.title, card.description]
+                .filter((v): v is string => typeof v === "string")
+                .join(" ");
+              const img =
+                bestLibraryImageFor(copy, brandCardPool) ??
+                bestLibraryImageFor(copy, libraryMatchPool);
+              if (img) card.image = img;
+            }
+          }
+        } else if (showcaseItems.length > 0) {
+          const capped = showcaseItems.slice(0, 12);
+          (b.props as Record<string, unknown>).cards = capped.map((p) => ({
+            name: p.name,
+            description: p.description,
+            badge: p.badge,
+            image: p.image,
+          }));
+        }
+      }
+    }
+
+    // dandy-product-hero: one product, one image. Match pool = brand hero images
+    // FIRST, then library (brand wins on a token-count tie — bestLibraryImageFor
+    // keeps the first-seen entry at equal specificity).
+    const heroPool = [...brandHeroPool, ...gridItems, ...showcaseItems].filter((p) => p.image);
+    if (heroTargets.length > 0 && heroPool.length > 0) {
+      for (const b of heroTargets) {
+        if (!b.props || typeof b.props !== "object") continue;
+        const props = b.props;
+        const copy = [props.headline, props.eyebrow, props.subheadline]
+          .filter((v): v is string => typeof v === "string")
+          .join(" ");
+        const img = bestLibraryImageFor(copy, heroPool);
+        if (img) {
+          props.imageUrl = img;
+          if (typeof props.imageAlt !== "string" || props.imageAlt.trim() === "") {
+            props.imageAlt = copy.trim() || "Product image";
+          }
+        }
+      }
+    }
+
+    // dso-products-grid: one image per product. Match pool = brand card images
+    // FIRST, then library. Products with no confident match keep their fallback.
+    const productGridPool = [...brandCardPool, ...gridItems, ...showcaseItems].filter((p) => p.image);
+    if (productsGridTargets.length > 0 && productGridPool.length > 0) {
+      for (const b of productsGridTargets) {
+        if (!b.props || typeof b.props !== "object") continue;
+        const products = (b.props as Record<string, unknown>).products;
+        if (!Array.isArray(products)) continue;
+        for (const product of products) {
+          if (!product || typeof product !== "object") continue;
+          const p = product as Record<string, unknown>;
+          const name = typeof p.name === "string" ? p.name : "";
+          const img = bestLibraryImageFor(name, productGridPool);
+          if (img) p.imageUrl = img;
+        }
+      }
+    }
+  }
+
+  // The product hero image is the ONLY product image allowed to be a page hero.
+  // Whenever the page's main hero block is CONFIDENTLY about one product, swap in
+  // that product's hero image (overriding whatever generic image-fill chose). The
+  // bespoke dandy-product-hero block is already handled above, so it's skipped
+  // here. Runs even with no product blocks present (a plain hero about a product).
+  if (brandHeroOnlyPool.length > 0) {
+    const HERO_IMAGE_KEYS = ["heroImageUrl", "imageUrl", "backgroundImageUrl", "backgroundImage"] as const;
+    for (const b of blocks) {
+      if (!isBlock(b) || typeof b.type !== "string") continue;
+      if (b.type === DANDY_PRODUCT_HERO_BLOCK_TYPE) continue;
+      if (!resolveBlockTags(b.type).includes("hero")) continue;
+      if (!b.props || typeof b.props !== "object") continue;
+      const props = b.props;
+      const copy = [props.headline, props.eyebrow, props.subheadline, props.title]
+        .filter((v): v is string => typeof v === "string")
+        .join(" ");
+      const img = bestLibraryImageFor(copy, brandHeroOnlyPool);
+      if (!img) continue;
+      // Target the prop the block actually renders: prefer the one already holding
+      // an image (image-fill ran first), else the first declared key, else imageUrl.
+      const key =
+        HERO_IMAGE_KEYS.find((k) => typeof props[k] === "string" && (props[k] as string).trim() !== "") ??
+        HERO_IMAGE_KEYS.find((k) => k in props) ??
+        "imageUrl";
+      props[key] = img;
+      if (typeof props.imageAlt === "string" && props.imageAlt.trim() === "") {
+        props.imageAlt = copy.trim() || "Product image";
+      }
+    }
+  }
+
+  // Task #3 — content-image rotation. For content sections CONFIDENTLY about a
+  // specific product, rotate through that product's content images so repeated
+  // sections don't reuse the same photo. Runs only when the brand supplies
+  // content images; conservative on which slots it touches (see helper).
+  if (brandContentLines.length > 0) {
+    applyBrandProductContentImages(blocks, brandContentLines);
+  }
+}
+
+/** Block types whose images are owned by the product passes above, plus chrome
+ *  blocks, which the content-image rotation must never touch. */
+const CONTENT_IMAGE_SKIP_TYPES = new Set<string>([
+  PRODUCT_GRID_BLOCK_TYPE,
+  PRODUCT_SHOWCASE_BLOCK_TYPE,
+  DANDY_PRODUCT_HERO_BLOCK_TYPE,
+  DSO_PRODUCTS_GRID_BLOCK_TYPE,
+  "nav",
+  "navbar",
+  "header",
+  "footer",
+  "cta",
+  "cta-button",
+]);
+
+/** Short, product-naming text fields used to decide which product a content
+ *  section is about. Deliberately excludes long HTML bodies so the match stays
+ *  precise (the product name must appear in a heading-like field). */
+const CONTENT_IMAGE_COPY_KEYS = [
+  "headline", "eyebrow", "subheadline", "subhead", "title", "heading", "label", "kicker",
+] as const;
+
+/** Pick the brand content line whose name is confidently described by the copy
+ *  (every significant token of the product name appears in the copy; the most
+ *  specific name wins). Mirrors `bestLibraryImageFor`'s token-coverage rule. */
+function bestContentLineFor(
+  copy: string,
+  lines: Array<{ name: string; images: string[] }>,
+): { name: string; images: string[] } | null {
+  const targetTokens = new Set(productMatchTokens(copy));
+  if (targetTokens.size === 0) return null;
+  let best: { name: string; images: string[] } | null = null;
+  let bestScore = 0;
+  for (const line of lines) {
+    const nameTokens = productMatchTokens(line.name);
+    if (nameTokens.length === 0) continue;
+    if (!nameTokens.every((t) => targetTokens.has(t))) continue;
+    if (nameTokens.length > bestScore) {
+      best = line;
+      bestScore = nameTokens.length;
+    }
+  }
+  return best;
+}
+
+/** Rotate each product's approved content images across the content sections
+ *  about that product (reducing repeated photos). Only touches a block's single
+ *  primary image slot (`imageUrl` or `image`), never product/chrome blocks, and
+ *  only when the block copy confidently names a product with content images. */
+export function applyBrandProductContentImages(
+  blocks: unknown[],
+  contentLines: Array<{ name: string; images: string[] }>,
+): void {
+  const usable = contentLines.filter((l) => l.name && l.images.length > 0);
+  if (usable.length === 0) return;
+  // Per-product cursor so repeated sections each advance to the next image.
+  const cursor = new Map<string, number>();
+  for (const b of blocks) {
+    if (!b || typeof b !== "object") continue;
+    const block = b as { type?: string; props?: Record<string, unknown> };
+    const type = typeof block.type === "string" ? block.type : "";
+    if (CONTENT_IMAGE_SKIP_TYPES.has(type)) continue;
+    const props = block.props;
+    if (!props || typeof props !== "object") continue;
+    const slotKey =
+      typeof props.imageUrl === "string"
+        ? "imageUrl"
+        : typeof props.image === "string"
+          ? "image"
+          : null;
+    if (!slotKey) continue;
+    const copy = CONTENT_IMAGE_COPY_KEYS
+      .map((k) => props[k])
+      .filter((v): v is string => typeof v === "string")
+      .join(" ");
+    const line = bestContentLineFor(copy, usable);
+    if (!line) continue;
+    const idx = cursor.get(line.name) ?? 0;
+    props[slotKey] = line.images[idx % line.images.length];
+    cursor.set(line.name, idx + 1);
+  }
+}
+
 /**
  * Strip inline `color:` declarations (and the now-empty `<span style="">`
  * wrappers they leave behind) from any AI-generated text. The model has a
@@ -3445,7 +4158,7 @@ function isDsoPrompt(prompt: string): boolean {
  * are actually selectable for this generation path (GENERAL vs DSO vs DSO
  * Practices) and tag only those.
  */
-function extractPromptBlockTypes(systemPrompt: string): string[] {
+export function extractPromptBlockTypes(systemPrompt: string): string[] {
   const types: string[] = [];
   const re = /^\s*-\s*"([a-z0-9-]+)":/gm;
   let m: RegExpExecArray | null;
@@ -3453,6 +4166,44 @@ function extractPromptBlockTypes(systemPrompt: string): string[] {
     if (!types.includes(m[1])) types.push(m[1]);
   }
   return types;
+}
+
+/**
+ * Pull the full markdown bullet (the `- "type": …` line plus any indented /
+ * continuation lines that follow it, up to the next bullet or blank line) for
+ * each requested block type out of a source system prompt. Used to lift the
+ * canonical description of a superadmin-approved block out of the GENERAL
+ * library so it can be advertised on the curated DSO paths too (segment-approval
+ * vocab expansion). Returns only the bullets found, in `wantedTypes` order.
+ */
+export function extractGeneralBlockBullets(
+  sourcePrompt: string,
+  wantedTypes: string[],
+): string[] {
+  const wanted = new Set(wantedTypes);
+  if (wanted.size === 0) return [];
+  const byType = new Map<string, string[]>();
+  const lines = sourcePrompt.split("\n");
+  let current: string | null = null;
+  for (const line of lines) {
+    const m = line.match(GENERAL_BLOCK_TYPE_RE);
+    if (m) {
+      current = wanted.has(m[1]) ? m[1] : null;
+      if (current) byType.set(current, [line]);
+      continue;
+    }
+    if (line.trim() === "") {
+      current = null;
+      continue;
+    }
+    if (current) byType.get(current)?.push(line);
+  }
+  const out: string[] = [];
+  for (const t of wantedTypes) {
+    const captured = byType.get(t);
+    if (captured && captured.length) out.push(captured.join("\n"));
+  }
+  return out;
 }
 
 /**
@@ -3761,6 +4512,14 @@ export function enforceRequiredRoles(
     dbTagsByType?: Map<string, unknown>;
     brandName?: string;
     ctaUrl?: string;
+    // Segment-pool generation (task #5) — when supplied, a default role block is
+    // injected ONLY if its block type is in this allow-set. This keeps the
+    // pool-mode contract intact: required-role backfill can never reintroduce an
+    // off-pool block (e.g. benefits-grid/testimonial/trust-bar) after the
+    // post-parse pool clamp. The pool's structural essentials (hero/bottom-cta/
+    // footer) are always in this set, so they are still backfilled. Omit it to
+    // keep the legacy behavior (every missing role is backfilled).
+    allowedTypes?: ReadonlySet<string>;
   } = {},
 ): Array<Record<string, unknown>> {
   if (!Array.isArray(blocks) || blocks.length === 0) return blocks;
@@ -3768,6 +4527,13 @@ export function enforceRequiredRoles(
   const ctx = {
     brandName: (opts.brandName ?? "").trim(),
     ctaUrl: opts.ctaUrl?.trim() || "#",
+  };
+  // A default-role block may only be injected when its type is permitted. With
+  // no allow-set, everything is permitted (legacy behavior).
+  const typeAllowed = (block: Record<string, unknown> | null): boolean => {
+    if (!block) return false;
+    if (!opts.allowedTypes) return true;
+    return opts.allowedTypes.has(String(block.type ?? ""));
   };
 
   const rolesOf = (block: Record<string, unknown> | undefined): BlockRoleTag[] => {
@@ -3793,34 +4559,34 @@ export function enforceRequiredRoles(
   for (const role of ["features", "social-proof", "stats"] as const) {
     if (!missing.includes(role)) continue;
     const block = buildDefaultRoleBlock(role, ctx);
-    if (!block) continue;
+    if (!typeAllowed(block)) continue;
     const footerIdx = firstIndexWithRole("footer");
     const ctaIdx = firstIndexWithRole("cta");
     const anchor = footerIdx !== -1 ? footerIdx : ctaIdx !== -1 ? ctaIdx : blocks.length;
-    blocks.splice(anchor, 0, block);
+    blocks.splice(anchor, 0, block!);
   }
 
   // Closing CTA before any footer.
   if (missing.includes("cta")) {
     const block = buildDefaultRoleBlock("cta", ctx);
-    if (block) {
+    if (typeAllowed(block)) {
       const footerIdx = firstIndexWithRole("footer");
-      blocks.splice(footerIdx !== -1 ? footerIdx : blocks.length, 0, block);
+      blocks.splice(footerIdx !== -1 ? footerIdx : blocks.length, 0, block!);
     }
   }
 
   // Footer last.
   if (missing.includes("footer")) {
     const block = buildDefaultRoleBlock("footer", ctx);
-    if (block) blocks.push(block);
+    if (typeAllowed(block)) blocks.push(block!);
   }
 
   // Hero first, after any leading header block.
   if (missing.includes("hero")) {
     const block = buildDefaultRoleBlock("hero", ctx);
-    if (block) {
+    if (typeAllowed(block)) {
       const leadingHeader = rolesOf(blocks[0]).includes("header");
-      blocks.splice(leadingHeader ? 1 : 0, 0, block);
+      blocks.splice(leadingHeader ? 1 : 0, 0, block!);
     }
   }
 
@@ -4272,7 +5038,7 @@ export function buildDsoSystemPrompt(opts: { isDandyTenant: boolean; brandName: 
   // only for the Dandy tenant. Other tenants must not see them.
   const dandyInsightsBlocks = isDandyTenant
     ? `
-- "dso-insights-dashboard": "Dandy Insights" analytics dashboard showcase rendered in a simulated browser frame. Use this (NOT dso-ai-feature) when the page should present Dandy Insights — network analytics, benchmarking, multi-location dashboards. Props: eyebrow (string, e.g. "Dandy Insights"), headline (string), subheadline (string), practiceLabel (string), backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER "white"/"light-gray"), dashboardVariant ("light"|"dark"), browserUrl (string, optional, e.g. "insights/dashboard"), dashboardImage ("" — leave blank, the server fills a real image or shows the simulated dashboard)
+- "dso-insights-dashboard": "Dandy Insights" analytics dashboard showcase rendered in a simulated browser frame. Use this (NOT dso-ai-feature) when the page should present Dandy Insights — network analytics, benchmarking, multi-location dashboards. Props: eyebrow (string, e.g. "Dandy Insights"), headline (string), subheadline (string), practiceLabel (string), backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER "white"/"light-gray"), dashboardVariant ("light"|"dark"), browserUrl (string, optional, e.g. "insights/dashboard"), dashboardImage ("" — ALWAYS leave blank; the block renders a polished built-in simulated dashboard)
 - "dso-insights-video": "Dandy Insights" product walkthrough with a video / rotating dashboard screenshots and outcome callouts. Use this for a richer Dandy Insights story. Props: eyebrow (string, e.g. "Dandy Insights"), title (string), subtitle (string), description (string), callouts (array of {label, desc}), quote (string), quoteAttribution (string), ctaLabel (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"), backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER "white"/"light-gray"), imageUrl (string), videoUrl (string, OPTIONAL — only a real provided URL, NEVER invented)`
     : "";
 
@@ -4282,7 +5048,7 @@ export function buildDsoSystemPrompt(opts: { isDandyTenant: boolean; brandName: 
   // forbid the relabel explicitly. Dandy-only (non-Dandy tenants don't use
   // either product name).
   const rule21 = isDandyTenant
-    ? `\n21. DANDY INSIGHTS vs AI SCAN REVIEW: These are two DISTINCT Dandy products with dedicated blocks. "Dandy Insights" is the analytics dashboard — represent it ONLY with "dso-insights-dashboard" or "dso-insights-video". "AI Scan Review" is the scan-QA feature — represent it ONLY with "dso-ai-feature", and keep that block's eyebrow/headline about AI Scan Review. NEVER rename, relabel, or repurpose a "dso-ai-feature" block as "Dandy Insights" (and vice versa). Choosing the wrong block or mislabeling it is a FAILURE.`
+    ? `\n21. DANDY INSIGHTS vs AI SCAN REVIEW: These are two DISTINCT Dandy products with dedicated blocks. "Dandy Insights" is the analytics dashboard — represent it ONLY with "dso-insights-dashboard" or "dso-insights-video". "AI Scan Review" is the scan-QA feature — represent it ONLY with "dso-ai-feature", and keep that block's eyebrow/headline about AI Scan Review. NEVER rename, relabel, or repurpose a "dso-ai-feature" block as "Dandy Insights" (and vice versa). Choosing the wrong block or mislabeling it is a FAILURE. MANDATORY WHEN REQUESTED: if the USER REQUEST mentions Dandy Insights (or asks for an analytics / network / multi-location dashboard or benchmarking), you MUST include a "dso-insights-dashboard" block — or "dso-insights-video" when it asks for a video / walkthrough. If the USER REQUEST mentions AI Scan Review (or AI scan QA / AI quality checks / AI review), you MUST include a "dso-ai-feature" block. Omitting a block the user explicitly asked for is a FAILURE.`
     : "";
 
   return `${intro}
@@ -4313,7 +5079,7 @@ RULES:
 2. The JSON must have: { "title": string, "slug": string, "blocks": [...] }
 3. Each block must have: { "id": string (unique, format "block-TYPE-INDEX"), "type": string, "props": {...} }
 4. Generate 6–10 blocks per page. Always start with "dso-heartland-hero" or "dso-scroll-story-hero", and always end with "dso-cta-capture" or "dso-final-cta".
-5. Recommended page flow: hero → problem/challenges → ai-feature or scroll-story → stat-showcase or bento-outcomes → case-flow or network-map → comparison → success-stories → pilot-steps → cta
+5. BLOCK SELECTION — choose the block mix that best fits THIS specific account, audience, and prompt (and any reference site provided). Do NOT emit the same block sequence for every page: deliberately vary which blocks you use and their order from account to account based on what the brief emphasizes (e.g. a data-heavy network → stat-showcase + network-map + comparison; a single flagship customer → case-study + scroll-story; a pilot push → pilot-steps + bento-outcomes). A loose flow that works is hero → problem/challenges → ai-feature or scroll-story → stat-showcase or bento-outcomes → case-flow or network-map → comparison → success-stories → pilot-steps → cta — but treat this as ONE option, never a fixed template you must follow. EXPLICIT REQUESTS OVERRIDE VARIETY: when the USER REQUEST names a specific block, section, feature, topic, or product (e.g. "Dandy Insights", "AI Scan Review", a comparison table, a pilot timeline, a customer story, a video), you MUST include the block that delivers it — varying the mix NEVER justifies dropping a block the user explicitly asked for. Honoring explicit requests outranks this entire BLOCK SELECTION rule.
 6. All copy must be enterprise B2B — specific, credible, and ROI-focused. Mention DSO scale, multi-location benefits, network-wide metrics. No lorem ipsum.
 ${rule7}
 8. The slug should be a URL-friendly version of the topic (lowercase, hyphens, no special chars).
@@ -4395,7 +5161,7 @@ RULES:
 2. The JSON must have: { "title": string, "slug": string, "blocks": [...] }
 3. Each block must have: { "id": string (unique, format "block-TYPE-INDEX"), "type": string, "props": {...} }
 4. Generate 6–9 blocks per page. Always start with "dso-practice-hero". Always end with "dso-meet-team" or "dso-promises".
-5. Recommended page flow: practice-hero → stat-row → paradigm-shift → products-grid OR split-feature → partnership-perks → activation-steps → faq → promises OR testimonials → meet-team
+5. BLOCK SELECTION — choose the block mix that best fits THIS specific practice/audience and prompt (and any reference site provided). Do NOT emit the same block sequence for every page: deliberately vary which blocks you use and their order from page to page based on what the brief emphasizes (e.g. an onboarding story → activation-steps + promises; a product push → products-grid + split-feature; objection handling → faq + paradigm-shift). A loose flow that works is practice-hero → stat-row → paradigm-shift → products-grid OR split-feature → partnership-perks → activation-steps → faq → promises OR testimonials → meet-team — but treat this as ONE option, never a fixed template you must follow. EXPLICIT REQUESTS OVERRIDE VARIETY: when the USER REQUEST names a specific block, section, feature, or topic (e.g. a products grid, an FAQ, an onboarding/activation flow, partnership perks, the team), you MUST include the block that delivers it — varying the mix NEVER justifies dropping a block the user explicitly asked for. Honoring explicit requests outranks this entire BLOCK SELECTION rule.
 6. All copy must be practice-level B2B — warm, credible, specific. Mention chair-time savings, scanner support, fit rate, dedicated reps, onboarding speed.
 ${rule7}
 8. The slug should be a URL-friendly version of the topic (lowercase, hyphens, no special chars).
@@ -4404,6 +5170,165 @@ ${rule9}
 11. For backgroundStyle, alternate between "dark" and "white"/"muted" to create visual rhythm. Always set backgroundStyle "dark" for the hero, team, and promises sections.
 12. NEVER SHIP AN EMPTY PARADIGM SHIFT: When you use "dso-paradigm-shift", oldWayItems and newWayItems MUST each contain 4–5 fully written strings (6–12 words each), and the items must pair 1:1 (oldWayItems[i] is the pain that newWayItems[i] solves). Empty arrays, fewer than 4 items, or 1–3 word stubs ("Slow", "Manual", "Better", "Fast") are a FAILURE — the block renders empty columns. If you cannot write 4 substantive paired items for the segment, do NOT use this block; pick a different block instead. Mirror the verbosity of the EXAMPLE shown in the dso-paradigm-shift schema above.
 13. TEAM MEMBERS = REAL PEOPLE ONLY: When you use "dso-meet-team", populate the members array ONLY from the TEAM MEMBERS section of this brief — copy each real person's name, role, email, and Photo URL VERBATIM into that member's name/role/email/photo. NEVER invent a person (name, role, or email) and NEVER place any other library image — a group, lifestyle, or dinner photo — into a member's photo slot. If the TEAM MEMBERS section says "(none)", leave members as placeholders rather than fabricating people; the system will render neutral placeholder cards.`;
+}
+
+// Default block builders for the requested-block safety net below. These are
+// Dandy product surfaces (the caller gates on the Dandy tenant), so the copy
+// names real Dandy products. Image-bearing blocks leave imageUrl "" for the
+// downstream image-fill pass; the dashboard renders a built-in simulated UI.
+function makeRequestedAiFeatureBlock(id: string): Record<string, unknown> {
+  return {
+    id,
+    type: "dso-ai-feature",
+    props: {
+      eyebrow: "AI Scan Review",
+      headline: "Catch scan issues before they cost you a remake",
+      body: "AI Scan Review checks every scan for margin errors, gaps, and missing detail the moment it's submitted — so problems get flagged up front instead of surfacing as remakes after delivery.",
+      bullets: [
+        "Automated margin, prep, and clearance checks on every scan",
+        "Real-time feedback to the operatory before the case ships",
+        "Fewer remakes and faster first-time-right turnaround",
+        "Consistent scan quality across every location in your network",
+      ],
+      stats: [
+        { value: "96%", label: "First-time fit rate" },
+        { value: "35%", label: "Fewer remakes" },
+      ],
+      imageUrl: "",
+      backgroundStyle: "dandy-green",
+      ctaText: "Schedule a demo",
+      ctaUrl: "#",
+      ctaMode: "link",
+    },
+  };
+}
+
+function makeRequestedInsightsDashboardBlock(id: string): Record<string, unknown> {
+  return {
+    id,
+    type: "dso-insights-dashboard",
+    props: {
+      eyebrow: "Dandy Insights",
+      headline: "Every location's performance in one dashboard",
+      subheadline: "Track turnaround, fit rate, remakes, and case volume across every practice in your network — benchmark sites against each other and spot issues before they spread.",
+      practiceLabel: "Network overview",
+      backgroundStyle: "dandy-green",
+      dashboardVariant: "dark",
+      browserUrl: "insights/dashboard",
+      dashboardImage: "",
+    },
+  };
+}
+
+function makeRequestedInsightsVideoBlock(id: string): Record<string, unknown> {
+  return {
+    id,
+    type: "dso-insights-video",
+    props: {
+      eyebrow: "Dandy Insights",
+      title: "See Dandy Insights in action",
+      subtitle: "A guided walkthrough of your network analytics",
+      description: "Watch how Dandy Insights brings turnaround, fit rate, remakes, and case volume from every location into a single live view — so your ops team can benchmark practices and act on what's slipping.",
+      callouts: [
+        { label: "Network-wide visibility", desc: "Every location's metrics in one place, updated in real time." },
+        { label: "Benchmark practices", desc: "Compare sites side by side and surface outliers fast." },
+        { label: "Act before issues spread", desc: "Catch turnaround and quality dips early across the network." },
+      ],
+      quote: "",
+      quoteAttribution: "",
+      ctaLabel: "Schedule a demo",
+      ctaUrl: "#",
+      ctaMode: "link",
+      backgroundStyle: "dandy-green",
+      imageUrl: "",
+      videoUrl: "",
+    },
+  };
+}
+
+/**
+ * Deterministic safety net for explicit block requests (Dandy enterprise DSO
+ * path only — the caller gates on `isDandyTenant && useDso`).
+ *
+ * The DSO system prompt now tells the model that explicit requests are mandatory
+ * (RULE 5 + rule21), but model compliance is not guaranteed — historically the
+ * model drops these specialized topical blocks even when asked. This pass
+ * guarantees the named Dandy product blocks the user explicitly requested are
+ * present, mirroring rule21's topic→block mapping:
+ *   - "Dandy Insights" / analytics dashboard / benchmarking → "dso-insights-dashboard"
+ *     (or "dso-insights-video" when a video / walkthrough is requested)
+ *   - "AI Scan Review" / AI scan QA / AI quality checks → "dso-ai-feature"
+ *
+ * Detection is intentionally conservative — it keys on specific product phrasing
+ * (not a bare "ai" or "insights" substring that could appear incidentally) so we
+ * never inject a block the user did not actually ask for. When a requested block
+ * is already present (any of the insights variants count for the insights ask),
+ * nothing is added. Injected blocks carry sensible Dandy defaults and leave image
+ * slots empty for the downstream image-fill pass, and are inserted just before
+ * the page's closing CTA block(s) so the hero stays first and the CTA stays last.
+ */
+export function enforceRequestedDandyDsoBlocks(
+  blocks: unknown[],
+  prompt: string,
+): unknown[] {
+  if (!Array.isArray(blocks) || blocks.length === 0) return blocks;
+  const lower = (prompt ?? "").toLowerCase();
+  if (!lower.trim()) return blocks;
+
+  const typeOf = (b: unknown): string | undefined =>
+    b && typeof b === "object" && typeof (b as { type?: unknown }).type === "string"
+      ? ((b as { type: string }).type)
+      : undefined;
+  const present = new Set(blocks.map(typeOf).filter((t): t is string => !!t));
+
+  const wantsAiScanReview =
+    /\bai[\s-]*scan[\s-]*review\b/.test(lower) ||
+    /\bscan[\s-]*review\b/.test(lower) ||
+    /\bai[\s-]*scan\b/.test(lower) ||
+    /\bscan[\s-]*qa\b/.test(lower) ||
+    (/\bai\b/.test(lower) && /\b(scan|qa|quality\s*check|quality\s*control|review)\b/.test(lower));
+
+  // Require explicit product-intent phrasing — never a bare "insights" or
+  // "benchmark" substring, which appear incidentally ("insights from the data",
+  // "benchmark competitors") without referring to the Dandy Insights product.
+  const wantsInsights =
+    /\bdandy\s+insights\b/.test(lower) ||
+    /\binsights\s+dashboard\b/.test(lower) ||
+    /\banalytics\s+dashboard\b/.test(lower) ||
+    /\bnetwork\s+(analytics|dashboard|insights)\b/.test(lower) ||
+    /\bmulti-?location\s+dashboard\b/.test(lower);
+  const wantsInsightsVideo =
+    wantsInsights && /\b(video|walkthrough|walk-through)\b/.test(lower);
+
+  const additions: Record<string, unknown>[] = [];
+  if (wantsAiScanReview && !present.has("dso-ai-feature")) {
+    additions.push(makeRequestedAiFeatureBlock("block-dso-ai-feature-req"));
+  }
+  if (
+    wantsInsights &&
+    !present.has("dso-insights-dashboard") &&
+    !present.has("dso-insights-video")
+  ) {
+    additions.push(
+      wantsInsightsVideo
+        ? makeRequestedInsightsVideoBlock("block-dso-insights-video-req")
+        : makeRequestedInsightsDashboardBlock("block-dso-insights-dashboard-req"),
+    );
+  }
+  if (additions.length === 0) return blocks;
+
+  // Insert before the trailing run of closing CTA blocks (keep hero first / CTA
+  // last). Falls back to appending when no closing block is present.
+  const CLOSING = new Set(["dso-cta-capture", "dso-final-cta"]);
+  const out = [...blocks];
+  let insertAt = out.length;
+  for (let i = out.length - 1; i >= 0; i--) {
+    const t = typeOf(out[i]);
+    if (t && CLOSING.has(t)) insertAt = i;
+    else break;
+  }
+  out.splice(insertAt, 0, ...additions);
+  return out;
 }
 
 interface SegmentStat { value: string; label: string; approvedForAi?: boolean; linkProofPointId?: number }
@@ -4713,6 +5638,10 @@ export function reconcileTeamMemberPhotos(
 }
 
 interface SegmentContext {
+  /** Brand audience-segment id. Used to look up superadmin-approved blocks for
+   *  this segment so its allowed vocabulary can expand beyond the curated DSO
+   *  set (segment-approval feature). Optional — older callers omit it. */
+  id?: string;
   name?: string;
   description?: string;
   messagingAngle?: string;
@@ -4727,11 +5656,16 @@ interface SegmentContext {
    *  generator honors it the same way the dedicated microsite generator does —
    *  the listed block types become the preferred structure for the page. */
   micrositeBlockList?: { type: string; schemaHint?: string }[];
+  /** Task #6 — optional ordered page outline ("recipe"). When present it
+   *  supersedes the legacy `micrositeBlockList` as the page's preferred
+   *  structure; category steps are resolved against the segment's approved
+   *  pool, specific-block steps are forced, order is respected. */
+  pageOutline?: PageOutline;
 }
 
 export function buildSegmentSection(
   seg: SegmentContext,
-  opts: { strict?: boolean; proofPoints?: ProofPoint[] } = {},
+  opts: { strict?: boolean; proofPoints?: ProofPoint[]; dsoFreeChoice?: boolean; approvedPool?: readonly string[]; brandOutline?: PageOutline | null } = {},
 ): string {
   const parts: string[] = [];
   if (seg.name) parts.push(`Target Audience Segment: ${seg.name}`);
@@ -4782,9 +5716,36 @@ export function buildSegmentSection(
   // dedicated microsite generator). These are the block types this audience's
   // page should be built from, in order — use them as the page's backbone and
   // only deviate when a listed block clearly does not fit the user request.
-  if (seg.micrositeBlockList?.length) {
-    const list = seg.micrositeBlockList
-      .filter((b) => b && typeof b.type === "string" && b.type)
+  //
+  // Task #6 — the segment's preferred structure is expressed as an ordered page
+  // OUTLINE: each step is either a specific block (forced) or a CATEGORY
+  // (resolved to a brand-matched block of that role from the segment's approved
+  // pool). `pageOutline` supersedes the legacy `micrositeBlockList`, which is
+  // adapted into forced-block steps so existing tenants keep working.
+  // Precedence (parity with the microsite generator): the segment's own outline
+  // (or its legacy list adapted) wins; when the segment has none, fall back to
+  // the brand-default outline supplied by the caller.
+  //
+  // A CONFIGURED outline is honored on EVERY path, including DSO / DSO-Practices
+  // landing pages (`dsoFreeChoice`): when a tenant has authored a recipe, its
+  // forced blocks and order must be respected — there is no DSO exception. Only
+  // a truly unconfigured segment (no outline after legacy adaptation, and no
+  // brand-default outline) falls through to the model's free block choice.
+  const segmentOutline = effectiveOutline({
+    outline: seg.pageOutline,
+    legacyBlockList: seg.micrositeBlockList,
+  });
+  const outline = outlineHasSteps(segmentOutline)
+    ? segmentOutline
+    : (opts.brandOutline ?? null);
+  if (outlineHasSteps(outline)) {
+    const resolved = resolvePageOutline(outline, {
+      pool: opts.approvedPool ?? [],
+      rolesOf: (t) => resolveBlockTags(t),
+      canonicalize: (t) => canonicalizeBlockType(t),
+      roleDefaults: { hero: "hero", cta: "bottom-cta", footer: "footer" },
+    });
+    const list = resolved
       .map((b) => `- "${b.type}"${b.schemaHint ? ` — ${b.schemaHint}` : ""}`)
       .join("\n");
     if (list) {
@@ -4936,9 +5897,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     referenceUrl?: string;
     /** Workstream A (May 2026) — list of reference URLs (up to 5). When the
      *  list has exactly one URL we use the multi-page scrape pattern; with
-     *  2+ URLs we scrape each as a single page and stitch the markdown. The
-     *  brand's persisted `inspirationUrls` are merged in automatically
-     *  (request URLs win on dedup; total capped at 5). */
+     *  2+ URLs we scrape each as a single page and stitch the markdown. These
+     *  per-request URLs are the ONLY URLs scraped at generation time — the
+     *  brand's persisted `inspirationUrls` are no longer auto-scraped here (see
+     *  the scrape-set comment below). Capped at 5. */
     referenceUrls?: string[];
     /** Data-URL of a reference screenshot (paste from clipboard, drag/drop,
      *  etc.). Resized + JPEG-compressed before being shipped to vision. */
@@ -4971,12 +5933,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   const tenantId = req.authUser?.tenantId ?? null;
   const _genStartTime = Date.now();
 
-  // Workstream A (May 2026) — reference URLs are now a first-class array
-  // input AND merged with the brand's persisted `inspirationUrls`. The
-  // brand fetch has to settle before we can build the scrape list (we need
-  // its inspirationUrls), so it moves out of the big Promise.all. The
-  // ~50ms latency hit is acceptable; everything else still runs in
-  // parallel afterward.
+  // Workstream A (May 2026) — reference URLs are a first-class array input.
+  // The brand fetch settles up front because the rest of the image pipeline
+  // (logo URLs, voice) needs it; the ~50ms latency hit is acceptable and
+  // everything else still runs in parallel afterward.
   const brand = tenantId != null ? await fetchBrand(tenantId) : {};
   // Task #1134 — the tenant's brand logo URLs. Threaded into every image-pipeline
   // step so logo images are never cleared, library-swapped, or AI-regenerated by
@@ -4998,17 +5958,23 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     ),
     5,
   );
-  // Per-request URLs win on dedup; total capped at 5 so Firecrawl fan-out
-  // stays predictable.
-  const mergedReferenceUrls = dedupeUrls([...perRequestUrls, ...inspirationUrls], 5);
+  // Only the URLs the user pasted into the generate modal's URL box
+  // (`perRequestUrls`) are scraped at generation time. The brand's persisted
+  // `inspirationUrls` (e.g. the Brand Settings homepage) are deliberately NOT
+  // auto-scraped on every run: doing so re-mirrored the same homepage images
+  // into lp_media each time, flooding the library with duplicate "scraped"
+  // rows. Brand voice/structure is injected separately, and the brand-import
+  // flow (a distinct endpoint) still scrapes the homepage on demand. The list
+  // is already deduped + capped at 5 so Firecrawl fan-out stays predictable.
+  const scrapeUrls = perRequestUrls;
 
   // May 2026 audit follow-up — let users seed full-page generation with a
   // reference URL and/or screenshot. The scrape (multi-page when the user
   // pastes a homepage; single-page for deep links) and uploaded screenshot
   // preprocess both run in parallel with the media/proof-point reads so we
   // don't add latency to the happy path.
-  const scrapePromise: Promise<MaybeScrapeResult> = tenantId != null && mergedReferenceUrls.length > 0
-    ? gatherReferences(mergedReferenceUrls, tenantId)
+  const scrapePromise: Promise<MaybeScrapeResult> = tenantId != null && scrapeUrls.length > 0
+    ? gatherReferences(scrapeUrls, tenantId)
     : Promise.resolve({ scraped: null, failureReason: "no_url" } as MaybeScrapeResult);
   const screenshotPromise: Promise<string | undefined> =
     typeof screenshotDataUrl === "string" && screenshotDataUrl.startsWith("data:image/")
@@ -5551,6 +6517,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         });
       }
 
+      // Populate product-grid / product-showcase blocks from the tenant's
+      // Content Library product rows (the real product lines + their curated
+      // images), overriding the random media-pool images the fill pipeline
+      // would otherwise leave on these blocks. Runs in all modes — the library
+      // is the source of truth for the tenant's own products.
+      await enforceProductLibraryBlocks(mergedBlocks, tenantId, brand.productLines);
+
       // Task #1136 — ensure every generated dso-case-study carries explicit
       // values so the React component never falls back to its hardcoded DCA
       // demo constants. Runs in all cases (AI values are kept; only missing
@@ -5601,6 +6574,18 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
             "[generate-page] two-pass critique rewrote low-quality blocks",
           );
         }
+      }
+
+      // Task #4 — enforce tenant AI modes as the FINAL pass on the template
+      // path too, AFTER every copy/image/product/critique mutation, so no later
+      // pass can override governance: `locked` blocks revert to the curated
+      // catalog defaults and `copy` blocks keep AI copy but restore image fields
+      // to defaults. Fail-open: a no-governance tenant is untouched.
+      try {
+        const tplGov = await loadBlockGovernanceContext(tenantId, await getTenantIndustry(tenantId));
+        enforceAiModes(mergedBlocks, tplGov.governanceByType, tplGov.defaultPropsByType);
+      } catch (err) {
+        logger.warn({ err: String(err) }, "[generate-page] template AI-mode enforcement skipped");
       }
 
       res.json({
@@ -5706,7 +6691,12 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           })
       : Promise.resolve([] as MediaImage[]);
 
-  const useDsoPractices = isDsoPracticesPrompt(prompt) || segmentContext?.name?.toLowerCase().includes("practice");
+  // DSO Practices = practice-level staff WITHIN a DSO network. Match the segment
+  // name on "dso practice" specifically — a bare "practice" substring wrongly
+  // routed standalone segments like "Private Practice" into the DSO Practices path.
+  const useDsoPractices =
+    isDsoPracticesPrompt(prompt) ||
+    (segmentContext?.name?.toLowerCase().includes("dso practice") ?? false);
   const useDso = !useDsoPractices && (isDsoPrompt(prompt) || (segmentContext?.name?.toLowerCase().includes("dso") ?? false));
   const promptPath = useDsoPractices ? "DSO_PRACTICES" : useDso ? "DSO_ENTERPRISE" : "GENERAL";
 
@@ -5717,10 +6707,19 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   const dbTagsByType = new Map<string, unknown>();
   const dbSortByType = new Map<string, number>();
   const aiDisabledTypes = new Set<string>();
+  // Segment-approval vocab expansion: canonical block types the superadmin has
+  // approved for the active segment. Unioned ON TOP of the curated DSO vocab so
+  // a non-DSO block tagged for this segment becomes selectable on the DSO paths
+  // (the GENERAL path already advertises every ai_enabled block). Mirrors the
+  // microsite generator's ai_enabled + is_enabled + approved_segments filter.
+  const segmentApprovedTypes = new Set<string>();
+  const segmentApprovalId = (segmentContext?.id ?? "").trim();
+  let catalogIndustry: string | null = null;
   try {
     const industry = await getTenantIndustry(tenantId);
+    catalogIndustry = industry;
     const catRows = await pool.query(
-      `SELECT block_type, tags, ai_enabled, sort_order FROM block_catalog WHERE industry = $1`,
+      `SELECT block_type, tags, ai_enabled, is_enabled, sort_order, approved_segments FROM block_catalog WHERE industry = $1`,
       [industry],
     );
     for (const row of catRows.rows) {
@@ -5734,9 +6733,36 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       if (row.ai_enabled === false) {
         aiDisabledTypes.add(row.block_type as string);
       }
+      // Fail-closed segment approval: only union blocks that are explicitly
+      // ai-eligible, enabled, and list this segment id in approved_segments.
+      if (
+        segmentApprovalId &&
+        row.ai_enabled === true &&
+        row.is_enabled === true &&
+        Array.isArray(row.approved_segments) &&
+        row.approved_segments.includes(segmentApprovalId)
+      ) {
+        const canon = canonicalizeBlockType(String(row.block_type ?? "").trim());
+        if (canon) segmentApprovedTypes.add(canon);
+      }
     }
   } catch (err) {
     logger.warn({ err: String(err) }, "[generate-page] block_catalog fetch skipped");
+  }
+
+  // Tenant block governance (task #4). Loaded once here so it can (a) CONSTRAIN
+  // the AI vocabulary — governance-disabled blocks join `aiDisabledTypes` — and
+  // (b) EXPAND it — blocks the tenant has approved for the active segment join
+  // `segmentApprovedTypes`, exactly like the superadmin `approved_segments`
+  // union above. `defaultPropsByType` + `governanceByType` are reused after
+  // generation by `enforceAiModes`. Fail-open: empty maps on any failure.
+  const { governanceByType, defaultPropsByType, governanceDisabledTypes } =
+    await loadBlockGovernanceContext(tenantId, catalogIndustry);
+  for (const t of governanceDisabledTypes) aiDisabledTypes.add(t);
+  if (segmentApprovalId) {
+    for (const type of blocksApprovedForSegment(governanceByType, segmentApprovalId)) {
+      segmentApprovedTypes.add(type);
+    }
   }
 
   // GENERAL path assembles its block library at request time, filtered by the
@@ -5762,8 +6788,20 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   );
   logger.debug({ promptPath, segment: segmentContext?.name ?? "none", promptPreview: prompt.slice(0, 120).replace(/\n/g, " ") }, "[generate-page] generating with prompt");
 
+  // Task #6 — brand-default outline ("recipe"), applied only when the segment
+  // has no outline of its own (resolved inside buildSegmentSection).
+  const brandOutline = effectiveOutline({
+    outline: brand.defaultPageOutline,
+    legacyBlockList: brand.defaultMicrositeBlockList,
+  });
   const segmentSection = segmentContext && typeof segmentContext === "object"
-    ? buildSegmentSection(segmentContext, { strict, proofPoints })
+    ? buildSegmentSection(segmentContext, {
+        strict,
+        proofPoints,
+        dsoFreeChoice: useDso || useDsoPractices,
+        approvedPool: [...segmentApprovedTypes],
+        brandOutline,
+      })
     : "";
 
   let userPromptParts: string[] = [];
@@ -5814,12 +6852,58 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   } catch (err) {
     logger.warn({ err: String(err) }, "[generate-page] selection directive build skipped");
   }
+  // Segment-approval vocab expansion (DSO paths only). The DSO/DSO-Practices
+  // prompts advertise a curated, hardcoded block list; the GENERAL path already
+  // advertises every ai_enabled block, so it needs no expansion. When the
+  // superadmin has approved extra block types for this segment that the DSO
+  // prompt does not already list, lift their canonical descriptions out of the
+  // GENERAL library and advertise them as ADDITIONAL allowed blocks. Best-effort.
+  let injectedSegmentBlocks: string[] = [];
+  if ((useDso || useDsoPractices) && segmentApprovedTypes.size > 0) {
+    try {
+      const alreadyAdvertised = new Set(extractPromptBlockTypes(systemPrompt));
+      const extraTypes = [...segmentApprovedTypes].filter((t) => !alreadyAdvertised.has(t));
+      if (extraTypes.length > 0) {
+        const generalLibrary = buildGeneralSystemPrompt({
+          includeContentSeries: true,
+          includeBlogSeries: true,
+          includeStorefront: true,
+        });
+        const bullets = extractGeneralBlockBullets(generalLibrary, extraTypes);
+        if (bullets.length > 0) {
+          // Only the types we could actually describe count as injected — the
+          // trailing "use only DSO blocks" directive is softened just for these.
+          injectedSegmentBlocks = extraTypes.filter((t) =>
+            bullets.some((b) => b.startsWith(`- "${t}":`)),
+          );
+          userPromptParts.push(
+            [
+              "ADDITIONAL APPROVED BLOCKS — these block types have been approved for this audience segment. You MAY use them IN ADDITION to the blocks listed in the system prompt, where they fit the page; they are optional, not required:",
+              ...bullets,
+            ].join("\n"),
+          );
+        }
+      }
+    } catch (err) {
+      logger.warn({ err: String(err) }, "[generate-page] segment-approved block injection skipped");
+    }
+  }
+  // When segment-approved extras were injected, the page is no longer limited to
+  // the DSO vocabulary alone — name the approved extras so the closing directive
+  // does not contradict the ADDITIONAL APPROVED BLOCKS section above.
+  const approvedExtrasClause =
+    injectedSegmentBlocks.length > 0
+      ? ` You may also use these approved blocks where they fit: ${injectedSegmentBlocks.map((t) => `"${t}"`).join(", ")}.`
+      : "";
   userPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
   userPromptParts.push(
+    "REQUESTED SECTIONS ARE MANDATORY: If the USER REQUEST above explicitly asks for a specific block, section, feature, topic, or product, you MUST include a block that delivers it — even when your default block selection, the \"vary the mix\" guidance, or the brand-fit selection guidance would otherwise omit it. Explicit user requests outrank variety and selection guidance. Name and use the exact block type that matches the request.",
+  );
+  userPromptParts.push(
     useDsoPractices
-      ? "Generate a complete DSO Practices landing page using only DSO Practices block types. Make the copy practice-level B2B — warm, specific, and focused on chair-time savings, clinical quality, onboarding support, and per-practice ROI. Targeted at dentists, office managers, and practice owners within a DSO network."
+      ? `Generate a complete DSO Practices landing page using DSO Practices block types.${approvedExtrasClause} Make the copy practice-level B2B — warm, specific, and focused on chair-time savings, clinical quality, onboarding support, and per-practice ROI. Targeted at dentists, office managers, and practice owners within a DSO network.`
       : useDso
-        ? "Generate a complete DSO enterprise landing page using only DSO block types. Make the copy credible, data-driven, and targeted at DSO executives (CEO, COO, VP of Operations). Use real image URLs from the image library for all imageUrl fields including chapter arrays."
+        ? `Generate a complete DSO enterprise landing page using DSO block types.${approvedExtrasClause} Make the copy credible, data-driven, and targeted at DSO executives (CEO, COO, VP of Operations). Use real image URLs from the image library for all imageUrl fields including chapter arrays.`
         : "Generate a complete landing page for this request. Use the brand context to inform tone, audience, and messaging. Use real image URLs from the image library where relevant."
   );
 
@@ -6119,6 +7203,20 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       return b;
     });
 
+    // Deterministic safety net: when the user explicitly asks for a named Dandy
+    // product surface (Dandy Insights / AI Scan Review) the model is told it is
+    // mandatory (RULE 5 + rule21), but compliance is not guaranteed — it has been
+    // dropping these specialized topical blocks. Guarantee the requested block is
+    // present BEFORE the image-fill pass so an injected dso-ai-feature /
+    // dso-insights-video gets an image. Scoped to the Dandy enterprise DSO path
+    // (these blocks are only advertised + relevant there).
+    if (isDandyTenant && useDso) {
+      parsed.blocks = enforceRequestedDandyDsoBlocks(
+        parsed.blocks as unknown[],
+        prompt,
+      ) as typeof parsed.blocks;
+    }
+
     // Task #1173 — bake the brand accent + logo onto a generated content-series
     // page (see applyContentSeriesBranding for the rationale).
     applyContentSeriesBranding(parsed.blocks as Array<Record<string, unknown>>, brand);
@@ -6303,27 +7401,27 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // with images too — without this branch, AI-page generation produced
     // empty image slots for every non-superadmin-flagged tenant even
     // though they had the feature turned on.
-    // CURATED images only (drawer uploads, brand-import photography). Off-topic
-    // SCRAPED reference harvests are deliberately held back from the relaxed
-    // pre-AI pass below so an unrelated brand-site scrape never beats a relevant
-    // AI image; they fill in the last-resort pass after AI generation. Generic
-    // STARTER seeds are likewise excluded here — they are the absolute last
-    // resort, so they must not fill a slot ahead of the tenant's own scraped
-    // reference imagery (which only competes in the last-resort pass). Without
-    // this, a score-0 starter filled prime slots before scraped images ever ran.
-    const curatedFillPool = fillPool.filter((img) => !isScrapedImage(img) && !isStarterImage(img));
     const [outsideBuilderOn, imageGenStatus] = await Promise.all([
       getAiImageGenOutsideBuilderEnabled(tenantId),
       getAiImageGenStatus(tenantId),
     ]);
     if (outsideBuilderOn || imageGenStatus.enabled) {
-      // Exhaust the CURATED brand library FIRST. The strict fillEmptyImages pass
-      // above only places topically-relevant images; this relaxed pass drops the
-      // relevance gate for curated images so any slot a real brand photo can
-      // cover gets it instead of an AI-generated one. Off-topic scraped harvests
-      // are excluded here (see curatedFillPool) so AI generation fills those
-      // slots with on-topic imagery rather than an unrelated brand-site scrape.
-      parsed.blocks = fillEmptyImages(parsed.blocks, curatedFillPool, pageImageContext, true, brandLogoUrls);
+      // AI-generate every imageUrl slot the STRICT topical fill pass above left
+      // empty. We deliberately do NOT run a relaxed CURATED fill before this.
+      // The strict pass already placed every curated image that passes its
+      // strict topical scoring (findBestImage's lp-feature gate only rejects
+      // curated photos whose auto-tagger DESCRIBED a subject yet score ZERO
+      // topical relevance for the slot). A relaxed curated pass here would drop
+      // that gate and place those OFF-TOPIC-but-described library photos — e.g.
+      // a "machining / manufacturing"
+      // lab shot landing on a dentures-page gallery slot whose AI-authored caption
+      // reads "Dentist scanning patient" — pre-empting an on-topic AI image AND
+      // leaving a confident-but-false caption glued to a clearly-wrong photo (the
+      // reported "images are super random and the alt text makes them seem right"
+      // symptom on rich-but-diverse libraries like Dandy's ~900-image catalog).
+      // Those off-topic curated/scraped/starter images instead fill ONLY in the
+      // final last-resort pass BELOW, after AI generation has had its chance —
+      // matching the documented intent in findBestImage. (Task #1287)
       parsed.blocks = await aiFillEmptyImages(
         parsed.blocks as Array<Record<string, unknown>>,
         tenantId!,
@@ -6503,6 +7601,12 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // Dandy tenant. For every other tenant we emit a minimal, brand-derived
     // footer using their own brandName, defaultCtaUrl, and social links so
     // the AI never leaks meetdandy.com links into a non-Dandy workspace.
+    // De-brand any AI-emitted footer that leaked Dandy's forest/lime palette so
+    // a non-Dandy tenant never renders a Dandy-green footer (falls back to the
+    // tenant's own brand CSS var). Runs before the injection below, which is
+    // already correctly Dandy-vs-brand branched.
+    for (const b of blocks) deBrandFooterColors(b as { type?: string; props?: Record<string, unknown> });
+
     const hasFooter = blocks.some(b => b.type === "footer");
     if (!hasFooter && !isSingleFullPage) {
       const year = new Date().getFullYear();
@@ -6662,6 +7766,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       });
     }
 
+    // Populate product-grid / product-showcase blocks from the tenant's Content
+    // Library product rows (the real product lines + their curated images),
+    // overriding the random media-pool images the fill pipeline would otherwise
+    // leave on these blocks. Runs in all modes — the library is the source of
+    // truth for the tenant's own products.
+    await enforceProductLibraryBlocks(parsed.blocks, tenantId, brand.productLines);
+
     // Task #1136 — ensure every generated dso-case-study carries explicit values
     // so the React component never falls back to its hardcoded DCA demo
     // constants (AI values kept; only missing fields get neutral/empty values).
@@ -6724,6 +7835,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         );
       }
     }
+
+    // Task #4 — enforce tenant AI modes as the FINAL pass, AFTER every
+    // copy/image/product/team/critique mutation, so no later pass can override
+    // governance: `locked` blocks revert to the curated catalog defaults and
+    // `copy` blocks keep AI copy but restore image fields to defaults.
+    // Fail-open: a no-governance tenant is untouched.
+    parsed.blocks = enforceAiModes(parsed.blocks, governanceByType, defaultPropsByType) as typeof parsed.blocks;
 
     res.json({
       title: parsed.title,

@@ -227,6 +227,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
       const buildSegmentContext = (segId: string) => {
         const seg = segId ? segments.find(s => s.id === segId) : null;
         return seg ? {
+          id: seg.id,
           name: seg.name,
           description: seg.description,
           messagingAngle: seg.messagingAngle,

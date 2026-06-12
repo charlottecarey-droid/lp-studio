@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { Trash2, SlidersHorizontal, AlignLeft, Plus, GripVertical, RefreshCcw, Loader2, BookmarkPlus, Copy, ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -234,6 +234,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { AiTextField } from "@/components/AiTextField";
 import { suggestCopy, refreshBlockCopy, refreshBentoTiles, type DsoBentoTile } from "@/lib/copy-api";
 
+/** Extra tab injected alongside the built-in Content / Style tabs (task #6 —
+ *  e.g. the per-block Governance tab in the Block Defaults editor). */
+export interface PropertyPanelExtraTab {
+  value: string;
+  label: string;
+  icon?: ReactNode;
+  content: ReactNode;
+}
+
 interface Props {
   block: PageBlock;
   onChange: (block: PageBlock) => void;
@@ -245,6 +254,9 @@ interface Props {
   brand?: BrandConfig;
   pageId?: number;
   onApplyCtaToAll?: () => void;
+  /** Extra tabs rendered after Content / Style (only when block settings are
+   *  shown). Used by the Block Defaults editor to add a Governance tab. */
+  extraTabs?: PropertyPanelExtraTab[];
 }
 
 interface EventLandingHeroPanelProps {
@@ -979,7 +991,7 @@ function StageReorderList({
   );
 }
 
-export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false, brandVoiceSet, brand, pageId, onApplyCtaToAll }: Props) {
+export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false, brandVoiceSet, brand, pageId, onApplyCtaToAll, extraTabs }: Props) {
   // Resolve once per render so every child panel + every inline Background
   // <Select> below shares the same brand-aware label set.
   const bgOptions = getBgOptions(brand);
@@ -6815,6 +6827,16 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <SlidersHorizontal className="w-3 h-3" />
                 Style
               </TabsTrigger>
+              {extraTabs?.map((t) => (
+                <TabsTrigger
+                  key={t.value}
+                  value={t.value}
+                  className="flex-1 h-8 text-xs gap-1.5 rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--brand-primary)] data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                >
+                  {t.icon}
+                  {t.label}
+                </TabsTrigger>
+              ))}
             </TabsList>
 
             <TabsContent value="content" className="mt-0 border-0 p-0">
@@ -6854,6 +6876,12 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 )}
               </div>
             </TabsContent>
+
+            {extraTabs?.map((t) => (
+              <TabsContent key={t.value} value={t.value} className="mt-0 border-0 p-0">
+                <div className="p-4 overflow-y-auto">{t.content}</div>
+              </TabsContent>
+            ))}
           </Tabs>
         ) : (
           <div className="flex-1 overflow-y-auto p-4">

@@ -6,9 +6,12 @@ import {
   aiFillEmptyImages,
   buildReferenceFillPool,
   collectImageSlots,
+  restoreTemplateImages,
   isLogoImageUrl,
   buildBrandLogoUrlSet,
   buildBlockSelectionDirective,
+  isDandyPaletteLiteral,
+  deBrandFooterColors,
   type MediaImage,
 } from "./generate-page";
 
@@ -268,6 +271,35 @@ describe("validateAndDedupeAIImages", () => {
     const out = (await aiFillEmptyImages(blocks, 1, brand, "test brief")) as any[];
     for (const r of out[0].props.results as Array<{ logoUrl: string }>) expect(r.logoUrl).toBe("");
   });
+
+  it("fillEmptyImages never back-fills a case-study-card-grid card imageUrl (customer logos, not stock photos)", () => {
+    // Same class as case-study-logo-results-row: each card's imageUrl is a
+    // customer/company *logo* slot rendered in a tiny icon / small logo box.
+    // Auto-filling a library photo drops a tiny mismatched image into the box
+    // ("tiny images where icons should be"). Empty imageUrl → company-name fallback.
+    const featLib: MediaImage[] = [
+      { url: "/objects/feat-a", title: "A", tags: ["lp-feature", "dentures"] },
+    ];
+    let blocks: any[] = [
+      { type: "case-study-card-grid", props: { cards: [
+        { company: "Acme Dental", result: "2x revenue", metricValue: "2x", metricLabel: "growth", imageUrl: "" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, featLib, PAGE_CTX) as any[];
+    expect((blocks[0].props.cards as Array<{ imageUrl: string }>)[0].imageUrl).toBe("");
+  });
+
+  it("aiFillEmptyImages collects no slot for a case-study-card-grid card imageUrl", async () => {
+    const blocks: any[] = [
+      { type: "case-study-card-grid", props: { cards: [
+        { company: "Acme Dental", result: "2x revenue", metricValue: "2x", metricLabel: "growth", imageUrl: "" },
+        { company: "Bright Smiles", result: "+40% bookings", metricValue: "+40%", metricLabel: "bookings", imageUrl: "" },
+      ] } },
+    ];
+    const brand = { brandName: "Acme", primaryColor: "#000", accentColor: "#111", productLines: [] } as any;
+    const out = (await aiFillEmptyImages(blocks, 1, brand, "test brief")) as any[];
+    for (const c of out[0].props.cards as Array<{ imageUrl: string }>) expect(c.imageUrl).toBe("");
+  });
 });
 
 describe("dandy premium blocks — items[]/tabs[] imageUrl wiring", () => {
@@ -406,6 +438,45 @@ describe("fillEmptyImages — benefits-grid per-card photos (useItemPhotos opt-i
     blocks = fillEmptyImages(blocks, [], PAGE_CTX) as any[];
     const products = blocks[0].props.products as Array<{ imageUrl?: string }>;
     expect(products[0].imageUrl).toBeFalsy();
+  });
+
+  // ── product-detail slots ignore the page-vocabulary bias (Task #469 regression) ──
+  // The May-2026 page-bias change appended the page's generic industry words
+  // (e.g. "dental dentistry dentist clinic teeth") to EVERY slot's scoring
+  // context. For a product card that has a SPECIFIC subject, that let any
+  // on-vertical product shot — a crown rich in generic dental tags — outscore
+  // the real subject match (a denture) and land in the wrong card. These two
+  // images both have the +8 product-detail purpose boost; the crown also matches
+  // three page-vocabulary tags (dental/teeth/dentistry) so WITH the page bias it
+  // would beat the denture. The fix scores product-detail slots on the subject
+  // alone, so the denture must win.
+  const subjectVsPageLib: MediaImage[] = [
+    { url: "/objects/crown-shot", title: "Zirconia crown", tags: ["product-detail", "crown", "dental", "teeth", "dentistry"] },
+    { url: "/objects/denture-shot", title: "Milled denture", tags: ["product-detail", "dentures"] },
+  ];
+  // Page context carries exactly the generic dental keywords the crown matches.
+  const dentalPageCtx = "dental dentistry dentist clinic teeth dentures";
+
+  it("dso-products-grid products[] match the imageKey subject, not the page's generic vocabulary", () => {
+    let blocks: any[] = [
+      { type: "dso-products-grid", props: { headline: "Our services", products: [
+        { name: "Digital Dentures", detail: "Milled precision", price: "$$", icon: "smile", imageKey: "digital-dentures" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, subjectVsPageLib, dentalPageCtx) as any[];
+    const products = blocks[0].props.products as Array<{ imageUrl?: string }>;
+    expect(products[0].imageUrl).toBe("/objects/denture-shot");
+    expect(products[0].imageUrl).not.toBe("/objects/crown-shot");
+  });
+
+  it("product-grid item slots match the item subject, not the page's generic vocabulary", () => {
+    let blocks: any[] = [
+      { type: "product-grid", props: { items: [
+        { title: "Digital dentures", description: "Milled precision", image: "" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, subjectVsPageLib, dentalPageCtx) as any[];
+    expect((blocks[0].props.items as Array<{ image: string }>)[0].image).toBe("/objects/denture-shot");
   });
 });
 
@@ -637,10 +708,52 @@ describe("buildReferenceFillPool — reference-image fidelity", () => {
   it("RELAXED pass: a score-0 scraped reference image beats a score-0 starter regardless of pool order", () => {
     // Put the starter FIRST in the pool to prove the win isn't just ordering: the
     // two-tier selection prefers any non-starter (the tenant's scrape) over a starter.
+    // Uses a non-hero (lp-feature) slot: a purposeless scrape can fill a feature
+    // slot but is barred from a hero slot by the source-page hero rule (below).
     const pool = [starter, freshClay];
-    const blocks: any[] = [{ type: "hero", props: { headline: "Workflow", imageUrl: "" } }];
+    const blocks: any[] = [{ type: "feature", props: { headline: "Workflow", imageUrl: "" } }];
     const filled = fillEmptyImages(blocks, pool, "saas pipeline", true) as any[];
     expect(filled[0].props.imageUrl).toBe("/objects/clay-fresh");
+  });
+
+  it("HERO slot: a scraped image may fill it ONLY if it was the source-page hero (lp-hero)", () => {
+    // The user's rule: a scraped image can be a hero image only if it WAS the hero
+    // on the scraped page (mirror tags only that one image "lp-hero"; every other
+    // scrape is downgraded to lp-feature). A non-lp-hero scrape must never win a
+    // hero slot — even with a strong topical score / as the sole candidate — so a
+    // mid-page team headshot can no longer surface as a microsite hero.
+    const scrapedNonHero: MediaImage = { url: "/objects/headshot", title: "saas pipeline team", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:hh", "lp-feature"] };
+    const scrapedHero: MediaImage = { url: "/objects/page-hero", title: "saas pipeline", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:ph", "lp-hero"] };
+
+    // Non-hero scrape only → hero slot stays empty in BOTH passes (no soft win).
+    const strict = fillEmptyImages([{ type: "hero", props: { headline: "x", imageUrl: "" } }], [scrapedNonHero], "saas pipeline", false) as any[];
+    expect(strict[0].props.imageUrl).toBe("");
+    const relaxed = fillEmptyImages([{ type: "hero", props: { headline: "x", imageUrl: "" } }], [scrapedNonHero], "saas pipeline", true) as any[];
+    expect(relaxed[0].props.imageUrl).toBe("");
+
+    // The source-page hero (lp-hero) is allowed to fill the hero slot (shown in
+    // the relaxed pass; the strict pass additionally requires a currentReference
+    // flag, an unrelated gate covered elsewhere).
+    const allowed = fillEmptyImages([{ type: "hero", props: { headline: "x", imageUrl: "" } }], [scrapedHero], "saas pipeline", true) as any[];
+    expect(allowed[0].props.imageUrl).toBe("/objects/page-hero");
+  });
+
+  it("VALIDATION path: clears an AI-assigned non-hero scrape from a hero slot, keeps a source-page hero scrape", () => {
+    // The same source-page hero rule must hold when the MODEL (not the fill pass)
+    // assigns the image: validateAndDedupeAIImages re-scores model picks, and a
+    // topically-strong non-hero scrape would otherwise survive the soft CLEAR_GAP
+    // check. A non-lp-hero scrape in a hero slot must be cleared unconditionally;
+    // a source-page hero (lp-hero) scrape must be kept.
+    const scrapedNonHero: MediaImage = { url: "/objects/headshot", title: "saas pipeline team", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:hh", "lp-feature"] };
+    const scrapedHero: MediaImage = { url: "/objects/page-hero", title: "saas pipeline", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:ph", "lp-hero"] };
+
+    const blocksA: any[] = [{ type: "hero", props: { headline: "x", imageUrl: "/objects/headshot" } }];
+    const cleared = validateAndDedupeAIImages(blocksA, [scrapedNonHero], "saas pipeline") as any[];
+    expect(cleared[0].props.imageUrl).toBe("");
+
+    const blocksB: any[] = [{ type: "hero", props: { headline: "x", imageUrl: "/objects/page-hero" } }];
+    const kept = validateAndDedupeAIImages(blocksB, [scrapedHero], "saas pipeline") as any[];
+    expect(kept[0].props.imageUrl).toBe("/objects/page-hero");
   });
 
   it("RELAXED pass: a curated brand asset beats a starter even when the starter sorts first", () => {
@@ -800,7 +913,7 @@ describe("fillEmptyImages — single-image domination cap (scraped resize varian
   });
 });
 
-describe("findBestImage — scraped images need positive relevance in the strict pass", () => {
+describe("findBestImage — only current-reference scrapes compete in the strict pass", () => {
   // A scraped page-reference harvest whose title does NOT overlap the slot
   // context → scores 0 against "dental clinic dentures".
   const offTopicScrape: MediaImage = {
@@ -848,12 +961,26 @@ describe("findBestImage — scraped images need positive relevance in the strict
     expect(blocks[0].props.rows[0].imageUrl).toBe("");
   });
 
-  it("places a RELEVANT scraped image in the strict pass (positive relevance signal)", () => {
+  it("places a CURRENT-REFERENCE scrape in the strict pass (the user pointed us at that URL)", () => {
+    // A scrape harvested from a reference URL in THIS prompt is flagged
+    // `currentReference` by buildReferenceFillPool, so it competes in the strict
+    // pass alongside curated assets and may win a content slot.
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Dental implants", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, [{ ...onTopicScrape, currentReference: true }], "dental implants clinic") as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/scrape-dent");
+  });
+
+  it("defers an UNFLAGGED (stale) scrape in the strict pass even when it is on-topic", () => {
+    // Without the currentReference flag a scrape is treated as a stale harvest from
+    // an unrelated prior generation → last-resort pass only, so the tenant's own
+    // library + the current prompt's reference are always tried first.
     let blocks: any[] = [
       { type: "zigzag-features", props: { rows: [{ headline: "Dental implants", imageUrl: "" }] } },
     ];
     blocks = fillEmptyImages(blocks, [onTopicScrape], "dental implants clinic") as any[];
-    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/scrape-dent");
+    expect(blocks[0].props.rows[0].imageUrl).toBe("");
   });
 
   it("still places an untagged CURATED image in the strict pass (scoping is scraped-only)", () => {
@@ -865,19 +992,21 @@ describe("findBestImage — scraped images need positive relevance in the strict
   });
 });
 
-// ── Task #1287: off-topic scrapes need content relevance in the strict pass ──
-// A page-reference scrape is auto-tagged for PURPOSE (lp-hero / lp-feature), so
-// without a content-relevance gate a generic off-topic reference photo wins a
-// slot on the bare purpose match. The strict pass requires a positive CONTENT
-// signal (topical tag/title overlap) for scraped images; off-topic scrapes —
-// even from THIS run's reference — defer to the relaxed last-resort pass.
-describe("scraped-image content-relevance gate (Task #1287)", () => {
+// ── current-reference scrapes are eligible in the strict pass ────────────────
+// A scrape is auto-tagged for PURPOSE (lp-hero / lp-feature). Whether it competes
+// in the strict pass is gated on the `currentReference` flag (set by
+// buildReferenceFillPool for scrapes harvested from a reference URL in THIS
+// prompt), NOT on topical overlap: when the user points us at a URL — or a new
+// tenant whose only library IS their own website — we use that site's imagery
+// even if it is topically generic. Stale scrapes from unrelated prior runs stay
+// last-resort.
+describe("current-reference scrape eligibility (strict pass)", () => {
   const freshClay: MediaImage = { url: "/objects/clay-fresh", title: "abstract gradient", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:ccc", "lp-feature"] };
 
-  it("holds back an off-topic scrape (purpose match only, no topical overlap) in the strict pass", () => {
-    // freshClay carries an "lp-feature" purpose tag but its title/content tags do
-    // NOT overlap "saas pipeline" → contentScore 0 → fails the strict gate even
-    // though the purpose boost makes its total score positive.
+  it("holds back an UNFLAGGED (stale) scrape in the strict pass", () => {
+    // freshClay carries no currentReference flag → treated as a stale harvest from
+    // an unrelated prior generation → deferred to the relaxed last-resort pass even
+    // though its purpose boost makes its total score positive.
     let blocks: any[] = [
       { type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } },
     ];
@@ -885,13 +1014,23 @@ describe("scraped-image content-relevance gate (Task #1287)", () => {
     expect(blocks[0].props.rows[0].imageUrl).toBe("");
   });
 
-  it("places an ON-TOPIC scrape (real content overlap) in the strict pass", () => {
-    const onTopic: MediaImage = { url: "/objects/clay-topic", title: "workflow automation pipeline", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:ddd", "lp-feature", "workflow"] };
+  it("places an ON-TOPIC current-reference scrape in the strict pass", () => {
+    const onTopic: MediaImage = { url: "/objects/clay-topic", title: "workflow automation pipeline", tags: ["page-reference", "scraped", "refhost:clay.com", "refsrc:ddd", "lp-feature", "workflow"], currentReference: true };
     let blocks: any[] = [
       { type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } },
     ];
     blocks = fillEmptyImages(blocks, [onTopic], "saas pipeline workflow", false) as any[];
     expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/clay-topic");
+  });
+
+  it("places an OFF-TOPIC current-reference scrape in the strict pass ('make my page look like this URL')", () => {
+    // freshClay is topically generic for "saas pipeline", but the user pointed us
+    // at its source URL this run → flagged currentReference → eligible in strict.
+    let blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Workflow automation", imageUrl: "" }] } },
+    ];
+    blocks = fillEmptyImages(blocks, [{ ...freshClay, currentReference: true }], "saas pipeline", false) as any[];
+    expect(blocks[0].props.rows[0].imageUrl).toBe("/objects/clay-fresh");
   });
 
   it("places that same off-topic scrape in the relaxed last-resort pass", () => {
@@ -974,6 +1113,36 @@ describe("collectImageSlots — excludes logo slots", () => {
     };
     const values = collectImageSlots(block as any, logoUrls).map((s) => s.get());
     expect(values).toEqual(["/objects/dental-feature-1"]);
+  });
+
+  it("dso-insights-dashboard `dashboardImage` is a restore-only slot (excluded from fill/dedupe, enumerated only with includeEmpty)", () => {
+    const block = {
+      type: "dso-insights-dashboard",
+      props: { headline: "Insights", dashboardImage: "/objects/author-dashboard" },
+    };
+    // Fill/dedupe/replace callsites (includeEmpty=false) must NEVER see it, so the
+    // image pipeline can't drop an icon / off-subject photo into the dashboard.
+    const fillSlots = collectImageSlots(block as any).map((s) => s.get());
+    expect(fillSlots).not.toContain("/objects/author-dashboard");
+    // The template-restore path (includeEmpty=true) MUST enumerate it so a
+    // template author's deliberately-set dashboard image survives generation.
+    const restoreSlots = collectImageSlots(block as any, undefined, true).map((s) => s.get());
+    expect(restoreSlots).toContain("/objects/author-dashboard");
+  });
+
+  it("restoreTemplateImages preserves a template author's dashboardImage when the model blanks it (replaceImagery=false)", () => {
+    const origBlock = {
+      type: "dso-insights-dashboard",
+      props: { headline: "Insights", dashboardImage: "/objects/author-dashboard" },
+    };
+    // The model is prompted to leave dashboardImage blank on regeneration.
+    const mergedBlock = {
+      type: "dso-insights-dashboard",
+      props: { headline: "Insights", dashboardImage: "" },
+    };
+    const applied = restoreTemplateImages(origBlock as any, mergedBlock as any);
+    expect(applied).toBe(true);
+    expect(mergedBlock.props.dashboardImage).toBe("/objects/author-dashboard");
   });
 });
 
@@ -1295,11 +1464,12 @@ describe("icon-only item photos (benefits-grid / features)", () => {
   });
 });
 
-describe("off-topic curated images do not auto-fill content/strip slots", () => {
-  // A curated (non-scraped) library that is purpose-classified for feature
-  // slots but topically OFF-TOPIC for a dentures page — e.g. an intraoral
-  // scanner product shot. This reproduces the "scanner photos on a dentures
-  // page" strip regression.
+describe("curated purpose-matched images fill content/strip slots", () => {
+  // Restored (pre-late-May) behavior: a tenant's OWN curated library image that
+  // is purpose-classified for feature slots fills the slot even when its content
+  // tags don't textually overlap the page context. The user prefers their own
+  // product/feature photos in the grid/strip over an empty slot or a generic
+  // fill. (e.g. a feature-tagged product shot on a dentures page.)
   const SCANNER_ONLY: MediaImage[] = [
     { url: "/objects/scanner-device", title: "Intraoral scanner hardware", tags: ["lp-feature", "scanner", "device"] },
   ];
@@ -1317,14 +1487,12 @@ describe("off-topic curated images do not auto-fill content/strip slots", () => 
     },
   ];
 
-  it("strict pass leaves a photo-strip slot empty rather than fill it with an off-topic curated image", () => {
+  it("strict pass fills a photo-strip slot with the tenant's own purpose-matched curated image", () => {
     const blocks = fillEmptyImages(stripBlock(), SCANNER_ONLY, PAGE_CTX, false) as any[];
-    for (const img of blocks[0].props.images) {
-      expect(img.src).toBe("");
-    }
+    expect(blocks[0].props.images[0].src).toBe("/objects/scanner-device");
   });
 
-  it("relaxed (last-resort) pass still fills the strip from the curated library when nothing better exists", () => {
+  it("relaxed (last-resort) pass also fills the strip from the curated library", () => {
     const blocks = fillEmptyImages(stripBlock(), SCANNER_ONLY, PAGE_CTX, true) as any[];
     expect(blocks[0].props.images[0].src).toBe("/objects/scanner-device");
   });
@@ -1420,5 +1588,37 @@ describe("video thumbnails / videos are never auto-added or swapped", () => {
     const slots = collectImageSlots(block as any, undefined, true);
     const values = (slots as any[]).map(s => s.get());
     expect(values).not.toContain("/objects/denture-hero-1");
+  });
+});
+
+describe("deBrandFooterColors (Dandy palette leak guard)", () => {
+  it("detects Dandy forest/lime literals regardless of case or whitespace", () => {
+    expect(isDandyPaletteLiteral("#003A30")).toBe(true);
+    expect(isDandyPaletteLiteral("#003a30")).toBe(true);
+    expect(isDandyPaletteLiteral("  #C7E738 ")).toBe(true);
+    expect(isDandyPaletteLiteral("#0f172a")).toBe(false);
+    expect(isDandyPaletteLiteral("")).toBe(false);
+    expect(isDandyPaletteLiteral(undefined)).toBe(false);
+  });
+
+  it("strips a leaked Dandy green/lime from a footer so it falls back to the brand var", () => {
+    const footer = { type: "footer", props: { backgroundColor: "#003A30", accentColor: "#C7E738", copyrightText: "© 2026" } };
+    deBrandFooterColors(footer as any);
+    expect(footer.props.backgroundColor).toBe("");
+    expect(footer.props.accentColor).toBe("");
+    expect(footer.props.copyrightText).toBe("© 2026");
+  });
+
+  it("keeps a non-Dandy footer's own brand colors untouched", () => {
+    const footer = { type: "footer", props: { backgroundColor: "#1d4ed8", accentColor: "#f59e0b" } };
+    deBrandFooterColors(footer as any);
+    expect(footer.props.backgroundColor).toBe("#1d4ed8");
+    expect(footer.props.accentColor).toBe("#f59e0b");
+  });
+
+  it("is a no-op for non-footer blocks even if they carry a Dandy literal", () => {
+    const hero = { type: "hero", props: { backgroundColor: "#003A30" } };
+    deBrandFooterColors(hero as any);
+    expect(hero.props.backgroundColor).toBe("#003A30");
   });
 });

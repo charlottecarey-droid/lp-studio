@@ -96,15 +96,27 @@ const DEFAULT_CALLOUTS: Array<{ label: string; desc: string }> = [
 export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange }: Props) {
   const field = (key: keyof DsoInsightsVideoBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoInsightsVideoBlockProps[typeof key] }) : undefined;
-  // Support both new array prop and legacy named props
-  const rawCallouts: Array<{ label: string; desc: string }> = props.callouts != null
+  // Support both new array prop and legacy named props.
+  // Defensive: props.callouts may be malformed (a non-array, or an array with
+  // missing/holey entries) from older saves or AI-generated content. Normalize
+  // to a stable array of exactly DEFAULT_CALLOUTS.length valid entries so the
+  // block never throws while rendering (it would otherwise show a "failed to
+  // render" error box in the builder, or vanish on a published page).
+  const sourceCallouts: Array<unknown> = Array.isArray(props.callouts)
     ? props.callouts
     : [
-        { label: props.callout1Label || "Remake Rates",         desc: props.callout1Desc || "Track quality by provider, not just practice" },
-        { label: props.callout2Label || "Spend Tracking",       desc: props.callout2Desc || "Know where every dollar goes across all locations" },
-        { label: props.callout3Label || "Scan Quality",         desc: props.callout3Desc || "Catch clinical issues before they become remakes" },
-        { label: props.callout4Label || "Provider Performance", desc: props.callout4Desc || "Coach with data, not instinct" },
+        { label: props.callout1Label || DEFAULT_CALLOUTS[0].label, desc: props.callout1Desc || DEFAULT_CALLOUTS[0].desc },
+        { label: props.callout2Label || DEFAULT_CALLOUTS[1].label, desc: props.callout2Desc || DEFAULT_CALLOUTS[1].desc },
+        { label: props.callout3Label || DEFAULT_CALLOUTS[2].label, desc: props.callout3Desc || DEFAULT_CALLOUTS[2].desc },
+        { label: props.callout4Label || DEFAULT_CALLOUTS[3].label, desc: props.callout4Desc || DEFAULT_CALLOUTS[3].desc },
       ];
+  const rawCallouts: Array<{ label: string; desc: string }> = DEFAULT_CALLOUTS.map((fallback, i) => {
+    const entry = sourceCallouts[i] as { label?: unknown; desc?: unknown } | null | undefined;
+    return {
+      label: typeof entry?.label === "string" ? entry.label : fallback.label,
+      desc: typeof entry?.desc === "string" ? entry.desc : fallback.desc,
+    };
+  });
   const updateCallout = onFieldChange
     ? (idx: number, patch: Partial<{ label: string; desc: string }>) => {
         const seeded = rawCallouts.map(c => ({ ...c }));
@@ -370,11 +382,11 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
         {/* ── ALL FOUR IMAGE CARDS ── */}
         <div className="w-full max-w-3xl flex flex-col gap-6 mb-16">
           {[
-            { img: closeUpRemakeRates, alt: "Remake rates detail",        callout: callouts[0], delay: 2.0, offsetX: "0%"  },
-            { img: provPerf,           alt: "Provider performance detail", callout: callouts[3], delay: 2.2, offsetX: "8%"  },
-            { img: closeUpSpend,       alt: "Spend tracking detail",       callout: callouts[1], delay: 2.4, offsetX: "8%"  },
-            { img: scanQuality,        alt: "Scan quality detail",         callout: callouts[2], delay: 2.6, offsetX: "16%" },
-          ].map(({ img, alt, callout, delay, offsetX }, i) => (
+            { img: closeUpRemakeRates, alt: "Remake rates detail",        calloutIndex: 0, callout: callouts[0], delay: 2.0, offsetX: "0%"  },
+            { img: provPerf,           alt: "Provider performance detail", calloutIndex: 3, callout: callouts[3], delay: 2.2, offsetX: "8%"  },
+            { img: closeUpSpend,       alt: "Spend tracking detail",       calloutIndex: 1, callout: callouts[1], delay: 2.4, offsetX: "8%"  },
+            { img: scanQuality,        alt: "Scan quality detail",         calloutIndex: 2, callout: callouts[2], delay: 2.6, offsetX: "16%" },
+          ].map(({ img, alt, calloutIndex, callout, delay, offsetX }, i) => (
             <motion.div
               key={i}
               className="rounded-2xl overflow-hidden"
@@ -406,10 +418,10 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
                 </div>
                 <div>
                   <h4 className="text-[#F2EEE3] font-semibold text-base mb-1 tracking-tight" style={{ fontFamily: DISPLAY }}>
-                    <InlineText as="span" value={callout.label} onUpdate={updateCallout ? (v) => updateCallout(i, { label: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
+                    <InlineText as="span" value={callout.label} onUpdate={updateCallout ? (v) => updateCallout(calloutIndex, { label: v }) : undefined} style={{ fontFamily: DISPLAY }}/>
                   </h4>
                   <p className="text-[#F2EEE3]/50 text-sm leading-relaxed" style={{ fontFamily: BODY }}>
-                    <InlineText as="span" value={callout.desc} onUpdate={updateCallout ? (v) => updateCallout(i, { desc: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
+                    <InlineText as="span" value={callout.desc} onUpdate={updateCallout ? (v) => updateCallout(calloutIndex, { desc: v }) : undefined} multiline style={{ fontFamily: BODY }}/>
                   </p>
                 </div>
               </div>
