@@ -271,6 +271,23 @@ export type {
   SocialUrgencyFinalCtaBlockProps,
   GradientGlowFinalCtaBlockProps,
   VideoBackgroundFinalCtaBlockProps,
+  LaunchSpotlightHeroBlockProps,
+  BentoMosaicHeroBlockProps,
+  KineticTypeHeroBlockProps,
+  GlassBentoFeaturesBlockProps,
+  GlassBentoCard,
+  GlassBentoCardSpan,
+  FeatureTabsShowcaseBlockProps,
+  FeatureTabItem,
+  StatCounterBandBlockProps,
+  StatCounterItem,
+  StatCounterBackground,
+  TestimonialWallBlockProps,
+  TestimonialWallItem,
+  GlassPricingTiersBlockProps,
+  GlassPricingTier,
+  AuroraCtaFinaleBlockProps,
+  AuroraCtaReassurance,
 } from "./generic-blocks";
 
 // DSO block types

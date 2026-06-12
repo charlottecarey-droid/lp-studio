@@ -76,6 +76,10 @@ export function BenefitsAlternatingRowsPanel({ props, onChange }: Props) {
             </div>
             <IconPicker label="Icon" value={row.icon} onChange={(v) => updateRow(i, { icon: v })} aiHint="Benefit icon" />
             <div>
+              <Label className="text-[11px] text-muted-foreground">Kicker (small label above the title)</Label>
+              <Input value={row.kicker ?? ""} onChange={(e) => updateRow(i, { kicker: e.target.value })} placeholder="Leave blank to show the icon instead" className="h-8 text-xs" />
+            </div>
+            <div>
               <Label className="text-[11px] text-muted-foreground">Title</Label>
               <Input value={row.title} onChange={(e) => updateRow(i, { title: e.target.value })} className="h-8 text-xs" />
             </div>
@@ -119,7 +123,7 @@ export function BenefitsAlternatingRowsPanel({ props, onChange }: Props) {
         />
         <div className="grid grid-cols-2 gap-2">
           <ColorField label="Text" value={props.textColor ?? "#171717"} onChange={(v) => update({ textColor: v })} />
-          <ColorField label="Accent" value={props.accentColor ?? "#4f46e5"} onChange={(v) => update({ accentColor: v })} />
+          <ColorField label="Accent" value={props.accentColor ?? "#3B82F6"} onChange={(v) => update({ accentColor: v })} />
         </div>
       </div>
     </div>

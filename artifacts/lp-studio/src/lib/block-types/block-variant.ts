@@ -145,6 +145,15 @@ import type {
   MediaLoopingShowcaseBlockProps,
   MediaThumbnailGridBlockProps,
   MediaVideoSplitBlockProps,
+  LaunchSpotlightHeroBlockProps,
+  BentoMosaicHeroBlockProps,
+  KineticTypeHeroBlockProps,
+  GlassBentoFeaturesBlockProps,
+  FeatureTabsShowcaseBlockProps,
+  StatCounterBandBlockProps,
+  TestimonialWallBlockProps,
+  GlassPricingTiersBlockProps,
+  AuroraCtaFinaleBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -380,6 +389,15 @@ export type BlockVariant =
   | { type: "logo-marquee"; props: LogoMarqueeBlockProps }
   | { type: "rating-badges"; props: RatingBadgesBlockProps }
   | { type: "avatar-social-proof"; props: AvatarSocialProofBlockProps }
+  | { type: "launch-spotlight-hero"; props: LaunchSpotlightHeroBlockProps }
+  | { type: "bento-mosaic-hero"; props: BentoMosaicHeroBlockProps }
+  | { type: "kinetic-type-hero"; props: KineticTypeHeroBlockProps }
+  | { type: "glass-bento-features"; props: GlassBentoFeaturesBlockProps }
+  | { type: "feature-tabs-showcase"; props: FeatureTabsShowcaseBlockProps }
+  | { type: "stat-counter-band"; props: StatCounterBandBlockProps }
+  | { type: "testimonial-wall"; props: TestimonialWallBlockProps }
+  | { type: "glass-pricing-tiers"; props: GlassPricingTiersBlockProps }
+  | { type: "aurora-cta-finale"; props: AuroraCtaFinaleBlockProps }
   | { type: "event-noir"; props: EventNoirBlockProps }
   | { type: "event-luminous"; props: EventLuminousBlockProps }
   | { type: "event-split"; props: EventSplitBlockProps }

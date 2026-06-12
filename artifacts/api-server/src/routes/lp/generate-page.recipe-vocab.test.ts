@@ -43,6 +43,26 @@ describe("page-recipe skeletons reference only advertised block types", () => {
     }
   });
 
+  it("GENERAL prompt advertises the June-2026 modern block wave (logo-marquee stays excluded)", () => {
+    const vocab = advertisedTypes(buildGeneralSystemPrompt());
+    for (const type of [
+      "launch-spotlight-hero",
+      "bento-mosaic-hero",
+      "kinetic-type-hero",
+      "glass-bento-features",
+      "feature-tabs-showcase",
+      "stat-counter-band",
+      "testimonial-wall",
+      "glass-pricing-tiers",
+      "aurora-cta-finale",
+    ]) {
+      expect(vocab.has(type), `GENERAL prompt is missing "${type}"`).toBe(true);
+    }
+    // logo-marquee carries tenant-supplied customer logos — deliberately NOT
+    // part of the AI vocabulary (auto-fabricated customer logos = false proof).
+    expect(vocab.has("logo-marquee")).toBe(false);
+  });
+
   it("DSO recipes ⊆ DSO prompt vocabulary (non-Dandy, narrowest form)", () => {
     const vocab = advertisedTypes(buildDsoSystemPrompt({ isDandyTenant: false, brandName: "Acme Dental" }));
     for (const recipe of DSO_RECIPES) {

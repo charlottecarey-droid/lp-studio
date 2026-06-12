@@ -2,6 +2,8 @@ import type { QuoteLibraryBlockProps, QuoteLibraryTestimonial } from "@/lib/bloc
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { ImagePicker } from "@/components/ImagePicker";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
@@ -97,6 +99,15 @@ export function QuoteLibraryPanel({ props, onChange }: Props) {
                 <Label className="text-[11px] text-muted-foreground">Avatar initials</Label>
                 <Input value={t.avatarInitials ?? ""} onChange={(e) => updateItem(i, { avatarInitials: e.target.value })} placeholder="SJ" className="h-8 text-xs" />
               </div>
+            </div>
+            <ImagePicker value={t.avatarUrl ?? ""} onChange={(url) => updateItem(i, { avatarUrl: url })} label="Avatar photo (falls back to initials)" />
+            <div className="flex items-center justify-between pt-1">
+              <Label className="text-[11px] text-muted-foreground cursor-pointer">Featured (larger card)</Label>
+              <Switch checked={t.featured ?? (i === 0 && !items.some((x) => x.featured !== undefined))} onCheckedChange={(v) => updateItem(i, { featured: v })} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-[11px] text-muted-foreground cursor-pointer">Accent tint</Label>
+              <Switch checked={t.tinted ?? i % 3 === 2} onCheckedChange={(v) => updateItem(i, { tinted: v })} />
             </div>
           </div>
         ))}

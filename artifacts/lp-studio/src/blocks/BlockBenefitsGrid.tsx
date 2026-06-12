@@ -59,14 +59,14 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange, animationsEnabl
               <motion.div
                 key={i}
                 className={cn(
-                  "group flex flex-col rounded-2xl bg-white border border-slate-100 shadow-sm",
+                  "group flex flex-col rounded-2xl bg-white border border-black/[0.06] shadow-[0_1px_2px_rgba(15,15,20,0.04),0_10px_30px_-12px_rgba(15,15,20,0.08)]",
                   hasImage ? "overflow-hidden" : "p-8",
                 )}
                 initial={animationsEnabled ? { opacity: 0, y: 32 } : undefined}
                 whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}
                 viewport={{ once: true, amount: 0.12 }}
                 transition={animationsEnabled ? { duration: 0.55, ease: EASE, delay: i * 0.07 } : undefined}
-                whileHover={(props.hoverLift ?? true) ? { y: -6, scale: 1.015, boxShadow: "0 20px 40px rgba(0,0,0,0.10)" } : undefined}
+                whileHover={(props.hoverLift ?? true) ? { y: -5, scale: 1.01, boxShadow: "0 1px 2px rgba(15,15,20,0.04), 0 20px 44px -14px rgba(15,15,20,0.16)" } : undefined}
                 whileTap={(props.hoverLift ?? true) ? { scale: 0.99 } : undefined}
                 style={(props.hoverLift ?? true) ? undefined : { transition: "box-shadow 0.2s" }}
               >
@@ -83,18 +83,21 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange, animationsEnabl
                       wrapperClassName="block w-full h-full"
                       onUpdate={onFieldChange ? (url) => updateItemImage(i, url) : undefined}
                     />
-                    <div className="absolute bottom-3 left-3 w-11 h-11 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-sm">
+                    <div className="absolute bottom-3 left-3 w-11 h-11 rounded-xl bg-white/90 backdrop-blur flex items-center justify-center shadow-sm ring-1 ring-black/[0.06]">
                       <IconOrImage value={benefit.icon} fallback={Zap} className="w-6 h-6 text-[var(--brand-primary)]" />
                     </div>
                   </div>
                 ) : (
-                  <div className="w-14 h-14 rounded-full bg-[#E8F5F2] flex items-center justify-center mb-6">
-                    <IconOrImage value={benefit.icon} fallback={Zap} className="w-7 h-7 text-[var(--brand-primary)]" />
+                  <div
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6"
+                    style={{ backgroundColor: "color-mix(in srgb, var(--brand-primary) 9%, transparent)" }}
+                  >
+                    <IconOrImage value={benefit.icon} fallback={Zap} className="w-6 h-6 text-[var(--brand-primary)]" />
                   </div>
                 )}
                 <div className={cn(hasImage && "p-8 pt-6 flex flex-col flex-1")}>
                   <InlineText as="h3" value={benefit.title} onUpdate={onFieldChange ? (v) => updateItem(i, "title", v) : undefined} className={cn(getHeadlineSizeClass(undefined, brand.h3Size ?? "sm"), "text-[var(--brand-heading-on-light)] mb-3", getHeadingWeightClass(brand))} style={{ fontFamily: DISPLAY }} />
-                  <InlineText as="p" value={benefit.description} onUpdate={onFieldChange ? (v) => updateItem(i, "description", v) : undefined} className={cn(getBodySizeClass(brand), "lg:text-lg leading-relaxed text-[#4A6358]")} style={{ fontFamily: BODY }} multiline />
+                  <InlineText as="p" value={benefit.description} onUpdate={onFieldChange ? (v) => updateItem(i, "description", v) : undefined} className={cn(getBodySizeClass(brand), "lg:text-lg leading-relaxed text-[rgb(var(--brand-text-rgb)/0.68)]")} style={{ fontFamily: BODY }} multiline />
                 </div>
               </motion.div>
             );

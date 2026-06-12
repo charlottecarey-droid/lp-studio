@@ -34,6 +34,21 @@ export function PasSectionPanel({ blockType, props, onChange, brandVoiceSet }: P
         onApply={(u) => onChange({ ...props, ...u })}
       />
       <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Eyebrow</Label>
+        <AiTextField
+          type="input"
+          value={props.eyebrow ?? ""}
+          onChange={v => onChange({ ...props, eyebrow: v })}
+          className="h-8 text-xs"
+          placeholder="Leave blank to hide"
+          fieldLabel="Eyebrow"
+          brandVoiceSet={brandVoiceSet}
+          onSuggest={() => suggestCopy(blockType, "eyebrow", props.eyebrow ?? "", {
+            headline: props.headline,
+          })}
+        />
+      </div>
+      <div>
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Headline</Label>
         <AiTextField
           type="textarea"
@@ -90,6 +105,22 @@ export function PasSectionPanel({ blockType, props, onChange, brandVoiceSet }: P
         <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs mt-2" onClick={addBullet}>
           <Plus className="w-3.5 h-3.5" /> Add Pain Point
         </Button>
+      </div>
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Solution line</Label>
+        <AiTextField
+          type="textarea"
+          value={props.solutionText ?? ""}
+          onChange={v => onChange({ ...props, solutionText: v })}
+          rows={2}
+          placeholder="Leave blank to hide"
+          fieldLabel="Solution line"
+          brandVoiceSet={brandVoiceSet}
+          onSuggest={() => suggestCopy(blockType, "solutionText", props.solutionText ?? "", {
+            headline: props.headline,
+            body: props.body,
+          })}
+        />
       </div>
     </div>
   );

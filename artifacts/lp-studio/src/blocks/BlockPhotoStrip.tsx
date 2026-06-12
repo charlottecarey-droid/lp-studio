@@ -73,6 +73,10 @@ export function BlockPhotoStrip({ props, onFieldChange }: Props) {
                 flexShrink: 0,
                 objectFit: fit,
                 marginRight: gap > 0 ? `${gap}px` : undefined,
+                // Spaced strips read as a row of cards — give them the unified
+                // soft radius. Seamless (gap=0) strips stay square so the
+                // marquee remains one continuous band.
+                borderRadius: gap > 0 ? "1rem" : undefined,
                 filter: grayscale ? "grayscale(100%)" : undefined,
               }}
               wrapperClassName="h-full shrink-0"

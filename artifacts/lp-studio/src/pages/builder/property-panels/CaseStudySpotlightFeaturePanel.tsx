@@ -1,4 +1,5 @@
 import type { CaseStudySpotlightFeatureBlockProps } from "@/lib/block-types";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AiTextField } from "@/components/AiTextField";
@@ -38,6 +39,10 @@ export function CaseStudySpotlightFeaturePanel({ props, onChange }: Props) {
           <Label className="text-[11px] text-muted-foreground">Headline</Label>
           <AiTextField value={props.headline} onChange={(v) => update({ headline: v })} rows={2} className="text-xs" onSuggest={() => suggestCopy("case-study-spotlight-feature", "headline", props.headline ?? "", { company: props.company ?? "" })} fieldLabel="Headline" />
         </div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Pull-quote</Label>
+          <AiTextField value={props.quote ?? ""} onChange={(v) => update({ quote: v })} rows={3} className="text-xs" placeholder="Leave blank to hide" onSuggest={() => suggestCopy("case-study-spotlight-feature", "quote", props.quote ?? "", { company: props.company ?? "", headline: props.headline ?? "" })} fieldLabel="Pull-quote" />
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -74,6 +79,8 @@ export function CaseStudySpotlightFeaturePanel({ props, onChange }: Props) {
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Image</div>
         <ImagePicker value={props.imageUrl} onChange={(src) => update({ imageUrl: src })} label="Feature photo" aiHint={props.company ? `${props.company} team working` : "Customer team working"} />
         <Input value={props.imageAlt ?? ""} onChange={(e) => update({ imageAlt: e.target.value })} placeholder="Image alt text (optional)" className="h-8 text-xs" />
+        <ImagePicker value={props.logoUrl ?? ""} onChange={(src) => update({ logoUrl: src })} label="Customer logo badge (optional)" aiHint={props.company ? `${props.company} logo` : "Company logo"} />
+        <Input value={props.logoAlt ?? ""} onChange={(e) => update({ logoAlt: e.target.value })} placeholder="Logo alt text (optional)" className="h-8 text-xs" />
       </div>
 
       <div className="space-y-3">
@@ -90,6 +97,26 @@ export function CaseStudySpotlightFeaturePanel({ props, onChange }: Props) {
 
       <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Style</div>
+        <div className="grid grid-cols-2 gap-1">
+          {([
+            { value: false, label: "Plain" },
+            { value: true, label: "Tinted panel" },
+          ] as const).map((opt) => {
+            const active = !!props.tintedPanel === opt.value;
+            return (
+              <Button
+                key={String(opt.value)}
+                size="sm"
+                variant={active ? "default" : "outline"}
+                className="h-8 text-xs"
+                onClick={() => update({ tintedPanel: opt.value })}
+              >
+                {opt.label}
+              </Button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground">Tinted panel wraps the spotlight in an accent-tinted rounded panel.</p>
         <SectionBackgroundControl
           backgroundStyle={props.backgroundStyle}
           bgColor={props.bgColor}

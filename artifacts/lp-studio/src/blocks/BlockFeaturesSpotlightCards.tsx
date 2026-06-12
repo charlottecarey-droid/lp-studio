@@ -1,7 +1,4 @@
-import {
-  LayoutTemplate, SplitSquareHorizontal, LineChart, Globe, Users, Search,
-  MousePointer2, ChevronRight, Layers,
-} from "lucide-react";
+import { MousePointer2, ChevronRight, Layers, ArrowRight } from "lucide-react";
 import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
@@ -10,13 +7,21 @@ import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
-import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
-import { motion } from "framer-motion";
-import { SectionDecor } from "@/lib/premium-toolkit";
+import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
+import { cn } from "@/lib/utils";
+import { motion, useReducedMotion } from "framer-motion";
 
-const DISPLAY = BRAND_DISPLAY_FONT;
-const BODY = BRAND_BODY_FONT;
+const DISPLAY = BRAND_DISPLAY_STACK;
+const BODY = BRAND_BODY_STACK;
 
+/* ----------------------------------------------------------------------------
+ * Features — Spotlight Cards: one flagship spotlight card (copy + button
+ * beside a real image or a CSS builder mockup) above a grid of supporting
+ * cards, each led by a large tinted icon area or an optional image, with an
+ * accent glow on hover (disabled under reduced motion) and an optional
+ * `featured` card treatment (accent-tinted surface + stronger ring). Varied
+ * card heights are embraced; surface-aware light/dark.
+ * -------------------------------------------------------------------------- */
 
 interface Props {
   props: FeaturesSpotlightCardsBlockProps;
@@ -24,8 +29,7 @@ interface Props {
   onFieldChange?: (updated: FeaturesSpotlightCardsBlockProps) => void;
 }
 
-/** Decorative builder-canvas mockup shown beside the spotlight feature.
- *  `accent` themes the active highlights to the brand accent. */
+/** Decorative builder-canvas mockup shown beside the spotlight feature. */
 function BuilderMockup({ accent }: { accent: string }) {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
@@ -94,14 +98,27 @@ function BuilderMockup({ accent }: { accent: string }) {
 }
 
 export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Props) {
-  const surface = resolveSectionSurface(props, "#FAFAFA");
-  const text = props.textColor ?? surface.color ?? "#171717";
-  const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const tint = `${accent}14`;
-  const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
-  const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
-  const showCta = props.showCta ?? true;
+  const reduced = useReducedMotion() ?? false;
   const isBuilder = !!onFieldChange;
+  const still = isBuilder || reduced;
+
+  const surface = resolveSectionSurface(props, "#FAFAFA");
+  const dark = surface.isDark;
+  const text = props.textColor ?? surface.color ?? (dark ? "#F6F7F9" : "#0B0B0F");
+  const accentRaw = props.accentColor || brand.accentColor || brand.primaryColor || "#3B82F6";
+  const primary = brand.primaryColor || "#0f172a";
+  const accent = pickContrastingColor(accentRaw, surface.base, [primary], 3.0);
+  const eyebrowColor = pickContrastingColor(accentRaw, surface.base, [primary, dark ? "#E2E8F0" : "#0f172a"], 4.5);
+  const muted = dark ? "rgba(246,247,249,0.62)" : "rgba(11,11,15,0.62)";
+  const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
+  const hairline = dark ? "rgba(255,255,255,0.12)" : "rgba(11,11,15,0.10)";
+  const showCta = props.showCta ?? true;
+
+  const cardBg = dark ? "rgba(255,255,255,0.05)" : "#FFFFFF";
+  const cardRing = dark ? "rgba(255,255,255,0.09)" : "rgba(11,11,15,0.07)";
+  const cardShadow = dark
+    ? "0 18px 40px -22px rgba(0,0,0,0.7)"
+    : "0 1px 2px rgba(15,15,20,0.04), 0 10px 30px -12px rgba(15,15,20,0.10)";
 
   const update = <K extends keyof FeaturesSpotlightCardsBlockProps>(key: K, value: FeaturesSpotlightCardsBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -112,45 +129,83 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
   };
 
   return (
-    <section className="relative flex w-full justify-center overflow-hidden px-6 py-24 lg:px-8" style={{ background: surface.background, color: text }}>
-      <SectionDecor accent={accent} isDark={surface.isDark} disabled={isBuilder} />
+    <section
+      className="fspc-section relative flex w-full justify-center overflow-hidden px-6 py-20 sm:py-24 lg:px-10 lg:py-32"
+      style={{ background: surface.background, color: text, fontFamily: BODY }}
+    >
+      <style>{`
+        .fspc-card {
+          transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease;
+        }
+        @media (hover: hover) {
+          .fspc-card:hover {
+            transform: translateY(-4px);
+            box-shadow:
+              0 0 0 1px color-mix(in srgb, ${accent} 24%, transparent),
+              0 0 30px -6px color-mix(in srgb, ${accent} 30%, transparent),
+              ${dark ? "0 22px 44px -18px rgba(0,0,0,0.75)" : "0 16px 40px -14px rgba(15,15,20,0.16)"};
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .fspc-card, .fspc-card:hover { transition: none; transform: none; }
+        }
+      `}</style>
       <div className="relative z-10 w-full max-w-[1280px]">
-        <div className="mb-16 text-center">
+        {/* ── Section header. ── */}
+        <div className="mb-12 text-center lg:mb-16">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
-              as="h2"
+              as="p"
               value={props.eyebrow ?? ""}
               onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined}
-              className="mb-4 text-sm font-semibold uppercase tracking-wider"
-              style={{ color: accent, fontFamily: BODY }} />
+              className="mb-4 text-[11px] font-semibold uppercase tracking-[0.26em]"
+              style={{ color: eyebrowColor }} />
           )}
           <InlineText
-            as="p"
+            as="h2"
             value={props.headline}
             onUpdate={onFieldChange ? (v) => update("headline", v) : undefined}
-            className="text-3xl font-bold tracking-tight md:text-4xl"
-            style={{ fontFamily: DISPLAY }} />
+            className="mx-auto max-w-3xl font-bold tracking-tight"
+            style={{ fontFamily: DISPLAY, fontSize: "clamp(2rem, 4.2vw, 3.25rem)", lineHeight: 1.06 }}
+            multiline />
         </div>
 
-        <div className="flex flex-col gap-6">
-          {/* Spotlight Feature */}
-          <div className="grid grid-cols-1 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-neutral-200/50 md:grid-cols-2">
-            <div className="flex flex-col justify-center p-10 md:p-16">
-              <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
+        <div className="flex flex-col gap-5 lg:gap-6">
+          {/* ── Spotlight card. ── */}
+          <div
+            className="grid grid-cols-1 overflow-hidden rounded-3xl ring-1 md:grid-cols-2"
+            style={{
+              backgroundColor: cardBg,
+              "--tw-ring-color": cardRing,
+              boxShadow: dark
+                ? "0 28px 56px -24px rgba(0,0,0,0.75)"
+                : "0 1px 2px rgba(15,15,20,0.05), 0 24px 56px -22px rgba(15,15,20,0.16)",
+            } as React.CSSProperties}
+          >
+            <div className="flex flex-col justify-center p-8 sm:p-10 lg:p-14">
+              <div
+                className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)`,
+                  color: accent,
+                }}
+                aria-hidden="true"
+              >
                 <IconOrImage value={props.spotlightIcon} fallback={Layers} className="h-6 w-6" />
               </div>
               <InlineText
                 as="h3"
                 value={props.spotlightTitle}
                 onUpdate={onFieldChange ? (v) => update("spotlightTitle", v) : undefined}
-                className="mb-4 text-2xl font-bold tracking-tight text-neutral-900 md:text-3xl"
-                style={{ fontFamily: DISPLAY }} />
+                className="mb-4 text-2xl font-bold leading-snug tracking-tight md:text-3xl"
+                style={{ fontFamily: DISPLAY }}
+                multiline />
               <InlineText
                 as="p"
                 value={props.spotlightDescription}
                 onUpdate={onFieldChange ? (v) => update("spotlightDescription", v) : undefined}
-                className="mb-8 text-lg text-neutral-600"
-                style={{ fontFamily: BODY }}
+                className="mb-8 max-w-[50ch] text-base leading-relaxed lg:text-lg"
+                style={{ color: muted }}
                 multiline />
               {(props.spotlightButtonLabel || onFieldChange) && (
                 <div>
@@ -159,21 +214,22 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
                     ctaUrl={props.spotlightButtonUrl}
                     brand={brand}
                     source="features-spotlight-cards-spotlight"
-                    className="inline-flex items-center justify-center gap-2 rounded-md px-5 py-2.5 text-sm font-semibold"
-                    style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY }}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl px-5 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2"
+                    style={{ backgroundColor: accent, color: onAccent, outlineColor: accent }}
                   >
-                    {props.spotlightButtonLabel || "Try the builder"} <ChevronRight className="h-4 w-4" />
+                    {props.spotlightButtonLabel || "Try the builder"} <ChevronRight className="h-4 w-4" aria-hidden="true" />
                   </CtaButton>
                 </div>
               )}
             </div>
             {props.spotlightImage && props.spotlightImage.trim() ? (
-              <div className="relative min-h-[400px] bg-neutral-100">
+              <div className="relative min-h-[320px] sm:min-h-[400px]">
                 <InlineImage
                   src={props.spotlightImage}
                   alt={props.spotlightImageAlt ?? props.spotlightTitle}
-                  className="h-full min-h-[400px] w-full object-cover"
-                  wrapperClassName="block h-full w-full"
+                  className="absolute inset-0 h-full w-full object-cover"
+                  wrapperClassName="absolute inset-0"
+                  loading="lazy"
                   onUpdate={onFieldChange ? (url) => update("spotlightImage", url) : undefined}
                   onAltUpdate={onFieldChange ? (v) => update("spotlightImageAlt", v) : undefined}
                   focalPoint={props.spotlightImageFocal}
@@ -181,49 +237,95 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
                 />
               </div>
             ) : (
-              <div className="relative min-h-[400px] bg-neutral-100 p-8">
+              <div
+                className="relative min-h-[320px] p-6 sm:min-h-[400px] sm:p-8"
+                style={{ backgroundColor: `color-mix(in srgb, ${accentRaw} ${dark ? 12 : 6}%, ${dark ? "transparent" : "#FFFFFF"})` }}
+              >
                 <BuilderMockup accent={accent} />
               </div>
             )}
           </div>
 
-          {/* Secondary Features Row */}
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-3 lg:grid-cols-5">
+          {/* ── Supporting cards — large icon/image areas, glow on hover. ── */}
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
             {props.secondaryFeatures.map((feature, i) => {
+              const hasImage = !!(feature.image && feature.image.trim());
+              const featured = feature.featured === true;
               return (
                 <motion.div
                   key={i}
-                  className="group flex flex-col rounded-2xl bg-white p-6 shadow-sm ring-1 ring-neutral-200/50 transition-shadow hover:shadow-lg"
-                  initial={isBuilder ? false : { opacity: 0, y: 16 }}
-                  whileInView={isBuilder ? undefined : { opacity: 1, y: 0 }}
+                  className="fspc-card group flex flex-col overflow-hidden rounded-2xl ring-1"
+                  style={{
+                    backgroundColor: featured
+                      ? `color-mix(in srgb, ${accentRaw} ${dark ? 14 : 6}%, ${cardBg})`
+                      : cardBg,
+                    "--tw-ring-color": featured
+                      ? `color-mix(in srgb, ${accent} 35%, ${cardRing})`
+                      : cardRing,
+                    boxShadow: cardShadow,
+                  } as React.CSSProperties}
+                  initial={still ? false : { opacity: 0, y: 16 }}
+                  whileInView={still ? undefined : { opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.3 }}
-                  transition={isBuilder ? undefined : { duration: 0.5, delay: i * 0.06, ease: [0.22, 1, 0.36, 1] }}
-                  whileHover={isBuilder ? undefined : { y: -4 }}
+                  transition={still ? undefined : { duration: 0.5, delay: Math.min(i * 0.06, 0.36), ease: [0.16, 1, 0.3, 1] }}
                 >
-                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg transition-transform duration-300 group-hover:scale-105" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
-                    <IconOrImage value={feature.icon} fallback={Layers} className="h-5 w-5" />
+                  {hasImage ? (
+                    <InlineImage
+                      src={feature.image ?? ""}
+                      alt={feature.imageAlt ?? feature.title}
+                      className={cn(
+                        "h-40 w-full object-cover",
+                        !reduced && "transition-transform duration-700 group-hover:scale-[1.03]",
+                      )}
+                      wrapperClassName="block w-full overflow-hidden"
+                      loading="lazy"
+                      onUpdate={onFieldChange ? (url) => updateFeature(i, { image: url }) : undefined}
+                      onAltUpdate={onFieldChange ? (v) => updateFeature(i, { imageAlt: v }) : undefined}
+                      focalPoint={feature.imageFocal}
+                      onFocalUpdate={onFieldChange ? (v) => updateFeature(i, { imageFocal: v }) : undefined}
+                    />
+                  ) : (
+                    /* Large tinted icon area. */
+                    <div
+                      className="flex h-28 items-center justify-center"
+                      style={{ backgroundColor: `color-mix(in srgb, ${accentRaw} ${dark ? 14 : 7}%, ${dark ? "transparent" : "#FFFFFF"})` }}
+                      aria-hidden="true"
+                    >
+                      <div
+                        className="flex h-14 w-14 items-center justify-center rounded-2xl"
+                        style={{
+                          backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)`,
+                          color: accent,
+                        }}
+                      >
+                        <IconOrImage value={feature.icon} fallback={Layers} className="h-7 w-7" />
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex flex-col p-6">
+                    <InlineText
+                      as="h3"
+                      value={feature.title}
+                      onUpdate={onFieldChange ? (v) => updateFeature(i, { title: v }) : undefined}
+                      className="mb-2 text-base font-semibold leading-snug tracking-tight"
+                      style={{ fontFamily: DISPLAY }} />
+                    <InlineText
+                      as="p"
+                      value={feature.description}
+                      onUpdate={onFieldChange ? (v) => updateFeature(i, { description: v }) : undefined}
+                      className="text-sm leading-relaxed"
+                      style={{ color: muted }}
+                      multiline />
                   </div>
-                  <InlineText
-                    as="h4"
-                    value={feature.title}
-                    onUpdate={onFieldChange ? (v) => updateFeature(i, { title: v }) : undefined}
-                    className="mb-2 font-semibold text-neutral-900"
-                    style={{ fontFamily: DISPLAY }} />
-                  <InlineText
-                    as="p"
-                    value={feature.description}
-                    onUpdate={onFieldChange ? (v) => updateFeature(i, { description: v }) : undefined}
-                    className="text-sm leading-relaxed text-neutral-600"
-                    style={{ fontFamily: BODY }}
-                    multiline />
                 </motion.div>
               );
             })}
           </div>
         </div>
 
+        {/* ── Trailing CTA band. ── */}
         {showCta && (
-          <div className="mt-20 border-t pt-16" style={{ borderColor: `${text}1a` }}>
+          <div className="mt-16 border-t pt-14 lg:mt-24" style={{ borderColor: hairline }}>
             <div className="flex flex-col items-center gap-7 text-center">
               <div className="flex flex-col items-center gap-3">
                 {(props.ctaEyebrow || onFieldChange) && (
@@ -231,15 +333,15 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
                     as="span"
                     value={props.ctaEyebrow ?? ""}
                     onUpdate={onFieldChange ? (v) => update("ctaEyebrow", v) : undefined}
-                    className="text-xs font-bold uppercase tracking-[0.18em]"
-                    style={{ color: accent, fontFamily: BODY }} />
+                    className="text-[11px] font-semibold uppercase tracking-[0.26em]"
+                    style={{ color: eyebrowColor }} />
                 )}
                 {(props.ctaHeading || onFieldChange) && (
                   <InlineText
                     as="h3"
                     value={props.ctaHeading ?? ""}
                     onUpdate={onFieldChange ? (v) => update("ctaHeading", v) : undefined}
-                    className="text-2xl font-extrabold tracking-tight md:text-3xl"
+                    className="text-2xl font-bold tracking-tight md:text-3xl"
                     style={{ fontFamily: DISPLAY }} />
                 )}
                 {(props.ctaSubheading || onFieldChange) && (
@@ -247,8 +349,8 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
                     as="p"
                     value={props.ctaSubheading ?? ""}
                     onUpdate={onFieldChange ? (v) => update("ctaSubheading", v) : undefined}
-                    className="max-w-xl text-base md:text-lg"
-                    style={{ color: muted, fontFamily: BODY }}
+                    className="max-w-xl text-base leading-relaxed md:text-lg"
+                    style={{ color: muted }}
                     multiline />
                 )}
               </div>
@@ -259,10 +361,11 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
                     ctaUrl={props.ctaPrimaryUrl}
                     brand={brand}
                     source="features-spotlight-cards-cta"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold"
-                    style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold focus-visible:outline-2 focus-visible:outline-offset-2"
+                    style={{ backgroundColor: accent, color: onAccent, outlineColor: accent }}
                   >
                     {props.ctaPrimaryLabel || "Try the builder"}
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </CtaButton>
                 )}
                 {(props.ctaSecondaryLabel || onFieldChange) && (
@@ -271,8 +374,8 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
                     ctaUrl={props.ctaSecondaryUrl}
                     brand={brand}
                     source="features-spotlight-cards-cta-secondary"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border px-6 py-3.5 text-base font-semibold"
-                    style={{ borderColor: `${text}33`, color: text, fontFamily: BODY }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border px-6 py-3.5 text-base font-semibold focus-visible:outline-2 focus-visible:outline-offset-2"
+                    style={{ borderColor: `${text}33`, color: text, outlineColor: accent }}
                   >
                     {props.ctaSecondaryLabel || "See all features"}
                   </CtaButton>

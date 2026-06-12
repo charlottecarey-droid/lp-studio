@@ -1,7 +1,4 @@
-import {
-  Zap, Layers, TrendingUp, BarChart3, Users, ShieldCheck, CloudLightning,
-  Globe2, Clock, Sparkles, CheckCircle2, ArrowRight,
-} from "lucide-react";
+import { Zap, CheckCircle2, ArrowRight } from "lucide-react";
 import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
@@ -10,13 +7,22 @@ import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
-import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
-import { motion } from "framer-motion";
-import { SectionDecor } from "@/lib/premium-toolkit";
+import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
+import { cn } from "@/lib/utils";
+import { motion, useReducedMotion } from "framer-motion";
 
-const DISPLAY = BRAND_DISPLAY_FONT;
-const BODY = BRAND_BODY_FONT;
+const DISPLAY = BRAND_DISPLAY_STACK;
+const BODY = BRAND_BODY_STACK;
 
+/* ----------------------------------------------------------------------------
+ * Benefits — Alternating Rows: editorial zig-zag section. Asymmetric 5/7 rows
+ * (copy column vs. media column), each led by an optional uppercase kicker,
+ * an h3 title and a measure-limited body, with a checklist and inline link.
+ * The media side renders a real image (rounded-2xl, ring, soft layered shadow,
+ * slightly rotated accent tint mat behind it) or a CSS product mockup
+ * fallback. Surface-aware (light/dark presets) and brand-accent driven, with
+ * scroll reveals fully disabled in the builder and under reduced motion.
+ * -------------------------------------------------------------------------- */
 
 interface Props {
   props: BenefitsAlternatingRowsBlockProps;
@@ -24,33 +30,56 @@ interface Props {
   onFieldChange?: (updated: BenefitsAlternatingRowsBlockProps) => void;
 }
 
-/** Decorative abstract product panel shown on each row's "visual" side.
- *  Faithful to the mockup's CSS placeholder (no real imagery). */
-function DecorativePanel({ accent, tint }: { accent: string; tint: string }) {
+/** Decorative abstract product panel shown when a row has no real image. */
+function DecorativePanel({
+  accent,
+  dark,
+}: {
+  accent: string;
+  dark: boolean;
+}) {
+  const line = dark ? "rgba(255,255,255,0.12)" : "rgba(11,11,15,0.08)";
+  const block = dark ? "rgba(255,255,255,0.10)" : "rgba(11,11,15,0.07)";
+  const strong = dark ? "rgba(255,255,255,0.85)" : "rgba(11,11,15,0.82)";
+  const tile = `color-mix(in srgb, ${accent} 8%, transparent)`;
   return (
-    <div className="relative flex h-full min-h-[320px] w-full flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
-      <div className="flex h-12 items-center gap-1.5 border-b border-black/5 px-4">
-        <div className="h-3 w-3 rounded-full bg-black/10" />
-        <div className="h-3 w-3 rounded-full bg-black/10" />
-        <div className="h-3 w-3 rounded-full bg-black/10" />
+    <div
+      className="relative flex aspect-[4/3] w-full flex-col overflow-hidden rounded-2xl border"
+      style={{
+        backgroundColor: dark ? "rgba(255,255,255,0.04)" : "#FFFFFF",
+        borderColor: line,
+      }}
+    >
+      <div className="flex h-11 items-center gap-1.5 border-b px-4" style={{ borderColor: line }}>
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: block }} />
+        ))}
       </div>
-      <div className="flex flex-1 flex-col gap-4 p-6">
+      <div className="flex flex-1 flex-col gap-4 p-5 sm:p-6">
         <div className="flex items-center justify-between">
-          <div className="h-6 w-32 rounded-md bg-black/80" />
-          <div className="h-8 w-24 rounded-md" style={{ backgroundColor: accent }} />
+          <div className="h-5 w-28 rounded-md" style={{ backgroundColor: strong }} />
+          <div className="h-7 w-20 rounded-md" style={{ backgroundColor: accent }} />
         </div>
-        <div className="grid grid-cols-3 gap-4 pt-2">
+        <div className="grid grid-cols-3 gap-3 pt-1">
           {[0, 1, 2].map((c) => (
-            <div key={c} className="flex flex-col gap-3 rounded-xl p-3" style={{ backgroundColor: tint }}>
-              <div className="h-4 w-12 rounded bg-black/10" />
-              <div className="h-3 w-full rounded bg-black/10" />
-              <div className="h-3 w-2/3 rounded bg-black/10" />
+            <div key={c} className="flex flex-col gap-2.5 rounded-xl p-3" style={{ backgroundColor: tile }}>
+              <div className="h-3.5 w-10 rounded" style={{ backgroundColor: block }} />
+              <div className="h-2.5 w-full rounded" style={{ backgroundColor: block }} />
+              <div className="h-2.5 w-2/3 rounded" style={{ backgroundColor: block }} />
             </div>
           ))}
         </div>
-        <div className="mt-2 flex flex-1 items-end gap-2">
+        <div className="mt-1 flex flex-1 items-end gap-2">
           {[40, 60, 35, 75, 55, 90, 70].map((h, i) => (
-            <div key={i} className="flex-1 rounded-t-sm" style={{ height: `${h}%`, backgroundColor: i % 2 === 0 ? accent : tint }} />
+            <div
+              key={i}
+              className="flex-1 rounded-t-sm"
+              style={{
+                height: `${h}%`,
+                backgroundColor: i % 2 === 0 ? accent : tile,
+                opacity: i % 2 === 0 ? 0.85 : 1,
+              }}
+            />
           ))}
         </div>
       </div>
@@ -59,14 +88,21 @@ function DecorativePanel({ accent, tint }: { accent: string; tint: string }) {
 }
 
 export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Props) {
-  const surface = resolveSectionSurface(props, "#FFFFFF");
-  const text = props.textColor ?? surface.color ?? "#171717";
-  const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const tint = `${accent}14`;
-  const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
-  const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
-  const showCta = props.showCta ?? true;
+  const reduced = useReducedMotion() ?? false;
   const isBuilder = !!onFieldChange;
+  const still = isBuilder || reduced;
+
+  const surface = resolveSectionSurface(props, "#FFFFFF");
+  const dark = surface.isDark;
+  const text = props.textColor ?? surface.color ?? (dark ? "#F6F7F9" : "#0B0B0F");
+  const accentRaw = props.accentColor || brand.accentColor || brand.primaryColor || "#3B82F6";
+  const primary = brand.primaryColor || "#0f172a";
+  const accent = pickContrastingColor(accentRaw, surface.base, [primary], 3.0);
+  const eyebrowColor = pickContrastingColor(accentRaw, surface.base, [primary, dark ? "#E2E8F0" : "#0f172a"], 4.5);
+  const muted = dark ? "rgba(246,247,249,0.62)" : "rgba(11,11,15,0.62)";
+  const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
+  const hairline = dark ? "rgba(255,255,255,0.12)" : "rgba(11,11,15,0.10)";
+  const showCta = props.showCta ?? true;
 
   const update = <K extends keyof BenefitsAlternatingRowsBlockProps>(key: K, value: BenefitsAlternatingRowsBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -77,124 +113,171 @@ export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Pr
   };
 
   return (
-    <section className="relative w-full overflow-hidden px-6 py-24 md:py-32 md:px-12" style={{ background: surface.background, color: text }}>
-      <SectionDecor accent={accent} isDark={surface.isDark} disabled={isBuilder} />
-      <div className="relative z-10 mx-auto w-full max-w-[1280px]">
-        <div className="mx-auto mb-20 max-w-3xl text-center md:mb-28">
+    <section
+      className="relative w-full overflow-hidden px-6 py-20 sm:py-24 md:px-10 lg:py-28"
+      style={{ background: surface.background, color: text, fontFamily: BODY }}
+    >
+      <div className="relative mx-auto w-full max-w-[1200px]">
+        {/* ── Section header — left-aligned, editorial. ── */}
+        <div className="mb-16 max-w-3xl lg:mb-24">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
-              as="h2"
+              as="p"
               value={props.eyebrow ?? ""}
               onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined}
-              className="mb-4 text-sm font-semibold uppercase tracking-wider"
-              style={{ color: accent, fontFamily: BODY }} />
+              className="mb-4 text-[11px] font-semibold uppercase tracking-[0.26em]"
+              style={{ color: eyebrowColor }} />
           )}
           <InlineText
-            as="h3"
+            as="h2"
             value={props.headline}
             onUpdate={onFieldChange ? (v) => update("headline", v) : undefined}
-            className="mb-6 text-3xl font-bold tracking-tight md:text-5xl"
-            style={{ fontFamily: DISPLAY }} />
+            className="font-bold tracking-tight"
+            style={{ fontFamily: DISPLAY, fontSize: "clamp(2rem, 4.5vw, 3.25rem)", lineHeight: 1.06 }}
+            multiline />
           {(props.subheadline || onFieldChange) && (
             <InlineText
               as="p"
               value={props.subheadline ?? ""}
               onUpdate={onFieldChange ? (v) => update("subheadline", v) : undefined}
-              className="text-lg md:text-xl"
-              style={{ color: muted, fontFamily: BODY }} />
+              className="mt-4 max-w-2xl text-base leading-relaxed lg:text-lg"
+              style={{ color: muted }}
+              multiline />
           )}
         </div>
 
-        <div className="flex flex-col gap-24 md:gap-40">
+        {/* ── Alternating rows: 5/7 asymmetric split, varied rhythm. ── */}
+        <div className="flex flex-col gap-20 md:gap-28 lg:gap-32">
           {props.rows.map((row, index) => {
             const isReversed = index % 2 !== 0;
             return (
               <motion.div
                 key={index}
-                className={`flex flex-col items-center gap-12 md:gap-24 ${isReversed ? "md:flex-row-reverse" : "md:flex-row"}`}
-                initial={isBuilder ? false : { opacity: 0, y: 32 }}
-                whileInView={isBuilder ? undefined : { opacity: 1, y: 0 }}
+                className="grid grid-cols-1 items-center gap-10 md:grid-cols-12 md:gap-12 lg:gap-16"
+                initial={still ? false : { opacity: 0, y: 28 }}
+                whileInView={still ? undefined : { opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.2 }}
-                transition={isBuilder ? undefined : { duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                transition={still ? undefined : { duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
               >
-                <div className="group flex flex-1 flex-col justify-center">
-                  <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl transition-transform duration-300 group-hover:scale-105" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
-                    <IconOrImage value={row.icon} fallback={Zap} className="h-6 w-6" />
-                  </div>
+                {/* Copy column */}
+                <div className={cn("flex flex-col justify-center md:col-span-5", isReversed && "md:order-last")}>
+                  {(row.kicker || onFieldChange) && (
+                    <InlineText
+                      as="p"
+                      value={row.kicker ?? ""}
+                      onUpdate={onFieldChange ? (v) => updateRow(index, { kicker: v }) : undefined}
+                      className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em]"
+                      style={{ color: eyebrowColor }} />
+                  )}
+                  {!row.kicker && (row.icon || onFieldChange) && (
+                    <div
+                      className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl"
+                      style={{
+                        backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)`,
+                        color: accent,
+                      }}
+                      aria-hidden="true"
+                    >
+                      <IconOrImage value={row.icon} fallback={Zap} className="h-5 w-5" />
+                    </div>
+                  )}
                   <InlineText
-                    as="h4"
+                    as="h3"
                     value={row.title}
                     onUpdate={onFieldChange ? (v) => updateRow(index, { title: v }) : undefined}
-                    className="mb-4 text-2xl font-bold tracking-tight md:text-4xl"
-                    style={{ fontFamily: DISPLAY }} />
+                    className="mb-4 text-2xl font-bold leading-snug tracking-tight md:text-[1.75rem]"
+                    style={{ fontFamily: DISPLAY }}
+                    multiline />
                   <InlineText
                     as="p"
                     value={row.description}
                     onUpdate={onFieldChange ? (v) => updateRow(index, { description: v }) : undefined}
-                    className="mb-8 text-lg"
-                    style={{ color: muted, fontFamily: BODY }}
+                    className="mb-7 max-w-[52ch] text-base leading-relaxed md:text-lg"
+                    style={{ color: muted }}
                     multiline />
-                  <ul className="mb-8 flex flex-col gap-4">
-                    {row.features.map((feature, i) => (
-                      <li key={i} className="flex items-center gap-3">
-                        <CheckCircle2 className="h-5 w-5 shrink-0" style={{ color: accent }} />
-                        <InlineText
-                          as="span"
-                          value={feature}
-                          onUpdate={onFieldChange ? (v) => updateRow(index, { features: row.features.map((f, fi) => (fi === i ? v : f)) }) : undefined}
-                          style={{ fontFamily: BODY }} />
-                      </li>
-                    ))}
-                  </ul>
+                  {row.features.length > 0 && (
+                    <ul className="mb-7 flex flex-col gap-3.5">
+                      {row.features.map((feature, i) => (
+                        <li key={i} className="flex items-start gap-3">
+                          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" style={{ color: accent }} aria-hidden="true" />
+                          <InlineText
+                            as="span"
+                            value={feature}
+                            className="text-[15px] leading-relaxed"
+                            onUpdate={onFieldChange ? (v) => updateRow(index, { features: row.features.map((f, fi) => (fi === i ? v : f)) }) : undefined} />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   {(row.linkLabel || onFieldChange) && (
                     <div>
                       <a
                         href={row.linkUrl || "#"}
-                        className="group inline-flex items-center gap-2 font-medium"
-                        style={{ color: accent, fontFamily: BODY }}
+                        className="group inline-flex items-center gap-2 rounded-md text-[15px] font-semibold focus-visible:outline-2 focus-visible:outline-offset-4"
+                        style={{ color: accent, outlineColor: accent }}
                       >
                         <InlineText
                           as="span"
                           value={row.linkLabel ?? ""}
                           onUpdate={onFieldChange ? (v) => updateRow(index, { linkLabel: v }) : undefined} />
-                        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                        <ArrowRight className={cn("h-4 w-4", !reduced && "transition-transform group-hover:translate-x-1")} aria-hidden="true" />
                       </a>
                     </div>
                   )}
                 </div>
 
-                <motion.div
-                  className="relative w-full flex-1 md:w-1/2"
-                  initial={isBuilder ? false : { opacity: 0, scale: 0.96 }}
-                  whileInView={isBuilder ? undefined : { opacity: 1, scale: 1 }}
-                  viewport={{ once: true, amount: 0.2 }}
-                  transition={isBuilder ? undefined : { duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <div className="absolute inset-0 -m-8 rounded-[3rem] opacity-0 md:opacity-100" style={{ backgroundColor: tint }} />
+                {/* Media column — image with tilted tint mat, or CSS mockup. */}
+                <div className={cn("relative md:col-span-7", isReversed && "md:order-first")}>
+                  <div
+                    className={cn(
+                      "absolute -inset-3 hidden rounded-[2rem] md:block lg:-inset-5",
+                      isReversed ? "rotate-[1.2deg]" : "rotate-[-1.2deg]",
+                    )}
+                    style={{ backgroundColor: `color-mix(in srgb, ${accentRaw} ${dark ? 14 : 7}%, transparent)` }}
+                    aria-hidden="true"
+                  />
                   <div className="relative">
                     {row.image && row.image.trim() ? (
                       <InlineImage
                         src={row.image}
                         alt={row.imageAlt ?? row.title}
-                        className="aspect-[4/3] w-full rounded-2xl object-cover shadow-sm ring-1 ring-black/10"
-                        wrapperClassName="block w-full"
+                        className={cn(
+                          "aspect-[4/3] w-full rounded-2xl object-cover ring-1",
+                          dark ? "ring-white/10" : "ring-black/10",
+                        )}
+                        wrapperClassName="block w-full rounded-2xl"
+                        style={{
+                          boxShadow: dark
+                            ? "0 28px 56px -24px rgba(0,0,0,0.7)"
+                            : "0 1px 2px rgba(15,15,20,0.05), 0 24px 48px -20px rgba(15,15,20,0.18)",
+                        }}
                         onUpdate={onFieldChange ? (url) => updateRow(index, { image: url }) : undefined}
                         onAltUpdate={onFieldChange ? (v) => updateRow(index, { imageAlt: v }) : undefined}
                         focalPoint={row.imageFocal}
                         onFocalUpdate={onFieldChange ? (v) => updateRow(index, { imageFocal: v }) : undefined}
                       />
                     ) : (
-                      <DecorativePanel accent={accent} tint={tint} />
+                      <div
+                        className="rounded-2xl"
+                        style={{
+                          boxShadow: dark
+                            ? "0 28px 56px -24px rgba(0,0,0,0.7)"
+                            : "0 1px 2px rgba(15,15,20,0.05), 0 24px 48px -20px rgba(15,15,20,0.14)",
+                        }}
+                      >
+                        <DecorativePanel accent={accent} dark={dark} />
+                      </div>
                     )}
                   </div>
-                </motion.div>
+                </div>
               </motion.div>
             );
           })}
         </div>
 
+        {/* ── Trailing CTA band. ── */}
         {showCta && (
-          <div className="mt-24 border-t pt-20 md:mt-40 md:pt-28" style={{ borderColor: `${text}1a` }}>
+          <div className="mt-20 border-t pt-16 md:mt-28 lg:mt-32 lg:pt-20" style={{ borderColor: hairline }}>
             <div className="flex flex-col items-center gap-7 text-center">
               <div className="flex flex-col items-center gap-3">
                 {(props.ctaEyebrow || onFieldChange) && (
@@ -202,15 +285,15 @@ export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Pr
                     as="span"
                     value={props.ctaEyebrow ?? ""}
                     onUpdate={onFieldChange ? (v) => update("ctaEyebrow", v) : undefined}
-                    className="text-xs font-bold uppercase tracking-[0.18em]"
-                    style={{ color: accent, fontFamily: BODY }} />
+                    className="text-[11px] font-semibold uppercase tracking-[0.26em]"
+                    style={{ color: eyebrowColor }} />
                 )}
                 {(props.ctaHeading || onFieldChange) && (
                   <InlineText
                     as="h3"
                     value={props.ctaHeading ?? ""}
                     onUpdate={onFieldChange ? (v) => update("ctaHeading", v) : undefined}
-                    className="text-2xl font-extrabold tracking-tight md:text-3xl"
+                    className="text-2xl font-bold tracking-tight md:text-3xl"
                     style={{ fontFamily: DISPLAY }} />
                 )}
                 {(props.ctaSubheading || onFieldChange) && (
@@ -218,8 +301,8 @@ export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Pr
                     as="p"
                     value={props.ctaSubheading ?? ""}
                     onUpdate={onFieldChange ? (v) => update("ctaSubheading", v) : undefined}
-                    className="max-w-xl text-base md:text-lg"
-                    style={{ color: muted, fontFamily: BODY }}
+                    className="max-w-xl text-base leading-relaxed md:text-lg"
+                    style={{ color: muted }}
                     multiline />
                 )}
               </div>
@@ -230,11 +313,11 @@ export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Pr
                     ctaUrl={props.ctaPrimaryUrl}
                     brand={brand}
                     source="benefits-alternating-rows-cta"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold"
-                    style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold focus-visible:outline-2 focus-visible:outline-offset-2"
+                    style={{ backgroundColor: accent, color: onAccent, outlineColor: accent }}
                   >
                     {props.ctaPrimaryLabel || "Get started"}
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </CtaButton>
                 )}
                 {(props.ctaSecondaryLabel || onFieldChange) && (
@@ -243,8 +326,8 @@ export function BlockBenefitsAlternatingRows({ props, brand, onFieldChange }: Pr
                     ctaUrl={props.ctaSecondaryUrl}
                     brand={brand}
                     source="benefits-alternating-rows-cta-secondary"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border px-6 py-3.5 text-base font-semibold"
-                    style={{ borderColor: `${text}33`, color: text, fontFamily: BODY }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border px-6 py-3.5 text-base font-semibold focus-visible:outline-2 focus-visible:outline-offset-2"
+                    style={{ borderColor: `${text}33`, color: text, outlineColor: accent }}
                   >
                     {props.ctaSecondaryLabel || "Talk to sales"}
                   </CtaButton>

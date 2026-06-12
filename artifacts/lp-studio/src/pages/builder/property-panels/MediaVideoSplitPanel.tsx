@@ -121,6 +121,22 @@ export function MediaVideoSplitPanel({ props, onChange, brandVoiceSet }: Props) 
 
       <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Style</div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Video side (desktop)</Label>
+          <div className="grid grid-cols-2 gap-1 mt-1">
+            {(["left", "right"] as const).map((side) => (
+              <Button
+                key={side}
+                size="sm"
+                variant={(props.mediaSide ?? "right") === side ? "default" : "outline"}
+                className="h-8 text-xs capitalize"
+                onClick={() => update({ mediaSide: side })}
+              >
+                {side}
+              </Button>
+            ))}
+          </div>
+        </div>
         <SectionBackgroundControl
           backgroundStyle={props.backgroundStyle}
           bgColor={props.bgColor}

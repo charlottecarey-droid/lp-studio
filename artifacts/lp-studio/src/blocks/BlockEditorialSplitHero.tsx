@@ -300,27 +300,43 @@ export function BlockEditorialSplitHero({
 
   // ── Content column ───────────────────────────────────────────────────
   const contentCol = (
-    <div className="relative z-10 flex flex-col justify-center px-8 lg:px-20 py-24" style={{ backgroundColor: bg }}>
+    <div
+      className="relative z-10 flex flex-col justify-center px-6 sm:px-10 lg:px-16 xl:px-24 py-16 md:py-20 lg:py-24"
+      style={{ backgroundColor: bg }}
+    >
       <div className="max-w-xl mx-auto lg:mx-0 w-full">
         {(props.eyebrow || onFieldChange) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: EASE_OUT_EXPO, delay: 0.2 }}
+            className="mb-8 lg:mb-10 flex items-center gap-3"
           >
+            {/* Kicker rail */}
+            <span
+              className="inline-block h-px w-10 shrink-0"
+              style={{ backgroundColor: text, opacity: 0.35 }}
+              aria-hidden
+            />
             <InlineText
               as="span"
               value={props.eyebrow ?? ""}
               onUpdate={field("eyebrow")}
-              className="block text-xs uppercase tracking-[0.2em] mb-8 text-gray-500"
-              style={{ fontFamily: bodyFamily }}
+              className="block text-xs uppercase tracking-[0.22em] font-medium"
+              style={{ fontFamily: bodyFamily, color: text, opacity: 0.55 }}
             />
           </motion.div>
         )}
 
         <motion.h1
-          className="text-6xl lg:text-7xl xl:text-[88px] leading-[1.05] font-medium mb-8"
-          style={{ fontFamily: headlineFamily, color: text }}
+          className="font-medium mb-7"
+          style={{
+            fontFamily: headlineFamily,
+            color: text,
+            fontSize: "clamp(2.875rem, 4.5vw + 1rem, 5.75rem)",
+            lineHeight: 1.04,
+            letterSpacing: "-0.015em",
+          }}
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, ease: EASE_OUT_EXPO, delay: 0.3 }}
@@ -339,8 +355,8 @@ export function BlockEditorialSplitHero({
               multiline
               value={props.subheadline ?? ""}
               onUpdate={field("subheadline")}
-              className="text-lg text-gray-600 leading-relaxed max-w-md mb-12"
-              style={{ fontFamily: bodyFamily }}
+              className="text-lg leading-relaxed max-w-md mb-10 lg:mb-12"
+              style={{ fontFamily: bodyFamily, color: text, opacity: 0.66 }}
             />
           </motion.div>
         )}
@@ -362,13 +378,21 @@ export function BlockEditorialSplitHero({
     background: `linear-gradient(135deg, ${accent} 0%, color-mix(in srgb, ${accent} 45%, var(--brand-primary, ${MOCKUP_TEXT})) 100%)`,
   };
 
+  // Editorial plate treatment: the photo sits inset on the surface as a
+  // rounded plate with a hairline ring + soft layered shadow, instead of a
+  // hard full-bleed column.
   const imageCol = (
-    <div className="relative w-full h-[50vh] lg:h-full bg-stone-200 overflow-hidden">
+    <div className="relative w-full flex p-4 sm:p-6 lg:p-10 xl:p-12">
       <motion.div
-        initial={{ scale: 1.1, opacity: 0 }}
+        initial={{ scale: 1.04, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 1.5, ease: EASE_OUT_EXPO }}
-        className="w-full h-full"
+        className="relative w-full h-[46vh] min-h-[320px] lg:h-auto overflow-hidden rounded-2xl"
+        style={{
+          backgroundColor: `color-mix(in srgb, ${text} 8%, ${bg})`,
+          boxShadow:
+            "0 0 0 1px rgba(17,17,17,0.07), 0 24px 56px -24px rgba(17,17,17,0.3), 0 8px 20px -12px rgba(17,17,17,0.18)",
+        }}
       >
         {props.imageUrl ? (
           <InlineImage
@@ -391,21 +415,40 @@ export function BlockEditorialSplitHero({
         ) : (
           <div className="w-full h-full" style={imageFallback} />
         )}
+        {/* Hairline inner ring so bright photos keep a defined edge */}
+        <div
+          className="absolute inset-0 rounded-2xl pointer-events-none"
+          style={{ boxShadow: "inset 0 0 0 1px rgba(17,17,17,0.06)" }}
+          aria-hidden
+        />
       </motion.div>
-
-      {/* Subtle overlay gradient to ensure image blends well */}
-      <div className="absolute inset-0 bg-black/5 pointer-events-none" />
     </div>
   );
 
   return (
     <section
-      className="relative min-h-[max(900px,100dvh)] w-full flex flex-col"
+      className="esh-hero relative w-full flex flex-col lg:min-h-[100svh]"
       style={{ backgroundColor: bg, color: text, fontFamily: bodyFamily }}
     >
+      <style>{`
+        .esh-hero a:focus-visible,
+        .esh-hero button:focus-visible,
+        .esh-hero input:focus-visible {
+          outline: 2px solid color-mix(in srgb, ${text} 75%, transparent);
+          outline-offset: 3px;
+        }
+      `}</style>
       {navBar}
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2">
+      <div
+        className={`flex-1 grid grid-cols-1 ${
+          props.showNav !== false ? "pt-16 lg:pt-0" : ""
+        } ${
+          imageSide === "left"
+            ? "lg:grid-cols-[46fr_54fr]"
+            : "lg:grid-cols-[54fr_46fr]"
+        }`}
+      >
         {imageSide === "left" ? (
           <>
             {imageCol}

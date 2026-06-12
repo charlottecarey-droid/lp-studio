@@ -56,7 +56,7 @@ export const FREEFORM_RECIPES: PageRecipe[] = [
     label: "Editorial",
     description: "a premium magazine-style page that persuades with story and typography",
     skeleton: [
-      "magazine-hero OR editorial-split-hero",
+      "kinetic-type-hero OR magazine-hero",
       "bold-statement",
       "editorial-carousel",
       "split-media-row OR zigzag-features",
@@ -65,19 +65,19 @@ export const FREEFORM_RECIPES: PageRecipe[] = [
       "cta-split-image OR bottom-cta",
     ],
     styleNotes:
-      "Premium, unhurried pacing: generous whitespace, long-form copy moments, one strong image per section. Let the bold-statement carry a single load-bearing claim. Avoid dense grids.",
+      "Premium, unhurried pacing: generous whitespace, long-form copy moments, one strong image per section. Let the typographic hero / bold-statement carry a single load-bearing claim. Avoid dense grids.",
   },
   {
     id: "freeform-showcase-heavy",
     label: "Showcase-heavy",
     description: "a visual-first page where imagery and motion do the persuading",
     skeleton: [
-      "full-bleed-hero OR parallax-layers-hero",
+      "launch-spotlight-hero OR bento-mosaic-hero",
       "sticky-stack OR horizontal-showcase",
-      "before-after-gallery OR gallery-masonry",
+      "feature-tabs-showcase OR gallery-masonry",
       "media-feature-reel OR media-looping-showcase",
       "quote-carousel OR testimonial-grid",
-      "full-bleed-final-cta OR cta-split-image",
+      "aurora-cta-finale OR full-bleed-final-cta",
     ],
     styleNotes:
       "Image-led and kinetic: big full-bleed visuals, short punchy copy, minimal bullet lists. Every section should have a strong visual anchor; keep text blocks tight.",
@@ -88,14 +88,14 @@ export const FREEFORM_RECIPES: PageRecipe[] = [
     description: "a proof-first page that leads with numbers, comparisons, and case results",
     skeleton: [
       "hero OR spotlight-glow-hero",
-      "trust-bar OR stat-row",
+      "stat-counter-band OR trust-bar",
       "comparison OR features-comparison-checklist",
-      "benefits-stat-led OR case-study-metric-triptych",
+      "glass-bento-features OR benefits-stat-led",
       "case-study-card-grid",
       "stat-backed-final-cta OR cta-stat-backed",
     ],
     styleNotes:
-      "Lead with evidence: real metrics from the brief up top, a head-to-head comparison mid-page, named customer results before the close. Crisp, analytical tone; icons over photos.",
+      "Lead with evidence: real metrics from the brief up top (the count-up band only with REAL numbers), a head-to-head comparison mid-page, named customer results before the close. Crisp, analytical tone; icons over photos.",
   },
   {
     id: "freeform-story-led",
@@ -104,13 +104,13 @@ export const FREEFORM_RECIPES: PageRecipe[] = [
     skeleton: [
       "parallax-image-hero OR cinematic-video-hero",
       "scroll-assembly OR bold-statement",
-      "zigzag-features OR split-media-row",
+      "feature-tabs-showcase OR zigzag-features",
       "case-study-spotlight-feature OR quote-with-image",
-      "video-section OR media-video-split",
+      "testimonial-wall OR media-video-split",
       "bottom-cta",
     ],
     styleNotes:
-      "Cinematic arc: open atmospheric, build the problem→transformation narrative section by section, land on one human proof moment before the close. Favor depth over breadth — fewer, richer sections.",
+      "Cinematic arc: open atmospheric, build the problem→transformation narrative section by section, land on one human proof moment (the testimonial wall reads as many voices) before the close. Favor depth over breadth — fewer, richer sections.",
   },
   {
     id: "freeform-conversion-tight",
@@ -119,13 +119,13 @@ export const FREEFORM_RECIPES: PageRecipe[] = [
     skeleton: [
       "hero OR dandy-hero-v7-s3",
       "benefits-grid OR benefits-icon-grid",
-      "testimonial-grid OR quote-carousel",
+      "testimonial-wall OR testimonial-grid",
       "how-it-works-horizontal-stepper OR how-it-works-numbered-bento",
-      "comparison OR pas-before-after",
-      "split-form-final-cta OR form",
+      "glass-pricing-tiers OR comparison",
+      "aurora-cta-finale OR split-form-final-cta",
     ],
     styleNotes:
-      "Every section earns its scroll: benefit-dense copy, social proof early, a clear 3-step path, objection handling, then the form. No decorative detours; CTAs repeat the same single action.",
+      "Every section earns its scroll: benefit-dense copy, social proof early, a clear 3-step path, then the pricing/objection answer (use glass-pricing-tiers ONLY when the brief provides real prices — otherwise the comparison) and one unmissable closing CTA. No decorative detours; CTAs repeat the same single action.",
   },
 ];
 

@@ -35,12 +35,12 @@ export function BlockRichText({ props }: Props) {
           "[&_a]:text-[currentColor] [&_a]:underline [&_a]:decoration-current/40 [&_a]:underline-offset-2",
           "[&_hr]:my-6 [&_strong]:font-bold [&_em]:italic [&_u]:underline",
           // inline images
-          "[&_img]:max-w-full [&_img]:h-auto [&_img]:rounded [&_img]:my-4",
+          "[&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-xl [&_img]:my-4",
           // YouTube node wrapper: [data-youtube-video]
-          "[&_[data-youtube-video]]:relative [&_[data-youtube-video]]:my-6 [&_[data-youtube-video]]:rounded [&_[data-youtube-video]]:overflow-hidden",
+          "[&_[data-youtube-video]]:relative [&_[data-youtube-video]]:my-6 [&_[data-youtube-video]]:rounded-xl [&_[data-youtube-video]]:overflow-hidden",
           "[&_[data-youtube-video]_iframe]:w-full [&_[data-youtube-video]_iframe]:aspect-video [&_[data-youtube-video]_iframe]:border-0",
           // Vimeo VideoEmbed node wrapper: [data-video-embed]
-          "[&_[data-video-embed]]:relative [&_[data-video-embed]]:pb-[56.25%] [&_[data-video-embed]]:h-0 [&_[data-video-embed]]:overflow-hidden [&_[data-video-embed]]:my-6 [&_[data-video-embed]]:rounded",
+          "[&_[data-video-embed]]:relative [&_[data-video-embed]]:pb-[56.25%] [&_[data-video-embed]]:h-0 [&_[data-video-embed]]:overflow-hidden [&_[data-video-embed]]:my-6 [&_[data-video-embed]]:rounded-xl",
           "[&_[data-video-embed]_iframe]:absolute [&_[data-video-embed]_iframe]:inset-0 [&_[data-video-embed]_iframe]:w-full [&_[data-video-embed]_iframe]:h-full [&_[data-video-embed]_iframe]:border-0",
           // Tiptap-generated tables (used for 2-column layouts): borderless, equal widths
           "[&_table]:w-full [&_table]:table-fixed [&_table]:border-0 [&_table]:border-collapse [&_table]:my-6",

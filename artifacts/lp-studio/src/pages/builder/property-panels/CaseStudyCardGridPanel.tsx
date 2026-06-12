@@ -121,6 +121,14 @@ export function CaseStudyCardGridPanel({ props, onChange }: Props) {
               <Label className="text-[11px] text-muted-foreground">Story link URL</Label>
               <Input value={card.linkUrl ?? ""} onChange={(e) => updateCard(i, { linkUrl: e.target.value })} className="h-8 text-xs" placeholder="#" />
             </div>
+            <Button
+              size="sm"
+              variant={card.featured ? "default" : "outline"}
+              className="h-8 w-full text-xs"
+              onClick={() => updateCard(i, { featured: !card.featured })}
+            >
+              {card.featured ? "Featured card ✓" : "Make featured (spans 2 columns)"}
+            </Button>
           </div>
         ))}
       </div>

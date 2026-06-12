@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Play } from "lucide-react";
+import { Play, ArrowRight } from "lucide-react";
+import { useReducedMotion } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { MediaThumbnailGridBlockProps } from "@/lib/block-types";
@@ -9,7 +10,17 @@ import { CtaButton } from "@/components/CtaButton";
 import { VideoModal } from "@/components/VideoModal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
-import { Reveal, RevealStagger, RevealItem, GlowOrbs, GridOverlay, NoiseOverlay } from "@/lib/premium-toolkit";
+import { Reveal, RevealStagger, RevealItem } from "@/lib/premium-toolkit";
+
+/* ----------------------------------------------------------------------------
+ * Media Thumbnail Grid — tight, curated video wall.
+ *
+ * A dense grid of rounded-2xl video cards with low-alpha rings, a bottom
+ * scrim, a glass duration chip and an always-visible (keyboard- and
+ * touch-friendly) play affordance pinned to the lower-left of each poster.
+ * Titles run below the card with a tabular index number, library-style.
+ * Lightbox playback + empty-video guards preserved.
+ * -------------------------------------------------------------------------- */
 
 interface Props {
   props: MediaThumbnailGridBlockProps;
@@ -19,16 +30,28 @@ interface Props {
 
 export function BlockMediaThumbnailGrid({ props, brand, onFieldChange }: Props) {
   const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const reduced = useReducedMotion() ?? false;
   const isBuilder = !!onFieldChange;
 
   const surface = resolveSectionSurface(props, "#F8FAFC");
   const ink = props.textColor ?? surface.color ?? "#0F172A";
-  const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
+  const accentBase = props.accentColor ?? brand.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
-  const muted = pickContrastingColor(undefined, surface.base, ["#64748B", "#94A3B8"]);
-  const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
-  const cardBorder = surface.isDark ? "rgba(255,255,255,0.12)" : "#E2E8F0";
+
+  const accent = pickContrastingColor(accentBase, surface.base, [brand.primaryColor], 3.0);
+  const eyebrowColor = pickContrastingColor(
+    accentBase,
+    surface.base,
+    [brand.primaryColor, surface.isDark ? "#E2E8F0" : "#0f172a"],
+    4.5,
+  );
+  // Play chips float over the posters' dark scrim → resolve against dark.
+  const playBg = pickContrastingColor(accentBase, "#0a0a0a", [brand.primaryColor, "#FFFFFF"], 3.0);
+  const onPlay = pickContrastingColor(undefined, playBg, ["#FFFFFF", "#0F172A"]);
+  const muted = `color-mix(in srgb, ${ink} 62%, transparent)`;
+  const ringColor = surface.isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)";
+  const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2";
 
   const videos = props.videos ?? [];
 
@@ -45,128 +68,148 @@ export function BlockMediaThumbnailGrid({ props, brand, onFieldChange }: Props) 
 
   const activeVideo = openIdx !== null ? videos[openIdx] : undefined;
 
+  const cta = (props.ctaLabel || onFieldChange) ? (
+    <CtaButton
+      ctaAction="url"
+      ctaUrl={props.ctaUrl}
+      brand={brand}
+      source="media-thumbnail-grid-cta"
+      className={`group/cta inline-flex items-center gap-2 text-sm sm:text-base font-semibold ${focusRing}`}
+      style={{ backgroundColor: "transparent", color: eyebrowColor, fontFamily: BODY, outlineColor: accent }}
+    >
+      {props.ctaLabel || "Browse all videos"}
+      <ArrowRight className={`w-4 h-4 ${reduced ? "" : "transition-transform duration-300 group-hover/cta:translate-x-1"}`} aria-hidden="true" />
+    </CtaButton>
+  ) : null;
+
   return (
-    <section className="relative w-full py-24 sm:py-32 overflow-hidden" style={{ background: surface.background, color: ink }}>
-      {surface.isDark ? (
-        <>
-          <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} opacity={0.24} blur={140} />
-          <GridOverlay color="rgba(255,255,255,0.05)" opacity={0.5} />
-          <NoiseOverlay opacity={0.04} />
-        </>
-      ) : (
-        <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} blend="normal" opacity={0.07} blur={160} />
+    <section
+      className="relative w-full py-16 sm:py-24 overflow-hidden"
+      style={{ background: surface.background, color: ink, fontFamily: BODY }}
+    >
+      {surface.isDark && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          aria-hidden="true"
+          style={{
+            background: `radial-gradient(50% 42% at 80% 0%, color-mix(in srgb, ${accentBase} 12%, transparent) 0%, transparent 70%)`,
+          }}
+        />
       )}
 
-      <div className="container relative z-10 mx-auto px-6 md:px-12 max-w-7xl">
-        {/* Header */}
-        <Reveal disabled={isBuilder} className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8">
+      <div className="container relative z-10 mx-auto px-6 md:px-10 max-w-7xl">
+        {/* ── Header rail. ── */}
+        <Reveal disabled={isBuilder} className="flex flex-col md:flex-row md:items-end justify-between mb-10 sm:mb-12 gap-6">
           <div className="max-w-2xl">
             {(props.eyebrow || onFieldChange) && (
               <InlineText
                 as="span"
                 value={props.eyebrow ?? ""}
                 onUpdate={onFieldChange ? (v: string) => update("eyebrow", v) : undefined}
-                className="text-sm font-bold uppercase tracking-[0.18em] mb-4 block"
-                style={{ color: accent, fontFamily: BODY }} />
+                className="text-[11px] font-semibold uppercase tracking-[0.26em] mb-4 block"
+                style={{ color: eyebrowColor }} />
             )}
             <InlineText
               as="h2"
               value={props.heading}
               onUpdate={onFieldChange ? (v: string) => update("heading", v) : undefined}
-              className="text-3xl md:text-4xl font-extrabold tracking-tight mb-4"
-              style={{ color: ink, fontFamily: DISPLAY }} />
+              className="font-bold tracking-tight leading-[1.05] mb-3"
+              style={{ color: ink, fontFamily: DISPLAY, fontSize: "clamp(1.75rem, 3.6vw, 2.75rem)" }} />
             {(props.subheading || onFieldChange) && (
               <InlineText
                 as="p"
                 value={props.subheading ?? ""}
                 onUpdate={onFieldChange ? (v: string) => update("subheading", v) : undefined}
-                className="text-lg"
-                style={{ color: muted, fontFamily: BODY }} />
+                className="text-base sm:text-lg leading-relaxed"
+                style={{ color: muted }} />
             )}
           </div>
-
-          {(props.ctaLabel || onFieldChange) && (
-            <div className="shrink-0 hidden md:block">
-              <CtaButton
-                ctaAction="url"
-                ctaUrl={props.ctaUrl}
-                brand={brand}
-                source="media-thumbnail-grid-cta"
-                className="inline-flex items-center justify-center gap-2 text-base font-semibold underline-offset-4 hover:underline"
-                style={{ backgroundColor: "transparent", color: accent, fontFamily: BODY }}
-              >
-                {props.ctaLabel || "Browse all videos"}
-              </CtaButton>
-            </div>
-          )}
+          {cta && <div className="shrink-0 hidden md:block pb-1">{cta}</div>}
         </Reveal>
 
-        {/* Grid */}
-        <RevealStagger disabled={isBuilder} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {/* ── Tight curated wall. ── */}
+        <RevealStagger disabled={isBuilder} stagger={0.06} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {videos.map((vid, i) => {
             const hasVideo = !!(vid.videoUrl && vid.videoUrl.trim() !== "");
             return (
-              <RevealItem key={vid.id ?? i} disabled={isBuilder} className="group flex flex-col transition-transform duration-300 hover:-translate-y-1">
-                <div className="relative w-full aspect-video rounded-2xl overflow-hidden mb-5 border shadow-sm transition-shadow duration-500 group-hover:shadow-xl" style={{ borderColor: cardBorder }}>
+              <RevealItem key={vid.id ?? i} disabled={isBuilder} className="group flex flex-col">
+                <div
+                  className={`relative w-full aspect-video rounded-2xl overflow-hidden ${reduced ? "" : "transition-all duration-500 group-hover:-translate-y-1 group-hover:shadow-xl"}`}
+                  style={{
+                    boxShadow: surface.isDark
+                      ? "0 10px 28px -16px rgba(0,0,0,0.65)"
+                      : "0 8px 22px -14px rgba(15,23,42,0.16)",
+                  }}
+                >
                   <InlineImage
                     src={vid.posterUrl}
                     alt={vid.title || "Video thumbnail"}
                     onUpdate={onFieldChange ? (src: string) => updateVideo(i, { posterUrl: src }) : undefined}
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    className={`absolute inset-0 w-full h-full object-cover ${reduced ? "" : "transition-transform duration-700 group-hover:scale-[1.04]"}`}
                     wrapperClassName="block absolute inset-0 w-full h-full"
                   />
-                  <div className="absolute inset-0 bg-black/20 transition-colors duration-300 group-hover:bg-black/30 pointer-events-none" />
+                  {/* Bottom scrim keeps the chips legible on any poster. */}
+                  <div
+                    className="absolute inset-x-0 bottom-0 h-1/2 pointer-events-none"
+                    aria-hidden="true"
+                    style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55), transparent)" }}
+                  />
+                  <div
+                    className="absolute inset-0 rounded-2xl pointer-events-none"
+                    aria-hidden="true"
+                    style={{ boxShadow: `inset 0 0 0 1px ${ringColor}` }}
+                  />
 
-                  {/* Duration Badge */}
+                  {/* Glass duration chip. */}
                   {vid.duration && (
-                    <div className="absolute bottom-3 right-3 px-2 py-1 rounded bg-black/70 text-white text-xs font-semibold backdrop-blur-sm">
+                    <span className="absolute bottom-3 right-3 px-2 py-1 rounded-md bg-black/60 text-white text-[11px] font-semibold tabular-nums backdrop-blur-sm">
                       {vid.duration}
-                    </div>
+                    </span>
                   )}
 
-                  {/* Play Button */}
-                  <button
-                    type="button"
-                    onClick={() => hasVideo && setOpenIdx(i)}
-                    aria-label="Play video"
-                    className="absolute inset-0 flex items-center justify-center opacity-0 scale-90 transition-all duration-300 group-hover:opacity-100 group-hover:scale-100"
-                    style={{ cursor: hasVideo ? "pointer" : "default" }}
-                  >
-                    <div
-                      className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg"
-                      style={{ backgroundColor: accent, color: onAccent }}
+                  {/* Always-visible play affordance (keyboard + touch friendly). */}
+                  {(hasVideo || isBuilder) && (
+                    <button
+                      type="button"
+                      onClick={() => hasVideo && setOpenIdx(i)}
+                      aria-label={vid.title ? `Play video: ${vid.title}` : "Play video"}
+                      className={`absolute inset-0 ${focusRing}`}
+                      style={{ cursor: hasVideo ? "pointer" : "default", outlineColor: playBg }}
                     >
-                      <Play className="h-6 w-6 ml-1" fill="currentColor" />
-                    </div>
-                  </button>
+                      <span
+                        className={`absolute bottom-3 left-3 w-10 h-10 rounded-full flex items-center justify-center shadow-lg ${reduced ? "" : "transition-transform duration-300 group-hover:scale-110"}`}
+                        style={{ backgroundColor: playBg, color: onPlay }}
+                        aria-hidden="true"
+                      >
+                        <Play className="h-4 w-4 ml-0.5" fill="currentColor" />
+                      </span>
+                    </button>
+                  )}
                 </div>
 
-                <InlineText
-                  as="h3"
-                  value={vid.title}
-                  onUpdate={onFieldChange ? (v: string) => updateVideo(i, { title: v }) : undefined}
-                  className="text-xl font-semibold leading-snug transition-colors duration-200 group-hover:opacity-80"
-                  style={{ color: ink, fontFamily: DISPLAY }} />
+                {/* Index + title, library-style. */}
+                <div className="flex items-baseline gap-3 mt-3.5 px-0.5">
+                  <span
+                    className="shrink-0 text-[11px] font-semibold tabular-nums tracking-[0.18em]"
+                    style={{ color: muted, fontVariantNumeric: "tabular-nums" }}
+                    aria-hidden="true"
+                  >
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <InlineText
+                    as="h3"
+                    value={vid.title}
+                    onUpdate={onFieldChange ? (v: string) => updateVideo(i, { title: v }) : undefined}
+                    className="text-base sm:text-lg font-semibold leading-snug"
+                    style={{ color: ink, fontFamily: DISPLAY }} />
+                </div>
               </RevealItem>
             );
           })}
         </RevealStagger>
 
         {/* Mobile CTA */}
-        {(props.ctaLabel || onFieldChange) && (
-          <div className="mt-12 md:hidden flex justify-center">
-            <CtaButton
-              ctaAction="url"
-              ctaUrl={props.ctaUrl}
-              brand={brand}
-              source="media-thumbnail-grid-cta-mobile"
-              className="inline-flex items-center justify-center gap-2 text-base font-semibold underline-offset-4 hover:underline"
-              style={{ backgroundColor: "transparent", color: accent, fontFamily: BODY }}
-            >
-              {props.ctaLabel || "Browse all videos"}
-            </CtaButton>
-          </div>
-        )}
+        {cta && <div className="mt-10 md:hidden flex justify-start">{cta}</div>}
       </div>
 
       <VideoModal

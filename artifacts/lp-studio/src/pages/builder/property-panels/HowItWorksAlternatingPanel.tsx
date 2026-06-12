@@ -96,6 +96,10 @@ export function HowItWorksAlternatingPanel({ props, onChange }: Props) {
               <Label className="text-[11px] text-muted-foreground">Image</Label>
               <ImagePicker value={step.image ?? ""} onChange={(v) => updateStep(i, { image: v })} />
             </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Image alt text</Label>
+              <Input value={step.imageAlt ?? ""} onChange={(e) => updateStep(i, { imageAlt: e.target.value })} placeholder="Describe the image (optional)" className="h-8 text-xs" />
+            </div>
           </div>
         ))}
       </div>

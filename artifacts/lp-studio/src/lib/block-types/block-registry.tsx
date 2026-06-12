@@ -140,7 +140,27 @@ import type {
   LogoMarqueeBlockProps,
   RatingBadgesBlockProps,
   AvatarSocialProofBlockProps,
+  LaunchSpotlightHeroBlockProps,
+  BentoMosaicHeroBlockProps,
+  KineticTypeHeroBlockProps,
+  GlassBentoFeaturesBlockProps,
+  FeatureTabsShowcaseBlockProps,
+  StatCounterBandBlockProps,
+  TestimonialWallBlockProps,
+  GlassPricingTiersBlockProps,
+  AuroraCtaFinaleBlockProps,
 } from "./generic-blocks";
+// June-2026 modern block wave: the builder agents export curated default props
+// from the component files (the blocks are self-contained registration
+// manifests); the registry reuses them via structuredClone so each inserted
+// block gets its own deep copy. Type-only imports stay erased; these five are
+// the only runtime lib→blocks imports and the components import nothing back
+// from block-types at runtime (their block-types imports are type-only).
+import { GLASS_BENTO_DEFAULT_PROPS } from "@/blocks/BlockGlassBentoFeatures";
+import { FEATURE_TABS_DEFAULT_PROPS } from "@/blocks/BlockFeatureTabsShowcase";
+import { STAT_COUNTER_DEFAULT_PROPS } from "@/blocks/BlockStatCounterBand";
+import { TESTIMONIAL_WALL_DEFAULT_PROPS } from "@/blocks/BlockTestimonialWall";
+import { GLASS_PRICING_DEFAULT_TIERS } from "@/blocks/BlockGlassPricingTiers";
 import type {
   SectionBlockProps,
   ColumnsBlockProps,
@@ -8163,6 +8183,286 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+
+  // ── June-2026 modern block wave ──────────────────────────────────────────
+  {
+    type: "launch-spotlight-hero",
+    label: "Launch Spotlight Hero",
+    category: "Showcase",
+    defaultProps: (): LaunchSpotlightHeroBlockProps => ({
+      chipText: "Now live on Product Hunt",
+      headline: "The fastest way to ship beautiful products",
+      highlightWord: "beautiful",
+      subheadline:
+        "One platform to design, build, and launch — without the handoffs. Join the teams who refuse to ship slow.",
+      ctaText: "Start for free",
+      ctaUrl: "#",
+      ctaAction: "url",
+      ctaStyle: "buttons",
+      ctaSecondaryText: "Watch the demo",
+      ctaSecondaryAction: "url",
+      ctaSecondaryUrl: "#",
+      imageUrl: "",
+      imageAlt: "Product screenshot",
+      showBrowserChrome: true,
+      browserUrl: "app.yourproduct.com",
+      logosLabel: "Trusted by teams at",
+      logos: [
+        { name: "Acme Corp" },
+        { name: "Northwind" },
+        { name: "Globex" },
+        { name: "Initech" },
+        { name: "Vertex" },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#060609" rx="4" />
+        <circle cx="60" cy="0" r="34" fill="#8B5CF6" opacity="0.35" />
+        <rect x="44" y="8" width="32" height="5" rx="2.5" fill="#8B5CF6" opacity="0.5" />
+        <rect x="22" y="18" width="76" height="6" rx="1" fill="#fff" opacity="0.95" />
+        <rect x="34" y="28" width="52" height="3" rx="1" fill="#fff" opacity="0.5" />
+        <rect x="34" y="36" width="22" height="6" rx="3" fill="#8B5CF6" />
+        <rect x="62" y="36" width="22" height="6" rx="3" fill="#fff" opacity="0.18" />
+        <rect x="26" y="48" width="68" height="18" rx="3" fill="#fff" opacity="0.07" stroke="#fff" strokeOpacity="0.18" />
+      </svg>
+    ),
+  },
+  {
+    type: "bento-mosaic-hero",
+    label: "Bento Mosaic Hero",
+    category: "Showcase",
+    defaultProps: (): BentoMosaicHeroBlockProps => ({
+      theme: "dark",
+      eyebrow: "Meet the new standard",
+      headline: "Everything your team ships, in one place",
+      subheadline:
+        "Plan, build, and measure in a single workspace designed for speed — not for switching tabs.",
+      ctaText: "Get started",
+      ctaUrl: "#",
+      ctaAction: "url",
+      ctaStyle: "buttons",
+      ctaSecondaryText: "See it in action",
+      ctaSecondaryAction: "url",
+      ctaSecondaryUrl: "#",
+      imageTileUrl: "",
+      imageTileAlt: "Product preview",
+      statValue: "4.9×",
+      statLabel: "faster from idea to launch",
+      accentIcon: "Sparkles",
+      accentPhrase: "Automations that clear your busywork",
+      quoteText: "We replaced four tools in a week — and the team actually loves it.",
+      quoteAuthor: "Maya Chen",
+      quoteRole: "Head of Product, Arclight",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0A0A0F" rx="4" />
+        <rect x="8" y="14" width="14" height="2.5" rx="1" fill="#6366F1" />
+        <rect x="8" y="22" width="42" height="5" rx="1" fill="#fff" opacity="0.95" />
+        <rect x="8" y="31" width="34" height="3" rx="1" fill="#fff" opacity="0.5" />
+        <rect x="8" y="42" width="18" height="6" rx="3" fill="#6366F1" />
+        <rect x="58" y="10" width="54" height="24" rx="4" fill="#fff" opacity="0.08" />
+        <rect x="58" y="38" width="25" height="22" rx="4" fill="#fff" opacity="0.06" />
+        <rect x="87" y="38" width="25" height="22" rx="4" fill="#6366F1" opacity="0.35" />
+        <rect x="62" y="44" width="14" height="5" rx="1" fill="#6366F1" opacity="0.9" />
+      </svg>
+    ),
+  },
+  {
+    type: "kinetic-type-hero",
+    label: "Kinetic Type Hero",
+    category: "Showcase",
+    defaultProps: (): KineticTypeHeroBlockProps => ({
+      theme: "light",
+      kicker: "A new era of work",
+      headline: "Make something people remember",
+      accentStyle: "italic",
+      subheadline:
+        "The design-grade platform for teams who care how it feels — not just that it works.",
+      ctaText: "Start building",
+      ctaUrl: "#",
+      ctaAction: "url",
+      ctaStyle: "buttons",
+      ctaSecondaryText: "Talk to us",
+      ctaSecondaryAction: "url",
+      ctaSecondaryUrl: "#",
+      showMarquee: true,
+      marqueePhrases: [
+        "Design-grade by default",
+        "Ships in minutes",
+        "Loved by 12,000+ teams",
+        "Zero lock-in",
+        "Built for momentum",
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FAFAF7" rx="4" />
+        <rect x="8" y="10" width="18" height="2.5" rx="1" fill="#6366F1" />
+        <rect x="8" y="18" width="92" height="9" rx="1.5" fill="#111114" />
+        <rect x="8" y="31" width="64" height="9" rx="1.5" fill="#111114" />
+        <rect x="76" y="31" width="24" height="9" rx="1.5" fill="#6366F1" opacity="0.85" />
+        <rect x="8" y="50" width="40" height="3" rx="1" fill="#111114" opacity="0.4" />
+        <rect x="78" y="47" width="24" height="7" rx="3.5" fill="#111114" />
+        <rect x="8" y="62" width="104" height="3" rx="1.5" fill="#111114" opacity="0.12" />
+      </svg>
+    ),
+  },
+  {
+    type: "glass-bento-features",
+    label: "Features — Glass Bento",
+    category: "Showcase",
+    defaultProps: (): GlassBentoFeaturesBlockProps => structuredClone(GLASS_BENTO_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#F7F7F4" rx="4" />
+        <rect x="8" y="8" width="44" height="5" rx="1" fill="#0B0B0F" />
+        <rect x="8" y="20" width="50" height="42" rx="4" fill="#ffffff" stroke="#e2e2dd" />
+        <rect x="12" y="24" width="42" height="18" rx="2" fill="#3B82F6" opacity="0.35" />
+        <rect x="12" y="48" width="30" height="3" rx="1" fill="#0B0B0F" opacity="0.7" />
+        <rect x="62" y="20" width="50" height="19" rx="4" fill="#ffffff" stroke="#e2e2dd" />
+        <rect x="62" y="43" width="24" height="19" rx="4" fill="#ffffff" stroke="#e2e2dd" />
+        <rect x="90" y="43" width="22" height="19" rx="4" fill="#ffffff" stroke="#e2e2dd" />
+        <rect x="66" y="25" width="8" height="8" rx="2" fill="#3B82F6" opacity="0.5" />
+        <rect x="66" y="48" width="12" height="5" rx="1" fill="#3B82F6" opacity="0.8" />
+      </svg>
+    ),
+  },
+  {
+    type: "feature-tabs-showcase",
+    label: "Features — Tabs Showcase",
+    category: "Showcase",
+    defaultProps: (): FeatureTabsShowcaseBlockProps => structuredClone(FEATURE_TABS_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#ffffff" rx="4" />
+        <rect x="8" y="8" width="48" height="5" rx="1" fill="#0B0B0F" />
+        <rect x="8" y="20" width="34" height="12" rx="3" fill="#ffffff" stroke="#3B82F6" />
+        <rect x="8" y="36" width="34" height="12" rx="3" fill="#f4f4f5" />
+        <rect x="8" y="52" width="34" height="12" rx="3" fill="#f4f4f5" />
+        <rect x="48" y="20" width="64" height="44" rx="4" fill="#f8fafc" stroke="#e2e8f0" />
+        <circle cx="54" cy="26" r="1.6" fill="#FF5F57" />
+        <circle cx="59" cy="26" r="1.6" fill="#FEBC2E" />
+        <circle cx="64" cy="26" r="1.6" fill="#28C840" />
+        <rect x="52" y="32" width="56" height="28" rx="2" fill="#3B82F6" opacity="0.3" />
+      </svg>
+    ),
+  },
+  {
+    type: "stat-counter-band",
+    label: "Stat Counter Band",
+    category: "Social Proof",
+    defaultProps: (): StatCounterBandBlockProps => structuredClone(STAT_COUNTER_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0B0B10" rx="4" />
+        <rect x="34" y="10" width="52" height="3" rx="1.5" fill="#3B82F6" opacity="0.8" />
+        {([0, 1, 2, 3] as const).map(i => (
+          <g key={i} transform={`translate(${8 + i * 28}, 28)`}>
+            <rect width="22" height="11" rx="2" fill="#fff" opacity="0.92" />
+            <rect width="18" height="3" rx="1.5" y="17" fill="#fff" opacity="0.4" />
+          </g>
+        ))}
+        <rect x="0" y="1" width="120" height="1" fill="#fff" opacity="0.14" />
+        <rect x="0" y="68" width="120" height="1" fill="#fff" opacity="0.14" />
+      </svg>
+    ),
+  },
+  {
+    type: "testimonial-wall",
+    label: "Testimonial Wall",
+    category: "Social Proof",
+    defaultProps: (): TestimonialWallBlockProps => structuredClone(TESTIMONIAL_WALL_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#ffffff" rx="4" />
+        <rect x="30" y="6" width="60" height="5" rx="1" fill="#0f172a" />
+        {([0, 1, 2] as const).map(col => (
+          <g key={col} transform={`translate(${8 + col * 36}, ${16 + (col % 2) * 4})`}>
+            <rect width="32" height={col === 1 ? 26 : 20} rx="3" fill="#ffffff" stroke={col === 1 ? "#6366f1" : "#e2e8f0"} />
+            <rect x="4" y="4" width="24" height="2.5" rx="1" fill="#475569" opacity="0.6" />
+            <rect x="4" y="9" width="20" height="2.5" rx="1" fill="#475569" opacity="0.6" />
+            <circle cx="8" cy={col === 1 ? 20 : 15.5} r="2.6" fill="#6366f1" opacity="0.5" />
+          </g>
+        ))}
+        {([0, 1, 2] as const).map(col => (
+          <g key={`b${col}`} transform={`translate(${8 + col * 36}, ${42 + (col % 2) * 4})`}>
+            <rect width="32" height="20" rx="3" fill="#ffffff" stroke="#e2e8f0" />
+            <rect x="4" y="4" width="24" height="2.5" rx="1" fill="#475569" opacity="0.6" />
+            <circle cx="8" cy="15" r="2.6" fill="#6366f1" opacity="0.5" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "glass-pricing-tiers",
+    label: "Pricing — Glass Tiers",
+    category: "Showcase",
+    defaultProps: (): GlassPricingTiersBlockProps => ({
+      eyebrow: "Pricing",
+      headline: "Pricing that scales with you",
+      subheadline:
+        "Start free, upgrade when you're ready. Every plan includes the core platform.",
+      showToggle: true,
+      monthlyLabel: "Monthly",
+      annualLabel: "Annual",
+      annualSavingsLabel: "Save 20%",
+      annualNote: "billed annually",
+      defaultPeriod: "monthly",
+      tiers: structuredClone(GLASS_PRICING_DEFAULT_TIERS),
+      footnote: "No credit card required. Cancel anytime.",
+      variant: "dark",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#080B12" rx="4" />
+        <rect x="40" y="6" width="40" height="4" rx="1" fill="#fff" opacity="0.92" />
+        <rect x="44" y="14" width="32" height="6" rx="3" fill="#fff" opacity="0.1" />
+        <rect x="8" y="26" width="32" height="38" rx="4" fill="#fff" opacity="0.05" />
+        <rect x="44" y="22" width="32" height="44" rx="4" fill="#fff" opacity="0.1" stroke="#6366f1" />
+        <rect x="80" y="26" width="32" height="38" rx="4" fill="#fff" opacity="0.05" />
+        <rect x="50" y="28" width="20" height="6" rx="1" fill="#fff" opacity="0.95" />
+        <rect x="50" y="56" width="20" height="6" rx="3" fill="#6366f1" />
+        <rect x="52" y="18" width="16" height="5" rx="2.5" fill="#6366f1" />
+      </svg>
+    ),
+  },
+  {
+    type: "aurora-cta-finale",
+    label: "CTA — Aurora Finale",
+    category: "CTA",
+    defaultProps: (): AuroraCtaFinaleBlockProps => ({
+      eyebrow: "Get started",
+      headline: "Ready to ship something great?",
+      subheadline:
+        "Join the teams building faster with one platform — set up in minutes, see results today.",
+      ctaText: "Get started free",
+      ctaUrl: "#",
+      ctaSecondaryText: "Talk to sales",
+      ctaSecondaryUrl: "#",
+      reassurances: [
+        { icon: "Sparkles", text: "Free to start" },
+        { icon: "CreditCard", text: "No card required" },
+        { icon: "Clock", text: "Cancel anytime" },
+      ],
+      showWatermark: true,
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#05060A" rx="4" />
+        <circle cx="28" cy="14" r="24" fill="#6366F1" opacity="0.4" />
+        <circle cx="96" cy="56" r="26" fill="#3B82F6" opacity="0.35" />
+        <rect x="46" y="12" width="28" height="2.5" rx="1" fill="#6366F1" />
+        <rect x="20" y="20" width="80" height="7" rx="1.5" fill="#fff" opacity="0.95" />
+        <rect x="32" y="32" width="56" height="3" rx="1" fill="#fff" opacity="0.5" />
+        <rect x="30" y="42" width="28" height="8" rx="4" fill="#fff" opacity="0.92" />
+        <rect x="62" y="42" width="28" height="8" rx="4" fill="#fff" opacity="0.16" />
+        <rect x="34" y="58" width="52" height="2.5" rx="1" fill="#fff" opacity="0.35" />
+      </svg>
+    ),
+  },
 ];
 
 // Attach code-default semantic role tags to every registered block from the
@@ -8203,6 +8503,15 @@ export function createBlock(type: "parallax-layers-hero"): Extract<PageBlock, { 
 export function createBlock(type: "spotlight-glow-hero"): Extract<PageBlock, { type: "spotlight-glow-hero" }>;
 export function createBlock(type: "logo-wall"): Extract<PageBlock, { type: "logo-wall" }>;
 export function createBlock(type: "logo-marquee"): Extract<PageBlock, { type: "logo-marquee" }>;
+export function createBlock(type: "launch-spotlight-hero"): Extract<PageBlock, { type: "launch-spotlight-hero" }>;
+export function createBlock(type: "bento-mosaic-hero"): Extract<PageBlock, { type: "bento-mosaic-hero" }>;
+export function createBlock(type: "kinetic-type-hero"): Extract<PageBlock, { type: "kinetic-type-hero" }>;
+export function createBlock(type: "glass-bento-features"): Extract<PageBlock, { type: "glass-bento-features" }>;
+export function createBlock(type: "feature-tabs-showcase"): Extract<PageBlock, { type: "feature-tabs-showcase" }>;
+export function createBlock(type: "stat-counter-band"): Extract<PageBlock, { type: "stat-counter-band" }>;
+export function createBlock(type: "testimonial-wall"): Extract<PageBlock, { type: "testimonial-wall" }>;
+export function createBlock(type: "glass-pricing-tiers"): Extract<PageBlock, { type: "glass-pricing-tiers" }>;
+export function createBlock(type: "aurora-cta-finale"): Extract<PageBlock, { type: "aurora-cta-finale" }>;
 export function createBlock(type: "rating-badges"): Extract<PageBlock, { type: "rating-badges" }>;
 export function createBlock(type: "avatar-social-proof"): Extract<PageBlock, { type: "avatar-social-proof" }>;
 export function createBlock(type: "bold-statement"): Extract<PageBlock, { type: "bold-statement" }>;
@@ -8516,6 +8825,15 @@ export function createBlock(type: BlockType): PageBlock {
     case "spotlight-glow-hero": return { id, type: "spotlight-glow-hero", props: props as SpotlightGlowHeroBlockProps };
     case "logo-wall": return { id, type: "logo-wall", props: props as LogoWallBlockProps };
     case "logo-marquee": return { id, type: "logo-marquee", props: props as LogoMarqueeBlockProps };
+    case "launch-spotlight-hero": return { id, type: "launch-spotlight-hero", props: props as LaunchSpotlightHeroBlockProps };
+    case "bento-mosaic-hero": return { id, type: "bento-mosaic-hero", props: props as BentoMosaicHeroBlockProps };
+    case "kinetic-type-hero": return { id, type: "kinetic-type-hero", props: props as KineticTypeHeroBlockProps };
+    case "glass-bento-features": return { id, type: "glass-bento-features", props: props as GlassBentoFeaturesBlockProps };
+    case "feature-tabs-showcase": return { id, type: "feature-tabs-showcase", props: props as FeatureTabsShowcaseBlockProps };
+    case "stat-counter-band": return { id, type: "stat-counter-band", props: props as StatCounterBandBlockProps };
+    case "testimonial-wall": return { id, type: "testimonial-wall", props: props as TestimonialWallBlockProps };
+    case "glass-pricing-tiers": return { id, type: "glass-pricing-tiers", props: props as GlassPricingTiersBlockProps };
+    case "aurora-cta-finale": return { id, type: "aurora-cta-finale", props: props as AuroraCtaFinaleBlockProps };
     case "rating-badges": return { id, type: "rating-badges", props: props as RatingBadgesBlockProps };
     case "avatar-social-proof": return { id, type: "avatar-social-proof", props: props as AvatarSocialProofBlockProps };
     case "bold-statement": return { id, type: "bold-statement", props: props as BoldStatementBlockProps };

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import * as LucideIcons from "lucide-react";
 import { Play } from "lucide-react";
+import { useReducedMotion } from "framer-motion";
 import { IconOrImage } from "@/lib/icon-value";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
@@ -11,7 +12,18 @@ import { CtaButton } from "@/components/CtaButton";
 import { VideoModal } from "@/components/VideoModal";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
-import { Reveal, RevealStagger, RevealItem, GlowOrbs, GridOverlay, NoiseOverlay } from "@/lib/premium-toolkit";
+import { Reveal, RevealStagger, RevealItem } from "@/lib/premium-toolkit";
+
+/* ----------------------------------------------------------------------------
+ * Media Feature Reel — showreel player with a numbered chapter strip.
+ *
+ * A wide glass-chromed player frame (rounded-2xl, low-alpha ring, layered
+ * shadow, optional faux address-bar label) holds the poster + contrast-safe
+ * play affordance; below it the feature captions run as numbered "chapters"
+ * (01 / 02 / 03) divided by hairlines — horizontal momentum rather than a
+ * uniform icon grid. Clicking play opens the lightbox; the play control only
+ * renders when a video exists (the bad-data guard is preserved).
+ * -------------------------------------------------------------------------- */
 
 interface Props {
   props: MediaFeatureReelBlockProps;
@@ -21,15 +33,30 @@ interface Props {
 
 export function BlockMediaFeatureReel({ props, brand, onFieldChange }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
+  const reduced = useReducedMotion() ?? false;
   const isBuilder = !!onFieldChange;
 
   const surface = resolveSectionSurface(props, "#FFFFFF");
   const ink = props.textColor ?? surface.color ?? "#0F172A";
-  const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
+  const accentBase = props.accentColor ?? brand.accentColor ?? brand.primaryColor ?? "#4f46e5";
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
-  const muted = pickContrastingColor(undefined, surface.base, ["#64748B", "#94A3B8"]);
+
+  const accent = pickContrastingColor(accentBase, surface.base, [brand.primaryColor], 3.0);
+  // The play button floats over the poster's dark scrim — resolve against a
+  // generic dark surface, not the section background.
+  const playBg = pickContrastingColor(accentBase, "#0a0a0a", [brand.primaryColor, "#FFFFFF"], 3.0);
+  const onPlay = pickContrastingColor(undefined, playBg, ["#FFFFFF", "#0F172A"]);
+  const numberColor = pickContrastingColor(
+    accentBase,
+    surface.base,
+    [brand.primaryColor, surface.isDark ? "#E2E8F0" : "#0f172a"],
+    4.5,
+  );
+  const muted = `color-mix(in srgb, ${ink} 62%, transparent)`;
+  const hairline = surface.isDark ? "rgba(255,255,255,0.10)" : "rgba(15,23,42,0.08)";
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0F172A"]);
+  const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-2";
 
   const features = props.features ?? [];
   const hasVideo = !!(props.videoUrl && props.videoUrl.trim() !== "");
@@ -45,94 +72,172 @@ export function BlockMediaFeatureReel({ props, brand, onFieldChange }: Props) {
     onFieldChange({ ...props, features: next });
   };
 
+  const chromeBg = surface.isDark ? "rgba(255,255,255,0.05)" : "#FFFFFF";
+
   return (
-    <section className="relative w-full py-24 sm:py-32 overflow-hidden" style={{ background: surface.background, color: ink }}>
-      {surface.isDark ? (
-        <>
-          <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} opacity={0.26} blur={140} />
-          <GridOverlay color="rgba(255,255,255,0.05)" opacity={0.5} />
-          <NoiseOverlay opacity={0.04} />
-        </>
-      ) : (
-        <GlowOrbs colors={[accent, brand.primaryColor ?? accent]} blend="normal" opacity={0.08} blur={160} />
+    <section
+      className="relative w-full py-20 sm:py-28 overflow-hidden"
+      style={{ background: surface.background, color: ink, fontFamily: BODY }}
+    >
+      {surface.isDark && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          aria-hidden="true"
+          style={{
+            background: `radial-gradient(60% 50% at 50% 20%, color-mix(in srgb, ${accentBase} 14%, transparent) 0%, transparent 72%)`,
+          }}
+        />
       )}
 
-      <div className="container relative z-10 mx-auto px-6 md:px-12 max-w-6xl text-center">
-        <Reveal disabled={isBuilder}>
+      <div className="container relative z-10 mx-auto px-6 md:px-10 max-w-6xl">
+        {/* ── Heading: left-set with measured width. ── */}
+        <Reveal disabled={isBuilder} className="max-w-3xl mb-10 sm:mb-14">
           <InlineText
             as="h2"
             value={props.heading}
             onUpdate={onFieldChange ? (v: string) => update("heading", v) : undefined}
-            className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-16 max-w-3xl mx-auto"
-            style={{ color: ink, fontFamily: DISPLAY }} />
+            className="font-bold tracking-tight leading-[1.05]"
+            style={{ color: ink, fontFamily: DISPLAY, fontSize: "clamp(2rem, 4.5vw, 3.5rem)" }} />
         </Reveal>
 
-        {/* Video Card — poster image with play overlay; clicking opens the video */}
-        <Reveal disabled={isBuilder} delay={0.08} className="relative mx-auto max-w-4xl rounded-[2rem] overflow-hidden shadow-2xl mb-20 group border-4 border-white/20 transition-shadow duration-500 hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.45)]">
-          <div className="aspect-video relative w-full overflow-hidden">
-            <InlineImage
-              src={props.posterUrl}
-              alt={props.heading || "Feature reel poster"}
-              onUpdate={onFieldChange ? (src: string) => update("posterUrl", src) : undefined}
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-              wrapperClassName="block absolute inset-0 w-full h-full"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-            <button
-              type="button"
-              onClick={() => hasVideo && setModalOpen(true)}
-              aria-label="Play video"
-              className="absolute inset-0 flex items-center justify-center"
-              style={{ cursor: hasVideo ? "pointer" : "default" }}
-            >
-              <div
-                className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(0,0,0,0.3)] backdrop-blur-md transition-transform duration-300 group-hover:scale-110"
-                style={{ backgroundColor: `${accent}E6`, color: onAccent }}
+        {/* ── Glass-chromed player frame. ── */}
+        <Reveal disabled={isBuilder} delay={0.08}>
+          <div
+            className="relative rounded-2xl overflow-hidden border"
+            style={{
+              backgroundColor: chromeBg,
+              borderColor: hairline,
+              boxShadow: surface.isDark
+                ? "0 1px 0 rgba(255,255,255,0.05) inset, 0 32px 64px -24px rgba(0,0,0,0.8)"
+                : "0 1px 2px rgba(15,23,42,0.05), 0 28px 60px -24px rgba(15,23,42,0.22)",
+            }}
+          >
+            {/* Chrome bar. */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ borderColor: hairline }}>
+              <span className="flex gap-1.5" aria-hidden="true">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#FF5F57" }} />
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#FEBC2E" }} />
+                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#28C840" }} />
+              </span>
+              <span
+                className="flex-1 max-w-xs mx-auto text-center text-[11px] truncate rounded-md px-3 py-1"
+                style={{
+                  color: muted,
+                  backgroundColor: surface.isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.05)",
+                }}
               >
-                <Play className="h-8 w-8 sm:h-10 sm:w-10 ml-2" fill="currentColor" />
-              </div>
-            </button>
+                <InlineText
+                  as="span"
+                  value={props.frameLabel ?? ""}
+                  onUpdate={onFieldChange ? (v: string) => update("frameLabel", v) : undefined}
+                />
+              </span>
+              <span className="w-12" aria-hidden="true" />
+            </div>
+
+            {/* Poster + play. */}
+            <div className="group relative aspect-video w-full overflow-hidden bg-black/20">
+              <InlineImage
+                src={props.posterUrl}
+                alt={props.heading || "Feature reel poster"}
+                onUpdate={onFieldChange ? (src: string) => update("posterUrl", src) : undefined}
+                className={`absolute inset-0 w-full h-full object-cover ${reduced ? "" : "transition-transform duration-700 group-hover:scale-[1.03]"}`}
+                wrapperClassName="block absolute inset-0 w-full h-full"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent pointer-events-none" aria-hidden="true" />
+              {(hasVideo || isBuilder) && (
+                <button
+                  type="button"
+                  onClick={() => hasVideo && setModalOpen(true)}
+                  aria-label="Play video"
+                  className={`absolute inset-0 flex items-center justify-center ${focusRing}`}
+                  style={{ cursor: hasVideo ? "pointer" : "default", outlineColor: playBg }}
+                >
+                  <span
+                    className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center backdrop-blur-md ${reduced ? "" : "transition-transform duration-300 group-hover:scale-105"}`}
+                    style={{
+                      backgroundColor: `color-mix(in srgb, ${playBg} 92%, transparent)`,
+                      color: onPlay,
+                      boxShadow: `0 0 0 8px color-mix(in srgb, ${playBg} 18%, transparent), 0 18px 40px -10px rgba(0,0,0,0.5)`,
+                    }}
+                  >
+                    <Play className="h-7 w-7 sm:h-8 sm:w-8 ml-1" fill="currentColor" aria-hidden="true" />
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
         </Reveal>
 
-        {/* Feature Captions */}
-        <RevealStagger disabled={isBuilder} className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16 max-w-5xl mx-auto">
-          {features.map((feat, i) => {
-            return (
-              <RevealItem key={i} disabled={isBuilder} className="flex flex-col items-center text-center p-6 rounded-2xl transition-transform duration-300 hover:-translate-y-1">
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
-                  style={{ backgroundColor: `${accent}1A`, color: accent }}
-                >
-                  <IconOrImage value={feat.icon} fallback={LucideIcons.Sparkles} className="w-5 h-5" />
+        {/* ── Numbered chapter strip. ── */}
+        {features.length > 0 && (
+          <RevealStagger
+            disabled={isBuilder}
+            stagger={0.08}
+            className="mt-10 sm:mt-14 grid grid-cols-1 md:grid-cols-3 border-t"
+            style={{ borderColor: hairline }}
+          >
+            {features.map((feat, i) => (
+              <RevealItem
+                key={i}
+                disabled={isBuilder}
+                className="relative flex flex-col items-start text-left py-6 md:py-8 pr-6 md:px-6 md:first:pl-0 border-b md:border-b-0 last:border-b-0"
+                style={{ borderColor: hairline }}
+              >
+                {/* Hairline divider between chapters on md+. */}
+                {i > 0 && (
+                  <span
+                    className="hidden md:block absolute left-0 top-6 bottom-6 w-px"
+                    aria-hidden="true"
+                    style={{ backgroundColor: hairline }}
+                  />
+                )}
+                <div className="flex items-center gap-3 mb-3">
+                  <span
+                    className="text-xs font-semibold tabular-nums tracking-[0.2em]"
+                    style={{ color: numberColor, fontVariantNumeric: "tabular-nums" }}
+                    aria-hidden="true"
+                  >
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span
+                    className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={{
+                      backgroundColor: `color-mix(in srgb, ${accent} 13%, transparent)`,
+                      color: accent,
+                    }}
+                    aria-hidden="true"
+                  >
+                    <IconOrImage value={feat.icon} fallback={LucideIcons.Sparkles} className="w-4 h-4" />
+                  </span>
                 </div>
                 <InlineText
                   as="h3"
                   value={feat.title}
                   onUpdate={onFieldChange ? (v: string) => updateFeature(i, { title: v }) : undefined}
-                  className="text-xl font-bold mb-2"
+                  className="text-base sm:text-lg font-semibold leading-snug mb-1.5"
                   style={{ color: ink, fontFamily: DISPLAY }} />
                 <InlineText
                   as="p"
                   value={feat.desc}
                   onUpdate={onFieldChange ? (v: string) => updateFeature(i, { desc: v }) : undefined}
-                  className="text-base"
-                  style={{ color: muted, fontFamily: BODY }} />
+                  className="text-sm leading-relaxed"
+                  style={{ color: muted }} />
               </RevealItem>
-            );
-          })}
-        </RevealStagger>
+            ))}
+          </RevealStagger>
+        )}
 
         {(props.ctaLabel || props.ctaSecondaryLabel || onFieldChange) && (
-          <div className="flex flex-wrap items-center justify-center gap-6 mt-8">
+          <div className="flex flex-wrap items-center gap-x-7 gap-y-4 mt-10 sm:mt-12">
             {(props.ctaLabel || onFieldChange) && (
               <CtaButton
                 ctaAction="url"
                 ctaUrl={props.ctaUrl}
                 brand={brand}
                 source="media-feature-reel-cta"
-                className="inline-flex items-center justify-center gap-2 rounded-xl px-7 py-3.5 text-base font-semibold"
-                style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY }}
+                className={`inline-flex items-center justify-center gap-2 rounded-full px-8 py-3.5 text-base font-semibold ${focusRing} ${reduced ? "" : "transition-transform duration-300 hover:-translate-y-0.5"}`}
+                style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY, outlineColor: accent }}
               >
                 {props.ctaLabel || "Watch the reel"}
               </CtaButton>
@@ -143,8 +248,8 @@ export function BlockMediaFeatureReel({ props, brand, onFieldChange }: Props) {
                 ctaUrl={props.ctaSecondaryUrl}
                 brand={brand}
                 source="media-feature-reel-cta-secondary"
-                className="inline-flex items-center justify-center gap-2 text-base font-semibold underline-offset-4 hover:underline"
-                style={{ backgroundColor: "transparent", color: accent, fontFamily: BODY }}
+                className={`inline-flex items-center justify-center gap-2 text-base font-semibold underline-offset-4 hover:underline ${focusRing}`}
+                style={{ backgroundColor: "transparent", color: numberColor, fontFamily: BODY, outlineColor: accent }}
               >
                 {props.ctaSecondaryLabel || "Read the docs"}
               </CtaButton>

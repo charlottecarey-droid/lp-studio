@@ -1,15 +1,27 @@
-import { Quote, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { useReducedMotion } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { SingleQuoteBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
-import { Reveal, AccentGlow } from "@/lib/premium-toolkit";
+import { Reveal } from "@/lib/premium-toolkit";
+import { cn } from "@/lib/utils";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
+
+/* ----------------------------------------------------------------------------
+ * Single Quote — one statement testimonial. Oversized display-font quote with
+ * a hanging accent quotation mark, a tight attribution row (avatar photo →
+ * initials fallback, name/role stack, optional company logo), and an optional
+ * soft accent tint panel. Two layouts: "centered" statement (default) and an
+ * asymmetric "split" (quote left, attribution rail right). The trailing CTA
+ * band is compact — no dead vertical space below the attribution.
+ * -------------------------------------------------------------------------- */
 
 interface Props {
   props: SingleQuoteBlockProps;
@@ -17,139 +29,246 @@ interface Props {
   onFieldChange?: (updated: SingleQuoteBlockProps) => void;
 }
 
+/** "Maya Chen" → "MC"; single word → first letter; empty → "•". */
+function initialsOf(name: string): string {
+  const words = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "•";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+}
+
 export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
   const surface = resolveSectionSurface(props, "#FFFFFF");
   const text = props.textColor ?? surface.color ?? "#0F172A";
-  const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
+  // Brand-derived accent: panel override → brand accent → brand primary.
+  const accent = props.accentColor ?? brand.accentColor ?? brand.primaryColor ?? "#0F172A";
   const muted = pickContrastingColor(undefined, surface.base, ["#64748B", "#94A3B8"]);
-  const border = `${text}1f`;
+  const border = `color-mix(in srgb, ${text} 12%, transparent)`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const showCta = props.showCta ?? true;
-  const animate = !onFieldChange;
+  const reduce = useReducedMotion() ?? false;
+  const animate = !onFieldChange && !reduce;
+  const split = props.layout === "split";
+  const tintPanel = props.tintPanel === true;
 
   const update = <K extends keyof SingleQuoteBlockProps>(key: K, value: SingleQuoteBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
 
+  const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
+
+  /** Avatar: photo when provided (inline-replaceable in the builder), else an
+   *  accent-tinted initials circle. */
+  const avatar = props.avatarUrl ? (
+    <InlineImage
+      src={props.avatarUrl}
+      alt={`${props.author} portrait`}
+      onUpdate={onFieldChange ? (url) => update("avatarUrl", url) : undefined}
+      className="h-12 w-12 shrink-0 rounded-full object-cover"
+      wrapperClassName="shrink-0"
+      style={{ border: `1px solid ${border}` }}
+      loading="lazy"
+    />
+  ) : (
+    <span
+      aria-hidden
+      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold"
+      style={{
+        background: `color-mix(in srgb, ${accent} ${surface.isDark ? "26%" : "12%"}, transparent)`,
+        color: surface.isDark ? text : accent,
+        fontFamily: BODY,
+      }}
+    >
+      {props.avatarInitials || initialsOf(props.author)}
+    </span>
+  );
+
+  const attribution = (
+    <div className={cn("flex items-center gap-3.5", split ? "" : "justify-center")}>
+      {avatar}
+      <span className="flex min-w-0 flex-col text-left">
+        <InlineText
+          as="span"
+          value={props.author}
+          onUpdate={onFieldChange ? (v) => update("author", v) : undefined}
+          className="text-base font-semibold leading-tight"
+          style={{ color: text, fontFamily: BODY }}
+        />
+        <span className="mt-0.5 text-sm leading-tight" style={{ color: muted, fontFamily: BODY }}>
+          <InlineText
+            as="span"
+            value={props.role}
+            onUpdate={onFieldChange ? (v) => update("role", v) : undefined}
+            className="inline"
+            style={{ color: muted }}
+          />
+          {" · "}
+          <InlineText
+            as="span"
+            value={props.company}
+            onUpdate={onFieldChange ? (v) => update("company", v) : undefined}
+            className="inline font-medium"
+            style={{ color: muted }}
+          />
+        </span>
+      </span>
+      {props.companyLogoUrl && (
+        <img
+          src={props.companyLogoUrl}
+          alt={`${props.company} logo`}
+          loading="lazy"
+          className={cn("ml-3 h-6 w-auto max-w-[110px] shrink-0 object-contain", surface.isDark ? "opacity-80" : "opacity-60")}
+        />
+      )}
+    </div>
+  );
+
+  // Hanging oversized quotation mark in accent at low opacity.
+  const quoteMark = (
+    <span
+      aria-hidden
+      className={cn("pointer-events-none block select-none leading-[0.55]", split ? "" : "mx-auto")}
+      style={{
+        fontFamily: DISPLAY,
+        fontSize: "clamp(4.5rem, 9vw, 7rem)",
+        color: accent,
+        opacity: surface.isDark ? 0.4 : 0.22,
+      }}
+    >
+      &ldquo;
+    </span>
+  );
+
+  const quote = (
+    <InlineText
+      as="blockquote"
+      value={props.quote}
+      onUpdate={onFieldChange ? (v) => update("quote", v) : undefined}
+      className={cn(
+        "text-balance font-medium tracking-tight",
+        split ? "text-left" : "mx-auto max-w-3xl text-center",
+      )}
+      style={{
+        color: text,
+        fontFamily: DISPLAY,
+        fontSize: split ? "clamp(1.75rem, 4vw, 2.75rem)" : "clamp(1.625rem, 3.6vw, 2.5rem)",
+        lineHeight: 1.18,
+      }}
+      multiline
+    />
+  );
+
+  const panelStyle: React.CSSProperties = tintPanel
+    ? {
+        background: `color-mix(in srgb, ${accent} ${surface.isDark ? "10%" : "5%"}, transparent)`,
+        border: `1px solid color-mix(in srgb, ${accent} ${surface.isDark ? "26%" : "14%"}, transparent)`,
+      }
+    : {};
+
   return (
     <section
-      className="relative flex w-full flex-col items-center justify-center overflow-hidden px-6 py-24 sm:px-12 md:py-32"
+      className="relative w-full overflow-hidden px-6 py-16 sm:px-10 sm:py-20 md:py-24"
       style={{ background: surface.background, color: text }}
     >
-      <AccentGlow color={accent} isDark={surface.isDark} />
-      {/* Oversized decorative quote mark watermark */}
-      <Quote
-        aria-hidden
-        className="pointer-events-none absolute -top-6 left-1/2 z-0 h-64 w-64 -translate-x-1/2 select-none"
-        style={{ color: accent, opacity: surface.isDark ? 0.1 : 0.05 }}
-        strokeWidth={1}
-      />
-      <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-col items-center justify-center text-center">
-        <Reveal disabled={!animate} className="mb-10 flex h-20 w-20 items-center justify-center rounded-full" style={{ backgroundColor: `${accent}12`, boxShadow: `0 16px 40px -16px ${accent}66` }}>
-          <Quote className="h-10 w-10" style={{ color: accent }} />
-        </Reveal>
-
-        <Reveal disabled={!animate} delay={0.08}>
-          <InlineText
-            as="blockquote"
-            value={props.quote}
-            onUpdate={onFieldChange ? (v) => update("quote", v) : undefined}
-            className="mb-12 max-w-4xl text-3xl font-medium leading-snug tracking-tight sm:text-4xl md:text-5xl md:leading-tight"
-            style={{ color: text, fontFamily: DISPLAY }}
-            multiline />
-        </Reveal>
-
-        <Reveal disabled={!animate} delay={0.16} className="flex flex-col items-center gap-4">
-          <div
-            className="flex h-16 w-16 items-center justify-center rounded-full text-xl font-bold tracking-tight shadow-sm ring-2"
-            style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY, boxShadow: `0 12px 28px -10px ${accent}88` }}
+      <div className="relative z-10 mx-auto w-full max-w-5xl">
+        <Reveal disabled={!animate}>
+          <figure
+            className={cn(tintPanel && "rounded-[2rem] px-6 py-10 sm:px-10 sm:py-12 md:px-14 md:py-14")}
+            style={panelStyle}
           >
-            {props.avatarInitials || props.author.charAt(0)}
-          </div>
-          <div className="flex flex-col">
-            <InlineText
-              as="span"
-              value={props.author}
-              onUpdate={onFieldChange ? (v) => update("author", v) : undefined}
-              className="text-lg font-bold"
-              style={{ color: text, fontFamily: BODY }} />
-            <span className="text-base" style={{ color: muted, fontFamily: BODY }}>
-              <InlineText
-                as="span"
-                value={props.role}
-                onUpdate={onFieldChange ? (v) => update("role", v) : undefined}
-                className="inline"
-                style={{ color: muted }} />
-              {", "}
-              <InlineText
-                as="span"
-                value={props.company}
-                onUpdate={onFieldChange ? (v) => update("company", v) : undefined}
-                className="inline font-medium"
-                style={{ color: text }} />
-            </span>
-          </div>
+            {split ? (
+              /* ── Asymmetric: quote left, attribution rail right ── */
+              <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12">
+                <div className="lg:col-span-8">
+                  {quoteMark}
+                  <div className="mt-1">{quote}</div>
+                </div>
+                <figcaption className="flex lg:col-span-4 lg:items-end">
+                  <div
+                    className="flex flex-col gap-4 border-t pt-6 lg:w-full lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0"
+                    style={{ borderColor: `color-mix(in srgb, ${accent} 30%, transparent)` }}
+                  >
+                    {attribution}
+                  </div>
+                </figcaption>
+              </div>
+            ) : (
+              /* ── Centered statement ── */
+              <div className="flex flex-col items-center text-center">
+                {quoteMark}
+                <div className="mt-1">{quote}</div>
+                <figcaption className="mt-8">{attribution}</figcaption>
+              </div>
+            )}
+          </figure>
         </Reveal>
 
         {showCta && (
-          <div className="mt-20 flex w-full flex-col items-center pt-20">
-            <div className="mb-16 h-px w-full max-w-md" style={{ backgroundColor: border }} />
-            <Reveal disabled={!animate} className="flex flex-col items-center gap-7 text-center">
-              <div className="flex flex-col items-center gap-3">
-                {(props.ctaEyebrow || onFieldChange) && (
-                  <InlineText
-                    as="span"
-                    value={props.ctaEyebrow ?? ""}
-                    onUpdate={onFieldChange ? (v) => update("ctaEyebrow", v) : undefined}
-                    className="text-xs font-bold uppercase tracking-[0.18em]"
-                    style={{ color: accent, fontFamily: BODY }} />
-                )}
-                {(props.ctaHeading || onFieldChange) && (
-                  <InlineText
-                    as="h3"
-                    value={props.ctaHeading ?? ""}
-                    onUpdate={onFieldChange ? (v) => update("ctaHeading", v) : undefined}
-                    className="text-2xl font-extrabold tracking-tight md:text-3xl"
-                    style={{ color: text, fontFamily: DISPLAY }} />
-                )}
-                {(props.ctaSubheading || onFieldChange) && (
-                  <InlineText
-                    as="p"
-                    value={props.ctaSubheading ?? ""}
-                    onUpdate={onFieldChange ? (v) => update("ctaSubheading", v) : undefined}
-                    className="max-w-xl text-base md:text-lg"
-                    style={{ color: muted, fontFamily: BODY }}
-                    multiline />
-                )}
+          <Reveal disabled={!animate} delay={0.1}>
+            <div className="mt-12 border-t pt-10 sm:mt-14" style={{ borderColor: border }}>
+              <div className="flex flex-col items-center gap-6 text-center">
+                <div className="flex flex-col items-center gap-2.5">
+                  {(props.ctaEyebrow || onFieldChange) && (
+                    <InlineText
+                      as="span"
+                      value={props.ctaEyebrow ?? ""}
+                      onUpdate={onFieldChange ? (v) => update("ctaEyebrow", v) : undefined}
+                      className="text-[11px] font-bold uppercase tracking-[0.22em]"
+                      style={{ color: accent, fontFamily: BODY }} />
+                  )}
+                  {(props.ctaHeading || onFieldChange) && (
+                    <InlineText
+                      as="h3"
+                      value={props.ctaHeading ?? ""}
+                      onUpdate={onFieldChange ? (v) => update("ctaHeading", v) : undefined}
+                      className="text-2xl font-bold tracking-tight md:text-3xl"
+                      style={{ color: text, fontFamily: DISPLAY }} />
+                  )}
+                  {(props.ctaSubheading || onFieldChange) && (
+                    <InlineText
+                      as="p"
+                      value={props.ctaSubheading ?? ""}
+                      onUpdate={onFieldChange ? (v) => update("ctaSubheading", v) : undefined}
+                      className="max-w-xl text-base leading-relaxed"
+                      style={{ color: muted, fontFamily: BODY }}
+                      multiline />
+                  )}
+                </div>
+                <div className="flex flex-wrap justify-center gap-3">
+                  {(props.ctaPrimaryLabel || onFieldChange) && (
+                    <CtaButton
+                      ctaAction="url"
+                      ctaUrl={props.ctaPrimaryUrl}
+                      brand={brand}
+                      source="single-quote-cta"
+                      className={cn(
+                        "inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5 text-base font-semibold shadow-sm transition-transform duration-200 motion-safe:hover:-translate-y-0.5",
+                        focusRing,
+                      )}
+                      style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY, outlineColor: accent }}
+                    >
+                      {props.ctaPrimaryLabel || "Get started"}
+                      <ArrowRight className="h-4 w-4" aria-hidden />
+                    </CtaButton>
+                  )}
+                  {(props.ctaSecondaryLabel || onFieldChange) && (
+                    <CtaButton
+                      ctaAction="url"
+                      ctaUrl={props.ctaSecondaryUrl}
+                      brand={brand}
+                      source="single-quote-cta-secondary"
+                      className={cn(
+                        "inline-flex items-center justify-center gap-2 rounded-full border px-7 py-3.5 text-base font-semibold transition-transform duration-200 motion-safe:hover:-translate-y-0.5",
+                        focusRing,
+                      )}
+                      style={{ borderColor: `color-mix(in srgb, ${text} 22%, transparent)`, color: text, fontFamily: BODY, outlineColor: accent }}
+                    >
+                      {props.ctaSecondaryLabel || "Talk to sales"}
+                    </CtaButton>
+                  )}
+                </div>
               </div>
-              <div className="flex flex-wrap justify-center gap-3">
-                {(props.ctaPrimaryLabel || onFieldChange) && (
-                  <CtaButton
-                    ctaAction="url"
-                    ctaUrl={props.ctaPrimaryUrl}
-                    brand={brand}
-                    source="single-quote-cta"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold shadow-sm transition-transform duration-200 hover:-translate-y-0.5"
-                    style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY }}
-                  >
-                    {props.ctaPrimaryLabel || "Get started"}
-                    <ArrowRight className="h-4 w-4" />
-                  </CtaButton>
-                )}
-                {(props.ctaSecondaryLabel || onFieldChange) && (
-                  <CtaButton
-                    ctaAction="url"
-                    ctaUrl={props.ctaSecondaryUrl}
-                    brand={brand}
-                    source="single-quote-cta-secondary"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border px-6 py-3.5 text-base font-semibold"
-                    style={{ borderColor: `${text}33`, color: text, fontFamily: BODY }}
-                  >
-                    {props.ctaSecondaryLabel || "Talk to sales"}
-                  </CtaButton>
-                )}
-              </div>
-            </Reveal>
-          </div>
+            </div>
+          </Reveal>
         )}
       </div>
     </section>

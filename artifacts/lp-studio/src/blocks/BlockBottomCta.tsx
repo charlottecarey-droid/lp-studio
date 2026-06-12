@@ -43,7 +43,7 @@ export function BlockBottomCta({ props, brand, onCtaClick, onFieldChange, pageId
   return (
     <section className={cn("w-full bg-[var(--brand-primary)] px-6 text-center", sectionPy)} style={{ color: onBg }}>
       <div className="max-w-3xl mx-auto">
-        <InlineText as="h2" value={props.headline} onUpdate={field("headline")} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display mb-6", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY, color: onBg }} />
+        <InlineText as="h2" value={props.headline} onUpdate={field("headline")} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display mb-6 leading-[1.08] text-balance", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY, color: onBg }} />
         {props.subheadline && <InlineText as="p" value={props.subheadline} onUpdate={field("subheadline")} className={cn(getBodySizeClass(brand), "mb-10")} style={{ fontFamily: BODY, color: onBgMuted }} multiline />}
         <CtaButton
           ctaAction={action}
@@ -68,8 +68,8 @@ export function BlockBottomCta({ props, brand, onCtaClick, onFieldChange, pageId
           modalShowPhone={props.modalShowPhone}
           modalShowCompany={props.modalShowCompany}
           onClick={onCtaClick}
-          className={getButtonClasses(brand, "inline-flex items-center")}
-          style={{ backgroundColor: cta.bg, color: cta.text }}
+          className={getButtonClasses(brand, "inline-flex items-center transition-all duration-200 ease-out hover:brightness-105 motion-safe:hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2")}
+          style={{ backgroundColor: cta.bg, color: cta.text, outlineColor: cta.bg }}
           brand={brand}
           pageId={pageId}
           variantId={variantId}

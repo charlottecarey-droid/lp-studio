@@ -1,8 +1,10 @@
 import type { PasBeforeAfterBlockProps, PasBeforeAfterRow } from "@/lib/block-types";
 import { Plus, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { AiTextField } from "@/components/AiTextField";
+import { ImagePicker } from "@/components/ImagePicker";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
@@ -57,6 +59,20 @@ export function PasBeforeAfterPanel({ props, onChange }: Props) {
             <Label className="text-[11px] text-muted-foreground">After title</Label>
             <AiTextField type="input" value={props.afterTitle ?? ""} onChange={(v) => update({ afterTitle: v })} placeholder="After" className="h-8 text-xs" onSuggest={() => suggestCopy("pas-before-after", "afterTitle", props.afterTitle ?? "", { heading: props.heading ?? "" })} fieldLabel="After title" />
           </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Panel images (optional)</div>
+        <ImagePicker label="Before image" value={props.beforeImageUrl ?? ""} onChange={(v) => update({ beforeImageUrl: v })} aiHint="the painful old way (rendered desaturated)" />
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Before image alt</Label>
+          <Input value={props.beforeImageAlt ?? ""} onChange={(e) => update({ beforeImageAlt: e.target.value })} className="h-8 text-xs" />
+        </div>
+        <ImagePicker label="After image" value={props.afterImageUrl ?? ""} onChange={(v) => update({ afterImageUrl: v })} aiHint="the improved new way" />
+        <div>
+          <Label className="text-[11px] text-muted-foreground">After image alt</Label>
+          <Input value={props.afterImageAlt ?? ""} onChange={(e) => update({ afterImageAlt: e.target.value })} className="h-8 text-xs" />
         </div>
       </div>
 

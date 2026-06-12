@@ -40,10 +40,12 @@ interface Props {
   variantId?: number;
 }
 
-/** Mockup surface / accent hexes preserved as defaults. */
+/** Mockup surface / text hexes preserved as defaults. */
 const SURFACE_HEX = "#050505";
 const TEXT_HEX = "#FFFFFF";
-const ACCENT_HEX = "#9333EA"; // mockup blob-1 purple
+/** Last-resort accent when the tenant brand exposes no --brand-accent var.
+ *  Matches the launch-hero fallback so un-themed previews stay consistent. */
+const ACCENT_HEX = "#8B5CF6";
 
 const FALLBACK_DISPLAY = "'Inter', system-ui, sans-serif";
 
@@ -218,7 +220,7 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
 
   return (
     <section
-      className="aurora-hero-wrapper relative overflow-hidden min-h-[900px] h-[100dvh] flex flex-col font-sans"
+      className="aurora-hero-wrapper relative overflow-hidden min-h-[100svh] flex flex-col font-sans"
       style={{ backgroundColor: bg, color: text, fontFamily: bodyFamily }}
     >
       <style>{`
@@ -246,7 +248,7 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
           66% { transform: translateY(-20%) translateX(-25%) scale(1.2) rotate(20deg); }
         }
         .aurora-bg { position: absolute; inset: -50%; z-index: 0; pointer-events: none; }
-        .aurora-blob { position: absolute; filter: blur(120px); opacity: 0.6; border-radius: 50%; mix-blend-mode: screen; }
+        .aurora-blob { position: absolute; filter: blur(110px) saturate(118%); opacity: 0.48; border-radius: 50%; mix-blend-mode: screen; }
         .aurora-blob-1 { top: 10%; left: 20%; width: 50%; height: 50%; animation: aurora-1 25s infinite ease-in-out; }
         .aurora-blob-2 { top: 40%; left: 60%; width: 40%; height: 40%; animation: aurora-2 30s infinite ease-in-out; }
         .aurora-blob-3 { top: 60%; left: 10%; width: 45%; height: 45%; animation: aurora-3 28s infinite ease-in-out; }
@@ -254,16 +256,34 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
         @media (prefers-reduced-motion: reduce) {
           .aurora-blob { animation: none; }
         }
+        /* Brand-derived multi-stop veil: a cool crown glow, a low corner ember,
+           and a gentle floor fade that grounds the centered content. */
+        .aurora-veil {
+          position: absolute; inset: 0; z-index: 0; pointer-events: none;
+          background:
+            radial-gradient(ellipse 85% 58% at 50% -12%, color-mix(in srgb, ${accent} 16%, transparent), transparent 64%),
+            radial-gradient(ellipse 65% 50% at 14% 112%, color-mix(in srgb, ${secondHue} 12%, transparent), transparent 70%),
+            linear-gradient(to bottom, transparent 55%, color-mix(in srgb, ${bg} 55%, transparent) 100%);
+        }
         .aurora-noise {
-          position: absolute; inset: 0; z-index: 1; opacity: 0.05; pointer-events: none;
+          position: absolute; inset: 0; z-index: 1; opacity: 0.04; pointer-events: none; mix-blend-mode: overlay;
           background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
         }
         .aurora-glass-panel {
-          background: rgba(255, 255, 255, 0.03);
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          box-shadow: 0 30px 60px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+          background: rgba(255, 255, 255, 0.04);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid rgba(255, 255, 255, 0.09);
+          box-shadow:
+            0 24px 48px -16px rgba(0, 0, 0, 0.55),
+            0 0 44px -20px color-mix(in srgb, ${accent} 50%, transparent),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        }
+        .aurora-hero-wrapper a:focus-visible,
+        .aurora-hero-wrapper button:focus-visible,
+        .aurora-hero-wrapper input:focus-visible {
+          outline: 2px solid color-mix(in srgb, ${accent} 60%, #ffffff);
+          outline-offset: 3px;
         }
       `}</style>
 
@@ -290,13 +310,14 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
       )}
 
       {/* Background Animation */}
-      <div className="aurora-bg">
+      <div className="aurora-bg" aria-hidden>
         <div className="aurora-blob aurora-blob-1" style={blobStyle(accent)}></div>
         <div className="aurora-blob aurora-blob-2" style={blobStyle(secondHue)}></div>
         <div className="aurora-blob aurora-blob-3" style={blobStyle(accent)}></div>
         <div className="aurora-blob aurora-blob-4" style={blobStyle(secondHue)}></div>
       </div>
-      <div className="aurora-noise"></div>
+      <div className="aurora-veil" aria-hidden></div>
+      <div className="aurora-noise" aria-hidden></div>
 
       {/* Navigation */}
       {props.showNav !== false && (
@@ -365,12 +386,16 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
         >
           {/* Badge */}
           {(badgeText || onFieldChange) && (
-            <motion.div variants={itemVariants} className="mb-8">
+            <motion.div variants={itemVariants} className="mb-9">
               <div
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-sm"
-                style={{ color: `color-mix(in srgb, ${accent} 55%, #ffffff)` }}
+                className="inline-flex min-h-[36px] items-center gap-2.5 px-4 py-1.5 rounded-full border backdrop-blur-md text-sm font-medium"
+                style={{
+                  borderColor: `color-mix(in srgb, ${accent} 30%, transparent)`,
+                  backgroundColor: `color-mix(in srgb, ${accent} 10%, transparent)`,
+                  color: `color-mix(in srgb, ${accent} 45%, #ffffff)`,
+                }}
               >
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="w-4 h-4 shrink-0" aria-hidden />
                 <InlineText as="span" value={badgeText} onUpdate={field("badgeText")} />
                 {(badgeLinkText || onFieldChange) && (
                   <>
@@ -391,8 +416,14 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
           {/* Headline */}
           <motion.h1
             variants={itemVariants}
-            className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-8 leading-[1.1]"
-            style={{ fontFamily: headlineFamily, color: text }}
+            className="font-bold mb-6 max-w-4xl"
+            style={{
+              fontFamily: headlineFamily,
+              color: text,
+              fontSize: "clamp(2.875rem, 7.5vw, 6.25rem)",
+              lineHeight: 1.03,
+              letterSpacing: "-0.035em",
+            }}
           >
             <InlineText as="span" value={props.headline} onUpdate={field("headline")} />
           </motion.h1>
@@ -404,15 +435,15 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
               multiline
               value={props.subheadline ?? ""}
               onUpdate={field("subheadline")}
-              className="text-lg md:text-xl max-w-2xl mb-12 leading-relaxed"
-              style={{ color: text, opacity: 0.6 }}
+              className="text-lg md:text-xl max-w-2xl mb-10 leading-relaxed"
+              style={{ color: text, opacity: 0.65 }}
             />
           )}
 
           {/* CTAs */}
           <motion.div
             variants={itemVariants}
-            className="flex flex-col sm:flex-row items-center gap-4 mb-20 w-full sm:w-auto"
+            className="flex flex-col sm:flex-row items-center gap-4 mb-16 md:mb-20 w-full sm:w-auto"
           >
             {ctaStyle === "email-capture" ? (
               <form
@@ -448,8 +479,12 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
                   videoUrl={props.videoUrl}
                   {...modalCfg}
                   onClick={primaryAction === "url" ? onCtaClick : undefined}
-                  className="w-full sm:w-auto px-8 py-4 rounded-full font-semibold text-base flex items-center justify-center gap-2"
-                  style={{ background: primaryBg, color: primaryTextColor }}
+                  className="w-full sm:w-auto min-h-[52px] px-8 py-4 rounded-full font-semibold text-base flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
+                  style={{
+                    background: primaryBg,
+                    color: primaryTextColor,
+                    boxShadow: `0 0 32px color-mix(in srgb, ${primaryBg} 40%, transparent), 0 10px 28px -14px rgba(0,0,0,0.7)`,
+                  }}
                   brand={brand}
                   pageId={pageId}
                   variantId={variantId}
@@ -467,7 +502,7 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
                     videoUrl={props.secondaryVideoUrl}
                     {...modalCfg}
                     onClick={secondaryAction === "url" ? onCtaClick : undefined}
-                    className="w-full sm:w-auto px-8 py-4 rounded-full bg-white/5 text-white font-semibold text-base backdrop-blur-md border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center gap-2"
+                    className="w-full sm:w-auto min-h-[52px] px-8 py-4 rounded-full bg-white/5 text-white font-semibold text-base backdrop-blur-md border border-white/15 hover:bg-white/10 hover:border-white/25 transition-colors flex items-center justify-center gap-2"
                     brand={brand}
                     pageId={pageId}
                     variantId={variantId}
@@ -500,15 +535,18 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
                   style={isLeft ? undefined : { animationDelay: "-2s" }}
                 >
                   <div
-                    className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
-                    style={{ background: `color-mix(in srgb, ${chipHue} 20%, transparent)` }}
+                    className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                    style={{
+                      background: `color-mix(in srgb, ${chipHue} 18%, transparent)`,
+                      boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${chipHue} 28%, transparent)`,
+                    }}
                   >
-                    <Icon className="w-6 h-6" style={{ color: chipHue }} />
+                    <Icon className="w-5 h-5" style={{ color: `color-mix(in srgb, ${chipHue} 70%, #ffffff)` }} aria-hidden />
                   </div>
                   <div className="text-left">
                     <div className="text-sm font-semibold text-white">{chip.title}</div>
                     {chip.subtitle && (
-                      <div className="text-xs text-white/50">{chip.subtitle}</div>
+                      <div className="text-xs text-white/55 mt-0.5">{chip.subtitle}</div>
                     )}
                   </div>
                 </motion.div>

@@ -103,6 +103,8 @@ export const HERO_TYPES = new Set([
   "one-pager-hero", "dandy-product-hero", "dandy-hero-v7-s3",
   "dso-heartland-hero", "dso-practice-hero", "dso-scroll-story-hero",
   "event-landing-hero", "id-hero",
+  // June-2026 modern hero wave.
+  "launch-spotlight-hero", "bento-mosaic-hero", "kinetic-type-hero",
   // Full-page event landing templates — each leads with an event hero (see
   // FULL_PAGE_BLOCK_TYPES); they carry the "hero" role, so credit the hero.
   "event-noir", "event-luminous", "event-split",
@@ -112,7 +114,7 @@ export const HERO_TYPES = new Set([
 // blocks (calculators, invitations) that drive the primary next step.
 export const CTA_TYPES = new Set([
   "bottom-cta", "cta-button", "dandy-cta-block", "dso-final-cta",
-  "roi-calculator", "id-invitation",
+  "roi-calculator", "id-invitation", "aurora-cta-finale",
   "cta-centered-minimal", "cta-split-image", "cta-stat-backed", "cta-gradient-banner",
   // Family D final-CTA section blocks (all carry the "cta" role).
   "full-bleed-final-cta", "split-form-final-cta", "stat-backed-final-cta",
@@ -147,6 +149,8 @@ export const SOCIAL_PROOF_TYPES = new Set([
   "case-metrics", "case-editorial", "case-modular",
   // Final-CTA block carrying a "social-proof" role (avatars + proof line).
   "social-urgency-final-cta",
+  // June-2026 masonry quote wall (graduated SOCIAL-PROOF family).
+  "testimonial-wall",
 ]);
 
 // Authority: stats, trust bars, metric showcases (concrete data signals).
@@ -157,6 +161,8 @@ export const AUTHORITY_TYPES = new Set([
   "stat-row",
   // PAS + final-CTA section blocks carrying the "stats" role.
   "pas-stat-agitate", "stat-backed-final-cta",
+  // June-2026 count-up metrics band (carries the "stats" role).
+  "stat-counter-band",
 ]);
 
 // Structured content sections AI engines can extract organized answers from.
@@ -184,6 +190,9 @@ export const STRUCTURED_TYPES = new Set([
   "features-bento-showcase", "features-spotlight-cards", "features-tabbed-categories",
   "features-comparison-checklist", "gallery-split-feature", "media-feature-reel",
   "media-video-split",
+  // June-2026 feature showcases (both carry the "features" role) + the glass
+  // pricing tiers (structured per-tier feature lists, like gradient-pricing).
+  "glass-bento-features", "feature-tabs-showcase", "glass-pricing-tiers",
   // Family B layout rows carrying the "features" role.
   "icon-row", "media-cards-row",
   // PAS icon grid carries the "features" role.

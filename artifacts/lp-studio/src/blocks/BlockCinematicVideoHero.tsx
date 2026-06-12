@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { CSSProperties } from "react";
 import { motion } from "framer-motion";
-import { Play, ChevronRight } from "lucide-react";
+import { Play, Pause, ChevronRight } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
+import { isValidHex, pickCtaButtonColors } from "@/lib/brand-config";
 import type { CinematicVideoHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
@@ -56,12 +57,47 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
     return () => mq.removeEventListener("change", handler);
   }, []);
 
+  // ── Layout: classic centered title card vs film-style lower-third. ──
+  const lowerThird = (props.layout ?? "centered") === "lower-third";
+
   const overlay = props.overlayOpacity ?? 0.55;
-  // Reproduce the mockup's linear scrim (from-black/60 via-black/20 to-black/80)
-  // at the default 0.55 strength, then scale with overlayOpacity.
+  // Four-stop scrim derived from the mockup's linear scrim
+  // (from-black/60 via-black/20 to-black/80) at the default 0.55 strength,
+  // scaled by overlayOpacity. The extra ~78% stop deepens the lower third so
+  // copy and CTAs always sit on the darkest band of the frame. Lower-third
+  // layout leans harder on the floor stop.
+  const stop = (f: number) => Math.min(1, overlay * f).toFixed(3);
   const scrimStyle: CSSProperties = {
-    background: `linear-gradient(to bottom, rgba(0,0,0,${Math.min(1, overlay * 1.0909).toFixed(3)}) 0%, rgba(0,0,0,${Math.min(1, overlay * 0.3636).toFixed(3)}) 50%, rgba(0,0,0,${Math.min(1, overlay * 1.4545).toFixed(3)}) 100%)`,
+    background: lowerThird
+      ? `linear-gradient(to bottom, rgba(0,0,0,${stop(0.95)}) 0%, rgba(0,0,0,${stop(0.27)}) 38%, rgba(0,0,0,${stop(1.05)}) 72%, rgba(0,0,0,${stop(1.62)}) 100%)`
+      : `linear-gradient(to bottom, rgba(0,0,0,${stop(1.0909)}) 0%, rgba(0,0,0,${stop(0.3636)}) 46%, rgba(0,0,0,${stop(0.9)}) 78%, rgba(0,0,0,${stop(1.4545)}) 100%)`,
   };
+  // Elliptical vignette — pulls the eye to the title and keeps frame edges
+  // from reading washed-out on bright footage.
+  const vignetteStyle: CSSProperties = {
+    background:
+      "radial-gradient(ellipse 120% 90% at 50% 42%, transparent 36%, rgba(0,0,0,0.62) 100%)",
+  };
+
+  // ── Background-video play/pause affordance (a11y + focus-visible). ──
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoPaused, setVideoPaused] = useState(false);
+  const toggleVideo = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) {
+      v.play().catch(() => {});
+      setVideoPaused(false);
+    } else {
+      v.pause();
+      setVideoPaused(true);
+    }
+  };
+
+  // Surface-aware fill for the email-capture pill button (the only filled CTA
+  // in this hero — the primary is a glass button). Runtime contrast-resolved.
+  const surfaceHex = isValidHex(bg) ? bg : "#000000";
+  const pillColors = pickCtaButtonColors(brand, surfaceHex);
 
   // ── CTA suite. ──
   const ctaStyle = props.ctaStyle ?? "buttons";
@@ -181,8 +217,8 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
         type="submit"
         className="inline-flex items-center justify-center rounded-full text-sm tracking-wide uppercase transition-opacity hover:opacity-90"
         style={{
-          background: props.ctaButtonColor || "var(--brand-accent, #111111)",
-          color: props.ctaButtonTextColor || "#000000",
+          background: props.ctaButtonColor || pillColors.bg,
+          color: props.ctaButtonTextColor || pillColors.text,
           padding: "0.75rem 1.5rem",
           border: "none",
           cursor: "pointer",
@@ -211,8 +247,8 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
       variantId={variantId}
       source="cinematic-video-hero-secondary"
     >
-      <span className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center group-hover:border-white/50 transition-colors">
-        <Play className="w-3 h-3 ml-0.5" />
+      <span className="w-11 h-11 rounded-full border border-white/25 bg-white/5 backdrop-blur-md flex items-center justify-center group-hover:border-white/60 group-hover:bg-white/10 transition-colors">
+        <Play className="w-3.5 h-3.5 ml-0.5" aria-hidden />
       </span>
       <InlineText as="span" value={props.ctaSecondaryText ?? "Watch Film"} onUpdate={field("ctaSecondaryText")} />
     </CtaButton>
@@ -255,7 +291,7 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
 
   return (
     <section
-      className="cvh-root relative min-h-[900px] h-[100dvh] w-full overflow-hidden flex flex-col selection:bg-white/20"
+      className="cvh-root relative min-h-[100svh] w-full overflow-hidden flex flex-col selection:bg-white/20"
       style={{ backgroundColor: bg, color: text, fontFamily: bodyFamily }}
     >
       <style dangerouslySetInnerHTML={{ __html: `
@@ -278,7 +314,13 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
           transform: translateY(-1px);
         }
         .cvh-root .text-glow {
-          text-shadow: 0 0 40px rgba(255, 255, 255, 0.3);
+          text-shadow: 0 0 60px rgba(255, 255, 255, 0.22), 0 2px 28px rgba(0, 0, 0, 0.55);
+        }
+        .cvh-root a:focus-visible,
+        .cvh-root button:focus-visible,
+        .cvh-root input:focus-visible {
+          outline: 2px solid rgba(255, 255, 255, 0.9);
+          outline-offset: 3px;
         }
       ` }} />
 
@@ -286,6 +328,7 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
       <div className="absolute inset-0 z-0">
         {showVideo ? (
           <video
+            ref={videoRef}
             autoPlay
             loop
             muted
@@ -308,13 +351,28 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
             style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${accent} 32%, #000000) 0%, #000000 100%)` }}
           />
         )}
-        {/* Scrims */}
+        {/* Scrims: directional gradient + elliptical vignette for legibility */}
         <div aria-hidden className="absolute inset-0 z-10" style={scrimStyle} />
-        <div
-          aria-hidden
-          className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.6)_100%)] z-10"
-        />
+        <div aria-hidden className="absolute inset-0 z-10" style={vignetteStyle} />
       </div>
+
+      {/* Background-video play/pause (focus-visible affordance) */}
+      {showVideo && (
+        <button
+          type="button"
+          onClick={toggleVideo}
+          aria-label={videoPaused ? "Play background video" : "Pause background video"}
+          aria-pressed={videoPaused}
+          className="absolute bottom-6 right-6 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/30 backdrop-blur-md transition-colors hover:border-white/50 hover:bg-black/50"
+          style={{ color: text }}
+        >
+          {videoPaused ? (
+            <Play className="w-4 h-4 ml-0.5" aria-hidden />
+          ) : (
+            <Pause className="w-4 h-4" aria-hidden />
+          )}
+        </button>
+      )}
 
       {/* Top Nav */}
       {(props.showNav !== false) && (
@@ -395,20 +453,33 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
       )}
 
       {/* Main Content */}
-      <main className="relative z-20 flex-1 flex flex-col items-center justify-center px-4 text-center mt-[-5%]">
+      <main
+        className={
+          lowerThird
+            ? "relative z-20 flex-1 flex flex-col items-start justify-end text-left w-full max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 pb-24 md:pb-14"
+            : "relative z-20 flex-1 flex flex-col items-center justify-center text-center px-4"
+        }
+      >
         {(props.eyebrow || onFieldChange) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-            className="mb-6"
+            className={lowerThird ? "mb-5 flex items-center gap-3" : "mb-6"}
           >
+            {lowerThird && (
+              <span
+                className="inline-block h-px w-10 shrink-0"
+                style={{ backgroundColor: accent, opacity: 0.7 }}
+                aria-hidden
+              />
+            )}
             <InlineText
               as="span"
               value={props.eyebrow ?? ""}
               onUpdate={field("eyebrow")}
               className="text-xs tracking-[0.3em] uppercase"
-              style={{ color: accent, opacity: 0.7, fontFamily: bodyFamily }}
+              style={{ color: accent, opacity: 0.75, fontFamily: bodyFamily }}
             />
           </motion.div>
         )}
@@ -417,14 +488,21 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
           initial={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
           animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
           transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
-          className="max-w-4xl mx-auto"
+          className={lowerThird ? "max-w-4xl" : "max-w-4xl mx-auto"}
         >
           <InlineText
             as="h1"
             value={props.headline}
             onUpdate={field("headline")}
-            className="text-5xl md:text-7xl lg:text-8xl leading-[1.1] tracking-wide mb-6 text-glow"
-            style={{ fontFamily: headlineFamily }}
+            className="mb-6 text-glow"
+            style={{
+              fontFamily: headlineFamily,
+              fontSize: lowerThird
+                ? "clamp(2.5rem, 5.5vw + 0.5rem, 5.25rem)"
+                : "clamp(2.75rem, 6.5vw + 0.5rem, 6.5rem)",
+              lineHeight: 1.06,
+              letterSpacing: "0.015em",
+            }}
           />
         </motion.div>
 
@@ -433,7 +511,7 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.8 }}
-            className="max-w-xl mx-auto mb-12"
+            className={lowerThird ? "max-w-xl mb-9" : "max-w-xl mx-auto mb-11"}
           >
             <InlineText
               as="p"
@@ -441,7 +519,7 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
               value={props.subheadline ?? ""}
               onUpdate={field("subheadline")}
               className="text-lg md:text-xl leading-relaxed font-light tracking-wide"
-              style={{ color: text, opacity: 0.6, fontFamily: bodyFamily }}
+              style={{ color: text, opacity: 0.66, fontFamily: bodyFamily }}
             />
           </motion.div>
         )}
@@ -450,15 +528,19 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 1 }}
-          className="flex flex-col sm:flex-row items-center gap-6 w-full sm:w-auto justify-center"
+          className={
+            lowerThird
+              ? "flex flex-col sm:flex-row items-start sm:items-center gap-5 sm:gap-6 w-full sm:w-auto"
+              : "flex flex-col sm:flex-row items-center gap-6 w-full sm:w-auto justify-center"
+          }
         >
           {ctaStyle === "email-capture" ? emailPill : primaryButton}
           {secondaryButton}
         </motion.div>
       </main>
 
-      {/* Scroll Cue */}
-      {(props.scrollCueLabel || onFieldChange) && (
+      {/* Scroll Cue (centered layout only — the lower-third pins copy there) */}
+      {!lowerThird && (props.scrollCueLabel || onFieldChange) && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

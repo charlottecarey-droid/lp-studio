@@ -119,6 +119,15 @@ import { BlockParallaxLayersHero } from "./BlockParallaxLayersHero";
 import { BlockSpotlightGlowHero } from "./BlockSpotlightGlowHero";
 import { BlockLogoWall } from "./BlockLogoWall";
 import { BlockLogoMarquee } from "./BlockLogoMarquee";
+import { BlockLaunchSpotlightHero } from "./BlockLaunchSpotlightHero";
+import { BlockBentoMosaicHero } from "./BlockBentoMosaicHero";
+import { BlockKineticTypeHero } from "./BlockKineticTypeHero";
+import { BlockGlassBentoFeatures } from "./BlockGlassBentoFeatures";
+import { BlockFeatureTabsShowcase } from "./BlockFeatureTabsShowcase";
+import { BlockStatCounterBand } from "./BlockStatCounterBand";
+import { BlockTestimonialWall } from "./BlockTestimonialWall";
+import { BlockGlassPricingTiers } from "./BlockGlassPricingTiers";
+import { BlockAuroraCtaFinale } from "./BlockAuroraCtaFinale";
 import { BlockRatingBadges } from "./BlockRatingBadges";
 import { BlockAvatarSocialProof } from "./BlockAvatarSocialProof";
 import { BlockEditorialCarousel } from "./BlockEditorialCarousel";
@@ -412,6 +421,14 @@ export const NO_REVEAL = new Set<string>([
   "dandy-switchback", "dso-paradigm-shift",
   "hero", "full-bleed-hero", "parallax-image-hero", "dandy-hero-v7-s3", "dandy-product-hero",
   "cinematic-video-hero", "aurora-gradient-hero", "editorial-split-hero", "parallax-layers-hero", "spotlight-glow-hero",
+  // June-2026 modern wave: first-paint heroes with their own entrance
+  // animations, plus sections that own internal staggered scroll-reveals /
+  // scroll-linked transforms (glass bento cards, tab crossfades, count-up
+  // stats, masonry quote wall) — the outer reveal wrapper double-animates
+  // them and its transform breaks their internal useScroll/useInView math.
+  "launch-spotlight-hero", "bento-mosaic-hero", "kinetic-type-hero",
+  "glass-bento-features", "feature-tabs-showcase", "stat-counter-band",
+  "testimonial-wall",
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch", "story-hub",
   "business-case-split", "business-case-centered", "business-case-premium",
   "content-series", "blog-series", "storefront",
@@ -1149,6 +1166,111 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
             props={block.props}
             brand={brand}
             animationsEnabled={animationsEnabled}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "launch-spotlight-hero":
+        return (
+          <BlockLaunchSpotlightHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "bento-mosaic-hero":
+        return (
+          <BlockBentoMosaicHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "kinetic-type-hero":
+        return (
+          <BlockKineticTypeHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "glass-bento-features":
+        return (
+          <BlockGlassBentoFeatures
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "feature-tabs-showcase":
+        return (
+          <BlockFeatureTabsShowcase
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "stat-counter-band":
+        return (
+          <BlockStatCounterBand
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "testimonial-wall":
+        return (
+          <BlockTestimonialWall
+            props={block.props}
+            brand={brand}
+            animationsEnabled={animationsEnabled}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "glass-pricing-tiers":
+        return (
+          <BlockGlassPricingTiers
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "aurora-cta-finale":
+        return (
+          <BlockAuroraCtaFinale
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl ?? "#") : undefined}
             onFieldChange={onBlockChange
               ? (updated) => onBlockChange({ ...block, props: updated })
               : undefined}

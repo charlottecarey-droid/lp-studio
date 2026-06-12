@@ -190,6 +190,15 @@ import { ParallaxLayersHeroPanel } from "./ParallaxLayersHeroPanel";
 import { SpotlightGlowHeroPanel } from "./SpotlightGlowHeroPanel";
 import { LogoWallPanel } from "./LogoWallPanel";
 import { LogoMarqueePanel } from "./LogoMarqueePanel";
+import { LaunchSpotlightHeroPanel } from "./LaunchSpotlightHeroPanel";
+import { BentoMosaicHeroPanel } from "./BentoMosaicHeroPanel";
+import { KineticTypeHeroPanel } from "./KineticTypeHeroPanel";
+import { GlassBentoFeaturesPanel } from "./GlassBentoFeaturesPanel";
+import { FeatureTabsShowcasePanel } from "./FeatureTabsShowcasePanel";
+import { StatCounterBandPanel } from "./StatCounterBandPanel";
+import { TestimonialWallPanel } from "./TestimonialWallPanel";
+import { GlassPricingTiersPanel } from "./GlassPricingTiersPanel";
+import { AuroraCtaFinalePanel } from "./AuroraCtaFinalePanel";
 import { RatingBadgesPanel } from "./RatingBadgesPanel";
 import { AvatarSocialProofPanel } from "./AvatarSocialProofPanel";
 import { BoldStatementPanel } from "./BoldStatementPanel";
@@ -1474,6 +1483,69 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "logo-marquee":
         return (
           <LogoMarqueePanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "launch-spotlight-hero":
+        return (
+          <LaunchSpotlightHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "bento-mosaic-hero":
+        return (
+          <BentoMosaicHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "kinetic-type-hero":
+        return (
+          <KineticTypeHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "glass-bento-features":
+        return (
+          <GlassBentoFeaturesPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "feature-tabs-showcase":
+        return (
+          <FeatureTabsShowcasePanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "stat-counter-band":
+        return (
+          <StatCounterBandPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "testimonial-wall":
+        return (
+          <TestimonialWallPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "glass-pricing-tiers":
+        return (
+          <GlassPricingTiersPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "aurora-cta-finale":
+        return (
+          <AuroraCtaFinalePanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />

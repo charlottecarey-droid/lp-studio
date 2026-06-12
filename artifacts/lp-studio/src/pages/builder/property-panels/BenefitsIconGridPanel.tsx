@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { IconPicker } from "@/components/IconPicker";
@@ -72,6 +73,10 @@ export function BenefitsIconGridPanel({ props, onChange }: Props) {
             </SelectContent>
           </Select>
         </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground">Hairline dividers (instead of open whitespace)</Label>
+          <Switch checked={props.divided === true} onCheckedChange={(v) => update({ divided: v })} />
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -114,7 +119,7 @@ export function BenefitsIconGridPanel({ props, onChange }: Props) {
         />
         <div className="grid grid-cols-2 gap-2">
           <ColorField label="Text" value={props.textColor ?? "#171717"} onChange={(v) => update({ textColor: v })} />
-          <ColorField label="Accent" value={props.accentColor ?? "#4f46e5"} onChange={(v) => update({ accentColor: v })} />
+          <ColorField label="Accent" value={props.accentColor ?? "#3B82F6"} onChange={(v) => update({ accentColor: v })} />
         </div>
       </div>
     </div>

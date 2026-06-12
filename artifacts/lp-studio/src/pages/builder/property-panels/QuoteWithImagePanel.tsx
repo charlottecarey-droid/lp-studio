@@ -63,6 +63,10 @@ export function QuoteWithImagePanel({ props, onChange }: Props) {
           <Input value={props.imageAlt ?? ""} onChange={(e) => update({ imageAlt: e.target.value })} className="h-8 text-xs" />
         </div>
         <div>
+          <Label className="text-[11px] text-muted-foreground">Focal point (CSS object-position, e.g. "50% 30%")</Label>
+          <Input value={props.imageFocal ?? ""} onChange={(e) => update({ imageFocal: e.target.value })} placeholder="50% 50%" className="h-8 text-xs" />
+        </div>
+        <div>
           <Label className="text-[11px] text-muted-foreground">Image side</Label>
           <div className="flex gap-2 mt-1">
             {(["left", "right"] as const).map((side) => (

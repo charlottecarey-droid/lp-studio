@@ -43,6 +43,10 @@ export function CtaCenteredMinimalPanel({ props, onChange }: Props) {
           <Label className="text-[11px] text-muted-foreground">Subheading</Label>
           <AiTextField value={props.subheading ?? ""} onChange={(v) => update({ subheading: v })} rows={3} className="text-xs" placeholder="Leave blank to hide" onSuggest={() => suggestCopy("cta-centered-minimal", "subheading", props.subheading ?? "", { heading: props.heading ?? "" })} fieldLabel="Subheading" />
         </div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Reassurance microcopy</Label>
+          <AiTextField type="input" value={props.reassuranceText ?? ""} onChange={(v) => update({ reassuranceText: v })} className="h-8 text-xs" placeholder="No credit card required · Cancel anytime" onSuggest={() => suggestCopy("cta-centered-minimal", "reassuranceText", props.reassuranceText ?? "", { heading: props.heading ?? "" })} fieldLabel="Reassurance microcopy" />
+        </div>
       </div>
 
       <div className="space-y-3">

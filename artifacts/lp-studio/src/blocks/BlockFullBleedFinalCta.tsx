@@ -1,5 +1,10 @@
 import type { BrandConfig } from "@/lib/brand-config";
-import { pickContrastingColor } from "@/lib/brand-config";
+import {
+  contrastTextColor,
+  isValidHex,
+  pickContrastingColor,
+  pickCtaButtonColors,
+} from "@/lib/brand-config";
 import type { FullBleedFinalCtaBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
@@ -8,20 +13,48 @@ import { Reveal } from "@/lib/premium-toolkit";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 
+/* ----------------------------------------------------------------------------
+ * Final CTA — Full Bleed: the page's full-width closing argument. Defaults to
+ * a deep near-black surface with one controlled brand-accent glow and a
+ * vignette (or a tenant background image under a dark overlay), an oversized
+ * display headline, and runtime-contrast pill buttons.
+ * -------------------------------------------------------------------------- */
+
 interface Props {
   props: FullBleedFinalCtaBlockProps;
   brand: BrandConfig;
   onFieldChange?: (updated: FullBleedFinalCtaBlockProps) => void;
 }
 
+/** Deep default finale surface (used when no preset/bgColor/image is set). */
+const SURFACE_HEX = "#060A13";
+
+const FOCUS_RING =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
+
 export function BlockFullBleedFinalCta({ props, brand, onFieldChange }: Props) {
-  const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const surface = resolveSectionSurface(props, accent);
   const hasImage = !!props.backgroundImageUrl;
-  const ink = props.textColor ?? surface.color ?? pickContrastingColor(undefined, hasImage ? "#0F172A" : surface.base, ["#FFFFFF", "#0F172A"]);
-  const muted = `${ink}D9`;
-  const btnBg = hasImage ? "#FFFFFF" : ink;
-  const onBtn = pickContrastingColor(undefined, btnBg, ["#0F172A", "#FFFFFF"]);
+  const surface = resolveSectionSurface(props, SURFACE_HEX);
+  /** Solid the copy effectively sits on (image path = the dark overlay). */
+  const base = hasImage ? "#0f172a" : surface.base;
+
+  const ink =
+    props.textColor ?? (hasImage ? "#ffffff" : surface.color ?? pickContrastingColor(undefined, base, ["#ffffff", "#0f172a"]));
+  const muted = `color-mix(in srgb, ${ink} 70%, transparent)`;
+
+  const accentPref =
+    props.accentColor && isValidHex(props.accentColor) ? props.accentColor : undefined;
+  // Raw accent feeds the decorative glow; the eyebrow tint is contrast-checked.
+  const accentRaw =
+    accentPref ?? (isValidHex(brand.accentColor) ? brand.accentColor : brand.primaryColor);
+  const accent = pickContrastingColor(accentRaw, base, [brand.primaryColor, ink], 3.0);
+  const cta = accentPref
+    ? (() => {
+        const bg = pickContrastingColor(accentPref, base, [brand.accentColor, brand.primaryColor], 3.0);
+        return { bg, text: pickContrastingColor(brand.ctaText, bg, [contrastTextColor(bg)], 4.5) };
+      })()
+    : pickCtaButtonColors(brand, base);
+
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const overlay = (props.overlayOpacity ?? 55) / 100;
@@ -32,13 +65,32 @@ export function BlockFullBleedFinalCta({ props, brand, onFieldChange }: Props) {
   const ctaContent = (
     <>
       {(props.eyebrow || onFieldChange) && (
-        <InlineText as="p" value={props.eyebrow ?? ""} onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined} className="mb-4 text-xs font-bold uppercase tracking-[0.2em]" style={{ color: ink, opacity: 0.85 }} />
+        <InlineText
+          as="p"
+          value={props.eyebrow ?? ""}
+          onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined}
+          className="mb-6 text-[11px] font-bold uppercase tracking-[0.3em]"
+          style={{ color: hasImage ? ink : accent, opacity: hasImage ? 0.9 : 1 }}
+        />
       )}
-      <InlineText as="h2" value={props.heading} onUpdate={onFieldChange ? (v) => update("heading", v) : undefined} className="text-4xl font-extrabold leading-tight tracking-tight md:text-5xl lg:text-6xl" style={{ color: ink, fontFamily: DISPLAY }} />
+      <InlineText
+        as="h2"
+        value={props.heading}
+        onUpdate={onFieldChange ? (v) => update("heading", v) : undefined}
+        className="text-balance font-bold leading-[1.03] tracking-tight"
+        style={{ color: ink, fontFamily: DISPLAY, fontSize: "clamp(2.75rem, 7vw, 4.5rem)" }}
+      />
       {(props.subheading || onFieldChange) && (
-        <InlineText as="p" value={props.subheading ?? ""} onUpdate={onFieldChange ? (v) => update("subheading", v) : undefined} className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed md:text-xl" style={{ color: muted }} multiline />
+        <InlineText
+          as="p"
+          value={props.subheading ?? ""}
+          onUpdate={onFieldChange ? (v) => update("subheading", v) : undefined}
+          className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed sm:text-xl"
+          style={{ color: muted }}
+          multiline
+        />
       )}
-      <div className="mt-10 flex flex-wrap justify-center gap-3">
+      <div className="mt-11 flex flex-col items-center justify-center gap-3 sm:flex-row">
         {(props.ctaLabel || onFieldChange) && (
           <CtaButton
             {...pickCtaModalConfig(props)}
@@ -49,8 +101,15 @@ export function BlockFullBleedFinalCta({ props, brand, onFieldChange }: Props) {
             videoPosterUrl={props.videoPosterUrl}
             brand={brand}
             source="full-bleed-final-cta-primary"
-            className="inline-flex items-center justify-center rounded-xl px-8 py-4 text-base font-semibold shadow-sm"
-            style={{ backgroundColor: btnBg, color: onBtn, fontFamily: BODY }}
+            className={`inline-flex w-full items-center justify-center rounded-full text-base font-semibold transition-transform motion-safe:hover:-translate-y-0.5 sm:w-auto sm:text-lg ${FOCUS_RING}`}
+            style={{
+              backgroundColor: cta.bg,
+              color: cta.text,
+              fontFamily: BODY,
+              outlineColor: accent,
+              padding: "1.125rem 2.25rem",
+              boxShadow: `0 20px 56px -18px color-mix(in srgb, ${hasImage ? cta.bg : accentRaw} 65%, transparent)`,
+            }}
           >
             {props.ctaLabel || "Get started"}
           </CtaButton>
@@ -61,8 +120,15 @@ export function BlockFullBleedFinalCta({ props, brand, onFieldChange }: Props) {
             ctaUrl={props.ctaSecondaryUrl}
             brand={brand}
             source="full-bleed-final-cta-secondary"
-            className="inline-flex items-center justify-center rounded-xl border px-8 py-4 text-base font-semibold"
-            style={{ borderColor: `${ink}66`, color: ink, fontFamily: BODY }}
+            className={`inline-flex w-full items-center justify-center rounded-full border text-base font-semibold transition-colors sm:w-auto sm:text-lg ${FOCUS_RING}`}
+            style={{
+              borderColor: `color-mix(in srgb, ${ink} 26%, transparent)`,
+              background: `color-mix(in srgb, ${ink} 6%, transparent)`,
+              color: ink,
+              fontFamily: BODY,
+              outlineColor: accent,
+              padding: "1.125rem 2.25rem",
+            }}
           >
             {props.ctaSecondaryLabel || "Talk to sales"}
           </CtaButton>
@@ -73,11 +139,8 @@ export function BlockFullBleedFinalCta({ props, brand, onFieldChange }: Props) {
 
   return (
     <section
-      className="relative w-full overflow-hidden px-6 py-24 sm:py-32"
-      style={{
-        background: surface.background,
-        fontFamily: BODY,
-      }}
+      className="relative w-full overflow-hidden px-6 py-28 sm:py-36"
+      style={{ background: surface.background, fontFamily: BODY }}
     >
       {hasImage && (
         <div
@@ -91,25 +154,30 @@ export function BlockFullBleedFinalCta({ props, brand, onFieldChange }: Props) {
       )}
       {hasImage && <div className="absolute inset-0" style={{ backgroundColor: `rgba(15,23,42,${overlay})` }} />}
       {!hasImage && (
-        <>
+        <div aria-hidden className="pointer-events-none absolute inset-0">
+          {/* One controlled brand glow above the headline… */}
           <div
-            aria-hidden
-            className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full blur-3xl opacity-20"
-            style={{ background: `radial-gradient(circle, ${ink}, transparent 70%)` }}
+            className="absolute left-1/2 top-[-30%] h-[80%] w-[70%] -translate-x-1/2 rounded-full blur-3xl"
+            style={{ background: `radial-gradient(closest-side, color-mix(in srgb, ${accentRaw} 26%, transparent), transparent 70%)` }}
           />
+          {/* …a faint primary counter-glow below… */}
           <div
-            aria-hidden
-            className="pointer-events-none absolute -bottom-28 -right-20 h-80 w-80 rounded-full blur-3xl opacity-[0.12]"
-            style={{ background: `radial-gradient(circle, ${ink}, transparent 70%)` }}
+            className="absolute bottom-[-35%] right-[10%] h-[70%] w-[55%] rounded-full blur-3xl"
+            style={{ background: `radial-gradient(closest-side, color-mix(in srgb, ${brand.primaryColor} 18%, transparent), transparent 70%)` }}
           />
-        </>
+          {/* …and a vignette to keep copy contrast steady. */}
+          <div
+            className="absolute inset-0"
+            style={{ background: `radial-gradient(85% 65% at 50% 45%, transparent 0%, color-mix(in srgb, ${base} 70%, transparent) 100%)` }}
+          />
+        </div>
       )}
       {onFieldChange ? (
-        <div className="container relative z-10 mx-auto max-w-3xl text-center" style={{ color: ink }}>
+        <div className="container relative z-10 mx-auto max-w-4xl text-center" style={{ color: ink }}>
           {ctaContent}
         </div>
       ) : (
-        <Reveal className="container relative z-10 mx-auto max-w-3xl text-center" style={{ color: ink }}>
+        <Reveal className="container relative z-10 mx-auto max-w-4xl text-center" style={{ color: ink }}>
           {ctaContent}
         </Reveal>
       )}

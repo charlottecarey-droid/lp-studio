@@ -94,7 +94,7 @@ export function BlockSection({ props, onFieldChange, childrenSlot, isBuilder }: 
             style={{
               fontSize: 11,
               fontWeight: 600,
-              letterSpacing: "0.15em",
+              letterSpacing: "0.22em",
               textTransform: "uppercase",
               color: eyebrowColor,
               alignSelf: align === "center" ? "center" : undefined,
@@ -107,10 +107,10 @@ export function BlockSection({ props, onFieldChange, childrenSlot, isBuilder }: 
             value={headline ?? ""}
             onUpdate={field("headline")}
             style={{
-              fontSize: "clamp(1.5rem, 3vw, 2.25rem)",
-              fontWeight: 600,
-              letterSpacing: "-0.015em",
-              lineHeight: 1.15,
+              fontSize: "clamp(1.75rem, 3.2vw, 2.5rem)",
+              fontWeight: "var(--brand-heading-weight, 700)" as unknown as number,
+              letterSpacing: "-0.02em",
+              lineHeight: 1.12,
               alignSelf: align === "center" ? "center" : undefined,
               fontFamily: DISPLAY,
             }}/>

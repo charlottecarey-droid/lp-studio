@@ -71,6 +71,16 @@ export function MediaFeatureReelPanel({ props, onChange, brandVoiceSet }: Props)
           />
           <p className="text-[11px] text-muted-foreground mt-1">Shown before the video plays.</p>
         </div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Frame label</Label>
+          <Input
+            value={props.frameLabel ?? ""}
+            onChange={(e) => update({ frameLabel: e.target.value })}
+            className="h-8 text-xs"
+            placeholder="e.g. yourproduct.com/reel (optional)"
+          />
+          <p className="text-[11px] text-muted-foreground mt-1">Shown in the player's chrome bar above the video.</p>
+        </div>
       </div>
 
       <div className="space-y-3">

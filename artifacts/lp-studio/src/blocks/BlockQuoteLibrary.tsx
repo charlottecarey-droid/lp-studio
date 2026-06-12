@@ -1,15 +1,26 @@
-import { Star, ArrowRight, Quote } from "lucide-react";
+import { Star, ArrowRight } from "lucide-react";
+import { useReducedMotion } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { QuoteLibraryBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
+import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
-import { Reveal, RevealStagger, RevealItem, AccentGlow } from "@/lib/premium-toolkit";
+import { Reveal, RevealStagger, RevealItem } from "@/lib/premium-toolkit";
+import { cn } from "@/lib/utils";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
+
+/* ----------------------------------------------------------------------------
+ * Quote Library — a mixed masonry wall. Left-aligned editorial header, CSS
+ * columns with deliberately varied card treatments: one featured card (larger
+ * display-type quote, accent ring), periodic soft accent-tinted cards, plain
+ * cards in between. Avatars support photos with an initials fallback. Cards
+ * stagger-reveal on scroll (static under prefers-reduced-motion).
+ * -------------------------------------------------------------------------- */
 
 interface Props {
   props: QuoteLibraryBlockProps;
@@ -17,18 +28,35 @@ interface Props {
   onFieldChange?: (updated: QuoteLibraryBlockProps) => void;
 }
 
+/** "Maya Chen" → "MC"; single word → first two letters; empty → "•". */
+function initialsOf(name: string): string {
+  const words = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "•";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+}
+
 export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
   const bgSurface = resolveSectionSurface(props, "#F8FAFC");
   const text = props.textColor ?? bgSurface.color ?? "#0F172A";
-  const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const surface = pickContrastingColor(undefined, bgSurface.base, ["#FFFFFF", "#1E293B"]);
+  // Brand-derived accent: panel override → brand accent → brand primary.
+  const accent = props.accentColor ?? brand.accentColor ?? brand.primaryColor ?? "#0F172A";
   const muted = pickContrastingColor(undefined, bgSurface.base, ["#64748B", "#94A3B8"]);
-  const border = `${text}1f`;
+  const border = `color-mix(in srgb, ${text} 12%, transparent)`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   const showCta = props.showCta ?? true;
+  const reduce = useReducedMotion() ?? false;
+  const animate = !onFieldChange && !reduce;
+
+  // Card base contrasts with the section; in-card colors derive from it.
+  const cardBg = pickContrastingColor(undefined, bgSurface.base, ["#FFFFFF", "#1E293B"]);
+  const cardText = pickContrastingColor(undefined, cardBg, ["#0F172A", "#F8FAFC"]);
+  const cardMuted = pickContrastingColor(undefined, cardBg, ["#64748B", "#94A3B8"]);
+  const cardBorder = `color-mix(in srgb, ${cardText} 9%, transparent)`;
 
   const testimonials = props.testimonials ?? [];
-  const animate = !onFieldChange;
+  // One featured card by default (the first); explicit per-item flags win.
+  const hasExplicitFeatured = testimonials.some((t) => t.featured !== undefined);
 
   const update = <K extends keyof QuoteLibraryBlockProps>(key: K, value: QuoteLibraryBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -38,117 +66,180 @@ export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
     onFieldChange({ ...props, testimonials: testimonials.map((t, idx) => (idx === i ? { ...t, ...patch } : t)) });
   };
 
+  const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
+
   return (
-    <section className="relative w-full overflow-hidden py-24 sm:py-32 flex flex-col items-center" style={{ background: bgSurface.background, color: text }}>
-      <AccentGlow color={accent} isDark={bgSurface.isDark} />
-      <div className="relative z-10 container mx-auto px-6 max-w-7xl">
-        <Reveal disabled={!animate} className="max-w-3xl mx-auto text-center mb-16 md:mb-24 flex flex-col items-center gap-4">
+    <section
+      className="relative w-full overflow-hidden py-16 sm:py-20"
+      style={{ background: bgSurface.background, color: text }}
+    >
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-6 md:px-10">
+        {/* ── Left-aligned editorial header ── */}
+        <Reveal disabled={!animate} className="mb-10 max-w-2xl md:mb-12">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
               as="span"
               value={props.eyebrow ?? ""}
               onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined}
-              className="text-sm font-bold uppercase tracking-[0.2em]"
+              className="mb-3 block text-[11px] font-bold uppercase tracking-[0.22em]"
               style={{ color: accent, fontFamily: BODY }} />
           )}
           <InlineText
             as="h2"
             value={props.headline}
             onUpdate={onFieldChange ? (v) => update("headline", v) : undefined}
-            className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight"
-            style={{ color: text, fontFamily: DISPLAY }} />
+            className="font-bold tracking-tight"
+            style={{ color: text, fontFamily: DISPLAY, fontSize: "clamp(1.875rem, 4vw, 2.75rem)", lineHeight: 1.1 }}
+            multiline />
           {(props.subheadline || onFieldChange) && (
             <InlineText
               as="p"
               value={props.subheadline ?? ""}
               onUpdate={onFieldChange ? (v) => update("subheadline", v) : undefined}
-              className="text-lg md:text-xl max-w-2xl mt-2"
+              className="mt-3 max-w-xl text-base leading-relaxed md:text-lg"
               style={{ color: muted, fontFamily: BODY }}
               multiline />
           )}
         </Reveal>
 
-        <RevealStagger disabled={!animate} className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
-          {testimonials.map((t, i) => (
-            <RevealItem
-              key={t.id || i}
-              className="group relative break-inside-avoid flex flex-col gap-6 overflow-hidden p-8 rounded-2xl shadow-sm border transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_48px_-18px_rgba(15,23,42,0.22)]"
-              style={{ backgroundColor: surface, borderColor: border }}
-            >
-              <Quote
-                aria-hidden
-                className="pointer-events-none absolute -right-3 -top-3 h-20 w-20 select-none opacity-[0.06] transition-opacity duration-300 group-hover:opacity-[0.12]"
-                style={{ color: accent }}
-                strokeWidth={1}
-              />
-              {t.rating ? (
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: 5 }).map((_, s) => (
-                    <Star
-                      key={s}
-                      className="w-4 h-4"
-                      style={{
-                        fill: s < t.rating! ? accent : "transparent",
-                        color: s < t.rating! ? accent : border,
-                      }}
-                    />
-                  ))}
-                </div>
-              ) : null}
-
-              <InlineText
-                as="blockquote"
-                value={t.quote}
-                onUpdate={onFieldChange ? (v) => updateTestimonial(i, { quote: v }) : undefined}
-                className="text-lg font-medium leading-relaxed"
-                style={{ color: text, fontFamily: BODY }}
-                multiline />
-
-              <div className="flex items-center gap-4 mt-auto pt-2">
-                <div
-                  className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shrink-0"
-                  style={{ backgroundColor: `${accent}15`, color: accent }}
+        {/* ── Mixed masonry wall ── */}
+        <RevealStagger disabled={!animate} className="columns-1 gap-5 sm:columns-2 lg:columns-3">
+          {testimonials.map((t, i) => {
+            const featured = t.featured ?? (!hasExplicitFeatured && i === 0);
+            const tinted = !featured && (t.tinted ?? i % 3 === 2);
+            const cardStyle: React.CSSProperties = {
+              backgroundColor: cardBg,
+              borderColor: cardBorder,
+              boxShadow: `0 1px 2px color-mix(in srgb, ${cardText} 4%, transparent), 0 16px 40px -28px color-mix(in srgb, ${cardText} 28%, transparent)`,
+              ...(tinted
+                ? { background: `color-mix(in srgb, ${accent} ${bgSurface.isDark ? "12%" : "6%"}, ${cardBg})` }
+                : null),
+              ...(featured
+                ? {
+                    border: `1.5px solid color-mix(in srgb, ${accent} 50%, transparent)`,
+                    boxShadow: `0 0 0 4px color-mix(in srgb, ${accent} 8%, transparent), 0 16px 40px -28px color-mix(in srgb, ${cardText} 30%, transparent)`,
+                  }
+                : null),
+            };
+            return (
+              <RevealItem
+                key={t.id || i}
+                className="mb-5 break-inside-avoid"
+              >
+                <figure
+                  className={cn(
+                    "flex flex-col rounded-2xl border transition-transform duration-300 motion-safe:hover:-translate-y-1",
+                    featured ? "gap-5 p-7 md:p-9" : "gap-4 p-6 md:p-7",
+                  )}
+                  style={cardStyle}
                 >
-                  {t.avatarInitials || t.author.charAt(0)}
-                </div>
-                <div className="flex flex-col">
+                  {featured && (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none block select-none leading-[0.5]"
+                      style={{ fontFamily: DISPLAY, fontSize: "3rem", color: accent, opacity: 0.3 }}
+                    >
+                      &ldquo;
+                    </span>
+                  )}
+                  {t.rating ? (
+                    <div
+                      role="img"
+                      aria-label={`Rated ${Math.min(5, t.rating)} out of 5 stars`}
+                      className="flex items-center gap-1"
+                    >
+                      {Array.from({ length: 5 }).map((_, s) => (
+                        <Star
+                          key={s}
+                          aria-hidden
+                          className="h-3.5 w-3.5"
+                          style={{
+                            color: s < Math.min(5, t.rating!) ? accent : `color-mix(in srgb, ${cardText} 18%, transparent)`,
+                            fill: s < Math.min(5, t.rating!) ? accent : "transparent",
+                          }}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+
                   <InlineText
-                    as="span"
-                    value={t.author}
-                    onUpdate={onFieldChange ? (v) => updateTestimonial(i, { author: v }) : undefined}
-                    className="font-bold text-sm"
-                    style={{ color: text, fontFamily: BODY }} />
-                  <span className="text-sm" style={{ color: muted, fontFamily: BODY }}>
-                    <InlineText
-                      as="span"
-                      value={t.role}
-                      onUpdate={onFieldChange ? (v) => updateTestimonial(i, { role: v }) : undefined}
-                      className="inline"
-                      style={{ color: muted }} />
-                    {", "}
-                    <InlineText
-                      as="span"
-                      value={t.company}
-                      onUpdate={onFieldChange ? (v) => updateTestimonial(i, { company: v }) : undefined}
-                      className="inline"
-                      style={{ color: muted }} />
-                  </span>
-                </div>
-              </div>
-            </RevealItem>
-          ))}
+                    as="blockquote"
+                    value={t.quote}
+                    onUpdate={onFieldChange ? (v) => updateTestimonial(i, { quote: v }) : undefined}
+                    className={cn("text-balance leading-relaxed", featured ? "font-medium tracking-tight" : "")}
+                    style={{
+                      color: cardText,
+                      fontFamily: featured ? DISPLAY : BODY,
+                      fontSize: featured ? "clamp(1.125rem, 2vw, 1.375rem)" : "0.9375rem",
+                      lineHeight: featured ? 1.35 : 1.6,
+                    }}
+                    multiline />
+
+                  <figcaption className="mt-auto flex items-center gap-3 pt-1">
+                    {t.avatarUrl ? (
+                      <InlineImage
+                        src={t.avatarUrl}
+                        alt={`${t.author} portrait`}
+                        onUpdate={onFieldChange ? (url) => updateTestimonial(i, { avatarUrl: url }) : undefined}
+                        className="h-9 w-9 shrink-0 rounded-full object-cover"
+                        wrapperClassName="shrink-0"
+                        style={{ border: `1px solid ${cardBorder}` }}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span
+                        aria-hidden
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                        style={{
+                          background: `color-mix(in srgb, ${accent} 12%, transparent)`,
+                          color: accent,
+                          fontFamily: BODY,
+                        }}
+                      >
+                        {t.avatarInitials || initialsOf(t.author)}
+                      </span>
+                    )}
+                    <span className="flex min-w-0 flex-col">
+                      <InlineText
+                        as="span"
+                        value={t.author}
+                        onUpdate={onFieldChange ? (v) => updateTestimonial(i, { author: v }) : undefined}
+                        className="truncate text-sm font-semibold leading-tight"
+                        style={{ color: cardText, fontFamily: BODY }} />
+                      <span className="mt-0.5 truncate text-xs leading-tight" style={{ color: cardMuted, fontFamily: BODY }}>
+                        <InlineText
+                          as="span"
+                          value={t.role}
+                          onUpdate={onFieldChange ? (v) => updateTestimonial(i, { role: v }) : undefined}
+                          className="inline"
+                          style={{ color: cardMuted }} />
+                        {" · "}
+                        <InlineText
+                          as="span"
+                          value={t.company}
+                          onUpdate={onFieldChange ? (v) => updateTestimonial(i, { company: v }) : undefined}
+                          className="inline"
+                          style={{ color: cardMuted }} />
+                      </span>
+                    </span>
+                  </figcaption>
+                </figure>
+              </RevealItem>
+            );
+          })}
         </RevealStagger>
 
+        {/* ── Compact CTA band ── */}
         {showCta && (
-          <Reveal disabled={!animate} className="mt-24 pt-16 border-t" style={{ borderColor: border }}>
-            <div className="flex flex-col items-center gap-7 text-center">
-              <div className="flex flex-col items-center gap-3">
+          <Reveal disabled={!animate} className="mt-14 border-t pt-10" style={{ borderColor: border }}>
+            <div className="flex flex-col items-center gap-6 text-center">
+              <div className="flex flex-col items-center gap-2.5">
                 {(props.ctaEyebrow || onFieldChange) && (
                   <InlineText
                     as="span"
                     value={props.ctaEyebrow ?? ""}
                     onUpdate={onFieldChange ? (v) => update("ctaEyebrow", v) : undefined}
-                    className="text-xs font-bold uppercase tracking-[0.18em]"
+                    className="text-[11px] font-bold uppercase tracking-[0.22em]"
                     style={{ color: accent, fontFamily: BODY }} />
                 )}
                 {(props.ctaHeading || onFieldChange) && (
@@ -156,7 +247,7 @@ export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
                     as="h3"
                     value={props.ctaHeading ?? ""}
                     onUpdate={onFieldChange ? (v) => update("ctaHeading", v) : undefined}
-                    className="text-2xl font-extrabold tracking-tight md:text-3xl"
+                    className="text-2xl font-bold tracking-tight md:text-3xl"
                     style={{ color: text, fontFamily: DISPLAY }} />
                 )}
                 {(props.ctaSubheading || onFieldChange) && (
@@ -164,7 +255,7 @@ export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
                     as="p"
                     value={props.ctaSubheading ?? ""}
                     onUpdate={onFieldChange ? (v) => update("ctaSubheading", v) : undefined}
-                    className="max-w-xl text-base md:text-lg"
+                    className="max-w-xl text-base leading-relaxed"
                     style={{ color: muted, fontFamily: BODY }}
                     multiline />
                 )}
@@ -176,11 +267,14 @@ export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
                     ctaUrl={props.ctaPrimaryUrl}
                     brand={brand}
                     source="quote-library-cta"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold"
-                    style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY }}
+                    className={cn(
+                      "inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5 text-base font-semibold shadow-sm transition-transform duration-200 motion-safe:hover:-translate-y-0.5",
+                      focusRing,
+                    )}
+                    style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY, outlineColor: accent }}
                   >
                     {props.ctaPrimaryLabel || "Get started"}
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-4 w-4" aria-hidden />
                   </CtaButton>
                 )}
                 {(props.ctaSecondaryLabel || onFieldChange) && (
@@ -189,8 +283,11 @@ export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
                     ctaUrl={props.ctaSecondaryUrl}
                     brand={brand}
                     source="quote-library-cta-secondary"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border px-6 py-3.5 text-base font-semibold"
-                    style={{ borderColor: `${text}33`, color: text, fontFamily: BODY }}
+                    className={cn(
+                      "inline-flex items-center justify-center gap-2 rounded-full border px-7 py-3.5 text-base font-semibold transition-transform duration-200 motion-safe:hover:-translate-y-0.5",
+                      focusRing,
+                    )}
+                    style={{ borderColor: `color-mix(in srgb, ${text} 22%, transparent)`, color: text, fontFamily: BODY, outlineColor: accent }}
                   >
                     {props.ctaSecondaryLabel || "Talk to sales"}
                   </CtaButton>

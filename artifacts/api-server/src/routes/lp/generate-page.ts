@@ -1395,8 +1395,11 @@ export function collectImageSlots(
 
   // Scalar imageUrl purpose mirrors fillEmptyImages: hero blocks + the two DSO
   // hero blocks want lp-hero, everything else wants lp-feature.
+  // launch-spotlight-hero's scalar imageUrl is its glass-frame product
+  // screenshot — a hero-grade slot.
   const heroScalar =
     blockType === "hero" ||
+    blockType === "launch-spotlight-hero" ||
     blockType === "dso-heartland-hero" ||
     blockType === "dso-scroll-story-hero";
 
@@ -1413,6 +1416,8 @@ export function collectImageSlots(
   };
 
   pushScalar("imageUrl", heroScalar ? "lp-hero" : "lp-feature", blockContext);
+  // bento-mosaic-hero's large mosaic image tile — hero-grade slot.
+  pushScalar("imageTileUrl", "lp-hero", blockContext);
   pushScalar("backgroundImageUrl", "lp-hero", blockContext);
   // `backgroundImage` is the full-bleed section/hero background used by
   // event-landing-hero and the dso-* section blocks (challenges, comparison,
@@ -1496,7 +1501,10 @@ export function collectImageSlots(
   // key (not the `image` key handled above): columns-v2 / switchback items[] and
   // vertical-tabs tabs[]. Tracked here so the fill pass dedupes them too.
   pushArrField(props.items, "imageUrl", "lp-feature", it => `${it.title ?? ""} ${it.description ?? ""}`);
-  pushArrField(props.tabs, "imageUrl", "lp-feature", it => `${it.title ?? ""} ${it.description ?? ""}`);
+  // feature-tabs-showcase tabs are product screenshots in a browser frame →
+  // product-detail; dandy-vertical-tabs tabs keep the lp-feature treatment.
+  const tabsPurpose = blockType === "feature-tabs-showcase" ? "product-detail" : "lp-feature";
+  pushArrField(props.tabs, "imageUrl", tabsPurpose, it => `${it.title ?? ""} ${it.description ?? ""}`);
   pushArrField(props.cases, "image", "lp-feature", it => `${it.name ?? ""} ${it.author ?? ""}`);
   pushArrField(props.slides, "src", "lp-feature", it => `${it.caption ?? ""} ${it.headline ?? ""}`);
   // NOTE: case-study-logo-results-row results[].logoUrl is intentionally NOT
@@ -1507,6 +1515,13 @@ export function collectImageSlots(
   // falls back to the company name only. Mirrors the trust-bar exclusion.
   // NOTE: media-thumbnail-grid videos[].posterUrl is intentionally NOT collected —
   // video thumbnails are author-controlled and must never be auto-added/swapped.
+  // NOTE: testimonial-wall testimonials[].avatarUrl / logoUrl are intentionally
+  // NOT collected — they are REAL customer faces/marks (tenant-supplied).
+  // Auto-filling them would fabricate false proof; the block renders an
+  // initials circle / no logo until the tenant uploads assets. Likewise
+  // launch-spotlight-hero logos[].imageUrl (trust-logo row) is never collected
+  // — name-only wordmarks render until real customer logos are supplied
+  // (mirrors the logo-wall / logo-marquee / results-row logo exclusions).
 
   // blog-series (editorial archive) + storefront (DTC shop) premium full-page blocks
   pushArrField(props.articles, "imageUrl", "lp-feature", it => `${it.category ?? ""} ${it.title ?? ""} ${it.excerpt ?? ""}`);
@@ -2278,8 +2293,9 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
 
     // ── Standard LP blocks ──────────────────────────────────────────────
 
-    // Hero imageUrl → prefer lifestyle/people shots
-    if (blockType === "hero" && "imageUrl" in props && !props.imageUrl) {
+    // Hero imageUrl → prefer lifestyle/people shots. launch-spotlight-hero's
+    // scalar imageUrl is its glass-frame product screenshot — hero-grade.
+    if ((blockType === "hero" || blockType === "launch-spotlight-hero") && "imageUrl" in props && !props.imageUrl) {
       props.imageUrl = pick(blockContext, images, usedIds, "lp-hero");
     } else if (!blockType.startsWith("dso-") && "imageUrl" in props && !props.imageUrl) {
       // Other standard single-imageUrl blocks → feature images. This generic
@@ -2528,6 +2544,39 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
     if (blockType === "full-bleed-hero" && !props.backgroundImageUrl) {
       props.backgroundImageUrl = pick(blockContext, images, usedIds, "lp-hero");
     }
+
+    // ── June-2026 modern block wave ─────────────────────────────────────
+    // bento-mosaic-hero: large mosaic image tile — hero-grade slot.
+    if (blockType === "bento-mosaic-hero" && !props.imageTileUrl) {
+      props.imageTileUrl = pick(blockContext, images, usedIds, "lp-hero");
+    }
+    // glass-bento-features: ONLY the span:"hero" card carries a real image —
+    // the support cards are icon/stat cards and must never get a photo.
+    if (blockType === "glass-bento-features" && Array.isArray(props.cards)) {
+      props.cards = (props.cards as Record<string, unknown>[]).map((card) => {
+        if (card.span === "hero" && !card.imageUrl) {
+          const ctx = `${card.title ?? ""} ${card.body ?? ""}`;
+          return { ...card, imageUrl: pick(ctx, images, usedIds, "lp-feature") };
+        }
+        return card;
+      });
+    }
+    // feature-tabs-showcase: per-tab product screenshots → product-detail.
+    // Like other product-detail slots the pick matches on the tab's OWN
+    // subject (biasPage=false) so a generic on-vertical shot can't outscore
+    // the real subject match.
+    if (blockType === "feature-tabs-showcase" && Array.isArray(props.tabs)) {
+      props.tabs = (props.tabs as Record<string, unknown>[]).map((tab) => {
+        if (!tab.imageUrl) {
+          const ctx = `${tab.title ?? ""} ${tab.description ?? ""}`;
+          return { ...tab, imageUrl: pick(ctx, images, usedIds, "product-detail", false) };
+        }
+        return tab;
+      });
+    }
+    // NOTE: testimonial-wall avatars/logos and launch-spotlight-hero trust
+    // logos are intentionally NOT auto-filled (tenant-supplied customer
+    // assets; see the collectImageSlots exclusion note).
     // sticky-stack cards
     if (blockType === "sticky-stack" && Array.isArray(props.cards)) {
       props.cards = (props.cards as Record<string, unknown>[]).map((card) => {
@@ -2683,6 +2732,7 @@ export async function aiFillEmptyImages(
     const isHero =
       blockType === "hero" ||
       blockType === "full-bleed-hero" ||
+      blockType === "launch-spotlight-hero" ||
       blockType === "dso-heartland-hero" ||
       blockType === "dso-scroll-story-hero";
 
@@ -3030,6 +3080,10 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     if (typeof props.heroImageUrl === "string" && props.heroImageUrl) {
       props.heroImageUrl = cleanUrl(props.heroImageUrl);
     }
+    // bento-mosaic-hero's large mosaic image tile.
+    if (typeof props.imageTileUrl === "string" && props.imageTileUrl) {
+      props.imageTileUrl = cleanUrl(props.imageTileUrl);
+    }
     // NOTE: video poster stills (posterUrl) are intentionally left untouched here.
     // A video's thumbnail is author-controlled and must never be cleared/swapped by
     // the image pipeline (e.g. on template creation or "replace imagery").
@@ -3190,6 +3244,27 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
       props.tabs = (props.tabs as Record<string, unknown>[]).map(tab => ({
         ...tab,
         imageUrl: typeof tab.imageUrl === "string" ? cleanUrl(tab.imageUrl) : tab.imageUrl,
+      }));
+    }
+
+    // Tenant-asset slots (testimonial-wall testimonials[].avatarUrl / logoUrl,
+    // launch-spotlight-hero logos[].imageUrl) are author-controlled customer
+    // assets: clean any URL the model emits through the same allowlist so a
+    // hallucinated host can't fabricate a customer face/mark, while authored
+    // template values (tenant uploads / library assets) pass through verbatim.
+    // They are never auto-filled, deduped, or cleared elsewhere — see the
+    // collectImageSlots exclusion note.
+    if (blockType === "testimonial-wall" && Array.isArray(props.testimonials)) {
+      props.testimonials = (props.testimonials as Record<string, unknown>[]).map(t => ({
+        ...t,
+        avatarUrl: typeof t.avatarUrl === "string" ? cleanUrl(t.avatarUrl) : t.avatarUrl,
+        logoUrl: typeof t.logoUrl === "string" ? cleanUrl(t.logoUrl) : t.logoUrl,
+      }));
+    }
+    if (blockType === "launch-spotlight-hero" && Array.isArray(props.logos)) {
+      props.logos = (props.logos as Record<string, unknown>[]).map(l => ({
+        ...l,
+        imageUrl: typeof l.imageUrl === "string" ? cleanUrl(l.imageUrl) : l.imageUrl,
       }));
     }
 
@@ -4958,7 +5033,7 @@ RULES:
 1. Return ONLY a valid JSON object — no markdown, no explanation, no code fences.
 2. The JSON must have: { "title": string, "slug": string, "blocks": [...] }
 3. Each block must have: { "id": string (unique, format "block-TYPE-INDEX"), "type": string, "props": {...} }
-4. Generate 5-10 blocks per page. START with exactly ONE hero-class block, chosen to fit the brand's personality (see BRAND CONTEXT): "hero" (clean SaaS/B2B), "full-bleed-hero" (visual / consumer / lifestyle brands), "magazine-hero" (premium / editorial / storytelling brands), "parallax-image-hero" (cinematic brands), "dso-heartland-hero" (bold B2B/enterprise hero with a built-in nav and stat bar), "cinematic-video-hero" (atmospheric, video-led brands), "aurora-gradient-hero" (modern software / AI / tech), "editorial-split-hero" (premium / design-led / luxury), "parallax-layers-hero" (bold, cinematic, high-impact), "spotlight-glow-hero" (developer tools / technical SaaS), "dandy-product-hero" (premium product-led hero with an inline email-capture pill and a product image that bleeds off the corner), or "dandy-hero-v7-s3" (centered conversion hero with an inline email form and a row of trust stats). NEVER use more than one hero-class block on a page. End the page with a closing "bottom-cta" followed by a "footer" block.
+4. Generate 5-10 blocks per page. START with exactly ONE hero-class block, chosen to fit the brand's personality (see BRAND CONTEXT): "hero" (clean SaaS/B2B), "full-bleed-hero" (visual / consumer / lifestyle brands), "magazine-hero" (premium / editorial / storytelling brands), "parallax-image-hero" (cinematic brands), "dso-heartland-hero" (bold B2B/enterprise hero with a built-in nav and stat bar), "cinematic-video-hero" (atmospheric, video-led brands), "aurora-gradient-hero" (modern software / AI / tech), "editorial-split-hero" (premium / design-led / luxury), "parallax-layers-hero" (bold, cinematic, high-impact), "spotlight-glow-hero" (developer tools / technical SaaS), "launch-spotlight-hero" (dark premium product launches / modern SaaS), "bento-mosaic-hero" (split hero with a bento mosaic of image/stat/quote tiles), "kinetic-type-hero" (typography-only editorial statement hero), "dandy-product-hero" (premium product-led hero with an inline email-capture pill and a product image that bleeds off the corner), or "dandy-hero-v7-s3" (centered conversion hero with an inline email form and a row of trust stats). NEVER use more than one hero-class block on a page. End the page with a closing "bottom-cta" followed by a "footer" block.
 5. All copy must be specific, punchy, and conversion-focused — never use placeholder or lorem ipsum text. Every multi-item array MUST hit the per-block minimum count stated in AVAILABLE BLOCK TYPES above. Empty arrays, 1–3 word stubs ("Slow", "Fast", "Better"), and generic platitudes ("industry-leading", "best-in-class") are failures — the block renders broken.
 6. Make the copy match the prompt's topic, industry, and audience.
 7. For form blocks, create realistic fields with proper types (email, phone, text, select, textarea).
@@ -4979,8 +5054,8 @@ RULES:
 11. Always include at least one image-bearing block type (hero with image, zigzag-features, photo-strip, or product-grid) to make pages visually rich.
 12. CAPITALIZATION: Always use sentence casing — first word of every sentence is capitalized only — unless you are using acronyms, names, cities, states, countries, or other proper nouns, or specific product names from the BRAND CONTEXT. Headlines and all copy should follow sentence casing as a general rule. NEVER use all-lowercase. Examples: "Get more done in less time" (correct), "Get More Done In Less Time" (wrong — no title case), "get more done in less time" (wrong — no all-lowercase).
 13. When the user provides specific numbers or stats in their prompt, use those EXACT numbers. Do not invent different statistics.
-14. NAVIGATION: every page needs a top nav and an end footer — EXCEPT a page that is a single full-page block ("content-series", "blog-series", "storefront", or ANY block whose schema describes it as "A COMPLETE, full-page block"). Those are self-contained pages that render their OWN nav AND footer, so when you use one as the page's only block, NEVER add a separate "nav-header" or "footer" block alongside it (that produces a duplicate stacked nav/footer). For all OTHER (multi-block) pages: Heroes that render their OWN sticky nav — "hero", "full-bleed-hero", "dso-heartland-hero", "cinematic-video-hero", "aurora-gradient-hero", "editorial-split-hero", "parallax-layers-hero", and "spotlight-glow-hero" — must be the page's FIRST block; NEVER prepend a "nav-header" before them (that produces two stacked navs). Heroes that do NOT render a nav — "magazine-hero" and "parallax-image-hero" — MUST be preceded by a "nav-header" block as the page's first block. Always end the page with a "footer" block.
-15. VARY THE STRUCTURE PER BRAND — never emit the same block sequence every time. Read the brand's personality from BRAND CONTEXT (tone, style keywords, design feel, colors) and choose blocks to match it: premium/editorial brands lean on magazine-hero, bold-statement, editorial-carousel, bento-showcase; energetic/visual/consumer brands lean on full-bleed-hero, sticky-stack, horizontal-showcase, before-after-gallery; straightforward B2B leans on hero, benefits-grid, comparison, zigzag-features. Include AT LEAST 2 SHOWCASE blocks (full-bleed-hero, magazine-hero, cinematic-video-hero, aurora-gradient-hero, editorial-split-hero, parallax-layers-hero, spotlight-glow-hero, parallax-image-hero, sticky-stack, horizontal-showcase, bento-showcase, bold-statement, before-after-gallery, gallery-carousel-spotlight, gallery-filmstrip, gallery-masonry, gallery-split-feature, case-study-card-grid, case-study-spotlight-feature, media-feature-reel, media-looping-showcase, media-thumbnail-grid, media-video-split, cta-split-image, editorial-carousel, scroll-assembly, video-section) on every page so two different brands never produce identical-looking pages.
+14. NAVIGATION: every page needs a top nav and an end footer — EXCEPT a page that is a single full-page block ("content-series", "blog-series", "storefront", or ANY block whose schema describes it as "A COMPLETE, full-page block"). Those are self-contained pages that render their OWN nav AND footer, so when you use one as the page's only block, NEVER add a separate "nav-header" or "footer" block alongside it (that produces a duplicate stacked nav/footer). For all OTHER (multi-block) pages: Heroes that render their OWN sticky nav — "hero", "full-bleed-hero", "dso-heartland-hero", "cinematic-video-hero", "aurora-gradient-hero", "editorial-split-hero", "parallax-layers-hero", and "spotlight-glow-hero" — must be the page's FIRST block; NEVER prepend a "nav-header" before them (that produces two stacked navs). Heroes that do NOT render a nav — "magazine-hero", "parallax-image-hero", "launch-spotlight-hero", "bento-mosaic-hero", and "kinetic-type-hero" — MUST be preceded by a "nav-header" block as the page's first block. Always end the page with a "footer" block.
+15. VARY THE STRUCTURE PER BRAND — never emit the same block sequence every time. Read the brand's personality from BRAND CONTEXT (tone, style keywords, design feel, colors) and choose blocks to match it: premium/editorial brands lean on magazine-hero, bold-statement, editorial-carousel, bento-showcase; energetic/visual/consumer brands lean on full-bleed-hero, sticky-stack, horizontal-showcase, before-after-gallery; straightforward B2B leans on hero, benefits-grid, comparison, zigzag-features. Include AT LEAST 2 SHOWCASE blocks (full-bleed-hero, magazine-hero, cinematic-video-hero, aurora-gradient-hero, editorial-split-hero, parallax-layers-hero, spotlight-glow-hero, launch-spotlight-hero, bento-mosaic-hero, kinetic-type-hero, parallax-image-hero, sticky-stack, horizontal-showcase, bento-showcase, glass-bento-features, feature-tabs-showcase, stat-counter-band, bold-statement, before-after-gallery, gallery-carousel-spotlight, gallery-filmstrip, gallery-masonry, gallery-split-feature, case-study-card-grid, case-study-spotlight-feature, media-feature-reel, media-looping-showcase, media-thumbnail-grid, media-video-split, cta-split-image, editorial-carousel, scroll-assembly, video-section) on every page so two different brands never produce identical-looking pages.
 16. VIDEO: Only set videoUrl, backgroundType:"video", or backgroundVideoUrl when you have a REAL video URL provided in the brand assets or the DANDY VIDEOS section. Otherwise use backgroundType:"image" (full-bleed-hero) and leave image fields "" for the server to fill. NEVER invent or guess a video URL.
 17. ITEM COUNTS — match each block's canonical count: every repeating array MUST contain exactly the number of items stated in that block's schema in AVAILABLE BLOCK TYPES above. When a block says "EXACTLY N" use N; when it gives a range (e.g. "3–5"), pick a value inside the range and fully populate it. A block must look complete and balanced — e.g. "trust-bar" always has EXACTLY 4 items, never 2, 3, or 5. Never emit a block with fewer items than its minimum or a half-filled array.`;
 
@@ -5022,6 +5097,19 @@ const GENERAL_EXTRA_CORE_BLOCKS: string[] = [
 const GENERAL_EXTRA_SHOWCASE_BLOCKS: string[] = [
   `- "scroll-assembly": Cinematic scroll-driven assembly where text fragments, images, and shapes animate into place as the visitor scrolls — a bold, design-forward brand moment. Props: eyebrow (2–4 words), theme ("light"|"dark"), bgColor (hex or ""), decor ("minimal"|"orbs"|"grid"|"all"), grain (boolean), ctaText (2–5 words), ctaUrl ("#"), floatingImages (array of 0–4 image URLs — leave each ""), marqueeTags (array of 4–8 short label words), pieces (array of EXACTLY 4–8 of {kind ("text-display"|"text-headline"|"text-body"|"image"|"shape"), content (the text, or "" for image/shape), from ("left"|"right"|"top"|"bottom"|"scale"|"fade"), revealAt (number 0–1)}).`,
   `- "dso-heartland-hero": Bold full-bleed hero with an integrated sticky nav and a stat bar — a strong, conversion-focused hero for B2B and enterprise brands. Renders its OWN nav, so never precede it with a "nav-header". Props: headline (5–12 words), companyName (the brand name), eyebrow (2–4 words), subheadline (15–28 words), primaryCtaText (2–5 words), primaryCtaUrl ("#"), secondaryCtaText (2–4 words), secondaryCtaUrl ("#"), backgroundStyle ("dark"|"black"|"gradient" — pick to match the brand), layout ("full-bleed"|"split"), backgroundImageUrl ("" — for full-bleed), heroImageUrl ("" — for split), heroImageSide ("left"|"right"), stats (array of EXACTLY 3–4 of {value (metric), label (2–5 words)}), navLinks (array of 3–5 of {label (1–2 words), href ("#")}).`,
+  // ── June-2026 modern block wave (launch heroes / glass features / stats /
+  // testimonial wall / glass pricing / aurora CTA finale). Image fields stay ""
+  // for the server fill; testimonial-wall avatars/logos and launch-spotlight
+  // trust logos are tenant assets the model must NEVER set.
+  `- "launch-spotlight-hero": Dark premium launch hero — near-black surface with a radial brand-accent glow, a pulsing announcement chip, an oversized display headline with ONE accent-gradient word, dual CTAs, a product screenshot in a 3D-tilting glass browser frame, and a low-opacity trust-logo row. Does NOT render a nav — precede it with a "nav-header". Use for product launches and modern SaaS pages. Props: chipText (3–6 words, e.g. "Now live on Product Hunt"; "" hides the chip), chipHref ("#" or ""), headline (5–10 words), highlightWord (ONE word copied VERBATIM from the headline — rendered in the accent gradient), subheadline (15–28 words), ctaText (2–4 words, action verb first), ctaUrl ("#"), ctaSecondaryText (2–4 words), ctaSecondaryUrl ("#"), imageUrl ("" — server fills the product screenshot), imageAlt (4–8 words), showBrowserChrome (true), browserUrl (faux product URL, e.g. "app.acme.com"), logosLabel ("Trusted by teams at"), logos (array of EXACTLY 4–6 of {name (company name)} — name-only wordmarks; NEVER set a logo imageUrl).`,
+  `- "bento-mosaic-hero": Split hero — big editorial type on the left (eyebrow + headline + subheadline + dual CTAs), a 2-column bento mosaic on the right: a large image tile, a stat tile, an accent icon tile, and a mini-testimonial tile. Glass cards on dark, soft shadows on light. Does NOT render a nav — precede it with a "nav-header". Props: theme ("dark"|"light"), eyebrow (2–4 words), headline (5–10 words), subheadline (15–28 words), ctaText (2–4 words), ctaUrl ("#"), ctaSecondaryText (2–4 words), ctaSecondaryUrl ("#"), imageTileUrl ("" — server fills), imageTileAlt (4–8 words), statValue (short vivid metric, e.g. "4.9×" — use REAL numbers from the brief), statLabel (3–6 words), accentIcon (one of "Sparkles","Zap","Shield","Rocket","Gauge","Globe","Heart","Star","Layers","BarChart3","CheckCircle2"), accentPhrase (4–8 words), quoteText (12–25 words naming a concrete outcome), quoteAuthor (full name), quoteRole (title, company).`,
+  `- "kinetic-type-hero": Editorial statement hero built from pure typography — near-full-viewport massive display type whose words rise in one by one, ONE accent-styled word, a small overline kicker, a bottom subheadline row with inline CTAs, and a thin marquee strip of short phrases along the very bottom. No images — great for design-led, editorial, or brand-statement pages. Does NOT render a nav — precede it with a "nav-header". Props: theme ("light"|"dark"), kicker (2–5 words), headline (3–7 words — short and declarative, it renders at up to 9.5rem), accentWordIndex (zero-based index of the headline word to accent; omit to accent the LAST word), accentStyle ("italic"|"underline"), subheadline (12–24 words), ctaText (2–4 words), ctaUrl ("#"), ctaSecondaryText (2–4 words), ctaSecondaryUrl ("#"), showMarquee (boolean, default true), marqueePhrases (array of EXACTLY 4–6 short phrases, 2–5 words each, concrete proof or capability — not platitudes).`,
+  `- "glass-bento-features": 12-column bento feature grid — EXACTLY ONE 2-row "hero" card with a real image, plus "wide" / "third" / "quarter" support cards with icons or big stat numerals. Frosted glass on dark, layered shadows on light, staggered scroll-reveal. A premium alternative to benefits-grid. Props: eyebrow (1–3 words), headline (5–10 words), subheadline (14–26 words), theme ("light"|"dark"), cards (array of EXACTLY 5–7 of {span ("hero"|"wide"|"third"|"quarter" — EXACTLY ONE "hero" card, listed FIRST), icon (Lucide icon NAME, e.g. "Zap","ShieldCheck","Gauge","Globe","Users","Rocket"), title (3–8 words), body (12–24 words; OMIT on stat cards), imageUrl ("" on the hero card ONLY — server fills; OMIT on every other card), imageAlt (hero card only, 4–8 words), stat (big metric like "99.9%" or "40ms" — quarter cards only, replaces the icon; use REAL numbers from the brief)}).`,
+  `- "feature-tabs-showcase": Interactive product tour — a rail of 3–5 feature tabs (icon + title + one-liner) beside a large product screenshot panel in a glass browser frame; the media crossfades on tab switch and auto-advances. Props: eyebrow (1–3 words), headline (5–10 words), subheadline (14–26 words), theme ("light"|"dark"), frameLabel (faux product URL, e.g. "app.acme.com"), autoAdvance (true), tabs (array of EXACTLY 3–5 of {title (2–5 words), description (8–16 words), icon (Lucide icon NAME, e.g. "LayoutDashboard","Workflow","Inbox","BarChart3"), imageUrl ("" — server fills with a product/screenshot image), imageAlt (4–8 words)}).`,
+  `- "stat-counter-band": Full-width metrics band — 3–4 oversized numerals (brand numbers font) that count up when scrolled into view; affixes like "$", "%", "+", "M+" are preserved. Use REAL numbers from the brief or brand context — NEVER invent precise stats. Props: kicker (4–8 words section heading), background ("brand-dark"|"mesh"|"light"), showBorders (true), stats (array of EXACTLY 3–4 of {value (metric with optional affixes, e.g. "99.2%", "$4M+", "12,000+"), label (2–5 words naming a specific audience or outcome)}).`,
+  `- "testimonial-wall": Social proof as a masonry wall of quote cards (1/2/3 responsive columns) with star ratings and an optional featured card with an accent border. Avatars and company logos are tenant-supplied — cards gracefully fall back to initials circles. Props: eyebrow (2–4 words), headline (5–10 words), subheadline (12–24 words), columns (2 or 3), testimonials (array of EXACTLY 4–6 of {quote (20–50 words, names a specific outcome or metric — not generic praise), name (full name), role (title, company), rating (4 or 5, or omit to hide stars), featured (true on AT MOST one card)} — NEVER set avatarUrl or logoUrl).`,
+  `- "glass-pricing-tiers": Modern pricing — 2–4 glass / soft-shadow tier cards with EXACTLY ONE featured tier (accent glow + badge), an accessible monthly/annual toggle with an animated price swap, per-tier feature lists and CTAs. Use ONLY when the USER REQUEST or BRAND CONTEXT provides real pricing — NEVER invent specific prices. Props: eyebrow (1–3 words), headline (4–9 words), subheadline (12–24 words), showToggle (boolean), monthlyLabel ("Monthly"), annualLabel ("Annual"), annualSavingsLabel (e.g. "Save 20%"), annualNote ("billed annually"), defaultPeriod ("monthly"|"annual"), variant ("dark"|"light"), footnote (6–14 words reassurance, e.g. "No credit card required. Cancel anytime."), tiers (array of EXACTLY 2–4 of {name (1–3 words), monthlyPrice (e.g. "$49"), annualPrice (discounted per-month rate, e.g. "$39"), period ("/mo"), description (8–16 words), inheritsLabel (e.g. "Everything in Starter, plus" — OMIT on the first tier), features (array of 4–6 short phrases, 3–7 words each), ctaText (2–4 words), ctaUrl ("#"), ctaVariant ("solid"|"ghost"), featured (true on EXACTLY ONE tier), badge ("Most popular" — featured tier only)}).`,
+  `- "aurora-cta-finale": The page's closing argument — a deep dark full-width CTA with slow-drifting aurora glows in brand tones, an oversized display headline, a large pill CTA pair, a short reassurance row, and a faint oversized brand watermark. Use as the LAST content block before the footer (a premium alternative to "bottom-cta"). Props: eyebrow (2–4 words), headline (4–9 words restating the page's core promise), subheadline (12–24 words removing the last objection), ctaText (2–4 words, action verb first), ctaUrl ("#"), ctaSecondaryText (2–4 words), ctaSecondaryUrl ("#"), reassurances (array of EXACTLY 2–3 of {icon (one of "CheckCircle2","Sparkles","Shield","Zap","CreditCard","Clock","Lock","Star","Globe","Heart"), text (2–5 words)}), watermarkText (the brand name, or "" to use it automatically), showWatermark (boolean, default true).`,
 ];
 
 // FULL-PAGE block — a complete page on its own. Only advertised when the user's

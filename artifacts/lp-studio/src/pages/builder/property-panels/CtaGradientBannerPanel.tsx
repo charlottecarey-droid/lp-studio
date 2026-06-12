@@ -72,7 +72,8 @@ export function CtaGradientBannerPanel({ props, onChange }: Props) {
         />
         <div className="grid grid-cols-2 gap-2">
           <ColorField label="Text" value={props.textColor ?? "#FFFFFF"} onChange={(v) => update({ textColor: v })} />
-          <ColorField label="Accent" value={props.accentColor ?? "#4f46e5"} onChange={(v) => update({ accentColor: v })} />
+          <ColorField label="Gradient start" value={props.accentColor ?? "#4f46e5"} onChange={(v) => update({ accentColor: v })} />
+          <ColorField label="Gradient end" value={props.gradientEndColor ?? "#0f172a"} onChange={(v) => update({ gradientEndColor: v })} />
         </div>
       </div>
     </div>

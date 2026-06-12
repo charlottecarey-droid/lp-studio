@@ -2,6 +2,7 @@ import type { QuoteCarouselBlockProps, QuoteCarouselTestimonial } from "@/lib/bl
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
@@ -105,6 +106,35 @@ export function QuoteCarouselPanel({ props, onChange }: Props) {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="space-y-3">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Carousel</div>
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground cursor-pointer">Auto-advance (pauses on hover/focus)</Label>
+          <Switch checked={props.autoAdvance === true} onCheckedChange={(v) => update({ autoAdvance: v })} />
+        </div>
+        {props.autoAdvance === true && (
+          <div>
+            <Label className="text-[11px] text-muted-foreground">Interval (ms)</Label>
+            <Input type="number" min={2500} step={500} value={props.autoAdvanceMs ?? 6000} onChange={(e) => update({ autoAdvanceMs: Number(e.target.value) })} className="h-8 text-xs" />
+          </div>
+        )}
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Card surface</Label>
+          <div className="flex gap-2 mt-1">
+            {(["auto", "light", "dark"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => update({ cardTheme: t })}
+                className={`flex-1 h-8 rounded-md border text-xs capitalize ${(props.cardTheme ?? "auto") === t ? "border-primary bg-primary/10 font-medium" : "border-input"}`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <BenefitsCtaSection props={props} update={update} blockType="quote-carousel" />

@@ -19,6 +19,32 @@ describe("NO_REVEAL — full-page specialty blocks", () => {
   );
 });
 
+describe("NO_REVEAL — June-2026 modern block wave", () => {
+  // First-paint heroes own their entrance animations; the sections own
+  // internal staggered scroll-reveals / scroll-linked transforms (glass bento
+  // cards, tab crossfades, count-up stats, masonry quote wall). The outer
+  // reveal wrapper double-animates them and its transform breaks their
+  // internal useScroll/useInView measurements.
+  it.each([
+    "launch-spotlight-hero",
+    "bento-mosaic-hero",
+    "kinetic-type-hero",
+    "glass-bento-features",
+    "feature-tabs-showcase",
+    "stat-counter-band",
+    "testimonial-wall",
+  ])("excludes %s from reveal wrapping", (type) => {
+    expect(NO_REVEAL.has(type)).toBe(true);
+  });
+
+  it.each(["glass-pricing-tiers", "aurora-cta-finale"])(
+    "keeps %s eligible for the viewer reveal (no internal scroll-linked transforms)",
+    (type) => {
+      expect(NO_REVEAL.has(type)).toBe(false);
+    },
+  );
+});
+
 describe("NO_REVEAL — internally-sticky blocks", () => {
   // Blocks that own an internal `position: sticky` panel break when wrapped in
   // the reveal motion.div: a transformed ancestor becomes the containing block,

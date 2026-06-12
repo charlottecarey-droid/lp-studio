@@ -36,7 +36,7 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange, pageId, varia
   return (
     <>
     <section className={cn("w-full bg-white", SECTION_PY[brand.sectionPadding])}>
-      <div className="max-w-7xl mx-auto px-6 space-y-16 lg:space-y-24">
+      <div className="max-w-7xl mx-auto px-6 space-y-20 lg:space-y-28">
         {(props.headline || props.subheadline) && (
           <div className={cn("max-w-3xl", (props.headlineAlign ?? "left") === "center" && "mx-auto text-center")}>
             {props.headline && (
@@ -54,7 +54,7 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange, pageId, varia
         {props.rows.map((row, i) => {
           const isImageLeft = i % 2 === 0;
           const imageEl = (
-            <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-slate-100 shadow-lg">
+            <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-slate-100 ring-1 ring-black/[0.06] shadow-[0_24px_60px_-24px_rgba(15,15,20,0.35),0_2px_8px_-2px_rgba(15,15,20,0.06)]">
               <img
                 src={row.imageUrl || PLACEHOLDER_IMAGE}
                 alt={row.headline}
@@ -95,7 +95,7 @@ export function BlockZigzagFeatures({ props, brand, onFieldChange, pageId, varia
                       safeNavigate(row.ctaUrl, "_blank");
                     }
                   }}
-                  className="inline-flex items-center gap-2 font-semibold text-sm hover:gap-3 transition-all bg-transparent border-none p-0 cursor-pointer text-[var(--brand-link-on-light)]"
+                  className="inline-flex items-center gap-2 font-semibold text-sm hover:gap-3 transition-all duration-200 ease-out bg-transparent border-none p-0 cursor-pointer text-[var(--brand-link-on-light)] rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand-link-on-light)]"
                 >
                   <InlineText
                     value={row.ctaText}

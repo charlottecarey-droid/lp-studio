@@ -46,8 +46,8 @@ export function BlockCtaSplitImage({ props, brand, onFieldChange }: Props) {
           as="h2"
           value={props.heading}
           onUpdate={onFieldChange ? (v: string) => update("heading", v) : undefined}
-          className="text-balance text-3xl font-extrabold leading-[1.1] tracking-tight sm:text-4xl lg:text-[2.75rem]"
-          style={{ color: text, fontFamily: DISPLAY }}
+          className="text-balance font-extrabold leading-[1.06] tracking-tight"
+          style={{ color: text, fontFamily: DISPLAY, fontSize: "clamp(1.875rem, 3.6vw, 3rem)" }}
         />
         {(props.subheading || onFieldChange) && (
           <InlineText
@@ -67,8 +67,8 @@ export function BlockCtaSplitImage({ props, brand, onFieldChange }: Props) {
                 ctaUrl={props.ctaPrimaryUrl}
                 brand={brand}
                 source="cta-split-image-primary"
-                className="inline-flex items-center justify-center gap-2 rounded-xl px-7 py-3.5 text-base font-semibold shadow-sm transition-transform hover:-translate-y-0.5"
-                style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY }}
+                className="inline-flex items-center justify-center gap-2 rounded-full px-8 py-4 text-base font-semibold shadow-sm transition-all duration-200 ease-out hover:brightness-105 motion-safe:hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY, outlineColor: accent }}
               >
                 {props.ctaPrimaryLabel || "Get started today"}
                 <ArrowRight className="h-4 w-4" />
@@ -80,8 +80,8 @@ export function BlockCtaSplitImage({ props, brand, onFieldChange }: Props) {
                 ctaUrl={props.ctaSecondaryUrl}
                 brand={brand}
                 source="cta-split-image-secondary"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border px-7 py-3.5 text-base font-semibold transition-transform hover:-translate-y-0.5"
-                style={{ borderColor: border, color: text, fontFamily: BODY }}
+                className="inline-flex items-center justify-center gap-2 rounded-full border px-8 py-4 text-base font-semibold transition-all duration-200 ease-out motion-safe:hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{ borderColor: border, color: text, fontFamily: BODY, outlineColor: accent }}
               >
                 {props.ctaSecondaryLabel || "View documentation"}
               </CtaButton>
@@ -94,7 +94,7 @@ export function BlockCtaSplitImage({ props, brand, onFieldChange }: Props) {
 
   const media = (
     <div className="flex items-stretch p-6 sm:p-10 lg:p-10">
-      <div className="relative w-full overflow-hidden rounded-3xl shadow-2xl">
+      <div className="relative w-full overflow-hidden rounded-3xl shadow-[0_2px_8px_-2px_rgba(15,15,20,0.08),0_32px_64px_-28px_rgba(15,15,20,0.35)]">
         <div className="aspect-[4/3] w-full lg:aspect-auto lg:h-full lg:min-h-[28rem]">
           <InlineImage
             src={props.imageUrl ?? ""}

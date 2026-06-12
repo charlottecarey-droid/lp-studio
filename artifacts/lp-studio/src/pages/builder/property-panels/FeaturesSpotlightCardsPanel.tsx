@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { IconPicker } from "@/components/IconPicker";
@@ -102,6 +103,17 @@ export function FeaturesSpotlightCardsPanel({ props, onChange }: Props) {
               <Label className="text-[11px] text-muted-foreground">Description</Label>
               <Input value={feature.description} onChange={(e) => updateFeature(i, { description: e.target.value })} className="h-8 text-xs" />
             </div>
+            <ImagePicker label="Image (optional — large icon area if blank)" value={feature.image ?? ""} onChange={(url) => updateFeature(i, { image: url })} aiHint={`${feature.title} feature visual`} />
+            {feature.image ? (
+              <div>
+                <Label className="text-[11px] text-muted-foreground">Image alt text</Label>
+                <Input value={feature.imageAlt ?? ""} onChange={(e) => updateFeature(i, { imageAlt: e.target.value })} placeholder={feature.title} className="h-8 text-xs" />
+              </div>
+            ) : null}
+            <div className="flex items-center justify-between">
+              <Label className="text-[11px] text-muted-foreground">Featured (accent-tinted card)</Label>
+              <Switch checked={feature.featured === true} onCheckedChange={(v) => updateFeature(i, { featured: v })} />
+            </div>
           </div>
         ))}
       </div>
@@ -118,7 +130,7 @@ export function FeaturesSpotlightCardsPanel({ props, onChange }: Props) {
         />
         <div className="grid grid-cols-2 gap-2">
           <ColorField label="Text" value={props.textColor ?? "#171717"} onChange={(v) => update({ textColor: v })} />
-          <ColorField label="Accent" value={props.accentColor ?? "#4f46e5"} onChange={(v) => update({ accentColor: v })} />
+          <ColorField label="Accent" value={props.accentColor ?? "#3B82F6"} onChange={(v) => update({ accentColor: v })} />
         </div>
       </div>
     </div>

@@ -79,6 +79,11 @@ export interface PasSectionBlockProps {
   body: string;
   bullets: string[];
   headlineSize?: "sm" | "md" | "lg" | "xl" | "2xl";
+  /** Optional small-caps kicker above the headline. Empty hides it. */
+  eyebrow?: string;
+  /** Optional closing "solve" line rendered in a visually distinct
+   *  accent-tinted panel after the pain points. Empty hides the panel. */
+  solutionText?: string;
 }
 
 export interface ComparisonBlockProps extends CtaModalConfig {
@@ -221,6 +226,10 @@ export interface MediaFeatureReelBlockProps {
   /** Poster / preview image for the video card. */
   posterUrl: string;
   features: MediaFeatureReelFeature[];
+  /** Optional label shown in the player's glass chrome bar (e.g. a film title
+   *  or "yourproduct.com/reel"). Unset → the bar shows no text. Additive —
+   *  June 2026 premium redesign. */
+  frameLabel?: string;
   /** Optional primary CTA. */
   ctaLabel?: string;
   ctaUrl?: string;
@@ -301,6 +310,9 @@ export interface MediaVideoSplitBlockProps {
   /** Optional secondary CTA link. */
   ctaSecondaryLabel?: string;
   ctaSecondaryUrl?: string;
+  /** Which side the video sits on at desktop widths. Default "right"
+   *  (matches the original layout). Additive — June 2026 premium redesign. */
+  mediaSide?: "left" | "right";
   bgColor?: string;
   textColor?: string;
   accentColor?: string;
@@ -1506,6 +1518,9 @@ export interface CtaCenteredMinimalBlockProps {
   accentColor?: string;
   headlineFont?: string;
   bodyFont?: string;
+  /** Optional reassurance microcopy under the buttons,
+   *  e.g. "No credit card required / Cancel anytime". Empty hides the row. */
+  reassuranceText?: string;
 }
 
 /** CTA — Gradient Banner: a headline + subheading centered on an accent-colored
@@ -1525,6 +1540,10 @@ export interface CtaGradientBannerBlockProps {
   textColor?: string;
   /** Gradient base color (the banner fill). */
   accentColor?: string;
+  /** Second duotone gradient stop. Defaults to a brand-primary-derived deep
+   *  tone so the banner reads as a crafted two-hue gradient, not a single
+   *  washed accent. */
+  gradientEndColor?: string;
   headlineFont?: string;
   bodyFont?: string;
 }
@@ -1600,6 +1619,9 @@ export interface CaseStudyCard {
   metricLabel: string;
   /** Optional link to the full story. */
   linkUrl?: string;
+  /** Featured card: spans two grid columns on desktop and gets an
+   *  accent-tinted surface treatment. Default false (regular card). */
+  featured?: boolean;
 }
 
 /** Case Study — Card Grid: a grid of customer-story cards, each with a logo,
@@ -1672,6 +1694,9 @@ export interface CaseStudyMetric {
  *  optional closing CTA. No images — a pure stats + quote social-proof band. */
 export interface CaseStudyMetricTriptychBlockProps {
   backgroundStyle?: BackgroundStyle;
+  /** "plain" renders metrics directly on the section surface; "panel" wraps
+   *  the whole composition in an accent-tinted rounded panel. Default "plain". */
+  variant?: "plain" | "panel";
   /** Customer / company name shown above the metrics. */
   company: string;
   /** Exactly three (1–3) headline metrics. */
@@ -1720,6 +1745,16 @@ export interface CaseStudySpotlightFeatureBlockProps {
   imageUrl: string;
   /** Optional alt text for the photo. */
   imageAlt?: string;
+  /** Optional focal point as `"x% y%"` (CSS object-position) for the photo. */
+  imageFocal?: string;
+  /** Optional customer pull-quote rendered as a magazine-style callout. */
+  quote?: string;
+  /** Optional customer logo badge overlaid on the photo (tenant-supplied). */
+  logoUrl?: string;
+  /** Alt text for the customer logo badge. */
+  logoAlt?: string;
+  /** Wrap the spotlight in an accent-tinted background panel. Default false. */
+  tintedPanel?: boolean;
   /** Optional link/CTA below the narrative. */
   ctaLabel?: string;
   ctaUrl?: string;
@@ -2959,6 +2994,10 @@ export interface CinematicVideoHeroBlockProps
   overlayOpacity?: number;
   /** Label for the bottom scroll cue. Empty hides it. */
   scrollCueLabel?: string;
+  /** Content placement: classic centered title card, or a film-style
+   *  lower-third (copy pinned bottom-left over a deeper scrim).
+   *  Default "centered". */
+  layout?: "centered" | "lower-third";
 }
 
 /** 2. Animated aurora-blob gradient background, a badge with an inline link, a
@@ -3066,6 +3105,9 @@ export interface SpotlightGlowHeroBlockProps
 export interface SocialProofLogo {
   name: string;
   imageUrl?: string;
+  /** Optional click-through URL — renders the logo as a focusable link
+   *  (logo-marquee). Purely additive; bands that don't link ignore it. */
+  href?: string;
 }
 
 /** 6. Logo Wall — a calm, editorial "trusted by" logo cloud on a light surface;
@@ -3091,6 +3133,8 @@ export interface LogoMarqueeBlockProps extends HeroBrandStyleConfig {
   speed?: "slow" | "medium" | "fast";
   /** Render logos in muted greyscale. Default true. */
   grayscale?: boolean;
+  /** Pause the scroll while the ribbon is hovered. Default true. */
+  pauseOnHover?: boolean;
 }
 
 /** A single third-party review-platform badge for the rating-badges band. */
@@ -3167,6 +3211,9 @@ export interface BenefitsCtaConfig {
 export interface BenefitsAlternatingRow {
   /** Lucide icon name (see ICON_MAP in the block component). */
   icon: string;
+  /** Optional short uppercase kicker rendered above the row title,
+   *  e.g. "Speed" or "01 — Workflow". Hidden when blank. */
+  kicker?: string;
   title: string;
   description: string;
   features: string[];
@@ -3205,6 +3252,10 @@ export interface HowItWorksAlternatingStep {
   /** Real product/feature image shown on the step's visual side. Empty renders
    *  a neutral image placeholder; the AI image-fill pipeline populates it. */
   image?: string;
+  /** Optional alt text for the step image (accessibility). */
+  imageAlt?: string;
+  /** Optional focal point as `"x% y%"` (CSS object-position) for the image. */
+  imageFocal?: string;
 }
 
 /** How It Works — Alternating Showcase: header + alternating left/right rows,
@@ -3240,6 +3291,13 @@ export interface HowItWorksNumberedBentoBlockProps extends BenefitsCtaConfig {
   headline: string;
   subheadline?: string;
   steps: HowItWorksNumberedBentoStep[];
+  /** Optional image tile mixed into the bento grid (rendered after the first
+   *  step tile). Empty/unset hides the tile on published pages. */
+  imageUrl?: string;
+  /** Alt text for the optional image tile. */
+  imageAlt?: string;
+  /** Focal point as `"x% y%"` (CSS object-position) for the image tile. */
+  imageFocal?: string;
   buttonLabel?: string;
   buttonUrl?: string;
   bgColor?: string;
@@ -3360,6 +3418,15 @@ export interface FeaturesSpotlightCardsSecondaryFeature {
   icon: string;
   title: string;
   description: string;
+  /** Optional image rendered as the card's media area (replaces the large
+   *  icon area when set). */
+  image?: string;
+  /** Alt text for the card image (accessibility). */
+  imageAlt?: string;
+  /** Focal point as `"x% y%"` (CSS object-position) for the card image. */
+  imageFocal?: string;
+  /** Visually emphasise this card (accent-tinted surface + stronger ring). */
+  featured?: boolean;
 }
 
 /** Features — Spotlight Cards: a large flagship "spotlight" card (icon + title +
@@ -3433,6 +3500,10 @@ export interface FeaturesComparisonChecklistFeature {
   icon: string;
   name: string;
   description: string;
+  /** "Us vs them" mode only — whether the competitor column also has this
+   *  feature. Default false (renders a cross chip). Ignored unless
+   *  `showCompetitorColumn` is enabled on the block. */
+  themIncluded?: boolean;
 }
 
 /** A grouped category of comparison-checklist features. */
@@ -3451,6 +3522,17 @@ export interface FeaturesComparisonChecklistBlockProps extends BenefitsCtaConfig
   featureColumnLabel?: string;
   /** Right column header label (e.g. "Included"). */
   includedColumnLabel?: string;
+  /** Render a second "them" column for a premium us-vs-them comparison
+   *  (brand-accent check chips vs muted cross chips). Default false —
+   *  existing pages keep the single "Included" column. */
+  showCompetitorColumn?: boolean;
+  /** "Us" column header in us-vs-them mode (defaults to the brand name). */
+  usColumnLabel?: string;
+  /** "Them" column header in us-vs-them mode. Default "Others". */
+  themColumnLabel?: string;
+  /** Keep the column-header row pinned while the table scrolls under it.
+   *  Default false. */
+  stickyHeader?: boolean;
   categories: FeaturesComparisonChecklistCategory[];
   /** Show the trailing bespoke/custom card above the CTA band. Default true. */
   showBespokeCard?: boolean;
@@ -3479,6 +3561,9 @@ export interface BenefitsIconGridBlockProps extends BenefitsCtaConfig {
   items: BenefitsIconGridItem[];
   /** Cards per row at lg+. Default 3. */
   columns?: 2 | 3;
+  /** Render hairline dividers between items instead of open whitespace —
+   *  a crisper, denser editorial look. Default false (open grid). */
+  divided?: boolean;
   bgColor?: string;
   textColor?: string;
   accentColor?: string;
@@ -3500,6 +3585,9 @@ export interface BenefitsStatLedBlockProps extends BenefitsCtaConfig {
   headline: string;
   subheadline?: string;
   headingAlign?: "left" | "center";
+  /** Animate the big numerals counting up when scrolled into view (static
+   *  under prefers-reduced-motion and inside the builder). Default true. */
+  countUp?: boolean;
   stats: BenefitsStatLedItem[];
   bgColor?: string;
   textColor?: string;
@@ -3537,6 +3625,14 @@ export interface QuoteCarouselBlockProps extends BenefitsCtaConfig {
   bgColor?: string;
   textColor?: string;
   accentColor?: string;
+  /** Auto-advance the carousel (pauses on hover/focus; disabled entirely
+   *  under prefers-reduced-motion and in the builder). Default false. */
+  autoAdvance?: boolean;
+  /** Auto-advance interval in milliseconds. Default 6000. */
+  autoAdvanceMs?: number;
+  /** Quote card surface: "auto" derives a card that contrasts with the
+   *  section background; "light"/"dark" force it. Default "auto". */
+  cardTheme?: "auto" | "light" | "dark";
 }
 
 /** A single testimonial card in the quote library masonry grid. */
@@ -3550,6 +3646,14 @@ export interface QuoteLibraryTestimonial {
   rating?: number;
   /** Initials shown in the avatar bubble. */
   avatarInitials?: string;
+  /** Optional avatar photo URL; falls back to the initials bubble. */
+  avatarUrl?: string;
+  /** Featured card: larger quote type + accent treatment. When unset, the
+   *  first card is featured automatically. */
+  featured?: boolean;
+  /** Force (true) or suppress (false) the soft accent-tinted card wash.
+   *  When unset, the tint is auto-varied by position for a mixed wall. */
+  tinted?: boolean;
 }
 
 /** Quotes — Library: a masonry "wall of love" of testimonial cards with an
@@ -3578,6 +3682,8 @@ export interface QuoteWithImageBlockProps extends BenefitsCtaConfig {
   imageAlt?: string;
   /** Side the image sits on at lg+. Default "left". */
   imageSide?: "left" | "right";
+  /** CSS object-position focal point for the image, e.g. "50% 30%". */
+  imageFocal?: string;
   /** Number of filled stars to show (0 hides the rating). Default 5. */
   rating?: number;
   bgColor?: string;
@@ -3594,6 +3700,16 @@ export interface SingleQuoteBlockProps extends BenefitsCtaConfig {
   company: string;
   /** Initials shown in the avatar bubble. */
   avatarInitials?: string;
+  /** Optional avatar photo URL; falls back to the initials bubble. */
+  avatarUrl?: string;
+  /** Optional small company logo rendered beside the attribution. */
+  companyLogoUrl?: string;
+  /** "centered" = statement layout (default); "split" = oversized quote on
+   *  the left with an attribution rail on the right at lg+. */
+  layout?: "centered" | "split";
+  /** Wrap the quote in a soft accent-tinted panel instead of floating
+   *  directly on the section background. Default false. */
+  tintPanel?: boolean;
   bgColor?: string;
   textColor?: string;
   accentColor?: string;
@@ -3610,6 +3726,11 @@ export interface TestimonialGridItem {
   rating?: number;
   /** Initials shown in the avatar bubble. */
   avatarInitials?: string;
+  /** Optional avatar photo URL; falls back to the initials bubble. */
+  avatarUrl?: string;
+  /** Featured card: spans 2 columns at md+ with larger quote type and an
+   *  accent treatment. Default false. */
+  featured?: boolean;
 }
 
 /** Testimonials — Grid: a header plus a responsive grid of testimonial cards
@@ -3994,6 +4115,12 @@ export interface PasBeforeAfterBlockProps extends CtaModalConfig {
   subheading?: string;
   beforeTitle?: string;
   afterTitle?: string;
+  /** Optional image atop the "before" panel (rendered desaturated/muted). */
+  beforeImageUrl?: string;
+  beforeImageAlt?: string;
+  /** Optional image atop the "after" panel (rendered full-color/elevated). */
+  afterImageUrl?: string;
+  afterImageAlt?: string;
   rows: PasBeforeAfterRow[];
   ctaLabel?: string;
   ctaAction?: HeroCtaActionMode;
@@ -4137,6 +4264,44 @@ export interface GradientGlowFinalCtaBlockProps extends CtaModalConfig {
   headlineFont?: string;
   bodyFont?: string;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * June-2026 modern block wave (launch heroes / glass features / testimonial
+ * wall / glass pricing / aurora CTA finale). Their props interfaces live in the
+ * component files (each block is a self-contained registration manifest) and
+ * are RE-EXPORTED here, type-only, so the PageBlock union, registry, and every
+ * other consumer keeps importing from "@/lib/block-types" as usual. The
+ * re-exports are erased at compile time — no runtime lib→blocks dependency.
+ * ──────────────────────────────────────────────────────────────────────────── */
+export type { LaunchSpotlightHeroBlockProps } from "@/blocks/BlockLaunchSpotlightHero";
+export type { BentoMosaicHeroBlockProps } from "@/blocks/BlockBentoMosaicHero";
+export type { KineticTypeHeroBlockProps } from "@/blocks/BlockKineticTypeHero";
+export type {
+  GlassBentoFeaturesBlockProps,
+  GlassBentoCard,
+  GlassBentoCardSpan,
+} from "@/blocks/BlockGlassBentoFeatures";
+export type {
+  FeatureTabsShowcaseBlockProps,
+  FeatureTabItem,
+} from "@/blocks/BlockFeatureTabsShowcase";
+export type {
+  StatCounterBandBlockProps,
+  StatCounterItem,
+  StatCounterBackground,
+} from "@/blocks/BlockStatCounterBand";
+export type {
+  TestimonialWallBlockProps,
+  TestimonialWallItem,
+} from "@/blocks/BlockTestimonialWall";
+export type {
+  GlassPricingTiersBlockProps,
+  GlassPricingTier,
+} from "@/blocks/BlockGlassPricingTiers";
+export type {
+  AuroraCtaFinaleBlockProps,
+  AuroraCtaReassurance,
+} from "@/blocks/BlockAuroraCtaFinale";
 
 /**
  * Final CTA — Video background: a final CTA over a looping background video

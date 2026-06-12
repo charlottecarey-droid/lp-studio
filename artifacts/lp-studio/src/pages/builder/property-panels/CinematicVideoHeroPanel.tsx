@@ -209,6 +209,19 @@ export function CinematicVideoHeroPanel({ props, onChange }: Props) {
           />
         </div>
         <div>
+          <Label className="text-[11px] text-muted-foreground">Layout</Label>
+          <Select
+            value={props.layout ?? "centered"}
+            onValueChange={(v) => update({ layout: v as CinematicVideoHeroBlockProps["layout"] })}
+          >
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="centered" className="text-xs">Centered title card</SelectItem>
+              <SelectItem value="lower-third" className="text-xs">Lower third (bottom-left)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
           <Label className="text-[11px] text-muted-foreground">Background video</Label>
           <VideoPicker
             value={props.backgroundVideoUrl ?? ""}

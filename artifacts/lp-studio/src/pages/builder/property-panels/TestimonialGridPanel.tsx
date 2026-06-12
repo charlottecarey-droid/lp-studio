@@ -2,6 +2,8 @@ import type { TestimonialGridBlockProps, TestimonialGridItem } from "@/lib/block
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { ImagePicker } from "@/components/ImagePicker";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
@@ -97,6 +99,11 @@ export function TestimonialGridPanel({ props, onChange }: Props) {
                 <Label className="text-[11px] text-muted-foreground">Avatar initials</Label>
                 <Input value={t.avatarInitials ?? ""} onChange={(e) => updateItem(i, { avatarInitials: e.target.value })} placeholder="SJ" className="h-8 text-xs" />
               </div>
+            </div>
+            <ImagePicker value={t.avatarUrl ?? ""} onChange={(url) => updateItem(i, { avatarUrl: url })} label="Avatar photo (falls back to initials)" />
+            <div className="flex items-center justify-between pt-1">
+              <Label className="text-[11px] text-muted-foreground cursor-pointer">Featured (spans 2 columns)</Label>
+              <Switch checked={t.featured === true} onCheckedChange={(v) => updateItem(i, { featured: v })} />
             </div>
           </div>
         ))}

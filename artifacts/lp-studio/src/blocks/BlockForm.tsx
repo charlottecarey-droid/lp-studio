@@ -239,9 +239,10 @@ function FieldInput({
   fontBody?: string;
 }) {
   const hasStyling = !!(inputBg || inputBorder || inputText);
+  const inputChrome = `w-full px-4 py-3.5 text-base outline-none border transition-[border-color,box-shadow,background-color] duration-200 ease-out focus:ring-2 focus:ring-offset-0 placeholder:text-slate-400 ${inputRadius}`;
   const baseInput = hasStyling
-    ? `w-full px-4 py-3.5 text-base outline-none transition-colors border ${inputRadius}`
-    : `w-full px-4 py-3.5 text-base outline-none transition-colors border ${inputRadius} ${isDark ? "bg-white/95 text-slate-900" : "bg-white text-slate-900"}`;
+    ? inputChrome
+    : `${inputChrome} ${isDark ? "bg-white/95 text-slate-900" : "bg-white text-slate-900"}`;
   const borderClass = error ? "border-red-400" : (hasStyling ? "" : "border-slate-200");
   const focusStyle: React.CSSProperties = {
     ["--tw-ring-color" as string]: inputAccentColor,
@@ -330,7 +331,7 @@ function FieldInput({
           type="checkbox"
           checked={value === "true"}
           onChange={e => onChange(e.target.checked ? "true" : "")}
-          className="w-4 h-4"
+          className="w-4 h-4 rounded"
           style={{ accentColor: inputAccentColor }}
         />
         <span className={`text-sm ${isDark ? "text-white/90" : "text-slate-700"}`} style={{ fontFamily: BODY }}>{field.placeholder || field.label}</span>
@@ -818,9 +819,9 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
   const inputRadiusClass = { lg: "rounded-md", xl: "rounded-lg", "2xl": "rounded-xl", "3xl": "rounded-2xl" }[cardRadius];
   const btnRadiusClass = inputRadiusClass;
   const cardShadowClass =
-    cardStyle === "elevated" ? "shadow-2xl border border-slate-100" :
-    cardStyle === "flat" ? "shadow-md border border-slate-200" :
-    "border border-slate-200";
+    cardStyle === "elevated" ? "shadow-[0_1px_2px_rgba(15,15,20,0.05),0_28px_64px_-28px_rgba(15,15,20,0.22)] border border-black/[0.06]" :
+    cardStyle === "flat" ? "shadow-[0_8px_24px_-12px_rgba(15,15,20,0.12)] border border-black/[0.08]" :
+    "border border-black/[0.1]";
   const labelStyle = props.labelStyle ?? "uppercase";
   const labelClass = labelStyle === "uppercase"
     ? `block text-xs font-semibold mb-2 uppercase tracking-wide ${isDark ? "text-white/70" : "text-slate-500"}`
@@ -1210,7 +1211,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
               <button
                 type="button"
                 onClick={() => setCurrentStep(s => s - 1)}
-                className={`flex-1 py-3.5 px-4 ${btnRadiusClass} text-sm font-semibold border transition-colors ${isDark ? "border-white/30 text-white hover:bg-white/10" : "border-slate-200 text-slate-700 hover:bg-slate-50"}`}
+                className={`flex-1 py-3.5 px-4 ${btnRadiusClass} text-sm font-semibold border transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${isDark ? "border-white/30 text-white hover:bg-white/10 focus-visible:outline-white" : "border-slate-200 text-slate-700 hover:bg-slate-50 focus-visible:outline-slate-400"}`}
               >
                 Back
               </button>
@@ -1219,8 +1220,8 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
               type="button"
               onClick={isLastStep ? handleSubmit : handleNext}
               disabled={submitting}
-              className={`flex-1 py-4 px-4 ${btnRadiusClass} text-base font-bold transition-all hover:brightness-105 disabled:opacity-60`}
-              style={{ background: submitBg, color: submitFg }}
+              className={`flex-1 py-4 px-4 ${btnRadiusClass} text-base font-bold transition-all duration-200 ease-out hover:brightness-105 motion-safe:hover:-translate-y-0.5 disabled:opacity-60 disabled:hover:translate-y-0 shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2`}
+              style={{ background: submitBg, color: submitFg, outlineColor: inputAccent }}
             >
               {submitting ? (
                 <span className="inline-flex items-center justify-center gap-2">

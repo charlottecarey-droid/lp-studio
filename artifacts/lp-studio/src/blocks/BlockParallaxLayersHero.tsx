@@ -48,9 +48,9 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
   const accent = props.accentColor || `var(--brand-accent, ${MOCKUP_ACCENT})`;
   const bg = props.bgColor || SURFACE;
   const text = props.textColor || INK;
-  // Second layered color the mockup used (purple glow). Reads the brand
-  // primary, falling back to the mockup's purple-600.
-  const accent2 = "var(--brand-primary, #9333EA)";
+  // Second layered glow hue. Reads the brand primary so the depth layers stay
+  // brand-derived; neutral blue last-resort when no brand var is set.
+  const accent2 = "var(--brand-primary, #3B82F6)";
 
   // ── Brand-driven fonts ────────────────────────────────────────────────
   useBlockFonts(props.headlineFont, props.bodyFont);
@@ -262,8 +262,12 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
         videoUrl={props.videoUrl}
         {...modalCfg}
         onClick={primaryAction === "url" ? onCtaClick : undefined}
-        className="w-full sm:w-auto px-8 py-4 rounded-full font-semibold text-lg flex items-center justify-center gap-2"
-        style={{ background: primaryBg, color: primaryText }}
+        className="w-full sm:w-auto min-h-[52px] px-8 py-4 rounded-full font-semibold text-base flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
+        style={{
+          background: primaryBg,
+          color: primaryText,
+          boxShadow: `0 0 32px color-mix(in srgb, ${primaryBg} 38%, transparent), 0 10px 28px -14px rgba(0,0,0,0.7)`,
+        }}
         brand={brand}
         pageId={pageId}
         variantId={variantId}
@@ -281,11 +285,11 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
           chilipiperUrl={props.secondaryChilipiperUrl}
           videoUrl={props.secondaryVideoUrl}
           {...modalCfg}
-          className="w-full sm:w-auto px-8 py-4 rounded-full font-semibold text-lg border transition-colors hover:bg-white/10"
+          className="w-full sm:w-auto min-h-[52px] px-8 py-4 rounded-full font-semibold text-base border backdrop-blur-md transition-colors hover:bg-white/10"
           style={{
             background: "rgba(255,255,255,0.05)",
             color: text,
-            borderColor: "rgba(255,255,255,0.10)",
+            borderColor: "rgba(255,255,255,0.15)",
           }}
           brand={brand}
           pageId={pageId}
@@ -299,10 +303,15 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
     </motion.div>
   );
 
-  // ── Headline gradient (mockup: white → 50% white, clipped to text) ─────
+  // ── Headline gradient (white → 58% white, clipped to text) + display
+  // scale: clamp()'d size with tight tracking so the type reads engineered
+  // rather than just enlarged. ─────
   const headlineStyle: CSSProperties = {
     fontFamily: headlineFamily,
-    backgroundImage: `linear-gradient(180deg, ${text} 0%, color-mix(in srgb, ${text} 50%, transparent) 100%)`,
+    fontSize: "clamp(3rem, 7.5vw, 6.5rem)",
+    lineHeight: 1.02,
+    letterSpacing: "-0.03em",
+    backgroundImage: `linear-gradient(180deg, ${text} 0%, color-mix(in srgb, ${text} 58%, transparent) 100%)`,
     WebkitBackgroundClip: "text",
     backgroundClip: "text",
     WebkitTextFillColor: "transparent",
@@ -316,12 +325,14 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
   // ── Marquee ─────────────────────────────────────────────────────────────
   const marqueeLogos = props.marqueeLogos && props.marqueeLogos.length > 0 ? props.marqueeLogos : DEFAULT_MARQUEE_LOGOS;
 
+  // Orb fallback with a proper highlight→falloff so depth reads as a lit
+  // sphere rather than a flat glow smear.
   const shapeFallback = (extraClass: string) => (
     <div
       className={`${extraClass} rounded-full`}
       style={{
-        background: `radial-gradient(circle at 35% 30%, ${accent} 0%, transparent 70%)`,
-        opacity: 0.65,
+        background: `radial-gradient(circle at 35% 30%, color-mix(in srgb, ${accent} 80%, #ffffff) 0%, color-mix(in srgb, ${accent} 55%, transparent) 38%, transparent 72%)`,
+        opacity: 0.55,
       }}
     />
   );
@@ -329,7 +340,7 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
   return (
     <div
       ref={containerRef}
-      className="relative min-h-[120vh] overflow-hidden"
+      className="plx-hero-root relative min-h-[120vh] overflow-hidden"
       style={{ backgroundColor: bg, color: text, fontFamily: bodyFamily }}
       onMouseMove={handleMouseMove}
     >
@@ -362,17 +373,32 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
         @media (prefers-reduced-motion: reduce) {
           .plx-marquee-content { animation: none; }
         }
+        .plx-hero-root a:focus-visible,
+        .plx-hero-root button:focus-visible,
+        .plx-hero-root input:focus-visible {
+          outline: 2px solid color-mix(in srgb, ${accent} 60%, #ffffff);
+          outline-offset: 3px;
+        }
       `}</style>
 
-      {/* Background Layer: Deep Glows */}
+      {/* Static depth bed: crown wash + floor vignette grounding the layers */}
+      <div
+        className="absolute inset-0 z-0 pointer-events-none"
+        aria-hidden
+        style={{
+          background: `radial-gradient(ellipse 90% 55% at 50% -10%, color-mix(in srgb, ${accent} 10%, transparent), transparent 62%), linear-gradient(to bottom, transparent 60%, color-mix(in srgb, ${bg} 70%, transparent) 100%)`,
+        }}
+      />
+
+      {/* Background Layer: Deep Glows (most blur, least travel = farthest) */}
       <motion.div className="absolute inset-0 z-0 pointer-events-none" style={{ y: yBg, x: xBgMouse, translateY: yBgMouse }}>
         <div
-          className="absolute top-[20%] left-[20%] w-[600px] h-[600px] rounded-full blur-[120px]"
-          style={{ background: accent, opacity: 0.2 }}
+          className="absolute top-[20%] left-[20%] w-[600px] h-[600px] rounded-full blur-[130px]"
+          style={{ background: accent, opacity: 0.16 }}
         />
         <div
-          className="absolute top-[40%] right-[10%] w-[500px] h-[500px] rounded-full blur-[100px]"
-          style={{ background: accent2, opacity: 0.2 }}
+          className="absolute top-[40%] right-[10%] w-[500px] h-[500px] rounded-full blur-[110px]"
+          style={{ background: accent2, opacity: 0.16 }}
         />
       </motion.div>
 
@@ -383,7 +409,7 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
             src={props.shapeImage1Url}
             alt="Abstract shape"
             wrapperClassName="absolute top-[15%] left-[10%] pointer-events-auto"
-            className="w-64 h-64 object-contain opacity-80"
+            className="w-64 h-64 object-contain opacity-80 drop-shadow-[0_28px_40px_rgba(0,0,0,0.45)]"
             onUpdate={field("shapeImage1Url")}
           />
         ) : (
@@ -394,7 +420,7 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
             src={props.shapeImage2Url}
             alt="Abstract shape"
             wrapperClassName="absolute top-[60%] right-[5%] pointer-events-auto"
-            className="w-80 h-80 object-contain opacity-80"
+            className="w-80 h-80 object-contain opacity-80 drop-shadow-[0_28px_40px_rgba(0,0,0,0.45)]"
             onUpdate={field("shapeImage2Url")}
           />
         ) : (
@@ -465,11 +491,14 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm mb-8"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.10)" }}
+              className="inline-flex min-h-[36px] items-center gap-2.5 px-4 py-1.5 rounded-full text-sm font-medium backdrop-blur-md mb-8"
+              style={{
+                background: `color-mix(in srgb, ${accent} 10%, transparent)`,
+                border: `1px solid color-mix(in srgb, ${accent} 30%, transparent)`,
+              }}
             >
-              <span className="flex h-2 w-2 rounded-full" style={{ background: accent }} />
-              <span style={{ color: "rgba(255,255,255,0.80)" }}>
+              <span className="flex h-2 w-2 rounded-full shrink-0" style={{ background: accent }} aria-hidden />
+              <span style={{ color: "rgba(255,255,255,0.85)" }}>
                 <InlineText as="span" value={props.badgeText ?? ""} onUpdate={field("badgeText")} />
               </span>
             </motion.div>
@@ -479,7 +508,7 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3 }}
-            className="text-6xl md:text-8xl font-bold tracking-tighter mb-6"
+            className="font-bold mb-6"
           >
             <InlineText as="h1" multiline value={props.headline} onUpdate={field("headline")} style={headlineStyle} />
           </motion.div>
@@ -489,8 +518,8 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.4 }}
-              className="text-xl md:text-2xl mb-10 max-w-2xl"
-              style={{ color: "rgba(255,255,255,0.60)" }}
+              className="text-lg md:text-xl leading-relaxed mb-10 max-w-2xl"
+              style={{ color: "rgba(255,255,255,0.64)" }}
             >
               <InlineText as="p" multiline value={props.subheadline ?? ""} onUpdate={field("subheadline")} />
             </motion.div>
@@ -509,7 +538,7 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
           >
             {(props.marqueeLabel || onFieldChange) && (
               <p
-                className="text-center text-sm mb-6 uppercase tracking-widest font-semibold"
+                className="text-center text-xs mb-6 uppercase tracking-[0.22em] font-semibold"
                 style={{ color: "rgba(255,255,255,0.40)" }}
               >
                 <InlineText as="span" value={props.marqueeLabel ?? "Trusted by visionary teams"} onUpdate={field("marqueeLabel")} />
@@ -520,8 +549,17 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
                 {[...Array(6)].map((_, i) => (
                   <Fragment key={i}>
                     {marqueeLogos.map((logo, j) => (
-                      <span key={j} className="text-2xl font-bold whitespace-nowrap" style={{ color: "rgba(255,255,255,0.30)" }}>
+                      <span
+                        key={j}
+                        className="flex items-center gap-8 whitespace-nowrap text-base md:text-lg font-semibold uppercase tracking-[0.16em]"
+                        style={{ color: "rgba(255,255,255,0.35)" }}
+                      >
                         {logo}
+                        <span
+                          className="inline-block h-1 w-1 rounded-full"
+                          style={{ background: `color-mix(in srgb, ${accent} 70%, transparent)` }}
+                          aria-hidden
+                        />
                       </span>
                     ))}
                   </Fragment>
@@ -539,16 +577,16 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
             src={props.shapeImage3Url}
             alt="Floating shape"
             wrapperClassName="absolute top-[80%] left-[20%] pointer-events-auto"
-            className="w-48 h-48 object-contain opacity-90 blur-[1px]"
+            className="w-48 h-48 object-contain opacity-90 blur-[1px] drop-shadow-[0_36px_48px_rgba(0,0,0,0.55)]"
             onUpdate={field("shapeImage3Url")}
           />
         ) : (
           <div className="absolute top-[80%] left-[20%] w-48 h-48 blur-[1px]">{shapeFallback("w-48 h-48")}</div>
         )}
-        <div className="absolute top-[30%] right-[25%] w-4 h-4 bg-white rounded-full shadow-[0_0_30px_10px_rgba(255,255,255,0.5)]" />
+        <div className="absolute top-[30%] right-[25%] w-3 h-3 rounded-full bg-white/90 shadow-[0_0_24px_8px_rgba(255,255,255,0.35)]" />
         <div
-          className="absolute top-[70%] left-[40%] w-3 h-3 rounded-full"
-          style={{ background: accent, boxShadow: `0 0 20px 5px color-mix(in srgb, ${accent} 50%, transparent)` }}
+          className="absolute top-[70%] left-[40%] w-2.5 h-2.5 rounded-full"
+          style={{ background: accent, boxShadow: `0 0 18px 5px color-mix(in srgb, ${accent} 45%, transparent)` }}
         />
       </motion.div>
 

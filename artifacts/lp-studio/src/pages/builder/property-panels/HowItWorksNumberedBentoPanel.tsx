@@ -6,6 +6,7 @@ import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { IconPicker } from "@/components/IconPicker";
+import { ImagePicker } from "@/components/ImagePicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 import { SectionBackgroundControl } from "./SectionBackgroundControl";
@@ -84,6 +85,13 @@ export function HowItWorksNumberedBentoPanel({ props, onChange }: Props) {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="space-y-3">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Image tile</div>
+        <Label className="text-[11px] text-muted-foreground">Optional photo tile mixed into the bento grid. Leave blank to hide.</Label>
+        <ImagePicker value={props.imageUrl ?? ""} onChange={(v) => update({ imageUrl: v })} aiHint="Product or team photo" />
+        <Input value={props.imageAlt ?? ""} onChange={(e) => update({ imageAlt: e.target.value })} placeholder="Image alt text (optional)" className="h-8 text-xs" />
       </div>
 
       <div className="space-y-3">

@@ -154,6 +154,9 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   "event-page": HERO_LIKE,
   "event-landing-hero": HERO_LIKE,
   "dso-scroll-story-hero": SELF_STYLED,
+  "launch-spotlight-hero": HERO_LIKE,
+  "bento-mosaic-hero": HERO_LIKE,
+  "kinetic-type-hero": HERO_LIKE,
 
   // Self-styled "Inside Dandy" cinematic surfaces --------------------------
   "id-hero": { ...SELF_STYLED, modalTheme: true },
@@ -187,6 +190,14 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   "logo-marquee": SELF_STYLED,
   "rating-badges": SELF_STYLED,
   "avatar-social-proof": SELF_STYLED,
+  "testimonial-wall": SELF_STYLED,
+  "stat-counter-band": SELF_STYLED,
+
+  // June-2026 modern wave: glass/dark surfaces with their own bg/accent props
+  "glass-bento-features": SELF_STYLED,
+  "feature-tabs-showcase": SELF_STYLED,
+  "glass-pricing-tiers": SELF_STYLED,
+  "aurora-cta-finale": SELF_STYLED,
 
   // Self-styled content directory (owns its bg / surface) ------------------
   "resource-link-list": SELF_STYLED,

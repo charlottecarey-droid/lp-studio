@@ -281,10 +281,13 @@ export function BlockSpotlightGlowHero({
     backgroundColor: bg,
     color: text,
     fontFamily: bodyFamily,
-    "--sg-grid": "rgba(255,255,255,0.05)",
-    "--sg-spotlight": `color-mix(in srgb, ${accent} 15%, transparent)`,
+    "--sg-grid": "rgba(255,255,255,0.04)",
+    "--sg-spotlight": `color-mix(in srgb, ${accent} 17%, transparent)`,
+    "--sg-spotlight-soft": `color-mix(in srgb, ${accent} 7%, transparent)`,
+    "--sg-crown": `color-mix(in srgb, ${accent} 9%, transparent)`,
     "--sg-bento-1": `color-mix(in srgb, ${accent} 50%, transparent)`,
     "--sg-bento-2": "color-mix(in srgb, var(--brand-primary, #3b82f6) 50%, transparent)",
+    "--sg-focus": `color-mix(in srgb, ${accent} 60%, #ffffff)`,
     "--sg-mouse-x": "50%",
     "--sg-mouse-y": "50%",
   } as CSSProperties;
@@ -292,6 +295,7 @@ export function BlockSpotlightGlowHero({
   return (
     <div ref={containerRef} className="spotlight-glow-hero flex flex-col" style={rootStyle}>
       <style>{SCOPED_CSS}</style>
+      <div className="sg-depth" aria-hidden />
       <div className="sg-grid-bg" aria-hidden />
       <div className="sg-spotlight" aria-hidden />
 
@@ -359,23 +363,24 @@ export function BlockSpotlightGlowHero({
       )}
 
       {/* ── Main Content ── */}
-      <main className="sg-content flex-1 flex flex-col items-center justify-center px-4 sm:px-8 py-12 md:py-24 max-w-7xl mx-auto w-full">
-        <div className="text-center max-w-3xl mb-16">
+      <main className="sg-content flex-1 flex flex-col items-center justify-center px-4 sm:px-8 pt-14 md:pt-24 pb-20 md:pb-28 max-w-7xl mx-auto w-full">
+        <div className="text-center max-w-3xl mb-14 md:mb-20">
           {(badgeText || isEditor) && (
             <motion.div
               initial={{ opacity: 0, y: rise(20) }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: "easeOut" }}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium mb-8"
+              className="inline-flex min-h-[36px] items-center gap-2.5 px-4 py-1.5 rounded-full border text-sm font-medium backdrop-blur-md mb-8"
               style={{
                 borderColor: `color-mix(in srgb, ${accent} 30%, transparent)`,
                 backgroundColor: `color-mix(in srgb, ${accent} 10%, transparent)`,
-                color: `color-mix(in srgb, ${accent} 55%, white)`,
+                color: `color-mix(in srgb, ${accent} 50%, white)`,
               }}
             >
               <span
-                className="flex h-2 w-2 rounded-full"
+                className="flex h-2 w-2 rounded-full shrink-0"
                 style={{ backgroundColor: accent }}
+                aria-hidden
               />
               <InlineText as="span" value={badgeText} onUpdate={field("badgeText")} />
             </motion.div>
@@ -385,8 +390,13 @@ export function BlockSpotlightGlowHero({
             initial={{ opacity: 0, y: rise(20) }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
-            className="text-5xl md:text-7xl font-bold tracking-tight mb-6 leading-[1.1]"
-            style={{ fontFamily: headlineFamily }}
+            className="font-bold mb-6"
+            style={{
+              fontFamily: headlineFamily,
+              fontSize: "clamp(2.875rem, 7vw, 6rem)",
+              lineHeight: 1.03,
+              letterSpacing: "-0.03em",
+            }}
           >
             {isEditor ? (
               <InlineText
@@ -411,7 +421,7 @@ export function BlockSpotlightGlowHero({
                 multiline
                 value={subheadline}
                 onUpdate={field("subheadline")}
-                className="text-lg md:text-xl text-white/60 mb-10 max-w-2xl mx-auto"
+                className="text-lg md:text-xl leading-relaxed text-white/65 mb-10 max-w-2xl mx-auto"
               />
             </motion.div>
           )}
@@ -458,11 +468,11 @@ export function BlockSpotlightGlowHero({
                   pageId={pageId}
                   variantId={variantId}
                   source="spotlight-glow-hero-primary"
-                  className="h-12 px-8 rounded-full font-medium flex items-center gap-2 transition-all"
+                  className="min-h-[48px] px-8 rounded-full font-semibold flex items-center gap-2 transition-opacity hover:opacity-90"
                   style={{
                     backgroundColor: primaryBg,
                     color: primaryText,
-                    boxShadow: `0 0 20px ${primaryGlow}`,
+                    boxShadow: `0 0 26px ${primaryGlow}, 0 10px 24px -14px rgba(0,0,0,0.8)`,
                   }}
                 >
                   <InlineText as="span" value={ctaText} onUpdate={field("ctaText")} />
@@ -480,7 +490,7 @@ export function BlockSpotlightGlowHero({
                     pageId={pageId}
                     variantId={variantId}
                     source="spotlight-glow-hero-secondary"
-                    className="h-12 px-8 rounded-full spotlight-glow-glass text-white font-medium hover:bg-white/5 transition-colors flex items-center gap-2"
+                    className="min-h-[48px] px-8 rounded-full spotlight-glow-glass text-white font-semibold hover:bg-white/5 transition-colors flex items-center gap-2"
                   >
                     <Terminal className="w-4 h-4 text-white/60" />
                     <InlineText
@@ -643,6 +653,19 @@ const SCOPED_CSS = `
   overflow: hidden;
   min-height: 100vh;
 }
+/* Layered near-black depth bed: a faint accent crown, a vertical lift off
+   pure black, and a floor vignette — so the surface reads dimensional rather
+   than flat. */
+.spotlight-glow-hero .sg-depth {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, var(--sg-crown), transparent 62%),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 0%, transparent 30%),
+    radial-gradient(ellipse 120% 80% at 50% 110%, rgba(0, 0, 0, 0.55), transparent 60%);
+}
 .spotlight-glow-hero .sg-grid-bg {
   position: absolute;
   inset: 0;
@@ -650,20 +673,23 @@ const SCOPED_CSS = `
   background-image:
     linear-gradient(to right, var(--sg-grid) 1px, transparent 1px),
     linear-gradient(to bottom, var(--sg-grid) 1px, transparent 1px);
-  -webkit-mask-image: radial-gradient(circle at center, black, transparent 80%);
-  mask-image: radial-gradient(circle at center, black, transparent 80%);
+  -webkit-mask-image: radial-gradient(circle at center, black, transparent 72%);
+  mask-image: radial-gradient(circle at center, black, transparent 72%);
   pointer-events: none;
   z-index: 0;
 }
+/* Tighter mouse-follow spotlight with a two-stop falloff: a hot core that
+   relaxes into a soft halo instead of one washed-out disc. */
 .spotlight-glow-hero .sg-spotlight {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 1;
   background: radial-gradient(
-    circle 600px at var(--sg-mouse-x) var(--sg-mouse-y),
-    var(--sg-spotlight),
-    transparent 80%
+    circle 460px at var(--sg-mouse-x) var(--sg-mouse-y),
+    var(--sg-spotlight) 0%,
+    var(--sg-spotlight-soft) 42%,
+    transparent 68%
   );
   opacity: 0;
   transition: opacity 0.5s;
@@ -683,6 +709,7 @@ const SCOPED_CSS = `
 }
 .spotlight-glow-hero .spotlight-glow-bento-glow {
   position: relative;
+  box-shadow: 0 48px 96px -40px rgba(0, 0, 0, 0.85);
 }
 .spotlight-glow-hero .spotlight-glow-bento-glow::before {
   content: "";
@@ -691,11 +718,17 @@ const SCOPED_CSS = `
   background: linear-gradient(to bottom right, var(--sg-bento-1), var(--sg-bento-2), transparent);
   border-radius: inherit;
   z-index: -1;
-  opacity: 0.3;
+  opacity: 0.25;
   transition: opacity 0.3s;
 }
 .spotlight-glow-hero .spotlight-glow-bento-glow:hover::before {
-  opacity: 0.6;
+  opacity: 0.5;
+}
+.spotlight-glow-hero a:focus-visible,
+.spotlight-glow-hero button:focus-visible,
+.spotlight-glow-hero input:focus-visible {
+  outline: 2px solid var(--sg-focus);
+  outline-offset: 3px;
 }
 @media (prefers-reduced-motion: reduce) {
   .spotlight-glow-hero .sg-spotlight { transition: none; }

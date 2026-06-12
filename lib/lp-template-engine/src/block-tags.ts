@@ -138,6 +138,8 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "case-study-logo-results-row": ["social-proof", "stats"],
   "case-study-metric-triptych": ["social-proof", "stats"],
   "case-study-spotlight-feature": ["social-proof"],
+  "testimonial-wall": ["social-proof"],
+  "stat-counter-band": ["stats", "social-proof"],
 
   // ── Content ─────────────────────────────────────────────────────────────────
   "pas-section": ["content"],
@@ -278,6 +280,13 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "editorial-split-hero": ["hero"],
   "parallax-layers-hero": ["hero"],
   "spotlight-glow-hero": ["hero"],
+  "launch-spotlight-hero": ["hero"],
+  "bento-mosaic-hero": ["hero"],
+  "kinetic-type-hero": ["hero"],
+  "glass-bento-features": ["features"],
+  "feature-tabs-showcase": ["features", "media"],
+  "glass-pricing-tiers": ["pricing"],
+  "aurora-cta-finale": ["cta"],
   "id-hero": ["hero"],
   "id-marquee": ["media"],
   "id-intro": ["content"],

@@ -1,7 +1,4 @@
-import {
-  Zap, Layers, TrendingUp, BarChart3, Users, ShieldCheck, CloudLightning,
-  Globe2, Clock, Sparkles, ArrowRight,
-} from "lucide-react";
+import { Zap, ArrowRight } from "lucide-react";
 import { IconOrImage } from "@/lib/icon-value";
 import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -10,13 +7,19 @@ import type { BenefitsIconGridBlockProps } from "@/lib/block-types";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
-import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
-import { motion } from "framer-motion";
-import { SectionDecor } from "@/lib/premium-toolkit";
+import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
+import { motion, useReducedMotion } from "framer-motion";
 
-const DISPLAY = BRAND_DISPLAY_FONT;
-const BODY = BRAND_BODY_FONT;
+const DISPLAY = BRAND_DISPLAY_STACK;
+const BODY = BRAND_BODY_STACK;
 
+/* ----------------------------------------------------------------------------
+ * Benefits — Icon Grid: the compact, crisp benefits layout. Small
+ * accent-tinted icon chips, a tight 2/3-column grid, and an optional
+ * hairline-divider treatment (`divided`) that draws a fine cell grid instead
+ * of open whitespace — no heavy cards. Subtle chip hover (transition only —
+ * disabled under reduced motion); scroll reveals off in the builder.
+ * -------------------------------------------------------------------------- */
 
 interface Props {
   props: BenefitsIconGridBlockProps;
@@ -25,14 +28,23 @@ interface Props {
 }
 
 export function BlockBenefitsIconGrid({ props, brand, onFieldChange }: Props) {
-  const surface = resolveSectionSurface(props, "#FFFFFF");
-  const text = props.textColor ?? surface.color ?? "#171717";
-  const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const tint = `${accent}14`;
-  const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
-  const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
-  const showCta = props.showCta ?? true;
+  const reduced = useReducedMotion() ?? false;
   const isBuilder = !!onFieldChange;
+  const still = isBuilder || reduced;
+
+  const surface = resolveSectionSurface(props, "#FFFFFF");
+  const dark = surface.isDark;
+  const text = props.textColor ?? surface.color ?? (dark ? "#F6F7F9" : "#0B0B0F");
+  const accentRaw = props.accentColor || brand.accentColor || brand.primaryColor || "#3B82F6";
+  const primary = brand.primaryColor || "#0f172a";
+  const accent = pickContrastingColor(accentRaw, surface.base, [primary], 3.0);
+  const eyebrowColor = pickContrastingColor(accentRaw, surface.base, [primary, dark ? "#E2E8F0" : "#0f172a"], 4.5);
+  const muted = dark ? "rgba(246,247,249,0.62)" : "rgba(11,11,15,0.62)";
+  const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
+  const hairline = dark ? "rgba(255,255,255,0.12)" : "rgba(11,11,15,0.10)";
+  const showCta = props.showCta ?? true;
+  const divided = props.divided === true;
+  const threeCols = (props.columns ?? 3) === 3;
 
   const update = <K extends keyof BenefitsIconGridBlockProps>(key: K, value: BenefitsIconGridBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -43,69 +55,88 @@ export function BlockBenefitsIconGrid({ props, brand, onFieldChange }: Props) {
   };
 
   return (
-    <section className="relative w-full overflow-hidden px-6 py-24 sm:py-32" style={{ background: surface.background, color: text }}>
-      <SectionDecor accent={accent} isDark={surface.isDark} disabled={isBuilder} />
-      <div className="relative z-10 mx-auto max-w-7xl">
-        <div className="mb-16 max-w-2xl">
+    <section
+      className="relative w-full overflow-hidden px-6 py-16 sm:py-20 lg:px-10"
+      style={{ background: surface.background, color: text, fontFamily: BODY }}
+    >
+      <div className="relative z-10 mx-auto max-w-6xl">
+        {/* ── Compact header. ── */}
+        <div className="mb-12 max-w-2xl lg:mb-14">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
-              as="h2"
+              as="p"
               value={props.eyebrow ?? ""}
               onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined}
-              className="text-base font-semibold leading-7"
-              style={{ color: accent, fontFamily: BODY }} />
+              className="mb-3 text-[11px] font-semibold uppercase tracking-[0.26em]"
+              style={{ color: eyebrowColor }} />
           )}
           <InlineText
-            as="p"
+            as="h2"
             value={props.headline}
             onUpdate={onFieldChange ? (v) => update("headline", v) : undefined}
-            className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl"
-            style={{ fontFamily: DISPLAY }} />
+            className="font-bold tracking-tight"
+            style={{ fontFamily: DISPLAY, fontSize: "clamp(1.75rem, 3.4vw, 2.5rem)", lineHeight: 1.12 }}
+            multiline />
           {(props.subheadline || onFieldChange) && (
             <InlineText
               as="p"
               value={props.subheadline ?? ""}
               onUpdate={onFieldChange ? (v) => update("subheadline", v) : undefined}
-              className="mt-6 text-lg leading-8"
-              style={{ color: muted, fontFamily: BODY }}
+              className="mt-3.5 text-base leading-relaxed"
+              style={{ color: muted }}
               multiline />
           )}
         </div>
 
-        <div className={cn("grid grid-cols-1 gap-x-12 gap-y-16 sm:grid-cols-2", (props.columns ?? 3) === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2")}>
-          {props.items.map((item, i) => {
-            return (
-              <motion.div
-                key={i}
-                className="group flex flex-col"
-                initial={isBuilder ? false : { opacity: 0, y: 16 }}
-                whileInView={isBuilder ? undefined : { opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.3 }}
-                transition={isBuilder ? undefined : { duration: 0.5, delay: i * 0.07, ease: [0.22, 1, 0.36, 1] }}
+        {/* ── Tight grid — open whitespace, or fine hairline dividers. ── */}
+        <div
+          className={cn(
+            "grid grid-cols-1 sm:grid-cols-2",
+            threeCols ? "lg:grid-cols-3" : "lg:grid-cols-2",
+            divided ? "border-t border-l" : "gap-x-10 gap-y-12",
+          )}
+          style={divided ? { borderColor: hairline } : undefined}
+        >
+          {props.items.map((item, i) => (
+            <motion.div
+              key={i}
+              className={cn("group flex flex-col", divided && "border-b border-r p-6 sm:p-7")}
+              style={divided ? { borderColor: hairline } : undefined}
+              initial={still ? false : { opacity: 0, y: 14 }}
+              whileInView={still ? undefined : { opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={still ? undefined : { duration: 0.45, delay: Math.min(i * 0.06, 0.36), ease: [0.16, 1, 0.3, 1] }}
+            >
+              <div
+                className="mb-4 flex h-9 w-9 items-center justify-center rounded-lg transition-colors duration-300 motion-reduce:transition-none"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${accent} 11%, transparent)`,
+                  color: accent,
+                }}
+                aria-hidden="true"
               >
-                <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-0.5" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
-                  <IconOrImage value={item.icon} fallback={Zap} className="h-6 w-6" />
-                </div>
-                <InlineText
-                  as="h3"
-                  value={item.title}
-                  onUpdate={onFieldChange ? (v) => updateItem(i, { title: v }) : undefined}
-                  className="text-lg font-semibold leading-8"
-                  style={{ fontFamily: DISPLAY }} />
-                <InlineText
-                  as="p"
-                  value={item.description}
-                  onUpdate={onFieldChange ? (v) => updateItem(i, { description: v }) : undefined}
-                  className="mt-2 text-base leading-7"
-                  style={{ color: muted, fontFamily: BODY }}
-                  multiline />
-              </motion.div>
-            );
-          })}
+                <IconOrImage value={item.icon} fallback={Zap} className="h-[18px] w-[18px]" />
+              </div>
+              <InlineText
+                as="h3"
+                value={item.title}
+                onUpdate={onFieldChange ? (v) => updateItem(i, { title: v }) : undefined}
+                className="text-[15px] font-semibold leading-snug tracking-tight sm:text-base"
+                style={{ fontFamily: DISPLAY }} />
+              <InlineText
+                as="p"
+                value={item.description}
+                onUpdate={onFieldChange ? (v) => updateItem(i, { description: v }) : undefined}
+                className="mt-1.5 text-sm leading-relaxed"
+                style={{ color: muted }}
+                multiline />
+            </motion.div>
+          ))}
         </div>
 
+        {/* ── Trailing CTA band. ── */}
         {showCta && (
-          <div className="mt-24 border-t pt-16" style={{ borderColor: `${text}1a` }}>
+          <div className="mt-16 border-t pt-12 lg:mt-20" style={{ borderColor: hairline }}>
             <div className="flex flex-col items-center gap-7 text-center">
               <div className="flex flex-col items-center gap-3">
                 {(props.ctaEyebrow || onFieldChange) && (
@@ -113,15 +144,15 @@ export function BlockBenefitsIconGrid({ props, brand, onFieldChange }: Props) {
                     as="span"
                     value={props.ctaEyebrow ?? ""}
                     onUpdate={onFieldChange ? (v) => update("ctaEyebrow", v) : undefined}
-                    className="text-xs font-bold uppercase tracking-[0.18em]"
-                    style={{ color: accent, fontFamily: BODY }} />
+                    className="text-[11px] font-semibold uppercase tracking-[0.26em]"
+                    style={{ color: eyebrowColor }} />
                 )}
                 {(props.ctaHeading || onFieldChange) && (
                   <InlineText
                     as="h3"
                     value={props.ctaHeading ?? ""}
                     onUpdate={onFieldChange ? (v) => update("ctaHeading", v) : undefined}
-                    className="text-2xl font-extrabold tracking-tight md:text-3xl"
+                    className="text-2xl font-bold tracking-tight md:text-3xl"
                     style={{ fontFamily: DISPLAY }} />
                 )}
                 {(props.ctaSubheading || onFieldChange) && (
@@ -129,8 +160,8 @@ export function BlockBenefitsIconGrid({ props, brand, onFieldChange }: Props) {
                     as="p"
                     value={props.ctaSubheading ?? ""}
                     onUpdate={onFieldChange ? (v) => update("ctaSubheading", v) : undefined}
-                    className="max-w-xl text-base md:text-lg"
-                    style={{ color: muted, fontFamily: BODY }}
+                    className="max-w-xl text-base leading-relaxed md:text-lg"
+                    style={{ color: muted }}
                     multiline />
                 )}
               </div>
@@ -141,11 +172,11 @@ export function BlockBenefitsIconGrid({ props, brand, onFieldChange }: Props) {
                     ctaUrl={props.ctaPrimaryUrl}
                     brand={brand}
                     source="benefits-icon-grid-cta"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold"
-                    style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold focus-visible:outline-2 focus-visible:outline-offset-2"
+                    style={{ backgroundColor: accent, color: onAccent, outlineColor: accent }}
                   >
                     {props.ctaPrimaryLabel || "Get started"}
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </CtaButton>
                 )}
                 {(props.ctaSecondaryLabel || onFieldChange) && (
@@ -154,8 +185,8 @@ export function BlockBenefitsIconGrid({ props, brand, onFieldChange }: Props) {
                     ctaUrl={props.ctaSecondaryUrl}
                     brand={brand}
                     source="benefits-icon-grid-cta-secondary"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border px-6 py-3.5 text-base font-semibold"
-                    style={{ borderColor: `${text}33`, color: text, fontFamily: BODY }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border px-6 py-3.5 text-base font-semibold focus-visible:outline-2 focus-visible:outline-offset-2"
+                    style={{ borderColor: `${text}33`, color: text, outlineColor: accent }}
                   >
                     {props.ctaSecondaryLabel || "Book a demo"}
                   </CtaButton>

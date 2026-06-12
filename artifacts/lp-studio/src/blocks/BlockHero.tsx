@@ -108,7 +108,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
       const videoSrc = resolvedMedia || "";
       if (!videoSrc) return renderImage();
       return (
-        <div className={cn("relative w-full aspect-[16/9] z-10 rounded-xl overflow-hidden", props.imageShadow !== false ? "shadow-2xl" : "")}>
+        <div className={cn("relative w-full aspect-[16/9] z-10 rounded-2xl overflow-hidden ring-1 ring-black/[0.06]", props.imageShadow !== false ? "shadow-[0_24px_60px_-24px_rgba(15,15,20,0.4),0_2px_8px_-2px_rgba(15,15,20,0.08)]" : "")}>
           <iframe src={videoSrc} className="w-full h-full border-0" title="Demo Video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
         </div>
       );
@@ -126,7 +126,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
         <InlineImage
           src={resolvedImage}
           alt={props.imageAlt ?? (props.headline || "")}
-          className={cn("w-full h-auto object-contain rounded-xl", props.imageShadow !== false ? "shadow-2xl" : "")}
+          className={cn("w-full h-auto object-contain rounded-2xl ring-1 ring-black/[0.06]", props.imageShadow !== false ? "shadow-[0_24px_60px_-24px_rgba(15,15,20,0.4),0_2px_8px_-2px_rgba(15,15,20,0.08)]" : "")}
           wrapperClassName="block w-full"
           onUpdate={field("imageUrl")}
           onAltUpdate={field("imageAlt")}
@@ -150,7 +150,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
           as="h1"
           value={props.headline}
           onUpdate={field("headline")}
-          className={cn("font-display leading-[1.05]", getHeadlineSizeClass(props.headlineSize, brand.h1Size ?? "xl"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand), isDark ? "text-[var(--brand-heading-on-dark)]" : "text-[var(--brand-heading-on-light)]")}
+          className={cn("font-display leading-[1.04] text-balance", getHeadlineSizeClass(props.headlineSize, brand.h1Size ?? "xl"), getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand), isDark ? "text-[var(--brand-heading-on-dark)]" : "text-[var(--brand-heading-on-light)]")}
           style={{ fontFamily: DISPLAY }}
         />
       </motion.div>
@@ -197,8 +197,8 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
             modalShowPhone={props.modalShowPhone}
             modalShowCompany={props.modalShowCompany}
             onClick={onCtaClick}
-            className={getButtonClasses(brand, cn("inline-flex items-center justify-center", isFullWidth && "w-full"))}
-            style={{ backgroundColor: CTA_BG_COLOR, color: CTA_TEXT_COLOR }}
+            className={getButtonClasses(brand, cn("inline-flex items-center justify-center transition-all duration-200 ease-out hover:brightness-105 motion-safe:hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2", isFullWidth && "w-full"))}
+            style={{ backgroundColor: CTA_BG_COLOR, color: CTA_TEXT_COLOR, outlineColor: CTA_BG_COLOR }}
             brand={brand}
             source="hero-cta"
             animationsEnabled={animationsEnabled}
@@ -230,12 +230,12 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
               </a>
             ) : logo;
           })()}
-          <a href={brand.navCtaUrl} target="_blank" rel="noopener noreferrer" className={getButtonClasses(brand)} style={{ backgroundColor: LIME, color: NAV_CTA_TEXT_COLOR }}>
+          <a href={brand.navCtaUrl} target="_blank" rel="noopener noreferrer" className={getButtonClasses(brand, "transition-all duration-200 ease-out hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2")} style={{ backgroundColor: LIME, color: NAV_CTA_TEXT_COLOR, outlineColor: LIME }}>
             {brand.navCtaText}
           </a>
         </nav>
         <section
-          className={cn("relative w-full flex flex-col items-center justify-center flex-1 py-16 lg:py-24", isDark ? "bg-[var(--brand-primary)]" : "bg-white")}
+          className={cn("relative w-full flex flex-col items-center justify-center flex-1 py-20 lg:py-28", isDark ? "bg-[var(--brand-primary)]" : "bg-white")}
           style={{ ...(contentPaddingX ? { paddingLeft: contentPaddingX, paddingRight: contentPaddingX } : { paddingLeft: "1.5rem", paddingRight: "1.5rem" }), ...(bgExtended ?? {}) }}
         >
           {isSplit ? (
@@ -279,7 +279,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
           )}
           <div className="absolute bottom-[10px] left-1/2 -translate-x-1/2 flex flex-col items-center gap-0.5 pointer-events-none select-none">
             <div className={cn("w-px h-6 rounded-full", isDark ? "bg-white/20" : "bg-[rgb(var(--brand-primary-rgb)/0.15)]")} />
-            <div className="animate-bounce"><ChevronDown className={cn("w-5 h-5", isDark ? "text-white/30" : "text-[rgb(var(--brand-primary-rgb)/0.3)]")} /></div>
+            <div className="motion-safe:animate-bounce"><ChevronDown className={cn("w-5 h-5", isDark ? "text-white/30" : "text-[rgb(var(--brand-primary-rgb)/0.3)]")} /></div>
           </div>
         </section>
       </div>

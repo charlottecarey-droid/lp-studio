@@ -109,6 +109,29 @@ export function CaseStudyMetricTriptychPanel({ props, onChange }: Props) {
 
       <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Style</div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Layout variant</Label>
+          <div className="grid grid-cols-2 gap-1 mt-1">
+            {([
+              { value: "plain", label: "Plain" },
+              { value: "panel", label: "Accent panel" },
+            ] as const).map((opt) => {
+              const active = (props.variant ?? "plain") === opt.value;
+              return (
+                <Button
+                  key={opt.value}
+                  size="sm"
+                  variant={active ? "default" : "outline"}
+                  className="h-8 text-xs"
+                  onClick={() => update({ variant: opt.value })}
+                >
+                  {opt.label}
+                </Button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">Accent panel wraps the metrics and quote in a tinted rounded panel.</p>
+        </div>
         <SectionBackgroundControl
           backgroundStyle={props.backgroundStyle}
           bgColor={props.bgColor}
@@ -116,7 +139,7 @@ export function CaseStudyMetricTriptychPanel({ props, onChange }: Props) {
           onChange={(patch) => update(patch)}
         />
         <div className="grid grid-cols-2 gap-2">
-          <ColorField label="Badge surface" value={props.surfaceColor ?? "#FFFFFF"} onChange={(v) => update({ surfaceColor: v })} />
+          <ColorField label="Panel surface" value={props.surfaceColor ?? "#FFFFFF"} onChange={(v) => update({ surfaceColor: v })} />
           <ColorField label="Text" value={props.textColor ?? "#0F172A"} onChange={(v) => update({ textColor: v })} />
           <ColorField label="Accent" value={props.accentColor ?? "#4f46e5"} onChange={(v) => update({ accentColor: v })} />
         </div>

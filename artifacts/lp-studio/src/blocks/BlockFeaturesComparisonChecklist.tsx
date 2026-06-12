@@ -1,6 +1,4 @@
-import {
-  Check, Shield, Zap, Globe, Layers, MessageSquare, Database,
-} from "lucide-react";
+import { Check, X, Layers, ArrowRight } from "lucide-react";
 import { IconOrImage } from "@/lib/icon-value";
 import { Fragment } from "react";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -9,13 +7,21 @@ import type { FeaturesComparisonChecklistBlockProps } from "@/lib/block-types";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
-import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
-import { motion } from "framer-motion";
-import { SectionDecor } from "@/lib/premium-toolkit";
+import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
+import { cn } from "@/lib/utils";
+import { motion, useReducedMotion } from "framer-motion";
 
-const DISPLAY = BRAND_DISPLAY_FONT;
-const BODY = BRAND_BODY_FONT;
+const DISPLAY = BRAND_DISPLAY_STACK;
+const BODY = BRAND_BODY_STACK;
 
+/* ----------------------------------------------------------------------------
+ * Features — Comparison Checklist: a premium feature table in a rounded-2xl
+ * ring container with low-alpha zebra rows, brand-accent check chips and an
+ * optional sticky column-header row. `showCompetitorColumn` upgrades it to a
+ * two-column "us vs them" comparison (accent check chips vs muted cross
+ * chips, per-row `themIncluded`). Surface-aware; reveals disabled in the
+ * builder and under reduced motion.
+ * -------------------------------------------------------------------------- */
 
 interface Props {
   props: FeaturesComparisonChecklistBlockProps;
@@ -24,16 +30,37 @@ interface Props {
 }
 
 export function BlockFeaturesComparisonChecklist({ props, brand, onFieldChange }: Props) {
+  const reduced = useReducedMotion() ?? false;
+  const isBuilder = !!onFieldChange;
+  const still = isBuilder || reduced;
+
   const surface = resolveSectionSurface(props, "#FFFFFF");
-  const text = props.textColor ?? surface.color ?? "#171717";
-  const accent = props.accentColor ?? brand.primaryColor ?? "#4f46e5";
-  const tint = `${accent}14`;
+  const dark = surface.isDark;
+  const text = props.textColor ?? surface.color ?? (dark ? "#F6F7F9" : "#0B0B0F");
+  const accentRaw = props.accentColor || brand.accentColor || brand.primaryColor || "#3B82F6";
+  const primary = brand.primaryColor || "#0f172a";
+  const accent = pickContrastingColor(accentRaw, surface.base, [primary], 3.0);
+  const eyebrowColor = pickContrastingColor(accentRaw, surface.base, [primary, dark ? "#E2E8F0" : "#0f172a"], 4.5);
+  const muted = dark ? "rgba(246,247,249,0.62)" : "rgba(11,11,15,0.62)";
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
-  const muted = pickContrastingColor(undefined, surface.base, ["#525252", "#a3a3a3"]);
+  const hairline = dark ? "rgba(255,255,255,0.12)" : "rgba(11,11,15,0.10)";
   const showCta = props.showCta ?? true;
   const showBespokeCard = props.showBespokeCard ?? true;
   const categories = props.categories ?? [];
-  const isBuilder = !!onFieldChange;
+
+  const vsMode = props.showCompetitorColumn === true;
+  const sticky = props.stickyHeader === true;
+  const usLabel = props.usColumnLabel || brand.brandName || "Us";
+  const themLabel = props.themColumnLabel || "Others";
+
+  // ── Table surfaces. ──
+  const tableBg = dark ? "rgba(255,255,255,0.04)" : "#FFFFFF";
+  const tableRing = dark ? "rgba(255,255,255,0.10)" : "rgba(11,11,15,0.08)";
+  const headerBg = dark ? "#16161D" : "#FAFAF8";
+  const rowDivider = dark ? "rgba(255,255,255,0.07)" : "rgba(11,11,15,0.06)";
+  const zebra = dark ? "rgba(255,255,255,0.025)" : "rgba(11,11,15,0.022)";
+  const tableInk = dark ? "#F6F7F9" : "#0B0B0F";
+  const tableMuted = dark ? "rgba(246,247,249,0.6)" : "rgba(11,11,15,0.58)";
 
   const update = <K extends keyof FeaturesComparisonChecklistBlockProps>(key: K, value: FeaturesComparisonChecklistBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -59,116 +86,216 @@ export function BlockFeaturesComparisonChecklist({ props, brand, onFieldChange }
     onFieldChange({ ...props, categories: categories.map((cat, ci) => (ci === catIndex ? { ...cat, ...patch } : cat)) });
   };
 
+  const gridCols = vsMode
+    ? "md:grid-cols-[minmax(0,1fr)_130px_130px]"
+    : "md:grid-cols-[minmax(0,1fr)_180px]";
+
+  const CheckChip = ({ included, them }: { included: boolean; them?: boolean }) => (
+    <span
+      className="flex h-8 w-8 items-center justify-center rounded-full"
+      style={
+        included
+          ? {
+              backgroundColor: them
+                ? (dark ? "rgba(255,255,255,0.10)" : "rgba(11,11,15,0.07)")
+                : `color-mix(in srgb, ${accent} 13%, transparent)`,
+              color: them ? tableMuted : accent,
+            }
+          : {
+              backgroundColor: dark ? "rgba(255,255,255,0.06)" : "rgba(11,11,15,0.05)",
+              color: dark ? "rgba(246,247,249,0.45)" : "rgba(11,11,15,0.38)",
+            }
+      }
+      aria-hidden="true"
+    >
+      {included ? <Check className="h-4 w-4 stroke-[3]" /> : <X className="h-4 w-4 stroke-[2.5]" />}
+    </span>
+  );
+
   return (
-    <section className="relative flex w-full flex-col items-center overflow-hidden px-6 py-24" style={{ background: surface.background, color: text }}>
-      <SectionDecor accent={accent} isDark={surface.isDark} disabled={isBuilder} />
+    <section
+      className="relative flex w-full flex-col items-center overflow-hidden px-6 py-20 sm:py-24 lg:py-28"
+      style={{ background: surface.background, color: text, fontFamily: BODY }}
+    >
       <div className="relative z-10 w-full max-w-5xl">
-        <div className="mb-16 text-center">
+        {/* ── Section header. ── */}
+        <div className="mb-12 text-center lg:mb-16">
           {(props.eyebrow || onFieldChange) && (
             <InlineText
-              as="h2"
+              as="p"
               value={props.eyebrow ?? ""}
               onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined}
-              className="mb-3 text-sm font-bold uppercase tracking-widest"
-              style={{ color: accent, fontFamily: BODY }} />
+              className="mb-4 text-[11px] font-semibold uppercase tracking-[0.26em]"
+              style={{ color: eyebrowColor }} />
           )}
           <InlineText
-            as="h3"
+            as="h2"
             value={props.headline}
             onUpdate={onFieldChange ? (v) => update("headline", v) : undefined}
-            className="mb-6 text-3xl font-extrabold tracking-tight md:text-5xl"
-            style={{ fontFamily: DISPLAY }} />
+            className="mx-auto max-w-3xl font-bold tracking-tight"
+            style={{ fontFamily: DISPLAY, fontSize: "clamp(2rem, 4.5vw, 3.25rem)", lineHeight: 1.06 }}
+            multiline />
           {(props.subheadline || onFieldChange) && (
             <InlineText
               as="p"
               value={props.subheadline ?? ""}
               onUpdate={onFieldChange ? (v) => update("subheadline", v) : undefined}
-              className="mx-auto max-w-2xl text-lg"
-              style={{ color: muted, fontFamily: BODY }}
+              className="mx-auto mt-4 max-w-2xl text-base leading-relaxed lg:text-lg"
+              style={{ color: muted }}
               multiline />
           )}
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-          <div className="grid grid-cols-1 border-b border-neutral-200 bg-neutral-50 px-6 py-4 md:grid-cols-[1fr_200px] md:px-8">
+        {/* ── Comparison table. ── */}
+        <div
+          className="overflow-hidden rounded-2xl ring-1"
+          style={{
+            backgroundColor: tableBg,
+            color: tableInk,
+            "--tw-ring-color": tableRing,
+            boxShadow: dark
+              ? "0 24px 48px -24px rgba(0,0,0,0.7)"
+              : "0 1px 2px rgba(15,15,20,0.04), 0 16px 40px -18px rgba(15,15,20,0.12)",
+          } as React.CSSProperties}
+        >
+          {/* Column header row (optionally sticky). */}
+          <div
+            className={cn(
+              "grid grid-cols-1 items-center gap-4 border-b px-6 py-4 md:px-8",
+              gridCols,
+              sticky && "sticky top-0 z-10",
+            )}
+            style={{ borderColor: rowDivider, backgroundColor: headerBg }}
+          >
             <InlineText
               as="div"
               value={props.featureColumnLabel ?? "Feature & Description"}
               onUpdate={onFieldChange ? (v) => update("featureColumnLabel", v) : undefined}
-              className="text-sm font-semibold uppercase tracking-wider text-neutral-500"
-              style={{ fontFamily: BODY }} />
-            <InlineText
-              as="div"
-              value={props.includedColumnLabel ?? "Included"}
-              onUpdate={onFieldChange ? (v) => update("includedColumnLabel", v) : undefined}
-              className="hidden text-center text-sm font-semibold uppercase tracking-wider text-neutral-500 md:block"
-              style={{ fontFamily: BODY }} />
+              className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+              style={{ color: tableMuted }} />
+            {vsMode ? (
+              <>
+                <InlineText
+                  as="div"
+                  value={usLabel}
+                  onUpdate={onFieldChange ? (v) => update("usColumnLabel", v) : undefined}
+                  className="hidden text-center text-[11px] font-bold uppercase tracking-[0.18em] md:block"
+                  style={{ color: accent }} />
+                <InlineText
+                  as="div"
+                  value={themLabel}
+                  onUpdate={onFieldChange ? (v) => update("themColumnLabel", v) : undefined}
+                  className="hidden text-center text-[11px] font-semibold uppercase tracking-[0.18em] md:block"
+                  style={{ color: tableMuted }} />
+              </>
+            ) : (
+              <InlineText
+                as="div"
+                value={props.includedColumnLabel ?? "Included"}
+                onUpdate={onFieldChange ? (v) => update("includedColumnLabel", v) : undefined}
+                className="hidden text-center text-[11px] font-semibold uppercase tracking-[0.18em] md:block"
+                style={{ color: tableMuted }} />
+            )}
           </div>
 
-          <div className="divide-y divide-neutral-100">
-            {categories.map((category, catIndex) => (
-              <Fragment key={catIndex}>
-                <div className="bg-neutral-50/50 px-6 py-3 md:px-8">
-                  <InlineText
-                    as="h4"
-                    value={category.title}
-                    onUpdate={onFieldChange ? (v) => updateCategory(catIndex, { title: v }) : undefined}
-                    className="text-sm font-semibold text-neutral-900"
-                    style={{ fontFamily: DISPLAY }} />
-                </div>
-                {category.features.map((feature, featIndex) => {
-                  return (
-                    <motion.div
-                      key={featIndex}
-                      className="group grid grid-cols-1 items-center gap-4 px-6 py-5 transition-colors hover:bg-neutral-50 md:grid-cols-[1fr_200px] md:px-8 md:py-6"
-                      initial={isBuilder ? false : { opacity: 0, y: 12 }}
-                      whileInView={isBuilder ? undefined : { opacity: 1, y: 0 }}
-                      viewport={{ once: true, amount: 0.4 }}
-                      transition={isBuilder ? undefined : { duration: 0.45, delay: featIndex * 0.05, ease: [0.22, 1, 0.36, 1] }}
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-transform duration-300 group-hover:scale-105" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
-                          <IconOrImage value={feature.icon} fallback={Layers} className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <InlineText
-                            as="h4"
-                            value={feature.name}
-                            onUpdate={onFieldChange ? (v) => updateFeature(catIndex, featIndex, { name: v }) : undefined}
-                            className="text-base font-semibold text-neutral-900"
-                            style={{ fontFamily: DISPLAY }} />
-                          <InlineText
-                            as="p"
-                            value={feature.description}
-                            onUpdate={onFieldChange ? (v) => updateFeature(catIndex, featIndex, { description: v }) : undefined}
-                            className="mt-1 max-w-lg text-sm leading-relaxed text-neutral-500"
-                            style={{ fontFamily: BODY }}
-                            multiline />
-                        </div>
+          {categories.map((category, catIndex) => (
+            <Fragment key={catIndex}>
+              <div
+                className="border-b px-6 py-3 md:px-8"
+                style={{
+                  borderColor: rowDivider,
+                  backgroundColor: `color-mix(in srgb, ${accentRaw} ${dark ? 9 : 5}%, ${dark ? "transparent" : "#FFFFFF"})`,
+                }}
+              >
+                <InlineText
+                  as="h3"
+                  value={category.title}
+                  onUpdate={onFieldChange ? (v) => updateCategory(catIndex, { title: v }) : undefined}
+                  className="text-sm font-semibold tracking-tight"
+                  style={{ fontFamily: DISPLAY }} />
+              </div>
+              {category.features.map((feature, featIndex) => {
+                const themIncluded = feature.themIncluded === true;
+                return (
+                  <motion.div
+                    key={featIndex}
+                    className={cn("grid grid-cols-1 items-center gap-4 border-b px-6 py-5 md:px-8", gridCols)}
+                    style={{
+                      borderColor: rowDivider,
+                      backgroundColor: featIndex % 2 === 1 ? zebra : undefined,
+                    }}
+                    initial={still ? false : { opacity: 0, y: 10 }}
+                    whileInView={still ? undefined : { opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.4 }}
+                    transition={still ? undefined : { duration: 0.4, delay: Math.min(featIndex * 0.04, 0.24), ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                        style={{
+                          backgroundColor: `color-mix(in srgb, ${accent} 11%, transparent)`,
+                          color: accent,
+                        }}
+                        aria-hidden="true"
+                      >
+                        <IconOrImage value={feature.icon} fallback={Layers} className="h-5 w-5" />
                       </div>
+                      <div>
+                        <InlineText
+                          as="h4"
+                          value={feature.name}
+                          onUpdate={onFieldChange ? (v) => updateFeature(catIndex, featIndex, { name: v }) : undefined}
+                          className="text-[15px] font-semibold leading-snug tracking-tight sm:text-base"
+                          style={{ fontFamily: DISPLAY }} />
+                        <InlineText
+                          as="p"
+                          value={feature.description}
+                          onUpdate={onFieldChange ? (v) => updateFeature(catIndex, featIndex, { description: v }) : undefined}
+                          className="mt-1 max-w-lg text-sm leading-relaxed"
+                          style={{ color: tableMuted }}
+                          multiline />
+                      </div>
+                    </div>
+                    {vsMode ? (
+                      <>
+                        <div className="flex items-center gap-2 md:justify-center">
+                          <CheckChip included />
+                          <span className="text-sm font-medium md:hidden" style={{ color: tableMuted }}>{usLabel}</span>
+                        </div>
+                        <div className="flex items-center gap-2 md:justify-center">
+                          <CheckChip included={themIncluded} them />
+                          <span className="text-sm font-medium md:hidden" style={{ color: tableMuted }}>{themLabel}</span>
+                        </div>
+                      </>
+                    ) : (
                       <div className="flex items-center gap-2 md:justify-center">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110" style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`, color: accent, boxShadow: `inset 0 0 0 1px ${accent}1f` }}>
-                          <Check className="h-5 w-5 stroke-[3]" />
-                        </div>
-                        <span className="text-sm font-medium text-neutral-600 md:hidden">Included in all plans</span>
+                        <CheckChip included />
+                        <span className="text-sm font-medium md:hidden" style={{ color: tableMuted }}>Included in all plans</span>
                       </div>
-                    </motion.div>
-                  );
-                })}
-              </Fragment>
-            ))}
-          </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </Fragment>
+          ))}
         </div>
 
+        {/* ── Bespoke / custom card. ── */}
         {showBespokeCard && (
-          <div className="mt-12 flex flex-col items-center gap-6 rounded-2xl p-8 ring-1 sm:flex-row sm:justify-between" style={{ backgroundColor: tint, "--tw-ring-color": `${accent}33` } as React.CSSProperties}>
+          <div
+            className="mt-10 flex flex-col items-center gap-6 rounded-2xl p-8 ring-1 sm:flex-row sm:justify-between"
+            style={{
+              backgroundColor: `color-mix(in srgb, ${accentRaw} ${dark ? 12 : 6}%, ${dark ? "transparent" : "#FFFFFF"})`,
+              "--tw-ring-color": `color-mix(in srgb, ${accent} 22%, transparent)`,
+            } as React.CSSProperties}
+          >
             <div>
               {(props.bespokeHeading || onFieldChange) && (
                 <InlineText
-                  as="h4"
+                  as="h3"
                   value={props.bespokeHeading ?? ""}
                   onUpdate={onFieldChange ? (v) => update("bespokeHeading", v) : undefined}
-                  className="text-lg font-semibold text-neutral-900"
+                  className="text-lg font-semibold tracking-tight"
                   style={{ fontFamily: DISPLAY }} />
               )}
               {(props.bespokeSubheading || onFieldChange) && (
@@ -176,8 +303,8 @@ export function BlockFeaturesComparisonChecklist({ props, brand, onFieldChange }
                   as="p"
                   value={props.bespokeSubheading ?? ""}
                   onUpdate={onFieldChange ? (v) => update("bespokeSubheading", v) : undefined}
-                  className="mt-1 text-sm text-neutral-600"
-                  style={{ fontFamily: BODY }}
+                  className="mt-1 text-sm leading-relaxed"
+                  style={{ color: muted }}
                   multiline />
               )}
             </div>
@@ -187,8 +314,8 @@ export function BlockFeaturesComparisonChecklist({ props, brand, onFieldChange }
                 ctaUrl={props.bespokeButtonUrl}
                 brand={brand}
                 source="features-comparison-checklist-bespoke"
-                className="inline-flex shrink-0 items-center justify-center rounded-md px-8 py-4 text-base font-semibold"
-                style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY }}
+                className="inline-flex shrink-0 items-center justify-center rounded-xl px-7 py-3.5 text-base font-semibold focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{ backgroundColor: accent, color: onAccent, outlineColor: accent }}
               >
                 {props.bespokeButtonLabel || "Contact sales"}
               </CtaButton>
@@ -196,8 +323,9 @@ export function BlockFeaturesComparisonChecklist({ props, brand, onFieldChange }
           </div>
         )}
 
+        {/* ── Trailing CTA band. ── */}
         {showCta && (
-          <div className="mt-20 border-t pt-16" style={{ borderColor: `${text}1a` }}>
+          <div className="mt-16 border-t pt-14 lg:mt-20" style={{ borderColor: hairline }}>
             <div className="flex flex-col items-center gap-7 text-center">
               <div className="flex flex-col items-center gap-3">
                 {(props.ctaEyebrow || onFieldChange) && (
@@ -205,15 +333,15 @@ export function BlockFeaturesComparisonChecklist({ props, brand, onFieldChange }
                     as="span"
                     value={props.ctaEyebrow ?? ""}
                     onUpdate={onFieldChange ? (v) => update("ctaEyebrow", v) : undefined}
-                    className="text-xs font-bold uppercase tracking-[0.18em]"
-                    style={{ color: accent, fontFamily: BODY }} />
+                    className="text-[11px] font-semibold uppercase tracking-[0.26em]"
+                    style={{ color: eyebrowColor }} />
                 )}
                 {(props.ctaHeading || onFieldChange) && (
                   <InlineText
                     as="h3"
                     value={props.ctaHeading ?? ""}
                     onUpdate={onFieldChange ? (v) => update("ctaHeading", v) : undefined}
-                    className="text-2xl font-extrabold tracking-tight md:text-3xl"
+                    className="text-2xl font-bold tracking-tight md:text-3xl"
                     style={{ fontFamily: DISPLAY }} />
                 )}
                 {(props.ctaSubheading || onFieldChange) && (
@@ -221,8 +349,8 @@ export function BlockFeaturesComparisonChecklist({ props, brand, onFieldChange }
                     as="p"
                     value={props.ctaSubheading ?? ""}
                     onUpdate={onFieldChange ? (v) => update("ctaSubheading", v) : undefined}
-                    className="max-w-xl text-base md:text-lg"
-                    style={{ color: muted, fontFamily: BODY }}
+                    className="max-w-xl text-base leading-relaxed md:text-lg"
+                    style={{ color: muted }}
                     multiline />
                 )}
               </div>
@@ -233,10 +361,11 @@ export function BlockFeaturesComparisonChecklist({ props, brand, onFieldChange }
                     ctaUrl={props.ctaPrimaryUrl}
                     brand={brand}
                     source="features-comparison-checklist-cta"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold"
-                    style={{ backgroundColor: accent, color: onAccent, fontFamily: BODY }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold focus-visible:outline-2 focus-visible:outline-offset-2"
+                    style={{ backgroundColor: accent, color: onAccent, outlineColor: accent }}
                   >
                     {props.ctaPrimaryLabel || "Get started"}
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </CtaButton>
                 )}
                 {(props.ctaSecondaryLabel || onFieldChange) && (
@@ -245,8 +374,8 @@ export function BlockFeaturesComparisonChecklist({ props, brand, onFieldChange }
                     ctaUrl={props.ctaSecondaryUrl}
                     brand={brand}
                     source="features-comparison-checklist-cta-secondary"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border px-6 py-3.5 text-base font-semibold"
-                    style={{ borderColor: `${text}33`, color: text, fontFamily: BODY }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border px-6 py-3.5 text-base font-semibold focus-visible:outline-2 focus-visible:outline-offset-2"
+                    style={{ borderColor: `${text}33`, color: text, outlineColor: accent }}
                   >
                     {props.ctaSecondaryLabel || "Talk to sales"}
                   </CtaButton>

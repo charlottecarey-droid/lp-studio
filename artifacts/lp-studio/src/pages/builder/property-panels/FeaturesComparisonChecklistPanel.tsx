@@ -81,6 +81,26 @@ export function FeaturesComparisonChecklistPanel({ props, onChange }: Props) {
             <Input value={props.includedColumnLabel ?? ""} onChange={(e) => update({ includedColumnLabel: e.target.value })} placeholder="Included" className="h-8 text-xs" />
           </div>
         </div>
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground">"Us vs them" competitor column</Label>
+          <Switch checked={props.showCompetitorColumn === true} onCheckedChange={(v) => update({ showCompetitorColumn: v })} />
+        </div>
+        {props.showCompetitorColumn === true && (
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-[11px] text-muted-foreground">"Us" column label</Label>
+              <Input value={props.usColumnLabel ?? ""} onChange={(e) => update({ usColumnLabel: e.target.value })} placeholder="Your brand name" className="h-8 text-xs" />
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">"Them" column label</Label>
+              <Input value={props.themColumnLabel ?? ""} onChange={(e) => update({ themColumnLabel: e.target.value })} placeholder="Others" className="h-8 text-xs" />
+            </div>
+          </div>
+        )}
+        <div className="flex items-center justify-between">
+          <Label className="text-[11px] text-muted-foreground">Sticky column-header row</Label>
+          <Switch checked={props.stickyHeader === true} onCheckedChange={(v) => update({ stickyHeader: v })} />
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -126,6 +146,12 @@ export function FeaturesComparisonChecklistPanel({ props, onChange }: Props) {
                     <Label className="text-[11px] text-muted-foreground">Description</Label>
                     <Input value={feature.description} onChange={(e) => updateFeature(ci, fi, { description: e.target.value })} className="h-8 text-xs" />
                   </div>
+                  {props.showCompetitorColumn === true && (
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[11px] text-muted-foreground">Competitor also has this</Label>
+                      <Switch checked={feature.themIncluded === true} onCheckedChange={(v) => updateFeature(ci, fi, { themIncluded: v })} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -174,7 +200,7 @@ export function FeaturesComparisonChecklistPanel({ props, onChange }: Props) {
         />
         <div className="grid grid-cols-2 gap-2">
           <ColorField label="Text" value={props.textColor ?? "#171717"} onChange={(v) => update({ textColor: v })} />
-          <ColorField label="Accent" value={props.accentColor ?? "#4f46e5"} onChange={(v) => update({ accentColor: v })} />
+          <ColorField label="Accent" value={props.accentColor ?? "#3B82F6"} onChange={(v) => update({ accentColor: v })} />
         </div>
       </div>
     </div>
