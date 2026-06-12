@@ -1,0 +1,585 @@
+charlotte.carey@MAC-FQ1NFJD4F1 ~ % cd ~/lp-studio-staging
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % pnpm --filter @workspace/api-server run dev
+
+> @workspace/api-server@0.0.0 dev /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> export NODE_ENV=development && pnpm run build && pnpm run migrate && pnpm run start
+
+
+> @workspace/api-server@0.0.0 build /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node ./build.mjs
+
+
+  dist/index.mjs                   9.7mb ⚠️
+  dist/migrate.mjs                 1.8mb ⚠️
+  dist/pino-worker.mjs           153.4kb
+  dist/pino-file.mjs             142.1kb
+  dist/pino-pretty.mjs           114.6kb
+  dist/instrument.mjs             18.6kb
+  dist/thread-stream-worker.mjs    7.3kb
+  dist/index.mjs.map              17.3mb
+  dist/migrate.mjs.map             3.1mb
+  dist/pino-worker.mjs.map       256.9kb
+  dist/pino-file.mjs.map         229.1kb
+  dist/pino-pretty.mjs.map       203.9kb
+  ...and 2 more output files...
+
+⚡ Done in 269ms
+
+> @workspace/api-server@0.0.0 migrate /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node --enable-source-maps --env-file-if-exists=../../.env --env-file-if-exists=.env ./dist/migrate.mjs
+
+../../.env not found. Continuing without it.
+.env not found. Continuing without it.
+[dotenv@17.3.1] injecting env (0) from ../../.env -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+/Users/charlotte.carey/lp-studio-staging/lib/db/src/index.ts:11
+  throw new Error(
+        ^
+
+Error: DATABASE_URL must be set. Did you forget to provision a database?
+    at ../../lib/db/src/index.ts (/Users/charlotte.carey/lp-studio-staging/lib/db/src/index.ts:11:9)
+    at __init (file:///Users/charlotte.carey/lp-studio-staging/artifacts/api-server/dist/migrate.mjs:22:56)
+    at <anonymous> (/Users/charlotte.carey/lp-studio-staging/artifacts/api-server/src/migrate.ts:22:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:430:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:661:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.14.0
+ ELIFECYCLE  Command failed with exit code 1.
+/Users/charlotte.carey/lp-studio-staging/artifacts/api-server:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/api-server@0.0.0 dev: `export NODE_ENV=development && pnpm run build && pnpm run migrate && pnpm run start`
+Exit status 1
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % pnpm run build
+
+> workspace@0.0.0 build /Users/charlotte.carey/lp-studio-staging
+> pnpm run typecheck && pnpm -r --if-present run build
+
+
+> workspace@0.0.0 typecheck /Users/charlotte.carey/lp-studio-staging
+> pnpm run typecheck:libs && pnpm -r --filter "./artifacts/**" --filter "./scripts" --if-present run typecheck
+
+
+> workspace@0.0.0 typecheck:libs /Users/charlotte.carey/lp-studio-staging
+> tsc --build
+
+Scope: 4 of 14 workspace projects
+artifacts/api-server typecheck$ tsc -b tsconfig.json
+└─ Running...
+artifacts/lp-studio typecheck$ tsc -b tsconfig.json
+└─ Running...
+artifacts/mockup-sandbox typecheck$ tsc -p tsconfig.json --noEmit
+│ ../lp-studio/src/lib/block-types/block-registry.tsx(159,43): error TS2307: …
+│ ../lp-studio/src/lib/block-types/block-registry.tsx(160,44): error TS2307: …
+│ ../lp-studio/src/lib/block-types/block-registry.tsx(161,44): error TS2307: …
+│ ../lp-studio/src/lib/block-types/block-registry.tsx(162,48): error TS2307: …
+│ ../lp-studio/src/lib/block-types/block-registry.tsx(163,45): error TS2307: …
+│ ../lp-studio/src/lib/block-types/generic-blocks.ts(4276,52): error TS2307: …
+│ ../lp-studio/src/lib/block-types/generic-blocks.ts(4277,48): error TS2307: …
+│ ../lp-studio/src/lib/block-types/generic-blocks.ts(4278,48): error TS2307: …
+│ ../lp-studio/src/lib/block-types/generic-blocks.ts(4283,8): error TS2307: C…
+│ ../lp-studio/src/lib/block-types/generic-blocks.ts(4287,8): error TS2307: C…
+│ ../lp-studio/src/lib/block-types/generic-blocks.ts(4292,8): error TS2307: C…
+│ ../lp-studio/src/lib/block-types/generic-blocks.ts(4296,8): error TS2307: C…
+│ ../lp-studio/src/lib/block-types/generic-blocks.ts(4300,8): error TS2307: C…
+│ ../lp-studio/src/lib/block-types/generic-blocks.ts(4304,8): error TS2307: C…
+│ src/App.tsx(3,46): error TS2307: Cannot find module './.generated/mockup-co…
+│ src/components/mockups/heroes/AuroraGradient.tsx(83,23): error TS2322: Type…
+│   Property 'visible' is incompatible with index signature.
+│     Type '{ opacity: number; y: number; transition: { type: string; stiffne…
+│       Type '{ opacity: number; y: number; transition: { type: string; stiff…
+│         Type '{ opacity: number; y: number; transition: { type: string; sti…
+│           Types of property 'transition' are incompatible.
+│             Type '{ type: string; stiffness: number; damping: number; }' is…
+│               Type '{ type: string; stiffness: number; damping: number; }' …
+│                 Type '{ type: string; stiffness: number; damping: number; }…
+│                   Types of property 'type' are incompatible.
+│                     Type 'string' is not assignable to type 'AnimationGener…
+│ src/components/mockups/heroes/AuroraGradient.tsx(96,13): error TS2322: Type…
+│   Property 'visible' is incompatible with index signature.
+│     Type '{ opacity: number; y: number; transition: { type: string; stiffne…
+│       Type '{ opacity: number; y: number; transition: { type: string; stiff…
+│         Type '{ opacity: number; y: number; transition: { type: string; sti…
+│           Types of property 'transition' are incompatible.
+│             Type '{ type: string; stiffness: number; damping: number; }' is…
+│               Type '{ type: string; stiffness: number; damping: number; }' …
+│                 Type '{ type: string; stiffness: number; damping: number; }…
+│                   Types of property 'type' are incompatible.
+│                     Type 'string' is not assignable to type 'AnimationGener…
+│ src/components/mockups/heroes/AuroraGradient.tsx(105,13): error TS2322: Typ…
+│   Property 'visible' is incompatible with index signature.
+│     Type '{ opacity: number; y: number; transition: { type: string; stiffne…
+│       Type '{ opacity: number; y: number; transition: { type: string; stiff…
+│         Type '{ opacity: number; y: number; transition: { type: string; sti…
+│           Types of property 'transition' are incompatible.
+│             Type '{ type: string; stiffness: number; damping: number; }' is…
+│               Type '{ type: string; stiffness: number; damping: number; }' …
+│                 Type '{ type: string; stiffness: number; damping: number; }…
+│                   Types of property 'type' are incompatible.
+│                     Type 'string' is not assignable to type 'AnimationGener…
+│ src/components/mockups/heroes/AuroraGradient.tsx(112,23): error TS2322: Typ…
+│   Property 'visible' is incompatible with index signature.
+│     Type '{ opacity: number; y: number; transition: { type: string; stiffne…
+│       Type '{ opacity: number; y: number; transition: { type: string; stiff…
+│         Type '{ opacity: number; y: number; transition: { type: string; sti…
+│           Types of property 'transition' are incompatible.
+│             Type '{ type: string; stiffness: number; damping: number; }' is…
+│               Type '{ type: string; stiffness: number; damping: number; }' …
+│                 Type '{ type: string; stiffness: number; damping: number; }…
+│                   Types of property 'type' are incompatible.
+│                     Type 'string' is not assignable to type 'AnimationGener…
+│ src/components/mockups/heroes/AuroraGradient.tsx(130,15): error TS2322: Typ…
+│   Property 'animate' is incompatible with index signature.
+│     Type '{ y: number[]; transition: { duration: number; repeat: number; ea…
+│       Type '{ y: number[]; transition: { duration: number; repeat: number; …
+│         Type '{ y: number[]; transition: { duration: number; repeat: number…
+│           Types of property 'transition' are incompatible.
+│             Type '{ duration: number; repeat: number; ease: string; }' is n…
+│               Type '{ duration: number; repeat: number; ease: string; }' is…
+│                 Type '{ duration: number; repeat: number; ease: string; }' …
+│                   Types of property 'ease' are incompatible.
+│                     Type 'string' is not assignable to type 'Easing | Easin…
+│ src/components/mockups/heroes/AuroraGradient.tsx(146,15): error TS2322: Typ…
+│   Property 'animate' is incompatible with index signature.
+│     Type '{ y: number[]; transition: { duration: number; repeat: number; ea…
+│       Type '{ y: number[]; transition: { duration: number; repeat: number; …
+│         Type '{ y: number[]; transition: { duration: number; repeat: number…
+│           Types of property 'transition' are incompatible.
+│             Type '{ duration: number; repeat: number; ease: string; }' is n…
+│               Type '{ duration: number; repeat: number; ease: string; }' is…
+│                 Type '{ duration: number; repeat: number; ease: string; }' …
+│                   Types of property 'ease' are incompatible.
+│                     Type 'string' is not assignable to type 'Easing | Easin…
+└─ Failed in 5.4s at /Users/charlotte.carey/lp-studio-staging/artifacts/mockup-sandbox
+scripts typecheck$ tsc -p tsconfig.json --noEmit
+└─ Done in 1.8s
+/Users/charlotte.carey/lp-studio-staging/artifacts/mockup-sandbox:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/mockup-sandbox@2.0.0 typecheck: `tsc -p tsconfig.json --noEmit`
+Exit status 2
+ ELIFECYCLE  Command failed with exit code 2.
+ ELIFECYCLE  Command failed with exit code 2.
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % # create the env file (paste your real staging URL in place of the ...)
+echo 'NEON_DATABASE_URL=postgresql://...your staging url...' > .env
+
+# then start the backend
+pnpm --filter @workspace/api-server run dev
+zsh: number expected
+zsh: command not found: #
+
+> @workspace/api-server@0.0.0 dev /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> export NODE_ENV=development && pnpm run build && pnpm run migrate && pnpm run start
+
+
+> @workspace/api-server@0.0.0 build /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node ./build.mjs
+
+
+  dist/index.mjs                   9.7mb ⚠️
+  dist/migrate.mjs                 1.8mb ⚠️
+  dist/pino-worker.mjs           153.4kb
+  dist/pino-file.mjs             142.1kb
+  dist/pino-pretty.mjs           114.6kb
+  dist/instrument.mjs             18.6kb
+  dist/thread-stream-worker.mjs    7.3kb
+  dist/index.mjs.map              17.3mb
+  dist/migrate.mjs.map             3.1mb
+  dist/pino-worker.mjs.map       256.9kb
+  dist/pino-file.mjs.map         229.1kb
+  dist/pino-pretty.mjs.map       203.9kb
+  ...and 2 more output files...
+
+⚡ Done in 231ms
+
+> @workspace/api-server@0.0.0 migrate /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node --enable-source-maps --env-file-if-exists=../../.env --env-file-if-exists=.env ./dist/migrate.mjs
+
+.env not found. Continuing without it.
+[dotenv@17.3.1] injecting env (1) from ../../.env -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.3.1] injecting env (0) from .env -- tip: ⚡️ secrets for agents: https://dotenvx.com/as2
+[10:05:26.061] INFO (97115): migrate: starting
+[10:05:26.067] ERROR (97115): migrate: failed
+    err: {
+      "type": "Error",
+      "message": "getaddrinfo ENOTFOUND ...your staging url...",
+      "stack":
+          Error: getaddrinfo ENOTFOUND ...your staging url...
+              at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+      "errno": -3008,
+      "code": "ENOTFOUND",
+      "syscall": "getaddrinfo",
+      "hostname": "...your staging url..."
+    }
+ ELIFECYCLE  Command failed with exit code 1.
+/Users/charlotte.carey/lp-studio-staging/artifacts/api-server:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/api-server@0.0.0 dev: `export NODE_ENV=development && pnpm run build && pnpm run migrate && pnpm run start`
+Exit status 1
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % # create the env file (paste your real staging URL in place of the ...)
+echo 'NEON_DATABASE_URL=postgresql://...your staging url...' > .env
+
+# then start the backend
+pnpm --filter @workspace/api-server run dev
+zsh: number expected
+zsh: command not found: #
+
+> @workspace/api-server@0.0.0 dev /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> export NODE_ENV=development && pnpm run build && pnpm run migrate && pnpm run start
+
+
+> @workspace/api-server@0.0.0 build /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node ./build.mjs
+
+
+  dist/index.mjs                   9.7mb ⚠️
+  dist/migrate.mjs                 1.8mb ⚠️
+  dist/pino-worker.mjs           153.4kb
+  dist/pino-file.mjs             142.1kb
+  dist/pino-pretty.mjs           114.6kb
+  dist/instrument.mjs             18.6kb
+  dist/thread-stream-worker.mjs    7.3kb
+  dist/index.mjs.map              17.3mb
+  dist/migrate.mjs.map             3.1mb
+  dist/pino-worker.mjs.map       256.9kb
+  dist/pino-file.mjs.map         229.1kb
+  dist/pino-pretty.mjs.map       203.9kb
+  ...and 2 more output files...
+
+⚡ Done in 224ms
+
+> @workspace/api-server@0.0.0 migrate /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node --enable-source-maps --env-file-if-exists=../../.env --env-file-if-exists=.env ./dist/migrate.mjs
+
+.env not found. Continuing without it.
+[dotenv@17.3.1] injecting env (1) from ../../.env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🛡️ auth for agents: https://vestauth.com
+[10:05:41.182] INFO (97172): migrate: starting
+[10:05:41.188] ERROR (97172): migrate: failed
+    err: {
+      "type": "Error",
+      "message": "getaddrinfo ENOTFOUND ...your staging url...",
+      "stack":
+          Error: getaddrinfo ENOTFOUND ...your staging url...
+              at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+      "errno": -3008,
+      "code": "ENOTFOUND",
+      "syscall": "getaddrinfo",
+      "hostname": "...your staging url..."
+    }
+ ELIFECYCLE  Command failed with exit code 1.
+/Users/charlotte.carey/lp-studio-staging/artifacts/api-server:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/api-server@0.0.0 dev: `export NODE_ENV=development && pnpm run build && pnpm run migrate && pnpm run start`
+Exit status 1
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % echo 'NEON_DATABASE_URL=postgresql://neondb_owner:npg_nARXHf3g7Pbi@ep-blue-moon-amk9oogd-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require' > .env
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % pnpm --filter @workspace/api-server run dev
+
+> @workspace/api-server@0.0.0 dev /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> export NODE_ENV=development && pnpm run build && pnpm run migrate && pnpm run start
+
+
+> @workspace/api-server@0.0.0 build /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node ./build.mjs
+
+
+  dist/index.mjs                   9.7mb ⚠️
+  dist/migrate.mjs                 1.8mb ⚠️
+  dist/pino-worker.mjs           153.4kb
+  dist/pino-file.mjs             142.1kb
+  dist/pino-pretty.mjs           114.6kb
+  dist/instrument.mjs             18.6kb
+  dist/thread-stream-worker.mjs    7.3kb
+  dist/index.mjs.map              17.3mb
+  dist/migrate.mjs.map             3.1mb
+  dist/pino-worker.mjs.map       256.9kb
+  dist/pino-file.mjs.map         229.1kb
+  dist/pino-pretty.mjs.map       203.9kb
+  ...and 2 more output files...
+
+⚡ Done in 218ms
+
+> @workspace/api-server@0.0.0 migrate /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node --enable-source-maps --env-file-if-exists=../../.env --env-file-if-exists=.env ./dist/migrate.mjs
+
+.env not found. Continuing without it.
+[dotenv@17.3.1] injecting env (1) from ../../.env -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.3.1] injecting env (0) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+(node:97261) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[10:07:51.621] INFO (97261): migrate: starting
+[10:07:51.971] INFO (97261): migration step start: drizzle migrate (lib/db/migrations)
+    step: "drizzle migrate (lib/db/migrations)"
+[10:07:52.503] INFO (97261): migration step done: drizzle migrate (lib/db/migrations)
+    step: "drizzle migrate (lib/db/migrations)"
+    elapsedMs: 532
+[10:07:52.503] INFO (97261): Migrations applied successfully
+[10:07:52.503] INFO (97261): migration step start: notifications schema self-heal (0041)
+    step: "notifications schema self-heal (0041)"
+[10:07:52.548] INFO (97261): notifications schema self-heal (0041): already satisfied — skipping DDL (no table lock taken)
+    step: "notifications schema self-heal (0041)"
+[10:07:52.548] INFO (97261): migration step done: notifications schema self-heal (0041)
+    step: "notifications schema self-heal (0041)"
+    elapsedMs: 45
+[10:07:52.548] INFO (97261): migration step start: workflow_send_failures self-heal (0051)
+    step: "workflow_send_failures self-heal (0051)"
+[10:07:52.591] INFO (97261): workflow_send_failures self-heal (0051): already satisfied — skipping DDL (no table lock taken)
+    step: "workflow_send_failures self-heal (0051)"
+[10:07:52.591] INFO (97261): migration step done: workflow_send_failures self-heal (0051)
+    step: "workflow_send_failures self-heal (0051)"
+    elapsedMs: 43
+[10:07:52.591] INFO (97261): migration step start: tenant_email_shells physical_address self-heal (0054)
+    step: "tenant_email_shells physical_address self-heal (0054)"
+[10:07:52.638] INFO (97261): tenant_email_shells physical_address self-heal (0054): already satisfied — skipping DDL (no table lock taken)
+    step: "tenant_email_shells physical_address self-heal (0054)"
+[10:07:52.638] INFO (97261): migration step done: tenant_email_shells physical_address self-heal (0054)
+    step: "tenant_email_shells physical_address self-heal (0054)"
+    elapsedMs: 47
+[10:07:52.638] INFO (97261): migration step start: tenant_email_shells brand_invite_emails self-heal (0074)
+    step: "tenant_email_shells brand_invite_emails self-heal (0074)"
+[10:07:52.696] INFO (97261): tenant_email_shells brand_invite_emails self-heal (0074): already satisfied — skipping DDL (no table lock taken)
+    step: "tenant_email_shells brand_invite_emails self-heal (0074)"
+[10:07:52.696] INFO (97261): migration step done: tenant_email_shells brand_invite_emails self-heal (0074)
+    step: "tenant_email_shells brand_invite_emails self-heal (0074)"
+    elapsedMs: 58
+[10:07:52.696] INFO (97261): migration step start: email_shell_templates physical_address self-heal (0064)
+    step: "email_shell_templates physical_address self-heal (0064)"
+[10:07:52.741] INFO (97261): email_shell_templates physical_address self-heal (0064): already satisfied — skipping DDL (no table lock taken)
+    step: "email_shell_templates physical_address self-heal (0064)"
+[10:07:52.741] INFO (97261): migration step done: email_shell_templates physical_address self-heal (0064)
+    step: "email_shell_templates physical_address self-heal (0064)"
+    elapsedMs: 45
+[10:07:52.741] INFO (97261): migration step start: trial phone-gating self-heal (0055)
+    step: "trial phone-gating self-heal (0055)"
+[10:07:52.785] INFO (97261): trial phone-gating self-heal (0055): already satisfied — skipping DDL (no table lock taken)
+    step: "trial phone-gating self-heal (0055)"
+[10:07:52.785] INFO (97261): migration step done: trial phone-gating self-heal (0055)
+    step: "trial phone-gating self-heal (0055)"
+    elapsedMs: 44
+[10:07:52.785] INFO (97261): migration step start: trial_phone_release_log self-heal (0056)
+    step: "trial_phone_release_log self-heal (0056)"
+[10:07:52.829] INFO (97261): trial_phone_release_log self-heal (0056): already satisfied — skipping DDL (no table lock taken)
+    step: "trial_phone_release_log self-heal (0056)"
+[10:07:52.829] INFO (97261): migration step done: trial_phone_release_log self-heal (0056)
+    step: "trial_phone_release_log self-heal (0056)"
+    elapsedMs: 44
+[10:07:52.829] INFO (97261): migration step start: app_users github_id self-heal (0057)
+    step: "app_users github_id self-heal (0057)"
+[10:07:52.875] INFO (97261): app_users github_id self-heal (0057): already satisfied — skipping DDL (no table lock taken)
+    step: "app_users github_id self-heal (0057)"
+[10:07:52.875] INFO (97261): migration step done: app_users github_id self-heal (0057)
+    step: "app_users github_id self-heal (0057)"
+    elapsedMs: 46
+[10:07:52.875] INFO (97261): migration step start: audit_log self-heal (0058)
+    step: "audit_log self-heal (0058)"
+[10:07:52.918] INFO (97261): audit_log self-heal (0058): already satisfied — skipping DDL (no table lock taken)
+    step: "audit_log self-heal (0058)"
+[10:07:52.918] INFO (97261): migration step done: audit_log self-heal (0058)
+    step: "audit_log self-heal (0058)"
+    elapsedMs: 43
+[10:07:52.918] INFO (97261): migration step start: trial_phone_lookup_log self-heal (0059)
+    step: "trial_phone_lookup_log self-heal (0059)"
+[10:07:52.962] INFO (97261): trial_phone_lookup_log self-heal (0059): already satisfied — skipping DDL (no table lock taken)
+    step: "trial_phone_lookup_log self-heal (0059)"
+[10:07:52.962] INFO (97261): migration step done: trial_phone_lookup_log self-heal (0059)
+    step: "trial_phone_lookup_log self-heal (0059)"
+    elapsedMs: 44
+[10:07:52.962] INFO (97261): migration step start: oauth_login_states self-heal (0060)
+    step: "oauth_login_states self-heal (0060)"
+[10:07:53.007] INFO (97261): oauth_login_states self-heal (0060): already satisfied — skipping DDL (no table lock taken)
+    step: "oauth_login_states self-heal (0060)"
+[10:07:53.007] INFO (97261): migration step done: oauth_login_states self-heal (0060)
+    step: "oauth_login_states self-heal (0060)"
+    elapsedMs: 45
+[10:07:53.007] INFO (97261): migration step start: sales_accounts child-FK ON DELETE SET NULL self-heal (0066)
+    step: "sales_accounts child-FK ON DELETE SET NULL self-heal (0066)"
+[10:07:53.051] INFO (97261): sales_accounts child-FK ON DELETE SET NULL self-heal (0066): already satisfied — skipping DDL (no table lock taken)
+    step: "sales_accounts child-FK ON DELETE SET NULL self-heal (0066)"
+[10:07:53.051] INFO (97261): migration step done: sales_accounts child-FK ON DELETE SET NULL self-heal (0066)
+    step: "sales_accounts child-FK ON DELETE SET NULL self-heal (0066)"
+    elapsedMs: 44
+[10:07:53.051] INFO (97261): migration step start: sfdc_leads converted_contact_id ON DELETE SET NULL self-heal (0067)
+    step: "sfdc_leads converted_contact_id ON DELETE SET NULL self-heal (0067)"
+[10:07:53.094] INFO (97261): sfdc_leads converted_contact_id ON DELETE SET NULL self-heal (0067): already satisfied — skipping DDL (no table lock taken)
+    step: "sfdc_leads converted_contact_id ON DELETE SET NULL self-heal (0067)"
+[10:07:53.094] INFO (97261): migration step done: sfdc_leads converted_contact_id ON DELETE SET NULL self-heal (0067)
+    step: "sfdc_leads converted_contact_id ON DELETE SET NULL self-heal (0067)"
+    elapsedMs: 43
+[10:07:53.094] INFO (97261): migration step start: sales_email_sends/inbound child-FK self-heal (0070)
+    step: "sales_email_sends/inbound child-FK self-heal (0070)"
+[10:07:53.139] INFO (97261): sales_email_sends/inbound child-FK self-heal (0070): already satisfied — skipping DDL (no table lock taken)
+    step: "sales_email_sends/inbound child-FK self-heal (0070)"
+[10:07:53.139] INFO (97261): migration step done: sales_email_sends/inbound child-FK self-heal (0070)
+    step: "sales_email_sends/inbound child-FK self-heal (0070)"
+    elapsedMs: 45
+[10:07:53.139] INFO (97261): migration step start: sales_hotlinks (contact_id, page_id) partial unique index self-heal (0017)
+    step: "sales_hotlinks (contact_id, page_id) partial unique index self-heal (0017)"
+[10:07:53.184] INFO (97261): sales_hotlinks contact_page self-heal: index already present — skipping DDL (no lock taken)
+    step: "sales_hotlinks (contact_id, page_id) partial unique index self-heal (0017)"
+[10:07:53.184] INFO (97261): migration step done: sales_hotlinks (contact_id, page_id) partial unique index self-heal (0017)
+    step: "sales_hotlinks (contact_id, page_id) partial unique index self-heal (0017)"
+    elapsedMs: 45
+[10:07:53.184] INFO (97261): migration step start: featured_homepage_templates self-heal (0076)
+    step: "featured_homepage_templates self-heal (0076)"
+[10:07:53.227] INFO (97261): featured_homepage_templates self-heal (0076): already satisfied — skipping DDL (no table lock taken)
+    step: "featured_homepage_templates self-heal (0076)"
+[10:07:53.227] INFO (97261): migration step done: featured_homepage_templates self-heal (0076)
+    step: "featured_homepage_templates self-heal (0076)"
+    elapsedMs: 43
+[10:07:53.227] INFO (97261): migration step start: marketo integration schema self-heal (0077)
+    step: "marketo integration schema self-heal (0077)"
+[10:07:53.272] INFO (97261): marketo integration schema self-heal (0077): already satisfied — skipping DDL (no table lock taken)
+    step: "marketo integration schema self-heal (0077)"
+[10:07:53.272] INFO (97261): migration step done: marketo integration schema self-heal (0077)
+    step: "marketo integration schema self-heal (0077)"
+    elapsedMs: 45
+[10:07:53.272] INFO (97261): migration step start: hubspot integration schema self-heal (0081)
+    step: "hubspot integration schema self-heal (0081)"
+[10:07:53.316] INFO (97261): hubspot integration schema self-heal (0081): already satisfied — skipping DDL (no table lock taken)
+    step: "hubspot integration schema self-heal (0081)"
+[10:07:53.317] INFO (97261): migration step done: hubspot integration schema self-heal (0081)
+    step: "hubspot integration schema self-heal (0081)"
+    elapsedMs: 45
+[10:07:53.317] INFO (97261): migration step start: strict-facts review schema self-heal (0085)
+    step: "strict-facts review schema self-heal (0085)"
+[10:07:53.362] INFO (97261): strict-facts review schema self-heal (0085): already satisfied — skipping DDL (no table lock taken)
+    step: "strict-facts review schema self-heal (0085)"
+[10:07:53.362] INFO (97261): migration step done: strict-facts review schema self-heal (0085)
+    step: "strict-facts review schema self-heal (0085)"
+    elapsedMs: 45
+[10:07:53.362] INFO (97261): migration step start: dandy webhook secrets seed
+    step: "dandy webhook secrets seed"
+[10:07:53.406] INFO (97261): migration step done: dandy webhook secrets seed
+    step: "dandy webhook secrets seed"
+    elapsedMs: 44
+[10:07:53.406] INFO (97261): migration step start: tenant industry backfill
+    step: "tenant industry backfill"
+[10:07:53.449] INFO (97261): migration step done: tenant industry backfill
+    step: "tenant industry backfill"
+    elapsedMs: 43
+[10:07:53.449] INFO (97261): migration step start: page review role seed
+    step: "page review role seed"
+[10:07:53.492] INFO (97261): migration step done: page review role seed
+    step: "page review role seed"
+    elapsedMs: 43
+[10:07:53.492] INFO (97261): migration step start: requireReviewBeforePublish backfill
+    step: "requireReviewBeforePublish backfill"
+[10:07:53.536] INFO (97261): migration step done: requireReviewBeforePublish backfill
+    step: "requireReviewBeforePublish backfill"
+    elapsedMs: 44
+[10:07:53.536] INFO (97261): migration step start: seo robots defaults backfill
+    step: "seo robots defaults backfill"
+[10:07:53.579] INFO (97261): migration step done: seo robots defaults backfill
+    step: "seo robots defaults backfill"
+    elapsedMs: 43
+[10:07:53.580] INFO (97261): migration step start: microsite template enabled backfill (1219)
+    step: "microsite template enabled backfill (1219)"
+[10:07:53.623] INFO (97261): migration step done: microsite template enabled backfill (1219)
+    step: "microsite template enabled backfill (1219)"
+    elapsedMs: 43
+[10:07:53.623] INFO (97261): migration step start: tenant og defaults dandy seed
+    step: "tenant og defaults dandy seed"
+[10:07:53.667] INFO (97261): migration step done: tenant og defaults dandy seed
+    step: "tenant og defaults dandy seed"
+    elapsedMs: 44
+[10:07:53.667] INFO (97261): migration step start: tenant og title strip lp studio suffix
+    step: "tenant og title strip lp studio suffix"
+[10:07:53.710] INFO (97261): migration step done: tenant og title strip lp studio suffix
+    step: "tenant og title strip lp studio suffix"
+    elapsedMs: 43
+[10:07:53.710] INFO (97261): migration step start: block_catalog ai_enabled self-heal (0049)
+    step: "block_catalog ai_enabled self-heal (0049)"
+[10:07:53.754] INFO (97261): block_catalog ai_enabled self-heal (0049): already satisfied — skipping DDL (no table lock taken)
+    step: "block_catalog ai_enabled self-heal (0049)"
+[10:07:53.754] INFO (97261): migration step done: block_catalog ai_enabled self-heal (0049)
+    step: "block_catalog ai_enabled self-heal (0049)"
+    elapsedMs: 44
+[10:07:53.754] INFO (97261): migration step start: sfdc_leads industry/rating self-heal (0084)
+    step: "sfdc_leads industry/rating self-heal (0084)"
+[10:07:53.799] INFO (97261): sfdc_leads industry/rating self-heal (0084): already satisfied — skipping DDL (no table lock taken)
+    step: "sfdc_leads industry/rating self-heal (0084)"
+[10:07:53.799] INFO (97261): migration step done: sfdc_leads industry/rating self-heal (0084)
+    step: "sfdc_leads industry/rating self-heal (0084)"
+    elapsedMs: 45
+[10:07:53.799] INFO (97261): migration step start: lp_integrations purge salesforce credentials (0088)
+    step: "lp_integrations purge salesforce credentials (0088)"
+[10:07:53.842] INFO (97261): lp_integrations purge salesforce credentials (0088): already satisfied — skipping DDL (no table lock taken)
+    step: "lp_integrations purge salesforce credentials (0088)"
+[10:07:53.842] INFO (97261): migration step done: lp_integrations purge salesforce credentials (0088)
+    step: "lp_integrations purge salesforce credentials (0088)"
+    elapsedMs: 43
+[10:07:53.842] INFO (97261): migration step start: block_catalog seed
+    step: "block_catalog seed"
+[10:07:53.886] INFO (97261): migration step done: block_catalog seed
+    step: "block_catalog seed"
+    elapsedMs: 44
+[10:07:53.886] INFO (97261): migration step start: block_catalog full-page re-shelf
+    step: "block_catalog full-page re-shelf"
+[10:07:53.930] INFO (97261): migration step done: block_catalog full-page re-shelf
+    step: "block_catalog full-page re-shelf"
+    elapsedMs: 44
+[10:07:53.930] INFO (97261): migration step start: global_templates consolidate under system tenant
+    step: "global_templates consolidate under system tenant"
+[10:07:54.019] INFO (97261): migration step done: global_templates consolidate under system tenant
+    step: "global_templates consolidate under system tenant"
+    elapsedMs: 89
+[10:07:54.019] INFO (97261): migration step start: global_templates seed
+    step: "global_templates seed"
+[10:07:54.062] INFO (97261): migration step done: global_templates seed
+    step: "global_templates seed"
+    elapsedMs: 43
+[10:07:54.063] INFO (97261): migration step start: global_templates intent backfill
+    step: "global_templates intent backfill"
+[10:07:54.107] INFO (97261): migration step done: global_templates intent backfill
+    step: "global_templates intent backfill"
+    elapsedMs: 44
+[10:07:54.107] INFO (97261): migration step start: starter_images seed
+    step: "starter_images seed"
+[10:07:54.151] INFO (97261): migration step done: starter_images seed
+    step: "starter_images seed"
+    elapsedMs: 44
+[10:07:54.151] INFO (97261): migration step start: team_photo media backfill
+    step: "team_photo media backfill"
+[10:07:54.194] INFO (97261): migration step done: team_photo media backfill
+    step: "team_photo media backfill"
+    elapsedMs: 43
+[10:07:54.194] INFO (97261): migration step start: sales signal attribution backfill
+    step: "sales signal attribution backfill"
+[10:07:54.238] INFO (97261): migration step done: sales signal attribution backfill
+    step: "sales signal attribution backfill"
+    elapsedMs: 44
+[10:07:54.238] INFO (97261): migration step start: root superadmin seed
+    step: "root superadmin seed"
+[10:07:54.329] INFO (97261): root superadmin seed applied
+    rootEmail: "admin@lpstudio.ai"
+[10:07:54.329] INFO (97261): migration step done: root superadmin seed
+    step: "root superadmin seed"
+    elapsedMs: 91
+[10:07:54.417] INFO (97261): migrate: complete
+    elapsedMs: 2796
+
+> @workspace/api-server@0.0.0 start /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node --enable-source-maps --env-file-if-exists=../../.env --env-file-if-exists=.env --import ./dist/instrument.mjs ./dist/index.mjs
+
+.env not found. Continuing without it.
+[dotenv@17.3.1] injecting env (1) from ../../.env -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.3.1] injecting env (0) from .env -- tip: ⚙️  override existing env vars with { override: true }
+[10:07:56.263] WARN (97283): SFDC_CLIENT_ID or SFDC_CLIENT_SECRET not configured
+/Users/charlotte.carey/lp-studio-staging/artifacts/api-server/src/lib/csrf.ts:7
+  throw new Error(
+        ^
+
+Error: CSRF_SECRET is required at startup. Set it via the environment-secrets workflow.
+    at <anonymous> (/Users/charlotte.carey/lp-studio-staging/artifacts/api-server/src/lib/csrf.ts:7:9)
+    at ModuleJob.run (node:internal/modules/esm/module_job:430:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:661:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.14.0
+ ELIFECYCLE  Command failed with exit code 1.
+/Users/charlotte.carey/lp-studio-staging/artifacts/api-server:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/api-server@0.0.0 dev: `export NODE_ENV=development && pnpm run build && pnpm run migrate && pnpm run start`
+Exit status 1
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % 
