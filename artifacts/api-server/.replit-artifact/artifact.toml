@@ -23,7 +23,7 @@ run = "pnpm --filter @workspace/api-server run dev"
 # (DNS / custom-domain registration / edge worker) is already broken.
 # Set SMOKE_SKIP_TENANT_HOSTS=1 to bypass when intentionally deploying
 # against an environment where the live hosts aren't yet pointed here.
-args = ["sh", "-c", "pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/api-server run migrate && if [ \"${SMOKE_SKIP_TENANT_HOSTS:-0}\" != \"1\" ]; then pnpm --filter @workspace/scripts run smoke-tenant-hosts; fi"]
+args = ["sh", "-c", "pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/api-server run migrate && if [ \"${SMOKE_SKIP_TENANT_HOSTS:-0}\" != \"1\" ]; then pnpm --filter @workspace/scripts run smoke-tenant-hosts; fi && rm -rf .pnpm-store .config/chromium .backups"]
 
 [services.production.build.env]
 NODE_ENV = "production"

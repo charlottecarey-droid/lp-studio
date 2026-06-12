@@ -18,7 +18,7 @@ localPort = 24565
 run = "pnpm --filter @workspace/lp-studio run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/lp-studio", "run", "build" ]
+build = [ "sh", "-c", "pnpm --filter @workspace/lp-studio run build && rm -rf attached_assets" ]
 publicDir = "artifacts/lp-studio/dist/public"
 serve = "static"
 
