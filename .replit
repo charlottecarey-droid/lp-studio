@@ -75,12 +75,12 @@ args = "pnpm --filter @workspace/lp-studio run typecheck"
 name = "e2e"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/lp-studio exec playwright test"
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [agent]
 stack = "PNPM_WORKSPACE"
