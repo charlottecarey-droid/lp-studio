@@ -1678,6 +1678,23 @@ describe("applyBrandProductContentImages — brand content-image placement", () 
     expect(block.props.imageUrl).toBe("/objects/team");
   });
 
+  it("does NOT fire on a passing product mention in sub-copy (only the heading decides)", () => {
+    // A how-it-works section whose HEADLINE is about the workflow, with the
+    // product named only in a step subheadline. The product override must stay
+    // out so the tag scorer can place a section-relevant photo (a "Scan" step
+    // gets a scanner, not the crown mentioned elsewhere).
+    const block = {
+      type: "dandy-switchback",
+      props: {
+        headline: "Your workflow, enhanced",
+        subheadline: "Get a crown ready in 5 days",
+        items: [{ title: "Scan", imageUrl: "/objects/scanner" }],
+      },
+    };
+    applyBrandProductContentImages([block as any], [CROWN]);
+    expect(block.props.items[0].imageUrl).toBe("/objects/scanner");
+  });
+
   it("does not fill empty slots (only swaps already-populated images)", () => {
     const block = { type: "dandy-switchback", props: { headline: "Crown quality", items: [{ title: "Fit", imageUrl: "" }] } };
     applyBrandProductContentImages([block as any], [CROWN]);

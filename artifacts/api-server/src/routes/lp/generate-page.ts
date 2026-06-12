@@ -4019,11 +4019,16 @@ const CONTENT_IMAGE_SKIP_TYPES = new Set<string>([
   "cta-button",
 ]);
 
-/** Short, product-naming text fields used to decide which product a content
- *  section is about. Deliberately excludes long HTML bodies so the match stays
- *  precise (the product name must appear in a heading-like field). */
+/** Primary heading fields used to decide which product a content section is
+ *  about. Deliberately narrow — ONLY the section's dominant heading, not its
+ *  sub-copy (subheadline/eyebrow/label/kicker) or long HTML bodies. A passing
+ *  mention of a product in a step subhead or eyebrow must NOT pull that product's
+ *  photo over the whole section; those slots belong to the tag-based scorer (a
+ *  "Scan" step gets a scanner, not the crown named elsewhere on the page). The
+ *  product override fires only when the section is GENUINELY about the product,
+ *  i.e. its headline names it. */
 const CONTENT_IMAGE_COPY_KEYS = [
-  "headline", "eyebrow", "subheadline", "subhead", "title", "heading", "label", "kicker",
+  "headline", "title", "heading",
 ] as const;
 
 /** Pick the brand content line whose name is described by the copy. Strict
