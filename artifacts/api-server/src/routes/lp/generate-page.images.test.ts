@@ -12,6 +12,7 @@ import {
   buildBlockSelectionDirective,
   isDandyPaletteLiteral,
   deBrandFooterColors,
+  applyBrandProductContentImages,
   type MediaImage,
 } from "./generate-page";
 
@@ -1694,5 +1695,99 @@ describe("deBrandFooterColors (Dandy palette leak guard)", () => {
     const hero = { type: "hero", props: { backgroundColor: "#003A30" } };
     deBrandFooterColors(hero as any);
     expect(hero.props.backgroundColor).toBe("#003A30");
+  });
+});
+
+describe("applyBrandProductContentImages — brand content-image placement", () => {
+  const CROWN = {
+    name: "Posterior Crown & Bridge",
+    images: ["/objects/crown-1", "/objects/crown-2", "/objects/crown-3"],
+  };
+
+  it("fills array-item photo slots (switchback items[].imageUrl) about the product, rotating images", () => {
+    // Copy says only "Crowns", never the full clinical name — loose match must
+    // still resolve it to "Posterior Crown & Bridge".
+    const block = {
+      type: "dandy-switchback",
+      props: {
+        headline: "Durable Crowns",
+        items: [
+          { title: "Strength", imageUrl: "/objects/random-a" },
+          { title: "Precise fit", imageUrl: "/objects/random-b" },
+        ],
+      },
+    };
+    applyBrandProductContentImages([block as any], [CROWN]);
+    expect(block.props.items[0].imageUrl).toBe("/objects/crown-1");
+    expect(block.props.items[1].imageUrl).toBe("/objects/crown-2");
+  });
+
+  it("rotates across multiple matched sections via a per-product cursor", () => {
+    const a = { type: "dandy-switchback", props: { headline: "Crown craftsmanship", imageUrl: "/objects/x" } };
+    const b = { type: "dandy-switchback", props: { headline: "Crown durability", imageUrl: "/objects/y" } };
+    applyBrandProductContentImages([a as any, b as any], [CROWN]);
+    expect(a.props.imageUrl).toBe("/objects/crown-1");
+    expect(b.props.imageUrl).toBe("/objects/crown-2");
+  });
+
+  it("never touches product-grid / product-showcase / dandy-product-hero (card & hero images are owned by their own passes)", () => {
+    const grid = { type: "product-grid", props: { headline: "Our crowns", items: [{ title: "Crown", image: "/objects/card-1" }] } };
+    const showcase = { type: "product-showcase", props: { headline: "Crown lineup", cards: [{ name: "Crown", image: "/objects/card-2" }] } };
+    const phero = { type: "dandy-product-hero", props: { headline: "Posterior Crown & Bridge", imageUrl: "/objects/hero-1" } };
+    applyBrandProductContentImages([grid as any, showcase as any, phero as any], [CROWN]);
+    expect(grid.props.items[0].image).toBe("/objects/card-1");
+    expect(showcase.props.cards[0].image).toBe("/objects/card-2");
+    expect(phero.props.imageUrl).toBe("/objects/hero-1");
+  });
+
+  it("never touches hero-tagged blocks (the page hero is owned by the hero pass)", () => {
+    const hero = { type: "hero", props: { headline: "Crowns that last", imageUrl: "/objects/page-hero" } };
+    applyBrandProductContentImages([hero as any], [CROWN]);
+    expect(hero.props.imageUrl).toBe("/objects/page-hero");
+  });
+
+  it("leaves blocks that don't name the product untouched", () => {
+    const block = { type: "dandy-switchback", props: { headline: "About our team", imageUrl: "/objects/team" } };
+    applyBrandProductContentImages([block as any], [CROWN]);
+    expect(block.props.imageUrl).toBe("/objects/team");
+  });
+
+  it("does NOT fire on a passing product mention in sub-copy (only the heading decides)", () => {
+    // A how-it-works section whose HEADLINE is about the workflow, with the
+    // product named only in a step subheadline. The product override must stay
+    // out so the tag scorer can place a section-relevant photo (a "Scan" step
+    // gets a scanner, not the crown mentioned elsewhere).
+    const block = {
+      type: "dandy-switchback",
+      props: {
+        headline: "Your workflow, enhanced",
+        subheadline: "Get a crown ready in 5 days",
+        items: [{ title: "Scan", imageUrl: "/objects/scanner" }],
+      },
+    };
+    applyBrandProductContentImages([block as any], [CROWN]);
+    expect(block.props.items[0].imageUrl).toBe("/objects/scanner");
+  });
+
+  it("does not fill empty slots (only swaps already-populated images)", () => {
+    const block = { type: "dandy-switchback", props: { headline: "Crown quality", items: [{ title: "Fit", imageUrl: "" }] } };
+    applyBrandProductContentImages([block as any], [CROWN]);
+    expect(block.props.items[0].imageUrl).toBe("");
+  });
+
+  it("picks the most specifically-named product when several lines share a token", () => {
+    const ANTERIOR = { name: "Anterior Crown", images: ["/objects/ant-1"] };
+    const a = { type: "dandy-switchback", props: { headline: "Posterior Crown & Bridge strength", imageUrl: "/objects/x" } };
+    const b = { type: "dandy-switchback", props: { headline: "Anterior Crown esthetics", imageUrl: "/objects/y" } };
+    applyBrandProductContentImages([a as any, b as any], [CROWN, ANTERIOR]);
+    expect(a.props.imageUrl).toBe("/objects/crown-1"); // 3 matched tokens beats 1
+    expect(b.props.imageUrl).toBe("/objects/ant-1"); // 2 matched tokens beats 1
+  });
+
+  it("excludes logo slots when a logo URL set is supplied", () => {
+    const block = { type: "dandy-switchback", props: { headline: "Crown showcase", items: [{ title: "Logo", imageUrl: "/objects/brand-logo" }, { title: "Photo", imageUrl: "/objects/photo" }] } };
+    applyBrandProductContentImages([block as any], [CROWN], new Set(["/objects/brand-logo"]));
+    expect(block.props.items[0].imageUrl).toBe("/objects/brand-logo");
+    expect(block.props.items[1].imageUrl).toBe("/objects/crown-1");
   });
 });

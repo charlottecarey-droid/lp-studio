@@ -597,7 +597,7 @@ function ProductLineCard({ product, onChange, onRemove, strictMode }: {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="absolute top-0.5 right-0.5 h-5 w-5 p-0 text-white bg-black/50 hover:bg-destructive hover:text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-0.5 right-0.5 h-5 w-5 p-0 text-white bg-black/60 hover:bg-destructive hover:text-white rounded-full opacity-100 transition-opacity"
                         title="Remove content image"
                         onClick={() => {
                           const next = (product.contentImages ?? []).filter((_, j) => j !== ci);

@@ -1,0 +1,1093 @@
+charlotte.carey@MAC-FQ1NFJD4F1 ~ % cd ~/lpstudio-staging
+cd: no such file or directory: /Users/charlotte.carey/lpstudio-staging
+charlotte.carey@MAC-FQ1NFJD4F1 ~ % cd            
+charlotte.carey@MAC-FQ1NFJD4F1 ~ % ~/lpstudio--staging
+zsh: no such file or directory: /Users/charlotte.carey/lpstudio--staging
+charlotte.carey@MAC-FQ1NFJD4F1 ~ % cd /~lpstudio
+cd: no such file or directory: /~lpstudio
+charlotte.carey@MAC-FQ1NFJD4F1 ~ % cd ~/lp-studio
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio % cd ~/lp-studio-staging
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % gsync
+remote: Enumerating objects: 3247, done.
+remote: Counting objects: 100% (748/748), done.
+remote: Compressing objects: 100% (29/29), done.
+remote: Total 3247 (delta 724), reused 719 (delta 719), pack-reused 2499 (from 2)
+Receiving objects: 100% (3247/3247), 60.24 MiB | 13.85 MiB/s, done.
+Resolving deltas: 100% (2301/2301), completed with 124 local objects.
+From https://github.com/charlottecarey-droid/lp-studio
+   a56cf7bed..99f4d67e8  staging          -> origin/staging
+ * [new branch]          fork-experiments -> origin/fork-experiments
+ * [new tag]             pre-fork-merge-20260611 -> pre-fork-merge-20260611
+Updating a56cf7bed..99f4d67e8
+Fast-forward
+ .agents/agent_assets_metadata.toml                 |  114 +
+ .agents/memory/MEMORY.md                           |   80 +-
+ .../ai-block-catalog-filtering-line-level.md       |   15 +
+ .agents/memory/ai-icon-url-hard-strip.md           |   36 +
+ .../ai-page-offtopic-curated-preempts-aigen.md     |   43 +
+ .agents/memory/ai-reasoning-model-empty-output.md  |   39 +
+ .../memory/ai-sales-briefing-seller-direction.md   |   33 +
+ .agents/memory/batch-ai-proxy-reclassify.md        |   15 +
+ .../memory/block-default-baked-accent-colors.md    |   37 +
+ .agents/memory/block-logo-brandlogo-convention.md  |   40 +
+ .agents/memory/block-settings-capability-gating.md |   31 +
+ .agents/memory/block-type-graduation-callsites.md  |   28 +
+ .../memory/brand-import-named-token-over-wash.md   |   43 +
+ .../memory/brand-logo-dark-surface-whitening.md    |   65 +
+ .../memory/brand-logo-light-surface-contrast.md    |   14 +
+ .agents/memory/builder-navbar-containment.md       |   35 +
+ .../memory/collectimageslots-restore-vs-fill.md    |   40 +
+ .agents/memory/custom-html-iframe-brand-font.md    |   31 +
+ .agents/memory/customer-logo-slot-no-fill.md       |   15 +
+ .agents/memory/dev-env-source.md                   |    2 +
+ .agents/memory/dso-case-study-field-enumeration.md |   36 +
+ .agents/memory/e2e-concurrent-run-flake.md         |   17 +
+ .agents/memory/explicit-block-requests-dso.md      |   14 +
+ .agents/memory/featured-homepage-templates.md      |    2 +
+ .../memory/fillemptyimages-explicit-branches.md    |   26 +
+ .agents/memory/footer-dandy-palette-leak.md        |   14 +
+ .agents/memory/generate-page-scrape-gating.md      |   25 +
+ .agents/memory/generic-hero-brand-vars.md          |   20 +
+ .../memory/hermetic-schema-stricter-than-prod.md   |   19 +
+ .../memory/how-it-works-alternating-real-images.md |   25 +
+ .agents/memory/icon-field-scope.md                 |   25 +
+ .../memory/icon-only-item-photos-sanitize-strip.md |   37 +
+ .agents/memory/image-fill-pool-ordering.md         |   64 +
+ .../memory/image-fill-scraped-tier-starvation.md   |   49 +
+ .agents/memory/imported-button-css-marker.md       |   14 +
+ .../inject-test-post-response-sideeffects.md       |   24 +
+ .agents/memory/library-bulk-ai-classify.md         |   33 +
+ .agents/memory/lp-block-icon-dual-field.md         |   31 +
+ .agents/memory/lp-draft-preview-token.md           |   15 +
+ .agents/memory/lp-generate-page-hero-selection.md  |   55 +
+ .../lp-preset-style-bypass-contrast-guards.md      |   42 +
+ .agents/memory/lp-section-bg-rhythm.md             |   48 +
+ .agents/memory/marketing-sfdc-shared-oauth.md      |   34 +
+ .agents/memory/media-library-search-tags.md        |   27 +
+ .../memory/microsite-block-schema-field-parity.md  |   31 +
+ .../microsite-exemplar-structure-anchoring.md      |   41 +
+ .../mockup-section-optional-cta-convention.md      |   14 +
+ .../memory/no-dandy-leak-tenant-live-catalog.md    |   28 +
+ .../memory/paginated-multiselect-bulk-action.md    |   10 +
+ .agents/memory/premium-block-accent-alpha.md       |   16 +
+ .agents/memory/premium-section-block-polish.md     |   33 +
+ .agents/memory/product-detail-fill-subject-only.md |   36 +
+ .agents/memory/product-library-blocks-consumer.md  |   88 +
+ .agents/memory/reserved-media-tags-ai-exclusion.md |   38 +
+ .agents/memory/scraped-image-relevance-gate.md     |    8 +-
+ .../memory/scraped-image-source-page-hero-rule.md  |   42 +
+ .agents/memory/section-block-premium-polish.md     |   24 +
+ .agents/memory/section-surface-bg-presets.md       |   46 +
+ .agents/memory/segment-approval-vocab-expansion.md |   33 +
+ .../memory/segment-pool-containment-callsites.md   |   35 +
+ .agents/memory/shared-prod-test-tenant-cleanup.md  |   38 +
+ .agents/memory/signal-attribution-dual-write.md    |   15 +
+ .agents/memory/strict-facts-quote-trust.md         |   18 +
+ .agents/memory/strict-facts-review-flow.md         |   24 +
+ .agents/memory/template-page-seed-mirroring.md     |   24 +
+ .agents/memory/thumio-output-cap.md                |   32 +
+ .agents/memory/welcome-email-workflow-fanout.md    |   10 +
+ .canvas/assets/asset_132743329.png                 |  Bin 0 -> 832067 bytes
+ .gitignore                                         |    3 +
+ .replit                                            |  108 +-
+ .../api-server/scripts/capture-brand-evidence.ts   |   51 +
+ artifacts/api-server/src/instrument.ts             |    8 +-
+ .../src/lib/brand-import/assets-uploader.ts        |  142 +-
+ .../api-server/src/lib/brand-import/evidence.ts    |   34 +-
+ .../extractors/__fixtures__/airbnb.json            |  214 ++
+ .../extractors/__fixtures__/craigslist.json        |   10 +
+ .../extractors/__fixtures__/hackernews.json        |   20 +
+ .../extractors/__fixtures__/linear.json            |  185 ++
+ .../extractors/__fixtures__/royaldesign.json       |   21 +
+ .../src/lib/brand-import/extractors/buttons.ts     |   51 +-
+ .../extractors/colors.realworld.test.ts            |  230 ++
+ .../src/lib/brand-import/extractors/colors.test.ts |   44 +
+ .../src/lib/brand-import/extractors/colors.ts      |   55 +-
+ artifacts/api-server/src/lib/brand-import/types.ts |    1 +
+ .../api-server/src/lib/captureTemplateThumbnail.ts |   35 +-
+ .../api-server/src/lib/factFlags/detect.test.ts    |  106 +
+ artifacts/api-server/src/lib/factFlags/detect.ts   |  104 +-
+ artifacts/api-server/src/lib/factFlags/types.ts    |    4 +
+ artifacts/api-server/src/lib/factFlags/write.ts    |   24 +-
+ artifacts/api-server/src/lib/imageAutoTag.test.ts  |   96 +
+ artifacts/api-server/src/lib/imageAutoTag.ts       |  118 +
+ .../src/lib/libraryScope.sharedAsset.test.ts       |   68 +
+ artifacts/api-server/src/lib/libraryScope.ts       |   58 +-
+ artifacts/api-server/src/lib/notifications.ts      |   53 +-
+ artifacts/api-server/src/lib/schemaDrift.test.ts   |    1 +
+ artifacts/api-server/src/lib/sfdc-oauth-state.ts   |   82 +
+ artifacts/api-server/src/lib/sfdc-service.ts       |    2 +-
+ artifacts/api-server/src/lib/signalAttribution.ts  |   55 +
+ artifacts/api-server/src/loadEnv.ts                |   15 +
+ artifacts/api-server/src/migrate.ts                |  298 +-
+ .../src/routes/blockCatalog.integration.test.ts    |  104 +
+ artifacts/api-server/src/routes/blockCatalog.ts    |  155 +-
+ artifacts/api-server/src/routes/index.ts           |    3 +-
+ .../api-server/src/routes/lp/adminTemplates.ts     |   30 +-
+ .../lp/brand.logoTagging.integration.test.ts       |  238 ++
+ artifacts/api-server/src/routes/lp/brand.ts        |   69 +-
+ .../src/routes/lp/custom-blocks-generate.ts        |  181 +-
+ .../api-server/src/routes/lp/extract-guests.ts     |    1 -
+ artifacts/api-server/src/routes/lp/fact-flags.ts   |  182 +-
+ .../src/routes/lp/factFlags.integration.test.ts    |  135 +
+ ...enerate-page.case-study-sections-strict.test.ts |   87 +
+ .../generate-page.content-series-branding.test.ts  |   93 +
+ .../lp/generate-page.design-intensity.test.ts      |  115 +-
+ .../routes/lp/generate-page.dso-branding.test.ts   |   17 +
+ .../generate-page.dso-case-study-defaults.test.ts  |   62 +
+ ...age.dso-case-study-freeform.integration.test.ts |  310 ++
+ .../routes/lp/generate-page.general-blocks.test.ts |   89 +-
+ .../src/routes/lp/generate-page.governance.test.ts |  101 +
+ .../src/routes/lp/generate-page.images.test.ts     |  927 +++++-
+ .../routes/lp/generate-page.page-outline.test.ts   |  141 +
+ ...enerate-page.position-merge.integration.test.ts |  220 ++
+ ...nerate-page.product-library.integration.test.ts |  560 ++++
+ ...age.replaceImageryReference.integration.test.ts |  396 +++
+ .../lp/generate-page.requested-blocks.test.ts      |  151 +
+ .../src/routes/lp/generate-page.resources.test.ts  |  181 ++
+ .../routes/lp/generate-page.scrape-gating.test.ts  |  260 ++
+ .../lp/generate-page.segmentApproval.test.ts       |   44 +
+ .../routes/lp/generate-page.team-photos.test.ts    |  104 +
+ .../api-server/src/routes/lp/generate-page.ts      | 3051 ++++++++++++++++++--
+ .../lp/integrations.salesforce.integration.test.ts |  270 ++
+ artifacts/api-server/src/routes/lp/integrations.ts |  138 +-
+ .../lp/leads.salesforceSync.integration.test.ts    |  278 ++
+ artifacts/api-server/src/routes/lp/leads.ts        |   37 +-
+ .../lp/library.teamPhoto.integration.test.ts       |  176 ++
+ artifacts/api-server/src/routes/lp/library.ts      |   51 +
+ .../routes/lp/media-suggest.integration.test.ts    |  212 ++
+ artifacts/api-server/src/routes/lp/pages.ts        |  106 +-
+ .../routes/lp/proof-points-import.quotes.test.ts   |   77 +
+ .../src/routes/lp/proof-points-import.ts           |   53 +-
+ .../lp/proof-points.quotes.integration.test.ts     |  226 ++
+ artifacts/api-server/src/routes/lp/proof-points.ts |   55 +-
+ .../api-server/src/routes/lp/seo-meta-generate.ts  |   11 +-
+ artifacts/api-server/src/routes/lp/templates.ts    |  110 +-
+ .../src/routes/sales/briefings.prompt.test.ts      |  126 +
+ artifacts/api-server/src/routes/sales/briefings.ts |  120 +-
+ artifacts/api-server/src/routes/sales/campaigns.ts |   55 +-
+ ...te-microsite.dso-case-study.integration.test.ts |  318 ++
+ .../sales/generate-microsite.dso-variety.test.ts   |  152 +
+ .../sales/generate-microsite.imagePipeline.test.ts |   33 +
+ .../sales/generate-microsite.page-outline.test.ts  |  249 ++
+ ...ite.replaceImageryReference.integration.test.ts |  429 +++
+ .../generate-microsite.segmentApproval.test.ts     |   51 +
+ .../sales/generate-microsite.segmentPool.test.ts   |  220 ++
+ .../generate-microsite.smoke.integration.test.ts   |   46 +-
+ .../src/routes/sales/generate-microsite.ts         |  813 +++++-
+ .../src/routes/sales/microsite-exemplars.ts        |    2 +-
+ artifacts/api-server/src/routes/sales/sfdc.ts      |   55 +-
+ artifacts/api-server/src/routes/sales/signals.ts   |   80 +-
+ .../storage.serveSharedAcl.integration.test.ts     |  150 +
+ artifacts/api-server/src/routes/storage.ts         |  463 ++-
+ .../tenantBlockGovernance.integration.test.ts      |  180 ++
+ .../api-server/src/routes/tenantBlockGovernance.ts |  127 +
+ artifacts/api-server/src/seeds/globalTemplates.ts  |    4 +
+ .../api-server/src/seeds/showcaseTemplates.ts      |  843 ++++++
+ .../api-server/src/seeds/templatePageSeeds.ts      |  560 ++++
+ .../api-server/src/test-utils/tenantCleanup.ts     |  182 ++
+ .../public/images/case-study-challenge.jpg         |  Bin 0 -> 146485 bytes
+ .../public/images/case-study-deep-dive-1.jpg       |  Bin 0 -> 122219 bytes
+ .../public/images/case-study-deep-dive-2.jpg       |  Bin 0 -> 105103 bytes
+ .../public/images/case-study-gallery-1.jpg         |  Bin 0 -> 357681 bytes
+ .../public/images/case-study-gallery-2.jpg         |  Bin 0 -> 190331 bytes
+ .../public/images/case-study-gallery-3.jpg         |  Bin 0 -> 163655 bytes
+ .../public/images/case-study-portrait.jpg          |  Bin 0 -> 134438 bytes
+ .../public/images/editorial-challenge.png          |  Bin 0 -> 1632440 bytes
+ .../public/images/editorial-chapter-1.png          |  Bin 0 -> 1367456 bytes
+ .../public/images/editorial-chapter-2.png          |  Bin 0 -> 1701790 bytes
+ .../public/images/editorial-gallery-1.png          |  Bin 0 -> 1428037 bytes
+ .../public/images/editorial-gallery-2.png          |  Bin 0 -> 1205345 bytes
+ .../public/images/editorial-gallery-3.png          |  Bin 0 -> 1297032 bytes
+ .../lp-studio/public/images/editorial-hero.png     |  Bin 0 -> 1373013 bytes
+ .../public/images/editorial-testimonial.png        |  Bin 0 -> 1363364 bytes
+ .../lp-studio/public/images/framework-gallery1.png |  Bin 0 -> 1465659 bytes
+ .../lp-studio/public/images/framework-gallery2.png |  Bin 0 -> 1624211 bytes
+ .../lp-studio/public/images/framework-hero.png     |  Bin 0 -> 1247845 bytes
+ .../lp-studio/public/images/framework-speaker1.png |  Bin 0 -> 1295577 bytes
+ .../lp-studio/public/images/framework-speaker2.png |  Bin 0 -> 1340463 bytes
+ .../lp-studio/public/images/framework-speaker3.png |  Bin 0 -> 1277055 bytes
+ .../lp-studio/public/images/framework-speaker4.png |  Bin 0 -> 1221805 bytes
+ .../lp-studio/public/images/framework-venue.png    |  Bin 0 -> 1571304 bytes
+ .../lp-studio/public/images/luminous-gallery-1.png |  Bin 0 -> 1260043 bytes
+ .../lp-studio/public/images/luminous-gallery-2.png |  Bin 0 -> 1301471 bytes
+ .../lp-studio/public/images/luminous-gallery-3.png |  Bin 0 -> 1346656 bytes
+ .../lp-studio/public/images/luminous-hero.png      |  Bin 0 -> 894720 bytes
+ artifacts/lp-studio/public/images/luminous-map.png |  Bin 0 -> 875561 bytes
+ .../lp-studio/public/images/luminous-venue.png     |  Bin 0 -> 1246526 bytes
+ .../lp-studio/public/images/noir-gallery-1.png     |  Bin 0 -> 1576552 bytes
+ .../lp-studio/public/images/noir-gallery-2.png     |  Bin 0 -> 1219899 bytes
+ .../lp-studio/public/images/noir-gallery-3.png     |  Bin 0 -> 1210194 bytes
+ artifacts/lp-studio/public/images/noir-hero.png    |  Bin 0 -> 1352590 bytes
+ .../lp-studio/public/images/noir-speaker-1.png     |  Bin 0 -> 1185584 bytes
+ .../lp-studio/public/images/noir-speaker-2.png     |  Bin 0 -> 1246355 bytes
+ .../lp-studio/public/images/noir-speaker-3.png     |  Bin 0 -> 1130883 bytes
+ .../lp-studio/public/images/noir-venue-map.png     |  Bin 0 -> 1163851 bytes
+ .../lp-studio/public/images/vanguard-gallery-1.png |  Bin 0 -> 1292044 bytes
+ .../lp-studio/public/images/vanguard-gallery-2.png |  Bin 0 -> 1332809 bytes
+ .../lp-studio/public/images/vanguard-gallery-3.png |  Bin 0 -> 981467 bytes
+ .../lp-studio/public/images/vanguard-hero.png      |  Bin 0 -> 1065568 bytes
+ .../lp-studio/public/images/vanguard-module-1.png  |  Bin 0 -> 2053010 bytes
+ .../lp-studio/public/images/vanguard-module-2.png  |  Bin 0 -> 1373183 bytes
+ .../lp-studio/public/images/vanguard-module-3.png  |  Bin 0 -> 1107009 bytes
+ artifacts/lp-studio/public/opengraph.jpg           |  Bin 58238 -> 57460 bytes
+ artifacts/lp-studio/src/App.tsx                    |   13 +-
+ .../src/blocks/BlockAuroraGradientHero.tsx         |  553 ++++
+ .../src/blocks/BlockAvatarSocialProof.tsx          |  130 +
+ .../src/blocks/BlockBenefitsAlternatingRows.tsx    |  259 ++
+ .../lp-studio/src/blocks/BlockBenefitsBento.tsx    |  213 ++
+ .../lp-studio/src/blocks/BlockBenefitsGrid.tsx     |   18 +-
+ .../lp-studio/src/blocks/BlockBenefitsIconGrid.tsx |  170 ++
+ .../lp-studio/src/blocks/BlockBenefitsStatLed.tsx  |  190 ++
+ .../lp-studio/src/blocks/BlockBentoShowcase.tsx    |    4 +-
+ .../lp-studio/src/blocks/BlockCaseEditorial.tsx    |  781 +++++
+ .../lp-studio/src/blocks/BlockCaseMetrics.tsx      |  930 ++++++
+ .../lp-studio/src/blocks/BlockCaseModular.tsx      | 1413 +++++++++
+ .../src/blocks/BlockCaseStudyCardGrid.tsx          |  214 ++
+ .../src/blocks/BlockCaseStudyLogoResultsRow.tsx    |  163 ++
+ .../src/blocks/BlockCaseStudyMetricTriptych.tsx    |  140 +
+ .../src/blocks/BlockCaseStudySpotlightFeature.tsx  |  177 ++
+ .../lp-studio/src/blocks/BlockCenteredLogoNav.tsx  |   78 +
+ .../src/blocks/BlockCinematicVideoHero.tsx         |  482 ++++
+ .../lp-studio/src/blocks/BlockContentSeries.tsx    |   10 +-
+ .../src/blocks/BlockCtaCenteredMinimal.tsx         |  101 +
+ .../src/blocks/BlockCtaGradientBanner.tsx          |   92 +
+ .../lp-studio/src/blocks/BlockCtaSplitImage.tsx    |  125 +
+ .../lp-studio/src/blocks/BlockCtaStatBacked.tsx    |  136 +
+ artifacts/lp-studio/src/blocks/BlockCustomHtml.tsx |  213 +-
+ .../lp-studio/src/blocks/BlockDandyColumnsV3.tsx   |   20 +-
+ .../src/blocks/BlockDandyConversionPanel1.tsx      |  104 +-
+ .../src/blocks/BlockDandyFormRightAlt.tsx          |   39 +-
+ .../lp-studio/src/blocks/BlockDandyHeroV7S3.tsx    |   40 +-
+ .../lp-studio/src/blocks/BlockDandySideImageV6.tsx |   91 +-
+ .../lp-studio/src/blocks/BlockDsoCaseFlow.tsx      |   16 +-
+ .../src/blocks/BlockDsoCaseStudy.sections.test.ts  |  156 +
+ .../lp-studio/src/blocks/BlockDsoCaseStudy.tsx     |   51 +-
+ .../src/blocks/BlockDsoInsightsDashboard.tsx       |   12 +
+ .../lp-studio/src/blocks/BlockDsoInsightsVideo.tsx |   38 +-
+ .../lp-studio/src/blocks/BlockDsoMeetTeam.tsx      |    2 +-
+ .../src/blocks/BlockDsoPartnershipPerks.tsx        |   29 +-
+ .../lp-studio/src/blocks/BlockDsoPracticeNav.tsx   |   10 +-
+ .../src/blocks/BlockEditorialSplitHero.tsx         |  462 +++
+ .../lp-studio/src/blocks/BlockEventLuminous.tsx    | 1599 ++++++++++
+ artifacts/lp-studio/src/blocks/BlockEventNoir.tsx  | 1349 +++++++++
+ artifacts/lp-studio/src/blocks/BlockEventSplit.tsx | 1271 ++++++++
+ .../src/blocks/BlockFeaturesBentoShowcase.tsx      |  316 ++
+ .../blocks/BlockFeaturesComparisonChecklist.tsx    |  261 ++
+ .../src/blocks/BlockFeaturesSpotlightCards.tsx     |  287 ++
+ .../src/blocks/BlockFeaturesTabbedCategories.tsx   |  401 +++
+ artifacts/lp-studio/src/blocks/BlockFooter.tsx     |    3 +-
+ .../src/blocks/BlockFullBleedFinalCta.tsx          |  118 +
+ .../lp-studio/src/blocks/BlockFullBleedHero.tsx    |   11 +-
+ .../lp-studio/src/blocks/BlockFullBleedSplit.tsx   |   94 +
+ .../src/blocks/BlockGalleryCarouselSpotlight.tsx   |  164 ++
+ .../lp-studio/src/blocks/BlockGalleryFilmstrip.tsx |  109 +
+ .../lp-studio/src/blocks/BlockGalleryMasonry.tsx   |  118 +
+ .../src/blocks/BlockGallerySplitFeature.tsx        |  148 +
+ .../src/blocks/BlockGradientGlowFinalCta.tsx       |   81 +
+ artifacts/lp-studio/src/blocks/BlockHero.tsx       |   12 +-
+ .../src/blocks/BlockHowItWorksAlternating.tsx      |  210 ++
+ .../blocks/BlockHowItWorksHorizontalStepper.tsx    |  214 ++
+ .../src/blocks/BlockHowItWorksNumberedBento.tsx    |  206 ++
+ .../src/blocks/BlockHowItWorksVerticalTimeline.tsx |  222 ++
+ artifacts/lp-studio/src/blocks/BlockIconRow.tsx    |   95 +
+ .../lp-studio/src/blocks/BlockLogoMarquee.tsx      |  158 +
+ artifacts/lp-studio/src/blocks/BlockLogoWall.tsx   |  132 +
+ .../lp-studio/src/blocks/BlockMediaCardsRow.tsx    |   93 +
+ .../lp-studio/src/blocks/BlockMediaFeatureReel.tsx |  165 ++
+ .../src/blocks/BlockMediaLoopingShowcase.tsx       |  134 +
+ .../src/blocks/BlockMediaThumbnailGrid.tsx         |  181 ++
+ .../lp-studio/src/blocks/BlockMediaVideoSplit.tsx  |  174 ++
+ .../lp-studio/src/blocks/BlockMegaMenuNav.tsx      |  128 +
+ artifacts/lp-studio/src/blocks/BlockMinimalNav.tsx |   56 +
+ artifacts/lp-studio/src/blocks/BlockNavHeader.tsx  |   23 +-
+ .../src/blocks/BlockParallaxLayersHero.tsx         |  590 ++++
+ .../lp-studio/src/blocks/BlockPasBeforeAfter.tsx   |  177 ++
+ .../lp-studio/src/blocks/BlockPasIconGrid.tsx      |  117 +
+ .../lp-studio/src/blocks/BlockPasSplitImage.tsx    |  170 ++
+ .../lp-studio/src/blocks/BlockPasStatAgitate.tsx   |  123 +
+ .../lp-studio/src/blocks/BlockQuoteCarousel.tsx    |  304 ++
+ .../lp-studio/src/blocks/BlockQuoteLibrary.tsx     |  205 ++
+ .../lp-studio/src/blocks/BlockQuoteWithImage.tsx   |  159 +
+ .../lp-studio/src/blocks/BlockRatingBadges.tsx     |  136 +
+ artifacts/lp-studio/src/blocks/BlockRenderer.tsx   |  346 ++-
+ .../lp-studio/src/blocks/BlockResourceLinkList.tsx |  141 +
+ .../lp-studio/src/blocks/BlockSingleQuote.tsx      |  157 +
+ .../src/blocks/BlockSocialUrgencyFinalCta.tsx      |   86 +
+ .../src/blocks/BlockSplitFormFinalCta.tsx          |  211 ++
+ .../lp-studio/src/blocks/BlockSplitMediaRow.tsx    |  115 +
+ .../src/blocks/BlockSpotlightGlowHero.tsx          |  699 +++++
+ .../src/blocks/BlockStatBackedFinalCta.tsx         |  111 +
+ artifacts/lp-studio/src/blocks/BlockStatRow.tsx    |  111 +
+ .../lp-studio/src/blocks/BlockStickyHeader.tsx     |    4 +-
+ artifacts/lp-studio/src/blocks/BlockStorefront.tsx |   32 +-
+ .../lp-studio/src/blocks/BlockTestimonialGrid.tsx  |  216 ++
+ .../src/blocks/BlockTransparentOverlayNav.tsx      |   96 +
+ artifacts/lp-studio/src/blocks/BlockTrustBar.tsx   |  136 +-
+ .../src/blocks/BlockVideoBackgroundFinalCta.tsx    |   74 +
+ artifacts/lp-studio/src/blocks/logo-link.test.ts   |   42 +
+ artifacts/lp-studio/src/components/AuthGate.tsx    |   15 +-
+ .../BlockGovernance.preserveOthers.test.tsx        |  154 +
+ .../src/components/BlockGovernanceControls.tsx     |  140 +
+ .../src/components/BlockGovernancePanel.tsx        |  162 ++
+ artifacts/lp-studio/src/components/BrandLogo.tsx   |  197 +-
+ .../lp-studio/src/components/FactReviewModal.tsx   |  300 +-
+ artifacts/lp-studio/src/components/IconPicker.tsx  |  148 +
+ .../src/components/MediaLibraryDrawer.tsx          |   71 +-
+ .../lp-studio/src/components/NewMicrositeModal.tsx |   48 +-
+ .../lp-studio/src/components/StickyHeroNav.tsx     |   41 +-
+ .../lp-studio/src/components/auth/EmailAuth.tsx    |   69 +-
+ artifacts/lp-studio/src/hooks/use-fact-flags.ts    |    7 +-
+ .../src/hooks/use-tenant-block-governance.ts       |   76 +
+ artifacts/lp-studio/src/index.css                  |   22 +
+ artifacts/lp-studio/src/lib/bg-styles.ts           |   75 +
+ artifacts/lp-studio/src/lib/block-catalog-merge.ts |    8 +
+ .../lp-studio/src/lib/block-governance-client.ts   |   53 +
+ .../src/lib/block-settings-capabilities.ts         |   15 +
+ .../src/lib/block-types/block-registry.tsx         | 3048 ++++++++++++++++++-
+ .../lp-studio/src/lib/block-types/block-variant.ts |  138 +
+ artifacts/lp-studio/src/lib/block-types/common.ts  |   20 +-
+ .../lp-studio/src/lib/block-types/dso-blocks.ts    |   35 +
+ .../src/lib/block-types/generic-blocks.ts          | 2006 ++++++++++++-
+ artifacts/lp-studio/src/lib/block-types/index.ts   |  153 +
+ .../src/lib/block-types/template-page-defaults.ts  |  516 ++++
+ .../src/lib/block-types/template-pages.ts          |  433 +++
+ .../src/lib/block-types/utility-blocks.ts          |   15 +-
+ artifacts/lp-studio/src/lib/brand-config.ts        |  186 +-
+ .../lp-studio/src/lib/button-style-parity.test.ts  |  154 +
+ .../lp-studio/src/lib/cta-button-contrast.test.ts  |    3 -
+ artifacts/lp-studio/src/lib/cta-modal.ts           |   44 +
+ artifacts/lp-studio/src/lib/fact-flags-api.ts      |    9 +-
+ artifacts/lp-studio/src/lib/heat-tier.ts           |  129 +
+ artifacts/lp-studio/src/lib/icon-value.tsx         |   60 +
+ artifacts/lp-studio/src/lib/premium-toolkit.tsx    |  408 +++
+ artifacts/lp-studio/src/lib/seo-scoring.ts         |   45 +-
+ artifacts/lp-studio/src/lib/template-library.ts    |    8 +-
+ .../src/marketing/components/PersonaHero.tsx       |   61 +-
+ .../src/marketing/components/PersonaToggle.tsx     |   68 +-
+ .../src/marketing/pages/for-marketing.tsx          |    1 -
+ .../lp-studio/src/marketing/pages/for-sales.tsx    |    1 -
+ .../lp-studio/src/pages/SuperAdminBlockCatalog.tsx |  422 ++-
+ .../src/pages/SuperAdminNotifications.tsx          |   67 +-
+ artifacts/lp-studio/src/pages/SuperAdminPage.tsx   |   30 +-
+ .../lp-studio/src/pages/SuperAdminTemplates.tsx    |  125 +-
+ artifacts/lp-studio/src/pages/block-defaults.tsx   |  368 +--
+ artifacts/lp-studio/src/pages/brand-settings.tsx   |  336 ++-
+ .../lp-studio/src/pages/builder/BuilderEditor.tsx  |  210 +-
+ .../property-panels/AuroraGradientHeroPanel.tsx    |  548 ++++
+ .../property-panels/AvatarSocialProofPanel.tsx     |  174 ++
+ .../BenefitsAlternatingRowsPanel.tsx               |  180 ++
+ .../builder/property-panels/BenefitsBentoPanel.tsx |  105 +
+ .../builder/property-panels/BenefitsGridPanel.tsx  |   10 +-
+ .../property-panels/BenefitsIconGridPanel.tsx      |  122 +
+ .../property-panels/BenefitsStatLedPanel.tsx       |  129 +
+ .../builder/property-panels/BentoShowcasePanel.tsx |   12 +-
+ .../property-panels/CaseStudyCardGridPanel.tsx     |  156 +
+ .../CaseStudyLogoResultsRowPanel.tsx               |  139 +
+ .../CaseStudyMetricTriptychPanel.tsx               |  126 +
+ .../CaseStudySpotlightFeaturePanel.tsx             |  107 +
+ .../property-panels/CenteredLogoNavPanel.tsx       |   62 +
+ .../property-panels/CinematicVideoHeroPanel.tsx    |  446 +++
+ .../builder/property-panels/ContentSeriesPanel.tsx |  122 +-
+ .../property-panels/CtaActionConfigSection.tsx     |   71 +
+ .../property-panels/CtaCenteredMinimalPanel.tsx    |   86 +
+ .../property-panels/CtaGradientBannerPanel.tsx     |   80 +
+ .../builder/property-panels/CtaSplitImagePanel.tsx |  101 +
+ .../builder/property-panels/CtaStatBackedPanel.tsx |  125 +
+ .../property-panels/DandyFormRightAltPanel.tsx     |   31 +-
+ .../property-panels/DandySideImageV6Panel.tsx      |   29 +-
+ .../builder/property-panels/DsoMeetTeamPanel.tsx   |   13 +
+ .../property-panels/EditorialSplitHeroPanel.tsx    |  439 +++
+ .../property-panels/FeaturesBentoShowcasePanel.tsx |  108 +
+ .../FeaturesComparisonChecklistPanel.tsx           |  182 ++
+ .../FeaturesSpotlightCardsPanel.tsx                |  126 +
+ .../FeaturesTabbedCategoriesPanel.tsx              |  161 ++
+ .../property-panels/FullBleedFinalCtaPanel.tsx     |   89 +
+ .../property-panels/FullBleedSplitPanel.tsx        |   84 +
+ .../GalleryCarouselSpotlightPanel.tsx              |  109 +
+ .../property-panels/GalleryFilmstripPanel.tsx      |  101 +
+ .../property-panels/GalleryMasonryPanel.tsx        |  113 +
+ .../property-panels/GallerySplitFeaturePanel.tsx   |   96 +
+ .../property-panels/GradientGlowFinalCtaPanel.tsx  |   87 +
+ .../property-panels/HowItWorksAlternatingPanel.tsx |  120 +
+ .../HowItWorksHorizontalStepperPanel.tsx           |  128 +
+ .../HowItWorksNumberedBentoPanel.tsx               |  120 +
+ .../HowItWorksVerticalTimelinePanel.tsx            |  128 +
+ .../pages/builder/property-panels/IconRowPanel.tsx |   97 +
+ .../builder/property-panels/LinkListEditor.tsx     |   51 +
+ .../builder/property-panels/LogoMarqueePanel.tsx   |  131 +
+ .../builder/property-panels/LogoWallPanel.tsx      |  113 +
+ .../builder/property-panels/MediaCardsRowPanel.tsx |   90 +
+ .../property-panels/MediaFeatureReelPanel.tsx      |  139 +
+ .../property-panels/MediaLoopingShowcasePanel.tsx  |   90 +
+ .../property-panels/MediaThumbnailGridPanel.tsx    |  137 +
+ .../property-panels/MediaVideoSplitPanel.tsx       |  137 +
+ .../builder/property-panels/MegaMenuNavPanel.tsx   |  108 +
+ .../builder/property-panels/MinimalNavPanel.tsx    |   55 +
+ .../property-panels/ParallaxLayersHeroPanel.tsx    |  500 ++++
+ .../property-panels/PasBeforeAfterPanel.tsx        |  106 +
+ .../builder/property-panels/PasIconGridPanel.tsx   |  120 +
+ .../builder/property-panels/PasSplitImagePanel.tsx |  106 +
+ .../property-panels/PasStatAgitatePanel.tsx        |  102 +
+ .../builder/property-panels/PropertyPanel.tsx      |  706 ++++-
+ .../builder/property-panels/QuoteCarouselPanel.tsx |  127 +
+ .../builder/property-panels/QuoteLibraryPanel.tsx  |  122 +
+ .../property-panels/QuoteWithImagePanel.tsx        |   99 +
+ .../builder/property-panels/RatingBadgesPanel.tsx  |  144 +
+ .../property-panels/ResourceLinkListPanel.tsx      |  149 +
+ .../property-panels/SectionBackgroundControl.tsx   |   80 +
+ .../builder/property-panels/SingleQuotePanel.tsx   |   70 +
+ .../property-panels/SocialUrgencyFinalCtaPanel.tsx |   99 +
+ .../property-panels/SplitFormFinalCtaPanel.tsx     |  113 +
+ .../builder/property-panels/SplitMediaRowPanel.tsx |  111 +
+ .../property-panels/SpotlightGlowHeroPanel.tsx     |  589 ++++
+ .../property-panels/StatBackedFinalCtaPanel.tsx    |   90 +
+ .../pages/builder/property-panels/StatRowPanel.tsx |   76 +
+ .../property-panels/TemplateCaseStudyPanel.tsx     |  841 ++++++
+ .../builder/property-panels/TemplateEventPanel.tsx | 1087 +++++++
+ .../property-panels/TestimonialGridPanel.tsx       |  135 +
+ .../property-panels/TransparentOverlayNavPanel.tsx |   74 +
+ .../builder/property-panels/TrustBarPanel.tsx      |   63 +-
+ .../VideoBackgroundFinalCtaPanel.tsx               |   79 +
+ artifacts/lp-studio/src/pages/content-library.tsx  |  352 ++-
+ artifacts/lp-studio/src/pages/integrations.tsx     |  139 +-
+ artifacts/lp-studio/src/pages/login.tsx            |   58 +
+ artifacts/lp-studio/src/pages/pages-gallery.tsx    |   10 +-
+ .../lp-studio/src/pages/pages-gallery/types.ts     |    4 +
+ .../lp-studio/src/pages/sales/sales-accounts.tsx   |   99 +-
+ .../lp-studio/src/pages/sales/sales-dashboard.tsx  |   89 +-
+ .../lp-studio/src/pages/sales/sales-pages.tsx      |  143 +-
+ .../lp-studio/src/pages/sales/sales-signals.tsx    |    4 +-
+ .../src/pages/settings/HeatScoringPage.tsx         |  262 ++
+ .../lp-studio/src/pages/settings/SettingsPage.tsx  |   12 +-
+ .../src/pages/settings/TemplateSettingsPage.tsx    |  204 ++
+ .../lp-studio/src/pages/template-marketplace.tsx   |   10 +
+ .../tests/strict-facts-review-banner.spec.ts       |  258 ++
+ .../public/images/csb-spotlight-hero.png           |  Bin 0 -> 1377557 bytes
+ .../mockup-sandbox/public/images/cta-split.png     |  Bin 0 -> 1934781 bytes
+ .../public/images/gallery-team_1.jpg               |  Bin 0 -> 168722 bytes
+ .../public/images/gallery-team_2.jpg               |  Bin 0 -> 224964 bytes
+ .../public/images/gallery-team_3.jpg               |  Bin 0 -> 124377 bytes
+ .../public/images/gallery-team_4.jpg               |  Bin 0 -> 230310 bytes
+ .../public/images/gallery-team_5.jpg               |  Bin 0 -> 122106 bytes
+ .../public/images/gallery-team_6.jpg               |  Bin 0 -> 196234 bytes
+ .../public/images/hero-cinematic-video-bg.mp4      |  Bin 0 -> 978858 bytes
+ .../images/hero-editorial-split-abstract.png       |  Bin 0 -> 1343449 bytes
+ .../public/images/hero-parallax-layers-shape1.png  |  Bin 0 -> 1108845 bytes
+ .../public/images/hero-parallax-layers-shape2.png  |  Bin 0 -> 1397285 bytes
+ .../public/images/hero-parallax-layers-shape3.png  |  Bin 0 -> 793260 bytes
+ .../images/hero-spotlight-glow-dashboard.png       |  Bin 0 -> 1273938 bytes
+ .../public/images/media-poster-main.png            |  Bin 0 -> 1295425 bytes
+ .../mockup-sandbox/public/images/media-thumb-1.png |  Bin 0 -> 1300855 bytes
+ .../mockup-sandbox/public/images/media-thumb-2.png |  Bin 0 -> 1256508 bytes
+ .../mockup-sandbox/public/images/media-thumb-3.png |  Bin 0 -> 1495363 bytes
+ .../public/images/portrait-sarah.png               |  Bin 0 -> 1416747 bytes
+ .../src/components/mockups/_shared/MockupCTA.tsx   |  337 +++
+ .../mockups/benefits/AlternatingRows.tsx           |  286 ++
+ .../src/components/mockups/benefits/BentoGrid.tsx  |  120 +
+ .../src/components/mockups/benefits/IconGrid.tsx   |  100 +
+ .../src/components/mockups/benefits/StatLed.tsx    |   97 +
+ .../mockups/case-study-blocks/CardGrid.tsx         |  151 +
+ .../mockups/case-study-blocks/LogoResultsRow.tsx   |  124 +
+ .../mockups/case-study-blocks/MetricTriptych.tsx   |  125 +
+ .../mockups/case-study-blocks/SpotlightFeature.tsx |  171 ++
+ .../src/components/mockups/cta/CenteredMinimal.tsx |   87 +
+ .../src/components/mockups/cta/GradientBanner.tsx  |   72 +
+ .../src/components/mockups/cta/SplitImage.tsx      |   97 +
+ .../src/components/mockups/cta/StatBacked.tsx      |  104 +
+ .../components/mockups/features/BentoShowcase.tsx  |  243 ++
+ .../mockups/features/ComparisonChecklist.tsx       |  151 +
+ .../components/mockups/features/SpotlightCards.tsx |  215 ++
+ .../mockups/features/TabbedCategories.tsx          |  348 +++
+ .../mockups/gallery/CarouselSpotlight.tsx          |  115 +
+ .../components/mockups/gallery/FilmstripScroll.tsx |   86 +
+ .../src/components/mockups/gallery/MasonryGrid.tsx |   89 +
+ .../components/mockups/gallery/SplitFeature.tsx    |   90 +
+ .../components/mockups/heroes/AuroraGradient.css   |   87 +
+ .../components/mockups/heroes/AuroraGradient.tsx   |  165 ++
+ .../components/mockups/heroes/CinematicVideo.tsx   |  152 +
+ .../components/mockups/heroes/EditorialSplit.tsx   |  107 +
+ .../components/mockups/heroes/ParallaxLayers.css   |   47 +
+ .../components/mockups/heroes/ParallaxLayers.tsx   |  194 ++
+ .../components/mockups/heroes/SpotlightGlow.css    |   80 +
+ .../components/mockups/heroes/SpotlightGlow.tsx    |  182 ++
+ .../mockups/how-it-works/AlternatingShowcase.tsx   |  223 ++
+ .../mockups/how-it-works/HorizontalStepper.tsx     |  115 +
+ .../mockups/how-it-works/NumberedBento.tsx         |  124 +
+ .../mockups/how-it-works/VerticalTimeline.tsx      |  113 +
+ .../src/components/mockups/media/FeatureReel.tsx   |  130 +
+ .../components/mockups/media/LoopingShowcase.tsx   |  104 +
+ .../src/components/mockups/media/ThumbnailGrid.tsx |  162 ++
+ .../src/components/mockups/media/VideoSplit.tsx    |  157 +
+ .../src/components/mockups/media/_group.css        |   32 +
+ .../mockups/social-proof/QuoteCarousel.tsx         |  305 ++
+ .../mockups/social-proof/QuoteLibrary.tsx          |  245 ++
+ .../mockups/social-proof/QuoteWithImage.tsx        |  116 +
+ .../mockups/social-proof/SingleQuote.tsx           |  118 +
+ .../mockups/social-proof/TestimonialGrid.tsx       |  233 ++
+ .../mockups/trust-bars/AvatarSocialProof.tsx       |   65 +
+ .../components/mockups/trust-bars/LogoMarquee.tsx  |   71 +
+ .../src/components/mockups/trust-bars/LogoWall.tsx |   73 +
+ .../components/mockups/trust-bars/RatingBadges.tsx |   87 +
+ .../src/components/mockups/trust-bars/_group.css   |   31 +
+ attached_assets/IMG_2035_1780795225471.png         |  Bin 0 -> 3466280 bytes
+ attached_assets/IMG_2042_1780865570854.png         |  Bin 0 -> 2979114 bytes
+ attached_assets/IMG_2047_1780931586579.png         |  Bin 0 -> 1875942 bytes
+ attached_assets/IMG_2048_1780947063305.png         |  Bin 0 -> 2247197 bytes
+ attached_assets/IMG_2048_1780947106220.png         |  Bin 0 -> 2247197 bytes
+ attached_assets/IMG_2050_1780967927926.png         |  Bin 0 -> 364599 bytes
+ attached_assets/IMG_2054_1781012726637.png         |  Bin 0 -> 2237632 bytes
+ attached_assets/IMG_2055_1781013524410.png         |  Bin 0 -> 4304487 bytes
+ attached_assets/IMG_2055_1781013729930.png         |  Bin 0 -> 4304487 bytes
+ attached_assets/IMG_2056_1781013524410.png         |  Bin 0 -> 591617 bytes
+ attached_assets/IMG_2056_1781013729930.png         |  Bin 0 -> 591617 bytes
+ attached_assets/IMG_2057_1781013524410.png         |  Bin 0 -> 375968 bytes
+ attached_assets/IMG_2057_1781013729930.png         |  Bin 0 -> 375968 bytes
+ attached_assets/IMG_2058_1781014132455.png         |  Bin 0 -> 5328734 bytes
+ attached_assets/IMG_2059_1781014132455.png         |  Bin 0 -> 1399722 bytes
+ ...e-right-all-in-one-template-b_1780792306501.txt |  280 ++
+ ...levance-regression-and-three-_1780895001065.txt |  379 +++
+ ...levance-regression-and-three-_1780895069948.txt |  379 +++
+ ...levance-regression-and-three-_1780895229607.txt |  379 +++
+ ...levance-regression-and-three-_1780896348542.txt |  443 +++
+ ...levance-regression-and-three-_1780896353140.txt |  443 +++
+ attached_assets/image_1780804690981.png            |  Bin 0 -> 352520 bytes
+ attached_assets/image_1780805105638.png            |  Bin 0 -> 352520 bytes
+ attached_assets/image_1780807783491.png            |  Bin 0 -> 244284 bytes
+ attached_assets/image_1780813313591.png            |  Bin 0 -> 761320 bytes
+ attached_assets/image_1780813404383.png            |  Bin 0 -> 406936 bytes
+ attached_assets/image_1780856183782.png            |  Bin 0 -> 761320 bytes
+ attached_assets/image_1780858098983.png            |  Bin 0 -> 215162 bytes
+ attached_assets/image_1780858119542.png            |  Bin 0 -> 177144 bytes
+ attached_assets/image_1780860991633.png            |  Bin 0 -> 576216 bytes
+ attached_assets/image_1780861498623.png            |  Bin 0 -> 470957 bytes
+ attached_assets/image_1780861624182.png            |  Bin 0 -> 633948 bytes
+ attached_assets/image_1780861704715.png            |  Bin 0 -> 510742 bytes
+ attached_assets/image_1780863833949.png            |  Bin 0 -> 427863 bytes
+ attached_assets/image_1780869638599.png            |  Bin 0 -> 45776 bytes
+ attached_assets/image_1780873368485.png            |  Bin 0 -> 163657 bytes
+ attached_assets/image_1780873538923.png            |  Bin 0 -> 247328 bytes
+ attached_assets/image_1780873916411.png            |  Bin 0 -> 174269 bytes
+ attached_assets/image_1780874899539.png            |  Bin 0 -> 94714 bytes
+ attached_assets/image_1780878952546.png            |  Bin 0 -> 87551 bytes
+ attached_assets/image_1780880947593.png            |  Bin 0 -> 57652 bytes
+ attached_assets/image_1780881129591.png            |  Bin 0 -> 154226 bytes
+ attached_assets/image_1780881150020.png            |  Bin 0 -> 125107 bytes
+ attached_assets/image_1780881426436.png            |  Bin 0 -> 120434 bytes
+ attached_assets/image_1780881475553.png            |  Bin 0 -> 239207 bytes
+ attached_assets/image_1780881661503.png            |  Bin 0 -> 23161 bytes
+ attached_assets/image_1780881964814.png            |  Bin 0 -> 94494 bytes
+ attached_assets/image_1780882085356.png            |  Bin 0 -> 912604 bytes
+ attached_assets/image_1780883829371.png            |  Bin 0 -> 95121 bytes
+ attached_assets/image_1780887763570.png            |  Bin 0 -> 59787 bytes
+ attached_assets/image_1780892028063.png            |  Bin 0 -> 116038 bytes
+ attached_assets/image_1780892041967.png            |  Bin 0 -> 516534 bytes
+ attached_assets/image_1780892059688.png            |  Bin 0 -> 316474 bytes
+ attached_assets/image_1780962086524.png            |  Bin 0 -> 51337 bytes
+ attached_assets/image_1780962368709.png            |  Bin 0 -> 1835574 bytes
+ attached_assets/image_1780962404124.png            |  Bin 0 -> 411581 bytes
+ attached_assets/image_1780966021052.png            |  Bin 0 -> 429005 bytes
+ attached_assets/image_1780970201060.png            |  Bin 0 -> 93717 bytes
+ attached_assets/image_1780971333808.png            |  Bin 0 -> 403785 bytes
+ attached_assets/image_1780972928764.png            |  Bin 0 -> 860174 bytes
+ attached_assets/image_1780973170066.png            |  Bin 0 -> 102635 bytes
+ attached_assets/image_1780976841023.png            |  Bin 0 -> 404855 bytes
+ attached_assets/image_1781031412335.png            |  Bin 0 -> 173873 bytes
+ attached_assets/image_1781031854275.png            |  Bin 0 -> 201908 bytes
+ attached_assets/image_1781045122975.png            |  Bin 0 -> 832067 bytes
+ attached_assets/image_1781112427086.png            |  Bin 0 -> 832067 bytes
+ attached_assets/image_1781112436665.png            |  Bin 0 -> 832067 bytes
+ attached_assets/image_1781112453566.png            |  Bin 0 -> 832067 bytes
+ attached_assets/image_1781112464670.png            |  Bin 0 -> 100793 bytes
+ attached_assets/image_1781130625606.png            |  Bin 0 -> 33048 bytes
+ attached_assets/image_1781154625344.png            |  Bin 0 -> 149516 bytes
+ ...plit_dev_preview_42-north-dental-removables.png |  Bin 0 -> 689537 bytes
+ ...replit_dev_mockup_preview_benefits_IconGrid.png |  Bin 0 -> 110100 bytes
+ ...v_mockup_preview_social-proof_QuoteCarousel.png |  Bin 0 -> 101945 bytes
+ ...ev_mockup_preview_social-proof_QuoteLibrary.png |  Bin 0 -> 149753 bytes
+ ..._mockup_preview_social-proof_QuoteWithImage.png |  Bin 0 -> 370325 bytes
+ ...dev_mockup_preview_social-proof_SingleQuote.png |  Bin 0 -> 109564 bytes
+ ...mockup_preview_social-proof_TestimonialGrid.png |  Bin 0 -> 140268 bytes
+ ...tudio_ai_preview_customer-service-solutions.png |  Bin 0 -> 474021 bytes
+ .../migrations/0086_lp_page_fact_flags_context.sql |    6 +
+ .../migrations/0087_lp_pages_microsite_enabled.sql |    9 +
+ .../0088_lp_integrations_purge_salesforce.sql      |   17 +
+ .../0089_lp_pages_trusted_fact_forms.sql           |    7 +
+ .../0090_block_catalog_approved_segments.sql       |    1 +
+ lib/db/migrations/0091_tenant_block_governance.sql |   15 +
+ lib/db/migrations/meta/_journal.json               |   42 +
+ lib/db/src/schema/blockCatalog.ts                  |   10 +
+ lib/db/src/schema/index.ts                         |    2 +
+ lib/db/src/schema/lpPageFactFlags.ts               |    4 +
+ lib/db/src/schema/lpPages.ts                       |   15 +
+ lib/db/src/schema/tenantBlockGovernance.ts         |   49 +
+ lib/lp-template-engine/package.json                |    2 +-
+ .../src/block-governance.test.ts                   |  182 ++
+ lib/lp-template-engine/src/block-governance.ts     |  203 ++
+ lib/lp-template-engine/src/block-tags.ts           |  162 ++
+ lib/lp-template-engine/src/index.ts                |    2 +
+ lib/lp-template-engine/src/page-outline.test.ts    |  219 ++
+ lib/lp-template-engine/src/page-outline.ts         |  206 ++
+ scripts/seed-block-catalog.cjs                     |    9 +
+ 609 files changed, 72564 insertions(+), 2335 deletions(-)
+ create mode 100644 .agents/memory/ai-block-catalog-filtering-line-level.md
+ create mode 100644 .agents/memory/ai-icon-url-hard-strip.md
+ create mode 100644 .agents/memory/ai-page-offtopic-curated-preempts-aigen.md
+ create mode 100644 .agents/memory/ai-reasoning-model-empty-output.md
+ create mode 100644 .agents/memory/ai-sales-briefing-seller-direction.md
+ create mode 100644 .agents/memory/batch-ai-proxy-reclassify.md
+ create mode 100644 .agents/memory/block-default-baked-accent-colors.md
+ create mode 100644 .agents/memory/block-logo-brandlogo-convention.md
+ create mode 100644 .agents/memory/block-settings-capability-gating.md
+ create mode 100644 .agents/memory/block-type-graduation-callsites.md
+ create mode 100644 .agents/memory/brand-import-named-token-over-wash.md
+ create mode 100644 .agents/memory/brand-logo-dark-surface-whitening.md
+ create mode 100644 .agents/memory/brand-logo-light-surface-contrast.md
+ create mode 100644 .agents/memory/builder-navbar-containment.md
+ create mode 100644 .agents/memory/collectimageslots-restore-vs-fill.md
+ create mode 100644 .agents/memory/custom-html-iframe-brand-font.md
+ create mode 100644 .agents/memory/customer-logo-slot-no-fill.md
+ create mode 100644 .agents/memory/dso-case-study-field-enumeration.md
+ create mode 100644 .agents/memory/explicit-block-requests-dso.md
+ create mode 100644 .agents/memory/fillemptyimages-explicit-branches.md
+ create mode 100644 .agents/memory/footer-dandy-palette-leak.md
+ create mode 100644 .agents/memory/generate-page-scrape-gating.md
+ create mode 100644 .agents/memory/generic-hero-brand-vars.md
+ create mode 100644 .agents/memory/hermetic-schema-stricter-than-prod.md
+ create mode 100644 .agents/memory/how-it-works-alternating-real-images.md
+ create mode 100644 .agents/memory/icon-field-scope.md
+ create mode 100644 .agents/memory/icon-only-item-photos-sanitize-strip.md
+ create mode 100644 .agents/memory/image-fill-pool-ordering.md
+ create mode 100644 .agents/memory/image-fill-scraped-tier-starvation.md
+ create mode 100644 .agents/memory/inject-test-post-response-sideeffects.md
+ create mode 100644 .agents/memory/library-bulk-ai-classify.md
+ create mode 100644 .agents/memory/lp-block-icon-dual-field.md
+ create mode 100644 .agents/memory/lp-draft-preview-token.md
+ create mode 100644 .agents/memory/lp-generate-page-hero-selection.md
+ create mode 100644 .agents/memory/lp-preset-style-bypass-contrast-guards.md
+ create mode 100644 .agents/memory/lp-section-bg-rhythm.md
+ create mode 100644 .agents/memory/marketing-sfdc-shared-oauth.md
+ create mode 100644 .agents/memory/media-library-search-tags.md
+ create mode 100644 .agents/memory/microsite-block-schema-field-parity.md
+ create mode 100644 .agents/memory/microsite-exemplar-structure-anchoring.md
+ create mode 100644 .agents/memory/mockup-section-optional-cta-convention.md
+ create mode 100644 .agents/memory/no-dandy-leak-tenant-live-catalog.md
+ create mode 100644 .agents/memory/paginated-multiselect-bulk-action.md
+ create mode 100644 .agents/memory/premium-block-accent-alpha.md
+ create mode 100644 .agents/memory/premium-section-block-polish.md
+ create mode 100644 .agents/memory/product-detail-fill-subject-only.md
+ create mode 100644 .agents/memory/product-library-blocks-consumer.md
+ create mode 100644 .agents/memory/reserved-media-tags-ai-exclusion.md
+ create mode 100644 .agents/memory/scraped-image-source-page-hero-rule.md
+ create mode 100644 .agents/memory/section-block-premium-polish.md
+ create mode 100644 .agents/memory/section-surface-bg-presets.md
+ create mode 100644 .agents/memory/segment-approval-vocab-expansion.md
+ create mode 100644 .agents/memory/segment-pool-containment-callsites.md
+ create mode 100644 .agents/memory/shared-prod-test-tenant-cleanup.md
+ create mode 100644 .agents/memory/signal-attribution-dual-write.md
+ create mode 100644 .agents/memory/strict-facts-quote-trust.md
+ create mode 100644 .agents/memory/template-page-seed-mirroring.md
+ create mode 100644 .agents/memory/thumio-output-cap.md
+ create mode 100644 .agents/memory/welcome-email-workflow-fanout.md
+ create mode 100644 .canvas/assets/asset_132743329.png
+ create mode 100644 artifacts/api-server/scripts/capture-brand-evidence.ts
+ create mode 100644 artifacts/api-server/src/lib/brand-import/extractors/__fixtures__/airbnb.json
+ create mode 100644 artifacts/api-server/src/lib/brand-import/extractors/__fixtures__/craigslist.json
+ create mode 100644 artifacts/api-server/src/lib/brand-import/extractors/__fixtures__/hackernews.json
+ create mode 100644 artifacts/api-server/src/lib/brand-import/extractors/__fixtures__/linear.json
+ create mode 100644 artifacts/api-server/src/lib/brand-import/extractors/__fixtures__/royaldesign.json
+ create mode 100644 artifacts/api-server/src/lib/brand-import/extractors/colors.realworld.test.ts
+ create mode 100644 artifacts/api-server/src/lib/imageAutoTag.test.ts
+ create mode 100644 artifacts/api-server/src/lib/imageAutoTag.ts
+ create mode 100644 artifacts/api-server/src/lib/libraryScope.sharedAsset.test.ts
+ create mode 100644 artifacts/api-server/src/lib/sfdc-oauth-state.ts
+ create mode 100644 artifacts/api-server/src/lib/signalAttribution.ts
+ create mode 100644 artifacts/api-server/src/loadEnv.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/brand.logoTagging.integration.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/generate-page.case-study-sections-strict.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/generate-page.content-series-branding.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/generate-page.dso-case-study-freeform.integration.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/generate-page.governance.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/generate-page.page-outline.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/generate-page.position-merge.integration.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/generate-page.product-library.integration.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/generate-page.replaceImageryReference.integration.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/generate-page.requested-blocks.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/generate-page.resources.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/generate-page.scrape-gating.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/generate-page.segmentApproval.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/generate-page.team-photos.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/integrations.salesforce.integration.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/leads.salesforceSync.integration.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/library.teamPhoto.integration.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/media-suggest.integration.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/proof-points-import.quotes.test.ts
+ create mode 100644 artifacts/api-server/src/routes/lp/proof-points.quotes.integration.test.ts
+ create mode 100644 artifacts/api-server/src/routes/sales/briefings.prompt.test.ts
+ create mode 100644 artifacts/api-server/src/routes/sales/generate-microsite.dso-case-study.integration.test.ts
+ create mode 100644 artifacts/api-server/src/routes/sales/generate-microsite.dso-variety.test.ts
+ create mode 100644 artifacts/api-server/src/routes/sales/generate-microsite.page-outline.test.ts
+ create mode 100644 artifacts/api-server/src/routes/sales/generate-microsite.replaceImageryReference.integration.test.ts
+ create mode 100644 artifacts/api-server/src/routes/sales/generate-microsite.segmentApproval.test.ts
+ create mode 100644 artifacts/api-server/src/routes/sales/generate-microsite.segmentPool.test.ts
+ create mode 100644 artifacts/api-server/src/routes/storage.serveSharedAcl.integration.test.ts
+ create mode 100644 artifacts/api-server/src/routes/tenantBlockGovernance.integration.test.ts
+ create mode 100644 artifacts/api-server/src/routes/tenantBlockGovernance.ts
+ create mode 100644 artifacts/api-server/src/seeds/showcaseTemplates.ts
+ create mode 100644 artifacts/api-server/src/seeds/templatePageSeeds.ts
+ create mode 100644 artifacts/api-server/src/test-utils/tenantCleanup.ts
+ create mode 100644 artifacts/lp-studio/public/images/case-study-challenge.jpg
+ create mode 100644 artifacts/lp-studio/public/images/case-study-deep-dive-1.jpg
+ create mode 100644 artifacts/lp-studio/public/images/case-study-deep-dive-2.jpg
+ create mode 100644 artifacts/lp-studio/public/images/case-study-gallery-1.jpg
+ create mode 100644 artifacts/lp-studio/public/images/case-study-gallery-2.jpg
+ create mode 100644 artifacts/lp-studio/public/images/case-study-gallery-3.jpg
+ create mode 100644 artifacts/lp-studio/public/images/case-study-portrait.jpg
+ create mode 100644 artifacts/lp-studio/public/images/editorial-challenge.png
+ create mode 100644 artifacts/lp-studio/public/images/editorial-chapter-1.png
+ create mode 100644 artifacts/lp-studio/public/images/editorial-chapter-2.png
+ create mode 100644 artifacts/lp-studio/public/images/editorial-gallery-1.png
+ create mode 100644 artifacts/lp-studio/public/images/editorial-gallery-2.png
+ create mode 100644 artifacts/lp-studio/public/images/editorial-gallery-3.png
+ create mode 100644 artifacts/lp-studio/public/images/editorial-hero.png
+ create mode 100644 artifacts/lp-studio/public/images/editorial-testimonial.png
+ create mode 100644 artifacts/lp-studio/public/images/framework-gallery1.png
+ create mode 100644 artifacts/lp-studio/public/images/framework-gallery2.png
+ create mode 100644 artifacts/lp-studio/public/images/framework-hero.png
+ create mode 100644 artifacts/lp-studio/public/images/framework-speaker1.png
+ create mode 100644 artifacts/lp-studio/public/images/framework-speaker2.png
+ create mode 100644 artifacts/lp-studio/public/images/framework-speaker3.png
+ create mode 100644 artifacts/lp-studio/public/images/framework-speaker4.png
+ create mode 100644 artifacts/lp-studio/public/images/framework-venue.png
+ create mode 100644 artifacts/lp-studio/public/images/luminous-gallery-1.png
+ create mode 100644 artifacts/lp-studio/public/images/luminous-gallery-2.png
+ create mode 100644 artifacts/lp-studio/public/images/luminous-gallery-3.png
+ create mode 100644 artifacts/lp-studio/public/images/luminous-hero.png
+ create mode 100644 artifacts/lp-studio/public/images/luminous-map.png
+ create mode 100644 artifacts/lp-studio/public/images/luminous-venue.png
+ create mode 100644 artifacts/lp-studio/public/images/noir-gallery-1.png
+ create mode 100644 artifacts/lp-studio/public/images/noir-gallery-2.png
+ create mode 100644 artifacts/lp-studio/public/images/noir-gallery-3.png
+ create mode 100644 artifacts/lp-studio/public/images/noir-hero.png
+ create mode 100644 artifacts/lp-studio/public/images/noir-speaker-1.png
+ create mode 100644 artifacts/lp-studio/public/images/noir-speaker-2.png
+ create mode 100644 artifacts/lp-studio/public/images/noir-speaker-3.png
+ create mode 100644 artifacts/lp-studio/public/images/noir-venue-map.png
+ create mode 100644 artifacts/lp-studio/public/images/vanguard-gallery-1.png
+ create mode 100644 artifacts/lp-studio/public/images/vanguard-gallery-2.png
+ create mode 100644 artifacts/lp-studio/public/images/vanguard-gallery-3.png
+ create mode 100644 artifacts/lp-studio/public/images/vanguard-hero.png
+ create mode 100644 artifacts/lp-studio/public/images/vanguard-module-1.png
+ create mode 100644 artifacts/lp-studio/public/images/vanguard-module-2.png
+ create mode 100644 artifacts/lp-studio/public/images/vanguard-module-3.png
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockAuroraGradientHero.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockAvatarSocialProof.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockBenefitsAlternatingRows.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockBenefitsBento.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockBenefitsIconGrid.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockBenefitsStatLed.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockCaseEditorial.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockCaseMetrics.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockCaseModular.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockCaseStudyCardGrid.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockCaseStudyLogoResultsRow.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockCaseStudyMetricTriptych.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockCaseStudySpotlightFeature.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockCenteredLogoNav.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockCinematicVideoHero.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockCtaCenteredMinimal.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockCtaGradientBanner.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockCtaSplitImage.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockCtaStatBacked.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockDsoCaseStudy.sections.test.ts
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockEditorialSplitHero.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockEventLuminous.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockEventNoir.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockEventSplit.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockFeaturesBentoShowcase.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockFeaturesComparisonChecklist.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockFeaturesSpotlightCards.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockFeaturesTabbedCategories.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockFullBleedFinalCta.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockFullBleedSplit.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockGalleryCarouselSpotlight.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockGalleryFilmstrip.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockGalleryMasonry.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockGallerySplitFeature.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockGradientGlowFinalCta.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockHowItWorksAlternating.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockHowItWorksHorizontalStepper.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockHowItWorksNumberedBento.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockHowItWorksVerticalTimeline.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockIconRow.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockLogoMarquee.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockLogoWall.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockMediaCardsRow.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockMediaFeatureReel.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockMediaLoopingShowcase.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockMediaThumbnailGrid.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockMediaVideoSplit.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockMegaMenuNav.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockMinimalNav.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockParallaxLayersHero.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockPasBeforeAfter.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockPasIconGrid.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockPasSplitImage.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockPasStatAgitate.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockQuoteCarousel.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockQuoteLibrary.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockQuoteWithImage.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockRatingBadges.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockResourceLinkList.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockSingleQuote.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockSocialUrgencyFinalCta.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockSplitFormFinalCta.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockSplitMediaRow.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockSpotlightGlowHero.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockStatBackedFinalCta.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockStatRow.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockTestimonialGrid.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockTransparentOverlayNav.tsx
+ create mode 100644 artifacts/lp-studio/src/blocks/BlockVideoBackgroundFinalCta.tsx
+ create mode 100644 artifacts/lp-studio/src/components/BlockGovernance.preserveOthers.test.tsx
+ create mode 100644 artifacts/lp-studio/src/components/BlockGovernanceControls.tsx
+ create mode 100644 artifacts/lp-studio/src/components/BlockGovernancePanel.tsx
+ create mode 100644 artifacts/lp-studio/src/components/IconPicker.tsx
+ create mode 100644 artifacts/lp-studio/src/hooks/use-tenant-block-governance.ts
+ create mode 100644 artifacts/lp-studio/src/lib/block-governance-client.ts
+ create mode 100644 artifacts/lp-studio/src/lib/block-types/template-page-defaults.ts
+ create mode 100644 artifacts/lp-studio/src/lib/block-types/template-pages.ts
+ create mode 100644 artifacts/lp-studio/src/lib/cta-modal.ts
+ create mode 100644 artifacts/lp-studio/src/lib/heat-tier.ts
+ create mode 100644 artifacts/lp-studio/src/lib/icon-value.tsx
+ create mode 100644 artifacts/lp-studio/src/lib/premium-toolkit.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/AuroraGradientHeroPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/AvatarSocialProofPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/BenefitsAlternatingRowsPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/BenefitsBentoPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/BenefitsIconGridPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/BenefitsStatLedPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/CaseStudyCardGridPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/CaseStudyLogoResultsRowPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/CaseStudyMetricTriptychPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/CaseStudySpotlightFeaturePanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/CenteredLogoNavPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/CinematicVideoHeroPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/CtaActionConfigSection.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/CtaCenteredMinimalPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/CtaGradientBannerPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/CtaSplitImagePanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/CtaStatBackedPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/EditorialSplitHeroPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/FeaturesBentoShowcasePanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/FeaturesComparisonChecklistPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/FeaturesSpotlightCardsPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/FeaturesTabbedCategoriesPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/FullBleedFinalCtaPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/FullBleedSplitPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/GalleryCarouselSpotlightPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/GalleryFilmstripPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/GalleryMasonryPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/GallerySplitFeaturePanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/GradientGlowFinalCtaPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/HowItWorksAlternatingPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/HowItWorksHorizontalStepperPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/HowItWorksNumberedBentoPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/HowItWorksVerticalTimelinePanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/IconRowPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/LinkListEditor.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/LogoMarqueePanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/LogoWallPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/MediaCardsRowPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/MediaFeatureReelPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/MediaLoopingShowcasePanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/MediaThumbnailGridPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/MediaVideoSplitPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/MegaMenuNavPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/MinimalNavPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/ParallaxLayersHeroPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/PasBeforeAfterPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/PasIconGridPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/PasSplitImagePanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/PasStatAgitatePanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/QuoteCarouselPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/QuoteLibraryPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/QuoteWithImagePanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/RatingBadgesPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/ResourceLinkListPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/SectionBackgroundControl.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/SingleQuotePanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/SocialUrgencyFinalCtaPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/SplitFormFinalCtaPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/SplitMediaRowPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/SpotlightGlowHeroPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/StatBackedFinalCtaPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/StatRowPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/TemplateCaseStudyPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/TemplateEventPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/TestimonialGridPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/TransparentOverlayNavPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/builder/property-panels/VideoBackgroundFinalCtaPanel.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/login.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/settings/HeatScoringPage.tsx
+ create mode 100644 artifacts/lp-studio/src/pages/settings/TemplateSettingsPage.tsx
+ create mode 100644 artifacts/lp-studio/tests/strict-facts-review-banner.spec.ts
+ create mode 100644 artifacts/mockup-sandbox/public/images/csb-spotlight-hero.png
+ create mode 100644 artifacts/mockup-sandbox/public/images/cta-split.png
+ create mode 100644 artifacts/mockup-sandbox/public/images/gallery-team_1.jpg
+ create mode 100644 artifacts/mockup-sandbox/public/images/gallery-team_2.jpg
+ create mode 100644 artifacts/mockup-sandbox/public/images/gallery-team_3.jpg
+ create mode 100644 artifacts/mockup-sandbox/public/images/gallery-team_4.jpg
+ create mode 100644 artifacts/mockup-sandbox/public/images/gallery-team_5.jpg
+ create mode 100644 artifacts/mockup-sandbox/public/images/gallery-team_6.jpg
+ create mode 100644 artifacts/mockup-sandbox/public/images/hero-cinematic-video-bg.mp4
+ create mode 100644 artifacts/mockup-sandbox/public/images/hero-editorial-split-abstract.png
+ create mode 100644 artifacts/mockup-sandbox/public/images/hero-parallax-layers-shape1.png
+ create mode 100644 artifacts/mockup-sandbox/public/images/hero-parallax-layers-shape2.png
+ create mode 100644 artifacts/mockup-sandbox/public/images/hero-parallax-layers-shape3.png
+ create mode 100644 artifacts/mockup-sandbox/public/images/hero-spotlight-glow-dashboard.png
+ create mode 100644 artifacts/mockup-sandbox/public/images/media-poster-main.png
+ create mode 100644 artifacts/mockup-sandbox/public/images/media-thumb-1.png
+ create mode 100644 artifacts/mockup-sandbox/public/images/media-thumb-2.png
+ create mode 100644 artifacts/mockup-sandbox/public/images/media-thumb-3.png
+ create mode 100644 artifacts/mockup-sandbox/public/images/portrait-sarah.png
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/_shared/MockupCTA.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/benefits/AlternatingRows.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/benefits/BentoGrid.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/benefits/IconGrid.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/benefits/StatLed.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/case-study-blocks/CardGrid.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/case-study-blocks/LogoResultsRow.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/case-study-blocks/MetricTriptych.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/case-study-blocks/SpotlightFeature.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/cta/CenteredMinimal.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/cta/GradientBanner.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/cta/SplitImage.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/cta/StatBacked.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/features/BentoShowcase.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/features/ComparisonChecklist.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/features/SpotlightCards.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/features/TabbedCategories.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/gallery/CarouselSpotlight.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/gallery/FilmstripScroll.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/gallery/MasonryGrid.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/gallery/SplitFeature.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/heroes/AuroraGradient.css
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/heroes/AuroraGradient.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/heroes/CinematicVideo.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/heroes/EditorialSplit.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/heroes/ParallaxLayers.css
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/heroes/ParallaxLayers.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/heroes/SpotlightGlow.css
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/heroes/SpotlightGlow.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/how-it-works/AlternatingShowcase.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/how-it-works/HorizontalStepper.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/how-it-works/NumberedBento.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/how-it-works/VerticalTimeline.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/media/FeatureReel.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/media/LoopingShowcase.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/media/ThumbnailGrid.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/media/VideoSplit.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/media/_group.css
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/social-proof/QuoteCarousel.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/social-proof/QuoteLibrary.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/social-proof/QuoteWithImage.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/social-proof/SingleQuote.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/social-proof/TestimonialGrid.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/trust-bars/AvatarSocialProof.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/trust-bars/LogoMarquee.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/trust-bars/LogoWall.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/trust-bars/RatingBadges.tsx
+ create mode 100644 artifacts/mockup-sandbox/src/components/mockups/trust-bars/_group.css
+ create mode 100644 attached_assets/IMG_2035_1780795225471.png
+ create mode 100644 attached_assets/IMG_2042_1780865570854.png
+ create mode 100644 attached_assets/IMG_2047_1780931586579.png
+ create mode 100644 attached_assets/IMG_2048_1780947063305.png
+ create mode 100644 attached_assets/IMG_2048_1780947106220.png
+ create mode 100644 attached_assets/IMG_2050_1780967927926.png
+ create mode 100644 attached_assets/IMG_2054_1781012726637.png
+ create mode 100644 attached_assets/IMG_2055_1781013524410.png
+ create mode 100644 attached_assets/IMG_2055_1781013729930.png
+ create mode 100644 attached_assets/IMG_2056_1781013524410.png
+ create mode 100644 attached_assets/IMG_2056_1781013729930.png
+ create mode 100644 attached_assets/IMG_2057_1781013524410.png
+ create mode 100644 attached_assets/IMG_2057_1781013729930.png
+ create mode 100644 attached_assets/IMG_2058_1781014132455.png
+ create mode 100644 attached_assets/IMG_2059_1781014132455.png
+ create mode 100644 attached_assets/Pasted--Replit-prompt-AI-picks-the-right-all-in-one-template-b_1780792306501.txt
+ create mode 100644 attached_assets/Pasted--Replit-prompt-P0-image-relevance-regression-and-three-_1780895001065.txt
+ create mode 100644 attached_assets/Pasted--Replit-prompt-P0-image-relevance-regression-and-three-_1780895069948.txt
+ create mode 100644 attached_assets/Pasted--Replit-prompt-P0-image-relevance-regression-and-three-_1780895229607.txt
+ create mode 100644 attached_assets/Pasted--Replit-prompt-P0-image-relevance-regression-and-three-_1780896348542.txt
+ create mode 100644 attached_assets/Pasted--Replit-prompt-P0-image-relevance-regression-and-three-_1780896353140.txt
+ create mode 100644 attached_assets/image_1780804690981.png
+ create mode 100644 attached_assets/image_1780805105638.png
+ create mode 100644 attached_assets/image_1780807783491.png
+ create mode 100644 attached_assets/image_1780813313591.png
+ create mode 100644 attached_assets/image_1780813404383.png
+ create mode 100644 attached_assets/image_1780856183782.png
+ create mode 100644 attached_assets/image_1780858098983.png
+ create mode 100644 attached_assets/image_1780858119542.png
+ create mode 100644 attached_assets/image_1780860991633.png
+ create mode 100644 attached_assets/image_1780861498623.png
+ create mode 100644 attached_assets/image_1780861624182.png
+ create mode 100644 attached_assets/image_1780861704715.png
+ create mode 100644 attached_assets/image_1780863833949.png
+ create mode 100644 attached_assets/image_1780869638599.png
+ create mode 100644 attached_assets/image_1780873368485.png
+ create mode 100644 attached_assets/image_1780873538923.png
+ create mode 100644 attached_assets/image_1780873916411.png
+ create mode 100644 attached_assets/image_1780874899539.png
+ create mode 100644 attached_assets/image_1780878952546.png
+ create mode 100644 attached_assets/image_1780880947593.png
+ create mode 100644 attached_assets/image_1780881129591.png
+ create mode 100644 attached_assets/image_1780881150020.png
+ create mode 100644 attached_assets/image_1780881426436.png
+ create mode 100644 attached_assets/image_1780881475553.png
+ create mode 100644 attached_assets/image_1780881661503.png
+ create mode 100644 attached_assets/image_1780881964814.png
+ create mode 100644 attached_assets/image_1780882085356.png
+ create mode 100644 attached_assets/image_1780883829371.png
+ create mode 100644 attached_assets/image_1780887763570.png
+ create mode 100644 attached_assets/image_1780892028063.png
+ create mode 100644 attached_assets/image_1780892041967.png
+ create mode 100644 attached_assets/image_1780892059688.png
+ create mode 100644 attached_assets/image_1780962086524.png
+ create mode 100644 attached_assets/image_1780962368709.png
+ create mode 100644 attached_assets/image_1780962404124.png
+ create mode 100644 attached_assets/image_1780966021052.png
+ create mode 100644 attached_assets/image_1780970201060.png
+ create mode 100644 attached_assets/image_1780971333808.png
+ create mode 100644 attached_assets/image_1780972928764.png
+ create mode 100644 attached_assets/image_1780973170066.png
+ create mode 100644 attached_assets/image_1780976841023.png
+ create mode 100644 attached_assets/image_1781031412335.png
+ create mode 100644 attached_assets/image_1781031854275.png
+ create mode 100644 attached_assets/image_1781045122975.png
+ create mode 100644 attached_assets/image_1781112427086.png
+ create mode 100644 attached_assets/image_1781112436665.png
+ create mode 100644 attached_assets/image_1781112453566.png
+ create mode 100644 attached_assets/image_1781112464670.png
+ create mode 100644 attached_assets/image_1781130625606.png
+ create mode 100644 attached_assets/image_1781154625344.png
+ create mode 100644 attached_assets/screenshots/53dd78a2-19cd-46ff-b8e4-8ed19e50c149-00-f57ozv2xae5e_spock_replit_dev_preview_42-north-dental-removables.png
+ create mode 100644 attached_assets/screenshots/b675546d-9cd7-487e-a83e-490be0d2ab55-00-1z55trabbqzy8_janeway_replit_dev_mockup_preview_benefits_IconGrid.png
+ create mode 100644 attached_assets/screenshots/b675546d-9cd7-487e-a83e-490be0d2ab55-00-1z55trabbqzy8_janeway_replit_dev_mockup_preview_social-proof_QuoteCarousel.png
+ create mode 100644 attached_assets/screenshots/b675546d-9cd7-487e-a83e-490be0d2ab55-00-1z55trabbqzy8_janeway_replit_dev_mockup_preview_social-proof_QuoteLibrary.png
+ create mode 100644 attached_assets/screenshots/b675546d-9cd7-487e-a83e-490be0d2ab55-00-1z55trabbqzy8_janeway_replit_dev_mockup_preview_social-proof_QuoteWithImage.png
+ create mode 100644 attached_assets/screenshots/b675546d-9cd7-487e-a83e-490be0d2ab55-00-1z55trabbqzy8_janeway_replit_dev_mockup_preview_social-proof_SingleQuote.png
+ create mode 100644 attached_assets/screenshots/b675546d-9cd7-487e-a83e-490be0d2ab55-00-1z55trabbqzy8_janeway_replit_dev_mockup_preview_social-proof_TestimonialGrid.png
+ create mode 100644 attached_assets/screenshots/rasta_lpstudio_ai_preview_customer-service-solutions.png
+ create mode 100644 lib/db/migrations/0086_lp_page_fact_flags_context.sql
+ create mode 100644 lib/db/migrations/0087_lp_pages_microsite_enabled.sql
+ create mode 100644 lib/db/migrations/0088_lp_integrations_purge_salesforce.sql
+ create mode 100644 lib/db/migrations/0089_lp_pages_trusted_fact_forms.sql
+ create mode 100644 lib/db/migrations/0090_block_catalog_approved_segments.sql
+ create mode 100644 lib/db/migrations/0091_tenant_block_governance.sql
+ create mode 100644 lib/db/src/schema/tenantBlockGovernance.ts
+ create mode 100644 lib/lp-template-engine/src/block-governance.test.ts
+ create mode 100644 lib/lp-template-engine/src/block-governance.ts
+ create mode 100644 lib/lp-template-engine/src/page-outline.test.ts
+ create mode 100644 lib/lp-template-engine/src/page-outline.ts
+Everything up-to-date
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % 

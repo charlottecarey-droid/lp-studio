@@ -860,10 +860,16 @@ const EXCLUDE_TAGS = new Set(["og-image", "og", "social", "open-graph", "text-ba
 /** Relevance scoring weights — kept as named constants so the validation
  *  threshold (CLEAR_GAP, below) can be derived from them and stays meaningful
  *  if the weights ever change.
- *    PURPOSE_MATCH_BOOST — an image whose purpose tag matches the slot.
- *    TAG_MATCH_SCORE     — one content tag whose text appears in the context. */
+ *    PURPOSE_MATCH_BOOST   — an image whose purpose tag matches the slot.
+ *    TAG_MATCH_SCORE       — one content tag matching the SECTION's own copy.
+ *    PAGE_TAG_MATCH_SCORE  — one content tag matching only the page-wide
+ *                            industry/topic vocab (weak tiebreaker, so a generic
+ *                            on-vertical photo doesn't drown out a section-specific
+ *                            one — e.g. a "clinic" shot must not beat a "scanner"
+ *                            shot on a "Scan" step). */
 const PURPOSE_MATCH_BOOST = 8;
 const TAG_MATCH_SCORE = 3;
+const PAGE_TAG_MATCH_SCORE = 1;
 
 /** Get the landing-page purpose of an image (first purpose tag found, or "" for unclassified) */
 function getImagePurpose(img: MediaImage): string {
@@ -989,20 +995,25 @@ export async function fetchMediaCatalog(tenantId: number | null): Promise<{ imag
  */
 function scoreImage(
   img: MediaImage,
-  contextLower: string,
-  contextWords: string[],
+  sectionLower: string,
+  sectionWords: string[],
+  pageLower: string,
   preferredPurpose?: string,
-): { score: number; contentScore: number } {
+): { score: number; contentScore: number; sectionScore: number; pageScore: number } {
   let purposeScore = 0;
-  // `contentScore` is the TOPICAL relevance signal alone — content-tag and title
-  // overlap with the page context, WITHOUT the purpose boost/penalty or the
-  // sibling-tenant nudge. It is folded into the returned total `score`; it is NO
-  // LONGER a separate strict-pass rejection gate. A tenant's OWN purpose-matched
-  // library photo fills its slot on a non-negative total score even when its tags
-  // don't textually overlap the page context — keeping the empty-word/meta-tag
-  // guards below still matters so stale scrapes don't inflate past real assets.
-  // See findBestImage.
-  let contentScore = 0;
+  // `sectionScore` is the topical relevance to THIS section's OWN copy (its
+  // headline/subhead/item text) — the signal that makes a "Scan" step prefer a
+  // scanner photo. `pageScore` is a WEAK bias from the page-wide industry vocab
+  // (e.g. "dental dentist clinic"): it nudges generic-headline slots toward
+  // on-vertical imagery but must NOT let a generic on-vertical photo outscore a
+  // section-specific one. `contentScore` (section + page) is the combined topical
+  // signal used by the dedupe/relevance checks in validateAndDedupeAIImages.
+  // findBestImage prefers a candidate with sectionScore > 0 (genuinely on-topic
+  // for the slot) over a merely purpose-matched one, falling back to purpose-only
+  // so slots are never starved. The empty-word/meta-tag guards below still matter
+  // so stale scrapes don't inflate past real assets.
+  let sectionScore = 0;
+  let pageScore = 0;
   const imgPurpose = getImagePurpose(img);
 
   // Purpose scoring
@@ -1018,28 +1029,38 @@ function scoreImage(
     // unclassified images (imgPurpose === "") are neutral — no bonus, no penalty
   }
 
-  // Content tag matching
+  // Content tag matching. A tag matching the SECTION's own copy scores full
+  // weight; a tag matching ONLY the page-wide vocab scores the weak page bias.
   for (const tag of img.tags) {
     const tagLower = tag.toLowerCase();
     // Skip non-semantic tags, incl. the dynamic per-host scrape provenance tag.
     if (SKIP_TAGS.has(tagLower) || tagLower.startsWith("refhost:")) continue;
-    if (contextLower.includes(tagLower)) contentScore += TAG_MATCH_SCORE;
+    if (sectionLower.includes(tagLower)) {
+      sectionScore += TAG_MATCH_SCORE;
+    } else if (pageLower && pageLower.includes(tagLower)) {
+      // Page-vocab-only match: weak nudge, and NOT subject to the per-word
+      // sub-scoring below (that would re-inflate generic industry tags back to
+      // near-full strength and reintroduce the dilution this split removes).
+      pageScore += PAGE_TAG_MATCH_SCORE;
+    }
     for (const word of tagLower.split(/\s+/)) {
-      // Guard against EMPTY context words: contextWords comes from splitting a
+      // Guard against EMPTY context words: sectionWords comes from splitting a
       // space-padded template (`${a} ${b} ${c}`) so it routinely contains ""
       // entries, and `word.includes("")` / `"".includes(word)` are always true.
       // Without this guard every tag of length > 3 scores +1 against an empty
       // word — silently inflating scraped images (whose only tags are the
       // "scraped"/"refhost:…"/"page-reference" meta tags) to a positive score
-      // and defeating the strict-pass relevance gate in findBestImage.
-      if (word.length > 3 && contextWords.some(w => w.length > 0 && (w.includes(word) || word.includes(w)))) contentScore += 1;
+      // and defeating the relevance gate in findBestImage. Per-word overlap is
+      // SECTION-only so it sharpens topical matches, not the page bias.
+      if (word.length > 3 && sectionWords.some(w => w.length > 0 && (w.includes(word) || word.includes(w)))) sectionScore += 1;
     }
   }
 
-  // Title match
+  // Title match (section-only)
   const titleLower = (img.title ?? "").toLowerCase();
-  if (titleLower && contextWords.some(w => w.length > 3 && titleLower.includes(w))) contentScore += 1;
+  if (titleLower && sectionWords.some(w => w.length > 3 && titleLower.includes(w))) sectionScore += 1;
 
+  const contentScore = sectionScore + pageScore;
   let score = purposeScore + contentScore;
 
   // Sibling-tenant tie-breaker: a reciprocal sibling's image (flagged at
@@ -1049,7 +1070,7 @@ function scoreImage(
   // wins, we only break near-ties toward the tenant's own library.
   if (img.foreignTenant) score -= 1;
 
-  return { score, contentScore };
+  return { score, contentScore, sectionScore, pageScore };
 }
 
 /**
@@ -1059,7 +1080,8 @@ function scoreImage(
  *   — images explicitly mismatched (e.g. product-detail requested for hero) get penalised
  */
 function findBestImage(
-  context: string,
+  sectionContext: string,
+  pageContext: string,
   images: MediaImage[],
   usedIds: Set<string>,
   preferredPurpose?: string,
@@ -1069,8 +1091,9 @@ function findBestImage(
   blockType = "",
 ): string {
   if (images.length === 0) return "";
-  const contextLower = context.toLowerCase();
-  const contextWords = contextLower.split(/\s+/);
+  const sectionLower = sectionContext.toLowerCase();
+  const sectionWords = sectionLower.split(/\s+/);
+  const pageLower = pageContext.toLowerCase();
 
   // "Empty beats wrong" relevance floor (June 2026). HERO and PRODUCT-DETAIL
   // slots are the page's most prominent / most subject-specific imagery, so a
@@ -1119,8 +1142,15 @@ function findBestImage(
   // reference site) would score the full purpose boost and beat the tenant's own
   // on-topic library for a hero/feature slot — the reported "wrong / scraped
   // images instead of our own" regression.
-  let best: MediaImage | null = null;
-  let bestScore = -Infinity;
+  // The tenant's OWN curated tier is split by SECTION relevance: a candidate that
+  // is genuinely on-topic for THIS slot (sectionScore > 0 — its tags match the
+  // section's own copy, not merely the page-wide industry vocab) is preferred over
+  // one that only matches the slot's purpose. The purpose-only fallback keeps
+  // slots from being starved when the library has nothing section-specific.
+  let bestRelevant: MediaImage | null = null;
+  let bestRelevantScore = -Infinity;
+  let bestOnPurpose: MediaImage | null = null;
+  let bestOnPurposeScore = -Infinity;
   let bestScraped: MediaImage | null = null;
   let bestScrapedScore = -Infinity;
   let bestStarter: MediaImage | null = null;
@@ -1152,22 +1182,34 @@ function findBestImage(
     // relaxed last-resort pass so the tenant's genuine library + the current
     // prompt's reference scrape are tried first.
     if (deferred && !relaxed) continue;
-    const { score } = scoreImage(img, contextLower, contextWords, preferredPurpose);
+    const { score, sectionScore, pageScore } = scoreImage(img, sectionLower, sectionWords, pageLower, preferredPurpose);
     // Never place a clearly off-topic / purpose-mismatched image: a slot left
     // empty (for AI fill or the editor's storage default) reads better than an
-    // obviously wrong photo. (Restored to the simpler pre-late-May behavior: a
-    // tenant's OWN purpose-matched library image is used whenever its score is
-    // non-negative — we no longer reject a curated image just because its tags
-    // don't textually overlap the slot context, which was starving dentures /
-    // product-grid slots of the tenant's own on-topic photos.)
+    // obviously wrong photo. A non-negative score is the FLOOR; within the
+    // tenant's curated tier we then prefer a SECTION-relevant candidate
+    // (sectionScore > 0 — on-topic for THIS slot's own copy) over a merely
+    // purpose-matched one, but still accept the purpose-only image as a fallback
+    // so the slot isn't starved (which was the dentures / product-grid regression).
     if (score < 0) continue;
     // Relevance floor for hero / product-detail slots in the relaxed pass —
     // see `requirePurposeFloor` above. (Logo protections are unaffected: logo
     // slots/URLs never reach this scorer, and logo-tagged rows are excluded
     // from the pool upstream via EXCLUDE_TAGS.)
+    //
+    // The floor asks a different question than the ranking score: "is this
+    // image about the right SUBJECT at all?" — not "should it beat a
+    // section-specific competitor?". The weak PAGE_TAG_MATCH_SCORE weighting
+    // exists for RANKING (a generic on-vertical photo must not outscore a
+    // section-specific one), but for the FLOOR a verbatim content-tag hit
+    // against the page vocab is full-strength topical evidence. Re-weigh
+    // page-tag hits at TAG_MATCH_SCORE for the floor check only, so e.g. a
+    // "dentures"/"dental clinic"-tagged photo clears a dentures page's hero
+    // floor even when one tag only matches the page-wide vocabulary.
+    const pageVerbatimHits = PAGE_TAG_MATCH_SCORE > 0 ? Math.round(pageScore / PAGE_TAG_MATCH_SCORE) : 0;
+    const floorSignal = score - pageScore + pageVerbatimHits * TAG_MATCH_SCORE;
     if (
       requirePurposeFloor &&
-      score < PURPOSE_MATCH_BOOST &&
+      floorSignal < PURPOSE_MATCH_BOOST &&
       getImagePurpose(img) !== preferredPurpose
     ) {
       if (score > bestFloorRejectedScore) bestFloorRejectedScore = score;
@@ -1183,15 +1225,21 @@ function findBestImage(
         bestScrapedScore = score;
         bestScraped = img;
       }
-    } else if (score > bestScore) {
-      bestScore = score;
-      best = img;
+    } else if (sectionScore > 0) {
+      if (score > bestRelevantScore) {
+        bestRelevantScore = score;
+        bestRelevant = img;
+      }
+    } else if (score > bestOnPurposeScore) {
+      bestOnPurposeScore = score;
+      bestOnPurpose = img;
     }
   }
 
-  // Prefer a genuine curated / current-reference candidate; then a stale scrape;
-  // then a generic starter seed — only the latter two fill in the relaxed pass.
-  const chosen = best ?? bestScraped ?? bestStarter;
+  // Prefer a SECTION-relevant curated candidate, then any purpose-matched curated
+  // candidate, then a stale scrape, then a generic starter seed — only the latter
+  // two fill in the relaxed pass.
+  const chosen = bestRelevant ?? bestOnPurpose ?? bestScraped ?? bestStarter;
   if (chosen) {
     usedIds.add(imageIdentity(chosen));
     return chosen.url;
@@ -1698,8 +1746,9 @@ export function validateAndDedupeAIImages(
     const assigned = byUrl.get(url);
     if (!assigned) continue;
 
-    const ctx = `${slot.context} ${pageContext}`.toLowerCase();
-    const ctxWords = ctx.split(/\s+/);
+    const sectionLower = slot.context.toLowerCase();
+    const sectionWords = sectionLower.split(/\s+/);
+    const pageLower = pageContext.toLowerCase();
     const purpose = slot.purpose || undefined;
 
     // Source-page hero rule (hard gate, mirrors findBestImage): a SCRAPED image
@@ -1714,20 +1763,30 @@ export function validateAndDedupeAIImages(
       continue;
     }
 
-    const assignedScore = scoreImage(assigned, ctx, ctxWords, purpose).score;
+    const { score: assignedScore, sectionScore: assignedSectionScore } = scoreImage(assigned, sectionLower, sectionWords, pageLower, purpose);
 
     // Best free alternative for this slot (exclude every currently-used
     // identity, so near-duplicates of placed images don't count as available).
     let bestAlt = -Infinity;
+    let bestRelevantAlt = -Infinity; // best score among SECTION-relevant alternatives
     for (const img of images) {
       if (used.has(imageIdentity(img))) continue;
-      const s = scoreImage(img, ctx, ctxWords, purpose).score;
-      if (s > bestAlt) bestAlt = s;
+      const r = scoreImage(img, sectionLower, sectionWords, pageLower, purpose);
+      if (r.score > bestAlt) bestAlt = r.score;
+      if (r.sectionScore > 0 && r.score > bestRelevantAlt) bestRelevantAlt = r.score;
     }
 
     const wrongPurpose = assignedScore < 0;
     const clearlyWorse = bestAlt - assignedScore >= CLEAR_GAP;
-    if (wrongPurpose || clearlyWorse) {
+    // Off-topic-for-THIS-section pick that a section-relevant alternative can
+    // replace at least as well: mirrors findBestImage's relevance preference so
+    // the dedupe pass clears a generic on-vertical (or wholly off-topic) photo the
+    // model dropped on a section with its own specific subject — e.g. a restaurant
+    // hero on a "dentures" hero, or a generic clinic shot on a "Scan" step when a
+    // scanner image exists. Slots with a generic headline have NO section-relevant
+    // alternative (bestRelevantAlt stays -Infinity), so this never over-clears.
+    const offTopicReplaceable = assignedSectionScore === 0 && bestRelevantAlt >= assignedScore;
+    if (wrongPurpose || clearlyWorse || offTopicReplaceable) {
       slot.set("");
       used.delete(identityForUrl(url, byUrl));
     }
@@ -2188,7 +2247,7 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
   // log — it never affects scoring.
   let currentBlockType = "";
   const pick = (context: string, imgs: MediaImage[], used: Set<string>, purpose?: string, biasPage = true): string =>
-    findBestImage(biasPage && pageContext ? `${context} ${pageContext}` : context, imgs, used, purpose, relaxed, currentBlockType);
+    findBestImage(context, biasPage ? pageContext : "", imgs, used, purpose, relaxed, currentBlockType);
 
   // First pass: collect already-used image IDENTITIES across EVERY image-bearing
   // shape (reuses collectImageSlots so heroImageUrl, cards/panels/pairs/slides,
@@ -3799,29 +3858,49 @@ function productMatchTokens(s: string): string[] {
     .filter((t) => t.length > 0 && !PRODUCT_MATCH_STOPWORDS.has(t));
 }
 
-/** Find the Content Library product whose name is "guaranteed" to describe the
- *  given target copy: EVERY significant token of the library name must appear in
+/** Find the Content Library product whose name describes the given target copy.
+ *  Strict (default): EVERY significant token of the library name must appear in
  *  the target's tokens (so "Posterior Crowns" matches a product literally named
- *  "Posterior Crowns" but never the generic "Crowns & Bridges"). When several
- *  library names qualify, the most specific one (most matched tokens) wins.
- *  Returns the library image URL, or null when nothing matches confidently or
- *  the matched row has no image. */
+ *  "Posterior Crowns" but never the generic "Crowns & Bridges"). This is used
+ *  for MULTI-product surfaces (product grids / showcases) where precision
+ *  matters and a wrong match cross-assigns one product's photo to another.
+ *
+ *  Loose: at least one significant token overlaps, with light singularization
+ *  ("crowns" → "crown"); the best-overlapping (then most-specific) product wins.
+ *  Used ONLY for SINGLE-target hero blocks, where the hero copy defines what the
+ *  whole page/section is about — so a hero that says "AI-perfected crowns" should
+ *  resolve to the "Posterior Crown & Bridge" hero image even though the copy
+ *  never repeats the full clinical name.
+ *
+ *  When several names qualify, the most specific one (most matched tokens, then
+ *  highest name coverage) wins. Returns the library image URL, or null when
+ *  nothing matches or the matched row has no image. */
 function bestLibraryImageFor(
   target: string,
   candidates: ProductLibraryItem[],
+  loose = false,
 ): string | null {
-  const targetTokens = new Set(productMatchTokens(target));
+  // Singularization is loose-only so strict multi-product matching is unchanged
+  // (byte-identical behavior); applied symmetrically to both sides.
+  const singular = (t: string) =>
+    loose && t.length > 3 && t.endsWith("s") ? t.slice(0, -1) : t;
+  const targetTokens = new Set(productMatchTokens(target).map(singular));
   if (targetTokens.size === 0) return null;
   let best: ProductLibraryItem | null = null;
   let bestScore = 0;
+  let bestCoverage = 0;
   for (const cand of candidates) {
     if (!cand.image) continue;
-    const libTokens = productMatchTokens(cand.name);
+    const libTokens = productMatchTokens(cand.name).map(singular);
     if (libTokens.length === 0) continue;
-    if (!libTokens.every((t) => targetTokens.has(t))) continue;
-    if (libTokens.length > bestScore) {
+    const matched = libTokens.filter((t) => targetTokens.has(t)).length;
+    // Strict: every library token must appear. Loose: ≥1 token overlaps.
+    if (loose ? matched === 0 : matched !== libTokens.length) continue;
+    const coverage = matched / libTokens.length;
+    if (matched > bestScore || (matched === bestScore && coverage > bestCoverage)) {
       best = cand;
-      bestScore = libTokens.length;
+      bestScore = matched;
+      bestCoverage = coverage;
     }
   }
   return best ? best.image : null;
@@ -3848,6 +3927,7 @@ export async function enforceProductLibraryBlocks(
   blocks: unknown,
   tenantId: number | null,
   brandProductLines?: ProductLine[],
+  logoUrls?: ReadonlySet<string>,
 ): Promise<void> {
   if (!Array.isArray(blocks)) return;
   const isBlock = (b: unknown): b is { type?: string; props?: Record<string, unknown> } =>
@@ -4003,7 +4083,7 @@ export async function enforceProductLibraryBlocks(
         const copy = [props.headline, props.eyebrow, props.subheadline]
           .filter((v): v is string => typeof v === "string")
           .join(" ");
-        const img = bestLibraryImageFor(copy, heroPool);
+        const img = bestLibraryImageFor(copy, heroPool, true);
         if (img) {
           props.imageUrl = img;
           if (typeof props.imageAlt !== "string" || props.imageAlt.trim() === "") {
@@ -4048,7 +4128,7 @@ export async function enforceProductLibraryBlocks(
       const copy = [props.headline, props.eyebrow, props.subheadline, props.title]
         .filter((v): v is string => typeof v === "string")
         .join(" ");
-      const img = bestLibraryImageFor(copy, brandHeroOnlyPool);
+      const img = bestLibraryImageFor(copy, brandHeroOnlyPool, true);
       if (!img) continue;
       // Target the prop the block actually renders: prefer the one already holding
       // an image (image-fill ran first), else the first declared key, else imageUrl.
@@ -4068,7 +4148,7 @@ export async function enforceProductLibraryBlocks(
   // sections don't reuse the same photo. Runs only when the brand supplies
   // content images; conservative on which slots it touches (see helper).
   if (brandContentLines.length > 0) {
-    applyBrandProductContentImages(blocks, brandContentLines);
+    applyBrandProductContentImages(blocks, brandContentLines, logoUrls);
   }
 }
 
@@ -4087,71 +4167,101 @@ const CONTENT_IMAGE_SKIP_TYPES = new Set<string>([
   "cta-button",
 ]);
 
-/** Short, product-naming text fields used to decide which product a content
- *  section is about. Deliberately excludes long HTML bodies so the match stays
- *  precise (the product name must appear in a heading-like field). */
+/** Primary heading fields used to decide which product a content section is
+ *  about. Deliberately narrow — ONLY the section's dominant heading, not its
+ *  sub-copy (subheadline/eyebrow/label/kicker) or long HTML bodies. A passing
+ *  mention of a product in a step subhead or eyebrow must NOT pull that product's
+ *  photo over the whole section; those slots belong to the tag-based scorer (a
+ *  "Scan" step gets a scanner, not the crown named elsewhere on the page). The
+ *  product override fires only when the section is GENUINELY about the product,
+ *  i.e. its headline names it. */
 const CONTENT_IMAGE_COPY_KEYS = [
-  "headline", "eyebrow", "subheadline", "subhead", "title", "heading", "label", "kicker",
+  "headline", "title", "heading",
 ] as const;
 
-/** Pick the brand content line whose name is confidently described by the copy
- *  (every significant token of the product name appears in the copy; the most
- *  specific name wins). Mirrors `bestLibraryImageFor`'s token-coverage rule. */
+/** Pick the brand content line whose name is described by the copy. Strict
+ *  (default): every significant token of the product name appears in the copy
+ *  (mirrors `bestLibraryImageFor`). Loose: at least one token overlaps (used by
+ *  content-image rotation). The most-matched / most-specific name wins. */
 function bestContentLineFor(
   copy: string,
   lines: Array<{ name: string; images: string[] }>,
+  loose = false,
 ): { name: string; images: string[] } | null {
-  const targetTokens = new Set(productMatchTokens(copy));
+  // Light singularization so plural copy ("Crowns", "Bridges") still matches a
+  // singular product-name token ("Crown", "Bridge"). Conservative: only trims a
+  // trailing "s" on longer tokens, and is applied to BOTH sides symmetrically.
+  const singular = (t: string) => (t.length > 3 && t.endsWith("s") ? t.slice(0, -1) : t);
+  const targetTokens = new Set(productMatchTokens(copy).map(singular));
   if (targetTokens.size === 0) return null;
   let best: { name: string; images: string[] } | null = null;
   let bestScore = 0;
+  let bestCoverage = 0;
   for (const line of lines) {
-    const nameTokens = productMatchTokens(line.name);
+    const nameTokens = productMatchTokens(line.name).map(singular);
     if (nameTokens.length === 0) continue;
-    if (!nameTokens.every((t) => targetTokens.has(t))) continue;
-    if (nameTokens.length > bestScore) {
+    const matched = nameTokens.filter((t) => targetTokens.has(t)).length;
+    // Strict (default): EVERY token of the product name must appear in the copy.
+    // Loose: at least one significant token overlaps — used by the content-image
+    // rotation so a section about "crowns" still matches "Posterior Crown &
+    // Bridge" even when the copy never repeats the full clinical name.
+    if (loose ? matched === 0 : matched !== nameTokens.length) continue;
+    const coverage = matched / nameTokens.length;
+    // Most matched tokens wins; tie-break on higher name coverage (more specific).
+    if (matched > bestScore || (matched === bestScore && coverage > bestCoverage)) {
       best = line;
-      bestScore = nameTokens.length;
+      bestScore = matched;
+      bestCoverage = coverage;
     }
   }
   return best;
 }
 
 /** Rotate each product's approved content images across the content sections
- *  about that product (reducing repeated photos). Only touches a block's single
- *  primary image slot (`imageUrl` or `image`), never product/chrome blocks, and
- *  only when the block copy confidently names a product with content images. */
+ *  about that product (reducing repeated photos). Fills every image slot a
+ *  matched block exposes (top-level imageUrl/image AND array-item photos, via
+ *  collectImageSlots), never product/chrome/hero blocks, and only when the block
+ *  copy names a product (loose token match) that has content images. */
 export function applyBrandProductContentImages(
   blocks: unknown[],
   contentLines: Array<{ name: string; images: string[] }>,
+  logoUrls?: ReadonlySet<string>,
 ): void {
   const usable = contentLines.filter((l) => l.name && l.images.length > 0);
   if (usable.length === 0) return;
-  // Per-product cursor so repeated sections each advance to the next image.
+  // Per-product cursor so repeated slots each advance to the next image.
   const cursor = new Map<string, number>();
+  const nextImage = (line: { name: string; images: string[] }): string => {
+    const idx = cursor.get(line.name) ?? 0;
+    cursor.set(line.name, idx + 1);
+    return line.images[idx % line.images.length];
+  };
   for (const b of blocks) {
     if (!b || typeof b !== "object") continue;
     const block = b as { type?: string; props?: Record<string, unknown> };
     const type = typeof block.type === "string" ? block.type : "";
     if (CONTENT_IMAGE_SKIP_TYPES.has(type)) continue;
+    // Hero blocks are owned by the product-hero pass above (their product image
+    // is the hero image, not a rotated content photo) — never overwrite them.
+    if (type && resolveBlockTags(type).includes("hero")) continue;
     const props = block.props;
     if (!props || typeof props !== "object") continue;
-    const slotKey =
-      typeof props.imageUrl === "string"
-        ? "imageUrl"
-        : typeof props.image === "string"
-          ? "image"
-          : null;
-    if (!slotKey) continue;
     const copy = CONTENT_IMAGE_COPY_KEYS
       .map((k) => props[k])
       .filter((v): v is string => typeof v === "string")
       .join(" ");
-    const line = bestContentLineFor(copy, usable);
+    const line = bestContentLineFor(copy, usable, true);
     if (!line) continue;
-    const idx = cursor.get(line.name) ?? 0;
-    props[slotKey] = line.images[idx % line.images.length];
-    cursor.set(line.name, idx + 1);
+    // Fill EVERY image slot the block exposes — top-level imageUrl/image PLUS
+    // array-item photos (switchback/columns items[], cards, panels, slides, …) —
+    // by reusing collectImageSlots so coverage matches the rest of the image
+    // pipeline. (The old version only touched a top-level imageUrl/image string,
+    // so product sections that store photos in items[] never received them.)
+    // collectImageSlots excludes logo slots, so the brand mark is never swapped.
+    const slots = collectImageSlots(block as Record<string, unknown>, logoUrls);
+    for (const slot of slots) {
+      slot.set(nextImage(line));
+    }
   }
 }
 
@@ -6845,7 +6955,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // images), overriding the random media-pool images the fill pipeline
       // would otherwise leave on these blocks. Runs in all modes — the library
       // is the source of truth for the tenant's own products.
-      await enforceProductLibraryBlocks(mergedBlocks, tenantId, brand.productLines);
+      await enforceProductLibraryBlocks(mergedBlocks, tenantId, brand.productLines, brandLogoUrls);
 
       // Task #1136 — ensure every generated dso-case-study carries explicit
       // values so the React component never falls back to its hardcoded DCA
@@ -8245,7 +8355,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // overriding the random media-pool images the fill pipeline would otherwise
     // leave on these blocks. Runs in all modes — the library is the source of
     // truth for the tenant's own products.
-    await enforceProductLibraryBlocks(parsed.blocks, tenantId, brand.productLines);
+    await enforceProductLibraryBlocks(parsed.blocks, tenantId, brand.productLines, brandLogoUrls);
 
     // Task #1136 — ensure every generated dso-case-study carries explicit values
     // so the React component never falls back to its hardcoded DCA demo

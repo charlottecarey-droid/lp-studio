@@ -28,3 +28,22 @@ register/login/password-reset request without a valid token.
 Same shape applies to any other "configured = secret present" gate (e.g. Twilio
 phone verification): adding the secret globally changes dev/e2e behavior, so pair
 it with the public key and an e2e opt-out in the same change.
+
+**Diagnostic signature (any api-server prod boot-guard throw, not just Turnstile):**
+the deployment build is marked `failed` but the BUILD logs look clean and just END
+at "Creating Autoscale service" — the real error is only in RUNTIME deployment logs
+(`fetchDeploymentLogs`), showing `healthcheck /api returned status 500` (repeating),
+`not all artifact ports opened within timeout expected=[8080] detected=0`,
+`artifact process exited with error artifact=artifacts/api-server error=exit status 1`,
+and the explicit `Error: <VAR> is not set on the production deployment`. server.ts
+has a family of unconditional prod guards (TURNSTILE_SECRET_KEY, UNSUB_SECRET,
+RESEND_WEBHOOK_SECRET, CREDENTIAL_ENCRYPTION_KEY) + conditional OAuth-redirect guards
+(GITHUB_OAUTH_REDIRECT_URI / GOOGLE_REDIRECT_URI, fire only when that provider's
+client id+secret are set). Fix is operational: ensure the secret is in prod Secrets,
+then republish — no code change.
+
+**Recurrence nuance:** `viewEnvVars` reporting the secret as present (`true`) does NOT
+mean a non-empty value reached the production deployment — the guard is `!!value`, so an
+empty-string secret still trips it. If the prod boot guard throws while the workspace
+secret shows present, have the user RE-ENTER the value (via `requestEnvVar`) so a valid
+non-empty value propagates to the deployment, then republish.
