@@ -41,3 +41,9 @@ RESEND_WEBHOOK_SECRET, CREDENTIAL_ENCRYPTION_KEY) + conditional OAuth-redirect g
 (GITHUB_OAUTH_REDIRECT_URI / GOOGLE_REDIRECT_URI, fire only when that provider's
 client id+secret are set). Fix is operational: ensure the secret is in prod Secrets,
 then republish — no code change.
+
+**Recurrence nuance:** `viewEnvVars` reporting the secret as present (`true`) does NOT
+mean a non-empty value reached the production deployment — the guard is `!!value`, so an
+empty-string secret still trips it. If the prod boot guard throws while the workspace
+secret shows present, have the user RE-ENTER the value (via `requestEnvVar`) so a valid
+non-empty value propagates to the deployment, then republish.
