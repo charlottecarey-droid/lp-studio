@@ -7,7 +7,7 @@ import { withDbRetry } from "../../lib/dbResilience";
 import { restoreRows } from "../../lib/restoreRows";
 import { lpLeadsTable, lpFormNotificationsTable, lpFormsTable, lpPagesTable, lpVariantsTable, lpSessionsTable, lpPageVisitsTable, sfdcFieldMappingsTable, salesEmailTemplatesTable } from "@workspace/db";
 import { z } from "zod";
-import rateLimit from "express-rate-limit";
+import { rateLimit, envLimit } from "../../lib/rateLimit";
 import {
   sendEmailNotification,
   deliverWebhook,
@@ -27,12 +27,14 @@ import { platformFromAddress, platformReplyTo } from "../../lib/platformSender";
 const router = Router();
 
 // Rate limit form submissions: 10 per IP per minute to deter spam bots.
+// Generous for a human — multi-step forms submit ONCE at the end (BlockForm
+// handleSubmit posts the accumulated fields in a single /lp/leads call), so
+// this never blocks a legitimate multi-step flow. June 2026: moved to the
+// shared memory-bounded limiter (lib/rateLimit.ts) with an env override.
 const leadSubmitLimiter = rateLimit({
+  name: "lp-leads",
   windowMs: 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Too many form submissions. Please try again in a minute." },
+  max: envLimit("RATE_LIMIT_LEADS_PER_MIN", 10),
 });
 
 const SubmitLeadBody = z.object({

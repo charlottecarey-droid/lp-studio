@@ -9,14 +9,25 @@ import {
   resolveTenantIdForPage,
   countTenantHeatmapSessionsThisMonth,
 } from "../../lib/heatmapUsage";
+import { rateLimit, envLimit } from "../../lib/rateLimit";
 
 const router = Router();
+
+// Launch hardening (June 2026) — /lp/heatmap is PUBLIC (LP_PUBLIC allowlist
+// in routes/index.ts) and already batches up to 200 events per POST, so a
+// real visitor session needs only a handful of requests per minute. Override
+// via RATE_LIMIT_HEATMAP_PER_MIN.
+const heatmapIngestLimiter = rateLimit({
+  name: "lp-heatmap",
+  windowMs: 60 * 1000,
+  max: envLimit("RATE_LIMIT_HEATMAP_PER_MIN", 100),
+});
 
 /**
  * POST /lp/heatmap — batch ingest heatmap events from the client collector.
  * Expects { events: HeatmapEvent[] }.
  */
-router.post("/lp/heatmap", async (req, res): Promise<void> => {
+router.post("/lp/heatmap", heatmapIngestLimiter, async (req, res): Promise<void> => {
   try {
     const { events } = req.body;
     if (!Array.isArray(events) || events.length === 0) {

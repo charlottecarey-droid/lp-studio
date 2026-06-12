@@ -62,6 +62,13 @@ interface CritiqueOptions {
   maxBlocks?: number;
   /** Hard timeout for the critique LLM call. */
   timeoutMs?: number;
+  /**
+   * Optional concurrency wrapper for the model call (e.g. a shared
+   * semaphore's `run`, June 2026 launch hardening). Defaults to invoking the
+   * call directly. Note `timeoutMs` covers queue wait too: under heavy load
+   * the pass aborts fail-open rather than waiting indefinitely for a slot.
+   */
+  limit?: <T>(fn: () => Promise<T>) => Promise<T>;
 }
 
 const DEFAULT_MAX_BLOCKS = 2;
@@ -213,6 +220,7 @@ export async function critiqueAndRewriteBlocks(
     openai,
     maxBlocks = DEFAULT_MAX_BLOCKS,
     timeoutMs = DEFAULT_TIMEOUT_MS,
+    limit = (fn) => fn(),
   } = opts;
 
   const empty: CritiqueResult = { blocks, annotations: [], critiqued: false };
@@ -270,18 +278,20 @@ export async function critiqueAndRewriteBlocks(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const completion = await openai.chat.completions.create(
-      {
-        model: "gpt-4o",
-        temperature: 0.7,
-        max_completion_tokens: 4096,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: CRITIQUE_SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-      },
-      { signal: controller.signal },
+    const completion = await limit(() =>
+      openai.chat.completions.create(
+        {
+          model: "gpt-4o",
+          temperature: 0.7,
+          max_completion_tokens: 4096,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: CRITIQUE_SYSTEM_PROMPT },
+            { role: "user", content: userPrompt },
+          ],
+        },
+        { signal: controller.signal },
+      ),
     );
     const raw = completion.choices[0]?.message?.content?.trim() ?? "";
     if (!raw) return empty;

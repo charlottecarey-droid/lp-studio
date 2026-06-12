@@ -10,6 +10,7 @@ import { eq, and } from "drizzle-orm";
 import type { LpVariant } from "@workspace/db";
 import type { Request } from "express";
 import { getClientIp, lookupGeoAsync } from "../../lib/geo";
+import { rateLimit, envLimit } from "../../lib/rateLimit";
 import { revealAccountName } from "../../lib/apollo-reveal";
 import { findTenantByHost, getActiveHostsForTenant, extractWildcardSlug } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
@@ -269,7 +270,17 @@ async function enrichVariantWithBlockOverrides(variant: LpVariant, basePageId?: 
 
 const router = Router();
 
-router.post("/lp/track", async (req, res): Promise<void> => {
+// Launch hardening (June 2026) — /lp/track is PUBLIC (LP_PUBLIC allowlist in
+// routes/index.ts) and fires from every visitor pageview/CTA/conversion, so
+// it gets a generous per-IP ceiling that a real page can't hit but a bot
+// flood will. Override via RATE_LIMIT_TRACKING_PER_MIN.
+const trackEventLimiter = rateLimit({
+  name: "lp-track",
+  windowMs: 60 * 1000,
+  max: envLimit("RATE_LIMIT_TRACKING_PER_MIN", 500),
+});
+
+router.post("/lp/track", trackEventLimiter, async (req, res): Promise<void> => {
   const parsed = TrackEventBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

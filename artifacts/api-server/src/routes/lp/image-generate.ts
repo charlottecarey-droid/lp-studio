@@ -22,9 +22,27 @@ import { getAiImageGenOutsideBuilderEnabled } from "../../lib/tenantSettings";
 import { getTenantPlan } from "../../lib/planFeatures";
 import { getPlanConfig } from "../../lib/planConfig";
 import { featureUpgradeBody } from "../../lib/planGate";
+import { getClientIp } from "../../lib/geo";
+import { rateLimit, envLimit } from "../../lib/rateLimit";
 import { generateAndStoreImage, loadBrandHints } from "./custom-blocks-generate";
 
 const router = Router();
+
+// Launch hardening (June 2026) — image generation burns real Replicate/OpenAI
+// credits per call, so on top of the `aiImageGen` plan gate below, cap each
+// TENANT at 10 generations/minute (env: RATE_LIMIT_IMAGE_GENERATE_PER_MIN).
+// Keyed on the session tenant (requireAuth runs first, so authUser is always
+// populated); IP fallback only as a defensive non-empty key.
+const imageGenerateLimiter = rateLimit({
+  name: "lp-image-generate",
+  windowMs: 60 * 1000,
+  max: envLimit("RATE_LIMIT_IMAGE_GENERATE_PER_MIN", 10),
+  keyFn: (req) => {
+    const tid = req.authUser?.tenantId;
+    if (typeof tid === "number" && Number.isFinite(tid)) return `tenant:${tid}`;
+    return `ip:${getClientIp(req) || req.ip || "unknown"}`;
+  },
+});
 
 type AspectRatio = "1:1" | "16:9" | "9:16" | "4:3" | "3:4";
 const ALLOWED_RATIOS: ReadonlySet<AspectRatio> = new Set(["1:1", "16:9", "9:16", "4:3", "3:4"]);
@@ -42,7 +60,7 @@ function normalizeSize(size: unknown): AspectRatio {
   return "16:9";
 }
 
-router.post("/lp/image/generate", requireAuth, async (req, res): Promise<void> => {
+router.post("/lp/image/generate", requireAuth, imageGenerateLimiter, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res);
   if (tenantId == null) return; // getTenantId already wrote a 4xx response
 

@@ -32,6 +32,25 @@ import { existsSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { db, lpPageReviewsTable, lpPagesTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
+import { makeSemaphore, envConcurrency } from "./semaphore";
+
+// Launch hardening (June 2026) — each prerender boots a headless Chromium
+// (hundreds of MB RSS). Publishes are fire-and-forget background jobs
+// (triggerPublishedRender), so an N-page burst previously spawned N
+// concurrent browsers and could OOM the container. Cap concurrent renders
+// process-wide; excess jobs queue FIFO (warn-logged past depth 3).
+//
+// One slot covers a whole render job: triggerPublishedRender renders the
+// page ONCE via this module and then derives the per-host R2 variants by
+// string post-processing, so a multi-host tenant still costs a single slot.
+// The snapshotReconcile batch path goes through renderAndStoreNow →
+// prerenderLpPage and is therefore capped too (it is additionally serial by
+// design).
+const prerenderSemaphore = makeSemaphore({
+  name: "prerender",
+  max: envConcurrency("PRERENDER_CONCURRENCY", 2),
+  warnQueueDepth: 3,
+});
 
 /**
  * Thrown when the lp_pages row backing a prerender job no longer exists
@@ -194,8 +213,17 @@ export interface PrerenderOptions {
  * Throws on hard failures (browser launch, navigation 4xx/5xx, mount
  * timeout). Callers should treat this as best-effort and not let it fail
  * the upstream publish request — render-on-publish is fire-and-forget.
+ *
+ * Concurrency: gated behind `prerenderSemaphore` (PRERENDER_CONCURRENCY,
+ * default 2) — queued renders simply start later; callers that await still
+ * get their result, just serialized.
  */
 export async function prerenderLpPage(opts: PrerenderOptions): Promise<string> {
+  return prerenderSemaphore.run(() => prerenderLpPageNow(opts));
+}
+
+/** The actual (uncapped) render. Only ever invoked via the semaphore. */
+async function prerenderLpPageNow(opts: PrerenderOptions): Promise<string> {
   const timeoutMs = opts.timeoutMs ?? 90_000;
   // Sub-timeout for the wait-for-content phase specifically. Kept under the
   // overall timeoutMs so the navigation + settle still have headroom. Was

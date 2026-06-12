@@ -16,35 +16,20 @@
  * For the importer's expected concurrency (single user clicking "import"
  * once or twice a minute), a per-process limiter is sufficient.
  */
-const MAX_CONCURRENT = Number(process.env["BRAND_IMPORT_OPENAI_CONCURRENCY"] ?? "3");
+// June 2026 launch hardening: the FIFO slot-handoff implementation moved to
+// the shared `makeSemaphore` factory (src/lib/semaphore.ts) so the prerender,
+// Firecrawl, and generate-page caps reuse the exact same primitive. The
+// BRAND_IMPORT_OPENAI_CONCURRENCY env (default 3) and the FIFO/handoff
+// behavior are unchanged.
+import { makeSemaphore, envConcurrency } from "../semaphore";
 
-let inFlight = 0;
-const waiters: Array<() => void> = [];
+const MAX_CONCURRENT = envConcurrency("BRAND_IMPORT_OPENAI_CONCURRENCY", 3);
 
-function acquire(): Promise<void> {
-  if (inFlight < MAX_CONCURRENT) {
-    inFlight++;
-    return Promise.resolve();
-  }
-  return new Promise<void>((resolve) => waiters.push(resolve));
-}
-
-function release(): void {
-  const next = waiters.shift();
-  if (next) {
-    // Hand the slot directly to the next waiter without decrementing —
-    // they were already counted against MAX_CONCURRENT when they queued.
-    next();
-  } else {
-    inFlight--;
-  }
-}
+const semaphore = makeSemaphore({
+  name: "brand-import-openai",
+  max: MAX_CONCURRENT,
+});
 
 export async function withOpenAIConcurrency<T>(fn: () => Promise<T>): Promise<T> {
-  await acquire();
-  try {
-    return await fn();
-  } finally {
-    release();
-  }
+  return semaphore.run(fn);
 }

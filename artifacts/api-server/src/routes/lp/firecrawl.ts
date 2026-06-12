@@ -18,6 +18,22 @@
 import * as cheerio from "cheerio";
 import { pickImagesFromDom } from "../../lib/brand-import/extractors/photography";
 import { TtlCache } from "../../lib/ttlCache";
+import { makeSemaphore, envConcurrency } from "../../lib/semaphore";
+
+// Launch hardening (June 2026) — cap concurrent Firecrawl /v1/scrape HTTP
+// calls process-wide (FIRECRAWL_CONCURRENCY, default 2). `firecrawlScrape`
+// below is the single choke point every scrape path in this module flows
+// through (single-page, multi-page companion fan-out, image-only pass,
+// inspiration URLs), so the slot is held per upstream HTTP CALL, not per
+// user request: 30 simultaneous generate requests queue their ~150 page
+// scrapes instead of firing them all at once. The (tenant, url) caches
+// (cachedFirecrawlScrape + inspirationScrapeCache) sit ABOVE this choke
+// point, so cache hits never consume a slot.
+const firecrawlSemaphore = makeSemaphore({
+  name: "firecrawl",
+  max: envConcurrency("FIRECRAWL_CONCURRENCY", 2),
+  warnQueueDepth: 3,
+});
 
 const MARKDOWN_MAX_CHARS = 24_000;
 // Combined multi-page markdown is capped at this length too — three full
@@ -49,35 +65,40 @@ export async function firecrawlScrape(
 ): Promise<RawScrapeResult | null> {
   const withScreenshot = opts?.withScreenshot ?? true;
   try {
-    const res = await fetchWithTimeout(
-      "https://api.firecrawl.dev/v1/scrape",
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url,
-          // May 2026 audit follow-up:
-          //   • screenshot@fullPage instead of viewport so the model sees
-          //     below-the-fold sections.
-          //   • onlyMainContent: false so nav/footer/CTA bars (which users
-          //     most often want to clone) come through.
-          //   • waitFor 4000 ms instead of 1500 — JS-heavy marketing pages
-          //     animate hero copy in on scroll.
-          // `html` is requested alongside markdown/screenshot so we can
-          // extract the page's real content images (task #747) using the
-          // same Cheerio heuristics Brand Import uses — markdown alone loses
-          // lazy-load attrs, srcset, and CSS background images.
-          formats: withScreenshot
-            ? ["markdown", "screenshot@fullPage", "html"]
-            : ["markdown", "html"],
-          onlyMainContent: false,
-          waitFor: 4000,
-        }),
-      },
-      30000,
-    );
-    if (!res.ok) return null;
-    const data = (await res.json()) as { data?: { markdown?: string; screenshot?: string; html?: string } };
+    // The whole HTTP exchange (request + body download) holds one
+    // firecrawlSemaphore slot; JSON/DOM post-processing happens after release.
+    const data = await firecrawlSemaphore.run(async () => {
+      const res = await fetchWithTimeout(
+        "https://api.firecrawl.dev/v1/scrape",
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url,
+            // May 2026 audit follow-up:
+            //   • screenshot@fullPage instead of viewport so the model sees
+            //     below-the-fold sections.
+            //   • onlyMainContent: false so nav/footer/CTA bars (which users
+            //     most often want to clone) come through.
+            //   • waitFor 4000 ms instead of 1500 — JS-heavy marketing pages
+            //     animate hero copy in on scroll.
+            // `html` is requested alongside markdown/screenshot so we can
+            // extract the page's real content images (task #747) using the
+            // same Cheerio heuristics Brand Import uses — markdown alone loses
+            // lazy-load attrs, srcset, and CSS background images.
+            formats: withScreenshot
+              ? ["markdown", "screenshot@fullPage", "html"]
+              : ["markdown", "html"],
+            onlyMainContent: false,
+            waitFor: 4000,
+          }),
+        },
+        30000,
+      );
+      if (!res.ok) return null;
+      return (await res.json()) as { data?: { markdown?: string; screenshot?: string; html?: string } };
+    });
+    if (!data) return null;
     const raw = (data?.data?.markdown ?? "").trim();
     let imageUrls: string[] = [];
     const html = data?.data?.html;

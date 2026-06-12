@@ -53,6 +53,7 @@ import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
 import { readImageDimensions, type ImageDimensions } from "../../lib/imageDimensions";
 import { ObjectStorageService } from "../../lib/objectStorage";
 import { resolveOwnedTenantIds, libraryReadablePredicate } from "../../lib/libraryScope";
+import { makeSemaphore, envConcurrency } from "../../lib/semaphore";
 
 const router = Router();
 
@@ -64,6 +65,20 @@ function getOpenAIClient(): OpenAI {
   }
   return new OpenAI({ baseURL, apiKey });
 }
+
+// Launch hardening (June 2026) — cap concurrent OpenAI CHAT calls from page
+// generation process-wide (GENERATE_OPENAI_CONCURRENCY, default 8) so a
+// launch-day burst queues at the proxy instead of 429-storming it. The slot
+// is held per MODEL CALL, not per request: media-library reads, scrapes, and
+// post-processing run outside the semaphore. No deadlock risk — the
+// repeat-guard retry acquires its slot only AFTER the first call released
+// (sequential awaits), and the critique pass (lib/ai-prompts/critique-pass)
+// is a separate acquisition via its `limit` option.
+const generateOpenAISemaphore = makeSemaphore({
+  name: "generate-page-openai",
+  max: envConcurrency("GENERATE_OPENAI_CONCURRENCY", 8),
+  warnQueueDepth: 3,
+});
 
 /** Task #253 — claims may be plain strings (legacy entries) or
  *  `{text, approvedForAi}` objects. Helpers below normalize both. */
@@ -6780,15 +6795,17 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
             { type: "image_url", image_url: { url: visionImage } },
           ]
         : templateUserText;
-      const completion = await openai!.chat.completions.create({
-        model: "gpt-4o",
-        temperature: 0.9,
-        max_completion_tokens: 12288,
-        messages: [
-          { role: "system", content: templateSystemPrompt },
-          { role: "user", content: templateUserContent },
-        ],
-      });
+      const completion = await generateOpenAISemaphore.run(() =>
+        openai!.chat.completions.create({
+          model: "gpt-4o",
+          temperature: 0.9,
+          max_completion_tokens: 12288,
+          messages: [
+            { role: "system", content: templateSystemPrompt },
+            { role: "user", content: templateUserContent },
+          ],
+        }),
+      );
 
       const raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
       let parsed: { title?: string; slug?: string; blocks?: unknown[] };
@@ -7080,6 +7097,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           bannedPhraseHits,
           brand,
           openai,
+          limit: (fn) => generateOpenAISemaphore.run(fn),
         });
         critiqueAnnotations = critique.annotations;
         if (critique.critiqued) {
@@ -7549,12 +7567,14 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       { role: "system", content: systemPrompt },
       { role: "user", content: userContent },
     ];
-    const completion = await openai!.chat.completions.create({
-      model: "gpt-4o",
-      temperature: 0.9,
-      max_completion_tokens: 12288,
-      messages: baseMessages,
-    });
+    const completion = await generateOpenAISemaphore.run(() =>
+      openai!.chat.completions.create({
+        model: "gpt-4o",
+        temperature: 0.9,
+        max_completion_tokens: 12288,
+        messages: baseMessages,
+      }),
+    );
 
     const raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
 
@@ -7586,16 +7606,20 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       const firstTypes = parsed.blocks.map(typeOf);
       const firstHash = blockSequenceHash(firstTypes);
       if (recentSequenceHashes.length > 0 && shouldRetryForRepeatedSequence(firstHash, recentSequenceHashes)) {
-        const retryCompletion = await openai!.chat.completions.create({
-          model: "gpt-4o",
-          temperature: 0.9,
-          max_completion_tokens: 12288,
-          messages: [
-            ...baseMessages,
-            { role: "assistant", content: raw },
-            { role: "user", content: buildRepeatCorrectiveMessage(firstTypes) },
-          ],
-        });
+        // Separate semaphore acquisition — the initial call's slot was
+        // already released above, so this cannot deadlock.
+        const retryCompletion = await generateOpenAISemaphore.run(() =>
+          openai!.chat.completions.create({
+            model: "gpt-4o",
+            temperature: 0.9,
+            max_completion_tokens: 12288,
+            messages: [
+              ...baseMessages,
+              { role: "assistant", content: raw },
+              { role: "user", content: buildRepeatCorrectiveMessage(firstTypes) },
+            ],
+          }),
+        );
         const retryRaw = retryCompletion.choices[0]?.message?.content?.trim() ?? "";
         const retryCleaned = retryRaw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
         const retryParsed = JSON.parse(retryCleaned) as typeof parsed;
@@ -8491,6 +8515,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         bannedPhraseHits,
         brand,
         openai,
+        limit: (fn) => generateOpenAISemaphore.run(fn),
       });
       critiqueAnnotations = critique.annotations;
       if (critique.critiqued) {
