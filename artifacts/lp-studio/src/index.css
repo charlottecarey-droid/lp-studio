@@ -80,8 +80,12 @@
 
   /* Brand-driven font fallbacks: when a tenant sets `displayFont` / `bodyFont`
      in Brand Settings, the page wrapper writes `--brand-font-display` and
-     `--brand-font-body` and these tokens flip without a single block change. */
-  --brand-font-display: 'Bagoss Standard', var(--app-font-display);
+     `--brand-font-body` and these tokens flip without a single block change.
+     The default here MUST stay the neutral app font — Dandy gets Bagoss via its
+     OWN brand config (displayFont="Bagoss Standard" → getBrandStyleVars), so
+     hardcoding Bagoss here would force every fontless tenant onto Dandy's
+     heading face. */
+  --brand-font-display: var(--app-font-display);
   --brand-font-body: var(--app-font-sans);
 
   --radius-sm: calc(var(--radius) - 4px);
