@@ -3710,29 +3710,49 @@ function productMatchTokens(s: string): string[] {
     .filter((t) => t.length > 0 && !PRODUCT_MATCH_STOPWORDS.has(t));
 }
 
-/** Find the Content Library product whose name is "guaranteed" to describe the
- *  given target copy: EVERY significant token of the library name must appear in
+/** Find the Content Library product whose name describes the given target copy.
+ *  Strict (default): EVERY significant token of the library name must appear in
  *  the target's tokens (so "Posterior Crowns" matches a product literally named
- *  "Posterior Crowns" but never the generic "Crowns & Bridges"). When several
- *  library names qualify, the most specific one (most matched tokens) wins.
- *  Returns the library image URL, or null when nothing matches confidently or
- *  the matched row has no image. */
+ *  "Posterior Crowns" but never the generic "Crowns & Bridges"). This is used
+ *  for MULTI-product surfaces (product grids / showcases) where precision
+ *  matters and a wrong match cross-assigns one product's photo to another.
+ *
+ *  Loose: at least one significant token overlaps, with light singularization
+ *  ("crowns" → "crown"); the best-overlapping (then most-specific) product wins.
+ *  Used ONLY for SINGLE-target hero blocks, where the hero copy defines what the
+ *  whole page/section is about — so a hero that says "AI-perfected crowns" should
+ *  resolve to the "Posterior Crown & Bridge" hero image even though the copy
+ *  never repeats the full clinical name.
+ *
+ *  When several names qualify, the most specific one (most matched tokens, then
+ *  highest name coverage) wins. Returns the library image URL, or null when
+ *  nothing matches or the matched row has no image. */
 function bestLibraryImageFor(
   target: string,
   candidates: ProductLibraryItem[],
+  loose = false,
 ): string | null {
-  const targetTokens = new Set(productMatchTokens(target));
+  // Singularization is loose-only so strict multi-product matching is unchanged
+  // (byte-identical behavior); applied symmetrically to both sides.
+  const singular = (t: string) =>
+    loose && t.length > 3 && t.endsWith("s") ? t.slice(0, -1) : t;
+  const targetTokens = new Set(productMatchTokens(target).map(singular));
   if (targetTokens.size === 0) return null;
   let best: ProductLibraryItem | null = null;
   let bestScore = 0;
+  let bestCoverage = 0;
   for (const cand of candidates) {
     if (!cand.image) continue;
-    const libTokens = productMatchTokens(cand.name);
+    const libTokens = productMatchTokens(cand.name).map(singular);
     if (libTokens.length === 0) continue;
-    if (!libTokens.every((t) => targetTokens.has(t))) continue;
-    if (libTokens.length > bestScore) {
+    const matched = libTokens.filter((t) => targetTokens.has(t)).length;
+    // Strict: every library token must appear. Loose: ≥1 token overlaps.
+    if (loose ? matched === 0 : matched !== libTokens.length) continue;
+    const coverage = matched / libTokens.length;
+    if (matched > bestScore || (matched === bestScore && coverage > bestCoverage)) {
       best = cand;
-      bestScore = libTokens.length;
+      bestScore = matched;
+      bestCoverage = coverage;
     }
   }
   return best ? best.image : null;
@@ -3915,7 +3935,7 @@ export async function enforceProductLibraryBlocks(
         const copy = [props.headline, props.eyebrow, props.subheadline]
           .filter((v): v is string => typeof v === "string")
           .join(" ");
-        const img = bestLibraryImageFor(copy, heroPool);
+        const img = bestLibraryImageFor(copy, heroPool, true);
         if (img) {
           props.imageUrl = img;
           if (typeof props.imageAlt !== "string" || props.imageAlt.trim() === "") {
@@ -3960,7 +3980,7 @@ export async function enforceProductLibraryBlocks(
       const copy = [props.headline, props.eyebrow, props.subheadline, props.title]
         .filter((v): v is string => typeof v === "string")
         .join(" ");
-      const img = bestLibraryImageFor(copy, brandHeroOnlyPool);
+      const img = bestLibraryImageFor(copy, brandHeroOnlyPool, true);
       if (!img) continue;
       // Target the prop the block actually renders: prefer the one already holding
       // an image (image-fill ran first), else the first declared key, else imageUrl.
