@@ -1,0 +1,698 @@
+charlotte.carey@MAC-FQ1NFJD4F1 ~ % pnpm --filter @workspace/api-server run dev
+Scope: 4 of 58 projects
+lp-studio-staging/artifacts/api-server dev$ export NODE_ENV=development && pn…
+│ > @workspace/api-server@0.0.0 build /Users/charlotte.carey/lp-studio-stagin…
+│ > node ./build.mjs
+└─ Running...
+.../artifacts/api-server dev$ export NODE_ENV=development && pnpm run build &…
+│ > @workspace/api-server@0.0.0 build /Users/charlotte.carey/lp-studio/artifa…
+│ > node ./build.mjs
+│ ✘ [ERROR] Could not resolve "pg"
+│     src/migrate.ts:15:15:
+│       15 │ import pg from "pg";
+[1 lines collapsed]
+│   You can mark the path "pg" as external to exclude it from the bundle, whi…
+│ ✘ [ERROR] Could not resolve "stripe"
+│     src/lib/stripeClient.ts:24:19:
+│       24 │ import Stripe from "stripe";
+└─ Running...
+│ > @workspace/api-server@0.0.0 build /Users/charlotte.carey/lp-studio/artifa…
+│ > node ./build.mjs
+│ ✘ [ERROR] Could not resolve "pg"
+│     src/migrate.ts:15:15:
+│       15 │ import pg from "pg";
+│          ╵                ~~~~
+│   You can mark the path "pg" as external to exclude it from the bundle, whi…
+│ ✘ [ERROR] Could not resolve "stripe"
+│     src/lib/stripeClient.ts:24:19:
+│       24 │ import Stripe from "stripe";
+│          ╵                    ~~~~~~~~
+│   You can mark the path "stripe" as external to exclude it from the bundle,…
+│ ✘ [ERROR] Could not resolve "stripe-replit-sync"
+│     src/lib/stripeClient.ts:25:69:
+│       25 │ ...Migrations as runStripeSyncMigrations } from "stripe-replit-s…
+│          ╵                                                 ~~~~~~~~~~~~~~~~…
+│   You can mark the path "stripe-replit-sync" as external to exclude it from…
+│ ✘ [ERROR] Could not resolve "cheerio"ons (node:internal/process/task_queues…
+│     src/lib/brand-import/evidence.ts:1:25:
+│       1 │ import * as cheerio from "cheerio";
+│         ╵                          ~~~~~~~~~
+│   You can mark the path "cheerio" as external to exclude it from the bundle…
+│ 4 errors
+│ Error: Build failed with 4 errors:
+│ src/lib/brand-import/evidence.ts:1:25: ERROR: Could not resolve "cheerio"
+│ src/lib/stripeClient.ts:24:19: ERROR: Could not resolve "stripe"
+│ src/lib/stripeClient.ts:25:69: ERROR: Could not resolve "stripe-replit-sync"
+│ src/migrate.ts:15:15: ERROR: Could not resolve "pg"
+│     at failureErrorWithLog (/Users/charlotte.carey/lp-studio/node_modules/.…
+│     at /Users/charlotte.carey/lp-studio/node_modules/.pnpm/esbuild@0.27.3/n…
+│     at /Users/charlotte.carey/lp-studio/node_modules/.pnpm/esbuild@0.27.3/n…
+│     at process.processTicksAndRejections (node:internal/process/task_queues…
+│   errors: [Getter/Setter],
+│   warnings: [Getter/Setter]
+│ }
+│  ELIFECYCLE  Command failed with exit code 1.
+└─ Failed in 726ms at /Users/charlotte.carey/Library/pnpm/store/v10/projects/2d7fafb40ff02d1e2206584f5f05d88e/artifacts/api-server
+.../artifacts/api-server dev$ export NODE_ENV=development && pnpm run build &…
+│ > @workspace/api-server@0.0.0 build /Users/charlotte.carey/lp-studio-stagin…
+│ > node ./build.mjs
+└─ Running...
+lp-studio/artifacts/api-server dev$ export NODE_ENV=development && pnpm run b…
+[26 lines collapsed]
+│ src/lib/stripeClient.ts:25:69: ERROR: Could not resolve "stripe-replit-sync"
+│ > @workspace/api-server@0.0.0 build /Users/charlotte.carey/lp-studio/artifa…
+│ > node ./build.mjs
+│ ✘ [ERROR] Could not resolve "pg"
+│     src/migrate.ts:15:15:
+│       15 │ import pg from "pg";
+│          ╵                ~~~~
+│   You can mark the path "pg" as external to exclude it from the bundle, whi…
+│ ✘ [ERROR] Could not resolve "stripe"
+│     src/lib/stripeClient.ts:24:19:xit code 1.
+│       24 │ import Stripe from "stripe";
+│          ╵                    ~~~~~~~~
+│   You can mark the path "stripe" as external to exclude it from the bundle,…
+│ ✘ [ERROR] Could not resolve "stripe-replit-sync"
+│     src/lib/stripeClient.ts:25:69:
+│       25 │ ...Migrations as runStripeSyncMigrations } from "stripe-replit-s…
+│          ╵                                                 ~~~~~~~~~~~~~~~~…
+│   You can mark the path "stripe-replit-sync" as external to exclude it from…
+│ ✘ [ERROR] Could not resolve "cheerio"
+│     src/lib/brand-import/evidence.ts:1:25:
+│       1 │ import * as cheerio from "cheerio";
+│         ╵                          ~~~~~~~~~
+│   You can mark the path "cheerio" as external to exclude it from the bundle…
+│ 4 errors
+│ Error: Build failed with 4 errors:
+│ src/lib/brand-import/evidence.ts:1:25: ERROR: Could not resolve "cheerio"
+│ src/lib/stripeClient.ts:24:19: ERROR: Could not resolve "stripe"
+│ src/lib/stripeClient.ts:25:69: ERROR: Could not resolve "stripe-replit-sync"
+│ src/migrate.ts:15:15: ERROR: Could not resolve "pg"
+│     at failureErrorWithLog (/Users/charlotte.carey/lp-studio/node_modules/.…
+│     at /Users/charlotte.carey/lp-studio/node_modules/.pnpm/esbuild@0.27.3/n…
+│     at /Users/charlotte.carey/lp-studio/node_modules/.pnpm/esbuild@0.27.3/n…
+│     at process.processTicksAndRejections (node:internal/process/task_queues…
+│   errors: [Getter/Setter],
+│   warnings: [Getter/Setter]
+│ }
+│  ELIFECYCLE  Command failed with exit code 1.
+└─ Failed in 744ms at /Users/charlotte.carey/lp-studio/artifacts/api-server
+/Users/charlotte.carey/Library/pnpm/store/v10/projects/2d7fafb40ff02d1e2206584f5f05d88e/artifacts/api-server:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/api-server@0.0.0 dev: `export NODE_ENV=development && pnpm run build && pnpm run migrate && pnpm run start`
+Exit status 1
+charlotte.carey@MAC-FQ1NFJD4F1 ~ % echo "NODE_ENV=development" >> .env
+charlotte.carey@MAC-FQ1NFJD4F1 ~ % 
+charlotte.carey@MAC-FQ1NFJD4F1 ~ % 
+charlotte.carey@MAC-FQ1NFJD4F1 ~ % pnpm --filter @workspace/api-server run dev
+Scope: 4 of 58 projects
+lp-studio-staging/artifacts/api-server dev$ export NODE_ENV=development && pn…
+│ > @workspace/api-server@0.0.0 build /Users/charlotte.carey/lp-studio-stagin…
+│ > node ./build.mjs
+└─ Running...
+.../artifacts/api-server dev$ export NODE_ENV=development && pnpm run build &…
+│ > @workspace/api-server@0.0.0 build /Users/charlotte.carey/lp-studio/artifa…
+[1 lines collapsed]
+│ ✘ [ERROR] Could not resolve "pg"
+│2    src/migrate.ts:15:15:
+│ ✘ [ERROR] Could not resolve "pg"
+│     src/migrate.ts:15:15:
+│       15 │ import pg from "pg"; external to exclude it from the bundle, whi…
+│ > @workspace/api-server@0.0.0 build /Users/charlotte.carey/lp-studio/artifa…
+│ > node ./build.mjs
+│ ✘ [ERROR] Could not resolve "pg"
+│     src/migrate.ts:15:15:
+│       15 │ import pg from "pg";
+│          ╵                ~~~~
+│   You can mark the path "pg" as external to exclude it from the bundle, whi…
+│ ✘ [ERROR] Could not resolve "stripe"
+│     src/lib/stripeClient.ts:24:19:
+│       24 │ import Stripe from "stripe";
+│          ╵                    ~~~~~~~~
+│   You can mark the path "stripe" as external to exclude it from the bundle,…
+│ ✘ [ERROR] Could not resolve "stripe-replit-sync"
+│     src/lib/stripeClient.ts:25:69:
+│       25 │ ...Migrations as runStripeSyncMigrations } from "stripe-replit-s…
+│          ╵                                                 ~~~~~~~~~~~~~~~~…
+│   You can mark the path "stripe-replit-sync" as external to exclude it from…
+│ ✘ [ERROR] Could not resolve "cheerio"
+│     src/lib/brand-import/evidence.ts:1:25:
+│       1 │ import * as cheerio from "cheerio";
+│         ╵                          ~~~~~~~~~
+│   You can mark the path "cheerio" as external to exclude it from the bundle…
+│ 4 errors
+│ Error: Build failed with 4 errors:
+│ src/lib/brand-import/evidence.ts:1:25: ERROR: Could not resolve "cheerio"
+│ src/lib/stripeClient.ts:24:19: ERROR: Could not resolve "stripe"
+│ src/lib/stripeClient.ts:25:69: ERROR: Could not resolve "stripe-replit-sync"
+│ src/migrate.ts:15:15: ERROR: Could not resolve "pg"
+│     at failureErrorWithLog (/Users/charlotte.carey/lp-studio/node_modules/.…
+│     at /Users/charlotte.carey/lp-studio/node_modules/.pnpm/esbuild@0.27.3/n…
+│     at /Users/charlotte.carey/lp-studio/node_modules/.pnpm/esbuild@0.27.3/n…
+│     at process.processTicksAndRejections (node:internal/process/task_queues…
+│   errors: [Getter/Setter],
+│   warnings: [Getter/Setter]
+│ }
+│  ELIFECYCLE  Command failed with exit code 1.
+└─ Failed in 436ms at /Users/charlotte.carey/Library/pnpm/store/v10/projects/2d7fafb40ff02d1e2206584f5f05d88e/artifacts/api-server
+.../artifacts/api-server dev$ export NODE_ENV=development && pnpm run build &…
+│ > @workspace/api-server@0.0.0 build /Users/charlotte.carey/lp-studio-stagin…
+│ > node ./build.mjs
+└─ Running...
+lp-studio/artifacts/api-server dev$ export NODE_ENV=development && pnpm run b…
+[12 lines collapsed]
+│ ✘ [ERROR] Could not resolve "stripe-replit-sync"
+│26   src/lib/stripeClient.ts:25:69:
+│ src/lib/stripeClient.ts:25:69: ERROR: Could not resolve "stripe-replit-sync"
+│ src/migrate.ts:15:15: ERROR: Could not resolve "pg"
+│     at failureErrorWithLog (/Users/charlotte.carey/lp-studio/node_modules/.…
+│     at /Users/charlotte.carey/lp-studio/node_modules/.pnpm/esbuild@0.27.3/n…
+│     at /Users/charlotte.carey/lp-studio/node_modules/.pnpm/esbuild@0.27.3/n…
+│     at process.processTicksAndRejections (node:internal/process/task_queues…
+│   errors: [Getter/Setter],
+│   warnings: [Getter/Setter]
+│ }
+│  ELIFECYCLE  Command failed with exit code 1.
+f05d88e/artifacts/api-server:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/api-server@0.0.0 dev: `export NODE_ENV=development && pnpm run build && pnpm run migrate && pnpm run start`
+Exit status 1
+charlotte.carey@MAC-FQ1NFJD4F1 ~ % cd ~/lp-studio-staging
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % # make sure this clone has its packages
+pnpm install
+zsh: command not found: #
+Scope: all 14 workspace projects
+Lockfile is up to date, resolution step is skipped
+Already up to date
+. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_use…
+└─ Done in 11ms
+╭ Warning ─────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│   Ignored build scripts: @sentry/cli@2.39.1, core-js@3.49.0,                 │
+│   protobufjs@8.4.2.                                                          │
+│   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+│   to run scripts.                                                            │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+Done in 750ms using pnpm v10.33.0
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % # now run it
+pnpm --filter @workspace/api-server run dev
+zsh: command not found: #
+
+> @workspace/api-server@0.0.0 dev /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> export NODE_ENV=development && pnpm run build && pnpm run migrate && pnpm run start
+
+
+> @workspace/api-server@0.0.0 build /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node ./build.mjs
+
+
+  dist/index.mjs                   9.7mb ⚠️
+  dist/migrate.mjs                 1.8mb ⚠️
+  dist/pino-worker.mjs           153.4kb
+  dist/pino-file.mjs             142.1kb
+  dist/pino-pretty.mjs           114.6kb
+  dist/instrument.mjs             18.6kb
+  dist/thread-stream-worker.mjs    7.3kb
+  dist/index.mjs.map              17.3mb
+  dist/migrate.mjs.map             3.1mb
+  dist/pino-worker.mjs.map       256.9kb
+  dist/pino-file.mjs.map         229.1kb
+  dist/pino-pretty.mjs.map       203.9kb
+  ...and 2 more output files...
+
+⚡ Done in 236ms
+
+> @workspace/api-server@0.0.0 migrate /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node --enable-source-maps --env-file-if-exists=../../.env --env-file-if-exists=.env ./dist/migrate.mjs
+
+.env not found. Continuing without it.
+[dotenv@17.3.1] injecting env (1) from ../../.env -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[11:25:31.038] INFO (2280): migrate: starting
+[11:25:31.044] ERROR (2280): migrate: failed
+    err: {
+      "type": "Error",
+      "message": "getaddrinfo ENOTFOUND ...your staging url...",
+      "stack":
+          Error: getaddrinfo ENOTFOUND ...your staging url...
+              at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+      "errno": -3008,
+      "code": "ENOTFOUND",
+      "syscall": "getaddrinfo",
+      "hostname": "...your staging url..."
+    }
+ ELIFECYCLE  Command failed with exit code 1.
+/Users/charlotte.carey/lp-studio-staging/artifacts/api-server:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/api-server@0.0.0 dev: `export NODE_ENV=development && pnpm run build && pnpm run migrate && pnpm run start`
+Exit status 1
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % # put the env vars in THIS project's .env (not home)
+echo "CSRF_SECRET=$(openssl rand -hex 32)" >> .env
+echo "NODE_ENV=development" >> .env
+quote> 
+quote> 
+quote> 
+quote> 
+quote> 
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % 
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % # put the env vars in THIS project's .env (not home)
+echo "CSRF_SECRET=$(openssl rand -hex 32)" >> .env
+echo "NODE_ENV=development" >> .env
+quote> 
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % 
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % # make sure this clone has its packages
+pnpm install
+zsh: command not found: #
+Scope: all 14 workspace projects
+Lockfile is up to date, resolution step is skipped
+Already up to date
+. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_use…
+└─ Done in 10ms
+╭ Warning ─────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│   Ignored build scripts: @sentry/cli@2.39.1, core-js@3.49.0,                 │
+│   protobufjs@8.4.2.                                                          │
+│   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+│   to run scripts.                                                            │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+Done in 607ms using pnpm v10.33.0
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % # now run it
+pnpm --filter @workspace/api-server run dev
+zsh: command not found: #
+
+> @workspace/api-server@0.0.0 dev /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> export NODE_ENV=development && pnpm run build && pnpm run migrate && pnpm run start
+
+
+> @workspace/api-server@0.0.0 build /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node ./build.mjs
+
+
+  dist/index.mjs                   9.7mb ⚠️
+  dist/migrate.mjs                 1.8mb ⚠️
+  dist/pino-worker.mjs           153.4kb
+  dist/pino-file.mjs             142.1kb
+  dist/pino-pretty.mjs           114.6kb
+  dist/instrument.mjs             18.6kb
+  dist/thread-stream-worker.mjs    7.3kb
+  dist/index.mjs.map              17.3mb
+  dist/migrate.mjs.map             3.1mb
+  dist/pino-worker.mjs.map       256.9kb
+  dist/pino-file.mjs.map         229.1kb
+  dist/pino-pretty.mjs.map       203.9kb
+  ...and 2 more output files...
+
+⚡ Done in 229ms
+
+> @workspace/api-server@0.0.0 migrate /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node --enable-source-maps --env-file-if-exists=../../.env --env-file-if-exists=.env ./dist/migrate.mjs
+
+.env not found. Continuing without it.
+[dotenv@17.3.1] injecting env (1) from ../../.env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🛡️ auth for agents: https://vestauth.com
+[11:26:29.261] INFO (2344): migrate: starting
+[11:26:29.266] ERROR (2344): migrate: failed
+    err: {
+      "type": "Error",
+      "message": "getaddrinfo ENOTFOUND ...your staging url...",
+      "stack":
+          Error: getaddrinfo ENOTFOUND ...your staging url...
+              at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+      "errno": -3008,
+      "code": "ENOTFOUND",
+      "syscall": "getaddrinfo",
+      "hostname": "...your staging url..."
+    }
+ ELIFECYCLE  Command failed with exit code 1.
+/Users/charlotte.carey/lp-studio-staging/artifacts/api-server:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/api-server@0.0.0 dev: `export NODE_ENV=development && pnpm run build && pnpm run migrate && pnpm run start`
+Exit status 1
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % echo "CSRF_SECRET=$(openssl rand -hex 32)" >> .env
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % pnpm --filter @workspace/api-server run dev
+
+> @workspace/api-server@0.0.0 dev /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> export NODE_ENV=development && pnpm run build && pnpm run migrate && pnpm run start
+
+
+> @workspace/api-server@0.0.0 build /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node ./build.mjs
+
+
+  dist/index.mjs                   9.7mb ⚠️
+  dist/migrate.mjs                 1.8mb ⚠️
+  dist/pino-worker.mjs           153.4kb
+  dist/pino-file.mjs             142.1kb
+  dist/pino-pretty.mjs           114.6kb
+  dist/instrument.mjs             18.6kb
+  dist/thread-stream-worker.mjs    7.3kb
+  dist/index.mjs.map              17.3mb
+  dist/migrate.mjs.map             3.1mb
+  dist/pino-worker.mjs.map       256.9kb
+  dist/pino-file.mjs.map         229.1kb
+  dist/pino-pretty.mjs.map       203.9kb
+  ...and 2 more output files...
+
+⚡ Done in 268ms
+
+> @workspace/api-server@0.0.0 migrate /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node --enable-source-maps --env-file-if-exists=../../.env --env-file-if-exists=.env ./dist/migrate.mjs
+
+.env not found. Continuing without it.
+[dotenv@17.3.1] injecting env (2) from ../../.env -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.3.1] injecting env (0) from .env -- tip: ⚡️ secrets for agents: https://dotenvx.com/as2
+[12:43:36.680] INFO (3564): migrate: starting
+[12:43:36.686] ERROR (3564): migrate: failed
+    err: {
+      "type": "Error",
+      "message": "getaddrinfo ENOTFOUND ...your staging url...",
+      "stack":
+          Error: getaddrinfo ENOTFOUND ...your staging url...
+              at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+      "errno": -3008,
+      "code": "ENOTFOUND",
+      "syscall": "getaddrinfo",
+      "hostname": "...your staging url..."
+    }
+ ELIFECYCLE  Command failed with exit code 1.
+/Users/charlotte.carey/lp-studio-staging/artifacts/api-server:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/api-server@0.0.0 dev: `export NODE_ENV=development && pnpm run build && pnpm run migrate && pnpm run start`
+Exit status 1
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % cd ~/lp-studio-staging
+cat .env
+NEON_DATABASE_URL=postgresql://...your staging url...
+CSRF_SECRET=49f42a98e065017cc2d7475048c5abd98a513333fddad6044e36d0756bc38d6c
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % open -e ~/lp-studio-staging/.env
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % pnpm --filter @workspace/api-server run dev
+
+> @workspace/api-server@0.0.0 dev /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> export NODE_ENV=development && pnpm run build && pnpm run migrate && pnpm run start
+
+
+> @workspace/api-server@0.0.0 build /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node ./build.mjs
+
+
+  dist/index.mjs                   9.7mb ⚠️
+  dist/migrate.mjs                 1.8mb ⚠️
+  dist/pino-worker.mjs           153.4kb
+  dist/pino-file.mjs             142.1kb
+  dist/pino-pretty.mjs           114.6kb
+  dist/instrument.mjs             18.6kb
+  dist/thread-stream-worker.mjs    7.3kb
+  dist/index.mjs.map              17.3mb
+  dist/migrate.mjs.map             3.1mb
+  dist/pino-worker.mjs.map       256.9kb
+  dist/pino-file.mjs.map         229.1kb
+  dist/pino-pretty.mjs.map       203.9kb
+  ...and 2 more output files...
+
+⚡ Done in 267ms
+
+> @workspace/api-server@0.0.0 migrate /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node --enable-source-maps --env-file-if-exists=../../.env --env-file-if-exists=.env ./dist/migrate.mjs
+
+.env not found. Continuing without it.
+[dotenv@17.3.1] injecting env (2) from ../../.env -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🛡️ auth for agents: https://vestauth.com
+(node:3739) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[12:49:06.956] INFO (3739): migrate: starting
+[12:49:07.306] INFO (3739): migration step start: drizzle migrate (lib/db/migrations)
+    step: "drizzle migrate (lib/db/migrations)"
+[12:49:07.829] INFO (3739): migration step done: drizzle migrate (lib/db/migrations)
+    step: "drizzle migrate (lib/db/migrations)"
+    elapsedMs: 523
+[12:49:07.829] INFO (3739): Migrations applied successfully
+[12:49:07.829] INFO (3739): migration step start: notifications schema self-heal (0041)
+    step: "notifications schema self-heal (0041)"
+[12:49:07.874] INFO (3739): notifications schema self-heal (0041): already satisfied — skipping DDL (no table lock taken)
+    step: "notifications schema self-heal (0041)"
+[12:49:07.874] INFO (3739): migration step done: notifications schema self-heal (0041)
+    step: "notifications schema self-heal (0041)"
+    elapsedMs: 45
+[12:49:07.875] INFO (3739): migration step start: workflow_send_failures self-heal (0051)
+    step: "workflow_send_failures self-heal (0051)"
+[12:49:07.919] INFO (3739): workflow_send_failures self-heal (0051): already satisfied — skipping DDL (no table lock taken)
+    step: "workflow_send_failures self-heal (0051)"
+[12:49:07.919] INFO (3739): migration step done: workflow_send_failures self-heal (0051)
+    step: "workflow_send_failures self-heal (0051)"
+    elapsedMs: 44
+[12:49:07.919] INFO (3739): migration step start: tenant_email_shells physical_address self-heal (0054)
+    step: "tenant_email_shells physical_address self-heal (0054)"
+[12:49:07.971] INFO (3739): tenant_email_shells physical_address self-heal (0054): already satisfied — skipping DDL (no table lock taken)
+    step: "tenant_email_shells physical_address self-heal (0054)"
+[12:49:07.971] INFO (3739): migration step done: tenant_email_shells physical_address self-heal (0054)
+    step: "tenant_email_shells physical_address self-heal (0054)"
+    elapsedMs: 52
+[12:49:07.971] INFO (3739): migration step start: tenant_email_shells brand_invite_emails self-heal (0074)
+    step: "tenant_email_shells brand_invite_emails self-heal (0074)"
+[12:49:08.015] INFO (3739): tenant_email_shells brand_invite_emails self-heal (0074): already satisfied — skipping DDL (no table lock taken)
+    step: "tenant_email_shells brand_invite_emails self-heal (0074)"
+[12:49:08.016] INFO (3739): migration step done: tenant_email_shells brand_invite_emails self-heal (0074)
+    step: "tenant_email_shells brand_invite_emails self-heal (0074)"
+    elapsedMs: 45
+[12:49:08.016] INFO (3739): migration step start: email_shell_templates physical_address self-heal (0064)
+    step: "email_shell_templates physical_address self-heal (0064)"
+[12:49:08.061] INFO (3739): email_shell_templates physical_address self-heal (0064): already satisfied — skipping DDL (no table lock taken)
+    step: "email_shell_templates physical_address self-heal (0064)"
+[12:49:08.061] INFO (3739): migration step done: email_shell_templates physical_address self-heal (0064)
+    step: "email_shell_templates physical_address self-heal (0064)"
+    elapsedMs: 45
+[12:49:08.061] INFO (3739): migration step start: trial phone-gating self-heal (0055)
+    step: "trial phone-gating self-heal (0055)"
+[12:49:08.104] INFO (3739): trial phone-gating self-heal (0055): already satisfied — skipping DDL (no table lock taken)
+    step: "trial phone-gating self-heal (0055)"
+[12:49:08.104] INFO (3739): migration step done: trial phone-gating self-heal (0055)
+    step: "trial phone-gating self-heal (0055)"
+    elapsedMs: 43
+[12:49:08.104] INFO (3739): migration step start: trial_phone_release_log self-heal (0056)
+    step: "trial_phone_release_log self-heal (0056)"
+[12:49:08.147] INFO (3739): trial_phone_release_log self-heal (0056): already satisfied — skipping DDL (no table lock taken)
+    step: "trial_phone_release_log self-heal (0056)"
+[12:49:08.147] INFO (3739): migration step done: trial_phone_release_log self-heal (0056)
+    step: "trial_phone_release_log self-heal (0056)"
+    elapsedMs: 43
+[12:49:08.147] INFO (3739): migration step start: app_users github_id self-heal (0057)
+    step: "app_users github_id self-heal (0057)"
+[12:49:08.192] INFO (3739): app_users github_id self-heal (0057): already satisfied — skipping DDL (no table lock taken)
+    step: "app_users github_id self-heal (0057)"
+[12:49:08.192] INFO (3739): migration step done: app_users github_id self-heal (0057)
+    step: "app_users github_id self-heal (0057)"
+    elapsedMs: 45
+[12:49:08.192] INFO (3739): migration step start: audit_log self-heal (0058)
+    step: "audit_log self-heal (0058)"
+[12:49:08.236] INFO (3739): audit_log self-heal (0058): already satisfied — skipping DDL (no table lock taken)
+    step: "audit_log self-heal (0058)"
+[12:49:08.236] INFO (3739): migration step done: audit_log self-heal (0058)
+    step: "audit_log self-heal (0058)"
+    elapsedMs: 44
+[12:49:08.236] INFO (3739): migration step start: trial_phone_lookup_log self-heal (0059)
+    step: "trial_phone_lookup_log self-heal (0059)"
+[12:49:08.278] INFO (3739): trial_phone_lookup_log self-heal (0059): already satisfied — skipping DDL (no table lock taken)
+    step: "trial_phone_lookup_log self-heal (0059)"
+[12:49:08.278] INFO (3739): migration step done: trial_phone_lookup_log self-heal (0059)
+    step: "trial_phone_lookup_log self-heal (0059)"
+    elapsedMs: 42
+[12:49:08.279] INFO (3739): migration step start: oauth_login_states self-heal (0060)
+    step: "oauth_login_states self-heal (0060)"
+[12:49:08.321] INFO (3739): oauth_login_states self-heal (0060): already satisfied — skipping DDL (no table lock taken)
+    step: "oauth_login_states self-heal (0060)"
+[12:49:08.321] INFO (3739): migration step done: oauth_login_states self-heal (0060)
+    step: "oauth_login_states self-heal (0060)"
+    elapsedMs: 42
+[12:49:08.321] INFO (3739): migration step start: sales_accounts child-FK ON DELETE SET NULL self-heal (0066)
+    step: "sales_accounts child-FK ON DELETE SET NULL self-heal (0066)"
+[12:49:08.364] INFO (3739): sales_accounts child-FK ON DELETE SET NULL self-heal (0066): already satisfied — skipping DDL (no table lock taken)
+    step: "sales_accounts child-FK ON DELETE SET NULL self-heal (0066)"
+[12:49:08.364] INFO (3739): migration step done: sales_accounts child-FK ON DELETE SET NULL self-heal (0066)
+    step: "sales_accounts child-FK ON DELETE SET NULL self-heal (0066)"
+    elapsedMs: 43
+[12:49:08.364] INFO (3739): migration step start: sfdc_leads converted_contact_id ON DELETE SET NULL self-heal (0067)
+    step: "sfdc_leads converted_contact_id ON DELETE SET NULL self-heal (0067)"
+[12:49:08.408] INFO (3739): sfdc_leads converted_contact_id ON DELETE SET NULL self-heal (0067): already satisfied — skipping DDL (no table lock taken)
+    step: "sfdc_leads converted_contact_id ON DELETE SET NULL self-heal (0067)"
+[12:49:08.408] INFO (3739): migration step done: sfdc_leads converted_contact_id ON DELETE SET NULL self-heal (0067)
+    step: "sfdc_leads converted_contact_id ON DELETE SET NULL self-heal (0067)"
+    elapsedMs: 44
+[12:49:08.408] INFO (3739): migration step start: sales_email_sends/inbound child-FK self-heal (0070)
+    step: "sales_email_sends/inbound child-FK self-heal (0070)"
+[12:49:08.451] INFO (3739): sales_email_sends/inbound child-FK self-heal (0070): already satisfied — skipping DDL (no table lock taken)
+    step: "sales_email_sends/inbound child-FK self-heal (0070)"
+[12:49:08.451] INFO (3739): migration step done: sales_email_sends/inbound child-FK self-heal (0070)
+    step: "sales_email_sends/inbound child-FK self-heal (0070)"
+    elapsedMs: 43
+[12:49:08.452] INFO (3739): migration step start: sales_hotlinks (contact_id, page_id) partial unique index self-heal (0017)
+    step: "sales_hotlinks (contact_id, page_id) partial unique index self-heal (0017)"
+[12:49:08.495] INFO (3739): sales_hotlinks contact_page self-heal: index already present — skipping DDL (no lock taken)
+    step: "sales_hotlinks (contact_id, page_id) partial unique index self-heal (0017)"
+[12:49:08.495] INFO (3739): migration step done: sales_hotlinks (contact_id, page_id) partial unique index self-heal (0017)
+    step: "sales_hotlinks (contact_id, page_id) partial unique index self-heal (0017)"
+    elapsedMs: 44
+[12:49:08.495] INFO (3739): migration step start: featured_homepage_templates self-heal (0076)
+    step: "featured_homepage_templates self-heal (0076)"
+[12:49:08.538] INFO (3739): featured_homepage_templates self-heal (0076): already satisfied — skipping DDL (no table lock taken)
+    step: "featured_homepage_templates self-heal (0076)"
+[12:49:08.538] INFO (3739): migration step done: featured_homepage_templates self-heal (0076)
+    step: "featured_homepage_templates self-heal (0076)"
+    elapsedMs: 43
+[12:49:08.538] INFO (3739): migration step start: marketo integration schema self-heal (0077)
+    step: "marketo integration schema self-heal (0077)"
+[12:49:08.583] INFO (3739): marketo integration schema self-heal (0077): already satisfied — skipping DDL (no table lock taken)
+    step: "marketo integration schema self-heal (0077)"
+[12:49:08.583] INFO (3739): migration step done: marketo integration schema self-heal (0077)
+    step: "marketo integration schema self-heal (0077)"
+    elapsedMs: 45
+[12:49:08.583] INFO (3739): migration step start: hubspot integration schema self-heal (0081)
+    step: "hubspot integration schema self-heal (0081)"
+[12:49:08.628] INFO (3739): hubspot integration schema self-heal (0081): already satisfied — skipping DDL (no table lock taken)
+    step: "hubspot integration schema self-heal (0081)"
+[12:49:08.628] INFO (3739): migration step done: hubspot integration schema self-heal (0081)
+    step: "hubspot integration schema self-heal (0081)"
+    elapsedMs: 45
+[12:49:08.628] INFO (3739): migration step start: strict-facts review schema self-heal (0085)
+    step: "strict-facts review schema self-heal (0085)"
+[12:49:08.672] INFO (3739): strict-facts review schema self-heal (0085): already satisfied — skipping DDL (no table lock taken)
+    step: "strict-facts review schema self-heal (0085)"
+[12:49:08.672] INFO (3739): migration step done: strict-facts review schema self-heal (0085)
+    step: "strict-facts review schema self-heal (0085)"
+    elapsedMs: 44
+[12:49:08.672] INFO (3739): migration step start: dandy webhook secrets seed
+    step: "dandy webhook secrets seed"
+[12:49:08.715] INFO (3739): migration step done: dandy webhook secrets seed
+    step: "dandy webhook secrets seed"
+    elapsedMs: 43
+[12:49:08.715] INFO (3739): migration step start: tenant industry backfill
+    step: "tenant industry backfill"
+[12:49:08.759] INFO (3739): migration step done: tenant industry backfill
+    step: "tenant industry backfill"
+    elapsedMs: 44
+[12:49:08.759] INFO (3739): migration step start: page review role seed
+    step: "page review role seed"
+[12:49:08.802] INFO (3739): migration step done: page review role seed
+    step: "page review role seed"
+    elapsedMs: 43
+[12:49:08.802] INFO (3739): migration step start: requireReviewBeforePublish backfill
+    step: "requireReviewBeforePublish backfill"
+[12:49:08.844] INFO (3739): migration step done: requireReviewBeforePublish backfill
+    step: "requireReviewBeforePublish backfill"
+    elapsedMs: 42
+[12:49:08.844] INFO (3739): migration step start: seo robots defaults backfill
+    step: "seo robots defaults backfill"
+[12:49:08.888] INFO (3739): migration step done: seo robots defaults backfill
+    step: "seo robots defaults backfill"
+    elapsedMs: 44
+[12:49:08.888] INFO (3739): migration step start: microsite template enabled backfill (1219)
+    step: "microsite template enabled backfill (1219)"
+[12:49:08.931] INFO (3739): migration step done: microsite template enabled backfill (1219)
+    step: "microsite template enabled backfill (1219)"
+    elapsedMs: 43
+[12:49:08.931] INFO (3739): migration step start: tenant og defaults dandy seed
+    step: "tenant og defaults dandy seed"
+[12:49:08.974] INFO (3739): migration step done: tenant og defaults dandy seed
+    step: "tenant og defaults dandy seed"
+    elapsedMs: 43
+[12:49:08.974] INFO (3739): migration step start: tenant og title strip lp studio suffix
+    step: "tenant og title strip lp studio suffix"
+[12:49:09.017] INFO (3739): migration step done: tenant og title strip lp studio suffix
+    step: "tenant og title strip lp studio suffix"
+    elapsedMs: 43
+[12:49:09.017] INFO (3739): migration step start: block_catalog ai_enabled self-heal (0049)
+    step: "block_catalog ai_enabled self-heal (0049)"
+[12:49:09.060] INFO (3739): block_catalog ai_enabled self-heal (0049): already satisfied — skipping DDL (no table lock taken)
+    step: "block_catalog ai_enabled self-heal (0049)"
+[12:49:09.060] INFO (3739): migration step done: block_catalog ai_enabled self-heal (0049)
+    step: "block_catalog ai_enabled self-heal (0049)"
+    elapsedMs: 43
+[12:49:09.060] INFO (3739): migration step start: sfdc_leads industry/rating self-heal (0084)
+    step: "sfdc_leads industry/rating self-heal (0084)"
+[12:49:09.105] INFO (3739): sfdc_leads industry/rating self-heal (0084): already satisfied — skipping DDL (no table lock taken)
+    step: "sfdc_leads industry/rating self-heal (0084)"
+[12:49:09.105] INFO (3739): migration step done: sfdc_leads industry/rating self-heal (0084)
+    step: "sfdc_leads industry/rating self-heal (0084)"
+    elapsedMs: 45
+[12:49:09.105] INFO (3739): migration step start: lp_integrations purge salesforce credentials (0088)
+    step: "lp_integrations purge salesforce credentials (0088)"
+[12:49:09.147] INFO (3739): lp_integrations purge salesforce credentials (0088): already satisfied — skipping DDL (no table lock taken)
+    step: "lp_integrations purge salesforce credentials (0088)"
+[12:49:09.147] INFO (3739): migration step done: lp_integrations purge salesforce credentials (0088)
+    step: "lp_integrations purge salesforce credentials (0088)"
+    elapsedMs: 42
+[12:49:09.147] INFO (3739): migration step start: block_catalog seed
+    step: "block_catalog seed"
+[12:49:09.190] INFO (3739): migration step done: block_catalog seed
+    step: "block_catalog seed"
+    elapsedMs: 43
+[12:49:09.190] INFO (3739): migration step start: block_catalog full-page re-shelf
+    step: "block_catalog full-page re-shelf"
+[12:49:09.234] INFO (3739): migration step done: block_catalog full-page re-shelf
+    step: "block_catalog full-page re-shelf"
+    elapsedMs: 44
+[12:49:09.234] INFO (3739): migration step start: global_templates consolidate under system tenant
+    step: "global_templates consolidate under system tenant"
+[12:49:09.324] INFO (3739): migration step done: global_templates consolidate under system tenant
+    step: "global_templates consolidate under system tenant"
+    elapsedMs: 90
+[12:49:09.324] INFO (3739): migration step start: global_templates seed
+    step: "global_templates seed"
+[12:49:09.369] INFO (3739): migration step done: global_templates seed
+    step: "global_templates seed"
+    elapsedMs: 45
+[12:49:09.369] INFO (3739): migration step start: global_templates intent backfill
+    step: "global_templates intent backfill"
+[12:49:09.411] INFO (3739): migration step done: global_templates intent backfill
+    step: "global_templates intent backfill"
+    elapsedMs: 42
+[12:49:09.411] INFO (3739): migration step start: starter_images seed
+    step: "starter_images seed"
+[12:49:09.453] INFO (3739): migration step done: starter_images seed
+    step: "starter_images seed"
+    elapsedMs: 42
+[12:49:09.453] INFO (3739): migration step start: team_photo media backfill
+    step: "team_photo media backfill"
+[12:49:09.497] INFO (3739): migration step done: team_photo media backfill
+    step: "team_photo media backfill"
+    elapsedMs: 44
+[12:49:09.497] INFO (3739): migration step start: sales signal attribution backfill
+    step: "sales signal attribution backfill"
+[12:49:09.539] INFO (3739): migration step done: sales signal attribution backfill
+    step: "sales signal attribution backfill"
+    elapsedMs: 42
+[12:49:09.539] INFO (3739): migration step start: root superadmin seed
+    step: "root superadmin seed"
+[12:49:09.627] INFO (3739): root superadmin seed applied
+    rootEmail: "admin@lpstudio.ai"
+[12:49:09.628] INFO (3739): migration step done: root superadmin seed
+    step: "root superadmin seed"
+    elapsedMs: 89
+[12:49:09.714] INFO (3739): migrate: complete
+    elapsedMs: 2758
+
+> @workspace/api-server@0.0.0 start /Users/charlotte.carey/lp-studio-staging/artifacts/api-server
+> node --enable-source-maps --env-file-if-exists=../../.env --env-file-if-exists=.env --import ./dist/instrument.mjs ./dist/index.mjs
+
+.env not found. Continuing without it.
+[dotenv@17.3.1] injecting env (2) from ../../.env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+(node:3756) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[dotenv@17.3.1] injecting env (2) from ../../.env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[12:49:11.447] WARN (3756): SFDC_CLIENT_ID or SFDC_CLIENT_SECRET not configured
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[12:49:11.475] INFO (3756): Server listening — API ready
+    port: 3001
+[12:49:11.475] INFO (3756): [stripe] disabled (STRIPE_ENABLED unset) — billing routes will respond 503
+[12:49:11.784] INFO (3756): [notificationBroker] listening for cross-instance notification pushes
+
