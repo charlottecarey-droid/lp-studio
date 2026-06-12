@@ -181,8 +181,20 @@ export async function extractLogos(evidence: Evidence): Promise<DimensionResult<
   const og = abs($('meta[property="og:image"]').attr("content"))
     ?? abs($('meta[name="og:image"]').attr("content"))
     ?? abs($('meta[name="twitter:image"]').attr("content"));
+  // Declared og:image dimensions (when present) let us tell a brand mark
+  // apart from a social-share card: a wide ~1.91:1 banner (e.g. 1200x630)
+  // is a headline image, not a logo, and must never win defaultLogoUrl.
+  const ogW = parseDim(
+    $('meta[property="og:image:width"]').attr("content")
+      ?? $('meta[name="og:image:width"]').attr("content"),
+  );
+  const ogH = parseDim(
+    $('meta[property="og:image:height"]').attr("content")
+      ?? $('meta[name="og:image:height"]').attr("content"),
+  );
+  const ogIsSocialCard = ogW !== null && ogH !== null && ogW / ogH >= 1.8;
   if (og) {
-    push({ url: og, source: "og", format: inferFormat(og), estimatedArea: null, transparent: null, score: 0 });
+    push({ url: og, source: "og", format: inferFormat(og), estimatedArea: ogW && ogH ? ogW * ogH : null, transparent: null, score: 0 });
   }
 
   // 2. Header logos: <img>/<svg> inside <header> or first <nav>, alt/src/class matching logo
@@ -266,8 +278,14 @@ export async function extractLogos(evidence: Evidence): Promise<DimensionResult<
   };
   for (const c of candidates) {
     const area = c.estimatedArea ?? 0;
-    const areaBonus = area > 0 ? Math.min(40, Math.log2(area + 1) * 3) : 0;
+    // No area bonus for og images: a big og:image means "social card", not
+    // "good logo", so size must not let it outrank brand-shaped candidates.
+    const areaBonus = area > 0 && c.source !== "og" ? Math.min(40, Math.log2(area + 1) * 3) : 0;
     c.score = sourceWeight[c.source] + formatBonus[c.format] + areaBonus;
+    // og images with no declared dimensions can't be aspect-gated below, so
+    // penalize them instead; the low-confidence demotion at the bottom is
+    // the safety net against social cards persisting as the default logo.
+    if (c.source === "og" && c.estimatedArea === null) c.score -= 10;
   }
   candidates.sort((a, b) => b.score - a.score);
 
@@ -317,14 +335,23 @@ export async function extractLogos(evidence: Evidence): Promise<DimensionResult<
     };
   }
 
-  const def = candidates[0];
+  // Aspect gate: an og:image with declared wide social-card dimensions
+  // (>= 1.8:1, e.g. 1200x630) is a headline banner — never the default logo
+  // when any other candidate exists. It stays in `alternates` so a reviewer
+  // can still pick it deliberately.
+  const def = ogIsSocialCard
+    ? candidates.find((c) => c.source !== "og") ?? candidates[0]
+    : candidates[0];
   const status: DimensionResult<LogosData>["status"] =
     def.source === "favicon" && candidates.length === 1 ? "partial" : "ok";
   const confidence =
     def.source === "header" || def.source === "svg-alt" || def.source === "header-svg-rendered"
       ? "high"
-      : def.source === "footer" || def.source === "og"
+      : def.source === "footer"
       ? "medium"
+      // og deliberately maps to "low": og:image is usually a social-share
+      // card, and flattenForProposed only pre-checks high/medium fields, so
+      // a low-confidence og default needs a human to confirm it.
       : "low";
 
   // Best favicon for the tenant's browser-tab icon. `candidates` is already

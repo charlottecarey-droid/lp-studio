@@ -1721,15 +1721,23 @@ async function runMigrationsBody(): Promise<void> {
           let upserted = 0;
           for (const tpl of GLOBAL_TEMPLATE_SEEDS) {
             const blocksJson = JSON.stringify(tpl.blocks);
+            // All-in-one intent fields (June 2026). On conflict these are
+            // NULL-GUARDED (COALESCE / OR) rather than overwritten, so a
+            // superadmin's manual category/keyword edits survive future
+            // marker bumps; only rows that have never been tagged pick up
+            // the seed's values.
+            const keywordsJson = tpl.keywords ? JSON.stringify(tpl.keywords) : null;
             const result = await db.execute<{ "?column?": number }>(sql`
               INSERT INTO lp_pages (
                 tenant_id, title, slug, blocks, status,
                 is_template, template_label, template_description,
-                is_global, industry, mode, og_image
+                is_global, industry, mode, og_image,
+                category, keywords, is_all_in_one
               ) VALUES (
                 ${ownerId}, ${tpl.title}, ${tpl.slug}, ${blocksJson}::jsonb, 'draft',
                 true, ${tpl.templateLabel}, ${tpl.templateDescription},
-                true, ${tpl.industry}, 'marketing', ${tpl.ogImage}
+                true, ${tpl.industry}, 'marketing', ${tpl.ogImage},
+                ${tpl.category ?? null}, ${keywordsJson}::jsonb, ${tpl.isAllInOne === true}
               )
               ON CONFLICT (tenant_id, slug) DO UPDATE SET
                 blocks               = EXCLUDED.blocks,
@@ -1738,7 +1746,10 @@ async function runMigrationsBody(): Promise<void> {
                 og_image             = EXCLUDED.og_image,
                 is_template          = true,
                 is_global            = true,
-                industry             = EXCLUDED.industry
+                industry             = EXCLUDED.industry,
+                category             = COALESCE(lp_pages.category, EXCLUDED.category),
+                keywords             = COALESCE(lp_pages.keywords, EXCLUDED.keywords),
+                is_all_in_one        = lp_pages.is_all_in_one OR EXCLUDED.is_all_in_one
               RETURNING 1
             `);
             if (result.rows.length > 0) upserted++;
@@ -1754,6 +1765,54 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
+    // All-in-one template intent backfill (June 2026). Existing databases
+    // already carry the global_templates_seed_v28 marker, so the seed loop
+    // above never re-runs for them and the new category/keywords/is_all_in_one
+    // columns (migration 0093) would stay NULL/false on the already-seeded
+    // all-in-one rows. This marker-gated step tags those rows from the seed
+    // file. Each UPDATE is NULL-GUARDED per field (COALESCE / OR) so any
+    // manual edits made before this runs are preserved — only untagged fields
+    // pick up the seed values. Matching is by slug across ALL global template
+    // rows (not just system-tenant-owned) so it works even on a boot where
+    // the consolidation step above failed. Best-effort + idempotent: safe to
+    // re-run, and a failure never aborts the release.
+    await runStep("global_templates intent backfill", async () => {
+    try {
+      const INTENT_MARKER = "global_templates_intent_v1";
+      const marker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${INTENT_MARKER}`
+      );
+      if (marker.rows.length === 0) {
+        const { ALL_IN_ONE_TEMPLATE_SEEDS } = await import("./seeds/globalTemplates");
+        let tagged = 0;
+        for (const tpl of ALL_IN_ONE_TEMPLATE_SEEDS) {
+          if (!tpl.category || !tpl.keywords || tpl.isAllInOne !== true) continue;
+          const keywordsJson = JSON.stringify(tpl.keywords);
+          const result = await db.execute<{ "?column?": number }>(sql`
+            UPDATE lp_pages
+            SET category      = COALESCE(category, ${tpl.category}),
+                keywords      = COALESCE(keywords, ${keywordsJson}::jsonb),
+                is_all_in_one = true
+            WHERE slug = ${tpl.slug}
+              AND is_template = true
+              AND is_global = true
+            RETURNING 1
+          `);
+          tagged += result.rows.length;
+        }
+        await db.execute(sql`
+          INSERT INTO _schema_migration_markers (key) VALUES (${INTENT_MARKER}) ON CONFLICT DO NOTHING
+        `);
+        logger.info(
+          { tagged, total: ALL_IN_ONE_TEMPLATE_SEEDS.length },
+          "global_templates intent backfill applied"
+        );
+      }
+    } catch (intentErr) {
+      logger.error({ err: intentErr }, "global_templates intent backfill failed (non-fatal)");
+    }
+    });
+
     // Starter image library seed — image URLs harvested from the global
     // landing-page template seeds. Inserted as shared lp_media rows
     // (tenant_id = NULL, is_shared = true) so every tenant sees them in the
@@ -1764,24 +1823,40 @@ async function runMigrationsBody(): Promise<void> {
     // (url, is_shared) — lp_media has no unique index on url, so we can't
     // rely on ON CONFLICT. This makes partial-failure reruns safe: rows
     // already inserted on a prior boot are skipped instead of duplicated.
+    //
+    // v2: the seed rows gained content + lp-purpose tags (so the AI page
+    // generator's scorer can place starter imagery by relevance), so the
+    // seed now also UPSERTS tags onto already-inserted seed rows. Tenant
+    // library rows that predate synchronous auto-tagging are handled by
+    // scripts/retag-media-library.ts instead.
     await runStep("starter_images seed", async () => {
     try {
-      const STARTER_MARKER = "starter_images_seed_v1";
+      const STARTER_MARKER = "starter_images_seed_v2";
       const marker = await db.execute<{ exists: number }>(
         sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${STARTER_MARKER}`
       );
       if (marker.rows.length === 0) {
         const { STARTER_IMAGE_SEEDS } = await import("./seeds/starterImages");
         let inserted = 0;
-        let skipped = 0;
+        let updated = 0;
         for (const img of STARTER_IMAGE_SEEDS) {
+          const tagsJson = JSON.stringify(img.tags);
+          // Refresh tags on rows seeded by v1 (or a partial v2 run).
+          const upd = await db.execute<{ "?column?": number }>(sql`
+            UPDATE lp_media
+            SET tags = ${tagsJson}::jsonb
+            WHERE url = ${img.url} AND is_shared = true
+              AND tags IS DISTINCT FROM ${tagsJson}::jsonb
+            RETURNING 1
+          `);
+          if (upd.rows.length > 0) updated += upd.rows.length;
           const result = await db.execute<{ "?column?": number }>(sql`
             INSERT INTO lp_media (
               tenant_id, title, url, media_type, mime_type, tags, is_shared
             )
             SELECT
               NULL, ${img.title}, ${img.url}, 'image', 'image/jpeg',
-              ${JSON.stringify(img.tags)}::jsonb, true
+              ${tagsJson}::jsonb, true
             WHERE NOT EXISTS (
               SELECT 1 FROM lp_media
               WHERE url = ${img.url} AND is_shared = true
@@ -1789,13 +1864,12 @@ async function runMigrationsBody(): Promise<void> {
             RETURNING 1
           `);
           if (result.rows.length > 0) inserted++;
-          else skipped++;
         }
         await db.execute(sql`
           INSERT INTO _schema_migration_markers (key) VALUES (${STARTER_MARKER}) ON CONFLICT DO NOTHING
         `);
         logger.info(
-          { inserted, skipped, total: STARTER_IMAGE_SEEDS.length },
+          { inserted, updated, total: STARTER_IMAGE_SEEDS.length },
           "starter_images seed applied"
         );
       }

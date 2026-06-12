@@ -85,7 +85,7 @@ export function BlockGalleryFilmstrip({ props, brand, onFieldChange }: Props) {
               >
                 <InlineImage
                   src={img.src}
-                  alt={img.alt || img.caption}
+                  alt={img.alt || img.caption || ""}
                   onUpdate={onFieldChange ? (src: string) => updateImage(i, { src }) : undefined}
                   onAltUpdate={onFieldChange ? (alt: string) => updateImage(i, { alt }) : undefined}
                   className="absolute inset-0 w-full h-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-110"

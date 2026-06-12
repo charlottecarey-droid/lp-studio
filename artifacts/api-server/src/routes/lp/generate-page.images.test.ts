@@ -677,14 +677,22 @@ describe("buildReferenceFillPool — reference-image fidelity", () => {
   // strict pass, never beat a genuine asset, but still fill as a true last resort.
   const starter: MediaImage = { url: "/objects/starter-1", title: "Starter 14142350", tags: ["starter", "generic"] };
 
-  it("STRICT pass: a starter never fills a hero slot (deferred to the relaxed pass)", () => {
+  it("STRICT pass: a starter never fills a hero slot; relaxed pass holds the relevance floor (empty beats wrong)", () => {
     const blocks: any[] = [{ type: "hero", props: { headline: "Anything", imageUrl: "" } }];
     // Strict pass (relaxed=false): starter is the only candidate → slot stays empty.
     const strict = fillEmptyImages(structuredClone(blocks), [starter], "saas pipeline", false) as any[];
     expect(strict[0].props.imageUrl).toBe("");
-    // Relaxed last-resort pass: the starter now fills it (true last resort).
+    // Relaxed last-resort pass: a HERO slot now demands a purpose match or
+    // equivalent topical signal (score >= PURPOSE_MATCH_BOOST). A score-0
+    // generic starter no longer fills it — the hero stays empty for its
+    // fallback state instead of shipping a wrong image.
     const relaxed = fillEmptyImages(structuredClone(blocks), [starter], "saas pipeline", true) as any[];
-    expect(relaxed[0].props.imageUrl).toBe("/objects/starter-1");
+    expect(relaxed[0].props.imageUrl).toBe("");
+    // Minor (lp-feature) slots keep the old last-resort behavior: the starter
+    // still fills there.
+    const featureBlocks: any[] = [{ type: "feature", props: { headline: "Anything", imageUrl: "" } }];
+    const relaxedFeature = fillEmptyImages(featureBlocks, [starter], "saas pipeline", true) as any[];
+    expect(relaxedFeature[0].props.imageUrl).toBe("/objects/starter-1");
   });
 
   it("RELAXED pass: a score-0 scraped reference image beats a score-0 starter regardless of pool order", () => {
@@ -739,10 +747,94 @@ describe("buildReferenceFillPool — reference-image fidelity", () => {
   });
 
   it("RELAXED pass: a curated brand asset beats a starter even when the starter sorts first", () => {
+    // A feature slot (hero/product-detail relaxed fills now require a purpose
+    // match — covered by the relevance-floor suite below); the tier ordering
+    // (curated > starter) is what this case locks in.
     const pool = [starter, curated];
-    const blocks: any[] = [{ type: "hero", props: { headline: "Workflow", imageUrl: "" } }];
+    const blocks: any[] = [{ type: "feature", props: { headline: "Workflow", imageUrl: "" } }];
     const filled = fillEmptyImages(blocks, pool, "saas pipeline", true) as any[];
     expect(filled[0].props.imageUrl).toBe("/objects/brand-photo");
+  });
+});
+
+// ── "Empty beats wrong" relevance floor (relaxed last-resort pass) ──────────
+// HERO and PRODUCT-DETAIL slots are the page's most prominent / most
+// subject-specific imagery. In the RELAXED pass they must not be filled by a
+// candidate scoring below PURPOSE_MATCH_BOOST (8): the candidate must match
+// the slot purpose outright, or carry equivalent topical content-tag signal.
+// No candidate clears the floor → the slot stays EMPTY (blocks have fallback
+// states that read better than a wrong photo). lp-feature and other minor
+// slots keep the prior relaxed behavior (non-negative floor).
+describe("fillEmptyImages — relaxed-pass relevance floor (hero / product-detail)", () => {
+  // Zero-score candidates: no purpose tag, no topical overlap with the context.
+  const zeroScoreCurated: MediaImage = { url: "/objects/lobby", title: "office lobby", tags: [] };
+  const zeroScoreStarter: MediaImage = { url: "/objects/starter-9", title: "Starter 9981", tags: ["starter", "generic"] };
+  // Purpose-matched candidates: the purpose boost alone (8) clears the floor.
+  const heroPurpose: MediaImage = { url: "/objects/hero-purpose", title: "abstract banner", tags: ["lp-hero"] };
+  const detailPurpose: MediaImage = { url: "/objects/detail-purpose", title: "abstract closeup", tags: ["product-detail"] };
+  // Unclassified but topically STRONG (content-tag signal >= 8): two tags that
+  // appear verbatim in the context plus their word-level matches.
+  const topicallyStrong: MediaImage = { url: "/objects/topical", title: "dentures photo", tags: ["dentures", "dental clinic"] };
+
+  it("(a) hero slot + only zero-score candidates → stays EMPTY in the relaxed pass", () => {
+    const blocks: any[] = [{ type: "hero", props: { headline: "Anything", imageUrl: "" } }];
+    const filled = fillEmptyImages(blocks, [zeroScoreCurated, zeroScoreStarter], "saas pipeline", true) as any[];
+    expect(filled[0].props.imageUrl).toBe("");
+  });
+
+  it("(b) hero slot + a purpose-matched candidate → fills in the relaxed pass", () => {
+    const blocks: any[] = [{ type: "hero", props: { headline: "Anything", imageUrl: "" } }];
+    const filled = fillEmptyImages(blocks, [zeroScoreCurated, heroPurpose], "saas pipeline", true) as any[];
+    expect(filled[0].props.imageUrl).toBe("/objects/hero-purpose");
+  });
+
+  it("(b2) hero slot + an unclassified candidate with EQUIVALENT topical signal → fills", () => {
+    const blocks: any[] = [{ type: "hero", props: { headline: "Affordable dentures", imageUrl: "" } }];
+    const filled = fillEmptyImages(blocks, [topicallyStrong], "affordable dentures dental clinic", true) as any[];
+    expect(filled[0].props.imageUrl).toBe("/objects/topical");
+  });
+
+  it("(a2) product-detail slot + only zero-score candidates → stays EMPTY in the relaxed pass", () => {
+    const blocks: any[] = [
+      { type: "dso-products-grid", props: { products: [{ name: "Crowns", detail: "", imageKey: "posterior-crowns" }] } },
+    ];
+    const filled = fillEmptyImages(blocks, [zeroScoreCurated, zeroScoreStarter], "dental clinic", true) as any[];
+    expect(filled[0].props.products[0].imageUrl ?? "").toBe("");
+  });
+
+  it("(b3) product-detail slot + a product-detail-purpose candidate → fills in the relaxed pass", () => {
+    const blocks: any[] = [
+      { type: "dso-products-grid", props: { products: [{ name: "Crowns", detail: "", imageKey: "posterior-crowns" }] } },
+    ];
+    const filled = fillEmptyImages(blocks, [zeroScoreCurated, detailPurpose], "dental clinic", true) as any[];
+    expect(filled[0].props.products[0].imageUrl).toBe("/objects/detail-purpose");
+  });
+
+  it("(c) feature slot + a zero-score candidate → still fills in the relaxed pass (unchanged minor-slot behavior)", () => {
+    const blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Workflow", body: "", imageUrl: "" }] } },
+    ];
+    const filled = fillEmptyImages(blocks, [zeroScoreCurated], "saas pipeline", true) as any[];
+    expect(filled[0].props.rows[0].imageUrl).toBe("/objects/lobby");
+  });
+
+  it("(d) logo-URL protections survive the floor: a brand-logo hero slot is never cleared, swapped, or counted as used", () => {
+    // The brand mark occupies the hero imageUrl. With logoUrls threaded, the
+    // slot is excluded from used-URL tracking and the fill pass never touches
+    // a non-empty slot — the logo survives the relaxed pass verbatim. (Logo
+    // CANDIDATES never reach the scorer at all: "logo"-tagged rows are
+    // excluded upstream via EXCLUDE_TAGS in fetchMediaCatalog, and the
+    // brand-import DOM harvest drops logo/chrome assets before mirroring.)
+    const logoUrl = "/api/storage/objects/uploads/acme-logo.svg";
+    const blocks: any[] = [
+      { type: "hero", props: { headline: "Anything", imageUrl: logoUrl } },
+      { type: "feature", props: { headline: "Workflow", imageUrl: "" } },
+    ];
+    const filled = fillEmptyImages(blocks, [zeroScoreCurated], "saas pipeline", true, new Set([logoUrl])) as any[];
+    expect(filled[0].props.imageUrl).toBe(logoUrl);
+    // The logo was not tracked as a "used" library image, and the empty
+    // feature (minor) slot still fills normally in the relaxed pass.
+    expect(filled[1].props.imageUrl).toBe("/objects/lobby");
   });
 });
 

@@ -125,7 +125,7 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
       <div className="relative w-full z-10">
         <InlineImage
           src={resolvedImage}
-          alt={props.imageAlt ?? "Product showcase"}
+          alt={props.imageAlt ?? (props.headline || "")}
           className={cn("w-full h-auto object-contain rounded-xl", props.imageShadow !== false ? "shadow-2xl" : "")}
           wrapperClassName="block w-full"
           onUpdate={field("imageUrl")}

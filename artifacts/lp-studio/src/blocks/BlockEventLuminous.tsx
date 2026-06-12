@@ -1171,7 +1171,7 @@ export function BlockEventLuminous({ props }: Props) {
                 <img
                   key={i}
                   src={img.url}
-                  alt={img.caption || `Gallery image ${i + 1}`}
+                  alt={img.caption || ""}
                   loading="lazy"
                   style={{
                     height: "20rem",

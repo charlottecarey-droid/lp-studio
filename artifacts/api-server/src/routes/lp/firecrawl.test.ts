@@ -16,7 +16,7 @@
  * URL, so no network or API key is required.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { maybeMultiPageScrapeRef } from "./firecrawl";
+import { clearInspirationScrapeCache, maybeMultiPageScrapeRef, scrapeInspirationUrl } from "./firecrawl";
 
 const ROOT = "https://smbclinic.example";
 
@@ -126,5 +126,81 @@ describe("maybeMultiPageScrapeRef image-companion harvest", () => {
     for (const u of requested) {
       expect(u).not.toMatch(/\/(services|gallery|team|our-team|portfolio)$/);
     }
+  });
+});
+
+// ── Inspiration-URL cached scrape-only path (June 2026) ─────────────────────
+// Contract under test:
+//   1. CACHED — a second call for the same (tenant, URL) is served from the
+//      inspiration TTL cache: no second Firecrawl fetch, and the result is
+//      labelled fromCache:true so the generate-page response can surface it.
+//   2. SCRAPE-ONLY — a single page fetch (no companion fan-out), no screenshot
+//      format requested, and the page's harvested image URLs are dropped (the
+//      result type carries none) so inspiration scrapes can never feed
+//      mirrorReferenceImages / lp_media.
+//   3. BEST-EFFORT — invalid URL / missing API key return null, never throw.
+describe("scrapeInspirationUrl — cached scrape-only inspiration path", () => {
+  const realFetch = globalThis.fetch;
+  const hadKey = process.env.FIRECRAWL_API_KEY;
+
+  beforeEach(() => {
+    process.env.FIRECRAWL_API_KEY = "test-key";
+    clearInspirationScrapeCache();
+  });
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+    if (hadKey === undefined) delete process.env.FIRECRAWL_API_KEY;
+    else process.env.FIRECRAWL_API_KEY = hadKey;
+    vi.restoreAllMocks();
+  });
+
+  it("cache hit: the second call does NOT issue a second Firecrawl fetch and is labelled fromCache", async () => {
+    const fetchStub = makeFetchStub({ "/": { md: "Inspo homepage copy", imgId: "inspo" } });
+    globalThis.fetch = fetchStub as unknown as typeof fetch;
+
+    // Unique tenant id so the module-scoped caches never collide across tests.
+    const first = await scrapeInspirationUrl(ROOT, 92026001);
+    expect(first).not.toBeNull();
+    expect(first!.fromCache).toBe(false);
+    expect(first!.markdown).toContain("Inspo homepage copy");
+    expect(fetchStub).toHaveBeenCalledTimes(1);
+
+    const second = await scrapeInspirationUrl(ROOT, 92026001);
+    expect(second).not.toBeNull();
+    expect(second!.fromCache).toBe(true);
+    expect(second!.markdown).toBe(first!.markdown);
+    // The whole point: no second Firecrawl call.
+    expect(fetchStub).toHaveBeenCalledTimes(1);
+  });
+
+  it("scrape-only: single page, no screenshot format, harvested image URLs dropped", async () => {
+    const fetchStub = makeFetchStub({
+      "/": { md: "Homepage", imgId: "home" },
+      // Exists, but inspiration scrapes must never fan out to companions.
+      "/about": { md: "About", imgId: "about" },
+    });
+    globalThis.fetch = fetchStub as unknown as typeof fetch;
+
+    const res = await scrapeInspirationUrl(ROOT, 92026002);
+    expect(res).not.toBeNull();
+    expect(fetchStub).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(
+      ((fetchStub.mock.calls[0] as unknown[])[1] as RequestInit).body as string,
+    ) as { url?: string; formats?: string[] };
+    expect(body.url).toBe(`${ROOT}/`);
+    expect(body.formats).toEqual(["markdown", "html"]); // no screenshot variant
+    // The result is markdown-only: image URLs harvested from the page HTML are
+    // intentionally discarded (mirroring stays per-request-only).
+    expect((res as unknown as Record<string, unknown>).imageUrls).toBeUndefined();
+  });
+
+  it("best-effort: invalid URL and missing API key return null", async () => {
+    const fetchStub = makeFetchStub({ "/": { md: "Homepage", imgId: "home" } });
+    globalThis.fetch = fetchStub as unknown as typeof fetch;
+
+    expect(await scrapeInspirationUrl("not a url::", 92026003)).toBeNull();
+    delete process.env.FIRECRAWL_API_KEY;
+    expect(await scrapeInspirationUrl(ROOT, 92026003)).toBeNull();
+    expect(fetchStub).not.toHaveBeenCalled();
   });
 });

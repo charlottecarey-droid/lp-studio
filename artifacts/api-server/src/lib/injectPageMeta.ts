@@ -203,6 +203,11 @@ const MANAGED_TAG_PATTERNS: RegExp[] = [
   // Robots is managed (task #494): stripped first so a snapshot leftover or a
   // page flipped back to "allow" never leaves a stale noindex behind.
   /<meta[^>]+name=["']robots["'][^>]*>/gi,
+  // Managed JSON-LD WebPage object. Scoped to OUR data-lp-jsonld marker so a
+  // tenant block's own structured data (if a future block ever emits any)
+  // survives untouched. Stripped first so a page flipped to noindex actually
+  // loses the stale JSON-LD from the previous render.
+  /<script[^>]+data-lp-jsonld[^>]*>[\s\S]*?<\/script>/gi,
 ];
 
 function stripManagedTags(html: string): string {
@@ -350,19 +355,53 @@ export function injectPageMeta(html: string, meta: PageMetaInput): string {
   // (robotsMetaContent returns null), keeping today's pages byte-identical.
   // Any pre-existing robots tag was already stripped above, so "allow" means
   // no tag at all.
-  const robots = robotsMetaContent(
-    resolveRobotsMeta({
-      pageAllowIndexing: meta.allowIndexing ?? null,
-      pageAllowFollowing: meta.allowFollowing ?? null,
-      tenantAllowIndexing: meta.tenantAllowIndexing ?? true,
-      tenantAllowFollowing: meta.tenantAllowFollowing ?? true,
-    }),
-  );
+  const resolvedRobots = resolveRobotsMeta({
+    pageAllowIndexing: meta.allowIndexing ?? null,
+    pageAllowFollowing: meta.allowFollowing ?? null,
+    tenantAllowIndexing: meta.tenantAllowIndexing ?? true,
+    tenantAllowFollowing: meta.tenantAllowFollowing ?? true,
+  });
+  const robots = robotsMetaContent(resolvedRobots);
   if (robots) {
     out = upsertHeadTag(
       out,
       /<meta[^>]+name=["']robots["'][^>]*>/i,
       `<meta name="robots" content="${escapeAttr(robots)}" />`,
+    );
+  }
+
+  // JSON-LD WebPage object. Emitted ONLY for indexable pages — structured
+  // data on a noindex page is wasted bytes at best and a mixed signal to
+  // crawlers at worst (the stripManagedTags pass above already removed any
+  // stale copy from a previous render, so noindex means no JSON-LD at all).
+  // Every "<" in the serialized JSON is escaped to the unicode sequence
+  // backslash-u003c so a malicious title containing "</script>" can never
+  // terminate the script element (the payload stays valid JSON either way).
+  if (resolvedRobots.indexing) {
+    const jsonLd: Record<string, unknown> = {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      name: title,
+      description,
+      url: canonical,
+    };
+    const tenantName = (meta.tenantName || "").trim();
+    if (tenantName) {
+      const publisher: Record<string, unknown> = {
+        "@type": "Organization",
+        name: tenantName,
+      };
+      // Best logo-shaped asset available in this input is the tenant favicon
+      // (brand_settings.faviconUrl). Optional — omitted when unset.
+      const logo = (meta.faviconUrl || "").trim();
+      if (logo) publisher.logo = toAbsoluteUrl(logo, meta.canonicalHost);
+      jsonLd.publisher = publisher;
+    }
+    const json = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
+    out = upsertHeadTag(
+      out,
+      /<script[^>]+data-lp-jsonld[^>]*>[\s\S]*?<\/script>/i,
+      `<script type="application/ld+json" data-lp-jsonld="webpage">${json}</script>`,
     );
   }
 

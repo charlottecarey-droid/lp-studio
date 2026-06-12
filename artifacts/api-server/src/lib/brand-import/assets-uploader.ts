@@ -80,7 +80,7 @@ function extToMime(url: string): string | null {
   return null;
 }
 
-interface FetchedAsset {
+export interface FetchedAsset {
   buffer: Buffer;
   mimeType: string;
   sourceUrl: string;
@@ -169,11 +169,14 @@ function decodeDataUrl(url: string): FetchedAsset | null {
  */
 /** Discriminated fetch result so callers can log *why* an asset was
  *  skipped instead of treating every failure as an opaque `null`. */
-type FetchResult =
+export type FetchResult =
   | { ok: true; asset: FetchedAsset }
   | { ok: false; reason: string };
 
-async function fetchAsset(url: string): Promise<FetchResult> {
+/** Exported for reuse by scripts/retag-media-library.ts (backfilling content
+ *  tags onto old rows whose `url` is still an external http(s)/data URL needs
+ *  the same SSRF-guarded, size-capped fetch the mirror uses). */
+export async function fetchAsset(url: string): Promise<FetchResult> {
   if (url.startsWith("data:")) {
     const decoded = decodeDataUrl(url);
     return decoded ? { ok: true, asset: decoded } : { ok: false, reason: "invalid-data-url" };

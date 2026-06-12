@@ -1,6 +1,10 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { critiqueAndRewriteBlocks } from "./critique-pass";
 import { findBannedPhrases } from "./banned-phrase-validator";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 type ChatCreate = (...args: unknown[]) => Promise<unknown>;
 
@@ -13,12 +17,74 @@ function jsonCompletion(obj: unknown) {
 }
 
 describe("critiqueAndRewriteBlocks", () => {
-  it("no-ops when there are no banned-phrase hits", async () => {
-    const create = vi.fn();
-    const blocks = [{ id: "b1", type: "hero", props: { headline: "Crowns in five days" } }];
+  it("runs a MANDATORY critique on the copy-heaviest blocks even with zero banned-phrase hits", async () => {
+    const blocks = [
+      {
+        id: "b1",
+        type: "hero",
+        props: {
+          headline: "A generic headline about a platform for teams that want outcomes",
+          subheadline: "Some long but vague supporting copy that says very little concretely.",
+        },
+      },
+      { id: "b2", type: "footer", props: { copyrightText: "© 2026" } },
+    ];
+    const create = vi.fn(async (req: unknown) => {
+      const body = req as { messages: Array<{ content: string }> };
+      const userMsg = body.messages[1].content;
+      // The copy-heavy block is targeted; the tiny footer is not.
+      expect(userMsg).toContain('"id":"b1"');
+      expect(userMsg).not.toContain('"id":"b2"');
+      // With no hits, the prompt asks for a general tightening pass.
+      expect(userMsg).toContain("No specific banned phrases were detected");
+      return jsonCompletion({
+        blocks: [
+          {
+            id: "b1",
+            props: {
+              headline: "Crowns shipped in five days flat",
+              subheadline: "Every case auto-checked before it ships — 96% first-time fit.",
+            },
+          },
+        ],
+      });
+    });
     const res = await critiqueAndRewriteBlocks({
       blocks,
       bannedPhraseHits: [],
+      brand: {},
+      openai: fakeOpenAI(create as unknown as ChatCreate),
+    });
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(res.critiqued).toBe(true);
+    expect(res.annotations).toHaveLength(1);
+    expect(res.annotations[0].blockId).toBe("b1");
+    expect(res.annotations[0].removedPhrases).toEqual([]);
+    expect((blocks[0].props as Record<string, unknown>).headline).toBe("Crowns shipped in five days flat");
+  });
+
+  it("no-ops when every block is too copy-light to critique (and no hits)", async () => {
+    const create = vi.fn();
+    const blocks = [{ id: "b1", type: "footer", props: { copyrightText: "© 2026" } }];
+    const res = await critiqueAndRewriteBlocks({
+      blocks,
+      bannedPhraseHits: [],
+      brand: {},
+      openai: fakeOpenAI(create as unknown as ChatCreate),
+    });
+    expect(res.critiqued).toBe(false);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("no-ops when CRITIQUE_PASS_DISABLED=1 (env escape hatch)", async () => {
+    vi.stubEnv("CRITIQUE_PASS_DISABLED", "1");
+    const create = vi.fn();
+    const blocks = [{ id: "b1", type: "hero", props: { headline: "Our industry-leading platform for teams" } }];
+    const hits = findBannedPhrases(blocks);
+    expect(hits.length).toBeGreaterThan(0);
+    const res = await critiqueAndRewriteBlocks({
+      blocks,
+      bannedPhraseHits: hits,
       brand: {},
       openai: fakeOpenAI(create as unknown as ChatCreate),
     });

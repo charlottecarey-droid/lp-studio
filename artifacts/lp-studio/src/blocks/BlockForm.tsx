@@ -213,6 +213,7 @@ function FieldInput({
   field,
   value,
   error,
+  errorId,
   onChange,
   inputRadius,
   inputAccentColor,
@@ -225,6 +226,8 @@ function FieldInput({
   field: FormField;
   value: string;
   error: string | null;
+  /** id of the visible error message element — linked via aria-describedby when an error is shown. */
+  errorId?: string;
   onChange: (v: string) => void;
   inputRadius: string;
   inputAccentColor: string;
@@ -273,6 +276,7 @@ function FieldInput({
         className={`${baseInput} ${borderClass} resize-none`}
         style={focusStyle}
         aria-invalid={!!error}
+        aria-describedby={error ? errorId : undefined}
       />
     );
   }
@@ -307,6 +311,7 @@ function FieldInput({
         className={`${baseInput} ${borderClass}`}
         style={focusStyle}
         aria-invalid={!!error}
+        aria-describedby={error ? errorId : undefined}
       >
         <option value="">Select an option…</option>
         {normalizedOptions.map(opt => (
@@ -360,6 +365,7 @@ function FieldInput({
       className={`${baseInput} ${borderClass}`}
       style={focusStyle}
       aria-invalid={!!error}
+      aria-describedby={error ? errorId : undefined}
       // Mobile keyboards: `inputMode="tel"` shows the number pad, and
       // `autoComplete="tel"` lets the OS suggest the user's saved number.
       inputMode={field.type === "phone" ? "tel" : undefined}
@@ -761,7 +767,9 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
         setTimeout(() => { safeNavigate(activeRedirectUrl); }, 1500);
       }
     } catch {
-      setSubmitError("Something went wrong. Please try again.");
+      // Field values stay intact (state is untouched) and `finally` re-enables
+      // the button, so the visitor can correct/retry without re-typing.
+      setSubmitError("Something went wrong sending your info. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -1163,6 +1171,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
                   field={field}
                   value={fieldValues[field.id] ?? ""}
                   error={fieldErrors[field.id] ?? null}
+                  errorId={`${field.id}-error`}
                   inputRadius={inputRadiusClass}
                   inputAccentColor={inputAccent}
                   isDark={isDark}
@@ -1176,7 +1185,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
                   }}
                 />
                 {fieldErrors[field.id] && (
-                  <p className="text-xs text-red-500 mt-1.5" style={{ fontFamily: BODY }}>{fieldErrors[field.id]}</p>
+                  <p id={`${field.id}-error`} className="text-xs text-red-500 mt-1.5" style={{ fontFamily: BODY }}>{fieldErrors[field.id]}</p>
                 )}
               </div>
             ))}
@@ -1188,9 +1197,13 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
           <label htmlFor="_hp" className="hidden" aria-hidden="true" style={{ fontFamily: BODY }}>Leave blank</label>
           <input ref={honeypotRef} id="_hp" type="text" name="_hp" className="hidden" tabIndex={-1} autoComplete="off" aria-hidden="true" />
 
-          {submitError && (
-            <p className="text-sm text-red-500 mt-4" style={{ fontFamily: BODY }}>{submitError}</p>
-          )}
+          {/* Always-mounted live region so screen readers announce the
+              submit error when it appears. */}
+          <div aria-live="polite">
+            {submitError && (
+              <p className="text-sm text-red-500 mt-4" style={{ fontFamily: BODY }}>{submitError}</p>
+            )}
+          </div>
 
           <div className="mt-7 flex gap-3">
             {activeMultiStep && clampedStep > 0 && (
@@ -1209,7 +1222,15 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
               className={`flex-1 py-4 px-4 ${btnRadiusClass} text-base font-bold transition-all hover:brightness-105 disabled:opacity-60`}
               style={{ background: submitBg, color: submitFg }}
             >
-              {submitting ? "Submitting…" : isLastStep ? (activeSubmitText || "Submit") : "Next"}
+              {submitting ? (
+                <span className="inline-flex items-center justify-center gap-2">
+                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  </svg>
+                  Submitting…
+                </span>
+              ) : isLastStep ? (activeSubmitText || "Submit") : "Next"}
             </button>
           </div>
             </>

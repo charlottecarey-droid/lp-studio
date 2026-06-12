@@ -1,6 +1,6 @@
 import { Fragment, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { motion, useScroll, useTransform, useSpring } from "framer-motion";
+import { motion, useScroll, useTransform, useSpring, useReducedMotion } from "framer-motion";
 import { ArrowRight, Menu } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { ParallaxLayersHeroBlockProps } from "@/lib/block-types";
@@ -81,8 +81,11 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
 
   // parallaxStrength defaults to 0.5 — which maps to the mockup's baseline
   // offsets. We scale the mockup ranges by (strength / 0.5) so 0.5 == mockup.
+  // Reduced motion zeroes every scroll/mouse parallax offset so the layers
+  // render in their static resting positions.
+  const prefersReducedMotion = useReducedMotion();
   const strength = props.parallaxStrength ?? 0.5;
-  const mult = strength / 0.5;
+  const mult = prefersReducedMotion ? 0 : strength / 0.5;
 
   const yBg = useTransform(scrollYProgress, [0, 1], [0, 200 * mult]);
   const yMid = useTransform(scrollYProgress, [0, 1], [0, -100 * mult]);
@@ -356,6 +359,9 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
           from { transform: translateX(0); }
           to { transform: translateX(-100%); }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .plx-marquee-content { animation: none; }
+        }
       `}</style>
 
       {/* Background Layer: Deep Glows */}
@@ -452,7 +458,7 @@ export function BlockParallaxLayersHero({ props, brand, onCtaClick, onFieldChang
         {/* Hero Content */}
         <motion.main
           className="flex-1 flex flex-col items-center justify-center text-center px-4 max-w-5xl mx-auto"
-          style={{ opacity: opacityFade }}
+          style={{ opacity: prefersReducedMotion ? 1 : opacityFade }}
         >
           {(props.badgeText || onFieldChange) && (
             <motion.div

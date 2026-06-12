@@ -50,6 +50,8 @@ export const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "GET",  pattern: /^\/lp\/og-preview\// },     // GET /lp/og-preview/:slug — OG meta HTML for social bots
   { method: "GET",  pattern: /^\/lp\/og-host-preview$/ }, // GET /lp/og-host-preview — host-level OG meta HTML (no slug); tenant brand-settings default share card for bots scraping a tenant/Dandy host root (task #999)
   { method: "GET",  pattern: /^\/lp\/content-series\/unsubscribe$/ }, // GET /lp/content-series/unsubscribe?token=… — one-click lead opt-out from episode emails
+  { method: "*",    pattern: /^\/lp\/robots\.txt$/ },     // GET/HEAD /lp/robots.txt — host-scoped robots.txt (crawlers; proxied from /robots.txt by tenant-host-router)
+  { method: "*",    pattern: /^\/lp\/sitemap\.xml$/ },    // GET/HEAD /lp/sitemap.xml — host-scoped sitemap of indexable published pages
   { method: "*",    pattern: /^\/lp\/rendered\// },       // GET/HEAD /lp/rendered/:slug — prerendered published HTML (task #364). MUST be `*`, not `"GET"`: bot user-agents (Slackbot health-pings, CDN cache-warmers, link-preview HEAD probes) hit this endpoint with HEAD before GET. A `method: "GET"` allowlist entry rejects HEAD with 401 from requireAuth, which silently turns previewers + bots into 401 responses while real browser GETs work — making the bug invisible in dev.
   { method: "GET",  pattern: /^\/lp\/public-pages$/ },    // GET /lp/public-pages?tag=… — tenant-scoped, published-only page list for the Story Hub block on published landing pages
   { method: "GET",  pattern: /^\/lp\/plan-config$/ },     // GET /lp/plan-config — public, live (SuperAdmin-editable) plan/pricing config for app billing/upgrade surfaces

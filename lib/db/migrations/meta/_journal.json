@@ -645,6 +645,20 @@
       "when": 1754500000000,
       "tag": "0091_tenant_block_governance",
       "breakpoints": false
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1754600000000,
+      "tag": "0092_ai_generation_log_sequence_recipe",
+      "breakpoints": false
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1754700000000,
+      "tag": "0093_template_intent_fields",
+      "breakpoints": false
     }
   ]
 }

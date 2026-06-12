@@ -17,6 +17,7 @@
 
 import * as cheerio from "cheerio";
 import { pickImagesFromDom } from "../../lib/brand-import/extractors/photography";
+import { TtlCache } from "../../lib/ttlCache";
 
 const MARKDOWN_MAX_CHARS = 24_000;
 // Combined multi-page markdown is capped at this length too — three full
@@ -395,4 +396,89 @@ export async function maybeMultiPageScrapeRef(
     },
     screenshotUrl,
   };
+}
+
+// ── Inspiration-URL scrape-only path (June 2026) ─────────────────────────
+//
+// The brand's persisted `inspirationUrls` participate in generation again as
+// STYLE / STRUCTURE references, via this deliberately stripped-down path:
+//   • SCRAPE-ONLY: no screenshot is requested and the page's harvested
+//     content-image URLs are dropped (mirrorImages: false in spirit) — these
+//     scrapes must NEVER feed mirrorReferenceImages / lp_media. Auto-mirroring
+//     inspiration sites on every generation previously re-imported the same
+//     homepage images each run, flooding the library with duplicate
+//     "scraped" rows.
+//   • CACHED: results live in a module-level TTL cache (24h, ≤100 entries,
+//     LRU eviction) so repeated generations for the same brand don't re-hit
+//     Firecrawl. (cachedFirecrawlScrape also caches the raw scrape, but this
+//     cache holds the smaller trimmed payload and is independently testable.)
+//   • UNTRUSTED: callers must never let inspiration scrapes confer
+//     strict-facts trust — that gate (urlSourcedFacts in generate-page.ts)
+//     matches per-request URLs only, and inspiration results are kept out of
+//     that pipeline entirely.
+
+/** Per-site markdown cap for inspiration references — tighter than the
+ *  per-request reference cap (24k) to keep prompt-size discipline when these
+ *  ride alongside a detailed per-request reference. */
+const INSPIRATION_MARKDOWN_MAX_CHARS = 8_000;
+
+export interface InspirationScrapeResult {
+  url: string;
+  markdown: string;
+  truncated: boolean;
+  /** True when this result was served from the inspiration TTL cache rather
+   *  than a fresh Firecrawl call. Echoed in the generate-page response so the
+   *  FE can show which inspiration sites informed the page and whether they
+   *  were re-fetched. */
+  fromCache: boolean;
+}
+
+const INSPIRATION_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const INSPIRATION_CACHE_MAX = 100;
+
+const inspirationScrapeCache = new TtlCache<InspirationScrapeResult>({
+  ttlMs: INSPIRATION_CACHE_TTL_MS,
+  maxEntries: INSPIRATION_CACHE_MAX,
+});
+
+/** Test hook — the cache is module-level/process-lifetime. */
+export function clearInspirationScrapeCache(): void {
+  inspirationScrapeCache.clear();
+}
+
+/**
+ * Scrape a brand inspiration URL for style/structure reference markdown.
+ * Single page only (no companion fan-out), no screenshot, no image harvest,
+ * cached 24h per (tenant, normalized URL). Returns null on any failure —
+ * inspiration references are best-effort and must never fail generation.
+ */
+export async function scrapeInspirationUrl(
+  refUrl: string,
+  tenantId: number,
+): Promise<InspirationScrapeResult | null> {
+  const parsed = parseReferenceUrl(refUrl);
+  if (!parsed) return null;
+  const url = normalizeScrapeUrl(parsed.toString());
+  const cacheKey = `${tenantId}::${url}`;
+  const cached = inspirationScrapeCache.get(cacheKey);
+  // Cache provenance: the stored value carries fromCache:false (its state when
+  // freshly scraped); a hit is re-labelled so callers/FE can distinguish.
+  if (cached) return { ...cached, fromCache: true };
+  const FIRECRAWL_KEY = process.env.FIRECRAWL_API_KEY;
+  if (!FIRECRAWL_KEY) return null;
+  try {
+    const got = await cachedFirecrawlScrape(FIRECRAWL_KEY, url, tenantId, { withScreenshot: false });
+    if (!got || !got.markdown) return null;
+    const value: InspirationScrapeResult = {
+      url,
+      // Image URLs from `got` are intentionally discarded here — scrape-only.
+      markdown: got.markdown.slice(0, INSPIRATION_MARKDOWN_MAX_CHARS),
+      truncated: got.truncated || got.markdown.length > INSPIRATION_MARKDOWN_MAX_CHARS,
+      fromCache: false,
+    };
+    inspirationScrapeCache.set(cacheKey, value);
+    return value;
+  } catch {
+    return null;
+  }
 }

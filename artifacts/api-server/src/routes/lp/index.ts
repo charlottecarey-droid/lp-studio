@@ -47,6 +47,7 @@ import extractGuestsRouter from "./extract-guests";
 import podcastAvailabilityRouter from "./podcast-availability";
 import contentSeriesRouter from "./content-series";
 import renderedRouter from "./rendered";
+import seoFilesRouter from "./seo-files";
 import planConfigRouter from "./plan-config";
 import featuredTemplatesRouter from "./featured-templates";
 import homepageOgRouter from "./homepage-og";
@@ -65,6 +66,10 @@ router.use(trackingRouter);
 // through to 404 for drafts/preview/unrendered pages so the SPA edge
 // can take over.
 router.use(renderedRouter);
+// Host-scoped robots.txt + sitemap.xml for published tenant pages. Public —
+// tenant resolved from request host; proxied to /robots.txt + /sitemap.xml
+// at the edge by cloudflare/tenant-host-router.
+router.use(seoFilesRouter);
 router.use(planConfigRouter);
 router.use(featuredTemplatesRouter);
 router.use(homepageOgRouter);

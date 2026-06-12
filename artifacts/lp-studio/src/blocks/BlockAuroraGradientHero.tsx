@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
-import { motion, type Variants } from "framer-motion";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
 import {
   ArrowRight,
   Sparkles,
@@ -99,7 +99,11 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
       "var(--brand-font-body, ui-sans-serif, system-ui, sans-serif)"
     : "var(--brand-font-body, ui-sans-serif, system-ui, sans-serif)";
 
-  // ── Entry / float animation variants (preserved from mockup). ──
+  // ── Entry / float animation variants (preserved from mockup). When the
+  // visitor prefers reduced motion the continuous chip float is replaced by
+  // its static resting state (the aurora blob keyframes are stopped via the
+  // prefers-reduced-motion media query in the inline <style> below). ──
+  const prefersReducedMotion = useReducedMotion();
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
@@ -115,13 +119,15 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
       transition: { type: "spring", stiffness: 100, damping: 20 },
     },
   };
-  const floatVariants: Variants = {
-    initial: { y: 0 },
-    animate: {
-      y: [-10, 10, -10],
-      transition: { duration: 6, repeat: Infinity, ease: "easeInOut" },
-    },
-  };
+  const floatVariants: Variants = prefersReducedMotion
+    ? { initial: { y: 0 }, animate: { y: 0 } }
+    : {
+        initial: { y: 0 },
+        animate: {
+          y: [-10, 10, -10],
+          transition: { duration: 6, repeat: Infinity, ease: "easeInOut" },
+        },
+      };
 
   // ── CTA config / colors. ──
   const pick = pickCtaButtonColors(brand, surfaceHex);
@@ -245,6 +251,9 @@ export function BlockAuroraGradientHero({ props, brand, onCtaClick, onFieldChang
         .aurora-blob-2 { top: 40%; left: 60%; width: 40%; height: 40%; animation: aurora-2 30s infinite ease-in-out; }
         .aurora-blob-3 { top: 60%; left: 10%; width: 45%; height: 45%; animation: aurora-3 28s infinite ease-in-out; }
         .aurora-blob-4 { top: 20%; left: 40%; width: 60%; height: 60%; animation: aurora-4 35s infinite ease-in-out; }
+        @media (prefers-reduced-motion: reduce) {
+          .aurora-blob { animation: none; }
+        }
         .aurora-noise {
           position: absolute; inset: 0; z-index: 1; opacity: 0.05; pointer-events: none;
           background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");

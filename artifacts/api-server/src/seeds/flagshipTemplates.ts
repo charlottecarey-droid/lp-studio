@@ -23,6 +23,10 @@ const aiProductLaunch: GlobalTemplateSeed = {
   ogImage: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1200&q=80",
   industry: "saas",
   premiumRank: 1,
+  category: "saas-launch",
+  keywords: ["AI product", "AI launch", "AI tool", "model launch",
+    "prompt-driven", "AI startup"],
+  isAllInOne: true,
   blocks: [
     {
       id: id("full-bleed-hero", 1),
@@ -209,6 +213,10 @@ const enterprisePlatform: GlobalTemplateSeed = {
   ogImage: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&q=80",
   industry: "saas",
   premiumRank: 2,
+  category: "saas-launch",
+  keywords: ["enterprise platform", "IT buyer", "infrastructure",
+    "enterprise software", "platform page"],
+  isAllInOne: true,
   blocks: [
     {
       id: id("magazine-hero", 1),
@@ -414,6 +422,10 @@ const premiumSaas: GlobalTemplateSeed = {
   ogImage: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80",
   industry: "saas",
   premiumRank: 3,
+  category: "saas-launch",
+  keywords: ["premium SaaS", "SaaS landing", "high-end SaaS",
+    "conversion-tuned SaaS"],
+  isAllInOne: true,
   blocks: [
     {
       id: id("hero", 1),
@@ -574,6 +586,10 @@ const restaurant: GlobalTemplateSeed = {
   ogImage: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200&q=80",
   industry: "restaurant",
   premiumRank: 4,
+  category: "restaurant",
+  keywords: ["restaurant", "menu", "dining", "reservations", "bar",
+    "eatery", "café", "cafe", "bistro", "food"],
+  isAllInOne: true,
   blocks: [
     {
       id: id("full-bleed-hero", 1),
@@ -750,6 +766,10 @@ const creatorPortfolio: GlobalTemplateSeed = {
   ogImage: "https://images.unsplash.com/photo-1561070791-2526d30994b8?w=1200&q=80",
   industry: "creator",
   premiumRank: 5,
+  category: "portfolio",
+  keywords: ["portfolio", "creator", "designer portfolio", "artist site",
+    "personal site", "work", "case work", "selected work"],
+  isAllInOne: true,
   blocks: [
     {
       id: id("bold-statement", 1),
@@ -853,6 +873,10 @@ const localServices: GlobalTemplateSeed = {
   ogImage: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=1200&q=80",
   industry: "local-services",
   premiumRank: 6,
+  category: "services",
+  keywords: ["local service", "plumbing", "HVAC", "landscaping",
+    "contractor", "home service", "get a quote", "service area"],
+  isAllInOne: true,
   blocks: [
     {
       id: id("hero", 1),
@@ -1003,6 +1027,10 @@ const eventLanding: GlobalTemplateSeed = {
   ogImage: "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=1200&q=80",
   industry: "events",
   premiumRank: 7,
+  category: "event",
+  keywords: ["event", "event landing", "conference", "summit", "meetup",
+    "RSVP", "agenda", "speakers", "event page", "registration"],
+  isAllInOne: true,
   blocks: [
     {
       id: id("event-page", 1),
@@ -1200,6 +1228,10 @@ const productizedAgency: GlobalTemplateSeed = {
   ogImage: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=1200&q=80",
   industry: "agency",
   premiumRank: 8,
+  category: "services",
+  keywords: ["agency", "subscription agency", "productized agency",
+    "service subscription", "design subscription", "monthly retainer"],
+  isAllInOne: true,
   blocks: [
     {
       id: id("magazine-hero", 1),
@@ -1357,6 +1389,12 @@ const contentSeriesPodcast: GlobalTemplateSeed = {
   ogImage: "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=1200&q=80",
   industry: "media",
   premiumRank: 9,
+  category: "content-series",
+  keywords: ["podcast", "podcast series", "podcast page", "podcast home",
+    "podcast hub", "video series", "video show", "content series",
+    "show", "episodes", "episode archive", "interview series",
+    "newsletter series", "series hub"],
+  isAllInOne: true,
   blocks: [
     {
       id: id("content-series", 1),
@@ -1579,6 +1617,11 @@ const blogSeriesEditorial: GlobalTemplateSeed = {
   ogImage: "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=1200&q=80",
   industry: "media",
   premiumRank: 7,
+  category: "blog",
+  keywords: ["blog", "blog series", "blog home", "essays", "articles",
+    "editorial", "magazine", "publication", "writing", "article archive",
+    "contributors", "topic index"],
+  isAllInOne: true,
   blocks: [
     {
       id: id("blog-series", 1),
@@ -1677,6 +1720,11 @@ const storefrontDtc: GlobalTemplateSeed = {
   ogImage: "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=1200&q=80",
   industry: "ecommerce",
   premiumRank: 6,
+  category: "storefront",
+  keywords: ["storefront", "shop", "ecommerce", "e-commerce", "online store",
+    "product page", "DTC", "direct to consumer", "buy now", "checkout",
+    "cart", "products", "catalog", "merchandise", "store"],
+  isAllInOne: true,
   blocks: [
     {
       id: id("storefront", 1),

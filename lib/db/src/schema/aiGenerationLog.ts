@@ -34,6 +34,14 @@ export const aiGenerationLogTable = pgTable("ai_generation_log", {
   critiqueRewroteBlockIds: jsonb("critique_rewrote_block_ids").notNull().default([]),
   bannedPhraseHits: jsonb("banned_phrase_hits").notNull().default([]),       // BannedPhraseHit[] — clichés/brand-forbidden phrases the post-validator found in the output (Workstream B)
   outputBlockTypes: jsonb("output_block_types").notNull().default([]), // string[] — block.type for each block returned
+  // June 2026 — page-variety workstream. sequence_hash: sha1 of the page's
+  // non-structural block-type sequence (block-sequence repeat guard reads the
+  // tenant's recent hashes and re-prompts once on a collision). recipe_id: the
+  // page recipe injected into the prompt for this generation (least-recently-
+  // used rotation reads recent values). Both nullable — template-path rows and
+  // failed generations leave them null.
+  sequenceHash: text("sequence_hash"),
+  recipeId: text("recipe_id"),
   usedScreenshot: boolean("used_screenshot").notNull().default(false),
   errorMessage: text("error_message"),
   wasPublishedAfter: boolean("was_published_after").notNull().default(false), // backfilled when a page from this generation is later published

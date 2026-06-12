@@ -7,6 +7,14 @@
  * copy of only the worst 1–2 blocks, then merges the rewritten text back into
  * the original blocks.
  *
+ * June 2026 (page-variety/verification workstream): the pass is now MANDATORY
+ * on every generation. Previously it only ran when the banned-phrase validator
+ * found hits — pages with zero hits shipped with no critique at all. Now, when
+ * there are no hits, the pass instead targets the copy-heaviest 1–2 blocks and
+ * asks the model to tighten/sharpen their copy. Escape hatch:
+ * CRITIQUE_PASS_DISABLED=1 skips the pass entirely. (There is no plan-based
+ * gating — the only gate was the banned-phrase one removed here.)
+ *
  * Design constraints:
  *  - Non-destructive on failure. Any error, timeout, or malformed response
  *    leaves the original blocks completely untouched (fail-open). The page must
@@ -58,6 +66,10 @@ interface CritiqueOptions {
 
 const DEFAULT_MAX_BLOCKS = 2;
 const DEFAULT_TIMEOUT_MS = 3000;
+
+/** Minimum total copy length (chars) a block needs to be worth a mandatory
+ *  (no-banned-hits) critique — tiny blocks (a lone CTA label) are skipped. */
+const MIN_FALLBACK_COPY_LENGTH = 40;
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -127,6 +139,37 @@ function mergeStringLeaves(original: unknown, rewritten: unknown): unknown {
   return original;
 }
 
+/** Total length of the human-readable copy-string leaves in a value (the same
+ *  copy-key / urlish rules as mergeStringLeaves). Used to pick fallback targets
+ *  for the mandatory critique when no banned phrases were found. */
+function copyLength(value: unknown): number {
+  if (typeof value === "string") return isUrlish(value) ? 0 : value.length;
+  if (Array.isArray(value)) return value.reduce<number>((sum, v) => sum + copyLength(v), 0);
+  if (isPlainObject(value)) {
+    let sum = 0;
+    for (const [key, v] of Object.entries(value)) {
+      if (!isCopyKey(key)) continue;
+      sum += copyLength(v);
+    }
+    return sum;
+  }
+  return 0;
+}
+
+/** Ids of the copy-heaviest blocks — the mandatory-critique fallback targets
+ *  when the banned-phrase validator found nothing to rank by. */
+function pickCopyHeaviestBlockIds(blocks: unknown[], maxBlocks: number): string[] {
+  const ranked = blocks
+    .filter(isPlainObject)
+    .map((b) => ({
+      id: typeof b.id === "string" ? b.id : null,
+      len: copyLength(b.props),
+    }))
+    .filter((e): e is { id: string; len: number } => e.id !== null && e.len >= MIN_FALLBACK_COPY_LENGTH)
+    .sort((a, b) => b.len - a.len);
+  return ranked.slice(0, maxBlocks).map((e) => e.id);
+}
+
 function blockId(block: unknown): string | null {
   if (!isPlainObject(block)) return null;
   return typeof block.id === "string" ? block.id : null;
@@ -174,15 +217,24 @@ export async function critiqueAndRewriteBlocks(
 
   const empty: CritiqueResult = { blocks, annotations: [], critiqued: false };
 
-  if (!openai || !Array.isArray(blocks) || blocks.length === 0) return empty;
-  if (!Array.isArray(bannedPhraseHits) || bannedPhraseHits.length === 0) return empty;
+  // Explicit escape hatch — the only way to skip the (otherwise mandatory) pass.
+  if (process.env.CRITIQUE_PASS_DISABLED === "1") return empty;
 
-  // Pick the worst blocks that still exist in the output.
-  const ranked = rankBlocksByHits(bannedPhraseHits);
+  if (!openai || !Array.isArray(blocks) || blocks.length === 0) return empty;
+  const hits = Array.isArray(bannedPhraseHits) ? bannedPhraseHits : [];
+
+  // Pick the worst blocks (by banned-phrase hit count) that still exist in the
+  // output. With ZERO hits the pass still runs (mandatory critique): fall back
+  // to the copy-heaviest blocks so every generation gets a tightening pass.
   const targetIds: string[] = [];
-  for (const { blockId: id } of ranked) {
-    if (blocks.some((b) => blockId(b) === id)) targetIds.push(id);
-    if (targetIds.length >= maxBlocks) break;
+  if (hits.length > 0) {
+    const ranked = rankBlocksByHits(hits);
+    for (const { blockId: id } of ranked) {
+      if (blocks.some((b) => blockId(b) === id)) targetIds.push(id);
+      if (targetIds.length >= maxBlocks) break;
+    }
+  } else {
+    targetIds.push(...pickCopyHeaviestBlockIds(blocks, maxBlocks));
   }
   if (targetIds.length === 0) return empty;
 
@@ -192,7 +244,7 @@ export async function critiqueAndRewriteBlocks(
   if (targets.length === 0) return empty;
 
   const phrasesByBlock = new Map<string, Set<string>>();
-  for (const hit of bannedPhraseHits) {
+  for (const hit of hits) {
     if (!targetIds.includes(hit.blockId)) continue;
     if (!phrasesByBlock.has(hit.blockId)) phrasesByBlock.set(hit.blockId, new Set());
     phrasesByBlock.get(hit.blockId)!.add(hit.phrase);
@@ -200,11 +252,13 @@ export async function critiqueAndRewriteBlocks(
 
   const voiceContext = buildVoiceContext(brand);
   const bannedList = [
-    ...new Set(bannedPhraseHits.filter((h) => targetIds.includes(h.blockId)).map((h) => h.phrase)),
+    ...new Set(hits.filter((h) => targetIds.includes(h.blockId)).map((h) => h.phrase)),
   ];
   const userPrompt = [
     voiceContext ? `BRAND VOICE:\n${voiceContext}\n` : "",
-    `Banned/cliché phrases that MUST be removed (and not replaced with close variants): ${bannedList.join(", ")}.`,
+    bannedList.length > 0
+      ? `Banned/cliché phrases that MUST be removed (and not replaced with close variants): ${bannedList.join(", ")}.`
+      : "No specific banned phrases were detected. Tighten the copy anyway: replace vague hype, filler, and generic claims with specific, concrete, on-brand substance — keep anything already specific.",
     "",
     "Rewrite the copy in these blocks:",
     JSON.stringify({ blocks: targets.map((b) => ({ id: b.id, type: b.type, props: b.props })) }),

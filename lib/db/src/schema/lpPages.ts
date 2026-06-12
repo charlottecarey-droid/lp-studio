@@ -55,6 +55,22 @@ export const lpPagesTable = pgTable("lp_pages", {
   // visible only to their owning tenant. See routes/lp/templates.ts.
   isGlobal: boolean("is_global").notNull().default(false),
   industry: text("industry"),
+  // All-in-one template intent selection (June 2026). Meaningful only on
+  // template rows (isTemplate=true); regular pages keep the defaults.
+  //   category      — coarse intent bucket ("storefront", "content-series",
+  //                   "blog", "business-case", "event", "restaurant",
+  //                   "portfolio", "services", "saas-launch", "generic").
+  //                   NULL = untagged.
+  //   keywords      — jsonb string[] of intent phrases matched against the
+  //                   user's generation prompt (lib/ai-prompts/template-intent.ts).
+  //                   NULL = never intent-matched.
+  //   isAllInOne    — monolithic single-block templates and curated
+  //                   multi-block recipes whose structure must not gain extra
+  //                   blocks. Only these rows enter the intent selector's
+  //                   candidate set in generate-page.ts.
+  category: text("category"),
+  keywords: jsonb("keywords"),
+  isAllInOne: boolean("is_all_in_one").notNull().default(false),
   audienceType: text("audience_type"),  // "dso-corporate" | "dso-practice" | "independent"
   segmentId: text("segment_id"),        // brand segment ID applied to this page
   // Page-review workflow (task #108). status may be "draft" | "pending_review" | "published".

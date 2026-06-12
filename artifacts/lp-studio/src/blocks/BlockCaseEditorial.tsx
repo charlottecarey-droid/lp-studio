@@ -594,7 +594,7 @@ export function BlockCaseEditorial({ props, brand }: Props) {
               <figure key={i} className="flex flex-col gap-4">
                 <EditorialImage
                   url={g.url}
-                  alt={g.caption || `Gallery image ${i + 1}`}
+                  alt={g.caption || ""}
                   ratio={i % 3 === 1 ? "3 / 4" : "4 / 3"}
                   radius={radius}
                   border={border}

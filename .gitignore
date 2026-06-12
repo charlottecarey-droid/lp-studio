@@ -58,3 +58,4 @@ artifacts/mockup-sandbox/src/.generated/
 .env.bak.*
 .env.local
 !.env.example
+.pnpm-store/

@@ -12,6 +12,25 @@
 // per-type defaults in `BLOCK_REGISTRY`. Anything missing falls back to those
 // defaults inside the renderer / builder.
 
+/** Coarse intent bucket for all-in-one templates (June 2026). Drives the
+ *  AI generation route's intent selector (lib/ai-prompts/template-intent.ts).
+ *  "customer-story-hub" / "case-study" are reserved for templates that don't
+ *  exist yet (follow-up PRs). Templates without a category behave as
+ *  "generic" — never intent-matched. */
+export type TemplateCategory =
+  | "storefront"
+  | "content-series" // podcast / video / newsletter
+  | "blog"
+  | "business-case"
+  | "customer-story-hub" // future
+  | "case-study" // future
+  | "event"
+  | "restaurant"
+  | "portfolio"
+  | "services"
+  | "saas-launch"
+  | "generic";
+
 export interface GlobalTemplateSeed {
   slug: string;
   title: string;
@@ -28,6 +47,18 @@ export interface GlobalTemplateSeed {
    *  Flagship premium templates: 1-10. Distinctive premium: 20.
    *  Generic starters: 50. Industry starters: 100. Tenant templates: omit. */
   premiumRank?: number;
+  /** Intent bucket (June 2026). Stored on lp_pages.category. Only set on
+   *  all-in-one templates; omitted = generic / never intent-matched. */
+  category?: TemplateCategory;
+  /** Intent phrases the AI generation route matches against the user's
+   *  prompt (whole-word / phrase matching — see template-intent.ts). Stored
+   *  on lp_pages.keywords as jsonb. Only set on all-in-one templates. */
+  keywords?: string[];
+  /** True for monolithic single-block templates AND curated multi-block
+   *  recipes whose structure must NOT gain extra blocks. Only isAllInOne
+   *  templates enter the intent selector's candidate set. Stored on
+   *  lp_pages.is_all_in_one. */
+  isAllInOne?: boolean;
 }
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
@@ -2902,6 +2933,11 @@ const BUSINESS_CASE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
     ogImage: "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?w=1200&q=80",
     industry: "dental",
     premiumRank: 26,
+    category: "business-case",
+    keywords: ["business case", "exec brief", "executive summary",
+      "ROI case", "enterprise pitch", "consultative sales", "deal microsite",
+      "1:1 sales page", "buyer brief"],
+    isAllInOne: true,
     blocks: [
       {
         id: "seed-business-case-split-1",
@@ -2919,6 +2955,10 @@ const BUSINESS_CASE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
     ogImage: "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?w=1200&q=80",
     industry: "dental",
     premiumRank: 27,
+    category: "business-case",
+    keywords: ["business case", "ROI case", "exec narrative",
+      "comparison case", "paradigm shift", "KPI case", "centered case"],
+    isAllInOne: true,
     blocks: [
       {
         id: "seed-business-case-centered-1",
@@ -2936,6 +2976,10 @@ const BUSINESS_CASE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
     ogImage: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=1200&q=80",
     industry: "dental",
     premiumRank: 28,
+    category: "business-case",
+    keywords: ["business case", "editorial case", "inbound narrative",
+      "story-led case", "exec briefing", "story-driven case"],
+    isAllInOne: true,
     blocks: [
       {
         id: "seed-business-case-premium-1",
@@ -2966,3 +3010,10 @@ export const GLOBAL_TEMPLATE_SEEDS: GlobalTemplateSeed[] = COMBINED.map((t) => (
 export const PREMIUM_RANK_BY_SLUG: Record<string, number> = Object.fromEntries(
   GLOBAL_TEMPLATE_SEEDS.map((t) => [t.slug, t.premiumRank ?? defaultPremiumRank(t.slug)]),
 );
+
+/** All-in-one templates (June 2026) — the subset whose category/keywords/
+ *  isAllInOne intent fields are backfilled onto lp_pages by the
+ *  global_templates_intent_v1 step in migrate.ts, and the only templates
+ *  the generation route's intent selector may pick. */
+export const ALL_IN_ONE_TEMPLATE_SEEDS: GlobalTemplateSeed[] =
+  GLOBAL_TEMPLATE_SEEDS.filter((t) => t.isAllInOne === true);

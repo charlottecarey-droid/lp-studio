@@ -254,3 +254,88 @@ describe("injectPageMeta — OG image robustness for scrapers", () => {
     expect(out).not.toContain("STALE CO");
   });
 });
+
+describe("injectPageMeta — JSON-LD WebPage object", () => {
+  const JSONLD_RE =
+    /<script type="application\/ld\+json" data-lp-jsonld="webpage">([\s\S]*?)<\/script>/;
+
+  function extractJsonLd(html: string): Record<string, unknown> | null {
+    const m = html.match(JSONLD_RE);
+    if (!m) return null;
+    // The serializer escapes "<" as a unicode escape sequence, which
+    // JSON.parse handles natively.
+    return JSON.parse(m[1]) as Record<string, unknown>;
+  }
+
+  it("injects a single JSON-LD script with WebPage name/description/url + Organization publisher", () => {
+    const out = injectPageMeta(baseHtml, meta);
+    const matches = out.match(/data-lp-jsonld/g) || [];
+    expect(matches.length).toBe(1);
+    const obj = extractJsonLd(out);
+    expect(obj).not.toBeNull();
+    expect(obj!["@context"]).toBe("https://schema.org");
+    expect(obj!["@type"]).toBe("WebPage");
+    expect(obj!.name).toBe("SEO Title");
+    expect(obj!.description).toBe("SEO description here.");
+    expect(obj!.url).toBe("https://pages.example.com/my-page");
+    const publisher = obj!.publisher as Record<string, unknown>;
+    expect(publisher["@type"]).toBe("Organization");
+    expect(publisher.name).toBe("Example Co");
+    // Injected inside <head>.
+    expect(out.indexOf("data-lp-jsonld")).toBeLessThan(out.indexOf("</head>"));
+  });
+
+  it("includes publisher.logo (absolutised) when a tenant favicon is provided", () => {
+    const out = injectPageMeta(baseHtml, { ...meta, faviconUrl: "/brand/icon.png" });
+    const obj = extractJsonLd(out);
+    const publisher = obj!.publisher as Record<string, unknown>;
+    expect(publisher.logo).toBe("https://pages.example.com/brand/icon.png");
+  });
+
+  it("skips JSON-LD entirely when the page resolves to noindex (page override)", () => {
+    const out = injectPageMeta(baseHtml, { ...meta, allowIndexing: false });
+    expect(out).not.toContain("application/ld+json");
+    expect(out).not.toContain("data-lp-jsonld");
+  });
+
+  it("skips JSON-LD when the tenant default is noindex and the page inherits", () => {
+    const out = injectPageMeta(baseHtml, { ...meta, tenantAllowIndexing: false });
+    expect(out).not.toContain("application/ld+json");
+  });
+
+  it("strips a stale JSON-LD script from the snapshot when the page flips to noindex", () => {
+    const seeded = baseHtml.replace(
+      "</head>",
+      `<script type="application/ld+json" data-lp-jsonld="webpage">{"@type":"WebPage","name":"STALE"}</script></head>`,
+    );
+    const out = injectPageMeta(seeded, { ...meta, allowIndexing: false });
+    expect(out).not.toContain("data-lp-jsonld");
+    expect(out).not.toContain("STALE");
+  });
+
+  it("does not duplicate JSON-LD on re-render of a snapshot that already has one", () => {
+    const seeded = baseHtml.replace(
+      "</head>",
+      `<script type="application/ld+json" data-lp-jsonld="webpage">{"name":"OLD"}</script></head>`,
+    );
+    const out = injectPageMeta(seeded, meta);
+    const matches = out.match(/data-lp-jsonld/g) || [];
+    expect(matches.length).toBe(1);
+    expect(out).not.toContain('"OLD"');
+  });
+
+  it("escapes </script sequences inside JSON values so the payload can't break out", () => {
+    const out = injectPageMeta(baseHtml, {
+      ...meta,
+      metaTitle: `Sneaky</script><script>alert(1)</script>`,
+    });
+    const m = out.match(JSONLD_RE);
+    expect(m).not.toBeNull();
+    // No raw "<" survives inside the JSON payload…
+    expect(m![1]).not.toContain("<");
+    expect(m![1]).toContain("\\u003c/script");
+    // …and parsing recovers the original string intact.
+    const obj = JSON.parse(m![1]) as { name: string };
+    expect(obj.name).toBe("Sneaky</script><script>alert(1)</script>");
+  });
+});

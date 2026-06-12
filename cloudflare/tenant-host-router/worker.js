@@ -441,6 +441,48 @@ export default {
       return fetch(request);
     }
 
+    // ── Tier 3.2: Host-scoped robots.txt / sitemap.xml ───────────────
+    // Without this, /robots.txt and /sitemap.xml on tenant hosts fall
+    // through to Tier 4 → the Replit *static SPA* service, which serves
+    // the lpstudio.ai marketing public/robots.txt on EVERY host and
+    // rewrites the (nonexistent) /sitemap.xml to index.html (text/html —
+    // a broken sitemap). Proxy both paths to the api-server's host-aware
+    // handlers instead (routes/lp/seo-files.ts), carrying the visitor's
+    // real hostname via X-Original-Host + X-Worker-Secret like the OG
+    // preview tiers do. Placed AFTER Tier 3 so the lpstudio.ai marketing
+    // hosts keep their static robots.txt. On any failure we fall through
+    // to Tier 4 (pre-fix behaviour) rather than erroring.
+    if (
+      isGetOrHead &&
+      (url.pathname === "/robots.txt" || url.pathname === "/sitemap.xml")
+    ) {
+      try {
+        const seoUrl = `${REPLIT_TARGET}/api/lp${url.pathname}`;
+        const headers = {
+          "X-Original-Host": originalHost,
+          "X-Forwarded-Host": originalHost,
+          "X-Forwarded-Proto": proto,
+          "User-Agent": ua,
+        };
+        if (env.WORKER_HOST_SECRET) headers["X-Worker-Secret"] = env.WORKER_HOST_SECRET;
+        const seoResp = await fetch(seoUrl, { method: request.method, headers });
+        if (seoResp.ok) {
+          const outHeaders = new Headers(seoResp.headers);
+          outHeaders.set("X-LP-Source", "api-seo-file");
+          return new Response(seoResp.body, { status: seoResp.status, headers: outHeaders });
+        }
+        // 404 from the api-server (e.g. sitemap on a host that maps to no
+        // tenant) is a real answer — return it rather than letting the
+        // static SPA serve marketing robots/index.html on a tenant host.
+        if (seoResp.status === 404) {
+          return new Response("Not found", { status: 404, headers: { "X-LP-Source": "api-seo-file" } });
+        }
+      } catch (err) {
+        console.error("robots/sitemap proxy error:", err);
+      }
+      // 5xx / network failure → fall through to Tier 4.
+    }
+
     // ── Tier 3.25: Bot host-level OG (no slug, or slug preview missed) ─
     // Task #999 — for social/link-preview bots hitting a tenant/Dandy host
     // root or an app-shell route with no published slug, serve the tenant's

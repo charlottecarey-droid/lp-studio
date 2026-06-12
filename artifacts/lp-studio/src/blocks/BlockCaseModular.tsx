@@ -1114,7 +1114,7 @@ export function BlockCaseModular({ props }: Props) {
                       {img.url && (
                         <img
                           src={img.url}
-                          alt={img.caption || `Gallery image ${i + 1}`}
+                          alt={img.caption || ""}
                           loading="lazy"
                           style={{
                             width: "100%",

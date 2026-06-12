@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
 import { ArrowRight, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -66,6 +66,7 @@ export function BlockParallaxImageHero({
   const [emailValue, setEmailValue] = useState("");
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const isEditor = !!onFieldChange;
+  const prefersReducedMotion = useReducedMotion();
 
   const accentColor = props.accentColor || brand.accentColor || "#C7E738";
   // CTA presentation. "link" (default / legacy) keeps the original underlined
@@ -155,7 +156,7 @@ export function BlockParallaxImageHero({
     offset: ["start end", "end start"],
   });
   const parallaxY = useTransform(scrollYProgress, (p) => {
-    if (!animationsEnabled || isEditor) return 0;
+    if (!animationsEnabled || isEditor || prefersReducedMotion) return 0;
     const sec = sectionRef.current;
     if (!sec) return 0;
     const h = sec.offsetHeight || 0;

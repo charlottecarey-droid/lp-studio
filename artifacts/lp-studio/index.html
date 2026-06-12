@@ -20,8 +20,115 @@
         window.webkit.messageHandlers = {};
       }
     </script>
-    <!-- RB2B Visitor Identification — partners.meetdandy.com only -->
-    <script>if (location.hostname === 'partners.meetdandy.com') { !function(key) {if (window.reb2b) return;window.reb2b = {loaded: true};var s = document.createElement("script");s.async = true;s.src = "https://ddwl4m2hdecbv.cloudfront.net/b/" + key + "/" + key + ".js.gz";document.getElementsByTagName("script")[0].parentNode.insertBefore(s, document.getElementsByTagName("script")[0]);}("5NRP9H7ZVYO1"); }</script>
+    <!-- Consent bootstrap — MUST run before the GTM / RB2B / Apollo loaders
+         below. Sets Google Consent Mode v2 defaults to denied (so GTM tags
+         hold their cookies until the visitor decides), exposes a tiny
+         consent API (window.__lpConsent) that the RB2B/Apollo loaders gate
+         on, persists the choice in localStorage('lp_consent'), and renders
+         a minimal bottom-bar banner. Scoped to the SAME hosts the trackers
+         load on (lp.meetdandy.com → GTM; partners.meetdandy.com →
+         RB2B + Apollo) so no other host ever sees the banner. -->
+    <script>
+      (function () {
+        var TRACKING_HOSTS = ['lp.meetdandy.com', 'partners.meetdandy.com'];
+        var tracked = TRACKING_HOSTS.indexOf(location.hostname) !== -1;
+        window.dataLayer = window.dataLayer || [];
+        if (!window.gtag) {
+          window.gtag = function () { window.dataLayer.push(arguments); };
+        }
+        var stored = null;
+        try { stored = localStorage.getItem('lp_consent'); } catch (_) {}
+        if (stored !== 'granted' && stored !== 'denied') stored = null;
+        var pending = [];
+        function pushGrantedUpdate() {
+          window.gtag('consent', 'update', {
+            analytics_storage: 'granted',
+            ad_storage: 'granted',
+            ad_user_data: 'granted',
+            ad_personalization: 'granted'
+          });
+        }
+        window.__lpConsent = {
+          state: stored,
+          // Run cb now if consent is already granted, otherwise queue it
+          // until (if ever) the visitor accepts. Used by the RB2B and
+          // Apollo loaders below so those scripts are only injected
+          // post-consent.
+          onGranted: function (cb) {
+            if (window.__lpConsent.state === 'granted') {
+              try { cb(); } catch (_) {}
+            } else {
+              pending.push(cb);
+            }
+          },
+          set: function (choice) {
+            window.__lpConsent.state = choice;
+            try { localStorage.setItem('lp_consent', choice); } catch (_) {}
+            if (choice === 'granted') {
+              pushGrantedUpdate();
+              var cbs = pending.splice(0, pending.length);
+              for (var i = 0; i < cbs.length; i++) {
+                try { cbs[i](); } catch (_) {}
+              }
+            }
+          }
+        };
+        if (!tracked) return;
+        // Google Consent Mode v2 defaults — everything denied until the
+        // visitor decides. Queued on dataLayer BEFORE gtm.js loads, which
+        // is what makes it a valid Consent Mode default.
+        window.gtag('consent', 'default', {
+          ad_storage: 'denied',
+          analytics_storage: 'denied',
+          ad_user_data: 'denied',
+          ad_personalization: 'denied',
+          wait_for_update: 500
+        });
+        if (stored === 'granted') pushGrantedUpdate();
+        if (stored !== null) return; // prior choice exists — apply silently, no banner
+        function showBanner() {
+          if (document.getElementById('lp-consent-banner')) return;
+          if (!document.body) return;
+          var bar = document.createElement('div');
+          bar.id = 'lp-consent-banner';
+          bar.setAttribute('role', 'dialog');
+          bar.setAttribute('aria-label', 'Cookie consent');
+          bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:2147483600;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;padding:10px 16px;background:#111827;color:#ffffff;font:14px/1.4 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;box-shadow:0 -2px 8px rgba(0,0,0,0.25)';
+          var msg = document.createElement('span');
+          msg.textContent = 'We use cookies for analytics.';
+          function mkBtn(label, primary) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = label;
+            b.style.cssText = 'font:inherit;font-size:13px;padding:6px 14px;border-radius:4px;cursor:pointer;' +
+              (primary
+                ? 'background:#ffffff;color:#111827;border:1px solid #ffffff;'
+                : 'background:transparent;color:#ffffff;border:1px solid rgba(255,255,255,0.6);');
+            return b;
+          }
+          var accept = mkBtn('Accept', true);
+          var decline = mkBtn('Decline', false);
+          function choose(choice) {
+            window.__lpConsent.set(choice);
+            if (bar.parentNode) bar.parentNode.removeChild(bar);
+          }
+          accept.onclick = function () { choose('granted'); };
+          decline.onclick = function () { choose('denied'); };
+          bar.appendChild(msg);
+          bar.appendChild(accept);
+          bar.appendChild(decline);
+          document.body.appendChild(bar);
+        }
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', showBanner);
+        } else {
+          showBanner();
+        }
+      })();
+    </script>
+    <!-- RB2B Visitor Identification — partners.meetdandy.com only, and only
+         after the visitor grants consent (see consent bootstrap above). -->
+    <script>if (location.hostname === 'partners.meetdandy.com') { window.__lpConsent.onGranted(function () { !function(key) {if (window.reb2b) return;window.reb2b = {loaded: true};var s = document.createElement("script");s.async = true;s.src = "https://ddwl4m2hdecbv.cloudfront.net/b/" + key + "/" + key + ".js.gz";document.getElementsByTagName("script")[0].parentNode.insertBefore(s, document.getElementsByTagName("script")[0]);}("5NRP9H7ZVYO1"); }); }</script>
     <!-- Google Tag Manager — lp.meetdandy.com only. Intentionally NOT loaded
          on partners.meetdandy.com (the GTM container ships marketing popups
          we don't want firing for partner traffic). -->
@@ -79,8 +186,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         }
       })();
     </script>
-    <!-- Apollo Website Tracker — partners.meetdandy.com only -->
-    <script>if (location.hostname === 'partners.meetdandy.com') { function initApollo(){var n=Math.random().toString(36).substring(7),o=document.createElement("script");o.src="https://assets.apollo.io/micro/website-tracker/tracker.iife.js?nocache="+n,o.async=!0,o.defer=!0,o.onload=function(){window.trackingFunctions.onLoad({appId:"68405d9cf09fef0021474660"})},document.head.appendChild(o)}initApollo(); }</script>
+    <!-- Apollo Website Tracker — partners.meetdandy.com only, and only after
+         the visitor grants consent (see consent bootstrap above). -->
+    <script>if (location.hostname === 'partners.meetdandy.com') { function initApollo(){var n=Math.random().toString(36).substring(7),o=document.createElement("script");o.src="https://assets.apollo.io/micro/website-tracker/tracker.iife.js?nocache="+n,o.async=!0,o.defer=!0,o.onload=function(){window.trackingFunctions.onLoad({appId:"68405d9cf09fef0021474660"})},document.head.appendChild(o)}window.__lpConsent.onGranted(initApollo); }</script>
   </head>
   <body>
     <!-- Google Tag Manager (noscript) — lp.meetdandy.com only, see head. -->

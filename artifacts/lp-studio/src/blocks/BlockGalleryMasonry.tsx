@@ -81,7 +81,7 @@ export function BlockGalleryMasonry({ props, brand, onFieldChange }: Props) {
               <div className={`relative overflow-hidden rounded-2xl ${img.aspect || "aspect-[4/3]"} group shadow-sm ring-1 ring-black/5 transition-all duration-500 hover:shadow-2xl hover:-translate-y-1`}>
                 <InlineImage
                   src={img.src}
-                  alt={img.alt || img.caption}
+                  alt={img.alt || img.caption || ""}
                   onUpdate={onFieldChange ? (src: string) => updateImage(idx, { src }) : undefined}
                   onAltUpdate={onFieldChange ? (alt: string) => updateImage(idx, { alt }) : undefined}
                   className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"

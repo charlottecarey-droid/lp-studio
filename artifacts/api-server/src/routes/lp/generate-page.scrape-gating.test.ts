@@ -1,14 +1,23 @@
 /**
- * Regression guard — at generate-page time we scrape ONLY the URL(s) the user
- * pastes into the generate modal's URL box (`referenceUrl` / `referenceUrls`).
+ * Regression guard — scrape gating at generate-page time (updated June 2026).
  *
- * Previously the route merged the brand's persisted `inspirationUrls` (e.g. the
- * Brand Settings homepage) into the scrape set, so EVERY generation re-scraped
- * the homepage and re-mirrored the same images into lp_media — flooding the
- * library with duplicate "scraped" rows. This suite locks in:
+ * Per-request URLs (the generate modal's URL box) get the FULL treatment:
+ * multi-page scrape, image mirroring into lp_media, and strict-facts trust.
  *
- *   • No per-request URL + populated brand `inspirationUrls`  → NO scrape, NO mirror.
- *   • A per-request reference URL                            → scrape + mirror run.
+ * The brand's persisted `inspirationUrls` (e.g. the Brand Settings homepage)
+ * participate again — but ONLY via the cached SCRAPE-ONLY path
+ * (`scrapeInspirationUrl`): style/structure markdown for the prompt, NO image
+ * mirroring (the old auto-merge re-mirrored the same homepage images on every
+ * run, flooding lp_media with duplicate "scraped" rows), and NO strict-facts
+ * trust. This suite locks in:
+ *
+ *   • No per-request URL + populated brand `inspirationUrls` →
+ *       scrape-only inspiration path runs; the FULL scrape pipeline
+ *       (maybeScrapeRef / maybeMultiPageScrapeRef) and mirrorReferenceImages
+ *       are NEVER invoked; the prompt labels the content as a style reference
+ *       and the trusted-source override stays OFF.
+ *   • A per-request reference URL → full scrape + mirror run (and the
+ *     inspiration path still runs alongside, scrape-only).
  *
  * Mocks ./firecrawl (the scraper) and mirrorReferenceImages with spies so we can
  * assert call counts; everything else runs for real against the in-process
@@ -34,10 +43,20 @@ const scrapeFx = vi.hoisted(() => {
     },
     screenshotUrl: undefined,
   };
+  // Scrape-only inspiration result: markdown only — no screenshot, no
+  // imageUrls (the real scrapeInspirationUrl drops them by design).
+  const inspiration = {
+    url: "https://brand-homepage.example.com/",
+    markdown: "Brand homepage. Style and structure reference markdown.",
+    truncated: false,
+    fromCache: false,
+  };
   return {
     scraped,
+    inspiration,
     maybeMultiPageScrapeRef: vi.fn(async () => scraped),
     maybeScrapeRef: vi.fn(async () => scraped),
+    scrapeInspirationUrl: vi.fn(async () => inspiration),
   };
 });
 
@@ -69,6 +88,7 @@ vi.mock("./firecrawl", async (importActual) => {
     ...actual,
     maybeMultiPageScrapeRef: scrapeFx.maybeMultiPageScrapeRef,
     maybeScrapeRef: scrapeFx.maybeScrapeRef,
+    scrapeInspirationUrl: scrapeFx.scrapeInspirationUrl,
   };
 });
 
@@ -201,6 +221,7 @@ beforeAll(() => {
 beforeEach(() => {
   scrapeFx.maybeMultiPageScrapeRef.mockClear();
   scrapeFx.maybeScrapeRef.mockClear();
+  scrapeFx.scrapeInspirationUrl.mockClear();
   mirrorFx.mirrorReferenceImages.mockClear();
   aiState.response = copyOnlyResponse();
 });
@@ -221,7 +242,7 @@ afterAll(async () => {
 });
 
 describe("generate-page — scrape gating", () => {
-  it("does NOT scrape or mirror the brand inspiration homepage when no reference URL is provided", async () => {
+  it("inspiration-only: runs the scrape-only path, never the full scrape pipeline, and NEVER mirrors", async () => {
     const { tenantId, sid } = await seedTenant();
     const { templateId } = await seedTemplate(tenantId);
 
@@ -232,12 +253,59 @@ describe("generate-page — scrape gating", () => {
     });
 
     expect(res.status).toBe(200);
+    // The brand inspiration homepage IS scraped again (June 2026) — but only
+    // through the cached scrape-only path…
+    expect(scrapeFx.scrapeInspirationUrl).toHaveBeenCalledTimes(1);
+    expect((scrapeFx.scrapeInspirationUrl.mock.calls[0] as unknown[])[0]).toBe(BRAND_INSPIRATION_URL);
+    // …never through the full per-request pipeline, and never mirrored into
+    // lp_media (the original library-flooding regression).
     expect(scrapeFx.maybeMultiPageScrapeRef).not.toHaveBeenCalled();
     expect(scrapeFx.maybeScrapeRef).not.toHaveBeenCalled();
     expect(mirrorFx.mirrorReferenceImages).not.toHaveBeenCalled();
+    // Inspiration scrapes confer NO reference status / trust on the response.
+    const body = res.json as {
+      usedReference?: boolean;
+      referenceUrls?: string[];
+      trustedFactForms?: string[];
+      inspirationReferences?: Array<{ url: string; fromCache: boolean }>;
+    };
+    expect(body.usedReference).toBe(false);
+    expect(body.referenceUrls).toEqual([]);
+    expect(body.trustedFactForms).toEqual([]);
+    // …but the additive `inspirationReferences` echo tells the FE which
+    // inspiration sites informed the page and their cache provenance.
+    expect(body.inspirationReferences).toEqual([
+      { url: BRAND_INSPIRATION_URL, fromCache: false },
+    ]);
   });
 
-  it("DOES scrape + mirror when the user provides a reference URL in the modal", async () => {
+  it("inspiration-only: the prompt labels the content style-only and the trusted-source override stays OFF", async () => {
+    const { tenantId, sid } = await seedTenant();
+    const { templateId } = await seedTemplate(tenantId);
+
+    // _captureOnly (dev/test-only) returns the assembled prompt verbatim.
+    const res = await authed(sid, "POST", `/lp/generate-page`, {
+      prompt: "Generate a landing page for a dental practice",
+      templateId,
+      _captureOnly: true,
+    });
+
+    expect(res.status).toBe(200);
+    const captureBody = res.json as { userPrompt?: string; usedReference?: boolean };
+    const userPrompt = String(captureBody.userPrompt ?? "");
+    // Inspiration content present, clearly labelled as a style reference…
+    expect(userPrompt).toContain("BRAND INSPIRATION SITES — STYLE & STRUCTURE REFERENCES ONLY");
+    expect(userPrompt).toContain(
+      "(brand inspiration site — mirror its style, structure and density; do NOT copy its specific claims)",
+    );
+    expect(userPrompt).toContain(scrapeFx.inspiration.markdown);
+    // …with NO per-request REFERENCE PAGE section and NO strict-facts trust.
+    expect(userPrompt).not.toContain("REFERENCE PAGE — STUDY THIS CAREFULLY");
+    expect(userPrompt).not.toContain("TRUSTED SOURCE URL — OVERRIDE");
+    expect(captureBody.usedReference).toBe(false);
+  });
+
+  it("DOES scrape + mirror when the user provides a reference URL in the modal (inspiration rides along scrape-only)", async () => {
     const { tenantId, sid } = await seedTenant();
     const { templateId } = await seedTemplate(tenantId);
 
@@ -251,10 +319,26 @@ describe("generate-page — scrape gating", () => {
     expect(res.status).toBe(200);
     // A single per-request URL uses the multi-page scrape path.
     expect(scrapeFx.maybeMultiPageScrapeRef).toHaveBeenCalledTimes(1);
-    // The scraped URL was the user's, NOT the brand inspiration homepage.
+    // The fully-scraped URL was the user's, NOT the brand inspiration homepage.
     const scrapedArg = (scrapeFx.maybeMultiPageScrapeRef.mock.calls[0] as unknown[])[0];
     expect(scrapedArg).toBe(scrapeFx.scraped.scraped.url);
     expect(scrapedArg).not.toBe(BRAND_INSPIRATION_URL);
     expect(mirrorFx.mirrorReferenceImages).toHaveBeenCalled();
+    // The inspiration homepage still participates — scrape-only.
+    expect(scrapeFx.scrapeInspirationUrl).toHaveBeenCalledTimes(1);
+    expect((scrapeFx.scrapeInspirationUrl.mock.calls[0] as unknown[])[0]).toBe(BRAND_INSPIRATION_URL);
+    // Trust comes from the per-request URL only.
+    const body = res.json as {
+      usedReference?: boolean;
+      referenceUrls?: string[];
+      inspirationReferences?: Array<{ url: string; fromCache: boolean }>;
+    };
+    expect(body.usedReference).toBe(true);
+    // The response separates the two: per-request URLs in referenceUrls,
+    // inspiration sites in the additive inspirationReferences echo.
+    expect(body.referenceUrls).toEqual([scrapeFx.scraped.scraped.url]);
+    expect(body.inspirationReferences).toEqual([
+      { url: BRAND_INSPIRATION_URL, fromCache: false },
+    ]);
   });
 });

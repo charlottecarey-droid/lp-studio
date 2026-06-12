@@ -9,12 +9,29 @@ import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../l
 import { generateAndStoreImage, loadBrandHints } from "./custom-blocks-generate";
 import { aiHeavyLimiter, aiHeavyHourlyLimiter } from "../../lib/ai-rate-limit";
 import { requireAiGenerationQuota } from "../../middleware/requireAiGenerationQuota";
-import { maybeMultiPageScrapeRef, maybeScrapeRef, type MaybeScrapeResult } from "./firecrawl";
+import { maybeMultiPageScrapeRef, maybeScrapeRef, scrapeInspirationUrl, type InspirationScrapeResult, type MaybeScrapeResult } from "./firecrawl";
 import { mirrorReferenceImages } from "../../lib/brand-import/assets-uploader";
 import { preprocessScreenshotDataUrl } from "./screenshot-preprocess";
-import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
+import type { ChatCompletionContentPart, ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { findBannedPhrases, type BannedPhraseHit } from "../../lib/ai-prompts/banned-phrase-validator";
 import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-prompts/critique-pass";
+import {
+  recipesForPath,
+  pickRecipe,
+  buildRecipeDirective,
+  injectRecipeIntoBlockSelection,
+  blockSequenceHash,
+  shouldRetryForRepeatedSequence,
+  buildRepeatCorrectiveMessage,
+  type PageRecipe,
+  type RecipePromptPath,
+} from "../../lib/ai-prompts/page-recipes";
+import {
+  computeImageFitFlags,
+  type ImageFitFlag,
+  type ImageFitImageInfo,
+  type ImageFitSlot,
+} from "../../lib/ai-prompts/image-fit";
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
 import { resolveBlockTags, BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS, type BlockRoleTag } from "@workspace/lp-template-engine";
 import {
@@ -29,6 +46,7 @@ import {
   type PageOutline,
 } from "@workspace/lp-template-engine";
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
+import { matchTemplateIntent } from "../../lib/ai-prompts/template-intent";
 import { detectFacts, isNonStatIdiom, siblingLabelText } from "../../lib/factFlags";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
 import { isProtectedEnterpriseSlug } from "@workspace/plan-config";
@@ -1046,10 +1064,29 @@ function findBestImage(
   usedIds: Set<string>,
   preferredPurpose?: string,
   relaxed = false,
+  /** Block type of the slot being filled — observability only (the
+   *  relevance-floor log below); never affects scoring. */
+  blockType = "",
 ): string {
   if (images.length === 0) return "";
   const contextLower = context.toLowerCase();
   const contextWords = contextLower.split(/\s+/);
+
+  // "Empty beats wrong" relevance floor (June 2026). HERO and PRODUCT-DETAIL
+  // slots are the page's most prominent / most subject-specific imagery, so a
+  // last-resort filler that is merely "not clearly off-topic" (score 0) still
+  // reads as broken there — a generic starter seed as the hero, or an
+  // unrelated photo on a product card. In the RELAXED pass these slots demand
+  // a candidate that either MATCHES the slot purpose outright or carries
+  // equivalent topical content-tag signal (total score >= PURPOSE_MATCH_BOOST).
+  // No candidate clears the floor → the slot stays empty; every hero /
+  // product block has a fallback/empty state that reads better than a wrong
+  // image. lp-feature and other minor slots keep the existing relaxed
+  // behavior (non-negative floor) so pages don't go bare. The explicit
+  // purpose-match escape covers a purpose-matched sibling-tenant image whose
+  // −1 foreign nudge would otherwise drop it just below the numeric floor.
+  const requirePurposeFloor =
+    relaxed && (preferredPurpose === "lp-hero" || preferredPurpose === "product-detail");
 
   // Per-candidate acceptability gate. We pick the highest-scoring unused image
   // that PASSES its gate (not the global best then gate it once) — so when the
@@ -1088,6 +1125,10 @@ function findBestImage(
   let bestScrapedScore = -Infinity;
   let bestStarter: MediaImage | null = null;
   let bestStarterScore = -Infinity;
+  // Highest score among candidates rejected SOLELY by the relaxed-pass
+  // relevance floor (requirePurposeFloor). Logged when the floor is the reason
+  // a high-visibility slot stays empty, so regressions are observable.
+  let bestFloorRejectedScore = -Infinity;
   for (const img of images) {
     if (usedIds.has(imageIdentity(img))) continue;
     // Source-page hero rule: a SCRAPED image may fill a hero slot ONLY if it was
@@ -1120,6 +1161,18 @@ function findBestImage(
     // don't textually overlap the slot context, which was starving dentures /
     // product-grid slots of the tenant's own on-topic photos.)
     if (score < 0) continue;
+    // Relevance floor for hero / product-detail slots in the relaxed pass —
+    // see `requirePurposeFloor` above. (Logo protections are unaffected: logo
+    // slots/URLs never reach this scorer, and logo-tagged rows are excluded
+    // from the pool upstream via EXCLUDE_TAGS.)
+    if (
+      requirePurposeFloor &&
+      score < PURPOSE_MATCH_BOOST &&
+      getImagePurpose(img) !== preferredPurpose
+    ) {
+      if (score > bestFloorRejectedScore) bestFloorRejectedScore = score;
+      continue;
+    }
     if (starter) {
       if (score > bestStarterScore) {
         bestStarterScore = score;
@@ -1143,6 +1196,21 @@ function findBestImage(
     usedIds.add(imageIdentity(chosen));
     return chosen.url;
   }
+  // "Empty beats wrong" observability: the relevance floor (not mere pool
+  // exhaustion) is why this high-visibility slot stays empty — at least one
+  // otherwise-eligible candidate was rejected for scoring below the floor.
+  if (requirePurposeFloor && bestFloorRejectedScore > -Infinity) {
+    logger.info(
+      {
+        event: "image_fill_floor_left_slot_empty",
+        slotPurpose: preferredPurpose,
+        blockType,
+        bestCandidateScore: bestFloorRejectedScore,
+        floor: PURPOSE_MATCH_BOOST,
+      },
+      "[generate-page] relaxed-pass relevance floor left slot empty (empty beats wrong)",
+    );
+  }
   return "";
 }
 
@@ -1154,6 +1222,9 @@ type AIImageSlot = {
   set: (v: string) => void;
   purpose: string;
   context: string;
+  /** The prop key holding the image (e.g. "imageUrl", "src", "image"). Used by
+   *  the advisory image-fit flag pass to name the slot in review flags. */
+  field: string;
 };
 
 /** Block types whose `items[].image` is an OPTIONAL per-item photo (logo/feature
@@ -1288,6 +1359,7 @@ export function collectImageSlots(
         set: (v) => { props[key] = v; },
         purpose,
         context,
+        field: key,
       });
     }
   };
@@ -1339,6 +1411,7 @@ export function collectImageSlots(
           set: (v) => { a[i][key] = v; },
           purpose,
           context: ctxFn(item),
+          field: key,
         });
       }
     });
@@ -1408,6 +1481,7 @@ export function collectImageSlots(
           set: (v) => { fa[key] = v; },
           purpose: "lp-feature",
           context: `${fa.category ?? ""} ${fa.title ?? ""}`,
+          field: key,
         });
       }
     });
@@ -1425,6 +1499,7 @@ export function collectImageSlots(
           set: (v) => { a[i].imageUrl = v; },
           purpose: "lp-feature",
           context: `${tile.caption ?? ""} ${blockContext}`,
+          field: "imageUrl",
         });
       }
       if (tile.kind === "image" && want(tile.primary)) {
@@ -1433,6 +1508,7 @@ export function collectImageSlots(
           set: (v) => { a[i].primary = v; },
           purpose: "lp-feature",
           context: `${tile.secondary ?? ""} ${blockContext}`,
+          field: "primary",
         });
       }
       // features-bento-showcase tiles[].image — OPTIONAL real-image override
@@ -1443,6 +1519,7 @@ export function collectImageSlots(
           set: (v) => { a[i].image = v; },
           purpose: "lp-feature",
           context: `${tile.title ?? ""} ${tile.description ?? ""}`,
+          field: "image",
         });
       }
     });
@@ -1460,6 +1537,7 @@ export function collectImageSlots(
             set: (v) => { a[i][key] = v; },
             purpose: "lp-feature",
             context: `${pair.caption ?? ""} ${key === "beforeSrc" ? "before" : "after"}`,
+            field: key,
           });
         }
       });
@@ -1476,6 +1554,7 @@ export function collectImageSlots(
           set: (v) => { a[i] = v; },
           purpose: "lp-feature",
           context: blockContext,
+          field: "imageUrls",
         });
       }
     });
@@ -1491,6 +1570,7 @@ export function collectImageSlots(
           set: (v) => { a[i] = v; },
           purpose: "lp-feature",
           context: `${blockContext} customer portrait`,
+          field: "avatarUrls",
         });
       }
     });
@@ -2089,7 +2169,10 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
   // generic headline still prefers on-topic imagery. When `relaxed` is set the
   // score gate relaxes to a non-negative FLOOR so any still-empty slot grabs the
   // best remaining (not clearly off-topic) library image rather than being left
-  // for AI generation. Scraped page-reference images must clear a positive
+  // for AI generation — EXCEPT hero and product-detail slots, which demand a
+  // purpose match or equivalent topical signal even in the relaxed pass ("empty
+  // beats wrong"; see the relevance floor in findBestImage). Scraped
+  // page-reference images must clear a positive
   // content-relevance bar in the strict pass — see findBestImage. (Task #1287)
   // `biasPage` appends the page's industry/topic vocabulary to the per-slot
   // context. That bias helps generic-headline hero/feature slots, but it MUST be
@@ -2099,8 +2182,13 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
   // product shot — a crown, even a logo — score positive and drown out the real
   // subject match. Before the May-2026 page-bias change (Task #469) product
   // slots scored against the subject alone; product-detail picks keep that.
+  // Block type of the block currently being filled. Set at the top of the
+  // SYNCHRONOUS blocks.map below (so it is always current when pick() runs);
+  // threaded into findBestImage purely for the relevance-floor observability
+  // log — it never affects scoring.
+  let currentBlockType = "";
   const pick = (context: string, imgs: MediaImage[], used: Set<string>, purpose?: string, biasPage = true): string =>
-    findBestImage(biasPage && pageContext ? `${context} ${pageContext}` : context, imgs, used, purpose, relaxed);
+    findBestImage(biasPage && pageContext ? `${context} ${pageContext}` : context, imgs, used, purpose, relaxed, currentBlockType);
 
   // First pass: collect already-used image IDENTITIES across EVERY image-bearing
   // shape (reuses collectImageSlots so heroImageUrl, cards/panels/pairs/slides,
@@ -2124,6 +2212,7 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
     const b = { ...(block as Record<string, unknown>) };
     const props = { ...(b.props as Record<string, unknown>) };
     const blockType = b.type as string;
+    currentBlockType = blockType;
     const headline = (props.headline as string) ?? "";
     const subheadline = (props.subheadline as string) ?? "";
     const blockContext = `${blockType} ${headline} ${subheadline}`;
@@ -5811,6 +5900,55 @@ export async function gatherReferences(
   };
 }
 
+// ── Brand inspiration references (June 2026) ────────────────────────────
+// The brand's persisted `inspirationUrls` are scraped again (via the cached,
+// scrape-only `scrapeInspirationUrl` path — no screenshots, no image
+// mirroring into lp_media) and surfaced to the model as STYLE / STRUCTURE
+// references only. Prompt-size discipline: at most 2 inspiration sites, with
+// a much tighter per-site markdown cap when a detailed per-request REFERENCE
+// PAGE section is also present (per-request wins the detailed treatment).
+
+/** At most this many inspiration sites are surfaced in the prompt. */
+export const INSPIRATION_REFERENCE_MAX_SITES = 2;
+const INSPIRATION_SECTION_CHARS_FULL = 6_000;
+const INSPIRATION_SECTION_CHARS_WITH_REFERENCE = 2_500;
+
+/** The per-site label that frames inspiration content as style-only. */
+export const INSPIRATION_REFERENCE_LABEL =
+  "(brand inspiration site — mirror its style, structure and density; do NOT copy its specific claims)";
+
+/**
+ * Build the BRAND INSPIRATION SITES prompt section. Inspiration-derived
+ * references are explicitly labelled style/structure references: the model
+ * may mirror their look, section variety, and density, but must never lift
+ * their specific claims/stats/quotes — and they NEVER confer strict-facts
+ * trust (urlSourcedFacts is computed from per-request URLs only).
+ */
+export function buildInspirationSection(
+  refs: Array<{ url: string; markdown: string }>,
+  opts: { hasPerRequestReference: boolean },
+): string {
+  const usable = refs
+    .filter((r) => r && typeof r.url === "string" && r.url && r.markdown.trim().length > 0)
+    .slice(0, INSPIRATION_REFERENCE_MAX_SITES);
+  if (usable.length === 0) return "";
+  const perSiteCap = opts.hasPerRequestReference
+    ? INSPIRATION_SECTION_CHARS_WITH_REFERENCE
+    : INSPIRATION_SECTION_CHARS_FULL;
+  const sites = usable
+    .map((r) => `### ${r.url} ${INSPIRATION_REFERENCE_LABEL}\n${r.markdown.slice(0, perSiteCap)}`)
+    .join("\n\n---\n\n");
+  return (
+    `BRAND INSPIRATION SITES — STYLE & STRUCTURE REFERENCES ONLY (saved in this brand's settings):\n${sites}\n\n` +
+    `Use these pages for STYLE, STRUCTURE, and DENSITY only: section ordering and variety, headline cadence, information density, and overall feel.\n` +
+    `- Do NOT copy their specific claims, stats, metrics, customer names, quotes, or product facts — they describe OTHER businesses. Facts must come from the BRAND CONTEXT and the approved sections above${opts.hasPerRequestReference ? ", or from the REFERENCE PAGE (the user-provided source for THIS generation)" : ""}.\n` +
+    (opts.hasPerRequestReference
+      ? `- The REFERENCE PAGE above is the PRIMARY reference — when it conflicts with these inspiration sites, the REFERENCE PAGE wins.\n`
+      : "") +
+    `- The brand's own voice (WRITE IN THIS VOICE / BANNED PHRASES sections) outranks everything in this section.`
+  );
+}
+
 /** Deduplicate URLs case-insensitively (preserving the first-seen casing)
  *  and cap to `max`. Empty/whitespace entries are dropped. */
 export function dedupeUrls(input: unknown[], max: number): string[] {
@@ -5829,6 +5967,47 @@ export function dedupeUrls(input: unknown[], max: number): string[] {
   return out;
 }
 
+/** Hard cap on the total reference-URL fan-out per generation (per-request +
+ *  inspiration combined) — keeps Firecrawl spend and prompt size bounded. */
+export const MAX_SCRAPE_URLS = 5;
+
+/** Normalize a URL for set-membership comparison ("site.com" must match the
+ *  scraper's "https://site.com/"). Used for the per-request/inspiration dedupe
+ *  and for the urlSourcedFacts strict-facts trust gate. */
+function normalizeUrlForMatch(u: string): string | null {
+  try {
+    return new URL(u.startsWith("http") ? u : `https://${u}`).toString().toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Pick which brand inspiration URLs to scrape (via the cached scrape-only
+ * path) for this generation:
+ *   • per-request URLs always take priority and count toward MAX_SCRAPE_URLS
+ *     first — inspiration only uses whatever headroom remains;
+ *   • a URL appearing in BOTH lists is deduped INTO the per-request set
+ *     (full treatment + trust is appropriate there — the user explicitly
+ *     pasted it this run);
+ *   • never more than INSPIRATION_REFERENCE_MAX_SITES inspiration sites
+ *     (prompt-size discipline; buildInspirationSection caps to the same).
+ */
+export function selectInspirationScrapeUrls(
+  perRequestUrls: string[],
+  inspirationUrls: string[],
+): string[] {
+  const perRequestSet = new Set(
+    perRequestUrls.map(normalizeUrlForMatch).filter((u): u is string => u !== null),
+  );
+  return inspirationUrls
+    .filter((u) => {
+      const n = normalizeUrlForMatch(u);
+      return n === null || !perRequestSet.has(n);
+    })
+    .slice(0, Math.max(0, Math.min(INSPIRATION_REFERENCE_MAX_SITES, MAX_SCRAPE_URLS - perRequestUrls.length)));
+}
+
 /** Fire-and-forget insert into ai_generation_log. Logging failures must
  *  never affect the user's generation, so all errors are swallowed. */
 function logAiGeneration(row: {
@@ -5843,6 +6022,11 @@ function logAiGeneration(row: {
   composerDurationMs: number | null;
   outputBlockTypes: string[];
   bannedPhraseHits?: BannedPhraseHit[];
+  /** June 2026 — sha1 of the final non-structural block-type sequence (repeat
+   *  guard) and the page recipe used (rotation). Freeform/DSO success path
+   *  only; template-path and error rows leave them null. */
+  sequenceHash?: string | null;
+  recipeId?: string | null;
   usedScreenshot: boolean;
   errorMessage: string | null;
 }): void {
@@ -5860,6 +6044,8 @@ function logAiGeneration(row: {
     composerDurationMs: row.composerDurationMs,
     outputBlockTypes: row.outputBlockTypes,
     bannedPhraseHits: row.bannedPhraseHits ?? [],
+    sequenceHash: row.sequenceHash ?? null,
+    recipeId: row.recipeId ?? null,
     usedScreenshot: row.usedScreenshot,
     errorMessage: row.errorMessage,
   }).catch((err) => {
@@ -5898,9 +6084,12 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     /** Workstream A (May 2026) — list of reference URLs (up to 5). When the
      *  list has exactly one URL we use the multi-page scrape pattern; with
      *  2+ URLs we scrape each as a single page and stitch the markdown. These
-     *  per-request URLs are the ONLY URLs scraped at generation time — the
-     *  brand's persisted `inspirationUrls` are no longer auto-scraped here (see
-     *  the scrape-set comment below). Capped at 5. */
+     *  per-request URLs get the FULL scrape treatment (markdown + screenshot
+     *  + image mirroring into lp_media) and are the only URLs that can confer
+     *  strict-facts trust. The brand's persisted `inspirationUrls` are ALSO
+     *  scraped (June 2026), but via the cached scrape-only path — style/
+     *  structure references only, never mirrored, never trusted (see the
+     *  scrape-set comment below). Capped at 5 total, per-request first. */
     referenceUrls?: string[];
     /** Data-URL of a reference screenshot (paste from clipboard, drag/drop,
      *  etc.). Resized + JPEG-compressed before being shipped to vision. */
@@ -5948,7 +6137,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       ...(Array.isArray(referenceUrlsRaw) ? referenceUrlsRaw : []),
       ...(typeof referenceUrl === "string" ? [referenceUrl] : []),
     ],
-    5,
+    MAX_SCRAPE_URLS,
   );
   // Flatten the brand's inspiration set (either string[] or {url, note}[])
   // into a plain string list of URLs for the scrape pipeline.
@@ -5956,17 +6145,29 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     (brand.inspirationUrls ?? []).map((entry) =>
       typeof entry === "string" ? entry : entry?.url,
     ),
-    5,
+    MAX_SCRAPE_URLS,
   );
-  // Only the URLs the user pasted into the generate modal's URL box
-  // (`perRequestUrls`) are scraped at generation time. The brand's persisted
-  // `inspirationUrls` (e.g. the Brand Settings homepage) are deliberately NOT
-  // auto-scraped on every run: doing so re-mirrored the same homepage images
-  // into lp_media each time, flooding the library with duplicate "scraped"
-  // rows. Brand voice/structure is injected separately, and the brand-import
-  // flow (a distinct endpoint) still scrapes the homepage on demand. The list
-  // is already deduped + capped at 5 so Firecrawl fan-out stays predictable.
+  const perRequestUrlSet = new Set(
+    perRequestUrls.map(normalizeUrlForMatch).filter((u): u is string => u !== null),
+  );
+
+  // Scrape set (June 2026):
+  //   • `scrapeUrls` (= perRequestUrls) — the URLs the user pasted into the
+  //     generate modal. Full treatment: multi-page markdown, screenshot for
+  //     vision, image harvest mirrored into lp_media, and (alone) eligibility
+  //     for the strict-facts trust gate (`urlSourcedFacts` below).
+  //   • `inspirationScrapeUrls` — the brand's persisted inspirationUrls are
+  //     ALWAYS included again (restoring "pages that look like the brand's
+  //     reference sites"), but ONLY via the cached SCRAPE-ONLY path
+  //     (scrapeInspirationUrl): no screenshot, and crucially NO image
+  //     mirroring into lp_media — auto-mirroring them used to re-import the
+  //     same homepage images on every run and flood the library with
+  //     duplicate "scraped" rows. Deduped against per-request URLs; capped so
+  //     per-request + inspiration never exceeds 5 URLs total (per-request
+  //     takes priority) and inspiration never exceeds
+  //     INSPIRATION_REFERENCE_MAX_SITES.
   const scrapeUrls = perRequestUrls;
+  const inspirationScrapeUrls = selectInspirationScrapeUrls(perRequestUrls, inspirationUrls);
 
   // May 2026 audit follow-up — let users seed full-page generation with a
   // reference URL and/or screenshot. The scrape (multi-page when the user
@@ -5976,20 +6177,46 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   const scrapePromise: Promise<MaybeScrapeResult> = tenantId != null && scrapeUrls.length > 0
     ? gatherReferences(scrapeUrls, tenantId)
     : Promise.resolve({ scraped: null, failureReason: "no_url" } as MaybeScrapeResult);
+  // Inspiration scrapes run in the same parallel window. Best-effort: each
+  // failure resolves null and the section simply omits that site.
+  const inspirationPromise: Promise<(InspirationScrapeResult | null)[]> =
+    tenantId != null && inspirationScrapeUrls.length > 0
+      ? Promise.all(
+          inspirationScrapeUrls.map((u) => scrapeInspirationUrl(u, tenantId).catch(() => null)),
+        )
+      : Promise.resolve([]);
   const screenshotPromise: Promise<string | undefined> =
     typeof screenshotDataUrl === "string" && screenshotDataUrl.startsWith("data:image/")
       ? preprocessScreenshotDataUrl(screenshotDataUrl).then((s) => s)
       : Promise.resolve(undefined);
 
-  const [mediaCatalog, tenantSlugRow, proofPoints, scrapeResult, uploadedScreenshot] = await Promise.all([
+  const [mediaCatalog, tenantSlugRow, proofPoints, scrapeResult, inspirationScrapes, uploadedScreenshot] = await Promise.all([
     fetchMediaCatalog(tenantId),
     tenantId != null
       ? db.select({ slug: tenantsTable.slug }).from(tenantsTable).where(eq(tenantsTable.id, tenantId)).limit(1)
       : Promise.resolve([] as { slug: string }[]),
     fetchProofPoints(tenantId),
     scrapePromise,
+    inspirationPromise,
     screenshotPromise,
   ]);
+
+  // Inspiration references that actually scraped. These stay OUT of
+  // `scrapeResult` / `scrapedUrls` by construction, so they can't reach the
+  // urlSourcedFacts trust gate, the image-mirroring pipeline, or the
+  // current-reference image-fill priority (buildReferenceFillPool).
+  const inspirationRefs: InspirationScrapeResult[] = inspirationScrapes.filter(
+    (r): r is InspirationScrapeResult => r !== null,
+  );
+  // Response echo (additive / backward-compatible): which brand inspiration
+  // URLs actually informed this page, and whether each was served from the
+  // scrape cache vs a fresh Firecrawl call. Deliberately SEPARATE from
+  // `referenceUrls`/`scrapedUrls` (per-request only) so existing FE behavior
+  // — and the trust/mirroring semantics keyed off those fields — is unchanged.
+  const inspirationReferences = inspirationRefs.map((r) => ({
+    url: r.url,
+    fromCache: r.fromCache === true,
+  }));
 
   // The list of URLs actually scraped successfully (echoed back in the
   // response so the FE can display "we looked at: X, Y, Z").
@@ -6002,20 +6229,15 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // it scraped, we treat that page as a TRUSTED fact source: the strict-facts
   // guards below must not blank case studies, rebuild from the approved-only
   // pool, force placeholders, or flag the URL's facts as unapproved. This is
-  // deliberately distinct from the brand's persisted `inspirationUrls` (auto-
-  // merged for voice/structure only) — only per-request URLs (`perRequestUrls`)
-  // confer this trust. Matching is on the normalized URL so a bare "site.com"
+  // deliberately distinct from the brand's persisted `inspirationUrls`
+  // (scraped via the scrape-only path above for STYLE/STRUCTURE only) — only
+  // per-request URLs (`perRequestUrls`) confer this trust. Matching is on the
+  // normalized URL (normalizeUrlForMatch, defined above) so a bare "site.com"
   // request still matches the scraper's "https://site.com/" result.
-  const normalizeUrlForMatch = (u: string): string | null => {
-    try {
-      return new URL(u.startsWith("http") ? u : `https://${u}`).toString().toLowerCase();
-    } catch {
-      return null;
-    }
-  };
-  const perRequestUrlSet = new Set(
-    perRequestUrls.map(normalizeUrlForMatch).filter((u): u is string => u !== null),
-  );
+  // Inspiration scrapes cannot trip this gate: `scrapedUrls` is built solely
+  // from the per-request `scrapeResult`, and even a URL that appears in BOTH
+  // lists is deduped INTO the per-request set (where trust is appropriate —
+  // the user explicitly pasted it this run).
   const urlSourcedFacts =
     scrapeResult.scraped != null &&
     scrapedUrls.some((u) => {
@@ -6049,6 +6271,15 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       `IF this conflicts with the BRAND CONTEXT / WRITE IN THIS VOICE / BANNED PHRASES sections above, those WIN — the brand's own voice takes priority over the reference page, which is only inspiration for structure and visual density.`
     );
   })();
+
+  // Brand inspiration sites (June 2026) — style/structure references rebuilt
+  // from the cached scrape-only pipeline. Rides BELOW the per-request
+  // REFERENCE PAGE in both prompt paths; when both exist, the per-request
+  // reference keeps the detailed treatment and inspiration content is capped
+  // hard (see buildInspirationSection).
+  const inspirationSection = buildInspirationSection(inspirationRefs, {
+    hasPerRequestReference: !!scrapeResult.scraped,
+  });
 
   const visionSection = visionImage
     ? `VISUAL REFERENCE (the attached image): Study the layout, color palette, typography hierarchy, information density, and overall aesthetic of this screenshot. Identify the feel — premium/editorial vs scrappy/casual, dense vs airy, dark vs light, modern minimal vs decorative — and let it inform which block types you pick and how dense the content sits in each block. The screenshot sets visual style; copy comes from the REFERENCE PAGE markdown above (when present), the BRAND CONTEXT, or the USER REQUEST.`
@@ -6125,15 +6356,97 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   const resolvedBrandName =
     (brand.brandName ?? "").trim() || (isDandyTenant ? "Dandy" : "");
 
+  // ── All-in-one template intent matching (June 2026) ─────────────────
+  // When the caller did NOT pick an explicit template, match the prompt
+  // against the all-in-one template library (lp_pages template rows with
+  // is_all_in_one = true — monolithic/curated structures that must not gain
+  // extra blocks) and, on a confident keyword match, route the generation
+  // through the template path below exactly as if the user had picked that
+  // template: its sections get AI-filled with brand-aware copy and NO recipe
+  // is selected (recipe rotation is freeform-path-only, same as the explicit
+  // templateId path). Precedence:
+  //   • an explicit templateId always wins — matching is skipped entirely;
+  //   • a per-request reference URL or screenshot is an explicit design
+  //     preference, so it also suppresses intent matching (the freeform
+  //     path uses the reference/screenshot as the structural guide);
+  //   • below-threshold prompts (e.g. a generic "landing page for my
+  //     company") return null from matchTemplateIntent and fall through.
+  // Fail-open: ANY error here (DB read, malformed keywords) logs a warning
+  // and falls through to the freeform path. Candidate visibility reuses the
+  // same tenant-or-global predicate as the explicit-template lookup below
+  // (and GET /lp/templates/enriched): tenant-owned templates plus the full
+  // global library, regardless of industry.
+  let intentMatchedTemplate: { slug: string; score: number } | null = null;
+  let intentTemplateId: number | null = null;
+  if (
+    (templateId === undefined || templateId === null) &&
+    perRequestUrls.length === 0 &&
+    !visionImage
+  ) {
+    try {
+      const intentVisibility = tenantId !== null
+        ? or(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.isGlobal, true))
+        : eq(lpPagesTable.isGlobal, true);
+      const intentCandidates = await db
+        .select({
+          id: lpPagesTable.id,
+          slug: lpPagesTable.slug,
+          category: lpPagesTable.category,
+          keywords: lpPagesTable.keywords,
+          isAllInOne: lpPagesTable.isAllInOne,
+        })
+        .from(lpPagesTable)
+        .where(
+          and(
+            eq(lpPagesTable.isTemplate, true),
+            eq(lpPagesTable.isAllInOne, true),
+            intentVisibility,
+          ),
+        );
+      const intentMatch = matchTemplateIntent(prompt, intentCandidates);
+      if (intentMatch) {
+        const matchedRow = intentCandidates.find((c) => c.slug === intentMatch.slug);
+        if (matchedRow) {
+          intentMatchedTemplate = intentMatch;
+          intentTemplateId = matchedRow.id;
+        }
+      }
+      logger.info(
+        {
+          event: "template_intent_decision",
+          tenantId,
+          matched: intentMatchedTemplate !== null,
+          slug: intentMatchedTemplate?.slug ?? null,
+          score: intentMatchedTemplate?.score ?? null,
+          candidateCount: intentCandidates.length,
+          promptPreview: prompt.trim().slice(0, 200).replace(/\n/g, " "),
+        },
+        intentMatchedTemplate
+          ? "[generate-page] prompt intent matched an all-in-one template — routing through template path"
+          : "[generate-page] no all-in-one template intent match — freeform path",
+      );
+    } catch (err) {
+      logger.warn(
+        { event: "template_intent_decision", err: String(err), tenantId },
+        "[generate-page] template intent matching skipped (fail-open) — freeform path",
+      );
+      intentMatchedTemplate = null;
+      intentTemplateId = null;
+    }
+  }
+  const effectiveTemplateId: unknown =
+    templateId !== undefined && templateId !== null ? templateId : intentTemplateId;
+
   // ── Template-driven mode ──────────────────────────────────────────────
-  // When the caller picks a template as the starting point, we skip the
-  // "AI chooses block layout" path entirely. The template's block structure
+  // When the caller picks a template as the starting point (or the intent
+  // matcher above confidently resolved one), we skip the "AI chooses block
+  // layout" path entirely. The template's block structure
   // is locked in; the AI only rewrites copy fields (headlines, body text,
   // CTA labels, list items, etc.) to match the user's prompt. Block ids,
   // types, and non-text props (colors, layout flags, image URLs) are
   // preserved verbatim. The route returns early after this branch.
-  if (templateId !== undefined && templateId !== null) {
-    const tplIdNum = Number(templateId);
+  if (effectiveTemplateId !== undefined && effectiveTemplateId !== null) {
+    const tplIdNum = Number(effectiveTemplateId);
     if (!Number.isFinite(tplIdNum)) {
       res.status(400).json({ error: "templateId must be a number" });
       return;
@@ -6209,6 +6522,9 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // PHRASES anchors; the reference section explicitly states that
       // brand wins if there's a conflict, so order is correct.
       if (referenceSection) templateUserPromptParts.push(referenceSection);
+      // Brand inspiration sites — style/structure only, after (and outranked
+      // by) the per-request reference section.
+      if (inspirationSection) templateUserPromptParts.push(inspirationSection);
       // Task #1136 — when the user provided a trusted source URL, the template
       // may carry example/demo facts (e.g. another customer's stats, names,
       // quotes). Rule 6 normally freezes numeric values, but here we WANT those
@@ -6233,6 +6549,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           mode: "template",
           systemPrompt: templateSystemPrompt,
           userPrompt: templateUserPromptParts.join("\n\n"),
+          // June 2026 — all-in-one intent routing (additive): set when this
+          // template was resolved from the prompt rather than an explicit
+          // templateId, so tests/FE can tell the two apart.
+          intentMatchedTemplate,
           strict,
           referenceUrl: scrapeResult.scraped?.url ?? null,
           referenceUrls: scrapedUrls,
@@ -6242,6 +6562,9 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
             : null,
           referenceTruncated: scrapeResult.scraped?.truncated ?? false,
           referenceAdditionalUrls: scrapeResult.scraped?.additionalUrls ?? [],
+          // June 2026 — brand inspiration sites that informed this page (cached
+          // scrape-only path; never mirrored, never trusted). Additive field.
+          inspirationReferences,
           usedScreenshot: !!visionImage,
         });
         return;
@@ -6592,6 +6915,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         title: parsed.title,
         slug,
         blocks: mergedBlocks,
+        // June 2026 — all-in-one intent routing (additive): non-null when the
+        // generation was routed through this template by prompt intent (no
+        // explicit templateId), so the FE can show "used the X template".
+        // Null for explicit template picks.
+        intentMatchedTemplate,
         strictMismatches,
         // Task #1138 — raw candidate facts (stats + claims + quotes). The
         // client persists these as pending flags via the page's /fact-flags/sync
@@ -6616,6 +6944,9 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           : null,
         referenceTruncated: scrapeResult.scraped?.truncated ?? false,
         referenceAdditionalUrls: scrapeResult.scraped?.additionalUrls ?? [],
+        // June 2026 — brand inspiration sites that informed this page (cached
+        // scrape-only path; never mirrored, never trusted). Additive field.
+        inspirationReferences,
         usedScreenshot: !!visionImage,
       });
       logAiGeneration({
@@ -6625,8 +6956,8 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         prompt: prompt ?? "",
         referenceUrls: scrapedUrls,
         inspirationUrls,
-        sectionsIncluded: ["template", referenceSection ? "reference" : "", visionImage ? "vision" : "", brandContext ? "brand" : ""].filter(Boolean),
-        templateId: typeof templateId === "number" ? templateId : null,
+        sectionsIncluded: ["template", referenceSection ? "reference" : "", inspirationSection ? "inspiration" : "", visionImage ? "vision" : "", brandContext ? "brand" : "", intentMatchedTemplate ? "intentMatch" : ""].filter(Boolean),
+        templateId: Number.isFinite(tplIdNum) ? tplIdNum : null,
         composerDurationMs: Date.now() - _genStartTime,
         outputBlockTypes: mergedBlocks.map((b) => (b as { type?: string }).type ?? ""),
         bannedPhraseHits,
@@ -6644,7 +6975,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         referenceUrls: scrapedUrls,
         inspirationUrls,
         sectionsIncluded: [],
-        templateId: typeof templateId === "number" ? templateId : null,
+        templateId: Number.isFinite(tplIdNum) ? tplIdNum : null,
         composerDurationMs: Date.now() - _genStartTime,
         outputBlockTypes: [],
         usedScreenshot: !!visionImage,
@@ -6699,6 +7030,49 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     (segmentContext?.name?.toLowerCase().includes("dso practice") ?? false);
   const useDso = !useDsoPractices && (isDsoPrompt(prompt) || (segmentContext?.name?.toLowerCase().includes("dso") ?? false));
   const promptPath = useDsoPractices ? "DSO_PRACTICES" : useDso ? "DSO_ENTERPRISE" : "GENERAL";
+
+  // ── Page-recipe rotation + block-sequence repeat guard inputs (June 2026) ──
+  // One small read of the tenant's recent generation history (per prompt path)
+  // powers BOTH: the recipe rotation picks the least-recently-used recipe from
+  // the stored recipe_ids, and the repeat guard compares the new page's block-
+  // sequence hash against the recent sequence_hash values (re-prompting once on
+  // a collision). Fail-open everywhere: any DB error degrades to a random
+  // recipe and disables the repeat guard for this generation — it never blocks
+  // or delays the page.
+  const recipePath: RecipePromptPath = useDsoPractices ? "dso-practices" : useDso ? "dso" : "freeform";
+  let recentRecipeIds: string[] = [];
+  let recentSequenceHashes: string[] = [];
+  if (tenantId != null) {
+    try {
+      const recent = await db
+        .select({
+          recipeId: aiGenerationLogTable.recipeId,
+          sequenceHash: aiGenerationLogTable.sequenceHash,
+        })
+        .from(aiGenerationLogTable)
+        .where(
+          and(
+            eq(aiGenerationLogTable.tenantId, tenantId),
+            eq(aiGenerationLogTable.endpoint, "/lp/generate-page"),
+            eq(aiGenerationLogTable.promptPath, promptPath),
+          ),
+        )
+        .orderBy(desc(aiGenerationLogTable.createdAt))
+        .limit(10);
+      recentRecipeIds = recent
+        .map((r) => r.recipeId)
+        .filter((v): v is string => typeof v === "string" && v.length > 0);
+      recentSequenceHashes = recent
+        .map((r) => r.sequenceHash)
+        .filter((v): v is string => typeof v === "string" && v.length > 0);
+    } catch (err) {
+      logger.warn(
+        { err: String(err), tenantId, promptPath },
+        "[generate-page] recent-generation history read skipped — recipe falls back to random, repeat guard off (fail-open)",
+      );
+    }
+  }
+  const chosenRecipe: PageRecipe | null = pickRecipe(recipesForPath(recipePath), recentRecipeIds);
 
   // Fetch the per-industry block_catalog once: `tags` drives the role-tag guide
   // and `ai_enabled` drives which blocks the GENERAL prompt advertises. Both are
@@ -6773,7 +7147,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // also filters the DSO paths (which build hardcoded block lists) so the
   // superadmin "Available to AI generation" toggle is honored on every path.
   // Re-stripping the general prompt is idempotent.
-  const systemPrompt = stripAiDisabledBlockLines(
+  let systemPrompt = stripAiDisabledBlockLines(
     useDsoPractices
       ? buildDsoPracticesSystemPrompt({ isDandyTenant, brandName: resolvedBrandName })
       : useDso
@@ -6786,6 +7160,20 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           }),
     aiDisabledTypes,
   );
+  // Recipe rotation (June 2026): the DSO paths' BLOCK SELECTION rule carries a
+  // static "loose flow that works" example that anchors the model on the same
+  // sequence every run — replace it with THIS generation's rotated recipe. The
+  // GENERAL path has no such example sentence, so (like any path where the
+  // marker is missing) the recipe is appended to the user prompt instead, just
+  // ahead of the USER REQUEST. The recipe is framed as an adaptable suggestion;
+  // the VARY-THE-STRUCTURE brand-personality guidance stays in force and the
+  // REQUESTED-SECTIONS-ARE-MANDATORY rule still outranks it.
+  let recipeInjectedIntoSystemPrompt = false;
+  if (chosenRecipe && (useDso || useDsoPractices)) {
+    const injected = injectRecipeIntoBlockSelection(systemPrompt, chosenRecipe);
+    systemPrompt = injected.prompt;
+    recipeInjectedIntoSystemPrompt = injected.injected;
+  }
   logger.debug({ promptPath, segment: segmentContext?.name ?? "none", promptPreview: prompt.slice(0, 120).replace(/\n/g, " ") }, "[generate-page] generating with prompt");
 
   // Task #6 — brand-default outline ("recipe"), applied only when the segment
@@ -6830,6 +7218,9 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // anchor lives inside brandContext and explicitly outranks the reference
   // section per the framing in referenceSection itself.
   if (referenceSection) userPromptParts.push(referenceSection);
+  // Brand inspiration sites — style/structure only, after (and outranked by)
+  // the per-request reference section.
+  if (inspirationSection) userPromptParts.push(inspirationSection);
   if (visionSection) userPromptParts.push(visionSection);
   // Semantic role-tag guidance (task #459): tell the model which structural
   // role each selectable block fills, with per-industry catalog overrides on
@@ -6895,9 +7286,16 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     injectedSegmentBlocks.length > 0
       ? ` You may also use these approved blocks where they fit: ${injectedSegmentBlocks.map((t) => `"${t}"`).join(", ")}.`
       : "";
+  // Recipe rotation (June 2026) — the GENERAL path (and any path where the
+  // system-prompt marker was absent) gets the chosen recipe as a user-prompt
+  // section. Placed BEFORE the USER REQUEST + mandatory-sections rule, which
+  // explicitly outrank it.
+  if (chosenRecipe && !recipeInjectedIntoSystemPrompt) {
+    userPromptParts.push(buildRecipeDirective(chosenRecipe));
+  }
   userPromptParts.push(`USER REQUEST:\n${prompt.trim()}`);
   userPromptParts.push(
-    "REQUESTED SECTIONS ARE MANDATORY: If the USER REQUEST above explicitly asks for a specific block, section, feature, topic, or product, you MUST include a block that delivers it — even when your default block selection, the \"vary the mix\" guidance, or the brand-fit selection guidance would otherwise omit it. Explicit user requests outrank variety and selection guidance. Name and use the exact block type that matches the request.",
+    "REQUESTED SECTIONS ARE MANDATORY: If the USER REQUEST above explicitly asks for a specific block, section, feature, topic, or product, you MUST include a block that delivers it — even when your default block selection, the \"vary the mix\" guidance, the RECIPE FOR THIS GENERATION, or the brand-fit selection guidance would otherwise omit it. Explicit user requests outrank variety, recipe, and selection guidance. Name and use the exact block type that matches the request.",
   );
   userPromptParts.push(
     useDsoPractices
@@ -6914,6 +7312,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       mode: promptPath,
       systemPrompt,
       userPrompt,
+      // June 2026 — all-in-one intent routing (additive). Always null on the
+      // freeform path: a confident intent match returns from the template
+      // branch above instead.
+      intentMatchedTemplate,
+      // June 2026 — page-recipe rotation. Additive: the recipe injected into
+      // this generation's prompt, so tests can assert rotation behavior.
+      recipeId: chosenRecipe?.id ?? null,
       strict,
       referenceUrl: scrapeResult.scraped?.url ?? null,
       referenceUrls: scrapedUrls,
@@ -6923,6 +7328,9 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         : null,
       referenceTruncated: scrapeResult.scraped?.truncated ?? false,
       referenceAdditionalUrls: scrapeResult.scraped?.additionalUrls ?? [],
+      // June 2026 — brand inspiration sites that informed this page (cached
+      // scrape-only path; never mirrored, never trusted). Additive field.
+      inspirationReferences,
       usedScreenshot: !!visionImage,
     });
     return;
@@ -6939,14 +7347,15 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           { type: "image_url", image_url: { url: visionImage } },
         ]
       : userPrompt;
+    const baseMessages: ChatCompletionMessageParam[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userContent },
+    ];
     const completion = await openai!.chat.completions.create({
       model: "gpt-4o",
       temperature: 0.9,
       max_completion_tokens: 12288,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
+      messages: baseMessages,
     });
 
     const raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
@@ -6960,6 +7369,71 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       return;
     }
 
+    if (!parsed.title || !parsed.slug || !Array.isArray(parsed.blocks)) {
+      res.status(500).json({ error: "AI response missing required fields (title, slug, blocks)" });
+      return;
+    }
+
+    // ── Block-sequence repeat guard (June 2026) ──────────────────────────
+    // When the model's block sequence matches one of this tenant's last few
+    // generations (same prompt path), append ONE corrective message to the
+    // conversation and regenerate. The second result is accepted either way
+    // (one retry max). Fail-open: any error in hashing or the retry call logs
+    // a warning and keeps the first result — generation is never blocked.
+    try {
+      const typeOf = (b: unknown): string => {
+        const t = (b as { type?: unknown })?.type;
+        return typeof t === "string" ? canonicalizeBlockType(t) : "";
+      };
+      const firstTypes = parsed.blocks.map(typeOf);
+      const firstHash = blockSequenceHash(firstTypes);
+      if (recentSequenceHashes.length > 0 && shouldRetryForRepeatedSequence(firstHash, recentSequenceHashes)) {
+        const retryCompletion = await openai!.chat.completions.create({
+          model: "gpt-4o",
+          temperature: 0.9,
+          max_completion_tokens: 12288,
+          messages: [
+            ...baseMessages,
+            { role: "assistant", content: raw },
+            { role: "user", content: buildRepeatCorrectiveMessage(firstTypes) },
+          ],
+        });
+        const retryRaw = retryCompletion.choices[0]?.message?.content?.trim() ?? "";
+        const retryCleaned = retryRaw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+        const retryParsed = JSON.parse(retryCleaned) as typeof parsed;
+        if (retryParsed?.title && retryParsed?.slug && Array.isArray(retryParsed.blocks)) {
+          const retryHash = blockSequenceHash(retryParsed.blocks.map(typeOf));
+          logger.info(
+            {
+              event: "ai_sequence_repeat_retry",
+              tenantId,
+              promptPath,
+              recipeId: chosenRecipe?.id ?? null,
+              firstHash,
+              retryHash,
+              changedStructure: retryHash !== firstHash,
+            },
+            "[generate-page] block-sequence repeat guard re-prompted once — second result accepted",
+          );
+          parsed = retryParsed;
+        } else {
+          logger.warn(
+            { event: "ai_sequence_repeat_retry_invalid", tenantId, promptPath, firstHash },
+            "[generate-page] repeat-guard retry returned an invalid page — keeping the first result (fail-open)",
+          );
+        }
+      }
+    } catch (err) {
+      logger.warn(
+        { err: String(err), tenantId, promptPath },
+        "[generate-page] block-sequence repeat guard skipped (fail-open)",
+      );
+    }
+
+    // Re-assert the required shape after the guard: both flows out of the
+    // try/catch hold a validated page (the retry is only accepted when valid,
+    // otherwise the already-validated first result is kept), but the
+    // `parsed = retryParsed` reassignment resets TypeScript's narrowing.
     if (!parsed.title || !parsed.slug || !Array.isArray(parsed.blocks)) {
       res.status(500).json({ error: "AI response missing required fields (title, slug, blocks)" });
       return;
@@ -7843,10 +8317,84 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // Fail-open: a no-governance tenant is untouched.
     parsed.blocks = enforceAiModes(parsed.blocks, governanceByType, defaultPropsByType) as typeof parsed.blocks;
 
+    // ── Image-fit advisory flags (June 2026) ─────────────────────────────
+    // Compare every FINAL filled image slot's catalog tags against the block's
+    // copy + slot purpose (same tag-matching signals as scoreImage — no model
+    // call). Advisory only: flags surface additively in the response and never
+    // clear or change images. Logo slots are excluded by collectImageSlots;
+    // URLs unknown to the media catalog (author-provided imagery) are skipped.
+    let imageFitFlags: ImageFitFlag[] = [];
+    try {
+      const infoByUrl = new Map<string, ImageFitImageInfo>();
+      for (const img of mediaCatalog.allImages) {
+        if (infoByUrl.has(img.url)) continue;
+        infoByUrl.set(img.url, {
+          contentTags: img.tags.filter((t) => {
+            const tl = t.toLowerCase();
+            return !SKIP_TAGS.has(tl) && !EXCLUDE_TAGS.has(tl) && !tl.startsWith("refhost:");
+          }),
+          title: img.title,
+          purpose: getImagePurpose(img),
+        });
+      }
+      const fitSlots: ImageFitSlot[] = [];
+      for (const block of parsed.blocks as Array<Record<string, unknown>>) {
+        const btype = typeof block?.type === "string" ? block.type : "";
+        for (const slot of collectImageSlots(block, brandLogoUrls)) {
+          const url = slot.get();
+          if (!url) continue;
+          fitSlots.push({
+            blockType: btype,
+            field: slot.field,
+            imageUrl: url,
+            context: `${slot.context} ${pageImageContext}`,
+            purpose: slot.purpose,
+          });
+        }
+      }
+      imageFitFlags = computeImageFitFlags(fitSlots, infoByUrl);
+      if (imageFitFlags.length > 0) {
+        logger.info(
+          {
+            event: "ai_image_fit_flags",
+            tenantId,
+            promptPath,
+            slug: parsed.slug,
+            count: imageFitFlags.length,
+            slots: imageFitFlags.map((f) => ({ blockType: f.blockType, field: f.field })),
+          },
+          "[generate-page] image-fit review flags raised on placed images (advisory)",
+        );
+      }
+    } catch (err) {
+      logger.warn({ err: String(err), tenantId }, "[generate-page] image-fit flag pass skipped (fail-open)");
+    }
+
+    // Final (post-normalization) block-sequence hash — recorded per generation
+    // so future requests' repeat guard + recipe rotation can read it. Fail-open.
+    let finalSequenceHash: string | null = null;
+    try {
+      finalSequenceHash = blockSequenceHash(
+        parsed.blocks.map((b) => ((b as { type?: unknown }).type as string) ?? ""),
+      );
+    } catch {
+      finalSequenceHash = null;
+    }
+
     res.json({
       title: parsed.title,
       slug: parsed.slug,
       blocks: parsed.blocks,
+      // June 2026 — all-in-one intent routing (additive). Always null on the
+      // freeform path: a confident intent match returns from the template
+      // branch above instead.
+      intentMatchedTemplate,
+      // June 2026 — page-recipe rotation (additive): the recipe injected into
+      // this generation's prompt.
+      recipeId: chosenRecipe?.id ?? null,
+      // June 2026 — image-fit advisory review flags (additive; structurally
+      // separate from the fact flags in detectedFacts).
+      imageFitFlags,
       strictMismatches,
       // Task #1138 — raw candidate facts persisted as pending flags by the
       // client via /fact-flags/sync after the page row is created.
@@ -7868,6 +8416,9 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         : null,
       referenceTruncated: scrapeResult.scraped?.truncated ?? false,
       referenceAdditionalUrls: scrapeResult.scraped?.additionalUrls ?? [],
+      // June 2026 — brand inspiration sites that informed this page (cached
+      // scrape-only path; never mirrored, never trusted). Additive field.
+      inspirationReferences,
       usedScreenshot: !!visionImage,
     });
     logAiGeneration({
@@ -7883,12 +8434,15 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         proofPoints.length > 0 ? "proofPoints" : "",
         caseStudies.length > 0 ? "caseStudies" : "",
         referenceSection ? "reference" : "",
+        inspirationSection ? "inspiration" : "",
         visionImage ? "vision" : "",
       ].filter(Boolean),
       templateId: null,
       composerDurationMs: Date.now() - _genStartTime,
       outputBlockTypes: parsed.blocks.map((b) => (b as { type?: string }).type ?? ""),
       bannedPhraseHits,
+      sequenceHash: finalSequenceHash,
+      recipeId: chosenRecipe?.id ?? null,
       usedScreenshot: !!visionImage,
       errorMessage: null,
     });

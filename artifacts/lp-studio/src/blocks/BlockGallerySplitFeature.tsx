@@ -112,7 +112,7 @@ export function BlockGallerySplitFeature({ props, brand, onFieldChange }: Props)
             <RevealItem disabled={isBuilder} className="col-span-8 row-span-12 relative rounded-3xl overflow-hidden shadow-xl ring-1 ring-black/5 group">
               <InlineImage
                 src={props.imageUrl}
-                alt={props.headline || "Main gallery"}
+                alt={props.headline || ""}
                 onUpdate={onFieldChange ? (src: string) => update("imageUrl", src) : undefined}
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                 wrapperClassName="block absolute inset-0 w-full h-full"
@@ -122,7 +122,7 @@ export function BlockGallerySplitFeature({ props, brand, onFieldChange }: Props)
             <RevealItem disabled={isBuilder} className="col-span-4 row-span-6 relative rounded-2xl overflow-hidden shadow-lg ring-1 ring-black/5 group">
               <InlineImage
                 src={grid0?.src ?? ""}
-                alt={grid0?.alt || grid0?.caption || "Gallery grid 1"}
+                alt={grid0?.alt || grid0?.caption || ""}
                 onUpdate={onFieldChange ? (src: string) => updateImage(0, { src }) : undefined}
                 onAltUpdate={onFieldChange ? (alt: string) => updateImage(0, { alt }) : undefined}
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
@@ -132,7 +132,7 @@ export function BlockGallerySplitFeature({ props, brand, onFieldChange }: Props)
             <RevealItem disabled={isBuilder} className="col-span-4 row-span-6 relative rounded-2xl overflow-hidden shadow-lg ring-1 ring-black/5 group">
               <InlineImage
                 src={grid1?.src ?? ""}
-                alt={grid1?.alt || grid1?.caption || "Gallery grid 2"}
+                alt={grid1?.alt || grid1?.caption || ""}
                 onUpdate={onFieldChange ? (src: string) => updateImage(1, { src }) : undefined}
                 onAltUpdate={onFieldChange ? (alt: string) => updateImage(1, { alt }) : undefined}
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"

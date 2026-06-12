@@ -92,7 +92,7 @@ export function BlockGalleryCarouselSpotlight({ props, brand, onFieldChange }: P
             {active && (
               <InlineImage
                 src={active.src}
-                alt={active.alt || active.caption}
+                alt={active.alt || active.caption || ""}
                 onUpdate={onFieldChange ? (src: string) => updateImage(safeIndex, { src }) : undefined}
                 onAltUpdate={onFieldChange ? (alt: string) => updateImage(safeIndex, { alt }) : undefined}
                 className="absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-105"
@@ -135,7 +135,7 @@ export function BlockGalleryCarouselSpotlight({ props, brand, onFieldChange }: P
                 aria-label={img.caption || `View image ${idx + 1}`}
               >
                 {img.src ? (
-                  <img src={img.src} alt={img.alt || img.caption} className="absolute inset-0 w-full h-full object-cover" />
+                  <img src={img.src} alt={img.alt || img.caption || ""} className="absolute inset-0 w-full h-full object-cover" />
                 ) : (
                   <span className="absolute inset-0 bg-black/10" />
                 )}

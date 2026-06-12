@@ -203,6 +203,7 @@ import { BlockColumns } from "./BlockColumns";
 import { BlockGrid } from "./BlockGrid";
 import { BlockStack } from "./BlockStack";
 import type { BlockPath } from "@/lib/block-tree";
+import { BlockErrorBoundary } from "./BlockErrorBoundary";
 import { Reveal } from "@/components/Reveal";
 import type { ReactNode } from "react";
 import { memo, useRef } from "react";
@@ -1375,7 +1376,13 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
 
   return (
     <PageContextProvider value={{ pageId, testId, variantId, sessionId }}>
-      {final}
+      <BlockErrorBoundary
+        key={`${block.id}-${block.type}`}
+        blockType={block.type}
+        isEditor={!!isBuilder || !!onBlockChange}
+      >
+        {final}
+      </BlockErrorBoundary>
     </PageContextProvider>
   );
 }

@@ -6,6 +6,81 @@ import { eq } from "drizzle-orm";
 export const VALID_PURPOSES = ["lp-hero", "lp-feature", "product-detail"] as const;
 export type ImagePurpose = typeof VALID_PURPOSES[number];
 
+// ── Backfill row-selection predicate (scripts/retag-media-library.ts) ────────
+//
+// Media rows created BEFORE the synchronous-tagging fix carry only provenance
+// tags (["page-reference","scraped","refhost:…","refsrc:…"]), brand-import
+// markers (["brand-import","<brand-slug>","photography"]) or starter-seed
+// markers (["starter","flagship"|"generic"|…]). None of those are content
+// tags, so the AI page generator's scorer gives the row 0 against every slot
+// and image selection degenerates to arbitrary picks. The predicate below
+// decides which rows the retag backfill should send through the vision
+// tagger. Kept here (next to the tagger) so the tag taxonomy lives in one
+// module, and exported so it is unit-testable without a DB.
+
+/** Tags that mark a row as permanently EXCLUDED from AI image selection
+ *  (mirrors EXCLUDE_TAGS in routes/lp/generate-page.ts, plus "favicon").
+ *  Backfilling content tags onto these rows would be wasted vision calls at
+ *  best — and at worst would let a brand mark / favicon / OG card start
+ *  winning hero or product slots it must never occupy. */
+const BACKFILL_EXCLUDED_TAGS = new Set([
+  "og-image", "og", "social", "open-graph", "text-based", "call to action",
+  "advertisement", "ad creative", "homepage-screenshot", "team-photo",
+  "logo", "favicon",
+]);
+
+/** Provenance / structural / junk tags that carry NO content semantics.
+ *  A row whose tags are ALL drawn from this set (or the prefix list below)
+ *  is "untagged" from the scorer's point of view. */
+const NON_CONTENT_TAGS = new Set([
+  // reference-scrape / brand-import provenance
+  "page-reference", "scraped", "brand-import", "photography",
+  // starter-seed markers
+  "starter", "flagship", "generic", "industry", "distinctive",
+  // folder-junk vocabulary (mirrors SKIP_TAGS in routes/lp/generate-page.ts)
+  "untitled folder", "web res", "high res", "abstract", "modern",
+  "professional", "hat", "holographic hat", "green glow", "futuristic",
+  "digital art",
+]);
+
+/** Dynamic provenance tags, matched by prefix. */
+const NON_CONTENT_TAG_PREFIXES = ["refhost:", "refsrc:"] as const;
+
+/**
+ * True when an lp_media row should be sent through the vision tagger by the
+ * retag backfill: it has NO lp-* purpose tag AND NO content tag — i.e. every
+ * tag it carries is provenance / starter / junk. Rows that already carry a
+ * purpose tag, an exclusion tag (og-image / team-photo / logo / …), or at
+ * least one genuine content tag are left alone, so the backfill is
+ * idempotent and resumable.
+ *
+ * Brand-import rows are a special case: their only non-provenance tag is the
+ * dynamic brand slug (e.g. "acme-dental"), which is provenance too — so for
+ * rows tagged "brand-import" the decision rests purely on purpose tags.
+ */
+export function needsContentTagBackfill(tags: unknown): boolean {
+  const lower = (Array.isArray(tags) ? tags : [])
+    .filter((t): t is string => typeof t === "string")
+    .map((t) => t.toLowerCase().trim());
+
+  // Already classified (purpose assigned) or permanently excluded from AI
+  // selection — nothing for the backfill to do.
+  if (lower.some((t) => (VALID_PURPOSES as readonly string[]).includes(t))) return false;
+  if (lower.some((t) => BACKFILL_EXCLUDED_TAGS.has(t))) return false;
+
+  const isBrandImport = lower.includes("brand-import");
+  const hasContentTag = lower.some((t) => {
+    if (!t) return false;
+    if (NON_CONTENT_TAGS.has(t)) return false;
+    if (NON_CONTENT_TAG_PREFIXES.some((p) => t.startsWith(p))) return false;
+    // On a brand-import row any leftover unknown tag is the brand slug
+    // (mirrorBrandAssets only ever writes baseTags + a role marker).
+    if (isBrandImport) return false;
+    return true;
+  });
+  return !hasContentTag;
+}
+
 /** Auto-tag an image using GPT-4o vision (runs in background, never blocks upload).
  *  Also assigns a landing-page purpose tag:
  *   "lp-hero"        — lifestyle, people, environments, smiles, clinic shots (hero sections)

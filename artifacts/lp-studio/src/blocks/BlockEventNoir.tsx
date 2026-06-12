@@ -863,7 +863,7 @@ function Gallery({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
             onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.65")}
           >
             {img.url ? (
-              <img src={img.url} alt={img.caption ?? "Gallery"} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <img src={img.url} alt={img.caption ?? ""} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             ) : (
               <div style={{ width: "100%", height: "100%", background: `linear-gradient(160deg, ${C.surface} 0%, ${C.bg} 100%)` }} />
             )}
