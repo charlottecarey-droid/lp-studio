@@ -11,6 +11,7 @@ import { aiHeavyLimiter, aiHeavyHourlyLimiter } from "../../lib/ai-rate-limit";
 import { requireAiGenerationQuota } from "../../middleware/requireAiGenerationQuota";
 import { maybeMultiPageScrapeRef, maybeScrapeRef, scrapeInspirationUrl, type InspirationScrapeResult, type MaybeScrapeResult } from "./firecrawl";
 import { mirrorReferenceImages } from "../../lib/brand-import/assets-uploader";
+import { isSocialCardDims, PROMO_GRAPHIC_TAG } from "../../lib/imageAutoTag";
 import { preprocessScreenshotDataUrl } from "./screenshot-preprocess";
 import type { ChatCompletionContentPart, ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { findBannedPhrases, type BannedPhraseHit } from "../../lib/ai-prompts/banned-phrase-validator";
@@ -851,7 +852,11 @@ const SKIP_TAGS = new Set(["untitled folder", "web res", "high res", "abstract",
   // strict-pass gate. (The per-host "refhost:<host>" tag is skipped by prefix in
   // scoreImage since it's dynamic.) This keeps the documented "scraped images
   // score 0 unless genuinely on-topic" invariant true.
-  "scraped", "page-reference"]);
+  "scraped", "page-reference",
+  // "promo-graphic" is a quality marker the auto-tagger applies to non-social-
+  // card promotional imagery (see lib/imageAutoTag.ts) — provenance-class, not
+  // a content subject, so it must not score.
+  PROMO_GRAPHIC_TAG]);
 /** Tags that permanently exclude an image from AI image selection.
  * Includes OG/social image tags AND visual-design markers that identify promo graphics
  * (text-heavy banners, ad creatives) which should never appear inside landing page blocks.
@@ -870,7 +875,66 @@ const SKIP_TAGS = new Set(["untitled folder", "web res", "high res", "abstract",
 // mistagged with a subject term — e.g. a "...Dentures...Logo" tagged
 // product-detail+dentures — would otherwise win a product card). Brand logos are
 // placed via the BrandLogo component / brand logoUrl, not this catalog.
-const EXCLUDE_TAGS = new Set(["og-image", "og", "social", "open-graph", "text-based", "call to action", "advertisement", "ad creative", "homepage-screenshot", "team-photo", "logo"]);
+//
+// June 2026 — the exclusion is split in two (see isExcludedFromGenerationPool):
+//  • HARD_EXCLUDE_TAGS are role reservations (logo / favicon / headshot /
+//    homepage screenshot). Unconditional — these must NEVER fill a block slot.
+//  • PROMO_EXCLUDE_TAGS are quality judgements about promotional/social
+//    graphics. These are conditional: the vision classifier over-applies
+//    "og-image" to any image with baked-in text, which blanket-excluded an
+//    entire imported fashion library (the Old Navy failure) and left a hero to
+//    fall back to an off-vertical starter photo. A promo-tagged image still
+//    competes when it is (a) the tenant's OWN brand-imported imagery that does
+//    NOT have true social-card geometry, or (b) harvested from a host the user
+//    referenced in THIS generation's prompt.
+const HARD_EXCLUDE_TAGS = new Set(["homepage-screenshot", "team-photo", "logo", "favicon"]);
+const PROMO_EXCLUDE_TAGS = new Set(["og-image", "og", "social", "open-graph", "text-based", "call to action", "advertisement", "ad creative"]);
+const EXCLUDE_TAGS = new Set([...PROMO_EXCLUDE_TAGS, ...HARD_EXCLUDE_TAGS]);
+
+/**
+ * Whether an image must be kept OUT of the AI generation pool (and cleared if
+ * the model picks it anyway — see sanitizeAIImageUrls).
+ *
+ *  1. A hard-reserved role tag (logo / favicon / team-photo /
+ *     homepage-screenshot) always excludes, no bypass.
+ *  2. A promo/og tag excludes ONLY when neither bypass applies:
+ *     a. CURRENT-REFERENCE bypass — the row was harvested from a host the user
+ *        explicitly referenced in this generation (refhost: tag matches
+ *        `currentRefHosts`). "Make my page look like this site" means using
+ *        that site's imagery, baked-in text and all.
+ *     b. BRAND-IMPORT bypass — the row is the tenant's own site's imagery
+ *        (tagged "brand-import") and does NOT have true social-card geometry
+ *        (isSocialCardDims !== true; unknown dimensions count as content here
+ *        because the brand-import mirror never stores og:image/twitter:image
+ *        meta images — referenceImageUrls is content-only by construction).
+ *     TRUE social cards (social-card geometry) stay excluded in all cases.
+ */
+export function isExcludedFromGenerationPool(
+  img: MediaImage,
+  currentRefHosts?: ReadonlySet<string>,
+): boolean {
+  let promoTagged = false;
+  for (const t of img.tags) {
+    if (typeof t !== "string") continue;
+    const tl = t.toLowerCase();
+    if (HARD_EXCLUDE_TAGS.has(tl)) return true;
+    if (PROMO_EXCLUDE_TAGS.has(tl)) promoTagged = true;
+  }
+  if (!promoTagged) return false;
+  // (a) current-reference bypass
+  if (currentRefHosts && currentRefHosts.size > 0) {
+    const host = refHostOf(img);
+    if (host && currentRefHosts.has(host)) return false;
+  }
+  // (b) brand-import content-imagery bypass (true social cards stay excluded)
+  if (
+    img.tags.some((t) => typeof t === "string" && t.toLowerCase() === "brand-import") &&
+    isSocialCardDims(img.width, img.height) !== true
+  ) {
+    return false;
+  }
+  return true;
+}
 
 /** Relevance scoring weights — kept as named constants so the validation
  *  threshold (CLEAR_GAP, below) can be derived from them and stays meaningful
@@ -885,6 +949,90 @@ const EXCLUDE_TAGS = new Set(["og-image", "og", "social", "open-graph", "text-ba
 const PURPOSE_MATCH_BOOST = 8;
 const TAG_MATCH_SCORE = 3;
 const PAGE_TAG_MATCH_SCORE = 1;
+
+// ── Cross-vertical conflict penalty (June 2026) ─────────────────────────────
+//
+// A purpose tag alone (+8) used to be enough for a starter seed to clear the
+// hero floor, so a medical-scrubs starter photo (tagged lp-hero by the seed
+// authoring) landed as the hero of a FASHION page — zero topical overlap, just
+// the right slot shape. Tag vocabularies already separate cleanly into a few
+// verticals (derived from the starter seeds in seeds/starterImages.ts and the
+// vision tagger's vocabulary), so when an image's tags clearly place it in one
+// vertical and the page/section copy clearly speaks another vertical's
+// vocabulary — with NONE of the image's own — we apply a strong negative that
+// cancels the purpose boost and drops the candidate below the non-negative
+// floor. Deliberately conservative: it fires only when BOTH sides have
+// recognized vertical vocabulary and they share none, so generic imagery
+// (offices, teams, abstract) and generic copy are never penalized.
+const CROSS_VERTICAL_PENALTY = 8;
+
+/** Minimum number of NON-starter images in the fill pool before the relaxed
+ *  hero/product floor stops accepting a generic starter on purpose-match
+ *  alone (see findBestImage). Below this, the tenant is treated as tiny/new
+ *  and keeps the starter fallback. */
+const STARTER_FLOOR_MIN_LIBRARY = 10;
+const VERTICAL_TAG_GROUPS: Record<string, readonly string[]> = {
+  medical: [
+    "medical", "scrubs", "clinic", "clinical", "healthcare", "doctor", "nurse",
+    "patient", "dental", "dentist", "dentistry", "dentures", "orthodontic",
+    "orthodontics", "aligners", "operatory", "telehealth", "medspa",
+    "dermatology", "skincare", "teeth",
+  ],
+  fashion: [
+    "fashion", "apparel", "clothing", "outfit", "wardrobe", "denim", "jeans",
+    "dress", "runway", "boutique", "streetwear", "activewear",
+  ],
+  food: [
+    "restaurant", "food", "dining", "dessert", "ice cream", "pizza", "burger",
+    "cafe", "coffee", "bakery", "barista", "pastry", "chef", "menu",
+  ],
+  fitness: [
+    "gym", "fitness", "workout", "training", "yoga", "athlete", "weights",
+    "exercise", "pilates",
+  ],
+  tech: [
+    "software", "code", "developer", "dashboard", "analytics", "circuit board",
+    "laptop", "saas", "technology",
+  ],
+};
+
+/** Vertical groups whose vocabulary appears in `text` (lowercased). Short
+ *  keywords (<4 chars) require… none exist; all keywords are >=3 chars and we
+ *  require either an exact tag match or a substring hit for 4+ char keywords
+ *  to avoid noise like "gym" inside unrelated words. */
+function verticalsInText(text: string): Set<string> {
+  const found = new Set<string>();
+  for (const [vertical, words] of Object.entries(VERTICAL_TAG_GROUPS)) {
+    for (const w of words) {
+      if (w.length >= 4 ? text.includes(w) : new RegExp(`\\b${w}\\b`).test(text)) {
+        found.add(vertical);
+        break;
+      }
+    }
+  }
+  return found;
+}
+
+/** Vertical groups an image's own tags place it in (exact tag match, or the
+ *  tag contains a 4+ char group keyword — covers compound vision tags like
+ *  "dental clinic"). */
+function verticalsOfTags(tags: readonly string[]): Set<string> {
+  const found = new Set<string>();
+  for (const t of tags) {
+    if (typeof t !== "string") continue;
+    const tl = t.toLowerCase();
+    for (const [vertical, words] of Object.entries(VERTICAL_TAG_GROUPS)) {
+      if (found.has(vertical)) continue;
+      for (const w of words) {
+        if (tl === w || (w.length >= 4 && tl.includes(w))) {
+          found.add(vertical);
+          break;
+        }
+      }
+    }
+  }
+  return found;
+}
 
 /** Get the landing-page purpose of an image (first purpose tag found, or "" for unclassified) */
 function getImagePurpose(img: MediaImage): string {
@@ -905,7 +1053,14 @@ function getImagePurpose(img: MediaImage): string {
  * generator only saw the current tenant's handful — collapsing its candidate
  * pool and making it repeat one image across slots.
  */
-export async function fetchMediaCatalog(tenantId: number | null): Promise<{ images: MediaImage[]; allImages: MediaImage[]; catalogText: string }> {
+export async function fetchMediaCatalog(
+  tenantId: number | null,
+  /** Reference URL(s) supplied for THIS generation. Used solely to grant the
+   *  current-reference bypass in isExcludedFromGenerationPool: imagery
+   *  harvested from a host the user explicitly pointed at competes even when
+   *  it carries a promo/og exclusion tag. */
+  referenceUrls: string[] = [],
+): Promise<{ images: MediaImage[]; allImages: MediaImage[]; catalogText: string }> {
   // Tenant isolation: without a tenantId we MUST NOT query the global media
   // pool — that's how Dandy sales-rep photos previously leaked onto a Frambam
   // furniture page. Fail closed: return empty so the generator falls back to
@@ -934,9 +1089,14 @@ export async function fetchMediaCatalog(tenantId: number | null): Promise<{ imag
       foreignTenant: r.tenantId != null && r.tenantId !== tenantId,
     }));
 
-    // Exclude OG/social-sharing images — they are tagged "og-image" by the auto-tagger
-    // and should never be used as landing page block images.
-    const images = allImages.filter(img => !img.tags.some(t => EXCLUDE_TAGS.has(t.toLowerCase())));
+    // Exclude reserved-role images (logo / favicon / team-photo / homepage
+    // screenshot) unconditionally, and promo/og-tagged images unless the
+    // brand-import or current-reference bypass applies — see
+    // isExcludedFromGenerationPool. A blanket og-image exclusion here used to
+    // hide a tenant's ENTIRE imported library when the vision classifier
+    // og-tagged their text-bearing homepage banners.
+    const currentRefHosts = currentReferenceHosts(referenceUrls);
+    const images = allImages.filter(img => !isExcludedFromGenerationPool(img, currentRefHosts));
 
     if (images.length === 0) return { images, allImages, catalogText: "" };
 
@@ -1085,6 +1245,21 @@ function scoreImage(
   // wins, we only break near-ties toward the tenant's own library.
   if (img.foreignTenant) score -= 1;
 
+  // Cross-vertical conflict: the image's tags clearly belong to one vertical
+  // (e.g. medical scrubs) while the section/page copy clearly speaks a
+  // DIFFERENT vertical's vocabulary (e.g. fashion/apparel) and none of the
+  // image's own. Strong negative — cancels the purpose boost so a
+  // wrong-vertical candidate drops below the non-negative floor instead of
+  // clearing a hero/product slot on slot shape alone. Fires only on clear
+  // conflicts: both sides must have recognized vertical vocabulary.
+  const imgVerticals = verticalsOfTags(img.tags);
+  if (imgVerticals.size > 0) {
+    const ctxVerticals = verticalsInText(`${sectionLower} ${pageLower}`);
+    if (ctxVerticals.size > 0 && [...imgVerticals].every((v) => !ctxVerticals.has(v))) {
+      score -= CROSS_VERTICAL_PENALTY;
+    }
+  }
+
   return { score, contentScore, sectionScore, pageScore };
 }
 
@@ -1125,6 +1300,17 @@ function findBestImage(
   // −1 foreign nudge would otherwise drop it just below the numeric floor.
   const requirePurposeFloor =
     relaxed && (preferredPurpose === "lp-hero" || preferredPurpose === "product-detail");
+
+  // STARTER topicality rule (June 2026): for generic starter seeds, a purpose
+  // match ALONE must not clear the high-visibility floor. Starters are
+  // purpose-tagged en masse at seed time, so "lp-hero" says nothing about the
+  // subject — that's how a medical-scrubs starter became the hero of a fashion
+  // page. When the tenant has a real library (>= STARTER_FLOOR_MIN_LIBRARY
+  // non-starter images), a starter additionally needs SOME topical overlap
+  // with the section/page context (contentScore > 0) to clear the floor.
+  // Tiny/new tenants (small libraries) keep the old purpose-only starter
+  // fallback so their pages don't go bare.
+  const nonStarterPoolSize = images.reduce((n, i) => n + (isStarterImage(i) ? 0 : 1), 0);
 
   // Per-candidate acceptability gate. We pick the highest-scoring unused image
   // that PASSES its gate (not the global best then gate it once) — so when the
@@ -1226,6 +1412,21 @@ function findBestImage(
       requirePurposeFloor &&
       floorSignal < PURPOSE_MATCH_BOOST &&
       getImagePurpose(img) !== preferredPurpose
+    ) {
+      if (score > bestFloorRejectedScore) bestFloorRejectedScore = score;
+      continue;
+    }
+    // Starter topicality rule (see nonStarterPoolSize above): a generic
+    // starter seed may NOT clear the hero/product floor on its purpose tag
+    // alone when the tenant has a real library — it must carry at least some
+    // topical overlap with the section/page context. The scrubs-as-fashion-hero
+    // guard: a real brand never sees an off-topic generic starter in a
+    // high-visibility slot; tiny/new tenants keep the starter fallback.
+    if (
+      requirePurposeFloor &&
+      starter &&
+      sectionScore + pageScore <= 0 &&
+      nonStarterPoolSize >= STARTER_FLOOR_MIN_LIBRARY
     ) {
       if (score > bestFloorRejectedScore) bestFloorRejectedScore = score;
       continue;
@@ -2024,6 +2225,11 @@ export function buildReferenceFillPool(
   const currentRefScraped: MediaImage[] = [];
   const otherScraped: MediaImage[] = [];
   for (const img of catalogImages) {
+    // Rows surfaced via freshScrapedMedia (this run's mirror output — fresh
+    // uploads AND deduped existing rows, which may be brand-import rows rather
+    // than "scraped" ones) are placed through the fresh bucket below; skip
+    // their catalog duplicates so the same row doesn't appear twice.
+    if (freshScrapedUrls.has(img.url)) continue;
     if (!isScrapedImage(img)) {
       // Generic starter seeds are the ABSOLUTE last resort — they rank below
       // every scraped reference image too (see ordering below). Genuine
@@ -2032,9 +2238,6 @@ export function buildReferenceFillPool(
       else curatedImages.push(img);
       continue;
     }
-    // Freshly-harvested rows are placed via freshScrapedMedia — skip their catalog
-    // duplicates so they aren't demoted into the other-scraped tail.
-    if (freshScrapedUrls.has(img.url)) continue;
     const host = refHostOf(img);
     if (host && currentRefHosts.has(host)) currentRefScraped.push(img);
     else otherScraped.push(img);
@@ -3028,17 +3231,23 @@ export function deBrandFooterColors(block: { type?: string; props?: Record<strin
 }
 
 export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], logoUrls?: ReadonlySet<string>): unknown[] {
-  // Build a lookup: url → tags
-  const urlToTags = new Map<string, string[]>();
+  // Build a lookup: url → library image
+  const urlToImage = new Map<string, MediaImage>();
   for (const img of allImages) {
-    urlToTags.set(img.url, img.tags);
+    urlToImage.set(img.url, img);
   }
 
-  /** Check if a URL is an excluded image (OG, social, ad creative) */
+  /** Check if a URL is an excluded image. Uses the same policy as the
+   *  catalog-pool filter (isExcludedFromGenerationPool) minus the
+   *  current-reference bypass (reference hosts aren't threaded here; a
+   *  current-ref promo image the model picked is cleared and the fill pass —
+   *  which DOES see those rows — re-places it when it genuinely wins). The
+   *  brand-import bypass applies, so the model may keep the tenant's own
+   *  non-social-card promo imagery. */
   function isExcludedUrl(url: string): boolean {
-    const tags = urlToTags.get(url);
-    if (!tags) return false;
-    return tags.some(t => EXCLUDE_TAGS.has(t.toLowerCase()));
+    const img = urlToImage.get(url);
+    if (!img) return false;
+    return isExcludedFromGenerationPool(img);
   }
 
   /**
@@ -3076,7 +3285,7 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     // would otherwise be treated as hallucinated and cleared here.
     if (isLogoImageUrl(url, logoUrls)) return url;
     if (isExcludedUrl(url)) return "";
-    if (!urlToTags.has(url) && !isAllowedExternalUrl(url)) return "";
+    if (!urlToImage.has(url) && !isAllowedExternalUrl(url)) return "";
     return url;
   }
 
@@ -6404,7 +6613,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       : Promise.resolve(undefined);
 
   const [mediaCatalog, tenantSlugRow, proofPoints, scrapeResult, inspirationScrapes, uploadedScreenshot] = await Promise.all([
-    fetchMediaCatalog(tenantId),
+    // Per-request reference URLs grant the current-reference exclusion bypass
+    // (the user explicitly pointed at those sites). Inspiration URLs do NOT —
+    // they are style/structure references only.
+    fetchMediaCatalog(tenantId, scrapeUrls),
     tenantId != null
       ? db.select({ slug: tenantsTable.slug }).from(tenantsTable).where(eq(tenantsTable.id, tenantId)).limit(1)
       : Promise.resolve([] as { slug: string }[]),

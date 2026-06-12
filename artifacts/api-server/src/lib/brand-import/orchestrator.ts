@@ -10,6 +10,7 @@ import { extractContent } from "./extractors/content";
 import { extractStructure } from "./extractors/structure";
 import { getCached, putCached } from "./cache";
 import { mirrorBrandAssets, mirrorHomepageScreenshot } from "./assets-uploader";
+import { extractLogoDominantColor } from "./extractors/logo-color";
 import { logger } from "../logger";
 import type {
   Confidence,
@@ -403,9 +404,23 @@ export async function* runOrchestrator(
   // voice goes last because it makes the most LLM calls (profile +
   // optional rewrite + optional score), so it benefits most from
   // landing after the earlier burst has released its slots.
+  // Logo dominant-color hint for the colors extractor (Old Navy fix: promo
+  // pixels must not out-vote the brand mark). Derived from the logos
+  // extractor's result without serializing the two tasks — extractColors
+  // awaits the hint with its own short internal cap and proceeds without it
+  // if logos is still in its Playwright fallback. Best-effort: any failure
+  // resolves null and colors behaves as before.
+  const logosPromise = launchWithBudget(0, "logos", () => extractLogos(evidence));
+  const logoColorHint: Promise<string | null> = logosPromise
+    .then((r) => {
+      const url = r.data?.defaultLogoUrl;
+      return typeof url === "string" && url ? extractLogoDominantColor(url) : null;
+    })
+    .catch(() => null);
+
   const tasks: { name: DimensionName; promise: Promise<DimensionResult<unknown>> }[] = [
-    { name: "logos", promise: launchWithBudget(0, "logos", () => extractLogos(evidence)) },
-    { name: "colors", promise: launchWithBudget(1, "colors", () => extractColors(evidence, openai)) },
+    { name: "logos", promise: logosPromise },
+    { name: "colors", promise: launchWithBudget(1, "colors", () => extractColors(evidence, openai, logoColorHint)) },
     { name: "typography", promise: launchWithBudget(2, "typography", () => extractTypography(evidence, openai)) },
     { name: "buttons", promise: launchWithBudget(3, "buttons", () => extractButtons(evidence, openai)) },
     { name: "photography", promise: launchWithBudget(4, "photography", () => extractPhotography(evidence, openai)) },
@@ -589,7 +604,17 @@ export async function applyAssetMirror(payload: OrchestratorPayload, tenantId: n
     return;
   }
   try {
-    const result = await mirrorBrandAssets({ tenantId, brandName, logoUrl, faviconUrl, photoUrls });
+    const result = await mirrorBrandAssets({
+      tenantId,
+      brandName,
+      logoUrl,
+      faviconUrl,
+      photoUrls,
+      // Imported site URL → refhost:/refsrc: tags on mirrored photo rows, so a
+      // later generation referencing this site treats them as its imagery and
+      // the page-create reference mirror dedups against them.
+      sourceUrl: typeof payload.sourceUrl === "string" ? payload.sourceUrl : null,
+    });
     logger.info(
       {
         tenantId,

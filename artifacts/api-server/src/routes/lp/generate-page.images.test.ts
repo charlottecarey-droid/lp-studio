@@ -13,6 +13,7 @@ import {
   isDandyPaletteLiteral,
   deBrandFooterColors,
   applyBrandProductContentImages,
+  isExcludedFromGenerationPool,
   type MediaImage,
 } from "./generate-page";
 
@@ -1789,5 +1790,198 @@ describe("applyBrandProductContentImages — brand content-image placement", () 
     applyBrandProductContentImages([block as any], [CROWN], new Set(["/objects/brand-logo"]));
     expect(block.props.items[0].imageUrl).toBe("/objects/brand-logo");
     expect(block.props.items[1].imageUrl).toBe("/objects/crown-1");
+  });
+});
+
+// ── og/promo exclusion policy (Old Navy fix) ────────────────────────────────
+// The blanket og-image exclusion used to hide a tenant's ENTIRE imported
+// library when the vision classifier og-tagged their text-bearing homepage
+// banners. Policy now: hard role reservations (logo/favicon/team-photo/
+// homepage-screenshot) always exclude; promo/og tags exclude ONLY true social
+// cards — the tenant's own brand-imported content imagery and imagery from a
+// host referenced in THIS prompt keep competing.
+describe("isExcludedFromGenerationPool — smart og/promo exclusion", () => {
+  const brandPromoTall: MediaImage = {
+    url: "/objects/on-banner-1",
+    title: "Summer sale banner",
+    tags: ["og-image", "brand-import", "old-navy", "summer", "fashion"],
+    width: 1600,
+    height: 2000,
+  };
+  const brandSocialCard: MediaImage = {
+    url: "/objects/on-og-card",
+    title: "Old Navy share card",
+    tags: ["og-image", "brand-import", "old-navy"],
+    width: 1200,
+    height: 630,
+  };
+  const brandPromoNoDims: MediaImage = {
+    url: "/objects/on-banner-legacy",
+    title: "Legacy banner",
+    tags: ["og-image", "brand-import", "old-navy"],
+    width: null,
+    height: null,
+  };
+  const foreignOg: MediaImage = {
+    url: "/objects/random-og",
+    title: "Random og",
+    tags: ["og-image"],
+    width: 1600,
+    height: 2000,
+  };
+  const refHostOg: MediaImage = {
+    url: "/objects/scraped-og",
+    title: "scraped promo",
+    tags: ["og-image", "scraped", "page-reference", "refhost:oldnavy.com"],
+    width: 1200,
+    height: 630,
+  };
+
+  it("keeps a brand-imported promo banner with content geometry (NOT a social card)", () => {
+    expect(isExcludedFromGenerationPool(brandPromoTall)).toBe(false);
+  });
+
+  it("still excludes a brand-imported TRUE social card (1200x630)", () => {
+    expect(isExcludedFromGenerationPool(brandSocialCard)).toBe(true);
+  });
+
+  it("keeps a brand-imported og-tagged row with UNKNOWN dimensions (brand-import never mirrors og:image meta)", () => {
+    expect(isExcludedFromGenerationPool(brandPromoNoDims)).toBe(false);
+  });
+
+  it("still excludes a non-brand-import og row with no current-reference bypass", () => {
+    expect(isExcludedFromGenerationPool(foreignOg)).toBe(true);
+  });
+
+  it("current-reference bypass: an og-tagged row from a host referenced THIS run competes — even a social card", () => {
+    expect(isExcludedFromGenerationPool(refHostOg, new Set(["oldnavy.com"]))).toBe(false);
+    expect(isExcludedFromGenerationPool(refHostOg, new Set(["clay.com"]))).toBe(true);
+  });
+
+  it("hard role reservations (logo/favicon/team-photo/homepage-screenshot) never get a bypass", () => {
+    for (const hard of ["logo", "favicon", "team-photo", "homepage-screenshot"]) {
+      const img: MediaImage = {
+        url: `/objects/${hard}`,
+        title: hard,
+        tags: [hard, "brand-import", "refhost:oldnavy.com"],
+        width: 1600,
+        height: 2000,
+      };
+      expect(isExcludedFromGenerationPool(img, new Set(["oldnavy.com"]))).toBe(true);
+    }
+  });
+
+  it("sanitize keeps a brand-imported promo banner the model picked, but clears a true social card", () => {
+    let blocks: any[] = [
+      { type: "hero", props: { headline: "Summer sale", imageUrl: "/objects/on-banner-1" } },
+      { type: "feature", props: { headline: "Share", imageUrl: "/objects/on-og-card" } },
+    ];
+    blocks = sanitizeAIImageUrls(blocks, [brandPromoTall, brandSocialCard]) as any[];
+    expect(blocks[0].props.imageUrl).toBe("/objects/on-banner-1");
+    expect(blocks[1].props.imageUrl).toBe("");
+  });
+});
+
+// ── Starter topicality floor + cross-vertical penalty (scrubs-on-fashion) ───
+// A starter seed's purpose tag says nothing about its SUBJECT (starters are
+// purpose-tagged en masse at seed time), so purpose-match alone must not put a
+// medical-scrubs starter into the hero of a FASHION page when the tenant has a
+// real library. Tiny/new tenants keep the starter fallback. Separately, the
+// cross-vertical penalty drops clearly wrong-vertical candidates below the
+// non-negative floor in every pass.
+describe("starter topicality floor + cross-vertical penalty", () => {
+  const scrubsStarter: MediaImage = {
+    url: "/objects/starter-scrubs",
+    title: "Starter 555",
+    tags: ["starter", "industry", "medical", "scrubs", "clinic", "lp-hero"],
+  };
+  // Ten untagged curated drawer uploads — a "real" library with no usable hero.
+  const bigLibrary: MediaImage[] = Array.from({ length: 10 }, (_, i) => ({
+    url: `/objects/upload-${i}`,
+    title: `upload ${i}`,
+    tags: [],
+  }));
+  const FASHION_CTX = "summer sale fashion apparel new arrivals";
+  const HEALTH_CTX = "healthcare clinic staffing landing page";
+
+  it("a scrubs-tagged starter NEVER fills a fashion page's hero when the tenant has a real library", () => {
+    const blocks: any[] = [{ type: "hero", props: { headline: "Summer styles for the family", imageUrl: "" } }];
+    const filled = fillEmptyImages(blocks, [scrubsStarter, ...bigLibrary], FASHION_CTX, true) as any[];
+    expect(filled[0].props.imageUrl).toBe("");
+  });
+
+  it("the same starter STILL fills a healthcare-context hero (topical overlap clears the floor)", () => {
+    const blocks: any[] = [{ type: "hero", props: { headline: "Modern clinic staffing", imageUrl: "" } }];
+    const filled = fillEmptyImages(blocks, [scrubsStarter, ...bigLibrary], HEALTH_CTX, true) as any[];
+    expect(filled[0].props.imageUrl).toBe("/objects/starter-scrubs");
+  });
+
+  it("small-library tenants keep the starter fallback (purpose-only floor escape)", () => {
+    // Library below the STARTER_FLOOR_MIN_LIBRARY threshold and a context with
+    // NO conflicting vertical vocabulary → the old purpose-match behavior holds.
+    const blocks: any[] = [{ type: "hero", props: { headline: "Grand opening", imageUrl: "" } }];
+    const filled = fillEmptyImages(blocks, [scrubsStarter], "grand opening landing page", true) as any[];
+    expect(filled[0].props.imageUrl).toBe("/objects/starter-scrubs");
+  });
+
+  it("cross-vertical penalty lets validation clear a model-assigned scrubs hero in favor of an on-vertical alternative", () => {
+    const scrubsCurated: MediaImage = {
+      url: "/objects/scrubs-photo",
+      title: "Nurse in scrubs",
+      tags: ["lp-hero", "medical", "scrubs", "clinic"],
+    };
+    const fashionHero: MediaImage = {
+      url: "/objects/fashion-hero",
+      title: "x",
+      tags: ["lp-hero", "fashion"],
+    };
+    // Without the −8 conflict penalty both score the +8 purpose boost and the
+    // fashion alternative's edge (one tag hit = +4) stays below CLEAR_GAP (8) —
+    // the wrong pick survived. The penalty drops the scrubs pick to 0, widening
+    // the gap to 12 >= CLEAR_GAP, so validation clears it for refill.
+    const blocks: any[] = [
+      { type: "hero", props: { headline: "Summer fashion sale", imageUrl: "/objects/scrubs-photo" } },
+    ];
+    validateAndDedupeAIImages(blocks, [scrubsCurated, fashionHero], FASHION_CTX);
+    expect(blocks[0].props.imageUrl).toBe("");
+  });
+
+  it("penalty does NOT fire without clear conflict (generic context, or matching vertical)", () => {
+    const scrubsCurated: MediaImage = {
+      url: "/objects/scrubs-photo",
+      title: "Nurse in scrubs",
+      tags: ["lp-hero", "medical", "scrubs", "clinic"],
+    };
+    // Same-vertical context → keeps the pick.
+    const keep: any[] = [
+      { type: "hero", props: { headline: "Clinic staffing made easy", imageUrl: "/objects/scrubs-photo" } },
+    ];
+    validateAndDedupeAIImages(keep, [scrubsCurated], "healthcare clinic staffing");
+    expect(keep[0].props.imageUrl).toBe("/objects/scrubs-photo");
+    // Generic context with NO recognized vertical vocabulary → no penalty; the
+    // purpose-matched pick survives (conservative: only clear conflicts fire).
+    const generic: any[] = [
+      { type: "hero", props: { headline: "Welcome to our team", imageUrl: "/objects/scrubs-photo" } },
+    ];
+    validateAndDedupeAIImages(generic, [scrubsCurated], "grand opening landing page");
+    expect(generic[0].props.imageUrl).toBe("/objects/scrubs-photo");
+  });
+
+  it("an off-vertical image never wins a relaxed feature slot over an on-vertical one", () => {
+    const scrubsFeature: MediaImage = {
+      url: "/objects/scrubs-feature",
+      title: "Scrubs",
+      tags: ["lp-feature", "medical", "scrubs"],
+    };
+    const fashionFeature: MediaImage = {
+      url: "/objects/fashion-feature",
+      title: "Denim",
+      tags: ["lp-feature", "fashion", "denim"],
+    };
+    const blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "New denim arrivals", imageUrl: "" }] } },
+    ];
+    const filled = fillEmptyImages(blocks, [scrubsFeature, fashionFeature], FASHION_CTX, true) as any[];
+    expect(filled[0].props.rows[0].imageUrl).toBe("/objects/fashion-feature");
   });
 });

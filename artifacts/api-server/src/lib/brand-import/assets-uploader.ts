@@ -36,6 +36,14 @@ interface MirrorInputs {
   logoUrl?: string | null;
   faviconUrl?: string | null;
   photoUrls?: string[];
+  /** The imported site's page URL (evidence.homeUrl). When present, mirrored
+   *  PHOTO rows additionally carry `refhost:<host>` + `refsrc:<hash>` tags so
+   *  (a) a later page-generation referencing the same site recognises these
+   *  rows as that site's imagery (current-reference fill priority +
+   *  promo-exclusion bypass keyed on refhost), and (b) the page-create
+   *  reference mirror can dedup against them instead of re-uploading the same
+   *  images as duplicate "scraped" rows. */
+  sourceUrl?: string | null;
 }
 
 export interface MirrorOutput {
@@ -307,7 +315,7 @@ function runAutoTag(
   rec: UploadedRecord,
   asset: FetchedAsset,
   tags: string[],
-  opts: { forbidHeroPurpose?: boolean } = {},
+  opts: { forbidHeroPurpose?: boolean; width?: number | null; height?: number | null } = {},
 ): Promise<void> {
   // Cleared the instant tagging settles so a fast success/failure never leaves a
   // live timer that fires a spurious "timed out" warning ~25s later.
@@ -450,13 +458,31 @@ export async function mirrorBrandAssets(inputs: MirrorInputs): Promise<MirrorOut
     }
   }
 
+  // The imported site's host, threaded onto photo rows as a `refhost:` tag so
+  // the generator's current-reference machinery (refhost matching) and the
+  // page-create reference mirror's refsrc dedup both recognise brand-import
+  // photography as that site's imagery. Best-effort: no sourceUrl → no tags.
+  let brandRefHost = "";
+  if (inputs.sourceUrl) {
+    try {
+      brandRefHost = new URL(inputs.sourceUrl).hostname.replace(/^www\./, "");
+    } catch {
+      brandRefHost = "";
+    }
+  }
+
   // Photos in parallel — independent network calls, no shared state.
   const photos = (inputs.photoUrls ?? []).slice(0, MAX_PHOTOS);
   out.attempted += photos.length;
   const results = await Promise.all(photos.map(async (sourceUrl, i) => {
     const fetched = await fetchAsset(sourceUrl);
     if (!fetched.ok) return { sourceUrl, url: null as string | null, reason: fetched.reason };
-    const photoTags = [...baseTags, "photography"];
+    const photoTags = [
+      ...baseTags,
+      "photography",
+      ...(brandRefHost ? [`refhost:${brandRefHost}`] : []),
+      referenceSrcTag(normalizeForDedup(sourceUrl)),
+    ];
     const rec = await uploadAndRecord(fetched.asset, {
       tenantId: inputs.tenantId,
       tags: photoTags,
@@ -470,7 +496,15 @@ export async function mirrorBrandAssets(inputs: MirrorInputs): Promise<MirrorOut
     // Same source-page hero rule as the reference mirror: photoUrls arrive in
     // document order (collectImagesFromDom content[]), so only the first photo
     // is hero-eligible; later photos are forbidden the lp-hero purpose.
-    if (rec && imageTaggerConfigured()) void runAutoTag(rec, fetched.asset, photoTags, { forbidHeroPurpose: i !== 0 });
+    if (rec && imageTaggerConfigured()) {
+      void runAutoTag(rec, fetched.asset, photoTags, {
+        forbidHeroPurpose: i !== 0,
+        // Pre-measured dimensions let the tagger's social-card geometry check
+        // (og-image vs promo-graphic) run without re-decoding the buffer.
+        width: rec.width,
+        height: rec.height,
+      });
+    }
     return { sourceUrl, url: rec?.url ?? null, reason: rec ? null : "upload-failed" };
   }));
   for (const r of results) {
@@ -609,13 +643,17 @@ export async function mirrorReferenceImages(inputs: {
   // mid-page lifestyle/product shots) is forbidden the hero purpose.
   const heroTag = candidates[0]?.tag;
 
-  // De-dup across prior page-create harvests for this tenant: map each refsrc
-  // tag already present on a "scraped" row to that existing library row. We
-  // skip re-uploading those sources, but we still RETURN their existing rows
-  // (below) so a repeat generation from the same URL surfaces this run's
-  // reference imagery with the same priority as a fresh mirror — otherwise the
-  // second generation would get an empty `images[]` and silently fall back to
-  // generic catalog photos.
+  // De-dup across prior harvests for this tenant: map each refsrc tag already
+  // present on a "scraped" row — OR a "brand-import" row (the brand-import
+  // mirror also stamps refhost/refsrc onto its photo rows) — to that existing
+  // library row. We skip re-uploading those sources, but we still RETURN their
+  // existing rows (below) so a repeat generation from the same URL surfaces
+  // this run's reference imagery with the same priority as a fresh mirror —
+  // otherwise the second generation would get an empty `images[]` and silently
+  // fall back to generic catalog photos. Including brand-import rows means a
+  // reference scrape of the tenant's own imported site surfaces THOSE curated
+  // rows (which then get current-reference treatment in the fill pool) instead
+  // of duplicating them as new "scraped" rows.
   const alreadyMirrored = new Map<string, MirroredImage>();
   const idByTag = new Map<string, number>();
   try {
@@ -632,7 +670,7 @@ export async function mirrorReferenceImages(inputs: {
       .where(and(
         eq(lpMediaTable.tenantId, inputs.tenantId),
         eq(lpMediaTable.mediaType, "image"),
-        sql`${lpMediaTable.tags} @> ${JSON.stringify(["scraped"])}::jsonb`,
+        sql`(${lpMediaTable.tags} @> ${JSON.stringify(["scraped"])}::jsonb OR ${lpMediaTable.tags} @> ${JSON.stringify(["brand-import"])}::jsonb)`,
       ))
       .limit(2000);
     for (const row of existing) {
@@ -728,7 +766,13 @@ export async function mirrorReferenceImages(inputs: {
     const rec = await uploadAndRecord(fetched.asset, { tenantId: inputs.tenantId, tags, title });
     // Awaited (bounded) so this run's generation sees the richer tags. Never
     // throws — on failure/timeout the image keeps its provenance-only tags.
-    if (rec && taggerOn) await runAutoTag(rec, fetched.asset, tags, { forbidHeroPurpose: c.tag !== heroTag });
+    if (rec && taggerOn) {
+      await runAutoTag(rec, fetched.asset, tags, {
+        forbidHeroPurpose: c.tag !== heroTag,
+        width: rec.width,
+        height: rec.height,
+      });
+    }
     return { rec, reason: rec ? null : "upload-failed", sourceUrl: c.sourceUrl, tags, title };
   }));
 

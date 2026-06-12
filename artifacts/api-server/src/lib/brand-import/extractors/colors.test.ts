@@ -220,3 +220,125 @@ describe("extractColors", () => {
     expect(result.errors.some((e) => e.includes("LLM call failed"))).toBe(true);
   });
 });
+
+// ── Logo dominant-color signal (Old Navy fix) ────────────────────────────────
+// Promo-heavy homepages flood the pixel sampler with CAMPAIGN colors (a pink
+// seasonal-sale wash) while the brand's actual mark is navy. The extracted
+// logo's dominant color is threaded in as a hint: when the chosen primary
+// clashes with the logo hue, the logo dominant wins `primary`, the sampled
+// pick demotes to `accent`, and confidence drops so the review UI surfaces it.
+describe("extractColors — logo dominant-color signal", () => {
+  const NAVY_LOGO = "#003366"; // hue ~210 (Old Navy-like navy)
+  const PROMO_PINK = "#F659A2"; // hue ~332 (sale-banner pink)
+
+  it("Old-Navy-like: pink promo palette + navy logo → primary navy, pink demoted to accent", async () => {
+    const { client } = mockOpenAI({
+      respondWith: JSON.stringify({ slots: { primary: PROMO_PINK } }),
+    });
+    // Pink dominates the sampled palette (promo wash); no CSS vars.
+    const evidence = makeEvidence({
+      sampledPalette: [PROMO_PINK, "#FFFFFF", "#111111"],
+    });
+
+    const result = await extractColors(evidence, client, NAVY_LOGO);
+
+    expect(result.data?.primary).toBe(NAVY_LOGO);
+    expect(result.data?.accent).toBe(PROMO_PINK);
+    // The override is surfaced for review: partial status + an explanatory error.
+    expect(result.status).toBe("partial");
+    expect(result.errors.some((e) => e.includes("logo"))).toBe(true);
+  });
+
+  it("accepts the hint as a promise (the orchestrator threads logos → colors async)", async () => {
+    const { client } = mockOpenAI({
+      respondWith: JSON.stringify({ slots: { primary: PROMO_PINK } }),
+    });
+    const evidence = makeEvidence({ sampledPalette: [PROMO_PINK, "#FFFFFF"] });
+
+    const result = await extractColors(evidence, client, Promise.resolve(NAVY_LOGO));
+
+    expect(result.data?.primary).toBe(NAVY_LOGO);
+  });
+
+  it("caps confidence at medium when the logo overrides a high-confidence (CSS-var) read", async () => {
+    const { client } = mockOpenAI({
+      respondWith: JSON.stringify({ slots: { primary: PROMO_PINK } }),
+    });
+    // CSS vars present (high evidence confidence) but none named brand/primary,
+    // so the wash guard can't pin the primary — the logo override applies and
+    // the result must surface as medium for human review.
+    const evidence = makeEvidence({
+      sampledPalette: [PROMO_PINK, "#FFFFFF"],
+      cssVarPaletteHints: [{ name: "--color-border", value: "#E2E8F0" }],
+    });
+
+    const result = await extractColors(evidence, client, NAVY_LOGO);
+
+    expect(result.data?.primary).toBe(NAVY_LOGO);
+    expect(result.confidence).toBe("medium");
+  });
+
+  it("does NOT override a harmonizing primary (small hue distance)", async () => {
+    const sky = "#0EA5E9"; // hue ~199, close to the navy logo's ~210
+    const { client } = mockOpenAI({
+      respondWith: JSON.stringify({ slots: { primary: sky } }),
+    });
+    const evidence = makeEvidence({ sampledPalette: [sky, "#FFFFFF"] });
+
+    const result = await extractColors(evidence, client, NAVY_LOGO);
+
+    expect(result.data?.primary).toBe(sky);
+    expect(result.confidence).toBe("medium"); // unchanged palette-only confidence
+  });
+
+  it("ignores a weak (near-grey) logo dominant — greys say nothing about brand hue", async () => {
+    const { client } = mockOpenAI({
+      respondWith: JSON.stringify({ slots: { primary: PROMO_PINK } }),
+    });
+    const evidence = makeEvidence({ sampledPalette: [PROMO_PINK, "#FFFFFF"] });
+
+    const result = await extractColors(evidence, client, "#888888");
+
+    expect(result.data?.primary).toBe(PROMO_PINK);
+  });
+
+  it("a primary pinned to a NAMED brand token outranks the logo dominant", async () => {
+    const { client } = mockOpenAI({
+      respondWith: JSON.stringify({ slots: { primary: PROMO_PINK } }),
+    });
+    const evidence = makeEvidence({
+      sampledPalette: [PROMO_PINK, "#FFFFFF"],
+      cssVarPaletteHints: [{ name: "--brand-primary", value: "#10B981" }],
+    });
+
+    const result = await extractColors(evidence, client, NAVY_LOGO);
+
+    // The wash guard pins primary to the declared brand token; the logo
+    // post-validation must leave a token-pinned primary alone.
+    expect(result.data?.primary).toBe("#10B981");
+  });
+
+  it("rescues a weak primary with the logo dominant when no saturated palette color exists", async () => {
+    const { client } = mockOpenAI({
+      respondWith: JSON.stringify({ slots: { primary: "#111111" } }),
+    });
+    // Only neutrals sampled — the weak-color guards have nothing saturated to
+    // substitute, so the logo dominant is the only usable brand signal.
+    const evidence = makeEvidence({ sampledPalette: ["#111111", "#FAFAFA"] });
+
+    const result = await extractColors(evidence, client, NAVY_LOGO);
+
+    expect(result.data?.primary).toBe(NAVY_LOGO);
+  });
+
+  it("a hint promise that rejects degrades gracefully (no override, no throw)", async () => {
+    const { client } = mockOpenAI({
+      respondWith: JSON.stringify({ slots: { primary: PROMO_PINK } }),
+    });
+    const evidence = makeEvidence({ sampledPalette: [PROMO_PINK, "#FFFFFF"] });
+
+    const result = await extractColors(evidence, client, Promise.reject(new Error("logo fetch failed")));
+
+    expect(result.data?.primary).toBe(PROMO_PINK);
+  });
+});

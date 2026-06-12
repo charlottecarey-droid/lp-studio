@@ -1,10 +1,41 @@
 import OpenAI from "openai";
 import { db, lpMediaTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { readImageDimensions } from "./imageDimensions";
 
 /** Landing-page purpose tags an auto-tagged image may receive. */
 export const VALID_PURPOSES = ["lp-hero", "lp-feature", "product-detail"] as const;
 export type ImagePurpose = typeof VALID_PURPOSES[number];
+
+// ── True social-card (OG) geometry ──────────────────────────────────────────
+//
+// Only TRUE social-share cards should carry the hard "og-image" exclusion tag.
+// The vision classifier flags ANY composite/promotional graphic with baked-in
+// text as `og: true` ("when in doubt"), which is far too broad: a fashion
+// brand's homepage promo banners are its primary marketing imagery, and
+// og-tagging them starved generation of the tenant's entire imported library
+// (the Old Navy failure — 2000+ imported images, zero usable). Geometry is the
+// disambiguator: real OG/twitter cards are authored at the social-card aspect
+// (~1.91:1, canonically 1200x630) and are capped small (<1400px wide), while
+// genuine content/promo imagery is either taller or rendered at real hero
+// widths.
+
+/** Width/height test for the social-card shape: aspect >= 1.8 AND width < 1400
+ *  (covers the canonical 1200x630 card). Returns `null` when dimensions are
+ *  unknown — callers must pick their own conservative default. */
+export function isSocialCardDims(
+  width?: number | null,
+  height?: number | null,
+): boolean | null {
+  if (!width || !height || width <= 0 || height <= 0) return null;
+  return width / height >= 1.8 && width < 1400;
+}
+
+/** Tag applied (instead of "og-image") to classifier-flagged promotional
+ *  graphics whose geometry says they are NOT a true social card. Promo
+ *  graphics keep their content + purpose tags and stay eligible for AI page
+ *  generation; only true social cards are hard-excluded. */
+export const PROMO_GRAPHIC_TAG = "promo-graphic";
 
 // ── Backfill row-selection predicate (scripts/retag-media-library.ts) ────────
 //
@@ -35,6 +66,9 @@ const BACKFILL_EXCLUDED_TAGS = new Set([
 const NON_CONTENT_TAGS = new Set([
   // reference-scrape / brand-import provenance
   "page-reference", "scraped", "brand-import", "photography",
+  // classifier marker for a non-social-card promotional graphic (see
+  // PROMO_GRAPHIC_TAG) — a quality marker, not a content subject
+  PROMO_GRAPHIC_TAG,
   // starter-seed markers
   "starter", "flagship", "generic", "industry", "distinctive",
   // folder-junk vocabulary (mirrors SKIP_TAGS in routes/lp/generate-page.ts)
@@ -86,7 +120,10 @@ export function needsContentTagBackfill(tags: unknown): boolean {
  *   "lp-hero"        — lifestyle, people, environments, smiles, clinic shots (hero sections)
  *   "lp-feature"     — clean product/procedure shots, moderate close-ups (feature rows)
  *   "product-detail" — very close-up product, diagrams, spec/guide illustrations
- *   "og-image"       — (exclusion tag) social/OG sharing image; auto-excluded from AI page generation
+ *   "og-image"       — (exclusion tag) TRUE social/OG sharing card (social-card geometry);
+ *                      auto-excluded from AI page generation
+ *   "promo-graphic"  — classifier flagged baked-in text/promo design but the geometry is NOT a
+ *                      social card → kept eligible for generation, with content + purpose tags
  *
  *  Reused by both the media-drawer upload path (routes/storage.ts) and the
  *  brand-import / reference-scrape mirror (lib/brand-import/assets-uploader.ts)
@@ -99,7 +136,14 @@ export async function autoTagImage(
   imageBuffer: Buffer,
   mimeType: string,
   existingTags: string[] = [],
-  opts: { forbidHeroPurpose?: boolean } = {},
+  opts: {
+    forbidHeroPurpose?: boolean;
+    /** Intrinsic pixel dimensions when the caller already measured them
+     *  (e.g. the brand-import mirror) — avoids re-decoding the buffer for
+     *  the social-card geometry check. */
+    width?: number | null;
+    height?: number | null;
+  } = {},
 ): Promise<void> {
   try {
     const baseURL = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"];
@@ -176,10 +220,29 @@ Rules:
     }
 
     if (aiTags.length > 0 || purpose || isOg) {
-      // OG images get the "og-image" exclusion tag prepended; no LP purpose tag assigned
-      const purposeArr: string[] = isOg ? ["og-image"] : (purpose ? [purpose] : []);
-      // Remove any stale purpose/og tags from existing tags before merging
-      const staleTagSet = new Set([...VALID_PURPOSES as readonly string[], "og-image"]);
+      // og: true from the classifier is geometry-checked before it becomes the
+      // hard "og-image" exclusion. Only a TRUE social-card shape (~1200x630 /
+      // >=1.8 aspect under 1400px wide) is excluded outright; a text-heavy
+      // promotional graphic at content/hero geometry is the tenant's own
+      // marketing imagery and keeps competing in generation — it gets the
+      // soft "promo-graphic" marker plus its content + purpose tags instead.
+      // Unknown dimensions (decode failure / SVG) stay conservative: og-image.
+      let purposeArr: string[];
+      if (isOg) {
+        const dims =
+          opts.width && opts.height
+            ? { width: opts.width, height: opts.height }
+            : await readImageDimensions(imageBuffer, mimeType);
+        const socialCard = isSocialCardDims(dims?.width, dims?.height);
+        purposeArr =
+          socialCard === false
+            ? [PROMO_GRAPHIC_TAG, ...(purpose ? [purpose] : [])]
+            : ["og-image"];
+      } else {
+        purposeArr = purpose ? [purpose] : [];
+      }
+      // Remove any stale purpose/og/promo tags from existing tags before merging
+      const staleTagSet = new Set([...VALID_PURPOSES as readonly string[], "og-image", PROMO_GRAPHIC_TAG]);
       const cleanedExisting = existingTags.filter(t => !staleTagSet.has(t));
       const merged = [...new Set([...purposeArr, ...cleanedExisting, ...aiTags])].slice(0, 11);
       await db

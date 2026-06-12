@@ -2232,7 +2232,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
 
     // Fetch media library so the AI uses real assets, not invented URLs
     const [{ images, allImages, catalogText: imageCatalogText }, { videoUrls, catalogText: videoCatalogText }, scrapeResult] =
-      await Promise.all([fetchMediaCatalog(tenantId), fetchVideoCatalog(tenantId), scrapePromise]);
+      await Promise.all([fetchMediaCatalog(tenantId, mergedReferenceUrls), fetchVideoCatalog(tenantId), scrapePromise]);
 
     // Kick off mirroring the reference site's content images into the tenant's
     // media library now so it overlaps with prompt assembly + the LLM call. The

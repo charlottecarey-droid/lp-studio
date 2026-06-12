@@ -12,7 +12,7 @@ import { resolveOwnedTenantIds, libraryReadablePredicate, isSharedOrGlobalAsset 
 import { getTenantId, SESSION_COOKIE, type AuthUser } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import { readImageDimensions } from "../lib/imageDimensions";
-import { autoTagImage, VALID_PURPOSES, type ImagePurpose } from "../lib/imageAutoTag";
+import { autoTagImage, VALID_PURPOSES, isSocialCardDims, PROMO_GRAPHIC_TAG, type ImagePurpose } from "../lib/imageAutoTag";
 
 /**
  * Read-only requester resolver for the storage serve route. Looks up the
@@ -288,12 +288,21 @@ og-image       → any of: social-sharing / Open Graph card, text or logo overla
     });
 
     const raw = (completion.choices[0]?.message?.content?.trim() ?? "").toLowerCase();
-    const staleTagSet = new Set([...VALID_PURPOSES as readonly string[], "og-image"]);
+    const staleTagSet = new Set([...VALID_PURPOSES as readonly string[], "og-image", PROMO_GRAPHIC_TAG]);
 
     if (raw.includes("og-image")) {
-      // OG images: tag as "og-image", remove any LP purpose tags
+      // Geometry gate before the hard exclusion (mirrors autoTagImage): only a
+      // TRUE social-card shape (~1200x630 / >=1.8 aspect under 1400px wide)
+      // earns the "og-image" exclusion tag. A text-heavy promo graphic at
+      // content geometry — e.g. a fashion brand's imported homepage banners —
+      // is re-tagged "promo-graphic" so it stays eligible for AI generation.
+      // This is exactly what lets "Re-scan all (fix OG images)" heal rows the
+      // old classifier blanket-tagged "og-image". Unknown dimensions stay
+      // conservative (og-image).
+      const dims = await readImageDimensions(imageBuffer, mimeType);
+      const socialCard = isSocialCardDims(dims?.width, dims?.height);
       const cleanedTags = existingTags.filter(t => !staleTagSet.has(t));
-      const merged = ["og-image", ...cleanedTags].slice(0, 11);
+      const merged = [socialCard === false ? PROMO_GRAPHIC_TAG : "og-image", ...cleanedTags].slice(0, 11);
       await db.update(lpMediaTable).set({ tags: merged }).where(eq(lpMediaTable.id, mediaId));
       return "tagged";
     }
@@ -312,8 +321,10 @@ og-image       → any of: social-sharing / Open Graph card, text or logo overla
   }
 }
 
-/** Purpose/og tags that mark an image as "already classified". */
-const ALL_PURPOSE_TAGS = new Set([...VALID_PURPOSES as readonly string[], "og-image"]);
+/** Purpose/og tags that mark an image as "already classified". Includes
+ *  "promo-graphic" so a non-force run converges instead of re-classifying the
+ *  same promo rows every pass (a force re-scan still revisits them). */
+const ALL_PURPOSE_TAGS = new Set([...VALID_PURPOSES as readonly string[], "og-image", PROMO_GRAPHIC_TAG]);
 
 /** Max images a single /lp/media/classify-batch call will process. The client
  *  drives the whole library by calling repeatedly in chunks of this size. */

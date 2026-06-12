@@ -71,9 +71,37 @@ const SLOT_FIELDS: (keyof ColorsData)[] = [
   "ctaBackground", "ctaText", "navBgColor", "navText", "borderColor",
 ];
 
+/** Circular hue distance (degrees, 0–180) between two hex colors. Only
+ *  meaningful when both colors carry real chroma — callers gate on
+ *  !isWeakColor for both sides. */
+function hueDistanceDeg(aHex: string, bHex: string): number {
+  const a = hexToRgb(aHex);
+  const b = hexToRgb(bHex);
+  if (!a || !b) return 0;
+  const d = Math.abs(hue(a) - hue(b));
+  return d > 180 ? 360 - d : d;
+}
+
+/** Hue distance beyond which the chosen primary is considered to CLASH with
+ *  the logo's dominant color (vs merely being a neighboring/harmonizing hue).
+ *  Pink (~330°) vs navy (~215°) is ~115° — well past this; blue vs teal
+ *  (~40°) is well inside it. */
+const LOGO_HUE_CONFLICT_DEG = 75;
+
+/** How long extractColors waits for the (concurrently computed) logo
+ *  dominant-color hint before proceeding without it. The logos extractor is
+ *  usually done in 2–5s; its Playwright fallback can run longer, in which
+ *  case we just skip the hint rather than eat the colors budget. */
+const LOGO_HINT_WAIT_MS = 8_000;
+
 export async function extractColors(
   evidence: Evidence,
   openai: OpenAI,
+  /** Dominant color of the extracted brand logo (see
+   *  logo-color.ts/extractLogoDominantColor), as a hex string or a promise of
+   *  one — the orchestrator threads the logos extractor's output through
+   *  without serializing the two extractors. Optional and best-effort. */
+  logoColorHint?: string | null | Promise<string | null>,
 ): Promise<DimensionResult<ColorsData>> {
   const errors: string[] = [];
   const palette = evidence.sampledPalette;
@@ -86,6 +114,31 @@ export async function extractColors(
       confidence: "low",
       errors: ["no color evidence (no screenshot palette, no CSS vars)"],
     };
+  }
+
+  // Resolve the logo dominant-color hint, bounded so a slow logos extractor
+  // (Playwright fallback) can't starve the colors budget.
+  let logoColor: string | null = null;
+  if (logoColorHint != null) {
+    try {
+      let resolved: string | null;
+      if (typeof logoColorHint === "string") {
+        resolved = logoColorHint;
+      } else {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timeout = new Promise<null>((r) => {
+          timer = setTimeout(() => r(null), LOGO_HINT_WAIT_MS);
+          if (typeof timer.unref === "function") timer.unref();
+        });
+        resolved = await Promise.race([logoColorHint, timeout]);
+        if (timer) clearTimeout(timer);
+      }
+      if (typeof resolved === "string" && /^#[0-9a-fA-F]{6}$/.test(resolved)) {
+        logoColor = resolved.toUpperCase();
+      }
+    } catch {
+      logoColor = null;
+    }
   }
 
   // Pick deterministic defaults for background/text from the palette extremes
@@ -101,6 +154,9 @@ export async function extractColors(
   const paletteNote = palette.length
     ? `\n\nPixel-sampled palette from the homepage screenshot (most → least frequent): ${palette.join(", ")}.`
     : "";
+  const logoNote = logoColor
+    ? `\n\nThe brand LOGO's dominant color is ${logoColor} — after named CSS tokens this is the strongest brand signal. "primary" should usually match or harmonize with the logo color; a promotional/seasonal campaign color that clashes with the logo hue belongs in "accent", NOT "primary" (promo-heavy homepages flood the pixel palette with campaign colors). If the pixel-sampled palette conflicts with the logo color, report confidence "low" for primary.`
+    : "";
 
   const systemPrompt = `You are a brand color extractor. Given a list of CSS custom properties and pixel-sampled colors from a homepage, return JSON mapping these slots to hex codes. Prefer CSS-var values when their name clearly indicates the slot (e.g. --color-primary → primary). Use pixel-sampled values as confirmation or when no CSS var exists. Avoid near-grey colors for primary/accent (use them only for text/background/border).
 
@@ -110,7 +166,7 @@ Return JSON:
   "secondary": ["#RRGGBB", ...],   // up to 5 secondary brand colors
   "confidence": { "primary": "high|medium|low", ... }
 }
-All values must be 6-digit hex starting with #. Use solid colors only (no rgba). Omit any slot you cannot determine.${candidateNote}${paletteNote}`;
+All values must be 6-digit hex starting with #. Use solid colors only (no rgba). Omit any slot you cannot determine.${candidateNote}${paletteNote}${logoNote}`;
 
   const userParts: ChatCompletionContentPart[] = [
     { type: "text", text: `Source URL: ${evidence.homeUrl}` },
@@ -224,6 +280,33 @@ All values must be 6-digit hex starting with #. Use solid colors only (no rgba).
     errors.push(`primary (${primary}) was achromatic; promoting saturated ctaBackground (${ctaBg}) to primary`);
     primary = ctaBg;
   }
+
+  // Logo-dominant post-validation (June 2026). Promo-heavy homepages (e.g. a
+  // fashion brand mid-sale) flood the pixel sampler with CAMPAIGN colors, so
+  // the LLM returns e.g. pink as primary while the brand's mark is navy. When
+  // we have a USABLE logo dominant (not near-grey/near-white — those say
+  // nothing about the brand hue) and the chosen primary either clashes with
+  // it on hue or is itself weak, prefer the logo dominant for `primary` and
+  // demote the LLM/palette pick to `accent`. Confidence is capped at "medium"
+  // below so the review UI surfaces the call. A primary pinned to a NAMED
+  // --brand/--primary CSS token is left alone — the site's own declared token
+  // outranks our pixel read of the logo.
+  let logoOverrodePrimary = false;
+  if (logoColor && !isWeakColor(logoColor) && primary.toUpperCase() !== logoColor) {
+    const primaryPinnedToBrandVar =
+      !!brandVar && brandVar.value.toUpperCase() === primary.toUpperCase();
+    const clashes =
+      isWeakColor(primary) || hueDistanceDeg(primary, logoColor) > LOGO_HUE_CONFLICT_DEG;
+    if (!primaryPinnedToBrandVar && clashes) {
+      errors.push(
+        `primary (${primary}) conflicts with the logo's dominant color (${logoColor}); preferring the logo dominant and demoting the sampled pick to accent`,
+      );
+      if (!isWeakColor(primary)) accent = primary;
+      primary = logoColor;
+      logoOverrodePrimary = true;
+    }
+  }
+
   const ctaText = safe(slots.ctaText, luminance(hexToRgb(ctaBg) ?? [0, 0, 0]) > 0.5 ? "#0F172A" : "#FFFFFF");
   const pageBg = safe(slots.pageBackground, lightest);
   const cardBg = safe(slots.cardBackground, pageBg);
@@ -246,8 +329,13 @@ All values must be 6-digit hex starting with #. Use solid colors only (no rgba).
   for (const h of palette.slice(0, 6)) pushSwatch(h, "pixel-sample", "medium");
 
   const status: DimensionResult<ColorsData>["status"] = errors.length ? "partial" : "ok";
-  const overallConf: Confidence =
+  // A logo-dominant override caps confidence at "medium": the pixel-sampled
+  // palette and the logo disagreed, so a human should confirm the call in the
+  // review UI.
+  const evidenceConf: Confidence =
     cssVars.length > 0 ? "high" : palette.length > 0 ? "medium" : "low";
+  const overallConf: Confidence =
+    logoOverrodePrimary && evidenceConf === "high" ? "medium" : evidenceConf;
 
   const data: ColorsData = {
     primary, accent, pageBackground: pageBg, cardBackground: cardBg,
