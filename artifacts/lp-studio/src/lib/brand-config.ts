@@ -1032,6 +1032,15 @@ export function getBrandStyleVars(brand: BrandConfig): CSSProperties {
       }
     }
   }
+  // The "dandy-green" (Brand color) preset resolves its background through
+  // --brand-primary, but its foreground var historically fell back to #fff —
+  // correct for Dandy's forest green, ILLEGIBLE for a tenant whose primary is
+  // pale (white-on-pastel body text). Always emit a contrast-derived -fg from
+  // the color the preset actually paints, unless the tenant explicitly
+  // recolored the preset (handled above).
+  if (!(presetColors["dandy-green"] && isValidHex(presetColors["dandy-green"]))) {
+    vars["--lp-bg-dandy-green-fg"] = contrastTextColor(primary);
+  }
   return vars as CSSProperties;
 }
 

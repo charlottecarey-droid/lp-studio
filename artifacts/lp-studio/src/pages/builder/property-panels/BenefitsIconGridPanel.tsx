@@ -73,6 +73,16 @@ export function BenefitsIconGridPanel({ props, onChange }: Props) {
             </SelectContent>
           </Select>
         </div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Header layout</Label>
+          <Select value={props.headerLayout ?? "stacked"} onValueChange={(v) => update({ headerLayout: v as "stacked" | "split" })}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="stacked" className="text-xs">Stacked (single column)</SelectItem>
+              <SelectItem value="split" className="text-xs">Split (subheadline right)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <div className="flex items-center justify-between">
           <Label className="text-[11px] text-muted-foreground">Hairline dividers (instead of open whitespace)</Label>
           <Switch checked={props.divided === true} onCheckedChange={(v) => update({ divided: v })} />
@@ -120,6 +130,16 @@ export function BenefitsIconGridPanel({ props, onChange }: Props) {
         <div className="grid grid-cols-2 gap-2">
           <ColorField label="Text" value={props.textColor ?? "#171717"} onChange={(v) => update({ textColor: v })} />
           <ColorField label="Accent" value={props.accentColor ?? "#3B82F6"} onChange={(v) => update({ accentColor: v })} />
+        </div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Icon chips</Label>
+          <Select value={props.iconStyle ?? "tint"} onValueChange={(v) => update({ iconStyle: v as "tint" | "filled" })}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tint" className="text-xs">Tinted (soft accent)</SelectItem>
+              <SelectItem value="filled" className="text-xs">Filled (solid accent — best for pale palettes)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
     </div>

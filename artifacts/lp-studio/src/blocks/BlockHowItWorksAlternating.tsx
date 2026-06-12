@@ -9,6 +9,7 @@ import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { resolveSectionInk } from "@/lib/section-ink";
 
 /* ----------------------------------------------------------------------------
  * How It Works — Alternating Showcase (2026 redesign)
@@ -28,9 +29,10 @@ interface Props {
 }
 
 export function BlockHowItWorksAlternating({ props, brand, onFieldChange }: Props) {
-  const surface = resolveSectionSurface(props, "#FAFAF8");
+  const surface = resolveSectionSurface(props, "#FAFAF8", brand);
   const dark = surface.isDark;
-  const text = props.textColor || surface.color || (dark ? "#F6F7F9" : "#0B0B0F");
+  const ink = resolveSectionInk(props, surface);
+  const text = ink.text;
   const accent = props.accentColor || brand.accentColor || brand.primaryColor || "#3B82F6";
   const primary = brand.primaryColor || "#0f172a";
   // Accent painted on the section surface — contrast-guarded so a brand whose
@@ -38,8 +40,8 @@ export function BlockHowItWorksAlternating({ props, brand, onFieldChange }: Prop
   const accentInk = pickContrastingColor(accent, surface.base, [primary, text], 3.0);
   const eyebrowColor = pickContrastingColor(accent, surface.base, [primary, dark ? "#E2E8F0" : "#0f172a"], 4.5);
   const onAccent = pickContrastingColor(undefined, accentInk, ["#FFFFFF", "#0f172a"]);
-  const muted = dark ? "rgba(246,247,249,0.64)" : "rgba(11,11,15,0.62)";
-  const hairline = dark ? "rgba(255,255,255,0.12)" : "rgba(11,11,15,0.1)";
+  const muted = ink.muted;
+  const hairline = ink.hairline;
   const showCta = props.showCta ?? true;
   const isBuilder = !!onFieldChange;
   const reduced = useReducedMotion() ?? false;

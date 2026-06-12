@@ -3564,6 +3564,14 @@ export interface BenefitsIconGridBlockProps extends BenefitsCtaConfig {
   /** Render hairline dividers between items instead of open whitespace —
    *  a crisper, denser editorial look. Default false (open grid). */
   divided?: boolean;
+  /** Icon chip treatment. "tint" (default) = soft accent-tinted chip with a
+   *  saturation floor so pale brand accents still register; "filled" = solid
+   *  accent chip with a contrasting icon — recommended for pastel palettes. */
+  iconStyle?: "tint" | "filled";
+  /** Header composition. "stacked" (default) = eyebrow/headline/subheadline in
+   *  a single left column; "split" = eyebrow + headline left, subheadline as a
+   *  right-hand column on lg, filling the header's top-right whitespace. */
+  headerLayout?: "stacked" | "split";
   bgColor?: string;
   textColor?: string;
   accentColor?: string;

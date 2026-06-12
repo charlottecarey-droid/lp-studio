@@ -4,6 +4,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import type { FeaturesSpotlightCardsBlockProps } from "@/lib/block-types";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { resolveSectionInk } from "@/lib/section-ink";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
@@ -102,16 +103,17 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
   const isBuilder = !!onFieldChange;
   const still = isBuilder || reduced;
 
-  const surface = resolveSectionSurface(props, "#FAFAFA");
+  const surface = resolveSectionSurface(props, "#FAFAFA", brand);
   const dark = surface.isDark;
-  const text = props.textColor ?? surface.color ?? (dark ? "#F6F7F9" : "#0B0B0F");
+  const ink = resolveSectionInk(props, surface);
+  const text = ink.text;
   const accentRaw = props.accentColor || brand.accentColor || brand.primaryColor || "#3B82F6";
   const primary = brand.primaryColor || "#0f172a";
   const accent = pickContrastingColor(accentRaw, surface.base, [primary], 3.0);
   const eyebrowColor = pickContrastingColor(accentRaw, surface.base, [primary, dark ? "#E2E8F0" : "#0f172a"], 4.5);
-  const muted = dark ? "rgba(246,247,249,0.62)" : "rgba(11,11,15,0.62)";
+  const muted = ink.muted;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
-  const hairline = dark ? "rgba(255,255,255,0.12)" : "rgba(11,11,15,0.10)";
+  const hairline = ink.hairline;
   const showCta = props.showCta ?? true;
 
   const cardBg = dark ? "rgba(255,255,255,0.05)" : "#FFFFFF";

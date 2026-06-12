@@ -8,6 +8,7 @@ import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
+import { resolveSectionInk } from "@/lib/section-ink";
 
 /* ----------------------------------------------------------------------------
  * How It Works — Horizontal Stepper (2026 redesign)
@@ -26,16 +27,17 @@ interface Props {
 }
 
 export function BlockHowItWorksHorizontalStepper({ props, brand, onFieldChange }: Props) {
-  const surface = resolveSectionSurface(props, "#FFFFFF");
+  const surface = resolveSectionSurface(props, "#FFFFFF", brand);
   const dark = surface.isDark;
-  const text = props.textColor || surface.color || (dark ? "#F6F7F9" : "#0B0B0F");
+  const ink = resolveSectionInk(props, surface);
+  const text = ink.text;
   const accent = props.accentColor || brand.accentColor || brand.primaryColor || "#3B82F6";
   const primary = brand.primaryColor || "#0f172a";
   const accentInk = pickContrastingColor(accent, surface.base, [primary, text], 3.0);
   const eyebrowColor = pickContrastingColor(accent, surface.base, [primary, dark ? "#E2E8F0" : "#0f172a"], 4.5);
   const onAccent = pickContrastingColor(undefined, accentInk, ["#FFFFFF", "#0f172a"]);
-  const muted = dark ? "rgba(246,247,249,0.64)" : "rgba(11,11,15,0.62)";
-  const hairline = dark ? "rgba(255,255,255,0.12)" : "rgba(11,11,15,0.1)";
+  const muted = ink.muted;
+  const hairline = ink.hairline;
   const cardBg = dark ? "rgba(255,255,255,0.05)" : "#FFFFFF";
   const cardBorder = dark ? "rgba(255,255,255,0.1)" : "rgba(11,11,15,0.08)";
   const showCta = props.showCta ?? true;

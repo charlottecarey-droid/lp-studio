@@ -84,6 +84,38 @@ export interface ResolvedSectionSurface {
  *  such as the brand gradient is active. */
 const DARK_SURFACE_BASE = "#0f172a";
 
+/** Minimal brand surface needed to resolve a preset's ACTUAL color (tenant
+ *  overrides + the brand-color preset's `--brand-primary` indirection).
+ *  Structurally satisfied by BrandConfig, so blocks can pass `brand` directly. */
+export interface SurfaceBrandContext {
+  primaryColor?: string;
+  backgroundPresetColors?: BackgroundPresetColors;
+}
+
+/** Historical default hex per preset, used to judge a preset's REAL darkness
+ *  when a brand context is available. The brand-color preset has no fixed hex
+ *  (it follows --brand-primary), so it is resolved separately. */
+const PRESET_DEFAULT_HEX: Record<BackgroundStyle, string> = {
+  "white": "#ffffff",
+  "light-gray": "#f8fafc",
+  "muted": "#f6f4ef",
+  "dark": "#1a1a1a",
+  "dandy-green": DARK_SURFACE_BASE, // replaced by brand.primaryColor below
+  "black": "#000000",
+  "gradient": DARK_SURFACE_BASE,    // always fades into fixed dark stops
+};
+
+/** Resolve the concrete hex a preset paints for this brand: tenant preset
+ *  override → brand primary (for the brand-color preset) → historical default. */
+function resolvePresetHex(key: BackgroundStyle, brand: SurfaceBrandContext): string {
+  const override = brand.backgroundPresetColors?.[key];
+  if (override && hexToRgb(override)) return override;
+  if (key === "dandy-green" && brand.primaryColor && hexToRgb(brand.primaryColor)) {
+    return brand.primaryColor;
+  }
+  return PRESET_DEFAULT_HEX[key];
+}
+
 /**
  * Resolve a section block's background into render-ready values, bridging the
  * legacy custom-hex `bgColor` field and the shared `backgroundStyle` preset
@@ -98,20 +130,51 @@ const DARK_SURFACE_BASE = "#0f172a";
  *
  * When `backgroundStyle` is unset (or "custom") the block falls back to its
  * historical `bgColor` hex, so existing saved rows render unchanged.
+ *
+ * Pass `brand` (any BrandConfig works structurally) to resolve a preset's
+ * darkness from the color it ACTUALLY paints instead of the preset key. This
+ * matters for the "dandy-green" (Brand color) preset: it is keyed as dark, but
+ * a tenant whose `--brand-primary` is a pale pastel renders a LIGHT section —
+ * key-based detection then hands every caller light "muted" inks and a dark
+ * contrast base, producing near-invisible body text (the pale-pink-tenant
+ * bug). With `brand`, `isDark` follows the resolved hex and `base` is that
+ * hex, so all derived contrast decisions are made against the real surface.
  */
 export function resolveSectionSurface(
   opts: { backgroundStyle?: string; bgColor?: string },
   fallbackHex = "#ffffff",
+  brand?: SurfaceBrandContext,
 ): ResolvedSectionSurface {
   const style = opts.backgroundStyle;
   if (style && style !== "custom" && BACKGROUND_STYLE_KEYS.includes(style as BackgroundStyle)) {
+    const key = style as BackgroundStyle;
     const css = getBgStyle(style);
-    const dark = isDarkBg(style);
+    const keyDark = isDarkBg(style);
+    if (!brand) {
+      // Legacy key-based path — unchanged for existing callers.
+      return {
+        background: (css.background as string) ?? fallbackHex,
+        color: css.color as string | undefined,
+        isDark: keyDark,
+        base: keyDark ? DARK_SURFACE_BASE : "#ffffff",
+      };
+    }
+    const resolvedHex = resolvePresetHex(key, brand);
+    // The gradient preset always fades into fixed near-black stops, so it is
+    // dark regardless of its (overridable) first stop.
+    const dark = key === "gradient" ? true : hexLuminance(resolvedHex) < 0.4;
+    // Preset-dictated text color: trust the CSS-var chain only while the key's
+    // historical darkness matches reality; otherwise return a concrete ink so
+    // a light-resolving "brand color" section never claims white text (and a
+    // dark-recolored light preset never claims dark text).
+    let color = css.color as string | undefined;
+    if (keyDark && !dark) color = "#0B0B0F";
+    else if (!keyDark && dark) color = "#F6F7F9";
     return {
       background: (css.background as string) ?? fallbackHex,
-      color: css.color as string | undefined,
+      color,
       isDark: dark,
-      base: dark ? DARK_SURFACE_BASE : "#ffffff",
+      base: key === "gradient" ? DARK_SURFACE_BASE : resolvedHex,
     };
   }
   const hex = opts.bgColor?.trim() || fallbackHex;

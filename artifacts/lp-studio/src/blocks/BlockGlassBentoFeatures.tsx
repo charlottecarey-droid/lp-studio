@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor, relativeLuminance } from "@/lib/brand-config";
+import { resolveSectionInk } from "@/lib/section-ink";
 import { IconOrImage } from "@/lib/icon-value";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
@@ -223,7 +224,8 @@ export function BlockGlassBentoFeatures({ props, brand, onFieldChange }: Props) 
   // derive "dark" from the actual surface, not just the theme prop. ──
   const sectionBg = props.bgColor || (theme === "dark" ? "#0A0A10" : "#F7F7F4");
   const dark = relativeLuminance(sectionBg) < 0.35;
-  const text = props.textColor || (dark ? "#F6F7F9" : "#0B0B0F");
+  const ink = resolveSectionInk(props, { base: sectionBg });
+  const text = ink.text;
   const accent = props.accentColor || brand.accentColor || "#3B82F6";
   const primary = brand.primaryColor || "#0f172a";
 
@@ -231,7 +233,7 @@ export function BlockGlassBentoFeatures({ props, brand, onFieldChange }: Props) 
   // legibility is judged against the section background per brand-config rules.
   const accentOnSection = pickContrastingColor(accent, sectionBg, [primary], 3.0);
   const eyebrowColor = pickContrastingColor(accent, sectionBg, [primary, dark ? "#E2E8F0" : "#0f172a"], 4.5);
-  const muted = dark ? "rgba(246,247,249,0.62)" : "rgba(11,11,15,0.62)";
+  const muted = ink.muted;
 
   const cards = props.cards && props.cards.length > 0 ? props.cards : GLASS_BENTO_DEFAULT_PROPS.cards;
 
