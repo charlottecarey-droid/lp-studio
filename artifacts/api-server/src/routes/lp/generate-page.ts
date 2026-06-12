@@ -55,6 +55,13 @@ import { readImageDimensions, type ImageDimensions } from "../../lib/imageDimens
 import { ObjectStorageService } from "../../lib/objectStorage";
 import { resolveOwnedTenantIds, libraryReadablePredicate } from "../../lib/libraryScope";
 import { makeSemaphore, envConcurrency } from "../../lib/semaphore";
+import {
+  createSseGenerationEmitter,
+  wantsGenerationStream,
+  NOOP_GENERATION_EMITTER,
+  type GenerationEmitter,
+} from "../../lib/generationEmitter";
+import { StreamingBlockParser } from "../../lib/streamingBlockParser";
 
 const router = Router();
 
@@ -80,6 +87,44 @@ const generateOpenAISemaphore = makeSemaphore({
   max: envConcurrency("GENERATE_OPENAI_CONCURRENCY", 8),
   warnQueueDepth: 3,
 });
+
+/**
+ * Live generation (June 2026) — run a gpt-4o chat completion with
+ * `stream: true`, accumulating the full text (the downstream parse/normalize
+ * pipeline consumes the COMPLETE text exactly as in non-streaming mode) while
+ * forwarding each content delta to `onDelta` so the SSE channel can emit
+ * `block` events as the model writes. Used ONLY in streaming mode; callers
+ * must invoke it INSIDE `generateOpenAISemaphore.run(...)` so the semaphore
+ * slot is held for the whole duration of the model stream. `signal` aborts
+ * the OpenAI request when the SSE client disconnects (the throw propagates
+ * out of the semaphore run, releasing the slot).
+ */
+async function runStreamedChatCompletion(opts: {
+  client: OpenAI;
+  messages: ChatCompletionMessageParam[];
+  signal?: AbortSignal;
+  onDelta?: (delta: string) => void;
+}): Promise<string> {
+  const stream = await opts.client.chat.completions.create(
+    {
+      model: "gpt-4o",
+      temperature: 0.9,
+      max_completion_tokens: 12288,
+      messages: opts.messages,
+      stream: true,
+    },
+    opts.signal ? { signal: opts.signal } : undefined,
+  );
+  let text = "";
+  for await (const chunk of stream) {
+    const delta = chunk.choices?.[0]?.delta?.content ?? "";
+    if (delta) {
+      text += delta;
+      opts.onDelta?.(delta);
+    }
+  }
+  return text;
+}
 
 /** Task #253 — claims may be plain strings (legacy entries) or
  *  `{text, approvedForAi}` objects. Helpers below normalize both. */
@@ -6544,6 +6589,32 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   const tenantId = req.authUser?.tenantId ?? null;
   const _genStartTime = Date.now();
 
+  // ── Live generation streaming (June 2026) — OPT-IN ───────────────────────
+  // `?stream=1` (or Accept: text/event-stream) switches the response to a
+  // Server-Sent-Events stream narrating the pipeline; see lib/generationEmitter
+  // for the event contract. The switch happens HERE — after auth/quota/rate
+  // middleware and the prompt/client validations above have had their chance
+  // to return plain JSON errors — so pre-stream failures keep the JSON shape.
+  // captureOnly (prompt-debug) always returns JSON. Non-streaming requests get
+  // the shared no-op emitter and behave byte-identically to before.
+  const emitter: GenerationEmitter =
+    !captureOnly && wantsGenerationStream(req)
+      ? createSseGenerationEmitter(req, res)
+      : NOOP_GENERATION_EMITTER;
+  /** Terminal success: `result` SSE event in streaming mode, res.json otherwise. */
+  const sendResultJson = (body: unknown): void => {
+    if (emitter.enabled) emitter.result(body);
+    else res.json(body);
+  };
+  /** Terminal failure: `error` SSE event in streaming mode (same message the
+   *  JSON path would carry), res.status(...).json otherwise. */
+  const sendErrorJson = (status: number, body: { error: string; [k: string]: unknown }): void => {
+    if (emitter.enabled) emitter.error(body.error);
+    else res.status(status).json(body);
+  };
+
+  emitter.stage("context", "start", "Loading brand & content context");
+
   // Workstream A (May 2026) — reference URLs are a first-class array input.
   // The brand fetch settles up front because the rest of the image pipeline
   // (logo URLs, voice) needs it; the ~50ms latency hit is acceptable and
@@ -6612,6 +6683,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       ? preprocessScreenshotDataUrl(screenshotDataUrl).then((s) => s)
       : Promise.resolve(undefined);
 
+  emitter.stage("context", "done", "Loading brand & content context");
+  // The parallel window below is dominated by the reference scrapes (media/
+  // proof-point reads are fast DB queries), so it is narrated as "references".
+  emitter.stage("references", "start", "Studying reference pages");
+
   const [mediaCatalog, tenantSlugRow, proofPoints, scrapeResult, inspirationScrapes, uploadedScreenshot] = await Promise.all([
     // Per-request reference URLs grant the current-reference exclusion bypass
     // (the user explicitly pointed at those sites). Inspiration URLs do NOT —
@@ -6648,6 +6724,34 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   const scrapedUrls: string[] = scrapeResult.scraped
     ? [scrapeResult.scraped.url, ...(scrapeResult.scraped.additionalUrls ?? [])]
     : [];
+
+  // Streaming: which per-request reference URLs did NOT scrape (and why).
+  {
+    const scrapedNormalized = new Set(
+      scrapedUrls.map(normalizeUrlForMatch).filter((u): u is string => u !== null),
+    );
+    const referenceFailures = perRequestUrls
+      .filter((u) => {
+        const n = normalizeUrlForMatch(u);
+        return n === null || !scrapedNormalized.has(n);
+      })
+      .map((url) => ({
+        url,
+        reason:
+          scrapeResult.failureReason && scrapeResult.failureReason !== "no_url"
+            ? scrapeResult.failureReason
+            : "not_scraped",
+      }));
+    emitter.stage("references", "done", "Studying reference pages", {
+      scraped: scrapedUrls,
+      failed: referenceFailures,
+      fromInspiration: inspirationReferences.map((r) => r.url),
+    });
+  }
+  if (emitter.aborted) {
+    emitter.close();
+    return;
+  }
 
   // Task #1136 — "user-provided reference URL scraped successfully" signal.
   // When a user explicitly hands the AI a source URL for THIS generation and
@@ -6873,7 +6977,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   if (effectiveTemplateId !== undefined && effectiveTemplateId !== null) {
     const tplIdNum = Number(effectiveTemplateId);
     if (!Number.isFinite(tplIdNum)) {
-      res.status(400).json({ error: "templateId must be a number" });
+      sendErrorJson(400, { error: "templateId must be a number" });
       return;
     }
     try {
@@ -6887,12 +6991,12 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         .limit(1);
       const tpl = rows[0];
       if (!tpl) {
-        res.status(404).json({ error: "Template not found or not accessible" });
+        sendErrorJson(404, { error: "Template not found or not accessible" });
         return;
       }
       const tplBlocks = Array.isArray(tpl.blocks) ? tpl.blocks : [];
       if (tplBlocks.length === 0) {
-        res.status(400).json({ error: "Template has no blocks" });
+        sendErrorJson(400, { error: "Template has no blocks" });
         return;
       }
 
@@ -7007,30 +7111,51 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
             { type: "image_url", image_url: { url: visionImage } },
           ]
         : templateUserText;
-      const completion = await generateOpenAISemaphore.run(() =>
-        openai!.chat.completions.create({
-          model: "gpt-4o",
-          temperature: 0.9,
-          max_completion_tokens: 12288,
-          messages: [
-            { role: "system", content: templateSystemPrompt },
-            { role: "user", content: templateUserContent },
-          ],
-        }),
-      );
-
-      const raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
+      const templateMessages: ChatCompletionMessageParam[] = [
+        { role: "system", content: templateSystemPrompt },
+        { role: "user", content: templateUserContent },
+      ];
+      emitter.stage("model", "start", "Rewriting template copy with AI");
+      // Streaming mode: same call with stream:true — full text accumulated, so
+      // the parse/merge below is unchanged. No per-block events on the template
+      // path (block STRUCTURE is the template's; only copy changes). The
+      // semaphore slot is held for the whole stream; a client disconnect aborts
+      // the OpenAI request via emitter.signal.
+      let raw: string;
+      if (emitter.enabled) {
+        raw =
+          (
+            await generateOpenAISemaphore.run(() =>
+              runStreamedChatCompletion({
+                client: openai!,
+                messages: templateMessages,
+                signal: emitter.signal,
+              }),
+            )
+          ).trim() || "{}";
+      } else {
+        const completion = await generateOpenAISemaphore.run(() =>
+          openai!.chat.completions.create({
+            model: "gpt-4o",
+            temperature: 0.9,
+            max_completion_tokens: 12288,
+            messages: templateMessages,
+          }),
+        );
+        raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
+      }
+      emitter.stage("model", "done", "Rewriting template copy with AI");
       let parsed: { title?: string; slug?: string; blocks?: unknown[] };
       try {
         const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
         parsed = JSON.parse(cleaned);
       } catch {
-        res.status(500).json({ error: "AI returned invalid JSON", raw });
+        sendErrorJson(500, { error: "AI returned invalid JSON", raw });
         return;
       }
 
       if (!parsed.title || !parsed.slug || !Array.isArray(parsed.blocks)) {
-        res.status(500).json({ error: "AI response missing required fields (title, slug, blocks)" });
+        sendErrorJson(500, { error: "AI response missing required fields (title, slug, blocks)" });
         return;
       }
 
@@ -7140,6 +7265,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         };
       });
 
+      emitter.blocksSnapshot(mergedBlocks, "normalized");
+      emitter.stage("images", "start", "Resolving page imagery");
+      if (emitter.aborted) {
+        emitter.close();
+        return;
+      }
+
       // Task #1106 — "Replace imagery" opt-in. By default rule 6 forbids the
       // model from touching image URLs and the merge above keeps the template's
       // original photos verbatim. When the caller opts in, clear every template
@@ -7226,6 +7358,9 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         resources,
       );
 
+      emitter.stage("images", "done", "Resolving page imagery");
+      emitter.blocksSnapshot(mergedBlocks, "images");
+
       const slug = String(parsed.slug)
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
@@ -7301,6 +7436,12 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         );
       }
 
+      if (emitter.aborted) {
+        emitter.close();
+        return;
+      }
+      emitter.stage("polish", "start", "Critiquing & polishing copy");
+
       // Workstream C — two-pass critique (template path). Fail-open.
       let critiqueAnnotations: CritiqueAnnotation[] = [];
       {
@@ -7339,7 +7480,26 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         logger.warn({ err: String(err) }, "[generate-page] template AI-mode enforcement skipped");
       }
 
-      res.json({
+      emitter.stage("polish", "done", "Critiquing & polishing copy");
+      emitter.blocksSnapshot(mergedBlocks, "polish");
+      emitter.stage("finalize", "start", "Finalizing the page");
+      emitter.receipt({
+        recipeId: null,
+        intentMatchedTemplate,
+        referenceUrls: perRequestUrls,
+        scrapedUrls,
+        usedReference: !!scrapeResult.scraped,
+        referenceFailureReason: scrapeResult.failureReason && scrapeResult.failureReason !== "no_url"
+          ? scrapeResult.failureReason
+          : null,
+        inspirationReferences,
+        imageFitFlagCount: 0,
+        critiqueCount: critiqueAnnotations.length,
+        usedScreenshot: !!visionImage,
+      });
+      emitter.stage("finalize", "done", "Finalizing the page");
+
+      sendResultJson({
         title: parsed.title,
         slug,
         blocks: mergedBlocks,
@@ -7409,7 +7569,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         usedScreenshot: !!visionImage,
         errorMessage: String(err).slice(0, 500),
       });
-      res.status(500).json({ error: String(err) });
+      // Client disconnect (streaming): the abort throw lands here — there is
+      // nobody to send an error event to, so just close out the stream.
+      if (emitter.enabled && emitter.aborted) {
+        emitter.close();
+        return;
+      }
+      sendErrorJson(500, { error: String(err) });
       return;
     }
   }
@@ -7779,28 +7945,54 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       { role: "system", content: systemPrompt },
       { role: "user", content: userContent },
     ];
-    const completion = await generateOpenAISemaphore.run(() =>
-      openai!.chat.completions.create({
-        model: "gpt-4o",
-        temperature: 0.9,
-        max_completion_tokens: 12288,
-        messages: baseMessages,
-      }),
-    );
-
-    const raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
+    emitter.stage("model", "start", "Designing your page with AI");
+    // Streaming mode: same completion with stream:true. The FULL text is
+    // accumulated (the parse/normalize pipeline below is unchanged) while a
+    // string/brace-aware incremental parser yields each completed element of
+    // the top-level `blocks` array as a `block` SSE event — the live "watch
+    // the page build" preview. The semaphore slot is held for the whole model
+    // stream; a client disconnect aborts the OpenAI request via emitter.signal
+    // (the abort throw releases the slot and lands in the catch below).
+    let raw: string;
+    if (emitter.enabled) {
+      const liveParser = new StreamingBlockParser();
+      raw =
+        (
+          await generateOpenAISemaphore.run(() =>
+            runStreamedChatCompletion({
+              client: openai!,
+              messages: baseMessages,
+              signal: emitter.signal,
+              onDelta: (delta) => {
+                for (const e of liveParser.push(delta)) emitter.block(e.index, e.block);
+              },
+            }),
+          )
+        ).trim() || "{}";
+    } else {
+      const completion = await generateOpenAISemaphore.run(() =>
+        openai!.chat.completions.create({
+          model: "gpt-4o",
+          temperature: 0.9,
+          max_completion_tokens: 12288,
+          messages: baseMessages,
+        }),
+      );
+      raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
+    }
+    emitter.stage("model", "done", "Designing your page with AI");
 
     let parsed: { title?: string; slug?: string; blocks?: unknown[] };
     try {
       const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
       parsed = JSON.parse(cleaned);
     } catch {
-      res.status(500).json({ error: "AI returned invalid JSON", raw });
+      sendErrorJson(500, { error: "AI returned invalid JSON", raw });
       return;
     }
 
     if (!parsed.title || !parsed.slug || !Array.isArray(parsed.blocks)) {
-      res.status(500).json({ error: "AI response missing required fields (title, slug, blocks)" });
+      sendErrorJson(500, { error: "AI response missing required fields (title, slug, blocks)" });
       return;
     }
 
@@ -7818,21 +8010,48 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       const firstTypes = parsed.blocks.map(typeOf);
       const firstHash = blockSequenceHash(firstTypes);
       if (recentSequenceHashes.length > 0 && shouldRetryForRepeatedSequence(firstHash, recentSequenceHashes)) {
+        // Streaming: the client already previewed the first completion's
+        // blocks — tell it to clear the canvas; a fresh sequence of `block`
+        // events follows from the corrective retry below.
+        emitter.restart(
+          "repeat_guard",
+          "That layout repeated a recent generation — starting over with a fresh structure.",
+        );
+        emitter.stage("model", "start", "Regenerating with a fresh structure");
+        const retryMessages: ChatCompletionMessageParam[] = [
+          ...baseMessages,
+          { role: "assistant", content: raw },
+          { role: "user", content: buildRepeatCorrectiveMessage(firstTypes) },
+        ];
         // Separate semaphore acquisition — the initial call's slot was
         // already released above, so this cannot deadlock.
-        const retryCompletion = await generateOpenAISemaphore.run(() =>
-          openai!.chat.completions.create({
-            model: "gpt-4o",
-            temperature: 0.9,
-            max_completion_tokens: 12288,
-            messages: [
-              ...baseMessages,
-              { role: "assistant", content: raw },
-              { role: "user", content: buildRepeatCorrectiveMessage(firstTypes) },
-            ],
-          }),
-        );
-        const retryRaw = retryCompletion.choices[0]?.message?.content?.trim() ?? "";
+        let retryRaw: string;
+        if (emitter.enabled) {
+          const retryParser = new StreamingBlockParser();
+          retryRaw = (
+            await generateOpenAISemaphore.run(() =>
+              runStreamedChatCompletion({
+                client: openai!,
+                messages: retryMessages,
+                signal: emitter.signal,
+                onDelta: (delta) => {
+                  for (const e of retryParser.push(delta)) emitter.block(e.index, e.block);
+                },
+              }),
+            )
+          ).trim();
+        } else {
+          const retryCompletion = await generateOpenAISemaphore.run(() =>
+            openai!.chat.completions.create({
+              model: "gpt-4o",
+              temperature: 0.9,
+              max_completion_tokens: 12288,
+              messages: retryMessages,
+            }),
+          );
+          retryRaw = retryCompletion.choices[0]?.message?.content?.trim() ?? "";
+        }
+        emitter.stage("model", "done", "Regenerating with a fresh structure");
         const retryCleaned = retryRaw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
         const retryParsed = JSON.parse(retryCleaned) as typeof parsed;
         if (retryParsed?.title && retryParsed?.slug && Array.isArray(retryParsed.blocks)) {
@@ -8217,6 +8436,17 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // background. Runs after the design-intensity pass so it has the final say.
     parsed.blocks = enforceHeroLegibility(parsed.blocks);
 
+    // Streaming: the model's raw blocks have now been normalized (canonical
+    // types, brand colors, CTA wiring, backgrounds) — replace the client's
+    // incrementally-parsed preview with the authoritative array, then narrate
+    // the image-fill phase.
+    emitter.blocksSnapshot(parsed.blocks, "normalized");
+    emitter.stage("images", "start", "Filling imagery from your library");
+    if (emitter.aborted) {
+      emitter.close();
+      return;
+    }
+
     // Sanitize AI-assigned image URLs: clear any that match EXCLUDE_TAGS
     // (OG images, social, ad creatives) so fillEmptyImages can replace them
     parsed.blocks = sanitizeAIImageUrls(parsed.blocks, mediaCatalog.allImages, brandLogoUrls);
@@ -8361,6 +8591,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       parsed.blocks as Array<Record<string, unknown>>,
       knownHeroDims,
     );
+
+    emitter.stage("images", "done", "Filling imagery from your library");
+    emitter.blocksSnapshot(parsed.blocks, "images");
+    if (emitter.aborted) {
+      emitter.close();
+      return;
+    }
 
     // ── Guarantee nav, final CTA, and footer on every generated page ──────
     const blocks = parsed.blocks as Array<Record<string, unknown>>;
@@ -8717,6 +8954,8 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       );
     }
 
+    emitter.stage("polish", "start", "Critiquing & polishing copy");
+
     // Workstream C — two-pass critique. Rewrite the copy of the worst 1–2
     // blocks (by banned-phrase count). Fail-open: mutates parsed.blocks in
     // place on success, leaves them untouched on timeout/error.
@@ -8751,6 +8990,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // `copy` blocks keep AI copy but restore image fields to defaults.
     // Fail-open: a no-governance tenant is untouched.
     parsed.blocks = enforceAiModes(parsed.blocks, governanceByType, defaultPropsByType) as typeof parsed.blocks;
+
+    emitter.stage("polish", "done", "Critiquing & polishing copy");
+    emitter.blocksSnapshot(parsed.blocks, "polish");
+    emitter.stage("finalize", "start", "Finalizing the page");
 
     // ── Image-fit advisory flags (June 2026) ─────────────────────────────
     // Compare every FINAL filled image slot's catalog tags against the block's
@@ -8816,7 +9059,23 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       finalSequenceHash = null;
     }
 
-    res.json({
+    emitter.receipt({
+      recipeId: chosenRecipe?.id ?? null,
+      intentMatchedTemplate,
+      referenceUrls: perRequestUrls,
+      scrapedUrls,
+      usedReference: !!scrapeResult.scraped,
+      referenceFailureReason: scrapeResult.failureReason && scrapeResult.failureReason !== "no_url"
+        ? scrapeResult.failureReason
+        : null,
+      inspirationReferences,
+      imageFitFlagCount: imageFitFlags.length,
+      critiqueCount: critiqueAnnotations.length,
+      usedScreenshot: !!visionImage,
+    });
+    emitter.stage("finalize", "done", "Finalizing the page");
+
+    sendResultJson({
       title: parsed.title,
       slug: parsed.slug,
       blocks: parsed.blocks,
@@ -8896,7 +9155,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       usedScreenshot: !!visionImage,
       errorMessage: String(err).slice(0, 500),
     });
-    res.status(500).json({ error: String(err) });
+    // Client disconnect (streaming): the abort throw lands here — there is
+    // nobody to send an error event to, so just close out the stream.
+    if (emitter.enabled && emitter.aborted) {
+      emitter.close();
+      return;
+    }
+    sendErrorJson(500, { error: String(err) });
   }
 });
 

@@ -12,6 +12,7 @@ import { audienceBucket, templateContainsLeadershipContent } from "@/lib/audienc
 import { setBriefContext } from "@/lib/brief-context";
 import { syncFactFlags } from "@/lib/fact-flags-api";
 import { rememberCritiqueAnnotations } from "@/lib/critiqueAnnotations";
+import type { GenerationRequestBody, GenerationResult } from "@/lib/generationStream";
 import { useAuth } from "@/context/AuthContext";
 
 import {
@@ -357,8 +358,18 @@ export default function PagesGallery() {
     navigate(`/builder/${page.id}`);
   };
 
-  const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null, templateId?: number | null, referenceUrls?: string[], replaceImagery?: boolean) => {
-    const activeSeg = seg !== undefined ? seg : selectedSegment;
+  // ── AI generation: request body + save flow (shared by the streaming live
+  //    view AND the non-streaming path — extracted June 2026, not duplicated) ──
+
+  /** Build the exact POST /lp/generate-page body for a prompt + selections.
+   *  Identical for the streaming (?stream=1) and non-streaming requests. */
+  const buildGenerationBody = (
+    prompt: string,
+    activeSeg: AudienceSegment | null,
+    templateId?: number | null,
+    referenceUrls?: string[],
+    replaceImagery?: boolean,
+  ): GenerationRequestBody => {
     const segmentContext = activeSeg ? {
       id: activeSeg.id,
       name: activeSeg.name,
@@ -373,35 +384,25 @@ export default function PagesGallery() {
 
     const cleanedRefUrls = (referenceUrls ?? []).map(u => u.trim()).filter(Boolean);
 
-    // AI generation legitimately takes 30–70s, but without an explicit timeout
-    // a stalled request (hung upstream LLM call, dropped connection) leaves the
-    // modal spinner running forever. Abort after 3min and surface a retryable
-    // message instead of an indefinite spinner.
-    let genRes: Response;
-    try {
-      genRes = await fetch(`${API_BASE}/lp/generate-page`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: prompt.trim(),
-          ...(segmentContext ? { segmentContext } : {}),
-          ...(templateId ? { templateId } : {}),
-          ...(templateId && replaceImagery ? { replaceImagery: true } : {}),
-          ...(cleanedRefUrls.length > 0 ? { referenceUrls: cleanedRefUrls } : {}),
-        }),
-        signal: AbortSignal.timeout(180_000),
-      });
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "TimeoutError") {
-        throw new Error("Generation took too long and timed out. Please try again.");
-      }
-      throw err;
-    }
-    if (!genRes.ok) {
-      const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
-      throw new Error((err as { error?: string }).error ?? "Generation failed");
-    }
-    const generated = await genRes.json() as { title: string; slug: string; blocks: PageBlock[]; critiqueAnnotations?: unknown; trustedFactForms?: string[] };
+    return {
+      prompt: prompt.trim(),
+      ...(segmentContext ? { segmentContext } : {}),
+      ...(templateId ? { templateId } : {}),
+      ...(templateId && replaceImagery ? { replaceImagery: true } : {}),
+      ...(cleanedRefUrls.length > 0 ? { referenceUrls: cleanedRefUrls } : {}),
+    };
+  };
+
+  /** Persist a generation result: POST /lp/pages with trusted fact forms,
+   *  kick the fact-flags sync, stash critique annotations for the builder's
+   *  one-time banner, and record brief context. Returns the new page id —
+   *  navigation stays with the caller (the streaming receipt card needs the
+   *  id before navigating). */
+  const saveGeneratedPage = async (
+    generated: GenerationResult,
+    activeSeg: AudienceSegment | null,
+    prompt: string,
+  ): Promise<number> => {
     const page = await createPage({
       title: generated.title,
       slug: generated.slug,
@@ -439,7 +440,40 @@ export default function PagesGallery() {
         },
       });
     }
-    navigate(`/builder/${page.id}`);
+    return page.id as number;
+  };
+
+  /** NON-STREAMING generation flow — unchanged behavior, now composed from
+   *  the extracted body/save helpers. Used by the brief modal and as the
+   *  streaming live view's fallback ("Use standard mode" / silent fallback). */
+  const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null, templateId?: number | null, referenceUrls?: string[], replaceImagery?: boolean) => {
+    const activeSeg = seg !== undefined ? seg : selectedSegment;
+
+    // AI generation legitimately takes 30–70s, but without an explicit timeout
+    // a stalled request (hung upstream LLM call, dropped connection) leaves the
+    // modal spinner running forever. Abort after 3min and surface a retryable
+    // message instead of an indefinite spinner.
+    let genRes: Response;
+    try {
+      genRes = await fetch(`${API_BASE}/lp/generate-page`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildGenerationBody(prompt, activeSeg, templateId, referenceUrls, replaceImagery)),
+        signal: AbortSignal.timeout(180_000),
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "TimeoutError") {
+        throw new Error("Generation took too long and timed out. Please try again.");
+      }
+      throw err;
+    }
+    if (!genRes.ok) {
+      const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
+      throw new Error((err as { error?: string }).error ?? "Generation failed");
+    }
+    const generated = await genRes.json() as GenerationResult;
+    const pageId = await saveGeneratedPage(generated, activeSeg, prompt);
+    navigate(`/builder/${pageId}`);
   };
 
   const handleAiGenerateFromModal = async (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean) => {
@@ -699,6 +733,14 @@ export default function PagesGallery() {
         tenantIndustry={user?.tenantIndustry}
         onCreate={handleCreateFromModal}
         onAiGenerate={handleAiGenerateFromModal}
+        buildAiGenerateBody={(prompt, templateId, referenceUrls, replaceImagery) =>
+          buildGenerationBody(prompt, selectedSegment, templateId, referenceUrls, replaceImagery)}
+        saveGeneratedPage={(result, prompt) => saveGeneratedPage(result, selectedSegment, prompt)}
+        onOpenGenerated={(pageId) => {
+          setShowCreateModal(false);
+          setSelectedSegmentId("");
+          navigate(`/builder/${pageId}`);
+        }}
         onOpenBriefModal={() => { setShowCreateModal(false); setBriefModalOpen(true); }}
       />
     </AppLayout>

@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
-import { BookOpen, Building2, FileText, Link2, Loader2, Sparkles, Users, Wand2, X } from "lucide-react";
+import { BookOpen, Building2, FileText, Link2, Sparkles, Users, Wand2, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 import { MICROSITE_TEMPLATES } from "@/lib/microsite-templates";
 import { type AudienceSegment } from "@/lib/brand-config";
 import { type PageBlock } from "@/lib/block-types";
+import type { GenerationRequestBody, GenerationResult } from "@/lib/generationStream";
+import { GenerationLiveView } from "./GenerationLiveView";
 import {
   BLANK_OPTION,
   DENTAL_BUILTIN_OPTIONS,
@@ -54,8 +56,19 @@ interface Props {
   }) => Promise<void>;
   /** Workstream A (May 2026) — referenceUrls lets the user point the
    *  generator at 1–5 pages whose voice/structure should inform the output.
-   *  Merged server-side with the brand's persisted inspirationUrls. */
+   *  Merged server-side with the brand's persisted inspirationUrls.
+   *  June 2026: this is now the NON-STREAMING fallback path (kept fully
+   *  intact); the default submit goes through the streaming live view. */
   onAiGenerate: (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean) => Promise<void>;
+  /** June 2026 — live streaming generation. Builds the exact POST body the
+   *  generate endpoint expects (including the selected segment's context). */
+  buildAiGenerateBody: (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean) => GenerationRequestBody;
+  /** Save flow shared with the non-streaming path (POST /api/lp/pages,
+   *  trusted fact forms, critique-annotation stash, brief context). Resolves
+   *  with the new page id; navigation is separate (onOpenGenerated). */
+  saveGeneratedPage: (result: GenerationResult, prompt: string) => Promise<number>;
+  /** Close the modal and open /builder/<pageId>. */
+  onOpenGenerated: (pageId: number) => void;
   onOpenBriefModal: () => void;
 }
 
@@ -73,6 +86,9 @@ export function CreatePageModal({
   tenantIndustry,
   onCreate,
   onAiGenerate,
+  buildAiGenerateBody,
+  saveGeneratedPage,
+  onOpenGenerated,
   onOpenBriefModal,
 }: Props) {
   const [createMode, setCreateMode] = useState<CreateMode>(initialMode ?? "template");
@@ -96,8 +112,19 @@ export function CreatePageModal({
   const [pendingRefUrl, setPendingRefUrl] = useState("");
   const MAX_REF_URLS = 5;
   const [isCreating, setIsCreating] = useState(false);
-  const [aiGenerating, setAiGenerating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  // June 2026 — live streaming generation. Non-null while the modal content
+  // is swapped to the GenerationLiveView canvas (the dialog expands to a
+  // large layout). Captures the request body plus the raw inputs so the
+  // fallback can replay the EXACT same generation through the untouched
+  // non-streaming path (onAiGenerate).
+  const [liveGen, setLiveGen] = useState<{
+    body: GenerationRequestBody;
+    prompt: string;
+    templateId: number | null;
+    referenceUrls: string[];
+    replaceImagery: boolean;
+  } | null>(null);
 
   // Reset transient state on close, and honour `initialMode` on every
   // false→true transition so callers (e.g. the NewLauncher dropdown) can
@@ -106,6 +133,7 @@ export function CreatePageModal({
   useEffect(() => {
     if (open) {
       setCreateError(null);
+      setLiveGen(null);
       setCreateMode(initialMode ?? "template");
       // Seed the AI prompt textarea from `initialAiPrompt` whenever the
       // dialog opens in AI mode. Only overwrite when we actually have a
@@ -178,35 +206,85 @@ export function CreatePageModal({
     }
   };
 
-  const handleAiGenerate = async () => {
-    if (!aiPrompt.trim()) return;
-    setAiGenerating(true);
-    setCreateError(null);
-    try {
-      const tplId = aiTemplateId ? Number(aiTemplateId) : null;
-      // Roll the pending input into the chip list so users don't lose a URL
-      // they typed but didn't press Enter on.
-      const trimmedPending = pendingRefUrl.trim();
-      const finalRefUrls = trimmedPending && !referenceUrls.includes(trimmedPending)
-        ? [...referenceUrls, trimmedPending].slice(0, MAX_REF_URLS)
-        : referenceUrls;
-      await onAiGenerate(aiPrompt, tplId, finalRefUrls, tplId !== null ? replaceImagery : false);
-      setAiPrompt("");
-      setAiTemplateId("");
-      setReplaceImagery(false);
-      setReferenceUrls([]);
-      setPendingRefUrl("");
-      setCreateMode("template");
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "Failed to generate page");
-    } finally {
-      setAiGenerating(false);
-    }
+  const resetAiForm = () => {
+    setAiPrompt("");
+    setAiTemplateId("");
+    setReplaceImagery(false);
+    setReferenceUrls([]);
+    setPendingRefUrl("");
+    setCreateMode("template");
   };
+
+  // June 2026 — default submit path: swap the modal content to the live
+  // streaming canvas. All input handling/validation is unchanged; we only
+  // capture the same arguments the non-streaming path receives.
+  const handleAiGenerate = () => {
+    if (!aiPrompt.trim()) return;
+    setCreateError(null);
+    const tplId = aiTemplateId ? Number(aiTemplateId) : null;
+    // Roll the pending input into the chip list so users don't lose a URL
+    // they typed but didn't press Enter on.
+    const trimmedPending = pendingRefUrl.trim();
+    const finalRefUrls = trimmedPending && !referenceUrls.includes(trimmedPending)
+      ? [...referenceUrls, trimmedPending].slice(0, MAX_REF_URLS)
+      : referenceUrls;
+    const effectiveReplaceImagery = tplId !== null ? replaceImagery : false;
+    setLiveGen({
+      body: buildAiGenerateBody(aiPrompt, tplId, finalRefUrls, effectiveReplaceImagery),
+      prompt: aiPrompt,
+      templateId: tplId,
+      referenceUrls: finalRefUrls,
+      replaceImagery: effectiveReplaceImagery,
+    });
+  };
+
+  // The existing NON-STREAMING flow, kept fully intact as a code path:
+  // generates, saves and navigates via the parent handler. Used by the live
+  // view's silent auto-fallback and its "Use standard mode" button. Errors
+  // propagate so the live view can render its error state.
+  const runStandardGeneration = async () => {
+    if (!liveGen) return;
+    await onAiGenerate(liveGen.prompt, liveGen.templateId, liveGen.referenceUrls, liveGen.replaceImagery);
+    // Success → the parent has already navigated + closed the modal.
+    resetAiForm();
+  };
+
+  const liveTemplate = liveGen?.templateId != null
+    ? visibleApiTemplates.find(t => t.id === liveGen.templateId) ?? null
+    : null;
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent
+        className={cn(
+          liveGen
+            ? "max-w-6xl w-[calc(100%-2rem)] h-[85vh] p-0 gap-0 flex flex-col overflow-hidden"
+            : "sm:max-w-xl",
+        )}
+      >
+        {liveGen ? (
+          <>
+            <DialogHeader className="px-5 py-3.5 border-b border-border shrink-0 text-left">
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <Sparkles className="w-4 h-4 text-primary" aria-hidden />
+                Building your page
+              </DialogTitle>
+            </DialogHeader>
+            <GenerationLiveView
+              body={liveGen.body}
+              templateName={liveTemplate ? (liveTemplate.templateLabel || liveTemplate.title) : null}
+              onSave={(result) => saveGeneratedPage(result, liveGen.prompt)}
+              onOpen={(pageId) => {
+                resetAiForm();
+                setLiveGen(null);
+                onOpenGenerated(pageId);
+              }}
+              onFallback={runStandardGeneration}
+              onCancel={() => setLiveGen(null)}
+            />
+          </>
+        ) : (
+          <>
         <DialogHeader>
           <DialogTitle>Create New Page</DialogTitle>
         </DialogHeader>
@@ -554,23 +632,14 @@ export function CreatePageModal({
             )}
 
             <DialogFooter>
-              <Button variant="outline" onClick={onClose} disabled={aiGenerating}>Cancel</Button>
+              <Button variant="outline" onClick={onClose}>Cancel</Button>
               <Button
                 onClick={handleAiGenerate}
-                disabled={aiGenerating || !aiPrompt.trim()}
+                disabled={!aiPrompt.trim()}
                 className="gap-2"
               >
-                {aiGenerating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Generating…
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    Generate Page
-                  </>
-                )}
+                <Sparkles className="w-4 h-4" />
+                Generate Page
               </Button>
             </DialogFooter>
           </div>
@@ -601,6 +670,8 @@ export function CreatePageModal({
               </Button>
             </DialogFooter>
           </div>
+        )}
+          </>
         )}
       </DialogContent>
     </Dialog>
