@@ -3759,6 +3759,7 @@ export async function enforceProductLibraryBlocks(
   blocks: unknown,
   tenantId: number | null,
   brandProductLines?: ProductLine[],
+  logoUrls?: ReadonlySet<string>,
 ): Promise<void> {
   if (!Array.isArray(blocks)) return;
   const isBlock = (b: unknown): b is { type?: string; props?: Record<string, unknown> } =>
@@ -3979,7 +3980,7 @@ export async function enforceProductLibraryBlocks(
   // sections don't reuse the same photo. Runs only when the brand supplies
   // content images; conservative on which slots it touches (see helper).
   if (brandContentLines.length > 0) {
-    applyBrandProductContentImages(blocks, brandContentLines);
+    applyBrandProductContentImages(blocks, brandContentLines, logoUrls);
   }
 }
 
@@ -4005,64 +4006,89 @@ const CONTENT_IMAGE_COPY_KEYS = [
   "headline", "eyebrow", "subheadline", "subhead", "title", "heading", "label", "kicker",
 ] as const;
 
-/** Pick the brand content line whose name is confidently described by the copy
- *  (every significant token of the product name appears in the copy; the most
- *  specific name wins). Mirrors `bestLibraryImageFor`'s token-coverage rule. */
+/** Pick the brand content line whose name is described by the copy. Strict
+ *  (default): every significant token of the product name appears in the copy
+ *  (mirrors `bestLibraryImageFor`). Loose: at least one token overlaps (used by
+ *  content-image rotation). The most-matched / most-specific name wins. */
 function bestContentLineFor(
   copy: string,
   lines: Array<{ name: string; images: string[] }>,
+  loose = false,
 ): { name: string; images: string[] } | null {
-  const targetTokens = new Set(productMatchTokens(copy));
+  // Light singularization so plural copy ("Crowns", "Bridges") still matches a
+  // singular product-name token ("Crown", "Bridge"). Conservative: only trims a
+  // trailing "s" on longer tokens, and is applied to BOTH sides symmetrically.
+  const singular = (t: string) => (t.length > 3 && t.endsWith("s") ? t.slice(0, -1) : t);
+  const targetTokens = new Set(productMatchTokens(copy).map(singular));
   if (targetTokens.size === 0) return null;
   let best: { name: string; images: string[] } | null = null;
   let bestScore = 0;
+  let bestCoverage = 0;
   for (const line of lines) {
-    const nameTokens = productMatchTokens(line.name);
+    const nameTokens = productMatchTokens(line.name).map(singular);
     if (nameTokens.length === 0) continue;
-    if (!nameTokens.every((t) => targetTokens.has(t))) continue;
-    if (nameTokens.length > bestScore) {
+    const matched = nameTokens.filter((t) => targetTokens.has(t)).length;
+    // Strict (default): EVERY token of the product name must appear in the copy.
+    // Loose: at least one significant token overlaps — used by the content-image
+    // rotation so a section about "crowns" still matches "Posterior Crown &
+    // Bridge" even when the copy never repeats the full clinical name.
+    if (loose ? matched === 0 : matched !== nameTokens.length) continue;
+    const coverage = matched / nameTokens.length;
+    // Most matched tokens wins; tie-break on higher name coverage (more specific).
+    if (matched > bestScore || (matched === bestScore && coverage > bestCoverage)) {
       best = line;
-      bestScore = nameTokens.length;
+      bestScore = matched;
+      bestCoverage = coverage;
     }
   }
   return best;
 }
 
 /** Rotate each product's approved content images across the content sections
- *  about that product (reducing repeated photos). Only touches a block's single
- *  primary image slot (`imageUrl` or `image`), never product/chrome blocks, and
- *  only when the block copy confidently names a product with content images. */
+ *  about that product (reducing repeated photos). Fills every image slot a
+ *  matched block exposes (top-level imageUrl/image AND array-item photos, via
+ *  collectImageSlots), never product/chrome/hero blocks, and only when the block
+ *  copy names a product (loose token match) that has content images. */
 export function applyBrandProductContentImages(
   blocks: unknown[],
   contentLines: Array<{ name: string; images: string[] }>,
+  logoUrls?: ReadonlySet<string>,
 ): void {
   const usable = contentLines.filter((l) => l.name && l.images.length > 0);
   if (usable.length === 0) return;
-  // Per-product cursor so repeated sections each advance to the next image.
+  // Per-product cursor so repeated slots each advance to the next image.
   const cursor = new Map<string, number>();
+  const nextImage = (line: { name: string; images: string[] }): string => {
+    const idx = cursor.get(line.name) ?? 0;
+    cursor.set(line.name, idx + 1);
+    return line.images[idx % line.images.length];
+  };
   for (const b of blocks) {
     if (!b || typeof b !== "object") continue;
     const block = b as { type?: string; props?: Record<string, unknown> };
     const type = typeof block.type === "string" ? block.type : "";
     if (CONTENT_IMAGE_SKIP_TYPES.has(type)) continue;
+    // Hero blocks are owned by the product-hero pass above (their product image
+    // is the hero image, not a rotated content photo) — never overwrite them.
+    if (type && resolveBlockTags(type).includes("hero")) continue;
     const props = block.props;
     if (!props || typeof props !== "object") continue;
-    const slotKey =
-      typeof props.imageUrl === "string"
-        ? "imageUrl"
-        : typeof props.image === "string"
-          ? "image"
-          : null;
-    if (!slotKey) continue;
     const copy = CONTENT_IMAGE_COPY_KEYS
       .map((k) => props[k])
       .filter((v): v is string => typeof v === "string")
       .join(" ");
-    const line = bestContentLineFor(copy, usable);
+    const line = bestContentLineFor(copy, usable, true);
     if (!line) continue;
-    const idx = cursor.get(line.name) ?? 0;
-    props[slotKey] = line.images[idx % line.images.length];
-    cursor.set(line.name, idx + 1);
+    // Fill EVERY image slot the block exposes — top-level imageUrl/image PLUS
+    // array-item photos (switchback/columns items[], cards, panels, slides, …) —
+    // by reusing collectImageSlots so coverage matches the rest of the image
+    // pipeline. (The old version only touched a top-level imageUrl/image string,
+    // so product sections that store photos in items[] never received them.)
+    // collectImageSlots excludes logo slots, so the brand mark is never swapped.
+    const slots = collectImageSlots(block as Record<string, unknown>, logoUrls);
+    for (const slot of slots) {
+      slot.set(nextImage(line));
+    }
   }
 }
 
@@ -6522,7 +6548,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // images), overriding the random media-pool images the fill pipeline
       // would otherwise leave on these blocks. Runs in all modes — the library
       // is the source of truth for the tenant's own products.
-      await enforceProductLibraryBlocks(mergedBlocks, tenantId, brand.productLines);
+      await enforceProductLibraryBlocks(mergedBlocks, tenantId, brand.productLines, brandLogoUrls);
 
       // Task #1136 — ensure every generated dso-case-study carries explicit
       // values so the React component never falls back to its hardcoded DCA
@@ -7771,7 +7797,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // overriding the random media-pool images the fill pipeline would otherwise
     // leave on these blocks. Runs in all modes — the library is the source of
     // truth for the tenant's own products.
-    await enforceProductLibraryBlocks(parsed.blocks, tenantId, brand.productLines);
+    await enforceProductLibraryBlocks(parsed.blocks, tenantId, brand.productLines, brandLogoUrls);
 
     // Task #1136 — ensure every generated dso-case-study carries explicit values
     // so the React component never falls back to its hardcoded DCA demo
