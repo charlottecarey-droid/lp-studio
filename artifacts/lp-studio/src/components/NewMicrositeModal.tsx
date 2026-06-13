@@ -768,6 +768,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                   error={planError}
                   proposedTitle={manualTitle.trim() || proposedTitle}
                   templateLabel={recommendedTemplate ? (recommendedTemplate.templateLabel || recommendedTemplate.title) : null}
+                  manualTemplateOverride={Boolean(manualTemplateId)}
                   segmentName={selectedSegment?.name ?? null}
                   personaName={selectedPersona?.role ?? selectedPersona?.name ?? null}
                   willStream={willStream}

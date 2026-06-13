@@ -276,6 +276,20 @@ router.get("/lp/templates/manage", requirePermission("settings"), async (req, re
           micrositeEnabled: t.micrositeEnabled ?? null,
           // What the create-microsite dropdown actually uses.
           effectiveEnabled,
+          // Template eligibility (June 2026) — where this template is allowed to
+          // be AUTO-recommended. Empty/null on an axis = ANY (wildcard). Surfaced
+          // here so the Templates settings screen can render + edit them; written
+          // back via PUT /lp/pages/:id (which accepts these fields).
+          funnelStage: t.funnelStage ?? null,
+          eligibleSegments: Array.isArray(t.eligibleSegments)
+            ? (t.eligibleSegments as unknown[]).filter((x): x is string => typeof x === "string")
+            : [],
+          eligiblePersonas: Array.isArray(t.eligiblePersonas)
+            ? (t.eligiblePersonas as unknown[]).filter((x): x is string => typeof x === "string")
+            : [],
+          eligibleFunnelStages: Array.isArray(t.eligibleFunnelStages)
+            ? (t.eligibleFunnelStages as unknown[]).filter((x): x is string => typeof x === "string")
+            : [],
           updatedAt: t.updatedAt,
         };
       })

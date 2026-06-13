@@ -20,6 +20,7 @@ import {
   Sparkles,
   Target,
   Users,
+  Wand2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -43,6 +44,10 @@ interface Props {
   /** Display labels resolved by the modal (the plan carries slugs/ids only). */
   proposedTitle: string;
   templateLabel: string | null;
+  /** True when the rep has MANUALLY chosen a template in Advanced settings —
+   *  overrides the scratch-first default (the panel shows the chosen template
+   *  as the plan even when the recommendation itself is from-scratch). */
+  manualTemplateOverride?: boolean;
   segmentName: string | null;
   personaName: string | null;
   /** Whether generation will stream the live build view (generic path) or run
@@ -95,6 +100,7 @@ export function MicrositePreviewPanel({
   error,
   proposedTitle,
   templateLabel,
+  manualTemplateOverride = false,
   segmentName,
   personaName,
   willStream,
@@ -128,22 +134,50 @@ export function MicrositePreviewPanel({
   if (!plan) return null;
 
   const stage = humanizeStage(plan.funnelStage);
-  const templateName = templateLabel ?? (plan.recommendedTemplateSlug ? "Recommended framework" : "Custom layout (AI assembles)");
+
+  // Scratch-first presentation. The DEFAULT generation is "AI builds from
+  // scratch": when the recommendation returns no eligible template slug AND the
+  // rep hasn't manually overridden with a template, present a confident,
+  // intentional "we'll build a custom page" — NOT an empty/blank template. When
+  // an eligible template IS recommended (or the rep manually picked one), show
+  // it as the recommendation.
+  const hasTemplate = manualTemplateOverride
+    ? Boolean(templateLabel)
+    : Boolean(plan.recommendedTemplateSlug);
+  const fromScratch = !hasTemplate;
+
+  const headerLabel = fromScratch
+    ? "We'll build this from scratch"
+    : manualTemplateOverride
+      ? "Your selected template"
+      : "Recommended template";
+  const HeaderIcon = fromScratch ? Wand2 : Layout;
+  const templateName = fromScratch
+    ? "Custom page — AI assembles it for this audience"
+    : templateLabel ?? "Recommended framework";
 
   return (
     <div className="space-y-5">
-      {/* Header: proposed title + the headline recommendation */}
+      {/* Header: proposed title + the headline recommendation. Scratch-first:
+          a from-scratch plan reads as an intentional, confident default. */}
       <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-2">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary" aria-hidden />
           <span className="text-[11px] uppercase tracking-wide font-semibold text-primary">
-            Here's what we'd build
+            {headerLabel}
           </span>
         </div>
         <p className="text-lg font-semibold text-foreground leading-snug">{proposedTitle}</p>
+        {fromScratch && (
+          <p className="text-xs text-foreground/70 leading-relaxed">
+            No template is being forced on this page — AI will write and assemble a custom
+            microsite tailored to your audience and goal. You can still pick a specific
+            template under Advanced settings.
+          </p>
+        )}
         <div className="flex flex-wrap gap-2 pt-0.5">
           <span className="inline-flex items-center gap-1 text-[11px] bg-background border border-border rounded-full px-2 py-0.5 text-foreground">
-            <Layout className="w-3 h-3 text-muted-foreground" aria-hidden />
+            <HeaderIcon className="w-3 h-3 text-muted-foreground" aria-hidden />
             {templateName}
           </span>
           {stage && (
@@ -165,7 +199,7 @@ export function MicrositePreviewPanel({
       {plan.reasoning.length > 0 && (
         <div className="rounded-lg border border-border bg-muted/30 p-3">
           <p className="text-[11px] uppercase tracking-wide font-semibold text-muted-foreground mb-2">
-            Why this recommendation
+            {fromScratch ? "Why we're building from scratch" : "Why this recommendation"}
           </p>
           <ul className="space-y-1">
             {plan.reasoning.map((line, i) => (
