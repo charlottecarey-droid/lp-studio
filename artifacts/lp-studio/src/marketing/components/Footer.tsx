@@ -23,6 +23,7 @@ const pricingLinks = [
 ];
 
 const companyLinks = [
+  { label: "Blog", href: "/blog" },
   { label: "About", href: "mailto:admin@lpstudio.ai?subject=About%20LP%20Studio" },
   { label: "FAQ", href: "/#faq" },
   { label: "Careers", href: "mailto:admin@lpstudio.ai?subject=Careers%20at%20LP%20Studio" },

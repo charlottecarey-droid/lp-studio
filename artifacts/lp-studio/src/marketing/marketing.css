@@ -330,3 +330,117 @@
     gap: 10px !important;
   }
 }
+
+/* ── Blog article prose ──────────────────────────────────────────────────────
+   Editorial body styling for rendered blog markdown (blog-post.tsx). Inter
+   body at 16.5px / 1.65, DM Sans headings, indigo links, ink-hairline rules,
+   responsive media. Scoped to .lp-blog-prose so it never leaks elsewhere. */
+.lp-blog-prose {
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-size: 16.5px;
+  line-height: 1.65;
+  color: var(--ink-2);
+}
+.lp-blog-prose > * + * {
+  margin-top: 1.15em;
+}
+.lp-blog-prose h2 {
+  font-family: 'DM Sans', 'Inter', ui-sans-serif, sans-serif;
+  font-weight: 600;
+  font-size: 26px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin-top: 2em;
+  margin-bottom: 0.1em;
+}
+.lp-blog-prose h3 {
+  font-family: 'DM Sans', 'Inter', ui-sans-serif, sans-serif;
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  margin-top: 1.6em;
+  margin-bottom: 0.1em;
+}
+.lp-blog-prose p {
+  color: var(--ink-2);
+}
+.lp-blog-prose a {
+  color: var(--indigo);
+  text-decoration: underline;
+  text-decoration-color: rgba(75, 71, 229, 0.4);
+  text-underline-offset: 3px;
+}
+.lp-blog-prose strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.lp-blog-prose ul,
+.lp-blog-prose ol {
+  padding-left: 1.4em;
+}
+.lp-blog-prose ul {
+  list-style: disc;
+}
+.lp-blog-prose ol {
+  list-style: decimal;
+}
+.lp-blog-prose li {
+  margin-top: 0.4em;
+}
+.lp-blog-prose blockquote {
+  border-left: 3px solid var(--indigo);
+  padding: 4px 0 4px 18px;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.lp-blog-prose code {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.88em;
+  background: var(--cream-2);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.lp-blog-prose pre {
+  background: var(--ink);
+  color: var(--cream);
+  padding: 18px 20px;
+  border-radius: 10px;
+  overflow-x: auto;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+.lp-blog-prose pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+.lp-blog-prose hr {
+  border: none;
+  border-top: 1px solid var(--hairline);
+  margin: 2.2em 0;
+}
+.lp-blog-prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+}
+/* Inline SVG infographics: center, bound width, white card, no img border. */
+.lp-blog-prose .lp-blog-embed {
+  margin: 1.8em auto;
+  text-align: center;
+}
+.lp-blog-prose .lp-blog-embed svg {
+  max-width: 100%;
+  height: auto;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  padding: 12px;
+}
+.lp-blog-prose .lp-blog-embed img {
+  margin: 0 auto;
+}

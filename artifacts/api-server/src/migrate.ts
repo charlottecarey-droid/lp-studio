@@ -1158,6 +1158,72 @@ async function runMigrationsBody(): Promise<void> {
         `conversation-engine schema self-heal did not produce both tables (found ${present}/2) — aborting release`,
     });
 
+    // Durable self-heal for the first-party marketing blog table (blog_posts,
+    // June 2026). Same high-water-mark hazard as the self-heals above: on a
+    // drifted DB whose drizzle.__drizzle_migrations max created_at already sits
+    // ABOVE 0095's journal `when`, the node-postgres migrator records nothing
+    // and never runs 0095's DDL, leaving the table missing. The public
+    // GET /api/blog/posts(/:slug) endpoints + the superadmin CRUD all SELECT/
+    // INSERT against blog_posts; a missing table 500s the marketing blog and the
+    // superadmin authoring UI. Re-applying the file here is independent of
+    // drizzle's dedup and idempotent (CREATE TABLE/INDEX IF NOT EXISTS), so it
+    // creates the table where missing and is a no-op elsewhere. The .sql stays
+    // the single source of truth. Fails CLOSED: the table is feature-critical,
+    // so a missing table aborts the release; the SQL is idempotent so a retry is
+    // always safe.
+    await runProbedSelfHeal({
+      name: "blog_posts schema self-heal (0095)",
+      applySqlFile: "0095_blog_posts.sql",
+      expected: 1,
+      checkSql: `SELECT count(*)::int AS present
+           FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name = 'blog_posts'`,
+      shortfall: () =>
+        "blog_posts schema self-heal did not produce the table — aborting release",
+    });
+
+    // Seed LP Studio's first-party marketing blog with 5 launch how-to posts
+    // (June 2026). Marker-guarded so it runs once; each row is inserted ON
+    // CONFLICT (slug) DO NOTHING so a superadmin's later edits or deletions are
+    // never resurrected/clobbered by a reboot. Non-fatal — a failed seed must
+    // not abort the release; the blog just starts empty and is authored from
+    // /superadmin. publishedAt is staggered via publishedDaysAgo.
+    await runStep("blog posts seed", async () => {
+      try {
+        const BLOG_SEED_MARKER = "blog_posts_seed_v1";
+        const marker = await db.execute<{ exists: number }>(
+          sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${BLOG_SEED_MARKER}`,
+        );
+        if (marker.rows.length > 0) return;
+        const { BLOG_POST_SEEDS } = await import("./seeds/blogPosts");
+        let inserted = 0;
+        for (const post of BLOG_POST_SEEDS) {
+          const tagsJson = JSON.stringify(post.tags);
+          const result = await db.execute<{ "?column?": number }>(sql`
+            INSERT INTO blog_posts (
+              slug, title, excerpt, body, author_name, tags, status,
+              seo_title, seo_description, reading_time_min, published_at
+            ) VALUES (
+              ${post.slug}, ${post.title}, ${post.excerpt}, ${post.body},
+              ${post.authorName}, ${tagsJson}::jsonb, 'published',
+              ${post.seoTitle}, ${post.seoDescription}, ${post.readingTimeMin},
+              now() - (${post.publishedDaysAgo} * interval '1 day')
+            )
+            ON CONFLICT (slug) DO NOTHING
+            RETURNING 1
+          `);
+          if (result.rows.length > 0) inserted++;
+        }
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES (${BLOG_SEED_MARKER}) ON CONFLICT DO NOTHING`,
+        );
+        logger.info({ inserted, total: BLOG_POST_SEEDS.length }, "blog_posts seed applied");
+      } catch (seedErr) {
+        logger.error({ err: seedErr }, "blog_posts seed failed (non-fatal)");
+      }
+    });
+
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
     // letterdrop integrations don't break the moment we cut over the routes.
     // Generates one secret per integration for tenant #1, idempotent under

@@ -22,6 +22,7 @@ export default function Navbar() {
     { label: "Features", href: "/features", active: location === "/features" },
     { label: "Compare", href: "/compare", active: location === "/compare" },
     { label: "Pricing", href: "/pricing", active: location === "/pricing" },
+    { label: "Blog", href: "/blog", active: location === "/blog" || location.startsWith("/blog/") },
   ];
 
   return (

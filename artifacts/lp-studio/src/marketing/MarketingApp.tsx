@@ -10,6 +10,8 @@ import PricingPage from "./pages/pricing";
 import Privacy from "./pages/privacy";
 import Terms from "./pages/terms";
 import IntegrationsDocs from "./pages/integrations-docs";
+import BlogIndex from "./pages/blog-index";
+import BlogPost from "./pages/blog-post";
 import NotFound from "./pages/not-found";
 
 /**
@@ -35,6 +37,9 @@ export default function MarketingApp() {
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
       <Route path="/docs/integrations" component={IntegrationsDocs} />
+      {/* First-party marketing blog — index + per-post (SEO/GEO). */}
+      <Route path="/blog" component={BlogIndex} />
+      <Route path="/blog/:slug" component={BlogPost} />
       {/* Old single-purpose Zapier doc → Zapier section of the hub so existing
           links and OG share cards keep resolving instead of 404ing. */}
       <Route path="/docs/integrations/zapier">

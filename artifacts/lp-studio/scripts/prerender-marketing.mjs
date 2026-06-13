@@ -71,7 +71,40 @@ const MARKETING_ROUTES = [
   // #zapier section, so this snapshot captures the hub HTML — old links and OG
   // share cards keep resolving instead of 404ing.
   { path: "/docs/integrations/zapier", outFile: "docs/integrations/zapier/index.html" },
+  // First-party marketing blog index. Per-post pages (/blog/:slug) are appended
+  // dynamically below from the DB so each published post gets real HTML +
+  // per-post meta + BlogPosting JSON-LD baked in for SEO/GEO crawlers.
+  { path: "/blog", outFile: "blog/index.html" },
 ];
+
+/**
+ * Best-effort read of PUBLISHED blog post slugs so the prerender can snapshot
+ * each /blog/:slug to static HTML (with per-post <title>/meta/canonical/OG +
+ * BlogPosting JSON-LD) for crawlers + AI engines. Returns [] on any failure
+ * (no DB URL, table absent) so this NEVER fails the build — un-prerendered
+ * posts still work as client-rendered SPA routes, just without static HTML.
+ */
+async function loadBlogSlugs() {
+  const connectionString = process.env.NEON_DATABASE_URL ?? process.env.DATABASE_URL;
+  if (!connectionString) return [];
+  let client;
+  try {
+    const pg = (await import("pg")).default;
+    client = new pg.Client({ connectionString, connectionTimeoutMillis: 5000 });
+    await client.connect();
+    const result = await client.query(
+      `SELECT slug FROM blog_posts WHERE status = 'published' ORDER BY published_at DESC NULLS LAST LIMIT 500`,
+    );
+    return result.rows.map((r) => r.slug).filter((s) => typeof s === "string" && s.length > 0);
+  } catch (err) {
+    process.stdout.write(
+      `[prerender] blog slugs DB read skipped (${err?.message || err}) — posts will be client-rendered only\n`,
+    );
+    return [];
+  } finally {
+    if (client) await client.end().catch(() => {});
+  }
+}
 
 /**
  * Best-effort read of the superadmin-editable marketing homepage share card
@@ -362,6 +395,20 @@ async function main() {
     );
   }
 
+  // Append a snapshot route for each published blog post so per-post HTML +
+  // meta + JSON-LD are baked in for crawlers. Best-effort: empty when no DB.
+  const blogSlugs = await loadBlogSlugs();
+  const routes = [
+    ...MARKETING_ROUTES,
+    ...blogSlugs.map((slug) => ({
+      path: `/blog/${slug}`,
+      outFile: `blog/${slug}/index.html`,
+    })),
+  ];
+  if (blogSlugs.length) {
+    process.stdout.write(`[prerender] blog: snapshotting ${blogSlugs.length} published post(s)\n`);
+  }
+
   const port = await findFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
   process.stdout.write(`[prerender] starting vite preview on ${baseUrl}\n`);
@@ -418,7 +465,7 @@ async function main() {
       process.stdout.write(`[prerender][reqfail] ${req.url()} ${req.failure()?.errorText}\n`);
     });
 
-    for (const route of MARKETING_ROUTES) {
+    for (const route of routes) {
       process.stdout.write(`[prerender] snapshotting ${route.path}\n`);
       const html = await snapshotRoute(page, baseUrl, route);
       const out = path.join(DIST, route.outFile);
@@ -427,7 +474,7 @@ async function main() {
     }
 
     await context.close();
-    process.stdout.write(`[prerender] done — ${MARKETING_ROUTES.length} routes\n`);
+    process.stdout.write(`[prerender] done — ${routes.length} routes\n`);
   } finally {
     if (browser) await browser.close().catch(() => {});
     killPreview(preview);

@@ -8,3 +8,4 @@ Disallow: /editor
 Disallow: /editor/
 
 Sitemap: https://lpstudio.ai/sitemap.xml
+Sitemap: https://app.lpstudio.ai/api/lp/blog/sitemap.xml

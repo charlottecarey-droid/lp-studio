@@ -666,6 +666,13 @@
       "when": 1754800000000,
       "tag": "0094_conversations",
       "breakpoints": false
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1754900000000,
+      "tag": "0095_blog_posts",
+      "breakpoints": false
     }
   ]
 }

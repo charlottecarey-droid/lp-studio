@@ -56,6 +56,7 @@ import emailDomainRouter from "./email-domain";
 import brandedEmailSubdomainRouter from "./branded-email-subdomain";
 import factFlagsRouter from "./fact-flags";
 import copilotChatRouter from "./copilot-chat";
+import blogRouter from "./blog";
 
 const router = Router();
 
@@ -75,6 +76,10 @@ router.use(planConfigRouter);
 router.use(featuredTemplatesRouter);
 router.use(homepageOgRouter);
 router.use(marketingPageOgRouter);
+// First-party marketing blog: public GET /lp/blog/* (allowlisted in LP_PUBLIC)
+// + superadmin /admin/blog/* CRUD (requireSuperadmin per-route). NOT
+// tenant-scoped — this is LP Studio's own blog for the marketing apex.
+router.use(blogRouter);
 router.use(emailDomainRouter);
 router.use(brandedEmailSubdomainRouter);
 router.use(resultsRouter);

@@ -28,6 +28,7 @@ import {
   ChevronDown, ChevronRight, RefreshCw, LogOut, Globe, Users, FileText,
   Plus, CheckCircle2, Copy, Check, Loader2, Trash2, AlertTriangle, ShieldCheck, ShieldAlert,
   Library, LayoutTemplate, Activity, CreditCard, Bell, KeyRound, Smartphone, Share2,
+  Newspaper,
 } from "lucide-react";
 import SuperAdminBlockCatalog from "./SuperAdminBlockCatalog";
 import SuperAdminTemplates from "./SuperAdminTemplates";
@@ -38,6 +39,7 @@ import SuperAdminPlanConfig from "./SuperAdminPlanConfig";
 import SuperAdminNotifications from "./SuperAdminNotifications";
 import SuperAdminSuperadmins from "./SuperAdminSuperadmins";
 import SuperAdminTrialPhones from "./SuperAdminTrialPhones";
+import SuperAdminBlog from "./SuperAdminBlog";
 import { useAuth } from "@/context/AuthContext";
 import { normalizePlan, type Plan } from "@/lib/plan-features";
 
@@ -1254,7 +1256,7 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [domainHelp, setDomainHelp] = useState<DomainHelp | null>(null);
-  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "featured-templates" | "homepage-og" | "asset-health" | "plans" | "notifications" | "trial-phones" | "superadmins">(() => {
+  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "featured-templates" | "homepage-og" | "asset-health" | "plans" | "notifications" | "trial-phones" | "blog" | "superadmins">(() => {
     if (typeof window !== "undefined") {
       if (window.location.hash === "#catalog") return "catalog";
       if (window.location.hash === "#templates") return "templates";
@@ -1264,6 +1266,7 @@ export default function SuperAdminPage() {
       if (window.location.hash === "#plans") return "plans";
       if (window.location.hash === "#notifications") return "notifications";
       if (window.location.hash === "#trial-phones") return "trial-phones";
+      if (window.location.hash === "#blog") return "blog";
       if (window.location.hash === "#superadmins") return "superadmins";
     }
     return "tenants";
@@ -1458,6 +1461,14 @@ export default function SuperAdminPage() {
           >
             <Smartphone className="w-3.5 h-3.5" /> Trial Phones
           </button>
+          <button
+            onClick={() => setTab("blog")}
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
+              tab === "blog" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Newspaper className="w-3.5 h-3.5" /> Blog
+          </button>
           {isRoot && (
             <button
               onClick={() => setTab("superadmins")}
@@ -1494,6 +1505,8 @@ export default function SuperAdminPage() {
           <SuperAdminNotifications />
         ) : tab === "trial-phones" ? (
           <SuperAdminTrialPhones />
+        ) : tab === "blog" ? (
+          <SuperAdminBlog />
         ) : tab === "asset-health" ? (
           <SuperAdminAssetHealth />
         ) : tab === "superadmins" && isRoot ? (

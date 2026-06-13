@@ -14,6 +14,7 @@ import Integrations from "../components/Integrations";
 import Pricing from "../components/Pricing";
 import FAQ from "../components/FAQ";
 import FinalCta from "../components/FinalCta";
+import FromTheBlog from "../components/FromTheBlog";
 import Footer from "../components/Footer";
 import { useEffect, useState } from "react";
 import { usePageMeta } from "../hooks/usePageMeta";
@@ -309,6 +310,10 @@ export default function Home() {
 
         {/* 13 — FAQ: 6-7 questions including the corrected Mutiny answer */}
         <FAQ />
+
+        {/* 13.5 — From the blog: latest 2-3 published posts. Self-hides when the
+            blog is empty / unreachable so the homepage never shows a blank shell. */}
+        <FromTheBlog />
 
         {/* 14 — Final CTA + Footer */}
         <FinalCta />
