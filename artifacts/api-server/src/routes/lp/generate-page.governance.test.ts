@@ -98,4 +98,42 @@ describe("enforceAiModes", () => {
     const out = enforceAiModes(blocks, governanceMapFromRows([]), defaults());
     expect(out).toBe(blocks);
   });
+
+  it("noai: strips the AI-emitted block but keeps the rest (human-only)", () => {
+    const blocks = [
+      { type: "hero", props: { headline: "Keep me" } },
+      { type: "gallery", props: { title: "Drop me" } },
+      { type: "footer", props: { text: "Keep me too" } },
+    ];
+    const gov = governanceMapFromRows([{ blockType: "gallery", aiMode: "noai", enabled: null, segments: [] }]);
+    const out = enforceAiModes(blocks, gov, defaults()) as typeof blocks;
+    expect(out.map((b) => b.type)).toEqual(["hero", "footer"]);
+  });
+
+  it("noai: does NOT disable the block (it stays available in the builder)", () => {
+    // A `noai` row is enabled (null), so the builder availability resolver still
+    // treats it as available — it is excluded only from AI generation.
+    const gov = governanceMapFromRows([{ blockType: "gallery", aiMode: "noai", enabled: null, segments: [] }]);
+    const entry = gov.get("gallery")!;
+    expect(entry.aiMode).toBe("noai");
+    expect(entry.enabled).toBe(null); // not disabled
+  });
+
+  it("noai + other modes coexist in one pass (drop noai, still apply locked)", () => {
+    const blocks = [
+      { type: "hero", props: { headline: "AI", imageUrl: "https://cdn/ai.jpg", subhead: "AI sub" } },
+      { type: "gallery", props: { title: "human-only" } },
+    ];
+    const gov = governanceMapFromRows([
+      { blockType: "hero", aiMode: "locked", enabled: null, segments: [] },
+      { blockType: "gallery", aiMode: "noai", enabled: null, segments: [] },
+    ]);
+    const out = enforceAiModes(blocks, gov, defaults()) as typeof blocks;
+    expect(out.map((b) => b.type)).toEqual(["hero"]); // gallery dropped
+    expect(out[0].props).toEqual({
+      headline: "Default Headline",
+      imageUrl: "https://cdn/default-hero.jpg",
+      subhead: "Default sub",
+    }); // hero reset to catalog defaults (locked)
+  });
 });

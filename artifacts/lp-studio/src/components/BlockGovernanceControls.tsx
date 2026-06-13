@@ -30,9 +30,19 @@ export type WorkingGovernanceEntry = {
 };
 
 export const AI_MODE_LABELS: Record<AiMode, string> = {
+  noai: "No AI (human only)",
   locked: "Locked (place only)",
   copy: "Copy only",
   open: "Open (default)",
+};
+
+/** Per-mode helptext shown under the select so the (non-obvious) "No AI" mode
+ *  reads clearly: it is NOT the same as disabling the block. */
+export const AI_MODE_HELPTEXT: Record<AiMode, string> = {
+  noai: "Available in the builder, but AI won't add or generate it.",
+  locked: "AI may place this block but won't change its copy or images.",
+  copy: "AI may rewrite the copy but keeps the default images.",
+  open: "AI may add, place, and fully fill this block.",
 };
 
 /** A governance entry is "default" (no override) when nothing is customized. */
@@ -99,13 +109,18 @@ export function BlockGovernanceControls({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {(["locked", "copy", "open"] as AiMode[]).map((m) => (
+            {(["open", "copy", "locked", "noai"] as AiMode[]).map((m) => (
               <SelectItem key={m} value={m} className="text-xs">
                 {AI_MODE_LABELS[m]}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        {stacked && (
+          <p className="text-[10px] text-muted-foreground">
+            {AI_MODE_HELPTEXT[entry.aiMode]}
+          </p>
+        )}
       </div>
 
       {segments.length > 0 && (

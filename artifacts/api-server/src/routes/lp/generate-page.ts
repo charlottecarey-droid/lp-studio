@@ -39,6 +39,7 @@ import {
   governanceMapFromRows,
   blocksApprovedForSegment,
   type GovernanceMap,
+  type TenantBlockGovernanceEntry,
 } from "@workspace/lp-template-engine";
 import {
   effectiveOutline,
@@ -2034,6 +2035,22 @@ export function collectImageSlots(
   // Its logos[].imageUrl (low-opacity trust row) are real customer marks and
   // are NOT collected (name-only wordmarks render until tenant supplies them).
   pushScalar("betterWayImageUrl", "lp-feature", blockContext);
+  // challenger-insight also carries an optional "reframe" visual beside the
+  // contrarian-insight section → lp-feature (the hero photo is heroImageUrl,
+  // lp-hero, mapped above).
+  pushScalar("reframeImageUrl", "lp-feature", blockContext);
+  // storybrand-journey: the problem-section "stakes" photo + the guide-section
+  // authority photo are both supporting feature visuals → lp-feature (its hero
+  // is heroImageUrl/lp-hero above; the success photo is successImageUrl below).
+  pushScalar("problemImageUrl", "lp-feature", blockContext);
+  pushScalar("guideImageUrl", "lp-feature", blockContext);
+  // exec-decision-brief: the masthead band photo + the process-section visual.
+  // Both are supporting feature-grade imagery (NOT a full-bleed hero — the block
+  // has no hero photo slot), so → lp-feature. Its optional masthead `logoUrl`
+  // stays tenant-controlled (excluded from the auto-fill scalar set, like every
+  // logoUrl).
+  pushScalar("mastheadImageUrl", "lp-feature", blockContext);
+  pushScalar("processImageUrl", "lp-feature", blockContext);
   // exec-decision-brief carries NO stock-photo slots: the only image is the
   // optional masthead `logoUrl`, which (like every other logoUrl) is excluded
   // from the auto-fill scalar set above so it stays tenant-controlled.
@@ -2775,7 +2792,19 @@ export function enforceAiModes(
   defaultPropsByType: Map<string, Record<string, unknown>>,
 ): unknown[] {
   if (!Array.isArray(blocks) || !governanceByType || governanceByType.size === 0) return blocks;
-  for (const b of blocks) {
+  // First pass: DROP any AI-emitted instance of a human-only (`noai`) block.
+  // Such a block stays available in the builder for a human to drag in, but the
+  // AI must never ship one — it is excluded from the vocabulary at prompt time
+  // and this is the defensive backstop for when the model emits it anyway.
+  const govOf = (b: unknown): TenantBlockGovernanceEntry | undefined => {
+    if (!b || typeof b !== "object") return undefined;
+    const rawType = typeof (b as { type?: unknown }).type === "string" ? (b as { type: string }).type : "";
+    if (!rawType) return undefined;
+    return governanceByType.get(canonicalizeBlockType(rawType)) ?? governanceByType.get(rawType);
+  };
+  const hasNoAi = blocks.some((b) => govOf(b)?.aiMode === "noai");
+  const kept = hasNoAi ? blocks.filter((b) => govOf(b)?.aiMode !== "noai") : blocks;
+  for (const b of kept) {
     if (!b || typeof b !== "object") continue;
     const block = b as { type?: unknown; props?: unknown };
     const rawType = typeof block.type === "string" ? block.type : "";
@@ -2795,7 +2824,7 @@ export function enforceAiModes(
       restoreImageFieldsDeep(block.props, defaults ?? {});
     }
   }
-  return blocks;
+  return kept;
 }
 
 /**
@@ -2813,12 +2842,16 @@ async function loadBlockGovernanceContext(
   governanceByType: GovernanceMap;
   defaultPropsByType: Map<string, Record<string, unknown>>;
   governanceDisabledTypes: Set<string>;
+  /** Block types governed `noai` (human-only): excluded from the AI vocabulary
+   *  and stripped after generation, but still available in the builder. */
+  governanceNoAiTypes: Set<string>;
 }> {
   const governanceByType: GovernanceMap = new Map();
   const defaultPropsByType = new Map<string, Record<string, unknown>>();
   const governanceDisabledTypes = new Set<string>();
+  const governanceNoAiTypes = new Set<string>();
   if (tenantId === null) {
-    return { governanceByType, defaultPropsByType, governanceDisabledTypes };
+    return { governanceByType, defaultPropsByType, governanceDisabledTypes, governanceNoAiTypes };
   }
   try {
     const govRows = await pool.query<{
@@ -2842,6 +2875,9 @@ async function loadBlockGovernanceContext(
     for (const [type, entry] of map) {
       governanceByType.set(type, entry);
       if (entry.enabled === false) governanceDisabledTypes.add(type);
+      // `noai` blocks are NOT disabled (still builder-available) but must never
+      // enter the AI vocabulary — track them separately from disabled types.
+      if (entry.aiMode === "noai") governanceNoAiTypes.add(type);
     }
   } catch (err) {
     logger.warn({ err: String(err) }, "[generate-page] tenant_block_governance fetch skipped");
@@ -2864,7 +2900,7 @@ async function loadBlockGovernanceContext(
       logger.warn({ err: String(err) }, "[generate-page] block_catalog default_props fetch skipped");
     }
   }
-  return { governanceByType, defaultPropsByType, governanceDisabledTypes };
+  return { governanceByType, defaultPropsByType, governanceDisabledTypes, governanceNoAiTypes };
 }
 
 /** Post-process blocks to fill in empty image URLs from the media library.
@@ -8423,7 +8459,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // to defaults. Fail-open: a no-governance tenant is untouched.
       try {
         const tplGov = await loadBlockGovernanceContext(tenantId, await getTenantIndustry(tenantId));
-        enforceAiModes(mergedBlocks, tplGov.governanceByType, tplGov.defaultPropsByType);
+        mergedBlocks = enforceAiModes(mergedBlocks, tplGov.governanceByType, tplGov.defaultPropsByType) as typeof mergedBlocks;
       } catch (err) {
         logger.warn({ err: String(err) }, "[generate-page] template AI-mode enforcement skipped");
       }
@@ -8699,9 +8735,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // `segmentApprovedTypes`, exactly like the superadmin `approved_segments`
   // union above. `defaultPropsByType` + `governanceByType` are reused after
   // generation by `enforceAiModes`. Fail-open: empty maps on any failure.
-  const { governanceByType, defaultPropsByType, governanceDisabledTypes } =
+  const { governanceByType, defaultPropsByType, governanceDisabledTypes, governanceNoAiTypes } =
     await loadBlockGovernanceContext(tenantId, catalogIndustry);
   for (const t of governanceDisabledTypes) aiDisabledTypes.add(t);
+  // `noai` (human-only) blocks: excluded from the AI vocabulary exactly like a
+  // disabled block, but they remain available in the builder (not added to
+  // governanceDisabledTypes, so the catalog/availability path leaves them in).
+  for (const t of governanceNoAiTypes) aiDisabledTypes.add(t);
   if (segmentApprovalId) {
     for (const type of blocksApprovedForSegment(governanceByType, segmentApprovalId)) {
       segmentApprovedTypes.add(type);

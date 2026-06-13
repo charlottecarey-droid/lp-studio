@@ -15,9 +15,11 @@ import { tenantsTable } from "./tenants";
  *                   superadmin allows; the superadmin catalog kill-switch
  *                   (block_catalog.is_enabled=false) still wins above this.
  *   • `ai_mode`   — 'locked' (AI places it but makes no copy/image changes),
- *                   'copy' (AI may rewrite text but not images), or 'open'
- *                   (today's full behaviour). Default 'open' so an un-governed
- *                   block behaves exactly as it does today.
+ *                   'copy' (AI may rewrite text but not images), 'open'
+ *                   (today's full behaviour), or 'noai' (human-only: stays
+ *                   available in the builder but the AI never chooses or
+ *                   generates it). Default 'open' so an un-governed block
+ *                   behaves exactly as it does today.
  *   • `segments`  — brand-segment ids this block is approved for. Drives the
  *                   segment tab / segment library / insert-blocks modal, and
  *                   expands the AI block vocabulary for that segment.

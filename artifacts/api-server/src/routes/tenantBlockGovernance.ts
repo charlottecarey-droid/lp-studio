@@ -2,6 +2,7 @@ import { Router } from "express";
 import { pool } from "@workspace/db";
 import {
   sanitizeGovernanceEntry,
+  sanitizeAiMode,
   type TenantBlockGovernanceEntry,
 } from "@workspace/lp-template-engine";
 import { requireAuth, getTenantId } from "../middleware/requireAuth";
@@ -69,7 +70,7 @@ router.get("/tenant/block-governance", requireAuth, async (req, res): Promise<vo
     const entries: TenantBlockGovernanceEntry[] = r.rows.map((row) => ({
       blockType: row.block_type,
       enabled: row.enabled === true || row.enabled === false ? row.enabled : null,
-      aiMode: row.ai_mode === "locked" || row.ai_mode === "copy" ? row.ai_mode : "open",
+      aiMode: sanitizeAiMode(row.ai_mode),
       segments: Array.isArray(row.segments) ? row.segments : [],
     }));
     res.json({ entries });

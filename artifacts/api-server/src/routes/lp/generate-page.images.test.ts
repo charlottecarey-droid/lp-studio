@@ -1160,6 +1160,47 @@ describe("isLogoImageUrl — logo detection", () => {
   });
 });
 
+describe("collectImageSlots — framework-block image slots", () => {
+  it("collects challenger-insight reframeImageUrl as a feature slot", () => {
+    const block = {
+      type: "challenger-insight",
+      props: { heroImageUrl: "/objects/ch-hero", reframeImageUrl: "/objects/ch-reframe", betterWayImageUrl: "/objects/ch-better" },
+    };
+    const slots = collectImageSlots(block as any);
+    const byField = Object.fromEntries(slots.map((s) => [s.field, s.purpose]));
+    expect(byField.heroImageUrl).toBe("lp-hero");
+    expect(byField.reframeImageUrl).toBe("lp-feature");
+    expect(byField.betterWayImageUrl).toBe("lp-feature");
+  });
+
+  it("collects exec-decision-brief masthead + process image slots as feature slots", () => {
+    const block = {
+      type: "exec-decision-brief",
+      props: { mastheadImageUrl: "/objects/edb-masthead", processImageUrl: "/objects/edb-process" },
+    };
+    const byField = Object.fromEntries(collectImageSlots(block as any).map((s) => [s.field, s.purpose]));
+    expect(byField.mastheadImageUrl).toBe("lp-feature");
+    expect(byField.processImageUrl).toBe("lp-feature");
+  });
+
+  it("collects storybrand-journey problem/guide/success as feature slots, hero as hero", () => {
+    const block = {
+      type: "storybrand-journey",
+      props: {
+        heroImageUrl: "/objects/sb-hero",
+        problemImageUrl: "/objects/sb-problem",
+        guideImageUrl: "/objects/sb-guide",
+        successImageUrl: "/objects/sb-success",
+      },
+    };
+    const byField = Object.fromEntries(collectImageSlots(block as any).map((s) => [s.field, s.purpose]));
+    expect(byField.heroImageUrl).toBe("lp-hero");
+    expect(byField.problemImageUrl).toBe("lp-feature");
+    expect(byField.guideImageUrl).toBe("lp-feature");
+    expect(byField.successImageUrl).toBe("lp-feature");
+  });
+});
+
 describe("collectImageSlots — excludes logo slots", () => {
   it("never returns a slot whose value is a logo (filename heuristic)", () => {
     const block = {

@@ -43,14 +43,17 @@
  *     ∪ tenant governance segment approvals (EXPAND), minus governance-disabled
  *     types (CONSTRAIN). Expansion matches the established additive contract;
  *     constraint lets a tenant pull a block out of generation by disabling it.
- *   • AI mode — `locked` (place only: reset to default props, no copy/image
+ *   • AI mode — `noai` (human-only: the block stays AVAILABLE in the builder so
+ *     a human can drag it in, but the AI must NEVER choose or generate it — it
+ *     is excluded from the AI block vocabulary and any AI-emitted instance is
+ *     dropped), `locked` (place only: reset to default props, no copy/image
  *     changes), `copy` (rewrite text but keep default/approved images), or
  *     `open` (today's full behaviour). Absent governance row ⇒ `open`.
  */
 
-export type AiMode = "locked" | "copy" | "open";
+export type AiMode = "noai" | "locked" | "copy" | "open";
 
-export const AI_MODES: readonly AiMode[] = ["locked", "copy", "open"] as const;
+export const AI_MODES: readonly AiMode[] = ["noai", "locked", "copy", "open"] as const;
 
 /** Fail-open default: an un-governed block behaves exactly as it does today. */
 export const DEFAULT_AI_MODE: AiMode = "open";
@@ -72,7 +75,18 @@ export type GovernanceMap = Map<string, TenantBlockGovernanceEntry>;
 
 /** Coerce any input into a valid AiMode, defaulting to `open` (fail-open). */
 export function sanitizeAiMode(v: unknown): AiMode {
-  return v === "locked" || v === "copy" || v === "open" ? v : DEFAULT_AI_MODE;
+  return v === "noai" || v === "locked" || v === "copy" || v === "open" ? v : DEFAULT_AI_MODE;
+}
+
+/**
+ * True when the block is human-only: available in the builder, but the AI must
+ * never choose or generate it. Drives BOTH halves of enforcement — exclusion
+ * from the AI vocabulary at prompt-build time and removal of any AI-emitted
+ * instance after generation. Independent of `enabled` (a `noai` block stays
+ * builder-available unless separately disabled).
+ */
+export function isAiNoGenerate(governance?: TenantBlockGovernanceEntry): boolean {
+  return governance?.aiMode === "noai";
 }
 
 /**
@@ -179,6 +193,9 @@ export function blocksApprovedForSegment(
   if (!id) return [];
   const out: string[] = [];
   for (const [type, entry] of map) {
+    // A human-only (`noai`) block is never offered to the AI, even when the
+    // tenant has approved it for this segment — it stays a builder-only block.
+    if (entry.aiMode === "noai") continue;
     if (entry.enabled !== false && entry.segments.includes(id)) out.push(type);
   }
   return out;
@@ -199,5 +216,7 @@ export function resolveAiEligible(input: {
 }): boolean {
   if (!resolveBlockAvailable(input)) return false;
   if (input.catalogAiEnabled === false) return false;
+  // Human-only governance: available in the builder, but never AI-eligible.
+  if (input.governance?.aiMode === "noai") return false;
   return true;
 }

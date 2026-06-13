@@ -42,6 +42,10 @@ import {
   // dso-success-stories block only ever uses them (never invented stories).
   fetchApprovedCaseStudies,
   enforceDsoSuccessStoriesApproved,
+  // Task #4 — enforce tenant AI modes on the microsite path too: drop AI-emitted
+  // `noai` (human-only) blocks and apply locked/copy modes. Shared with the
+  // landing-page generator so the two paths never drift.
+  enforceAiModes,
   // Task #1136 — ensures a generated dso-case-study carries explicit values so
   // the renderer never falls back to its hardcoded DCA demo constants. Needed
   // here too now that the microsite catalog advertises the block (Task #1201).
@@ -100,6 +104,7 @@ import {
   normalizePageOutline,
   resolvePageOutline,
   type PageOutline,
+  type GovernanceMap,
 } from "@workspace/lp-template-engine";
 import { detectAndWriteFlagsForPage, templateFactForms } from "../../lib/factFlags";
 import { deriveCompanyName, derivePracticeCount } from "../../lib/businessCaseVars";
@@ -1316,13 +1321,17 @@ const FREEFORM_ROLE_HINTS: Record<string, string> = {
 /** Build the freeform "AVAILABLE BLOCKS" guide: each allowed neutral block
  *  with its role hint and prop schema. The model chooses which to use and in
  *  what order (constrained by the best-practice rules in the freeform footer). */
-export function buildFreeformBlockGuide(extraTypes: string[] = []): string {
-  const lines = FREEFORM_MICROSITE_DISPLAY_TYPES
+export function buildFreeformBlockGuide(
+  extraTypes: string[] = [],
+  exclude: ReadonlySet<string> = new Set(),
+): string {
+  const base = excludeDisplayTypes(FREEFORM_MICROSITE_DISPLAY_TYPES, exclude);
+  const lines = base
     .map((t) => `- "${t}" (${FREEFORM_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`);
   // Segment-approval expansion — append superadmin-approved blocks for this
   // segment that aren't already in the freeform vocab, deduped by canonical
   // type. Unioned ON TOP of the freeform set (not a clamp).
-  appendApprovedBlockGuideLines(lines, FREEFORM_MICROSITE_DISPLAY_TYPES, extraTypes);
+  appendApprovedBlockGuideLines(lines, base, excludeDisplayTypes(extraTypes as readonly string[], exclude));
   return lines.join("\n");
 }
 
@@ -1343,11 +1352,15 @@ const SEGMENT_POOL_STRUCTURAL_TYPES = ["hero", "bottom-cta", "footer"] as const;
 /** Build the segment-pool "AVAILABLE BLOCKS" guide: the structural essentials
  *  plus every approved block in the pool, each with its role hint and schema.
  *  The model picks which to use and in what order. */
-export function buildSegmentPoolBlockGuide(poolTypes: string[]): string {
-  const lines = SEGMENT_POOL_STRUCTURAL_TYPES.map(
+export function buildSegmentPoolBlockGuide(
+  poolTypes: string[],
+  exclude: ReadonlySet<string> = new Set(),
+): string {
+  const structural = excludeDisplayTypes(SEGMENT_POOL_STRUCTURAL_TYPES, exclude);
+  const lines = structural.map(
     (t) => `- "${t}" (${FREEFORM_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`,
   );
-  appendApprovedBlockGuideLines(lines, SEGMENT_POOL_STRUCTURAL_TYPES, poolTypes);
+  appendApprovedBlockGuideLines(lines, structural, excludeDisplayTypes(poolTypes as readonly string[], exclude));
   return lines.join("\n");
 }
 
@@ -1592,16 +1605,147 @@ export function detectDsoVocabModeFromName(
   return null;
 }
 
+// Canonical block types that REQUIRE real, populated content to be worth
+// shipping — a case-study / success-stories block with no approved customer
+// stories is just an empty heading. When the tenant has zero approved case
+// studies (or governance forbids the block) these are removed from the AI
+// vocabulary for that generation so the model is never offered a block it
+// cannot fill. The post-generation prune (pruneEmptyContentBlocks) is the
+// defensive backstop for when the model emits one anyway.
+const CASE_STUDY_VOCAB_TYPES: ReadonlySet<string> = new Set(
+  ["dso-success-stories", "dso-case-study", "case-studies"].map((t) => canonicalizeBlockType(t)),
+);
+
+/**
+ * Post-generation EMPTY-BLOCK PRUNE (issue 3b). Content-bearing blocks whose
+ * content arrays/fields are empty or placeholder are an empty section (a
+ * heading with no body) — worse than no section. After normalization + the
+ * case-study/stat enforcement passes have populated or cleared real content,
+ * drop any such block entirely rather than ship it.
+ *
+ * Defensive: covers the case where the model emits a case-study/success-stories
+ * block even though it was removed from the vocabulary (no approved studies),
+ * AND the case where the enforcement pass cleared `cases`/prose because there
+ * was nothing approved to fill it. Pure (no I/O); returns a NEW filtered array.
+ *
+ * Only blocks listed here are eligible to be pruned — structural blocks
+ * (hero/cta/footer/rich-text/etc.) are never dropped for "emptiness".
+ */
+const PRUNABLE_EMPTY_BLOCK_TYPES: ReadonlySet<string> = new Set(
+  [
+    "dso-success-stories",
+    "dso-case-study",
+    "case-studies",
+    "testimonial",
+    "trust-bar",
+    "stats",
+    "stat-callout",
+    "products-grid",
+    "product-grid",
+  ].map((t) => canonicalizeBlockType(t)),
+);
+
+function isNonEmptyStr(v: unknown): boolean {
+  return typeof v === "string" && v.trim().length > 0;
+}
+
+function isNonEmptyArr(v: unknown): boolean {
+  return Array.isArray(v) && v.length > 0;
+}
+
+/** True when a content-bearing block has NO real content to justify shipping. */
+export function blockHasNoRealContent(block: { type?: string; props?: Record<string, unknown> }): boolean {
+  const type = canonicalizeBlockType(block.type ?? "");
+  const p = (block.props ?? {}) as Record<string, unknown>;
+  switch (type) {
+    case canonicalizeBlockType("dso-success-stories"):
+    case canonicalizeBlockType("case-studies"): {
+      // Renderer falls back to built-in DEFAULT_CASES when `cases`/`items` is
+      // empty, but those are generic demo stories — on a personalized account
+      // microsite an empty case array means "no approved stories", so drop it.
+      return !isNonEmptyArr(p.cases) && !isNonEmptyArr(p.items);
+    }
+    case canonicalizeBlockType("dso-case-study"): {
+      // A single-story deep-dive with no headline AND no body in any section is
+      // an empty shell. Keep it only if it carries a real headline/quote or any
+      // populated challenge/solution/section body.
+      const sections = [p.challenge, p.solution, p.whyItMatters, ...(Array.isArray(p.sections) ? p.sections : [])];
+      const hasSectionBody = sections.some(
+        (s) => s && typeof s === "object" && isNonEmptyStr((s as Record<string, unknown>).body),
+      );
+      return (
+        !isNonEmptyStr(p.headline) &&
+        !isNonEmptyStr(p.quote) &&
+        !isNonEmptyArr(p.stats) &&
+        !isNonEmptyArr(p.results) &&
+        !hasSectionBody
+      );
+    }
+    case canonicalizeBlockType("testimonial"): {
+      return !isNonEmptyStr(p.quote) && !isNonEmptyArr(p.testimonials) && !isNonEmptyArr(p.quotes);
+    }
+    case canonicalizeBlockType("trust-bar"):
+    case canonicalizeBlockType("stats"):
+    case canonicalizeBlockType("stat-callout"): {
+      // A stats band with no numbers is just a heading. Cover the common shapes:
+      // stats[], items[], or a single value/stat scalar.
+      return (
+        !isNonEmptyArr(p.stats) &&
+        !isNonEmptyArr(p.items) &&
+        !isNonEmptyStr(p.value) &&
+        !isNonEmptyStr(p.stat)
+      );
+    }
+    case canonicalizeBlockType("products-grid"):
+    case canonicalizeBlockType("product-grid"): {
+      return !isNonEmptyArr(p.products) && !isNonEmptyArr(p.items);
+    }
+    default:
+      return false;
+  }
+}
+
+/**
+ * Drop content-bearing blocks that have no real content. Never empties the
+ * page: if pruning would remove everything (degenerate), the original list is
+ * returned so enforceRequiredRoles / the fallbacks still produce a page.
+ */
+export function pruneEmptyContentBlocks<T extends { type?: string; props?: Record<string, unknown> }>(
+  blocks: T[],
+): T[] {
+  if (!Array.isArray(blocks) || blocks.length === 0) return blocks;
+  const kept = blocks.filter(
+    (b) => !(b && typeof b === "object" && PRUNABLE_EMPTY_BLOCK_TYPES.has(canonicalizeBlockType(b.type ?? "")) && blockHasNoRealContent(b)),
+  );
+  return kept.length > 0 ? kept : blocks;
+}
+
+/** Filter a displayed-type list against an exclusion set (canonical compare).
+ *  Used to strip blocks the AI must not be offered this generation. */
+function excludeDisplayTypes<T extends readonly string[]>(
+  types: T,
+  exclude: ReadonlySet<string>,
+): string[] {
+  if (!exclude.size) return [...types];
+  return types.filter((t) => !exclude.has(canonicalizeBlockType(t)));
+}
+
 // Build the DSO freeform "AVAILABLE BLOCKS" guide for the given mode: the dso-*
 // vocabulary + general supporting blocks, each with its role hint and schema.
-export function buildDsoFreeformBlockGuide(mode: DsoVocabMode, extraTypes: string[] = []): string {
-  const base = dsoVocabTypes(mode);
+// `exclude` (canonical types) drops blocks the AI must not be offered this run
+// (e.g. case-study blocks when no approved case studies exist).
+export function buildDsoFreeformBlockGuide(
+  mode: DsoVocabMode,
+  extraTypes: string[] = [],
+  exclude: ReadonlySet<string> = new Set(),
+): string {
+  const base = excludeDisplayTypes(dsoVocabTypes(mode), exclude);
   const lines = base
     .map((t) => `- "${t}" (${DSO_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`);
   // Segment-approval expansion — append superadmin-approved blocks for this
   // segment that aren't already in the DSO vocab, deduped by canonical type.
   // Unioned ON TOP of the DSO set (occasional non-DSO blocks are OK).
-  appendApprovedBlockGuideLines(lines, base, extraTypes);
+  appendApprovedBlockGuideLines(lines, base, excludeDisplayTypes(extraTypes as readonly string[], exclude));
   return lines.join("\n");
 }
 
@@ -1674,6 +1818,39 @@ async function fetchSegmentApprovedBlockTypes(
       "generate-microsite: failed to load segment-approved block types",
     );
     return [];
+  }
+}
+
+// Task #4 — load the FULL tenant block-governance map (canonical block types),
+// used by the microsite generator to (a) exclude `noai` (human-only) blocks
+// from the AI vocabulary and (b) enforce AI modes (drop `noai`, apply
+// locked/copy) after generation. Mirrors loadBlockGovernanceContext on the
+// landing-page path. Fail-open: any hiccup yields an empty map so generation
+// behaves exactly as today.
+async function loadMicrositeGovernance(tenantId: number | null): Promise<GovernanceMap> {
+  if (tenantId === null || tenantId === undefined) return new Map();
+  try {
+    const govRows = await pool.query<{
+      block_type: string;
+      enabled: boolean | null;
+      ai_mode: string;
+      segments: string[] | null;
+    }>(
+      `SELECT block_type, enabled, ai_mode, segments
+         FROM tenant_block_governance WHERE tenant_id = $1`,
+      [tenantId],
+    );
+    return governanceMapFromRows(
+      govRows.rows.map((r) => ({
+        blockType: canonicalizeBlockType(r.block_type),
+        enabled: r.enabled,
+        aiMode: r.ai_mode,
+        segments: r.segments ?? [],
+      })),
+    );
+  } catch (err) {
+    logger.warn({ err: String(err), tenantId }, "generate-microsite: tenant_block_governance fetch skipped");
+    return new Map();
   }
 }
 
@@ -1990,6 +2167,11 @@ export function buildSystemPrompt(
   // the route via findSelectedPersona). When present, the TARGET SEGMENT
   // section addresses THIS persona directly on top of the segment guidance.
   selectedPersona?: BrandSegmentPersona | undefined,
+  // Canonical block types the AI must NOT be offered this generation: case-study
+  // blocks when the tenant has zero approved case studies (so an empty section
+  // is never even an option), plus any block governed `noai` (human-only). The
+  // model never sees them in the AVAILABLE BLOCKS guide / fixed list.
+  excludeTypes: ReadonlySet<string> = new Set(),
 ): string {
   const tone            = brand.toneOfVoice as string | undefined;
   const pillars         = brand.messagingPillars as Array<{ label: string; description: string }> | undefined;
@@ -2155,6 +2337,8 @@ export function buildSystemPrompt(
       "2. The BRAND VOICE & GUIDELINES anchor the voice, vocabulary, positioning, and product facts — write every line as the selling brand.",
       "3. The account context, approved case studies, proof points, and quotes are REAL — cite them by their actual numbers and names; never invent substitutes.",
       "4. Any REFERENCE PAGE / screenshot is structural + stylistic inspiration ONLY — never copy its claims, never let it override the brand voice.",
+      "",
+      "CONTENT-FIRST RULE — only include a block if you have REAL content to fill it. Never emit a case-study, success-stories, or testimonials block unless you have actual APPROVED case studies / customer quotes (listed below) to populate it — if you don't, OMIT the block entirely. An empty section (a heading with no real stories, stats, or quotes) is worse than no section. The same applies to any proof/stats/products block: skip it rather than ship a placeholder.",
     ].join("\n"),
     "",
     brandSection ? `BRAND VOICE & GUIDELINES:\n${brandSection}` : "",
@@ -2195,7 +2379,12 @@ export function buildSystemPrompt(
     ?? (segment.micrositeBlockList?.length ? segment.micrositeBlockList : undefined)
     ?? (brandDefaultBlockList?.length ? brandDefaultBlockList : undefined)
     ?? NEUTRAL_MICROSITE_BLOCK_LIST;
-  const resolvedBlockTypes = resolvedBlockList.filter(b => (b.type ?? "").trim());
+  const resolvedBlockTypes = resolvedBlockList
+    .filter(b => (b.type ?? "").trim())
+    // Drop any block the AI must not be offered this run (case-study with no
+    // approved stories, or a `noai` human-only block) so the fixed list never
+    // forces an unfillable section.
+    .filter(b => !excludeTypes.has(canonicalizeBlockType(b.type ?? "")));
 
   const blockCount = templateBlockTypes ? templateBlockTypes.length : resolvedBlockTypes.length;
   const footer = [
@@ -2260,7 +2449,7 @@ export function buildSystemPrompt(
       audienceSection,
       "",
       "AVAILABLE BLOCKS (choose from these — you decide which and in what order):",
-      buildDsoFreeformBlockGuide(dsoFreeformMode, segmentApprovedTypes),
+      buildDsoFreeformBlockGuide(dsoFreeformMode, segmentApprovedTypes, excludeTypes),
       dsoFreeformFooter,
     ].join("\n");
   }
@@ -2290,7 +2479,7 @@ export function buildSystemPrompt(
       audienceSection,
       "",
       "AVAILABLE BLOCKS (these are approved for this audience — you decide which and in what order):",
-      buildSegmentPoolBlockGuide(segmentApprovedTypes),
+      buildSegmentPoolBlockGuide(segmentApprovedTypes, excludeTypes),
       poolFooter,
     ].join("\n");
   }
@@ -2320,7 +2509,7 @@ export function buildSystemPrompt(
       audienceSection,
       "",
       "AVAILABLE BLOCKS (choose from these — you decide which and in what order):",
-      buildFreeformBlockGuide(segmentApprovedTypes),
+      buildFreeformBlockGuide(segmentApprovedTypes, excludeTypes),
       freeformFooter,
     ].join("\n");
   }
@@ -2850,7 +3039,29 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         }).map((r) => ({ type: r.type, schemaHint: r.schemaHint }))
       : undefined;
 
-    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes, usePoolFreeform, outlineBlockList, selectedPersona);
+    // ── AI block-vocabulary exclusions for THIS generation ─────────────────
+    // (1) Case-study availability gating (issue 3): if the tenant has ZERO
+    //     AI-approved case studies, the model must NOT be offered any
+    //     case-study / success-stories block — an empty case-study section
+    //     (just a heading) is the exact failure we're fixing. Fetched once here
+    //     and reused by the post-AI enforcement guard below.
+    // (2) Tenant block governance `noai` (issue 4): a human-only block stays in
+    //     the builder but is never offered to the AI. Load the tenant's
+    //     governance map (fail-open) and exclude every `noai` type. The map is
+    //     reused after generation to (a) prune AI-emitted noai blocks and (b)
+    //     enforce locked/copy modes, exactly like /lp/generate-page.
+    const approvedCaseStudies = await fetchApprovedCaseStudies(account.tenantId, true);
+    const hasApprovedCaseStudies = approvedCaseStudies.length > 0;
+    const governanceByType = await loadMicrositeGovernance(tenantId);
+    const excludeTypes = new Set<string>();
+    if (!hasApprovedCaseStudies) {
+      for (const t of CASE_STUDY_VOCAB_TYPES) excludeTypes.add(t);
+    }
+    for (const [type, entry] of governanceByType) {
+      if (entry.aiMode === "noai") excludeTypes.add(canonicalizeBlockType(type));
+    }
+
+    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes, usePoolFreeform, outlineBlockList, selectedPersona, excludeTypes);
 
     // Task #976 — REFERENCE PAGE (voice) + VISUAL REFERENCE (style) sections,
     // appended to the user prompt exactly like /lp/generate-page. The brand's
@@ -2933,8 +3144,8 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
 
     // Approved case studies — surface the tenant's AI-approved customer stories
     // so the dso-success-stories block can reference real ones, and forbid the
-    // model from inventing any others. A post-AI guard re-enforces this.
-    const approvedCaseStudies = await fetchApprovedCaseStudies(account.tenantId, true);
+    // model from inventing any others. Already fetched above (reused here) for
+    // the case-study availability gate. A post-AI guard re-enforces this.
     const formatApprovedCaseStudy = (cs: typeof approvedCaseStudies[number]): string => {
       const bits = [`- ${cs.title}`];
       if (cs.categories) bits.push(`(${cs.categories})`);
@@ -3216,6 +3427,38 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // values, and each section's `position` enum is validated.
     for (const b of normalizedBlocks as Array<{ type?: string; props?: Record<string, unknown> }>) {
       fillDsoCaseStudyNeutralDefaults(b);
+    }
+
+    // Task #4 — enforce tenant AI modes (parity with /lp/generate-page): DROP
+    // any AI-emitted `noai` (human-only) block — it stays available in the
+    // builder but the AI must never ship it — and apply locked/copy modes.
+    // Fail-open: an empty governance map leaves the page untouched.
+    if (governanceByType.size > 0) {
+      normalizedBlocks = enforceAiModes(
+        normalizedBlocks,
+        governanceByType,
+        new Map(), // no curated catalog default props on the sales path
+      ) as AiBlock[];
+    }
+
+    // Issue 3b — EMPTY-BLOCK PRUNE. After the case-study/stat enforcement passes
+    // have populated or cleared real content, drop any content-bearing block
+    // (case-study, success-stories, testimonials, stats, products-grid, …) that
+    // has no real content — an empty section (just a heading) is worse than no
+    // section. Defensive backstop for when the model emits a case-study block
+    // despite the vocabulary gate (no approved case studies). Never empties the
+    // page (degenerate prune returns the original list).
+    {
+      const before = normalizedBlocks.length;
+      normalizedBlocks = pruneEmptyContentBlocks(
+        normalizedBlocks as Array<{ type?: string; props?: Record<string, unknown> }>,
+      ) as AiBlock[];
+      if (normalizedBlocks.length !== before) {
+        logger.info(
+          { accountId, tenantId, before, after: normalizedBlocks.length },
+          "[generate-microsite] pruned empty content-bearing blocks (no real content to fill)",
+        );
+      }
     }
 
     // Task #900 — deterministic backgroundStyle post-pass. Re-infer the design
