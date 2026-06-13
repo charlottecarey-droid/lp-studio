@@ -182,8 +182,11 @@ const RENDERER_FILE = path.join(BLOCKS_DIR, "BlockRenderer.tsx");
 // near-white look while honoring an optional preset:
 //   props.backgroundStyle ? getBgStyle(props.backgroundStyle) : { background: "#HEX" }
 // When the else-branch hex is near-white, an unseeded block reads as all-white.
+// The background value may be a plain hex ("#ffffff") OR a color-mix anchored on a
+// near-white hex ("color-mix(in srgb, var(--brand-primary) 4%, #ffffff)"). Capture the
+// first hex inside the background string so both forms are discovered.
 const SELF_SECTION_FALLBACK =
-  /props\.backgroundStyle\s*\?\s*getBgStyle\([^)]*\)\s*:\s*\{\s*background:\s*["'](#[0-9A-Fa-f]{6})["']/g;
+  /props\.backgroundStyle\s*\?\s*getBgStyle\([^)]*\)\s*:\s*\{\s*background:\s*["'][^"']*?(#[0-9A-Fa-f]{6})[^"']*["']/g;
 
 // Whole-channel near-white check: every RGB channel is light. A dark / brand
 // fallback hex (which would NOT read as all-white) is intentionally excluded.
