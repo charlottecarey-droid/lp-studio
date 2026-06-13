@@ -139,6 +139,11 @@ export interface StorybrandJourneyBlockProps {
   problemHeading?: string;
   problemIntro?: string;
   problemCards?: StorybrandProblemCard[];
+  /** Optional framed image beside the problem intro (warm, human — the friction
+   *  the customer feels). Empty = the intro renders full-width as before. */
+  problemImageUrl?: string;
+  problemImageAlt?: string;
+  problemImageFocal?: string;
 
   /* ── 3. stakes ──────────────────────────────────────────────────────── */
   showStakes?: boolean;
@@ -243,6 +248,9 @@ export const STORYBRAND_JOURNEY_DEFAULT_PROPS: StorybrandJourneyBlockProps = {
       body: "Teams that do great work shouldn't lose trust in the gap between contract and kickoff.",
     },
   ],
+  problemImageUrl:
+    "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=1100&h=900&fit=crop",
+  problemImageAlt: "A team mid-scramble surrounded by scattered notes",
 
   showStakes: true,
   stakesKicker: "The cost of waiting",
@@ -781,33 +789,71 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
       {props.showProblem !== false && (
         <section className="px-6 lg:px-12 py-20 md:py-28" style={{ background: problemBg }}>
           <div className="max-w-6xl mx-auto">
-            <Reveal disabled={still} className="max-w-2xl mb-14">
-              {kickerEl(props.problemKicker ?? D.problemKicker, field("problemKicker"), kickerInk, "01")}
-              <h2
-                className="text-3xl md:text-[2.6rem] leading-[1.12] font-medium tracking-tight mb-5"
-                style={{ fontFamily: display, color: headline }}
-              >
-                <InlineText
-                  as="span"
-                  value={props.problemHeading ?? D.problemHeading!}
-                  onUpdate={field("problemHeading")}
-                  multiline
-                />
-              </h2>
-              {(props.problemIntro || onFieldChange) && (
-                <p
-                  className="text-base md:text-lg leading-relaxed"
-                  style={{ color: problemInk.muted, fontFamily: BODY }}
-                >
-                  <InlineText
-                    as="span"
-                    value={props.problemIntro ?? ""}
-                    onUpdate={field("problemIntro")}
-                    multiline
-                  />
-                </p>
-              )}
-            </Reveal>
+            {(() => {
+              const hasProblemImage = !!props.problemImageUrl || !!onFieldChange;
+              const introBlock = (
+                <>
+                  {kickerEl(props.problemKicker ?? D.problemKicker, field("problemKicker"), kickerInk, "01")}
+                  <h2
+                    className="text-3xl md:text-[2.6rem] leading-[1.12] font-medium tracking-tight mb-5"
+                    style={{ fontFamily: display, color: headline }}
+                  >
+                    <InlineText
+                      as="span"
+                      value={props.problemHeading ?? D.problemHeading!}
+                      onUpdate={field("problemHeading")}
+                      multiline
+                    />
+                  </h2>
+                  {(props.problemIntro || onFieldChange) && (
+                    <p
+                      className="text-base md:text-lg leading-relaxed"
+                      style={{ color: problemInk.muted, fontFamily: BODY }}
+                    >
+                      <InlineText
+                        as="span"
+                        value={props.problemIntro ?? ""}
+                        onUpdate={field("problemIntro")}
+                        multiline
+                      />
+                    </p>
+                  )}
+                </>
+              );
+              return hasProblemImage ? (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center mb-14">
+                  <Reveal disabled={still} className="lg:col-span-7">
+                    {introBlock}
+                  </Reveal>
+                  <Reveal disabled={still} delay={0.1} className="lg:col-span-5">
+                    <div
+                      className="relative overflow-hidden rounded-3xl border aspect-[4/3] w-full"
+                      style={{
+                        borderColor: ink.hairline,
+                        boxShadow: "0 24px 60px -28px rgba(60, 42, 24, 0.35)",
+                        background: mixHex(accent, bg, 0.1),
+                      }}
+                    >
+                      <InlineImage
+                        src={props.problemImageUrl ?? ""}
+                        alt={props.problemImageAlt ?? ""}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        wrapperClassName="absolute inset-0"
+                        loading="lazy"
+                        onUpdate={field("problemImageUrl")}
+                        onAltUpdate={field("problemImageAlt")}
+                        focalPoint={props.problemImageFocal}
+                        onFocalUpdate={field("problemImageFocal")}
+                      />
+                    </div>
+                  </Reveal>
+                </div>
+              ) : (
+                <Reveal disabled={still} className="max-w-2xl mb-14">
+                  {introBlock}
+                </Reveal>
+              );
+            })()}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-7">
               {problemCards.map((card, i) => (

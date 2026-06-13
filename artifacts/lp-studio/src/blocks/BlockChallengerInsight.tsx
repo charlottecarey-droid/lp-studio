@@ -93,10 +93,18 @@ export interface ChallengerInsightBlockProps {
   heroCtaText?: string;
   /** Anchor-style href; "#evidence" scrolls to the reframe section. */
   heroCtaUrl?: string;
+  /** Hero image, framed beside the headline on a dark hero (tasteful contained
+   *  photo with a glass frame + accent glow). Empty = headline runs full width. */
+  heroImageUrl?: string;
+  heroImageAlt?: string;
 
   /* ── 2. The reframe ── */
   showReframe?: boolean;
   reframeEyebrow?: string;
+  /** Supporting image beside the reframe (the problem/insight evidence).
+   *  Framed in glass; empty = the two-column reframe renders as before. */
+  reframeImageUrl?: string;
+  reframeImageAlt?: string;
   beliefLabel?: string;
   beliefStatement?: string;
   /** 1–2 supporting lines under the belief statement. */
@@ -168,8 +176,14 @@ export const CHALLENGER_INSIGHT_DEFAULT_PROPS: ChallengerInsightBlockProps = {
     "Problems don't surface in the monthly review until they've already compounded. The teams that hit plan catch them in week one — everyone else finds out at the QBR.",
   heroCtaText: "See the evidence",
   heroCtaUrl: "#evidence",
+  heroImageUrl:
+    "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=1100&h=1300&fit=crop",
+  heroImageAlt: "An operator reviewing live performance data on screen",
 
   reframeEyebrow: "The reframe",
+  reframeImageUrl:
+    "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1100&h=900&fit=crop",
+  reframeImageAlt: "A dashboard of operational metrics under review",
   beliefLabel: "What everyone believes",
   beliefStatement: "“Our monthly ops review keeps us on top of problems.”",
   beliefSupport: [
@@ -521,6 +535,10 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
   const subheadline = props.subheadline ?? D.subheadline;
   const heroCtaText = props.heroCtaText ?? D.heroCtaText;
   const heroCtaUrl = props.heroCtaUrl || D.heroCtaUrl || "#evidence";
+  const heroImageUrl = props.heroImageUrl ?? D.heroImageUrl;
+  const heroImageAlt = props.heroImageAlt ?? D.heroImageAlt ?? "";
+  const reframeImageUrl = props.reframeImageUrl ?? D.reframeImageUrl;
+  const reframeImageAlt = props.reframeImageAlt ?? D.reframeImageAlt ?? "";
 
   const costStats = (props.costStats ?? D.costStats ?? []).slice(0, 3);
   const stakeholders = (props.stakeholders ?? D.stakeholders ?? []).slice(0, 3);
@@ -627,8 +645,16 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
           a={mixHex(rawAccent, surface, 0.28)}
           b={mixHex(primary, surface, 0.4)}
         />
-        <div className="relative mx-auto flex min-h-[88vh] w-full max-w-6xl flex-col justify-center px-6 py-24 md:py-32 lg:px-10">
-          <Reveal isStatic={isStatic} reduced={prefersReducedMotion}>
+        <div
+          className={`relative mx-auto grid min-h-[88vh] w-full max-w-6xl items-center gap-12 px-6 py-24 md:py-32 lg:px-10 lg:gap-16 ${
+            heroImageUrl ? "lg:grid-cols-12" : "grid-cols-1"
+          }`}
+        >
+          <Reveal
+            isStatic={isStatic}
+            reduced={prefersReducedMotion}
+            className={heroImageUrl ? "lg:col-span-7" : ""}
+          >
             {kicker && (
               <p
                 className="mb-8 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.3em]"
@@ -685,6 +711,40 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
               </div>
             )}
           </Reveal>
+          {heroImageUrl && (
+            <Reveal
+              isStatic={isStatic}
+              reduced={prefersReducedMotion}
+              delay={0.12}
+              className="lg:col-span-5"
+            >
+              <div
+                className="relative overflow-hidden rounded-2xl border p-2 backdrop-blur-md"
+                style={{
+                  background: glassBg,
+                  borderColor: glassBorder,
+                  boxShadow: `0 36px 72px -30px rgba(0,0,0,0.7), 0 0 56px -16px ${mixHex(rawAccent, surface, 0.4)}`,
+                }}
+              >
+                <div className="relative overflow-hidden rounded-xl">
+                  <img
+                    src={heroImageUrl}
+                    alt={heroImageAlt}
+                    className="aspect-[4/5] h-auto w-full object-cover"
+                    loading="eager"
+                  />
+                  {/* Subtle scrim so the framed photo sits into the dark hero. */}
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                      background: `linear-gradient(180deg, transparent 55%, ${mixHex("#000000", surface, 0.55)} 100%)`,
+                    }}
+                  />
+                </div>
+              </div>
+            </Reveal>
+          )}
         </div>
         <div aria-hidden className="h-px w-full" style={{ background: ink.hairline }} />
       </section>
@@ -759,6 +819,25 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                 </div>
               </Reveal>
             </div>
+            {reframeImageUrl && (
+              <Reveal isStatic={isStatic} reduced={prefersReducedMotion} delay={0.16}>
+                <div
+                  className="mt-14 overflow-hidden rounded-2xl border p-2 backdrop-blur-md"
+                  style={{
+                    background: glassBg,
+                    borderColor: glassBorder,
+                    boxShadow: `0 32px 64px -30px rgba(0,0,0,0.6), 0 0 48px -18px ${mixHex(rawAccent, surface, 0.32)}`,
+                  }}
+                >
+                  <img
+                    src={reframeImageUrl}
+                    alt={reframeImageAlt}
+                    className="aspect-[21/9] h-auto w-full rounded-xl object-cover"
+                    loading="lazy"
+                  />
+                </div>
+              </Reveal>
+            )}
           </div>
         </section>
       )}
@@ -872,7 +951,8 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
 
       {/* ── 4. TAILOR — stakeholder implications ────────────────────────── */}
       {showTailor && (
-        <section>
+        <section className="relative">
+          <div aria-hidden className="h-px w-full" style={{ background: ink.hairline }} />
           <div className="mx-auto w-full max-w-6xl px-6 py-20 md:py-28 lg:px-10">
             <Reveal isStatic={isStatic} reduced={prefersReducedMotion}>
               {eyebrow(props.tailorEyebrow ?? D.tailorEyebrow, "03")}
@@ -1100,21 +1180,24 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                     {props.logosLabel ?? D.logosLabel}
                   </p>
                 )}
-                <div className="flex flex-wrap items-center gap-x-10 gap-y-5">
+                <div
+                  className="flex flex-wrap items-center gap-x-10 gap-y-5 rounded-2xl border px-7 py-5 backdrop-blur-md"
+                  style={{ background: glassBg, borderColor: glassBorder }}
+                >
                   {logos.map((logo, i) =>
                     logo.imageUrl ? (
                       <img
                         key={i}
                         src={logo.imageUrl}
                         alt={logo.name}
-                        className={`h-6 w-auto opacity-40 grayscale ${isDark ? "brightness-0 invert" : ""}`}
+                        className={`h-6 w-auto opacity-50 grayscale transition-opacity hover:opacity-90 ${isDark ? "brightness-0 invert" : ""}`}
                         loading="lazy"
                       />
                     ) : (
                       <span
                         key={i}
                         className="text-sm font-semibold tracking-wide"
-                        style={{ color: ink.text, opacity: 0.42, fontFamily: DISPLAY }}
+                        style={{ color: ink.text, opacity: 0.5, fontFamily: DISPLAY }}
                       >
                         {logo.name}
                       </span>

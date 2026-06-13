@@ -10,6 +10,7 @@ import {
 } from "@/lib/brand-config";
 import { ensureAccentRegisters, mixHex, resolveSectionInk } from "@/lib/section-ink";
 import { InlineText } from "@/components/InlineText";
+import { InlineImage } from "@/components/InlineImage";
 import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK, BRAND_NUMBERS_STACK } from "@/lib/brand-fonts";
 import { formatStatValue, parseStatValue } from "./BlockStatCounterBand";
@@ -107,6 +108,11 @@ export interface ExecDecisionBriefBlockProps {
   /** Logo override URL; falls back to the tenant brand logo. */
   logoUrl?: string;
   logoAlt?: string;
+  /** Masthead image, framed beside the headline (a crisp boardroom/clinical
+   *  photo). Empty = the masthead runs full-width as before. */
+  mastheadImageUrl?: string;
+  mastheadImageAlt?: string;
+  mastheadImageFocal?: string;
 
   /* ── 2. identified pain ───────────────────────────────────────────────── */
   showPain?: boolean;
@@ -168,6 +174,11 @@ export interface ExecDecisionBriefBlockProps {
   processHeading: string;
   /** 3–4 steps render best (evaluation → pilot → rollout). */
   processSteps: ExecProcessStep[];
+  /** Supporting image beside the process timeline (a framed team/working-session
+   *  photo). Empty = the timeline renders full-width as before. */
+  processImageUrl?: string;
+  processImageAlt?: string;
+  processImageFocal?: string;
 
   /* ── 7. champion tools strip ──────────────────────────────────────────── */
   showChampion?: boolean;
@@ -194,6 +205,9 @@ export const EXEC_DECISION_BRIEF_DEFAULT_PROPS: ExecDecisionBriefBlockProps = {
   metaDate: "Decision brief · Q3",
   metaPreparer: "Prepared by your account team",
   showLogo: true,
+  mastheadImageUrl:
+    "https://images.unsplash.com/photo-1600880292089-90a7e086ee0c?q=80&w=1100&h=1200&fit=crop",
+  mastheadImageAlt: "An executive team reviewing a decision brief",
 
   showPain: true,
   painKicker: "Identified pain",
@@ -319,6 +333,9 @@ export const EXEC_DECISION_BRIEF_DEFAULT_PROPS: ExecDecisionBriefBlockProps = {
       description: "Executive review of pilot results; contract and rollout plan on the table.",
     },
   ],
+  processImageUrl:
+    "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=1100&h=900&fit=crop",
+  processImageAlt: "A working session mapping the evaluation timeline",
 
   showChampion: true,
   championKicker: "Share this brief",
@@ -602,6 +619,53 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
 
   const hasLogo = props.showLogo !== false && !!brand && brandHasLogo(brand, props.logoUrl);
 
+  const hasMastheadImage = !!props.mastheadImageUrl || !!onFieldChange;
+  const hasProcessImage = !!props.processImageUrl || !!onFieldChange;
+
+  /** Shared framed-image shell — rounded, hairline ring, soft boardroom shadow,
+   *  graceful empty state via InlineImage's placeholder in builder. */
+  const FramedImage = ({
+    urlKey,
+    altKey,
+    focalKey,
+    src,
+    alt,
+    focal,
+    aspect,
+    eager,
+  }: {
+    urlKey: keyof ExecDecisionBriefBlockProps;
+    altKey: keyof ExecDecisionBriefBlockProps;
+    focalKey: keyof ExecDecisionBriefBlockProps;
+    src?: string;
+    alt?: string;
+    focal?: string;
+    aspect: string;
+    eager?: boolean;
+  }) => (
+    <div
+      className="relative overflow-hidden rounded-2xl w-full"
+      style={{
+        border: `1px solid ${ink.hairline}`,
+        boxShadow: "0 24px 56px -30px rgba(19, 36, 59, 0.45)",
+        background: bandBg,
+        aspectRatio: aspect,
+      }}
+    >
+      <InlineImage
+        src={src ?? ""}
+        alt={alt ?? ""}
+        className="absolute inset-0 h-full w-full object-cover"
+        wrapperClassName="absolute inset-0"
+        loading={eager ? "eager" : "lazy"}
+        onUpdate={edit(urlKey)}
+        onAltUpdate={edit(altKey)}
+        focalPoint={focal}
+        onFocalUpdate={edit(focalKey)}
+      />
+    </div>
+  );
+
   /* — economic line-item column (shared markup for investment / return) — */
   const EconColumn = ({
     label,
@@ -717,7 +781,15 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
       <div className="max-w-5xl mx-auto px-5 sm:px-8 lg:px-10">
         {/* ── 1. Masthead ──────────────────────────────────────────────── */}
         <header className="pt-12 sm:pt-16 lg:pt-20 pb-10 sm:pb-14">
-          <motion.div {...fadeUp()}>
+          <motion.div
+            {...fadeUp()}
+            className={
+              hasMastheadImage
+                ? "grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center"
+                : undefined
+            }
+          >
+            <div className={hasMastheadImage ? "lg:col-span-7" : undefined}>
             <div className="flex items-center justify-between gap-4 mb-8 sm:mb-10">
               <span className={kickerClass} style={kickerStyle}>
                 <InlineText
@@ -768,6 +840,21 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
                     onUpdate={edit("metaPreparer")}
                   />
                 )}
+              </div>
+            )}
+            </div>
+            {hasMastheadImage && (
+              <div className="lg:col-span-5">
+                <FramedImage
+                  urlKey="mastheadImageUrl"
+                  altKey="mastheadImageAlt"
+                  focalKey="mastheadImageFocal"
+                  src={props.mastheadImageUrl}
+                  alt={props.mastheadImageAlt}
+                  focal={props.mastheadImageFocal}
+                  aspect="4 / 5"
+                  eager
+                />
               </div>
             )}
           </motion.div>
@@ -1204,8 +1291,19 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
               headingKey="processHeading"
             />
             <div
+              className={
+                hasProcessImage
+                  ? "grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center"
+                  : undefined
+              }
+            >
+            <div
               className={`grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-8 ${
-                props.processSteps.length >= 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"
+                hasProcessImage
+                  ? "lg:col-span-7 lg:grid-cols-2"
+                  : props.processSteps.length >= 4
+                    ? "lg:grid-cols-4"
+                    : "lg:grid-cols-3"
               }`}
             >
               {props.processSteps.map((step, i) => (
@@ -1251,6 +1349,20 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
                   </p>
                 </motion.div>
               ))}
+            </div>
+            {hasProcessImage && (
+              <motion.div {...fadeUp(0.08)} className="lg:col-span-5">
+                <FramedImage
+                  urlKey="processImageUrl"
+                  altKey="processImageAlt"
+                  focalKey="processImageFocal"
+                  src={props.processImageUrl}
+                  alt={props.processImageAlt}
+                  focal={props.processImageFocal}
+                  aspect="4 / 3"
+                />
+              </motion.div>
+            )}
             </div>
           </section>
         )}

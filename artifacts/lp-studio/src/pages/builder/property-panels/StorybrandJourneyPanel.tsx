@@ -350,6 +350,16 @@ export function StorybrandJourneyPanel({ props, onChange }: Props) {
             <Field label="Intro (optional)">
               <Textarea value={props.problemIntro ?? ""} onChange={(e) => set("problemIntro", e.target.value)} className="text-xs min-h-14" />
             </Field>
+            <Field label="Problem image (beside the intro, optional)">
+              <ImagePicker
+                value={props.problemImageUrl ?? ""}
+                onChange={(v) => set("problemImageUrl", v)}
+                aiHint="Warm, human photo — the friction the customer feels today"
+              />
+            </Field>
+            <Field label="Problem image alt text">
+              <Input value={props.problemImageAlt ?? ""} onChange={(e) => set("problemImageAlt", e.target.value)} className="text-xs h-8" />
+            </Field>
             <div className="space-y-2 pt-1">
               <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
                 Cards (External / Internal / Philosophical)

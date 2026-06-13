@@ -188,6 +188,21 @@ export function ChallengerInsightPanel({ props, onChange }: Props) {
             />
           </Field>
         </div>
+        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Hero image (optional — framed beside the headline)
+        </div>
+        <ImagePicker
+          value={props.heroImageUrl ?? ""}
+          onChange={(src) => update({ heroImageUrl: src || undefined })}
+          label="Hero image"
+          aiHint="Confident operator or team reviewing live data"
+        />
+        <Input
+          value={props.heroImageAlt ?? ""}
+          onChange={(e) => update({ heroImageAlt: e.target.value || undefined })}
+          placeholder="Hero image alt text (optional)"
+          className="h-8 text-xs"
+        />
       </Section>
 
       <Section title="2 · The reframe">
@@ -271,6 +286,21 @@ export function ChallengerInsightPanel({ props, onChange }: Props) {
             />
           </Field>
         ))}
+        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Evidence image (optional — wide framed strip)
+        </div>
+        <ImagePicker
+          value={props.reframeImageUrl ?? ""}
+          onChange={(src) => update({ reframeImageUrl: src || undefined })}
+          label="Evidence image"
+          aiHint="Dashboard, chart, or data being reviewed"
+        />
+        <Input
+          value={props.reframeImageAlt ?? ""}
+          onChange={(e) => update({ reframeImageAlt: e.target.value || undefined })}
+          placeholder="Evidence image alt text (optional)"
+          className="h-8 text-xs"
+        />
       </Section>
 
       <Section title={`3 · Cost of status quo (${costStats.length})`}>

@@ -315,6 +315,16 @@ export function ExecDecisionBriefPanel({ props, onChange }: Props) {
                 </Field>
               </>
             )}
+            <Field label="Masthead image (beside the headline, optional)">
+              <ImagePicker
+                value={props.mastheadImageUrl ?? ""}
+                onChange={(v) => set("mastheadImageUrl", v)}
+                aiHint="Crisp boardroom / clinical photo — neutral, on-brand"
+              />
+            </Field>
+            <Field label="Masthead image alt text">
+              <Input value={props.mastheadImageAlt ?? ""} onChange={(e) => set("mastheadImageAlt", e.target.value)} className="text-xs h-8" />
+            </Field>
           </div>
         )}
       </div>
@@ -606,6 +616,16 @@ export function ExecDecisionBriefPanel({ props, onChange }: Props) {
                 <Plus className="h-3.5 w-3.5 mr-1" /> Add step
               </Button>
             </div>
+            <Field label="Process image (beside the timeline, optional)">
+              <ImagePicker
+                value={props.processImageUrl ?? ""}
+                onChange={(v) => set("processImageUrl", v)}
+                aiHint="A working session or team mapping the plan"
+              />
+            </Field>
+            <Field label="Process image alt text">
+              <Input value={props.processImageAlt ?? ""} onChange={(e) => set("processImageAlt", e.target.value)} className="text-xs h-8" />
+            </Field>
           </div>
         )}
       </div>
