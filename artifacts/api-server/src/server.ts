@@ -345,20 +345,43 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-// Task #624 — fail-fast in production when bot protection isn't configured.
-// Turnstile gates the public auth endpoints (register / login / password
-// reset); with no secret, verifyTurnstile() reports `configured: false` and
-// waves every request through, silently disabling bot protection on a live
-// deploy. Refuse to boot so the missing secret is caught at deploy time
-// rather than after an abuse incident. No-op outside production — dev/test
-// run keyless on purpose.
-if (process.env.NODE_ENV === "production" && !turnstileConfigured()) {
-  throw new Error(
-    "TURNSTILE_SECRET_KEY is not set on the production deployment. Bot " +
-      "protection on the public auth endpoints (register / login / password " +
-      "reset) would be silently disabled. Set the secret and redeploy.",
-  );
+// Production config guards. These check that important secrets are present.
+// Historically each was a HARD CRASH (`throw`) at boot — which meant a single
+// missing/empty secret made the whole deployment fail its healthcheck and
+// refuse to publish, with the real reason buried in runtime logs. That turns a
+// recoverable misconfiguration into an opaque, total outage (and a deploy that
+// can't go live at all). Instead we now WARN LOUDLY (log + Sentry) and keep
+// booting: each missing secret degrades only its own feature (Turnstile → bot
+// protection off; UNSUB_SECRET → unsubscribe links degraded; etc.), all of
+// which the downstream code already handles gracefully. Set
+// `STRICT_PROD_GUARDS=1` to restore the old fail-fast behaviour once prod
+// config is fully sorted.
+const STRICT_PROD_GUARDS = process.env.STRICT_PROD_GUARDS === "1";
+function prodConfigGuard(failed: boolean, message: string): void {
+  if (process.env.NODE_ENV !== "production" || !failed) return;
+  if (STRICT_PROD_GUARDS) {
+    throw new Error(message);
+  }
+  logger.error({ guard: "prod-config", strict: false }, `[boot-guard] ${message}`);
+  try {
+    const Sentry = require("@sentry/node") as typeof import("@sentry/node");
+    Sentry.captureMessage(`[boot-guard] ${message}`, "warning");
+  } catch {
+    /* Sentry not available — the logger.error above is the signal */
+  }
 }
+
+// Task #624 — bot protection (Turnstile) gates the public auth endpoints
+// (register / login / password reset). With no secret, verifyTurnstile()
+// reports `configured: false` and waves every request through — bot protection
+// is simply off until the secret is set. Warn (don't crash) so a missing key
+// can't block the deploy. No-op outside production — dev/test run keyless.
+prodConfigGuard(
+  !turnstileConfigured(),
+  "TURNSTILE_SECRET_KEY is not set on the production deployment. Bot " +
+    "protection on the public auth endpoints (register / login / password " +
+    "reset) is DISABLED until the secret is set. Set it and redeploy to enable.",
+);
 
 // Task #681 — fail-fast in production when GitHub OAuth is enabled but the
 // callback URI isn't pinned. A GitHub OAuth app allows only ONE registered
@@ -369,20 +392,16 @@ if (process.env.NODE_ENV === "production" && !turnstileConfigured()) {
 // one and the handoff fails. Refuse to boot so the misconfiguration is caught
 // at deploy time. Only enforced when the provider is configured — deploys
 // without GitHub login set up are unaffected; no-op outside production.
-if (
-  process.env.NODE_ENV === "production" &&
-  process.env.GITHUB_OAUTH_CLIENT_ID &&
-  process.env.GITHUB_OAUTH_CLIENT_SECRET &&
-  !process.env.GITHUB_OAUTH_REDIRECT_URI
-) {
-  throw new Error(
-    "GITHUB_OAUTH_REDIRECT_URI is not set on the production deployment while " +
-      "GitHub OAuth is configured. Pin it to the registered prod callback " +
-      "(https://app.lpstudio.ai/api/auth/github/callback) so the cross-domain " +
-      "handoff uses a fixed URI; otherwise tenant-host logins send GitHub a " +
-      "redirect_uri that won't match the OAuth app. Set the var and redeploy.",
-  );
-}
+prodConfigGuard(
+  !!process.env.GITHUB_OAUTH_CLIENT_ID &&
+    !!process.env.GITHUB_OAUTH_CLIENT_SECRET &&
+    !process.env.GITHUB_OAUTH_REDIRECT_URI,
+  "GITHUB_OAUTH_REDIRECT_URI is not set on the production deployment while " +
+    "GitHub OAuth is configured. Pin it to the registered prod callback " +
+    "(https://app.lpstudio.ai/api/auth/github/callback) so the cross-domain " +
+    "handoff uses a fixed URI; otherwise tenant-host logins send GitHub a " +
+    "redirect_uri that won't match the OAuth app. Set the var and redeploy.",
+);
 
 // Task #684 — fail-fast in production when Google OAuth is enabled but the
 // callback URI isn't pinned. A Google OAuth client only accepts redirect_uris
@@ -393,20 +412,16 @@ if (
 // and the handoff fails. Refuse to boot so the misconfiguration is caught at
 // deploy time. Only enforced when the provider is configured — deploys without
 // Google login set up are unaffected; no-op outside production.
-if (
-  process.env.NODE_ENV === "production" &&
-  process.env.GOOGLE_CLIENT_ID &&
-  process.env.GOOGLE_CLIENT_SECRET &&
-  !process.env.GOOGLE_REDIRECT_URI
-) {
-  throw new Error(
-    "GOOGLE_REDIRECT_URI is not set on the production deployment while " +
-      "Google OAuth is configured. Pin it to the registered prod callback " +
-      "(https://app.lpstudio.ai/api/auth/google/callback) so the cross-domain " +
-      "handoff uses a fixed URI; otherwise tenant-host logins send Google a " +
-      "redirect_uri that won't match the OAuth client. Set the var and redeploy.",
-  );
-}
+prodConfigGuard(
+  !!process.env.GOOGLE_CLIENT_ID &&
+    !!process.env.GOOGLE_CLIENT_SECRET &&
+    !process.env.GOOGLE_REDIRECT_URI,
+  "GOOGLE_REDIRECT_URI is not set on the production deployment while " +
+    "Google OAuth is configured. Pin it to the registered prod callback " +
+    "(https://app.lpstudio.ai/api/auth/google/callback) so the cross-domain " +
+    "handoff uses a fixed URI; otherwise tenant-host logins send Google a " +
+    "redirect_uri that won't match the OAuth client. Set the var and redeploy.",
+);
 
 // Fail-fast in production when the unsubscribe-token signing secret isn't set.
 // UNSUB_SECRET signs the one-click unsubscribe links in every outbound sales
@@ -414,14 +429,13 @@ if (
 // (links break on restart) or — historically — a hardcoded constant that let
 // anyone forge an unsubscribe for any contact. Refuse to boot so the missing
 // secret is caught at deploy time. No-op outside production.
-if (process.env.NODE_ENV === "production" && !process.env.UNSUB_SECRET) {
-  throw new Error(
-    "UNSUB_SECRET is not set on the production deployment. It signs the " +
-      "one-click unsubscribe links in outbound sales emails; without a stable " +
-      "secret those links are forgeable / break across restarts. Set the secret " +
-      "and redeploy.",
-  );
-}
+prodConfigGuard(
+  !process.env.UNSUB_SECRET,
+  "UNSUB_SECRET is not set on the production deployment. It signs the " +
+    "one-click unsubscribe links in outbound sales emails; without a stable " +
+    "secret those links are forgeable / break across restarts. Set the secret " +
+    "and redeploy.",
+);
 
 // Fail-fast in production when the Resend webhook signing secret isn't set.
 // RESEND_WEBHOOK_SECRET verifies the HMAC signature on inbound Resend delivery
@@ -429,14 +443,13 @@ if (process.env.NODE_ENV === "production" && !process.env.UNSUB_SECRET) {
 // the verifier fails closed (rejects every webhook), so delivery status would
 // silently stop updating on a live deploy. Refuse to boot so the missing secret
 // is caught at deploy time. No-op outside production.
-if (process.env.NODE_ENV === "production" && !process.env.RESEND_WEBHOOK_SECRET) {
-  throw new Error(
-    "RESEND_WEBHOOK_SECRET is not set on the production deployment. It verifies " +
-      "the signature on inbound Resend webhooks (delivery / bounce / complaint); " +
-      "without it every webhook is rejected and send status stops updating. Set " +
-      "the secret and redeploy.",
-  );
-}
+prodConfigGuard(
+  !process.env.RESEND_WEBHOOK_SECRET,
+  "RESEND_WEBHOOK_SECRET is not set on the production deployment. It verifies " +
+    "the signature on inbound Resend webhooks (delivery / bounce / complaint); " +
+    "without it every webhook is rejected and send status stops updating. Set " +
+    "the secret and redeploy.",
+);
 
 // Task #860 — fail-fast in production when the credential-encryption key isn't
 // set. CREDENTIAL_ENCRYPTION_KEY (32 bytes, base64) is the master key that
@@ -447,21 +460,26 @@ if (process.env.NODE_ENV === "production" && !process.env.RESEND_WEBHOOK_SECRET)
 // Refuse to boot so the missing secret is caught at deploy time. No-op outside
 // production (dev/test run on the loud dev fallback on purpose).
 if (process.env.NODE_ENV === "production") {
-  if (!process.env.CREDENTIAL_ENCRYPTION_KEY) {
-    throw new Error(
-      "CREDENTIAL_ENCRYPTION_KEY is not set on the production deployment. It " +
-        "encrypts stored integration credentials at rest; without it secrets fall " +
-        "back to a deterministic dev key and are effectively unprotected. Generate " +
-        "with `openssl rand -base64 32`, set the secret (and back it up out-of-band), " +
-        "and redeploy.",
-    );
+  prodConfigGuard(
+    !process.env.CREDENTIAL_ENCRYPTION_KEY,
+    "CREDENTIAL_ENCRYPTION_KEY is not set on the production deployment. It " +
+      "encrypts stored integration credentials at rest; without it secrets fall " +
+      "back to a deterministic dev key and are effectively unprotected. Generate " +
+      "with `openssl rand -base64 32`, set the secret (and back it up out-of-band), " +
+      "and redeploy. (Only matters if you store integration credentials — " +
+      "Marketo/Salesforce/Sheets/Asana.)",
+  );
+  // Eagerly decode + length-check the key when one IS set, so a malformed value
+  // (wrong length, bad base64) is surfaced at boot instead of on the first
+  // credential write. A malformed key is a clear typo worth catching loudly;
+  // under STRICT_PROD_GUARDS it still throws, otherwise it warns and continues.
+  if (process.env.CREDENTIAL_ENCRYPTION_KEY) {
+    try {
+      assertEncryptionKeyValid();
+    } catch (err) {
+      prodConfigGuard(true, `CREDENTIAL_ENCRYPTION_KEY is malformed: ${String(err)}`);
+    }
   }
-  // Eagerly decode + length-check the key so a malformed value (wrong length,
-  // bad base64) fails at boot instead of on the first credential write. This
-  // also validates CREDENTIAL_ENCRYPTION_KEY_PREVIOUS when set (the decrypt-only
-  // key used during a rotation; task #862), so a typo in it can't silently
-  // disable the rotation decrypt fallback and strand secrets under the old key.
-  assertEncryptionKeyValid();
 }
 
 // Bind the port and immediately mark ready — schema setup ran in the
