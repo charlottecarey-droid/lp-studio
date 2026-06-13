@@ -104,26 +104,192 @@ async function runStreamedChatCompletion(opts: {
   messages: ChatCompletionMessageParam[];
   signal?: AbortSignal;
   onDelta?: (delta: string) => void;
-}): Promise<string> {
+}): Promise<{ text: string; finishReason: string | null }> {
   const stream = await opts.client.chat.completions.create(
     {
       model: "gpt-4o",
       temperature: 0.9,
       max_completion_tokens: 12288,
+      // The page-generation contract is a single JSON object; json_object mode
+      // stops the model from wrapping it in prose / markdown fences so the
+      // parse below can't trip over stray text (see parsePageCompletion).
+      response_format: { type: "json_object" },
       messages: opts.messages,
       stream: true,
     },
     opts.signal ? { signal: opts.signal } : undefined,
   );
   let text = "";
+  let finishReason: string | null = null;
   for await (const chunk of stream) {
     const delta = chunk.choices?.[0]?.delta?.content ?? "";
     if (delta) {
       text += delta;
       opts.onDelta?.(delta);
     }
+    // The final chunk carries the finish_reason; "length" means the model hit
+    // max_completion_tokens and the JSON is almost certainly truncated.
+    const fr = chunk.choices?.[0]?.finish_reason;
+    if (fr) finishReason = fr;
   }
-  return text;
+  return { text, finishReason };
+}
+
+/** Char budget for the per-request REFERENCE PAGE markdown injected into the
+ *  generation prompt. The firecrawl scrape itself is capped much higher
+ *  (24k single / 48k stitched) so the SCRAPE cache stays useful for image
+ *  harvesting and brand-import reuse, but the model only needs a representative
+ *  slice for voice / structure / density — feeding the entire homepage both
+ *  bloats the prompt AND (because the prompt explicitly tells the model to
+ *  "match the information density") inflates the model's JSON response until it
+ *  overruns max_completion_tokens and gets truncated mid-object → the parse
+ *  fails with "AI returned invalid JSON". 12k chars (~3k tokens) is ample for
+ *  voice/structure while leaving the full 12,288-token response budget free. */
+const REFERENCE_PROMPT_MAX_CHARS = 12_000;
+
+/** Trim reference markdown to {@link REFERENCE_PROMPT_MAX_CHARS} on a sentence
+ *  / paragraph boundary (so we don't cut mid-word) and append a clear marker so
+ *  the model knows the page continued. Returns `{ text, truncated }`. */
+export function capReferenceMarkdown(
+  markdown: string,
+  maxChars: number = REFERENCE_PROMPT_MAX_CHARS,
+): { text: string; truncated: boolean } {
+  if (markdown.length <= maxChars) return { text: markdown, truncated: false };
+  const slice = markdown.slice(0, maxChars);
+  // Prefer a sentence end, then a paragraph break, then a newline — anything to
+  // avoid slicing through a word or markdown token. For a sentence end we keep
+  // the period (index + 1); for a line/paragraph break we cut at the break.
+  const sentenceEnd = slice.lastIndexOf(". ");
+  const paraBreak = slice.lastIndexOf("\n\n");
+  const lineBreak = slice.lastIndexOf("\n");
+  let boundary = -1;
+  if (sentenceEnd > maxChars * 0.5) boundary = sentenceEnd + 1; // keep the "."
+  else if (paraBreak > maxChars * 0.5) boundary = paraBreak;
+  else if (lineBreak > maxChars * 0.5) boundary = lineBreak;
+  const cut = boundary > 0 ? slice.slice(0, boundary) : slice;
+  return { text: `${cut.trimEnd()}\n\n[reference truncated]`, truncated: true };
+}
+
+/** Result of {@link parsePageCompletion}: either the parsed object, or a
+ *  failure tagged so the caller can surface a SPECIFIC error to the user. */
+export type PageParseResult =
+  | { ok: true; value: { title?: string; slug?: string; blocks?: unknown[] } }
+  | { ok: false; reason: "truncated" | "malformed"; message: string };
+
+/** Parse the model's page-generation completion into `{title, slug, blocks}`.
+ *
+ *  Hardened over the old inline `JSON.parse(raw.replace(fences))`:
+ *   1. Strips ```/```json fences and any prose before the first `{`.
+ *   2. Tries a straight parse.
+ *   3. On failure, attempts a structural repair of a TRUNCATED-but-recoverable
+ *      object (close an open string, then close any still-open arrays/objects)
+ *      — covers the common max_tokens cutoff mid-blocks-array.
+ *   4. Classifies an unrecoverable failure as "truncated" (model stopped on
+ *      length / brackets never balanced) vs "malformed" so the streamed error
+ *      message is specific.
+ *  `finishReason === "length"` forces the "truncated" classification. */
+export function parsePageCompletion(
+  raw: string,
+  finishReason: string | null = null,
+): PageParseResult {
+  // Strip fences and anything before the first opening brace.
+  let cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+  const firstBrace = cleaned.indexOf("{");
+  if (firstBrace > 0) cleaned = cleaned.slice(firstBrace);
+
+  const tryParse = (s: string): { title?: string; slug?: string; blocks?: unknown[] } | null => {
+    try {
+      return JSON.parse(s) as { title?: string; slug?: string; blocks?: unknown[] };
+    } catch {
+      return null;
+    }
+  };
+
+  const direct = tryParse(cleaned);
+  if (direct) return { ok: true, value: direct };
+
+  // Repair attempt: balance the structure assuming a clean prefix that was cut
+  // off (the dominant failure mode when max_completion_tokens is hit).
+  const repaired = repairTruncatedJson(cleaned);
+  if (repaired) {
+    const parsed = tryParse(repaired);
+    if (parsed) return { ok: true, value: parsed };
+  }
+
+  const looksTruncated = finishReason === "length" || isLikelyTruncated(cleaned);
+  return looksTruncated
+    ? {
+        ok: false,
+        reason: "truncated",
+        message:
+          "AI response was cut off before it finished (the page was too long). " +
+          "Try a shorter prompt, fewer sections, or a reference URL with less content.",
+      }
+    : { ok: false, reason: "malformed", message: "AI returned invalid JSON" };
+}
+
+/** Heuristic: does this JSON-ish text look cut off rather than syntactically
+ *  garbled? Open brackets outnumber close brackets, or it ends mid-token. */
+function isLikelyTruncated(s: string): boolean {
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (const c of s) {
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === "{" || c === "[") depth++;
+    else if (c === "}" || c === "]") depth--;
+  }
+  return inStr || depth > 0;
+}
+
+/** Best-effort structural repair of a JSON object truncated mid-stream: close
+ *  an unterminated string, drop a dangling comma/colon tail, then emit the
+ *  closing brackets for every still-open container in reverse order. Returns
+ *  null when the text isn't a recoverable object prefix. */
+function repairTruncatedJson(s: string): string | null {
+  if (!s.startsWith("{")) return null;
+  const stack: string[] = [];
+  let inStr = false;
+  let esc = false;
+  let lastSignificant = -1;
+  const chars = [...s];
+  for (let i = 0; i < chars.length; i++) {
+    const c = chars[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') {
+      inStr = true;
+      lastSignificant = i;
+    } else if (c === "{") {
+      stack.push("}");
+      lastSignificant = i;
+    } else if (c === "[") {
+      stack.push("]");
+      lastSignificant = i;
+    } else if (c === "}" || c === "]") {
+      stack.pop();
+      lastSignificant = i;
+    } else if (!/\s/.test(c) && c !== "," && c !== ":") {
+      lastSignificant = i;
+    }
+  }
+  if (stack.length === 0 && !inStr) return null; // balanced already — not our case
+  // Truncate any dangling comma/colon/whitespace tail after the last complete
+  // token (e.g. a trailing `"foo":` or `},`), then close everything.
+  let body = chars.slice(0, lastSignificant + 1).join("");
+  if (inStr) body += '"'; // close the unterminated string value
+  body += stack.reverse().join("");
+  return body;
 }
 
 /** Task #253 — claims may be plain strings (legacy entries) or
@@ -7287,7 +7453,16 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // forced to mirror voice / vocabulary / density.
   const referenceSection = (() => {
     if (!scrapeResult.scraped) return "";
-    const { url, markdown, truncated, additionalUrls } = scrapeResult.scraped;
+    const { url, markdown: rawMarkdown, truncated: scrapeTruncated, additionalUrls } = scrapeResult.scraped;
+    // Cap the markdown for the PROMPT (the scrape cache keeps the full text for
+    // image harvesting / brand import). Feeding a whole homepage both bloats the
+    // prompt and — because the prompt below tells the model to "match the
+    // information density" — inflates the JSON response until it overruns
+    // max_completion_tokens and is truncated mid-object → parse fails. See
+    // capReferenceMarkdown / REFERENCE_PROMPT_MAX_CHARS.
+    const capped = capReferenceMarkdown(rawMarkdown);
+    const markdown = capped.text;
+    const truncated = scrapeTruncated || capped.truncated;
     const truncNote = truncated ? " (TRUNCATED — full page was longer)" : "";
     const companions = additionalUrls && additionalUrls.length > 0
       ? `\n\n(Stitched from ${1 + additionalUrls.length} pages: ${url} plus ${additionalUrls.join(", ")})`
@@ -7625,37 +7800,37 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // semaphore slot is held for the whole stream; a client disconnect aborts
       // the OpenAI request via emitter.signal.
       let raw: string;
+      let modelFinishReason: string | null = null;
       if (emitter.enabled) {
-        raw =
-          (
-            await generateOpenAISemaphore.run(() =>
-              runStreamedChatCompletion({
-                client: openai!,
-                messages: templateMessages,
-                signal: emitter.signal,
-              }),
-            )
-          ).trim() || "{}";
+        const streamed = await generateOpenAISemaphore.run(() =>
+          runStreamedChatCompletion({
+            client: openai!,
+            messages: templateMessages,
+            signal: emitter.signal,
+          }),
+        );
+        raw = streamed.text.trim() || "{}";
+        modelFinishReason = streamed.finishReason;
       } else {
         const completion = await generateOpenAISemaphore.run(() =>
           openai!.chat.completions.create({
             model: "gpt-4o",
             temperature: 0.9,
             max_completion_tokens: 12288,
+            response_format: { type: "json_object" },
             messages: templateMessages,
           }),
         );
         raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
+        modelFinishReason = completion.choices[0]?.finish_reason ?? null;
       }
       emitter.stage("model", "done", "Rewriting template copy with AI");
-      let parsed: { title?: string; slug?: string; blocks?: unknown[] };
-      try {
-        const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-        parsed = JSON.parse(cleaned);
-      } catch {
-        sendErrorJson(500, { error: "AI returned invalid JSON", raw });
+      const parseResult = parsePageCompletion(raw, modelFinishReason);
+      if (!parseResult.ok) {
+        sendErrorJson(500, { error: parseResult.message, reason: parseResult.reason, raw });
         return;
       }
+      const parsed = parseResult.value;
 
       if (!parsed.title || !parsed.slug || !Array.isArray(parsed.blocks)) {
         sendErrorJson(500, { error: "AI response missing required fields (title, slug, blocks)" });
@@ -8487,42 +8662,42 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // stream; a client disconnect aborts the OpenAI request via emitter.signal
     // (the abort throw releases the slot and lands in the catch below).
     let raw: string;
+    let modelFinishReason: string | null = null;
     if (emitter.enabled) {
       const liveParser = new StreamingBlockParser();
-      raw =
-        (
-          await generateOpenAISemaphore.run(() =>
-            runStreamedChatCompletion({
-              client: openai!,
-              messages: baseMessages,
-              signal: emitter.signal,
-              onDelta: (delta) => {
-                for (const e of liveParser.push(delta)) emitter.block(e.index, e.block);
-              },
-            }),
-          )
-        ).trim() || "{}";
+      const streamed = await generateOpenAISemaphore.run(() =>
+        runStreamedChatCompletion({
+          client: openai!,
+          messages: baseMessages,
+          signal: emitter.signal,
+          onDelta: (delta) => {
+            for (const e of liveParser.push(delta)) emitter.block(e.index, e.block);
+          },
+        }),
+      );
+      raw = streamed.text.trim() || "{}";
+      modelFinishReason = streamed.finishReason;
     } else {
       const completion = await generateOpenAISemaphore.run(() =>
         openai!.chat.completions.create({
           model: "gpt-4o",
           temperature: 0.9,
           max_completion_tokens: 12288,
+          response_format: { type: "json_object" },
           messages: baseMessages,
         }),
       );
       raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
+      modelFinishReason = completion.choices[0]?.finish_reason ?? null;
     }
     emitter.stage("model", "done", "Designing your page with AI");
 
-    let parsed: { title?: string; slug?: string; blocks?: unknown[] };
-    try {
-      const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-      parsed = JSON.parse(cleaned);
-    } catch {
-      sendErrorJson(500, { error: "AI returned invalid JSON", raw });
+    const parseResult = parsePageCompletion(raw, modelFinishReason);
+    if (!parseResult.ok) {
+      sendErrorJson(500, { error: parseResult.message, reason: parseResult.reason, raw });
       return;
     }
+    let parsed = parseResult.value;
 
     if (!parsed.title || !parsed.slug || !Array.isArray(parsed.blocks)) {
       sendErrorJson(500, { error: "AI response missing required fields (title, slug, blocks)" });
@@ -8559,34 +8734,37 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         // Separate semaphore acquisition — the initial call's slot was
         // already released above, so this cannot deadlock.
         let retryRaw: string;
+        let retryFinishReason: string | null = null;
         if (emitter.enabled) {
           const retryParser = new StreamingBlockParser();
-          retryRaw = (
-            await generateOpenAISemaphore.run(() =>
-              runStreamedChatCompletion({
-                client: openai!,
-                messages: retryMessages,
-                signal: emitter.signal,
-                onDelta: (delta) => {
-                  for (const e of retryParser.push(delta)) emitter.block(e.index, e.block);
-                },
-              }),
-            )
-          ).trim();
+          const retryStreamed = await generateOpenAISemaphore.run(() =>
+            runStreamedChatCompletion({
+              client: openai!,
+              messages: retryMessages,
+              signal: emitter.signal,
+              onDelta: (delta) => {
+                for (const e of retryParser.push(delta)) emitter.block(e.index, e.block);
+              },
+            }),
+          );
+          retryRaw = retryStreamed.text.trim();
+          retryFinishReason = retryStreamed.finishReason;
         } else {
           const retryCompletion = await generateOpenAISemaphore.run(() =>
             openai!.chat.completions.create({
               model: "gpt-4o",
               temperature: 0.9,
               max_completion_tokens: 12288,
+              response_format: { type: "json_object" },
               messages: retryMessages,
             }),
           );
           retryRaw = retryCompletion.choices[0]?.message?.content?.trim() ?? "";
+          retryFinishReason = retryCompletion.choices[0]?.finish_reason ?? null;
         }
         emitter.stage("model", "done", "Regenerating with a fresh structure");
-        const retryCleaned = retryRaw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-        const retryParsed = JSON.parse(retryCleaned) as typeof parsed;
+        const retryResult = parsePageCompletion(retryRaw, retryFinishReason);
+        const retryParsed = retryResult.ok ? retryResult.value : null;
         if (retryParsed?.title && retryParsed?.slug && Array.isArray(retryParsed.blocks)) {
           const retryHash = blockSequenceHash(retryParsed.blocks.map(typeOf));
           logger.info(
