@@ -4,6 +4,7 @@ import type {
   StatCounterBandBlockProps,
   StatCounterItem,
   StatCounterBackground,
+  StatCounterStyle,
 } from "@/blocks/BlockStatCounterBand";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BlockRefreshButton, StatsRefreshButton } from "@/components/BlockRefreshButton";
+import { IconPicker } from "@/components/IconPicker";
 import { ColorField } from "./BlockSettingsPanel";
 import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 
@@ -67,8 +69,19 @@ const BG_OPTIONS: Array<{ value: StatCounterBackground; label: string }> = [
   { value: "light", label: "Light — flat off-white" },
 ];
 
+const STAT_STYLE_OPTIONS: Array<{ value: StatCounterStyle; label: string }> = [
+  { value: "plain", label: "Plain — bare numerals on the band" },
+  { value: "cards", label: "Cards — soft-fill cards, optional icon" },
+  { value: "outlined", label: "Outlined — hairline-bordered cards" },
+  { value: "divided", label: "Divided — thin rules between stats" },
+];
+
 export function StatCounterBandPanel({ props, onChange }: Props) {
   const stats = props.stats ?? [];
+  const statStyle = props.statStyle ?? "plain";
+  // Per-stat icons only render in the card-based styles, so only surface the
+  // icon picker there (keeps the plain/divided editors uncluttered).
+  const iconStyle = statStyle === "cards" || statStyle === "outlined";
 
   const updateStat = (i: number, patch: Partial<StatCounterItem>) =>
     onChange({ ...props, stats: stats.map((s, idx) => (idx === i ? { ...s, ...patch } : s)) });
@@ -154,6 +167,14 @@ export function StatCounterBandPanel({ props, onChange }: Props) {
                   className="h-8 text-xs"
                 />
               </div>
+              {iconStyle && (
+                <IconPicker
+                  label="Icon (cards / outlined styles)"
+                  value={stat.icon}
+                  onChange={(v) => updateStat(i, { icon: v || undefined })}
+                  aiHint="Stat icon"
+                />
+              )}
             </div>
           ))}
           {stats.length === 0 && (
@@ -178,7 +199,23 @@ export function StatCounterBandPanel({ props, onChange }: Props) {
         </p>
       </Section>
 
-      <Section title="Appearance" hint="Background, accent, borders, timing">
+      <Section title="Appearance" hint="Stat style, background, accent, borders, timing">
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Stat style</Label>
+          <Select
+            value={statStyle}
+            onValueChange={(v) => onChange({ ...props, statStyle: v as StatCounterStyle })}
+          >
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {STAT_STYLE_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value} className="text-xs">
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div>
           <Label className="text-[11px] text-muted-foreground">Background style</Label>
           <Select

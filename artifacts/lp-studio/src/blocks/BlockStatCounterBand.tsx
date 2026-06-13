@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { animate, motion, useInView, useReducedMotion } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor, relativeLuminance } from "@/lib/brand-config";
+import { mixHex } from "@/lib/section-ink";
+import { IconOrImage } from "@/lib/icon-value";
 import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_STACK, BRAND_NUMBERS_STACK } from "@/lib/brand-fonts";
 
@@ -23,9 +25,24 @@ export interface StatCounterItem {
   value: string;
   /** Short label under the numeral (2–5 words). */
   label: string;
+  /** Optional small line-icon (Lucide name or image URL/data-URI) shown
+   *  top-left of the stat in the `cards`/`outlined` styles. Ignored otherwise. */
+  icon?: string;
 }
 
 export type StatCounterBackground = "brand-dark" | "mesh" | "light";
+
+/**
+ * Structural treatment for the stats:
+ *  - "plain"    — bare numerals on the band (the original, default rendering).
+ *  - "cards"    — each stat in a rounded soft-fill card (fill derived from the
+ *                 section surface so it works on light AND dark bands), with an
+ *                 optional small line-icon top-left.
+ *  - "outlined" — same card layout but transparent fill + a hairline border.
+ *  - "divided"  — no cards; stats separated by thin hairline rules (vertical on
+ *                 desktop, horizontal when stacked on mobile).
+ */
+export type StatCounterStyle = "plain" | "cards" | "outlined" | "divided";
 
 export interface StatCounterBandBlockProps {
   /** Optional one-line kicker rendered above the stats (the section heading). */
@@ -40,6 +57,8 @@ export interface StatCounterBandBlockProps {
   accentColor?: string;
   /** Thin top/bottom hairline borders. Default true. */
   showBorders?: boolean;
+  /** Structural treatment for the stats. Default "plain" (original rendering). */
+  statStyle?: StatCounterStyle;
   /** Count-up duration in ms. Default 1600. */
   durationMs?: number;
 }
@@ -210,6 +229,17 @@ export function BlockStatCounterBand({ props, brand, onFieldChange }: Props) {
   const kickerColor = pickContrastingColor(accent, surfaceHex, [primary, dark ? "#E2E8F0" : "#0f172a"], 4.5);
   const hairline = dark ? "rgba(255,255,255,0.12)" : "rgba(11,11,15,0.1)";
 
+  const statStyle: StatCounterStyle = props.statStyle ?? "plain";
+
+  // ── Card fill / border derived from the surface (NOT a hardcoded grey) so the
+  // soft-card treatment reads on light AND dark bands. Nudge the surface a few
+  // percent toward the ink: ~6% on light gives the ~#F6F7F8 reference tone; a
+  // touch more on dark lifts the card just off the near-black band. The outline
+  // variant uses a transparent fill + a low-alpha border off the same ink. ──
+  const cardFill = mixHex(ink, surfaceHex, dark ? 0.08 : 0.06);
+  const cardBorder = dark ? "rgba(255,255,255,0.1)" : "rgba(11,11,15,0.08)";
+  const iconColor = numeralColor;
+
   const stats =
     props.stats && props.stats.length > 0
       ? props.stats.slice(0, 4)
@@ -259,35 +289,84 @@ export function BlockStatCounterBand({ props, brand, onFieldChange }: Props) {
           </h2>
         )}
 
-        <div className={`grid grid-cols-1 ${cols} gap-y-12 gap-x-8 text-center`}>
-          {stats.map((stat, i) => (
-            <motion.div
-              key={i}
-              initial={reduced ? false : { opacity: 0, y: 18 }}
-              whileInView={reduced ? undefined : { opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-60px" }}
-              transition={{ duration: 0.55, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <StatValue
-                value={stat.value}
-                color={numeralColor}
-                reduced={reduced}
-                durationMs={durationMs}
-                delay={i * 0.12}
-                onUpdate={updateStat ? (v) => updateStat(i, { value: v }) : undefined}
-              />
-              <p
-                className="mt-4 text-sm sm:text-base font-medium tracking-wide"
-                style={{ color: muted }}
-              >
-                <InlineText
-                  as="span"
-                  value={stat.label}
-                  onUpdate={updateStat ? (v) => updateStat(i, { label: v }) : undefined}
+        <div
+          className={
+            statStyle === "divided"
+              ? // Stacked + horizontal rules on mobile; row + vertical rules on
+                // sm+. The dividers generalize the showBorders hairline concept.
+                `grid grid-cols-1 ${cols} divide-y sm:divide-y-0 sm:divide-x`
+              : `grid grid-cols-1 ${cols} gap-y-12 gap-x-8 text-center`
+          }
+          style={statStyle === "divided" ? { borderColor: hairline } : undefined}
+        >
+          {stats.map((stat, i) => {
+            const isCard = statStyle === "cards" || statStyle === "outlined";
+            const showIcon = isCard && !!stat.icon;
+            const inner = (
+              <>
+                {showIcon && (
+                  <div
+                    className="mb-5 flex h-10 w-10 items-center justify-center rounded-xl"
+                    style={
+                      statStyle === "cards"
+                        ? { backgroundColor: surfaceHex, color: iconColor }
+                        : { border: `1px solid ${cardBorder}`, color: iconColor }
+                    }
+                    aria-hidden="true"
+                  >
+                    <IconOrImage value={stat.icon} className="h-5 w-5" />
+                  </div>
+                )}
+                <StatValue
+                  value={stat.value}
+                  color={numeralColor}
+                  reduced={reduced}
+                  durationMs={durationMs}
+                  delay={i * 0.12}
+                  onUpdate={updateStat ? (v) => updateStat(i, { value: v }) : undefined}
                 />
-              </p>
-            </motion.div>
-          ))}
+                <p
+                  className="mt-4 text-sm sm:text-base font-medium tracking-wide"
+                  style={{ color: muted }}
+                >
+                  <InlineText
+                    as="span"
+                    value={stat.label}
+                    onUpdate={updateStat ? (v) => updateStat(i, { label: v }) : undefined}
+                  />
+                </p>
+              </>
+            );
+
+            // Per-style wrapper classes/styles. Cards/outlined get generous
+            // padding + gentle rounding and left-align so the icon slot reads as
+            // top-left; divided pads the cell so the hairline has breathing room.
+            const wrapperClass = isCard
+              ? "rounded-2xl p-8 sm:p-9 text-left"
+              : statStyle === "divided"
+                ? "px-8 py-10 sm:py-2 text-center"
+                : undefined;
+            const wrapperStyle =
+              statStyle === "cards"
+                ? { backgroundColor: cardFill }
+                : statStyle === "outlined"
+                  ? { backgroundColor: "transparent", border: `1px solid ${cardBorder}` }
+                  : undefined;
+
+            return (
+              <motion.div
+                key={i}
+                className={wrapperClass}
+                style={wrapperStyle}
+                initial={reduced ? false : { opacity: 0, y: 18 }}
+                whileInView={reduced ? undefined : { opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-60px" }}
+                transition={{ duration: 0.55, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+              >
+                {inner}
+              </motion.div>
+            );
+          })}
         </div>
       </div>
     </section>
