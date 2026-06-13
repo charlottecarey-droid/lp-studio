@@ -192,7 +192,7 @@ export function TicTacToeReveal() {
         </div>
 
         {/* The 3x3 area: first a page layout assembling, then the game board */}
-        <div className="relative bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+        <div className="relative bg-white p-4 rounded-2xl shadow-sm border border-slate-100 w-fit mx-auto">
           {/* faux browser chrome */}
           <div className="flex items-center gap-1.5 px-1 pb-3 mb-3 border-b border-slate-100">
             <span className="w-2.5 h-2.5 rounded-full bg-slate-200" />
