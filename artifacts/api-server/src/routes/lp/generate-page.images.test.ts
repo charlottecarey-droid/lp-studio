@@ -1985,3 +1985,178 @@ describe("starter topicality floor + cross-vertical penalty", () => {
     expect(filled[0].props.rows[0].imageUrl).toBe("/objects/fashion-feature");
   });
 });
+
+// ── lp-hero is DECISIVE for hero slots (Dandy dentures failure) ─────────────
+// A product's heroImage is tagged lp-hero in Brand Settings and is the ONLY
+// image meant to drive a page hero. A product-detail grid-card carrying many of
+// the page's subject tags used to out-score that lp-hero photo (its tag matches
+// overcoming the −10 hero purpose-mismatch penalty), shipping a grainy
+// product-detail card as the hero. Purpose must win outright: when an lp-hero
+// candidate exists, a product-detail image can NEVER occupy the hero slot —
+// neither via the empty-slot fill nor via the model's own pick.
+describe("hero slots — lp-hero purpose is decisive over product-detail tag matches", () => {
+  // The designated hero photo: lp-hero, but only ONE subject tag.
+  const lpHero: MediaImage = {
+    url: "/objects/denture-hero",
+    title: "Confident denture patient",
+    tags: ["lp-hero", "dentures"],
+  };
+  // A grid-card product shot drowning in subject tags — WITHOUT the fix its tag
+  // matches (+section/page) overcome the −10 hero mismatch and it out-scores the
+  // hero photo for a hero slot.
+  const detailManyTags: MediaImage = {
+    url: "/objects/denture-card",
+    title: "Two appointment dentures closeup",
+    tags: ["product-detail", "dentures", "denture", "two appointment", "affordable", "smile", "teeth", "dental"],
+  };
+  const DENTURE_CTX = "two appointment dentures affordable dental dentist clinic teeth smile";
+
+  it("(a) an lp-hero image beats a product-detail image with MORE tag matches for a hero slot (fill)", () => {
+    // detailManyTags sorts FIRST so the win can't be mere ordering.
+    const blocks: any[] = [
+      { type: "hero", props: { headline: "Two appointment dentures, restore your smile", imageUrl: "" } },
+    ];
+    const filled = fillEmptyImages(blocks, [detailManyTags, lpHero], DENTURE_CTX) as any[];
+    expect(filled[0].props.imageUrl).toBe("/objects/denture-hero");
+  });
+
+  it("(b) a product-detail image NEVER fills a hero slot while an lp-hero candidate exists", () => {
+    // Even with the lp-hero image already consumed by an earlier hero, a second
+    // hero slot must stay empty rather than grab the product-detail card — there
+    // is no remaining lp-hero candidate, but the card must not be promoted into a
+    // hero (the hero gate refuses product-detail there). Use a single hero with
+    // only the product-detail card in the pool BUT an lp-hero present: the card
+    // is skipped, the hero takes the lp-hero photo.
+    const blocks: any[] = [
+      { type: "hero", props: { headline: "Affordable dentures", imageUrl: "" } },
+    ];
+    const filled = fillEmptyImages(blocks, [detailManyTags, lpHero], DENTURE_CTX) as any[];
+    expect(filled[0].props.imageUrl).not.toBe("/objects/denture-card");
+    expect(filled[0].props.imageUrl).toBe("/objects/denture-hero");
+  });
+
+  it("(b2) a product-detail-only pool leaves a hero slot empty (never a card in the hero)", () => {
+    // No lp-hero candidate at all: the hero gate still keeps the heavily-tagged
+    // product-detail card OUT of the hero slot — empty beats a grainy card hero.
+    const blocks: any[] = [
+      { type: "hero", props: { headline: "Affordable dentures", imageUrl: "" } },
+    ];
+    const strict = fillEmptyImages(structuredClone(blocks), [detailManyTags], DENTURE_CTX, false) as any[];
+    expect(strict[0].props.imageUrl).toBe("");
+    const relaxed = fillEmptyImages(structuredClone(blocks), [detailManyTags], DENTURE_CTX, true) as any[];
+    expect(relaxed[0].props.imageUrl).toBe("");
+  });
+
+  it("(b3) VALIDATION: a model-assigned product-detail card is cleared from a hero slot when an lp-hero exists", () => {
+    const blocks: any[] = [
+      { type: "hero", props: { headline: "Two appointment dentures", imageUrl: "/objects/denture-card" } },
+    ];
+    validateAndDedupeAIImages(blocks, [detailManyTags, lpHero], DENTURE_CTX);
+    expect((blocks[0].props as any).imageUrl).toBe("");
+  });
+
+  it("(b4) end-to-end: validate clears the card, fill re-places the lp-hero photo", () => {
+    let blocks: any[] = [
+      { type: "hero", props: { headline: "Two appointment dentures", imageUrl: "/objects/denture-card" } },
+    ];
+    blocks = validateAndDedupeAIImages(blocks, [detailManyTags, lpHero], DENTURE_CTX) as any[];
+    blocks = fillEmptyImages(blocks, [detailManyTags, lpHero], DENTURE_CTX) as any[];
+    expect(blocks[0].props.imageUrl).toBe("/objects/denture-hero");
+  });
+});
+
+// ── Multiple feature/showcase slots fill from a tagged pool ──────────────────
+// A product/visual page emits several image-bearing blocks; each must draw a
+// DISTINCT real library photo, not collapse to a single image.
+describe("multi-slot pages fill multiple distinct library images", () => {
+  const featPool: MediaImage[] = [
+    { url: "/objects/dent-hero", title: "Smiling patient", tags: ["lp-hero", "dentures"] },
+    { url: "/objects/feat-1", title: "Denture fitting", tags: ["lp-feature", "dentures", "fitting"] },
+    { url: "/objects/feat-2", title: "Dental consult", tags: ["lp-feature", "dentures", "consult"] },
+    { url: "/objects/feat-3", title: "Lab milling", tags: ["lp-feature", "dentures", "lab"] },
+    { url: "/objects/detail-1", title: "Denture closeup", tags: ["product-detail", "dentures"] },
+  ];
+  const CTX = "affordable dentures dental clinic smile";
+
+  it("(c) a page with a hero + multiple feature/showcase slots fills several DISTINCT images", () => {
+    let blocks: any[] = [
+      { type: "hero", props: { headline: "Affordable dentures", imageUrl: "" } },
+      { type: "zigzag-features", props: { rows: [
+        { headline: "Custom denture fitting", body: "", imageUrl: "" },
+        { headline: "Denture consult", body: "", imageUrl: "" },
+        { headline: "In-house denture lab", body: "", imageUrl: "" },
+      ] } },
+      { type: "product-grid", props: { items: [
+        { title: "Denture set", description: "Dentures", image: "" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, featPool, CTX) as any[];
+    const hero = blocks[0].props.imageUrl as string;
+    const rowUrls = (blocks[1].props.rows as Array<{ imageUrl: string }>).map((r) => r.imageUrl);
+    const prod = (blocks[2].props.items as Array<{ image: string }>)[0].image;
+    const all = [hero, ...rowUrls, prod];
+    // Every slot filled with a real library image.
+    for (const u of all) expect(u).toBeTruthy();
+    // Hero is the lp-hero photo, product card is the product-detail photo.
+    expect(hero).toBe("/objects/dent-hero");
+    expect(prod).toBe("/objects/detail-1");
+    // All filled images are DISTINCT — not a single image repeated across the page.
+    expect(new Set(all).size).toBe(all.length);
+    expect(all.length).toBeGreaterThanOrEqual(5);
+  });
+});
+
+// ── product-detail / lp-feature / lp-hero rows survive the promo/og predicate ──
+// The vision classifier over-applies "og-image" to any photo with baked-in text.
+// A row that ALSO carries an explicit landing-page PURPOSE tag is a deliberately
+// classified block asset and must NEVER be excluded as promo/og — otherwise a
+// tenant's entire purpose-tagged product library vanishes from the pool (the
+// Dandy dentures starvation: 70+ tagged denture photos dropped, page left with
+// one image). HARD role reservations (logo/etc.) still win.
+describe("isExcludedFromGenerationPool — purpose-tag bypass of promo/og", () => {
+  it("(d) a product-detail row carrying a stale og-image tag is NOT excluded", () => {
+    const img: MediaImage = {
+      url: "/objects/denture-card-og",
+      title: "Two appointment dentures",
+      tags: ["product-detail", "dentures", "og-image"],
+      width: 1200,
+      height: 630, // even with true social-card geometry, purpose wins
+    };
+    expect(isExcludedFromGenerationPool(img)).toBe(false);
+  });
+
+  it("(d2) lp-feature and lp-hero rows with an og/promo tag are NOT excluded", () => {
+    const feature: MediaImage = {
+      url: "/objects/feat-og",
+      title: "Denture fitting",
+      tags: ["lp-feature", "dentures", "social"],
+    };
+    const hero: MediaImage = {
+      url: "/objects/hero-og",
+      title: "Patient smile",
+      tags: ["lp-hero", "dentures", "og"],
+    };
+    expect(isExcludedFromGenerationPool(feature)).toBe(false);
+    expect(isExcludedFromGenerationPool(hero)).toBe(false);
+  });
+
+  it("(d3) a HARD role reservation (logo) still excludes even with a purpose tag", () => {
+    const img: MediaImage = {
+      url: "/objects/logo-tagged",
+      title: "Brand mark",
+      tags: ["lp-feature", "logo", "og-image"],
+    };
+    expect(isExcludedFromGenerationPool(img)).toBe(true);
+  });
+
+  it("(d4) an og row with NO purpose tag is still excluded (predicate unchanged for true social cards)", () => {
+    const img: MediaImage = {
+      url: "/objects/plain-og",
+      title: "Share card",
+      tags: ["og-image", "dentures"],
+      width: 1200,
+      height: 630,
+    };
+    expect(isExcludedFromGenerationPool(img)).toBe(true);
+  });
+});

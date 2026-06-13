@@ -985,19 +985,38 @@ const EXCLUDE_TAGS = new Set([...PROMO_EXCLUDE_TAGS, ...HARD_EXCLUDE_TAGS]);
  *        because the brand-import mirror never stores og:image/twitter:image
  *        meta images — referenceImageUrls is content-only by construction).
  *     TRUE social cards (social-card geometry) stay excluded in all cases.
+ *
+ *  3. PURPOSE-TAG bypass (June 2026) — a row carrying an explicit landing-page
+ *     PURPOSE tag (lp-hero / lp-feature / product-detail) is a DELIBERATELY
+ *     classified block asset: it was tagged for use as a hero / feature /
+ *     product image (by Brand Settings' hero-tagging, the autofill flow, or the
+ *     vision classifier's purpose pass). A promo/og tag on such a row is noise —
+ *     the vision classifier routinely ALSO stamps "og-image" onto any photo with
+ *     baked-in text, which would otherwise blanket-exclude a tenant's entire
+ *     purpose-tagged product library (the Dandy dentures failure: 70+ tagged
+ *     denture photos vanished from the pool because they also carried a stale
+ *     og-image tag, leaving the page with a single image). A purpose-tagged row
+ *     therefore NEVER excludes on a promo/og tag. (The HARD role reservations in
+ *     §1 — logo / favicon / team-photo / homepage-screenshot — still win: those
+ *     must never fill a block slot regardless of any other tag.)
  */
 export function isExcludedFromGenerationPool(
   img: MediaImage,
   currentRefHosts?: ReadonlySet<string>,
 ): boolean {
   let promoTagged = false;
+  let purposeTagged = false;
   for (const t of img.tags) {
     if (typeof t !== "string") continue;
     const tl = t.toLowerCase();
     if (HARD_EXCLUDE_TAGS.has(tl)) return true;
     if (PROMO_EXCLUDE_TAGS.has(tl)) promoTagged = true;
+    if ((PURPOSE_TAGS as readonly string[]).includes(tl)) purposeTagged = true;
   }
   if (!promoTagged) return false;
+  // (purpose-tag bypass) an explicitly purpose-classified block asset competes
+  // even when a promo/og tag was over-applied to it — see §3 above.
+  if (purposeTagged) return false;
   // (a) current-reference bypass
   if (currentRefHosts && currentRefHosts.size > 0) {
     const host = refHostOf(img);
@@ -1378,6 +1397,21 @@ function findBestImage(
   const requirePurposeFloor =
     relaxed && (preferredPurpose === "lp-hero" || preferredPurpose === "product-detail");
 
+  // HERO purpose is DECISIVE, not a soft boost (June 2026 — Dandy dentures
+  // failure). A product's `heroImage` is tagged lp-hero in Brand Settings and is
+  // the ONLY image meant to drive a page hero; product-detail is a grid-card /
+  // close-up shot that reads as broken in a wide hero. A product-detail card
+  // carrying many of the page's subject tags (e.g. a heavily "dentures"-tagged
+  // grid shot) used to out-score the lp-hero photo for a hero slot — its tag
+  // matches overcoming the −10 purpose mismatch — and land a grainy
+  // product-detail card in the hero. A product-detail image is therefore NEVER
+  // placed in a hero slot: purpose is a hard preference for heroes (prompt rule
+  // 9 — "NEVER use product-detail or close-up images in a hero"), so an lp-hero
+  // candidate always wins, and when none exists the hero stays empty for its
+  // fallback rather than shipping a card. (Cross-vertical / relevance-floor and
+  // logo protections are unchanged.)
+  const heroSlot = preferredPurpose === "lp-hero";
+
   // STARTER topicality rule (June 2026): for generic starter seeds, a purpose
   // match ALONE must not clear the high-visibility floor. Starters are
   // purpose-tagged en masse at seed time, so "lp-hero" says nothing about the
@@ -1447,6 +1481,13 @@ function findBestImage(
     // score, since purpose mismatch is only a soft penalty. Curated / brand-
     // import / AI / starter images keep the existing soft scoring.
     if (preferredPurpose === "lp-hero" && isScrapedImage(img) && getImagePurpose(img) !== "lp-hero") {
+      continue;
+    }
+    // Hero purpose is decisive (see heroSlot above): never place a
+    // product-detail card image in a hero slot, no matter how many subject tags
+    // the card matches. An lp-hero candidate always wins; absent one the hero
+    // stays empty rather than shipping a grainy product-detail card.
+    if (heroSlot && getImagePurpose(img) === "product-detail") {
       continue;
     }
     const starter = isStarterImage(img);
@@ -2079,6 +2120,20 @@ export function validateAndDedupeAIImages(
     // survive the soft CLEAR_GAP check below. Clear it unconditionally so the slot
     // falls through to AI/editor fill instead of shipping a wrong hero.
     if (purpose === "lp-hero" && isScrapedImage(assigned) && getImagePurpose(assigned) !== "lp-hero") {
+      slot.set("");
+      used.delete(identityForUrl(url, byUrl));
+      continue;
+    }
+
+    // Hero purpose is DECISIVE (hard gate, mirrors findBestImage's heroSlot
+    // rule). The model sometimes drops a product-detail grid-card image into a
+    // hero slot; a card heavily tagged with the page's subject (e.g. "dentures")
+    // can score positive even after the −10 hero purpose-mismatch penalty and
+    // survive the soft CLEAR_GAP check below, shipping a grainy product-detail
+    // card as the hero. A product-detail image is NEVER a valid hero (prompt
+    // rule 9), so clear it unconditionally — the slot falls through to the
+    // lp-hero-preferring fill / product-library override instead.
+    if (purpose === "lp-hero" && getImagePurpose(assigned) === "product-detail") {
       slot.set("");
       used.delete(identityForUrl(url, byUrl));
       continue;
@@ -5651,7 +5706,7 @@ RULES:
 10. IMPORTANT: If the brand context includes a CTA button color, use that EXACT hex value for every ctaColor prop. Never invent random colors for buttons.
 10a. TEXT COLOR: Never wrap headline, subheadline, eyebrow, label, body, or any text field in inline color styles (e.g. <span style="color:#...">). Heading and body text MUST inherit color from the block's backgroundStyle so contrast is always correct. Server-side post-processing will strip any inline color you set, so emitting them is wasted tokens. To emphasize a word, use <strong> or <em>, not color.
 10b. IMAGE URLS — STRICT: Every imageUrl, backgroundImageUrl, heroImageUrl, src, and image field MUST be either (a) a verbatim URL copied from the IMAGE LIBRARY section above, or (b) an empty string "". NEVER invent, guess, or fabricate URLs. NEVER use placeholder domains like "image-library.com", "example.com", "cdn.example.com", "images.unsplash.com", "via.placeholder.com", or any host not literally present in the IMAGE LIBRARY. If no library image fits a slot, leave the field as "" — the server will fill it in. Hallucinated URLs render as broken images on the live page. A full-page homepage screenshot of the brand's own website (one tall image showing the site's nav, hero text, and footer all baked in) is a STYLE REFERENCE ONLY — never place it as block creative; it reads as broken on the page. Leave the slot "" instead.
-11. Always include at least one image-bearing block type (hero with image, zigzag-features, photo-strip, or product-grid) to make pages visually rich.
+11. IMAGERY IS REQUIRED — pages must be visually rich, NOT a single hero photo on an otherwise text-only page. When the IMAGE LIBRARY above is non-empty (the tenant has tagged photos), build a page that USES that library: emit MULTIPLE image-bearing blocks across the page (a hero WITH an imageUrl, PLUS at least 2–3 of: zigzag-features, photo-strip, product-grid, before-after-gallery, horizontal-showcase, gallery-* , bento-showcase, cta-split-image) so several real library photos appear, not one. For a product / visual / consumer / healthcare-results page especially, lean into imagery: the library typically holds many tagged product and lifestyle photos, so give the hero a real lp-hero photo and put feature/showcase blocks with real photos throughout. Leave each image field "" and the server fills it from the correct library section, OR copy a verbatim library URL — but the BLOCKS that carry image slots must be present in your output for the server to fill them.
 12. CAPITALIZATION: Always use sentence casing — first word of every sentence is capitalized only — unless you are using acronyms, names, cities, states, countries, or other proper nouns, or specific product names from the BRAND CONTEXT. Headlines and all copy should follow sentence casing as a general rule. NEVER use all-lowercase. Examples: "Get more done in less time" (correct), "Get More Done In Less Time" (wrong — no title case), "get more done in less time" (wrong — no all-lowercase).
 13. When the user provides specific numbers or stats in their prompt, use those EXACT numbers. Do not invent different statistics.
 14. NAVIGATION: every page needs a top nav and an end footer — EXCEPT a page that is a single full-page block ("content-series", "blog-series", "storefront", or ANY block whose schema describes it as "A COMPLETE, full-page block"). Those are self-contained pages that render their OWN nav AND footer, so when you use one as the page's only block, NEVER add a separate "nav-header" or "footer" block alongside it (that produces a duplicate stacked nav/footer). For all OTHER (multi-block) pages: Heroes that render their OWN sticky nav — "hero", "full-bleed-hero", "dso-heartland-hero", "cinematic-video-hero", "aurora-gradient-hero", "editorial-split-hero", "parallax-layers-hero", and "spotlight-glow-hero" — must be the page's FIRST block; NEVER prepend a "nav-header" before them (that produces two stacked navs). Heroes that do NOT render a nav — "magazine-hero", "parallax-image-hero", "launch-spotlight-hero", "bento-mosaic-hero", and "kinetic-type-hero" — MUST be preceded by a "nav-header" block as the page's first block. Always end the page with a "footer" block.
