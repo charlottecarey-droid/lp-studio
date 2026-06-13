@@ -58,6 +58,7 @@ import factFlagsRouter from "./fact-flags";
 import copilotChatRouter from "./copilot-chat";
 import blogRouter from "./blog";
 import blogAiRouter from "./blog-ai";
+import blogProgramRouter from "./blog-program";
 
 const router = Router();
 
@@ -85,6 +86,11 @@ router.use(blogRouter);
 // outline, draft). requireSuperadmin + shared rateLimit per-route; reuses the
 // app's OpenAI client + LP Studio brand-voice/strict-facts grounding.
 router.use(blogAiRouter);
+// Phase 4: content program — superadmin /admin/blog/program/* (themes, settings,
+// topic pipeline, recommend, generate, schedule, calendar). Superadmin-gated +
+// rate-limited per-route; powers the autonomous-publishing backlog. Nothing
+// here auto-publishes (review mode + autopublish off by default).
+router.use(blogProgramRouter);
 router.use(emailDomainRouter);
 router.use(brandedEmailSubdomainRouter);
 router.use(resultsRouter);

@@ -30,6 +30,7 @@ import { startBrandedEmailSubdomainPoller } from "./lib/brandedEmailSubdomainPol
 import { startMarketoSyncPoller } from "./lib/marketoSyncPoller";
 import { startHubspotSyncPoller } from "./lib/hubspotSyncPoller";
 import { startBlogPublishPoller } from "./lib/blogPublishPoller";
+import { startBlogProgramPoller } from "./lib/blogProgramPoller";
 import { scheduleWorkflowSweep } from "./lib/workflowEngine";
 import { turnstileConfigured } from "./lib/turnstile";
 import { runAssetHealthCheck } from "./lib/assetHealthCheck";
@@ -640,6 +641,15 @@ const httpServer = app.listen(port, (err) => {
   // advisory-locked, fail-open + crash-safe). Production-only unless
   // BLOG_PUBLISH_POLLER_ENABLED is set (see poller).
   startBlogPublishPoller();
+
+  // Blog Phase 4 — autonomous content-program tick. In AUTONOMOUS mode keeps
+  // the publishing backlog healthy (tops up recommendations, generates drafts
+  // from PRE-APPROVED topics, quality-gates + schedules them spaced per
+  // cadence); in REVIEW mode (default) it only tops up topic recommendations.
+  // Never auto-publishes directly (the publish poller does that, gated by
+  // autopublish_enabled). Advisory-locked, fail-open + crash-safe. Production-
+  // only unless BLOG_PROGRAM_POLLER_ENABLED is set (see poller).
+  startBlogProgramPoller();
 });
 
 // Keep a reference so SIGTERM handlers (if added later) can close cleanly.

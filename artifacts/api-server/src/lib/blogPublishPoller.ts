@@ -81,6 +81,16 @@ export async function runBlogPublishSweep(): Promise<number> {
  * when known (so ordering reflects the intended publish moment) else now();
  * scheduled_at is cleared. Returns the number of rows published. Fail-open:
  * errors are logged and swallowed (returns 0) so the loop survives.
+ *
+ * Phase 4 — AUTOPUBLISH GUARDRAIL: a post linked to a content-program topic
+ * (topic_id IS NOT NULL) was scheduled by the AUTONOMOUS pipeline, so it is
+ * only auto-published when blog_program_settings.autopublish_enabled is true
+ * (the strongest oversight gate, OFF by default). Posts a human scheduled
+ * directly (topic_id IS NULL) always flip when due — the explicit human
+ * scheduling decision IS the oversight, exactly as in Phase 2. So an
+ * autonomously-scheduled post with autopublish OFF stays 'scheduled' until a
+ * human flips autopublish on (or publishes it manually), and never goes live
+ * on its own.
  */
 async function flipDueScheduledPosts(): Promise<number> {
   try {
@@ -93,6 +103,13 @@ async function flipDueScheduledPosts(): Promise<number> {
         WHERE status = 'scheduled'
           AND scheduled_at IS NOT NULL
           AND scheduled_at <= now()
+          AND (
+            topic_id IS NULL
+            OR COALESCE(
+              (SELECT autopublish_enabled FROM blog_program_settings WHERE id = 1),
+              false
+            ) = true
+          )
         RETURNING id`,
     );
     const count = result.rowCount ?? 0;

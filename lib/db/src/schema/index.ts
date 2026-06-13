@@ -97,3 +97,7 @@ export * from "./marketingPageOg";
 // LP Studio's own first-party marketing blog (single, NOT per-tenant) —
 // authored from /superadmin, rendered on the public marketing apex for SEO/GEO.
 export * from "./blogPosts";
+
+// Blog Phase 4 — content program (themes, topic pipeline, program settings)
+// powering the autonomous-publishing backlog. Superadmin-owned, NOT per-tenant.
+export * from "./blogContentProgram";

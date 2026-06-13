@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,7 @@ import {
   AlertTriangle, CheckCircle2, Loader2, RefreshCw, Plus, Trash2,
   ArrowLeft, Eye, Globe, FileText, Code2, Type, Clock,
   History, RotateCcw, Circle, Sparkles, Wand2, X,
+  Calendar, Settings, ListChecks, ShieldAlert, ThumbsUp, ThumbsDown,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -252,7 +253,34 @@ function localInputToIso(v: string): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
+// Top-level tab switcher: the post authoring experience (Phases 1–3) and the
+// Phase-4 Content Program (themes, program settings, topic queue, calendar).
 export default function SuperAdminBlog() {
+  const [tab, setTab] = useState<"posts" | "program">("posts");
+  return (
+    <div className="space-y-4">
+      <div className="inline-flex rounded-md border bg-muted/30 p-0.5 text-sm">
+        <button
+          type="button"
+          onClick={() => setTab("posts")}
+          className={`px-3 py-1.5 rounded ${tab === "posts" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          Posts
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("program")}
+          className={`px-3 py-1.5 rounded inline-flex items-center gap-1.5 ${tab === "program" ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <Sparkles className="w-3.5 h-3.5" /> Content program
+        </button>
+      </div>
+      {tab === "posts" ? <BlogPostsTab /> : <ContentProgramTab />}
+    </div>
+  );
+}
+
+function BlogPostsTab() {
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1331,6 +1359,398 @@ function RevisionHistory({
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+// ── Phase 4: Content Program ─────────────────────────────────────────────────
+// Themes manager + program settings (mode toggle + cadence + guardrails +
+// autopublish) + topic queue (approve/reject/generate) + publishing calendar.
+// Oversight is made obvious + safe: REVIEW mode is the default, autopublish is
+// OFF by default and carries a clear warning, and the autonomous pipeline only
+// ever acts on PRE-APPROVED topics within the guardrails set here.
+
+interface ProgramSettingsApi {
+  mode: "review" | "autonomous";
+  postsPerWeek: number;
+  targetBacklogDays: number;
+  publishDays: number[];
+  publishHour: number;
+  maxAutonomousPerWeek: number;
+  autopublishEnabled: boolean;
+  defaultThemeId: number | null;
+}
+interface ThemeApi {
+  id: number; name: string; description: string; priority: number;
+  targetKeywords: string[]; audience: string; active: boolean;
+}
+interface TopicApi {
+  id: number; themeId: number | null; title: string; angle: string;
+  targetKeyword: string; status: string; source: string; rationale: string;
+  postId: number | null; createdAt: string | null;
+}
+interface CalendarItemApi { id: number; title: string; slug: string; scheduledAt: string | null; topicId: number | null; }
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function ContentProgramTab() {
+  const [settings, setSettings] = useState<ProgramSettingsApi | null>(null);
+  const [themes, setThemes] = useState<ThemeApi[]>([]);
+  const [topics, setTopics] = useState<TopicApi[]>([]);
+  const [calendar, setCalendar] = useState<CalendarItemApi[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [s, t, tp, c] = await Promise.all([
+        apiFetch("/api/admin/blog/program/settings"),
+        apiFetch("/api/admin/blog/program/themes"),
+        apiFetch("/api/admin/blog/program/topics"),
+        apiFetch("/api/admin/blog/program/calendar"),
+      ]);
+      setSettings(s.settings);
+      setThemes(t.themes ?? []);
+      setTopics(tp.topics ?? []);
+      setCalendar(c.calendar ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load program");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => { loadAll(); }, [loadAll]);
+
+  const saveSettings = useCallback(async (next: ProgramSettingsApi) => {
+    setBusy("settings");
+    try {
+      const res = await apiFetch("/api/admin/blog/program/settings", { method: "PUT", body: JSON.stringify(next) });
+      setSettings(res.settings);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save settings");
+    } finally { setBusy(null); }
+  }, []);
+
+  const recommend = useCallback(async () => {
+    setBusy("recommend");
+    try {
+      await apiFetch("/api/admin/blog/program/topics/recommend", { method: "POST", body: JSON.stringify({ count: 5 }) });
+      await loadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to recommend topics");
+    } finally { setBusy(null); }
+  }, [loadAll]);
+
+  const decide = useCallback(async (id: number, decision: "approve" | "reject") => {
+    setBusy(`decide-${id}`);
+    try {
+      await apiFetch(`/api/admin/blog/program/topics/${id}/decision`, { method: "POST", body: JSON.stringify({ decision }) });
+      await loadAll();
+    } catch (e) { setError(e instanceof Error ? e.message : "Failed"); } finally { setBusy(null); }
+  }, [loadAll]);
+
+  const generate = useCallback(async (id: number) => {
+    setBusy(`gen-${id}`);
+    try {
+      await apiFetch(`/api/admin/blog/program/topics/${id}/generate`, { method: "POST", body: JSON.stringify({}) });
+      await loadAll();
+    } catch (e) { setError(e instanceof Error ? e.message : "Failed to generate draft"); } finally { setBusy(null); }
+  }, [loadAll]);
+
+  const scheduleAll = useCallback(async () => {
+    setBusy("schedule");
+    try {
+      await apiFetch("/api/admin/blog/program/schedule", { method: "POST", body: JSON.stringify({}) });
+      await loadAll();
+    } catch (e) { setError(e instanceof Error ? e.message : "Failed to schedule"); } finally { setBusy(null); }
+  }, [loadAll]);
+
+  if (loading && !settings) {
+    return <div className="flex items-center justify-center py-16"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>;
+  }
+
+  const suggested = topics.filter((t) => t.status === "suggested");
+  const approved = topics.filter((t) => t.status === "approved" || t.status === "drafting");
+  const drafted = topics.filter((t) => t.status === "drafted");
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold">Content program</h2>
+          <p className="text-sm text-muted-foreground mt-0.5 max-w-2xl">
+            Keep a 30–90 day publishing backlog full with minimal manual work. Define themes,
+            let AI recommend topics, approve the ones worth pursuing, and generate + schedule
+            drafts. Editorial oversight stays with you by default.
+          </p>
+        </div>
+        <Button size="sm" variant="outline" onClick={loadAll} disabled={loading}>
+          <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} /> Reload
+        </Button>
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span className="break-words">{error}</span>
+        </div>
+      )}
+
+      {settings && <ProgramSettingsCard settings={settings} themes={themes} onSave={saveSettings} saving={busy === "settings"} />}
+
+      <ThemesCard themes={themes} onChanged={loadAll} />
+
+      {/* Topic queue */}
+      <div className="rounded-lg border">
+        <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+          <h3 className="text-sm font-semibold inline-flex items-center gap-1.5"><ListChecks className="w-4 h-4" /> Topic queue</h3>
+          <Button size="sm" onClick={recommend} disabled={busy === "recommend"}>
+            {busy === "recommend" ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
+            Recommend topics
+          </Button>
+        </div>
+        <div className="p-4 space-y-4">
+          <TopicGroup label="Suggested — approve to pursue" topics={suggested} themes={themes} busy={busy}
+            actions={(t) => (
+              <>
+                <Button size="sm" variant="outline" className="h-7 text-xs" disabled={busy === `decide-${t.id}`} onClick={() => decide(t.id, "approve")}>
+                  <ThumbsUp className="w-3 h-3 mr-1" /> Approve
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground" disabled={busy === `decide-${t.id}`} onClick={() => decide(t.id, "reject")}>
+                  <ThumbsDown className="w-3 h-3 mr-1" /> Reject
+                </Button>
+              </>
+            )} />
+          <TopicGroup label="Approved — generate a draft" topics={approved} themes={themes} busy={busy}
+            actions={(t) => (
+              <Button size="sm" variant="outline" className="h-7 text-xs" disabled={busy === `gen-${t.id}` || t.status === "drafting"} onClick={() => generate(t.id)}>
+                {busy === `gen-${t.id}` || t.status === "drafting" ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Wand2 className="w-3 h-3 mr-1" />}
+                Generate draft
+              </Button>
+            )} />
+          <TopicGroup label="Drafted — ready to schedule / review" topics={drafted} themes={themes} busy={busy} actions={() => null} />
+          {topics.length === 0 && <p className="text-sm text-muted-foreground">No topics yet. Add themes, then click Recommend topics.</p>}
+        </div>
+      </div>
+
+      {/* Calendar */}
+      <div className="rounded-lg border">
+        <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+          <h3 className="text-sm font-semibold inline-flex items-center gap-1.5"><Calendar className="w-4 h-4" /> Publishing calendar</h3>
+          <Button size="sm" variant="outline" onClick={scheduleAll} disabled={busy === "schedule"}>
+            {busy === "schedule" ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Clock className="w-3.5 h-3.5 mr-1.5" />}
+            Schedule drafted posts
+          </Button>
+        </div>
+        <div className="p-4">
+          {calendar.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nothing scheduled yet. Generate drafts from approved topics, then schedule them.</p>
+          ) : (
+            <ul className="divide-y text-sm">
+              {calendar.map((c) => (
+                <li key={c.id} className="flex items-center justify-between gap-3 py-2">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{c.title}</div>
+                    <div className="text-xs text-muted-foreground">/{c.slug}{c.topicId ? " · from topic (autonomous)" : ""}</div>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">{c.scheduledAt ? new Date(c.scheduledAt).toLocaleString() : "—"}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProgramSettingsCard({ settings, themes, onSave, saving }: {
+  settings: ProgramSettingsApi; themes: ThemeApi[];
+  onSave: (s: ProgramSettingsApi) => void; saving: boolean;
+}) {
+  const [draft, setDraft] = useState<ProgramSettingsApi>(settings);
+  useEffect(() => setDraft(settings), [settings]);
+  const set = (patch: Partial<ProgramSettingsApi>) => setDraft((d) => ({ ...d, ...patch }));
+  const toggleDay = (d: number) =>
+    set({ publishDays: draft.publishDays.includes(d) ? draft.publishDays.filter((x) => x !== d) : [...draft.publishDays, d].sort((a, b) => a - b) });
+  const autonomous = draft.mode === "autonomous";
+
+  return (
+    <div className="rounded-lg border">
+      <div className="border-b px-4 py-3"><h3 className="text-sm font-semibold inline-flex items-center gap-1.5"><Settings className="w-4 h-4" /> Program settings &amp; guardrails</h3></div>
+      <div className="p-4 space-y-4">
+        {/* Mode toggle */}
+        <div>
+          <Label className="text-xs">Mode</Label>
+          <div className="mt-1 inline-flex rounded-md border bg-muted/30 p-0.5 text-sm">
+            <button type="button" onClick={() => set({ mode: "review" })}
+              className={`px-3 py-1.5 rounded ${!autonomous ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>
+              Review before publish
+            </button>
+            <button type="button" onClick={() => set({ mode: "autonomous" })}
+              className={`px-3 py-1.5 rounded ${autonomous ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>
+              Autonomous
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {autonomous
+              ? "AI generates, quality-checks, and schedules drafts from your APPROVED topics within the guardrails below. It never invents-and-publishes."
+              : "Safest. AI only suggests topics for you to approve; you generate, review, and publish everything manually."}
+          </p>
+        </div>
+
+        {/* Autopublish — the strongest gate, off by default, warned. */}
+        <div className={`rounded-md border p-3 ${draft.autopublishEnabled ? "border-amber-400 bg-amber-50/60" : "bg-muted/20"}`}>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" className="mt-0.5" checked={draft.autopublishEnabled} onChange={(e) => set({ autopublishEnabled: e.target.checked })} />
+            <span className="text-sm">
+              <span className="font-medium inline-flex items-center gap-1"><ShieldAlert className="w-3.5 h-3.5" /> Auto-publish scheduled posts</span>
+              <span className="block text-xs text-muted-foreground mt-0.5">
+                {draft.autopublishEnabled
+                  ? "ON — autonomously-scheduled posts go LIVE automatically when due. Posts you schedule by hand always publish on time regardless."
+                  : "OFF (recommended). Autonomously-scheduled posts wait as 'scheduled' for you to flip them live. Off by default for safety."}
+              </span>
+            </span>
+          </label>
+        </div>
+
+        {/* Cadence + guardrails */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div>
+            <Label className="text-xs">Posts / week</Label>
+            <Input type="number" min={1} max={14} value={draft.postsPerWeek} onChange={(e) => set({ postsPerWeek: Number(e.target.value) })} className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Backlog days (30–90)</Label>
+            <Input type="number" min={30} max={90} value={draft.targetBacklogDays} onChange={(e) => set({ targetBacklogDays: Number(e.target.value) })} className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Max autonomous / week</Label>
+            <Input type="number" min={0} max={14} value={draft.maxAutonomousPerWeek} onChange={(e) => set({ maxAutonomousPerWeek: Number(e.target.value) })} className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Publish hour (0–23)</Label>
+            <Input type="number" min={0} max={23} value={draft.publishHour} onChange={(e) => set({ publishHour: Number(e.target.value) })} className="mt-1" />
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs">Publish days</Label>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {WEEKDAYS.map((d, i) => (
+              <button key={d} type="button" onClick={() => toggleDay(i)}
+                className={`px-2.5 py-1 rounded text-xs border ${draft.publishDays.includes(i) ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground"}`}>
+                {d}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs">Default theme weighting (optional)</Label>
+          <select className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+            value={draft.defaultThemeId ?? ""} onChange={(e) => set({ defaultThemeId: e.target.value ? Number(e.target.value) : null })}>
+            <option value="">None</option>
+            {themes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+        <div className="flex justify-end">
+          <Button size="sm" onClick={() => onSave(draft)} disabled={saving}>
+            {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
+            Save settings
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ThemesCard({ themes, onChanged }: { themes: ThemeApi[]; onChanged: () => void }) {
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [keywords, setKeywords] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const add = async () => {
+    if (!name.trim()) return;
+    setBusy(true);
+    try {
+      await apiFetch("/api/admin/blog/program/themes", { method: "POST", body: JSON.stringify({ name, targetKeywords: keywords.split(",").map((k) => k.trim()).filter(Boolean) }) });
+      setName(""); setKeywords(""); setAdding(false); onChanged();
+    } finally { setBusy(false); }
+  };
+  const remove = async (id: number) => {
+    await apiFetch(`/api/admin/blog/program/themes/${id}`, { method: "DELETE" });
+    onChanged();
+  };
+
+  return (
+    <div className="rounded-lg border">
+      <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+        <h3 className="text-sm font-semibold inline-flex items-center gap-1.5"><FileText className="w-4 h-4" /> Themes</h3>
+        <Button size="sm" variant="outline" onClick={() => setAdding((v) => !v)}><Plus className="w-3.5 h-3.5 mr-1.5" /> Add theme</Button>
+      </div>
+      <div className="p-4 space-y-3">
+        {adding && (
+          <div className="rounded-md border bg-muted/20 p-3 space-y-2">
+            <Input placeholder="Theme name (e.g. GEO for B2B SaaS)" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input placeholder="Target keywords, comma-separated" value={keywords} onChange={(e) => setKeywords(e.target.value)} />
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setAdding(false)}>Cancel</Button>
+              <Button size="sm" onClick={add} disabled={busy || !name.trim()}>Add</Button>
+            </div>
+          </div>
+        )}
+        {themes.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No themes yet. Add a content pillar to ground topic recommendations.</p>
+        ) : (
+          <ul className="divide-y text-sm">
+            {themes.map((t) => (
+              <li key={t.id} className="flex items-center justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <div className="font-medium flex items-center gap-2">
+                    {t.name}
+                    {!t.active && <span className="text-xs text-muted-foreground">(inactive)</span>}
+                    <span className="text-xs rounded bg-muted px-1.5 py-0.5 text-muted-foreground">P{t.priority}</span>
+                  </div>
+                  {t.targetKeywords.length > 0 && <div className="text-xs text-muted-foreground truncate">{t.targetKeywords.join(", ")}</div>}
+                </div>
+                <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground shrink-0" onClick={() => remove(t.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TopicGroup({ label, topics, themes, busy, actions }: {
+  label: string; topics: TopicApi[]; themes: ThemeApi[]; busy: string | null;
+  actions: (t: TopicApi) => ReactNode;
+}) {
+  if (topics.length === 0) return null;
+  const themeName = (id: number | null) => themes.find((t) => t.id === id)?.name;
+  return (
+    <div>
+      <div className="text-xs font-medium text-muted-foreground mb-1.5">{label} ({topics.length})</div>
+      <ul className="divide-y rounded-md border">
+        {topics.map((t) => (
+          <li key={t.id} className="flex items-start justify-between gap-3 px-3 py-2.5">
+            <div className="min-w-0">
+              <div className="font-medium text-sm">{t.title}</div>
+              {t.rationale && <div className="text-xs text-muted-foreground mt-0.5">{t.rationale}</div>}
+              <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap gap-x-2">
+                {t.targetKeyword && <span>kw: {t.targetKeyword}</span>}
+                {themeName(t.themeId) && <span>· {themeName(t.themeId)}</span>}
+                <span>· {t.source === "ai" ? "AI" : "manual"}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">{actions(t)}</div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

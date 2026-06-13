@@ -680,6 +680,13 @@
       "when": 1755000000000,
       "tag": "0096_blog_publishing",
       "breakpoints": false
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1755100000000,
+      "tag": "0097_blog_content_program",
+      "breakpoints": false
     }
   ]
 }

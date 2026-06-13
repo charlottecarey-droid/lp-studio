@@ -482,6 +482,108 @@ export function findDisallowedTags(html: string): string[] {
   return [...found];
 }
 
+// ── Phase 4: topic recommendations ───────────────────────────────────────────
+
+/** A theme the recommender draws from (mirrors blog_content_themes). */
+export interface ThemeBrief {
+  name: string;
+  description?: string;
+  priority?: number;
+  targetKeywords?: string[];
+  audience?: string;
+}
+
+/** One AI-recommended topic. */
+export interface RecommendedTopic {
+  title: string;
+  angle: string;
+  targetKeyword: string;
+  rationale: string;
+  /** The theme name this topic belongs to (echoed back for linking). */
+  theme?: string;
+}
+
+/**
+ * Build messages for the topic-RECOMMENDATION step. The model proposes N net-new
+ * topics grounded in the active themes + their priorities/keywords/audience,
+ * deliberately AVOIDING titles already published (gap analysis). Each topic
+ * carries a short rationale for the editor's approve/reject decision.
+ */
+export function buildTopicRecommendationMessages(args: {
+  themes: ThemeBrief[];
+  count: number;
+  existingTitles?: string[];
+}): Array<{ role: "system" | "user"; content: string }> {
+  const n = Math.max(1, Math.min(25, Math.round(args.count) || 5));
+  const system = [
+    buildLpStudioBlogVoicePrompt(),
+    ``,
+    `TASK: Recommend ${n} NET-NEW blog post topics for LP Studio's marketing blog, grounded in the content themes below.`,
+    `- Prefer higher-priority themes; spread across themes rather than clustering on one.`,
+    `- Each topic must be answer-first and SEO/GEO-worthy: a real question a revenue team would search.`,
+    `- Vary examples across industries (SaaS, events, agencies, local services) — never imply LP Studio is vertical-specific.`,
+    `- Do NOT repeat or lightly reword any ALREADY-PUBLISHED title listed below (fill gaps instead).`,
+    `- title: sentence case, ≤ ${SEO_TITLE_MAX} chars. angle: one sentence on the take/structure. targetKeyword: the primary search phrase. rationale: one sentence on why it's worth writing now (the editor reads this to approve/reject).`,
+    ``,
+    `Return ONLY valid JSON, no prose: { "topics": [ { "title": "...", "angle": "...", "targetKeyword": "...", "rationale": "...", "theme": "<one of the theme names>" } ] }`,
+  ].join("\n");
+
+  const themeLines = args.themes
+    .map((t) => {
+      const parts = [
+        `- ${normalizeWhitespace(t.name)}`,
+        typeof t.priority === "number" ? ` (priority ${t.priority})` : "",
+        t.description ? `: ${normalizeWhitespace(t.description)}` : "",
+      ];
+      const kw = (t.targetKeywords ?? []).map((k) => normalizeWhitespace(k)).filter(Boolean);
+      if (kw.length) parts.push(` [keywords: ${kw.join(", ")}]`);
+      if (t.audience) parts.push(` [audience: ${normalizeWhitespace(t.audience)}]`);
+      return parts.join("");
+    })
+    .join("\n");
+
+  const titles = (args.existingTitles ?? []).map((x) => normalizeWhitespace(x)).filter(Boolean);
+  const user = [
+    `THEMES (the strategic guardrails):`,
+    themeLines || "- (no themes configured — propose broadly on-brand revenue/marketing topics)",
+    ``,
+    titles.length
+      ? `ALREADY-PUBLISHED TITLES (do not duplicate):\n${titles.map((t) => `- ${t}`).join("\n")}`
+      : `ALREADY-PUBLISHED TITLES: (none yet)`,
+  ].join("\n");
+
+  return [
+    { role: "system", content: system },
+    { role: "user", content: user },
+  ];
+}
+
+/** Parse + clamp the recommender's JSON reply into clean topics. Pure. */
+export function parseRecommendedTopics(raw: string): RecommendedTopic[] {
+  const obj = parseJsonObject(raw) ?? {};
+  const list = Array.isArray(obj.topics) ? obj.topics : Array.isArray(obj) ? obj : [];
+  const out: RecommendedTopic[] = [];
+  const seen = new Set<string>();
+  for (const t of list as unknown[]) {
+    if (!t || typeof t !== "object") continue;
+    const rec = t as Record<string, unknown>;
+    const title = clampToLength(rec.title, SEO_TITLE_HARD);
+    if (!title) continue;
+    const key = title.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      title,
+      angle: normalizeWhitespace(rec.angle),
+      targetKeyword: normalizeWhitespace(rec.targetKeyword),
+      rationale: normalizeWhitespace(rec.rationale),
+      theme: normalizeWhitespace(rec.theme) || undefined,
+    });
+    if (out.length >= 25) break;
+  }
+  return out;
+}
+
 // ── Injectable OpenAI runner type ────────────────────────────────────────────
 
 /** Minimal shape of the OpenAI chat client, so tests can inject a fake. */

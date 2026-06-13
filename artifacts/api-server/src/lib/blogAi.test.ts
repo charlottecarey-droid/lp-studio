@@ -21,6 +21,8 @@ import {
   SEO_TITLE_MAX,
   META_DESCRIPTION_MAX,
   METADATA_FIELDS,
+  buildTopicRecommendationMessages,
+  parseRecommendedTopics,
   type BlogMetadata,
 } from "./blogAi";
 import { sanitizeRawBlogHtml } from "./blogHtml";
@@ -333,6 +335,47 @@ describe("generated draft HTML is valid against the sanitizer allowlist", () => 
     expect(sanitized).toMatch(/<p>Intro\.<\/p>/);
     expect(sanitized).not.toMatch(/<marquee>/);
     expect(sanitized).toMatch(/&lt;marquee&gt;/);
+  });
+});
+
+describe("buildTopicRecommendationMessages (Phase 4)", () => {
+  it("grounds the prompt in themes + asks to avoid published titles", () => {
+    const msgs = buildTopicRecommendationMessages({
+      themes: [{ name: "GEO for SaaS", priority: 5, targetKeywords: ["geo seo"], audience: "marketers" }],
+      count: 3,
+      existingTitles: ["How LP Studio builds pages"],
+    });
+    expect(msgs[0].role).toBe("system");
+    expect(msgs[0].content).toMatch(/NET-NEW/);
+    expect(msgs[1].content).toMatch(/GEO for SaaS/);
+    expect(msgs[1].content).toMatch(/geo seo/);
+    expect(msgs[1].content).toMatch(/How LP Studio builds pages/);
+  });
+  it("handles no themes + no published titles gracefully", () => {
+    const msgs = buildTopicRecommendationMessages({ themes: [], count: 5 });
+    expect(msgs[1].content).toMatch(/no themes configured/);
+    expect(msgs[1].content).toMatch(/none yet/);
+  });
+});
+
+describe("parseRecommendedTopics (Phase 4)", () => {
+  it("parses + clamps a topics array, dropping titleless + duplicate rows", () => {
+    const raw = JSON.stringify({
+      topics: [
+        { title: "Answer-first content for AI engines", angle: "how-to", targetKeyword: "geo", rationale: "rising search", theme: "GEO" },
+        { title: "Answer-first content for AI engines", angle: "dup" },
+        { angle: "no title here" },
+      ],
+    });
+    const out = parseRecommendedTopics(raw);
+    expect(out).toHaveLength(1);
+    expect(out[0].title).toBe("Answer-first content for AI engines");
+    expect(out[0].targetKeyword).toBe("geo");
+    expect(out[0].theme).toBe("GEO");
+  });
+  it("returns [] for garbage / empty", () => {
+    expect(parseRecommendedTopics("not json")).toEqual([]);
+    expect(parseRecommendedTopics(JSON.stringify({ topics: [] }))).toEqual([]);
   });
 });
 

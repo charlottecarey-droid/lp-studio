@@ -86,6 +86,10 @@ export const blogPostsTable = pgTable(
     publishedAt: timestamp("published_at", { withTimezone: true }),
     // Phase 2 — scheduled-publish target. Set when status='scheduled'.
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    // Phase 4 — links a post back to the blog_topics row it was generated from
+    // (NULL for posts authored directly without a topic). Lets the content
+    // program trace post → topic → theme and drive the autonomous pipeline.
+    topicId: integer("topic_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

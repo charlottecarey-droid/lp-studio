@@ -1300,6 +1300,62 @@ async function runMigrationsBody(): Promise<void> {
         `blog publishing self-heal did not produce all objects (found ${present}/4) — aborting release`,
     });
 
+    // Phase 4 (June 2026) — blog content-program schema self-heal (0097). Adds
+    // the autonomous-publishing substrate: blog_content_themes, blog_topics,
+    // blog_program_settings, and the additive blog_posts.topic_id column. Same
+    // drizzle high-water-mark drift hazard as the self-heals above: on a DB
+    // whose drizzle.__drizzle_migrations max created_at already sits ABOVE
+    // 0097's journal `when`, the node-postgres migrator records nothing and
+    // never runs 0097's DDL. These objects are feature-critical — the superadmin
+    // Content Program tab + the blogProgramPoller SELECT/INSERT against all
+    // three tables — so a missing table/column would 500 the program UI and
+    // silently disable the autonomous pipeline. Re-applying the file here is
+    // independent of drizzle's dedup and idempotent (CREATE TABLE / ADD COLUMN
+    // IF NOT EXISTS), so it creates what's missing and is a no-op elsewhere.
+    // The .sql stays the single source of truth. Fails CLOSED: any shortfall
+    // aborts the release; a retry is always safe.
+    await runProbedSelfHeal({
+      name: "blog content-program schema self-heal (0097)",
+      applySqlFile: "0097_blog_content_program.sql",
+      expected: 4,
+      checkSql: `SELECT (
+          (SELECT count(*) FROM information_schema.tables
+             WHERE table_schema='public'
+               AND table_name IN ('blog_content_themes','blog_topics','blog_program_settings'))
+        + (SELECT count(*) FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='blog_posts'
+               AND column_name='topic_id')
+        )::int AS present`,
+      shortfall: (present) =>
+        `blog content-program self-heal did not produce all objects (found ${present}/4) — aborting release`,
+    });
+
+    // Phase 4 — ensure the singleton blog_program_settings row (id=1) exists so
+    // the program UI + poller always have a row to read. Marker-gated +
+    // ON CONFLICT DO NOTHING so a superadmin's later edits are never clobbered
+    // by a reboot, and so the safe defaults (mode='review', autopublish off)
+    // are written exactly once. Non-fatal — a failed seed must not abort the
+    // release; the get-settings endpoint also upserts the row lazily.
+    await runStep("blog program settings seed", async () => {
+      try {
+        const PROGRAM_SEED_MARKER = "blog_program_settings_v1";
+        const marker = await db.execute<{ exists: number }>(
+          sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${PROGRAM_SEED_MARKER}`,
+        );
+        if (marker.rows.length > 0) return;
+        await db.execute(sql`
+          INSERT INTO blog_program_settings (id) VALUES (1)
+          ON CONFLICT (id) DO NOTHING
+        `);
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES (${PROGRAM_SEED_MARKER}) ON CONFLICT DO NOTHING`,
+        );
+        logger.info("blog_program_settings singleton seeded");
+      } catch (seedErr) {
+        logger.error({ err: seedErr }, "blog_program_settings seed failed (non-fatal)");
+      }
+    });
+
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
     // letterdrop integrations don't break the moment we cut over the routes.
     // Generates one secret per integration for tenant #1, idempotent under
