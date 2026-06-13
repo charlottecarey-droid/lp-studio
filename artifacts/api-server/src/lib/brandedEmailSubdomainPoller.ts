@@ -264,9 +264,15 @@ async function retire(row: ProvisionedRow, now: Date, provisionedAt: Date): Prom
  */
 export function startBrandedEmailSubdomainPoller(): NodeJS.Timeout | null {
   if (process.env.NODE_ENV !== "production") return null;
-  void runBrandedEmailSubdomainPoll();
+  // A DB/scan failure must never reject into an unhandled rejection (would
+  // crash the server at boot). Log and retry next interval.
+  const safeRun = () =>
+    runBrandedEmailSubdomainPoll().catch((err) =>
+      logger.error({ err }, "brandedEmailSubdomainPoller: scan failed (will retry next interval)"),
+    );
+  void safeRun();
   const handle = setInterval(() => {
-    void runBrandedEmailSubdomainPoll();
+    void safeRun();
   }, BRANDED_SUBDOMAIN_POLL_INTERVAL_MS);
   handle.unref();
   return handle;

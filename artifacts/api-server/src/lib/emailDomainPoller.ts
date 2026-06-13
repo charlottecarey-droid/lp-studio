@@ -347,9 +347,15 @@ async function dispatchVerifiedInApp(
  */
 export function startEmailDomainPoller(): NodeJS.Timeout | null {
   if (process.env.NODE_ENV !== "production") return null;
-  void runEmailDomainPoll();
+  // A DB/scan failure must never reject into an unhandled rejection (would
+  // crash the server at boot). Log and retry next interval.
+  const safeRun = () =>
+    runEmailDomainPoll().catch((err) =>
+      logger.error({ err }, "emailDomainPoller: scan failed (will retry next interval)"),
+    );
+  void safeRun();
   const handle = setInterval(() => {
-    void runEmailDomainPoll();
+    void safeRun();
   }, EMAIL_DOMAIN_POLL_INTERVAL_MS);
   handle.unref();
   return handle;

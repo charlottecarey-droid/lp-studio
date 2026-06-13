@@ -417,9 +417,16 @@ async function tryFireStuck(row: TenantRow, now: Date, cnameTarget: string): Pro
  */
 export function startCustomDomainPoller(): NodeJS.Timeout | null {
   if (process.env.NODE_ENV !== "production") return null;
-  void runCustomDomainPoll();
+  // Never let a DB connection timeout (or any scan failure) reject into an
+  // unhandled rejection — that would crash the whole server at boot. Log and
+  // retry on the next interval instead.
+  const safeRun = () =>
+    runCustomDomainPoll().catch((err) =>
+      logger.error({ err }, "customDomainPoller: scan failed (will retry next interval)"),
+    );
+  void safeRun();
   const handle = setInterval(() => {
-    void runCustomDomainPoll();
+    void safeRun();
   }, CUSTOM_DOMAIN_POLL_INTERVAL_MS);
   handle.unref();
   return handle;
