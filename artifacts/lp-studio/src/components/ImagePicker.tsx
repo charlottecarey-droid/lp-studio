@@ -111,19 +111,23 @@ export function ImagePicker({ value, onChange, label, placeholder, className, ai
         </Label>
       )}
       {hasImage && (
-        <div className="relative mb-2 rounded-lg overflow-hidden border border-border bg-muted/30 group">
+        <div className="relative mb-2 rounded-lg overflow-hidden border border-border bg-muted/30 group min-h-9">
           <img
             src={value}
             alt="Preview"
             className={previewClassName}
             onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
+          {/* Always visible (not hover-gated): a hover-only control vanishes on
+              touch and disappears entirely when a broken image collapses the
+              preview, so the remove affordance was effectively missing. */}
           <button
             onClick={() => onChange("")}
-            className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-1 right-1 z-10 bg-black/60 hover:bg-destructive text-white rounded-full p-1 opacity-100 transition-colors"
             title="Remove image"
+            aria-label="Remove image"
           >
-            <X className="w-3 h-3" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}

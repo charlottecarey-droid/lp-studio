@@ -2160,3 +2160,101 @@ describe("isExcludedFromGenerationPool — purpose-tag bypass of promo/og", () =
     expect(isExcludedFromGenerationPool(img)).toBe(true);
   });
 });
+
+// ── Topical relevance beats purpose-only off-topic (sleep-appliance regression) ──
+// June 2026: on a "sleep appliances" page the generator placed random SCANNER
+// photos (tagged lp-feature, zero topical overlap) over the tenant's sleep-
+// appliance imagery. Two compounding bugs: (1) a hyphenated/plural content tag
+// ("sleep-appliance" vs context "sleep appliances") earned ZERO topical credit
+// because tag-matching was a raw substring test; (2) a soft purpose mismatch
+// (a product-detail sleep photo on an lp-feature slot, −4) sank the on-topic
+// image below the acceptance floor, so a zero-topical purpose-matched scanner
+// (+8) won. Fix: normalize tags + context (hyphen/underscore→space, plural fold)
+// AND let a verbatim section topical hit bypass the negative floor on non-hero
+// slots ("on-topic beats off-topic when on-topic exists").
+describe("fillEmptyImages — topical relevance vs purpose-only (sleep-appliance regression)", () => {
+  const SLEEP_PAGE = "dental dentistry dentist clinic teeth sleep appliances landing page";
+
+  function fillFeatureRow(lib: MediaImage[], headline: string): string {
+    const blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline, body: "", imageUrl: "" }] } },
+    ];
+    const out = fillEmptyImages(blocks, lib, SLEEP_PAGE) as any[];
+    return out[0].props.rows[0].imageUrl;
+  }
+
+  it("(a) a sleep-appliance image (product-detail) beats a purpose-only scanner (lp-feature) on a feature slot", () => {
+    // The reported regression: scanner has the matching slot purpose (+8) and
+    // zero topical overlap; the sleep photo is on-topic but its purpose mismatches
+    // the feature slot. The on-topic image must win.
+    const lib: MediaImage[] = [
+      { url: "/objects/scanner", title: "Intraoral scanner", tags: ["lp-feature", "scanner"] },
+      { url: "/objects/sleep", title: "Sleep appliance", tags: ["product-detail", "sleep-appliance"] },
+    ];
+    expect(fillFeatureRow(lib, "Sleep appliances")).toBe("/objects/sleep");
+  });
+
+  it("(a2) on-topic same-purpose sleep image also beats a purpose-only scanner", () => {
+    const lib: MediaImage[] = [
+      { url: "/objects/scanner", title: "Intraoral scanner", tags: ["lp-feature", "scanner"] },
+      { url: "/objects/sleep", title: "Sleep appliance", tags: ["lp-feature", "sleep appliance"] },
+    ];
+    expect(fillFeatureRow(lib, "Sleep appliances")).toBe("/objects/sleep");
+  });
+
+  it("(b) hyphen / space / underscore / singular-plural tag variants all earn topical score and win the slot", () => {
+    for (const tag of ["sleep appliance", "sleep-appliance", "sleep_appliance", "sleep appliances"]) {
+      const lib: MediaImage[] = [
+        { url: "/objects/scanner", title: "Intraoral scanner", tags: ["lp-feature", "scanner"] },
+        { url: "/objects/sleep", title: "x", tags: ["lp-feature", tag] },
+      ];
+      expect(fillFeatureRow(lib, "Sleep appliances")).toBe("/objects/sleep");
+    }
+  });
+
+  it("(b2) plural context matches a singular tag and vice-versa (aligner/aligners)", () => {
+    const lib: MediaImage[] = [
+      { url: "/objects/scanner", title: "Intraoral scanner", tags: ["lp-feature", "scanner"] },
+      { url: "/objects/aligner", title: "x", tags: ["lp-feature", "aligners"] },
+    ];
+    // singular context, plural tag
+    expect(fillFeatureRow(lib, "Clear aligner")).toBe("/objects/aligner");
+  });
+
+  it("(c) when NO candidate is on-topic, the purpose/relaxed fallback still fills (no starvation)", () => {
+    // No image carries any sleep/appliance topical signal — the purpose-matched
+    // scanner is the only sensible fill and must still be placed (not left empty).
+    const lib: MediaImage[] = [
+      { url: "/objects/scanner", title: "Intraoral scanner", tags: ["lp-feature", "scanner"] },
+      { url: "/objects/clinic", title: "Clinic lobby", tags: ["lp-feature", "clinic"] },
+    ];
+    const picked = fillFeatureRow(lib, "Sleep appliances");
+    expect(picked).toBeTruthy();
+    expect(["/objects/scanner", "/objects/clinic"]).toContain(picked);
+  });
+
+  it("(c2) wholly off-topic, purpose-mismatched candidate is still rejected (empty beats wrong preserved)", () => {
+    // A restaurant-tagged product-detail image on a feature slot: no topical hit
+    // AND a purpose mismatch → negative score, no topical bypass → must NOT fill.
+    const lib: MediaImage[] = [
+      { url: "/objects/restaurant", title: "Dining room", tags: ["product-detail", "restaurant", "dining"] },
+    ];
+    // (the restaurant vocab is a different vertical from the dental page, so this
+    // also exercises the cross-vertical penalty staying intact)
+    expect(fillFeatureRow(lib, "Sleep appliances")).toBe("");
+  });
+
+  it("(d) product-detail sleep image fills a dso-products-grid sleep card by imageKey", () => {
+    const lib: MediaImage[] = [
+      { url: "/objects/scanner", title: "Intraoral scanner", tags: ["product-detail", "scanner"] },
+      { url: "/objects/sleep", title: "Sleep appliance", tags: ["product-detail", "sleep-appliance"] },
+    ];
+    let blocks: any[] = [
+      { type: "dso-products-grid", props: { headline: "Our services", products: [
+        { name: "Sleep Appliances", detail: "Custom oral devices", price: "$$", icon: "moon", imageKey: "sleep" },
+      ] } },
+    ];
+    blocks = fillEmptyImages(blocks, lib, SLEEP_PAGE) as any[];
+    expect(blocks[0].props.products[0].imageUrl).toBe("/objects/sleep");
+  });
+});

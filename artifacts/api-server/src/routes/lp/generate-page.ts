@@ -1212,6 +1212,44 @@ const PURPOSE_MATCH_BOOST = 8;
 const TAG_MATCH_SCORE = 3;
 const PAGE_TAG_MATCH_SCORE = 1;
 
+/** Topicality normalization (June 2026 — sleep-appliance regression). A library
+ *  tag and a slot/page context routinely disagree on surface form for the SAME
+ *  subject: "sleep appliance" vs "sleep-appliance" vs "sleep_appliance", and
+ *  singular vs plural ("appliance" vs "appliances"). The old substring tag-match
+ *  (`sectionLower.includes(tagLower)`) only caught the singular-space variant, so
+ *  a hyphenated/underscored on-topic tag earned ZERO topical credit and the image
+ *  lost to a purpose-only off-topic candidate (a scanner tagged lp-feature). We
+ *  fold BOTH sides to a canonical form before matching: lowercase, hyphens /
+ *  underscores → spaces, collapse whitespace, and a light plural→singular fold of
+ *  each word (trailing "es"/"s"). Deliberately conservative — it only normalizes
+ *  separators and trivial plurals, never stems aggressively, so it can't create
+ *  spurious matches (e.g. "scanner" still never matches "sleep appliances"). */
+function normalizeTopical(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .map(foldPlural)
+    .join(" ");
+}
+
+/** Light plural→singular fold for a single word: "appliances"→"appliance",
+ *  "boxes"→"box", "aligners"→"aligner". Only trims a trailing "s"/"es" on words
+ *  long enough that the stem stays meaningful (>3 chars after trimming), so short
+ *  words ("as", "is", "gas") and already-singular words are left alone. */
+function foldPlural(w: string): string {
+  if (w.length > 4 && w.endsWith("es")) {
+    const stem = w.slice(0, -2);
+    // "...ches"/"...shes"/"...xes"/"...ses"/"...zes" → drop "es"; otherwise the
+    // "e" is usually part of the stem (e.g. "appliances" → drop only "s").
+    if (/(ch|sh|x|s|z)$/.test(stem)) return stem;
+  }
+  if (w.length > 3 && w.endsWith("s") && !w.endsWith("ss")) return w.slice(0, -1);
+  return w;
+}
+
 // ── Cross-vertical conflict penalty (June 2026) ─────────────────────────────
 //
 // A purpose tag alone (+8) used to be enough for a starter seed to clear the
@@ -1436,7 +1474,7 @@ function scoreImage(
   sectionWords: string[],
   pageLower: string,
   preferredPurpose?: string,
-): { score: number; contentScore: number; sectionScore: number; pageScore: number } {
+): { score: number; contentScore: number; sectionScore: number; pageScore: number; sectionTopicalHit: boolean } {
   let purposeScore = 0;
   // `sectionScore` is the topical relevance to THIS section's OWN copy (its
   // headline/subhead/item text) — the signal that makes a "Scan" step prefer a
@@ -1466,21 +1504,42 @@ function scoreImage(
     // unclassified images (imgPurpose === "") are neutral — no bonus, no penalty
   }
 
+  // Normalized (separator/plural-folded) forms of the context, used so a tag
+  // like "sleep-appliance" earns full topical credit against a "sleep appliances"
+  // slot (see normalizeTopical). Computed once per scoreImage call.
+  const sectionNorm = normalizeTopical(sectionLower);
+  const pageNorm = pageLower ? normalizeTopical(pageLower) : "";
+  // Whether the SECTION copy carries a strong, verbatim topical match to one of
+  // the image's content tags (a full TAG_MATCH_SCORE hit, normalized). This makes
+  // a clearly on-topic image immune to being sunk below the acceptance floor by a
+  // soft purpose mismatch on non-hero slots — see findBestImage's strongTopical
+  // gate. (Hero hard-rules are unaffected: they short-circuit before scoring.)
+  let sectionTopicalHit = false;
+
   // Content tag matching. A tag matching the SECTION's own copy scores full
   // weight; a tag matching ONLY the page-wide vocab scores the weak page bias.
   for (const tag of img.tags) {
     const tagLower = tag.toLowerCase();
     // Skip non-semantic tags, incl. the dynamic per-host scrape provenance tag.
     if (SKIP_TAGS.has(tagLower) || tagLower.startsWith("refhost:")) continue;
-    if (sectionLower.includes(tagLower)) {
+    const tagNorm = normalizeTopical(tagLower);
+    // Match on either the raw lowercased form OR the separator/plural-normalized
+    // form, so "sleep-appliance" / "sleep_appliance" / "sleep appliance" all earn
+    // full topical credit against a "sleep appliances" context. The normalized
+    // compare requires a non-empty tag so an all-skip/punctuation tag can't match.
+    if (sectionLower.includes(tagLower) || (tagNorm && sectionNorm.includes(tagNorm))) {
       sectionScore += TAG_MATCH_SCORE;
-    } else if (pageLower && pageLower.includes(tagLower)) {
+      sectionTopicalHit = true;
+    } else if (pageLower && (pageLower.includes(tagLower) || (tagNorm && pageNorm.includes(tagNorm)))) {
       // Page-vocab-only match: weak nudge, and NOT subject to the per-word
       // sub-scoring below (that would re-inflate generic industry tags back to
       // near-full strength and reintroduce the dilution this split removes).
       pageScore += PAGE_TAG_MATCH_SCORE;
     }
-    for (const word of tagLower.split(/\s+/)) {
+    // Per-word overlap. Split on the NORMALIZED tag (hyphens/underscores → word
+    // boundaries) and fold each context word too, so a hyphenated multiword tag
+    // ("sleep-appliance") contributes per-word like a spaced one would.
+    for (const word of tagNorm.split(" ")) {
       // Guard against EMPTY context words: sectionWords comes from splitting a
       // space-padded template (`${a} ${b} ${c}`) so it routinely contains ""
       // entries, and `word.includes("")` / `"".includes(word)` are always true.
@@ -1489,7 +1548,7 @@ function scoreImage(
       // "scraped"/"refhost:…"/"page-reference" meta tags) to a positive score
       // and defeating the relevance gate in findBestImage. Per-word overlap is
       // SECTION-only so it sharpens topical matches, not the page bias.
-      if (word.length > 3 && sectionWords.some(w => w.length > 0 && (w.includes(word) || word.includes(w)))) sectionScore += 1;
+      if (word.length > 3 && sectionWords.some(w => { const wf = foldPlural(w); return wf.length > 0 && (wf.includes(word) || word.includes(wf)); })) sectionScore += 1;
     }
   }
 
@@ -1522,7 +1581,7 @@ function scoreImage(
     }
   }
 
-  return { score, contentScore, sectionScore, pageScore };
+  return { score, contentScore, sectionScore, pageScore, sectionTopicalHit };
 }
 
 /**
@@ -1667,15 +1726,30 @@ function findBestImage(
     // relaxed last-resort pass so the tenant's genuine library + the current
     // prompt's reference scrape are tried first.
     if (deferred && !relaxed) continue;
-    const { score, sectionScore, pageScore } = scoreImage(img, sectionLower, sectionWords, pageLower, preferredPurpose);
+    const { score, sectionScore, pageScore, sectionTopicalHit } = scoreImage(img, sectionLower, sectionWords, pageLower, preferredPurpose);
+    // "On-topic beats off-topic when on-topic exists" (June 2026 — sleep-appliance
+    // regression). A candidate with a VERBATIM section topical hit (a full content
+    // tag matching this slot's own subject, separator/plural-normalized) is
+    // genuinely about the slot's subject. Such a candidate must not be discarded by
+    // the negative-score floor below merely because a SOFT purpose mismatch (e.g.
+    // a product-detail sleep-appliance photo on an lp-feature slot, −4) dragged its
+    // total negative — that's exactly how a zero-topical purpose-only scanner
+    // (lp-feature, +8) used to beat the on-topic image for a feature slot. We admit
+    // it to the SECTION-relevant tier (ranked by score, so a same-purpose on-topic
+    // image still outranks a mismatched-purpose one). The HERO hard-rules already
+    // short-circuited above (product-detail / non-source-hero scrapes are skipped
+    // outright), so this only loosens feature / showcase / product slots, never the
+    // hero, preserving the hero-purpose hardening.
+    const onTopic = sectionTopicalHit;
     // Never place a clearly off-topic / purpose-mismatched image: a slot left
     // empty (for AI fill or the editor's storage default) reads better than an
-    // obviously wrong photo. A non-negative score is the FLOOR; within the
-    // tenant's curated tier we then prefer a SECTION-relevant candidate
-    // (sectionScore > 0 — on-topic for THIS slot's own copy) over a merely
-    // purpose-matched one, but still accept the purpose-only image as a fallback
-    // so the slot isn't starved (which was the dentures / product-grid regression).
-    if (score < 0) continue;
+    // obviously wrong photo. A non-negative score is the FLOOR for candidates with
+    // NO verbatim topical hit; within the tenant's curated tier we then prefer a
+    // SECTION-relevant candidate (sectionScore > 0 — on-topic for THIS slot's own
+    // copy) over a merely purpose-matched one, but still accept the purpose-only
+    // image as a fallback so the slot isn't starved (the dentures / product-grid
+    // regression). A clearly on-topic candidate bypasses the negative floor (above).
+    if (score < 0 && !onTopic) continue;
     // Relevance floor for hero / product-detail slots in the relaxed pass —
     // see `requirePurposeFloor` above. (Logo protections are unaffected: logo
     // slots/URLs never reach this scorer, and logo-tagged rows are excluded
