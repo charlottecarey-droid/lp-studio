@@ -47,6 +47,9 @@ import { BlockStoryHub } from "./BlockStoryHub";
 import { BlockBusinessCaseSplit } from "./BlockBusinessCaseSplit";
 import { BlockBusinessCaseCentered } from "./BlockBusinessCaseCentered";
 import { BlockBusinessCasePremium } from "./BlockBusinessCasePremium";
+import { BlockStorybrandJourney } from "./BlockStorybrandJourney";
+import { BlockExecDecisionBrief } from "./BlockExecDecisionBrief";
+import { BlockChallengerInsight } from "./BlockChallengerInsight";
 import { BlockEventLandingHero } from "./BlockEventLandingHero";
 import { BlockSpatialTour } from "./BlockSpatialTour";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -431,6 +434,7 @@ export const NO_REVEAL = new Set<string>([
   "testimonial-wall",
   "dso-heartland-hero", "dso-practice-hero", "one-pager-hero", "event-page", "event-landing-hero", "product-launch", "story-hub",
   "business-case-split", "business-case-centered", "business-case-premium",
+  "storybrand-journey", "exec-decision-brief", "challenger-insight",
   "content-series", "blog-series", "storefront",
   "event-noir", "event-luminous", "event-split",
   "case-metrics", "case-editorial", "case-modular",
@@ -1044,6 +1048,38 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
         return <BlockBusinessCaseCentered props={block.props} brand={brand} />;
       case "business-case-premium":
         return <BlockBusinessCasePremium props={block.props} brand={brand} isBuilder={isBuilder} />;
+      case "storybrand-journey":
+        return (
+          <BlockStorybrandJourney
+            props={block.props}
+            brand={brand}
+            isBuilder={isBuilder}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "exec-decision-brief":
+        return (
+          <BlockExecDecisionBrief
+            props={block.props}
+            brand={brand}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "challenger-insight":
+        return (
+          <BlockChallengerInsight
+            props={block.props}
+            brand={brand}
+            isBuilder={isBuilder}
+            onCtaClick={onCtaClick
+              ? () => onCtaClick(block.props.finalCtaUrl ?? block.props.heroCtaUrl ?? "#")
+              : undefined}
+          />
+        );
       case "scroll-assembly":
         return (
           <BlockScrollAssembly

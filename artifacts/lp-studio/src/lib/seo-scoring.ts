@@ -136,6 +136,10 @@ export const SOCIAL_PROOF_TYPES = new Set([
   "dso-testimonials", "dso-success-stories", "dso-case-study",
   "before-after-gallery", "business-case-split", "business-case-premium",
   "business-case-centered", "dso-live-feed",
+  // Full-page sales-narrative templates: each carries customer proof (logos,
+  // metrics, testimonials, ROI math) as its dominant SEO/GEO value — like
+  // business-case-*, kept DISTINCT from AUTHORITY so a page earns it once.
+  "storybrand-journey", "exec-decision-brief", "challenger-insight",
   "logo-wall", "logo-marquee", "avatar-social-proof",
   // New graduated quote / testimonial / case-study section blocks. The
   // case-study-* blocks also carry a "stats" tag but stay social-proof only

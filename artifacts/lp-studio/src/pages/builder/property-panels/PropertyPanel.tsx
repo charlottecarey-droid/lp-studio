@@ -224,6 +224,9 @@ import { ContentSeriesPanel } from "./ContentSeriesPanel";
 import { BlogSeriesPanel } from "./BlogSeriesPanel";
 import { StorefrontPanel } from "./StorefrontPanel";
 import { BusinessCasePanel } from "./BusinessCasePanel";
+import { StorybrandJourneyPanel } from "./StorybrandJourneyPanel";
+import { ExecDecisionBriefPanel } from "./ExecDecisionBriefPanel";
+import { ChallengerInsightPanel } from "./ChallengerInsightPanel";
 import { TemplateEventPanel } from "./TemplateEventPanel";
 import { TemplateCaseStudyPanel } from "./TemplateCaseStudyPanel";
 import { SpatialTourPanel } from "./SpatialTourPanel";
@@ -6859,6 +6862,12 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return <BusinessCasePanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} variant="centered" />;
       case "business-case-premium":
         return <BusinessCasePanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} variant="premium" />;
+      case "storybrand-journey":
+        return <StorybrandJourneyPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} />;
+      case "exec-decision-brief":
+        return <ExecDecisionBriefPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} />;
+      case "challenger-insight":
+        return <ChallengerInsightPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} />;
       case "event-noir":
       case "event-luminous":
       case "event-split":

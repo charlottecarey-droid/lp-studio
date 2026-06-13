@@ -154,6 +154,9 @@ import type {
   TestimonialWallBlockProps,
   GlassPricingTiersBlockProps,
   AuroraCtaFinaleBlockProps,
+  StorybrandJourneyBlockProps,
+  ExecDecisionBriefBlockProps,
+  ChallengerInsightBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -327,6 +330,9 @@ export type BlockVariant =
   | { type: "business-case-split"; props: BusinessCaseSplitBlockProps }
   | { type: "business-case-centered"; props: BusinessCaseCenteredBlockProps }
   | { type: "business-case-premium"; props: BusinessCasePremiumBlockProps }
+  | { type: "storybrand-journey"; props: StorybrandJourneyBlockProps }
+  | { type: "exec-decision-brief"; props: ExecDecisionBriefBlockProps }
+  | { type: "challenger-insight"; props: ChallengerInsightBlockProps }
   | { type: "magazine-hero"; props: MagazineHeroBlockProps }
   | { type: "bold-statement"; props: BoldStatementBlockProps }
   | { type: "id-hero"; props: IdHeroBlockProps }

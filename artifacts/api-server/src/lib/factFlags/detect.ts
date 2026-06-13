@@ -127,10 +127,48 @@ const ATTR_COMPANY_KEYS = ["company", "organization", "org", "practice"];
 
 // Named-entity claim: a trigger phrase + a capitalised entity. Superlative /
 // adjective claims ("fastest", "most reliable") are explicitly OUT of scope.
+//
+// The claim detector targets ONLY external-validation claims a tenant must prove
+// ("Trusted by Fortune 500", "Featured in Forbes", "Partnered with Microsoft") —
+// NOT imperative calls-to-action ("Partner with Dandy today") and NOT
+// self-positioning about the selling brand itself ("Acme is your trusted lab").
+//
+// "partner" is matched in its DECLARATIVE forms — "partnered with", "in
+// partnership with", "a partner of", or a third-party subject's "X partners
+// with Y". The declarative "partners with" trigger is kept, but the bare
+// sentence-initial imperative "Partner with <brand>" is a CTA and is removed by
+// the imperative-CTA guard (CTA_IMPERATIVE_RX) inside isClaim, not by the
+// trigger regex — so "Every practice partners with Acme" still fires while
+// "Partner with Dandy today" does not.
 const CLAIM_TRIGGER_RX =
-  /\b(trusted by|partnered with|partners? with|backed by|featured (?:in|on)|as seen (?:in|on)|recognized by|certified by|accredited by|winner of|named (?:one of|the)?|ranked|rated|#1|number one)\b/i;
+  /\b(trusted by|partnered with|in partnership with|a partner of|partners with|backed by|featured (?:in|on)|as seen (?:in|on)|recognized by|certified by|accredited by|winner of|named (?:one of|the)?|ranked|rated|#1|number one)\b/i;
 // A capitalised proper-noun entity (1-4 tokens), allowing & . and digits.
 const ENTITY_RX = /\b([A-Z][A-Za-z0-9&.]+(?:\s+[A-Z][A-Za-z0-9&.]+){0,3})\b/;
+const ENTITY_RX_G = /\b([A-Z][A-Za-z0-9&.]+(?:\s+[A-Z][A-Za-z0-9&.]+){0,3})\b/g;
+
+// Imperative-CTA leading verbs. A clause that BEGINS with one of these is a
+// call-to-action, not a factual claim: "Partner with Dandy", "Join the future",
+// "Get started", "Book a demo", "Talk to sales", "Switch to us", "Sign up",
+// "Schedule a call", "Start free". Distinct from the stat-side IMPERATIVE_RX
+// (UI-instruction verbs) — these are marketing-CTA verbs.
+const CTA_IMPERATIVE_RX =
+  /^(partner|join|get|start|book|talk|switch|sign|schedule|try|see|discover|explore|request|claim|grab|unlock|reach|contact|call|learn|shop|order|subscribe|register|download|upgrade)\b/i;
+
+/** Strip surrounding punctuation / brand-suffix tokens for a forgiving
+ *  case-insensitive entity-equality test against the selling brand name. */
+function normalizeEntity(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+/** Split a string into clauses on sentence/segment boundaries so an imperative
+ *  CTA tucked after an em-dash or sentence break ("Ready to transform? — Partner
+ *  with Dandy today") is evaluated as its own clause. */
+function splitClauses(text: string): string[] {
+  return text
+    .split(/[.!?;—–]|(?:\s[-]\s)|\n/)
+    .map((c) => c.trim())
+    .filter(Boolean);
+}
 
 // Quoted span with an em-dash / hyphen attribution right after it, e.g.
 //   "Best decision we made." — Dr. Lopez, Smile Co.
@@ -164,17 +202,47 @@ function stripHtml(s: string): string {
   return s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function isClaim(value: string): boolean {
+function isClaim(value: string, brandName?: string): boolean {
   const text = stripHtml(value);
   if (!CLAIM_TRIGGER_RX.test(text)) return false;
-  // Require a capitalised entity that is NOT merely the first word of the
-  // sentence (drop the leading word before testing) — keeps it conservative.
-  const afterFirst = text.replace(/^\s*\S+\s*/, "");
-  return ENTITY_RX.test(afterFirst);
+  const brandKey = brandName ? normalizeEntity(brandName) : "";
+
+  // Evaluate per-clause so a CTA after a sentence break ("Ready to transform? —
+  // Partner with Dandy today") is judged on the clause that holds the trigger,
+  // and so the imperative test reads the verb that actually leads that clause.
+  for (const clause of splitClauses(text)) {
+    if (!CLAIM_TRIGGER_RX.test(clause)) continue;
+
+    // 1) Imperative-CTA exclusion: a clause that begins with a CTA action verb
+    //    ("Partner with…", "Join…", "Get…") is a call-to-action, not a claim.
+    if (CTA_IMPERATIVE_RX.test(clause)) continue;
+
+    // Require a capitalised entity that is NOT merely the first word of the
+    // clause (drop the leading word before testing) — keeps it conservative.
+    const afterFirst = clause.replace(/^\s*\S+\s*/, "");
+
+    // 2) Self-positioning exclusion: when a selling-brand name is known, an
+    //    entity that IS that brand does not count as external validation. The
+    //    claim only stands if some OTHER capitalised entity is present.
+    if (brandKey) {
+      const entities = afterFirst.match(ENTITY_RX_G) ?? [];
+      const hasExternalEntity = entities.some((e) => normalizeEntity(e) !== brandKey);
+      if (hasExternalEntity) return true;
+      continue;
+    }
+
+    if (ENTITY_RX.test(afterFirst)) return true;
+  }
+  return false;
 }
 
-/** Detect every candidate fact in a block list. Pure — no DB, no filtering. */
-export function detectFacts(blocks: unknown): DetectedFact[] {
+/** Detect every candidate fact in a block list. Pure — no DB, no filtering.
+ *
+ * `brandName` (optional) is the SELLING brand's own name. When supplied, a claim
+ * whose only capitalised entity is the selling brand itself is treated as
+ * self-positioning (not external validation) and is NOT flagged. Optional and
+ * back-compatible: existing callers that omit it keep prior behaviour. */
+export function detectFacts(blocks: unknown, brandName?: string): DetectedFact[] {
   const out: DetectedFact[] = [];
   if (!Array.isArray(blocks)) return out;
 
@@ -246,7 +314,7 @@ export function detectFacts(blocks: unknown): DetectedFact[] {
           }
 
           // 3) Claim — named-entity claim (conservative).
-          if (isClaim(text)) {
+          if (isClaim(text, brandName)) {
             push("claim", childPath, text, undefined, captureContext(obj, blockProps, text));
             continue;
           }

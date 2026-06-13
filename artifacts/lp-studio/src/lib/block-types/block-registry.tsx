@@ -149,6 +149,9 @@ import type {
   TestimonialWallBlockProps,
   GlassPricingTiersBlockProps,
   AuroraCtaFinaleBlockProps,
+  StorybrandJourneyBlockProps,
+  ExecDecisionBriefBlockProps,
+  ChallengerInsightBlockProps,
 } from "./generic-blocks";
 // June-2026 modern block wave: the builder agents export curated default props
 // from the component files (the blocks are self-contained registration
@@ -161,6 +164,9 @@ import { FEATURE_TABS_DEFAULT_PROPS } from "@/blocks/BlockFeatureTabsShowcase";
 import { STAT_COUNTER_DEFAULT_PROPS } from "@/blocks/BlockStatCounterBand";
 import { TESTIMONIAL_WALL_DEFAULT_PROPS } from "@/blocks/BlockTestimonialWall";
 import { GLASS_PRICING_DEFAULT_TIERS } from "@/blocks/BlockGlassPricingTiers";
+import { STORYBRAND_JOURNEY_DEFAULT_PROPS } from "@/blocks/BlockStorybrandJourney";
+import { EXEC_DECISION_BRIEF_DEFAULT_PROPS } from "@/blocks/BlockExecDecisionBrief";
+import { CHALLENGER_INSIGHT_DEFAULT_PROPS } from "@/blocks/BlockChallengerInsight";
 import type {
   SectionBlockProps,
   ColumnsBlockProps,
@@ -8463,6 +8469,67 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "storybrand-journey",
+    label: "StoryBrand Journey — Full Page",
+    category: "Full Page Templates",
+    defaultProps: (): StorybrandJourneyBlockProps =>
+      structuredClone(STORYBRAND_JOURNEY_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FAF6EF" rx="4" />
+        <rect x="8" y="10" width="20" height="2.5" rx="1" fill="#B4552D" />
+        <rect x="8" y="16" width="58" height="6" rx="1.5" fill="#3B2A1F" />
+        <rect x="8" y="26" width="48" height="3" rx="1" fill="#3B2A1F" opacity="0.4" />
+        <rect x="8" y="34" width="26" height="8" rx="4" fill="#B4552D" />
+        <rect x="76" y="10" width="36" height="50" rx="4" fill="#B4552D" opacity="0.18" />
+        <rect x="8" y="50" width="20" height="14" rx="2" fill="#fff" stroke="#e6ddcf" />
+        <rect x="32" y="50" width="20" height="14" rx="2" fill="#fff" stroke="#e6ddcf" />
+        <rect x="56" y="50" width="14" height="14" rx="2" fill="#fff" stroke="#e6ddcf" />
+      </svg>
+    ),
+  },
+  {
+    type: "exec-decision-brief",
+    label: "Exec Decision Brief — Full Page",
+    category: "Full Page Templates",
+    defaultProps: (): ExecDecisionBriefBlockProps =>
+      structuredClone(EXEC_DECISION_BRIEF_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FBFBFD" rx="4" />
+        <rect x="8" y="8" width="22" height="2.5" rx="1" fill="#2563EB" />
+        <rect x="8" y="14" width="70" height="6" rx="1.5" fill="#0F172A" />
+        <rect x="8" y="26" width="104" height="1" fill="#0F172A" opacity="0.15" />
+        {([0, 1, 2] as const).map(r => (
+          <g key={r}>
+            <rect x="8" y={30 + r * 8} width="60" height="3" rx="1" fill="#0F172A" opacity="0.5" />
+            <rect x="92" y={30 + r * 8} width="20" height="3" rx="1" fill="#2563EB" opacity="0.7" />
+          </g>
+        ))}
+        <rect x="8" y="58" width="32" height="3" rx="1" fill="#0F172A" opacity="0.3" />
+      </svg>
+    ),
+  },
+  {
+    type: "challenger-insight",
+    label: "Challenger Insight — Full Page",
+    category: "Full Page Templates",
+    defaultProps: (): ChallengerInsightBlockProps =>
+      structuredClone(CHALLENGER_INSIGHT_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#08080B" rx="4" />
+        <rect x="8" y="10" width="26" height="2.5" rx="1" fill="#F97316" opacity="0.85" />
+        <rect x="8" y="16" width="74" height="7" rx="1.5" fill="#fff" opacity="0.95" />
+        <rect x="8" y="25" width="40" height="7" rx="1.5" fill="#F97316" opacity="0.55" />
+        <rect x="8" y="42" width="44" height="20" rx="3" fill="#fff" opacity="0.06" />
+        <rect x="58" y="42" width="54" height="20" rx="3" fill="#fff" opacity="0.06" />
+        <rect x="12" y="46" width="30" height="3" rx="1" fill="#fff" opacity="0.5" />
+        <rect x="62" y="46" width="40" height="3" rx="1" fill="#fff" opacity="0.5" />
+      </svg>
+    ),
+  },
 ];
 
 // Attach code-default semantic role tags to every registered block from the
@@ -8512,6 +8579,9 @@ export function createBlock(type: "stat-counter-band"): Extract<PageBlock, { typ
 export function createBlock(type: "testimonial-wall"): Extract<PageBlock, { type: "testimonial-wall" }>;
 export function createBlock(type: "glass-pricing-tiers"): Extract<PageBlock, { type: "glass-pricing-tiers" }>;
 export function createBlock(type: "aurora-cta-finale"): Extract<PageBlock, { type: "aurora-cta-finale" }>;
+export function createBlock(type: "storybrand-journey"): Extract<PageBlock, { type: "storybrand-journey" }>;
+export function createBlock(type: "exec-decision-brief"): Extract<PageBlock, { type: "exec-decision-brief" }>;
+export function createBlock(type: "challenger-insight"): Extract<PageBlock, { type: "challenger-insight" }>;
 export function createBlock(type: "rating-badges"): Extract<PageBlock, { type: "rating-badges" }>;
 export function createBlock(type: "avatar-social-proof"): Extract<PageBlock, { type: "avatar-social-proof" }>;
 export function createBlock(type: "bold-statement"): Extract<PageBlock, { type: "bold-statement" }>;
@@ -8834,6 +8904,9 @@ export function createBlock(type: BlockType): PageBlock {
     case "testimonial-wall": return { id, type: "testimonial-wall", props: props as TestimonialWallBlockProps };
     case "glass-pricing-tiers": return { id, type: "glass-pricing-tiers", props: props as GlassPricingTiersBlockProps };
     case "aurora-cta-finale": return { id, type: "aurora-cta-finale", props: props as AuroraCtaFinaleBlockProps };
+    case "storybrand-journey": return { id, type: "storybrand-journey", props: props as StorybrandJourneyBlockProps };
+    case "exec-decision-brief": return { id, type: "exec-decision-brief", props: props as ExecDecisionBriefBlockProps };
+    case "challenger-insight": return { id, type: "challenger-insight", props: props as ChallengerInsightBlockProps };
     case "rating-badges": return { id, type: "rating-badges", props: props as RatingBadgesBlockProps };
     case "avatar-social-proof": return { id, type: "avatar-social-proof", props: props as AvatarSocialProofBlockProps };
     case "bold-statement": return { id, type: "bold-statement", props: props as BoldStatementBlockProps };
@@ -8934,6 +9007,9 @@ export function templateToBlocks(templateId: string): PageBlock[] {
     "business-case-split": ["business-case-split"],
     "business-case-centered": ["business-case-centered"],
     "business-case-premium": ["business-case-premium"],
+    "storybrand-journey": ["storybrand-journey"],
+    "exec-decision-brief": ["exec-decision-brief"],
+    "challenger-insight": ["challenger-insight"],
   };
   const types = templates[templateId] ?? [];
   return types.map(t => createBlock(t));

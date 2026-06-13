@@ -1703,7 +1703,23 @@ async function runMigrationsBody(): Promise<void> {
       // (slug `__system-templates`) instead of the lowest-id customer tenant.
       // The consolidate step above already moved existing globals there, so
       // bumping the marker refreshes every row in place under its new owner.
-      const SEED_MARKER = "global_templates_seed_v28";
+      // v29: insert the three brand-neutral business-case siblings
+      // (global-business-case-{split,centered,premium-editorial}-generic,
+      // industry NULL = universal). They were added to globalTemplates.ts
+      // after v28 was recorded, so without a bump the marker-gated loop
+      // would never insert them on existing databases. The INSERT carries
+      // their category/keywords/is_all_in_one intent fields directly, so no
+      // intent-backfill marker bump is needed. Existing rows are refreshed
+      // non-destructively as always (ON CONFLICT preserves tenant edits and
+      // null-guards category/keywords).
+      // v30: insert the three sales-narrative monograph templates
+      // (global-storybrand-journey, global-exec-decision-brief,
+      // global-challenger-insight — industry NULL = universal, isAllInOne).
+      // Added to globalTemplates.ts after v29 was recorded, so the marker
+      // bump is required to insert them on existing databases. The INSERT
+      // carries their category/keywords/is_all_in_one intent fields directly,
+      // so no intent-backfill marker bump is needed.
+      const SEED_MARKER = "global_templates_seed_v30";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;

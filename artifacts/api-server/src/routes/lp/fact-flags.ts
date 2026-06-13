@@ -12,6 +12,7 @@ import { logger } from "../../lib/logger";
 import { getTenantId } from "../../middleware/requireAuth";
 import {
   buildApprovedFacts,
+  fetchTenantBrandName,
   listFactFlags,
   syncFactFlags,
   setAtPath,
@@ -202,12 +203,15 @@ router.post("/lp/pages/:pageId/fact-flags/sync", async (req, res): Promise<void>
         ? (req.body.templateForms as unknown[]).filter((x): x is string => typeof x === "string")
         : [],
     );
-    const approved = await buildApprovedFacts(tenantId);
+    const [approved, brandName] = await Promise.all([
+      buildApprovedFacts(tenantId),
+      fetchTenantBrandName(tenantId),
+    ]);
     // Quotes sourced from the per-request generation reference URL are persisted
     // as trusted on the page; re-apply that trust on every sync (this re-detect
     // has no URL context of its own).
     const trustedForms = new Set<string>(page.trustedFactForms);
-    const result = await syncFactFlags({ tenantId, pageId, blocks: page.blocks, approved, templateForms, trustedForms });
+    const result = await syncFactFlags({ tenantId, pageId, blocks: page.blocks, approved, templateForms, trustedForms, brandName });
     if (result.mutated) await saveBlocks(tenantId, pageId, result.blocks);
     const flags = await listFactFlags(tenantId, pageId);
     res.json({ flags, pendingCount: result.pendingCount, created: result.created, mutated: result.mutated });

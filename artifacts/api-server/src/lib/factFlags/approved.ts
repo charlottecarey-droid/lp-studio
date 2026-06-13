@@ -17,10 +17,27 @@ function claimApproved(c: ClaimEntry): boolean {
 }
 
 interface BrandConfigLite {
+  brandName?: string;
   productLines?: Array<{ claims?: ClaimEntry[] }>;
   segments?: Array<{
     stats?: Array<{ value?: string; approvedForAi?: boolean; linkProofPointId?: number }>;
   }>;
+}
+
+/** The tenant's own SELLING-brand name, used by the claim detector to suppress
+ *  self-positioning ("Acme is your trusted lab") that is NOT external
+ *  validation. Returns "" when unknown — back-compatible, fail-open. */
+export async function fetchTenantBrandName(tenantId: number | null): Promise<string> {
+  if (tenantId == null) return "";
+  try {
+    const brandRows = await db.execute(
+      sql`SELECT config FROM lp_brand_settings WHERE tenant_id = ${tenantId} LIMIT 1`,
+    );
+    const cfg = (brandRows.rows[0] as { config?: BrandConfigLite } | undefined)?.config ?? {};
+    return (cfg.brandName ?? "").trim();
+  } catch {
+    return "";
+  }
 }
 
 export async function buildApprovedFacts(tenantId: number | null): Promise<ApprovedFacts> {

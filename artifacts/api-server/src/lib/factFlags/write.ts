@@ -6,7 +6,7 @@ import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import type { ApprovedFacts, DetectedFact, FactKind, TriageState } from "./types";
 import { detectFacts } from "./detect";
-import { buildApprovedFacts } from "./approved";
+import { buildApprovedFacts, fetchTenantBrandName } from "./approved";
 import { normalizeText, quoteKernel, statKernel } from "./normalize";
 import { setAtPath } from "./path";
 import { trackFactEvent } from "./telemetry";
@@ -117,13 +117,17 @@ export async function syncFactFlags(opts: {
   approved: ApprovedFacts;
   templateForms?: Set<string>;
   trustedForms?: Set<string>;
+  /** The tenant's own selling-brand name — suppresses self-positioning claims
+   *  (an entity that IS the selling brand is not external validation). Optional
+   *  and back-compatible; omitted = prior behaviour. */
+  brandName?: string;
 }): Promise<{ blocks: unknown[]; mutated: boolean; pendingCount: number; created: number }> {
   const { tenantId, pageId, approved } = opts;
   const blocks = opts.blocks;
   const templateForms = opts.templateForms ?? new Set<string>();
   const trustedForms = opts.trustedForms ?? new Set<string>();
 
-  const detected = detectFacts(blocks);
+  const detected = detectFacts(blocks, opts.brandName);
   const existing = await listFactFlags(tenantId, pageId);
   // Prefer a resolved row over a pending one when the same form repeats.
   const byNorm = new Map<string, FactFlagRow>();
@@ -242,8 +246,14 @@ export async function detectAndWriteFlagsForPage(opts: {
   blocks: unknown[];
   templateForms?: Set<string>;
   trustedForms?: Set<string>;
+  /** Optional override; when omitted the tenant's brand name is fetched so
+   *  self-positioning claims about the selling brand are not flagged. */
+  brandName?: string;
 }): Promise<{ blocks: unknown[]; mutated: boolean; pendingCount: number; created: number }> {
-  const approved = await buildApprovedFacts(opts.tenantId);
+  const [approved, brandName] = await Promise.all([
+    buildApprovedFacts(opts.tenantId),
+    opts.brandName != null ? Promise.resolve(opts.brandName) : fetchTenantBrandName(opts.tenantId),
+  ]);
   return syncFactFlags({
     tenantId: opts.tenantId,
     pageId: opts.pageId,
@@ -251,6 +261,7 @@ export async function detectAndWriteFlagsForPage(opts: {
     approved,
     templateForms: opts.templateForms,
     trustedForms: opts.trustedForms,
+    brandName,
   });
 }
 

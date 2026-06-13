@@ -199,6 +199,11 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   "glass-pricing-tiers": SELF_STYLED,
   "aurora-cta-finale": SELF_STYLED,
 
+  // Full-page template monoliths: own their entire surface, palette, and motion
+  "storybrand-journey": SELF_STYLED,
+  "exec-decision-brief": SELF_STYLED,
+  "challenger-insight": SELF_STYLED,
+
   // Self-styled content directory (owns its bg / surface) ------------------
   "resource-link-list": SELF_STYLED,
 

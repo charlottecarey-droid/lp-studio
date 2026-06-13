@@ -1717,6 +1717,19 @@ export function collectImageSlots(
   // final-cta, lab-tour). It is a wide hero-style photo → lp-hero.
   pushScalar("backgroundImage", "lp-hero", blockContext);
   pushScalar("heroImageUrl", "lp-hero", blockContext);
+  // storybrand-journey: hero photo is `heroImageUrl` (lp-hero, above); the
+  // success-section transformation photo is `successImageUrl` → lp-feature.
+  // Its guideLogos[].url (customer logos) + guideTestimonials[].avatarUrl
+  // (real faces) are tenant-supplied proof and are deliberately NOT collected
+  // (mirrors the logo-wall / testimonial-wall exclusions below).
+  pushScalar("successImageUrl", "lp-feature", blockContext);
+  // challenger-insight: the single "better way" solution photo → lp-feature.
+  // Its logos[].imageUrl (low-opacity trust row) are real customer marks and
+  // are NOT collected (name-only wordmarks render until tenant supplies them).
+  pushScalar("betterWayImageUrl", "lp-feature", blockContext);
+  // exec-decision-brief carries NO stock-photo slots: the only image is the
+  // optional masthead `logoUrl`, which (like every other logoUrl) is excluded
+  // from the auto-fill scalar set above so it stays tenant-controlled.
   pushScalar("bundleImageUrl", "lp-feature", blockContext); // storefront closing-CTA bundle
   // Decorative-mockup blocks with an OPTIONAL real-image override (mockup shows
   // when blank): features-spotlight-cards spotlight visual. Per-item variants
@@ -5700,6 +5713,21 @@ const GENERAL_EXTRA_SHOWCASE_BLOCKS: string[] = [
   `- "aurora-cta-finale": The page's closing argument — a deep dark full-width CTA with slow-drifting aurora glows in brand tones, an oversized display headline, a large pill CTA pair, a short reassurance row, and a faint oversized brand watermark. Use as the LAST content block before the footer (a premium alternative to "bottom-cta"). Props: eyebrow (2–4 words), headline (4–9 words restating the page's core promise), subheadline (12–24 words removing the last objection), ctaText (2–4 words, action verb first), ctaUrl ("#"), ctaSecondaryText (2–4 words), ctaSecondaryUrl ("#"), reassurances (array of EXACTLY 2–3 of {icon (one of "CheckCircle2","Sparkles","Shield","Zap","CreditCard","Clock","Lock","Star","Globe","Heart"), text (2–5 words)}), watermarkText (the brand name, or "" to use it automatically), showWatermark (boolean, default true).`,
 ];
 
+// FULL-PAGE sales-narrative monographs — each renders an ENTIRE standalone page
+// (its own hero, body, and chrome). Like business-case-*, they are reached via
+// TEMPLATE INTENT (globalTemplates seeds + template-intent selector), not as
+// freeform showcase sections — so they are advertised ONLY when a caller opts
+// in, never mixed into ordinary multi-block pages. Each is the SINGLE block on
+// the page. Image fields stay "" (the image service fills them); customer logos
+// and testimonial avatars are tenant assets the model must NEVER fabricate, and
+// quotes must be REAL (omit when none are provided).
+const GENERAL_STORYBRAND_JOURNEY_BLOCK =
+  `- "storybrand-journey": A COMPLETE, full-page warm-editorial narrative built on the StoryBrand SB7 BrandScript — hero (what the customer wants) → three-level problem → stakes → guide (empathy + authority) → 3-step plan → success transformation → finale CTA. Use this as the SINGLE block on the page ONLY when the request is for a story-led / customer-journey / StoryBrand landing page. Do NOT combine it with other blocks. Props: kicker (4–8 words), heroHeadline (5–10 words, what the customer wants), heroSubhead (12–24 words), heroPrimaryCtaText (2–5 words), heroPrimaryCtaUrl ("#"), heroTransitionalCtaText (3–6 words, a free asset), heroTransitionalCtaUrl ("#"), heroTransitionalAssetLabel (4–10 words), heroImageUrl (""), heroImageAlt (4–8 words), problemKicker (2–4 words), problemHeading (6–12 words), problemIntro (18–30 words), problemCards (array of EXACTLY 3 of {icon (Lucide name, e.g. "ClipboardList","HeartCrack","Scale"), label (2–4 words, e.g. "The external problem"), title (4–8 words), body (14–24 words)}), stakesKicker (2–4 words), stakesHeading (5–10 words), stakesItems (array of 2–3 short cost phrases), stakesFootnote (8–16 words), guideKicker (1–3 words), guideEmpathy (24–44 words, an empathetic "we get it" statement), guideAuthorityHeading (2–4 words), guideStats (array of 2–3 of {value (metric), label (3–6 words)}), guideTestimonials (array of 0–2 of {quote (REAL only — omit if none), name, title} — NEVER invent), planKicker (1–3 words), planHeading (4–8 words), planSubhead (10–18 words), planSteps (array of EXACTLY 3 of {title (2–5 words), body (14–24 words)}), successKicker (2–4 words), successHeading (3–6 words), successBody (16–28 words), successItems (array of 3 of {from (the before state), to (the after state)}), successImageUrl (""), successImageAlt (4–8 words), finaleKicker (2–4 words), finaleHeading (4–8 words), finaleRecap (12–22 words), finalePrimaryCtaText (2–5 words), finalePrimaryCtaUrl ("#"). NEVER set guideLogos.`;
+const GENERAL_EXEC_DECISION_BRIEF_BLOCK =
+  `- "exec-decision-brief": A COMPLETE, full-page MEDDIC/MEDDPICC decision brief a champion forwards to their economic buyer — data-dense boardroom register: masthead → identified pain (cost-if-unresolved table) → count-up proof metrics → decision-criteria table → economic case (investment vs. return, payback) → decision process → forward-ready takeaways + CTA. Use this as the SINGLE block on the page ONLY when the request is for an executive / decision brief / buyer one-pager. Do NOT combine it with other blocks. All totals and payback are editorial copy, NOT live math — use REAL numbers from the brief. Props: preparedForLabel (e.g. "Prepared for {{company_name}}"), headline (6–12 words, a quantified outcome), thesis (one sentence ≤ 28 words), metaDate (3–6 words), metaPreparer (3–6 words), showLogo (boolean), painKicker (1–3 words), painHeading (6–12 words), painRows (array of 2–3 of {pain (8–16 words), owner (2–4 words), cost (a figure, e.g. "$310K / yr")}), metricsKicker (1–2 words), metricsHeading (5–10 words), metrics (array of 3–4 of {value (e.g. "32%","$1.4M","90 days"), label (2–6 words), source (4–8 words)}), criteriaKicker (2–3 words), criteriaHeading (5–10 words), criteriaIntro (18–32 words), showAlternatives (boolean), criteriaRows (array of 4–6 of {criterion (1–4 words), requirement (one sentence), delivery (one sentence), alternative (one short clause)}), economicsKicker (2–3 words), economicsHeading (4–8 words), investmentItems (array of {label, value}), investmentTotal (a figure), returnItems (array of {label, value}), returnTotal (a figure), paybackValue (e.g. "4.6 months"), economicsFootnote (12–24 words), processKicker (2–3 words), processHeading (3–6 words), processSteps (array of 3–4 of {label (1–3 words), timeframe (e.g. "Weeks 1–2"), description (one sentence)}), championKicker (2–4 words), championHeading (5–10 words), takeaways (array of EXACTLY 3 forward-ready lines), primaryCtaText (2–5 words), primaryCtaUrl ("#"), secondaryCtaText (2–4 words), secondaryCtaUrl ("#"), footerNote (8–16 words). The optional masthead logo is tenant-supplied — leave logoUrl "".`;
+const GENERAL_CHALLENGER_INSIGHT_BLOCK =
+  `- "challenger-insight": A COMPLETE, full-page Challenger-sale brief (Teach → Tailor → Take Control) with a bold dark provocateur register — insight hero (a reframe headline with ONE highlighted phrase) → belief-vs-data reframe → count-up cost-of-status-quo stats → stakeholder implications → the pivot to the better way (+ optional solution image) → proof → take-control 3-step plan with a constructive-tension close. Use this as the SINGLE block on the page ONLY when the request is for a challenger / commercial-insight / provocative point-of-view page. Do NOT combine it with other blocks. Props: kicker (5–9 words, an uncomfortable truth), headline (8–14 words, a provocative reframe), highlightPhrase (a phrase copied VERBATIM from the headline to highlight), subheadline (24–44 words landing the commercial insight), heroCtaText (2–4 words), heroCtaUrl ("#evidence"), reframeEyebrow (2–3 words), beliefLabel (2–4 words), beliefStatement (a quoted common belief), beliefSupport (array of 1–2 lines), realityLabel (3–5 words), realityStatement (12–24 words), realitySupport (array of 1–2 lines), costEyebrow (3–6 words), costHeading (8–14 words), costStats (array of up to 3 of {value (e.g. "$1.2M","19 hrs"), label (loss framing, 6–12 words)} — use REAL numbers), costFootnote (4–10 words), tailorEyebrow (2–4 words), tailorHeading (3–6 words), stakeholders (array of 2–3 of {label (e.g. "For Operations"), title (3–8 words), body (1–2 sentences)}), betterWayEyebrow (2–3 words), betterWayHeading (4–8 words), betterWayParagraphs (array of 2–3 short paragraphs), betterWayImageUrl (""), betterWayImageAlt (4–8 words), proofEyebrow (1–2 words), proofHeading (3–6 words), testimonials (array of 0–2 of {quote (REAL only — omit if none), name, title} — NEVER invent), planEyebrow (2–3 words), planHeading (3–6 words), planSteps (array of EXACTLY 3 of {title (3–6 words), description (one sentence)}), finalCtaText (2–5 words), finalCtaUrl ("#contact"), tensionLine (6–12 words, a constructive-tension closer). Customer logos are tenant assets — render name-only and NEVER set a logo imageUrl.`;
+
 // FULL-PAGE block — a complete page on its own. Only advertised when the user's
 // request is clearly for a podcast / webinar / content-series page.
 const GENERAL_CONTENT_SERIES_BLOCK =
@@ -5831,6 +5859,9 @@ export function buildGeneralSystemPrompt(opts?: {
   includeContentSeries?: boolean;
   includeBlogSeries?: boolean;
   includeStorefront?: boolean;
+  includeStorybrandJourney?: boolean;
+  includeExecDecisionBrief?: boolean;
+  includeChallengerInsight?: boolean;
 }): string {
   const disabled = opts?.aiDisabledTypes ?? new Set<string>();
   const paras = GENERAL_SYSTEM_PROMPT_TEMPLATE.split("\n\n");
@@ -5847,6 +5878,9 @@ export function buildGeneralSystemPrompt(opts?: {
       if (opts?.includeContentSeries) out.push(GENERAL_CONTENT_SERIES_BLOCK);
       if (opts?.includeBlogSeries) out.push(GENERAL_BLOG_SERIES_BLOCK);
       if (opts?.includeStorefront) out.push(GENERAL_STOREFRONT_BLOCK);
+      if (opts?.includeStorybrandJourney) out.push(GENERAL_STORYBRAND_JOURNEY_BLOCK);
+      if (opts?.includeExecDecisionBrief) out.push(GENERAL_EXEC_DECISION_BRIEF_BLOCK);
+      if (opts?.includeChallengerInsight) out.push(GENERAL_CHALLENGER_INSIGHT_BLOCK);
       injectedShowcase = true;
     }
     out.push(para);
@@ -5905,7 +5939,20 @@ export function buildDsoSystemPrompt(opts: { isDandyTenant: boolean; brandName: 
     ? `15. dso-ai-feature VIDEO: If — and only if — the brand context lists an AI Scan Review video URL under "DANDY-INTERNAL VIDEO ASSETS", set videoUrl on every dso-ai-feature block to that exact URL. If no such video URL is provided, leave videoUrl as "" and make sure imageUrl is set to a real image from the IMAGE LIBRARY (an in-product UI shot, dashboard, scanner, or clinical close-up). NEVER invent a videoUrl.`
     : `15. dso-ai-feature VIDEO: If — and only if — the brand context explicitly provides a product video URL, set videoUrl on every dso-ai-feature block to that exact URL. If no such video URL is provided, leave videoUrl as "" and make sure imageUrl is set to a real image from the IMAGE LIBRARY (an in-product UI shot, dashboard, or product close-up). NEVER invent a videoUrl.`;
 
-  const rule18Capability = isDandyTenant ? "a concrete Dandy capability" : `a concrete ${sellingBrand} capability`;
+  // Rule 5's "explicit request" examples name Dandy products for the Dandy
+  // tenant only; every other tenant gets generic section examples (Task #871 —
+  // this parenthetical was the last unconditional Dandy-product leak).
+  const rule5Examples = isDandyTenant
+    ? `(e.g. "Dandy Insights", "AI Scan Review", a comparison table, a pilot timeline, a customer story, a video)`
+    : `(e.g. an analytics dashboard, a comparison table, a pilot timeline, a customer story, a video)`;
+
+  // Rule 18 prose around the dso-comparison row's literal "dandy" PROP FIELD
+  // (a data key rendered blocks depend on — it cannot be renamed): the Dandy
+  // tenant reads naturally; other tenants get their own brand name (or a
+  // neutral phrase) with the field explained as the selling brand's column.
+  const rule18Capability = isDandyTenant
+    ? `a concrete Dandy capability with a proof point or stat in "dandy"`
+    : `a concrete ${sellingBrand} capability with a proof point or stat in the "dandy" field (${brand ? `${brand}'s` : "the selling brand's"} column)`;
   const rule19Imagery = isDandyTenant ? ` (prefer clinical, dental-team, or in-practice photos)` : "";
 
   // Dandy Insights blocks are Dandy-only product surfaces (they render the
@@ -5954,7 +6001,7 @@ RULES:
 2. The JSON must have: { "title": string, "slug": string, "blocks": [...] }
 3. Each block must have: { "id": string (unique, format "block-TYPE-INDEX"), "type": string, "props": {...} }
 4. Generate 6–10 blocks per page. Always start with "dso-heartland-hero" or "dso-scroll-story-hero", and always end with "dso-cta-capture" or "dso-final-cta". Use ONE closing CTA — never place two CTA blocks ("dso-cta-capture", "dso-final-cta", "bottom-cta") adjacent to each other; separate CTAs with content (proof, features, FAQ). One closing CTA is enough.
-5. BLOCK SELECTION — choose the block mix that best fits THIS specific account, audience, and prompt (and any reference site provided). Do NOT emit the same block sequence for every page: deliberately vary which blocks you use and their order from account to account based on what the brief emphasizes (e.g. a data-heavy network → stat-showcase + network-map + comparison; a single flagship customer → case-study + scroll-story; a pilot push → pilot-steps + bento-outcomes). A loose flow that works is hero → problem/challenges → ai-feature or scroll-story → stat-showcase or bento-outcomes → case-flow or network-map → comparison → success-stories → pilot-steps → cta — but treat this as ONE option, never a fixed template you must follow. EXPLICIT REQUESTS OVERRIDE VARIETY: when the USER REQUEST names a specific block, section, feature, topic, or product (e.g. "Dandy Insights", "AI Scan Review", a comparison table, a pilot timeline, a customer story, a video), you MUST include the block that delivers it — varying the mix NEVER justifies dropping a block the user explicitly asked for. Honoring explicit requests outranks this entire BLOCK SELECTION rule.
+5. BLOCK SELECTION — choose the block mix that best fits THIS specific account, audience, and prompt (and any reference site provided). Do NOT emit the same block sequence for every page: deliberately vary which blocks you use and their order from account to account based on what the brief emphasizes (e.g. a data-heavy network → stat-showcase + network-map + comparison; a single flagship customer → case-study + scroll-story; a pilot push → pilot-steps + bento-outcomes). A loose flow that works is hero → problem/challenges → ai-feature or scroll-story → stat-showcase or bento-outcomes → case-flow or network-map → comparison → success-stories → pilot-steps → cta — but treat this as ONE option, never a fixed template you must follow. EXPLICIT REQUESTS OVERRIDE VARIETY: when the USER REQUEST names a specific block, section, feature, topic, or product ${rule5Examples}, you MUST include the block that delivers it — varying the mix NEVER justifies dropping a block the user explicitly asked for. Honoring explicit requests outranks this entire BLOCK SELECTION rule.
 6. All copy must be enterprise B2B — specific, credible, and ROI-focused. Mention DSO scale, multi-location benefits, network-wide metrics. No lorem ipsum.
 ${rule7}
 8. The slug should be a URL-friendly version of the topic (lowercase, hyphens, no special chars).
@@ -5967,7 +6014,7 @@ ${rule10}
 ${rule15}
 16. NO STANDALONE NAV BLOCK with dso-heartland-hero: dso-heartland-hero already renders its own sticky navigation bar at the top. NEVER prepend a separate nav block (no "nav-header", no other navbar block) on a page that starts with dso-heartland-hero. The page's first block should be the hero itself.
 17. CASE STUDIES = 3: When you use "dso-success-stories", the cases array MUST have EXACTLY 3 items — not 2, not 4. Pick from the APPROVED CASE STUDIES section ONLY — never invent or use any customer story that is not explicitly listed there. If fewer than 3 approved case studies exist, repeat/pad with the remaining approved ones or leave placeholders, but NEVER fabricate a company, stat, quote, or author.
-18. NEVER SHIP AN EMPTY OR STUB COMPARISON: When you use "dso-comparison", you MUST populate the rows array with 5–7 fully written rows. An empty rows array, fewer than 5 rows, or rows with 1–3 word values is a FAILURE — the block will render blank or look broken. If you cannot think of 5 substantive rows for the segment, do NOT use this block at all; pick a different block instead. Each row needs a meaningful "need", ${rule18Capability} with a proof point or stat in "dandy", and a real pain point in "traditional". Mirror the verbosity of the EXAMPLE ROW shown in the dso-comparison schema above.
+18. NEVER SHIP AN EMPTY OR STUB COMPARISON: When you use "dso-comparison", you MUST populate the rows array with 5–7 fully written rows. An empty rows array, fewer than 5 rows, or rows with 1–3 word values is a FAILURE — the block will render blank or look broken. If you cannot think of 5 substantive rows for the segment, do NOT use this block at all; pick a different block instead. Each row needs a meaningful "need", ${rule18Capability}, and a real pain point in "traditional". Mirror the verbosity of the EXAMPLE ROW shown in the dso-comparison schema above.
 19. dso-problem IMAGES: When you use "dso-problem", you MUST populate imageUrls with EXACTLY 2 real URLs from the IMAGE LIBRARY${rule19Imagery}. The block has two image slots that render placeholders when imageUrls is empty — never ship this block without images.
 20. dso-stat-showcase = 6 STATS: When you use "dso-stat-showcase", the stats array MUST have EXACTLY 6 entries — the block renders a 3-column × 2-row grid and looks broken with fewer. If you cannot write 6 substantive stats for the segment, do NOT use this block; pick a different block instead.${rule21}`;
 }
@@ -6651,14 +6698,20 @@ export function buildSegmentSection(
   // (or its legacy list adapted) wins; when the segment has none, fall back to
   // the brand-default outline supplied by the caller.
   //
-  // A CONFIGURED outline is honored on EVERY path, including DSO / DSO-Practices
+  // An AUTHORED outline is honored on EVERY path, including DSO / DSO-Practices
   // landing pages (`dsoFreeChoice`): when a tenant has authored a recipe, its
-  // forced blocks and order must be respected — there is no DSO exception. Only
-  // a truly unconfigured segment (no outline after legacy adaptation, and no
-  // brand-default outline) falls through to the model's free block choice.
+  // forced blocks and order must be respected — there is no DSO exception.
+  //
+  // The LEGACY `micrositeBlockList` is different: it is the *microsite*
+  // vocabulary. On DSO paths (`dsoFreeChoice`) injecting it as a rigid ordered
+  // backbone collapsed every DSO landing page into the same microsite lineup
+  // and overrode the free block choice the DSO system prompt advertises, so on
+  // those paths the legacy list is skipped entirely and only an explicitly
+  // authored outline (segment or brand) is honored. A segment with neither
+  // falls through to the model's free block choice.
   const segmentOutline = effectiveOutline({
     outline: seg.pageOutline,
-    legacyBlockList: seg.micrositeBlockList,
+    legacyBlockList: opts.dsoFreeChoice ? null : seg.micrositeBlockList,
   });
   const outline = outlineHasSteps(segmentOutline)
     ? segmentOutline
@@ -7907,13 +7960,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         // Task #1138 — raw candidate facts (stats + claims + quotes). The
         // client persists these as pending flags via the page's /fact-flags/sync
         // endpoint once the page row exists.
-        detectedFacts: detectFacts(mergedBlocks),
+        detectedFacts: detectFacts(mergedBlocks, resolvedBrandName),
         // Strict Facts — when this generation used the per-request reference URL
         // as a fact source, its quotes are trusted. Persist their normalized
         // forms on the page (lp_pages.trusted_fact_forms) so the later
         // /fact-flags/sync re-detect (which has no URL context) never flags them.
         trustedFactForms: urlSourcedFacts
-          ? detectFacts(mergedBlocks)
+          ? detectFacts(mergedBlocks, resolvedBrandName)
               .filter((f) => f.factKind === "quote")
               .map((f) => f.normalizedForm)
           : [],
@@ -8193,10 +8246,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   logger.debug({ promptPath, segment: segmentContext?.name ?? "none", promptPreview: prompt.slice(0, 120).replace(/\n/g, " ") }, "[generate-page] generating with prompt");
 
   // Task #6 — brand-default outline ("recipe"), applied only when the segment
-  // has no outline of its own (resolved inside buildSegmentSection).
+  // has no outline of its own (resolved inside buildSegmentSection). On DSO
+  // paths the legacy microsite block list is NOT adapted into an outline
+  // (`dsoFreeChoice` — the model keeps free block choice); only an explicitly
+  // authored brand outline is passed through.
   const brandOutline = effectiveOutline({
     outline: brand.defaultPageOutline,
-    legacyBlockList: brand.defaultMicrositeBlockList,
+    legacyBlockList: useDso || useDsoPractices ? null : brand.defaultMicrositeBlockList,
   });
   const segmentSection = segmentContext && typeof segmentContext === "object"
     ? buildSegmentSection(segmentContext, {
@@ -9583,11 +9639,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       strictMismatches,
       // Task #1138 — raw candidate facts persisted as pending flags by the
       // client via /fact-flags/sync after the page row is created.
-      detectedFacts: detectFacts(parsed.blocks),
+      detectedFacts: detectFacts(parsed.blocks, resolvedBrandName),
       // Strict Facts — trusted (url-sourced) quote forms persisted on the page so
       // the later /fact-flags/sync re-detect never flags them. See above.
       trustedFactForms: urlSourcedFacts
-        ? detectFacts(parsed.blocks)
+        ? detectFacts(parsed.blocks, resolvedBrandName)
             .filter((f) => f.factKind === "quote")
             .map((f) => f.normalizedForm)
         : [],

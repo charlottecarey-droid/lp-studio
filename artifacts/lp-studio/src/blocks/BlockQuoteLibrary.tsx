@@ -1,7 +1,7 @@
 import { Star, ArrowRight } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
-import { pickContrastingColor } from "@/lib/brand-config";
+import { pickContrastingColor, isValidHex } from "@/lib/brand-config";
 import type { QuoteLibraryBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
@@ -48,8 +48,14 @@ export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
   const reduce = useReducedMotion() ?? false;
   const animate = !onFieldChange && !reduce;
 
-  // Card base contrasts with the section; in-card colors derive from it.
-  const cardBg = pickContrastingColor(undefined, bgSurface.base, ["#FFFFFF", "#1E293B"]);
+  // Card base contrasts with the section; a valid `cardBgColor` override wins.
+  // In-card colors derive from the chosen surface so a custom color stays
+  // readable; featured/tinted washes color-mix off `cardBg`/`accent` below.
+  const cardOverride =
+    props.cardBgColor && (isValidHex(props.cardBgColor) || props.cardBgColor.startsWith("var("))
+      ? props.cardBgColor
+      : undefined;
+  const cardBg = cardOverride ?? pickContrastingColor(undefined, bgSurface.base, ["#FFFFFF", "#1E293B"]);
   const cardText = pickContrastingColor(undefined, cardBg, ["#0F172A", "#F8FAFC"]);
   const cardMuted = pickContrastingColor(undefined, cardBg, ["#64748B", "#94A3B8"]);
   const cardBorder = `color-mix(in srgb, ${cardText} 9%, transparent)`;
@@ -106,7 +112,9 @@ export function BlockQuoteLibrary({ props, brand, onFieldChange }: Props) {
         <RevealStagger disabled={!animate} className="columns-1 gap-5 sm:columns-2 lg:columns-3">
           {testimonials.map((t, i) => {
             const featured = t.featured ?? (!hasExplicitFeatured && i === 0);
-            const tinted = !featured && (t.tinted ?? i % 3 === 2);
+            // With a custom card color, only honor an explicit per-card tint —
+            // don't auto-wash the chosen surface by position.
+            const tinted = !featured && (cardOverride ? t.tinted === true : (t.tinted ?? i % 3 === 2));
             const cardStyle: React.CSSProperties = {
               backgroundColor: cardBg,
               borderColor: cardBorder,

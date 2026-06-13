@@ -126,7 +126,9 @@ export function QuoteLibraryPanel({ props, onChange }: Props) {
         <div className="grid grid-cols-2 gap-2">
           <ColorField label="Text" value={props.textColor ?? "#0F172A"} onChange={(v) => update({ textColor: v })} />
           <ColorField label="Accent" value={props.accentColor ?? "#4f46e5"} onChange={(v) => update({ accentColor: v })} />
+          <ColorField label="Card color" value={props.cardBgColor} onChange={(v) => update({ cardBgColor: v })} />
         </div>
+        <p className="text-[11px] text-muted-foreground">Card color: leave empty for auto (contrasts with the section). When set, card text adapts for contrast.</p>
       </div>
     </div>
   );

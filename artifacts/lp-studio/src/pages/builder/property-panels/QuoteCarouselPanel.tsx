@@ -135,6 +135,10 @@ export function QuoteCarouselPanel({ props, onChange }: Props) {
             ))}
           </div>
         </div>
+        <div>
+          <ColorField label="Card color" value={props.cardBgColor} onChange={(v) => update({ cardBgColor: v })} />
+          <p className="text-[11px] text-muted-foreground mt-1">Leave empty for auto (uses the Card surface above). When set, this color overrides it and text adapts for contrast.</p>
+        </div>
       </div>
 
       <BenefitsCtaSection props={props} update={update} blockType="quote-carousel" />

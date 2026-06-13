@@ -1,7 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
-import { pickContrastingColor } from "@/lib/brand-config";
+import { pickContrastingColor, isValidHex } from "@/lib/brand-config";
 import type { SingleQuoteBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
@@ -49,7 +49,20 @@ export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
   const reduce = useReducedMotion() ?? false;
   const animate = !onFieldChange && !reduce;
   const split = props.layout === "split";
-  const tintPanel = props.tintPanel === true;
+  // A valid `cardBgColor` override turns the quote into a solid card (even when
+  // `tintPanel` is false). The in-panel ink derives from the chosen surface so
+  // a custom card color stays readable; the CTA band below keeps section ink.
+  const cardOverride =
+    props.cardBgColor && (isValidHex(props.cardBgColor) || props.cardBgColor.startsWith("var("))
+      ? props.cardBgColor
+      : undefined;
+  const tintPanel = props.tintPanel === true || cardOverride !== undefined;
+  // Ink used INSIDE the panel: derived from the override when set, else the
+  // section ink (preserving the historical tint-panel-over-section behavior).
+  const panelText = cardOverride ? pickContrastingColor(props.textColor, cardOverride, ["#0F172A", "#F8FAFC"]) : text;
+  const panelMuted = cardOverride ? pickContrastingColor(undefined, cardOverride, ["#64748B", "#94A3B8"]) : muted;
+  const panelBorder = cardOverride ? `color-mix(in srgb, ${panelText} 12%, transparent)` : border;
+  const panelDark = cardOverride ? pickContrastingColor(undefined, cardOverride, ["#0F172A", "#F8FAFC"]) === "#F8FAFC" : surface.isDark;
 
   const update = <K extends keyof SingleQuoteBlockProps>(key: K, value: SingleQuoteBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
@@ -65,7 +78,7 @@ export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
       onUpdate={onFieldChange ? (url) => update("avatarUrl", url) : undefined}
       className="h-12 w-12 shrink-0 rounded-full object-cover"
       wrapperClassName="shrink-0"
-      style={{ border: `1px solid ${border}` }}
+      style={{ border: `1px solid ${panelBorder}` }}
       loading="lazy"
     />
   ) : (
@@ -73,8 +86,8 @@ export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
       aria-hidden
       className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold"
       style={{
-        background: `color-mix(in srgb, ${accent} ${surface.isDark ? "26%" : "12%"}, transparent)`,
-        color: surface.isDark ? text : accent,
+        background: `color-mix(in srgb, ${accent} ${panelDark ? "26%" : "12%"}, transparent)`,
+        color: panelDark ? panelText : accent,
         fontFamily: BODY,
       }}
     >
@@ -91,15 +104,15 @@ export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
           value={props.author}
           onUpdate={onFieldChange ? (v) => update("author", v) : undefined}
           className="text-base font-semibold leading-tight"
-          style={{ color: text, fontFamily: BODY }}
+          style={{ color: panelText, fontFamily: BODY }}
         />
-        <span className="mt-0.5 text-sm leading-tight" style={{ color: muted, fontFamily: BODY }}>
+        <span className="mt-0.5 text-sm leading-tight" style={{ color: panelMuted, fontFamily: BODY }}>
           <InlineText
             as="span"
             value={props.role}
             onUpdate={onFieldChange ? (v) => update("role", v) : undefined}
             className="inline"
-            style={{ color: muted }}
+            style={{ color: panelMuted }}
           />
           {" · "}
           <InlineText
@@ -107,7 +120,7 @@ export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
             value={props.company}
             onUpdate={onFieldChange ? (v) => update("company", v) : undefined}
             className="inline font-medium"
-            style={{ color: muted }}
+            style={{ color: panelMuted }}
           />
         </span>
       </span>
@@ -116,7 +129,7 @@ export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
           src={props.companyLogoUrl}
           alt={`${props.company} logo`}
           loading="lazy"
-          className={cn("ml-3 h-6 w-auto max-w-[110px] shrink-0 object-contain", surface.isDark ? "opacity-80" : "opacity-60")}
+          className={cn("ml-3 h-6 w-auto max-w-[110px] shrink-0 object-contain", panelDark ? "opacity-80" : "opacity-60")}
         />
       )}
     </div>
@@ -131,7 +144,7 @@ export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
         fontFamily: DISPLAY,
         fontSize: "clamp(4.5rem, 9vw, 7rem)",
         color: accent,
-        opacity: surface.isDark ? 0.4 : 0.22,
+        opacity: panelDark ? 0.4 : 0.22,
       }}
     >
       &ldquo;
@@ -148,7 +161,7 @@ export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
         split ? "text-left" : "mx-auto max-w-3xl text-center",
       )}
       style={{
-        color: text,
+        color: panelText,
         fontFamily: DISPLAY,
         fontSize: split ? "clamp(1.75rem, 4vw, 2.75rem)" : "clamp(1.625rem, 3.6vw, 2.5rem)",
         lineHeight: 1.18,
@@ -157,7 +170,13 @@ export function BlockSingleQuote({ props, brand, onFieldChange }: Props) {
     />
   );
 
-  const panelStyle: React.CSSProperties = tintPanel
+  const panelStyle: React.CSSProperties = cardOverride
+    ? {
+        background: cardOverride,
+        border: `1px solid ${panelBorder}`,
+        boxShadow: `0 1px 2px color-mix(in srgb, ${panelText} 4%, transparent), 0 24px 56px -32px color-mix(in srgb, ${panelText} 30%, transparent)`,
+      }
+    : tintPanel
     ? {
         background: `color-mix(in srgb, ${accent} ${surface.isDark ? "10%" : "5%"}, transparent)`,
         border: `1px solid color-mix(in srgb, ${accent} ${surface.isDark ? "26%" : "14%"}, transparent)`,

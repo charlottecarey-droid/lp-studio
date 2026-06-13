@@ -167,6 +167,59 @@ describe("detectFacts — claims", () => {
   });
 });
 
+describe("detectFacts — claim false positives (CTA + self-positioning)", () => {
+  it("does NOT flag the imperative CTA 'Partner with Dandy today' as a claim", () => {
+    const blocks = [{ type: "hero", props: { headline: "Partner with Dandy today" } }];
+    expect(byKind(detectFacts(blocks), "claim")).toHaveLength(0);
+  });
+
+  it("does NOT flag a CTA after a sentence break ('Ready to transform? — Partner with Dandy today')", () => {
+    const blocks = [{ type: "cta", props: { headline: "Ready to transform? — Partner with Dandy today" } }];
+    expect(byKind(detectFacts(blocks), "claim")).toHaveLength(0);
+  });
+
+  it("does NOT flag other imperative CTAs ('Join the future of dentistry')", () => {
+    const blocks = [{ type: "cta", props: { headline: "Join the future of dentistry" } }];
+    expect(byKind(detectFacts(blocks), "claim")).toHaveLength(0);
+  });
+
+  it("does NOT flag self-positioning when the only entity is the selling brand", () => {
+    const blocks = [{ type: "richtext", props: { body: "Acme is your preferred partner for digital dentistry." } }];
+    // No brand name → conservative default does not match this phrasing as a claim
+    // (no declarative claim trigger fires on "preferred partner"); with the brand
+    // name supplied it is unambiguously self-positioning, not external validation.
+    expect(byKind(detectFacts(blocks, "Acme"), "claim")).toHaveLength(0);
+  });
+
+  it("suppresses a declarative-trigger claim when its only entity is the selling brand", () => {
+    // "partners with Acme" is a declarative trigger + entity, but the entity IS
+    // the selling brand → self-positioning, not external validation.
+    const blocks = [{ type: "richtext", props: { body: "Every practice partners with Acme to grow." } }];
+    expect(byKind(detectFacts(blocks, "Acme"), "claim")).toHaveLength(0);
+    // A DIFFERENT selling brand → "Acme" is now an external entity → real claim.
+    expect(byKind(detectFacts(blocks, "Globex"), "claim")).toHaveLength(1);
+  });
+
+  it("PRESERVES external-validation claims (true positives)", () => {
+    const cases: Array<[string, string]> = [
+      ["Trusted by Fortune 500 companies", "Trusted by Fortune 500 companies"],
+      ["Partnered with Microsoft", "We are Partnered with Microsoft on this."],
+      ["In partnership with AWS", "Built in partnership with AWS."],
+      ["Featured in Forbes", "As featured in Forbes and elsewhere."],
+      ["Rated #1 by G2", "Rated #1 by G2 in 2025."],
+    ];
+    for (const [name, body] of cases) {
+      const blocks = [{ type: "richtext", props: { body } }];
+      expect(byKind(detectFacts(blocks), "claim").length, name).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("STILL flags 'Trusted by Acme' when the SELLING brand is different", () => {
+    const blocks = [{ type: "richtext", props: { body: "Trusted by Acme nationwide." } }];
+    expect(byKind(detectFacts(blocks, "Globex"), "claim")).toHaveLength(1);
+  });
+});
+
 describe("detectFacts — quotes", () => {
   it("detects a quote field inside a testimonial block with attribution", () => {
     const blocks = [

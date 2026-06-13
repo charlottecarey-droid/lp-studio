@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Star, ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
-import { pickContrastingColor } from "@/lib/brand-config";
+import { pickContrastingColor, isValidHex } from "@/lib/brand-config";
 import type { QuoteCarouselBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
@@ -49,12 +49,19 @@ export function BlockQuoteCarousel({ props, brand, onFieldChange }: Props) {
   const reduce = useReducedMotion() ?? false;
   const animate = !onFieldChange && !reduce;
 
-  // ── Card surface (cardTheme: auto derives contrast vs the section). ──
+  // ── Card surface (cardTheme: auto derives contrast vs the section). A valid
+  //    `cardBgColor` override wins over cardTheme; card ink then derives from
+  //    the chosen surface so a custom card color stays readable. ──
   const cardTheme = props.cardTheme ?? "auto";
+  const cardOverride =
+    props.cardBgColor && (isValidHex(props.cardBgColor) || props.cardBgColor.startsWith("var("))
+      ? props.cardBgColor
+      : undefined;
   const cardBg =
-    cardTheme === "light" ? "#FFFFFF"
+    cardOverride ??
+    (cardTheme === "light" ? "#FFFFFF"
     : cardTheme === "dark" ? "#0F172A"
-    : pickContrastingColor(undefined, bgSurface.base, ["#FFFFFF", "#1E293B"]);
+    : pickContrastingColor(undefined, bgSurface.base, ["#FFFFFF", "#1E293B"]));
   const cardText = pickContrastingColor(undefined, cardBg, ["#0F172A", "#F8FAFC"]);
   const cardMuted = pickContrastingColor(undefined, cardBg, ["#64748B", "#94A3B8"]);
   const cardBorder = `color-mix(in srgb, ${cardText} 10%, transparent)`;

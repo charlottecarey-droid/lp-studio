@@ -271,6 +271,12 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "business-case-split": ["content"],
   "business-case-centered": ["content"],
   "business-case-premium": ["content"],
+  // Full-page sales-narrative templates (StoryBrand / MEDDIC / Challenger).
+  // Like business-case-*, each renders an entire standalone page and carries
+  // the broad "content" role only.
+  "storybrand-journey": ["content"],
+  "exec-decision-brief": ["content"],
+  "challenger-insight": ["content"],
 
   // ── Showcase ────────────────────────────────────────────────────────────────
   "sticky-stack": ["features", "media"],
@@ -352,6 +358,9 @@ export const FULL_PAGE_BLOCK_TYPES: ReadonlySet<string> = new Set([
   "business-case-split",
   "business-case-centered",
   "business-case-premium",
+  "storybrand-journey",
+  "exec-decision-brief",
+  "challenger-insight",
 ]);
 
 /** True when a block type renders an entire standalone full-page template. */

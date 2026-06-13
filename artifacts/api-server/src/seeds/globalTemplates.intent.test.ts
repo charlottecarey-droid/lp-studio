@@ -4,7 +4,7 @@
  * considers lp_pages rows flagged is_all_in_one, which the migrate.ts
  * backfill (global_templates_intent_v1) and the seed upsert derive from these
  * seed entries — so the seed data is the contract. This test pins:
- *   • exactly the expected 14 templates are flagged all-in-one;
+ *   • exactly the expected set of templates is flagged all-in-one;
  *   • every all-in-one entry carries category + non-empty keywords +
  *     isAllInOne: true (a partial entry would silently never match);
  *   • categories come from the allowed TemplateCategory buckets;
@@ -25,6 +25,12 @@ const EXPECTED_ALL_IN_ONE_SLUGS = [
   "global-business-case-split",
   "global-business-case-centered",
   "global-business-case-premium-editorial",
+  "global-business-case-split-generic",
+  "global-business-case-centered-generic",
+  "global-business-case-premium-editorial-generic",
+  "global-storybrand-journey",
+  "global-exec-decision-brief",
+  "global-challenger-insight",
   "global-flagship-event-landing",
   "global-flagship-restaurant",
   "global-flagship-creator-portfolio",
@@ -51,7 +57,7 @@ const ALLOWED_CATEGORIES = new Set([
 ]);
 
 describe("all-in-one template seed intent fields", () => {
-  it("exactly the 14 expected templates are flagged all-in-one", () => {
+  it("exactly the expected templates are flagged all-in-one", () => {
     const slugs = ALL_IN_ONE_TEMPLATE_SEEDS.map((t) => t.slug).sort();
     expect(slugs).toEqual(EXPECTED_ALL_IN_ONE_SLUGS);
   });
@@ -84,6 +90,180 @@ describe("all-in-one template seed intent fields", () => {
       expect(tpl.keywords === undefined || tpl.keywords.length === 0,
         `non-all-in-one "${tpl.slug}" must not carry keywords`).toBe(true);
       expect(tpl.isAllInOne ?? false, `"${tpl.slug}" isAllInOne default`).toBe(false);
+    }
+  });
+});
+
+// ─── Brand-neutral business-case siblings (June 2026) ────────────────────────
+// The three "-generic" templates exist so the business-case monographs can
+// absorb ANY tenant brand. This block pins the brand-neutrality contract:
+// universal industry tag, business-case intent overlap, and — critically —
+// zero dental/Dandy vocabulary anywhere in the default block props.
+
+const GENERIC_BUSINESS_CASE_SLUGS = [
+  "global-business-case-split-generic",
+  "global-business-case-centered-generic",
+  "global-business-case-premium-editorial-generic",
+];
+
+/** Dental/Dandy vocabulary that must never appear in the generic siblings'
+ *  rendered copy. Deliberately scans string VALUES only (not object keys —
+ *  the comparison-table rows use the legacy `withDandy` prop KEY, which the
+ *  block renders under a brand-driven "With <brandName>" header) and strips
+ *  `{{...}}` personalization tokens first (`{{practice_count}}` is the wired
+ *  token name from lib/businessCaseVars.ts, not copy). "practice"/"practices"
+ *  stays in the deny list because the generic copy should say "team(s)" /
+ *  "location(s)" — but "best practices" would be a false positive, so that
+ *  phrase is whitelisted before matching. */
+const DENTAL_VOCAB = /\b(dandy|dental|dentist\w*|denture\w*|crown\w*|chairside|chair\s?time|practice\w*|clinic\w*|doctor\w*|scanner\w*|remake\w*|DSO\w*|intraoral|aligner\w*|removables)\b/i;
+
+function collectStringValues(node: unknown, out: string[]): void {
+  if (typeof node === "string") {
+    out.push(node);
+  } else if (Array.isArray(node)) {
+    for (const item of node) collectStringValues(item, out);
+  } else if (node && typeof node === "object") {
+    for (const v of Object.values(node)) collectStringValues(v, out);
+  }
+}
+
+function findVocabLeaks(seed: (typeof GLOBAL_TEMPLATE_SEEDS)[number]): string[] {
+  const strings: string[] = [];
+  collectStringValues(seed.blocks.map((b) => b.props), strings);
+  // The marketplace card copy must be brand-neutral too.
+  strings.push(seed.title, seed.templateLabel, seed.templateDescription);
+  const leaks: string[] = [];
+  for (const s of strings) {
+    const scrubbed = s
+      .replace(/\{\{[^}]*\}\}/g, " ") // personalization tokens
+      .replace(/best practices/gi, " "); // benign idiom
+    if (DENTAL_VOCAB.test(scrubbed)) leaks.push(s);
+  }
+  return leaks;
+}
+
+describe("brand-neutral business-case siblings", () => {
+  const generics = GENERIC_BUSINESS_CASE_SLUGS.map((slug) => {
+    const seed = GLOBAL_TEMPLATE_SEEDS.find((t) => t.slug === slug);
+    return { slug, seed };
+  });
+
+  it("all three generic slugs exist in the seed list", () => {
+    for (const { slug, seed } of generics) {
+      expect(seed, `seed for ${slug}`).toBeDefined();
+    }
+  });
+
+  it("each is universal (industry null) and all-in-one", () => {
+    for (const { slug, seed } of generics) {
+      expect(seed!.industry, `${slug} industry`).toBeNull();
+      expect(seed!.isAllInOne, `${slug} isAllInOne`).toBe(true);
+      expect(seed!.category, `${slug} category`).toBe("business-case");
+    }
+  });
+
+  it("keywords overlap the business-case intent set (incl. 'executive brief')", () => {
+    // The dental originals define the business-case intent vocabulary; each
+    // generic sibling must share at least the core "business case" phrase so
+    // the selector treats them as the same intent bucket.
+    for (const { slug, seed } of generics) {
+      const kws = (seed!.keywords ?? []).map((k) => k.toLowerCase());
+      expect(kws, `${slug} keywords include "business case"`).toContain("business case");
+      expect(kws, `${slug} keywords include "executive brief"`).toContain("executive brief");
+      const dentalSibling = GLOBAL_TEMPLATE_SEEDS.find(
+        (t) => t.slug === slug.replace(/-generic$/, ""),
+      );
+      expect(dentalSibling, `dental sibling of ${slug}`).toBeDefined();
+      const overlap = (dentalSibling!.keywords ?? []).filter((k) =>
+        kws.includes(k.toLowerCase()),
+      );
+      expect(overlap.length, `${slug} keyword overlap with dental sibling`).toBeGreaterThan(0);
+    }
+  });
+
+  it("no dental/Dandy vocabulary leaks into default props or marketplace copy", () => {
+    for (const { slug, seed } of generics) {
+      const leaks = findVocabLeaks(seed!);
+      expect(leaks, `${slug} dental-vocabulary leaks`).toEqual([]);
+    }
+  });
+
+  it("block props omit the Dandy palette so tenant brand colors flow through", () => {
+    const PALETTE_KEYS = [
+      "bgColor", "inkColor", "darkColor", "accentColor",
+      "accentInkColor", "headlineColor", "headlineOnDarkColor",
+    ];
+    for (const { slug, seed } of generics) {
+      for (const block of seed!.blocks) {
+        for (const key of PALETTE_KEYS) {
+          expect(key in block.props, `${slug} props must omit ${key}`).toBe(false);
+        }
+        // Brand logo must come from BrandConfig, never a baked Dandy asset.
+        expect(block.props.logoUrl, `${slug} logoUrl empty`).toBe("");
+      }
+    }
+  });
+});
+
+// ─── Sales-narrative monograph templates (June 2026) ─────────────────────────
+// StoryBrand Journey, Exec Decision Brief, and Challenger Insight are
+// industry-neutral full-page templates that absorb ANY tenant brand. They share
+// the business-case intent bucket (via "business case" + "executive brief"
+// keywords) while adding their own methodology vocabulary. This block pins the
+// same brand-neutrality contract as the generic siblings above.
+
+const SALES_NARRATIVE_SLUGS = [
+  "global-storybrand-journey",
+  "global-exec-decision-brief",
+  "global-challenger-insight",
+];
+
+describe("sales-narrative monograph templates", () => {
+  const monographs = SALES_NARRATIVE_SLUGS.map((slug) => {
+    const seed = GLOBAL_TEMPLATE_SEEDS.find((t) => t.slug === slug);
+    return { slug, seed };
+  });
+
+  it("all three slugs exist in the seed list", () => {
+    for (const { slug, seed } of monographs) {
+      expect(seed, `seed for ${slug}`).toBeDefined();
+    }
+  });
+
+  it("each is universal (industry null) and all-in-one", () => {
+    for (const { slug, seed } of monographs) {
+      expect(seed!.industry, `${slug} industry`).toBeNull();
+      expect(seed!.isAllInOne, `${slug} isAllInOne`).toBe(true);
+      expect(seed!.category, `${slug} category`).toBe("business-case");
+    }
+  });
+
+  it("keywords overlap the business-case intent set (incl. 'executive brief')", () => {
+    for (const { slug, seed } of monographs) {
+      const kws = (seed!.keywords ?? []).map((k) => k.toLowerCase());
+      expect(kws, `${slug} keywords include "business case"`).toContain("business case");
+      expect(kws, `${slug} keywords include "executive brief"`).toContain("executive brief");
+    }
+  });
+
+  it("each carries its own methodology keywords", () => {
+    const expectedSignals: Record<string, string[]> = {
+      "global-storybrand-journey": ["storybrand", "brandscript", "customer journey"],
+      "global-exec-decision-brief": ["meddic", "meddpicc", "decision brief", "economic buyer", "champion"],
+      "global-challenger-insight": ["challenger", "commercial insight", "reframe", "status quo"],
+    };
+    for (const { slug, seed } of monographs) {
+      const kws = (seed!.keywords ?? []).map((k) => k.toLowerCase());
+      const signals = expectedSignals[slug];
+      const hit = signals.filter((s) => kws.includes(s));
+      expect(hit.length, `${slug} methodology keyword overlap (${signals.join(", ")})`).toBeGreaterThan(0);
+    }
+  });
+
+  it("no dental/Dandy vocabulary leaks into default props or marketplace copy", () => {
+    for (const { slug, seed } of monographs) {
+      const leaks = findVocabLeaks(seed!);
+      expect(leaks, `${slug} dental-vocabulary leaks`).toEqual([]);
     }
   });
 });

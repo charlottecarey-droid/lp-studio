@@ -1,7 +1,7 @@
 import { Star, ArrowRight } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
-import { pickContrastingColor } from "@/lib/brand-config";
+import { pickContrastingColor, isValidHex } from "@/lib/brand-config";
 import type { QuoteWithImageBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
@@ -34,8 +34,13 @@ export function BlockQuoteWithImage({ props, brand, onFieldChange }: Props) {
   const accent = props.accentColor ?? brand.accentColor ?? brand.primaryColor ?? "#0F172A";
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);
   // The quote card contrasts with the section: white card on light sections,
-  // deep slate card on dark ones — all in-card colors derive from the card.
-  const cardBg = pickContrastingColor(undefined, surface.base, ["#FFFFFF", "#1E293B"]);
+  // deep slate card on dark ones. A valid `cardBgColor` override wins, and all
+  // in-card colors derive from the chosen surface so it stays legible.
+  const cardOverride =
+    props.cardBgColor && (isValidHex(props.cardBgColor) || props.cardBgColor.startsWith("var("))
+      ? props.cardBgColor
+      : undefined;
+  const cardBg = cardOverride ?? pickContrastingColor(undefined, surface.base, ["#FFFFFF", "#1E293B"]);
   const cardText = pickContrastingColor(props.textColor, cardBg, ["#0F172A", "#F8FAFC"]);
   const cardMuted = pickContrastingColor(undefined, cardBg, ["#64748B", "#94A3B8"]);
   const cardBorder = `color-mix(in srgb, ${cardText} 10%, transparent)`;

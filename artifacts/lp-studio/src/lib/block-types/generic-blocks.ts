@@ -3641,6 +3641,11 @@ export interface QuoteCarouselBlockProps extends BenefitsCtaConfig {
   /** Quote card surface: "auto" derives a card that contrasts with the
    *  section background; "light"/"dark" force it. Default "auto". */
   cardTheme?: "auto" | "light" | "dark";
+  /** Optional override for the quote card background color (hex or CSS var).
+   *  When set and valid it wins over `cardTheme`; card text/muted/border are
+   *  auto-derived from it for contrast. When unset, `cardTheme` behavior is
+   *  unchanged. */
+  cardBgColor?: string;
 }
 
 /** A single testimonial card in the quote library masonry grid. */
@@ -3674,6 +3679,10 @@ export interface QuoteLibraryBlockProps extends BenefitsCtaConfig {
   bgColor?: string;
   textColor?: string;
   accentColor?: string;
+  /** Optional override for the testimonial card background color (hex or CSS
+   *  var). When unset, the card surface auto-derives to contrast with the
+   *  section background; when set, card text/muted/border derive from it. */
+  cardBgColor?: string;
 }
 
 /** Quotes — With Image: a single large quote paired with a portrait image,
@@ -3697,6 +3706,10 @@ export interface QuoteWithImageBlockProps extends BenefitsCtaConfig {
   bgColor?: string;
   textColor?: string;
   accentColor?: string;
+  /** Optional override for the quote card background color (hex or CSS var).
+   *  When unset, the card surface auto-derives to contrast with the section
+   *  background; when set, card text/muted/border derive from it. */
+  cardBgColor?: string;
 }
 
 /** Quotes — Single: one cinematic, centered testimonial with a large quote
@@ -3721,6 +3734,11 @@ export interface SingleQuoteBlockProps extends BenefitsCtaConfig {
   bgColor?: string;
   textColor?: string;
   accentColor?: string;
+  /** Optional override for the quote panel background color (hex or CSS var).
+   *  When set it forces the quote into a solid card (even if `tintPanel` is
+   *  false) and derives the quote/attribution ink from it for contrast. When
+   *  unset, the `tintPanel` behavior is unchanged. */
+  cardBgColor?: string;
 }
 
 /** A single testimonial card shown in the testimonial grid. */
@@ -4310,6 +4328,31 @@ export type {
   AuroraCtaFinaleBlockProps,
   AuroraCtaReassurance,
 } from "@/blocks/BlockAuroraCtaFinale";
+export type {
+  StorybrandJourneyBlockProps,
+  StorybrandProblemCard,
+  StorybrandStatChip,
+  StorybrandLogo,
+  StorybrandTestimonial,
+  StorybrandPlanStep,
+  StorybrandSuccessItem,
+} from "@/blocks/BlockStorybrandJourney";
+export type {
+  ExecDecisionBriefBlockProps,
+  ExecPainRow,
+  ExecMetric,
+  ExecCriterionRow,
+  ExecLineItem,
+  ExecProcessStep,
+} from "@/blocks/BlockExecDecisionBrief";
+export type {
+  ChallengerInsightBlockProps,
+  ChallengerCostStat,
+  ChallengerStakeholder,
+  ChallengerTestimonial,
+  ChallengerLogo,
+  ChallengerPlanStep,
+} from "@/blocks/BlockChallengerInsight";
 
 /**
  * Final CTA — Video background: a final CTA over a looping background video
