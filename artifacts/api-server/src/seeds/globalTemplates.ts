@@ -72,9 +72,24 @@ export interface GlobalTemplateSeed {
   isAllInOne?: boolean;
   /** ABM funnel-stage grouping tag (June 2026). Optional + fail-open: the
    *  microsite modal groups all-in-one templates by this when present and falls
-   *  back to slug/category-derived grouping otherwise. Not persisted to a DB
-   *  column. */
+   *  back to slug/category-derived grouping otherwise. PRIMARY funnel stage;
+   *  persisted to lp_pages.funnel_stage (June 2026 eligibility work). */
   funnelStage?: TemplateFunnelStage;
+  /** Template eligibility (June 2026). DECLARE where the template may be
+   *  AUTO-recommended. All three are ADDITIVE + FAIL-OPEN: omitted/empty = ANY
+   *  (no restriction), so a template that declares nothing stays eligible
+   *  everywhere. Persisted to lp_pages.eligible_* jsonb. Manual selection is
+   *  never gated by these.
+   *    eligibleSegments     — segment names/ids the template may be used for.
+   *    eligiblePersonas     — personas it's appropriate for.
+   *    eligibleFunnelStages — funnel stages it fits (the ALLOWED set, vs.
+   *                           funnelStage the PRIMARY). Defaults at backfill to
+   *                           [funnelStage] when only the singular is known. */
+  eligibleSegments?: string[];
+  eligiblePersonas?: string[];
+  /** Free-form stage labels (a superset of TemplateFunnelStage — e.g. a bare
+   *  "renewal" alias alongside "expansion-renewal"). */
+  eligibleFunnelStages?: string[];
 }
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
@@ -4024,6 +4039,10 @@ const BUSINESS_CASE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       "decision brief", "economic buyer", "champion", "decision criteria", "ROI case"],
     isAllInOne: true,
     funnelStage: "first-meeting",
+    // Persona-specific: the boardroom decision brief is for the economic
+    // buyer / executive. Segment + funnel stage left wildcard (any segment, and
+    // eligibleFunnelStages defaults to [funnelStage] at backfill).
+    eligiblePersonas: ["executive", "economic buyer", "cfo", "ceo", "chief", "vp", "owner"],
     blocks: [
       {
         id: "seed-exec-decision-brief-1",
@@ -4117,6 +4136,9 @@ const BUSINESS_CASE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
       "quarterly business review", "value & renewal", "ABM"],
     isAllInOne: true,
     funnelStage: "expansion-renewal",
+    // Stage-specific: fits both the expansion-renewal motion and a bare
+    // "renewal" stage label. Segment + persona left wildcard (any).
+    eligibleFunnelStages: ["expansion-renewal", "renewal"],
     blocks: [
       {
         id: "seed-value-renewal-review-1",
@@ -4154,3 +4176,40 @@ export const PREMIUM_RANK_BY_SLUG: Record<string, number> = Object.fromEntries(
  *  the generation route's intent selector may pick. */
 export const ALL_IN_ONE_TEMPLATE_SEEDS: GlobalTemplateSeed[] =
   GLOBAL_TEMPLATE_SEEDS.filter((t) => t.isAllInOne === true);
+
+/** Template eligibility (June 2026). The resolved eligibility constraints the
+ *  global_templates_eligibility_v1 backfill in migrate.ts writes onto lp_pages.
+ *  Only templates that DECLARE something (a primary funnelStage or any explicit
+ *  eligible* axis) are included — a fully-undeclared template stays wildcard
+ *  (eligible everywhere), so it needs no row written. `eligibleFunnelStages`
+ *  defaults to [funnelStage] when only the singular primary is known, matching
+ *  the engine's effectiveEligibleFunnelStages(). */
+export interface TemplateEligibilitySeed {
+  slug: string;
+  funnelStage: string | null;
+  eligibleSegments: string[] | null;
+  eligiblePersonas: string[] | null;
+  eligibleFunnelStages: string[] | null;
+}
+
+export const TEMPLATE_ELIGIBILITY_SEEDS: TemplateEligibilitySeed[] = GLOBAL_TEMPLATE_SEEDS
+  .filter(
+    (t) =>
+      t.funnelStage ||
+      (t.eligibleSegments && t.eligibleSegments.length > 0) ||
+      (t.eligiblePersonas && t.eligiblePersonas.length > 0) ||
+      (t.eligibleFunnelStages && t.eligibleFunnelStages.length > 0),
+  )
+  .map((t) => ({
+    slug: t.slug,
+    funnelStage: t.funnelStage ?? null,
+    eligibleSegments: t.eligibleSegments && t.eligibleSegments.length > 0 ? t.eligibleSegments : null,
+    eligiblePersonas: t.eligiblePersonas && t.eligiblePersonas.length > 0 ? t.eligiblePersonas : null,
+    // Default the allowed-set to [funnelStage] when only the primary is known.
+    eligibleFunnelStages:
+      t.eligibleFunnelStages && t.eligibleFunnelStages.length > 0
+        ? t.eligibleFunnelStages
+        : t.funnelStage
+          ? [t.funnelStage]
+          : null,
+  }));

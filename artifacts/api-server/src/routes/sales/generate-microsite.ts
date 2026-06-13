@@ -95,6 +95,15 @@ import {
   type RecommendMicrositeInput,
   type MicrositeObjective,
 } from "../../lib/ai-prompts/microsite-recommendation";
+// Template eligibility (June 2026). Data-driven gate: templates DECLARE where
+// they may be auto-recommended; the recommend endpoint GATES the plan's
+// objective-derived slug through it + the tenant's governance behavior so the
+// AI never CONFIDENTLY auto-picks the wrong page. Default: ai-from-scratch-only.
+import {
+  selectEligibleTemplate,
+  normalizeTemplateAiBehavior,
+  type EligibilityCandidate,
+} from "../../lib/ai-prompts/template-eligibility";
 import {
   governanceMapFromRows,
   blocksApprovedForSegment,
@@ -2603,6 +2612,111 @@ router.post("/microsite/recommend", requireAuth, recommendLimiter, async (req, r
       accountContext,
       notes,
     });
+
+    // ── Template-eligibility gate (June 2026) ──────────────────────────────
+    // The plan above maps the OBJECTIVE → a candidate funnel-stage template
+    // slug. Templates DECLARE where they may be auto-recommended (segment /
+    // persona / funnel stage), and the tenant has a governance behavior
+    // controlling how aggressively AI auto-picks vs. defaults to from-scratch
+    // (DEFAULT = "ai-from-scratch-only"). We GATE the plan's slug through that:
+    // only return a recommendedTemplateSlug when eligibility + behavior permit;
+    // otherwise null (from-scratch). Manual template selection downstream is
+    // unaffected — this governs AUTO-recommendation only. Fail-open on error:
+    // a lookup failure leaves the plan's original (objective-mapped) slug.
+    try {
+      // Read the tenant's governance behavior from brand_settings.config
+      // (additive JSONB key; no migration). Default to the owner's safe value.
+      let aiBehavior = normalizeTemplateAiBehavior(undefined);
+      try {
+        const [bs] = await db
+          .select({ config: lpBrandSettingsTable.config })
+          .from(lpBrandSettingsTable)
+          .where(eq(lpBrandSettingsTable.tenantId, tenantId))
+          .limit(1);
+        const cfg = (bs?.config ?? {}) as Record<string, unknown>;
+        aiBehavior = normalizeTemplateAiBehavior(cfg.micrositeTemplateAiBehavior);
+      } catch (cfgErr) {
+        logger.warn({ err: String(cfgErr), tenantId }, "[microsite/recommend] aiBehavior lookup failed (defaulting to ai-from-scratch-only)");
+      }
+
+      // Resolve the context: segment + persona from the request, funnel stage
+      // derived from the plan (which mapped it from the objective).
+      const eligibilityContext = {
+        segment: segment?.name ?? segment?.id ?? null,
+        persona: persona?.role ?? persona?.name ?? null,
+        funnelStage: plan.funnelStage ?? null,
+      };
+
+      // Candidate pool: every global/tenant template that DECLARES an
+      // eligibility constraint (or a primary funnel stage), PLUS the plan's own
+      // objective-mapped slug (so a wildcard template the objective chose is
+      // still in the running). isTemplate=true, visible to this tenant.
+      const candidateRows = await db
+        .select({
+          slug: lpPagesTable.slug,
+          label: lpPagesTable.templateLabel,
+          eligibleSegments: lpPagesTable.eligibleSegments,
+          eligiblePersonas: lpPagesTable.eligiblePersonas,
+          eligibleFunnelStages: lpPagesTable.eligibleFunnelStages,
+          funnelStage: lpPagesTable.funnelStage,
+        })
+        .from(lpPagesTable)
+        .where(
+          and(
+            eq(lpPagesTable.isTemplate, true),
+            or(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.isGlobal, true)),
+          ),
+        );
+      const asStrArr = (v: unknown): string[] | null =>
+        Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : null;
+      const candidates: EligibilityCandidate[] = candidateRows.map((r) => ({
+        slug: r.slug,
+        label: r.label ?? undefined,
+        eligibleSegments: asStrArr(r.eligibleSegments),
+        eligiblePersonas: asStrArr(r.eligiblePersonas),
+        eligibleFunnelStages: asStrArr(r.eligibleFunnelStages),
+        funnelStage: r.funnelStage ?? null,
+      }));
+
+      const selection = selectEligibleTemplate(eligibilityContext, candidates, aiBehavior);
+
+      // Gate the plan's recommended slug. If eligibility + behavior permit a
+      // specific slug, prefer the plan's objective-mapped slug WHEN it is itself
+      // eligible (keeps the objective→template intent), else use the engine's
+      // top pick. When the engine says from-scratch, force null.
+      if (selection.fromScratch || selection.recommendedSlug === null) {
+        plan.recommendedTemplateSlug = null;
+      } else {
+        const planSlugEligible =
+          plan.recommendedTemplateSlug != null &&
+          selection.eligible.some((e) => e.slug === plan.recommendedTemplateSlug);
+        plan.recommendedTemplateSlug = planSlugEligible
+          ? plan.recommendedTemplateSlug
+          : selection.recommendedSlug;
+      }
+      // Append the eligibility reasoning to the plan's existing reasoning trail
+      // (preserving the objective/segment/persona lines already there).
+      plan.reasoning = [...plan.reasoning, ...selection.reasoning];
+
+      logger.info(
+        {
+          event: "microsite_template_eligibility_decision",
+          tenantId,
+          accountId,
+          aiBehavior,
+          objective: objective ?? "from-scratch",
+          context: eligibilityContext,
+          eligibleCount: selection.eligible.length,
+          recommendedSlug: plan.recommendedTemplateSlug,
+          fromScratch: plan.recommendedTemplateSlug === null,
+        },
+        "[microsite/recommend] template eligibility gate applied",
+      );
+    } catch (eligErr) {
+      // Fail-open: keep the plan's original objective-mapped slug.
+      logger.warn({ err: String(eligErr), tenantId }, "[microsite/recommend] eligibility gate skipped (fail-open)");
+    }
+
     res.json({ plan });
   } catch (err) {
     logger.error({ err: String(err), tenantId }, "[microsite/recommend] failed");

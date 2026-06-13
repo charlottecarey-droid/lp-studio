@@ -1013,6 +1013,30 @@ async function runMigrationsBody(): Promise<void> {
         "featured_homepage_templates self-heal did not produce the table — aborting release",
     });
 
+    // Durable self-heal for the lp_pages template-eligibility columns (June 2026).
+    // Same high-water-mark hazard as the self-heals above: on a drifted DB whose
+    // drizzle.__drizzle_migrations max created_at already sits ABOVE 0098's
+    // journal `when`, the node-postgres migrator records nothing and never runs
+    // 0098's DDL, leaving the columns missing. The eligibility backfill below and
+    // the recommend flow both SELECT/UPDATE these columns, so a missing column
+    // would 500 the backfill + the recommend endpoint. Re-applying the file here
+    // is independent of drizzle's dedup and idempotent (ADD COLUMN IF NOT EXISTS),
+    // so it adds the columns where missing and is a no-op elsewhere. Fails CLOSED:
+    // the columns gate template auto-recommendation, so a shortfall aborts the
+    // release; a retry is always safe.
+    await runProbedSelfHeal({
+      name: "lp_pages template-eligibility columns self-heal (0098)",
+      applySqlFile: "0098_lp_pages_template_eligibility.sql",
+      expected: 4,
+      checkSql: `SELECT count(*)::int AS present
+           FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'lp_pages'
+            AND column_name IN ('eligible_segments', 'eligible_personas', 'eligible_funnel_stages', 'funnel_stage')`,
+      shortfall: (present) =>
+        `lp_pages template-eligibility self-heal did not produce all four columns (found ${present}/4) — aborting release`,
+    });
+
     // Durable self-heal for the Marketo two-way integration tables (Task #943).
     // Same high-water-mark hazard as the self-heals above: on a drifted DB whose
     // drizzle.__drizzle_migrations max created_at already sits ABOVE 0077's
@@ -1985,7 +2009,16 @@ async function runMigrationsBody(): Promise<void> {
       // keyword row on databases seeded before v31 — the dedicated
       // storefront_intent_keywords_v1 step further down force-updates that one
       // row to the trimmed seed list.
-      const SEED_MARKER = "global_templates_seed_v32";
+      // v33: carry the template-eligibility columns (migration 0098) directly in
+      // the seed INSERT — funnel_stage (PRIMARY) + eligible_segments /
+      // eligible_personas / eligible_funnel_stages (the ALLOWED sets). The ON
+      // CONFLICT clause NULL-GUARDS all four (COALESCE) so superadmin edits
+      // survive marker bumps; only never-tagged rows pick up the seed values.
+      // The dedicated global_templates_eligibility_v1 backfill below handles
+      // databases already past this marker. Conservative seed: only the
+      // funnel-stage / framework templates declare anything; everything else
+      // stays wildcard (NULL = ANY) so nothing breaks.
+      const SEED_MARKER = "global_templates_seed_v33";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;
@@ -2009,29 +2042,47 @@ async function runMigrationsBody(): Promise<void> {
             // marker bumps; only rows that have never been tagged pick up
             // the seed's values.
             const keywordsJson = tpl.keywords ? JSON.stringify(tpl.keywords) : null;
+            // Template-eligibility fields (June 2026, migration 0098). NULL =
+            // wildcard = ANY. eligible_funnel_stages defaults to [funnelStage]
+            // when only the singular primary is known (matches the engine's
+            // effectiveEligibleFunnelStages()). NULL-GUARDED on conflict.
+            const eligSegJson = tpl.eligibleSegments && tpl.eligibleSegments.length > 0
+              ? JSON.stringify(tpl.eligibleSegments) : null;
+            const eligPerJson = tpl.eligiblePersonas && tpl.eligiblePersonas.length > 0
+              ? JSON.stringify(tpl.eligiblePersonas) : null;
+            const eligStageList = tpl.eligibleFunnelStages && tpl.eligibleFunnelStages.length > 0
+              ? tpl.eligibleFunnelStages
+              : (tpl.funnelStage ? [tpl.funnelStage] : null);
+            const eligStageJson = eligStageList ? JSON.stringify(eligStageList) : null;
             const result = await db.execute<{ "?column?": number }>(sql`
               INSERT INTO lp_pages (
                 tenant_id, title, slug, blocks, status,
                 is_template, template_label, template_description,
                 is_global, industry, mode, og_image,
-                category, keywords, is_all_in_one
+                category, keywords, is_all_in_one,
+                funnel_stage, eligible_segments, eligible_personas, eligible_funnel_stages
               ) VALUES (
                 ${ownerId}, ${tpl.title}, ${tpl.slug}, ${blocksJson}::jsonb, 'draft',
                 true, ${tpl.templateLabel}, ${tpl.templateDescription},
                 true, ${tpl.industry}, 'marketing', ${tpl.ogImage},
-                ${tpl.category ?? null}, ${keywordsJson}::jsonb, ${tpl.isAllInOne === true}
+                ${tpl.category ?? null}, ${keywordsJson}::jsonb, ${tpl.isAllInOne === true},
+                ${tpl.funnelStage ?? null}, ${eligSegJson}::jsonb, ${eligPerJson}::jsonb, ${eligStageJson}::jsonb
               )
               ON CONFLICT (tenant_id, slug) DO UPDATE SET
-                blocks               = EXCLUDED.blocks,
-                template_label       = EXCLUDED.template_label,
-                template_description = EXCLUDED.template_description,
-                og_image             = EXCLUDED.og_image,
-                is_template          = true,
-                is_global            = true,
-                industry             = EXCLUDED.industry,
-                category             = COALESCE(lp_pages.category, EXCLUDED.category),
-                keywords             = COALESCE(lp_pages.keywords, EXCLUDED.keywords),
-                is_all_in_one        = lp_pages.is_all_in_one OR EXCLUDED.is_all_in_one
+                blocks                 = EXCLUDED.blocks,
+                template_label         = EXCLUDED.template_label,
+                template_description   = EXCLUDED.template_description,
+                og_image               = EXCLUDED.og_image,
+                is_template            = true,
+                is_global              = true,
+                industry               = EXCLUDED.industry,
+                category               = COALESCE(lp_pages.category, EXCLUDED.category),
+                keywords               = COALESCE(lp_pages.keywords, EXCLUDED.keywords),
+                is_all_in_one          = lp_pages.is_all_in_one OR EXCLUDED.is_all_in_one,
+                funnel_stage           = COALESCE(lp_pages.funnel_stage, EXCLUDED.funnel_stage),
+                eligible_segments      = COALESCE(lp_pages.eligible_segments, EXCLUDED.eligible_segments),
+                eligible_personas      = COALESCE(lp_pages.eligible_personas, EXCLUDED.eligible_personas),
+                eligible_funnel_stages = COALESCE(lp_pages.eligible_funnel_stages, EXCLUDED.eligible_funnel_stages)
               RETURNING 1
             `);
             if (result.rows.length > 0) upserted++;
@@ -2092,6 +2143,58 @@ async function runMigrationsBody(): Promise<void> {
       }
     } catch (intentErr) {
       logger.error({ err: intentErr }, "global_templates intent backfill failed (non-fatal)");
+    }
+    });
+
+    // Template eligibility backfill (June 2026). Existing databases already
+    // carry the global_templates_seed marker, so the seed loop above never
+    // re-runs for them and the new eligibility columns (migration 0098) would
+    // stay NULL on the already-seeded funnel-stage rows. This marker-gated step
+    // tags those rows from the seed file's resolved eligibility (the singular
+    // primary funnel_stage + the eligible_* allowed sets, with
+    // eligible_funnel_stages defaulting to [funnel_stage] when only the primary
+    // is known). Each UPDATE is NULL-GUARDED per field (COALESCE) so any manual
+    // edits made before this runs are preserved — only untagged fields pick up
+    // the seed values. Matching is by slug across ALL global template rows.
+    // FAIL-OPEN by design: a NULL constraint = wildcard = no restriction, so
+    // even a skipped backfill keeps templates usable. Best-effort + idempotent:
+    // safe to re-run, and a failure never aborts the release.
+    await runStep("global_templates eligibility backfill", async () => {
+    try {
+      const ELIGIBILITY_MARKER = "global_templates_eligibility_v1";
+      const marker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${ELIGIBILITY_MARKER}`
+      );
+      if (marker.rows.length === 0) {
+        const { TEMPLATE_ELIGIBILITY_SEEDS } = await import("./seeds/globalTemplates");
+        let tagged = 0;
+        for (const tpl of TEMPLATE_ELIGIBILITY_SEEDS) {
+          const segJson = tpl.eligibleSegments ? JSON.stringify(tpl.eligibleSegments) : null;
+          const perJson = tpl.eligiblePersonas ? JSON.stringify(tpl.eligiblePersonas) : null;
+          const stageJson = tpl.eligibleFunnelStages ? JSON.stringify(tpl.eligibleFunnelStages) : null;
+          const result = await db.execute<{ "?column?": number }>(sql`
+            UPDATE lp_pages
+            SET funnel_stage           = COALESCE(funnel_stage, ${tpl.funnelStage}),
+                eligible_segments      = COALESCE(eligible_segments, ${segJson}::jsonb),
+                eligible_personas      = COALESCE(eligible_personas, ${perJson}::jsonb),
+                eligible_funnel_stages = COALESCE(eligible_funnel_stages, ${stageJson}::jsonb)
+            WHERE slug = ${tpl.slug}
+              AND is_template = true
+              AND is_global = true
+            RETURNING 1
+          `);
+          tagged += result.rows.length;
+        }
+        await db.execute(sql`
+          INSERT INTO _schema_migration_markers (key) VALUES (${ELIGIBILITY_MARKER}) ON CONFLICT DO NOTHING
+        `);
+        logger.info(
+          { tagged, total: TEMPLATE_ELIGIBILITY_SEEDS.length },
+          "global_templates eligibility backfill applied"
+        );
+      }
+    } catch (eligErr) {
+      logger.error({ err: eligErr }, "global_templates eligibility backfill failed (non-fatal)");
     }
     });
 

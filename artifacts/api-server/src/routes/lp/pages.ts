@@ -25,6 +25,23 @@ import { isRootSuperadminEmail } from "../../lib/rootSuperadmin";
 
 const router = Router();
 
+/** Template eligibility (June 2026). Coerce a client-supplied value into a
+ *  clean string[] for the eligible_* jsonb columns, or null (= ANY / wildcard).
+ *  Trims, drops empties + non-strings, dedupes. An empty array collapses to
+ *  null so "[]" and "unset" both mean wildcard. */
+function sanitizeStringArray(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const cleaned = Array.from(
+    new Set(
+      value
+        .filter((x): x is string => typeof x === "string")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0),
+    ),
+  );
+  return cleaned.length > 0 ? cleaned : null;
+}
+
 /**
  * Page-review permission helpers (task #108).
  *
@@ -390,6 +407,11 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     title, slug, blocks, status, customCss, metaTitle, metaDescription,
     ogImage, animationsEnabled, smoothScroll, pageVariables, fromTemplateId, audienceType, segmentId,
     trustedFactForms,
+    // Template eligibility (June 2026). Meaningful only on template rows; gate
+    // where a tenant-created template may be AUTO-recommended. All optional +
+    // fail-open (null/empty = ANY). funnelStage is the PRIMARY stage;
+    // eligibleFunnelStages is the ALLOWED set.
+    funnelStage, eligibleSegments, eligiblePersonas, eligibleFunnelStages,
   } = req.body as {
     title?: unknown;
     slug?: unknown;
@@ -406,6 +428,10 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     audienceType?: unknown;
     segmentId?: unknown;
     trustedFactForms?: unknown;
+    funnelStage?: unknown;
+    eligibleSegments?: unknown;
+    eligiblePersonas?: unknown;
+    eligibleFunnelStages?: unknown;
   };
   if (!title || typeof title !== "string") {
     res.status(400).json({ error: "title is required" });
@@ -611,6 +637,12 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
           : sourcePageVariables,
         audienceType: typeof audienceType === "string" && audienceType ? audienceType : null,
         segmentId: typeof segmentId === "string" && segmentId ? segmentId : null,
+        // Template eligibility (June 2026). Persisted so tenant-created
+        // templates participate in eligibility gating. null/empty = ANY.
+        funnelStage: typeof funnelStage === "string" && funnelStage ? funnelStage : null,
+        eligibleSegments: sanitizeStringArray(eligibleSegments),
+        eligiblePersonas: sanitizeStringArray(eligiblePersonas),
+        eligibleFunnelStages: sanitizeStringArray(eligibleFunnelStages),
         // Strict Facts — persist trusted (url-sourced) quote fact-forms so the
         // later /fact-flags/sync never flags quotes that came from the
         // generation reference URL. Validated against on-page quotes above.
@@ -925,7 +957,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     res.status(413).json({ error: "Request payload exceeds maximum size of 10MB" });
     return;
   }
-  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, smoothScroll, pageVariables, audienceType, segmentId, allowIndexing, allowFollowing } = req.body as {
+  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, smoothScroll, pageVariables, audienceType, segmentId, allowIndexing, allowFollowing, funnelStage, eligibleSegments, eligiblePersonas, eligibleFunnelStages } = req.body as {
     title?: string;
     slug?: string;
     blocks?: unknown[];
@@ -942,9 +974,15 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     // Task #494 — tri-state robots overrides. null = inherit tenant default.
     allowIndexing?: boolean | null;
     allowFollowing?: boolean | null;
+    // Template eligibility (June 2026). funnelStage = PRIMARY stage;
+    // eligible* = ALLOWED sets. null/empty = ANY (wildcard).
+    funnelStage?: string | null;
+    eligibleSegments?: unknown;
+    eligiblePersonas?: unknown;
+    eligibleFunnelStages?: unknown;
   };
 
-  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean; smoothScroll: boolean; pageVariables: Record<string, string>; audienceType: string | null; segmentId: string | null; allowIndexing: boolean | null; allowFollowing: boolean | null; updatedBy: string | null }> = {};
+  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean; smoothScroll: boolean; pageVariables: Record<string, string>; audienceType: string | null; segmentId: string | null; allowIndexing: boolean | null; allowFollowing: boolean | null; funnelStage: string | null; eligibleSegments: string[] | null; eligiblePersonas: string[] | null; eligibleFunnelStages: string[] | null; updatedBy: string | null }> = {};
   if (title !== undefined) updates.title = title;
   if (slug !== undefined) {
     if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug) && slug.length !== 1) {
@@ -1003,6 +1041,13 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
   if (pageVariables !== undefined) updates.pageVariables = pageVariables;
   if (audienceType !== undefined) updates.audienceType = audienceType ?? null;
   if (segmentId !== undefined) updates.segmentId = segmentId ?? null;
+  // Template eligibility (June 2026). Field-present = write (possibly
+  // null/wildcard); field-absent = leave as-is. Arrays sanitized to clean
+  // string[] or null (= ANY).
+  if (funnelStage !== undefined) updates.funnelStage = (typeof funnelStage === "string" && funnelStage.trim()) ? funnelStage.trim() : null;
+  if (eligibleSegments !== undefined) updates.eligibleSegments = sanitizeStringArray(eligibleSegments);
+  if (eligiblePersonas !== undefined) updates.eligiblePersonas = sanitizeStringArray(eligiblePersonas);
+  if (eligibleFunnelStages !== undefined) updates.eligibleFunnelStages = sanitizeStringArray(eligibleFunnelStages);
   // Task #494 — accept tri-state robots overrides. An explicit `null` resets
   // the page back to "inherit tenant default", so we must distinguish
   // "field present" (write, possibly null) from "field absent" (leave as-is).

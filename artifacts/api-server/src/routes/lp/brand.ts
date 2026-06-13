@@ -32,7 +32,16 @@ async function isBrandPreviewSuperadmin(user: AuthUser | undefined): Promise<boo
 // any Dandy-specific values (logoUrl, copyrightName, meetdandy CTA URLs,
 // social links, etc.) so an unauthenticated public viewer for a non-Dandy
 // tenant never inherits Dandy branding through a fallback path.
-const DEFAULT_CONFIG = {};
+// Template-eligibility governance (June 2026). The tenant/program setting that
+// controls how aggressively the microsite wizard AUTO-picks a template vs.
+// defaulting to "AI builds from scratch". Stored as an additive key on the
+// brand_settings JSONB (no migration). Surfaced here so the GET returns the
+// owner's safe DEFAULT ("ai-from-scratch-only") when unset, and the existing
+// PUT /lp/brand round-trips it (it spreads `...config`). The recommend flow in
+// generate-microsite.ts reads it via normalizeTemplateAiBehavior().
+const DEFAULT_CONFIG = {
+  micrositeTemplateAiBehavior: "ai-from-scratch-only",
+};
 
 /**
  * Resolve tenant id for the brand request.

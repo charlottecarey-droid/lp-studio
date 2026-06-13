@@ -73,6 +73,28 @@ export const lpPagesTable = pgTable("lp_pages", {
   isAllInOne: boolean("is_all_in_one").notNull().default(false),
   audienceType: text("audience_type"),  // "dso-corporate" | "dso-practice" | "independent"
   segmentId: text("segment_id"),        // brand segment ID applied to this page
+  // Template eligibility (June 2026). Meaningful only on template rows
+  // (isTemplate=true); regular pages keep the defaults. All three are ADDITIVE,
+  // NULLABLE, and FAIL-OPEN — an empty/null constraint means "ANY" (no
+  // restriction), so existing templates with these unset remain usable
+  // everywhere. They DECLARE where a template is allowed to be auto-recommended;
+  // the eligibility engine (lib/ai-prompts/template-eligibility.ts) gates
+  // AUTO-recommendation against them. Manual template selection is unaffected.
+  //   eligibleSegments      — jsonb string[] of segment names/ids the template
+  //                           may be used for. NULL/empty = ANY segment.
+  //   eligiblePersonas      — jsonb string[] of personas it's appropriate for.
+  //                           NULL/empty = ANY persona.
+  //   eligibleFunnelStages  — jsonb string[] of funnel stages/motions it fits.
+  //                           NULL/empty = ANY. The ALLOWED set (vs. funnelStage,
+  //                           the PRIMARY stage). Defaults to [funnelStage] when
+  //                           only the singular primary is known.
+  //   funnelStage           — the template's PRIMARY funnel stage (singular).
+  //                           Previously derived client-side from the seed; now
+  //                           persisted so tenant templates participate too.
+  eligibleSegments: jsonb("eligible_segments"),
+  eligiblePersonas: jsonb("eligible_personas"),
+  eligibleFunnelStages: jsonb("eligible_funnel_stages"),
+  funnelStage: text("funnel_stage"),
   // Page-review workflow (task #108). status may be "draft" | "pending_review" | "published".
   // The review-related columns are nullable and only populated while a review is in flight
   // or after a decision has been made. asanaTaskId stores the GID of the open Asana review
