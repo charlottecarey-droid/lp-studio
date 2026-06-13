@@ -9,6 +9,7 @@ import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT, BRAND_NUMBERS_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 import { Reveal, RevealStagger, RevealItem } from "@/lib/premium-toolkit";
+import { balancedGridItemClasses } from "@/lib/grid-balance";
 import { StatCounter } from "./StatCounter";
 
 /* ----------------------------------------------------------------------------
@@ -55,6 +56,18 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
 
   const cards = props.cards ?? [];
   const isLogo = props.displayMode === "logo";
+
+  /* Last-row balancing (doubled-track grid, see grid-balance.ts): the grid
+   * renders md:grid-cols-4 / lg:grid-cols-6 (2 tracks per visual cell — md is
+   * 2-up, lg 3-up) so an incomplete last row is centered instead of leaving a
+   * bottom-left orphan card. A `featured` card counts as 2 cells. */
+  const placementClasses = balancedGridItemClasses(
+    cards.map((c) => (c.featured ? 2 : 1)),
+    [
+      { prefix: "md", cols: 2 },
+      { prefix: "lg", cols: 3 },
+    ],
+  );
 
   // These are customer/company *logo* slots. For AI-invented placeholder
   // companies we usually have no real logo (the image pipeline no longer
@@ -119,7 +132,7 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
           )}
         </Reveal>
 
-        <RevealStagger disabled={!animate} className="mb-14 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+        <RevealStagger disabled={!animate} className="mb-14 grid grid-cols-1 gap-5 md:grid-cols-4 lg:grid-cols-6 lg:gap-6">
           {cards.map((card, i) => {
             const featured = !!card.featured;
             // Varied surfaces: featured gets an accent wash; every third
@@ -134,7 +147,7 @@ export function BlockCaseStudyCardGrid({ props, brand, onFieldChange }: Props) {
             <RevealItem
               key={i}
               disabled={!animate}
-              className={`cscg-card group relative flex h-full flex-col overflow-hidden rounded-3xl border p-7 sm:p-8 ${featured ? "md:col-span-2" : ""}`}
+              className={`cscg-card group relative flex h-full flex-col overflow-hidden rounded-3xl border p-7 sm:p-8 ${placementClasses[i] ?? ""}`}
               style={{
                 background: bgStyle,
                 borderColor: featured ? `color-mix(in srgb, ${metricColor} 35%, ${cardBorder})` : cardBorder,

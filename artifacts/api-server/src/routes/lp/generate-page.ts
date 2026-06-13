@@ -34,7 +34,7 @@ import {
   type ImageFitSlot,
 } from "../../lib/ai-prompts/image-fit";
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
-import { resolveBlockTags, BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS, type BlockRoleTag } from "@workspace/lp-template-engine";
+import { resolveBlockTags, getDefaultBlockTags, BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS, type BlockRoleTag } from "@workspace/lp-template-engine";
 import {
   governanceMapFromRows,
   blocksApprovedForSegment,
@@ -172,6 +172,13 @@ const DESIGN_INTENSITY_VALUES: readonly DesignIntensity[] = [
 
 interface BrandConfig {
   brandName?: string;
+  /** Brand Settings "About the company" blurb. June 2026 copy-quality audit:
+   *  previously only the copy-refresh endpoints (brand-and-brief.ts) read it —
+   *  full page generation never saw it, so pages for content-rich brands
+   *  drifted generic. Now injected verbatim into BRAND CONTEXT. */
+  companyDescription?: string;
+  /** Brand taglines — injected verbatim (same audit as companyDescription). */
+  taglines?: string[];
   toneOfVoice?: string;
   messagingPillars?: { label: string; description: string }[];
   copyExamples?: string[];
@@ -196,14 +203,33 @@ interface BrandConfig {
    *  keywords when not explicitly set; defaults to "balanced". */
   designIntensity?: DesignIntensity;
   /** Task #900 — imported voice profile; its `profile.tone` / `profile.summary`
-   *  text is read by the design-intensity inference so it works regardless of
-   *  which voice field the brand populated. Only the consumed shape is typed. */
-  voiceProfile?: { profile?: { tone?: string[]; summary?: string } };
+   *  text is read by the design-intensity inference AND (June 2026 copy-quality
+   *  audit) injected as a voice anchor into BRAND CONTEXT. Only the consumed
+   *  shape is typed. */
+  voiceProfile?: { profile?: { tone?: string[]; summary?: string; signaturePhrases?: string[] } };
   productLines?: ProductLine[];
   /** Task #253 — minimal mirror of the client `AudienceSegment` shape so we
-   *  can pull approved per-segment stats into the strict-mode pool. Only the
-   *  fields actually consumed here are typed; the rest are tolerated. */
-  segments?: Array<{ name?: string; stats?: BrandSegmentStat[] }>;
+   *  can pull approved per-segment stats into the strict-mode pool, and (June
+   *  2026 copy-quality audit) so the server can backfill the segment's saved
+   *  stats + comparison rows into `segmentContext` — the lp-studio clients
+   *  send a trimmed segmentContext that omits both. Only the fields actually
+   *  consumed here are typed; the rest are tolerated. */
+  segments?: Array<{
+    id?: string;
+    name?: string;
+    stats?: BrandSegmentStat[];
+    comparisonRows?: Array<{ need?: string; us?: string; them?: string }>;
+  }>;
+  /** Stats scraped from the brand's own marketing pages during URL brand
+   *  import (June 2026 copy-quality audit — previously these reached only the
+   *  copy-refresh endpoints, never full page generation). In strict mode only
+   *  `approvedForAi !== false` rows reach the prompt and the approved pool. */
+  scrapedStats?: Array<{ value?: string; label?: string; approvedForAi?: boolean }>;
+  /** Customer quotes scraped during URL brand import. Same approval contract
+   *  as `scrapedStats`. These are what testimonial-type blocks feed on — the
+   *  vocab says "use ONLY real quotes provided in the brand context", so
+   *  without them testimonial blocks ship bare for strict-mode tenants. */
+  scrapedTestimonials?: Array<{ quote?: string; author?: string; role?: string; approvedForAi?: boolean }>;
   chilipiperUrl?: string;
   defaultCtaUrl?: string;
   defaultCtaText?: string;
@@ -236,14 +262,20 @@ interface BrandConfig {
 
 /** Task #253 — short, assertive instruction appended to AI prompts when
  *  the brand has `aiStrictFactsMode` on. Mirrors the constant in the
- *  client-side `brand-config.ts` so prompt copy stays in sync. */
+ *  client-side `brand-config.ts` so prompt copy stays in sync (the trailing
+ *  testimonial-card exception is page-generation-specific: without it the
+ *  model pads testimonial grids with placeholder-attributed cards to satisfy
+ *  vocab item counts — see stripPlaceholderTestimonials). */
 const STRICT_FACTS_INSTRUCTION =
   "STRICT FACTS MODE: Use ONLY the statistics, percentages, customer counts, " +
   "claims, and case studies explicitly listed in this brief. Do NOT invent, " +
   "extrapolate, round, or paraphrase numbers. If a slot would require a stat " +
   "or number that is not provided, write \"X\"; if it would require a case " +
   "study or quote that is not provided, write \"Add a quote in brand settings\". " +
-  "Write nothing else in those slots.";
+  "Write nothing else in those slots. EXCEPTION — testimonial/quote card " +
+  "blocks (testimonial, testimonial-grid, testimonial-wall, quote-library, " +
+  "quote-carousel, single-quote): NEVER write placeholder text into a quote " +
+  "card; OMIT the card and emit fewer items instead.";
 
 // ── Brand typography & design-intensity helpers (Task #900) ───────────────
 
@@ -3575,10 +3607,32 @@ async function fetchBrand(tenantId: number | null): Promise<BrandConfig> {
   }
 }
 
+/** Collapse whitespace + strip control chars so a hostile or malformed
+ *  scraped quote can't smuggle fake instructions ("\n\nSYSTEM: …") into the
+ *  prompt. Mirrors `sanitizeScraped` in lib/ai-prompts/brand-and-brief.ts. */
+function sanitizeScrapedText(raw: string): string {
+  return raw
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001F\u007F]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function buildBrandContext(brand: BrandConfig, designIntensity: DesignIntensity): string {
   const parts: string[] = [];
   if (brand.brandName) parts.push(`Brand: ${brand.brandName}`);
+  if (brand.companyDescription) parts.push(`About the company: ${brand.companyDescription}`);
+  if (brand.taglines?.length) parts.push(`Taglines: ${brand.taglines.join(" | ")}`);
   if (brand.toneOfVoice) parts.push(`Tone: ${brand.toneOfVoice}`);
+  // Imported voice profile (June 2026 copy-quality audit) — the highest-signal
+  // voice fields the URL brand-importer writes. Previously only the
+  // copy-refresh endpoints read these; full page generation ignored them.
+  const vp = brand.voiceProfile?.profile;
+  if (vp?.summary) parts.push(`Voice summary: ${vp.summary}`);
+  if (vp?.tone?.length) parts.push(`Voice tone tags: ${vp.tone.join(", ")}`);
+  if (vp?.signaturePhrases?.length) {
+    parts.push(`Signature phrases (use naturally, do not over-use): ${vp.signaturePhrases.join(", ")}`);
+  }
   // Task #900 — name the brand's fonts so the model picks hero/headline blocks
   // that complement the typography (emitted only when a font is set).
   const typographySection = buildTypographySection(brand);
@@ -3635,6 +3689,48 @@ function buildBrandContext(brand: BrandConfig, designIntensity: DesignIntensity)
         return bits.join("\n");
       }).join("\n");
     parts.push(`Product lines:\n${productInfo}\nUse these product details to make copy specific and credible.`);
+  }
+  // Scraped proof points (June 2026 copy-quality audit) — stats and customer
+  // quotes pulled from the brand's own marketing pages during URL brand
+  // import. These previously reached only the copy-refresh endpoints
+  // (brand-and-brief.ts); full page generation never saw them, so strict-mode
+  // tenants with rich brand settings shipped bare stat slots ("X") and empty
+  // testimonial blocks. In strict mode only owner-approved rows are listed.
+  const strictFacts = brand.aiStrictFactsMode !== false;
+  if (brand.scrapedStats?.length) {
+    const stats = (strictFacts
+      ? brand.scrapedStats.filter((s) => s.approvedForAi !== false)
+      : brand.scrapedStats
+    ).filter((s) => s.value && s.label);
+    if (stats.length) {
+      const lines = stats
+        .map((s) => `- ${sanitizeScrapedText(s.value!)} ${sanitizeScrapedText(s.label!)}`)
+        .join("\n");
+      parts.push(
+        `Approved brand stats (from the brand's own marketing pages — use these verbatim when a stat fits; do not invent others):\n${lines}`,
+      );
+    }
+  }
+  if (brand.scrapedTestimonials?.length) {
+    const quotes = (strictFacts
+      ? brand.scrapedTestimonials.filter((t) => t.approvedForAi !== false)
+      : brand.scrapedTestimonials
+    ).filter((t) => t.quote);
+    if (quotes.length) {
+      const lines = quotes
+        .map((t) => {
+          const q = sanitizeScrapedText(t.quote!);
+          const attribution = [t.author, t.role]
+            .map((s) => (s ? sanitizeScrapedText(s) : ""))
+            .filter(Boolean)
+            .join(", ");
+          return attribution ? `- "${q}" — ${attribution}` : `- "${q}"`;
+        })
+        .join("\n");
+      parts.push(
+        `Approved customer quotes (verbatim from the brand's own marketing — these ARE the real quotes for testimonial/quote blocks; use them verbatim with their real attributions and never invent or paraphrase others):\n${lines}`,
+      );
+    }
   }
   // Strict facts mode defaults ON: legacy rows where the field is unset
   // (`undefined`) still receive the "do not invent stats" instruction.
@@ -3787,6 +3883,13 @@ function buildApprovedStatSet(
     if (!isStatApproved(s)) continue;
     for (const v of valuesFor(s)) add(v);
   }
+  // June 2026 copy-quality audit — scraped brand stats now reach the prompt
+  // (see buildBrandContext), so their approved values must be in the pool or
+  // the strict sanitizer would immediately replace them with "X".
+  for (const s of brand.scrapedStats ?? []) {
+    if (s.approvedForAi === false) continue;
+    add(s.value);
+  }
   // Task #256 — proof-point library entries flow straight into the pool.
   for (const p of proofPoints) {
     if (!p.approved_for_ai) continue;
@@ -3907,6 +4010,110 @@ function logStrictMismatches(
  *  to substitute, so end-users immediately see what's missing instead of
  *  shipping a hallucinated story. */
 const CASE_STUDY_PLACEHOLDER = "Add a quote in brand settings";
+
+// ── Placeholder-testimonial scrub (June 2026) ────────────────────────────────
+// Root cause of the "Add a quote in brand settings" testimonial card: Strict
+// Facts Mode (STRICT_FACTS_INSTRUCTION above) tells the model to write that
+// literal placeholder for any quote slot the brief doesn't supply, while the
+// testimonial-grid vocab simultaneously demanded a fixed item count. With a
+// brand quote pool smaller than the demanded count, the model padded the grid
+// with placeholder-attributed cards ("Add a quote in brand settings" / "Add a
+// role in brand settings" + invented initials). Case-study blocks have their
+// own approved-pool enforcement; testimonial card blocks get this scrub: any
+// item with placeholder-pattern content is dropped, and a block left with no
+// real quotes is removed entirely (required-role backfill runs after).
+
+/** Testimonial-bearing array blocks → the props key holding their item array. */
+const TESTIMONIAL_ARRAY_BLOCKS: Record<string, string> = {
+  "testimonial-grid": "testimonials",
+  "testimonial-wall": "testimonials",
+  "quote-library": "testimonials",
+  "quote-carousel": "testimonials",
+  "dso-testimonials": "testimonials",
+};
+
+/** Single-quote blocks (no item array) — placeholder content drops the block. */
+const SINGLE_TESTIMONIAL_BLOCK_TYPES = new Set(["testimonial", "single-quote"]);
+
+/** Placeholder-pattern text: the strict-facts placeholder family ("Add a quote
+ *  in brand settings", the model's extrapolated "Add a role in brand
+ *  settings"), plus generic placeholder/lorem markers. Case-insensitive. */
+const PLACEHOLDER_TESTIMONIAL_TEXT_RE =
+  /\badd (?:a|an|your) (?:quote|role|name|title|company|author|testimonial|case stud\w*)\b|\bbrand settings\b|\bplaceholder\b|\blorem ipsum\b/i;
+
+/** True when a testimonial/quote item is placeholder-shaped: any text field
+ *  matches the placeholder patterns, or it carries a quote with no real
+ *  attribution (empty / "X" / punctuation-only author). */
+export function isPlaceholderTestimonial(item: unknown): boolean {
+  if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+  const rec = item as Record<string, unknown>;
+  const textFields = ["quote", "author", "name", "role", "company", "practiceName", "location", "title"];
+  for (const f of textFields) {
+    const v = rec[f];
+    if (typeof v === "string" && PLACEHOLDER_TESTIMONIAL_TEXT_RE.test(v)) return true;
+  }
+  const quote = typeof rec.quote === "string" ? rec.quote.trim() : "";
+  if (quote) {
+    const attribution =
+      [rec.author, rec.name]
+        .map((v) => (typeof v === "string" ? v.trim() : ""))
+        .find((v) => v.length > 0) ?? "";
+    // The other strict-mode fallback shape: a quote whose attribution is the
+    // "X" stub, punctuation, or missing entirely. Real cards name their author.
+    if (attribution === "" || attribution.toUpperCase() === "X" || /^[—–\-.·•]+$/.test(attribution)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export interface PlaceholderTestimonialScrubEvent {
+  blockId: string;
+  blockType: string;
+  removedItems: number;
+  blockRemoved: boolean;
+}
+
+/** Drop placeholder testimonial items from testimonial-bearing blocks; remove
+ *  a block entirely when no real quotes remain. Pure — returns a new array
+ *  (item arrays are replaced, surviving blocks are not cloned) plus events for
+ *  structured logging. Non-testimonial blocks pass through untouched. */
+export function stripPlaceholderTestimonials(blocks: unknown[]): {
+  blocks: unknown[];
+  events: PlaceholderTestimonialScrubEvent[];
+} {
+  const events: PlaceholderTestimonialScrubEvent[] = [];
+  const out: unknown[] = [];
+  for (const raw of blocks) {
+    const block = raw as { id?: unknown; type?: unknown; props?: unknown };
+    const type = typeof block?.type === "string" ? block.type : "";
+    const props =
+      block?.props && typeof block.props === "object" ? (block.props as Record<string, unknown>) : null;
+    if (props) {
+      const arrayKey = TESTIMONIAL_ARRAY_BLOCKS[type];
+      if (arrayKey && Array.isArray(props[arrayKey])) {
+        const items = props[arrayKey] as unknown[];
+        const kept = items.filter((it) => !isPlaceholderTestimonial(it));
+        if (kept.length !== items.length) {
+          const blockRemoved = kept.length === 0;
+          events.push({
+            blockId: String(block.id ?? ""),
+            blockType: type,
+            removedItems: items.length - kept.length,
+            blockRemoved,
+          });
+          if (blockRemoved) continue; // drop the whole block
+          props[arrayKey] = kept;
+        }
+      } else if (SINGLE_TESTIMONIAL_BLOCK_TYPES.has(type) && isPlaceholderTestimonial(props)) {
+        events.push({ blockId: String(block.id ?? ""), blockType: type, removedItems: 1, blockRemoved: true });
+        continue;
+      }
+    }
+    out.push(raw);
+  }
+  return { blocks: out, events };
+}
 
 export type ApprovedCaseStudy = {
   title: string;
@@ -5136,6 +5343,117 @@ export function enforceRequiredRoles(
   return blocks;
 }
 
+// ── CTA adjacency normalization (June 2026) ──────────────────────────────────
+// In-flow, pure-CTA section block types. Derived from the "cta" role in
+// lib/lp-template-engine block-tags DEFAULT_BLOCK_TAGS, MINUS blocks where the
+// CTA is embedded in something bigger (roi-calculator, id-invitation,
+// id-reservation-pass, dso-promo-cards), overlays that don't occupy page flow
+// (popup, sticky-bar), and grid children (grid-cta-tile). Kept as an explicit
+// literal set — adjacency collapsing must never eat a content-hybrid block.
+export const CTA_ROLE_BLOCK_TYPES: ReadonlySet<string> = new Set([
+  "bottom-cta",
+  "cta-button",
+  "cta-centered-minimal",
+  "cta-split-image",
+  "cta-stat-backed",
+  "cta-gradient-banner",
+  "dandy-cta-block",
+  "dandy-conversion-panel-1",
+  "aurora-cta-finale",
+  "full-bleed-final-cta",
+  "split-form-final-cta",
+  "stat-backed-final-cta",
+  "social-urgency-final-cta",
+  "gradient-glow-final-cta",
+  "video-background-final-cta",
+  "dso-final-cta",
+  "dso-cta-capture",
+]);
+
+/** True when a block carries a lead-capture form (per its code-default role
+ *  tags, e.g. split-form-final-cta / dandy-conversion-panel-1 / dso-cta-capture)
+ *  — such blocks are NEVER dropped by the CTA adjacency normalizer. */
+function isFormBearingBlock(block: { type?: unknown } | null | undefined): boolean {
+  const type = typeof block?.type === "string" ? block.type : "";
+  if (!type) return false;
+  if (type === "form") return true;
+  return getDefaultBlockTags(type).includes("form");
+}
+
+export interface CtaCollapseEvent {
+  droppedType: string;
+  droppedId: string;
+  keptType: string | null;
+  reason: "adjacent" | "after-finale";
+}
+
+/** Collapse stacked CTAs (pure — returns a new array + drop events):
+ *  1. aurora-cta-finale is a FINALE — every other (form-less) CTA-role block
+ *     AFTER it is dropped, wherever it sits.
+ *  2. Two ADJACENT CTA-role blocks keep ONE: aurora-cta-finale wins; otherwise
+ *     the LAST survives (closers belong at the end). Form-bearing blocks are
+ *     never dropped (if both carry forms, both stay).
+ *  CTAs separated by real content are untouched, so a user-requested second
+ *  CTA with a buffer section survives ("REQUESTED SECTIONS ARE MANDATORY"). */
+export function collapseAdjacentCtaBlocks(blocks: Array<Record<string, unknown>>): {
+  blocks: Array<Record<string, unknown>>;
+  dropped: CtaCollapseEvent[];
+} {
+  const dropped: CtaCollapseEvent[] = [];
+  const isCta = (b: Record<string, unknown> | undefined): boolean =>
+    !!b && CTA_ROLE_BLOCK_TYPES.has(String(b.type ?? ""));
+
+  // Pass 1 — nothing CTA-shaped may follow an aurora-cta-finale.
+  let out = [...blocks];
+  const finaleIdx = out.findIndex((b) => b.type === "aurora-cta-finale");
+  if (finaleIdx !== -1) {
+    out = out.filter((b, i) => {
+      if (i <= finaleIdx || !isCta(b) || b.type === "aurora-cta-finale" || isFormBearingBlock(b)) {
+        return true;
+      }
+      dropped.push({
+        droppedType: String(b.type ?? ""),
+        droppedId: String(b.id ?? ""),
+        keptType: "aurora-cta-finale",
+        reason: "after-finale",
+      });
+      return false;
+    });
+  }
+
+  // Pass 2 — collapse ADJACENT CTA pairs.
+  let i = 0;
+  while (i + 1 < out.length) {
+    const a = out[i];
+    const b = out[i + 1];
+    if (!isCta(a) || !isCta(b)) {
+      i++;
+      continue;
+    }
+    let dropIdx: number;
+    if (a.type === "aurora-cta-finale") dropIdx = i + 1;
+    else if (b.type === "aurora-cta-finale") dropIdx = i;
+    else if (isFormBearingBlock(b)) dropIdx = i;
+    else if (isFormBearingBlock(a)) dropIdx = i + 1;
+    else dropIdx = i; // keep the LAST — closers belong at the end
+    if (isFormBearingBlock(out[dropIdx])) {
+      // Both sides carry forms (or the finale neighbor does) — keep both.
+      i++;
+      continue;
+    }
+    const kept = out[dropIdx === i ? i + 1 : i];
+    dropped.push({
+      droppedType: String(out[dropIdx].type ?? ""),
+      droppedId: String(out[dropIdx].id ?? ""),
+      keptType: String(kept.type ?? ""),
+      reason: "adjacent",
+    });
+    out.splice(dropIdx, 1);
+    // Don't advance: the survivor may now be adjacent to another CTA.
+  }
+  return { blocks: out, dropped };
+}
+
 const GENERAL_SYSTEM_PROMPT_TEMPLATE = `You are an expert landing page architect. You generate complete, high-converting landing page structures as JSON.
 
 DENSITY DOCTRINE (the single most important rule — read first):
@@ -5157,11 +5475,11 @@ AVAILABLE BLOCK TYPES (use these exact type strings — mirror the EXAMPLE for v
 
 - "stat-callout": Single big stat. Props: stat (a short, vivid metric phrase like "98% on-time delivery" or "$8,400 saved per team per year"), description (15–28 words, expands the stat with a concrete mechanism — what the stat measures, why it matters), footnote (6–14 words, attribution: source + timeframe, e.g. "Independent customer audit, Q4 2025 (n=1,240 accounts)"), countUpEnabled (boolean, default true).
 
-- "benefits-grid": Feature/benefit cards. Cards are ICON-ONLY by default. Props: headline (5–12 words), columns (2 or 3), useItemPhotos (boolean, default false — see rule 9a; set true ONLY to turn the whole block into photo cards), items (array of {icon (ALWAYS a Lucide icon NAME from the list below — e.g. "Shield" — NEVER a URL, file path, or image), title, description, image (OPTIONAL — ONLY meaningful when useItemPhotos is true; leave "" for the server to fill it, or omit for icon-only)} — EXACTLY 4–6 items, title 3–6 words SPECIFIC capability not a generic noun, description 18–28 words with a concrete mechanism — what it does, why it matters, who it's for). The 'icon' field is ALWAYS a Lucide name regardless of useItemPhotos. Available icons: "Zap","ScanLine","RefreshCcw","HeadphonesIcon","BarChart2","DollarSign","Shield","Clock","Star","Check","Target","TrendingUp","Award","Heart","Users","Globe","Lock","Sparkles".
+- "benefits-grid": Feature/benefit cards. Cards are ICON-ONLY by default. Props: headline (5–12 words), columns (2 or 3), useItemPhotos (boolean, default false — see rule 9a; set true ONLY to turn the whole block into photo cards), items (array of {icon (ALWAYS a Lucide icon NAME from the list below — e.g. "Shield" — NEVER a URL, file path, or image), title, description, image (OPTIONAL — ONLY meaningful when useItemPhotos is true; leave "" for the server to fill it, or omit for icon-only)} — the item count MUST fill complete rows: EXACTLY 3 or 6 items when columns=3, EXACTLY 4 or 6 items when columns=2 — never 5 or 7; title 3–6 words SPECIFIC capability not a generic noun, description 18–28 words with a concrete mechanism — what it does, why it matters, who it's for). The 'icon' field is ALWAYS a Lucide name regardless of useItemPhotos. Available icons: "Zap","ScanLine","RefreshCcw","HeadphonesIcon","BarChart2","DollarSign","Shield","Clock","Star","Check","Target","TrendingUp","Award","Heart","Users","Globe","Lock","Sparkles".
   EXAMPLE item: { icon: "ScanLine", title: "Automated review on every job", description: "Every submission is auto-checked for errors, gaps, and missing details before it moves forward — so issues get caught up front, not after the work is delivered." }
   NEVER write: { title: "Quality", description: "Better quality." } — that is failure-grade output.
 
-- "testimonial": Customer quote. Props: quote (35–80 words, must name a specific outcome or metric — not generic praise), author (full name), role (specific title, e.g. "Director of Operations"), practiceName (real-sounding company or team name).
+- "testimonial": Customer quote. Props: quote (35–80 words, must name a specific outcome or metric — not generic praise), author (full name), role (specific title, e.g. "Director of Operations"), practiceName (real-sounding company or team name). Use ONLY a real quote provided in the brand context — NEVER invent placeholder attributions like "Add a quote in brand settings"; if no real quote exists, use a different social-proof block instead.
   EXAMPLE quote: "We rolled this out across 14 locations in February. By April our error rate dropped from 11% to 3% and our staff stopped dreading busy days. The time savings alone pays for the program."
 
 - "how-it-works": Numbered steps. Props: headline (5–10 words), steps (array of {number, title, description} — EXACTLY 3–5 steps, number formatted "01"/"02"/"03", title 3–6 words ACTION-oriented, description 18–32 words explaining what happens in concrete terms — who does what, with what tool, in what timeframe).
@@ -5210,7 +5528,7 @@ SHOWCASE BLOCKS (use these to give each page a distinct, premium feel — NOT ev
 
 - "gallery-split-feature": Editorial split section pairing a headline + copy + CTAs on one side with a large hero image and two smaller stacked images on the other — great for office/culture, footprint, and brand-story features. Props: eyebrow (2–4 words), headline (5–10 words), subheadline (18–36 words), imageUrl (""), images (array of EXACTLY 2 of {id (unique short string), src (""), caption (3–7 words), alt (4–8 words)}), ctaLabel (2–5 words, optional), ctaUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 
-- "case-study-card-grid": Social-proof grid of customer case-study cards, each with a logo/photo, an outcome quote, and a headline metric — great for proving results from named customers. Props: heading (5–10 words), subheading (12–24 words, optional), cards (array of EXACTLY 3–6 of {company (1–3 words customer name), imageUrl (""), imageAlt (3–6 words), result (12–24 words outcome/quote), metricValue (short stat e.g. "85%","2.5x","$12M"), metricLabel (3–7 words describing the metric), linkUrl ("#")}), ctaLabel (2–5 words, optional), ctaUrl ("#").
+- "case-study-card-grid": Social-proof grid of customer case-study cards, each with a logo/photo, an outcome quote, and a headline metric — great for proving results from named customers. Props: heading (5–10 words), subheading (12–24 words, optional), cards (array of EXACTLY 3 or 6 of {company (1–3 words customer name), imageUrl (""), imageAlt (3–6 words), result (12–24 words outcome/quote), metricValue (short stat e.g. "85%","2.5x","$12M"), metricLabel (3–7 words describing the metric), linkUrl ("#"), featured (optional — true on AT MOST one card; a featured card spans 2 of the 3 columns, so with one featured card use EXACTLY 5 cards and list the featured card FIRST)} — counts MUST fill complete 3-column rows: 3 or 6 plain cards, or 5 with one featured), ctaLabel (2–5 words, optional), ctaUrl ("#").
 
 - "case-study-logo-results-row": Social-proof row of customer logos each paired with a headline result metric and a short outcome — a compact proof bar of named wins. Props: heading (5–10 words, optional), results (array of EXACTLY 3–5 of {company (1–3 words customer name), logoUrl (""), logoAlt (3–6 words), outcome (10–20 words), metricValue (short stat e.g. "99.99% uptime","3x faster")}), ctaLabel (2–5 words, optional), ctaUrl ("#").
 
@@ -5257,23 +5575,23 @@ SHOWCASE BLOCKS (use these to give each page a distinct, premium feel — NOT ev
 - "how-it-works-horizontal-stepper": A compact "how it works" section showing numbered steps in a horizontal row over a progress rail, with a header CTA button and a trailing trust-badge row — great for a quick 3-step process overview. Props: eyebrow (2–4 words, e.g. "How it works"), headline (5–10 words), subheadline (14–28 words), headerCtaLabel (2–4 words, optional), headerCtaUrl ("#"), steps (array of EXACTLY 3–4 of {icon (lucide name e.g. UserPlus/Zap/Rocket/Settings/Plug/Workflow), title (2–5 words), description (8–18 words)}), trustItems (array of EXACTLY 2–3 of 3–5 words, e.g. "No credit card required"), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 - "benefits-bento": Benefits in an asymmetric bento grid — one large feature tile plus smaller supporting tiles for a modern product feel. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (12–28 words), tiles (array of EXACTLY 5 of {icon (lucide name e.g. Layers/CloudLightning/Users/ShieldCheck/BarChart3), title (2–5 words), description (10–24 words)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 - "features-bento-showcase": Product features in an asymmetric bento grid with one large flagship tile plus supporting tiles, each rendering a decorative product mockup — best for a polished, modern SaaS feature overview. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (12–28 words), tiles (array of EXACTLY 6 of {icon (lucide name e.g. Layout/Palette/Users/LineChart/Shield/Rocket), title (2–5 words), description (10–24 words), image ("" — leave blank, the server fills a real image or shows a decorative mockup); the first tile is the large flagship), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
-- "features-spotlight-cards": A large flagship "spotlight" feature card (icon + title + description + button beside a decorative builder mockup) above a row of compact supporting feature cards, with an optional CTA — best for leading with one headline capability then listing the rest. Props: eyebrow (2–4 words), headline (6–12 words), spotlightIcon (lucide name e.g. LayoutTemplate), spotlightTitle (3–7 words), spotlightDescription (20–40 words), spotlightButtonLabel (2–4 words, optional), spotlightButtonUrl ("#"), spotlightImage ("" — leave blank, the server fills a real image or shows a decorative mockup), secondaryFeatures (array of EXACTLY 5 of {icon (lucide name e.g. SplitSquareHorizontal/LineChart/Globe/Users/Search), title (2–5 words), description (8–16 words)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "features-spotlight-cards": A large flagship "spotlight" feature card (icon + title + description + button beside a decorative builder mockup) above a row of compact supporting feature cards, with an optional CTA — best for leading with one headline capability then listing the rest. Props: eyebrow (2–4 words), headline (6–12 words), spotlightIcon (lucide name e.g. LayoutTemplate), spotlightTitle (3–7 words), spotlightDescription (20–40 words), spotlightButtonLabel (2–4 words, optional), spotlightButtonUrl ("#"), spotlightImage ("" — leave blank, the server fills a real image or shows a decorative mockup), secondaryFeatures (array of EXACTLY 3 or EXACTLY 6 of {icon (lucide name e.g. SplitSquareHorizontal/LineChart/Globe/Users/Search), title (2–5 words), description (12–22 words with a concrete specific — the card carries a full sentence or two)} — the count MUST fill complete 3-column rows, never 4 or 5), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 - "features-tabbed-categories": Feature categories presented as clickable tabs that swap an active panel (per-tab heading/subheading + feature list + decorative product mockup), with an optional CTA — best for organizing many features into a few themes. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (15–32 words), categories (array of EXACTLY 3 of {id (unique short slug e.g. "design"), label (2–4 words), icon (lucide name e.g. MonitorSmartphone/Zap/BarChart3), heading (5–10 words), subheading (12–24 words), image ("" — leave blank, the server fills a real image or shows a decorative mockup), features (array of EXACTLY 3 of {icon (lucide name e.g. Paintbrush/Palette/Layers/Split/ListChecks/Sparkles/Route/DollarSign/MousePointerClick), title (2–4 words), description (10–20 words)})}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
-- "features-comparison-checklist": A grouped feature table with included-checkmarks organized into categories, a bespoke "need something custom?" card, and an optional CTA — best for showing everything included across plans. Props: eyebrow (2–4 words), headline (4–8 words), subheadline (15–30 words), featureColumnLabel (2–4 words), includedColumnLabel (1–2 words), categories (array of EXACTLY 3 of {title (2–4 words), features (array of EXACTLY 2 of {icon (lucide name e.g. Database/Shield/Globe/Zap/Layers/MessageSquare), name (2–5 words), description (8–18 words)})}), showBespokeCard (boolean, default true), bespokeHeading (3–6 words), bespokeSubheading (8–16 words), bespokeButtonLabel (2–4 words), bespokeButtonUrl ("#"), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "features-comparison-checklist": A grouped feature table with included-checkmarks organized into categories, a bespoke "need something custom?" card, and an optional CTA — best for showing everything included across plans. Props: eyebrow (2–4 words), headline (4–8 words), subheadline (15–30 words), featureColumnLabel (2–4 words), includedColumnLabel (1–2 words), categories (array of EXACTLY 3 of {title (2–4 words), features (array of EXACTLY 2 of {icon (lucide name e.g. Database/Shield/Globe/Zap/Layers/MessageSquare), name (2–5 words), description (10–22 words naming what's included concretely)})}), showBespokeCard (boolean, default true), bespokeHeading (3–6 words), bespokeSubheading (8–16 words), bespokeButtonLabel (2–4 words), bespokeButtonUrl ("#"), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (6–12 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 
-- "benefits-icon-grid": Benefits in a clean icon grid (2 or 3 columns) — best for presenting many short value props at a glance. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (12–28 words), columns (2 or 3, default 3), items (array of EXACTLY 3 or EXACTLY 6 when columns=3, or EXACTLY 4 when columns=2 — the item count MUST fill complete rows, never 5 or 7; {icon (lucide name e.g. Zap/BarChart3/ShieldCheck/Users/Globe2/Clock), title (3–6 words), description (EXACTLY 8–16 words)}), iconStyle ("tint"|"filled" — use "filled" when the brand accent is a pale/pastel color so the icon chips stay visible), headerLayout ("stacked"|"split" — "split" places the subheadline as a right-hand column for a fuller header), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "benefits-icon-grid": Benefits in a clean icon grid (2 or 3 columns) — best for presenting many short value props at a glance. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (12–28 words), columns (2 or 3, default 3), items (array of EXACTLY 3 or EXACTLY 6 when columns=3, or EXACTLY 4 when columns=2 — the item count MUST fill complete rows, never 5 or 7; {icon (lucide name e.g. Zap/BarChart3/ShieldCheck/Users/Globe2/Clock), title (3–6 words), description (12–24 words with a concrete mechanism or outcome — the card renders a full multiline paragraph, so never a bare phrase)}), iconStyle ("tint"|"filled" — use "filled" when the brand accent is a pale/pastel color so the icon chips stay visible), headerLayout ("stacked"|"split" — "split" places the subheadline as a right-hand column for a fuller header), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 
 - "benefits-stat-led": Benefits anchored by a big metric on each — leads with the outcome number, then explains it. Use REAL numbers from the prompt when provided. Props: eyebrow (2–4 words), headline (6–12 words), subheadline (12–28 words), stats (array of EXACTLY 3 of {stat (short metric e.g. "3.5x", "+42%", "15h"), title (2–5 words), description (15–30 words), icon (lucide name e.g. Zap/TrendingUp/Clock)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 
-- "quote-carousel": Social proof as a one-at-a-time testimonial carousel with prev/next + dot controls — focused, high-impact single quotes. Props: eyebrow (2–4 words), headline (5–10 words), subheadline (12–24 words), testimonials (array of EXACTLY 3–4 of {quote (20–45 words), author (full name), role (2–4 words), company (1–3 words), rating (integer 4–5), avatarInitials (2 letters), avatarImage ("")}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "quote-carousel": Social proof as a one-at-a-time testimonial carousel with prev/next + dot controls — focused, high-impact single quotes. Include ONLY real quotes provided in the brand context — NEVER invent placeholder attributions like "Add a quote in brand settings"; if fewer real quotes exist than the ideal count, emit fewer items. Props: eyebrow (2–4 words), headline (5–10 words), subheadline (12–24 words), testimonials (array of EXACTLY 3–4 of {quote (20–45 words), author (full name), role (2–4 words), company (1–3 words), rating (integer 4–5), avatarInitials (2 letters), avatarImage ("")}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 
-- "quote-library": Social proof "wall of love" — a masonry grid of many short testimonial cards. Best when you have lots of quotes. Props: eyebrow (2–4 words), headline (5–10 words), subheadline (12–24 words), testimonials (array of EXACTLY 6–9 of {id (unique short string), quote (15–35 words), author (full name), role (2–4 words), company (1–3 words), rating (integer 4–5), avatarInitials (2 letters)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "quote-library": Social proof "wall of love" — a masonry grid of many short testimonial cards. Best when you have lots of quotes. Include ONLY real quotes provided in the brand context — NEVER invent placeholder attributions like "Add a quote in brand settings"; if fewer real quotes exist than the ideal count, emit fewer items (or pick a smaller social-proof block). Props: eyebrow (2–4 words), headline (5–10 words), subheadline (12–24 words), testimonials (array of EXACTLY 6–9 of {id (unique short string), quote (15–35 words), author (full name), role (2–4 words), company (1–3 words), rating (integer 4–5), avatarInitials (2 letters)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 
 - "quote-with-image": Social proof as a single large quote paired with a customer portrait image and star rating — premium, editorial feel. Props: eyebrow (2–4 words), quote (30–60 words), author (full name), role (2–4 words), company (1–3 words), imageUrl (""), imageAlt (4–8 words), imageSide ("left"|"right"), rating (integer 0–5, default 5), showCta (boolean, default true), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 
 - "single-quote": Social proof as one cinematic, centered testimonial with a large quote mark and avatar initials — maximum focus on a single powerful customer quote. Props: quote (30–60 words), author (full name), role (2–4 words), company (1–3 words), avatarInitials (2 letters), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 
-- "testimonial-grid": Social proof as a responsive grid of testimonial cards (stars + quote + author), with a centered header — great for showcasing many quotes at once. Props: eyebrow (2–4 words), headline (5–10 words), subheadline (12–24 words), testimonials (array of EXACTLY 6 of {id (unique short string), quote (15–35 words), author (full name), role (2–4 words), company (1–3 words), rating (integer 4–5), avatarInitials (2 letters)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "testimonial-grid": Social proof as a responsive grid of testimonial cards (stars + quote + author), with a centered header — great for showcasing many quotes at once. Include ONLY real quotes provided in the brand context — NEVER invent placeholder attributions like "Add a quote in brand settings"; if fewer real quotes exist than the ideal count, emit fewer items (complete rows still preferred). Props: eyebrow (2–4 words), headline (5–10 words), subheadline (12–24 words), testimonials (array of EXACTLY 3 or EXACTLY 6 of {id (unique short string), quote (15–35 words), author (full name), role (2–4 words), company (1–3 words), rating (integer 4–5), avatarInitials (2 letters), featured (optional — true on AT MOST one card; a featured card spans 2 of the 3 columns, so with one featured card use EXACTLY 5 testimonials and list the featured one FIRST)} — counts MUST fill complete 3-column rows: 3 or 6 plain cards, or 5 with one featured — never 4 or 7), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 
 - "editorial-carousel": Auto-advancing, draggable photo / case-study carousel with a premium dark-luxury treatment. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (optional), mode ("image"|"case-study"), aspect ("16/9"|"4/3"|"3/2"|"1/1"), slides (array of EXACTLY 4–8 of {src (""), alt (4–8 words), caption (image mode: 3–7 word uppercase label), headline (case-study mode: 3–7 words), subheadline (case-study mode: 10–20 words), ctaText (optional)}).
 
@@ -5302,7 +5620,7 @@ RULES:
 1. Return ONLY a valid JSON object — no markdown, no explanation, no code fences.
 2. The JSON must have: { "title": string, "slug": string, "blocks": [...] }
 3. Each block must have: { "id": string (unique, format "block-TYPE-INDEX"), "type": string, "props": {...} }
-4. Generate 5-10 blocks per page. START with exactly ONE hero-class block, chosen to fit the brand's personality (see BRAND CONTEXT): "hero" (clean SaaS/B2B), "full-bleed-hero" (visual / consumer / lifestyle brands), "magazine-hero" (premium / editorial / storytelling brands), "parallax-image-hero" (cinematic brands), "dso-heartland-hero" (bold B2B/enterprise hero with a built-in nav and stat bar), "cinematic-video-hero" (atmospheric, video-led brands), "aurora-gradient-hero" (modern software / AI / tech), "editorial-split-hero" (premium / design-led / luxury), "parallax-layers-hero" (bold, cinematic, high-impact), "spotlight-glow-hero" (developer tools / technical SaaS), "launch-spotlight-hero" (dark premium product launches / modern SaaS), "bento-mosaic-hero" (split hero with a bento mosaic of image/stat/quote tiles), "kinetic-type-hero" (typography-only editorial statement hero), "dandy-product-hero" (premium product-led hero with an inline email-capture pill and a product image that bleeds off the corner), or "dandy-hero-v7-s3" (centered conversion hero with an inline email form and a row of trust stats). NEVER use more than one hero-class block on a page. End the page with a closing "bottom-cta" followed by a "footer" block.
+4. Generate 5-10 blocks per page. START with exactly ONE hero-class block, chosen to fit the brand's personality (see BRAND CONTEXT): "hero" (clean SaaS/B2B), "full-bleed-hero" (visual / consumer / lifestyle brands), "magazine-hero" (premium / editorial / storytelling brands), "parallax-image-hero" (cinematic brands), "dso-heartland-hero" (bold B2B/enterprise hero with a built-in nav and stat bar), "cinematic-video-hero" (atmospheric, video-led brands), "aurora-gradient-hero" (modern software / AI / tech), "editorial-split-hero" (premium / design-led / luxury), "parallax-layers-hero" (bold, cinematic, high-impact), "spotlight-glow-hero" (developer tools / technical SaaS), "launch-spotlight-hero" (dark premium product launches / modern SaaS), "bento-mosaic-hero" (split hero with a bento mosaic of image/stat/quote tiles), "kinetic-type-hero" (typography-only editorial statement hero), "dandy-product-hero" (premium product-led hero with an inline email-capture pill and a product image that bleeds off the corner), or "dandy-hero-v7-s3" (centered conversion hero with an inline email form and a row of trust stats). NEVER use more than one hero-class block on a page. End the page with ONE closing CTA block ("bottom-cta" or a premium alternative like "aurora-cta-finale" or "dandy-cta-block" — never more than one, see rule 18) followed by a "footer" block.
 5. All copy must be specific, punchy, and conversion-focused — never use placeholder or lorem ipsum text. Every multi-item array MUST hit the per-block minimum count stated in AVAILABLE BLOCK TYPES above. Empty arrays, 1–3 word stubs ("Slow", "Fast", "Better"), and generic platitudes ("industry-leading", "best-in-class") are failures — the block renders broken.
 6. Make the copy match the prompt's topic, industry, and audience.
 7. For form blocks, create realistic fields with proper types (email, phone, text, select, textarea).
@@ -5326,7 +5644,8 @@ RULES:
 14. NAVIGATION: every page needs a top nav and an end footer — EXCEPT a page that is a single full-page block ("content-series", "blog-series", "storefront", or ANY block whose schema describes it as "A COMPLETE, full-page block"). Those are self-contained pages that render their OWN nav AND footer, so when you use one as the page's only block, NEVER add a separate "nav-header" or "footer" block alongside it (that produces a duplicate stacked nav/footer). For all OTHER (multi-block) pages: Heroes that render their OWN sticky nav — "hero", "full-bleed-hero", "dso-heartland-hero", "cinematic-video-hero", "aurora-gradient-hero", "editorial-split-hero", "parallax-layers-hero", and "spotlight-glow-hero" — must be the page's FIRST block; NEVER prepend a "nav-header" before them (that produces two stacked navs). Heroes that do NOT render a nav — "magazine-hero", "parallax-image-hero", "launch-spotlight-hero", "bento-mosaic-hero", and "kinetic-type-hero" — MUST be preceded by a "nav-header" block as the page's first block. Always end the page with a "footer" block.
 15. VARY THE STRUCTURE PER BRAND — never emit the same block sequence every time. Read the brand's personality from BRAND CONTEXT (tone, style keywords, design feel, colors) and choose blocks to match it: premium/editorial brands lean on magazine-hero, bold-statement, editorial-carousel, bento-showcase; energetic/visual/consumer brands lean on full-bleed-hero, sticky-stack, horizontal-showcase, before-after-gallery; straightforward B2B leans on hero, benefits-grid, comparison, zigzag-features. Include AT LEAST 2 SHOWCASE blocks (full-bleed-hero, magazine-hero, cinematic-video-hero, aurora-gradient-hero, editorial-split-hero, parallax-layers-hero, spotlight-glow-hero, launch-spotlight-hero, bento-mosaic-hero, kinetic-type-hero, parallax-image-hero, sticky-stack, horizontal-showcase, bento-showcase, glass-bento-features, feature-tabs-showcase, stat-counter-band, bold-statement, before-after-gallery, gallery-carousel-spotlight, gallery-filmstrip, gallery-masonry, gallery-split-feature, case-study-card-grid, case-study-spotlight-feature, media-feature-reel, media-looping-showcase, media-thumbnail-grid, media-video-split, cta-split-image, editorial-carousel, scroll-assembly, video-section) on every page so two different brands never produce identical-looking pages.
 16. VIDEO: Only set videoUrl, backgroundType:"video", or backgroundVideoUrl when you have a REAL video URL provided in the brand assets or the DANDY VIDEOS section. Otherwise use backgroundType:"image" (full-bleed-hero) and leave image fields "" for the server to fill. NEVER invent or guess a video URL.
-17. ITEM COUNTS — match each block's canonical count: every repeating array MUST contain exactly the number of items stated in that block's schema in AVAILABLE BLOCK TYPES above. When a block says "EXACTLY N" use N; when it gives a range (e.g. "3–5"), pick a value inside the range and fully populate it. A block must look complete and balanced — e.g. "trust-bar" always has EXACTLY 4 items, never 2, 3, or 5. Never emit a block with fewer items than its minimum or a half-filled array.`;
+17. ITEM COUNTS — match each block's canonical count: every repeating array MUST contain exactly the number of items stated in that block's schema in AVAILABLE BLOCK TYPES above. When a block says "EXACTLY N" use N; when it gives a range (e.g. "3–5"), pick a value inside the range and fully populate it. A block must look complete and balanced — e.g. "trust-bar" always has EXACTLY 4 items, never 2, 3, or 5. Never emit a block with fewer items than its minimum or a half-filled array. EXCEPTION — testimonial/quote blocks: real quotes only; when the brand context provides fewer real quotes than a block's stated count, emit fewer items rather than inventing or padding with placeholders.
+18. ONE CLOSING CTA — never place two CTA blocks ("bottom-cta", "cta-centered-minimal", "cta-split-image", "cta-stat-backed", "cta-gradient-banner", "dandy-cta-block", "dandy-conversion-panel-1", "aurora-cta-finale", or any *-final-cta) adjacent to each other; separate CTAs with content (proof, features, FAQ). "aurora-cta-finale" is a FINALE: when used, it must be the LAST content block before the footer, with NO other CTA block anywhere after it. One closing CTA is enough.`;
 
 // ── GENERAL block library (data-driven, AI-eligibility filterable) ──────────
 // The GENERAL system prompt above is assembled at request time so the advertised
@@ -5376,7 +5695,7 @@ const GENERAL_EXTRA_SHOWCASE_BLOCKS: string[] = [
   `- "glass-bento-features": 12-column bento feature grid — EXACTLY ONE 2-row "hero" card with a real image, plus "wide" / "third" / "quarter" support cards with icons or big stat numerals. Frosted glass on dark, layered shadows on light, staggered scroll-reveal. A premium alternative to benefits-grid. Props: eyebrow (1–3 words), headline (5–10 words), subheadline (14–26 words), theme ("light"|"dark"), cards (array of EXACTLY 5–7 of {span ("hero"|"wide"|"third"|"quarter" — EXACTLY ONE "hero" card, listed FIRST), icon (Lucide icon NAME, e.g. "Zap","ShieldCheck","Gauge","Globe","Users","Rocket"), title (3–8 words), body (12–24 words; OMIT on stat cards), imageUrl ("" on the hero card ONLY — server fills; OMIT on every other card), imageAlt (hero card only, 4–8 words), stat (big metric like "99.9%" or "40ms" — quarter cards only, replaces the icon; use REAL numbers from the brief)}).`,
   `- "feature-tabs-showcase": Interactive product tour — a rail of 3–5 feature tabs (icon + title + one-liner) beside a large product screenshot panel in a glass browser frame; the media crossfades on tab switch and auto-advances. Props: eyebrow (1–3 words), headline (5–10 words), subheadline (14–26 words), theme ("light"|"dark"), frameLabel (faux product URL, e.g. "app.acme.com"), autoAdvance (true), tabs (array of EXACTLY 3–5 of {title (2–5 words), description (8–16 words), icon (Lucide icon NAME, e.g. "LayoutDashboard","Workflow","Inbox","BarChart3"), imageUrl ("" — server fills with a product/screenshot image), imageAlt (4–8 words)}).`,
   `- "stat-counter-band": Full-width metrics band — 3–4 oversized numerals (brand numbers font) that count up when scrolled into view; affixes like "$", "%", "+", "M+" are preserved. Use REAL numbers from the brief or brand context — NEVER invent precise stats. Props: kicker (4–8 words section heading), background ("brand-dark"|"mesh"|"light"), showBorders (true), stats (array of EXACTLY 3–4 of {value (metric with optional affixes, e.g. "99.2%", "$4M+", "12,000+"), label (2–5 words naming a specific audience or outcome)}).`,
-  `- "testimonial-wall": Social proof as a masonry wall of quote cards (1/2/3 responsive columns) with star ratings and an optional featured card with an accent border. Avatars and company logos are tenant-supplied — cards gracefully fall back to initials circles. Props: eyebrow (2–4 words), headline (5–10 words), subheadline (12–24 words), columns (2 or 3), testimonials (array of EXACTLY 4–6 of {quote (20–50 words, names a specific outcome or metric — not generic praise), name (full name), role (title, company), rating (4 or 5, or omit to hide stars), featured (true on AT MOST one card)} — NEVER set avatarUrl or logoUrl).`,
+  `- "testimonial-wall": Social proof as a masonry wall of quote cards (1/2/3 responsive columns) with star ratings and an optional featured card with an accent border. Avatars and company logos are tenant-supplied — cards gracefully fall back to initials circles. Include ONLY real quotes provided in the brand context — NEVER invent placeholder attributions like "Add a quote in brand settings"; if fewer real quotes exist than the ideal count, emit fewer items. Props: eyebrow (2–4 words), headline (5–10 words), subheadline (12–24 words), columns (2 or 3), testimonials (array of EXACTLY 4–6 of {quote (20–50 words, names a specific outcome or metric — not generic praise), name (full name), role (title, company), rating (4 or 5, or omit to hide stars), featured (true on AT MOST one card)} — NEVER set avatarUrl or logoUrl).`,
   `- "glass-pricing-tiers": Modern pricing — 2–4 glass / soft-shadow tier cards with EXACTLY ONE featured tier (accent glow + badge), an accessible monthly/annual toggle with an animated price swap, per-tier feature lists and CTAs. Use ONLY when the USER REQUEST or BRAND CONTEXT provides real pricing — NEVER invent specific prices. Props: eyebrow (1–3 words), headline (4–9 words), subheadline (12–24 words), showToggle (boolean), monthlyLabel ("Monthly"), annualLabel ("Annual"), annualSavingsLabel (e.g. "Save 20%"), annualNote ("billed annually"), defaultPeriod ("monthly"|"annual"), variant ("dark"|"light"), footnote (6–14 words reassurance, e.g. "No credit card required. Cancel anytime."), tiers (array of EXACTLY 2–4 of {name (1–3 words), monthlyPrice (e.g. "$49"), annualPrice (discounted per-month rate, e.g. "$39"), period ("/mo"), description (8–16 words), inheritsLabel (e.g. "Everything in Starter, plus" — OMIT on the first tier), features (array of 4–6 short phrases, 3–7 words each), ctaText (2–4 words), ctaUrl ("#"), ctaVariant ("solid"|"ghost"), featured (true on EXACTLY ONE tier), badge ("Most popular" — featured tier only)}).`,
   `- "aurora-cta-finale": The page's closing argument — a deep dark full-width CTA with slow-drifting aurora glows in brand tones, an oversized display headline, a large pill CTA pair, a short reassurance row, and a faint oversized brand watermark. Use as the LAST content block before the footer (a premium alternative to "bottom-cta"). Props: eyebrow (2–4 words), headline (4–9 words restating the page's core promise), subheadline (12–24 words removing the last objection), ctaText (2–4 words, action verb first), ctaUrl ("#"), ctaSecondaryText (2–4 words), ctaSecondaryUrl ("#"), reassurances (array of EXACTLY 2–3 of {icon (one of "CheckCircle2","Sparkles","Shield","Zap","CreditCard","Clock","Lock","Star","Globe","Heart"), text (2–5 words)}), watermarkText (the brand name, or "" to use it automatically), showWatermark (boolean, default true).`,
 ];
@@ -5634,7 +5953,7 @@ RULES:
 1. Return ONLY a valid JSON object — no markdown, no explanation, no code fences.
 2. The JSON must have: { "title": string, "slug": string, "blocks": [...] }
 3. Each block must have: { "id": string (unique, format "block-TYPE-INDEX"), "type": string, "props": {...} }
-4. Generate 6–10 blocks per page. Always start with "dso-heartland-hero" or "dso-scroll-story-hero", and always end with "dso-cta-capture" or "dso-final-cta".
+4. Generate 6–10 blocks per page. Always start with "dso-heartland-hero" or "dso-scroll-story-hero", and always end with "dso-cta-capture" or "dso-final-cta". Use ONE closing CTA — never place two CTA blocks ("dso-cta-capture", "dso-final-cta", "bottom-cta") adjacent to each other; separate CTAs with content (proof, features, FAQ). One closing CTA is enough.
 5. BLOCK SELECTION — choose the block mix that best fits THIS specific account, audience, and prompt (and any reference site provided). Do NOT emit the same block sequence for every page: deliberately vary which blocks you use and their order from account to account based on what the brief emphasizes (e.g. a data-heavy network → stat-showcase + network-map + comparison; a single flagship customer → case-study + scroll-story; a pilot push → pilot-steps + bento-outcomes). A loose flow that works is hero → problem/challenges → ai-feature or scroll-story → stat-showcase or bento-outcomes → case-flow or network-map → comparison → success-stories → pilot-steps → cta — but treat this as ONE option, never a fixed template you must follow. EXPLICIT REQUESTS OVERRIDE VARIETY: when the USER REQUEST names a specific block, section, feature, topic, or product (e.g. "Dandy Insights", "AI Scan Review", a comparison table, a pilot timeline, a customer story, a video), you MUST include the block that delivers it — varying the mix NEVER justifies dropping a block the user explicitly asked for. Honoring explicit requests outranks this entire BLOCK SELECTION rule.
 6. All copy must be enterprise B2B — specific, credible, and ROI-focused. Mention DSO scale, multi-location benefits, network-wide metrics. No lorem ipsum.
 ${rule7}
@@ -5710,7 +6029,7 @@ AVAILABLE DSO PRACTICES BLOCK TYPES (use these exact type strings — these are 
 - "dso-promises": Promise/guarantee cards with icons. Props: eyebrow (string), headline (string), subheadline (string), promises (array of {icon, title, desc} — icon keys: "ban","rotate","shieldCheck","trending","award","zap","clock","heart"), backgroundStyle ("dark"|"white"|"muted")
 - "dso-faq": Expandable accordion FAQ for handling objections. Props: eyebrow (string), headline (string), subheadline (string), items (array of {question, answer}), backgroundStyle ("dark"|"white"|"muted")
 - "dso-meet-team": Team member cards with booking buttons + section CTA. Props: eyebrow (string), headline (string), subheadline (string), ctaText (string), ctaUrl (string), members (array of {name, role, email, photo, chilipiperUrl}), backgroundStyle ("dark"|"white"|"muted"). Populate the members array ONLY from the TEAM MEMBERS section of this brief — copy each real person's name, role, email, and Photo URL VERBATIM. NEVER invent a person and NEVER place any other library image (a group, lifestyle, or dinner photo) into a member's photo. If no team members are provided, leave members as placeholders rather than fabricating people.
-- "dso-testimonials": 3-column testimonial strip. Props: eyebrow (string), headline (string), subheadline (string), testimonials (array of {quote, author, location}), backgroundStyle ("dark"|"white"|"muted")
+- "dso-testimonials": 3-column testimonial strip. Include ONLY real quotes provided in the brand context — NEVER invent placeholder attributions like "Add a quote in brand settings"; if fewer real quotes exist, emit fewer items. Props: eyebrow (string), headline (string), subheadline (string), testimonials (array of {quote, author, location}), backgroundStyle ("dark"|"white"|"muted")
 
 RULES:
 1. Return ONLY a valid JSON object — no markdown, no explanation, no code fences.
@@ -6208,6 +6527,13 @@ interface SegmentContext {
   /** Task #253 — segment stats so strict-mode generations have an explicit
    *  approved pool of numbers to draw from. */
   stats?: SegmentStat[];
+  /** June 2026 copy-quality audit — the segment's saved old-way/new-way
+   *  ("need / us / them") comparison copy from Brand Settings. Previously only
+   *  the microsite generator emitted these ("Pre-validated comparisons");
+   *  the LP generator never saw them, so comparison-type blocks were written
+   *  from generic guidance. Backfilled server-side from `brand.segments` when
+   *  the client payload omits them (see enrichSegmentContextFromBrand). */
+  comparisonRows?: Array<{ need?: string; us?: string; them?: string }>;
   /** The segment's preferred microsite block list. When present, the generic
    *  generator honors it the same way the dedicated microsite generator does —
    *  the listed block types become the preferred structure for the page. */
@@ -6217,6 +6543,35 @@ interface SegmentContext {
    *  structure; category steps are resolved against the segment's approved
    *  pool, specific-block steps are forced, order is respected. */
   pageOutline?: PageOutline;
+}
+
+/** June 2026 copy-quality audit — the lp-studio clients send a trimmed
+ *  `segmentContext` (id/name/description/angle/valueProps/personas/challenges)
+ *  that omits the segment's saved `stats` and `comparisonRows`, so those Brand
+ *  Settings fields never reached generation. Backfill them server-side from
+ *  the brand config's full segment record (matched by id, then by name).
+ *  Mutates `seg` in place; client-provided values always win. */
+export function enrichSegmentContextFromBrand(
+  seg: SegmentContext | undefined,
+  brand: BrandConfig,
+): void {
+  if (!seg || typeof seg !== "object") return;
+  const segments = brand.segments ?? [];
+  if (segments.length === 0) return;
+  const wantedId = (seg.id ?? "").trim();
+  const wantedName = (seg.name ?? "").trim().toLowerCase();
+  const match =
+    (wantedId ? segments.find((s) => (s.id ?? "").trim() === wantedId) : undefined) ??
+    (wantedName
+      ? segments.find((s) => (s.name ?? "").trim().toLowerCase() === wantedName)
+      : undefined);
+  if (!match) return;
+  if (!(seg.stats?.length) && match.stats?.length) {
+    seg.stats = match.stats;
+  }
+  if (!(seg.comparisonRows?.length) && match.comparisonRows?.length) {
+    seg.comparisonRows = match.comparisonRows;
+  }
 }
 
 export function buildSegmentSection(
@@ -6266,6 +6621,20 @@ export function buildSegmentSection(
   } else if (opts.strict) {
     parts.push(
       "APPROVED SEGMENT STATS: (none) — for any stat slot in this page, use the literal placeholder \"X\" instead of inventing numbers.",
+    );
+  }
+  // June 2026 copy-quality audit — surface the segment's saved comparison
+  // copy so comparison-type blocks (comparison, dso-comparison,
+  // dso-paradigm-shift, pas-before-after) are written from the brand's own
+  // pre-validated contrasts instead of generic guidance. Mirrors the
+  // "Pre-validated comparisons" section the microsite generator already emits.
+  const validRows = (seg.comparisonRows ?? []).filter((r) => r?.need?.trim());
+  if (validRows.length) {
+    const rows = validRows
+      .map((r) => `- ${r.need!.trim()} — Us: ${r.us?.trim() ?? ""} · Them: ${r.them?.trim() ?? ""}`)
+      .join("\n");
+    parts.push(
+      `Pre-validated comparisons (the brand's own old-way/new-way copy — base any comparison block's rows or bullets on these, never invent contrasts):\n${rows}`,
     );
   }
   // Honor the segment's preferred microsite block list (parity with the
@@ -6642,6 +7011,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // (logo URLs, voice) needs it; the ~50ms latency hit is acceptable and
   // everything else still runs in parallel afterward.
   const brand = tenantId != null ? await fetchBrand(tenantId) : {};
+  // June 2026 copy-quality audit — backfill the segment's saved stats and
+  // comparison rows from the brand config (the clients send a trimmed
+  // segmentContext that omits both).
+  enrichSegmentContextFromBrand(segmentContext, brand);
   // Task #1134 — the tenant's brand logo URLs. Threaded into every image-pipeline
   // step so logo images are never cleared, library-swapped, or AI-regenerated by
   // "Replace imagery".
@@ -8735,9 +9108,23 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       }
     }
 
-    // 2. Final CTA — inject before footer if missing
-    const FINAL_CTA_TYPES = new Set(["bottom-cta", "dso-final-cta", "dso-cta-capture"]);
-    const hasFinalCta = blocks.some(b => FINAL_CTA_TYPES.has(b.type as string));
+    // 2. Final CTA — inject before footer if missing. "Missing" must respect
+    // EVERY closer-style CTA (the owner-reported double-CTA bug: a page ending
+    // in aurora-cta-finale wasn't recognized, so a redundant bottom-cta was
+    // stacked directly after it) — and a page whose last content block before
+    // the footer is ANY CTA-role block is already closed.
+    const FINAL_CTA_TYPES = new Set([
+      "bottom-cta", "dso-final-cta", "dso-cta-capture", "aurora-cta-finale",
+      "full-bleed-final-cta", "split-form-final-cta", "stat-backed-final-cta",
+      "social-urgency-final-cta", "gradient-glow-final-cta",
+      "video-background-final-cta", "dandy-cta-block", "dandy-conversion-panel-1",
+    ]);
+    const footerIdxForFinalCta = blocks.findIndex(b => b.type === "footer");
+    const lastContentBlock =
+      footerIdxForFinalCta > 0 ? blocks[footerIdxForFinalCta - 1] : blocks[blocks.length - 1];
+    const hasFinalCta =
+      blocks.some(b => FINAL_CTA_TYPES.has(b.type as string)) ||
+      (lastContentBlock != null && CTA_ROLE_BLOCK_TYPES.has(lastContentBlock.type as string));
     if (!hasFinalCta && !isSingleFullPage) {
       const footerIdx = blocks.findIndex(b => b.type === "footer");
       const insertAt = footerIdx !== -1 ? footerIdx : blocks.length;
@@ -8912,6 +9299,30 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       }
     }
 
+    // Strict-facts placeholder cards must never ship: drop testimonial items
+    // whose copy/attribution is placeholder text ("Add a quote in brand
+    // settings" / "Add a role in brand settings", quotes with no real author)
+    // and whole testimonial blocks left with no real quotes. Runs BEFORE
+    // required-role enforcement so a fully-scrubbed social-proof block can
+    // still be backfilled with a default.
+    {
+      const scrub = stripPlaceholderTestimonials(blocks);
+      if (scrub.events.length > 0) {
+        logger.warn(
+          {
+            event: "ai_placeholder_testimonials_stripped",
+            tenantId,
+            promptPath,
+            slug: parsed.slug,
+            scrubbed: scrub.events,
+          },
+          "[generate-page] dropped placeholder testimonial content from generated blocks",
+        );
+        blocks.length = 0;
+        blocks.push(...(scrub.blocks as Array<Record<string, unknown>>));
+      }
+    }
+
     // Enforce required structural roles (hero, cta, social-proof, stats,
     // features, footer), auto-injecting brand-aware defaults for any missing
     // role. Skipped for self-contained full-page blocks, which render their own
@@ -8922,6 +9333,29 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         brandName: brand.brandName,
         ctaUrl: cpUrl,
       });
+    }
+
+    // No stacked CTAs (June 2026): collapse ADJACENT CTA-role blocks (keep
+    // aurora-cta-finale, else the LAST) and drop any CTA-role block after an
+    // aurora-cta-finale. Form-bearing blocks are never dropped, and CTAs
+    // separated by real content survive — so an explicitly-requested second
+    // CTA with a buffer section is honored.
+    {
+      const ctaCollapse = collapseAdjacentCtaBlocks(blocks);
+      if (ctaCollapse.dropped.length > 0) {
+        logger.info(
+          {
+            event: "ai_adjacent_cta_collapsed",
+            tenantId,
+            promptPath,
+            slug: parsed.slug,
+            dropped: ctaCollapse.dropped,
+          },
+          "[generate-page] collapsed adjacent/post-finale CTA blocks",
+        );
+        blocks.length = 0;
+        blocks.push(...ctaCollapse.blocks);
+      }
     }
 
     parsed.blocks = blocks;

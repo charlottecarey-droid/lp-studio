@@ -9,6 +9,7 @@ import { InlineText } from "@/components/InlineText";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
 import { SectionDecor } from "@/lib/premium-toolkit";
+import { balancedGridItemClasses, type GridBreakpointSpec } from "@/lib/grid-balance";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
@@ -17,6 +18,23 @@ const BODY = BRAND_BODY_FONT;
 
 const CARD_SPRING = { type: "spring" as const, stiffness: 320, damping: 22 };
 const EASE = [0.16, 1, 0.3, 1] as const;
+
+/* Last-row balancing (doubled-track grids, see grid-balance.ts): every column
+ * track is doubled (2 tracks per visual cell) so an incomplete last row is
+ * centered with col-start math instead of leaving a bottom-left orphan card.
+ * Container classes and breakpoint specs are kept in lockstep per `columns`. */
+const GRID_CONTAINER_BY_COLUMNS: Record<number, string> = {
+  2: "grid-cols-1 sm:grid-cols-4",
+  3: "grid-cols-1 sm:grid-cols-4 lg:grid-cols-6",
+  4: "grid-cols-1 sm:grid-cols-4 lg:grid-cols-8",
+  5: "grid-cols-1 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-10",
+};
+const GRID_SPECS_BY_COLUMNS: Record<number, readonly GridBreakpointSpec[]> = {
+  2: [{ prefix: "sm", cols: 2 }],
+  3: [{ prefix: "sm", cols: 2 }, { prefix: "lg", cols: 3 }],
+  4: [{ prefix: "sm", cols: 2 }, { prefix: "lg", cols: 4 }],
+  5: [{ prefix: "sm", cols: 2 }, { prefix: "md", cols: 3 }, { prefix: "lg", cols: 5 }],
+};
 
 interface Props {
   props: BenefitsGridBlockProps;
@@ -40,6 +58,12 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange, animationsEnabl
     onFieldChange({ ...props, items: props.items.map((item, i) => i === index ? { ...item, image: url } : item) });
   };
 
+  // Per-item placement classes that center an incomplete last row.
+  const placementClasses = balancedGridItemClasses(
+    props.items.map(() => 1),
+    GRID_SPECS_BY_COLUMNS[props.columns ?? 3] ?? GRID_SPECS_BY_COLUMNS[3],
+  );
+
   return (
     <section className={cn("relative w-full overflow-hidden bg-white px-6", sectionPy)}>
       <SectionDecor accent={accent} isDark={false} disabled={isBuilder} />
@@ -47,12 +71,7 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange, animationsEnabl
         {props.headline && (
           <InlineText as="h2" value={props.headline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} className={cn(getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"), "font-display text-center text-[var(--brand-heading-on-light)] mb-12 lg:mb-16 max-w-3xl mx-auto leading-tight", getHeadingWeightClass(brand), getHeadingLetterSpacingClass(brand))} style={{ fontFamily: DISPLAY }} />
         )}
-        <div className={cn("grid gap-8", {
-          2: "grid-cols-1 sm:grid-cols-2",
-          3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
-          4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
-          5: "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5",
-        }[props.columns ?? 3])}>
+        <div className={cn("grid gap-8", GRID_CONTAINER_BY_COLUMNS[props.columns ?? 3] ?? GRID_CONTAINER_BY_COLUMNS[3])}>
           {props.items.map((benefit, i) => {
             const hasImage = !!benefit.image;
             return (
@@ -61,6 +80,7 @@ export function BlockBenefitsGrid({ props, brand, onFieldChange, animationsEnabl
                 className={cn(
                   "group flex flex-col rounded-2xl bg-white border border-black/[0.06] shadow-[0_1px_2px_rgba(15,15,20,0.04),0_10px_30px_-12px_rgba(15,15,20,0.08)]",
                   hasImage ? "overflow-hidden" : "p-8",
+                  placementClasses[i],
                 )}
                 initial={animationsEnabled ? { opacity: 0, y: 32 } : undefined}
                 whileInView={animationsEnabled ? { opacity: 1, y: 0 } : undefined}

@@ -7,13 +7,19 @@
  * copy of only the worst 1–2 blocks, then merges the rewritten text back into
  * the original blocks.
  *
- * June 2026 (page-variety/verification workstream): the pass is now MANDATORY
- * on every generation. Previously it only ran when the banned-phrase validator
- * found hits — pages with zero hits shipped with no critique at all. Now, when
- * there are no hits, the pass instead targets the copy-heaviest 1–2 blocks and
- * asks the model to tighten/sharpen their copy. Escape hatch:
- * CRITIQUE_PASS_DISABLED=1 skips the pass entirely. (There is no plan-based
- * gating — the only gate was the banned-phrase one removed here.)
+ * June 2026 (page-variety/verification workstream): the pass briefly became
+ * MANDATORY on every generation — with zero banned-phrase hits it targeted the
+ * copy-heaviest 1–2 blocks and asked the model to "tighten" them anyway. That
+ * regressed copy quality for content-rich brands: a generic rewrite of clean,
+ * brand-grounded copy tends to SHORTEN it and sand off the brand's specifics
+ * (owner report: "blocks look a little bare and the copy isn't as good as it
+ * used to be"). The pass is CORRECTIVE, not reductive:
+ *   - With banned-phrase hits, it always runs (mandatory-on-hits is kept).
+ *   - With ZERO hits, it is skipped by default (zero-hits early return
+ *     restored). The tighten-anyway fallback survives behind an explicit
+ *     opt-in: CRITIQUE_PASS_TIGHTEN_FALLBACK=1.
+ * Escape hatch: CRITIQUE_PASS_DISABLED=1 skips the pass entirely. (There is
+ * no plan-based gating.)
  *
  * Design constraints:
  *  - Non-destructive on failure. Any error, timeout, or malformed response
@@ -74,7 +80,7 @@ interface CritiqueOptions {
 const DEFAULT_MAX_BLOCKS = 2;
 const DEFAULT_TIMEOUT_MS = 3000;
 
-/** Minimum total copy length (chars) a block needs to be worth a mandatory
+/** Minimum total copy length (chars) a block needs to be worth an opt-in
  *  (no-banned-hits) critique — tiny blocks (a lone CTA label) are skipped. */
 const MIN_FALLBACK_COPY_LENGTH = 40;
 
@@ -163,8 +169,9 @@ function copyLength(value: unknown): number {
   return 0;
 }
 
-/** Ids of the copy-heaviest blocks — the mandatory-critique fallback targets
- *  when the banned-phrase validator found nothing to rank by. */
+/** Ids of the copy-heaviest blocks — the opt-in tighten-fallback targets
+ *  (CRITIQUE_PASS_TIGHTEN_FALLBACK=1) when the banned-phrase validator found
+ *  nothing to rank by. */
 function pickCopyHeaviestBlockIds(blocks: unknown[], maxBlocks: number): string[] {
   const ranked = blocks
     .filter(isPlainObject)
@@ -203,6 +210,9 @@ const CRITIQUE_SYSTEM_PROMPT = [
   "- Preserve the EXACT JSON structure of each block's props: keep every key, never add or remove keys.",
   "- Only change string values that are human-readable copy. NEVER change URLs, color hex values, image paths, layout/theme enum values, booleans, or numbers.",
   "- Do not reintroduce any of the banned phrases or their close variants.",
+  "- This is a SURGICAL edit, not a summary: rewrite to remove the flagged phrase while PRESERVING the original length, specificity, and concrete details of every field. Each rewritten string should be roughly as long as the original (never less than ~80% of its word count).",
+  "- NEVER summarize away value props, statistics, numbers, customer names, quotes, or proof points — every concrete fact in the original copy must survive the rewrite verbatim or near-verbatim.",
+  "- Strings that contain no flagged phrase and are already specific should be returned UNCHANGED.",
 ].join("\n");
 
 /**
@@ -225,15 +235,24 @@ export async function critiqueAndRewriteBlocks(
 
   const empty: CritiqueResult = { blocks, annotations: [], critiqued: false };
 
-  // Explicit escape hatch — the only way to skip the (otherwise mandatory) pass.
+  // Explicit escape hatch — skips the pass entirely, hits or not.
   if (process.env.CRITIQUE_PASS_DISABLED === "1") return empty;
 
   if (!openai || !Array.isArray(blocks) || blocks.length === 0) return empty;
   const hits = Array.isArray(bannedPhraseHits) ? bannedPhraseHits : [];
 
+  // The critique pass is CORRECTIVE, not reductive. With ZERO banned-phrase /
+  // cliché hits there is nothing to correct, so we do NOT rewrite for
+  // tightness alone — a generic "tighten" rewrite of clean, brand-grounded
+  // copy reliably shortens it and strips the brand's specifics (June 2026
+  // "bare blocks" regression). The copy-heaviest tighten-anyway fallback is
+  // available only behind an explicit opt-in env flag.
+  const tightenFallbackEnabled = process.env.CRITIQUE_PASS_TIGHTEN_FALLBACK === "1";
+  if (hits.length === 0 && !tightenFallbackEnabled) return empty;
+
   // Pick the worst blocks (by banned-phrase hit count) that still exist in the
-  // output. With ZERO hits the pass still runs (mandatory critique): fall back
-  // to the copy-heaviest blocks so every generation gets a tightening pass.
+  // output. With zero hits (opt-in fallback mode only), target the
+  // copy-heaviest blocks instead.
   const targetIds: string[] = [];
   if (hits.length > 0) {
     const ranked = rankBlocksByHits(hits);
@@ -265,8 +284,8 @@ export async function critiqueAndRewriteBlocks(
   const userPrompt = [
     voiceContext ? `BRAND VOICE:\n${voiceContext}\n` : "",
     bannedList.length > 0
-      ? `Banned/cliché phrases that MUST be removed (and not replaced with close variants): ${bannedList.join(", ")}.`
-      : "No specific banned phrases were detected. Tighten the copy anyway: replace vague hype, filler, and generic claims with specific, concrete, on-brand substance — keep anything already specific.",
+      ? `Banned/cliché phrases that MUST be removed (and not replaced with close variants): ${bannedList.join(", ")}. Rewrite ONLY what is needed to remove them — preserve each field's length, specificity, and every concrete detail (value props, numbers, names, proof points).`
+      : "No specific banned phrases were detected. Replace only vague hype, filler, and generic claims with specific, concrete, on-brand substance. Keep anything already specific UNCHANGED, preserve each field's length (do not shorten), and never drop value props, numbers, or proof points.",
     "",
     "Rewrite the copy in these blocks:",
     JSON.stringify({ blocks: targets.map((b) => ({ id: b.id, type: b.type, props: b.props })) }),

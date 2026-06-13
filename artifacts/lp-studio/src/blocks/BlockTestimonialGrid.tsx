@@ -9,6 +9,7 @@ import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import { resolveSectionSurface } from "@/lib/bg-styles";
 import { Reveal, RevealStagger, RevealItem } from "@/lib/premium-toolkit";
+import { balancedGridItemClasses } from "@/lib/grid-balance";
 import { cn } from "@/lib/utils";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
@@ -69,6 +70,18 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
 
   const testimonials = props.testimonials ?? [];
 
+  /* Last-row balancing (doubled-track grid, see grid-balance.ts): the grid
+   * renders md:grid-cols-4 / lg:grid-cols-6 (2 tracks per visual cell — md is
+   * 2-up, lg 3-up) so an incomplete last row is centered instead of leaving a
+   * bottom-left orphan card. A `featured` card counts as 2 cells. */
+  const placementClasses = balancedGridItemClasses(
+    testimonials.map((t) => (t.featured === true ? 2 : 1)),
+    [
+      { prefix: "md", cols: 2 },
+      { prefix: "lg", cols: 3 },
+    ],
+  );
+
   const update = <K extends keyof TestimonialGridBlockProps>(key: K, value: TestimonialGridBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
 
@@ -114,7 +127,7 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
         </Reveal>
 
         {/* ── Varied card grid ── */}
-        <RevealStagger disabled={!animate} className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+        <RevealStagger disabled={!animate} className="grid grid-cols-1 gap-5 md:grid-cols-4 lg:grid-cols-6 lg:gap-6">
           {testimonials.map((t, i) => {
             const featured = t.featured === true;
             // Break the monotony: when no explicit card color is set, every
@@ -137,7 +150,7 @@ export function BlockTestimonialGrid({ props, brand, onFieldChange }: Props) {
             return (
               <RevealItem
                 key={t.id || i}
-                className={cn(featured && "md:col-span-2")}
+                className={cn(placementClasses[i])}
               >
                 <figure
                   className={cn(

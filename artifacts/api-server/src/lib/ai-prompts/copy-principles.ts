@@ -69,12 +69,14 @@ COPY QUALITY PRINCIPLES — follow every one of these without exception:
    BAD: "Powerful, comprehensive, industry-leading digital solutions"
    GOOD: "A lab that backs every case with a guarantee"
 
-${matchedSegment ? `9. VALIDATED FACTS ONLY — when this prompt includes a TARGET SEGMENT section with pre-validated stats, comparisons, and persona pain points, you MUST use ONLY those exact facts:
+9. Prefer specific, concrete brand facts — the value props, differentiators, product details, and proof points given in BRAND CONTEXT — over generic marketing filler, and use the brand's own vocabulary and product names. When BRAND CONTEXT provides a fact, stat, quote, or phrase that fits a slot, use it instead of writing something generic.
+
+${matchedSegment ? `10. VALIDATED FACTS ONLY — when this prompt includes a TARGET SEGMENT section with pre-validated stats, comparisons, and persona pain points, you MUST use ONLY those exact facts:
    a) STATS: Pull every number, percentage, dollar amount, and time-frame ONLY from the "Pre-validated stats" list. Never invent statistics. Never round, embellish, or extrapolate. If no stat fits a slot, write a different sentence rather than fabricating a number.
    b) COMPARISONS: In any comparison block (oldWayBullets/newWayBullets, comparison rows, "us vs them" tables), use ONLY the "Pre-validated comparisons" entries. Never invent contrasts.
    c) PERSONA PAIN POINTS: When writing pain-section copy or addressing buyer concerns, use ONLY the pain points listed under "Key personas". Never fabricate a persona or invent a pain point not on the list.
 
-10. CAPITALIZATION — Two absolute rules that BOTH apply at all times:` : `9. CAPITALIZATION — Two absolute rules that BOTH apply at all times:`}
+11. CAPITALIZATION — Two absolute rules that BOTH apply at all times:` : `10. CAPITALIZATION — Two absolute rules that BOTH apply at all times:`}
    a) ALWAYS start every sentence, headline, eyebrow, bullet point, step title, card title, FAQ question, and label with a capital letter. Every piece of text that starts a new thought begins with a capital. Never begin any text with a lowercase letter.
    b) NEVER title-case — do not capitalize every word. Only the first word of a sentence + proper nouns (person names, companies, cities) + acronyms (DSO, AI, ROI) + official product names get capitals.
    WRONG (all lowercase start): "more cases. zero lab drama." → WRONG: sentence starts with lowercase

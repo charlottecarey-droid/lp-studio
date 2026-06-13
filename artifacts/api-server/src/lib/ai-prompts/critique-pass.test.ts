@@ -17,7 +17,34 @@ function jsonCompletion(obj: unknown) {
 }
 
 describe("critiqueAndRewriteBlocks", () => {
-  it("runs a MANDATORY critique on the copy-heaviest blocks even with zero banned-phrase hits", async () => {
+  it("does NOT call the model when there are zero banned-phrase hits (corrective, not reductive)", async () => {
+    const blocks = [
+      {
+        id: "b1",
+        type: "hero",
+        props: {
+          headline: "Crowns shipped in five days flat",
+          subheadline: "Every case auto-checked before it ships — 96% first-time fit.",
+        },
+      },
+      { id: "b2", type: "footer", props: { copyrightText: "© 2026" } },
+    ];
+    const before = JSON.parse(JSON.stringify(blocks));
+    const create = vi.fn();
+    const res = await critiqueAndRewriteBlocks({
+      blocks,
+      bannedPhraseHits: [],
+      brand: {},
+      openai: fakeOpenAI(create as unknown as ChatCreate),
+    });
+    expect(create).not.toHaveBeenCalled();
+    expect(res.critiqued).toBe(false);
+    expect(res.annotations).toEqual([]);
+    expect(blocks).toEqual(before);
+  });
+
+  it("opt-in CRITIQUE_PASS_TIGHTEN_FALLBACK=1: critiques the copy-heaviest blocks with zero hits", async () => {
+    vi.stubEnv("CRITIQUE_PASS_TIGHTEN_FALLBACK", "1");
     const blocks = [
       {
         id: "b1",
@@ -35,8 +62,9 @@ describe("critiqueAndRewriteBlocks", () => {
       // The copy-heavy block is targeted; the tiny footer is not.
       expect(userMsg).toContain('"id":"b1"');
       expect(userMsg).not.toContain('"id":"b2"');
-      // With no hits, the prompt asks for a general tightening pass.
+      // With no hits, the prompt asks for a preservation-safe sharpening pass.
       expect(userMsg).toContain("No specific banned phrases were detected");
+      expect(userMsg).toContain("preserve each field's length");
       return jsonCompletion({
         blocks: [
           {
@@ -63,7 +91,8 @@ describe("critiqueAndRewriteBlocks", () => {
     expect((blocks[0].props as Record<string, unknown>).headline).toBe("Crowns shipped in five days flat");
   });
 
-  it("no-ops when every block is too copy-light to critique (and no hits)", async () => {
+  it("opt-in fallback no-ops when every block is too copy-light to critique (and no hits)", async () => {
+    vi.stubEnv("CRITIQUE_PASS_TIGHTEN_FALLBACK", "1");
     const create = vi.fn();
     const blocks = [{ id: "b1", type: "footer", props: { copyrightText: "© 2026" } }];
     const res = await critiqueAndRewriteBlocks({
@@ -74,6 +103,24 @@ describe("critiqueAndRewriteBlocks", () => {
     });
     expect(res.critiqued).toBe(false);
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("still runs (mandatory) when banned-phrase hits exist", async () => {
+    const blocks = [{ id: "b1", type: "hero", props: { headline: "Our industry-leading platform for teams" } }];
+    const hits = findBannedPhrases(blocks);
+    expect(hits.length).toBeGreaterThan(0);
+    const create = vi.fn(async () =>
+      jsonCompletion({ blocks: [{ id: "b1", props: { headline: "Crowns shipped in five days flat" } }] }),
+    );
+    const res = await critiqueAndRewriteBlocks({
+      blocks,
+      bannedPhraseHits: hits,
+      brand: {},
+      openai: fakeOpenAI(create as unknown as ChatCreate),
+    });
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(res.critiqued).toBe(true);
+    expect((blocks[0].props as Record<string, unknown>).headline).toBe("Crowns shipped in five days flat");
   });
 
   it("no-ops when CRITIQUE_PASS_DISABLED=1 (env escape hatch)", async () => {

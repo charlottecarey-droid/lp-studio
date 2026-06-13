@@ -9,6 +9,7 @@ import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
+import { balancedGridItemClasses } from "@/lib/grid-balance";
 import { cn } from "@/lib/utils";
 import { motion, useReducedMotion } from "framer-motion";
 
@@ -130,6 +131,17 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
     onFieldChange({ ...props, secondaryFeatures: props.secondaryFeatures.map((f, idx) => (idx === i ? { ...f, ...patch } : f)) });
   };
 
+  /* Last-row balancing for the supporting cards (doubled-track grid, see
+   * grid-balance.ts): an incomplete last row centers instead of leaving a
+   * bottom-left orphan card. */
+  const placementClasses = balancedGridItemClasses(
+    props.secondaryFeatures.map(() => 1),
+    [
+      { prefix: "sm", cols: 2 },
+      { prefix: "lg", cols: 3 },
+    ],
+  );
+
   return (
     <section
       className="fspc-section relative flex w-full justify-center overflow-hidden px-6 py-20 sm:py-24 lg:px-10 lg:py-32"
@@ -248,15 +260,17 @@ export function BlockFeaturesSpotlightCards({ props, brand, onFieldChange }: Pro
             )}
           </div>
 
-          {/* ── Supporting cards — large icon/image areas, glow on hover. ── */}
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+          {/* ── Supporting cards — large icon/image areas, glow on hover.
+               Doubled-track grid (sm 2-up, lg 3-up — see grid-balance.ts) so an
+               incomplete last row centers instead of orphaning a card. ── */}
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-4 lg:grid-cols-6 lg:gap-6">
             {props.secondaryFeatures.map((feature, i) => {
               const hasImage = !!(feature.image && feature.image.trim());
               const featured = feature.featured === true;
               return (
                 <motion.div
                   key={i}
-                  className="fspc-card group flex flex-col overflow-hidden rounded-2xl ring-1"
+                  className={cn("fspc-card group flex flex-col overflow-hidden rounded-2xl ring-1", placementClasses[i])}
                   style={{
                     backgroundColor: featured
                       ? `color-mix(in srgb, ${accentRaw} ${dark ? 14 : 6}%, ${cardBg})`
