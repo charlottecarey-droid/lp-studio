@@ -7,6 +7,7 @@ import { InlineText } from "@/components/InlineText";
 import { safeNavigate } from "@/lib/safe-url";
 import { CtaButton } from "@/components/CtaButton";
 import { pickContrastingColor, isValidHex, contrastTextColor } from "@/lib/brand-config";
+import { resolveSectionInk } from "@/lib/section-ink";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 
 const BODY = BRAND_BODY_FONT;
@@ -38,7 +39,6 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
   const bg = p.backgroundColor || DANDY_GREEN;
   const accent = p.accentColor || DANDY_LIME;
   const brand = useBrandConfig() ?? undefined;
-  const baseTextColor = p.textColor || "#ffffff";
   const imageBleed = p.imageBleed ?? true;
   const imageScale = p.imageScale ?? 1.35;
   const imageAnchor = p.imageAnchor || "top left";
@@ -52,13 +52,34 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
   const leftFr = p.leftColumnFr ?? 1.05;
   const rightFr = p.rightColumnFr ?? 1;
   const cardColor = p.cardColor || "#e8e6df";
-  const cardTextColor = p.cardTextColor || baseTextColor;
   const imageBgColor = p.imageBackgroundColor || "#ffffff";
 
-  // In card variant, copy lives inside the grey card → use cardTextColor.
-  const textColor = variant === "card" ? cardTextColor : baseTextColor;
   // Section background depends on variant.
   const sectionBg = variant === "split" ? bg : imageBgColor;
+
+  // Resolve the copy ink against the ACTUAL surface the headline + body sit on,
+  // per variant — so when `p.textColor` is unset we derive a contrast-safe
+  // default (dark surface → light ink, light surface → dark ink) instead of
+  // hardcoding white (the white-on-light bug). When `p.textColor` IS set we
+  // honor it as long as it's readable on that surface; an explicitly
+  // unreadable override is conservatively corrected by `resolveSectionInk`.
+  //
+  //   - card:     copy lives inside the grey card → surface is `cardColor`.
+  //   - split:    copy sits on the section bg (`bg`); the image bleeds the
+  //               RIGHT column, so the headline surface is `bg`, NOT the image.
+  //   - gradient: copy sits over the left of the gradient, which is solid `bg`
+  //               at 0–38% before fading toward the image → surface is `bg`.
+  //
+  // For card we honor an explicit `cardTextColor` first (back-compat), then
+  // fall back to the contrast-resolved ink for the card surface.
+  const copySurface = variant === "card" ? cardColor : (isValidHex(sectionBg) ? sectionBg : bg);
+  const resolvedInk = resolveSectionInk({ textColor: p.textColor }, { base: copySurface });
+  const cardTextColor = p.cardTextColor
+    || resolveSectionInk({ textColor: p.textColor }, { base: cardColor }).text;
+  const textColor = variant === "card" ? cardTextColor : resolvedInk.text;
+  // `baseTextColor` is the non-card copy ink; the image-side placeholder tint
+  // derives from it. Keep it aligned with the resolved headline ink.
+  const baseTextColor = variant === "card" ? cardTextColor : resolvedInk.text;
 
   // Guard the CTA fill against the section it sits on. When both the section
   // bg and the preferred button color are AI/tenant-chosen hexes (not the

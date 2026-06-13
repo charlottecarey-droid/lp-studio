@@ -1134,6 +1134,30 @@ async function runMigrationsBody(): Promise<void> {
         `strict-facts review schema self-heal did not produce the lp_page_fact_flags table + all lp_proof_points columns (found ${present}/7) — aborting release`,
     });
 
+    // Durable self-heal for the shared conversation-engine tables (June 2026
+    // chatbot spec — Builder Copilot v1). Same high-water-mark hazard as the
+    // self-heals above: on a drifted DB whose drizzle.__drizzle_migrations max
+    // created_at already sits ABOVE 0094's journal `when`, the node-postgres
+    // migrator records nothing and never runs 0094's DDL, leaving the tables
+    // missing. POST /lp/copilot/chat INSERTs into both tables on every turn; a
+    // missing table 500s the copilot panel. Re-applying the file here is
+    // independent of drizzle's dedup and idempotent (CREATE TABLE/INDEX IF NOT
+    // EXISTS), so it creates the tables where missing and is a no-op elsewhere.
+    // The .sql stays the single source of truth. Fails CLOSED: both tables are
+    // feature-critical, so a missing table aborts the release; the SQL is
+    // idempotent so a retry is always safe.
+    await runProbedSelfHeal({
+      name: "conversation-engine schema self-heal (0094)",
+      applySqlFile: "0094_conversations.sql",
+      expected: 2,
+      checkSql: `SELECT count(*)::int AS present
+           FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name IN ('conversations', 'conversation_messages')`,
+      shortfall: (present) =>
+        `conversation-engine schema self-heal did not produce both tables (found ${present}/2) — aborting release`,
+    });
+
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
     // letterdrop integrations don't break the moment we cut over the routes.
     // Generates one secret per integration for tenant #1, idempotent under

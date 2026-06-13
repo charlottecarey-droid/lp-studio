@@ -54,6 +54,10 @@ export * from "./blockCatalog";
 export * from "./tenantBlockGovernance";
 export * from "./aiGenerationLog";
 
+// Shared conversation engine (Builder Copilot v1 + future bots) — one
+// mode-tagged transcript table for every conversational surface.
+export * from "./conversations";
+
 // Per-tenant inbound webhook secrets
 export * from "./tenantWebhookSecrets";
 

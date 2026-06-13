@@ -90,6 +90,9 @@ import { useKeyboardShortcuts, type Shortcut } from "@/lib/keyboard-shortcuts";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { Settings2, BarChart3 } from "lucide-react";
 import { isBlockVisibleForAudience, isBlockTypeAllowedForAudience, canUseGridPieces } from "@/lib/audience-gating";
+import CopilotPanel, { type ApplyActionResult } from "./CopilotPanel";
+import type { CopilotAction } from "@/lib/copilotStream";
+import { contrastRatio } from "@/lib/section-ink";
 import { CommentsPanel, CommentBadge } from "@/components/collaboration/comment-thread";
 import { ShareReviewModal } from "@/components/collaboration/share-review-modal";
 import {
@@ -1141,6 +1144,8 @@ export default function BuilderEditor() {
   const [customizeLibraryOpen, setCustomizeLibraryOpen] = useState(false);
   const [customBlocks, setCustomBlocks] = useState<CustomBlock[]>([]);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  // Builder Copilot (June 2026 chatbot spec) — collapsible "Ask AI" panel.
+  const [copilotOpen, setCopilotOpen] = useState(false);
   // Task #1138 — Strict Facts review. Persistent per-page fact flags drive both
   // the review banner and the publish gate (review-not-remove: the values stay
   // on the page). `pageId` is the route param string defined just above.
@@ -1985,6 +1990,110 @@ export default function BuilderEditor() {
     setBlocks(prev => insertAtPath(prev, parentPath, index, newBlock));
     setSelectedBlockId(newBlock.id);
   };
+
+  // ── Builder Copilot — apply a proposed action via the REAL builder mutations
+  //    (the panel never mutates blocks itself). Each of the 6 v1 action types
+  //    maps to an existing mutation; the bot proposes, this confirms-and-applies.
+  //    Optimistic + undoable: every mutation goes through `setBlocks`, which the
+  //    existing 50-entry undo history snapshots, so Cmd-Z reverts an applied
+  //    action. Top-level blocks only in v1 (matches the action arg shapes).
+  const applyCopilotAction = useCallback(
+    async (action: CopilotAction): Promise<ApplyActionResult> => {
+      const a = action.args ?? {};
+      const str = (v: unknown): string => (typeof v === "string" ? v : "");
+      const indexOfId = (id: string): number => blocks.findIndex((b) => b.id === id);
+
+      try {
+        switch (action.type) {
+          case "insert_block": {
+            const type = str(a.type);
+            if (!type || !VALID_BLOCK_TYPES.has(type)) {
+              return { ok: false, message: `Unknown block type "${type}"` };
+            }
+            const afterId = str(a.afterBlockId);
+            // afterBlockId "" → top; unknown id → append (addBlock handles
+            // undefined index as append).
+            const atIndex = afterId ? indexOfId(afterId) + 1 : 0;
+            addBlock(type, atIndex >= 0 ? atIndex : undefined);
+            return { ok: true };
+          }
+          case "remove_block": {
+            const id = str(a.blockId);
+            if (indexOfId(id) === -1) return { ok: false, message: "Block not found" };
+            deleteBlock(id);
+            return { ok: true };
+          }
+          case "reorder_block": {
+            const id = str(a.blockId);
+            const from = indexOfId(id);
+            if (from === -1) return { ok: false, message: "Block not found" };
+            const beforeId = str(a.beforeBlockId);
+            setBlocks((prev) => {
+              const next = [...prev];
+              const [moved] = next.splice(from, 1);
+              if (!moved) return prev;
+              let to = beforeId ? next.findIndex((b) => b.id === beforeId) : next.length;
+              if (to === -1) to = next.length;
+              next.splice(to, 0, moved);
+              return next;
+            });
+            return { ok: true };
+          }
+          case "fix_contrast": {
+            const id = str(a.blockId);
+            const idx = indexOfId(id);
+            if (idx === -1) return { ok: false, message: "Block not found" };
+            const block = blocks[idx];
+            const props = { ...(block.props as Record<string, unknown>) };
+            const bg =
+              (typeof props.backgroundColor === "string" && props.backgroundColor) ||
+              (typeof props.bgColor === "string" && props.bgColor) ||
+              "#ffffff";
+            // Pick whichever of black/white reads better on the background.
+            const best = contrastRatio("#ffffff", bg) >= contrastRatio("#111111", bg) ? "#ffffff" : "#111111";
+            props.textColor = best;
+            updateBlock({ ...block, props } as PageBlock);
+            return { ok: true };
+          }
+          case "rewrite_copy": {
+            const id = str(a.blockId);
+            const idx = indexOfId(id);
+            if (idx === -1) return { ok: false, message: "Block not found" };
+            const field = str(a.field);
+            if (!field) return { ok: false, message: "No field specified" };
+            const block = blocks[idx];
+            const props = block.props as Record<string, unknown>;
+            const currentValue = typeof props[field] === "string" ? (props[field] as string) : "";
+            // Route through the SAME per-block copy endpoint the inspector uses.
+            const updated = await refreshBlockCopy(block.type, [field], { [field]: currentValue });
+            const newValue = updated[field];
+            if (typeof newValue !== "string" || !newValue.trim()) {
+              return { ok: false, message: "Couldn't generate new copy" };
+            }
+            updateBlock({ ...block, props: { ...props, [field]: newValue } } as PageBlock);
+            return { ok: true };
+          }
+          case "replace_image": {
+            // v1: select the block + slot and open the media library so the user
+            // picks the replacement (no autonomous image swap). Wires to the
+            // existing selection + media drawer flow.
+            const id = str(a.blockId);
+            if (indexOfId(id) === -1) return { ok: false, message: "Block not found" };
+            setSelectedBlockId(id);
+            return {
+              ok: true,
+              message: "Selected the block — open its image field to pick a new image.",
+            };
+          }
+          default:
+            return { ok: false, message: `Unsupported action "${action.type}"` };
+        }
+      } catch (err) {
+        return { ok: false, message: err instanceof Error ? err.message : "Could not apply" };
+      }
+    },
+    [blocks, addBlock, deleteBlock, setBlocks, updateBlock],
+  );
 
   const applyCtaToAll = () => {
     if (!selectedBlock) return;
@@ -3712,7 +3821,34 @@ export default function BuilderEditor() {
           />
           <CustomCssPanel value={customCss} onChange={setCustomCss} />
         </aside>
+
+        {/* Builder Copilot — collapsible "Ask AI" panel (chatbot spec, Bot 1).
+            Page-scoped: needs a numeric page id. Hidden in catalog mode (no
+            page to reason about). */}
+        {!catalogMode && pageIdNum > 0 && (
+          <CopilotPanel
+            open={copilotOpen}
+            onClose={() => setCopilotOpen(false)}
+            pageId={pageIdNum}
+            getLiveBlocks={() => blocks}
+            getTitle={() => title}
+            onApplyAction={applyCopilotAction}
+          />
+        )}
       </div>
+
+      {/* Copilot launcher — floating "✦ Ask AI" button (hidden while the panel
+          is open or in catalog mode). */}
+      {!catalogMode && pageIdNum > 0 && !copilotOpen && (
+        <button
+          onClick={() => setCopilotOpen(true)}
+          className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2.5 text-sm font-medium shadow-lg hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 outline-none motion-safe:transition"
+          aria-label="Open Builder Copilot"
+        >
+          <Sparkles className="w-4 h-4" aria-hidden />
+          Ask AI
+        </button>
+      )}
     </div>
     </DndContext>
     </CustomBlocksProvider>
