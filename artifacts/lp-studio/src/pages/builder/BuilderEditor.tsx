@@ -2045,13 +2045,34 @@ export default function BuilderEditor() {
             if (idx === -1) return { ok: false, message: "Block not found" };
             const block = blocks[idx];
             const props = { ...(block.props as Record<string, unknown>) };
-            const bg =
-              (typeof props.backgroundColor === "string" && props.backgroundColor) ||
-              (typeof props.bgColor === "string" && props.bgColor) ||
-              "#ffffff";
-            // Pick whichever of black/white reads better on the background.
-            const best = contrastRatio("#ffffff", bg) >= contrastRatio("#111111", bg) ? "#ffffff" : "#111111";
-            props.textColor = best;
+            // Don't GUESS a text color against a fallback "white" background.
+            // Many blocks (e.g. the product/brand heroes) paint a dark brand
+            // surface from a component DEFAULT, not a saved `backgroundColor`
+            // prop — so a naive black/white pick against an assumed-white bg
+            // sets DARK text on a DARK panel (the exact bug this used to cause).
+            // Instead CLEAR the explicit text-color overrides so the block's own
+            // surface-aware ink resolver (resolveSectionInk) recomputes a
+            // contrast-safe color against the surface it actually paints. Only
+            // blocks that lack such a resolver fall back to the bg-derived pick.
+            const hadOverride =
+              "textColor" in props || "cardTextColor" in props || "headlineColor" in props;
+            delete props.textColor;
+            delete props.cardTextColor;
+            delete props.headlineColor;
+            if (!hadOverride) {
+              const bgRaw =
+                (typeof props.backgroundColor === "string" && props.backgroundColor) ||
+                (typeof props.bgColor === "string" && props.bgColor) ||
+                "";
+              if (bgRaw) {
+                props.textColor =
+                  contrastRatio("#ffffff", bgRaw) >= contrastRatio("#111111", bgRaw)
+                    ? "#ffffff"
+                    : "#111111";
+              } else {
+                return { ok: false, message: "This block resolves its own contrast — nothing to override." };
+              }
+            }
             updateBlock({ ...block, props } as PageBlock);
             return { ok: true };
           }
