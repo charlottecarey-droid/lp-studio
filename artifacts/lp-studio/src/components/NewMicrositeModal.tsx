@@ -1,25 +1,48 @@
-// Sales "New Microsite" modal — single-screen flow that mirrors the
-// marketing "Create New Page" modal but is account-aware:
-//   1. Pick an account (recommended) — or take the small "without an account"
-//      escape hatch beneath it.
-//   2. Pick Template or AI Generate.
-//   3. Submit → page is created, hotlinks are bulk-generated for the account
-//      contacts (when one is picked), and the user is taken to the builder.
+// Sales "New Microsite" modal — a GUIDED questionnaire → preview → builder
+// flow (June 2026 redesign).
 //
-// The tenant's own templates (`?ownedOnly=true`) are surfaced alongside the
-// shared GLOBAL flagship/framework templates (StoryBrand / MEDDIC
-// exec-decision-brief / Challenger + business-case all-in-ones, via
-// `?salesMode=true`) under a separate "Frameworks & layouts" group. The full
-// off-brand global SaaS starter library is still NEVER shown, so every
-// microsite stays on-brand.
-import { Fragment, useEffect, useMemo, useState } from "react";
+// The old single-screen modal front-loaded implementation choices (Template vs
+// AI toggle, starting point, blank vs template). This redesign instead asks the
+// few questions a marketer would ask if a rep dropped a request in Slack —
+// "tell us who this is for and what you're trying to accomplish; we'll handle
+// the rest" — then shows a recommendation PREVIEW (with the "why"), and only
+// then generates and drops the rep into the builder.
+//
+// Flow / state machine (`step`):
+//   "who"       → Step 1: account typeahead (search + confidence + dedupe).
+//   "goal"      → Step 2: selectable objective cards (the primary driver).
+//   "audience"  → Step 3: segment + persona (inferred from CRM titles when the
+//                 account has contacts; manual otherwise — segment is P0).
+//   "details"   → Step 4: a single free-text "anything else?" refinement field.
+//   "preview"   → POST /sales/microsite/recommend, render the plan + why.
+//   (then)      → generate via the EXISTING wiring (dedicated account path or
+//                 the generic live-stream path), save, navigate to /builder.
+//
+// All the OLD capabilities (manual template picker, blank page, segment
+// overrides, slug editing, generation settings, reference URL, screenshot) live
+// behind a collapsed "Advanced settings" disclosure — nothing is lost, but most
+// reps never open it. The generate + save + navigate-to-builder wiring (account
+// path /sales/accounts/:id/generate-microsite, generic /lp/generate-page +
+// /lp/pages, contact hotlinks, fact flags, critique stash, last-segment memory,
+// and the live GenerationLiveView preview) is preserved verbatim from the old
+// modal; only the front-of-flow changed.
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import {
-  Building2,
-  FileText,
+  ArrowLeft,
+  ArrowRight,
+  Calculator,
+  CalendarCheck,
+  ChevronDown,
+  FileCheck,
   Loader2,
+  Presentation,
+  RefreshCw,
+  Settings2,
   Sparkles,
-  UserX,
+  Sprout,
+  TrendingUp,
+  Users,
   Wand2,
 } from "lucide-react";
 import {
@@ -32,24 +55,50 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AccountCombobox } from "@/components/AccountCombobox";
-import { fetchBrandConfig, type AudienceSegment } from "@/lib/brand-config";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { syncFactFlags } from "@/lib/fact-flags-api";
 import { rememberCritiqueAnnotations } from "@/lib/critiqueAnnotations";
 import { cn } from "@/lib/utils";
 import type { GenerationRequestBody, GenerationResult } from "@/lib/generationStream";
-import { imageFileFromDataTransfer } from "@/lib/screenshotAttachment";
-import {
-  ScreenshotAttachZone,
-  useScreenshotAttachment,
-} from "@/components/generation/ScreenshotAttach";
 import { GenerationLiveView } from "@/pages/pages-gallery/GenerationLiveView";
+import {
+  AccountSearchTypeahead,
+  type SelectedAccount,
+} from "@/components/sales/AccountSearchTypeahead";
+import {
+  MicrositePreviewPanel,
+  type MicrositePlan,
+} from "@/components/sales/MicrositePreviewPanel";
+import {
+  OBJECTIVE_CARDS,
+  objectiveToEnum,
+  inferPersonaFromContacts,
+  recommendSegmentPersona,
+  type MicrositeObjective,
+  type FlowSegment,
+  type InferenceContact,
+} from "@/lib/micrositeFlow";
 
 const API_BASE = "/api";
 
-interface Account {
-  id: number;
+// ── Brand segment shape (from GET /sales/brand/segments) ─────────────────────
+interface BrandPersona {
+  id: string;
+  name?: string;
+  role?: string;
+  painPoints?: string[];
+  caresAbout?: string[];
+}
+interface BrandSegment {
+  id: string;
   name: string;
+  description?: string;
+  messagingAngle?: string;
+  personas?: BrandPersona[];
 }
 
 interface TenantTemplate {
@@ -57,69 +106,24 @@ interface TenantTemplate {
   title: string;
   templateLabel: string | null;
   templateDescription: string | null;
-  /** True for the shared global flagship/framework templates (StoryBrand /
-   *  MEDDIC exec-decision-brief / Challenger + business-case all-in-ones).
-   *  Used to group them separately from the tenant's own templates. */
   isGlobal?: boolean;
-  /** Stored on lp_pages — present in the GET /lp/templates response. Used to
-   *  derive the ABM funnel-stage grouping for the global all-in-one templates
-   *  (the funnelStage seed tag is NOT persisted to a DB column, so we derive
-   *  the stage from the slug, falling back to category). Both optional. */
   slug?: string | null;
   category?: string | null;
 }
 
-// ── ABM funnel-stage grouping for global all-in-one templates ────────────────
-// The seed's `funnelStage` tag is intentionally NOT persisted to a DB column
-// (additive + fail-open), so the modal derives the stage client-side from the
-// template slug (the seeds use stable `global-*` slugs), falling back to the
-// generic "Frameworks & layouts" bucket. Reps then pick by sales intent.
-type FunnelStage =
-  | "first-meeting"
-  | "deal-acceleration"
-  | "onboarding"
-  | "expansion-renewal"
-  | "other";
-
-const FUNNEL_STAGE_ORDER: FunnelStage[] = [
-  "first-meeting",
-  "deal-acceleration",
-  "onboarding",
-  "expansion-renewal",
-  "other",
-];
-
-const FUNNEL_STAGE_LABEL: Record<FunnelStage, string> = {
-  "first-meeting": "First meeting",
-  "deal-acceleration": "Accelerate the deal",
-  onboarding: "Onboard",
-  "expansion-renewal": "Expand & renew",
-  other: "Frameworks & layouts",
+// Map objective-card icon names → the imported lucide icon component.
+const OBJECTIVE_ICONS: Record<string, typeof CalendarCheck> = {
+  CalendarCheck,
+  TrendingUp,
+  RefreshCw,
+  FileCheck,
+  Calculator,
+  Presentation,
+  Sprout,
+  Wand2,
 };
 
-/** Map a global template to its ABM funnel stage from the slug (stable), then
- *  a couple of slug heuristics, else "other". Fail-open: anything we can't
- *  place lands in the generic "Frameworks & layouts" group. */
-function funnelStageForTemplate(t: TenantTemplate): FunnelStage {
-  const slug = (t.slug ?? "").toLowerCase();
-  if (slug === "global-deal-room") return "deal-acceleration";
-  if (slug === "global-onboarding-hub") return "onboarding";
-  if (slug === "global-value-renewal-review") return "expansion-renewal";
-  if (
-    slug === "global-storybrand-journey" ||
-    slug === "global-exec-decision-brief" ||
-    slug === "global-challenger-insight"
-  ) {
-    return "first-meeting";
-  }
-  // Slug heuristics for any future ABM seeds that follow the naming convention.
-  if (/deal[-_]?room|mutual[-_]?action/.test(slug)) return "deal-acceleration";
-  if (/onboard|kickoff|welcome/.test(slug)) return "onboarding";
-  if (/renew|qbr|expansion|value[-_]?review/.test(slug)) return "expansion-renewal";
-  return "other";
-}
-
-type Mode = "template" | "ai";
+type Step = "who" | "goal" | "audience" | "details" | "preview";
 
 interface Props {
   open: boolean;
@@ -134,96 +138,73 @@ function slugify(s: string) {
     .slice(0, 80);
 }
 
-// Per-account "last segment used" memory. Persisted in localStorage so the
-// segment picker can default to the rep's previous choice for the same
-// account, reinforcing consistent messaging and saving clicks.
-//
-// Shape: { [accountId: string]: string /* segmentId, "" means Auto */ }
+// Per-account "last segment used" memory (preserved from the old modal).
 const LAST_SEGMENT_STORAGE_KEY = "lp-studio:lastSegmentByAccount";
-
-function readLastSegmentMap(): Record<string, string> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(LAST_SEGMENT_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? (parsed as Record<string, string>) : {};
-  } catch {
-    return {};
-  }
-}
-
 function rememberLastSegment(accountId: number, segmentId: string) {
   if (typeof window === "undefined") return;
   try {
-    const map = readLastSegmentMap();
+    const raw = window.localStorage.getItem(LAST_SEGMENT_STORAGE_KEY);
+    const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
     map[String(accountId)] = segmentId;
     window.localStorage.setItem(LAST_SEGMENT_STORAGE_KEY, JSON.stringify(map));
   } catch {
-    // best-effort — quota or disabled storage shouldn't break the flow
+    /* best-effort */
   }
 }
 
-function recallLastSegment(accountId: string): string {
-  if (!accountId) return "";
-  const map = readLastSegmentMap();
-  return map[accountId] ?? "";
+/** Build a default page title from the answers — used as the proposed title in
+ *  the preview and the saved title (the rep can override in Advanced settings). */
+function buildProposedTitle(
+  objective: MicrositeObjective,
+  accountName: string | null,
+  segmentName: string | null,
+): string {
+  const goalLabel =
+    OBJECTIVE_CARDS.find((c) => c.objective === objective)?.title ?? "Microsite";
+  if (accountName) return `${accountName} — ${goalLabel}`;
+  if (segmentName) return `${segmentName} — ${goalLabel}`;
+  return goalLabel;
 }
 
 export function NewMicrositeModal({ open, onClose }: Props) {
   const [, navigate] = useLocation();
 
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  // ── Reference data ──────────────────────────────────────────────────────
+  const [segments, setSegments] = useState<BrandSegment[]>([]);
   const [templates, setTemplates] = useState<TenantTemplate[]>([]);
-  // Shared global flagship/framework templates (StoryBrand / MEDDIC
-  // exec-decision-brief / Challenger + business-case all-in-ones). Surfaced
-  // alongside the tenant's own templates under a separate group so reps can
-  // start a microsite from a proven framework, not only tenant-owned layouts.
   const [globalTemplates, setGlobalTemplates] = useState<TenantTemplate[]>([]);
-  const [segments, setSegments] = useState<AudienceSegment[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
-  // Account selection state. `noAccount` true means the rep clicked the
-  // small "create without an account" escape hatch.
-  const [accountId, setAccountId] = useState<string>("");
+  // ── Questionnaire answers ─────────────────────────────────────────────────
+  const [step, setStep] = useState<Step>("who");
+  const [account, setAccount] = useState<SelectedAccount | null>(null);
   const [noAccount, setNoAccount] = useState(false);
+  const [objective, setObjective] = useState<MicrositeObjective | "">("");
+  const [segmentId, setSegmentId] = useState<string>("");
+  const [personaId, setPersonaId] = useState<string>("");
+  const [notes, setNotes] = useState("");
+  const [inferredHint, setInferredHint] = useState<string | null>(null);
 
-  const [mode, setMode] = useState<Mode>("template");
-  const [title, setTitle] = useState("");
-  const [slug, setSlug] = useState("");
-  // 0 represents "Blank" (no fromTemplateId), otherwise the tenant template id.
-  const [selectedTemplateId, setSelectedTemplateId] = useState<number>(0);
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [aiTemplateId, setAiTemplateId] = useState<string>("");
-  // Task #1106 — when starting AI generation from a template, default to
-  // preserving the template's original photos (copy is still rewritten). When
-  // checked, the AI swaps template imagery for on-brand library + reference
-  // imagery. Only relevant (and only shown) when a starting-point template is
-  // selected.
+  // ── Advanced settings (collapsed; the old controls live here) ──────────────
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualSlug, setManualSlug] = useState("");
+  const [manualTemplateId, setManualTemplateId] = useState<string>(""); // "" = use the plan
+  const [blankPage, setBlankPage] = useState(false);
   const [replaceImagery, setReplaceImagery] = useState(false);
-  // Empty string means "Auto / no specific segment". Used by both AI mode
-  // and Template mode — when a segment is chosen with a template, we route
-  // through the AI template-rewrite path to lightly retune copy.
-  const [aiSegmentId, setAiSegmentId] = useState<string>("");
-  const [templateSegmentId, setTemplateSegmentId] = useState<string>("");
-  // Optional reference URL — scraped for voice (markdown), visual style
-  // (screenshot), and imagery, then merged with the brand's saved inspiration
-  // URLs server-side. AI mode only.
-  const [aiReferenceUrl, setAiReferenceUrl] = useState<string>("");
+  const [referenceUrl, setReferenceUrl] = useState("");
+
+  // ── Preview / recommendation ───────────────────────────────────────────────
+  const [plan, setPlan] = useState<MicrositePlan | null>(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // June 2026 — optional screenshot of a page the rep likes (generic AI path
-  // only — the dedicated account generator doesn't accept one). Pasted,
-  // dropped, or browsed; downscaled client-side; sent as `screenshotDataUrl`.
-  const screenshotAttach = useScreenshotAttachment();
-
-  // June 2026 — live streaming generation for the GENERIC AI path (no
-  // account, or no segments configured). Non-null while the dialog content is
-  // swapped to the GenerationLiveView canvas (dialog expands). Captures
-  // everything the save/fallback flows need so they replay the EXACT same
-  // generation. The ACCOUNT path (dedicated generator) stays non-streaming.
+  // Live streaming generation for the GENERIC path (no account, or tenant has
+  // no segments). The dedicated account path stays non-streaming. Reused
+  // verbatim from the old modal.
   const [liveGen, setLiveGen] = useState<{
     body: GenerationRequestBody;
     templateId: number | null;
@@ -231,383 +212,274 @@ export function NewMicrositeModal({ open, onClose }: Props) {
     segmentId: string;
   } | null>(null);
 
-  // Reset transient state every time the modal closes so reopening starts
-  // from a clean slate (matches CreatePageModal behaviour).
+  // Reset everything when the modal closes.
   useEffect(() => {
     if (!open) {
-      setAccountId("");
+      setStep("who");
+      setAccount(null);
       setNoAccount(false);
-      setMode("template");
-      setTitle("");
-      setSlug("");
-      setSelectedTemplateId(0);
-      setAiPrompt("");
-      setAiTemplateId("");
+      setObjective("");
+      setSegmentId("");
+      setPersonaId("");
+      setNotes("");
+      setInferredHint(null);
+      setAdvancedOpen(false);
+      setManualTitle("");
+      setManualSlug("");
+      setManualTemplateId("");
+      setBlankPage(false);
       setReplaceImagery(false);
-      setAiSegmentId("");
-      setTemplateSegmentId("");
-      setAiReferenceUrl("");
-      setError(null);
+      setReferenceUrl("");
+      setPlan(null);
+      setPlanLoading(false);
+      setPlanError(null);
       setSubmitting(false);
+      setError(null);
       setLiveGen(null);
-      screenshotAttach.reset();
     }
-    // screenshotAttach.reset is stable (useCallback []).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Load accounts + tenant-owned templates whenever the modal opens.
+  // Load segments + templates when the modal opens.
   useEffect(() => {
     if (!open) return;
     setLoadingData(true);
     Promise.all([
-      fetch(`${API_BASE}/sales/accounts`)
-        .then(r => (r.ok ? r.json() : []))
+      fetch(`${API_BASE}/sales/brand/segments`)
+        .then((r) => (r.ok ? r.json() : { segments: [] }))
+        .then((d: { segments?: BrandSegment[] }) => (Array.isArray(d.segments) ? d.segments : []))
         .catch(() => []),
-      // ownedOnly=true → no global starter templates, only this tenant's.
-      // forMicrosite=true → only templates enabled for the create-microsite
-      // dropdown (admin override, else computed compatibility — task #1219).
       fetch(`${API_BASE}/lp/templates?ownedOnly=true&forMicrosite=true`)
-        .then(r => (r.ok ? r.json() : []))
+        .then((r) => (r.ok ? r.json() : []))
         .catch(() => []),
-      // salesMode=true surfaces the shared GLOBAL flagship/framework templates
-      // (StoryBrand / MEDDIC exec-decision-brief / Challenger + business-case
-      // all-in-ones) WITHOUT opening the full off-brand global starter library.
-      // It also returns tenant-owned rows, so we keep only is_global rows here
-      // and render them under a separate "Frameworks & layouts" group.
       fetch(`${API_BASE}/lp/templates?salesMode=true&forMicrosite=true`)
-        .then(r => (r.ok ? r.json() : []))
+        .then((r) => (r.ok ? r.json() : []))
         .catch(() => []),
-      // Audience segments come from the tenant's brand config — same source
-      // the page editor and Content Brief modal already use.
-      fetchBrandConfig().then(b => b.segments ?? []).catch(() => []),
-    ]).then(([accts, tpls, salesTpls, segs]: [Account[], TenantTemplate[], TenantTemplate[], AudienceSegment[]]) => {
-      setAccounts(Array.isArray(accts) ? accts : []);
-      setTemplates(Array.isArray(tpls) ? tpls : []);
-      setGlobalTemplates(
-        Array.isArray(salesTpls) ? salesTpls.filter(t => t.isGlobal === true) : [],
-      );
+    ]).then(([segs, tpls, salesTpls]: [BrandSegment[], TenantTemplate[], TenantTemplate[]]) => {
       setSegments(Array.isArray(segs) ? segs : []);
+      setTemplates(Array.isArray(tpls) ? tpls : []);
+      setGlobalTemplates(Array.isArray(salesTpls) ? salesTpls.filter((t) => t.isGlobal === true) : []);
       setLoadingData(false);
     });
   }, [open]);
 
-  const selectedAccount = useMemo(
-    () => accounts.find(a => String(a.id) === accountId) ?? null,
-    [accounts, accountId],
-  );
-
-  // Group the global all-in-one templates by ABM funnel stage so reps pick by
-  // intent ("First meeting" → "Accelerate the deal" → "Onboard" → "Expand &
-  // renew"). Stable stage order; empty stages are dropped. Fail-open: anything
-  // unplaceable falls into the generic "Frameworks & layouts" group.
-  const globalTemplateGroups = useMemo(() => {
-    const byStage = new Map<FunnelStage, TenantTemplate[]>();
-    for (const t of globalTemplates) {
-      const stage = funnelStageForTemplate(t);
-      const arr = byStage.get(stage) ?? [];
-      arr.push(t);
-      byStage.set(stage, arr);
+  // When entering Step 3 with an account that has local contacts, infer a
+  // persona from their CRM titles and pre-select a segment + persona (P0:
+  // segment is required; we recommend, the rep can override).
+  useEffect(() => {
+    if (step !== "audience") return undefined;
+    if (segmentId) return undefined; // already chosen / pre-selected — don't clobber
+    const flowSegs: FlowSegment[] = segments.map((s) => ({
+      id: s.id,
+      name: s.name,
+      messagingAngle: s.messagingAngle,
+      personas: (s.personas ?? []).map((p) => ({ id: p.id, name: p.name, role: p.role })),
+    }));
+    if (account?.numericId != null) {
+      let cancelled = false;
+      fetch(`${API_BASE}/sales/accounts/${account.numericId}/contacts`)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((contacts: InferenceContact[]) => {
+          if (cancelled) return;
+          const category = inferPersonaFromContacts(Array.isArray(contacts) ? contacts : []);
+          const rec = recommendSegmentPersona(flowSegs, category);
+          setSegmentId(rec.segmentId);
+          setPersonaId(rec.personaId);
+          if (category !== "unknown" && rec.personaId) {
+            setInferredHint(
+              `We inferred a ${category} audience from this account's contacts — adjust if needed.`,
+            );
+          } else {
+            setInferredHint(null);
+          }
+        })
+        .catch(() => {
+          if (cancelled) return;
+          const rec = recommendSegmentPersona(flowSegs, "unknown");
+          setSegmentId(rec.segmentId);
+          setPersonaId(rec.personaId);
+        });
+      return () => {
+        cancelled = true;
+      };
     }
-    return FUNNEL_STAGE_ORDER
-      .map((stage) => ({ stage, label: FUNNEL_STAGE_LABEL[stage], items: byStage.get(stage) ?? [] }))
-      .filter((g) => g.items.length > 0);
-  }, [globalTemplates]);
+    // No account contacts — default to the first segment (manual selection).
+    const rec = recommendSegmentPersona(flowSegs, "unknown");
+    setSegmentId(rec.segmentId);
+    setPersonaId(rec.personaId);
+    setInferredHint(null);
+    return undefined;
+  }, [step, account, segments, segmentId]);
 
-  // Prefill the segment pickers with the rep's last-used segment for this
-  // account. Only runs while the modal is open and an account is selected;
-  // clearing the account ("create without account" or switching) resets both
-  // pickers back to Auto so we don't carry stale preferences across accounts.
-  useEffect(() => {
-    if (!open) return;
-    const remembered = recallLastSegment(accountId);
-    setAiSegmentId(remembered);
-    setTemplateSegmentId(remembered);
-  }, [open, accountId]);
+  const selectedSegment = useMemo(
+    () => segments.find((s) => s.id === segmentId) ?? null,
+    [segments, segmentId],
+  );
+  const selectedPersona = useMemo(
+    () => selectedSegment?.personas?.find((p) => p.id === personaId) ?? null,
+    [selectedSegment, personaId],
+  );
+  const accountName = account?.name ?? null;
 
-  // The user has committed to a path (account picked, or explicitly skipped)
-  // before they're allowed to fill in title/template/AI fields.
-  const pathChosen = noAccount || accountId !== "";
+  const objectiveEnum = objective ? objectiveToEnum(objective) : "from-scratch";
+  const proposedTitle = buildProposedTitle(objectiveEnum, accountName, selectedSegment?.name ?? null);
+  const allTemplates = useMemo(() => [...templates, ...globalTemplates], [templates, globalTemplates]);
 
-  // True when an AI submit would route through the GENERIC /lp/generate-page
-  // path (vs the dedicated account-aware generator): no account picked, or
-  // the tenant has no segments configured. Mirrors handleSubmit's routing.
-  const genericAiPath = noAccount || accountId === "" || segments.length === 0;
+  // Resolve the recommended template slug → label for the preview.
+  const recommendedTemplate = useMemo(() => {
+    if (manualTemplateId) return allTemplates.find((t) => String(t.id) === manualTemplateId) ?? null;
+    if (!plan?.recommendedTemplateSlug) return null;
+    return allTemplates.find((t) => t.slug === plan.recommendedTemplateSlug) ?? null;
+  }, [plan, manualTemplateId, allTemplates]);
 
-  // Clipboard paste → screenshot attach, anywhere in the dialog while the AI
-  // tab is on the generic path. Only intercepts pastes that contain an image
-  // file; pasting text/URLs into inputs is untouched.
-  const attachScreenshotFile = screenshotAttach.attachFile;
-  useEffect(() => {
-    if (!open || mode !== "ai" || liveGen !== null || !genericAiPath) return;
-    const onPaste = (e: ClipboardEvent) => {
-      const file = imageFileFromDataTransfer(e.clipboardData);
-      if (!file) return;
-      e.preventDefault();
-      attachScreenshotFile(file);
-    };
-    document.addEventListener("paste", onPaste);
-    return () => document.removeEventListener("paste", onPaste);
-  }, [open, mode, liveGen, genericAiPath, attachScreenshotFile]);
+  // ── Generation routing (preserved from the old modal) ──────────────────────
+  // Generic path when no account (or no segments configured); else the
+  // dedicated account-aware generator.
+  const acctIdNum = account?.numericId ?? null;
+  const willStream = acctIdNum === null || segments.length === 0;
 
-  function handleTitleChange(v: string) {
-    setTitle(v);
-    setSlug(slugify(v));
+  // ── Step navigation ─────────────────────────────────────────────────────
+  function goNext() {
+    setError(null);
+    if (step === "who") setStep("goal");
+    else if (step === "goal") setStep("audience");
+    else if (step === "audience") setStep("details");
+    else if (step === "details") {
+      setStep("preview");
+      void fetchRecommendation();
+    }
+  }
+  function goBack() {
+    setError(null);
+    if (step === "goal") setStep("who");
+    else if (step === "audience") setStep("goal");
+    else if (step === "details") setStep("audience");
+    else if (step === "preview") setStep("details");
   }
 
-  // Submit — translates the chosen mode into the right backend calls and
-  // navigates to the builder on success.
-  async function handleSubmit() {
-    setError(null);
-    setSubmitting(true);
-    try {
-      const acctIdNum = noAccount ? null : Number(accountId);
-      let pageId: number;
-      let createdTitle = title.trim();
-      let createdSlug = slug.trim();
+  const canAdvance =
+    step === "who"
+      ? account !== null || noAccount
+      : step === "goal"
+        ? objective !== ""
+        : step === "audience"
+          ? // Segment is P0 for personalized pages — required when segments exist.
+            segments.length === 0 || segmentId !== ""
+          : true; // details + preview
 
-      // Mirror the segmentContext shape used by pages-gallery.tsx so the
-      // generator tailors copy to this audience. Shared by AI mode and
-      // template-mode-with-segment.
-      const buildSegmentContext = (segId: string) => {
-        const seg = segId ? segments.find(s => s.id === segId) : null;
-        return seg ? {
+  // ── Recommendation (POST /sales/microsite/recommend) ──────────────────────
+  async function fetchRecommendation() {
+    setPlanLoading(true);
+    setPlanError(null);
+    setPlan(null);
+    try {
+      const res = await fetch(`${API_BASE}/sales/microsite/recommend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          objective: objectiveEnum,
+          ...(selectedSegment
+            ? { segment: { id: selectedSegment.id, name: selectedSegment.name, messagingAngle: selectedSegment.messagingAngle } }
+            : {}),
+          ...(selectedPersona
+            ? { persona: { id: selectedPersona.id, name: selectedPersona.name, role: selectedPersona.role } }
+            : {}),
+          ...(notes.trim() ? { notes: notes.trim() } : {}),
+          ...(acctIdNum !== null ? { accountId: acctIdNum } : {}),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Could not build a recommendation" }));
+        throw new Error((err as { error?: string }).error ?? "Could not build a recommendation");
+      }
+      const { plan: gotPlan } = (await res.json()) as { plan: MicrositePlan };
+      setPlan(gotPlan);
+    } catch (err) {
+      setPlanError(err instanceof Error ? err.message : "Could not build a recommendation");
+    } finally {
+      setPlanLoading(false);
+    }
+  }
+
+  // ── Segment context builder (preserved from the old modal) ─────────────────
+  function buildSegmentContext(segId: string) {
+    const seg = segId ? segments.find((s) => s.id === segId) : null;
+    return seg
+      ? {
           id: seg.id,
           name: seg.name,
           description: seg.description,
           messagingAngle: seg.messagingAngle,
-          uniqueContext: seg.uniqueContext,
-          valueProps: seg.valueProps,
-          personas: seg.personas?.map(p => ({ role: p.role, painPoints: p.painPoints })),
-          challenges: seg.challenges?.map(c => ({ title: c.title, desc: c.desc })),
-          ...(seg.micrositeBlockList?.length ? { micrositeBlockList: seg.micrositeBlockList } : {}),
-        } : undefined;
-      };
+          personas: seg.personas?.map((p) => ({ role: p.role, painPoints: p.painPoints })),
+        }
+      : undefined;
+  }
 
-      // ── Account-aware generation via the dedicated sales generator ───────
-      // When an account is selected, AI generation routes through
-      // /sales/accounts/:id/generate-microsite. That endpoint loads the
-      // account briefing/research, the targeted segment's preferred blocks
-      // (incl. Dandy Insights blocks), the brand image catalog, and stamps the
-      // row with mode='sales' + account_id + sfdc_account_id so the page shows
-      // up under the account — not as a generic landing page. It requires a
-      // segment, so account-mode generation always sends one. (We only fall
-      // back to the generic path when the tenant has no segments configured.)
-      const generateViaDedicated = async (opts: {
-        segmentId: string;
-        prompt: string;
-        templateId?: number;
-        referenceUrl?: string;
-        replaceImagery?: boolean;
-      }): Promise<number> => {
-        const res = await fetch(
-          `${API_BASE}/sales/accounts/${acctIdNum}/generate-microsite`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              segmentId: opts.segmentId,
-              audience: opts.segmentId,
-              ...(opts.prompt ? { prompt: opts.prompt } : {}),
-              ...(opts.templateId ? { templateId: opts.templateId } : {}),
-              ...(opts.referenceUrl ? { referenceUrl: opts.referenceUrl } : {}),
-              ...(opts.templateId && opts.replaceImagery ? { replaceImagery: true } : {}),
-            }),
-          },
-        );
+  // ── Continue to builder — resolve the plan into the EXISTING generate flow ──
+  async function handleGenerate() {
+    setError(null);
+    setSubmitting(true);
+    try {
+      const resolvedTemplateId = manualTemplateId ? Number(manualTemplateId) : undefined;
+      const resolvedSlug = !manualTemplateId && !blankPage ? plan?.recommendedTemplateSlug ?? undefined : undefined;
+      const finalNotes = notes.trim();
+
+      // Synthesise a short instruction from the objective + audience; the
+      // generator's objective/segment/persona threading does the heavy lifting.
+      const goalLabel = OBJECTIVE_CARDS.find((c) => c.objective === objectiveEnum)?.title ?? "this microsite";
+      const synthPrompt =
+        `Create a microsite to ${goalLabel.toLowerCase()}` +
+        (accountName ? ` for ${accountName}` : "") +
+        (selectedSegment ? `, tailored to the ${selectedSegment.name} audience` : "") +
+        (finalNotes ? `. ${finalNotes}` : ".");
+
+      // ── Account path: dedicated, account-aware generator ────────────────
+      if (acctIdNum !== null && segments.length > 0) {
+        if (!segmentId) {
+          throw new Error("Pick an audience segment so we can personalize this microsite for the account.");
+        }
+        const res = await fetch(`${API_BASE}/sales/accounts/${acctIdNum}/generate-microsite`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            objective: objectiveEnum,
+            segmentId,
+            audience: segmentId, // legacy alias the route still reads
+            ...(personaId ? { personaId } : {}),
+            prompt: synthPrompt,
+            ...(blankPage ? {} : resolvedTemplateId ? { templateId: resolvedTemplateId } : {}),
+            ...(resolvedSlug ? { templateSlug: resolvedSlug } : {}),
+            ...(referenceUrl.trim() ? { referenceUrl: referenceUrl.trim() } : {}),
+            ...(replaceImagery && (resolvedTemplateId || resolvedSlug) ? { replaceImagery: true } : {}),
+          }),
+        });
         if (!res.ok) {
           const err = await res.json().catch(() => ({ error: "Generation failed" }));
           throw new Error((err as { error?: string }).error ?? "Generation failed");
         }
         const { page } = (await res.json()) as { page: { id: number } };
-        return page.id;
-      };
-
-      if (mode === "ai") {
-        if (!aiPrompt.trim()) throw new Error("Add a prompt for the AI.");
-
-        // Account selected → dedicated, account-aware generator. It requires a
-        // segment (enforced here and in canSubmit). Only when the tenant has
-        // zero segments configured do we fall back to the generic path so reps
-        // are never left at a dead end.
-        if (acctIdNum !== null && (aiSegmentId || segments.length > 0)) {
-          if (!aiSegmentId) {
-            throw new Error("Pick an audience segment to personalize this microsite for the account.");
-          }
-          pageId = await generateViaDedicated({
-            segmentId: aiSegmentId,
-            prompt: aiPrompt.trim(),
-            templateId: aiTemplateId ? Number(aiTemplateId) : undefined,
-            referenceUrl: aiReferenceUrl.trim() || undefined,
-            replaceImagery: aiTemplateId ? replaceImagery : undefined,
-          });
-        } else {
-          // No account (or no segments configured) → GENERIC generate-page,
-          // now streamed through the live build view (June 2026). Capture the
-          // exact request body the non-streaming path used to send, swap the
-          // dialog to GenerationLiveView and bail out — saving is DEFERRED
-          // until the rep opens the builder (see saveStreamedMicrosite), so
-          // "Shuffle layout" can re-roll without orphaning a saved page. The
-          // post-save bookkeeping (fact flags, critique stash, last-segment
-          // memory, contact hotlinks) all moved into that delayed save.
-          const tplIdForAi = aiTemplateId ? Number(aiTemplateId) : null;
-          const segmentContext = buildSegmentContext(aiSegmentId);
-          setLiveGen({
-            body: {
-              prompt: aiPrompt.trim(),
-              ...(tplIdForAi ? { templateId: tplIdForAi } : {}),
-              ...(tplIdForAi && replaceImagery ? { replaceImagery: true } : {}),
-              ...(segmentContext ? { segmentContext } : {}),
-              ...(aiReferenceUrl.trim() ? { referenceUrl: aiReferenceUrl.trim() } : {}),
-              ...(screenshotAttach.screenshot
-                ? { screenshotDataUrl: screenshotAttach.screenshot.dataUrl }
-                : {}),
-            },
-            templateId: tplIdForAi,
-            acctIdNum,
-            segmentId: aiSegmentId,
-          });
-          return; // the live view owns the rest of the flow from here
-        }
-      } else {
-        // Template / Blank mode — POST /lp/pages and let the server clone
-        // blocks from the template when fromTemplateId is set.
-        if (!createdTitle) throw new Error("Give the microsite a name.");
-        if (!createdSlug) throw new Error("Slug is required.");
-
-        if (acctIdNum !== null && selectedTemplateId > 0 && templateSegmentId) {
-          // Account + real template + segment → dedicated, account-aware
-          // generator with the template as a fixed layout. The AI retunes the
-          // copy for the account/segment while the template's structure and
-          // images are preserved, AND the page is linked to the account.
-          const seg = segments.find(s => s.id === templateSegmentId);
-          const synthPrompt =
-            `Tailor this template's copy for the ${seg?.name ?? "selected"} audience` +
-            (selectedAccount ? `, for ${selectedAccount.name}.` : ".");
-          pageId = await generateViaDedicated({
-            segmentId: templateSegmentId,
-            prompt: synthPrompt,
-            templateId: selectedTemplateId,
-            replaceImagery,
-          });
-        } else {
-          // No account (or no segment): the generic create path.
-          //
-          // Exception: when a real template is chosen AND the rep picked an
-          // audience segment (without an account), route through
-          // /lp/generate-page in template-rewrite mode so the AI lightly
-          // retunes the template's copy for that segment. Block structure
-          // (ids, types, layout, images, colors) is preserved verbatim — only
-          // human-readable text fields are rewritten.
-          const tplSegmentContext = selectedTemplateId > 0
-            ? buildSegmentContext(templateSegmentId)
-            : undefined;
-
-          // Route through the AI template-rewrite generator when a real
-          // template is chosen AND either a segment is selected (retune copy
-          // for that audience) OR the rep asked to replace imagery. The
-          // pure-clone path below can do neither — it copies the template
-          // verbatim — so without this the "Replace imagery" checkbox would be
-          // a silent no-op whenever no segment is picked. With the box off and
-          // no segment, we keep the existing pure-clone behaviour.
-          const useAiRewrite =
-            selectedTemplateId > 0 && (!!tplSegmentContext || replaceImagery);
-
-          if (useAiRewrite) {
-            // Synthesise a short prompt — the endpoint requires `prompt`, and
-            // it gives the AI a clear instruction alongside any segment data.
-            const synthPrompt = tplSegmentContext
-              ? `Tailor this template's copy for the ${tplSegmentContext.name} audience` +
-                (selectedAccount ? `, for ${selectedAccount.name}.` : ".")
-              : `Tailor this template's copy` +
-                (selectedAccount ? ` for ${selectedAccount.name}.` : ".");
-            const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                prompt: synthPrompt,
-                templateId: selectedTemplateId,
-                ...(tplSegmentContext ? { segmentContext: tplSegmentContext } : {}),
-                ...(replaceImagery ? { replaceImagery: true } : {}),
-              }),
-            });
-            if (!genRes.ok) {
-              const err = await genRes.json().catch(() => ({ error: "Template tailoring failed" }));
-              throw new Error((err as { error?: string }).error ?? "Template tailoring failed");
-            }
-            const generated = (await genRes.json()) as {
-              title?: string;
-              slug?: string;
-              blocks?: unknown[];
-              critiqueAnnotations?: unknown;
-            };
-            const saveRes = await fetch(`${API_BASE}/lp/pages`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                title: createdTitle,
-                slug: createdSlug,
-                blocks: Array.isArray(generated.blocks) ? generated.blocks : [],
-                status: "draft",
-              }),
-            });
-            if (!saveRes.ok) {
-              const err = await saveRes.json().catch(() => ({ error: "Could not save page" }));
-              throw new Error((err as { error?: string }).error ?? "Could not save page");
-            }
-            const page = (await saveRes.json()) as { id: number };
-            pageId = page.id;
-            // Task #1138 — detect + persist per-page fact flags (best-effort).
-            void syncFactFlags(pageId).catch(() => {});
-            rememberCritiqueAnnotations(pageId, generated.critiqueAnnotations);
-          } else {
-            const body: Record<string, unknown> = {
-              title: createdTitle,
-              slug: createdSlug,
-              status: "draft",
-            };
-            if (selectedTemplateId > 0) body.fromTemplateId = selectedTemplateId;
-            else body.blocks = [];
-            const res = await fetch(`${API_BASE}/lp/pages`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body),
-            });
-            if (!res.ok) {
-              const err = await res.json().catch(() => ({ error: "Could not create page" }));
-              throw new Error((err as { error?: string }).error ?? "Could not create page");
-            }
-            const page = (await res.json()) as { id: number };
-            pageId = page.id;
-          }
-        }
+        rememberLastSegment(acctIdNum, segmentId);
+        await createContactHotlinks(acctIdNum, page.id);
+        onClose();
+        navigate(`/builder/${page.id}`);
+        return;
       }
 
-      // Remember the segment the rep just used for this account so the next
-      // microsite they create against the same account defaults to it. The
-      // chosen segment depends on which mode they submitted from.
-      if (acctIdNum !== null) {
-        const chosenSegment = mode === "ai" ? aiSegmentId : templateSegmentId;
-        rememberLastSegment(acctIdNum, chosenSegment);
-      }
-
-      // When an account is attached, bulk-create personalised hotlinks for
-      // every contact on the account that has an email. Failures here are
-      // non-fatal — the page exists and the rep can still open the builder.
-      if (acctIdNum !== null) {
-        try {
-          await fetch(`${API_BASE}/sales/accounts/${acctIdNum}/microsites`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ pageId }),
-          });
-        } catch {
-          // swallow — see comment above
-        }
-      }
-
-      onClose();
-      navigate(`/builder/${pageId}`);
+      // ── Generic path: live-stream the build (GenerationLiveView) ────────
+      const tplIdForAi = resolvedTemplateId ?? null;
+      const segmentContext = buildSegmentContext(segmentId);
+      setLiveGen({
+        body: {
+          prompt: synthPrompt,
+          ...(blankPage ? {} : tplIdForAi ? { templateId: tplIdForAi } : {}),
+          ...(tplIdForAi && replaceImagery ? { replaceImagery: true } : {}),
+          ...(segmentContext ? { segmentContext } : {}),
+          ...(referenceUrl.trim() ? { referenceUrl: referenceUrl.trim() } : {}),
+        },
+        templateId: tplIdForAi,
+        acctIdNum,
+        segmentId,
+      });
+      // The live view owns the rest (save deferred until "Open in builder").
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -615,22 +487,25 @@ export function NewMicrositeModal({ open, onClose }: Props) {
     }
   }
 
-  // ── Streaming generic path: delayed save + fallback ──────────────────────
+  async function createContactHotlinks(accountIdNum: number, pageId: number) {
+    try {
+      await fetch(`${API_BASE}/sales/accounts/${accountIdNum}/microsites`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId }),
+      });
+    } catch {
+      // non-fatal — the page exists; the rep can still open the builder.
+    }
+  }
 
-  /** Save flow for a STREAMED generic generation — runs when the rep clicks
-   *  "Open in builder" (or the auto-open countdown fires), NOT when the
-   *  result arrives, so "Shuffle layout" can discard the held result without
-   *  orphaning a saved page. Mirrors the original non-streaming sequence
-   *  exactly: POST /lp/pages (rep's title/slug win over the AI's), fact-flags
-   *  sync, critique-annotation stash, then last-segment memory + bulk contact
-   *  hotlinks when an account is attached (generic path can still carry an
-   *  account when the tenant has no segments). Resolves with the page id. */
+  // ── Streaming generic path: delayed save + fallback (preserved) ─────────────
   async function saveStreamedMicrosite(
     gen: { acctIdNum: number | null; segmentId: string },
     generated: GenerationResult,
   ): Promise<number> {
-    const finalTitle = title.trim() || generated.title || "Untitled microsite";
-    const finalSlug = slug.trim() || slugify(generated.slug || finalTitle);
+    const finalTitle = (manualTitle.trim() || proposedTitle || generated.title || "Untitled microsite").trim();
+    const finalSlug = (manualSlug.trim() || slugify(generated.slug || finalTitle)).trim();
     const saveRes = await fetch(`${API_BASE}/lp/pages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -646,32 +521,15 @@ export function NewMicrositeModal({ open, onClose }: Props) {
       throw new Error((err as { error?: string }).error ?? "Could not save page");
     }
     const page = (await saveRes.json()) as { id: number };
-    // Task #1138 — detect + persist per-page fact flags (review banner +
-    // publish gate). Best-effort so a sync failure can't block creation.
     void syncFactFlags(page.id).catch(() => {});
     rememberCritiqueAnnotations(page.id, generated.critiqueAnnotations);
     if (gen.acctIdNum !== null) {
       rememberLastSegment(gen.acctIdNum, gen.segmentId);
-      // Bulk-create personalised hotlinks for the account's contacts.
-      // Failures are non-fatal — the page exists and the rep can still open
-      // the builder.
-      try {
-        await fetch(`${API_BASE}/sales/accounts/${gen.acctIdNum}/microsites`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pageId: page.id }),
-        });
-      } catch {
-        // swallow — see comment above
-      }
+      await createContactHotlinks(gen.acctIdNum, page.id);
     }
     return page.id;
   }
 
-  /** The original NON-STREAMING generic flow, kept intact as the live view's
-   *  fallback (silent auto-fallback + "Use standard mode"). Generates with
-   *  the captured body, saves, AND navigates — identical end state to the
-   *  pre-streaming behavior. Errors propagate to the live view's error card. */
   async function runGenericStandardGeneration(gen: NonNullable<typeof liveGen>): Promise<void> {
     const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
       method: "POST",
@@ -689,22 +547,19 @@ export function NewMicrositeModal({ open, onClose }: Props) {
   }
 
   const liveGenTemplate = liveGen?.templateId != null
-    ? [...templates, ...globalTemplates].find((t) => t.id === liveGen.templateId) ?? null
+    ? allTemplates.find((t) => t.id === liveGen.templateId) ?? null
     : null;
 
-  // An account is actively selected (not the "no account" escape hatch).
-  const accountSelected = !noAccount && accountId !== "";
-
-  const canSubmit =
-    pathChosen &&
-    !submitting &&
-    (mode === "ai"
-      ? aiPrompt.trim().length > 0 &&
-        // Account-mode AI goes through the dedicated generator, which needs a
-        // segment. Require one when segments exist; allow through when the
-        // tenant has none (the generic path handles that fallback).
-        (!accountSelected || segments.length === 0 || aiSegmentId !== "")
-      : title.trim().length > 0 && slug.trim().length > 0);
+  // ── Steps for the progress header ──────────────────────────────────────────
+  const STEP_ORDER: Step[] = ["who", "goal", "audience", "details", "preview"];
+  const stepIndex = STEP_ORDER.indexOf(step);
+  const STEP_TITLES: Record<Step, string> = {
+    who: "Who is this for?",
+    goal: "What are you trying to accomplish?",
+    audience: "Who will view this?",
+    details: "Anything else we should know?",
+    preview: "Here's our recommendation",
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o && !submitting) onClose(); }}>
@@ -712,7 +567,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
         className={cn(
           liveGen
             ? "max-w-6xl w-[calc(100%-2rem)] h-[85vh] p-0 gap-0 flex flex-col overflow-hidden"
-            : "sm:max-w-lg flex flex-col max-h-[90vh]",
+            : "sm:max-w-2xl flex flex-col max-h-[90vh]",
         )}
       >
         {liveGen ? (
@@ -737,405 +592,320 @@ export function NewMicrositeModal({ open, onClose }: Props) {
           </>
         ) : (
           <>
-        <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            New Microsite
-          </DialogTitle>
-        </DialogHeader>
+            <DialogHeader className="flex-shrink-0">
+              <DialogTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" aria-hidden />
+                New Microsite
+              </DialogTitle>
+            </DialogHeader>
 
-        <div className="flex flex-col gap-4 py-1 overflow-y-auto flex-1 min-h-0 pr-1">
-          {/* ── Account section (prominent) ────────────────────────── */}
-          <div
-            className={cn(
-              "rounded-lg border p-3 space-y-2",
-              noAccount
-                ? "border-border bg-muted/30"
-                : "border-primary/30 bg-primary/5",
-            )}
-          >
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                <Building2 className="w-3.5 h-3.5 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <Label className="text-sm font-semibold text-foreground">
-                  Personalize for an account
-                </Label>
-                <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-                  Recommended — we'll create a tailored page and a unique link for each contact.
-                </p>
-              </div>
-            </div>
-
-            {noAccount ? (
-              <div className="flex items-center justify-between gap-2 pt-1">
-                <span className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
-                  <UserX className="w-3.5 h-3.5" />
-                  Creating without an account
-                </span>
-                <button
-                  type="button"
-                  className="text-xs font-medium text-primary hover:underline"
-                  onClick={() => setNoAccount(false)}
-                >
-                  Pick an account instead
-                </button>
-              </div>
-            ) : (
-              <>
-                <AccountCombobox
-                  accounts={accounts}
-                  value={accountId}
-                  onChange={(v) => setAccountId(v)}
-                  placeholder={loadingData ? "Loading accounts…" : "Select an account…"}
+            {/* Step progress */}
+            <div className="flex items-center gap-1.5 flex-shrink-0" aria-hidden>
+              {STEP_ORDER.map((s, i) => (
+                <div
+                  key={s}
+                  className={cn(
+                    "h-1 flex-1 rounded-full transition-colors",
+                    i <= stepIndex ? "bg-primary" : "bg-muted",
+                  )}
                 />
-                <div className="flex justify-center pt-0.5">
-                  <button
-                    type="button"
-                    className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
-                    onClick={() => { setAccountId(""); setNoAccount(true); }}
-                  >
-                    or create without an account
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+              ))}
+            </div>
+            <p className="text-sm font-medium text-foreground flex-shrink-0" role="heading" aria-level={2}>
+              {STEP_TITLES[step]}
+            </p>
 
-          {/* ── Mode tabs ─────────────────────────────────────────── */}
-          <div
-            className={cn(
-              "flex gap-1 p-1 bg-muted rounded-lg",
-              !pathChosen && "opacity-50 pointer-events-none",
-            )}
-          >
-            <button
-              onClick={() => { setMode("template"); setError(null); }}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-sm font-medium transition-all",
-                mode === "template" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              Template
-            </button>
-            <button
-              onClick={() => { setMode("ai"); setError(null); }}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-sm font-medium transition-all",
-                mode === "ai" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              AI Generate
-            </button>
-          </div>
-
-          {/* ── Body — only enabled once account path is chosen ───── */}
-          <div className={cn("flex flex-col gap-4", !pathChosen && "opacity-50 pointer-events-none")}>
-            {mode === "template" ? (
-              <>
-                <div>
-                  <Label className="text-xs font-medium">Microsite name</Label>
-                  <Input
-                    className="mt-1.5"
-                    placeholder={selectedAccount ? `e.g. ${selectedAccount.name} — Q4 outreach` : "e.g. Spring outreach"}
-                    value={title}
-                    onChange={(e) => handleTitleChange(e.target.value)}
+            <div className="flex flex-col gap-4 py-1 overflow-y-auto flex-1 min-h-0 pr-1">
+              {/* ── STEP 1: WHO ── */}
+              {step === "who" && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Search for the account this microsite is for — we'll pull in its context and
+                    create a personalized link for each contact. Or continue without one.
+                  </p>
+                  <AccountSearchTypeahead
+                    selected={account}
+                    onSelect={setAccount}
+                    noAccount={noAccount}
+                    onNoAccount={setNoAccount}
                   />
                 </div>
-                <div>
-                  <Label className="text-xs font-medium">URL slug</Label>
-                  <div className="flex items-center mt-1.5 gap-0 border border-input rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-ring">
-                    <span className="px-3 py-2 text-xs text-muted-foreground bg-muted border-r border-input shrink-0">/lp/</span>
-                    <Input
-                      className="border-0 rounded-none focus-visible:ring-0 font-mono text-sm"
-                      placeholder="page-slug"
-                      value={slug}
-                      onChange={(e) => setSlug(slugify(e.target.value))}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs font-medium mb-2 block">Starting template</Label>
-                  <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
-                    {/* Blank is always available. */}
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTemplateId(0)}
-                      className={cn(
-                        "text-left p-3 rounded-lg border text-sm transition-all",
-                        selectedTemplateId === 0
-                          ? "border-primary bg-primary/5 ring-1 ring-primary"
-                          : "border-border hover:border-primary/30 hover:bg-muted/50",
-                      )}
-                    >
-                      <p className="font-medium text-xs text-foreground">Blank</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">Start from scratch.</p>
-                    </button>
-                    {templates.map((t) => (
+              )}
+
+              {/* ── STEP 2: GOAL (selectable cards) ── */}
+              {step === "goal" && (
+                <div
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-2.5"
+                  role="radiogroup"
+                  aria-label="What are you trying to accomplish?"
+                >
+                  {OBJECTIVE_CARDS.map((card) => {
+                    const Icon = OBJECTIVE_ICONS[card.icon] ?? Wand2;
+                    const active = objective === card.objective;
+                    return (
                       <button
-                        key={t.id}
+                        key={card.objective}
                         type="button"
-                        onClick={() => setSelectedTemplateId(t.id)}
+                        role="radio"
+                        aria-checked={active}
+                        onClick={() => setObjective(card.objective)}
                         className={cn(
-                          "text-left p-3 rounded-lg border text-sm transition-all",
-                          selectedTemplateId === t.id
+                          "text-left p-3 rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          active
                             ? "border-primary bg-primary/5 ring-1 ring-primary"
-                            : "border-border hover:border-primary/30 hover:bg-muted/50",
+                            : "border-border hover:border-primary/40 hover:bg-muted/40",
                         )}
                       >
-                        <p className="font-medium text-xs text-foreground line-clamp-1">
-                          {t.templateLabel || t.title}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">
-                          {t.templateDescription || "Tenant template"}
-                        </p>
-                      </button>
-                    ))}
-                    {globalTemplateGroups.map((group) => (
-                      <Fragment key={`grp-${group.stage}`}>
-                        <p className="col-span-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground mt-1">
-                          {group.label}
-                        </p>
-                        {group.items.map((t) => (
-                          <button
-                            key={`g-${t.id}`}
-                            type="button"
-                            onClick={() => setSelectedTemplateId(t.id)}
+                        <div className="flex items-start gap-2.5">
+                          <div
                             className={cn(
-                              "text-left p-3 rounded-lg border text-sm transition-all",
-                              selectedTemplateId === t.id
-                                ? "border-primary bg-primary/5 ring-1 ring-primary"
-                                : "border-border hover:border-primary/30 hover:bg-muted/50",
+                              "w-8 h-8 rounded-md flex items-center justify-center shrink-0",
+                              active ? "bg-primary/15" : "bg-muted",
                             )}
                           >
-                            <p className="font-medium text-xs text-foreground line-clamp-1">
-                              {t.templateLabel || t.title}
-                            </p>
-                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">
-                              {t.templateDescription || "Shared framework"}
-                            </p>
-                          </button>
-                        ))}
-                      </Fragment>
-                    ))}
-                  </div>
-                  {!loadingData && templates.length === 0 && globalTemplates.length === 0 && (
-                    <p className="text-[11px] text-muted-foreground mt-2">
-                      No templates available — start from Blank. Admins can enable templates for this dropdown under Settings → Templates.
-                    </p>
-                  )}
-                  {selectedTemplateId > 0 && (
-                    <label className="mt-2 flex items-start gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="mt-0.5"
-                        checked={replaceImagery}
-                        onChange={(e) => setReplaceImagery(e.target.checked)}
-                      />
-                      <span className="text-[11px] text-muted-foreground">
-                        <span className="font-medium text-foreground">Replace imagery</span> — swap the template's photos for on-brand images from your library (and any reference URL). Off keeps the template's original images; copy is rewritten either way.
-                      </span>
-                    </label>
-                  )}
+                            <Icon className={cn("w-4 h-4", active ? "text-primary" : "text-muted-foreground")} aria-hidden />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground">{card.title}</p>
+                            <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">{card.description}</p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-                <div>
-                  <Label className="text-xs font-medium">
-                    Audience segment{" "}
-                    <span className="text-muted-foreground font-normal">(optional)</span>
-                  </Label>
-                  <select
-                    className="mt-1.5 w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
-                    value={templateSegmentId}
-                    onChange={(e) => setTemplateSegmentId(e.target.value)}
-                    disabled={selectedTemplateId === 0}
-                  >
-                    <option value="">Auto / no specific segment</option>
-                    {segments.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    {selectedTemplateId === 0
-                      ? "Pick a template above to tailor copy for an audience."
-                      : templateSegmentId
-                        ? "AI will lightly retune the template's copy for this audience. Layout, images, and links stay the same."
-                        : "Leave on Auto to use the template's copy as-is."}
-                  </p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                      <Wand2 className="w-3.5 h-3.5 text-primary" />
+              )}
+
+              {/* ── STEP 3: AUDIENCE ── */}
+              {step === "audience" && (
+                <div className="space-y-3">
+                  {loadingData ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                      <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden />
+                      Loading audiences…
                     </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      Describe what you want the microsite to say{selectedAccount ? ` for ${selectedAccount.name}` : ""}.
-                      AI will draft the full page — you can edit anything in the builder afterwards.
+                  ) : segments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No audience segments are defined yet. We'll generate from your brand's core
+                      messaging. Add segments in Brand Settings to personalize by audience.
                     </p>
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-xs font-medium">
-                    Audience segment
-                    {accountSelected && segments.length > 0 && (
-                      <span className="text-muted-foreground font-normal"> (required)</span>
-                    )}
-                  </Label>
-                  <select
-                    className="mt-1.5 w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={aiSegmentId}
-                    onChange={(e) => setAiSegmentId(e.target.value)}
-                  >
-                    <option value="">Auto / no specific segment</option>
-                    {segments.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                  {!loadingData && segments.length === 0 && (
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      No segments defined yet. Add them in Brand Settings to tailor copy by audience.
-                    </p>
-                  )}
-                  {accountSelected && segments.length > 0 && !aiSegmentId && (
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Pick a segment so we can personalize this page for the account using its messaging and preferred blocks.
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <Label className="text-xs font-medium">Starting point</Label>
-                  <select
-                    className="mt-1.5 w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={aiTemplateId}
-                    onChange={(e) => setAiTemplateId(e.target.value)}
-                  >
-                    <option value="">Generate from scratch (AI chooses blocks)</option>
-                    {templates.length > 0 && (
-                      <optgroup label="Use a template (AI fills copy only)">
-                        {templates.map((t) => (
-                          <option key={t.id} value={String(t.id)}>
-                            {t.templateLabel || t.title}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {globalTemplateGroups.map((group) => (
-                      <optgroup
-                        key={`grp-${group.stage}`}
-                        label={`${group.label} (AI fills copy only)`}
-                      >
-                        {group.items.map((t) => (
-                          <option key={`g-${t.id}`} value={String(t.id)}>
-                            {t.templateLabel || t.title}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                  {!loadingData && templates.length === 0 && globalTemplates.length === 0 && (
-                    <p className="text-[11px] text-muted-foreground mt-2">
-                      No templates available — generate from scratch. Admins can enable templates for this dropdown under Settings → Templates.
-                    </p>
-                  )}
-                  {aiTemplateId && (
-                    <label className="mt-2 flex items-start gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="mt-0.5"
-                        checked={replaceImagery}
-                        onChange={(e) => setReplaceImagery(e.target.checked)}
-                      />
-                      <span className="text-[11px] text-muted-foreground">
-                        <span className="font-medium text-foreground">Replace imagery</span> — swap the template's photos for on-brand images from your library (and any reference URL). Off keeps the template's original images; copy is rewritten either way.
-                      </span>
-                    </label>
+                  ) : (
+                    <>
+                      {inferredHint && (
+                        <div className="flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-[11px] text-foreground/80">
+                          <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-primary" aria-hidden />
+                          <span>{inferredHint}</span>
+                        </div>
+                      )}
+                      <div>
+                        <Label className="text-xs font-medium flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />
+                          Audience segment <span className="text-muted-foreground font-normal">(required)</span>
+                        </Label>
+                        <select
+                          className="mt-1.5 w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                          value={segmentId}
+                          onChange={(e) => { setSegmentId(e.target.value); setPersonaId(""); setInferredHint(null); }}
+                        >
+                          <option value="">Select a segment…</option>
+                          {segments.map((s) => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                        {selectedSegment?.messagingAngle && (
+                          <p className="text-[11px] text-muted-foreground mt-1">{selectedSegment.messagingAngle}</p>
+                        )}
+                      </div>
+                      {selectedSegment && (selectedSegment.personas?.length ?? 0) > 0 && (
+                        <div>
+                          <Label className="text-xs font-medium">
+                            Persona <span className="text-muted-foreground font-normal">(who, specifically?)</span>
+                          </Label>
+                          <select
+                            className="mt-1.5 w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                            value={personaId}
+                            onChange={(e) => setPersonaId(e.target.value)}
+                          >
+                            <option value="">Anyone in this segment</option>
+                            {selectedSegment.personas!.map((p) => (
+                              <option key={p.id} value={p.id}>{p.role || p.name || p.id}</option>
+                            ))}
+                          </select>
+                          {selectedPersona?.caresAbout && selectedPersona.caresAbout.length > 0 && (
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                              Cares about: {selectedPersona.caresAbout.slice(0, 3).join(", ")}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
+              )}
 
-                <div>
-                  <Label className="text-xs font-medium">Your prompt</Label>
+              {/* ── STEP 4: DETAILS (single free-text refinement) ── */}
+              {step === "details" && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Optional — anything specific we should weave in? This refines the page; it
+                    doesn't replace the recommendation.
+                  </p>
                   <textarea
-                    className="mt-1.5 w-full px-3 py-2.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                    className="w-full px-3 py-2.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
                     rows={4}
-                    placeholder={
-                      selectedAccount
-                        ? `e.g. A landing page pitching our product to ${selectedAccount.name}. Highlight the benefits and outcomes that matter most to them.`
-                        : "e.g. A landing page for our new product or service. Highlight the top benefits, who it's for, and the tone you want."
-                    }
-                    value={aiPrompt}
-                    onChange={(e) => setAiPrompt(e.target.value)}
+                    placeholder={'e.g. "Focus on same-store growth" · "Mention our rollout-timeline conversation" · "Include DSO proof points"'}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
                   />
                 </div>
+              )}
 
-                <div>
-                  <Label className="text-xs font-medium">Reference URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
-                  <Input
-                    className="mt-1.5"
-                    type="url"
-                    placeholder="https://example.com — a page to draw style & structure from"
-                    value={aiReferenceUrl}
-                    onChange={(e) => setAiReferenceUrl(e.target.value)}
-                  />
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    We'll study its layout, voice, and imagery for inspiration (your brand voice still wins).
-                  </p>
-                  {/* Screenshot attach — generic path only; the dedicated
-                      account generator doesn't accept screenshots. Paste an
-                      image anywhere in this dialog, drop it here, or browse. */}
-                  {genericAiPath && (
-                    <div className="mt-2">
-                      <ScreenshotAttachZone state={screenshotAttach} compact />
+              {/* ── PREVIEW ── */}
+              {step === "preview" && (
+                <MicrositePreviewPanel
+                  plan={plan}
+                  loading={planLoading}
+                  error={planError}
+                  proposedTitle={manualTitle.trim() || proposedTitle}
+                  templateLabel={recommendedTemplate ? (recommendedTemplate.templateLabel || recommendedTemplate.title) : null}
+                  segmentName={selectedSegment?.name ?? null}
+                  personaName={selectedPersona?.role ?? selectedPersona?.name ?? null}
+                  willStream={willStream}
+                  submitting={submitting}
+                  onContinue={handleGenerate}
+                  onRegenerate={fetchRecommendation}
+                  onEditInputs={() => setStep("who")}
+                />
+              )}
+
+              {/* ── Advanced settings (collapsed; old controls preserved) ── */}
+              {step !== "preview" && (
+                <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="border-t border-border/60 pt-2">
+                  <CollapsibleTrigger className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1 py-1">
+                    <Settings2 className="w-3.5 h-3.5" aria-hidden />
+                    Advanced settings
+                    <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", advancedOpen && "rotate-180")} aria-hidden />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-3 pt-3">
+                    <p className="text-[11px] text-muted-foreground">
+                      Most reps never need these — we pick sensible defaults. Override the layout,
+                      naming, or imagery here if you have a specific requirement.
+                    </p>
+
+                    {/* Manual template / blank */}
+                    <div>
+                      <Label className="text-xs font-medium">Starting layout</Label>
+                      <select
+                        className="mt-1.5 w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                        value={blankPage ? "__blank__" : manualTemplateId}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "__blank__") { setBlankPage(true); setManualTemplateId(""); }
+                          else { setBlankPage(false); setManualTemplateId(v); }
+                        }}
+                      >
+                        <option value="">Recommended (chosen from your goal)</option>
+                        <option value="__blank__">Blank page (no AI)</option>
+                        {templates.length > 0 && (
+                          <optgroup label="Your templates">
+                            {templates.map((t) => (
+                              <option key={t.id} value={String(t.id)}>{t.templateLabel || t.title}</option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {globalTemplates.length > 0 && (
+                          <optgroup label="Frameworks & layouts">
+                            {globalTemplates.map((t) => (
+                              <option key={`g-${t.id}`} value={String(t.id)}>{t.templateLabel || t.title}</option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </select>
                     </div>
+
+                    {(manualTemplateId || (!blankPage && plan?.recommendedTemplateSlug)) && (
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5"
+                          checked={replaceImagery}
+                          onChange={(e) => setReplaceImagery(e.target.checked)}
+                        />
+                        <span className="text-[11px] text-muted-foreground">
+                          <span className="font-medium text-foreground">Replace imagery</span> — swap template photos for on-brand images from your library. Copy is rewritten either way.
+                        </span>
+                      </label>
+                    )}
+
+                    {/* Title + slug overrides */}
+                    <div className="grid grid-cols-1 gap-3">
+                      <div>
+                        <Label className="text-xs font-medium">Microsite name <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                        <Input
+                          className="mt-1.5"
+                          placeholder={proposedTitle}
+                          value={manualTitle}
+                          onChange={(e) => { setManualTitle(e.target.value); setManualSlug(slugify(e.target.value)); }}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium">URL slug <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                        <div className="flex items-center mt-1.5 border border-input rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-ring">
+                          <span className="px-3 py-2 text-xs text-muted-foreground bg-muted border-r border-input shrink-0">/lp/</span>
+                          <Input
+                            className="border-0 rounded-none focus-visible:ring-0 font-mono text-sm"
+                            placeholder="auto"
+                            value={manualSlug}
+                            onChange={(e) => setManualSlug(slugify(e.target.value))}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium">Reference URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                        <Input
+                          className="mt-1.5"
+                          type="url"
+                          placeholder="https://example.com — a page to draw style from"
+                          value={referenceUrl}
+                          onChange={(e) => setReferenceUrl(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+
+              {error && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2" role="alert">{error}</p>
+              )}
+            </div>
+
+            {/* Footer nav — hidden on the preview step (it has its own actions). */}
+            {step !== "preview" && (
+              <DialogFooter className="flex-shrink-0 pt-2 border-t border-border/50 sm:justify-between gap-2">
+                {step === "who" ? (
+                  <Button variant="outline" onClick={onClose}>Cancel</Button>
+                ) : (
+                  <Button variant="outline" onClick={goBack} className="gap-1.5">
+                    <ArrowLeft className="w-4 h-4" aria-hidden />
+                    Back
+                  </Button>
+                )}
+                <Button onClick={goNext} disabled={!canAdvance} className="gap-1.5">
+                  {step === "details" ? (
+                    <>
+                      <Sparkles className="w-4 h-4" aria-hidden />
+                      See recommendation
+                    </>
+                  ) : (
+                    <>
+                      Continue
+                      <ArrowRight className="w-4 h-4" aria-hidden />
+                    </>
                   )}
-                </div>
-
-                <div>
-                  <Label className="text-xs font-medium">Microsite name <span className="text-muted-foreground font-normal">(optional)</span></Label>
-                  <Input
-                    className="mt-1.5"
-                    placeholder="AI will pick one if you leave this blank"
-                    value={title}
-                    onChange={(e) => handleTitleChange(e.target.value)}
-                  />
-                </div>
-              </>
+                </Button>
+              </DialogFooter>
             )}
-          </div>
-
-          {error && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
-          )}
-        </div>
-
-        <DialogFooter className="flex-shrink-0 pt-2 border-t border-border/50">
-          <Button variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit} className="gap-2">
-            {submitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                {mode === "ai" ? "Generating…" : "Creating…"}
-              </>
-            ) : mode === "ai" ? (
-              <>
-                <Sparkles className="w-4 h-4" />
-                Generate microsite
-              </>
-            ) : (
-              <>Create microsite</>
-            )}
-          </Button>
-        </DialogFooter>
           </>
         )}
       </DialogContent>
