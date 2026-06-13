@@ -58,13 +58,31 @@ import {
   // Strips Dandy's forest/lime palette literals off a footer so a non-Dandy
   // microsite never renders a Dandy-green footer (falls back to the brand var).
   isDandyPaletteLiteral,
+  // Image-fill exclusion predicate shared with /lp/generate-page (BUG 1 & 2):
+  // keeps logo / favicon / team-photo / homepage-screenshot / og-image /
+  // promo-graphic (text-baked) rows OUT of the fill pool. The microsite path
+  // appends FRESHLY-mirrored scraped images straight into the fill pool, so
+  // unlike fetchMediaCatalog's `images` those were never filtered — run them
+  // through this before fill so a text-baked hero banner / og-image / product-UI
+  // screenshot can't reach a hero or photo slot.
+  isExcludedFromGenerationPool,
 } from "../lp/generate-page";
+// Geometry helper shared with the auto-tagger — used by the defensive heuristic
+// below to exclude social-card / og-shaped scraped banners that arrive carrying
+// only provenance tags (the auto-tagger's content/og tags are written to the DB
+// row asynchronously and are NOT reflected on the freshly-mirrored objects).
+import { isSocialCardDims } from "../../lib/imageAutoTag";
 // Mirror harvested reference imagery into the tenant's media library so the
 // image-fill pass can use real site images for empty slots.
 import { mirrorReferenceImages } from "../../lib/brand-import/assets-uploader";
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
+// All-in-one template intent matching (parity with /lp/generate-page): route a
+// prompt that names a framework ("MEDDIC decision brief", "StoryBrand",
+// "challenger") to the matching GLOBAL template instead of the generic block
+// assembler. Brand-aware (storefront gating) and fail-open.
+import { matchTemplateIntent } from "../../lib/ai-prompts/template-intent";
 import {
   governanceMapFromRows,
   blocksApprovedForSegment,
@@ -139,6 +157,71 @@ function fillEmptyVideos(blocks: unknown[], videoUrls: string[]): unknown[] {
     b.props = props;
     return b;
   });
+}
+
+// ── Scraped-image fill gating (BUG 1 & 2) ───────────────────────────────────
+//
+// Freshly-mirrored reference images (mirrorReferenceImages → scrapedMedia) are
+// appended straight into the image-fill pool. Unlike fetchMediaCatalog's
+// `images`, they are NEVER run through the exclusion predicate, so og-images,
+// promo-graphics (text-baked hero banners), homepage screenshots and product-UI
+// screenshots reached hero + photo slots — the two owner-reported failures
+// (TWO headlines because a text-baked homepage hero became the full-bleed
+// background; a Dandy product-UI screenshot used as a customer-success card).
+//
+// Defense in two layers, because the auto-tagger's content/og tags are written
+// to the DB row ASYNCHRONOUSLY and are NOT reflected on the freshly-mirrored
+// MediaImage objects (mirrorReferenceImages returns provenance-only tags for
+// fresh uploads; only DEDUPED/existing rows carry the enriched tags):
+//   1. isExcludedFromGenerationPool — catches any row already tagged
+//      og-image / promo-graphic / homepage-screenshot / logo / etc. (deduped
+//      rows, and fresh rows whose async tag landed in time). The brand-import /
+//      current-reference bypasses are applied identically (the predicate's own
+//      §2 logic), so brand-import content imagery without social-card geometry
+//      still competes.
+//   2. a geometry heuristic for the fresh provenance-only rows: a scraped image
+//      whose intrinsic dimensions match the social-card shape (~1.91:1 under
+//      1400px wide) is an og/share card or text-baked promo banner — exclude
+//      it. Conservative: it fires ONLY for scraped rows with KNOWN social-card
+//      geometry, so genuine site photography (taller / true hero widths /
+//      unknown dims) is untouched and the brand-import refhost/refsrc work
+//      never regresses.
+
+/** Whether a freshly-mirrored scraped image must be kept out of the fill pool.
+ *  Combines the shared exclusion predicate with the social-card geometry
+ *  heuristic above. `currentRefHosts` grants the predicate's current-reference
+ *  bypass for the host(s) the rep referenced this run. */
+function isScrapedImageExcludedFromFill(
+  img: MediaImage,
+  currentRefHosts: ReadonlySet<string>,
+): boolean {
+  if (isExcludedFromGenerationPool(img, currentRefHosts)) return true;
+  // Geometry heuristic for provenance-only fresh rows (async tag not yet
+  // landed): a social-card-shaped scrape is an og/share card / text-baked promo
+  // banner. brand-import rows are excluded from this heuristic — their content
+  // imagery is allowed even at wide aspect (handled by the predicate's
+  // brand-import bypass; a brand-import row that IS a true social card already
+  // excluded above). Only fires on a KNOWN social-card shape.
+  const isBrandImport = img.tags.some(
+    (t) => typeof t === "string" && t.toLowerCase() === "brand-import",
+  );
+  if (!isBrandImport && isSocialCardDims(img.width, img.height) === true) return true;
+  return false;
+}
+
+/** Normalized host set (lowercased, leading "www." stripped) for the current
+ *  generation's reference URL(s) — grants the current-reference bypass in
+ *  isScrapedImageExcludedFromFill, mirroring generate-page's currentReferenceHosts. */
+function micrositeReferenceHosts(referenceUrls: string[]): Set<string> {
+  const hosts = new Set<string>();
+  for (const u of referenceUrls) {
+    try {
+      hosts.add(new URL(u).hostname.replace(/^www\./, "").toLowerCase());
+    } catch {
+      /* ignore malformed reference URLs */
+    }
+  }
+  return hosts;
 }
 
 interface CtaOverride {
@@ -2251,11 +2334,119 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     const openai = getOpenAIClient();
     if (!openai) { res.status(503).json({ error: "AI not configured" }); return; }
 
+    // ── All-in-one template intent matching (parity with /lp/generate-page) ──
+    // When the caller did NOT pick an explicit template, match the prompt
+    // against the all-in-one template library (lp_pages template rows with
+    // is_all_in_one = true — the StoryBrand / MEDDIC exec-decision-brief /
+    // Challenger framework pages + business-case + storefront/event/etc.). On a
+    // confident keyword match we route through the template path below exactly
+    // as if the rep had picked that template. Precedence mirrors generate-page:
+    //   • an explicit templateId always wins — matching is skipped entirely;
+    //   • a per-request reference URL or scraped screenshot is an explicit
+    //     design preference, so it suppresses intent matching too;
+    //   • below-threshold prompts fall through to the freeform/curated path.
+    // Brand-aware: the matcher's storefront gating keeps a B2B account from
+    // routing to a DTC storefront. Fail-open: any error → freeform path.
+    let intentTemplateId: number | null = null;
+    if (
+      (templateId === undefined || templateId === null) &&
+      mergedReferenceUrls.length === 0 &&
+      !visionImage &&
+      typeof userPrompt === "string" &&
+      userPrompt.trim().length > 0
+    ) {
+      try {
+        const intentVisibility = or(
+          eq(lpPagesTable.tenantId, tenantId),
+          eq(lpPagesTable.isGlobal, true),
+        );
+        const intentCandidates = await db
+          .select({
+            id: lpPagesTable.id,
+            slug: lpPagesTable.slug,
+            category: lpPagesTable.category,
+            keywords: lpPagesTable.keywords,
+            industry: lpPagesTable.industry,
+            isAllInOne: lpPagesTable.isAllInOne,
+          })
+          .from(lpPagesTable)
+          .where(
+            and(
+              eq(lpPagesTable.isTemplate, true),
+              eq(lpPagesTable.isAllInOne, true),
+              intentVisibility,
+            ),
+          );
+        // Brand-aware storefront gating: derive whether THIS account's brand is
+        // plausibly DTC/ecommerce so the matcher keeps the Shopify-style
+        // storefront away from a B2B/services brand. Same signals as
+        // generate-page: tenant industry + a commerce-word scan of the brand's
+        // own text + a chilipiper booking URL (a strong NON-DTC signal).
+        const tenantIndustryForIntent = await getTenantIndustry(tenantId);
+        const brandTextForCommerce = [
+          (brand.companyDescription as string | undefined) ?? "",
+          (brand.targetAudience as string | undefined) ?? "",
+          ...((brand.taglines as string[] | undefined) ?? []),
+          ...((brand.toneKeywords as string[] | undefined) ?? []),
+          ...(((brand.segments as BrandAudienceSegment[] | undefined) ?? []).map((s) => s?.name ?? "")),
+        ]
+          .join(" ")
+          .toLowerCase();
+        const BRAND_COMMERCE_HINTS = [
+          "ecommerce", "e-commerce", "e commerce", "dtc", "direct to consumer",
+          "direct-to-consumer", "online store", "online shop", "storefront",
+          "shopify", "checkout", "shopping cart", "add to cart", "online retail",
+        ];
+        const brandLooksEcommerce = BRAND_COMMERCE_HINTS.some((h) => brandTextForCommerce.includes(h));
+        const brandIntentContext = {
+          industry: tenantIndustryForIntent,
+          segments: ((brand.segments as BrandAudienceSegment[] | undefined) ?? [])
+            .map((s) => s?.name ?? "")
+            .filter(Boolean),
+          isEcommerce: brandLooksEcommerce
+            ? true
+            : brand.chilipiperUrl
+              ? false
+              : undefined,
+        };
+        const intentMatch = matchTemplateIntent(userPrompt, intentCandidates, brandIntentContext);
+        if (intentMatch) {
+          const matchedRow = intentCandidates.find((c) => c.slug === intentMatch.slug);
+          if (matchedRow) intentTemplateId = matchedRow.id;
+        }
+        logger.info(
+          {
+            event: "microsite_template_intent_decision",
+            tenantId,
+            accountId,
+            matched: intentTemplateId !== null,
+            slug: intentMatch?.slug ?? null,
+            score: intentMatch?.score ?? null,
+            candidateCount: intentCandidates.length,
+            brandIsEcommerce: brandIntentContext.isEcommerce ?? null,
+          },
+          intentTemplateId !== null
+            ? "[generate-microsite] prompt intent matched an all-in-one template — routing through template path"
+            : "[generate-microsite] no all-in-one template intent match — freeform/curated path",
+        );
+      } catch (err) {
+        logger.warn(
+          { event: "microsite_template_intent_decision", err: String(err), tenantId, accountId },
+          "[generate-microsite] template intent matching skipped (fail-open)",
+        );
+        intentTemplateId = null;
+      }
+    }
+    // Explicit caller-picked templateId always wins; otherwise an intent match
+    // (if any) drives the template path below.
+    const effectiveTemplateId: number | null =
+      typeof templateId === "number" ? templateId : intentTemplateId;
+
     // If a template ID was provided, fetch its block types to use as a fixed layout
     // and store the original blocks so we can restore images after AI generation.
     let templateBlockTypes: string[] | undefined;
     let templateBlocks: AiBlock[] | undefined;
-    if (typeof templateId === "number") {
+    if (typeof effectiveTemplateId === "number") {
       // Scope the lookup: only a real template (isTemplate=true) that is either
       // owned by the caller's tenant OR a global flagship template may be used.
       // Without this guard a caller could pass an arbitrary page id and pull a
@@ -2265,7 +2456,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         .from(lpPagesTable)
         .where(
           and(
-            eq(lpPagesTable.id, templateId),
+            eq(lpPagesTable.id, effectiveTemplateId),
             eq(lpPagesTable.isTemplate, true),
             or(
               eq(lpPagesTable.tenantId, tenantId),
@@ -2758,10 +2949,32 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // AFTER the tenant's own library so a genuine library match still wins each
     // slot; the scraped imagery only backfills slots the library can't cover.
     const SCRAPED_MEDIA_GRACE_MS = 4000;
-    const scrapedMedia = await Promise.race([
+    const scrapedMediaRaw = await Promise.race([
       scrapedMediaPromise,
       new Promise<MediaImage[]>((resolve) => setTimeout(() => resolve([]), SCRAPED_MEDIA_GRACE_MS)),
     ]);
+    // BUG 1 & 2 — gate the freshly-mirrored scraped images BEFORE they enter the
+    // fill pool, so og-images / promo-graphics (text-baked hero banners) /
+    // homepage screenshots / product-UI screenshots can't fill hero or photo
+    // slots. This is the gate fetchMediaCatalog already applies to `images` but
+    // mirrorReferenceImages' output skipped. Mirrors /lp/generate-page.
+    const scrapedRefHosts = micrositeReferenceHosts(mergedReferenceUrls);
+    const scrapedMedia = scrapedMediaRaw.filter(
+      (img) => !isScrapedImageExcludedFromFill(img, scrapedRefHosts),
+    );
+    if (scrapedMediaRaw.length !== scrapedMedia.length) {
+      logger.info(
+        {
+          event: "microsite_scraped_image_gating",
+          tenantId,
+          accountId,
+          scraped: scrapedMediaRaw.length,
+          kept: scrapedMedia.length,
+          excluded: scrapedMediaRaw.length - scrapedMedia.length,
+        },
+        "[generate-microsite] excluded og/promo/screenshot scraped images from the image-fill pool",
+      );
+    }
     // Reference-image fidelity: order curated → current-reference scraped →
     // other-host scraped so the site the user referenced this run wins empty
     // slots over stale scrapes. Rotate within each bucket per generation so the
@@ -2882,8 +3095,20 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // layouts (the template's hero is an explicit choice) and for non-Dandy
     // tenants (the generic / white-label path is unchanged).
     if (!templateBlocks && dandyTenant) {
+      // BUG 1 (hero hardening) — the Dandy hero / full-bleed-background pool must
+      // be GENUINE lp-hero photography only. A promo-graphic / text-baked / og /
+      // screenshot image used as a full-bleed background renders the real
+      // headline OVER a baked-in headline (the "two headlines" failure). `images`
+      // is already exclusion-filtered by fetchMediaCatalog, but apply the same
+      // gate here defensively (a stale lp-hero-tagged og banner, or an untagged
+      // social-card-shaped scrape that slipped a stale lp-hero tag) and drop any
+      // social-card-shaped row outright. If nothing qualifies, heroImageUrls is
+      // empty and applyDandyHeroVariability falls back to the polished
+      // non-image gradient hero — empty over a text-baked background.
+      const heroRefHosts = micrositeReferenceHosts(mergedReferenceUrls);
       const heroImageUrls = images
         .filter(i => (i.tags ?? []).some(t => t.toLowerCase() === "lp-hero"))
+        .filter(i => !isScrapedImageExcludedFromFill(i, heroRefHosts))
         .map(i => i.url);
       const seedKey = `${accountId ?? ""}:${deriveCompanyName(account)}`;
       normalizedBlocks = applyDandyHeroVariability(

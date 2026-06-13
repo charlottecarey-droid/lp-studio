@@ -3057,12 +3057,21 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       });
     }
 
-    // DSO success-stories case images
+    // DSO success-stories case images. BUG 2 (customer-success cards) — these
+    // are CUSTOMER-success / case-study photo slots that want real human /
+    // clinic photography, never a product-UI / app screenshot (the Dandy "Scan
+    // lower arch / Dandy support" UI shown as a testimonial photo). product-detail
+    // purpose is an extreme close-up / spec / UI shot (see the auto-tagger's
+    // purpose rubric) — only a SOFT penalty for an lp-feature slot, so a strongly
+    // topical product-UI screenshot could still win one of these cards. Treat
+    // product-detail as INELIGIBLE for customer-success card slots (empty over
+    // wrong: an unfilled card falls back to its initials/neutral treatment).
     if (blockType === "dso-success-stories" && Array.isArray(props.cases)) {
+      const customerPhotoPool = images.filter((i) => getImagePurpose(i) !== "product-detail");
       props.cases = (props.cases as Record<string, unknown>[]).map((c) => {
         if (!c.image) {
           const caseContext = `${c.name ?? ""} ${c.author ?? ""} dental practice`;
-          return { ...c, image: pick(caseContext, images, usedIds, "lp-feature") };
+          return { ...c, image: pick(caseContext, customerPhotoPool, usedIds, "lp-feature") };
         }
         return c;
       });

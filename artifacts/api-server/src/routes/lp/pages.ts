@@ -329,6 +329,19 @@ router.get("/lp/templates", async (req, res): Promise<void> => {
       eq(lpPagesTable.isGlobal, true),
       sql`(${lpPagesTable.blocks} -> 0 ->> 'type') LIKE 'business-case%'`,
     );
+    // Global all-in-one flagship/framework templates — single-block monograph
+    // documents the rep microsite generator is meant to use (the StoryBrand /
+    // MEDDIC exec-decision-brief / Challenger framework pages, plus the
+    // business-case all-in-ones). is_all_in_one is the canonical flag for these
+    // curated, structure-locked layouts; including it under salesMode surfaces
+    // the framework pages whose first block (storybrand-journey /
+    // exec-decision-brief / challenger-insight) is NOT business-case-* and so
+    // was missed by isBusinessCaseGlobal above. The full off-brand global
+    // starter library (is_all_in_one = false) stays excluded.
+    const isFlagshipGlobal = and(
+      eq(lpPagesTable.isGlobal, true),
+      eq(lpPagesTable.isAllInOne, true),
+    );
     // ownedOnly: tenant-owned AND not flagged is_global. The is_global=false
     // guard is defensive — a tenant template should not normally also be a
     // global starter, but if it ever is, we don't want it leaking into the
@@ -338,7 +351,7 @@ router.get("/lp/templates", async (req, res): Promise<void> => {
       eq(lpPagesTable.isGlobal, false),
     );
     const visibility = salesMode
-      ? or(ownedTemplates, isBusinessCaseGlobal)
+      ? or(ownedTemplates, isBusinessCaseGlobal, isFlagshipGlobal)
       : ownedOnly
         ? ownedTemplates
         : or(

@@ -6,9 +6,12 @@
 //   3. Submit → page is created, hotlinks are bulk-generated for the account
 //      contacts (when one is picked), and the user is taken to the builder.
 //
-// Template list is restricted to the caller's tenant (`?ownedOnly=true`) —
-// reps never see the global SaaS starter library, so every microsite stays
-// on-brand.
+// The tenant's own templates (`?ownedOnly=true`) are surfaced alongside the
+// shared GLOBAL flagship/framework templates (StoryBrand / MEDDIC
+// exec-decision-brief / Challenger + business-case all-in-ones, via
+// `?salesMode=true`) under a separate "Frameworks & layouts" group. The full
+// off-brand global SaaS starter library is still NEVER shown, so every
+// microsite stays on-brand.
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import {
@@ -54,6 +57,10 @@ interface TenantTemplate {
   title: string;
   templateLabel: string | null;
   templateDescription: string | null;
+  /** True for the shared global flagship/framework templates (StoryBrand /
+   *  MEDDIC exec-decision-brief / Challenger + business-case all-in-ones).
+   *  Used to group them separately from the tenant's own templates. */
+  isGlobal?: boolean;
 }
 
 type Mode = "template" | "ai";
@@ -112,6 +119,11 @@ export function NewMicrositeModal({ open, onClose }: Props) {
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [templates, setTemplates] = useState<TenantTemplate[]>([]);
+  // Shared global flagship/framework templates (StoryBrand / MEDDIC
+  // exec-decision-brief / Challenger + business-case all-in-ones). Surfaced
+  // alongside the tenant's own templates under a separate group so reps can
+  // start a microsite from a proven framework, not only tenant-owned layouts.
+  const [globalTemplates, setGlobalTemplates] = useState<TenantTemplate[]>([]);
   const [segments, setSegments] = useState<AudienceSegment[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
@@ -202,12 +214,23 @@ export function NewMicrositeModal({ open, onClose }: Props) {
       fetch(`${API_BASE}/lp/templates?ownedOnly=true&forMicrosite=true`)
         .then(r => (r.ok ? r.json() : []))
         .catch(() => []),
+      // salesMode=true surfaces the shared GLOBAL flagship/framework templates
+      // (StoryBrand / MEDDIC exec-decision-brief / Challenger + business-case
+      // all-in-ones) WITHOUT opening the full off-brand global starter library.
+      // It also returns tenant-owned rows, so we keep only is_global rows here
+      // and render them under a separate "Frameworks & layouts" group.
+      fetch(`${API_BASE}/lp/templates?salesMode=true&forMicrosite=true`)
+        .then(r => (r.ok ? r.json() : []))
+        .catch(() => []),
       // Audience segments come from the tenant's brand config — same source
       // the page editor and Content Brief modal already use.
       fetchBrandConfig().then(b => b.segments ?? []).catch(() => []),
-    ]).then(([accts, tpls, segs]: [Account[], TenantTemplate[], AudienceSegment[]]) => {
+    ]).then(([accts, tpls, salesTpls, segs]: [Account[], TenantTemplate[], TenantTemplate[], AudienceSegment[]]) => {
       setAccounts(Array.isArray(accts) ? accts : []);
       setTemplates(Array.isArray(tpls) ? tpls : []);
+      setGlobalTemplates(
+        Array.isArray(salesTpls) ? salesTpls.filter(t => t.isGlobal === true) : [],
+      );
       setSegments(Array.isArray(segs) ? segs : []);
       setLoadingData(false);
     });
@@ -593,7 +616,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
   }
 
   const liveGenTemplate = liveGen?.templateId != null
-    ? templates.find((t) => t.id === liveGen.templateId) ?? null
+    ? [...templates, ...globalTemplates].find((t) => t.id === liveGen.templateId) ?? null
     : null;
 
   // An account is actively selected (not the "no account" escape hatch).
@@ -798,8 +821,33 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                         </p>
                       </button>
                     ))}
+                    {globalTemplates.length > 0 && (
+                      <p className="col-span-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground mt-1">
+                        Frameworks &amp; layouts
+                      </p>
+                    )}
+                    {globalTemplates.map((t) => (
+                      <button
+                        key={`g-${t.id}`}
+                        type="button"
+                        onClick={() => setSelectedTemplateId(t.id)}
+                        className={cn(
+                          "text-left p-3 rounded-lg border text-sm transition-all",
+                          selectedTemplateId === t.id
+                            ? "border-primary bg-primary/5 ring-1 ring-primary"
+                            : "border-border hover:border-primary/30 hover:bg-muted/50",
+                        )}
+                      >
+                        <p className="font-medium text-xs text-foreground line-clamp-1">
+                          {t.templateLabel || t.title}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">
+                          {t.templateDescription || "Shared framework"}
+                        </p>
+                      </button>
+                    ))}
                   </div>
-                  {!loadingData && templates.length === 0 && (
+                  {!loadingData && templates.length === 0 && globalTemplates.length === 0 && (
                     <p className="text-[11px] text-muted-foreground mt-2">
                       No templates available — start from Blank. Admins can enable templates for this dropdown under Settings → Templates.
                     </p>
@@ -907,8 +955,17 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                         ))}
                       </optgroup>
                     )}
+                    {globalTemplates.length > 0 && (
+                      <optgroup label="Frameworks & layouts (AI fills copy only)">
+                        {globalTemplates.map((t) => (
+                          <option key={`g-${t.id}`} value={String(t.id)}>
+                            {t.templateLabel || t.title}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
-                  {!loadingData && templates.length === 0 && (
+                  {!loadingData && templates.length === 0 && globalTemplates.length === 0 && (
                     <p className="text-[11px] text-muted-foreground mt-2">
                       No templates available — generate from scratch. Admins can enable templates for this dropdown under Settings → Templates.
                     </p>
