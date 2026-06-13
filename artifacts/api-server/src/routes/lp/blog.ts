@@ -25,8 +25,8 @@
 //                                       publish).
 //   - DELETE /admin/blog/posts/:id    — delete.
 //
-// The public GETs are added to LP_PUBLIC in routes/index.ts. body is markdown
-// stored as text and rendered/sanitized on the FE.
+// The public GETs are added to LP_PUBLIC in routes/index.ts. body is sanitized
+// HTML stored as text (Phase 1 migration) and RE-sanitized on the FE at render.
 
 import { Router } from "express";
 import { db, blogPostsTable } from "@workspace/db";

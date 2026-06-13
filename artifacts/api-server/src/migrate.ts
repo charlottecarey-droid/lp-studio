@@ -1224,6 +1224,53 @@ async function runMigrationsBody(): Promise<void> {
       }
     });
 
+    // Phase 1 (June 2026) — Markdown → HTML body migration for blog_posts. The
+    // body column now stores sanitized HTML (the column keeps its name; HTML
+    // fits in text, so no rename/dual-read). The 5 seed rows already ship HTML,
+    // but any rows authored/published before this deploy still hold markdown.
+    // This one-time, marker-gated, FAIL-OPEN heal converts those rows in place
+    // using the SAME dependency-free converter the seeds use (markdownToHtml),
+    // so converted bodies render identically (headings, links, images, inline
+    // SVG, lists, tables preserved). Idempotent: `looksLikeMarkdown` skips rows
+    // that are already HTML, so a re-run (or a partial prior run) is a no-op and
+    // never double-converts. Non-fatal — a failed heal must not abort the
+    // release; rows just keep their markdown and the public renderer (which
+    // historically rendered markdown) still copes via its raw-HTML allowlist.
+    await runStep("blog posts markdown→html heal", async () => {
+      try {
+        const HEAL_MARKER = "blog_posts_md_to_html_v1";
+        const marker = await db.execute<{ exists: number }>(
+          sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${HEAL_MARKER}`,
+        );
+        if (marker.rows.length > 0) return;
+        const { markdownToHtml, looksLikeMarkdown, htmlWordCount } = await import(
+          "./lib/blogHtml"
+        );
+        const rows = await db.execute<{ id: number; body: string }>(
+          sql`SELECT id, body FROM blog_posts`,
+        );
+        let converted = 0;
+        for (const row of rows.rows) {
+          const body = typeof row.body === "string" ? row.body : "";
+          if (!looksLikeMarkdown(body)) continue; // already HTML / empty → skip
+          const html = markdownToHtml(body);
+          const minutes = Math.max(1, Math.round(htmlWordCount(html) / 225));
+          await db.execute(sql`
+            UPDATE blog_posts
+               SET body = ${html}, reading_time_min = ${minutes}
+             WHERE id = ${row.id}
+          `);
+          converted++;
+        }
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES (${HEAL_MARKER}) ON CONFLICT DO NOTHING`,
+        );
+        logger.info({ converted, scanned: rows.rows.length }, "blog_posts markdown→html heal applied");
+      } catch (healErr) {
+        logger.error({ err: healErr }, "blog_posts markdown→html heal failed (non-fatal)");
+      }
+    });
+
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
     // letterdrop integrations don't break the moment we cut over the routes.
     // Generates one secret per integration for tenant #1, idempotent under

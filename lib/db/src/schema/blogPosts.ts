@@ -22,20 +22,25 @@ import {
  * `featured_homepage_templates` and `marketing_homepage_og`, which are also
  * un-scoped superadmin-owned marketing config.)
  *
- * BODY FORMAT: markdown stored as TEXT. It is rendered on the FRONTEND with a
- * small, dependency-free sanitizing markdown renderer (see
- * artifacts/lp-studio/src/marketing/lib/markdown.ts). Markdown keeps authoring
- * simple in a textarea, keeps the stored content human-diffable, and the FE
- * renderer escapes raw HTML except for an allowlisted set of safe tags/attrs
- * (notably inline <svg> infographics and <img>) so authored infographics +
- * images render responsively without opening an XSS hole.
+ * BODY FORMAT: sanitized HTML stored as TEXT (Phase 1 migration, June 2026 —
+ * was markdown). The column keeps its name (`body`); HTML fits in `text`, so no
+ * rename/dual-read was needed. Authoring moved to a Tiptap WYSIWYG (the same
+ * rich-text editor the email builder uses) plus a raw-HTML/SVG code view for
+ * infographics + embeds. It is RE-SANITIZED on the FRONTEND at render time (see
+ * artifacts/lp-studio/src/marketing/lib/sanitizeBlogHtml.ts) — stored HTML is
+ * authored by trusted superadmins but shown on the PUBLIC site, so it is never
+ * trusted: a tag/attr allowlist permits semantic editorial tags, inline <svg>
+ * infographics, and <iframe> from an embed-host allowlist (YouTube/Vimeo/Loom),
+ * while stripping <script>, on* handlers, and javascript:/non-image data: URLs.
+ * Legacy markdown rows are converted to HTML once via a marker-gated heal in
+ * migrate.ts (see markdownToHtml in artifacts/api-server/src/lib/blogHtml.ts).
  *
  *   slug             — URL slug (unique). Auto-derived from title on save with
  *                      collision handling (-2, -3, …).
  *   title            — H1 / card title.
  *   excerpt          — short subtitle / dek shown on cards + used as the meta
  *                      description fallback.
- *   body             — markdown source (see BODY FORMAT above).
+ *   body             — sanitized HTML source (see BODY FORMAT above).
  *   coverImageUrl    — hero/card image (absolute or /api/storage relative).
  *   authorName       — byline.
  *   tags             — jsonb array of strings for filtering + the kicker.

@@ -6,8 +6,12 @@
 -- and marketing_homepage_og, it is superadmin-owned site content, so there is
 -- deliberately NO tenant_id column.
 --
--- body is markdown stored as text; it is rendered (and sanitized) on the
--- frontend. Public endpoints serve only status = 'published'.
+-- body is sanitized HTML stored as text (Phase 1 migration, June 2026 — was
+-- markdown; the column keeps its name since HTML fits in text). It is
+-- RE-sanitized on the frontend at render time (tag/attr allowlist + inline SVG
+-- + allowlisted iframe embeds). Public endpoints serve only status =
+-- 'published'. Legacy markdown rows are converted in place by a marker-gated,
+-- fail-open heal in api-server migrate.ts (blog_posts_md_to_html_v1).
 CREATE TABLE IF NOT EXISTS blog_posts (
   id                serial PRIMARY KEY,
   slug              text NOT NULL,

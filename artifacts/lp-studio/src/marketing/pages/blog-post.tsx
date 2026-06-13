@@ -4,7 +4,7 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { usePageMeta } from "../hooks/usePageMeta";
 import { usePageJsonLd } from "../hooks/usePageJsonLd";
-import { renderMarkdown } from "../lib/markdown";
+import { sanitizeBlogHtml } from "../lib/sanitizeBlogHtml";
 import {
   fetchBlogPost,
   buildBlogPostingLd,
@@ -60,7 +60,9 @@ export default function BlogPost() {
 
   if (state === "missing") return <NotFound />;
 
-  const bodyHtml = post ? renderMarkdown(post.body) : "";
+  // Bodies are stored as HTML authored by superadmins; ALWAYS re-sanitize on
+  // this PUBLIC render — never trust the stored markup.
+  const bodyHtml = post ? sanitizeBlogHtml(post.body) : "";
   const tag = post?.tags[0];
   const cover = post ? absoluteImage(post.coverImageUrl) : undefined;
 

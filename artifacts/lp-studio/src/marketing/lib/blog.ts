@@ -99,15 +99,23 @@ export async function fetchBlogPost(slug: string): Promise<BlogPostFull | null> 
   }
 }
 
-/** Count words in a markdown body (mirrors the server-side reading-time strip). */
+/**
+ * Count words in an HTML blog body (bodies are stored as HTML; legacy markdown
+ * noise is still stripped so the count is stable across the migration). Strips
+ * inline SVG + code blocks first (they aren't prose), then tags + entities. The
+ * BlogPosting JSON-LD wordCount is recomputed from this, so the SEO/GEO payload
+ * reflects the rendered text content rather than markup.
+ */
 export function wordCount(body: string): number {
   const text = (body || "")
-    .replace(/```[\s\S]*?```/g, " ")
     .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
+    .replace(/<pre[\s\S]*?<\/pre>/gi, " ")
+    .replace(/```[\s\S]*?```/g, " ")
     .replace(/<[^>]+>/g, " ")
+    .replace(/&[a-z]+;/gi, " ")
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
     .replace(/\[[^\]]*\]\([^)]*\)/g, " ")
-    .replace(/[#>*_`~|-]/g, " ");
+    .replace(/[#>*_`~|]/g, " ");
   return text.split(/\s+/).filter(Boolean).length;
 }
 

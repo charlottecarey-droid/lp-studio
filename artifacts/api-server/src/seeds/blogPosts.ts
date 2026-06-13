@@ -8,14 +8,25 @@
 // inline-SVG infographic (cream/ink/indigo, coral spark only for emphasis;
 // responsive via viewBox, no external deps).
 //
-// Bodies are markdown TEXT; they're rendered (and sanitized) on the FE. The
-// seed is applied marker-guarded in migrate.ts and inserted ON CONFLICT (slug)
-// DO NOTHING so a superadmin's later edits / deletions are never clobbered.
+// BODY FORMAT (Phase 1 migration, June 2026): bodies are now stored as
+// sanitized HTML. The editorial source below is still authored in markdown for
+// readability/diffability, and `BLOG_POST_SEEDS` converts each body to HTML at
+// module load via the shared, dependency-free `markdownToHtml` converter (the
+// SAME grammar the old FE renderer used, so the rendered output is unchanged:
+// headings, links, inline SVG infographics, lists, tables all preserved). The
+// public renderer RE-sanitizes on render, so this stored HTML is never trusted.
+//
+// The seed is applied marker-guarded in migrate.ts and inserted ON CONFLICT
+// (slug) DO NOTHING so a superadmin's later edits / deletions are never
+// clobbered. The slugs/URLs are identical to the markdown-era seed.
+
+import { markdownToHtml } from "../lib/blogHtml";
 
 export interface BlogPostSeed {
   slug: string;
   title: string;
   excerpt: string;
+  /** Sanitized HTML (converted from the markdown source at module load). */
   body: string;
   authorName: string;
   tags: string[];
@@ -24,6 +35,12 @@ export interface BlogPostSeed {
   readingTimeMin: number;
   /** Days-ago offset for staggered publishedAt (0 = most recent). */
   publishedDaysAgo: number;
+}
+
+/** Internal authoring shape — markdown source before HTML conversion. */
+interface BlogPostSeedSource extends Omit<BlogPostSeed, "body"> {
+  /** Markdown source; converted to HTML for `BLOG_POST_SEEDS[].body`. */
+  bodyMd: string;
 }
 
 // ── Inline-SVG infographics ───────────────────────────────────────────────────
@@ -132,7 +149,7 @@ const SVG_PROMPT_ANATOMY = `<svg viewBox="0 0 600 250" xmlns="http://www.w3.org/
   </g>
 </svg>`;
 
-export const BLOG_POST_SEEDS: BlogPostSeed[] = [
+const BLOG_POST_SOURCES: BlogPostSeedSource[] = [
   {
     slug: "how-to-write-a-landing-page-that-converts",
     title: "How to write a landing page that converts (the 7-section structure)",
@@ -145,7 +162,7 @@ export const BLOG_POST_SEEDS: BlogPostSeed[] = [
       "A landing page converts when it makes one promise and asks for one action. Here's the seven-section structure that does the work, section by section.",
     readingTimeMin: 5,
     publishedDaysAgo: 28,
-    body: `A landing page converts when it makes one promise and asks for one action. Everything else is noise. The reliable way to get there is a seven-section structure — hero, problem, solution, proof, objections, offer, final CTA — where each section earns the next.
+    bodyMd: `A landing page converts when it makes one promise and asks for one action. Everything else is noise. The reliable way to get there is a seven-section structure — hero, problem, solution, proof, objections, offer, final CTA — where each section earns the next.
 
 This is the skeleton most high-converting pages share. Learn it once and you can write a page in an afternoon.
 
@@ -191,7 +208,7 @@ A landing page is a structured argument: promise, evidence, ask. Get the seven s
       "Encode your brand once — colors, fonts, voice, approved facts — then generate pages that inherit it. Here's how to make guidelines do real work.",
     readingTimeMin: 5,
     publishedDaysAgo: 21,
-    body: `Turn brand guidelines into a page by encoding them once and generating against them. Colors, fonts, voice, and approved facts become defaults, so every page starts on-brand instead of being corrected into shape afterward.
+    bodyMd: `Turn brand guidelines into a page by encoding them once and generating against them. Colors, fonts, voice, and approved facts become defaults, so every page starts on-brand instead of being corrected into shape afterward.
 
 Most teams keep guidelines in a PDF that nobody opens at 4pm on deadline. The fix isn't a longer PDF. It's making the guidelines the source the page is built from.
 
@@ -238,7 +255,7 @@ Guidelines only pay off when they're enforced automatically. Encode your brand o
       "A landing page drives one action; a microsite lets people explore a topic across several pages. Here's how to pick the right one by goal.",
     readingTimeMin: 4,
     publishedDaysAgo: 14,
-    body: `Use a landing page when you want one action. Use a microsite when you want someone to explore a topic across several pages. The choice comes down to goal, not size — a single conversion calls for a page; a program with depth calls for a microsite.
+    bodyMd: `Use a landing page when you want one action. Use a microsite when you want someone to explore a topic across several pages. The choice comes down to goal, not size — a single conversion calls for a page; a program with depth calls for a microsite.
 
 People reach for "microsite" when they mean "important." But importance isn't the test. The test is how many things you're asking the visitor to do.
 
@@ -286,7 +303,7 @@ Pick by goal: one action means a landing page; explore a topic means a microsite
       "A/B testing doesn't need a CRO team. Test one change at a time, split real traffic, and ship the winner. Here's the simple loop that works.",
     readingTimeMin: 5,
     publishedDaysAgo: 7,
-    body: `You can A/B test a landing page without a CRO team. Test one change at a time, split real traffic between the two versions, and ship whichever converts better. The method is simple; the discipline is in changing only one thing so you know what caused the result.
+    bodyMd: `You can A/B test a landing page without a CRO team. Test one change at a time, split real traffic between the two versions, and ship whichever converts better. The method is simple; the discipline is in changing only one thing so you know what caused the result.
 
 You don't need a statistician on staff. You need a hypothesis, two versions, and the patience to wait for enough traffic.
 
@@ -332,7 +349,7 @@ A/B testing is a loop, not a project: hypothesize, change one thing, split traff
       "Give an AI the audience, the one action, the proof it can use, and your constraints, and it builds an on-brand page. Here's the brief that works.",
     readingTimeMin: 5,
     publishedDaysAgo: 1,
-    body: `Brief an AI well and it builds an on-brand page. Brief it vaguely and it guesses — and its guesses are generic. The difference is four things: the audience, the one action, the proof it's allowed to use, and your constraints. Give it those and you'll get a usable draft on the first try.
+    bodyMd: `Brief an AI well and it builds an on-brand page. Brief it vaguely and it guesses — and its guesses are generic. The difference is four things: the audience, the one action, the proof it's allowed to use, and your constraints. Give it those and you'll get a usable draft on the first try.
 
 A good brief isn't longer. It's more specific about the things that actually shape a page.
 
@@ -371,3 +388,12 @@ The first draft is a starting point, not a final page. Read it for two things: i
 A good brief gives the model an audience, one action, the proof it can use, and your constraints — then you edit for truth and focus. Do that and AI builds on-brand pages instead of average ones. In LP Studio the brand and approved facts are already wired in, so the brief is half-written for you. [Create your workspace](https://app.lpstudio.ai) and brief your first page.`,
   },
 ];
+
+/**
+ * The seed posts with HTML bodies. The markdown source above is converted once,
+ * at module load, through the shared sanitizing converter so the stored HTML is
+ * faithful to what the markdown renderer produced. migrate.ts inserts these.
+ */
+export const BLOG_POST_SEEDS: BlogPostSeed[] = BLOG_POST_SOURCES.map(
+  ({ bodyMd, ...rest }) => ({ ...rest, body: markdownToHtml(bodyMd) }),
+);

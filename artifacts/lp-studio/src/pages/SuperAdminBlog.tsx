@@ -3,9 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { TiptapEditor } from "@/components/TiptapEditor";
 import {
   AlertTriangle, CheckCircle2, Loader2, RefreshCw, Plus, Trash2,
-  ExternalLink, Upload, ArrowLeft, Eye, Globe, FileText,
+  ExternalLink, Upload, ArrowLeft, Eye, Globe, FileText, Code2, Type,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -170,8 +171,9 @@ export default function SuperAdminBlog() {
           <h2 className="text-lg font-semibold">Blog</h2>
           <p className="text-sm text-muted-foreground mt-0.5 max-w-2xl">
             LP Studio's own marketing blog, rendered on lpstudio.ai/blog. Write
-            posts in markdown (inline SVG infographics + images supported). Save a
-            draft, then publish when it's ready.
+            posts in the rich-text editor (headings, lists, links, tables,
+            images, video embeds), and switch to the HTML view to paste inline
+            SVG infographics or embeds. Save a draft, then publish when ready.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -316,6 +318,67 @@ function PostRow({ post, onEdit, onChanged }: { post: Post; onEdit: () => void; 
   );
 }
 
+// Body editor: a Tiptap WYSIWYG (the SAME rich-text editor the email builder
+// uses — headings, bold/italic/underline, links, lists, alignment, images,
+// YouTube/Vimeo embeds, tables, hr) with a raw-HTML/SVG code-view toggle.
+//
+// The HTML view is the lossless path for inline <svg> infographics + raw
+// embeds: Tiptap's schema would drop unknown markup, so SVG/embed-heavy posts
+// are authored/edited there. The two views share one HTML string, so toggling
+// round-trips losslessly. Bodies are stored as HTML and RE-sanitized on the
+// public render — this editor is Superadmin-only.
+function BodyField({ value, onChange }: { value: string; onChange: (html: string) => void }) {
+  const [view, setView] = useState<"rich" | "html">("rich");
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs">
+          Body{" "}
+          <span className="text-muted-foreground">
+            (rich text — headings, lists, links, tables, images, embeds; use HTML for inline &lt;svg&gt;)
+          </span>
+        </Label>
+        <div className="inline-flex rounded-md border overflow-hidden text-xs">
+          <button
+            type="button"
+            onClick={() => setView("rich")}
+            className={`inline-flex items-center gap-1 px-2 py-1 ${view === "rich" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"}`}
+          >
+            <Type className="w-3 h-3" /> Rich text
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("html")}
+            className={`inline-flex items-center gap-1 px-2 py-1 border-l ${view === "html" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground"}`}
+          >
+            <Code2 className="w-3 h-3" /> HTML
+          </button>
+        </div>
+      </div>
+      {view === "rich" ? (
+        <TiptapEditor
+          content={value}
+          onChange={onChange}
+          placeholder="Lead with the answer in the first two sentences…"
+          className="min-h-[420px]"
+        />
+      ) : (
+        <Textarea
+          rows={26}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={'<h2>Lead with the answer</h2>\n<p>First two sentences answer the title directly.</p>\n<div class="lp-blog-embed">\n  <svg viewBox="0 0 600 360" xmlns="http://www.w3.org/2000/svg">…</svg>\n</div>'}
+          className="font-mono text-[13px] leading-[1.6]"
+        />
+      )}
+      <p className="text-[11px] text-muted-foreground">
+        Switch to HTML to paste inline SVG infographics or embed blocks. The
+        public page re-sanitizes all HTML on render.
+      </p>
+    </div>
+  );
+}
+
 function BlogEditor({
   id,
   draft: initial,
@@ -439,16 +502,7 @@ function BlogEditor({
               placeholder="A short, scannable summary that leads with the answer."
             />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Body <span className="text-muted-foreground">(markdown — headings, lists, quotes, code, images, inline &lt;svg&gt;)</span></Label>
-            <Textarea
-              rows={26}
-              value={draft.body}
-              onChange={(e) => update({ body: e.target.value })}
-              placeholder={"## Lead with the answer\n\nFirst two sentences answer the title directly.\n\n- step one\n- step two"}
-              className="font-mono text-[13px] leading-[1.6]"
-            />
-          </div>
+          <BodyField value={draft.body} onChange={(html) => update({ body: html })} />
         </div>
 
         {/* Sidebar */}

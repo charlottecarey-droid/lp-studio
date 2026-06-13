@@ -54,19 +54,22 @@ export function uniqueSlug(
 }
 
 /**
- * Estimate reading time in whole minutes from markdown body text. Strips the
- * heaviest markdown/markup noise (code fences, inline SVG, html tags, link/
- * image syntax) so word counts reflect prose, then divides by an average adult
- * reading speed of 225 wpm. Always returns at least 1.
+ * Estimate reading time in whole minutes from an HTML body (bodies are stored
+ * as HTML; lingering markdown noise is still stripped so the estimate is stable
+ * across the migration). Strips inline SVG infographics + code blocks first
+ * (they aren't prose), then html tags + entities, then divides by an average
+ * adult reading speed of 225 wpm. Always returns at least 1.
  */
 export function readingTimeMin(body: string): number {
   const text = (body || "")
-    .replace(/```[\s\S]*?```/g, " ") // fenced code blocks
     .replace(/<svg[\s\S]*?<\/svg>/gi, " ") // inline infographics
+    .replace(/<pre[\s\S]*?<\/pre>/gi, " ") // code blocks
+    .replace(/```[\s\S]*?```/g, " ") // legacy fenced code blocks
     .replace(/<[^>]+>/g, " ") // remaining html tags
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ") // images
-    .replace(/\[[^\]]*\]\([^)]*\)/g, " ") // links → drop the (url) part
-    .replace(/[#>*_`~|-]/g, " "); // markdown punctuation
+    .replace(/&[a-z]+;/gi, " ") // html entities
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ") // legacy markdown images
+    .replace(/\[[^\]]*\]\([^)]*\)/g, " ") // legacy markdown links
+    .replace(/[#>*_`~|]/g, " "); // markdown punctuation
   const words = text.split(/\s+/).filter(Boolean).length;
   return Math.max(1, Math.round(words / 225));
 }
