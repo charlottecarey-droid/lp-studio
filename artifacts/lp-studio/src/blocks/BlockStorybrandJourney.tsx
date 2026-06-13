@@ -1,5 +1,5 @@
-import React from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import React, { useEffect, useRef, useState } from "react";
+import { animate, motion, useInView, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
   ArrowDown,
@@ -159,6 +159,11 @@ export interface StorybrandJourneyBlockProps {
   /** REAL quotes only. Empty array = graceful empty state (empathy + creds
    *  render without invented quotes). */
   guideTestimonials?: StorybrandTestimonial[];
+  /** Optional portrait of the guide (warm, human) shown beside the empathy
+   *  statement as framed proof. Empty = empathy renders full-width as before. */
+  guideImageUrl?: string;
+  guideImageAlt?: string;
+  guideImageFocal?: string;
 
   /* ── 5. plan ────────────────────────────────────────────────────────── */
   showPlan?: boolean;
@@ -255,6 +260,9 @@ export const STORYBRAND_JOURNEY_DEFAULT_PROPS: StorybrandJourneyBlockProps = {
     "We've sat in the Monday meeting where nobody could say when the project actually starts. You shouldn't need heroics to begin work you've already won.",
   guideAuthorityHeading: "Why teams trust us",
   guideLogos: [],
+  guideImageUrl:
+    "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=900&h=1100&fit=crop",
+  guideImageAlt: "A friendly advisor smiling in a sunlit office",
   guideStats: [
     { value: "9 yrs", label: "Helping services teams launch" },
     { value: "400+", label: "Onboarding playbooks installed" },
@@ -358,6 +366,76 @@ function initialsOf(name: string): string {
     .join("")
     .toUpperCase();
 }
+
+/* ── Count-up numeral for guide stat chips. Parses a leading number with an
+ *  optional prefix/suffix (e.g. "98%", "400+", "9 yrs") and animates it into
+ *  view. Static under reduced motion / builder, where it renders final text. */
+function parseSbjStat(raw: string): { prefix: string; num: number | null; suffix: string; decimals: number } {
+  const m = (raw ?? "").match(/^([^0-9]*?)(\d[\d,]*(?:\.\d+)?)([\s\S]*)$/);
+  if (!m) return { prefix: "", num: null, suffix: raw ?? "", decimals: 0 };
+  const numStr = m[2].replace(/,/g, "");
+  const num = parseFloat(numStr);
+  if (!Number.isFinite(num)) return { prefix: "", num: null, suffix: raw ?? "", decimals: 0 };
+  const dot = numStr.indexOf(".");
+  return { prefix: m[1], num, suffix: m[3], decimals: dot === -1 ? 0 : numStr.length - dot - 1 };
+}
+
+const CountUpStat: React.FC<{ value: string; still: boolean }> = ({ value, still }) => {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-40px" });
+  const parsed = parseSbjStat(value);
+  const animatable = parsed.num !== null && !still;
+  const [display, setDisplay] = useState(() =>
+    animatable ? `${parsed.prefix}${(0).toFixed(parsed.decimals)}${parsed.suffix}` : value,
+  );
+  useEffect(() => {
+    if (!animatable) {
+      setDisplay(value);
+      return;
+    }
+    if (!inView) return;
+    const controls = animate(0, parsed.num as number, {
+      duration: 1.3,
+      ease: [0.16, 1, 0.3, 1],
+      onUpdate: (latest) =>
+        setDisplay(`${parsed.prefix}${latest.toFixed(parsed.decimals)}${parsed.suffix}`),
+    });
+    return () => controls.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [animatable, inView, value]);
+  return <span ref={ref}>{display}</span>;
+};
+
+/** Slow-drifting aurora orbs for the deep sections. Pauses under reduced
+ *  motion (handled by the .sbj-aurora CSS guard in the root style block). */
+const SbjAurora: React.FC<{ a: string; b: string }> = ({ a, b }) => (
+  <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+    <span
+      className="sbj-aurora sbj-aurora-1 absolute rounded-full"
+      style={{
+        width: "44rem",
+        height: "44rem",
+        top: "-18rem",
+        left: "-12rem",
+        background: `radial-gradient(closest-side, ${a} 0%, transparent 72%)`,
+        filter: "blur(18px)",
+        opacity: 0.5,
+      }}
+    />
+    <span
+      className="sbj-aurora sbj-aurora-2 absolute rounded-full"
+      style={{
+        width: "38rem",
+        height: "38rem",
+        bottom: "-16rem",
+        right: "-10rem",
+        background: `radial-gradient(closest-side, ${b} 0%, transparent 72%)`,
+        filter: "blur(22px)",
+        opacity: 0.42,
+      }}
+    />
+  </div>
+);
 
 const D = STORYBRAND_JOURNEY_DEFAULT_PROPS;
 
@@ -463,12 +541,18 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
     value: string | undefined,
     onUpdate: ((v: string) => void) | undefined,
     color: string,
+    no?: string,
   ) =>
     (value || onUpdate) && (
       <p
         className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.28em] mb-5"
         style={{ color, fontFamily: BODY }}
       >
+        {no && (
+          <span aria-hidden className="tabular-nums" style={{ fontFamily: NUMBERS, opacity: 0.85 }}>
+            {no}
+          </span>
+        )}
         <span aria-hidden className="inline-block w-8 h-px" style={{ background: color }} />
         <InlineText as="span" value={value ?? ""} onUpdate={onUpdate} />
       </p>
@@ -559,7 +643,9 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
         } as React.CSSProperties
       }
     >
-      {/* Focus-visible rings: accent-derived per surface, never invisible. */}
+      {/* Focus-visible rings: accent-derived per surface, never invisible.
+          Paper grain on cream, aurora drift on deep sections, card hover lift —
+          all reduced-motion guarded. */}
       <style>{`
         .sbj-root a:focus-visible,
         .sbj-root button:focus-visible {
@@ -570,12 +656,47 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
         .sbj-deep button:focus-visible {
           outline-color: var(--sbj-focus-deep);
         }
+        .sbj-root::before {
+          content: "";
+          position: fixed;
+          inset: 0;
+          pointer-events: none;
+          z-index: 0;
+          opacity: 0.5;
+          mix-blend-mode: multiply;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+        }
+        .sbj-root > section { position: relative; z-index: 1; }
+        .sbj-card {
+          transition: transform 0.3s cubic-bezier(.16,1,.3,1),
+                      box-shadow 0.3s cubic-bezier(.16,1,.3,1),
+                      filter 0.3s ease;
+        }
+        .sbj-card:hover {
+          transform: translateY(-1px);
+          filter: brightness(1.02);
+          box-shadow: 0 22px 48px -26px rgba(60, 42, 24, 0.4);
+        }
+        .sbj-aurora { will-change: transform; }
+        .sbj-aurora-1 { animation: sbj-drift-1 26s ease-in-out infinite alternate; }
+        .sbj-aurora-2 { animation: sbj-drift-2 32s ease-in-out infinite alternate; }
+        @keyframes sbj-drift-1 {
+          from { transform: translate3d(0,0,0) scale(1); }
+          to   { transform: translate3d(5%, 7%, 0) scale(1.08); }
+        }
+        @keyframes sbj-drift-2 {
+          from { transform: translate3d(0,0,0) scale(1.05); }
+          to   { transform: translate3d(-6%, -5%, 0) scale(1); }
+        }
         @media (prefers-reduced-motion: reduce) {
           .sbj-root .sbj-cta,
-          .sbj-root .sbj-cta:hover {
+          .sbj-root .sbj-cta:hover,
+          .sbj-root .sbj-card,
+          .sbj-root .sbj-card:hover {
             transition: none;
             transform: none;
           }
+          .sbj-aurora { animation: none !important; }
         }
       `}</style>
 
@@ -661,7 +782,7 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
         <section className="px-6 lg:px-12 py-20 md:py-28" style={{ background: problemBg }}>
           <div className="max-w-6xl mx-auto">
             <Reveal disabled={still} className="max-w-2xl mb-14">
-              {kickerEl(props.problemKicker ?? D.problemKicker, field("problemKicker"), kickerInk)}
+              {kickerEl(props.problemKicker ?? D.problemKicker, field("problemKicker"), kickerInk, "01")}
               <h2
                 className="text-3xl md:text-[2.6rem] leading-[1.12] font-medium tracking-tight mb-5"
                 style={{ fontFamily: display, color: headline }}
@@ -692,12 +813,19 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
               {problemCards.map((card, i) => (
                 <Reveal key={i} disabled={still} delay={Math.min(i * 0.1, 0.3)}>
                   <article
-                    className="h-full rounded-2xl border bg-white p-7 md:p-8"
+                    className="sbj-card h-full rounded-2xl border bg-white p-7 md:p-8"
                     style={{
                       borderColor: ink.hairline,
                       boxShadow: "0 14px 36px -24px rgba(60, 42, 24, 0.28)",
                     }}
                   >
+                    <span
+                      aria-hidden
+                      className="block mb-5 text-xs font-semibold tabular-nums"
+                      style={{ color: kickerInk, fontFamily: NUMBERS }}
+                    >
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
                     <div
                       className="w-11 h-11 rounded-xl flex items-center justify-center mb-5"
                       style={{
@@ -750,8 +878,17 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
 
       {/* ── 3. STAKES — the cost of doing nothing, deep-tint strip ───────── */}
       {props.showStakes !== false && (
-        <section className="sbj-deep px-6 lg:px-12 py-16 md:py-20" style={{ background: deep }}>
-          <div className="max-w-6xl mx-auto">
+        <section
+          className="sbj-deep relative overflow-hidden px-6 lg:px-12 py-16 md:py-20"
+          style={{ background: deep }}
+        >
+          {!still && (
+            <SbjAurora
+              a={`color-mix(in srgb, ${accentOnDeep} 30%, transparent)`}
+              b={`color-mix(in srgb, ${bg} 22%, transparent)`}
+            />
+          )}
+          <div className="relative max-w-6xl mx-auto">
             <Reveal disabled={still}>
               <div className="md:flex md:items-end md:justify-between md:gap-12 mb-10">
                 <div className="max-w-xl">
@@ -759,6 +896,7 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
                     props.stakesKicker ?? D.stakesKicker,
                     field("stakesKicker"),
                     accentOnDeep,
+                    "02",
                   )}
                   <h2
                     className="text-3xl md:text-4xl leading-[1.12] font-medium tracking-tight"
@@ -821,27 +959,65 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
       {props.showGuide !== false && (
         <section className="px-6 lg:px-12 py-20 md:py-28">
           <div className="max-w-6xl mx-auto">
-            <Reveal disabled={still} className="max-w-3xl mb-14 md:mb-16">
-              {kickerEl(props.guideKicker ?? D.guideKicker, field("guideKicker"), kickerInk)}
-              <blockquote className="relative m-0">
-                <Quote
-                  aria-hidden
-                  className="absolute -top-4 -left-2 w-10 h-10 md:w-12 md:h-12"
-                  style={{ color: `color-mix(in srgb, ${accent} 30%, transparent)` }}
-                />
-                <p
-                  className="relative text-2xl md:text-[2.1rem] leading-[1.3] font-medium italic pl-8 md:pl-10"
-                  style={{ fontFamily: display, color: headline }}
-                >
-                  <InlineText
-                    as="span"
-                    value={props.guideEmpathy ?? D.guideEmpathy!}
-                    onUpdate={field("guideEmpathy")}
-                    multiline
-                  />
-                </p>
-              </blockquote>
-            </Reveal>
+            {(() => {
+              const hasGuideImage = !!props.guideImageUrl || !!onFieldChange;
+              const empathyBlock = (
+                <>
+                  {kickerEl(props.guideKicker ?? D.guideKicker, field("guideKicker"), kickerInk, "03")}
+                  <blockquote className="relative m-0">
+                    <Quote
+                      aria-hidden
+                      className="absolute -top-4 -left-2 w-10 h-10 md:w-12 md:h-12"
+                      style={{ color: `color-mix(in srgb, ${accent} 30%, transparent)` }}
+                    />
+                    <p
+                      className="relative text-2xl md:text-[2.1rem] leading-[1.3] font-medium italic pl-8 md:pl-10"
+                      style={{ fontFamily: display, color: headline }}
+                    >
+                      <InlineText
+                        as="span"
+                        value={props.guideEmpathy ?? D.guideEmpathy!}
+                        onUpdate={field("guideEmpathy")}
+                        multiline
+                      />
+                    </p>
+                  </blockquote>
+                </>
+              );
+              return hasGuideImage ? (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center mb-14 md:mb-16">
+                  <Reveal disabled={still} className="lg:col-span-7">
+                    {empathyBlock}
+                  </Reveal>
+                  <Reveal disabled={still} delay={0.1} className="lg:col-span-5">
+                    <div
+                      className="relative overflow-hidden rounded-3xl border aspect-[4/5] max-h-[460px] w-full"
+                      style={{
+                        borderColor: ink.hairline,
+                        boxShadow: "0 24px 60px -28px rgba(60, 42, 24, 0.35)",
+                        background: mixHex(accent, bg, 0.1),
+                      }}
+                    >
+                      <InlineImage
+                        src={props.guideImageUrl ?? ""}
+                        alt={props.guideImageAlt ?? ""}
+                        className="absolute inset-0 w-full h-full object-cover saturate-[0.92]"
+                        wrapperClassName="absolute inset-0"
+                        loading="lazy"
+                        onUpdate={field("guideImageUrl")}
+                        onAltUpdate={field("guideImageAlt")}
+                        focalPoint={props.guideImageFocal}
+                        onFocalUpdate={field("guideImageFocal")}
+                      />
+                    </div>
+                  </Reveal>
+                </div>
+              ) : (
+                <Reveal disabled={still} className="max-w-3xl mb-14 md:mb-16">
+                  {empathyBlock}
+                </Reveal>
+              );
+            })()}
 
             <Reveal disabled={still} delay={0.08}>
               <div className="border-t pt-10" style={{ borderColor: ink.hairline }}>
@@ -859,14 +1035,17 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
                 )}
 
                 {guideLogos.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-x-10 gap-y-5 mb-10">
+                  <div
+                    className="flex flex-wrap items-center gap-x-8 gap-y-4 mb-10 rounded-2xl border bg-white/60 px-6 py-4"
+                    style={{ borderColor: ink.hairline }}
+                  >
                     {guideLogos.map((logo, i) =>
                       logo.url ? (
                         <img
                           key={i}
                           src={logo.url}
                           alt={logo.alt ?? ""}
-                          className="h-7 w-auto max-w-[140px] object-contain opacity-80"
+                          className="h-7 w-auto max-w-[140px] object-contain opacity-70 grayscale transition-all duration-300 hover:opacity-100 hover:grayscale-0"
                           loading="lazy"
                         />
                       ) : null,
@@ -886,11 +1065,15 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
                           className="text-lg font-semibold tabular-nums leading-none"
                           style={{ fontFamily: NUMBERS, color: kickerInk }}
                         >
-                          <InlineText
-                            as="span"
-                            value={s.value}
-                            onUpdate={onFieldChange ? (v) => patchStat(i, { value: v }) : undefined}
-                          />
+                          {onFieldChange ? (
+                            <InlineText
+                              as="span"
+                              value={s.value}
+                              onUpdate={(v) => patchStat(i, { value: v })}
+                            />
+                          ) : (
+                            <CountUpStat value={s.value} still={still} />
+                          )}
                         </span>
                         <span
                           className="text-xs leading-none"
@@ -914,7 +1097,7 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
                     {guideTestimonials.slice(0, 2).map((t, i) => (
                       <figure
                         key={i}
-                        className="m-0 rounded-2xl border bg-white p-7 md:p-8"
+                        className="sbj-card m-0 rounded-2xl border bg-white p-7 md:p-8"
                         style={{
                           borderColor: ink.hairline,
                           boxShadow: "0 14px 36px -24px rgba(60, 42, 24, 0.28)",
@@ -1002,7 +1185,7 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
         <section className="px-6 lg:px-12 py-20 md:py-28">
           <div className="max-w-6xl mx-auto">
             <Reveal disabled={still} className="max-w-2xl mb-14">
-              {kickerEl(props.planKicker ?? D.planKicker, field("planKicker"), kickerInk)}
+              {kickerEl(props.planKicker ?? D.planKicker, field("planKicker"), kickerInk, "04")}
               <h2
                 className="text-3xl md:text-[2.6rem] leading-[1.12] font-medium tracking-tight mb-4"
                 style={{ fontFamily: display, color: headline }}
@@ -1150,7 +1333,7 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
         >
           <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             <Reveal disabled={still}>
-              {kickerEl(props.successKicker ?? D.successKicker, field("successKicker"), kickerInk)}
+              {kickerEl(props.successKicker ?? D.successKicker, field("successKicker"), kickerInk, "05")}
               <h2
                 className="text-3xl md:text-[2.6rem] leading-[1.12] font-medium tracking-tight mb-5"
                 style={{ fontFamily: display, color: headline }}
@@ -1255,9 +1438,18 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
 
       {/* ── 7. FINALE — repeat the direct + transitional ask ─────────────── */}
       {props.showFinale !== false && (
-        <section className="sbj-deep px-6 lg:px-12 py-24 md:py-32" style={{ background: deep }}>
-          <div className="max-w-3xl mx-auto flex flex-col items-center text-center">
-            {kickerEl(props.finaleKicker ?? D.finaleKicker, field("finaleKicker"), accentOnDeep)}
+        <section
+          className="sbj-deep relative overflow-hidden px-6 lg:px-12 py-24 md:py-32"
+          style={{ background: deep }}
+        >
+          {!still && (
+            <SbjAurora
+              a={`color-mix(in srgb, ${accentOnDeep} 26%, transparent)`}
+              b={`color-mix(in srgb, ${bg} 20%, transparent)`}
+            />
+          )}
+          <div className="relative max-w-3xl mx-auto flex flex-col items-center text-center">
+            {kickerEl(props.finaleKicker ?? D.finaleKicker, field("finaleKicker"), accentOnDeep, "06")}
             <h2
               className="text-4xl md:text-5xl leading-[1.08] font-medium tracking-tight mb-5"
               style={{ fontFamily: display, color: headlineOnDeep }}

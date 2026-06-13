@@ -452,6 +452,18 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
       : mixHex(primaryHex, "#0A1018", 0.3);
   const darkInk = resolveSectionInk({}, { base: dark });
   const accentOnDark = pickContrastingColor(accentRaw, dark, [darkInk.text], 4.5);
+  const headlineOnDark = pickContrastingColor(
+    brand?.headingOnDarkColor,
+    dark,
+    [accentOnDark, darkInk.text],
+    4.5,
+  );
+
+  // Warm-tinted band behind the metrics proof so the page reads as distinct
+  // chapters rather than one flat surface. A whisper of accent over the page.
+  const bandBg = mixHex(accentChrome, bg, surfaceIsDark ? 0.1 : 0.06);
+  const bandInk = resolveSectionInk({ textColor: props.inkColor }, { base: bandBg });
+  const bandAccent = pickContrastingColor(accentRaw, bandBg, [headline, bandInk.text], 4.5);
 
   // CTA pair on the dark strip.
   const ctaBg = pickContrastingColor(
@@ -600,6 +612,7 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
     totalLabelKey,
     total,
     totalKey,
+    theme,
   }: {
     label?: string;
     labelKey: keyof ExecDecisionBriefBlockProps;
@@ -609,9 +622,14 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
     totalLabelKey: keyof ExecDecisionBriefBlockProps;
     total: string;
     totalKey: keyof ExecDecisionBriefBlockProps;
+    /** Surface-resolved tones so the column reads on light or dark panels. */
+    theme: { text: string; muted: string; hairline: string; label: string; total: string };
   }) => (
     <div>
-      <div className={`${kickerClass} pb-3 mb-1`} style={{ ...kickerStyle, borderBottom: `1px solid ${ink.hairline}` }}>
+      <div
+        className={`${kickerClass} pb-3 mb-1`}
+        style={{ color: theme.label, borderBottom: `1px solid ${theme.hairline}` }}
+      >
         <InlineText as="span" value={label ?? ""} onUpdate={edit(labelKey)} />
       </div>
       <dl>
@@ -619,9 +637,9 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
           <div
             key={i}
             className="flex items-baseline justify-between gap-4 py-2.5"
-            style={{ borderBottom: `1px solid ${ink.hairline}` }}
+            style={{ borderBottom: `1px solid ${theme.hairline}` }}
           >
-            <dt className="text-sm" style={{ color: ink.muted }}>
+            <dt className="text-sm" style={{ color: theme.muted }}>
               <InlineText
                 as="span"
                 value={item.label}
@@ -630,7 +648,7 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
             </dt>
             <dd
               className="text-sm font-semibold tabular-nums text-right"
-              style={{ color: ink.text, fontFamily: NUMBERS, fontVariantNumeric: "tabular-nums" }}
+              style={{ color: theme.text, fontFamily: NUMBERS, fontVariantNumeric: "tabular-nums" }}
             >
               <InlineText
                 as="span"
@@ -642,14 +660,14 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
         ))}
         <div
           className="flex items-baseline justify-between gap-4 pt-3 mt-1"
-          style={{ borderTop: `2px solid ${ink.text}` }}
+          style={{ borderTop: `2px solid ${theme.text}` }}
         >
-          <dt className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: ink.text }}>
+          <dt className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: theme.text }}>
             <InlineText as="span" value={totalLabel ?? ""} onUpdate={edit(totalLabelKey)} />
           </dt>
           <dd
             className="text-xl sm:text-2xl font-bold tabular-nums text-right"
-            style={{ color: headline, fontFamily: NUMBERS, fontVariantNumeric: "tabular-nums" }}
+            style={{ color: theme.total, fontFamily: NUMBERS, fontVariantNumeric: "tabular-nums" }}
           >
             <InlineText as="span" value={total} onUpdate={edit(totalKey)} />
           </dd>
@@ -659,7 +677,43 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
   );
 
   return (
-    <div style={{ background: bg, color: ink.text, fontFamily: BODY }}>
+    <div className="edb-root" style={{ background: bg, color: ink.text, fontFamily: BODY }}>
+      <style>{`
+        .edb-root { position: relative; }
+        .edb-root::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          opacity: 0.5;
+          mix-blend-mode: multiply;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+        }
+        .edb-root > * { position: relative; }
+        .edb-card {
+          transition: transform 0.3s cubic-bezier(.16,1,.3,1),
+                      box-shadow 0.3s cubic-bezier(.16,1,.3,1);
+        }
+        .edb-card:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 18px 40px -26px rgba(19, 36, 59, 0.4);
+        }
+        .edb-aurora { will-change: transform; }
+        .edb-aurora-1 { animation: edb-drift-1 30s ease-in-out infinite alternate; }
+        .edb-aurora-2 { animation: edb-drift-2 36s ease-in-out infinite alternate; }
+        @keyframes edb-drift-1 {
+          from { transform: translate3d(0,0,0) scale(1); }
+          to   { transform: translate3d(5%, 7%, 0) scale(1.08); }
+        }
+        @keyframes edb-drift-2 {
+          from { transform: translate3d(0,0,0) scale(1.05); }
+          to   { transform: translate3d(-6%, -5%, 0) scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .edb-aurora { animation: none !important; }
+          .edb-card, .edb-card:hover { transition: none; transform: none; }
+        }
+      `}</style>
       <div className="max-w-5xl mx-auto px-5 sm:px-8 lg:px-10">
         {/* ── 1. Masthead ──────────────────────────────────────────────── */}
         <header className="pt-12 sm:pt-16 lg:pt-20 pb-10 sm:pb-14">
@@ -807,11 +861,15 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
           </section>
         )}
 
-        {/* ── 3. Metrics proof band ────────────────────────────────────── */}
+        {/* ── 3. Metrics proof band — full-bleed tinted chapter ────────── */}
         {showMetrics && (
           <section
-            className="py-10 sm:py-14"
-            style={{ borderTop: `1px solid ${ink.hairline}` }}
+            className="relative py-12 sm:py-16 -mx-5 sm:-mx-8 lg:-mx-10 px-5 sm:px-8 lg:px-10"
+            style={{
+              background: bandBg,
+              borderTop: `1px solid ${ink.hairline}`,
+              borderBottom: `1px solid ${ink.hairline}`,
+            }}
             aria-label={props.metricsKicker || "Metrics"}
           >
             <SectionHead
@@ -821,9 +879,23 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
               heading={props.metricsHeading}
               headingKey="metricsHeading"
             />
-            <div className={`grid grid-cols-1 ${metricCols} gap-y-10 gap-x-8`}>
+            <div className={`grid grid-cols-1 ${metricCols} gap-5`}>
               {metrics.map((m, i) => (
-                <motion.div key={i} {...fadeUp(i * 0.06)}>
+                <motion.div
+                  key={i}
+                  {...fadeUp(i * 0.06)}
+                  className="edb-card rounded-2xl p-6 sm:p-7"
+                  style={{
+                    background: bg,
+                    border: `1px solid ${ink.hairline}`,
+                    boxShadow: "0 12px 32px -26px rgba(19, 36, 59, 0.3)",
+                  }}
+                >
+                  <span
+                    aria-hidden
+                    className="mb-4 block h-[3px] w-9 rounded-full"
+                    style={{ background: bandAccent }}
+                  />
                   <CountUpValue
                     value={m.value}
                     color={headline}
@@ -1016,13 +1088,38 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
             />
             <motion.div
               {...fadeUp(0.05)}
-              className="p-6 sm:p-10"
-              style={{
-                border: `1px solid ${ink.hairline}`,
-                background: mixHex(ink.text, bg, surfaceIsDark ? 0.06 : 0.025),
-              }}
+              className="relative overflow-hidden rounded-2xl p-6 sm:p-10"
+              style={{ background: dark }}
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-14">
+              {!reduced && (
+                <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+                  <span
+                    className="edb-aurora edb-aurora-1 absolute rounded-full"
+                    style={{
+                      width: "32rem",
+                      height: "32rem",
+                      top: "-14rem",
+                      right: "-10rem",
+                      background: `radial-gradient(closest-side, ${mixHex(accentRaw, dark, 0.3)} 0%, transparent 72%)`,
+                      filter: "blur(20px)",
+                      opacity: 0.5,
+                    }}
+                  />
+                  <span
+                    className="edb-aurora edb-aurora-2 absolute rounded-full"
+                    style={{
+                      width: "28rem",
+                      height: "28rem",
+                      bottom: "-12rem",
+                      left: "-8rem",
+                      background: `radial-gradient(closest-side, ${mixHex(primaryHex, dark, 0.5)} 0%, transparent 72%)`,
+                      filter: "blur(24px)",
+                      opacity: 0.45,
+                    }}
+                  />
+                </div>
+              )}
+              <div className="relative grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-14">
                 <EconColumn
                   label={props.investmentLabel}
                   labelKey="investmentLabel"
@@ -1032,6 +1129,13 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
                   totalLabelKey="investmentTotalLabel"
                   total={props.investmentTotal}
                   totalKey="investmentTotal"
+                  theme={{
+                    text: darkInk.text,
+                    muted: darkInk.muted,
+                    hairline: darkInk.hairline,
+                    label: accentOnDark,
+                    total: headlineOnDark,
+                  }}
                 />
                 <EconColumn
                   label={props.returnLabel}
@@ -1042,19 +1146,26 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
                   totalLabelKey="returnTotalLabel"
                   total={props.returnTotal}
                   totalKey="returnTotal"
+                  theme={{
+                    text: darkInk.text,
+                    muted: darkInk.muted,
+                    hairline: darkInk.hairline,
+                    label: accentOnDark,
+                    total: accentOnDark,
+                  }}
                 />
               </div>
               <div
-                className="mt-10 pt-8 flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-5"
-                style={{ borderTop: `1px solid ${ink.hairline}` }}
+                className="relative mt-10 pt-8 flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-5"
+                style={{ borderTop: `1px solid ${darkInk.hairline}` }}
               >
-                <span className={kickerClass} style={kickerStyle}>
+                <span className={kickerClass} style={{ color: accentOnDark }}>
                   <InlineText as="span" value={props.paybackLabel ?? ""} onUpdate={edit("paybackLabel")} />
                 </span>
                 <span
                   className="font-bold tabular-nums tracking-tight"
                   style={{
-                    color: headline,
+                    color: headlineOnDark,
                     fontFamily: NUMBERS,
                     fontSize: "clamp(2rem, 5vw, 3.25rem)",
                     lineHeight: 1.05,

@@ -269,7 +269,7 @@ export function ExecDecisionBriefPanel({ props, onChange }: Props) {
             <ColorRow label="Body text" value={props.inkColor} fallback={PALETTE_FB.inkColor} onChange={(v) => set("inkColor", v)} />
             <ColorRow label="Headings" value={props.headlineColor} fallback={PALETTE_FB.headlineColor} onChange={(v) => set("headlineColor", v)} />
             <ColorRow label="Accent" value={props.accentColor} fallback={PALETTE_FB.accentColor} onChange={(v) => set("accentColor", v)} />
-            <ColorRow label="Dark strip" value={props.darkColor} fallback={PALETTE_FB.darkColor} onChange={(v) => set("darkColor", v)} />
+            <ColorRow label="Dark sections (economic case + champion strip)" value={props.darkColor} fallback={PALETTE_FB.darkColor} onChange={(v) => set("darkColor", v)} />
             <p className="text-[11px] text-muted-foreground">
               Overrides are contrast-guarded — an unreadable text color falls back to a legible ink.
             </p>

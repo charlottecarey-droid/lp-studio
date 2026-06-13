@@ -435,6 +435,16 @@ export function StorybrandJourneyPanel({ props, onChange }: Props) {
             <Field label="Authority row heading">
               <Input value={props.guideAuthorityHeading ?? ""} onChange={(e) => set("guideAuthorityHeading", e.target.value)} className="text-xs h-8" />
             </Field>
+            <Field label="Guide portrait (beside the empathy quote, optional)">
+              <ImagePicker
+                value={props.guideImageUrl ?? ""}
+                onChange={(v) => set("guideImageUrl", v)}
+                aiHint="Warm, human portrait of the guide / advisor"
+              />
+            </Field>
+            <Field label="Guide portrait alt text">
+              <Input value={props.guideImageAlt ?? ""} onChange={(e) => set("guideImageAlt", e.target.value)} className="text-xs h-8" />
+            </Field>
 
             <div className="space-y-2 pt-1">
               <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Customer logos (optional)</div>

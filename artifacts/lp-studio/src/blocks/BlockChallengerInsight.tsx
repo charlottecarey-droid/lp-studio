@@ -418,6 +418,37 @@ function initialsOf(name: string): string {
     .join("");
 }
 
+/** Slow-drifting aurora orbs for dark sections. Animation is paused under
+ *  prefers-reduced-motion via the .chi-aurora CSS guard in the root style. */
+const ChiAurora: React.FC<{ a: string; b: string; isStatic?: boolean }> = ({ a, b, isStatic }) => (
+  <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+    <span
+      className={`chi-aurora ${isStatic ? "" : "chi-aurora-1"} absolute rounded-full`}
+      style={{
+        width: "46rem",
+        height: "46rem",
+        top: "-20rem",
+        left: "-14rem",
+        background: `radial-gradient(closest-side, ${a} 0%, transparent 70%)`,
+        filter: "blur(20px)",
+        opacity: 0.55,
+      }}
+    />
+    <span
+      className={`chi-aurora ${isStatic ? "" : "chi-aurora-2"} absolute rounded-full`}
+      style={{
+        width: "40rem",
+        height: "40rem",
+        bottom: "-18rem",
+        right: "-12rem",
+        background: `radial-gradient(closest-side, ${b} 0%, transparent 70%)`,
+        filter: "blur(26px)",
+        opacity: 0.45,
+      }}
+    />
+  </div>
+);
+
 export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: Props) {
   const prefersReducedMotion = useReducedMotion() ?? false;
   /** Static rendering: builder (no observers) — reveals stay opacity-only
@@ -558,6 +589,27 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
           background-position: 0 94%;
           padding-bottom: 0.06em;
         }
+        .chi-aurora { will-change: transform; }
+        .chi-aurora-1 { animation: chi-drift-1 28s ease-in-out infinite alternate; }
+        .chi-aurora-2 { animation: chi-drift-2 34s ease-in-out infinite alternate; }
+        @keyframes chi-drift-1 {
+          from { transform: translate3d(0,0,0) scale(1); }
+          to   { transform: translate3d(6%, 8%, 0) scale(1.1); }
+        }
+        @keyframes chi-drift-2 {
+          from { transform: translate3d(0,0,0) scale(1.06); }
+          to   { transform: translate3d(-7%, -6%, 0) scale(1); }
+        }
+        .chi-card {
+          transition: transform 0.3s cubic-bezier(.16,1,.3,1),
+                      background 0.3s ease, box-shadow 0.3s ease;
+        }
+        .chi-card:hover { transform: translateY(-1px); }
+        .chi-bar { transform-origin: left center; }
+        @media (prefers-reduced-motion: reduce) {
+          .chi-aurora { animation: none !important; }
+          .chi-card, .chi-card:hover { transition: none; transform: none; }
+        }
       `}</style>
 
       {/* ── 1. INSIGHT HERO (Teach) ─────────────────────────────────────── */}
@@ -569,6 +621,11 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
           style={{
             background: `radial-gradient(80% 55% at 18% -10%, ${mixHex(rawAccent, surface, 0.14)} 0%, transparent 60%), radial-gradient(120% 80% at 50% 120%, rgba(0,0,0,0.5) 0%, transparent 55%)`,
           }}
+        />
+        <ChiAurora
+          isStatic={countStatic}
+          a={mixHex(rawAccent, surface, 0.28)}
+          b={mixHex(primary, surface, 0.4)}
         />
         <div className="relative mx-auto flex min-h-[88vh] w-full max-w-6xl flex-col justify-center px-6 py-24 md:py-32 lg:px-10">
           <Reveal isStatic={isStatic} reduced={prefersReducedMotion}>
@@ -718,6 +775,11 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                 "radial-gradient(110% 95% at 50% 40%, transparent 42%, rgba(0,0,0,0.5) 100%)",
             }}
           />
+          <ChiAurora
+            isStatic={countStatic}
+            a={mixHex(rawAccent, surfaceDeep, 0.22)}
+            b={mixHex(primary, surfaceDeep, 0.32)}
+          />
           <div className="relative mx-auto w-full max-w-6xl px-6 py-20 md:py-28 lg:px-10">
             <Reveal isStatic={isStatic} reduced={prefersReducedMotion}>
               {eyebrow(props.costEyebrow ?? D.costEyebrow, "02", true)}
@@ -760,6 +822,33 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                     color={accentDisplayDeep}
                     isStatic={countStatic}
                   />
+                  {(() => {
+                    // Teaching data-viz: a proportional bar that sizes each loss
+                    // against the largest in the set, so the magnitudes read at a
+                    // glance. Bars only appear when ≥2 stats parse to a number.
+                    const nums = costStats.map((s) => parseStat(s.value).num);
+                    const valid = nums.filter((n): n is number => n !== null);
+                    const max = valid.length ? Math.max(...valid) : 0;
+                    const n = parseStat(stat.value).num;
+                    if (valid.length < 2 || n === null || max <= 0) return null;
+                    const pct = Math.max(8, Math.round((n / max) * 100));
+                    return (
+                      <div
+                        className="mt-5 h-1.5 w-full overflow-hidden rounded-full"
+                        style={{ background: inkDeep.hairline }}
+                        aria-hidden
+                      >
+                        <motion.span
+                          className="chi-bar block h-full rounded-full"
+                          style={{ width: `${pct}%`, background: accentDisplayDeep }}
+                          initial={countStatic ? false : { scaleX: 0 }}
+                          whileInView={countStatic ? undefined : { scaleX: 1 }}
+                          viewport={{ once: true, margin: "-60px" }}
+                          transition={{ duration: 1.1, delay: i * 0.1 + 0.2, ease: [0.16, 1, 0.3, 1] }}
+                        />
+                      </div>
+                    );
+                  })()}
                   <p
                     className="mt-4 max-w-[26ch] text-sm font-medium leading-snug tracking-wide sm:text-base"
                     style={{ color: inkDeep.muted, fontFamily: BODY }}
@@ -818,7 +907,7 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                   className="h-full"
                 >
                   <div
-                    className="group flex h-full flex-col rounded-xl border p-7 backdrop-blur-md transition-colors duration-300"
+                    className="chi-card group flex h-full flex-col rounded-xl border p-7 backdrop-blur-md"
                     style={{ background: glassBg, borderColor: glassBorder }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = glassBgHover)}
                     onMouseLeave={(e) => (e.currentTarget.style.background = glassBg)}
@@ -954,7 +1043,7 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
                     className="h-full"
                   >
                     <figure
-                      className="flex h-full flex-col rounded-xl border p-8 backdrop-blur-md"
+                      className="chi-card flex h-full flex-col rounded-xl border p-8 backdrop-blur-md"
                       style={{ background: glassBg, borderColor: glassBorder }}
                     >
                       <Quote aria-hidden className="mb-5 h-7 w-7" style={{ color: accentDisplay }} />
@@ -1047,6 +1136,11 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
             style={{
               background: `radial-gradient(70% 60% at 50% 115%, ${mixHex(rawAccent, surfaceDeep, 0.16)} 0%, transparent 60%)`,
             }}
+          />
+          <ChiAurora
+            isStatic={countStatic}
+            a={mixHex(rawAccent, surfaceDeep, 0.2)}
+            b={mixHex(primary, surfaceDeep, 0.3)}
           />
           <div className="relative mx-auto w-full max-w-6xl px-6 py-20 md:py-28 lg:px-10">
             <Reveal isStatic={isStatic} reduced={prefersReducedMotion}>
