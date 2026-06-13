@@ -14,6 +14,69 @@ const STAGES = [
 
 type Player = 'X' | 'O' | null;
 
+const WIN_LINES = [
+  [0, 1, 2], [3, 4, 5], [6, 7, 8],
+  [0, 3, 6], [1, 4, 7], [2, 5, 8],
+  [0, 4, 8], [2, 4, 6],
+];
+
+function evaluate(squares: Player[]): Player | 'Draw' | null {
+  for (const [a, b, c] of WIN_LINES) {
+    if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
+      return squares[a];
+    }
+  }
+  if (!squares.includes(null)) return 'Draw';
+  return null;
+}
+
+// Perfect-play minimax. AI is 'O' (maximizer), human is 'X' (minimizer).
+function minimax(squares: Player[], isMaximizing: boolean, depth: number): number {
+  const result = evaluate(squares);
+  if (result === 'O') return 10 - depth;
+  if (result === 'X') return depth - 10;
+  if (result === 'Draw') return 0;
+
+  if (isMaximizing) {
+    let best = -Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (squares[i] === null) {
+        squares[i] = 'O';
+        best = Math.max(best, minimax(squares, false, depth + 1));
+        squares[i] = null;
+      }
+    }
+    return best;
+  }
+  let best = Infinity;
+  for (let i = 0; i < 9; i++) {
+    if (squares[i] === null) {
+      squares[i] = 'X';
+      best = Math.min(best, minimax(squares, true, depth + 1));
+      squares[i] = null;
+    }
+  }
+  return best;
+}
+
+// Returns the index of the optimal move for 'O'. Unbeatable.
+function findBestMove(board: Player[]): number {
+  let bestScore = -Infinity;
+  let bestMove = -1;
+  for (let i = 0; i < 9; i++) {
+    if (board[i] === null) {
+      const next = [...board];
+      next[i] = 'O';
+      const score = minimax(next, false, 1);
+      if (score > bestScore) {
+        bestScore = score;
+        bestMove = i;
+      }
+    }
+  }
+  return bestMove;
+}
+
 export function TicTacToe() {
   const [elapsed, setElapsed] = useState(0);
   const [board, setBoard] = useState<Player[]>(Array(9).fill(null));
@@ -71,12 +134,11 @@ export function TicTacToe() {
   useEffect(() => {
     if (!xIsNext && !winner) {
       const timer = setTimeout(() => {
-        const emptyIndices = board.map((val, idx) => val === null ? idx : null).filter(val => val !== null) as number[];
-        if (emptyIndices.length > 0) {
-          // Simple AI: pick random empty
-          const randomIdx = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+        const move = findBestMove(board);
+        if (move !== -1) {
+          // Unbeatable AI: perfect-play minimax. Best the user can do is draw.
           const newBoard = [...board];
-          newBoard[randomIdx] = 'O';
+          newBoard[move] = 'O';
           setBoard(newBoard);
           setXIsNext(true);
           setWinner(checkWinner(newBoard));
