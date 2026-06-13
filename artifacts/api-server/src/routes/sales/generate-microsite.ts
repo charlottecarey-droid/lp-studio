@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq, desc, and, or } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
-import { salesAccountsTable, salesBriefingsTable, salesContactsTable, salesContactBriefingsTable, lpPagesTable, lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
+import { salesAccountsTable, salesBriefingsTable, salesContactsTable, salesContactBriefingsTable, lpPagesTable, lpBrandSettingsTable, lpMediaTable, sfdcOpportunitiesTable } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import OpenAI from "openai";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
@@ -83,6 +83,14 @@ import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
 // "challenger") to the matching GLOBAL template instead of the generic block
 // assembler. Brand-aware (storefront gating) and fail-open.
 import { matchTemplateIntent } from "../../lib/ai-prompts/template-intent";
+// P0-C — pure objective→plan decision engine. The /recommend endpoint returns
+// the plan (template + reasoning) for the FE preview step; the resolved
+// template/segment/persona/objective then flow into the generate call.
+import {
+  recommendMicrositePlan,
+  type RecommendMicrositeInput,
+  type MicrositeObjective,
+} from "../../lib/ai-prompts/microsite-recommendation";
 import {
   governanceMapFromRows,
   blocksApprovedForSegment,
@@ -1187,8 +1195,14 @@ interface BrandProductLine {
   keywords?: string[];
 }
 interface BrandSegmentPersona {
+  /** Optional stable id; the FE picker prefers this when present. */
+  id?: string;
+  /** Optional display name distinct from the role. */
+  name?: string;
   role?: string;
   painPoints?: string[];
+  /** What this persona cares about most — addressed directly when selected. */
+  caresAbout?: string[];
 }
 interface BrandSegmentChallenge {
   title?: string;
@@ -1207,13 +1221,17 @@ interface BrandMicrositeBlockListEntry {
   type?: string;
   schemaHint?: string;
 }
-interface BrandAudienceSegment {
+export interface BrandAudienceSegment {
   id?: string;
   name?: string;
   description?: string;
   messagingAngle?: string;
   uniqueContext?: string;
   valueProps?: string[];
+  /** P0-A — phrases that belong to a DIFFERENT audience (e.g. core/practice-level
+   *  messaging) and must NOT appear when this segment is selected. Surfaced to
+   *  the model as an explicit DO-NOT-USE list. */
+  avoidPhrases?: string[];
   segmentProducts?: string[];
   personas?: BrandSegmentPersona[];
   challenges?: BrandSegmentChallenge[];
@@ -1754,15 +1772,69 @@ function findMatchingSegment(
   );
 }
 
+/** Find the persona within a segment selected by the rep, matched by id (when
+ *  personas carry one) else case-insensitive role/name. Returns undefined when
+ *  none is selected or no persona matches — the segment-level guidance then
+ *  applies without a single-persona focus. */
+export function findSelectedPersona(
+  segment: BrandAudienceSegment | undefined,
+  personaId: string | null | undefined,
+): BrandSegmentPersona | undefined {
+  if (!segment || !personaId) return undefined;
+  const target = personaId.trim().toLowerCase();
+  if (!target) return undefined;
+  return (segment.personas ?? []).find(p => {
+    const id = (p as { id?: string }).id?.trim().toLowerCase();
+    const role = p?.role?.trim().toLowerCase();
+    return id === target || role === target;
+  });
+}
+
 /**
  * Format the matched segment into a TARGET SEGMENT section with personas,
  * challenges, stats and comparison rows. Returns empty string when no
  * segment matches.
+ *
+ * MESSAGING HIERARCHY (P0-A): when a segment is selected its messaging
+ * OVERRIDES the brand's core/default messaging — the section opens with a hard,
+ * unmissable override directive so the model leads with the segment's value
+ * props, pains and vocabulary rather than generic core lines (the DSO failure:
+ * "transform your practice with Dandy" is practice-level CORE messaging and
+ * must NOT leak onto a DSO-segment page centred on same-store growth,
+ * standardization, operational efficiency, margin expansion, enterprise
+ * rollout). When a persona within the segment is selected, that persona's role
+ * + pains + what-they-care-about are injected and the model is told to address
+ * THAT persona on top of the segment guidance.
  */
-function buildSegmentSection(segment: BrandAudienceSegment | undefined): string {
+export function buildSegmentSection(
+  segment: BrandAudienceSegment | undefined,
+  selectedPersona?: BrandSegmentPersona | undefined,
+): string {
   if (!segment) return "";
+  // A segment with NO usable messaging data carries no override to assert — the
+  // page falls back to CORE messaging (spec: "if NO segment [data], fall back to
+  // core"). The hard override directive only fires when there's segment-specific
+  // content to lead with, so an empty/placeholder segment can't suppress core.
+  const hasUsableData = Boolean(
+    segment.messagingAngle?.trim()
+    || segment.uniqueContext?.trim()
+    || toPromptStringList(segment.valueProps).length
+    || (segment.personas ?? []).some(p => p?.role?.trim())
+    || (segment.challenges ?? []).some(c => c?.title?.trim())
+    || (segment.stats ?? []).some(s => s?.value?.trim())
+    || (segment.comparisonRows ?? []).some(r => r?.need?.trim())
+    || selectedPersona?.role?.trim(),
+  );
+  if (!hasUsableData) return "";
+  const segName = segment.name?.trim() || "this account's segment";
   const lines: string[] = [
-    `TARGET SEGMENT — ${segment.name?.trim() || "this account's segment"} (use this segment's specific data in copy):`,
+    // ── Hard messaging-hierarchy directive — segment OVERRIDES core. ──
+    "MESSAGING HIERARCHY — READ FIRST, NON-NEGOTIABLE:",
+    `- The selected segment's messaging (${segName}) OVERRIDES the brand's core/default messaging.`,
+    "- LEAD with the segment's value props, pains, and vocabulary below. Do NOT use generic core/brand-level lines when a segment is selected.",
+    "- The segment-specific data below is the authoritative source for headlines, value props, pains, and proof on this page — prefer it over any core/brand pillar that conflicts.",
+    "",
+    `TARGET SEGMENT — ${segName} (use this segment's specific data in copy):`,
     "",
   ];
 
@@ -1773,7 +1845,36 @@ function buildSegmentSection(segment: BrandAudienceSegment | undefined): string 
     lines.push(`What makes this segment unique: ${segment.uniqueContext.trim()}`);
   }
   const vp = toPromptStringList(segment.valueProps);
-  if (vp.length) lines.push(`Segment-specific value props: ${vp.join("; ")}`);
+  if (vp.length) lines.push(`Segment-specific value props (LEAD with these, not core lines): ${vp.join("; ")}`);
+
+  // Segment-level avoid phrases: any core/practice-level line that must never
+  // leak onto this segment's page. Stored as `avoidPhrases` on the segment when
+  // the brand defines them. Stated as an explicit DO-NOT-USE list.
+  const segmentAvoid = toPromptStringList(
+    (segment as { avoidPhrases?: unknown }).avoidPhrases,
+  );
+  if (segmentAvoid.length) {
+    lines.push(
+      `Do NOT use these core/off-segment phrases on this page (they belong to a different audience): ${segmentAvoid.join("; ")}`,
+    );
+  }
+
+  // ── Persona focus (P0-A): when a persona within the segment is selected,
+  //    address THAT persona directly on top of the segment guidance. ──
+  if (selectedPersona?.role?.trim()) {
+    const pains = (selectedPersona.painPoints ?? []).filter(pp => pp?.trim()).join(", ");
+    const cares = toPromptStringList(
+      (selectedPersona as { caresAbout?: unknown }).caresAbout,
+    );
+    lines.push("");
+    lines.push("SELECTED PERSONA — address THIS person directly:");
+    lines.push(`• Role: ${selectedPersona.role!.trim()}`);
+    if (pains) lines.push(`• Their pains: ${pains}`);
+    if (cares.length) lines.push(`• What they care about: ${cares.join(", ")}`);
+    lines.push(
+      `Frame the hero, value props, pains, and CTA around what a ${selectedPersona.role!.trim()} cares about. Their priorities take precedence over a generic segment-wide framing.`,
+    );
+  }
 
   const validPersonas = (segment.personas ?? []).filter(p => p?.role?.trim());
   if (validPersonas.length) {
@@ -1885,6 +1986,10 @@ export function buildSystemPrompt(
   // When present it is THE fixed-list backbone, taking precedence over the legacy
   // segment/brand block lists; empty/undefined falls back to that legacy chain.
   outlineBlockList?: BrandMicrositeBlockListEntry[],
+  // P0-A — the persona within the SELECTED segment the rep chose (resolved by
+  // the route via findSelectedPersona). When present, the TARGET SEGMENT
+  // section addresses THIS persona directly on top of the segment guidance.
+  selectedPersona?: BrandSegmentPersona | undefined,
 ): string {
   const tone            = brand.toneOfVoice as string | undefined;
   const pillars         = brand.messagingPillars as Array<{ label: string; description: string }> | undefined;
@@ -1900,7 +2005,21 @@ export function buildSystemPrompt(
   const segments        = brand.segments as BrandAudienceSegment[] | undefined;
   const matchedSegment  = findMatchingSegment(segments, accountSegment);
   const productCatalog  = buildProductCatalogSection(productLines);
-  const segmentSection  = buildSegmentSection(matchedSegment);
+  // P0-A — build the TARGET SEGMENT section (with its hard messaging-hierarchy
+  // override directive) from the PICKED segment the rep selected, not from
+  // `matchedSegment` (which is resolved from the account's own segment field
+  // and may be empty/different). This is the DSO-failure fix: when the rep picks
+  // the DSO segment but the account row has no `segment` value, the override
+  // directive + segment value props must still fire. `matchedSegment` is only a
+  // fallback when the picked segment carries no usable data. The selected
+  // persona belongs to the picked segment, so it threads straight through.
+  const sectionSegment = (
+    segment.valueProps?.length
+    || segment.messagingAngle?.trim()
+    || segment.personas?.length
+    || segment.challenges?.length
+  ) ? segment : (matchedSegment ?? segment);
+  const segmentSection  = buildSegmentSection(sectionSegment, selectedPersona);
   // Phase B: few-shot examples — pick up to 2 hand-curated exemplars
   // matching the requested audience (and boosted by segment hints).
   // Returns "" when no exemplars apply (e.g. independent-practice audience
@@ -2181,6 +2300,87 @@ export function buildSystemPrompt(
   ].join("\n");
 }
 
+// P0-C — light rate limit for the (pure, cheap) recommend endpoint. Higher
+// ceiling than generation since it does no model/DB-heavy work, but still
+// guarded so a runaway client can't hammer it.
+const recommendLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many recommendation requests. Please wait a moment." },
+});
+
+/**
+ * POST /sales/microsite/recommend
+ *
+ * P0-C — returns the objective→generation PLAN (template + reasoning) the FE
+ * preview/why panel renders. This does NOT generate a page; it returns the
+ * recommendation so the rep can review the "why" before generating. The actual
+ * generate-microsite call then receives the resolved
+ * template/segment/persona/objective so its output matches the plan.
+ *
+ * Rep/superadmin-gated (requireAuth + the salesConsole plan gate on the router)
+ * + rate-limited. Pure + fail-open: bad input degrades to a from-scratch plan.
+ * Optional accountId enriches the reasoning with opportunity/customer context.
+ */
+router.post("/microsite/recommend", requireAuth, recommendLimiter, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  try {
+    const { objective, segment, persona, notes, accountId } = req.body as {
+      objective?: string;
+      segment?: { id?: string; name?: string; messagingAngle?: string };
+      persona?: { id?: string; name?: string; role?: string };
+      notes?: string;
+      accountId?: number;
+    };
+
+    // Optionally enrich with account/opportunity context (tenant-scoped). The
+    // generator already pulls account context; here we only need the coarse
+    // signals the plan uses (open opportunity stage + customer status).
+    let accountContext: RecommendMicrositeInput["accountContext"];
+    if (accountId != null && Number.isInteger(accountId)) {
+      try {
+        const [account] = await db
+          .select({ id: salesAccountsTable.id, name: salesAccountsTable.name, displayName: salesAccountsTable.displayName, status: salesAccountsTable.status })
+          .from(salesAccountsTable)
+          .where(and(eq(salesAccountsTable.id, accountId), eq(salesAccountsTable.tenantId, tenantId)))
+          .limit(1);
+        if (account) {
+          const opps = await db
+            .select({ stageName: sfdcOpportunitiesTable.stageName, isClosed: sfdcOpportunitiesTable.isClosed })
+            .from(sfdcOpportunitiesTable)
+            .where(and(eq(sfdcOpportunitiesTable.tenantId, tenantId), eq(sfdcOpportunitiesTable.accountId, accountId)))
+            .orderBy(desc(sfdcOpportunitiesTable.lastSyncedAt))
+            .limit(5);
+          const openOpp = opps.find((o) => o.isClosed !== true);
+          accountContext = {
+            name: account.displayName ?? account.name,
+            hasOpenOpportunity: Boolean(openOpp),
+            opportunityStage: openOpp?.stageName ?? null,
+            isCustomer: account.status === "active",
+          };
+        }
+      } catch (err) {
+        // Fail-open: missing/unsynced opportunity data simply yields no context.
+        logger.warn({ err: String(err), tenantId, accountId }, "[microsite/recommend] account context enrichment skipped (fail-open)");
+      }
+    }
+
+    const plan = recommendMicrositePlan({
+      objective: (objective ?? "from-scratch") as MicrositeObjective,
+      segment,
+      persona,
+      accountContext,
+      notes,
+    });
+    res.json({ plan });
+  } catch (err) {
+    logger.error({ err: String(err), tenantId }, "[microsite/recommend] failed");
+    res.status(500).json({ error: "Failed to build microsite recommendation" });
+  }
+});
+
 /**
  * POST /sales/accounts/:accountId/generate-microsite
  */
@@ -2190,11 +2390,22 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
   // `segmentId` is the current field. `audience` is a one-release legacy alias
   // (the old enum values doubled as segment ids); both resolve against
   // brand.segments by id after the brand row is loaded inside the try block.
-  const { prompt: userPrompt, segmentId, audience, templateId, replaceImagery, ctaOverride, contactId, referenceUrl, referenceUrls } = req.body as {
+  const { prompt: userPrompt, segmentId, personaId, objective, audience, templateId, templateSlug, replaceImagery, ctaOverride, contactId, referenceUrl, referenceUrls } = req.body as {
     prompt?: string;
     segmentId?: string;
+    /** P0-A — persona within the selected segment to address directly. */
+    personaId?: string;
+    /** P0-C — the rep's objective (book-meeting, advance-opportunity, …). Threaded
+     *  through so generation honours the objective-driven plan. Advisory: it does
+     *  not by itself pick a template (the recommend endpoint resolves that into
+     *  templateId), but it nudges the prompt's CTA/messaging emphasis. */
+    objective?: string;
     audience?: string;
     templateId?: number;
+    /** P0-C — the recommended template SLUG from the /recommend plan. Resolved
+     *  to a templateId below (tenant-owned or global). An explicit numeric
+     *  templateId always wins over this. */
+    templateSlug?: string;
     /** Task #1106 — when generating from a template, drop the template's
      *  original imagery and repopulate image slots from the tenant media
      *  library (+ scraped reference imagery) instead of restoring the
@@ -2277,6 +2488,11 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       return;
     }
 
+    // P0-A — resolve the persona the rep picked within this segment (by id or
+    // role, case-insensitive). Fail-open: an unknown/empty personaId simply
+    // yields no persona focus (segment-level guidance still applies).
+    const selectedPersona = findSelectedPersona(segment, personaId);
+
     // Resolved brand context — used to drive brand-neutral fallback copy
     // when the AI omits a field. Reads brandName + tagline from
     // lpBrandSettings.config (and salesConsole overrides) so non-Dandy
@@ -2347,9 +2563,35 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     //   • below-threshold prompts fall through to the freeform/curated path.
     // Brand-aware: the matcher's storefront gating keeps a B2B account from
     // routing to a DTC storefront. Fail-open: any error → freeform path.
+    // P0-C — resolve the recommended template SLUG (from the /recommend plan)
+    // to a concrete templateId. Tenant-owned or global, isTemplate=true only.
+    // An explicit numeric templateId still wins (resolved below). When the slug
+    // resolves, it counts as an explicit template choice and suppresses intent
+    // matching (explicit-template-wins). Fail-open: an unknown slug is ignored.
+    let slugTemplateId: number | null = null;
+    if ((templateId === undefined || templateId === null) && typeof templateSlug === "string" && templateSlug.trim()) {
+      try {
+        const [slugRow] = await db
+          .select({ id: lpPagesTable.id })
+          .from(lpPagesTable)
+          .where(
+            and(
+              eq(lpPagesTable.slug, templateSlug.trim()),
+              eq(lpPagesTable.isTemplate, true),
+              or(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.isGlobal, true)),
+            ),
+          )
+          .limit(1);
+        if (slugRow) slugTemplateId = slugRow.id;
+      } catch (err) {
+        logger.warn({ err: String(err), tenantId, templateSlug }, "[generate-microsite] templateSlug resolution skipped (fail-open)");
+      }
+    }
+
     let intentTemplateId: number | null = null;
     if (
       (templateId === undefined || templateId === null) &&
+      slugTemplateId === null &&
       mergedReferenceUrls.length === 0 &&
       !visionImage &&
       typeof userPrompt === "string" &&
@@ -2437,10 +2679,11 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         intentTemplateId = null;
       }
     }
-    // Explicit caller-picked templateId always wins; otherwise an intent match
-    // (if any) drives the template path below.
+    // Explicit caller-picked templateId always wins; then the recommended-plan
+    // slug (resolved above); then an intent match (if any) drives the template
+    // path below.
     const effectiveTemplateId: number | null =
-      typeof templateId === "number" ? templateId : intentTemplateId;
+      typeof templateId === "number" ? templateId : (slugTemplateId ?? intentTemplateId);
 
     // If a template ID was provided, fetch its block types to use as a fixed layout
     // and store the original blocks so we can restore images after AI generation.
@@ -2567,7 +2810,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         }).map((r) => ({ type: r.type, schemaHint: r.schemaHint }))
       : undefined;
 
-    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes, usePoolFreeform, outlineBlockList);
+    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes, usePoolFreeform, outlineBlockList, selectedPersona);
 
     // Task #976 — REFERENCE PAGE (voice) + VISUAL REFERENCE (style) sections,
     // appended to the user prompt exactly like /lp/generate-page. The brand's
@@ -2676,6 +2919,24 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     if (imageCatalogText || videoCatalogText) {
       contextParts.push("CRITICAL: You MUST ONLY use URLs listed above for imageUrl, backgroundImageUrl, heroImageUrl, videoUrl, and mediaUrl fields. NEVER fabricate or invent any media URLs. If no suitable URL exists for a slot, use empty string \"\".");
     }
+
+    // P0-C — objective-driven emphasis. The recommend endpoint resolves the
+    // objective into a template (threaded as templateId) + segment + persona;
+    // here we additionally nudge the page's CTA + messaging emphasis so the
+    // generated copy matches the recommended plan. Fail-open: an unknown/blank
+    // objective adds nothing.
+    const objectiveGuidance: Record<string, string> = {
+      "book-meeting": "OBJECTIVE: book a first meeting. Lead with the prospect's pain and the promised land; make the single next step a low-friction intro meeting. CTAs should ask for a 30-minute conversation.",
+      "advance-opportunity": "OBJECTIVE: advance an active opportunity. Frame a clear mutual action plan, de-risk the decision (pilot/proof/references), and reinforce differentiated value vs. the status quo. CTAs should confirm the next concrete step.",
+      "re-engage-stalled": "OBJECTIVE: re-engage a stalled deal. Re-establish urgency (the cost of staying on the current path), address the blocker, and make the next step small. CTAs should invite a short reset call.",
+      "support-proposal": "OBJECTIVE: support a live proposal. Center quantified ROI and the cost of inaction; surface peer proof at this account's scale. CTAs should drive to review/approve the proposal.",
+      "share-business-case": "OBJECTIVE: share a business case. Lead with quantified ROI, executive-level outcomes (margin, efficiency, risk), and proof the model works at this scale.",
+      "exec-presentation": "OBJECTIVE: executive presentation. Keep it decision-grade: concise, outcome-led, board-ready. Emphasise economics and risk reduction over features.",
+      "drive-expansion": "OBJECTIVE: drive expansion/renewal. Lead with value already delivered (realised ROI, adoption), then the incremental expansion opportunity and roadmap continuity.",
+      "from-scratch": "",
+    };
+    const objectiveNote = objective ? (objectiveGuidance[objective.trim()] ?? "") : "";
+    if (objectiveNote) contextParts.push(`\n${objectiveNote}`);
 
     if (userPrompt) contextParts.push(`\nADDITIONAL INSTRUCTIONS:\n${userPrompt}`);
     if (referenceSection) contextParts.push(`\n${referenceSection}`);

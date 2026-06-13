@@ -9,10 +9,138 @@ import {
   salesSignalsTable,
   salesHotlinksTable,
   lpPagesTable,
+  sfdcConnectionsTable,
 } from "@workspace/db";
 import { restoreRows } from "../../lib/restoreRows";
+import {
+  rankAndDedupeAccounts,
+  type AccountSearchCandidate,
+} from "../../lib/sales/account-search";
 
 const router = Router();
+
+// ─── GET /sales/accounts/search?q= ───────────────────────────────────────────
+// P0-B — typeahead account search returning ranked matches with a confidence
+// indicator and a dedupe signal. For each match:
+//   { id, name, domain, crmId?, source (crm|local), dataRichness, confidence,
+//     isLikelyDuplicateOf? }
+// Ranking puts the highest-confidence / richest-data account first; accounts
+// that look like the same company (same normalized domain/name) are grouped and
+// flagged so the UI can warn before creating a duplicate. When the tenant has a
+// connected CRM/SFDC the search includes CRM autocomplete results merged with
+// local accounts (deduped by domain/name); without a connection it returns
+// local accounts only. Fail-open throughout — CRM errors never block local
+// results. The pure ranking/dedupe/confidence logic lives in
+// lib/sales/account-search.ts (unit-tested).
+router.get("/accounts/search", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
+
+    // Local accounts + their richness signals (contacts, opportunities, notes,
+    // enriched fields). A LIKE filter narrows the candidate set; an empty query
+    // returns the most-recently-updated accounts (pure richness ordering).
+    const like = q ? `%${q.replace(/[%_]/g, (m) => `\\${m}`)}%` : null;
+    const rows = await db.execute(sql`
+      SELECT
+        sa.id, sa.salesforce_id, sa.name, sa.display_name, sa.domain,
+        sa.industry, sa.segment, sa.num_locations, sa.notes,
+        (SELECT COUNT(*)::int FROM sales_contacts sc WHERE sc.account_id = sa.id) AS contact_count,
+        (SELECT COUNT(*)::int FROM sfdc_opportunities op WHERE op.account_id = sa.id) AS opportunity_count
+      FROM sales_accounts sa
+      WHERE sa.tenant_id = ${tenantId}
+        ${like
+          ? sql`AND (sa.name ILIKE ${like} OR sa.display_name ILIKE ${like} OR sa.domain ILIKE ${like})`
+          : sql``}
+      ORDER BY sa.updated_at DESC
+      LIMIT 200
+    `);
+
+    const localCandidates: AccountSearchCandidate[] = rows.rows.map((r) => {
+      const row = r as Record<string, unknown>;
+      const enrichedFieldCount = [row.domain, row.industry, row.segment, row.num_locations]
+        .filter((v) => v !== null && v !== undefined && String(v).trim() !== "").length;
+      return {
+        id: row.id as number,
+        crmId: (row.salesforce_id as string | null) ?? undefined,
+        name: (row.display_name as string | null)?.trim() || (row.name as string),
+        domain: (row.domain as string | null) ?? null,
+        source: "local",
+        contactCount: (row.contact_count as number) ?? 0,
+        opportunityCount: (row.opportunity_count as number) ?? 0,
+        hasNotes: Boolean(row.notes && String(row.notes).trim()),
+        enrichedFieldCount,
+      };
+    });
+
+    // CRM autocomplete — only when this tenant has a connected SFDC org. The
+    // local rows already mirror synced SFDC accounts (they carry salesforce_id),
+    // so we surface UNSYNCED CRM-side matches by querying live. Fail-open: any
+    // error (no connection, token expired, rate limit) silently yields no CRM
+    // rows and the local results stand on their own.
+    let crmCandidates: AccountSearchCandidate[] = [];
+    if (q) {
+      try {
+        const [conn] = await db
+          .select({ id: sfdcConnectionsTable.id })
+          .from(sfdcConnectionsTable)
+          .where(and(eq(sfdcConnectionsTable.tenantId, tenantId), eq(sfdcConnectionsTable.status, "connected")))
+          .orderBy(desc(sfdcConnectionsTable.createdAt))
+          .limit(1);
+        if (conn) {
+          crmCandidates = await fetchCrmAccountMatches(conn.id, q);
+        }
+      } catch (err) {
+        console.warn("GET /sales/accounts/search: CRM autocomplete skipped (fail-open):", err);
+        crmCandidates = [];
+      }
+    }
+
+    const results = rankAndDedupeAccounts(q, [...localCandidates, ...crmCandidates], { limit });
+    res.json({ results, crmConnected: crmCandidates.length > 0 });
+  } catch (err) {
+    console.error("GET /sales/accounts/search error:", err);
+    res.status(500).json({ error: "Failed to search accounts" });
+  }
+});
+
+/**
+ * Live CRM (SFDC) account autocomplete for the search typeahead. Returns CRM
+ * candidates that are NOT already mirrored locally (the route dedupes against
+ * local rows by domain/name anyway). Fail-open: returns [] on any error.
+ *
+ * SOQL is parameterised via a soft-matched, escaped query string (the SFDC
+ * service hardcodes the field list — no user fields are interpolated other than
+ * the escaped search term). Kept defensive so a CRM hiccup never blocks local
+ * search.
+ */
+async function fetchCrmAccountMatches(connectionId: number, query: string): Promise<AccountSearchCandidate[]> {
+  // Lazy import so the search route doesn't pull the SFDC service into every
+  // accounts request, and so a missing service module fails open.
+  let sfdcService: typeof import("../../lib/sfdc-service").sfdcService;
+  try {
+    ({ sfdcService } = await import("../../lib/sfdc-service"));
+  } catch {
+    return [];
+  }
+  const escaped = query.replace(/['\\]/g, "\\$&");
+  const soql = `SELECT Id, Name, Website FROM Account WHERE Name LIKE '%${escaped}%' ORDER BY LastModifiedDate DESC LIMIT 25`;
+  const result = await sfdcService.querySalesforce(connectionId, soql);
+  const records = ((result as unknown as { records?: Array<Record<string, unknown>> })?.records) ?? [];
+  return records
+    .filter((rec) => typeof rec?.Name === "string" && (rec.Name as string).trim())
+    .map((rec) => ({
+      crmId: String(rec.Id ?? ""),
+      name: rec.Name as string,
+      domain: typeof rec.Website === "string" ? rec.Website : null,
+      source: "crm" as const,
+      // CRM-side richness is unknown from a name lookup; left at 0 so a fully
+      // synced local row (with contacts/opps) outranks the raw CRM hit.
+      contactCount: 0,
+      opportunityCount: 0,
+    }));
+}
 
 // snake_case → camelCase helper for raw SQL rows
 function rowToCamel(obj: Record<string, unknown>): Record<string, unknown> {

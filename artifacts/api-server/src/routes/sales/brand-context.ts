@@ -1,9 +1,69 @@
 import { Router } from "express";
+import { eq } from "drizzle-orm";
+import { db, lpBrandSettingsTable } from "@workspace/db";
 import { getTenantId } from "../../middleware/requireAuth";
 import { getSalesBrandContext, summarizeSalesBrandSetup } from "../../lib/salesBrandContext";
 import { getResendDomainStatus } from "../../lib/resendDomainStatus";
 
 const router = Router();
+
+// ─── GET /sales/brand/segments ───────────────────────────────
+// P0-A — loads the tenant's audience segments + their personas so the New
+// Microsite picker can render the segment → persona hierarchy. Returns the
+// shape the FE picker consumes:
+//   [{ id, name, description, messagingAngle, personas: [{ id, name, role, painPoints, caresAbout }] }]
+// Reads brand config directly (same lpBrandSettings.config the microsite
+// generator reads). Tenant-scoped; fail-open with an empty list so the picker
+// degrades to "no segment" rather than erroring.
+interface BrandPersonaShape {
+  id?: string;
+  name?: string;
+  role?: string;
+  painPoints?: string[];
+  caresAbout?: string[];
+}
+interface BrandSegmentShape {
+  id?: string;
+  name?: string;
+  description?: string;
+  messagingAngle?: string;
+  personas?: BrandPersonaShape[];
+}
+router.get("/brand/segments", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return;
+    const rows = await db
+      .select({ config: lpBrandSettingsTable.config })
+      .from(lpBrandSettingsTable)
+      .where(eq(lpBrandSettingsTable.tenantId, tenantId))
+      .limit(1);
+    const config = (rows.length > 0 ? rows[0].config : {}) as { segments?: BrandSegmentShape[] };
+    const segments = Array.isArray(config.segments) ? config.segments : [];
+    const out = segments
+      .filter((s) => (s?.id ?? "").trim() || (s?.name ?? "").trim())
+      .map((s) => ({
+        id: (s.id ?? "").trim() || (s.name ?? "").trim(),
+        name: (s.name ?? "").trim() || (s.id ?? "").trim(),
+        description: (s.description ?? "").trim(),
+        messagingAngle: (s.messagingAngle ?? "").trim(),
+        personas: (Array.isArray(s.personas) ? s.personas : [])
+          .filter((p) => (p?.role ?? "").trim() || (p?.name ?? "").trim() || (p?.id ?? "").trim())
+          .map((p) => ({
+            id: (p.id ?? "").trim() || (p.role ?? "").trim() || (p.name ?? "").trim(),
+            name: (p.name ?? "").trim() || (p.role ?? "").trim(),
+            role: (p.role ?? "").trim(),
+            painPoints: Array.isArray(p.painPoints) ? p.painPoints.filter((x) => typeof x === "string" && x.trim()) : [],
+            caresAbout: Array.isArray(p.caresAbout) ? p.caresAbout.filter((x) => typeof x === "string" && x.trim()) : [],
+          })),
+      }));
+    res.json({ segments: out });
+  } catch (err) {
+    console.error("GET /sales/brand/segments error:", err);
+    // Fail-open: empty list keeps the picker usable (no segment selected).
+    res.json({ segments: [] });
+  }
+});
 
 // ─── GET /sales/brand-context ────────────────────────────────
 // Returns the per-tenant Sales Console context (sender identity,
