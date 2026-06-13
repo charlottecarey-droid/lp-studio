@@ -69,6 +69,13 @@ export const GLOBAL_CLICHES: readonly string[] = [
   "seamlessly integrate",
   "elevate your",
   "empower your",
+  // June 2026 copy-quality audit — the four generic openers that regressed
+  // page + microsite copy. Listed here so the output validator catches them
+  // even when a caller passes a brand-only avoidPhrases list.
+  "transform your business",
+  "unlock your potential",
+  "revolutionize your workflow",
+  "take things to the next level",
 ];
 
 export interface BannedPhraseHit {

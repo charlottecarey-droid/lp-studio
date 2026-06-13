@@ -352,6 +352,27 @@ interface BrandConfig {
   avoidPhrases?: string[];
   targetAudience?: string;
   copyInstructions?: string;
+  /** June 2026 copy-quality audit — higher-order brand-strategy fields the
+   *  brand importer + Brand Settings can populate. Previously NONE of these
+   *  reached page generation, so content-rich brands drifted generic. Each is
+   *  injected verbatim into BRAND CONTEXT when present.
+   *
+   *  - positioningStatement: the one-line "for X, we are the Y that does Z".
+   *  - valuePropositions: the brand's top-level (segment-agnostic) value props.
+   *  - terminologyPreferred / terminologyAvoid: the brand's vocabulary lever —
+   *    words to USE and words to NEVER use (distinct from `avoidPhrases`, which
+   *    are clichés; these are brand-specific naming choices, e.g. "members" not
+   *    "users", "scan" not "impression").
+   *  - ctaGuidance: how this brand phrases its calls to action.
+   *  - writingDos / writingDonts: explicit do/don't bullets from the brand's
+   *    style guide. */
+  positioningStatement?: string;
+  valuePropositions?: string[];
+  terminologyPreferred?: string[];
+  terminologyAvoid?: string[];
+  ctaGuidance?: string;
+  writingDos?: string[];
+  writingDonts?: string[];
   primaryColor?: string;
   accentColor?: string;
   ctaBackground?: string;
@@ -3949,10 +3970,28 @@ function sanitizeScrapedText(raw: string): string {
     .trim();
 }
 
-function buildBrandContext(brand: BrandConfig, designIntensity: DesignIntensity): string {
+export function buildBrandContext(brand: BrandConfig, designIntensity: DesignIntensity): string {
   const parts: string[] = [];
+  // June 2026 copy-quality audit — an ORDERED context-priority preamble so the
+  // model knows how to weigh the sections that follow (in BOTH the system and
+  // user prompts). Mirrors the microsite's MESSAGING HIERARCHY intent: the
+  // segment + persona guidance leads, the brand core anchors voice, reference
+  // material is inspiration only, and the supplied proof points are to be USED,
+  // never ignored or replaced with invented numbers.
+  parts.push(
+    [
+      "CONTEXT PRIORITY — read before writing, applies to every section below:",
+      "1. AUDIENCE SEGMENT + SELECTED PERSONA guidance (when present) leads — it OVERRIDES the brand core on headlines, value props, pains, and CTAs.",
+      "2. This BRAND CONTEXT anchors the voice, vocabulary, positioning, and product facts — write every line as this specific brand.",
+      "3. Approved case studies, proof points, stats, and customer quotes are REAL — cite them by their actual numbers and names; never invent or paraphrase substitutes.",
+      "4. Any REFERENCE PAGE / inspiration site is structural + stylistic inspiration ONLY — never copy its claims, never let it override the brand voice.",
+    ].join("\n"),
+  );
   if (brand.brandName) parts.push(`Brand: ${brand.brandName}`);
   if (brand.companyDescription) parts.push(`About the company: ${brand.companyDescription}`);
+  if (brand.positioningStatement?.trim()) {
+    parts.push(`POSITIONING — the brand's core stance; anchor headlines and the overall argument on this: ${brand.positioningStatement.trim()}`);
+  }
   if (brand.taglines?.length) parts.push(`Taglines: ${brand.taglines.join(" | ")}`);
   if (brand.toneOfVoice) parts.push(`Tone: ${brand.toneOfVoice}`);
   // Imported voice profile (June 2026 copy-quality audit) — the highest-signal
@@ -3975,7 +4014,14 @@ function buildBrandContext(brand: BrandConfig, designIntensity: DesignIntensity)
   if (brand.chilipiperUrl) parts.push(`Chili Piper booking URL: "${brand.chilipiperUrl}" — use this for ctaUrl on ALL DSO blocks; set ctaMode: "chilipiper" on every DSO block that has ctaText/ctaUrl props`);
   if (brand.defaultCtaUrl && !brand.chilipiperUrl) parts.push(`Default CTA URL: "${brand.defaultCtaUrl}" — use this as ctaUrl on EVERY block that has a ctaUrl prop. Never leave ctaUrl as "#".`);
   if (brand.messagingPillars?.length) {
-    parts.push(`Key themes: ${brand.messagingPillars.map(p => `${p.label} (${p.description})`).join("; ")}`);
+    parts.push(`Messaging pillars / key themes (build the page's argument around these): ${brand.messagingPillars.map(p => `${p.label} (${p.description})`).join("; ")}`);
+  }
+  if (brand.valuePropositions?.length) {
+    parts.push(
+      `Core value propositions (the brand's top-level promises — lead with these unless an AUDIENCE SEGMENT below provides segment-specific value props, which take precedence):\n${brand.valuePropositions
+        .map((v) => `- ${v}`)
+        .join("\n")}`,
+    );
   }
   if (brand.toneKeywords?.length) {
     // Promote tone keywords from a passive "Style:" label to an explicit
@@ -4001,6 +4047,27 @@ function buildBrandContext(brand: BrandConfig, designIntensity: DesignIntensity)
     parts.push(
       `BANNED PHRASES — never use these words, phrases, clichés, or close variants thereof anywhere in the output: ${brand.avoidPhrases.join(", ")}.`,
     );
+  }
+  // June 2026 copy-quality audit — terminology, CTA, and do/don't levers the
+  // brand can set in Brand Settings. Previously unread by page generation.
+  if (brand.terminologyPreferred?.length) {
+    parts.push(
+      `PREFERRED TERMINOLOGY — use the brand's own words; prefer these terms over generic synonyms: ${brand.terminologyPreferred.join(", ")}.`,
+    );
+  }
+  if (brand.terminologyAvoid?.length) {
+    parts.push(
+      `AVOID THIS TERMINOLOGY — these are the wrong words for this brand; never use them (use the preferred terms instead): ${brand.terminologyAvoid.join(", ")}.`,
+    );
+  }
+  if (brand.ctaGuidance?.trim()) {
+    parts.push(`CTA GUIDANCE — phrase every call-to-action label and closing CTA this way: ${brand.ctaGuidance.trim()}`);
+  }
+  if (brand.writingDos?.length) {
+    parts.push(`DO — follow these brand writing rules:\n${brand.writingDos.map((d) => `- ${d}`).join("\n")}`);
+  }
+  if (brand.writingDonts?.length) {
+    parts.push(`DON'T — never do these in this brand's copy:\n${brand.writingDonts.map((d) => `- ${d}`).join("\n")}`);
   }
   if (brand.copyInstructions?.trim()) parts.push(brand.copyInstructions.trim());
   if (brand.productLines?.length) {
@@ -6963,14 +7030,43 @@ export function buildSegmentSection(
   opts: { strict?: boolean; proofPoints?: ProofPoint[]; dsoFreeChoice?: boolean; approvedPool?: readonly string[]; brandOutline?: PageOutline | null } = {},
 ): string {
   const parts: string[] = [];
+  // June 2026 copy-quality audit — bring the LP path to PARITY with the
+  // microsite generator's hard MESSAGING HIERARCHY directive. When a segment
+  // carries usable messaging data, its guidance OVERRIDES the brand core, and a
+  // persona (when present) overrides on top of the segment. This directive must
+  // be unmissable — it is the single biggest lever against generic, core-level
+  // copy leaking onto a segment-targeted page. It only fires when there is
+  // real segment data to lead with (an empty/placeholder segment falls back to
+  // brand core, exactly like the microsite path).
+  const segHasUsableData = Boolean(
+    seg.messagingAngle?.trim()
+    || seg.uniqueContext?.trim()
+    || seg.valueProps?.length
+    || seg.personas?.some((p) => p?.role?.trim())
+    || seg.challenges?.some((c) => c?.title?.trim())
+    || seg.stats?.some((s) => s?.value?.trim() || s?.label?.trim())
+    || seg.comparisonRows?.some((r) => r?.need?.trim()),
+  );
+  const segName = seg.name?.trim() || "this audience's segment";
+  if (segHasUsableData) {
+    parts.push(
+      [
+        "MESSAGING HIERARCHY — READ FIRST, NON-NEGOTIABLE:",
+        `- The selected segment's messaging (${segName}) OVERRIDES the brand's core/default messaging.`,
+        "- LEAD with the segment's value props, pains, and vocabulary below. Do NOT fall back to generic core/brand-level lines when a segment is selected.",
+        "- When a PERSONA is listed below, that persona's priorities override the segment-wide framing on top of this — frame the hero, value props, and CTA around what THAT persona cares about.",
+        "- The segment-specific data below is the authoritative source for headlines, value props, pains, and proof on this page — prefer it over any core/brand pillar that conflicts.",
+      ].join("\n"),
+    );
+  }
   if (seg.name) parts.push(`Target Audience Segment: ${seg.name}`);
   if (seg.description) parts.push(`Segment Description: ${seg.description}`);
   if (seg.messagingAngle) parts.push(`Messaging Angle: ${seg.messagingAngle}`);
   if (seg.uniqueContext) parts.push(`Unique Context: ${seg.uniqueContext}`);
-  if (seg.valueProps?.length) parts.push(`Segment Value Props:\n${seg.valueProps.map(v => `- ${v}`).join("\n")}`);
+  if (seg.valueProps?.length) parts.push(`Segment Value Props (LEAD with these, not core lines):\n${seg.valueProps.map(v => `- ${v}`).join("\n")}`);
   if (seg.personas?.length) {
     const ps = seg.personas.map(p => `${p.role}: ${p.painPoints.join(", ")}`).join("\n");
-    parts.push(`Known Personas:\n${ps}`);
+    parts.push(`Known Personas (address these people directly; their pains drive pain-section copy and their priorities take precedence over a generic segment-wide framing):\n${ps}`);
   }
   if (seg.challenges?.length) {
     const cs = seg.challenges.map(c => `${c.title}: ${c.desc}`).join("\n");

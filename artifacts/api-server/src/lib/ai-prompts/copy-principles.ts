@@ -19,11 +19,16 @@ export function getCoreForbiddenPhrases(): string[] {
     "seamless", "seamlessly", "effortlessly", "frictionless",
     "comprehensive", "holistic", "robust", "scalable solutions", "end-to-end",
     "in today's competitive landscape", "in the current climate", "now more than ever",
-    "take it to the next level", "elevate your practice", "transform your business",
+    "take it to the next level", "elevate your practice",
     "partner of choice", "trusted partner", "strategic partner",
     "unique positioning", "competitive advantage",
     "solution", "ecosystem", "Discover", "Unlock", "Unleash",
     "optimize", "maximize" ,"best practices", "value-add",
+    // June 2026 copy-quality audit — the four generic openers that regressed
+    // page + microsite copy. Banned in the prompt AND caught by the output
+    // banned-phrase validator (both paths pass this list to findBannedPhrases).
+    "transform your business", "unlock your potential",
+    "revolutionize your workflow", "take things to the next level",
   ];
 }
 
@@ -86,6 +91,15 @@ ${matchedSegment ? `10. VALIDATED FACTS ONLY — when this prompt includes a TAR
    CORRECT: "Send a scan. Get a perfect-fit crown in 5 days."
    WRONG: "join hundreds of practices already using ${(brandName || "us").toLowerCase()}" → WRONG: lowercase sentence start; brand names are proper nouns
    CORRECT: "Join hundreds of practices already using ${brandName || "us"}."
+
+SPECIFICITY & SUBSTANCE — this is what separates good copy from generic filler. Apply it to every block:
+- Be specific, never vague. Replace abstract claims with a concrete fact, number, process, name, or policy. "Better outcomes" is a failure; "96% first-time seat rate" is the bar.
+- Explain WHY it matters to this reader, not just WHAT it is. Connect every feature to a consequence the audience actually feels (chair time saved, remakes avoided, margin gained, hours back).
+- Demonstrate that you understand the audience's goals and pains. Name their real situation — their scale, their workflow, their daily friction — so the copy reads as written for THEM, not mail-merged.
+- Use the concrete examples, proof points, stats, quotes, and product facts provided in the context. When a real number or customer story fits a slot, USE it — do not paraphrase it into something vaguer, and never invent one to fill a gap.
+- Clarity over cleverness. A plain sentence the reader instantly understands beats a clever turn of phrase they have to decode.
+- Maintain the tenant's voice and the messaging hierarchy at all times: segment + persona guidance leads, brand core supports, reference material is inspiration only.
+- SYNTHESIZE the context you were given. Combine the brand voice, the segment's value props and pains, and the real proof points into copy that could only have been written for this brand and this audience. Defaulting to generic marketing language — buzzwords, stacked adjectives, hollow superlatives — is a failure even when no banned phrase appears.
 
 NEVER USE any of the following — not in headlines, not in body copy, not anywhere:
 ${forbiddenList.map(p => `- "${p}"`).join("\n")}

@@ -2057,12 +2057,44 @@ export function buildSystemPrompt(
     voiceProfile: brand.voiceProfile as { profile?: { tone?: string[]; summary?: string } } | undefined,
   });
 
+  // June 2026 copy-quality audit — bring the microsite brand core to PARITY
+  // with the LP generator's buildBrandContext: the importer + Brand Settings
+  // populate positioning, top-level value props, terminology, CTA guidance,
+  // do/don't bullets, an imported voiceProfile, and scraped stats/quotes, but
+  // the microsite prompt previously read NONE of them, so content-rich brands
+  // drifted generic here too.
+  const positioningStatement = brand.positioningStatement as string | undefined;
+  const valuePropositions = brand.valuePropositions as string[] | undefined;
+  const terminologyPreferred = brand.terminologyPreferred as string[] | undefined;
+  const terminologyAvoid = brand.terminologyAvoid as string[] | undefined;
+  const ctaGuidance = brand.ctaGuidance as string | undefined;
+  const writingDos = brand.writingDos as string[] | undefined;
+  const writingDonts = brand.writingDonts as string[] | undefined;
+  const vp = (brand.voiceProfile as { profile?: { tone?: string[]; summary?: string; signaturePhrases?: string[] } } | undefined)?.profile;
+  const strictFacts = (brand.aiStrictFactsMode as boolean | undefined) !== false;
+  const scrapedStats = (brand.scrapedStats as Array<{ value?: string; label?: string; approvedForAi?: boolean }> | undefined) ?? [];
+  const scrapedTestimonials = (brand.scrapedTestimonials as Array<{ quote?: string; author?: string; role?: string; approvedForAi?: boolean }> | undefined) ?? [];
+  const approvedStats = (strictFacts ? scrapedStats.filter((s) => s.approvedForAi !== false) : scrapedStats).filter((s) => s.value && s.label);
+  const approvedQuotes = (strictFacts ? scrapedTestimonials.filter((t) => t.approvedForAi !== false) : scrapedTestimonials).filter((t) => t.quote);
+
   const brandSection = [
     tone              ? `VOICE: ${tone}` : null,
+    vp?.summary       ? `Voice summary: ${vp.summary}` : null,
+    vp?.tone?.length  ? `Voice tone tags: ${vp.tone.join(", ")}` : null,
+    vp?.signaturePhrases?.length ? `Signature phrases (use naturally, do not over-use): ${vp.signaturePhrases.join(", ")}` : null,
     toneKeywords?.length ? `Style words — your copy should feel: ${toneKeywords.join(", ")}` : null,
+    positioningStatement?.trim() ? `POSITIONING — the brand's core stance; anchor the argument on this: ${positioningStatement.trim()}` : null,
     pillars?.length   ? `Messaging pillars:\n${pillars.map(p => `- ${p.label}: ${p.description}`).join("\n")}` : null,
+    valuePropositions?.length ? `Core value propositions (lead with these unless the TARGET SEGMENT below provides segment-specific value props, which take precedence):\n${valuePropositions.map(v => `- ${v}`).join("\n")}` : null,
     taglines?.length  ? `Brand taglines (reference these, don't repeat them verbatim): ${taglines.join(" | ")}` : null,
     copyExamples?.length ? `Copy that nails the voice — study these and write in this register:\n${copyExamples.map(e => `  "${e}"`).join("\n")}` : null,
+    terminologyPreferred?.length ? `PREFERRED TERMINOLOGY — use the brand's own words over generic synonyms: ${terminologyPreferred.join(", ")}` : null,
+    terminologyAvoid?.length ? `AVOID THIS TERMINOLOGY — wrong words for this brand; never use them: ${terminologyAvoid.join(", ")}` : null,
+    ctaGuidance?.trim() ? `CTA GUIDANCE — phrase every call-to-action this way: ${ctaGuidance.trim()}` : null,
+    writingDos?.length ? `DO — follow these brand writing rules:\n${writingDos.map(d => `- ${d}`).join("\n")}` : null,
+    writingDonts?.length ? `DON'T — never do these in this brand's copy:\n${writingDonts.map(d => `- ${d}`).join("\n")}` : null,
+    approvedStats.length ? `Approved brand stats (from the brand's own marketing — use verbatim when a stat fits; do not invent others):\n${approvedStats.map(s => `- ${s.value} ${s.label}`).join("\n")}` : null,
+    approvedQuotes.length ? `Approved customer quotes (real quotes for testimonial/quote blocks — use verbatim with their real attributions, never invent others):\n${approvedQuotes.map(t => { const a = [t.author, t.role].filter(Boolean).join(", "); return a ? `- "${t.quote}" — ${a}` : `- "${t.quote}"`; }).join("\n")}` : null,
     copyInstructions?.trim() ? copyInstructions.trim() : null,
     typographySection || null,
     buildDesignIntensitySection(designIntensity),
@@ -2116,6 +2148,14 @@ export function buildSystemPrompt(
     `You are an expert B2B copywriter for ${sellerIdentity}. You write personalized microsites for ${audienceDescription}.`,
     "",
     pitchDirection,
+    "",
+    [
+      "CONTEXT PRIORITY — read before writing, applies to every section below:",
+      "1. The TARGET SEGMENT + SELECTED PERSONA guidance leads — it OVERRIDES the brand core on headlines, value props, pains, and CTAs.",
+      "2. The BRAND VOICE & GUIDELINES anchor the voice, vocabulary, positioning, and product facts — write every line as the selling brand.",
+      "3. The account context, approved case studies, proof points, and quotes are REAL — cite them by their actual numbers and names; never invent substitutes.",
+      "4. Any REFERENCE PAGE / screenshot is structural + stylistic inspiration ONLY — never copy its claims, never let it override the brand voice.",
+    ].join("\n"),
     "",
     brandSection ? `BRAND VOICE & GUIDELINES:\n${brandSection}` : "",
     productCatalog ? `\n${productCatalog}` : "",

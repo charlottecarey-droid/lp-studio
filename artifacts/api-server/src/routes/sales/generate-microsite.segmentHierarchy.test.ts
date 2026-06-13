@@ -121,3 +121,64 @@ describe("buildSystemPrompt — segment vs core path", () => {
     expect(prompt).not.toContain("MESSAGING HIERARCHY");
   });
 });
+
+describe("buildSystemPrompt — brand-core context parity (June 2026 copy audit)", () => {
+  const richBrand = {
+    brandName: "Acme",
+    segments: [DSO_SEGMENT],
+    positioningStatement: "For multi-location practices, Acme is the lab that guarantees the seat.",
+    valuePropositions: ["96% first-time seat rate", "5-day crown delivery"],
+    terminologyPreferred: ["clinicians", "cases"],
+    terminologyAvoid: ["users", "tickets"],
+    ctaGuidance: "Always ask for a scan, never a demo.",
+    writingDos: ["Lead with the seat-rate number"],
+    writingDonts: ["Never call it a platform"],
+    voiceProfile: { profile: { summary: "Plain, confident, lab-operator voice.", signaturePhrases: ["zero lab drama"] } },
+    aiStrictFactsMode: true,
+    scrapedStats: [{ value: "96%", label: "first-time seat rate", approvedForAi: true }],
+    scrapedTestimonials: [{ quote: "Best lab we've used.", author: "Dr. Lee", approvedForAi: true }],
+  };
+
+  const prompt = buildSystemPrompt(
+    DSO_SEGMENT, richBrand, undefined, "dso", false, undefined, null, [], false, undefined, undefined,
+  );
+
+  it("injects an ordered CONTEXT PRIORITY preamble", () => {
+    expect(prompt).toContain("CONTEXT PRIORITY");
+    expect(prompt).toMatch(/TARGET SEGMENT[\s\S]*OVERRIDES the brand core/);
+  });
+
+  it("injects positioning, value propositions, terminology, CTA guidance, dos/donts", () => {
+    expect(prompt).toContain("POSITIONING");
+    expect(prompt).toContain("For multi-location practices, Acme is the lab that guarantees the seat.");
+    expect(prompt).toContain("Core value propositions");
+    expect(prompt).toContain("PREFERRED TERMINOLOGY");
+    expect(prompt).toContain("clinicians");
+    expect(prompt).toContain("AVOID THIS TERMINOLOGY");
+    expect(prompt).toContain("CTA GUIDANCE");
+    expect(prompt).toContain("DO — follow these brand writing rules");
+    expect(prompt).toContain("DON'T");
+    expect(prompt).toContain("Never call it a platform");
+  });
+
+  it("injects the imported voice profile + scraped stats/quotes", () => {
+    expect(prompt).toContain("Voice summary: Plain, confident, lab-operator voice.");
+    expect(prompt).toContain("zero lab drama");
+    expect(prompt).toContain("Approved brand stats");
+    expect(prompt).toContain("96% first-time seat rate");
+    expect(prompt).toContain("Approved customer quotes");
+    expect(prompt).toContain("Best lab we've used.");
+  });
+
+  it("carries the specificity directive + the four new banned openers", () => {
+    expect(prompt).toContain("SPECIFICITY & SUBSTANCE");
+    for (const p of [
+      "transform your business",
+      "unlock your potential",
+      "revolutionize your workflow",
+      "take things to the next level",
+    ]) {
+      expect(prompt.toLowerCase()).toContain(p);
+    }
+  });
+});
