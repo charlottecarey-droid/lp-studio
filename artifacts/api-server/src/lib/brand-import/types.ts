@@ -74,6 +74,11 @@ export interface Evidence {
   screenshotDataUrl: string | null;
   sampledPalette: string[];
   cssVarPaletteHints: { name: string; value: string }[];
+  /** Color custom properties (+ a few literal bg/text declarations) harvested
+   *  from dark-theme scopes in the fetched CSS — `@media (prefers-color-scheme:
+   *  dark)` blocks and `[data-theme=dark]` / `.dark` / `:root.dark` rule sets
+   *  (P0-2). Empty when the site ships no dark theme. */
+  darkCssVarHints: { name: string; value: string }[];
   errors: string[];
 }
 
@@ -103,6 +108,29 @@ export interface ColorSlot {
   source: "css-var" | "pixel-sample" | "llm";
 }
 
+/** Design tokens harvested from CSS vars/rules (P1-5). All optional, additive. */
+export interface DesignTokens {
+  /** A representative primary gradient (linear/radial with stops). */
+  primaryGradient?: string;
+  /** Border-radius scale gathered from `--radius*` vars / common rules. */
+  radiusScale?: { sm?: string; md?: string; lg?: string; full?: string };
+  /** A representative box-shadow. */
+  shadow?: string;
+}
+
+/** Dark-theme color slots (P0-2). All optional — populated only when the site
+ *  actually ships a dark theme (a `prefers-color-scheme: dark` block or an
+ *  explicit `[data-theme=dark]` / `.dark` rule set in the fetched CSS). When no
+ *  dark theme is detected the whole `darkModePalette` field stays undefined and
+ *  there is zero behaviour change. */
+export interface DarkModePalette {
+  primary?: string;
+  accent?: string;
+  pageBackground?: string;
+  cardBackground?: string;
+  text?: string;
+}
+
 export interface ColorsData {
   primary: string;
   accent: string;
@@ -118,6 +146,13 @@ export interface ColorsData {
   secondary: string[];
   swatches: ColorSlot[];
   rawCssVars: { name: string; value: string }[];
+  /** Dark-theme colors when the site ships a dark mode (P0-2). Undefined when
+   *  no dark theme was detected. */
+  darkModePalette?: DarkModePalette;
+  /** Design tokens (gradient / radius scale / shadow) harvested from CSS so
+   *  generated pages match design-system source sites (P1-5). Undefined when
+   *  none were found. */
+  designTokens?: DesignTokens;
 }
 
 export interface TypographyFont {
@@ -129,10 +164,28 @@ export interface TypographyFont {
   flag: "google-direct" | "google-fallback" | "custom-manual" | "unknown";
 }
 
+/** One step of the type scale (P1-1): declared size/weight/line-height. */
+export interface TypeScaleStep {
+  size?: string;
+  weight?: number;
+  lineHeight?: string;
+}
+
+/** Type scale parsed from declared CSS / inline styles (P1-1). All optional. */
+export interface TypeScale {
+  h1?: TypeScaleStep;
+  h2?: TypeScaleStep;
+  h3?: TypeScaleStep;
+  body?: TypeScaleStep;
+}
+
 export interface TypographyData {
   heading: TypographyFont | null;
   body: TypographyFont | null;
   mono: TypographyFont | null;
+  /** Declared size/weight/line-height for h1/h2/h3/body (P1-1). Undefined when
+   *  no usable scale could be parsed. */
+  typeScale?: TypeScale;
 }
 
 export type ButtonCategory =
@@ -179,9 +232,25 @@ export interface PhotographyProfile {
   summary: string;
 }
 
+/** A harvested content image with its alt/caption context (P1-2). `url` is the
+ *  absolute image URL; `alt` is the `<img alt>`; `caption` is the nearest
+ *  `<figcaption>` / adjacent caption text; `context` is a short snippet of
+ *  surrounding copy. All optional beyond `url` — fail-open. */
+export interface ImageRef {
+  url: string;
+  alt?: string;
+  caption?: string;
+  context?: string;
+}
+
 export interface PhotographyData {
   profile: PhotographyProfile;
   referenceImageUrls: string[];
+  /** Per-image alt/caption context for the selected reference images, in the
+   *  same order as `referenceImageUrls`. Threaded into the vision prompt and
+   *  persisted so the alt text can flow downstream into mirrored lp_media rows
+   *  for later alt-text reuse. */
+  imageRefs?: ImageRef[];
 }
 
 export interface VoiceProfile {

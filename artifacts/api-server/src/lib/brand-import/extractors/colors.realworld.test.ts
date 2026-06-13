@@ -46,6 +46,7 @@ function evidenceFromFixture(f: Fixture): Evidence {
     screenshotDataUrl: null,
     sampledPalette: f.sampledPalette,
     cssVarPaletteHints: f.cssVarPaletteHints,
+    darkCssVarHints: [],
     errors: [],
   };
 }

@@ -1,7 +1,7 @@
 import type OpenAI from "openai";
 import { withOpenAIConcurrency } from "../openai-semaphore";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
-import type { Evidence, DimensionResult, ColorsData, ColorSlot, Confidence } from "../types";
+import type { Evidence, DimensionResult, ColorsData, ColorSlot, Confidence, DarkModePalette, DesignTokens } from "../types";
 
 function hexToRgb(hex: string): [number, number, number] | null {
   const m = hex.match(/^#?([0-9a-fA-F]{6})$/);
@@ -71,6 +71,57 @@ const SLOT_FIELDS: (keyof ColorsData)[] = [
   "ctaBackground", "ctaText", "navBgColor", "navText", "borderColor",
 ];
 
+/**
+ * Build a dark-theme palette (P0-2) deterministically from the dark-scope CSS
+ * custom properties the evidence builder harvested. No extra LLM call: a dark
+ * theme either declared named tokens or it didn't. Role-matches each dark token
+ * name to a slot. Returns undefined (zero regression) when there isn't enough
+ * dark signal to be useful — we require at least a dark background OR a dark
+ * primary/accent so we never surface a half-empty palette.
+ */
+function buildDarkModePalette(
+  darkHints: { name: string; value: string }[],
+  lightPrimary: string,
+  lightAccent: string,
+): DarkModePalette | undefined {
+  if (!darkHints.length) return undefined;
+  const hexRe = /^#[0-9a-fA-F]{6}$/;
+  const pickByName = (matcher: RegExp, exclude?: RegExp, wantSaturated?: boolean): string | undefined => {
+    const cands = darkHints.filter((h) => matcher.test(h.name) && (!exclude || !exclude.test(h.name)) && hexRe.test(h.value));
+    if (!cands.length) return undefined;
+    if (wantSaturated) {
+      const sat = cands.filter((c) => !isWeakColor(c.value)).sort((a, b) => chromaSalience(b.value) - chromaSalience(a.value));
+      if (sat.length) return sat[0].value.toUpperCase();
+    }
+    return cands[0].value.toUpperCase();
+  };
+  const isDarkHex = (hex: string): boolean => luminance(hexToRgb(hex) ?? [255, 255, 255]) < 0.4;
+
+  const primary = pickByName(/(?:^|-)(?:brand|primary)/i, /(?:brand|primary)-?(?:surface|card)/i, true)
+    ?? (!isWeakColor(lightPrimary) ? lightPrimary.toUpperCase() : undefined);
+  const accent = pickByName(/accent/i, undefined, true)
+    ?? (!isWeakColor(lightAccent) ? lightAccent.toUpperCase() : undefined);
+  // Background/text: prefer a DARK declared bg + a LIGHT declared text.
+  const bgCands = darkHints.filter((h) => /(?:bg|background|surface)/i.test(h.name) && hexRe.test(h.value));
+  const pageBackground = bgCands.find((c) => isDarkHex(c.value))?.value.toUpperCase() ?? bgCands[0]?.value.toUpperCase();
+  const cardCands = darkHints.filter((h) => /(?:card|surface)/i.test(h.name) && hexRe.test(h.value));
+  const cardBackground = cardCands.find((c) => isDarkHex(c.value))?.value.toUpperCase() ?? pageBackground;
+  const textCands = darkHints.filter((h) => /(?:text|fg|foreground)/i.test(h.name) && hexRe.test(h.value));
+  const text = textCands.find((c) => !isDarkHex(c.value))?.value.toUpperCase() ?? textCands[0]?.value.toUpperCase();
+
+  // Require a meaningful dark background or a dark brand color, else skip.
+  if (!pageBackground && !primary && !accent) return undefined;
+  if (pageBackground && !isDarkHex(pageBackground) && !primary && !accent) return undefined;
+
+  const out: DarkModePalette = {};
+  if (primary) out.primary = primary;
+  if (accent) out.accent = accent;
+  if (pageBackground) out.pageBackground = pageBackground;
+  if (cardBackground) out.cardBackground = cardBackground;
+  if (text) out.text = text;
+  return Object.keys(out).length ? out : undefined;
+}
+
 /** Circular hue distance (degrees, 0–180) between two hex colors. Only
  *  meaningful when both colors carry real chroma — callers gate on
  *  !isWeakColor for both sides. */
@@ -93,6 +144,63 @@ const LOGO_HUE_CONFLICT_DEG = 75;
  *  usually done in 2–5s; its Playwright fallback can run longer, in which
  *  case we just skip the hint rather than eat the colors budget. */
 const LOGO_HINT_WAIT_MS = 8_000;
+
+/**
+ * Harvest additive design tokens (P1-5) from the page CSS: a representative
+ * primary gradient, a border-radius scale, and a representative shadow. Pulled
+ * from CSS custom properties first (design-system sites namespace these as
+ * `--radius-*`, `--shadow-*`, `--gradient-*`), then from plain rule values as a
+ * fallback. Deterministic + fail-open — returns undefined when nothing useful
+ * is found, so non-design-system sites see zero change.
+ */
+function harvestDesignTokens(evidence: Evidence): DesignTokens | undefined {
+  const cssSources: string[] = [];
+  if (evidence.$home) evidence.$home("style").each((_, el) => { cssSources.push(evidence.$home!(el).text() ?? ""); });
+  for (const s of evidence.stylesheets) cssSources.push(s.css);
+  if (!cssSources.length) return undefined;
+  const css = cssSources.join("\n").replace(/\/\*[\s\S]*?\*\//g, "");
+
+  const out: DesignTokens = {};
+
+  // Primary gradient: prefer a `--gradient*`/`--brand*gradient` custom prop, else
+  // the first reasonable linear/radial-gradient value in the CSS.
+  const gradVar = css.match(/--[a-z0-9-]*(?:gradient|brand)[a-z0-9-]*\s*:\s*((?:linear|radial)-gradient\([^;]+)/i)?.[1];
+  const gradAny = css.match(/(?:linear|radial)-gradient\(\s*[^;{}]*(?:#[0-9a-fA-F]{3,8}|rgba?\([^)]*\))[^;{}]*\)/i)?.[0];
+  const gradient = (gradVar ?? gradAny)?.trim();
+  // Only keep gradients that actually carry color stops (skip transparent fades).
+  if (gradient && /#[0-9a-fA-F]{3,8}|rgb/.test(gradient) && gradient.length < 400) {
+    out.primaryGradient = gradient;
+  }
+
+  // Radius scale: harvest named `--radius*` / `--rounded*` vars; map to sm/md/lg/full.
+  const radiusVars: { name: string; value: string }[] = [];
+  const rVarRe = /(--[a-z0-9-]*(?:radius|rounded|corner)[a-z0-9-]*)\s*:\s*([^;{}]+)/gi;
+  let rm: RegExpExecArray | null;
+  while ((rm = rVarRe.exec(css))) {
+    const val = rm[2].trim();
+    if (/^\d|^var\(|^9999|^calc/.test(val) || /px|rem|em|%/.test(val)) radiusVars.push({ name: rm[1].toLowerCase(), value: val.slice(0, 40) });
+  }
+  if (radiusVars.length) {
+    const radiusScale: { sm?: string; md?: string; lg?: string; full?: string } = {};
+    const pick = (re: RegExp): string | undefined => radiusVars.find((v) => re.test(v.name))?.value;
+    radiusScale.sm = pick(/(sm|small|xs|1)\b/) ?? radiusVars[0]?.value;
+    radiusScale.md = pick(/(md|medium|base|default|2)\b/);
+    radiusScale.lg = pick(/(lg|large|xl|3|4)\b/);
+    radiusScale.full = pick(/(full|pill|round|9999|max)\b/) ?? radiusVars.find((v) => /9999|100%|50%/.test(v.value))?.value;
+    const filled: { sm?: string; md?: string; lg?: string; full?: string } = {};
+    for (const [k, v] of Object.entries(radiusScale)) if (v) (filled as Record<string, string>)[k] = v;
+    if (Object.keys(filled).length) out.radiusScale = filled;
+  }
+
+  // Representative shadow: prefer a `--shadow*` var, else the first multi-part
+  // box-shadow rule value (skip `none`).
+  const shadowVar = css.match(/--[a-z0-9-]*shadow[a-z0-9-]*\s*:\s*([^;{}]+)/i)?.[1]?.trim();
+  const shadowRule = css.match(/box-shadow\s*:\s*([^;{}]+)/i)?.[1]?.trim();
+  const shadow = (shadowVar && !/^none$/i.test(shadowVar) ? shadowVar : null) ?? (shadowRule && !/^none$/i.test(shadowRule) ? shadowRule : null);
+  if (shadow && /\d/.test(shadow) && shadow.length < 300) out.shadow = shadow;
+
+  return Object.keys(out).length ? out : undefined;
+}
 
 export async function extractColors(
   evidence: Evidence,
@@ -337,10 +445,18 @@ All values must be 6-digit hex starting with #. Use solid colors only (no rgba).
   const overallConf: Confidence =
     logoOverrodePrimary && evidenceConf === "high" ? "medium" : evidenceConf;
 
+  // Dark-mode palette (P0-2): deterministic from the dark-scope CSS vars the
+  // evidence builder harvested. Undefined → site has no dark theme → no field.
+  const darkModePalette = buildDarkModePalette(evidence.darkCssVarHints ?? [], primary, accent);
+  // Design tokens (P1-5): gradient / radius scale / shadow. Additive + fail-open.
+  const designTokens = harvestDesignTokens(evidence);
+
   const data: ColorsData = {
     primary, accent, pageBackground: pageBg, cardBackground: cardBg,
     text, textMuted, ctaBackground: ctaBg, ctaText, navBgColor: navBg,
     navText, borderColor, secondary, swatches, rawCssVars: cssVars,
+    ...(darkModePalette ? { darkModePalette } : {}),
+    ...(designTokens ? { designTokens } : {}),
   };
   // Apply LLM per-slot confidence overrides
   for (const slot of SLOT_FIELDS) {

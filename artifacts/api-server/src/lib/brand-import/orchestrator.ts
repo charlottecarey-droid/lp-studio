@@ -181,6 +181,17 @@ function flattenForProposed(results: OrchestratorPayload["results"]): {
     put("navText", c.navText, conf);
     put("borderColor", c.borderColor, conf);
     c.secondary.slice(0, 5).forEach((hex, i) => put(`secondary${i + 1}`, hex, conf));
+    // Dark-mode palette (P0-2) — additive, only present when the site shipped a
+    // dark theme. Surfaced as its own proposed field so the FE review can opt
+    // the tenant into a matching dark theme. Confidence inherits the colors
+    // dimension's read.
+    if (c.darkModePalette && Object.keys(c.darkModePalette).length) {
+      put("darkModePalette", c.darkModePalette, conf);
+    }
+    // Design tokens (P1-5) — additive, only present when harvested.
+    if (c.designTokens && Object.keys(c.designTokens).length) {
+      put("designTokens", c.designTokens, conf);
+    }
   }
 
   if (results.typography.status !== "failed" && results.typography.data) {
@@ -193,6 +204,10 @@ function flattenForProposed(results: OrchestratorPayload["results"]): {
     if (t.body) {
       put("bodyFont", t.body.fallbackFamily ?? t.body.family, conf);
       if (t.body.googleFontUrl) put("bodyFontUrl", t.body.googleFontUrl, conf);
+    }
+    // Declared type scale (P1-1) — additive, only when parsed.
+    if (t.typeScale && Object.keys(t.typeScale).length) {
+      put("typeScale", t.typeScale, conf);
     }
   }
 
@@ -590,11 +605,25 @@ export async function applyAssetMirror(payload: OrchestratorPayload, tenantId: n
   // still mirror those images into lp_media.
   const collectStrings = (v: unknown): string[] =>
     Array.isArray(v) ? v.filter((u): u is string => typeof u === "string") : [];
-  const resultPhoto = payload.results?.photography?.data as { referenceImageUrls?: unknown } | null | undefined;
+  const resultPhoto = payload.results?.photography?.data as { referenceImageUrls?: unknown; imageRefs?: unknown } | null | undefined;
   const photoUrls = Array.from(new Set([
     ...collectStrings(photoProfile?.referenceImageUrls),
     ...collectStrings(resultPhoto?.referenceImageUrls),
   ]));
+
+  // Alt/caption text per source URL (P1-2) → mirrored lp_media row titles so the
+  // scraped descriptions flow downstream for later alt-text reuse.
+  const photoAltByUrl: Record<string, string> = {};
+  const refs = resultPhoto?.imageRefs;
+  if (Array.isArray(refs)) {
+    for (const r of refs) {
+      if (r && typeof r === "object" && typeof (r as { url?: unknown }).url === "string") {
+        const ref = r as { url: string; alt?: unknown; caption?: unknown };
+        const text = (typeof ref.alt === "string" && ref.alt) || (typeof ref.caption === "string" && ref.caption) || "";
+        if (text) photoAltByUrl[ref.url] = text;
+      }
+    }
+  }
 
   if (!logoUrl && !faviconUrl && photoUrls.length === 0) {
     logger.warn(
@@ -610,6 +639,7 @@ export async function applyAssetMirror(payload: OrchestratorPayload, tenantId: n
       logoUrl,
       faviconUrl,
       photoUrls,
+      photoAltByUrl,
       // Imported site URL → refhost:/refsrc: tags on mirrored photo rows, so a
       // later generation referencing this site treats them as its imagery and
       // the page-create reference mirror dedups against them.

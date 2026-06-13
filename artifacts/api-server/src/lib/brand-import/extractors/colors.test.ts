@@ -15,6 +15,7 @@ function makeEvidence(overrides: Partial<Evidence> = {}): Evidence {
     screenshotDataUrl: null,
     sampledPalette: [],
     cssVarPaletteHints: [],
+    darkCssVarHints: [],
     errors: [],
     ...overrides,
   };
@@ -340,5 +341,42 @@ describe("extractColors — logo dominant-color signal", () => {
     const result = await extractColors(evidence, client, Promise.reject(new Error("logo fetch failed")));
 
     expect(result.data?.primary).toBe(PROMO_PINK);
+  });
+});
+
+// ── Dark-mode palette (P0-2) ─────────────────────────────────────────────────
+describe("extractColors — dark-mode palette", () => {
+  it("populates darkModePalette from dark-scope CSS vars", async () => {
+    const { client } = mockOpenAI({ respondWith: "{}" });
+    const evidence = makeEvidence({
+      cssVarPaletteHints: [{ name: "--color-primary", value: "#2563EB" }],
+      darkCssVarHints: [
+        { name: "--color-brand", value: "#60A5FA" },
+        { name: "--color-bg", value: "#0B1120" },
+        { name: "--color-card", value: "#111827" },
+        { name: "--color-text", value: "#E5E7EB" },
+        { name: "--color-accent", value: "#F472B6" },
+      ],
+    });
+
+    const result = await extractColors(evidence, client);
+
+    expect(result.data?.darkModePalette).toBeDefined();
+    expect(result.data?.darkModePalette?.pageBackground).toBe("#0B1120");
+    expect(result.data?.darkModePalette?.text).toBe("#E5E7EB");
+    expect(result.data?.darkModePalette?.primary).toBe("#60A5FA");
+    expect(result.data?.darkModePalette?.accent).toBe("#F472B6");
+  });
+
+  it("leaves darkModePalette undefined when no dark theme is detected (zero regression)", async () => {
+    const { client } = mockOpenAI({ respondWith: "{}" });
+    const evidence = makeEvidence({
+      cssVarPaletteHints: [{ name: "--color-primary", value: "#2563EB" }],
+      // darkCssVarHints defaults to []
+    });
+
+    const result = await extractColors(evidence, client);
+
+    expect(result.data?.darkModePalette).toBeUndefined();
   });
 });

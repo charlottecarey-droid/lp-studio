@@ -426,6 +426,18 @@ export interface BrandConfig {
    *  the user can see what their site looked like at import time. Replaced
    *  on every rebrand / brand refresh that re-scrapes the site. */
   homepageScreenshotUrl?: string;
+  /** Dark-theme palette captured by the URL importer when the source site
+   *  ships a dark mode (`prefers-color-scheme: dark` / `[data-theme=dark]`).
+   *  Additive + optional — unset when the source site has no dark theme. */
+  darkModePalette?: ImportedDarkModePalette;
+  /** Type scale (h1/h2/h3/body size + weight + line-height) parsed by the URL
+   *  importer from the source site's CSS. Additive + optional — unset when the
+   *  importer could not derive a scale. */
+  typeScale?: ImportedTypeScale;
+  /** Design tokens (primary gradient, border-radius scale, representative
+   *  shadow) harvested by the URL importer from CSS vars/rules so generated
+   *  pages match design-system source sites. Additive + optional. */
+  designTokens?: ImportedDesignTokens;
   /**
    * Per-workspace account heat-scoring configuration (points per signal type
    * + Warm/Hot thresholds), edited in Settings → Lead scoring. Drives the
@@ -433,6 +445,40 @@ export interface BrandConfig {
    * page. Unset → the neutral `DEFAULT_HEAT_SCORING` defaults apply.
    */
   heatScoring?: HeatScoringConfig;
+}
+
+/** Dark-theme palette captured by the URL importer (P0-2). All optional. */
+export interface ImportedDarkModePalette {
+  primary?: string;
+  accent?: string;
+  pageBackground?: string;
+  cardBackground?: string;
+  text?: string;
+}
+
+/** A single type-scale step: size/weight/line-height as declared in source CSS. */
+export interface ImportedTypeScaleStep {
+  size?: string;
+  weight?: number;
+  lineHeight?: string;
+}
+
+/** Type scale parsed by the URL importer (P1-1). All steps optional. */
+export interface ImportedTypeScale {
+  h1?: ImportedTypeScaleStep;
+  h2?: ImportedTypeScaleStep;
+  h3?: ImportedTypeScaleStep;
+  body?: ImportedTypeScaleStep;
+}
+
+/** Design tokens harvested by the URL importer (P1-5). All optional. */
+export interface ImportedDesignTokens {
+  /** A representative primary gradient (`linear-gradient(...)` / `radial-...`). */
+  primaryGradient?: string;
+  /** Border-radius scale (sm/md/lg/full px or token values), as declared. */
+  radiusScale?: { sm?: string; md?: string; lg?: string; full?: string };
+  /** A representative box-shadow. */
+  shadow?: string;
 }
 
 export interface ImportedLogoCandidate {

@@ -24,11 +24,16 @@ const MAX_BYTES = 5 * 1024 * 1024;
 // wall-time cost is a single slow asset (~10s), not N×timeout.
 const FETCH_TIMEOUT_MS = 10_000;
 
-// Max photo assets to mirror. The photography extractor returns up to 8
-// reference URLs; we cap at 6 here to leave budget headroom inside the
-// orchestrator's post-extractor mirror step (each fetch+upload runs
-// 200ms-1500ms, so 6 fits in ~5s in the worst case and ~1s typical).
-const MAX_PHOTOS = 6;
+// Max photo assets to mirror. Raised 6 -> 12 to align with the photography
+// extractor's selection: the multi-page crawl (P0-1) now harvests product /
+// customer / case-study imagery across several pages (MAX_PAGE_HARVEST_IMAGES
+// ~18 candidates), and the extractor surfaces all of those in
+// referenceImageUrls — capping the mirror at 6 silently dropped the majority of
+// the brand's real photography before it reached lp_media. The photo fan-out is
+// parallel (one Promise.all over up to MAX_PHOTOS fetch+upload pairs, each
+// 200ms-1500ms), so the worst-case wall time is still ~a single slow asset, not
+// N×timeout. The SSRF guard, dedup, and refhost/refsrc tagging are unchanged.
+const MAX_PHOTOS = 12;
 
 interface MirrorInputs {
   tenantId: number;
@@ -36,6 +41,11 @@ interface MirrorInputs {
   logoUrl?: string | null;
   faviconUrl?: string | null;
   photoUrls?: string[];
+  /** Optional alt/caption text per photo URL (P1-2). When present, the
+   *  mirrored lp_media row uses the alt as its title (better than a slugged
+   *  filename) so the descriptive text flows downstream for later alt-text
+   *  reuse. Keyed by the same source URL passed in `photoUrls`. */
+  photoAltByUrl?: Record<string, string>;
   /** The imported site's page URL (evidence.homeUrl). When present, mirrored
    *  PHOTO rows additionally carry `refhost:<host>` + `refsrc:<hash>` tags so
    *  (a) a later page-generation referencing the same site recognises these
@@ -483,10 +493,14 @@ export async function mirrorBrandAssets(inputs: MirrorInputs): Promise<MirrorOut
       ...(brandRefHost ? [`refhost:${brandRefHost}`] : []),
       referenceSrcTag(normalizeForDedup(sourceUrl)),
     ];
+    // Prefer the scraped alt/caption text as the row title (P1-2) — it's a real
+    // human-authored description of the image, far better for downstream
+    // alt-text reuse than a slugged filename. Fall back to the filename slug.
+    const altText = inputs.photoAltByUrl?.[sourceUrl];
     const rec = await uploadAndRecord(fetched.asset, {
       tenantId: inputs.tenantId,
       tags: photoTags,
-      title: titleFromUrl(sourceUrl, `${inputs.brandName || "Brand"} photo ${i + 1}`),
+      title: (altText && altText.trim().slice(0, 120)) || titleFromUrl(sourceUrl, `${inputs.brandName || "Brand"} photo ${i + 1}`),
     });
     // Best-effort, non-blocking: enrich brand-import photos with real content +
     // purpose tags so future generations can place them relevantly. Unlike the

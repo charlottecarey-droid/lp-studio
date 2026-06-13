@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as cheerio from "cheerio";
 
-import { harvestCssColorHints } from "./evidence";
+import { harvestCssColorHints, extractDarkCssVarHints } from "./evidence";
 import type { FetchedStylesheet } from "./types";
 
 function sheet(css: string): FetchedStylesheet {
@@ -113,5 +113,66 @@ describe("harvestCssColorHints", () => {
     const sheets = [sheet(".a { font-size: 14px; }")];
 
     expect(harvestCssColorHints($, sheets)).toEqual([]);
+  });
+});
+
+describe("extractDarkCssVarHints", () => {
+  it("harvests color vars from a prefers-color-scheme: dark block", () => {
+    const $ = cheerio.load("<div>x</div>");
+    const sheets = [
+      sheet(`
+        :root { --color-bg: #FFFFFF; --color-primary: #2563EB; }
+        @media (prefers-color-scheme: dark) {
+          :root { --color-bg: #0B1120; --color-primary: #60A5FA; --color-text: #E5E7EB; }
+        }
+      `),
+    ];
+
+    const hints = extractDarkCssVarHints($, sheets);
+    const byName = Object.fromEntries(hints.map((h) => [h.name, h.value]));
+
+    // Dark-scope values only — the light :root values must NOT leak in.
+    expect(byName["--color-bg"]).toBe("#0B1120");
+    expect(byName["--color-primary"]).toBe("#60A5FA");
+    expect(byName["--color-text"]).toBe("#E5E7EB");
+  });
+
+  it("harvests from a [data-theme=dark] / .dark selector scope", () => {
+    const $ = cheerio.load("<div>x</div>");
+    const sheets = [
+      sheet(`
+        [data-theme="dark"] { --brand-bg: #101418; --brand-accent: #F472B6; }
+        .dark { --brand-primary: #818CF8; }
+      `),
+    ];
+
+    const hints = extractDarkCssVarHints($, sheets);
+    const byName = Object.fromEntries(hints.map((h) => [h.name, h.value]));
+
+    expect(byName["--brand-bg"]).toBe("#101418");
+    expect(byName["--brand-accent"]).toBe("#F472B6");
+    expect(byName["--brand-primary"]).toBe("#818CF8");
+  });
+
+  it("returns an empty array when no dark scope exists", () => {
+    const $ = cheerio.load("<div>x</div>");
+    const sheets = [sheet(`:root { --color-primary: #2563EB; --color-bg: #FFFFFF; }`)];
+
+    expect(extractDarkCssVarHints($, sheets)).toEqual([]);
+  });
+
+  it("does not leak vars declared outside the dark scope", () => {
+    const $ = cheerio.load("<div>x</div>");
+    const sheets = [
+      sheet(`
+        .light-only { --color-primary: #ABCDEF; }
+        @media (prefers-color-scheme: dark) { :root { --color-bg: #000000; } }
+      `),
+    ];
+
+    const hints = extractDarkCssVarHints($, sheets);
+    const names = hints.map((h) => h.name);
+    expect(names).toContain("--color-bg");
+    expect(names).not.toContain("--color-primary");
   });
 });

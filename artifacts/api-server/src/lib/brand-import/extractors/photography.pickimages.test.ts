@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as cheerio from "cheerio";
 
-import { collectImagesFromDom, pickImages } from "./photography";
+import { collectImagesFromDom, collectImageRefsFromDom, pickImages } from "./photography";
 import type { Evidence } from "../types";
 
 function makeEvidence(html: string, overrides: Partial<Evidence> = {}): Evidence {
@@ -15,6 +15,7 @@ function makeEvidence(html: string, overrides: Partial<Evidence> = {}): Evidence
     screenshotDataUrl: null,
     sampledPalette: [],
     cssVarPaletteHints: [],
+    darkCssVarHints: [],
     errors: [],
     ...overrides,
   };
@@ -151,5 +152,34 @@ describe("collectImagesFromDom (og vs content split)", () => {
     const { content, og } = collectImagesFromDom(cheerio.load(html), "https://shop.example.com");
     expect(og).toEqual(["https://cdn.example.com/hero.jpg"]);
     expect(content).not.toContain("https://cdn.example.com/hero.jpg");
+  });
+});
+
+describe("collectImageRefsFromDom (alt/caption context — P1-2)", () => {
+  it("captures alt text and the nearest <figcaption> for each content image", () => {
+    const html = `
+      <main>
+        <figure>
+          <img src="https://cdn.example.com/team.jpg" alt="Our dental lab team" />
+          <figcaption>The crew behind every restoration</figcaption>
+        </figure>
+      </main>`;
+    const { content } = collectImageRefsFromDom(cheerio.load(html), "https://shop.example.com");
+    expect(content[0].url).toBe("https://cdn.example.com/team.jpg");
+    expect(content[0].alt).toBe("Our dental lab team");
+    expect(content[0].caption).toBe("The crew behind every restoration");
+  });
+
+  it("falls back to surrounding section copy as context when no caption exists", () => {
+    const html = `
+      <main>
+        <section>
+          <h2>Trusted by 500 practices</h2>
+          <img src="https://cdn.example.com/customers-grid.jpg" alt="Customer wall" />
+        </section>
+      </main>`;
+    const { content } = collectImageRefsFromDom(cheerio.load(html), "https://shop.example.com");
+    expect(content[0].alt).toBe("Customer wall");
+    expect(content[0].context).toContain("Trusted by 500 practices");
   });
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { matchFont } from "./font-catalog";
-import { assignRoles, type FontEvidence } from "./extractors/typography";
+import { assignRoles, parseTypeScale, type FontEvidence } from "./extractors/typography";
 
 describe("matchFont — Adobe/Typekit hyphen-slug families", () => {
   it("maps the Typekit slug 'adelle-sans' to a loadable Google substitute", () => {
@@ -64,5 +64,38 @@ describe("assignRoles — decorative script fonts never win heading/body", () =>
     const roles = assignRoles(candidates, { heading: null, body: null, mono: null });
     expect(roles.heading?.family).toBe("Playfair Display");
     expect(roles.body?.family).toBe("Inter");
+  });
+});
+
+describe("parseTypeScale (P1-1)", () => {
+  it("parses h1/h2/h3/body size/weight/line-height from bare element CSS rules", () => {
+    const stylesheets = [{
+      css: `
+        h1 { font-size: 48px; font-weight: 700; line-height: 1.1; color: #000; }
+        h2 { font-size: 32px; font-weight: 600; }
+        h3 { font-size: 24px; }
+        body { font-size: 16px; line-height: 1.5; font-weight: 400; }
+        .card h1 { font-size: 99px; }
+      `,
+    }];
+    const scale = parseTypeScale(null, stylesheets);
+    expect(scale?.h1?.size).toBe("48px");
+    expect(scale?.h1?.weight).toBe(700);
+    expect(scale?.h1?.lineHeight).toBe("1.1");
+    expect(scale?.h2?.size).toBe("32px");
+    expect(scale?.h3?.size).toBe("24px");
+    expect(scale?.body?.size).toBe("16px");
+    expect(scale?.body?.lineHeight).toBe("1.5");
+  });
+
+  it("ignores scoped/class selectors so component overrides don't pollute the scale", () => {
+    const stylesheets = [{ css: `.hero h1 { font-size: 88px; } #x h2 { font-size: 5px; }` }];
+    // No bare element rules → nothing usable → undefined (fail-open).
+    expect(parseTypeScale(null, stylesheets)).toBeUndefined();
+  });
+
+  it("returns undefined when no size/weight/line-height declarations exist", () => {
+    const stylesheets = [{ css: `h1 { color: #333; } body { margin: 0; }` }];
+    expect(parseTypeScale(null, stylesheets)).toBeUndefined();
   });
 });

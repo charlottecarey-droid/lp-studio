@@ -1,7 +1,7 @@
 import type OpenAI from "openai";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
-import type * as cheerio from "cheerio";
-import type { Evidence, DimensionResult, PhotographyData, PhotographyProfile } from "../types";
+import * as cheerio from "cheerio";
+import type { Evidence, DimensionResult, PhotographyData, PhotographyProfile, ImageRef } from "../types";
 import { withOpenAIConcurrency } from "../openai-semaphore";
 
 // OpenAI vision only accepts JPEG/PNG/WEBP/GIF. SVG (which appears as
@@ -93,6 +93,12 @@ interface DomImages {
   og: string[];
 }
 
+/** Like DomImages but each content entry carries its alt/caption context. */
+interface DomImageRefs {
+  content: ImageRef[];
+  og: string[];
+}
+
 /**
  * Extract candidate image URLs from an already-parsed DOM, split into real
  * content photography vs. og/twitter social-preview images. Shared by the Brand
@@ -114,29 +120,79 @@ interface DomImages {
 // first-N in order, so the extra candidates only widen the page-create reference
 // harvest pool (which dedups near-duplicates at selection time).
 const MAX_CONTENT_IMAGES = 12;
-export function collectImagesFromDom($: cheerio.CheerioAPI, baseUrl: string): DomImages {
+
+/** Trim + collapse whitespace and cap a caption/alt/context string. */
+function cleanText(s: string | undefined | null, cap: number): string | undefined {
+  if (!s) return undefined;
+  const t = s.replace(/\s+/g, " ").trim();
+  return t ? t.slice(0, cap) : undefined;
+}
+
+/**
+ * Capture alt/caption/context for an <img>/<source> element (P1-2). Looks at
+ * the element's `alt`/`aria-label`/`title`, the nearest enclosing
+ * `<figure><figcaption>`, and a short snippet of adjacent text — so the vision
+ * classifier and downstream alt-text reuse have real subject context.
+ */
+type CheerioNode = ReturnType<cheerio.CheerioAPI>[number];
+
+function captionContextFor($: cheerio.CheerioAPI, el: CheerioNode): { alt?: string; caption?: string; context?: string } {
+  const $el = $(el);
+  const alt = cleanText($el.attr("alt") ?? $el.attr("aria-label") ?? $el.attr("title"), 200);
+  const $fig = $el.closest("figure");
+  let caption: string | undefined;
+  if ($fig.length) caption = cleanText($fig.find("figcaption").first().text(), 240);
+  if (!caption) {
+    // adjacent caption-ish sibling (common pattern: <img><p class="caption">)
+    const sib = $el.next("figcaption, .caption, [class*='caption' i], small").first();
+    if (sib.length) caption = cleanText(sib.text(), 240);
+  }
+  // surrounding copy: nearest section/figure heading or paragraph text
+  let context: string | undefined;
+  const $scope = $fig.length ? $fig : $el.closest("section, article, div").first();
+  if ($scope.length) {
+    const heading = cleanText($scope.find("h1,h2,h3,h4").first().text(), 160);
+    const para = cleanText($scope.find("p").first().text(), 200);
+    context = cleanText([heading, para].filter(Boolean).join(" — "), 320);
+  }
+  return { alt, caption, context };
+}
+
+/**
+ * Core DOM image harvest, returning per-image alt/caption refs alongside the
+ * og list. `collectImagesFromDom` wraps this for the string-only callers.
+ */
+export function collectImageRefsFromDom($: cheerio.CheerioAPI, baseUrl: string): DomImageRefs {
   const abs = (u: string | undefined | null): string | null => {
     if (!u) return null;
     const trimmed = u.trim();
     if (!trimmed || trimmed.startsWith("data:")) return null;
     try { return new URL(trimmed, baseUrl).toString(); } catch { return null; }
   };
-  const content: string[] = [];
+  const content: ImageRef[] = [];
   const og: string[] = [];
   const seen = new Set<string>();
-  const pushTo = (arr: string[], u: string | null): void => {
-    if (!u) return;
-    if (seen.has(u)) return;
-    if (isVisionUnsupportedImage(u)) return;
-    if (/sprite|icon|favicon|logo/i.test(u)) return;
+  const accept = (u: string | null): string | null => {
+    if (!u) return null;
+    if (seen.has(u)) return null;
+    if (isVisionUnsupportedImage(u)) return null;
+    if (/sprite|icon|favicon|logo/i.test(u)) return null;
     seen.add(u);
-    arr.push(u);
+    return u;
+  };
+  const pushOg = (u: string | null): void => {
+    const ok = accept(u);
+    if (ok) og.push(ok);
+  };
+  const pushContent = (u: string | null, ctx: { alt?: string; caption?: string; context?: string }): void => {
+    const ok = accept(u);
+    if (ok) content.push({ url: ok, ...ctx });
   };
 
   // og:image / twitter:image — captured separately so they can serve as a
   // vision style reference WITHOUT becoming AI-usable block creative.
-  pushTo(og, abs($('meta[property="og:image"]').attr("content")));
-  pushTo(og, abs($('meta[name="twitter:image"]').attr("content")));
+  pushOg(abs($('meta[property="og:image"]').attr("content")));
+  pushOg(abs($('meta[name="twitter:image"]').attr("content")));
 
   // Widened element search: themes without semantic <main>/<section>/
   // <article> wrappers (common on Shopify/Squarespace) still keep their
@@ -151,9 +207,11 @@ export function collectImagesFromDom($: cheerio.CheerioAPI, baseUrl: string): Do
     const h = parseInt($el.attr("height") ?? "0", 10) || 0;
     if (w > 0 && h > 0 && (w < 200 || h < 200)) return;
 
+    const ctx = captionContextFor($, el);
+
     // Responsive sources: prefer the largest srcset candidate.
     const srcset = $el.attr("srcset") ?? $el.attr("data-srcset");
-    if (srcset) pushTo(content, abs(pickLargestFromSrcset(srcset)));
+    if (srcset) pushContent(abs(pickLargestFromSrcset(srcset)), ctx);
 
     // Plain / lazy src attributes. Keep scanning until one resolves to a
     // real http(s) image — do NOT break on a merely-present attribute.
@@ -166,7 +224,7 @@ export function collectImagesFromDom($: cheerio.CheerioAPI, baseUrl: string): Do
       const v = $el.attr(attr);
       if (!v) continue;
       const resolved = abs(v);
-      if (resolved) { pushTo(content, resolved); break; }
+      if (resolved) { pushContent(resolved, ctx); break; }
     }
   });
 
@@ -178,11 +236,16 @@ export function collectImagesFromDom($: cheerio.CheerioAPI, baseUrl: string): Do
       const $el = $(el);
       if ($el.closest("header,nav,footer").length) return;
       const style = $el.attr("style") ?? "";
-      pushTo(content, abs(urlFromBackgroundStyle(style)));
+      pushContent(abs(urlFromBackgroundStyle(style)), captionContextFor($, el));
     });
   }
 
   return { content: content.slice(0, MAX_CONTENT_IMAGES), og: og.slice(0, 2) };
+}
+
+export function collectImagesFromDom($: cheerio.CheerioAPI, baseUrl: string): DomImages {
+  const refs = collectImageRefsFromDom($, baseUrl);
+  return { content: refs.content.map((r) => r.url), og: refs.og };
 }
 
 /**
@@ -199,15 +262,76 @@ export function pickImages(evidence: Evidence): string[] {
   return pickImagesFromDom($, evidence.homeUrl);
 }
 
+/**
+ * Aggregate content-image refs across ALL scraped pages that have rawHtml
+ * (P0-1 multi-page: home + product/customer/case-study companions), deduped by
+ * URL, capped to MAX_PAGE_HARVEST_IMAGES. Home page first so its hero leads the
+ * ordering (the source-page hero rule downstream depends on document order, and
+ * the home hero is the safest hero candidate). Falls back to the home `$home`
+ * when no page rawHtml is available.
+ */
+const MAX_PAGE_HARVEST_IMAGES = 18;
+function harvestImageRefsAcrossPages(evidence: Evidence): { content: ImageRef[]; og: string[] } {
+  const content: ImageRef[] = [];
+  const og: string[] = [];
+  const seen = new Set<string>();
+  let homeHost = "";
+  try { homeHost = new URL(evidence.homeUrl).host; } catch { /* noop */ }
+  // Order pages: home first, then others in scrape order.
+  const pages = [...evidence.pages].sort((a, b) => {
+    const ah = isHomePath(a.url, evidence.homeUrl) ? 0 : 1;
+    const bh = isHomePath(b.url, evidence.homeUrl) ? 0 : 1;
+    return ah - bh;
+  });
+  for (const page of pages) {
+    if (!page.rawHtml) continue;
+    let $: cheerio.CheerioAPI;
+    try { $ = cheerio.load(page.rawHtml); } catch { continue; }
+    const refs = collectImageRefsFromDom($, page.url);
+    for (const u of refs.og) {
+      // keep only same-host og images, dedup
+      try { if (new URL(u).host !== homeHost) continue; } catch { /* keep */ }
+      if (!seen.has(u)) { og.push(u); }
+    }
+    for (const r of refs.content) {
+      if (seen.has(r.url)) continue;
+      seen.add(r.url);
+      content.push(r);
+      if (content.length >= MAX_PAGE_HARVEST_IMAGES) break;
+    }
+    if (content.length >= MAX_PAGE_HARVEST_IMAGES) break;
+  }
+  return { content, og: og.slice(0, 2) };
+}
+
+function isHomePath(url: string, homeUrl: string): boolean {
+  try {
+    const a = new URL(url).pathname.replace(/\/+$/, "") || "/";
+    const b = new URL(homeUrl).pathname.replace(/\/+$/, "") || "/";
+    return a === b;
+  } catch {
+    return false;
+  }
+}
+
 export async function extractPhotography(
   evidence: Evidence,
   openai: OpenAI,
 ): Promise<DimensionResult<PhotographyData>> {
   const errors: string[] = [];
   const $ = evidence.$home;
-  const { content: images, og: ogImages } = $
-    ? collectImagesFromDom($, evidence.homeUrl)
-    : { content: [] as string[], og: [] as string[] };
+  // Multi-page harvest (P0-1): aggregate content images across home + the
+  // image-rich companion pages (products/customers/case-studies) that were
+  // fetched with rawHtml, so product/testimonial imagery is actually seen —
+  // not just the homepage. Falls back to $home when no page rawHtml exists.
+  const harvested = harvestImageRefsAcrossPages(evidence);
+  const imageRefs: ImageRef[] = harvested.content.length
+    ? harvested.content
+    : ($ ? collectImageRefsFromDom($, evidence.homeUrl).content : []);
+  const images: string[] = imageRefs.map((r) => r.url);
+  const ogImages: string[] = harvested.og.length
+    ? harvested.og
+    : ($ ? collectImagesFromDom($, evidence.homeUrl).og : []);
   // If we have NO images at all but DO have a screenshot, use the screenshot
   // as the lone evidence so we still produce something.
   // Prefer the inlined data: URL so the OpenAI fetcher isn't blocked/
@@ -237,6 +361,8 @@ export async function extractPhotography(
   // leave referenceImageUrls empty rather than falling back to the screenshot
   // (task #1079) or the og:image (task #1095).
   const referenceImageUrls = images;
+  // Per-image alt/caption context, aligned to referenceImageUrls order (P1-2).
+  const selectedRefs: ImageRef[] = imageRefs.filter((r) => images.includes(r.url));
 
   const emptyProfile: PhotographyProfile = {
     medium: "unknown",
@@ -250,16 +376,31 @@ export async function extractPhotography(
   if (!visionTargets.length) {
     return {
       status: "failed",
-      data: { profile: emptyProfile, referenceImageUrls },
+      data: { profile: emptyProfile, referenceImageUrls, imageRefs: selectedRefs },
       confidence: "low",
       errors: ["no images found"],
     };
   }
 
+  // Alt/caption context for the attached images, fed into the prompt so the
+  // classifier judges mood/subject with real subject hints (P1-2). Only the
+  // first 6 (the vision attachment cap) are described.
+  const captionLines = selectedRefs
+    .slice(0, 6)
+    .map((r, i) => {
+      const bits = [r.alt && `alt: "${r.alt}"`, r.caption && `caption: "${r.caption}"`, r.context && `near: "${r.context}"`].filter(Boolean);
+      return bits.length ? `Image ${i + 1} — ${bits.join("; ")}` : null;
+    })
+    .filter(Boolean)
+    .join("\n");
+  const contextNote = captionLines
+    ? `\n\nAlt text / captions for the attached images (use as subject hints, but classify what you actually see):\n${captionLines}`
+    : "";
+
   const userParts: ChatCompletionContentPart[] = [
     {
       type: "text",
-      text: `You are a brand-image stylist. Look at the ${visionTargets.length} image(s) attached (sampled from a brand's homepage). Classify the imagery style as JSON:
+      text: `You are a brand-image stylist. Look at the ${visionTargets.length} image(s) attached (sampled from a brand's homepage and key sub-pages). Classify the imagery style as JSON:
 {
   "medium": "photographic" | "illustrated" | "mixed" | "abstract",
   "palette_temperature": "warm" | "cool" | "neutral",
@@ -268,7 +409,7 @@ export async function extractPhotography(
   "mood": "string (2-4 evocative adjectives, comma-separated)",
   "summary": "string (one sentence describing the imagery style as a brief for an AI image generator)"
 }
-Return strict JSON only.`,
+Return strict JSON only.${contextNote}`,
     },
   ];
   for (const url of visionTargets.slice(0, 6)) {
@@ -290,7 +431,7 @@ Return strict JSON only.`,
     // return them so the orchestrator's mirror step can populate lp_media.
     return {
       status: "failed",
-      data: { profile: emptyProfile, referenceImageUrls },
+      data: { profile: emptyProfile, referenceImageUrls, imageRefs: selectedRefs },
       confidence: "low",
       errors,
     };
@@ -321,7 +462,7 @@ Return strict JSON only.`,
   const allKnown = profile.medium !== "unknown" && profile.subject !== "unknown" && profile.summary.length > 0;
   return {
     status: allKnown ? "ok" : "partial",
-    data: { profile, referenceImageUrls },
+    data: { profile, referenceImageUrls, imageRefs: selectedRefs },
     confidence: allKnown ? "medium" : "low",
     errors,
   };

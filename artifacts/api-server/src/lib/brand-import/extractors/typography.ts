@@ -1,7 +1,7 @@
 import type * as cheerio from "cheerio";
 import type OpenAI from "openai";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
-import type { Evidence, DimensionResult, TypographyData, TypographyFont } from "../types";
+import type { Evidence, DimensionResult, TypographyData, TypographyFont, TypeScale, TypeScaleStep } from "../types";
 import { matchFont } from "../font-catalog";
 import { withOpenAIConcurrency } from "../openai-semaphore";
 
@@ -155,6 +155,86 @@ function detectComputedFamilies($: cheerio.CheerioAPI): { heading: string | null
   };
 }
 
+/**
+ * Parse a declared type scale (P1-1) for h1/h2/h3/body from the home rawHtml's
+ * inline styles + the fetched stylesheets. We can't run getComputedStyle, so
+ * this is a best-effort static parse: for each selector we read the first
+ * matching CSS rule's `font-size` / `font-weight` / `line-height`, and let an
+ * element's inline `style=` override it. Deterministic + fail-open — returns
+ * undefined when nothing usable is found.
+ */
+export function parseTypeScale($: cheerio.CheerioAPI | null, stylesheets: { css: string }[]): TypeScale | undefined {
+  const selectors: { key: keyof TypeScale; sel: string; cssSel: RegExp }[] = [
+    { key: "h1", sel: "h1", cssSel: /(?:^|[\s,{}])h1\b/i },
+    { key: "h2", sel: "h2", cssSel: /(?:^|[\s,{}])h2\b/i },
+    { key: "h3", sel: "h3", cssSel: /(?:^|[\s,{}])h3\b/i },
+    { key: "body", sel: "p", cssSel: /(?:^|[\s,{}])(?:body|p)\b/i },
+  ];
+
+  // Map of selector → declarations, harvested from all stylesheets. We only
+  // record the FIRST rule that targets a bare element selector (e.g. `h1 { … }`
+  // or `h1, h2 { … }`) to avoid pulling in deeply-scoped component overrides.
+  const fromCss = (re: RegExp): TypeScaleStep | undefined => {
+    for (const sheet of stylesheets) {
+      const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
+      let m: RegExpExecArray | null;
+      while ((m = ruleRe.exec(sheet.css))) {
+        const sel = m[1].trim();
+        // Only bare element selectors (no class/id/attribute/descendant chains).
+        if (!re.test(sel)) continue;
+        if (/[.#\[>+~:]/.test(sel)) continue;
+        const body = m[2];
+        const step = parseDeclStep(body);
+        if (step) return step;
+      }
+    }
+    return undefined;
+  };
+
+  const merge = (a: TypeScaleStep | undefined, b: TypeScaleStep | undefined): TypeScaleStep | undefined => {
+    if (!a && !b) return undefined;
+    const out: TypeScaleStep = { ...(a ?? {}) };
+    if (b?.size && !out.size) out.size = b.size;
+    if (b?.weight && !out.weight) out.weight = b.weight;
+    if (b?.lineHeight && !out.lineHeight) out.lineHeight = b.lineHeight;
+    return Object.keys(out).length ? out : undefined;
+  };
+
+  const scale: TypeScale = {};
+  for (const { key, sel, cssSel } of selectors) {
+    const inline = $ ? parseDeclStep($(sel).first().attr("style") ?? "") : undefined;
+    const css = fromCss(cssSel);
+    const step = merge(inline, css); // inline wins
+    if (step) scale[key] = step;
+  }
+  return Object.keys(scale).length ? scale : undefined;
+}
+
+/** Pull font-size/font-weight/line-height out of a declaration block / inline
+ *  style string. Returns undefined when none are present. */
+function parseDeclStep(decls: string): TypeScaleStep | undefined {
+  if (!decls) return undefined;
+  const sizeM = decls.match(/font-size\s*:\s*([^;]+)/i);
+  const lhM = decls.match(/line-height\s*:\s*([^;]+)/i);
+  const wM = decls.match(/font-weight\s*:\s*([^;]+)/i);
+  const out: TypeScaleStep = {};
+  if (sizeM) {
+    const v = sizeM[1].trim().split(/\s+/)[0];
+    if (/^[\d.]+(px|rem|em|%|pt|vw)$/i.test(v) || /^(?:smaller|larger|small|medium|large|x-large|xx-large)$/i.test(v)) out.size = v;
+  }
+  if (lhM) {
+    const v = lhM[1].trim().split(/\s+/)[0];
+    if (/^[\d.]+(px|rem|em|%)?$/i.test(v) || /^(?:normal)$/i.test(v)) out.lineHeight = v;
+  }
+  if (wM) {
+    const raw = wM[1].trim().toLowerCase();
+    const named: Record<string, number> = { normal: 400, bold: 700, lighter: 300, bolder: 700 };
+    const n = named[raw] ?? parseInt(raw, 10);
+    if (Number.isFinite(n) && n >= 100 && n <= 900) out.weight = n;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 export function assignRoles(
   candidates: FontEvidence[],
   hints: { heading: string | null; body: string | null; mono: string | null },
@@ -302,13 +382,16 @@ export async function extractTypography(
   const body = toTypographyFont(roles.body);
   const mono = toTypographyFont(roles.mono);
 
+  // Declared type scale (P1-1) — best-effort, fail-open.
+  const typeScale = parseTypeScale($, evidence.stylesheets);
+
   const hasDirect = [heading, body].some((f) => f?.flag === "google-direct");
   const overallConf = hasDirect ? "high" : (heading || body) ? "medium" : "low";
   const status = heading || body ? "ok" : "failed";
 
   return {
     status,
-    data: { heading, body, mono },
+    data: { heading, body, mono, ...(typeScale ? { typeScale } : {}) },
     confidence: overallConf as TypographyData extends infer _T ? "high" | "medium" | "low" : never,
     errors,
   };

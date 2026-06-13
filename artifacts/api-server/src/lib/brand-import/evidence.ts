@@ -5,6 +5,8 @@ import net from "net";
 import { USER_AGENT } from "./types";
 import type { Evidence, FetchedStylesheet, ScrapedPage } from "./types";
 import { fetchRobotsVerdict } from "./robots";
+import { logger } from "../logger";
+import { makeSemaphore, envConcurrency } from "../semaphore";
 
 // ── SSRF guard: every outbound fetch for a URL derived from the target
 // page (stylesheets, direct HTML, screenshot host) must re-validate that
@@ -79,6 +81,26 @@ const RAW_HTML_TIMEOUT_MS = 5000;
 const STYLESHEET_TIMEOUT_MS = 4000;
 const SCREENSHOT_FETCH_TIMEOUT_MS = 8000;
 const ROBOTS_TIMEOUT_MS = 4000;
+const SITEMAP_TIMEOUT_MS = 4000;
+
+// ── Multi-page crawl budget (P0-1) ───────────────────────────────────────────
+// The importer was breadth-starved: only `/`, `/about`, `/pricing` were ever
+// scraped, so voice/content saw little copy and photography only ever harvested
+// the homepage. We now discover a smarter, fuller page set (sitemap + homepage
+// nav links + a richer static fallback) and scrape up to MAX_CRAWL_PAGES of them
+// in parallel behind a Firecrawl concurrency semaphore. Non-home pages are
+// markdown-only (cheap + fast); the home page keeps its rawHtml + screenshot.
+// A small number of the most image-rich discovered pages (products / customers /
+// case-studies) ALSO get rawHtml so the photography + content extractors can see
+// their product/testimonial imagery and copy — bounded by MAX_EXTRA_RAWHTML.
+const MAX_CRAWL_PAGES = 7;
+const MAX_EXTRA_RAWHTML = 3;
+// Firecrawl concurrency cap for the multi-page fan-out. The home screenshot
+// scrape is the dominant cost; capping parallel scrapes keeps us from bursting
+// Firecrawl (and our own egress) with 7 simultaneous headless renders while
+// still finishing the markdown-only sub-pages well inside the build budget.
+const FIRECRAWL_CONCURRENCY = envConcurrency("BRAND_IMPORT_FIRECRAWL_CONCURRENCY", 4);
+const firecrawlSemaphore = makeSemaphore({ name: "brand-import-firecrawl", max: FIRECRAWL_CONCURRENCY });
 
 // Upper bound for the whole buildEvidence() phase. Its slow steps run
 // sequentially in the worst case: robots fetch (awaited before scrapes) ->
@@ -88,12 +110,23 @@ const ROBOTS_TIMEOUT_MS = 4000;
 // import (no dimensions stream at all), so this must clear the sum of those
 // maxima with margin. Derived from the constants above so it can't silently
 // drift when an individual timeout is retuned.
+// The multi-page crawl (P0-1) adds: a sitemap fetch (bounded), and a parallel
+// fan-out of markdown-only sub-page scrapes behind firecrawlSemaphore. Because
+// the home screenshot scrape and the sub-page scrapes run concurrently, the
+// fan-out does NOT add FIRECRAWL_SCREENSHOT_TIMEOUT_MS per page — the dominant
+// term is still the single home screenshot scrape. We add one markdown-scrape
+// timeout of headroom for the worst case where the sub-page batch finishes just
+// after the screenshot (semaphore serialization), plus the extra-rawHtml fetch
+// window, so a slow sub-page batch can't push the whole build past the budget.
 export const EVIDENCE_BUILD_BUDGET_MS =
   ROBOTS_TIMEOUT_MS +
+  SITEMAP_TIMEOUT_MS +
   FIRECRAWL_SCREENSHOT_TIMEOUT_MS +
+  FIRECRAWL_TIMEOUT_MS + // slowest queued markdown sub-page batch (parallel w/ screenshot)
   STYLESHEET_TIMEOUT_MS +
   SCREENSHOT_FETCH_TIMEOUT_MS +
-  6000; // palette sampling + scheduling slack
+  RAW_HTML_TIMEOUT_MS + // extra image-rich-page rawHtml backfill
+  8000; // palette sampling + scheduling slack
 const MAX_STYLESHEETS = 3;
 const MAX_STYLESHEET_BYTES = 200 * 1024;
 const MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024;
@@ -116,6 +149,16 @@ interface FirecrawlResult {
 }
 
 async function firecrawlScrape(
+  apiKey: string,
+  url: string,
+  opts: { withScreenshot: boolean; withRawHtml: boolean },
+): Promise<FirecrawlResult | null> {
+  // Serialize through the Firecrawl concurrency semaphore so the multi-page
+  // fan-out can't burst N simultaneous headless renders.
+  return firecrawlSemaphore.run(() => firecrawlScrapeInner(apiKey, url, opts));
+}
+
+async function firecrawlScrapeInner(
   apiKey: string,
   url: string,
   opts: { withScreenshot: boolean; withRawHtml: boolean },
@@ -427,6 +470,108 @@ function extractCssVarPaletteHints(
     .slice(0, 48);
 }
 
+/**
+ * Dark-theme color harvest (P0-2). Scans the fetched CSS (inline <style> +
+ * stylesheets) for dark-theme SCOPES and extracts the named color custom
+ * properties declared inside them. Dark scopes recognized:
+ *   • `@media (prefers-color-scheme: dark) { … }`
+ *   • selector rules whose selector matches a dark toggle:
+ *     `[data-theme="dark"]`, `[data-mode="dark"]`, `.dark`, `:root.dark`,
+ *     `html.dark`, `.theme-dark`, `[data-color-mode=dark]` …
+ * Returns the same `{name,value}` shape as `extractCssVarPaletteHints`, role-
+ * prioritized. Empty when no dark scope is found — fail-open, zero regression.
+ *
+ * This is intentionally a crude brace-balancing scanner rather than a full CSS
+ * parser: it only needs to isolate the dark scopes and pull `--name: #hex`
+ * declarations out of them, which a balanced-brace slice does reliably enough
+ * for the marketing sites we import.
+ */
+export function extractDarkCssVarHints(
+  $: cheerio.CheerioAPI,
+  stylesheets: FetchedStylesheet[],
+): { name: string; value: string }[] {
+  const hexRe = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+  const found = new Map<string, string>();
+  const darkSelectorRe = /(?:prefers-color-scheme\s*:\s*dark|\[data-theme\s*[~|]?=\s*["']?dark|\[data-mode\s*[~|]?=\s*["']?dark|\[data-color-mode\s*[~|]?=\s*["']?dark|(?:^|[\s,{>+~])(?:html|:root|body)?\.(?:dark|theme-dark|dark-mode)\b)/i;
+
+  // Slice out the body of the brace-group that begins at `openIdx` (the index
+  // of the `{`). Returns [body, indexAfterClosingBrace].
+  const sliceBlock = (css: string, openIdx: number): [string, number] => {
+    let depth = 0;
+    for (let i = openIdx; i < css.length; i++) {
+      const c = css[i];
+      if (c === "{") depth++;
+      else if (c === "}") {
+        depth--;
+        if (depth === 0) return [css.slice(openIdx + 1, i), i + 1];
+      }
+    }
+    return [css.slice(openIdx + 1), css.length];
+  };
+
+  const harvestDecls = (block: string): void => {
+    const declRe = /(--[a-zA-Z0-9-]+)\s*:\s*([^;{}]+?)\s*(?:!important)?\s*[;}]/g;
+    let m: RegExpExecArray | null;
+    while ((m = declRe.exec(block))) {
+      const name = m[1];
+      // Same role gate as the light harvester so we only keep brand/role tokens.
+      if (!/--(?:[a-z0-9]+-)*(?:brand|primary|secondary|accent|cta|link|button|bg|background|surface|card|text|fg|foreground|nav|border)(?:[-0-9a-z]*)?$/i.test(name)) continue;
+      const value = m[2].trim();
+      const hex = value.match(/#[0-9a-fA-F]{3,8}\b/)?.[0] ?? null;
+      if (!hex) continue;
+      const h = hex.replace("#", "");
+      const expanded = h.length === 3 ? h.split("").map((c) => c + c).join("") : h.slice(0, 6);
+      if (expanded.length !== 6 || !hexRe.test("#" + expanded)) continue;
+      if (!found.has(name)) found.set(name, `#${expanded.toUpperCase()}`);
+    }
+  };
+
+  const consume = (css: string): void => {
+    if (!css) return;
+    // Walk every `{` whose preceding selector/at-rule text matches a dark scope.
+    // We look back to the previous `}` or `{` boundary for the selector text.
+    let i = 0;
+    let lastBoundary = 0;
+    while (i < css.length) {
+      const c = css[i];
+      if (c === "{") {
+        const selector = css.slice(lastBoundary, i);
+        if (darkSelectorRe.test(selector)) {
+          const [body, after] = sliceBlock(css, i);
+          // For an @media block the body itself contains nested rules — harvest
+          // every declaration inside; for a plain selector rule body is decls.
+          harvestDecls(body);
+          i = after;
+          lastBoundary = after;
+          continue;
+        } else {
+          // Skip this (non-dark) block wholesale so its nested vars don't leak.
+          const [, after] = sliceBlock(css, i);
+          i = after;
+          lastBoundary = after;
+          continue;
+        }
+      }
+      if (c === "}") lastBoundary = i + 1;
+      i++;
+    }
+  };
+
+  $("style").each((_, el) => consume($(el).text() ?? ""));
+  for (const s of stylesheets) consume(s.css);
+
+  const PRIORITY = ["brand", "primary", "secondary", "accent", "cta", "link", "button", "nav", "surface", "card", "background", "bg", "foreground", "fg", "text", "border"];
+  const rolePriority = (name: string): number => {
+    const lower = name.toLowerCase();
+    for (let i = 0; i < PRIORITY.length; i++) if (lower.includes(PRIORITY[i])) return i;
+    return PRIORITY.length;
+  };
+  return [...found.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => rolePriority(a.name) - rolePriority(b.name))
+    .slice(0, 24);
+}
+
 // Reliability fallback: when neither a pixel-sampled screenshot palette nor
 // named CSS custom properties are available (some sites block the screenshot
 // host, or declare brand colors as plain hex/rgb on classes rather than as
@@ -505,22 +650,168 @@ function discoverStylesheetUrls($: cheerio.CheerioAPI, baseUrl: string): string[
   return [...new Set(urls)].slice(0, MAX_STYLESHEETS);
 }
 
+// ── Multi-page discovery (P0-1) ──────────────────────────────────────────────
+// Priority keyword → rank. Lower rank = scraped sooner. Homepage is always
+// rank 0; product/feature/pricing/customer/case/solution pages are the
+// highest-signal companions for voice/content/photography.
+const PAGE_PRIORITY: { re: RegExp; rank: number }[] = [
+  { re: /^\/?$/, rank: 0 },
+  { re: /\/(product|products|platform)(\/|$)/i, rank: 1 },
+  { re: /\/(features?)(\/|$)/i, rank: 2 },
+  { re: /\/(pricing|plans)(\/|$)/i, rank: 3 },
+  { re: /\/(customers?|case-?stud|success|stories)(\/|$)/i, rank: 4 },
+  { re: /\/(solutions?|use-?cases?)(\/|$)/i, rank: 5 },
+  { re: /\/(about|company|who-we-are)(\/|$)/i, rank: 6 },
+];
+// Pages whose imagery is worth pulling rawHtml for (product/customer/case-study
+// photography + testimonials). Used to pick which non-home pages get rawHtml.
+const IMAGE_RICH_RE = /\/(product|products|platform|customers?|case-?stud|success|stories|solutions?|features?)(\/|$)/i;
+
+function pathRank(pathname: string): number {
+  const p = pathname.toLowerCase();
+  for (const { re, rank } of PAGE_PRIORITY) if (re.test(p)) return rank;
+  return 99;
+}
+
+// Static fallback when sitemap + nav discovery don't yield enough companions.
+const STATIC_FALLBACK_PATHS = ["/", "/about", "/pricing", "/products", "/features", "/customers", "/solutions"];
+
+async function fetchSitemapUrls(homeUrl: string): Promise<string[]> {
+  let origin = "";
+  try {
+    origin = new URL(homeUrl).origin;
+  } catch {
+    return [];
+  }
+  const sitemapUrls = [`${origin}/sitemap.xml`, `${origin}/sitemap_index.xml`];
+  const out = new Set<string>();
+  for (const sm of sitemapUrls) {
+    if (!(await urlIsSafe(sm))) continue;
+    try {
+      const res = await fetchWithTimeout(
+        sm,
+        { headers: { "User-Agent": USER_AGENT, Accept: "application/xml,text/xml,*/*;q=0.1" } },
+        SITEMAP_TIMEOUT_MS,
+      );
+      if (!res.ok) continue;
+      const ct = res.headers.get("content-type") ?? "";
+      if (!/xml|text/.test(ct)) continue;
+      const body = (await res.text()).slice(0, 2_000_000);
+      // <loc>…</loc> covers both urlset and sitemapindex. We don't recurse into
+      // nested sitemaps (bounded cost); the homepage + top-level locs are enough
+      // to surface product/customer/pricing companions on most marketing sites.
+      const locRe = /<loc>\s*([^<\s]+)\s*<\/loc>/gi;
+      let m: RegExpExecArray | null;
+      while ((m = locRe.exec(body))) {
+        out.add(m[1].trim());
+        if (out.size >= 500) break;
+      }
+      if (out.size > 0) break; // first sitemap that yields URLs wins
+    } catch {
+      /* fail-open */
+    }
+  }
+  return [...out];
+}
+
+function collectNavHrefs($: cheerio.CheerioAPI, homeUrl: string): string[] {
+  const out = new Set<string>();
+  let homeHost = "";
+  try { homeHost = new URL(homeUrl).host; } catch { /* noop */ }
+  $("header a, nav a").each((_, el) => {
+    const href = $(el).attr("href");
+    if (!href) return;
+    const abs = safeJoinUrl(homeUrl, href);
+    if (!abs) return;
+    try { if (new URL(abs).host !== homeHost) return; } catch { return; }
+    out.add(abs);
+  });
+  return [...out];
+}
+
+/**
+ * Build the prioritized companion-page URL set: same-origin URLs from the
+ * sitemap + homepage nav, ranked by PAGE_PRIORITY, deduped by pathname, capped
+ * to (budget - 1) companions (the home page is added by the caller). Falls back
+ * to STATIC_FALLBACK_PATHS when discovery is too thin. Returns same-origin
+ * absolute URLs.
+ */
+function selectCompanionUrls(
+  homeUrl: string,
+  sitemapUrls: string[],
+  navUrls: string[],
+  budget: number,
+): string[] {
+  let homeOrigin = "";
+  let homePath = "/";
+  try {
+    const u = new URL(homeUrl);
+    homeOrigin = u.origin;
+    homePath = u.pathname.replace(/\/+$/, "") || "/";
+  } catch {
+    return [];
+  }
+  const byPath = new Map<string, { url: string; rank: number }>();
+  const consider = (raw: string): void => {
+    let u: URL;
+    try { u = new URL(raw, homeUrl); } catch { return; }
+    if (u.origin !== homeOrigin) return;
+    if (u.protocol !== "http:" && u.protocol !== "https:") return;
+    const path = u.pathname.replace(/\/+$/, "") || "/";
+    if (path === homePath) return; // home is handled separately
+    // Skip deep/blog/legal/asset paths — low brand signal, high count.
+    if (/\.(xml|json|pdf|jpg|jpeg|png|gif|svg|webp|css|js)$/i.test(path)) return;
+    if (/\/(blog|news|press|legal|privacy|terms|cookie|login|signin|signup|account|cart|checkout|search|tag|tags|author|category)(\/|$)/i.test(path)) return;
+    const segments = path.split("/").filter(Boolean).length;
+    if (segments > 3) return; // avoid deep article URLs
+    const rank = pathRank(path);
+    if (rank >= 99) return; // only keep recognized high-signal companions
+    const norm = `${homeOrigin}${path}`;
+    const existing = byPath.get(path);
+    if (!existing || rank < existing.rank) byPath.set(path, { url: norm, rank });
+  };
+  for (const u of sitemapUrls) consider(u);
+  for (const u of navUrls) consider(u);
+
+  let companions = [...byPath.values()].sort((a, b) => a.rank - b.rank).map((e) => e.url);
+
+  // Fall back to a richer static list when discovery is thin.
+  if (companions.length < Math.min(3, budget - 1)) {
+    const have = new Set(companions.map((c) => { try { return new URL(c).pathname.replace(/\/+$/, "") || "/"; } catch { return c; } }));
+    for (const p of STATIC_FALLBACK_PATHS) {
+      const abs = safeJoinUrl(homeUrl, p);
+      if (!abs) continue;
+      let path = p;
+      try { path = new URL(abs).pathname.replace(/\/+$/, "") || "/"; } catch { /* noop */ }
+      if (path === homePath || have.has(path)) continue;
+      have.add(path);
+      companions.push(abs);
+    }
+  }
+  return companions.slice(0, Math.max(0, budget - 1));
+}
+
 export async function buildEvidence(
   homeUrl: string,
   firecrawlApiKey: string,
 ): Promise<Evidence> {
-  const candidatePaths = ["/", "/about", "/pricing"];
-  const candidateUrls = candidatePaths
-    .map((p) => safeJoinUrl(homeUrl, p))
-    .filter((u): u is string => !!u);
-
-  const robotsP = fetchRobotsVerdict(homeUrl, candidatePaths, ROBOTS_TIMEOUT_MS);
+  const buildStart = Date.now();
+  // Discover companion pages: sitemap + homepage nav (via a quick direct fetch
+  // of the home rawHtml, which we need anyway for the deterministic extractors).
   const directHtmlP = fetchRawHtmlDirect(homeUrl);
+  const sitemapP = fetchSitemapUrls(homeUrl);
+  const directHtmlEarly = await directHtmlP;
+  const sitemapUrls = await sitemapP;
+  const navUrls = directHtmlEarly ? collectNavHrefs(cheerio.load(directHtmlEarly), homeUrl) : [];
+  const companionUrls = selectCompanionUrls(homeUrl, sitemapUrls, navUrls, MAX_CRAWL_PAGES);
 
-  // Always ask firecrawl for the home page with markdown + screenshot +
-  // rawHtml. Sub-pages get markdown only (used by voice/photography for
-  // copy & image hints; firecrawl rawHtml falls back to our own fetch).
-  const robots = await robotsP;
+  // Home first, then the prioritized companions.
+  const candidateUrls = [homeUrl, ...companionUrls];
+  const candidatePaths = candidateUrls
+    .map((u) => { try { return new URL(u).pathname.replace(/\/+$/, "") || "/"; } catch { return null; } })
+    .filter((p): p is string => !!p);
+
+  const robots = await fetchRobotsVerdict(homeUrl, candidatePaths, ROBOTS_TIMEOUT_MS);
   const allowedCandidates = candidateUrls.filter((u) => {
     try {
       const p = new URL(u).pathname.replace(/\/+$/, "") || "/";
@@ -531,12 +822,32 @@ export async function buildEvidence(
     }
   });
 
-  const scrapePromises = allowedCandidates.map((u, i) =>
-    firecrawlScrape(firecrawlApiKey, u, {
+  // Pick the (non-home) image-rich companion pages that should additionally
+  // fetch rawHtml so photography + content see their product/testimonial
+  // imagery and copy — bounded by MAX_EXTRA_RAWHTML.
+  const rawHtmlPaths = new Set<string>();
+  for (const u of allowedCandidates.slice(1)) {
+    if (rawHtmlPaths.size >= MAX_EXTRA_RAWHTML) break;
+    try {
+      if (IMAGE_RICH_RE.test(new URL(u).pathname)) rawHtmlPaths.add(u);
+    } catch { /* noop */ }
+  }
+
+  // Home keeps markdown + screenshot + rawHtml; companions get markdown, plus
+  // rawHtml for the chosen image-rich pages. All scrapes run in PARALLEL behind
+  // the Firecrawl semaphore. Fail-open: a failed/timed-out page is dropped.
+  const scrapePromises = allowedCandidates.map(async (u, i) => {
+    const t0 = Date.now();
+    const r = await firecrawlScrape(firecrawlApiKey, u, {
       withScreenshot: i === 0,
-      withRawHtml: i === 0,
-    }),
-  );
+      withRawHtml: i === 0 || rawHtmlPaths.has(u),
+    });
+    logger.info(
+      { event: "brand_import_page_scrape", url: u, status: r ? "ok" : "failed", durationMs: Date.now() - t0, isHome: i === 0, withRawHtml: i === 0 || rawHtmlPaths.has(u) },
+      "[brand-import] page scrape",
+    );
+    return r;
+  });
   const scrapes = (await Promise.all(scrapePromises)).filter((s): s is FirecrawlResult => !!s);
 
   const pages: ScrapedPage[] = scrapes.map((s) => ({
@@ -547,13 +858,13 @@ export async function buildEvidence(
     fetchedAt: Date.now(),
   }));
 
-  // Backfill home rawHtml from direct fetch if firecrawl didn't return it
-  const directHtml = await directHtmlP;
+  // Backfill home rawHtml from the direct fetch if firecrawl didn't return it.
+  const directHtml = directHtmlEarly;
   const home = pages[0];
   if (home && !home.rawHtml && directHtml) {
     home.rawHtml = directHtml;
   } else if (!home && directHtml) {
-    pages.push({
+    pages.unshift({
       url: homeUrl,
       markdown: "",
       rawHtml: directHtml,
@@ -565,7 +876,14 @@ export async function buildEvidence(
   const errors: string[] = [];
   if (!pages.length) errors.push("evidence: no pages scraped");
 
-  const homeRaw = pages.find((p) => p.rawHtml)?.rawHtml ?? null;
+  // Prefer the actual home page's rawHtml for the deterministic extractors
+  // (nav/logo/CSS-var colors must come from the homepage, not a companion).
+  // Fall back to any page's rawHtml only if home failed entirely.
+  const homePage = pages.find((p) => {
+    try { return (new URL(p.url).pathname.replace(/\/+$/, "") || "/") === (new URL(homeUrl).pathname.replace(/\/+$/, "") || "/"); }
+    catch { return false; }
+  });
+  const homeRaw = homePage?.rawHtml ?? pages.find((p) => p.rawHtml)?.rawHtml ?? null;
   const $home = homeRaw ? cheerio.load(homeRaw) : null;
 
   // Discover + fetch up to 3 stylesheets (same-origin first) in parallel
@@ -585,6 +903,7 @@ export async function buildEvidence(
     ? `data:${screenshotFetch.contentType};base64,${screenshotFetch.buf.toString("base64")}`
     : null;
   const cssVarPaletteHints = $home ? extractCssVarPaletteHints($home, stylesheets) : [];
+  const darkCssVarHints = $home ? extractDarkCssVarHints($home, stylesheets) : [];
 
   // Reliability fallback: only when both preferred color sources came up empty
   // (no screenshot palette AND no named CSS vars) do we harvest raw declared
@@ -596,6 +915,25 @@ export async function buildEvidence(
     if (harvested.length) sampledPalette = harvested;
   }
 
+  logger.info(
+    {
+      event: "brand_import_evidence_built",
+      homeUrl,
+      durationMs: Date.now() - buildStart,
+      candidatesConsidered: candidateUrls.length,
+      companionsDiscovered: companionUrls.length,
+      sitemapUrls: sitemapUrls.length,
+      navUrls: navUrls.length,
+      pagesScraped: pages.length,
+      pageUrls: pages.map((p) => p.url),
+      pagesWithRawHtml: pages.filter((p) => p.rawHtml).length,
+      hasScreenshot: !!screenshotUrl,
+      sampledPaletteLen: sampledPalette.length,
+      cssVarHints: cssVarPaletteHints.length,
+    },
+    "[brand-import] evidence built",
+  );
+
   return {
     homeUrl,
     pages,
@@ -606,6 +944,7 @@ export async function buildEvidence(
     screenshotDataUrl,
     sampledPalette,
     cssVarPaletteHints,
+    darkCssVarHints,
     errors,
   };
 }

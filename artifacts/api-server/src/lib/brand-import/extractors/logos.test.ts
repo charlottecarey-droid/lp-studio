@@ -45,6 +45,7 @@ function evidenceFor(html: string): Evidence {
     screenshotDataUrl: null,
     sampledPalette: [],
     cssVarPaletteHints: [],
+    darkCssVarHints: [],
     errors: [],
   };
 }
