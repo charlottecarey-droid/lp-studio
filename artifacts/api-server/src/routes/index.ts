@@ -60,6 +60,7 @@ export const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "*",    pattern: /^\/lp\/blog\/sitemap\.xml$/ },  // GET/HEAD /lp/blog/sitemap.xml — public; apex blog sitemap of published posts (matched before /posts/:slug below)
   { method: "GET",  pattern: /^\/lp\/blog\/posts$/ },         // GET /lp/blog/posts — public; first-party marketing blog index (published only), CORS-read by the apex marketing app
   { method: "GET",  pattern: /^\/lp\/blog\/posts\/[^/]+$/ },  // GET /lp/blog/posts/:slug — public; a single published blog post
+  { method: "GET",  pattern: /^\/lp\/blog\/preview\/\d+$/ },  // GET /lp/blog/preview/:id?token= — render-exact preview of ANY post (incl. draft/scheduled) for the superadmin editor; gated by a signed short-lived HMAC token (NOT status), so unpublished content is never exposed without a freshly-minted token
   { method: "GET",  pattern: /^\/lp\/page-og\/[a-z-]+$/ },    // GET /lp/page-og/:key — public; SuperAdmin-editable marketing page share card (OG) config for secondary routes (features/pricing/for-marketing/for-sales/compare); marketing site reads this, falls back to built-in defaults
   { method: "GET",  pattern: /^\/lp\/global-templates\/\d+\/preview$/ }, // GET /lp/global-templates/:id/preview — public blocks for a DB-backed GLOBAL template, so the homepage preview iframe can render featured cards pointing at global templates (global-only; tenant templates never served)
   { method: "GET",  pattern: /^\/sales\/resolve\// },     // GET /sales/resolve/:token — visited by contacts from email (no auth)

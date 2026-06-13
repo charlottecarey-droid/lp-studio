@@ -29,6 +29,7 @@ import { startBrandedSubdomainReconcilePoller } from "./lib/brandedSubdomainReco
 import { startBrandedEmailSubdomainPoller } from "./lib/brandedEmailSubdomainPoller";
 import { startMarketoSyncPoller } from "./lib/marketoSyncPoller";
 import { startHubspotSyncPoller } from "./lib/hubspotSyncPoller";
+import { startBlogPublishPoller } from "./lib/blogPublishPoller";
 import { scheduleWorkflowSweep } from "./lib/workflowEngine";
 import { turnstileConfigured } from "./lib/turnstile";
 import { runAssetHealthCheck } from "./lib/assetHealthCheck";
@@ -633,6 +634,12 @@ const httpServer = app.listen(port, (err) => {
   // OR when MARKETO_FAKE_MODE is set (see poller).
   startMarketoSyncPoller();
   startHubspotSyncPoller();
+
+  // Blog Phase 2 — scheduled-publish sweep. Flips status='scheduled' blog_posts
+  // to 'published' once scheduled_at <= now (atomic conditional UPDATE,
+  // advisory-locked, fail-open + crash-safe). Production-only unless
+  // BLOG_PUBLISH_POLLER_ENABLED is set (see poller).
+  startBlogPublishPoller();
 });
 
 // Keep a reference so SIGTERM handlers (if added later) can close cleanly.

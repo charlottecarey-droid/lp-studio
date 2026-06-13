@@ -1,12 +1,20 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { TiptapEditor } from "@/components/TiptapEditor";
+import { ImagePicker } from "@/components/ImagePicker";
+import { FocalPointPicker } from "@/components/FocalPointPicker";
+import {
+  prePublishChecklist,
+  focalToObjectPosition,
+  objectPositionToFocal,
+} from "@/pages/blog/blogPublishing";
 import {
   AlertTriangle, CheckCircle2, Loader2, RefreshCw, Plus, Trash2,
-  ExternalLink, Upload, ArrowLeft, Eye, Globe, FileText, Code2, Type,
+  ArrowLeft, Eye, Globe, FileText, Code2, Type, Clock,
+  History, RotateCcw, Circle,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -42,8 +50,11 @@ interface Post {
   seoTitle: string;
   seoDescription: string;
   ogImageUrl: string;
+  ogFocalX: number;
+  ogFocalY: number;
   readingTimeMin: number;
   publishedAt: string | null;
+  scheduledAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 }
@@ -60,6 +71,17 @@ interface Draft {
   seoTitle: string;
   seoDescription: string;
   ogImageUrl: string;
+  ogFocalX: number;
+  ogFocalY: number;
+  scheduledAt: string | null; // ISO
+}
+
+interface Revision {
+  id: number;
+  reason: string;
+  authorEmail: string | null;
+  createdAt: string | null;
+  snapshot: Record<string, unknown>;
 }
 
 function emptyDraft(): Draft {
@@ -75,6 +97,9 @@ function emptyDraft(): Draft {
     seoTitle: "",
     seoDescription: "",
     ogImageUrl: "",
+    ogFocalX: 0.5,
+    ogFocalY: 0.5,
+    scheduledAt: null,
   };
 }
 
@@ -91,6 +116,9 @@ function postToDraft(p: Post): Draft {
     seoTitle: p.seoTitle,
     seoDescription: p.seoDescription,
     ogImageUrl: p.ogImageUrl,
+    ogFocalX: typeof p.ogFocalX === "number" ? p.ogFocalX : 0.5,
+    ogFocalY: typeof p.ogFocalY === "number" ? p.ogFocalY : 0.5,
+    scheduledAt: p.scheduledAt,
   };
 }
 
@@ -107,12 +135,36 @@ function draftToPayload(d: Draft, status?: string) {
     seoTitle: d.seoTitle.trim(),
     seoDescription: d.seoDescription.trim(),
     ogImageUrl: d.ogImageUrl.trim(),
+    ogFocalX: d.ogFocalX,
+    ogFocalY: d.ogFocalY,
+    scheduledAt: d.scheduledAt,
   };
 }
 
 function fmtDate(s: string | null) {
   if (!s) return "—";
   return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+function fmtDateTime(s: string | null) {
+  if (!s) return "—";
+  return new Date(s).toLocaleString("en-US", {
+    month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+  });
+}
+
+// <input type=datetime-local> wants "YYYY-MM-DDTHH:mm" in LOCAL time; convert
+// to/from the ISO string we store.
+function isoToLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function localInputToIso(v: string): string | null {
+  if (!v) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
 export default function SuperAdminBlog() {
@@ -150,6 +202,9 @@ export default function SuperAdminBlog() {
           setEditing(null);
           load();
         }}
+        onIdAssigned={(newId) =>
+          setEditing((e) => (e ? { ...e, id: newId } : e))
+        }
       />
     );
   }
@@ -171,9 +226,8 @@ export default function SuperAdminBlog() {
           <h2 className="text-lg font-semibold">Blog</h2>
           <p className="text-sm text-muted-foreground mt-0.5 max-w-2xl">
             LP Studio's own marketing blog, rendered on lpstudio.ai/blog. Write
-            posts in the rich-text editor (headings, lists, links, tables,
-            images, video embeds), and switch to the HTML view to paste inline
-            SVG infographics or embeds. Save a draft, then publish when ready.
+            posts in the rich-text editor, set the cover + social card, then save
+            a draft, schedule for later, or publish now.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -206,7 +260,7 @@ export default function SuperAdminBlog() {
               <tr className="text-xs text-muted-foreground text-left border-b bg-muted/30">
                 <th className="px-4 py-2 font-medium">Title</th>
                 <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Published</th>
+                <th className="px-4 py-2 font-medium">Published / Scheduled</th>
                 <th className="px-4 py-2 font-medium">Updated</th>
                 <th className="px-4 py-2 font-medium text-right">Actions</th>
               </tr>
@@ -228,13 +282,34 @@ export default function SuperAdminBlog() {
   );
 }
 
+function StatusBadge({ status }: { status: string }) {
+  if (status === "published") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-800">
+        <Globe className="w-3 h-3" /> Published
+      </span>
+    );
+  }
+  if (status === "scheduled") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+        <Clock className="w-3 h-3" /> Scheduled
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+      <FileText className="w-3 h-3" /> Draft
+    </span>
+  );
+}
+
 function PostRow({ post, onEdit, onChanged }: { post: Post; onEdit: () => void; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
 
   const togglePublish = async () => {
     setBusy(true);
     try {
-      // Re-send the full post with the flipped status (PUT replaces all fields).
       await apiFetch(`/api/admin/blog/posts/${post.id}`, {
         method: "PUT",
         body: JSON.stringify(
@@ -274,18 +349,10 @@ function PostRow({ post, onEdit, onChanged }: { post: Post; onEdit: () => void; 
         </button>
         <div className="text-xs text-muted-foreground font-mono">/blog/{post.slug}</div>
       </td>
-      <td className="px-4 py-2.5">
-        {post.status === "published" ? (
-          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-800">
-            <Globe className="w-3 h-3" /> Published
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-            <FileText className="w-3 h-3" /> Draft
-          </span>
-        )}
+      <td className="px-4 py-2.5"><StatusBadge status={post.status} /></td>
+      <td className="px-4 py-2.5 text-xs text-muted-foreground">
+        {post.status === "scheduled" ? fmtDateTime(post.scheduledAt) : fmtDate(post.publishedAt)}
       </td>
-      <td className="px-4 py-2.5 text-xs text-muted-foreground">{fmtDate(post.publishedAt)}</td>
       <td className="px-4 py-2.5 text-xs text-muted-foreground">{fmtDate(post.updatedAt)}</td>
       <td className="px-4 py-2.5">
         <div className="flex items-center justify-end gap-1">
@@ -318,15 +385,8 @@ function PostRow({ post, onEdit, onChanged }: { post: Post; onEdit: () => void; 
   );
 }
 
-// Body editor: a Tiptap WYSIWYG (the SAME rich-text editor the email builder
-// uses — headings, bold/italic/underline, links, lists, alignment, images,
-// YouTube/Vimeo embeds, tables, hr) with a raw-HTML/SVG code-view toggle.
-//
-// The HTML view is the lossless path for inline <svg> infographics + raw
-// embeds: Tiptap's schema would drop unknown markup, so SVG/embed-heavy posts
-// are authored/edited there. The two views share one HTML string, so toggling
-// round-trips losslessly. Bodies are stored as HTML and RE-sanitized on the
-// public render — this editor is Superadmin-only.
+// Body editor — Tiptap WYSIWYG + raw-HTML/SVG code-view toggle (unchanged from
+// Phase 1; see the long note that previously lived here).
 function BodyField({ value, onChange }: { value: string; onChange: (html: string) => void }) {
   const [view, setView] = useState<"rich" | "html">("rich");
   return (
@@ -367,7 +427,7 @@ function BodyField({ value, onChange }: { value: string; onChange: (html: string
           rows={26}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={'<h2>Lead with the answer</h2>\n<p>First two sentences answer the title directly.</p>\n<div class="lp-blog-embed">\n  <svg viewBox="0 0 600 360" xmlns="http://www.w3.org/2000/svg">…</svg>\n</div>'}
+          placeholder={'<h2>Lead with the answer</h2>\n<p>First two sentences answer the title directly.</p>'}
           className="font-mono text-[13px] leading-[1.6]"
         />
       )}
@@ -379,71 +439,195 @@ function BodyField({ value, onChange }: { value: string; onChange: (html: string
   );
 }
 
+// Social-card (OG) preview: a 1200×630 (1.91:1) framed mock that renders the OG
+// image cropped to the chosen focal point (CSS object-position), with the
+// title + excerpt overlaid the way a share unfurl shows them. Lets the author
+// see the exact share card before publishing. We do NOT derive a cropped image
+// server-side — the focal point + object-position handles the crop.
+function SocialCardPreview({
+  imageUrl, focalX, focalY, title, excerpt,
+}: { imageUrl: string; focalX: number; focalY: number; title: string; excerpt: string }) {
+  return (
+    <div className="rounded-lg border overflow-hidden bg-white max-w-[420px]">
+      <div className="relative w-full bg-muted" style={{ aspectRatio: "1200 / 630" }}>
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ objectPosition: focalToObjectPosition(focalX, focalY) }}
+            onError={(e) => ((e.target as HTMLImageElement).style.display = "none")}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+            No image — add a cover or OG image
+          </div>
+        )}
+      </div>
+      <div className="px-3 py-2 border-t">
+        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">lpstudio.ai</div>
+        <div className="text-sm font-semibold leading-snug line-clamp-2">{title || "Post title"}</div>
+        {excerpt && <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{excerpt}</div>}
+      </div>
+    </div>
+  );
+}
+
+type SaveState = "idle" | "saving" | "saved" | "error";
+
 function BlogEditor({
   id,
   draft: initial,
   onCancel,
   onSaved,
+  onIdAssigned,
 }: {
   id: number | null;
   draft: Draft;
   onCancel: () => void;
   onSaved: () => void;
+  onIdAssigned: (id: number) => void;
 }) {
   const [draft, setDraft] = useState<Draft>(initial);
+  const [postId, setPostId] = useState<number | null>(id);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
 
-  const save = async (status?: string) => {
-    if (!draft.title.trim()) {
-      setError("Title is required");
+  // ── Save (explicit + autosave share this path) ─────────────────────────
+  // statusOverride lets the explicit Publish/Schedule buttons force a status;
+  // autosave omits it (preserves the draft's current status).
+  const doSave = useCallback(
+    async (statusOverride?: string): Promise<boolean> => {
+      const payload = draftToPayload(draftRef.current, statusOverride);
+      if (!payload.title) {
+        setError("Title is required");
+        return false;
+      }
+      setError(null);
+      try {
+        let resp: { post?: Post };
+        if (postIdRef.current == null) {
+          resp = await apiFetch("/api/admin/blog/posts", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          if (resp.post?.id) {
+            setPostId(resp.post.id);
+            postIdRef.current = resp.post.id;
+            onIdAssigned(resp.post.id);
+          }
+        } else {
+          resp = await apiFetch(`/api/admin/blog/posts/${postIdRef.current}`, {
+            method: "PUT",
+            body: JSON.stringify(payload),
+          });
+        }
+        if (resp.post) {
+          // Sync server-derived fields (slug collision handling, status).
+          setDraft((d) => ({
+            ...d,
+            slug: resp.post!.slug,
+            status: statusOverride ?? d.status,
+            scheduledAt: resp.post!.scheduledAt,
+          }));
+        }
+        setLastSavedAt(new Date().toISOString());
+        return true;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to save");
+        return false;
+      }
+    },
+    [onIdAssigned],
+  );
+
+  // Keep refs so the debounced autosave always sees the latest draft/id
+  // without re-arming the timer on every keystroke.
+  const draftRef = useRef(draft);
+  const postIdRef = useRef(postId);
+  useEffect(() => { draftRef.current = draft; }, [draft]);
+  useEffect(() => { postIdRef.current = postId; }, [postId]);
+
+  // ── Autosave: debounced (1.2s) draft save once a title exists. Reuses the
+  // same setTimeout/ref debounce pattern the sales one-pager editor uses.
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirtyRef = useRef(false);
+  useEffect(() => {
+    dirtyRef.current = true;
+    if (!draft.title.trim()) return; // nothing to autosave yet
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(async () => {
+      if (!dirtyRef.current) return;
+      setSaveState("saving");
+      const ok = await doSave(); // no status override → keep current status
+      dirtyRef.current = false;
+      setSaveState(ok ? "saved" : "error");
+    }, 1200);
+    return () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft]);
+
+  // Explicit save / publish / schedule.
+  const explicitSave = async (status?: string) => {
+    setSaving(true);
+    setSaveState("saving");
+    const ok = await doSave(status);
+    setSaving(false);
+    setSaveState(ok ? "saved" : "error");
+    if (ok && status) onSaved(); // returning to the list on publish/schedule
+  };
+
+  const checklist = prePublishChecklist({
+    title: draft.title,
+    excerpt: draft.excerpt,
+    coverImageUrl: draft.coverImageUrl,
+    ogImageUrl: draft.ogImageUrl,
+    seoTitle: draft.seoTitle,
+    seoDescription: draft.seoDescription,
+    slug: draft.slug,
+    status: draft.status,
+    scheduledAt: draft.scheduledAt,
+  });
+
+  const publishWithChecklist = async (status: "published" | "scheduled") => {
+    const cl = prePublishChecklist({ ...draftToPayload(draft, status) });
+    if (!cl.ok) {
+      const missing = cl.items.filter((i) => !i.ok).map((i) => `• ${i.label}`).join("\n");
+      const verb = status === "scheduled" ? "schedule" : "publish";
+      if (!window.confirm(`This post is missing:\n\n${missing}\n\n${verb} anyway?`)) return;
+    }
+    if (status === "scheduled" && !draft.scheduledAt) {
+      setError("Pick a schedule date/time first.");
       return;
     }
-    setSaving(true);
-    setError(null);
+    await explicitSave(status);
+  };
+
+  // ── Preview link (token-gated render of draft/scheduled posts) ─────────
+  const openPreview = async () => {
+    if (postId == null) {
+      // Save first so we have an id to preview.
+      const ok = await doSave();
+      if (!ok || postIdRef.current == null) return;
+    }
     try {
-      const payload = draftToPayload(draft, status);
-      if (id == null) {
-        await apiFetch("/api/admin/blog/posts", { method: "POST", body: JSON.stringify(payload) });
-      } else {
-        await apiFetch(`/api/admin/blog/posts/${id}`, { method: "PUT", body: JSON.stringify(payload) });
-      }
-      onSaved();
+      const { token } = await apiFetch(`/api/admin/blog/posts/${postIdRef.current}/preview-token`);
+      const devSuffix = import.meta.env.DEV ? "&preview=marketing" : "";
+      const url = `${PUBLIC_PREFIX}/${draft.slug || "preview"}?previewId=${postIdRef.current}&previewToken=${encodeURIComponent(token)}${devSuffix}`;
+      window.open(url, "_blank", "noopener");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
-      setSaving(false);
+      setError(e instanceof Error ? e.message : "Failed to mint preview link");
     }
   };
 
-  // Reuse the existing /api/lp/upload media endpoint (same mechanism the
-  // homepage featured-templates thumbnail uploader uses).
-  const uploadCover = async (file: File | undefined) => {
-    if (!file) return;
-    setUploading(true);
-    setError(null);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch(`${BASE}/api/lp/upload`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? "Upload failed");
-      }
-      const data = await res.json();
-      update({ coverImageUrl: `/api/storage${data.url}` });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Cover upload failed");
-    } finally {
-      setUploading(false);
-    }
-  };
+  const ogPreviewImage = draft.ogImageUrl.trim() || draft.coverImageUrl.trim();
 
   return (
     <div className="space-y-5">
@@ -453,11 +637,23 @@ function BlogEditor({
           Back to posts
         </Button>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" disabled={saving} onClick={() => save("draft")}>
+          <SaveIndicator state={saveState} lastSavedAt={lastSavedAt} />
+          {postId != null && (
+            <Button size="sm" variant="outline" onClick={() => setShowHistory((v) => !v)}>
+              <History className="w-3.5 h-3.5 mr-1.5" /> History
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={openPreview}>
+            <Eye className="w-3.5 h-3.5 mr-1.5" /> Preview
+          </Button>
+          <Button size="sm" variant="outline" disabled={saving} onClick={() => explicitSave("draft")}>
             {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
             Save draft
           </Button>
-          <Button size="sm" disabled={saving} onClick={() => save("published")}>
+          <Button size="sm" variant="outline" disabled={saving} onClick={() => publishWithChecklist("scheduled")}>
+            <Clock className="w-3.5 h-3.5 mr-1.5" /> Schedule
+          </Button>
+          <Button size="sm" disabled={saving} onClick={() => publishWithChecklist("published")}>
             {saving ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
             Publish
           </Button>
@@ -471,6 +667,16 @@ function BlogEditor({
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
           <span className="break-words">{error}</span>
         </div>
+      )}
+
+      {showHistory && postId != null && (
+        <RevisionHistory
+          postId={postId}
+          onRestored={(p) => {
+            setDraft(postToDraft(p));
+            setShowHistory(false);
+          }}
+        />
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -507,6 +713,25 @@ function BlogEditor({
 
         {/* Sidebar */}
         <div className="space-y-4">
+          {/* Pre-publish checklist */}
+          <Checklist checklist={checklist} />
+
+          <div className="rounded-lg border bg-card p-4 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Schedule</p>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Publish date/time <span className="text-muted-foreground">(local)</span></Label>
+              <Input
+                type="datetime-local"
+                value={isoToLocalInput(draft.scheduledAt)}
+                onChange={(e) => update({ scheduledAt: localInputToIso(e.target.value) })}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Set a future time, then click <strong>Schedule</strong>. The post
+                auto-publishes at that time and stays hidden until then.
+              </p>
+            </div>
+          </div>
+
           <div className="rounded-lg border bg-card p-4 space-y-3">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Presentation</p>
             <div className="space-y-1.5">
@@ -521,38 +746,15 @@ function BlogEditor({
                 placeholder="landing pages, conversion"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Cover image</Label>
-              <Input
-                value={draft.coverImageUrl}
-                onChange={(e) => update({ coverImageUrl: e.target.value })}
-                placeholder="Paste a URL or upload…"
-              />
-              <input
-                type="file"
-                id="blog-cover-upload"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  e.currentTarget.value = "";
-                  void uploadCover(f);
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="gap-1.5 w-full"
-                disabled={uploading}
-                onClick={() => document.getElementById("blog-cover-upload")?.click()}
-              >
-                {uploading ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading…</> : <><Upload className="w-3.5 h-3.5" /> Upload cover</>}
-              </Button>
-              {draft.coverImageUrl && (
-                <img src={draft.coverImageUrl} alt="" className="w-full rounded border mt-1 object-cover" style={{ aspectRatio: "16/9" }} />
-              )}
-            </div>
+            {/* Cover image — reuse the shared ImagePicker (media drawer + upload). */}
+            <ImagePicker
+              label="Cover image"
+              value={draft.coverImageUrl}
+              onChange={(url) => update({ coverImageUrl: url })}
+              placeholder="Paste a URL, upload, or browse media"
+              aiHint="Blog cover image"
+              previewClassName="w-full object-cover"
+            />
           </div>
 
           <div className="rounded-lg border bg-card p-4 space-y-3">
@@ -565,23 +767,173 @@ function BlogEditor({
               <Label className="text-xs">Meta description <span className="text-muted-foreground">(falls back to excerpt)</span></Label>
               <Textarea rows={2} value={draft.seoDescription} onChange={(e) => update({ seoDescription: e.target.value })} />
             </div>
+          </div>
+
+          {/* Social share card (OG) — image picker + focal point + live preview */}
+          <div className="rounded-lg border bg-card p-4 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Social share card (OG)</p>
+            <ImagePicker
+              label="OG image (falls back to cover)"
+              value={draft.ogImageUrl}
+              onChange={(url) => update({ ogImageUrl: url })}
+              placeholder="1200×630 share image — paste, upload, or browse"
+              aiHint="Social share card image, 1200x630"
+              previewClassName="w-full object-cover"
+            />
+            <FocalPointPicker
+              label="Crop focal point (for the 1200×630 share card)"
+              value={focalPxObjectPos(draft.ogFocalX, draft.ogFocalY)}
+              previewUrl={ogPreviewImage || undefined}
+              onChange={(pos) => {
+                const f = objectPositionToFocal(pos);
+                update({ ogFocalX: f.x, ogFocalY: f.y });
+              }}
+            />
             <div className="space-y-1.5">
-              <Label className="text-xs">OG image <span className="text-muted-foreground">(falls back to cover)</span></Label>
-              <Input value={draft.ogImageUrl} onChange={(e) => update({ ogImageUrl: e.target.value })} placeholder="1200×630 share image URL" />
+              <Label className="text-xs">Share preview</Label>
+              <SocialCardPreview
+                imageUrl={ogPreviewImage}
+                focalX={draft.ogFocalX}
+                focalY={draft.ogFocalY}
+                title={draft.seoTitle.trim() || draft.title}
+                excerpt={draft.seoDescription.trim() || draft.excerpt}
+              />
             </div>
-            {id != null && (
-              <a
-                href={`${PUBLIC_PREFIX}/${draft.slug}${import.meta.env.DEV ? "?preview=marketing" : ""}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-              >
-                Preview <ExternalLink className="w-3 h-3" />
-              </a>
-            )}
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// FocalPointPicker speaks "X% Y%"; bridge from our 0–1 focal store.
+function focalPxObjectPos(x: number, y: number): string {
+  return focalToObjectPosition(x, y);
+}
+
+function SaveIndicator({ state, lastSavedAt }: { state: SaveState; lastSavedAt: string | null }) {
+  if (state === "saving") {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Loader2 className="w-3 h-3 animate-spin" /> Saving…
+      </span>
+    );
+  }
+  if (state === "error") {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-destructive">
+        <AlertTriangle className="w-3 h-3" /> Save failed
+      </span>
+    );
+  }
+  if (state === "saved") {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-green-600">
+        <CheckCircle2 className="w-3 h-3" /> Saved{lastSavedAt ? ` ${fmtDateTime(lastSavedAt).split(", ").slice(-1)[0]}` : ""}
+      </span>
+    );
+  }
+  return <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><Circle className="w-2.5 h-2.5" /> Autosave on</span>;
+}
+
+function Checklist({ checklist }: { checklist: { items: { key: string; label: string; ok: boolean }[]; ok: boolean } }) {
+  return (
+    <div className="rounded-lg border bg-card p-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pre-publish checklist</p>
+        {checklist.ok ? (
+          <span className="text-[11px] text-green-600 inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Ready</span>
+        ) : (
+          <span className="text-[11px] text-amber-600 inline-flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Incomplete</span>
+        )}
+      </div>
+      <ul className="space-y-1">
+        {checklist.items.map((i) => (
+          <li key={i.key} className="flex items-center gap-2 text-xs">
+            {i.ok ? (
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0" />
+            ) : (
+              <Circle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            )}
+            <span className={i.ok ? "text-foreground" : "text-muted-foreground"}>{i.label}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function RevisionHistory({
+  postId, onRestored,
+}: { postId: number; onRestored: (p: Post) => void }) {
+  const [revisions, setRevisions] = useState<Revision[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const data = await apiFetch(`/api/admin/blog/posts/${postId}/revisions`);
+      setRevisions(data?.revisions ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load history");
+      setRevisions([]);
+    }
+  }, [postId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const restore = async (revId: number) => {
+    if (!window.confirm("Restore this version? Your current content is saved as a new revision first, so this is undoable.")) return;
+    setRestoringId(revId);
+    try {
+      const data = await apiFetch(`/api/admin/blog/posts/${postId}/revisions/${revId}/restore`, { method: "POST" });
+      if (data?.post) onRestored(data.post as Post);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to restore");
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border bg-muted/20 p-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Revision history</p>
+        <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={load}>
+          <RefreshCw className="w-3 h-3 mr-1" /> Refresh
+        </Button>
+      </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+      {revisions === null ? (
+        <p className="text-xs text-muted-foreground">Loading…</p>
+      ) : revisions.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No revisions yet.</p>
+      ) : (
+        <ul className="divide-y max-h-64 overflow-auto">
+          {revisions.map((r) => (
+            <li key={r.id} className="flex items-center justify-between gap-2 py-1.5 text-xs">
+              <div className="min-w-0">
+                <span className="font-medium capitalize">{r.reason}</span>
+                <span className="text-muted-foreground"> · {fmtDateTime(r.createdAt)}</span>
+                {r.authorEmail && <span className="text-muted-foreground"> · {r.authorEmail}</span>}
+                <div className="text-muted-foreground truncate">
+                  {(r.snapshot?.title as string) || "(untitled)"}
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 text-xs shrink-0"
+                disabled={restoringId === r.id}
+                onClick={() => restore(r.id)}
+              >
+                {restoringId === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <><RotateCcw className="w-3 h-3 mr-1" /> Restore</>}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

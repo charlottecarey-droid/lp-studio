@@ -7,6 +7,7 @@ import {
   timestamp,
   index,
   uniqueIndex,
+  doublePrecision,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -44,14 +45,24 @@ import {
  *   coverImageUrl    — hero/card image (absolute or /api/storage relative).
  *   authorName       — byline.
  *   tags             — jsonb array of strings for filtering + the kicker.
- *   status           — 'draft' | 'published'. Public endpoints return ONLY
- *                      'published'; superadmin sees both.
+ *   status           — 'draft' | 'scheduled' | 'published'. Public endpoints
+ *                      return ONLY 'published'; superadmin sees all. 'scheduled'
+ *                      posts auto-flip to 'published' by the blogPublishPoller
+ *                      sweep when scheduledAt <= now (Phase 2).
  *   seoTitle         — <title> override (falls back to title).
  *   seoDescription   — meta description override (falls back to excerpt).
  *   ogImageUrl       — social share image override (falls back to coverImageUrl).
+ *   ogFocalX/Y       — Phase 2. Focal point (0–1, default 0.5) for the OG/social
+ *                      card crop. We do NOT derive a cropped image; instead the
+ *                      stored OG image is rendered into the 1200×630 (1.91:1)
+ *                      social frame with CSS object-position: <x*100>% <y*100>%,
+ *                      so any source aspect crops correctly around the subject.
+ *                      Simpler + robust: no second upload, no orphaned derivatives.
  *   readingTimeMin   — computed on save from the body word count.
  *   publishedAt      — set when first published; drives ordering + JSON-LD
  *                      datePublished + sitemap lastmod.
+ *   scheduledAt      — Phase 2. When status='scheduled', the time the sweep
+ *                      should auto-publish. NULL for draft/published.
  */
 export const blogPostsTable = pgTable(
   "blog_posts",
@@ -68,8 +79,13 @@ export const blogPostsTable = pgTable(
     seoTitle: text("seo_title"),
     seoDescription: text("seo_description"),
     ogImageUrl: text("og_image_url"),
+    // OG focal point (0–1). Renderer maps to object-position; default centre.
+    ogFocalX: doublePrecision("og_focal_x").notNull().default(0.5),
+    ogFocalY: doublePrecision("og_focal_y").notNull().default(0.5),
     readingTimeMin: integer("reading_time_min").notNull().default(1),
     publishedAt: timestamp("published_at", { withTimezone: true }),
+    // Phase 2 — scheduled-publish target. Set when status='scheduled'.
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
@@ -82,8 +98,50 @@ export const blogPostsTable = pgTable(
       t.status,
       t.publishedAt,
     ),
+    // Partial-style index supporting the scheduled-publish sweep's hot query
+    // (status='scheduled' AND scheduled_at <= now()).
+    statusScheduledIdx: index("blog_posts_status_scheduled_idx").on(
+      t.status,
+      t.scheduledAt,
+    ),
   }),
 );
 
 export type BlogPost = typeof blogPostsTable.$inferSelect;
 export type NewBlogPost = typeof blogPostsTable.$inferInsert;
+
+/**
+ * blog_post_revisions — Phase 2 version history for the first-party blog.
+ *
+ * One row per save/publish/restore, capturing a snapshot of the editable
+ * fields (body HTML + title + meta + image config). The editor lists these and
+ * can RESTORE any of them; a restore writes the restored content back to
+ * blog_posts AND records a NEW revision (so history is append-only and a
+ * restore is itself undoable). Retention is bounded (last N kept per post,
+ * pruned on insert — see pruneRevisions) so the table can't grow unbounded.
+ *
+ * Not tenant-scoped, same rationale as blog_posts (superadmin platform content).
+ * snapshot is the full editable field-set as jsonb so adding editable fields
+ * later doesn't need a schema change. authorEmail is the superadmin who saved.
+ */
+export const blogPostRevisionsTable = pgTable(
+  "blog_post_revisions",
+  {
+    id: serial("id").primaryKey(),
+    postId: integer("post_id").notNull(),
+    // Full editable snapshot: { title, slug, excerpt, body, coverImageUrl,
+    // authorName, tags, status, seoTitle, seoDescription, ogImageUrl,
+    // ogFocalX, ogFocalY, scheduledAt }.
+    snapshot: jsonb("snapshot").notNull().default({}),
+    // 'save' | 'publish' | 'restore' — why this revision was written.
+    reason: text("reason").notNull().default("save"),
+    authorEmail: text("author_email"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    postIdx: index("blog_post_revisions_post_idx").on(t.postId, t.createdAt),
+  }),
+);
+
+export type BlogPostRevision = typeof blogPostRevisionsTable.$inferSelect;
+export type NewBlogPostRevision = typeof blogPostRevisionsTable.$inferInsert;

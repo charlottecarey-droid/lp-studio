@@ -1271,6 +1271,35 @@ async function runMigrationsBody(): Promise<void> {
       }
     });
 
+    // Phase 2 (June 2026) — blog publishing schema self-heal (0096). Adds the
+    // scheduled_at + og_focal_x/_y columns to blog_posts and the
+    // blog_post_revisions table. Same drizzle high-water-mark drift hazard as
+    // the self-heals above: on a DB whose drizzle.__drizzle_migrations max
+    // created_at already sits ABOVE 0096's journal `when`, the node-postgres
+    // migrator records nothing and never runs 0096's DDL. These objects are
+    // feature-critical — the superadmin editor SELECTs/writes the new columns
+    // and the revisions table, and the blogPublishPoller SELECTs scheduled_at —
+    // so a missing column/table would 500 the editor + silently disable
+    // scheduled publishing. Re-applying the file here is independent of
+    // drizzle's dedup and idempotent (ADD COLUMN / CREATE TABLE IF NOT EXISTS),
+    // so it creates what's missing and is a no-op elsewhere. The .sql stays the
+    // single source of truth. Fails CLOSED: any error aborts the release; a
+    // retry is always safe.
+    await runProbedSelfHeal({
+      name: "blog publishing schema self-heal (0096)",
+      applySqlFile: "0096_blog_publishing.sql",
+      expected: 4,
+      checkSql: `SELECT (
+          (SELECT count(*) FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='blog_posts'
+               AND column_name IN ('scheduled_at','og_focal_x','og_focal_y'))
+        + (SELECT count(*) FROM information_schema.tables
+             WHERE table_schema='public' AND table_name='blog_post_revisions')
+        )::int AS present`,
+      shortfall: (present) =>
+        `blog publishing self-heal did not produce all objects (found ${present}/4) — aborting release`,
+    });
+
     // Task #147 — seed Dandy's webhook secrets so the existing rb2b/apollo/
     // letterdrop integrations don't break the moment we cut over the routes.
     // Generates one secret per integration for tenant #1, idempotent under

@@ -7,26 +7,46 @@ import { usePageJsonLd } from "../hooks/usePageJsonLd";
 import { sanitizeBlogHtml } from "../lib/sanitizeBlogHtml";
 import {
   fetchBlogPost,
+  fetchBlogPreview,
   buildBlogPostingLd,
   formatDate,
   absoluteImage,
+  focalToObjectPosition,
   type BlogPostFull,
 } from "../lib/blog";
 import NotFound from "./not-found";
 
 type LoadState = "loading" | "found" | "missing";
 
+// Preview params appended by the superadmin editor's "Preview" link:
+// ?previewId=<post id>&previewToken=<signed token>. When present we fetch the
+// post by id via the token-gated preview endpoint (which returns drafts +
+// scheduled), so the author sees the exact public render before publishing.
+function readPreviewParams(): { id: number; token: string } | null {
+  if (typeof window === "undefined") return null;
+  const q = new URLSearchParams(window.location.search);
+  const id = Number(q.get("previewId"));
+  const token = q.get("previewToken") ?? "";
+  if (!Number.isInteger(id) || id <= 0 || !token) return null;
+  return { id, token };
+}
+
 export default function BlogPost() {
   const [, params] = useRoute("/blog/:slug");
   const slug = params?.slug ?? "";
   const [post, setPost] = useState<BlogPostFull | null>(null);
   const [state, setState] = useState<LoadState>("loading");
+  const preview = readPreviewParams();
+  const isPreview = !!preview;
 
   useEffect(() => {
     let cancelled = false;
     setState("loading");
     setPost(null);
-    fetchBlogPost(slug).then((p) => {
+    const loader = preview
+      ? fetchBlogPreview(preview.id, preview.token)
+      : fetchBlogPost(slug);
+    loader.then((p) => {
       if (cancelled) return;
       if (p) {
         setPost(p);
@@ -38,7 +58,8 @@ export default function BlogPost() {
     return () => {
       cancelled = true;
     };
-  }, [slug]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, preview?.id, preview?.token]);
 
   const canonical = `https://lpstudio.ai/blog/${slug}`;
   const ogImage = post
@@ -69,6 +90,14 @@ export default function BlogPost() {
   return (
     <div className="min-h-screen paper-grain" style={{ background: "var(--cream)", color: "var(--ink)" }}>
       <Navbar />
+      {isPreview && post && (
+        <div
+          className="fixed top-0 inset-x-0 z-[60] text-center py-1.5 font-mono uppercase"
+          style={{ background: "var(--indigo)", color: "#fff", fontSize: 11, letterSpacing: "0.14em" }}
+        >
+          Preview · {post.status ?? "draft"} · not public
+        </div>
+      )}
       <main className="pt-32 pb-8">
         {state === "loading" && (
           <div className="max-w-[720px] mx-auto px-6 py-20 text-center">

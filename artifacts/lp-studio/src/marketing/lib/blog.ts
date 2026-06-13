@@ -40,7 +40,24 @@ export interface BlogPostFull extends BlogCard {
   seoTitle: string | null;
   seoDescription: string | null;
   ogImageUrl: string | null;
+  // OG/social-card focal point (0–1). Maps to CSS object-position so the
+  // 1200×630 share crop frames the subject. Phase 2.
+  ogFocalX?: number;
+  ogFocalY?: number;
   updatedAt: string | null;
+  // Present only on preview fetches — the raw status so the renderer can show
+  // a "Preview · draft/scheduled" ribbon.
+  status?: string;
+}
+
+/** Map a 0–1 focal point to a CSS object-position string ("X% Y%"). */
+export function focalToObjectPosition(
+  x: number | null | undefined,
+  y: number | null | undefined,
+): string {
+  const clamp = (v: number | null | undefined) =>
+    typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.5;
+  return `${Math.round(clamp(x) * 1000) / 10}% ${Math.round(clamp(y) * 1000) / 10}%`;
 }
 
 export interface BlogIndexResponse {
@@ -90,6 +107,29 @@ export async function fetchBlogPost(slug: string): Promise<BlogPostFull | null> 
     const res = await fetch(`${APP_BASE}/api/lp/blog/posts/${encodeURIComponent(slug)}`, {
       credentials: "omit",
     });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || !data.post) return null;
+    return data.post as BlogPostFull;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch ANY post (incl. draft/scheduled) by id using a signed preview token
+ * minted by the superadmin editor. Returns null if the token is missing,
+ * expired, or invalid — drafts are never reachable without a fresh token.
+ */
+export async function fetchBlogPreview(
+  id: number,
+  token: string,
+): Promise<BlogPostFull | null> {
+  try {
+    const res = await fetch(
+      `${APP_BASE}/api/lp/blog/preview/${id}?token=${encodeURIComponent(token)}`,
+      { credentials: "omit" },
+    );
     if (!res.ok) return null;
     const data = await res.json();
     if (!data || !data.post) return null;
