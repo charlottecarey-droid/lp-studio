@@ -1721,9 +1721,15 @@ const storefrontDtc: GlobalTemplateSeed = {
   industry: "ecommerce",
   premiumRank: 6,
   category: "storefront",
+  // Intent keywords are deliberately limited to genuine DTC/retail signals.
+  // The generic "product page" / "products" / "catalog" were removed (June
+  // 2026) because they also match B2B product/feature landing pages and were
+  // routing non-ecommerce brands (e.g. a B2B dental lab asking for a "product
+  // page for dentures") into this Shopify-style storefront. Storefront now
+  // requires a real commerce word (shop / cart / checkout / buy / store).
   keywords: ["storefront", "shop", "ecommerce", "e-commerce", "online store",
-    "product page", "DTC", "direct to consumer", "buy now", "checkout",
-    "cart", "products", "catalog", "merchandise", "store"],
+    "online shop", "DTC", "direct to consumer", "buy now", "checkout",
+    "cart", "add to cart", "merchandise", "store"],
   isAllInOne: true,
   blocks: [
     {

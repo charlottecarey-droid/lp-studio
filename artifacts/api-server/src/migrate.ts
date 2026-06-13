@@ -1743,7 +1743,17 @@ async function runMigrationsBody(): Promise<void> {
       // bump is required to insert them on existing databases. The INSERT
       // carries their category/keywords/is_all_in_one intent fields directly,
       // so no intent-backfill marker bump is needed.
-      const SEED_MARKER = "global_templates_seed_v30";
+      // v31: re-seed after tightening the Storefront (DTC) intent keywords —
+      // the over-broad "product page" / "products" / "catalog" were removed so
+      // a B2B brand asking for a "product page" no longer routes to the
+      // Shopify-style DTC storefront (June 2026 generation-quality fix). NOTE:
+      // the ON CONFLICT clause below null-guards `keywords`
+      // (COALESCE(lp_pages.keywords, EXCLUDED.keywords)) to protect superadmin
+      // edits, so this bump alone does NOT overwrite the existing storefront
+      // keyword row on databases seeded before v31 — the dedicated
+      // storefront_intent_keywords_v1 step further down force-updates that one
+      // row to the trimmed seed list.
+      const SEED_MARKER = "global_templates_seed_v31";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;
@@ -1850,6 +1860,52 @@ async function runMigrationsBody(): Promise<void> {
       }
     } catch (intentErr) {
       logger.error({ err: intentErr }, "global_templates intent backfill failed (non-fatal)");
+    }
+    });
+
+    // Storefront (DTC) intent-keyword tightening (June 2026 generation-quality
+    // fix). The two marker-gated paths above both NULL-GUARD `keywords`
+    // (COALESCE) to protect superadmin edits, so neither one will overwrite the
+    // storefront row's keyword list on a database seeded before this change —
+    // the over-broad "product page" / "products" / "catalog" entries would
+    // persist and keep routing B2B "product page" prompts into the Shopify-style
+    // DTC storefront. This dedicated, marker-gated step force-updates JUST the
+    // single global-flagship-storefront-dtc row to the trimmed seed keyword list
+    // (a real commerce word is now required to match storefront). Scoped to one
+    // slug so no other template's manual keyword edits are touched. Idempotent +
+    // best-effort: a failure never aborts the release.
+    await runStep("storefront intent keyword tightening", async () => {
+    try {
+      const STOREFRONT_KW_MARKER = "storefront_intent_keywords_v1";
+      const marker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${STOREFRONT_KW_MARKER}`
+      );
+      if (marker.rows.length === 0) {
+        const { ALL_IN_ONE_TEMPLATE_SEEDS } = await import("./seeds/globalTemplates");
+        const storefront = ALL_IN_ONE_TEMPLATE_SEEDS.find(
+          (t) => t.slug === "global-flagship-storefront-dtc",
+        );
+        if (storefront?.keywords?.length) {
+          const keywordsJson = JSON.stringify(storefront.keywords);
+          const result = await db.execute<{ "?column?": number }>(sql`
+            UPDATE lp_pages
+            SET keywords = ${keywordsJson}::jsonb
+            WHERE slug = 'global-flagship-storefront-dtc'
+              AND is_template = true
+              AND is_global = true
+            RETURNING 1
+          `);
+          logger.info(
+            { updated: result.rows.length, keywords: storefront.keywords },
+            "storefront intent keyword tightening applied"
+          );
+        }
+        await db.execute(sql`
+          INSERT INTO _schema_migration_markers (key) VALUES (${STOREFRONT_KW_MARKER}) ON CONFLICT DO NOTHING
+        `);
+      }
+    } catch (kwErr) {
+      logger.error({ err: kwErr }, "storefront intent keyword tightening failed (non-fatal)");
     }
     });
 

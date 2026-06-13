@@ -32,6 +32,10 @@ export interface TemplateIntentCandidate {
   /** Intent phrases (lp_pages.keywords jsonb). Tolerated as unknown — DB
    *  jsonb is untyped; non-string entries are ignored. */
   keywords?: unknown;
+  /** Template's own industry tag (lp_pages.industry). Used alongside
+   *  `category` to detect ecommerce/DTC (storefront) templates that must be
+   *  gated behind a commerce signal. Optional / nullable. */
+  industry?: string | null;
   /** Only isAllInOne === true rows are considered. */
   isAllInOne?: boolean | null;
 }
@@ -40,6 +44,79 @@ export interface TemplateIntentMatch {
   slug: string;
   /** Weighted hit count: single-word keyword = 1, multi-word phrase = 2. */
   score: number;
+}
+
+/**
+ * Optional brand/business-model signal derived from the BrandConfig at the
+ * call site (generate-page.ts). Used to keep ecommerce/DTC (storefront)
+ * templates from being selected for a brand that shows no commerce signal —
+ * e.g. a B2B dental lab asking for a "product page for dentures" must NOT be
+ * routed to the Shopify-style DTC storefront (June 2026 generation-quality
+ * fix). Every field is optional; when the whole object is undefined the
+ * matcher behaves exactly as before EXCEPT for the always-on guard that a
+ * bare "product page" prompt (no real commerce word) can never reach
+ * storefront on its own (see STOREFRONT_REQUIRES_COMMERCE_WORD).
+ */
+export interface BrandIntentContext {
+  /** Tenant industry (e.g. "dental", "generic", "ecommerce", "media"). */
+  industry?: string | null;
+  /** Coarse business model when known. */
+  businessModel?: "b2b" | "dtc" | "saas" | "services" | "media" | string | null;
+  /** Brand audience segment names (B2B segment names are a strong non-DTC signal). */
+  segments?: string[];
+  /** Explicit override: true = brand sells DTC/online; false = definitely not. */
+  isEcommerce?: boolean;
+}
+
+/** Categories / industries that denote a DTC / online-retail (storefront)
+ *  template. A template tagged with any of these is gated behind a real
+ *  commerce signal (from the brand or the prompt). */
+const ECOMMERCE_CATEGORIES = new Set(["storefront"]);
+const ECOMMERCE_INDUSTRIES = new Set(["ecommerce", "e-commerce", "retail", "dtc"]);
+
+/** True commerce signals in a generation prompt. These are the only keywords
+ *  that, on their own, justify routing to a DTC storefront. A bare "product
+ *  page" / "products" / "catalog" prompt has NO commerce word here, so it can
+ *  never reach storefront unless the brand itself is clearly ecommerce. */
+const PROMPT_COMMERCE_TOKENS = [
+  "shop", "store", "storefront", "ecommerce", "e commerce", "online store",
+  "online shop", "dtc", "direct to consumer", "buy now", "checkout",
+  "cart", "add to cart", "merchandise",
+];
+
+/** Brand-config text tokens that mark a brand as DTC / online-retail. */
+const BRAND_COMMERCE_TOKENS = [
+  "ecommerce", "e commerce", "dtc", "direct to consumer", "online store",
+  "online shop", "storefront", "retail", "shopify", "checkout", "shopping cart",
+];
+
+/** Does the prompt contain a genuine commerce signal? Operates on the same
+ *  space-padded normalized haystack the keyword matcher uses. */
+function promptHasCommerceSignal(haystack: string): boolean {
+  return PROMPT_COMMERCE_TOKENS.some((t) => haystack.includes(` ${t} `));
+}
+
+/** Decide whether the brand is plausibly DTC/ecommerce from the call-site
+ *  signal. Conservative & fail-open in BOTH directions:
+ *   • explicit `isEcommerce` always wins;
+ *   • industry / businessModel that names ecommerce/retail/dtc → DTC;
+ *   • industry / businessModel that names a clearly-NON-DTC model
+ *     (dental, b2b, saas, services, media) → NOT DTC;
+ *   • any commerce token in the segment names → DTC;
+ *   • otherwise unknown (returns null → "ambiguous"). */
+function brandIsEcommerce(ctx: BrandIntentContext | undefined): boolean | null {
+  if (!ctx) return null;
+  if (typeof ctx.isEcommerce === "boolean") return ctx.isEcommerce;
+  const industry = (ctx.industry ?? "").trim().toLowerCase();
+  const model = (ctx.businessModel ?? "").trim().toLowerCase();
+  if (ECOMMERCE_INDUSTRIES.has(industry) || ECOMMERCE_INDUSTRIES.has(model)) return true;
+  // Clearly non-DTC business models / industries.
+  const NON_DTC = new Set(["dental", "b2b", "saas", "services", "media", "generic"]);
+  const segText = (ctx.segments ?? []).join(" ").toLowerCase();
+  const segHasCommerce = BRAND_COMMERCE_TOKENS.some((t) => segText.includes(t));
+  if (segHasCommerce) return true;
+  if (NON_DTC.has(industry) || NON_DTC.has(model)) return false;
+  return null;
 }
 
 /** Distinct keyword hits required when none of the hits is a multi-word
@@ -84,6 +161,7 @@ interface ScoredCandidate {
 export function matchTemplateIntent(
   prompt: string,
   templates: TemplateIntentCandidate[],
+  brandContext?: BrandIntentContext,
 ): TemplateIntentMatch | null {
   if (typeof prompt !== "string" || !Array.isArray(templates)) return null;
   const normalizedPrompt = normalizeForIntentMatch(prompt);
@@ -91,9 +169,31 @@ export function matchTemplateIntent(
   // Pad with spaces so ` keyword ` containment == whole-word/phrase match.
   const haystack = ` ${normalizedPrompt} `;
 
+  // Brand-aware storefront gating (June 2026). Decide ONCE whether an
+  // ecommerce/DTC (storefront) template is even allowed for this request:
+  //   • allowed when the brand is clearly ecommerce (isEcommerce / industry /
+  //     segment commerce signal), OR
+  //   • allowed when the PROMPT itself carries a real commerce word
+  //     (shop / cart / checkout / buy / store …).
+  // Otherwise storefront-style templates are EXCLUDED from candidacy — so a
+  // B2B/dental/SaaS brand asking for a bare "product page" falls through to
+  // the freeform path instead of the Shopify-style DTC storefront. Fail-open:
+  // when the brand signal is unknown/ambiguous we still require a real
+  // commerce word in the prompt before storefront can match.
+  const brandEcom = brandIsEcommerce(brandContext);
+  const promptCommerce = promptHasCommerceSignal(haystack);
+  const allowEcommerceTemplates = brandEcom === true || promptCommerce;
+  const isEcommerceTemplate = (tpl: TemplateIntentCandidate): boolean => {
+    const cat = (tpl.category ?? "").trim().toLowerCase();
+    const ind = (tpl.industry ?? "").trim().toLowerCase();
+    return ECOMMERCE_CATEGORIES.has(cat) || ECOMMERCE_INDUSTRIES.has(ind);
+  };
+
   const scored: ScoredCandidate[] = [];
   templates.forEach((tpl, order) => {
     if (!tpl || tpl.isAllInOne !== true || typeof tpl.slug !== "string" || !tpl.slug) return;
+    // Storefront/ecommerce templates are gated behind a commerce signal.
+    if (isEcommerceTemplate(tpl) && !allowEcommerceTemplates) return;
     const rawKeywords = Array.isArray(tpl.keywords) ? tpl.keywords : [];
     // Dedupe normalized keywords so seed lists with overlapping variants
     // ("café"/"cafe") can't double-count a single prompt mention.

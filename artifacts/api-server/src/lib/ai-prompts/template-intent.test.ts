@@ -106,9 +106,123 @@ describe("matchTemplateIntent — real seed library", () => {
   it("every all-in-one seed is reachable via its own keywords", () => {
     for (const tpl of ALL_IN_ONE_TEMPLATE_SEEDS) {
       const prompt = (tpl.keywords ?? []).join(" ");
+      // Storefront requires a commerce signal — its own keyword list carries
+      // real commerce words (shop/cart/checkout), so it still self-matches.
       const m = matchTemplateIntent(prompt, seedCandidates);
       expect(m?.slug, `expected "${tpl.slug}" to win its own keyword prompt`).toBe(tpl.slug);
     }
+  });
+
+  it("storefront seed keywords no longer include the over-broad product-page terms", () => {
+    const storefront = ALL_IN_ONE_TEMPLATE_SEEDS.find(
+      (t) => t.slug === "global-flagship-storefront-dtc",
+    );
+    const kws = (storefront?.keywords ?? []).map((k) => k.toLowerCase());
+    expect(kws).not.toContain("product page");
+    expect(kws).not.toContain("products");
+    expect(kws).not.toContain("catalog");
+    // …but it keeps the genuine commerce signals.
+    expect(kws).toContain("checkout");
+    expect(kws).toContain("cart");
+    expect(kws).toContain("storefront");
+  });
+});
+
+// ─── Brand-aware storefront gating (June 2026 generation-quality fix) ────────
+describe("matchTemplateIntent — brand-aware storefront gating", () => {
+  const b2bDental = {
+    industry: "dental",
+    segments: ["DSOs", "Solo practices", "Group practices"],
+  };
+  const dtcBrand = {
+    industry: "ecommerce",
+    isEcommerce: true,
+    segments: ["Direct shoppers"],
+  };
+
+  it("B2B dental brand asking for a 'product page for dentures' does NOT route to storefront", () => {
+    const m = matchTemplateIntent(
+      "a product page for dentures for Dandy",
+      seedCandidates,
+      b2bDental,
+    );
+    expect(m?.slug).not.toBe("global-flagship-storefront-dtc");
+  });
+
+  it("'product page' alone (no commerce word, no brand signal) never routes to storefront", () => {
+    expect(
+      matchTemplateIntent("build me a product page", seedCandidates)?.slug,
+    ).not.toBe("global-flagship-storefront-dtc");
+    // Even with a brand whose signal is unknown/ambiguous, a bare product-page
+    // prompt must not reach storefront.
+    expect(
+      matchTemplateIntent("build me a product page", seedCandidates, { segments: [] })?.slug,
+    ).not.toBe("global-flagship-storefront-dtc");
+  });
+
+  it("DTC/ecommerce brand asking for 'online store with cart and checkout' → storefront", () => {
+    const m = matchTemplateIntent(
+      "an online store with cart and checkout",
+      seedCandidates,
+      dtcBrand,
+    );
+    expect(m?.slug).toBe("global-flagship-storefront-dtc");
+  });
+
+  it("a real commerce word in the prompt re-enables storefront even for a non-DTC brand", () => {
+    // The prompt itself names cart/checkout — the user clearly wants a shop.
+    const m = matchTemplateIntent(
+      "an online store with a cart and checkout",
+      seedCandidates,
+      b2bDental,
+    );
+    expect(m?.slug).toBe("global-flagship-storefront-dtc");
+  });
+
+  it("a B2B brand can still reach NON-storefront templates (gating is storefront-only)", () => {
+    const m = matchTemplateIntent(
+      "build the business case for switching to Dandy",
+      seedCandidates,
+      b2bDental,
+    );
+    expect(m?.slug).toMatch(/^global-business-case-/);
+  });
+
+  it("category-only ecommerce gating works for synthetic candidates", () => {
+    const storefront: TemplateIntentCandidate = {
+      slug: "shop",
+      category: "storefront",
+      keywords: ["online store", "shop"],
+      isAllInOne: true,
+    };
+    // Non-DTC brand, no commerce word in a bare product prompt → excluded.
+    expect(
+      matchTemplateIntent("a product page", [storefront], { industry: "dental" }),
+    ).toBeNull();
+    // Same brand, commerce word present → allowed.
+    expect(
+      matchTemplateIntent("an online store", [storefront], { industry: "dental" })?.slug,
+    ).toBe("shop");
+    // DTC brand → allowed even on bare product wording (its own keywords match).
+    expect(
+      matchTemplateIntent("an online store", [storefront], { isEcommerce: true })?.slug,
+    ).toBe("shop");
+  });
+
+  it("ecommerce-industry template is gated by industry tag even when category differs", () => {
+    const ecomTpl: TemplateIntentCandidate = {
+      slug: "ecom-by-industry",
+      category: "generic",
+      industry: "ecommerce",
+      keywords: ["online store", "shop"],
+      isAllInOne: true,
+    };
+    expect(
+      matchTemplateIntent("an online store", [ecomTpl], { industry: "dental" })?.slug,
+    ).toBe("ecom-by-industry"); // commerce word in prompt re-enables it
+    expect(
+      matchTemplateIntent("a product page", [ecomTpl], { industry: "dental" }),
+    ).toBeNull(); // no commerce word + non-DTC brand → excluded
   });
 });
 

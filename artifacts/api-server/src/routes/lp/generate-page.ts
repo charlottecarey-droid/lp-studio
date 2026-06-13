@@ -7600,6 +7600,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           slug: lpPagesTable.slug,
           category: lpPagesTable.category,
           keywords: lpPagesTable.keywords,
+          industry: lpPagesTable.industry,
           isAllInOne: lpPagesTable.isAllInOne,
         })
         .from(lpPagesTable)
@@ -7610,7 +7611,52 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
             intentVisibility,
           ),
         );
-      const intentMatch = matchTemplateIntent(prompt, intentCandidates);
+      // Brand-aware storefront gating (June 2026 generation-quality fix).
+      // Determine whether THIS brand is plausibly DTC/ecommerce so the matcher
+      // can keep the Shopify-style storefront template away from a B2B/dental
+      // brand asking for a "product page". "Is this brand DTC?" is derived from
+      // the call-site brand config + tenant industry:
+      //   • tenant industry (tenants.settings.industry — "dental" for Dandy);
+      //   • a scan of the brand's own text fields (description / audience /
+      //     segment names / pillars) for explicit commerce words
+      //     (ecommerce, DTC, online store, shopify, checkout, shopping cart);
+      //   • a chilipiper booking URL is a strong B2B/services (NON-DTC) signal.
+      // When nothing indicates commerce we leave isEcommerce undefined so the
+      // matcher falls back to "require a real commerce word in the prompt"
+      // (fail-open / conservative — never routes a bare "product page" prompt
+      // to storefront for an ambiguous brand).
+      const tenantIndustry = await getTenantIndustry(tenantId);
+      const brandTextForCommerce = [
+        brand.companyDescription ?? "",
+        brand.targetAudience ?? "",
+        ...(brand.taglines ?? []),
+        ...(brand.toneKeywords ?? []),
+        ...((brand.segments ?? []).map((s) => s.name ?? "")),
+        ...((brand.messagingPillars ?? []).flatMap((p) => [p.label, p.description])),
+        ...((brand.productLines ?? []).flatMap((p) => [p.name ?? "", ...(p.keywords ?? [])])),
+      ]
+        .join(" ")
+        .toLowerCase();
+      const BRAND_COMMERCE_HINTS = [
+        "ecommerce", "e-commerce", "e commerce", "dtc", "direct to consumer",
+        "direct-to-consumer", "online store", "online shop", "storefront",
+        "shopify", "checkout", "shopping cart", "add to cart", "online retail",
+      ];
+      const brandLooksEcommerce = BRAND_COMMERCE_HINTS.some((h) =>
+        brandTextForCommerce.includes(h),
+      );
+      // chilipiper = sales-demo booking; a strong B2B/services signal that the
+      // brand is NOT a DTC online shop, so we hard-set isEcommerce: false then.
+      const brandIntentContext = {
+        industry: tenantIndustry,
+        segments: (brand.segments ?? []).map((s) => s.name ?? "").filter(Boolean),
+        isEcommerce: brandLooksEcommerce
+          ? true
+          : brand.chilipiperUrl
+            ? false
+            : undefined,
+      };
+      const intentMatch = matchTemplateIntent(prompt, intentCandidates, brandIntentContext);
       if (intentMatch) {
         const matchedRow = intentCandidates.find((c) => c.slug === intentMatch.slug);
         if (matchedRow) {
@@ -7626,6 +7672,9 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           slug: intentMatchedTemplate?.slug ?? null,
           score: intentMatchedTemplate?.score ?? null,
           candidateCount: intentCandidates.length,
+          // Brand-aware storefront gating decision (June 2026).
+          brandIndustry: brandIntentContext.industry,
+          brandIsEcommerce: brandIntentContext.isEcommerce ?? null,
           promptPreview: prompt.trim().slice(0, 200).replace(/\n/g, " "),
         },
         intentMatchedTemplate
@@ -7695,6 +7744,12 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         "6. DO NOT change: image URLs, video URLs, link/CTA URLs, color hex values, anchor ids/hrefs, boolean flags, layout/style enum values (e.g. backgroundStyle, alignment, columns, variant), numeric counts/sizes, icon names, or any non-text technical field.",
         "7. If a text field in the template is empty string, you may leave it empty or fill it with appropriate copy — your choice based on context.",
         "8. Tailor every piece of copy to the user's prompt and (if provided) the audience segment. Avoid generic filler.",
+        // June 2026 generation-quality fix — the template (intent-routed) path
+        // previously under-used the brand's voice/persona/value-prop context
+        // versus the freeform path, so template-filled copy read generic. This
+        // rule makes the brand context a HARD constraint on the copy-only
+        // rewrite, exactly as the freeform path does.
+        "8a. BRAND VOICE IS A HARD CONSTRAINT: write every rewritten value in the brand's own voice and tone (see BRAND CONTEXT). Match the rhythm, sentence length, vocabulary, and specificity of the WRITE IN THIS VOICE example copy — treat those examples as the gold standard. Speak to the brand's actual target audience / personas and lead with their value props and messaging pillars. NEVER use any of the BANNED PHRASES (or close variants). Generic marketing filler (\"streamline your workflow\", \"industry-leading platform\", \"unlock your potential\") is a failure — every sentence should read like it came from this specific brand.",
         "9. The top-level `slug` must be lowercase letters/numbers/hyphens only.",
         "10. EXCEPTION for `dso-case-study` blocks: each item in the `sections` array may carry an optional `position` field — \"before-results\" (the section renders between the Challenge/Solution body and the Results band) or \"after-results\" (the section renders after the Results band and CTA). This is the ONLY structural field you may add or change (it overrides rules 4 and 6 for this field only). Default is \"after-results\" when omitted. Set \"before-results\" on a section when its content (e.g. extra context, a customer quote, or supporting detail) reads more naturally BEFORE the results/outcomes; otherwise keep \"after-results\". Do not add a `position` field to any other block type or array.",
       ].join("\n");
@@ -7702,8 +7757,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       const templateUserPromptParts: string[] = [];
       if (brandContext) templateUserPromptParts.push(`BRAND CONTEXT:\n${brandContext}`);
       if (segmentSection) {
+        // June 2026 generation-quality fix — match the freeform path's stronger
+        // directive so the template rewrite leans on the segment's personas,
+        // value props, and pain points (not just "tailor to this segment").
         templateUserPromptParts.push(
-          `AUDIENCE SEGMENT — IMPORTANT: Tailor all copy to this segment. Do NOT use generic messaging.\n${segmentSection}`
+          `AUDIENCE SEGMENT — IMPORTANT: You MUST tailor all copy, headlines, value props, personas, and CTAs specifically to this segment, addressing its personas and their pain points. Do NOT use generic messaging.\n${segmentSection}`
         );
       }
       if (caseStudiesSection) templateUserPromptParts.push(caseStudiesSection);
