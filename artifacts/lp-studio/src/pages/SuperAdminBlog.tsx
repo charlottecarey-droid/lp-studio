@@ -14,7 +14,7 @@ import {
 import {
   AlertTriangle, CheckCircle2, Loader2, RefreshCw, Plus, Trash2,
   ArrowLeft, Eye, Globe, FileText, Code2, Type, Clock,
-  History, RotateCcw, Circle,
+  History, RotateCcw, Circle, Sparkles, Wand2, X,
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -35,6 +35,91 @@ async function apiFetch(path: string, opts?: RequestInit) {
     throw new Error(text || String(res.status));
   }
   return res.json();
+}
+
+// ── Phase 3: AI-assisted publishing ──────────────────────────────────────────
+// Every AI output below lands in an editable field and is NEVER auto-saved or
+// auto-published — the author accepts / regenerates / edits it. The endpoints
+// reuse the app's OpenAI client + LP Studio brand-voice/strict-facts grounding
+// and are superadmin-gated + rate-limited server-side.
+
+// Maps a Draft field → the metadata field name the AI endpoint returns.
+type AiMetaField =
+  | "seoTitle" | "metaDescription" | "slug" | "excerpt"
+  | "ogTitle" | "ogDescription" | "coverImagePrompt";
+
+interface AiMetadataResponse {
+  metadata: Partial<Record<AiMetaField, string>>;
+  fields: AiMetaField[];
+}
+
+// Call the metadata endpoint for a subset of fields (or all). `improve` sharpens
+// the existing values rather than starting fresh.
+async function aiGenerateMetadata(args: {
+  title: string;
+  body: string;
+  targetKeyword?: string;
+  fields: AiMetaField[] | "all";
+  improve?: boolean;
+  existing?: Partial<Record<AiMetaField, string>>;
+}): Promise<Partial<Record<AiMetaField, string>>> {
+  const data: AiMetadataResponse = await apiFetch("/api/admin/blog/ai/metadata", {
+    method: "POST",
+    body: JSON.stringify({
+      title: args.title,
+      body: args.body,
+      targetKeyword: args.targetKeyword || undefined,
+      fields: args.fields,
+      improve: args.improve === true,
+      existing: args.existing,
+    }),
+  });
+  return data.metadata ?? {};
+}
+
+// A subtle "AI" affordance button placed next to a field. Generates (or
+// improves) just that field. Shows a spinner while running.
+function AiFieldButton({
+  title, body, targetKeyword, field, hasValue, onResult,
+}: {
+  title: string;
+  body: string;
+  targetKeyword: string;
+  field: AiMetaField;
+  hasValue: boolean;
+  onResult: (value: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const run = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const meta = await aiGenerateMetadata({
+        title, body, targetKeyword, fields: [field], improve: hasValue,
+      });
+      const v = meta[field];
+      if (typeof v === "string" && v) onResult(v);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "AI failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={run}
+      disabled={busy || (!title.trim() && !body.trim())}
+      title={hasValue ? "Improve with AI" : "Generate with AI"}
+      className="inline-flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+      {err ? <span className="text-destructive">{err}</span> : (hasValue ? "Improve" : "AI")}
+    </button>
+  );
 }
 
 interface Post {
@@ -495,8 +580,62 @@ function BlogEditor({
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  // Phase 3 AI helpers (editor-local; not persisted as post columns):
+  //  - targetKeyword: optional SEO keyword that biases metadata + draft gen.
+  //  - coverImagePrompt: AI-suggested image direction the author can copy.
+  //  - aiAllBusy / aiAllErr: state for the "Generate all metadata" button.
+  const [targetKeyword, setTargetKeyword] = useState("");
+  const [coverImagePrompt, setCoverImagePrompt] = useState("");
+  const [aiAllBusy, setAiAllBusy] = useState(false);
+  const [aiAllErr, setAiAllErr] = useState<string | null>(null);
+  const [showDraftGen, setShowDraftGen] = useState(false);
 
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
+
+  // Generate ALL metadata fields at once. Lands every value in its field +
+  // the cover-image prompt in its box; nothing is saved/published.
+  const generateAllMetadata = async () => {
+    setAiAllBusy(true);
+    setAiAllErr(null);
+    try {
+      const meta = await aiGenerateMetadata({
+        title: draftRef.current.title,
+        body: draftRef.current.body,
+        targetKeyword,
+        fields: "all",
+      });
+      update({
+        seoTitle: meta.seoTitle ?? draftRef.current.seoTitle,
+        seoDescription: meta.metaDescription ?? draftRef.current.seoDescription,
+        slug: meta.slug || draftRef.current.slug,
+        excerpt: meta.excerpt ?? draftRef.current.excerpt,
+      });
+      if (meta.coverImagePrompt) setCoverImagePrompt(meta.coverImagePrompt);
+    } catch (e) {
+      setAiAllErr(e instanceof Error ? e.message : "AI failed");
+    } finally {
+      setAiAllBusy(false);
+    }
+  };
+
+  // Accept a generated full draft into the editor (title, body, metadata).
+  const applyGeneratedDraft = (d: {
+    title: string;
+    bodyHtml: string;
+    metadata: Partial<Record<AiMetaField, string>>;
+    droppedTags: string[];
+  }) => {
+    update({
+      title: d.title || draftRef.current.title,
+      body: d.bodyHtml,
+      seoTitle: d.metadata.seoTitle ?? "",
+      seoDescription: d.metadata.metaDescription ?? "",
+      slug: d.metadata.slug || draftRef.current.slug,
+      excerpt: d.metadata.excerpt ?? "",
+    });
+    if (d.metadata.coverImagePrompt) setCoverImagePrompt(d.metadata.coverImagePrompt);
+    setShowDraftGen(false);
+  };
 
   // ── Save (explicit + autosave share this path) ─────────────────────────
   // statusOverride lets the explicit Publish/Schedule buttons force a status;
@@ -643,6 +782,9 @@ function BlogEditor({
               <History className="w-3.5 h-3.5 mr-1.5" /> History
             </Button>
           )}
+          <Button size="sm" variant="outline" onClick={() => setShowDraftGen(true)}>
+            <Wand2 className="w-3.5 h-3.5 mr-1.5" /> Generate draft
+          </Button>
           <Button size="sm" variant="outline" onClick={openPreview}>
             <Eye className="w-3.5 h-3.5 mr-1.5" /> Preview
           </Button>
@@ -669,6 +811,15 @@ function BlogEditor({
         </div>
       )}
 
+      {showDraftGen && (
+        <DraftGenPanel
+          initialKeyword={targetKeyword}
+          onClose={() => setShowDraftGen(false)}
+          onApply={applyGeneratedDraft}
+          onKeyword={(k) => setTargetKeyword(k)}
+        />
+      )}
+
       {showHistory && postId != null && (
         <RevisionHistory
           postId={postId}
@@ -691,7 +842,10 @@ function BlogEditor({
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Slug <span className="text-muted-foreground">(leave blank to auto-generate from title)</span></Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Slug <span className="text-muted-foreground">(leave blank to auto-generate from title)</span></Label>
+              <AiFieldButton title={draft.title} body={draft.body} targetKeyword={targetKeyword} field="slug" hasValue={!!draft.slug.trim()} onResult={(v) => update({ slug: v })} />
+            </div>
             <Input
               value={draft.slug}
               onChange={(e) => update({ slug: e.target.value })}
@@ -700,7 +854,10 @@ function BlogEditor({
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Excerpt <span className="text-muted-foreground">(card dek + meta description fallback)</span></Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Excerpt <span className="text-muted-foreground">(card dek + meta description fallback)</span></Label>
+              <AiFieldButton title={draft.title} body={draft.body} targetKeyword={targetKeyword} field="excerpt" hasValue={!!draft.excerpt.trim()} onResult={(v) => update({ excerpt: v })} />
+            </div>
             <Textarea
               rows={2}
               value={draft.excerpt}
@@ -752,20 +909,68 @@ function BlogEditor({
               value={draft.coverImageUrl}
               onChange={(url) => update({ coverImageUrl: url })}
               placeholder="Paste a URL, upload, or browse media"
-              aiHint="Blog cover image"
+              aiHint={coverImagePrompt || "Blog cover image"}
               previewClassName="w-full object-cover"
             />
+            {/* AI-suggested cover image PROMPT — a text direction the author can
+                copy into image gen / hand to a designer. Not a post field. */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Cover image prompt <span className="text-muted-foreground">(AI direction)</span></Label>
+                <AiFieldButton title={draft.title} body={draft.body} targetKeyword={targetKeyword} field="coverImagePrompt" hasValue={!!coverImagePrompt.trim()} onResult={setCoverImagePrompt} />
+              </div>
+              <Textarea
+                rows={3}
+                value={coverImagePrompt}
+                onChange={(e) => setCoverImagePrompt(e.target.value)}
+                placeholder="Click AI to generate an on-brand image direction to paste into image gen."
+                className="text-[13px]"
+              />
+            </div>
           </div>
 
           <div className="rounded-lg border bg-card p-4 space-y-3">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">SEO / GEO</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">SEO / GEO</p>
+              <button
+                type="button"
+                onClick={generateAllMetadata}
+                disabled={aiAllBusy || (!draft.title.trim() && !draft.body.trim())}
+                title="Generate every field from the title + body"
+                className="inline-flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {aiAllBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                Generate all
+              </button>
+            </div>
+            {aiAllErr && <p className="text-[11px] text-destructive">{aiAllErr}</p>}
+            <p className="text-[11px] text-muted-foreground -mt-1">
+              AI uses LP Studio's brand voice + strict facts. Every field stays editable — nothing is saved until you do.
+            </p>
             <div className="space-y-1.5">
-              <Label className="text-xs">SEO title <span className="text-muted-foreground">(falls back to title)</span></Label>
-              <Input value={draft.seoTitle} onChange={(e) => update({ seoTitle: e.target.value })} />
+              <Label className="text-xs">Target keyword <span className="text-muted-foreground">(optional — biases AI)</span></Label>
+              <Input
+                value={targetKeyword}
+                onChange={(e) => setTargetKeyword(e.target.value)}
+                placeholder="ai landing page builder"
+                className="text-sm"
+              />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Meta description <span className="text-muted-foreground">(falls back to excerpt)</span></Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">SEO title <span className="text-muted-foreground">(falls back to title)</span></Label>
+                <AiFieldButton title={draft.title} body={draft.body} targetKeyword={targetKeyword} field="seoTitle" hasValue={!!draft.seoTitle.trim()} onResult={(v) => update({ seoTitle: v })} />
+              </div>
+              <Input value={draft.seoTitle} onChange={(e) => update({ seoTitle: e.target.value })} />
+              <p className="text-[10px] text-muted-foreground text-right">{draft.seoTitle.length}/60</p>
+            </div>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Meta description <span className="text-muted-foreground">(falls back to excerpt)</span></Label>
+                <AiFieldButton title={draft.title} body={draft.body} targetKeyword={targetKeyword} field="metaDescription" hasValue={!!draft.seoDescription.trim()} onResult={(v) => update({ seoDescription: v })} />
+              </div>
               <Textarea rows={2} value={draft.seoDescription} onChange={(e) => update({ seoDescription: e.target.value })} />
+              <p className="text-[10px] text-muted-foreground text-right">{draft.seoDescription.length}/155</p>
             </div>
           </div>
 
@@ -859,6 +1064,198 @@ function Checklist({ checklist }: { checklist: { items: { key: string; label: st
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+// ── Generate-draft flow ──────────────────────────────────────────────────────
+// A modal panel: the author gives a brief (topic, audience, target keyword,
+// notes); the AI returns an OUTLINE (H2/H3) shown first for quick review/edit;
+// then a FULL DRAFT (clean semantic HTML, server-sanitized) + metadata. The
+// generated content drops into the editor (Tiptap body + fields) and stays
+// fully editable — it is NEVER auto-published.
+
+interface OutlineSection {
+  h2: string;
+  h3?: string[];
+}
+interface Outline {
+  title: string;
+  sections: OutlineSection[];
+}
+
+function DraftGenPanel({
+  initialKeyword, onClose, onApply, onKeyword,
+}: {
+  initialKeyword: string;
+  onClose: () => void;
+  onApply: (d: {
+    title: string;
+    bodyHtml: string;
+    metadata: Partial<Record<AiMetaField, string>>;
+    droppedTags: string[];
+  }) => void;
+  onKeyword: (k: string) => void;
+}) {
+  const [topic, setTopic] = useState("");
+  const [audience, setAudience] = useState("");
+  const [keyword, setKeyword] = useState(initialKeyword);
+  const [notes, setNotes] = useState("");
+  const [outline, setOutline] = useState<Outline | null>(null);
+  const [phase, setPhase] = useState<"brief" | "outline">("brief");
+  const [busy, setBusy] = useState(false);
+  const [busyMsg, setBusyMsg] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const brief = () => ({
+    topic: topic.trim(),
+    audience: audience.trim() || undefined,
+    targetKeyword: keyword.trim() || undefined,
+    notes: notes.trim() || undefined,
+  });
+
+  const genOutline = async () => {
+    if (!topic.trim()) { setError("A topic is required."); return; }
+    setBusy(true); setBusyMsg("Drafting an outline…"); setError(null);
+    onKeyword(keyword.trim());
+    try {
+      const data = await apiFetch("/api/admin/blog/ai/outline", {
+        method: "POST",
+        body: JSON.stringify(brief()),
+      });
+      setOutline(data.outline as Outline);
+      setPhase("outline");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to generate outline");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const genDraft = async () => {
+    setBusy(true); setBusyMsg("Writing the full draft…"); setError(null);
+    try {
+      const data = await apiFetch("/api/admin/blog/ai/draft", {
+        method: "POST",
+        body: JSON.stringify({ ...brief(), outline }),
+      });
+      onApply({
+        title: String(data.title ?? ""),
+        bodyHtml: String(data.bodyHtml ?? ""),
+        metadata: (data.metadata ?? {}) as Partial<Record<AiMetaField, string>>,
+        droppedTags: Array.isArray(data.droppedTags) ? data.droppedTags : [],
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to generate draft");
+      setBusy(false);
+    }
+  };
+
+  const updateH2 = (i: number, v: string) =>
+    setOutline((o) => o && { ...o, sections: o.sections.map((s, idx) => idx === i ? { ...s, h2: v } : s) });
+  const removeSection = (i: number) =>
+    setOutline((o) => o && { ...o, sections: o.sections.filter((_, idx) => idx !== i) });
+  const addSection = () =>
+    setOutline((o) => o && { ...o, sections: [...o.sections, { h2: "" }] });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="bg-background rounded-lg border shadow-xl w-full max-w-2xl max-h-[88vh] overflow-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-3 border-b sticky top-0 bg-background">
+          <h3 className="text-sm font-semibold inline-flex items-center gap-2">
+            <Wand2 className="w-4 h-4 text-indigo-600" /> Generate draft
+          </h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {error && (
+            <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span className="break-words">{error}</span>
+            </div>
+          )}
+
+          {phase === "brief" && (
+            <>
+              <p className="text-xs text-muted-foreground">
+                The AI writes in LP Studio's voice with strict facts (no invented stats or fake logos).
+                You'll review the outline before the full draft, and everything stays editable — nothing publishes automatically.
+              </p>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Topic <span className="text-destructive">*</span></Label>
+                <Textarea rows={2} value={topic} onChange={(e) => setTopic(e.target.value)}
+                  placeholder="What the post should cover, e.g. how to write a landing page that converts" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Audience</Label>
+                  <Input value={audience} onChange={(e) => setAudience(e.target.value)} placeholder="founders, marketers…" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Target keyword(s)</Label>
+                  <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="ai landing page builder" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Notes / guidance <span className="text-muted-foreground">(optional)</span></Label>
+                <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Any angle, facts to include, must-mention points…" />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button size="sm" variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
+                <Button size="sm" onClick={genOutline} disabled={busy || !topic.trim()}>
+                  {busy ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> {busyMsg}</> : <><Sparkles className="w-3.5 h-3.5 mr-1.5" /> Generate outline</>}
+                </Button>
+              </div>
+            </>
+          )}
+
+          {phase === "outline" && outline && (
+            <>
+              <p className="text-xs text-muted-foreground">
+                Review and edit the outline, then generate the full draft. Remove or rename sections as needed.
+              </p>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Working title</Label>
+                <Input value={outline.title} onChange={(e) => setOutline({ ...outline, title: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Sections (H2)</Label>
+                {outline.sections.map((s, i) => (
+                  <div key={i} className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Input value={s.h2} onChange={(e) => updateH2(i, e.target.value)} className="text-sm" />
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive shrink-0" onClick={() => removeSection(i)} title="Remove section">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                    {s.h3 && s.h3.length > 0 && (
+                      <ul className="pl-4 text-[11px] text-muted-foreground list-disc">
+                        {s.h3.map((h, j) => <li key={j}>{h}</li>)}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={addSection}>
+                  <Plus className="w-3 h-3 mr-1" /> Add section
+                </Button>
+              </div>
+              <div className="flex justify-between gap-2 pt-1">
+                <Button size="sm" variant="ghost" onClick={() => setPhase("brief")} disabled={busy}>
+                  <ArrowLeft className="w-3.5 h-3.5 mr-1.5" /> Back to brief
+                </Button>
+                <Button size="sm" onClick={genDraft} disabled={busy || outline.sections.length === 0}>
+                  {busy ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> {busyMsg}</> : <><Wand2 className="w-3.5 h-3.5 mr-1.5" /> Generate full draft</>}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

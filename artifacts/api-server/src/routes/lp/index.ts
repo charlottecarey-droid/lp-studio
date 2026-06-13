@@ -57,6 +57,7 @@ import brandedEmailSubdomainRouter from "./branded-email-subdomain";
 import factFlagsRouter from "./fact-flags";
 import copilotChatRouter from "./copilot-chat";
 import blogRouter from "./blog";
+import blogAiRouter from "./blog-ai";
 
 const router = Router();
 
@@ -80,6 +81,10 @@ router.use(marketingPageOgRouter);
 // + superadmin /admin/blog/* CRUD (requireSuperadmin per-route). NOT
 // tenant-scoped — this is LP Studio's own blog for the marketing apex.
 router.use(blogRouter);
+// Phase 3: AI-assisted publishing — superadmin /admin/blog/ai/* (metadata,
+// outline, draft). requireSuperadmin + shared rateLimit per-route; reuses the
+// app's OpenAI client + LP Studio brand-voice/strict-facts grounding.
+router.use(blogAiRouter);
 router.use(emailDomainRouter);
 router.use(brandedEmailSubdomainRouter);
 router.use(resultsRouter);
