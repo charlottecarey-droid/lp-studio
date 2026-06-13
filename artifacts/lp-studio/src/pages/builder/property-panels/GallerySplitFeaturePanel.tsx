@@ -1,5 +1,7 @@
 import type { GallerySplitFeatureBlockProps, GalleryImage } from "@/lib/block-types";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Plus, Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
@@ -18,6 +20,9 @@ export function GallerySplitFeaturePanel({ props, onChange }: Props) {
   const images = props.images ?? [];
   const updateImage = (i: number, patch: Partial<GalleryImage>) =>
     update({ images: images.map((img, idx) => (idx === i ? { ...img, ...patch } : img)) });
+  const removeImage = (i: number) => update({ images: images.filter((_, idx) => idx !== i) });
+  const addImage = () =>
+    update({ images: [...images, { id: `img-${Date.now()}`, src: "", alt: "" } as GalleryImage] });
 
   return (
     <div className="space-y-5">
@@ -51,11 +56,27 @@ export function GallerySplitFeaturePanel({ props, onChange }: Props) {
         </div>
         {images.map((img, i) => (
           <div key={img.id} className="border rounded-md p-3 space-y-2">
-            <span className="text-xs font-medium">Grid image {i + 1}</span>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium">Grid image {i + 1}</span>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                title="Remove image"
+                aria-label="Remove image"
+                onClick={() => removeImage(i)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
             <ImagePicker value={img.src} onChange={(src) => updateImage(i, { src })} label="Image" aiHint={img.caption || "Lifestyle photo"} />
             <Input value={img.alt ?? ""} onChange={(e) => updateImage(i, { alt: e.target.value })} placeholder="Alt text (optional)" className="h-8 text-xs" />
           </div>
         ))}
+        <Button type="button" size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={addImage}>
+          <Plus className="h-3.5 w-3.5" /> Add grid image
+        </Button>
       </div>
 
       <div className="space-y-3">

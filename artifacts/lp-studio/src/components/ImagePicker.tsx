@@ -122,7 +122,8 @@ export function ImagePicker({ value, onChange, label, placeholder, className, ai
               touch and disappears entirely when a broken image collapses the
               preview, so the remove affordance was effectively missing. */}
           <button
-            onClick={() => onChange("")}
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onChange(""); }}
             className="absolute top-1 right-1 z-10 bg-black/60 hover:bg-destructive text-white rounded-full p-1 opacity-100 transition-colors"
             title="Remove image"
             aria-label="Remove image"

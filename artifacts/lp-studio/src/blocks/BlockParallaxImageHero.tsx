@@ -361,21 +361,36 @@ export function BlockParallaxImageHero({
         className="relative z-20 flex flex-col h-full"
         style={{ minHeight: minH }}
       >
-        {/* Top row: eyebrow (left) + reference label (right) */}
-        <div className="flex items-start justify-between px-6 sm:px-10 lg:px-16 pt-6 sm:pt-8 lg:pt-10">
-          <InlineText
-            as="div"
-            className="text-[11px] sm:text-xs tracking-[0.2em] uppercase opacity-90"
-            value={props.eyebrow ?? ""}
-            onUpdate={f("eyebrow")}
-          />
-          <InlineText
-            as="div"
-            className="text-[11px] sm:text-xs tracking-[0.2em] uppercase opacity-70"
-            value={props.referenceLabel ?? ""}
-            onUpdate={f("referenceLabel")}
-          />
-        </div>
+        {/* Top row: optional eyebrow (left) + optional reference label (right).
+            Both default to empty and render NOTHING in viewer mode — they're
+            opt-in accents now. In the editor the row still renders (with
+            placeholders) so the fields stay reachable to add text back. */}
+        {(isEditor ||
+          (props.eyebrow ?? "").trim().length > 0 ||
+          (props.referenceLabel ?? "").trim().length > 0) && (
+          <div className="flex items-start justify-between px-6 sm:px-10 lg:px-16 pt-6 sm:pt-8 lg:pt-10">
+            {isEditor || (props.eyebrow ?? "").trim().length > 0 ? (
+              <InlineText
+                as="div"
+                className="text-[11px] sm:text-xs tracking-[0.2em] uppercase opacity-90"
+                value={props.eyebrow ?? ""}
+                onUpdate={f("eyebrow")}
+              />
+            ) : (
+              <span aria-hidden />
+            )}
+            {isEditor || (props.referenceLabel ?? "").trim().length > 0 ? (
+              <InlineText
+                as="div"
+                className="text-[11px] sm:text-xs tracking-[0.2em] uppercase opacity-70"
+                value={props.referenceLabel ?? ""}
+                onUpdate={f("referenceLabel")}
+              />
+            ) : (
+              <span aria-hidden />
+            )}
+          </div>
+        )}
 
         {/* Center-left headline */}
         <div className="flex-1 flex items-center px-6 sm:px-10 lg:px-16">
@@ -402,6 +417,17 @@ export function BlockParallaxImageHero({
                 )
               )}
             </h1>
+            {/* Optional subheadline — on-brand body copy below the headline.
+                Renders only when set (or in the editor so it's reachable). */}
+            {(isEditor || (props.subheadline ?? "").trim().length > 0) && (
+              <InlineText
+                as="p"
+                className="mt-5 text-base sm:text-lg md:text-xl leading-relaxed max-w-[640px] opacity-90"
+                value={props.subheadline ?? ""}
+                onUpdate={f("subheadline")}
+                style={{ color: textColor, fontFamily: BODY }}
+              />
+            )}
             {isEditor && (
               <div className="mt-3 text-xs opacity-60 italic">
                 Tip: Edit "Accent word" in the right panel — that word will appear italic and in your accent color.
@@ -456,10 +482,17 @@ export function BlockParallaxImageHero({
                 <ArrowRight className="w-4 h-4" />
               </a>
             ) : (
+              // "link" keeps the legacy underlined affordance; "inline" is the
+              // cleaner text-link-with-arrow (no underline).
               <a
                 href={props.ctaUrl || "#"}
                 onClick={handleCtaClick}
-                className="group inline-flex items-center gap-2 text-sm sm:text-base border-b border-white/70 pb-1 hover:border-white transition-colors"
+                className={cn(
+                  "group inline-flex items-center gap-2 text-sm sm:text-base transition-colors",
+                  ctaStyle === "inline"
+                    ? "hover:opacity-80"
+                    : "border-b border-white/70 pb-1 hover:border-white",
+                )}
                 style={{ color: textColor }}
               >
                 <InlineText
@@ -475,14 +508,19 @@ export function BlockParallaxImageHero({
             <span aria-hidden />
           )}
 
-          <div className="flex items-center gap-2 text-2xl sm:text-3xl lg:text-4xl">
-            {props.brandMarkLogoUrl ? (
+          {/* Optional bottom-right brand mark. Off by default — only renders
+              when a logo URL or mark text is set (or in the editor so the
+              field stays reachable). Never a hardcoded brand wordmark. */}
+          {props.brandMarkLogoUrl ? (
+            <div className="flex items-center gap-2 text-2xl sm:text-3xl lg:text-4xl">
               <img
                 src={props.brandMarkLogoUrl}
                 alt={props.brandMark || "Brand"}
                 className="h-7 sm:h-8 lg:h-10 w-auto object-contain"
               />
-            ) : (
+            </div>
+          ) : (isEditor || (props.brandMark ?? "").trim().length > 0) ? (
+            <div className="flex items-center gap-2 text-2xl sm:text-3xl lg:text-4xl">
               <InlineText
                 as="span"
                 className={cn(
@@ -492,8 +530,10 @@ export function BlockParallaxImageHero({
                 value={props.brandMark ?? ""}
                 onUpdate={f("brandMark")}
               style={{ fontFamily: BODY }}/>
-            )}
-          </div>
+            </div>
+          ) : (
+            <span aria-hidden />
+          )}
         </div>
       </div>
 

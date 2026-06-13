@@ -1198,9 +1198,12 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     category: "Layout",
     defaultProps: (): ParallaxImageHeroBlockProps => ({
       imageUrl: "",
-      eyebrow: "● NOW AVAILABLE",
-      referenceLabel: "01",
+      // Eyebrow / referenceLabel / brandMark intentionally empty so nothing
+      // renders by default — these are now optional opt-in accents.
+      eyebrow: "",
+      referenceLabel: "",
       headline: "Build something remarkable.",
+      subheadline: "",
       headlineAccentWord: "remarkable",
       ctaText: "",
       ctaUrl: "",

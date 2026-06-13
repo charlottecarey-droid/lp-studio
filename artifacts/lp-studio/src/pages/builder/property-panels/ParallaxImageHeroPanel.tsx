@@ -36,14 +36,15 @@ export function ParallaxImageHeroPanel({ props, onChange }: Props) {
       </div>
 
       <div className="space-y-2">
-        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Top corners</div>
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Top corners (optional)</div>
+        <p className="text-[10px] text-muted-foreground">Both are hidden by default — leave blank for a clean hero. Add text only if you want a top-row eyebrow / reference label.</p>
         <div>
-          <Label className="text-[11px] text-muted-foreground">Eyebrow (top-left)</Label>
-          <Input value={props.eyebrow ?? ""} onChange={(e) => u({ eyebrow: e.target.value })} className="h-8 text-xs" placeholder="● NOW AVAILABLE" />
+          <Label className="text-[11px] text-muted-foreground">Eyebrow (top-left) — optional</Label>
+          <Input value={props.eyebrow ?? ""} onChange={(e) => u({ eyebrow: e.target.value })} className="h-8 text-xs" placeholder="Leave blank to hide" />
         </div>
         <div>
-          <Label className="text-[11px] text-muted-foreground">Reference label (top-right)</Label>
-          <Input value={props.referenceLabel ?? ""} onChange={(e) => u({ referenceLabel: e.target.value })} className="h-8 text-xs" placeholder="01" />
+          <Label className="text-[11px] text-muted-foreground">Reference label (top-right) — optional</Label>
+          <Input value={props.referenceLabel ?? ""} onChange={(e) => u({ referenceLabel: e.target.value })} className="h-8 text-xs" placeholder="Leave blank to hide" />
         </div>
       </div>
 
@@ -52,6 +53,11 @@ export function ParallaxImageHeroPanel({ props, onChange }: Props) {
         <div>
           <Label className="text-[11px] text-muted-foreground">Headline</Label>
           <Input value={props.headline ?? ""} onChange={(e) => u({ headline: e.target.value })} className="h-8 text-xs" placeholder="Build something remarkable." />
+        </div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Subheadline — optional</Label>
+          <Input value={props.subheadline ?? ""} onChange={(e) => u({ subheadline: e.target.value })} className="h-8 text-xs" placeholder="Leave blank to hide" />
+          <div className="text-[10px] text-muted-foreground mt-1">Supporting line rendered below the headline.</div>
         </div>
         <div>
           <Label className="text-[11px] text-muted-foreground">Accent word (italic + colored)</Label>
@@ -90,11 +96,12 @@ export function ParallaxImageHeroPanel({ props, onChange }: Props) {
           <Label className="text-[11px] text-muted-foreground">CTA style</Label>
           <Select
             value={props.ctaStyle ?? "link"}
-            onValueChange={(v) => u({ ctaStyle: v as "link" | "buttons" | "email-capture" })}
+            onValueChange={(v) => u({ ctaStyle: v as "link" | "inline" | "buttons" | "email-capture" })}
           >
             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="link">Underlined link (default)</SelectItem>
+              <SelectItem value="inline">Inline text link (arrow, no underline)</SelectItem>
               <SelectItem value="buttons">Pill button</SelectItem>
               <SelectItem value="email-capture">Inline email-capture pill</SelectItem>
             </SelectContent>
@@ -167,7 +174,7 @@ export function ParallaxImageHeroPanel({ props, onChange }: Props) {
           />
         )}
 
-        {(props.ctaStyle ?? "link") !== "link" && (
+        {(props.ctaStyle ?? "link") !== "link" && (props.ctaStyle ?? "link") !== "inline" && (
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="text-[11px] text-muted-foreground">Button color</Label>
@@ -198,13 +205,14 @@ export function ParallaxImageHeroPanel({ props, onChange }: Props) {
       </div>
 
       <div className="space-y-2">
-        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Brand mark (bottom-right)</div>
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Brand mark (bottom-right) — optional</div>
+        <p className="text-[10px] text-muted-foreground">Off by default — nothing shows unless you add text or a logo here.</p>
         <div>
-          <Label className="text-[11px] text-muted-foreground">Brand mark text</Label>
-          <Input value={props.brandMark ?? ""} onChange={(e) => u({ brandMark: e.target.value })} className="h-8 text-xs" placeholder="brand" />
+          <Label className="text-[11px] text-muted-foreground">Brand mark text — optional</Label>
+          <Input value={props.brandMark ?? ""} onChange={(e) => u({ brandMark: e.target.value })} className="h-8 text-xs" placeholder="Leave blank to hide" />
         </div>
         <div>
-          <Label className="text-[11px] text-muted-foreground">Brand mark logo (overrides text)</Label>
+          <Label className="text-[11px] text-muted-foreground">Brand mark logo (overrides text) — optional</Label>
           <ImagePicker value={props.brandMarkLogoUrl ?? ""} onChange={(url) => u({ brandMarkLogoUrl: url })} />
         </div>
       </div>

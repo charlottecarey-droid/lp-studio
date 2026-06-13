@@ -594,18 +594,25 @@ function ProductLineCard({ product, onChange, onRemove, strictMode }: {
                         loading="lazy"
                         onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0.3"; }}
                       />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute top-0.5 right-0.5 h-5 w-5 p-0 text-white bg-black/60 hover:bg-destructive hover:text-white rounded-full opacity-100 transition-opacity"
+                      {/* Native button (not shadcn <Button>, which defaults to
+                          type="submit" and would submit any wrapping form on
+                          click instead of removing). z-10 keeps it above the
+                          <img>; stopPropagation guards against any clickable
+                          ancestor swallowing the click. */}
+                      <button
+                        type="button"
+                        className="absolute top-1 right-1 z-10 inline-flex items-center justify-center h-6 w-6 p-0 text-white bg-black/60 hover:bg-destructive hover:text-white rounded-full opacity-100 transition-colors"
                         title="Remove content image"
-                        onClick={() => {
+                        aria-label="Remove content image"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
                           const next = (product.contentImages ?? []).filter((_, j) => j !== ci);
                           onChange("contentImages", next);
                         }}
                       >
-                        <X className="w-3 h-3" />
-                      </Button>
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   ))}
                 </div>

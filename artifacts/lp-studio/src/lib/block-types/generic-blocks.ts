@@ -590,9 +590,16 @@ export interface ParallaxImageHeroBlockProps extends CtaModalConfig {
    *  acts as a poster + reduced-motion fallback. */
   videoUrl?: string;
   videoAutoplay?: boolean;
-  eyebrow: string;
-  referenceLabel: string;
+  /** Optional top-row eyebrow (top-left). Hidden by default — only renders
+   *  when set, or in the editor. Previously always shown. */
+  eyebrow?: string;
+  /** Optional top-row reference label (top-right). Hidden by default — only
+   *  renders when set, or in the editor. Previously always shown. */
+  referenceLabel?: string;
   headline: string;
+  /** Optional supporting line rendered below the headline. On-brand body
+   *  (Inter). Only renders when set (or in the editor). */
+  subheadline?: string;
   headlineAccentWord?: string;
   accentColor?: string;
   ctaText: string;
@@ -602,11 +609,15 @@ export interface ParallaxImageHeroBlockProps extends CtaModalConfig {
    *  "modal-chilipiper" open the shared EmailCaptureModal. Mirrors the
    *  Heartland hero's primaryCtaMode. */
   ctaMode?: CtaMode;
-  /** CTA presentation style. "link" (default) renders the original
-   *  underlined arrow link — preserves existing pages. "buttons" renders a
-   *  pill button; "email-capture" renders an inline pill-shaped email field
-   *  with a submit button (mirrors the Heartland hero). */
-  ctaStyle?: "link" | "buttons" | "email-capture";
+  /** CTA presentation style.
+   *  - "link" (default / legacy): underlined arrow text link — preserves
+   *    existing placed pages.
+   *  - "inline": text link with a trailing arrow, no underline (a cleaner
+   *    inline affordance). Renders identically to "link"'s inline arrow.
+   *  - "buttons": a filled pill button.
+   *  - "email-capture": an inline pill-shaped email field with a submit
+   *    button (mirrors the Heartland hero). */
+  ctaStyle?: "link" | "inline" | "buttons" | "email-capture";
   /** Placeholder for the email-capture input. Defaults to "Email address". */
   emailCapturePlaceholder?: string;
   /** Submit button label for the email-capture form. Defaults to the CTA text. */
@@ -620,7 +631,9 @@ export interface ParallaxImageHeroBlockProps extends CtaModalConfig {
    *  - "modal-form": open the shared modal with a customizable form
    *  - "modal-chilipiper": open the shared modal with a Chili Piper iframe */
   submitMode?: "navigate" | "modal-form" | "modal-chilipiper";
-  brandMark: string;
+  /** Optional bottom-right brand mark (text). Hidden by default — only
+   *  renders when set, or in the editor. Never a hardcoded brand wordmark. */
+  brandMark?: string;
   brandMarkLogoUrl?: string;
   overlayOpacity: number;
   overlayColor?: string;
