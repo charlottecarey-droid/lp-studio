@@ -174,10 +174,10 @@ export function TicTacToeReveal() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 font-sans text-slate-900">
-      <div className="w-full max-w-xl mx-auto space-y-6">
+      <div className="w-full max-w-md mx-auto space-y-6">
 
         {/* Header — sells the "building your page" illusion, then softens */}
-        <div className="flex items-center justify-between px-1">
+        <div className="flex items-center justify-center px-1">
           <div className="flex items-center gap-3">
             <Loader2 className="w-5 h-5 animate-spin text-teal-600" />
             <div>
@@ -201,7 +201,7 @@ export function TicTacToeReveal() {
             <span className="ml-3 text-[11px] text-slate-400 truncate">northwinddental.com</span>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 w-fit mx-auto">
             {board.map((cell, idx) => {
               const isIn = idx < assembled;
               return (
@@ -210,7 +210,7 @@ export function TicTacToeReveal() {
                   onClick={() => handlePlay(idx)}
                   disabled={showingPage || !!cell || !!winner || !xIsNext || aiThinking}
                   style={showingPage ? { transitionDelay: `${idx * 40}ms` } : undefined}
-                  className={`relative w-24 h-24 rounded-xl flex items-center justify-center overflow-hidden transition-all duration-500
+                  className={`relative w-28 h-28 rounded-xl flex items-center justify-center overflow-hidden transition-all duration-500
                     ${showingPage
                       ? `bg-slate-50 ${isIn ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`
                       : 'bg-slate-50 opacity-100 scale-100'}
