@@ -277,6 +277,9 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "storybrand-journey": ["content"],
   "exec-decision-brief": ["content"],
   "challenger-insight": ["content"],
+  "deal-room": ["content"],
+  "onboarding-hub": ["content"],
+  "value-renewal-review": ["content"],
 
   // ── Showcase ────────────────────────────────────────────────────────────────
   "sticky-stack": ["features", "media"],
@@ -361,6 +364,9 @@ export const FULL_PAGE_BLOCK_TYPES: ReadonlySet<string> = new Set([
   "storybrand-journey",
   "exec-decision-brief",
   "challenger-insight",
+  "deal-room",
+  "onboarding-hub",
+  "value-renewal-review",
 ]);
 
 /** True when a block type renders an entire standalone full-page template. */

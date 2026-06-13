@@ -1819,7 +1819,7 @@ async function runMigrationsBody(): Promise<void> {
       // keyword row on databases seeded before v31 — the dedicated
       // storefront_intent_keywords_v1 step further down force-updates that one
       // row to the trimmed seed list.
-      const SEED_MARKER = "global_templates_seed_v31";
+      const SEED_MARKER = "global_templates_seed_v32";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;

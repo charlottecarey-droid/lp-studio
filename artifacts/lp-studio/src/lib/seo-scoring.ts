@@ -140,6 +140,7 @@ export const SOCIAL_PROOF_TYPES = new Set([
   // metrics, testimonials, ROI math) as its dominant SEO/GEO value — like
   // business-case-*, kept DISTINCT from AUTHORITY so a page earns it once.
   "storybrand-journey", "exec-decision-brief", "challenger-insight",
+  "deal-room", "onboarding-hub", "value-renewal-review",
   "logo-wall", "logo-marquee", "avatar-social-proof",
   // New graduated quote / testimonial / case-study section blocks. The
   // case-study-* blocks also carry a "stats" tag but stay social-proof only

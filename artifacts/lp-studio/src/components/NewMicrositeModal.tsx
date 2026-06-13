@@ -12,7 +12,7 @@
 // `?salesMode=true`) under a separate "Frameworks & layouts" group. The full
 // off-brand global SaaS starter library is still NEVER shown, so every
 // microsite stays on-brand.
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import {
   Building2,
@@ -61,6 +61,62 @@ interface TenantTemplate {
    *  MEDDIC exec-decision-brief / Challenger + business-case all-in-ones).
    *  Used to group them separately from the tenant's own templates. */
   isGlobal?: boolean;
+  /** Stored on lp_pages — present in the GET /lp/templates response. Used to
+   *  derive the ABM funnel-stage grouping for the global all-in-one templates
+   *  (the funnelStage seed tag is NOT persisted to a DB column, so we derive
+   *  the stage from the slug, falling back to category). Both optional. */
+  slug?: string | null;
+  category?: string | null;
+}
+
+// ── ABM funnel-stage grouping for global all-in-one templates ────────────────
+// The seed's `funnelStage` tag is intentionally NOT persisted to a DB column
+// (additive + fail-open), so the modal derives the stage client-side from the
+// template slug (the seeds use stable `global-*` slugs), falling back to the
+// generic "Frameworks & layouts" bucket. Reps then pick by sales intent.
+type FunnelStage =
+  | "first-meeting"
+  | "deal-acceleration"
+  | "onboarding"
+  | "expansion-renewal"
+  | "other";
+
+const FUNNEL_STAGE_ORDER: FunnelStage[] = [
+  "first-meeting",
+  "deal-acceleration",
+  "onboarding",
+  "expansion-renewal",
+  "other",
+];
+
+const FUNNEL_STAGE_LABEL: Record<FunnelStage, string> = {
+  "first-meeting": "First meeting",
+  "deal-acceleration": "Accelerate the deal",
+  onboarding: "Onboard",
+  "expansion-renewal": "Expand & renew",
+  other: "Frameworks & layouts",
+};
+
+/** Map a global template to its ABM funnel stage from the slug (stable), then
+ *  a couple of slug heuristics, else "other". Fail-open: anything we can't
+ *  place lands in the generic "Frameworks & layouts" group. */
+function funnelStageForTemplate(t: TenantTemplate): FunnelStage {
+  const slug = (t.slug ?? "").toLowerCase();
+  if (slug === "global-deal-room") return "deal-acceleration";
+  if (slug === "global-onboarding-hub") return "onboarding";
+  if (slug === "global-value-renewal-review") return "expansion-renewal";
+  if (
+    slug === "global-storybrand-journey" ||
+    slug === "global-exec-decision-brief" ||
+    slug === "global-challenger-insight"
+  ) {
+    return "first-meeting";
+  }
+  // Slug heuristics for any future ABM seeds that follow the naming convention.
+  if (/deal[-_]?room|mutual[-_]?action/.test(slug)) return "deal-acceleration";
+  if (/onboard|kickoff|welcome/.test(slug)) return "onboarding";
+  if (/renew|qbr|expansion|value[-_]?review/.test(slug)) return "expansion-renewal";
+  return "other";
 }
 
 type Mode = "template" | "ai";
@@ -240,6 +296,23 @@ export function NewMicrositeModal({ open, onClose }: Props) {
     () => accounts.find(a => String(a.id) === accountId) ?? null,
     [accounts, accountId],
   );
+
+  // Group the global all-in-one templates by ABM funnel stage so reps pick by
+  // intent ("First meeting" → "Accelerate the deal" → "Onboard" → "Expand &
+  // renew"). Stable stage order; empty stages are dropped. Fail-open: anything
+  // unplaceable falls into the generic "Frameworks & layouts" group.
+  const globalTemplateGroups = useMemo(() => {
+    const byStage = new Map<FunnelStage, TenantTemplate[]>();
+    for (const t of globalTemplates) {
+      const stage = funnelStageForTemplate(t);
+      const arr = byStage.get(stage) ?? [];
+      arr.push(t);
+      byStage.set(stage, arr);
+    }
+    return FUNNEL_STAGE_ORDER
+      .map((stage) => ({ stage, label: FUNNEL_STAGE_LABEL[stage], items: byStage.get(stage) ?? [] }))
+      .filter((g) => g.items.length > 0);
+  }, [globalTemplates]);
 
   // Prefill the segment pickers with the rep's last-used segment for this
   // account. Only runs while the modal is open and an account is selected;
@@ -821,30 +894,32 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                         </p>
                       </button>
                     ))}
-                    {globalTemplates.length > 0 && (
-                      <p className="col-span-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground mt-1">
-                        Frameworks &amp; layouts
-                      </p>
-                    )}
-                    {globalTemplates.map((t) => (
-                      <button
-                        key={`g-${t.id}`}
-                        type="button"
-                        onClick={() => setSelectedTemplateId(t.id)}
-                        className={cn(
-                          "text-left p-3 rounded-lg border text-sm transition-all",
-                          selectedTemplateId === t.id
-                            ? "border-primary bg-primary/5 ring-1 ring-primary"
-                            : "border-border hover:border-primary/30 hover:bg-muted/50",
-                        )}
-                      >
-                        <p className="font-medium text-xs text-foreground line-clamp-1">
-                          {t.templateLabel || t.title}
+                    {globalTemplateGroups.map((group) => (
+                      <Fragment key={`grp-${group.stage}`}>
+                        <p className="col-span-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground mt-1">
+                          {group.label}
                         </p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">
-                          {t.templateDescription || "Shared framework"}
-                        </p>
-                      </button>
+                        {group.items.map((t) => (
+                          <button
+                            key={`g-${t.id}`}
+                            type="button"
+                            onClick={() => setSelectedTemplateId(t.id)}
+                            className={cn(
+                              "text-left p-3 rounded-lg border text-sm transition-all",
+                              selectedTemplateId === t.id
+                                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                : "border-border hover:border-primary/30 hover:bg-muted/50",
+                            )}
+                          >
+                            <p className="font-medium text-xs text-foreground line-clamp-1">
+                              {t.templateLabel || t.title}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">
+                              {t.templateDescription || "Shared framework"}
+                            </p>
+                          </button>
+                        ))}
+                      </Fragment>
                     ))}
                   </div>
                   {!loadingData && templates.length === 0 && globalTemplates.length === 0 && (
@@ -955,15 +1030,18 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                         ))}
                       </optgroup>
                     )}
-                    {globalTemplates.length > 0 && (
-                      <optgroup label="Frameworks & layouts (AI fills copy only)">
-                        {globalTemplates.map((t) => (
+                    {globalTemplateGroups.map((group) => (
+                      <optgroup
+                        key={`grp-${group.stage}`}
+                        label={`${group.label} (AI fills copy only)`}
+                      >
+                        {group.items.map((t) => (
                           <option key={`g-${t.id}`} value={String(t.id)}>
                             {t.templateLabel || t.title}
                           </option>
                         ))}
                       </optgroup>
-                    )}
+                    ))}
                   </select>
                   {!loadingData && templates.length === 0 && globalTemplates.length === 0 && (
                     <p className="text-[11px] text-muted-foreground mt-2">

@@ -31,6 +31,17 @@ export type TemplateCategory =
   | "saas-launch"
   | "generic";
 
+/** ABM funnel stage (June 2026). An ADDITIVE, OPTIONAL grouping tag for the
+ *  all-in-one framework / microsite templates so the create-microsite modal can
+ *  group them by sales intent. Omitted = ungrouped (fail-open). Not persisted to
+ *  a DB column — derived/grouped client-side from the seed (and, where the seed
+ *  isn't available, from slug/category). */
+export type TemplateFunnelStage =
+  | "first-meeting"
+  | "deal-acceleration"
+  | "onboarding"
+  | "expansion-renewal";
+
 export interface GlobalTemplateSeed {
   slug: string;
   title: string;
@@ -59,6 +70,11 @@ export interface GlobalTemplateSeed {
    *  templates enter the intent selector's candidate set. Stored on
    *  lp_pages.is_all_in_one. */
   isAllInOne?: boolean;
+  /** ABM funnel-stage grouping tag (June 2026). Optional + fail-open: the
+   *  microsite modal groups all-in-one templates by this when present and falls
+   *  back to slug/category-derived grouping otherwise. Not persisted to a DB
+   *  column. */
+  funnelStage?: TemplateFunnelStage;
 }
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
@@ -3579,6 +3595,263 @@ const CHALLENGER_INSIGHT_GENERIC_PROPS = {
   tensionLine: "Doing nothing is also a decision.",
 } as Record<string, unknown>;
 
+// ── ABM funnel-stage microsite default props ────────────────────────────────
+// Mirrored from each block component's exported *_DEFAULT_PROPS. No palette keys
+// (the blocks derive every color from the tenant BrandConfig), no baked logos /
+// avatars, no Dandy/dental vocabulary; uses the {{company_name}} token.
+
+const DEAL_ROOM_GENERIC_PROPS = {
+  ctaText: "Book the next step",
+  ctaUrl: "#close",
+  ctaAction: "url",
+  ctaSecondaryText: "Forward this deal room",
+  ctaSecondaryUrl: "#",
+  eyebrow: "Deal room for {{company_name}}",
+  accountName: "Acme",
+  yourName: "Your Co",
+  showYourLogo: true,
+  headline: "The shared path from pilot to go-live — in one place.",
+  subheadline:
+    "Everything your team needs to decide together: the plan, the business case, the proof, and the people. Built for this deal, kept current as we go.",
+  showPlan: true,
+  planKicker: "Mutual action plan",
+  planHeading: "The steps to go-live — owners and dates agreed.",
+  planIntro:
+    "A shared plan beats a sales pitch. Here's what we move through together, who owns each step, and when it lands.",
+  planSteps: [
+    { title: "Discovery & alignment", owner: "Both teams", date: "Done", detail: "Success criteria, scope, and data access agreed in a working session.", status: "done" },
+    { title: "Security review", owner: "Your IT + procurement", date: "This week", detail: "SOC 2 package, DPA, and architecture review with your security team.", status: "in-progress" },
+    { title: "Pilot", owner: "Both teams", date: "Weeks 3–8", detail: "Two live workflows in one team, measured against the baseline we set.", status: "upcoming" },
+    { title: "Executive review", owner: "Your sponsor", date: "Week 9", detail: "Pilot results to the committee; contract and rollout plan on the table.", status: "upcoming" },
+    { title: "Go-live", owner: "Both teams", date: "Week 12", detail: "Full rollout with a named team and response SLAs in the contract.", status: "upcoming" },
+  ],
+  showCase: true,
+  caseKicker: "The business case",
+  caseHeading: "What this is worth to your team.",
+  caseIntro:
+    "Built from the numbers you shared. Totals are estimates we refine together during the pilot — not a quote.",
+  investmentLabel: "Investment",
+  investmentItems: [
+    { label: "Platform (annual)", value: "$120,000" },
+    { label: "Implementation (one-time)", value: "$18,000" },
+    { label: "Training & enablement", value: "Included" },
+  ],
+  investmentTotalLabel: "Year-one investment",
+  investmentTotal: "$138,000",
+  returnLabel: "Return",
+  returnItems: [
+    { label: "Hours reclaimed", value: "$210,000" },
+    { label: "Error & penalty reduction", value: "$96,000" },
+    { label: "Faster cycle time", value: "$54,000" },
+  ],
+  returnTotalLabel: "Year-one return",
+  returnTotal: "$360,000",
+  paybackLabel: "Payback",
+  paybackValue: "4.6 months",
+  caseFootnote:
+    "Based on current volume and the loaded labor rates your team supplied. We refine these jointly during the pilot.",
+  countUpMs: 1400,
+  showStakeholders: true,
+  stakeholdersKicker: "Who's involved",
+  stakeholdersHeading: "What each person gets out of this.",
+  stakeholdersIntro:
+    "A deal moves when everyone sees their own win. Here's the value for each role at the table.",
+  stakeholders: [
+    { role: "Champion", gets: "A plan that runs itself and a partner who keeps the deal moving — not more work." },
+    { role: "Economic buyer", gets: "Payback inside five months and a return that clears the bar, with the math on the record." },
+    { role: "Technical lead", gets: "SOC 2, SSO/SCIM, native integrations, and an open API — reviewed before sign-off." },
+    { role: "End users", gets: "Hours back every week and an end to the rework, with a guided rollout that doesn't disrupt." },
+  ],
+  showProof: true,
+  proofKicker: "Proof for this buyer",
+  proofHeading: "Teams like yours, already there.",
+  caseStudies: [
+    { name: "Northwind", result: "34% lower cost per order within 90 days", quote: "We expected a six-month slog. We were measuring savings by week four, and the rollout never fought our team.", attribution: "VP Operations, Northwind" },
+    { name: "Vertex Logistics", result: "4.1× faster exception resolution", quote: "Escalations used to disappear into shared inboxes. Now every one has an owner and a clock.", attribution: "Director of Support, Vertex Logistics" },
+  ],
+  logoWallLabel: "In good company",
+  logos: [
+    { name: "Acme Corp" }, { name: "Northwind" }, { name: "Globex" }, { name: "Initech" }, { name: "Vertex" },
+  ],
+  showResources: true,
+  resourcesKicker: "Resources",
+  resourcesHeading: "The docs your team will ask for.",
+  resources: [
+    { title: "Security & compliance overview", type: "PDF · Security", url: "#" },
+    { title: "Pricing & packaging", type: "PDF · Pricing", url: "#" },
+    { title: "Implementation plan", type: "PDF · Onboarding", url: "#" },
+  ],
+  showFaq: true,
+  faqKicker: "Objection handling",
+  faqHeading: "The questions your team will raise.",
+  faqs: [
+    { question: "How long until we see value?", answer: "First workflows go live in week three of the pilot, and most teams measure savings inside the first 90 days." },
+    { question: "What does this ask of our IT team?", answer: "A security review and SSO setup — that's it. Native connectors cover your stack, with an open API for the long tail." },
+    { question: "What happens if the pilot doesn't hit the bar?", answer: "We set the success criteria together up front. If the pilot misses them, you walk — no contract, no commitment." },
+    { question: "How is pricing structured as we grow?", answer: "A flat platform fee with unlimited seats, so rollout never fights the meter. No per-seat penalty for the adoption you want." },
+  ],
+  showClose: true,
+  closeKicker: "Next step",
+  closeHeading: "Ready to move? Let's book it.",
+  closeIntro:
+    "Pick a time that works for your team and we'll walk the plan together. Bring whoever needs to be in the room.",
+  footerNote: "Shared for internal review. Figures and dates refined jointly as we go.",
+} as Record<string, unknown>;
+
+const ONBOARDING_HUB_GENERIC_PROPS = {
+  ctaText: "Book your kickoff call",
+  ctaUrl: "#support",
+  ctaAction: "url",
+  ctaSecondaryText: "Jump to your checklist",
+  ctaSecondaryUrl: "#checklist",
+  eyebrow: "Welcome to {{company_name}}",
+  accountName: "Acme",
+  headline: "Welcome, Acme. Here's your path to your first win.",
+  subheadline:
+    "Everything you need to get started, in one place: your plan, your team, your first actions, and the outcomes we're aiming for together. We'll move at your pace.",
+  showLogo: true,
+  showPlan: true,
+  planKicker: "Your onboarding plan",
+  planHeading: "Four phases, from kickoff to full rollout.",
+  planIntro:
+    "A clear plan beats a pile of to-dos. Here's what we move through together, who leads each phase, and roughly when it lands.",
+  phases: [
+    { title: "Kickoff", owner: "You + your CSM", timeframe: "Week 1", detail: "We meet your team, confirm goals, and agree what a first win looks like.", status: "done" },
+    { title: "Setup", owner: "You + implementation", timeframe: "Weeks 1–2", detail: "Connect your tools, invite your team, and configure the basics together.", status: "in-progress" },
+    { title: "First value", owner: "Both teams", timeframe: "Weeks 2–4", detail: "Run your first real workflow and see the first measurable result.", status: "upcoming" },
+    { title: "Full rollout", owner: "Both teams", timeframe: "Weeks 4–8", detail: "Roll out to the wider team with a named contact and a regular check-in.", status: "upcoming" },
+  ],
+  showTeam: true,
+  teamKicker: "Your team",
+  teamHeading: "The people in your corner.",
+  teamIntro:
+    "You're not doing this alone. Here's who to reach, and what each of us is here to help with.",
+  contacts: [
+    { name: "Dana Ruiz", role: "Customer Success Manager", blurb: "Your main point of contact — goals, check-ins, and anything that's blocking you.", email: "dana@example.com" },
+    { name: "Marcus Lee", role: "Implementation Specialist", blurb: "Hands-on setup, integrations, and getting your data flowing cleanly.", email: "marcus@example.com" },
+    { name: "Priya Shah", role: "Support Lead", blurb: "Quick answers when you need them, with a one-hour response on anything urgent.", email: "support@example.com" },
+  ],
+  showChecklist: true,
+  checklistKicker: "Getting started",
+  checklistHeading: "Your first few actions.",
+  checklistIntro:
+    "Knock these out in your first week and you'll be set up for that first win. None of them take long.",
+  checklist: [
+    { label: "Complete your kickoff call", hint: "30 minutes with your CSM to confirm goals.", done: true },
+    { label: "Invite your team", hint: "Add the people who'll use this day to day." },
+    { label: "Connect your first integration", hint: "Link the tool you'll use most so data flows in." },
+    { label: "Set up your first workflow", hint: "Start with one real use case, not all of them." },
+    { label: "Review your success metrics", hint: "Agree what we'll measure so progress is clear." },
+  ],
+  showResources: true,
+  resourcesKicker: "Resources & training",
+  resourcesHeading: "Everything you'll want to reference.",
+  resourceGroups: [
+    { heading: "Set up", resources: [
+      { title: "Quick-start guide", meta: "5 min read", url: "#", kind: "guide" },
+      { title: "Connecting your integrations", meta: "Doc", url: "#", kind: "doc" },
+      { title: "Setup walkthrough", meta: "Video · 6 min", url: "#", kind: "video" },
+    ] },
+    { heading: "Train your team", resources: [
+      { title: "Admin basics", meta: "Video · 8 min", url: "#", kind: "video" },
+      { title: "Inviting and managing users", meta: "Doc", url: "#", kind: "doc" },
+      { title: "Power-user playbook", meta: "10 min read", url: "#", kind: "guide" },
+    ] },
+  ],
+  showSuccess: true,
+  successKicker: "What success looks like",
+  successHeading: "The outcomes we're aiming for together.",
+  successIntro:
+    "These are the markers we'll watch over your first 90 days, so we both know it's working — and where to help.",
+  metrics: [
+    { value: "30 days", label: "To your first measurable win", source: "Typical for teams your size" },
+    { value: "90%", label: "Of your team active in month one", source: "Our onboarding benchmark" },
+    { value: "3x", label: "Faster than setting up alone", source: "Vs. self-serve, on average" },
+  ],
+  countUpMs: 1400,
+  showSupport: true,
+  supportKicker: "Support & next check-in",
+  supportHeading: "We're here whenever you need us.",
+  supportIntro:
+    "Stuck on something or ready to go deeper? Book your next review and we'll walk it through together. Bring whoever's working alongside you.",
+  footerNote: "Your onboarding plan stays current here — we'll keep it updated as we go.",
+} as Record<string, unknown>;
+
+const VALUE_RENEWAL_REVIEW_GENERIC_PROPS = {
+  ctaText: "Book your renewal conversation",
+  ctaUrl: "#close",
+  ctaAction: "url",
+  ctaSecondaryText: "See what's next",
+  ctaSecondaryUrl: "#expansion",
+  eyebrow: "Value review for {{company_name}}",
+  accountName: "Acme",
+  yourName: "Your Co",
+  headline: "Acme: your year with Your Co.",
+  subheadline:
+    "A year in, the numbers are clear: faster work, fewer errors, and a team that's all-in. Here's what we delivered together — and where we go next.",
+  showLogo: true,
+  metaLine: "Annual review · 2026",
+  showValue: true,
+  valueKicker: "Value delivered",
+  valueHeading: "What this term was worth.",
+  valueIntro:
+    "The results your team realized over the last twelve months, measured against the baseline we set together.",
+  metrics: [
+    { value: "32%", label: "Lower cost per order", source: "vs. last term" },
+    { value: "$1.4M", label: "Realized return this term", source: "Net of platform cost" },
+    { value: "4.1x", label: "Faster exception resolution", source: "Across your workflows" },
+    { value: "94%", label: "Team active monthly", source: "Up from 61% at start" },
+  ],
+  countUpMs: 1400,
+  showUsage: true,
+  usageKicker: "Usage & adoption",
+  usageHeading: "Momentum built over the year.",
+  usageIntro:
+    "Adoption didn't spike and fade — it compounded. Here are the milestones your team hit, in order.",
+  milestones: [
+    { title: "Rolled out to all regions", when: "Q1", detail: "From one pilot team to the full org in under a quarter." },
+    { title: "Automated the top three workflows", when: "Q2", detail: "The manual rework that used to fill mornings, gone." },
+    { title: "Hit 90% monthly active", when: "Q3", detail: "Daily use became the default, not the exception." },
+    { title: "Launched executive reporting", when: "Q4", detail: "Leadership now sees the numbers without asking." },
+  ],
+  productUrlLabel: "app.yourco.com",
+  showWins: true,
+  winsKicker: "In their words",
+  winsHeading: "What your team is saying.",
+  wins: [
+    { quote: "We expected a tool. We got a step-change in how the team works — and the rollout never fought us.", attribution: "VP Operations, your team" },
+    { quote: "The escalations that used to disappear now have an owner and a clock. That alone paid for the year.", attribution: "Director of Support, your team" },
+  ],
+  showExpansion: true,
+  expansionKicker: "What's next",
+  expansionHeading: "Your roadmap for the year ahead.",
+  expansionIntro:
+    "Not an upsell — the next steps that build on what's already working. Pick what fits; we'll pace it with you.",
+  expansionItems: [
+    { title: "Advanced analytics", detail: "Turn the data you're already capturing into the forecasting your leadership keeps asking for.", tag: "Most-requested" },
+    { title: "Twenty more seats", detail: "Extend to the two teams on the waitlist, at the same flat rate — no per-seat penalty.", tag: "Ready now" },
+    { title: "A second use case", detail: "Apply the same playbook to procurement, where the manual load looks a lot like where you started.", tag: "Next quarter" },
+  ],
+  showRenewal: true,
+  renewalKicker: "The renewal",
+  renewalHeading: "Keep it going — same terms, no surprises.",
+  renewalIntro:
+    "Here's the renewal at a glance. Nothing changes unless you want it to, and expansion can fold in whenever you're ready.",
+  termRows: [
+    { label: "Plan", value: "Enterprise" },
+    { label: "Seats", value: "150 included" },
+    { label: "Term", value: "12 months" },
+    { label: "Renewal price", value: "No increase" },
+  ],
+  renewalNote: "One click to confirm, or bring questions to the call — whichever you prefer.",
+  showClose: true,
+  closeKicker: "Next steps",
+  closeHeading: "Let's talk through the year ahead.",
+  closeIntro:
+    "Book a time and we'll walk the renewal and the roadmap together. Bring whoever owns the relationship on your side.",
+  footerNote: "Prepared for your team. Figures reflect your account data as of this review.",
+} as Record<string, unknown>;
+
 const BUSINESS_CASE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
   {
     slug: "global-business-case-split",
@@ -3728,6 +4001,7 @@ const BUSINESS_CASE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
     keywords: ["business case", "executive brief", "storybrand", "story brand",
       "brandscript", "customer journey", "sb7", "narrative landing", "donald miller"],
     isAllInOne: true,
+    funnelStage: "first-meeting",
     blocks: [
       {
         id: "seed-storybrand-journey-1",
@@ -3749,6 +4023,7 @@ const BUSINESS_CASE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
     keywords: ["business case", "executive brief", "meddic", "meddpicc",
       "decision brief", "economic buyer", "champion", "decision criteria", "ROI case"],
     isAllInOne: true,
+    funnelStage: "first-meeting",
     blocks: [
       {
         id: "seed-exec-decision-brief-1",
@@ -3770,11 +4045,83 @@ const BUSINESS_CASE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
     keywords: ["business case", "executive brief", "challenger", "challenger sale",
       "commercial insight", "reframe", "status quo", "constructive tension", "teach tailor take control"],
     isAllInOne: true,
+    funnelStage: "first-meeting",
     blocks: [
       {
         id: "seed-challenger-insight-1",
         type: "challenger-insight",
         props: CHALLENGER_INSIGHT_GENERIC_PROPS,
+      },
+    ],
+  },
+  // ── ABM funnel-stage microsite all-in-ones (June 2026) ─────────────────────
+  //    Single-block ABM microsites grouped by sales intent in the create-
+  //    microsite modal (funnelStage). Like the framework templates above they
+  //    are isAllInOne + category "business-case" + industry null and enter the
+  //    intent selector's candidate set via their keywords.
+  {
+    slug: "global-deal-room",
+    title: "Deal Room",
+    templateLabel: "Deal Room",
+    templateDescription:
+      "ABM deal-acceleration microsite a rep shares with a buying committee: a personalized co-brand hero, a mutual action plan timeline, the business case with a count-up payback, a stakeholder map, proof and a logo wall, resource docs, an objection-handling FAQ, and a scheduling close. Inherits the tenant brand's colors and logo.",
+    ogImage: "https://images.unsplash.com/photo-1664575602554-2087b04935a5?w=1200&q=80",
+    industry: null,
+    premiumRank: 35,
+    category: "business-case",
+    keywords: ["deal room", "mutual action plan", "business case", "deal",
+      "champion", "next steps", "ABM", "buying committee", "deal acceleration"],
+    isAllInOne: true,
+    funnelStage: "deal-acceleration",
+    blocks: [
+      {
+        id: "seed-deal-room-1",
+        type: "deal-room",
+        props: DEAL_ROOM_GENERIC_PROPS,
+      },
+    ],
+  },
+  {
+    slug: "global-onboarding-hub",
+    title: "Onboarding Hub",
+    templateLabel: "Onboarding Hub",
+    templateDescription:
+      "ABM new-customer onboarding hub: a warm welcome hero, an onboarding phases timeline, your implementation contacts, a getting-started checklist, a resource library, success metrics, and a kickoff-scheduling close. Inherits the tenant brand's colors and logo.",
+    ogImage: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?w=1200&q=80",
+    industry: null,
+    premiumRank: 36,
+    category: "business-case",
+    keywords: ["onboarding", "welcome", "kickoff", "getting started",
+      "new customer", "implementation", "onboarding hub", "ABM"],
+    isAllInOne: true,
+    funnelStage: "onboarding",
+    blocks: [
+      {
+        id: "seed-onboarding-hub-1",
+        type: "onboarding-hub",
+        props: ONBOARDING_HUB_GENERIC_PROPS,
+      },
+    ],
+  },
+  {
+    slug: "global-value-renewal-review",
+    title: "Value & Renewal Review",
+    templateLabel: "Value & Renewal Review",
+    templateDescription:
+      "ABM expansion/renewal QBR readout a rep shares ahead of a quarterly business review: a value-recap hero, count-up results metrics, wins delivered, a roadmap of milestones, expansion opportunities, renewal terms, and a renewal-scheduling close. Inherits the tenant brand's colors and logo.",
+    ogImage: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&q=80",
+    industry: null,
+    premiumRank: 37,
+    category: "business-case",
+    keywords: ["renewal", "QBR", "expansion", "value review", "upsell",
+      "quarterly business review", "value & renewal", "ABM"],
+    isAllInOne: true,
+    funnelStage: "expansion-renewal",
+    blocks: [
+      {
+        id: "seed-value-renewal-review-1",
+        type: "value-renewal-review",
+        props: VALUE_RENEWAL_REVIEW_GENERIC_PROPS,
       },
     ],
   },

@@ -203,6 +203,9 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   "storybrand-journey": SELF_STYLED,
   "exec-decision-brief": SELF_STYLED,
   "challenger-insight": SELF_STYLED,
+  "deal-room": SELF_STYLED,
+  "onboarding-hub": SELF_STYLED,
+  "value-renewal-review": SELF_STYLED,
 
   // Self-styled content directory (owns its bg / surface) ------------------
   "resource-link-list": SELF_STYLED,

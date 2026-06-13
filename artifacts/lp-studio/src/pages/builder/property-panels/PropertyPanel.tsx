@@ -227,6 +227,9 @@ import { BusinessCasePanel } from "./BusinessCasePanel";
 import { StorybrandJourneyPanel } from "./StorybrandJourneyPanel";
 import { ExecDecisionBriefPanel } from "./ExecDecisionBriefPanel";
 import { ChallengerInsightPanel } from "./ChallengerInsightPanel";
+import { DealRoomPanel } from "./DealRoomPanel";
+import { OnboardingHubPanel } from "./OnboardingHubPanel";
+import { ValueRenewalReviewPanel } from "./ValueRenewalReviewPanel";
 import { TemplateEventPanel } from "./TemplateEventPanel";
 import { TemplateCaseStudyPanel } from "./TemplateCaseStudyPanel";
 import { SpatialTourPanel } from "./SpatialTourPanel";
@@ -6868,6 +6871,12 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
         return <ExecDecisionBriefPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} />;
       case "challenger-insight":
         return <ChallengerInsightPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} />;
+      case "deal-room":
+        return <DealRoomPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} onApplyCtaToAll={onApplyCtaToAll} />;
+      case "onboarding-hub":
+        return <OnboardingHubPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} />;
+      case "value-renewal-review":
+        return <ValueRenewalReviewPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} />;
       case "event-noir":
       case "event-luminous":
       case "event-split":

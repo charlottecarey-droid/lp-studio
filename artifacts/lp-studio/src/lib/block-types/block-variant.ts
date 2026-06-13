@@ -157,6 +157,9 @@ import type {
   StorybrandJourneyBlockProps,
   ExecDecisionBriefBlockProps,
   ChallengerInsightBlockProps,
+  DealRoomBlockProps,
+  OnboardingHubBlockProps,
+  ValueRenewalReviewBlockProps,
 } from "./generic-blocks";
 import type {
   DsoInsightsDashboardBlockProps,
@@ -333,6 +336,9 @@ export type BlockVariant =
   | { type: "storybrand-journey"; props: StorybrandJourneyBlockProps }
   | { type: "exec-decision-brief"; props: ExecDecisionBriefBlockProps }
   | { type: "challenger-insight"; props: ChallengerInsightBlockProps }
+  | { type: "deal-room"; props: DealRoomBlockProps }
+  | { type: "onboarding-hub"; props: OnboardingHubBlockProps }
+  | { type: "value-renewal-review"; props: ValueRenewalReviewBlockProps }
   | { type: "magazine-hero"; props: MagazineHeroBlockProps }
   | { type: "bold-statement"; props: BoldStatementBlockProps }
   | { type: "id-hero"; props: IdHeroBlockProps }

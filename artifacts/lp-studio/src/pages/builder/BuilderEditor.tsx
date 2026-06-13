@@ -65,6 +65,7 @@ import { TiptapEditor } from "@/components/TiptapEditor";
 import { MediaLibraryDrawer } from "@/components/MediaLibraryDrawer";
 import { refreshBlockCopy } from "@/lib/copy-api";
 import { COPY_FIELDS } from "@/lib/copy-fields";
+import { propagateCtaToAll, countCtaTargets, blockHasCta } from "@/lib/cta-propagation";
 import { useToast } from "@/hooks/use-toast";
 import { SaveToLibraryDialog } from "@/components/SaveToLibraryDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -2116,128 +2117,39 @@ export default function BuilderEditor() {
     [blocks, addBlock, deleteBlock, setBlocks, updateBlock],
   );
 
-  const applyCtaToAll = () => {
+  // "Configure one CTA, copy it to every CTA on the page." Delegates to the
+  // reusable, pure `propagateCtaToAll` util (src/lib/cta-propagation.ts), which
+  // copies ONLY the canonical shared CTA-config fields (HeroCtaConfig +
+  // CtaSuiteFields action/style + CtaModalConfig modal fields) — never a
+  // block's own headline/body/layout. Goes through `setBlocks` so it lands in
+  // the undo history (Cmd-Z reverts the whole propagation in one step). The
+  // util's optional `fields: "all" | "style"` is wired for "all" here; flip to
+  // "style" later for a "match styling only" affordance.
+  const applyCtaToAll = useCallback(() => {
     if (!selectedBlock) return;
-    const p = selectedBlock.props as Record<string, unknown>;
-
-    // Extract the effective CTA values from the source block regardless of its type.
-    // Different block families store the primary CTA under different field names:
-    //   • hero family            — primaryCta{Url,Text,Mode}
-    //   • standard DSO blocks    — cta{Url,Text,Mode}
-    //   • DSO blocks w/ "label"  — ctaLabel (paired with ctaUrl)
-    //   • legacy/CTA buttons     — url + ctaAction/ctaType
-    //   • nav / site headers     — navCta{Url,Text}, headerCta{Url,Text}, heroCta{Url,Text}
-    //   • capture/Chili Piper    — chilipiperUrl
-    const sourceUrl = ((p.primaryCtaUrl
-      ?? p.ctaUrl
-      ?? p.navCtaUrl
-      ?? p.headerCtaUrl
-      ?? p.heroCtaUrl
-      ?? p.url
-      ?? "") as string);
-    const sourceText = ((p.primaryCtaText
-      ?? p.ctaText
-      ?? p.ctaLabel
-      ?? p.navCtaText
-      ?? p.headerCtaText
-      ?? p.heroCtaText
-      ?? "") as string);
-    const sourceMode = ((p.primaryCtaMode ?? p.ctaMode ?? p.ctaAction ?? p.ctaType ?? "link") as string);
-    // chilipiperUrl: explicit field first, then fall back to ctaUrl when mode is chilipiper
-    const sourceChilipiper = ((p.chilipiperUrl as string | undefined) ??
-      (sourceMode === "chilipiper" ? sourceUrl : "")) as string;
-
-    // Apply the source CTA values to one block. Returns the same reference
-    // when nothing in this block needs updating, so React/dnd identities are
-    // preserved for blocks that have no CTA at all.
-    const applyToBlock = (b: PageBlock): PageBlock => {
-      if (b.id === selectedBlock.id) return b;
-      const bp = b.props as Record<string, unknown>;
-
-      const hasPrimaryCta = "primaryCtaUrl" in bp;
-      const hasCtaUrl     = "ctaUrl" in bp;
-      const hasCtaLabel   = "ctaLabel" in bp;
-      const hasNavCta     = "navCtaUrl" in bp;
-      const hasHeaderCta  = "headerCtaUrl" in bp;
-      const hasHeroCta    = "heroCtaUrl" in bp;
-      const hasUrl        = "url" in bp;
-      const hasChilipiper = "chilipiperUrl" in bp;
-      const blockHasCta =
-        hasPrimaryCta || hasCtaUrl || hasCtaLabel || hasNavCta ||
-        hasHeaderCta || hasHeroCta || hasUrl || hasChilipiper;
-
-      const updates: Record<string, unknown> = {};
-
-      if (blockHasCta) {
-        // Hero-style blocks (primaryCta*)
-        if (hasPrimaryCta) {
-          updates.primaryCtaUrl  = sourceUrl;
-          updates.primaryCtaText = sourceText;
-          updates.primaryCtaMode = sourceMode;
-        }
-
-        // Standard DSO blocks (ctaUrl / ctaText / ctaMode)
-        if (hasCtaUrl) {
-          updates.ctaUrl  = sourceUrl;
-          if ("ctaText" in bp) updates.ctaText = sourceText;
-          if (hasCtaLabel)     updates.ctaLabel = sourceText;
-          if ("ctaMode" in bp)   updates.ctaMode   = sourceMode;
-          if ("ctaAction" in bp) updates.ctaAction = sourceMode;
-          if ("ctaType" in bp)   updates.ctaType   = sourceMode;
-          if (hasChilipiper && sourceChilipiper) updates.chilipiperUrl = sourceChilipiper;
-        }
-
-        // Nav / header / hero-named CTAs (independent fields)
-        if (hasNavCta) {
-          updates.navCtaUrl = sourceUrl;
-          if ("navCtaText" in bp) updates.navCtaText = sourceText;
-        }
-        if (hasHeaderCta) {
-          updates.headerCtaUrl = sourceUrl;
-          if ("headerCtaText" in bp) updates.headerCtaText = sourceText;
-        }
-        if (hasHeroCta) {
-          updates.heroCtaUrl = sourceUrl;
-          if ("heroCtaText" in bp) updates.heroCtaText = sourceText;
-        }
-
-        // Legacy blocks that use "url" instead of "ctaUrl"
-        if (hasUrl && !hasCtaUrl) {
-          updates.url = sourceUrl;
-          if ("ctaAction" in bp) updates.ctaAction = sourceMode;
-          if ("ctaType" in bp)   updates.ctaType   = sourceMode;
-        }
-
-        // Capture-style blocks: only have chilipiperUrl, no ctaUrl (e.g. dso-cta-capture)
-        if (hasChilipiper && !hasCtaUrl && !hasPrimaryCta && sourceChilipiper) {
-          updates.chilipiperUrl = sourceChilipiper;
-        }
-      }
-
-      // Recurse into container children so CTAs inside columns/grids/overlays
-      // also get the same values. Container blocks have a `children: PageBlock[]`
-      // slot — see container-blocks.ts / block-variant.ts.
-      const kids = (b as PageBlock & { children?: PageBlock[] }).children;
-      const nextChildren = Array.isArray(kids) ? kids.map(applyToBlock) : undefined;
-      const childrenChanged =
-        nextChildren !== undefined &&
-        kids !== undefined &&
-        nextChildren.some((c, i) => c !== kids[i]);
-
-      if (Object.keys(updates).length === 0 && !childrenChanged) return b;
-
-      const next: PageBlock = {
-        ...b,
-        props: { ...bp, ...updates },
-      } as PageBlock;
-      if (childrenChanged) {
-        (next as PageBlock & { children?: PageBlock[] }).children = nextChildren;
-      }
-      return next;
-    };
-
-    setBlocks(prev => prev.map(applyToBlock));
-  };
+    if (!blockHasCta(selectedBlock.type, selectedBlock.props)) {
+      // Source has no CTA — the button should be hidden/disabled, but guard.
+      toast({
+        title: "No CTA to copy",
+        description: "Select a section that has a call-to-action first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const targetCount = countCtaTargets(blocks, selectedBlock.id);
+    if (targetCount === 0) {
+      toast({
+        title: "No other CTAs on the page",
+        description: "Add another section with a call-to-action to copy this one to it.",
+      });
+      return;
+    }
+    setBlocks((prev) => propagateCtaToAll(prev, selectedBlock.id, { fields: "all" }));
+    toast({
+      title: "CTA applied",
+      description: `Applied this CTA to ${targetCount} other section${targetCount === 1 ? "" : "s"}. Press ⌘Z to undo.`,
+    });
+  }, [selectedBlock, blocks, setBlocks, toast]);
 
   // Recursive renderers for nested children of container blocks. Defined here
   // (not in a child component) so they share the BuilderEditor closure for
@@ -3462,7 +3374,12 @@ export default function BuilderEditor() {
               brandVoiceSet={!!(brand.brandName?.trim() || brand.toneOfVoice?.trim() || (brand.messagingPillars?.length ?? 0) > 0)}
               brand={brand}
               pageId={parseInt(pageId, 10) || undefined}
-              onApplyCtaToAll={applyCtaToAll}
+              /* Sales/microsite scope first: a page is a microsite when it's
+                 tied to a sales account (pageVariables.salesAccountId →
+                 isMicrosite). "Copy this CTA to all sections" is an ABM
+                 microsite workflow, so we only surface it there for now.
+                 To enable app-wide later, pass `applyCtaToAll` unconditionally. */
+              onApplyCtaToAll={isMicrosite ? applyCtaToAll : undefined}
             />
           ) : (
             <div className="flex-1 flex flex-col min-h-0">

@@ -31,6 +31,9 @@ const EXPECTED_ALL_IN_ONE_SLUGS = [
   "global-storybrand-journey",
   "global-exec-decision-brief",
   "global-challenger-insight",
+  "global-deal-room",
+  "global-onboarding-hub",
+  "global-value-renewal-review",
   "global-flagship-event-landing",
   "global-flagship-restaurant",
   "global-flagship-creator-portfolio",
@@ -262,6 +265,74 @@ describe("sales-narrative monograph templates", () => {
 
   it("no dental/Dandy vocabulary leaks into default props or marketplace copy", () => {
     for (const { slug, seed } of monographs) {
+      const leaks = findVocabLeaks(seed!);
+      expect(leaks, `${slug} dental-vocabulary leaks`).toEqual([]);
+    }
+  });
+
+  it("the three framework monographs are tagged funnelStage 'first-meeting'", () => {
+    for (const { slug, seed } of monographs) {
+      expect(seed!.funnelStage, `${slug} funnelStage`).toBe("first-meeting");
+    }
+  });
+});
+
+// ─── ABM funnel-stage microsite templates (June 2026) ────────────────────────
+// Deal Room, Onboarding Hub, and Value & Renewal Review are industry-neutral
+// full-page ABM microsites grouped by sales intent in the create-microsite
+// modal. They share the same brand-neutral, all-in-one contract as the
+// framework monographs and each carries its funnelStage tag + own keywords.
+
+const ABM_MICROSITE_SLUGS = [
+  "global-deal-room",
+  "global-onboarding-hub",
+  "global-value-renewal-review",
+];
+
+const ABM_EXPECTED_STAGE: Record<string, string> = {
+  "global-deal-room": "deal-acceleration",
+  "global-onboarding-hub": "onboarding",
+  "global-value-renewal-review": "expansion-renewal",
+};
+
+describe("ABM funnel-stage microsite templates", () => {
+  const microsites = ABM_MICROSITE_SLUGS.map((slug) => {
+    const seed = GLOBAL_TEMPLATE_SEEDS.find((t) => t.slug === slug);
+    return { slug, seed };
+  });
+
+  it("all three slugs exist exactly once in the seed list", () => {
+    for (const { slug, seed } of microsites) {
+      expect(seed, `seed for ${slug}`).toBeDefined();
+      const matches = GLOBAL_TEMPLATE_SEEDS.filter((t) => t.slug === slug);
+      expect(matches.length, `seed list occurrences of ${slug}`).toBe(1);
+    }
+  });
+
+  it("each is universal (industry null), all-in-one, category business-case", () => {
+    for (const { slug, seed } of microsites) {
+      expect(seed!.industry, `${slug} industry`).toBeNull();
+      expect(seed!.isAllInOne, `${slug} isAllInOne`).toBe(true);
+      expect(seed!.category, `${slug} category`).toBe("business-case");
+    }
+  });
+
+  it("each carries non-empty keywords and the 'ABM' intent signal", () => {
+    for (const { slug, seed } of microsites) {
+      const kws = (seed!.keywords ?? []).map((k) => k.toLowerCase());
+      expect(kws.length, `${slug} keywords non-empty`).toBeGreaterThan(0);
+      expect(kws, `${slug} keywords include "abm"`).toContain("abm");
+    }
+  });
+
+  it("each carries its expected funnelStage tag", () => {
+    for (const { slug, seed } of microsites) {
+      expect(seed!.funnelStage, `${slug} funnelStage`).toBe(ABM_EXPECTED_STAGE[slug]);
+    }
+  });
+
+  it("no dental/Dandy vocabulary leaks into default props or marketplace copy", () => {
+    for (const { slug, seed } of microsites) {
       const leaks = findVocabLeaks(seed!);
       expect(leaks, `${slug} dental-vocabulary leaks`).toEqual([]);
     }

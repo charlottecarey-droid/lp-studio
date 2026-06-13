@@ -1923,7 +1923,12 @@ export function collectImageSlots(
   // event-landing-hero and the dso-* section blocks (challenges, comparison,
   // final-cta, lab-tour). It is a wide hero-style photo → lp-hero.
   pushScalar("backgroundImage", "lp-hero", blockContext);
-  pushScalar("heroImageUrl", "lp-hero", blockContext);
+  // onboarding-hub's `heroImageUrl` is a warm welcome/product visual that sits
+  // beside the kickoff copy — a feature-grade slot, NOT a full-bleed hero. Its
+  // own `logoUrl` (tenant mark) + contacts[].avatarUrl (real CSM faces) are
+  // tenant-supplied and deliberately NOT collected (mirrors the logo/avatar
+  // exclusions elsewhere). Every other block's heroImageUrl stays lp-hero.
+  pushScalar("heroImageUrl", blockType === "onboarding-hub" ? "lp-feature" : "lp-hero", blockContext);
   // storybrand-journey: hero photo is `heroImageUrl` (lp-hero, above); the
   // success-section transformation photo is `successImageUrl` → lp-feature.
   // Its guideLogos[].url (customer logos) + guideTestimonials[].avatarUrl
@@ -1937,6 +1942,15 @@ export function collectImageSlots(
   // exec-decision-brief carries NO stock-photo slots: the only image is the
   // optional masthead `logoUrl`, which (like every other logoUrl) is excluded
   // from the auto-fill scalar set above so it stays tenant-controlled.
+  // value-renewal-review: the product/feature visual in the QBR readout →
+  // lp-feature. Its `logoUrl` (tenant mark) + `accountLogoUrl` (customer logo
+  // lockup) are tenant-supplied proof and are NOT collected.
+  pushScalar("productImageUrl", "lp-feature", blockContext);
+  // deal-room carries NO stock-photo slots: every image is a real logo or face
+  // — accountLogoUrl / yourLogoUrl (the hero co-brand lockup), caseStudies[].
+  // logoUrl, logos[].imageUrl (proof logo wall), and stakeholders[].avatarUrl
+  // (real buying-committee faces). All are excluded from the auto-fill scalar
+  // set above and the array passes below so they stay tenant-controlled.
   pushScalar("bundleImageUrl", "lp-feature", blockContext); // storefront closing-CTA bundle
   // Decorative-mockup blocks with an OPTIONAL real-image override (mockup shows
   // when blank): features-spotlight-cards spotlight visual. Per-item variants
@@ -5958,6 +5972,19 @@ const GENERAL_EXEC_DECISION_BRIEF_BLOCK =
 const GENERAL_CHALLENGER_INSIGHT_BLOCK =
   `- "challenger-insight": A COMPLETE, full-page Challenger-sale brief (Teach → Tailor → Take Control) with a bold dark provocateur register — insight hero (a reframe headline with ONE highlighted phrase) → belief-vs-data reframe → count-up cost-of-status-quo stats → stakeholder implications → the pivot to the better way (+ optional solution image) → proof → take-control 3-step plan with a constructive-tension close. Use this as the SINGLE block on the page ONLY when the request is for a challenger / commercial-insight / provocative point-of-view page. Do NOT combine it with other blocks. Props: kicker (5–9 words, an uncomfortable truth), headline (8–14 words, a provocative reframe), highlightPhrase (a phrase copied VERBATIM from the headline to highlight), subheadline (24–44 words landing the commercial insight), heroCtaText (2–4 words), heroCtaUrl ("#evidence"), reframeEyebrow (2–3 words), beliefLabel (2–4 words), beliefStatement (a quoted common belief), beliefSupport (array of 1–2 lines), realityLabel (3–5 words), realityStatement (12–24 words), realitySupport (array of 1–2 lines), costEyebrow (3–6 words), costHeading (8–14 words), costStats (array of up to 3 of {value (e.g. "$1.2M","19 hrs"), label (loss framing, 6–12 words)} — use REAL numbers), costFootnote (4–10 words), tailorEyebrow (2–4 words), tailorHeading (3–6 words), stakeholders (array of 2–3 of {label (e.g. "For Operations"), title (3–8 words), body (1–2 sentences)}), betterWayEyebrow (2–3 words), betterWayHeading (4–8 words), betterWayParagraphs (array of 2–3 short paragraphs), betterWayImageUrl (""), betterWayImageAlt (4–8 words), proofEyebrow (1–2 words), proofHeading (3–6 words), testimonials (array of 0–2 of {quote (REAL only — omit if none), name, title} — NEVER invent), planEyebrow (2–3 words), planHeading (3–6 words), planSteps (array of EXACTLY 3 of {title (3–6 words), description (one sentence)}), finalCtaText (2–5 words), finalCtaUrl ("#contact"), tensionLine (6–12 words, a constructive-tension closer). Customer logos are tenant assets — render name-only and NEVER set a logo imageUrl.`;
 
+// FULL-PAGE ABM microsite monographs — like the framework blocks above, each
+// renders an ENTIRE standalone page reached via TEMPLATE INTENT (globalTemplates
+// seeds + template-intent selector), advertised ONLY when a caller opts in, and
+// is the SINGLE block on the page. Stock-photo fields stay "" for the image
+// service; account/your logos, customer logos, and stakeholder/contact avatars
+// are tenant assets the model must NEVER fabricate, and quotes/proof must be REAL.
+const GENERAL_DEAL_ROOM_BLOCK =
+  `- "deal-room": A COMPLETE, full-page ABM deal-acceleration microsite a rep shares with a buying committee — personalized hero co-brand lockup (account × your company) → mutual action plan timeline → business case (investment vs. return with a count-up payback) → stakeholder map → proof (case studies + logo wall) → resource docs → objection-handling FAQ → scheduling close. Use this as the SINGLE block on the page ONLY when the request is for a deal room / mutual action plan / buying-committee microsite. Do NOT combine it with other blocks. All totals and payback are editorial copy, NOT live math — use REAL numbers from the brief. Props: eyebrow (e.g. "Deal room for {{company_name}}"), accountName (the buyer's company), yourName (your company), headline (6–14 words, the deal thesis), subheadline (one sentence ≤ 28 words), ctaText (2–5 words), ctaUrl ("#close"), ctaSecondaryText (2–4 words), ctaSecondaryUrl ("#"), planKicker (2–4 words), planHeading (4–8 words), planIntro (12–24 words), planSteps (array of EXACTLY 4–6 of {title (2–5 words), body (12–22 words), status ("done"|"in-progress"|"upcoming"), date (e.g. "Wk 1" or "")}), caseKicker (2–4 words), caseHeading (4–8 words), investmentItems (array of {label, value}), investmentTotal (a figure), returnItems (array of {label, value}), returnTotal (a figure), paybackValue (e.g. "4.6 months"), caseFootnote (12–24 words), stakeholdersKicker (2–4 words), stakeholdersHeading (4–8 words), stakeholders (array of 2–5 of {name, role, note (one short line)} — NEVER set avatarUrl), proofKicker (2–4 words), proofHeading (3–6 words), caseStudies (array of 1–2 of {company, quote (REAL only), result} — NEVER set logoUrl), logoWallLabel (2–4 words or ""), resourcesKicker (2–4 words), resourcesHeading (3–6 words), resources (array of linked docs {label, url} — render only real links), faqKicker (2–4 words), faqHeading (3–6 words), faqs (array of {q, a}), closeKicker (2–4 words), closeHeading (4–8 words), closeIntro (12–24 words), footerNote (6–14 words). Logos (accountLogoUrl, yourLogoUrl, caseStudies[].logoUrl, logos[].imageUrl) and stakeholders[].avatarUrl are tenant assets — leave them "".`;
+const GENERAL_ONBOARDING_HUB_BLOCK =
+  `- "onboarding-hub": A COMPLETE, full-page ABM new-customer onboarding hub — a warm welcome/kickoff page for a customer who just signed: welcome hero (with a beside-copy feature visual) → onboarding phases timeline → your contacts (CSM / implementation team) → getting-started checklist → resource library (guides / videos / docs) → success metrics → kickoff-scheduling close. Use this as the SINGLE block on the page ONLY when the request is for an onboarding / welcome / kickoff / getting-started / implementation page. Do NOT combine it with other blocks. Props: eyebrow (e.g. "Welcome to {{company_name}}"), headline (5–10 words), subheadline (15–28 words), ctaText (2–5 words), ctaUrl ("#support"), ctaSecondaryText (2–4 words), ctaSecondaryUrl ("#checklist"), heroImageUrl (""), heroImageAlt (4–8 words), phases (array of 3–5 of {title (2–5 words), body (12–22 words), status ("done"|"in-progress"|"upcoming"), timeframe (e.g. "Week 1")}), contacts (array of 1–3 of {name, role, email} — NEVER set avatarUrl), checklist (array of 4–8 short task phrases), resourceGroups (array of {label, resources (array of {label, kind ("guide"|"video"|"doc"), url})} — only real links), metrics (array of 2–4 of {value, label}), closeHeading (4–8 words), closeIntro (12–24 words). The tenant logo (logoUrl) and contacts[].avatarUrl are tenant assets — leave them "".`;
+const GENERAL_VALUE_RENEWAL_REVIEW_BLOCK =
+  `- "value-renewal-review": A COMPLETE, full-page ABM expansion/renewal QBR readout a rep shares ahead of a quarterly business review or renewal conversation — value-recap hero → results metrics (count-up) → wins delivered → roadmap/milestones → expansion opportunities → renewal terms → renewal-scheduling close. Use this as the SINGLE block on the page ONLY when the request is for a renewal / QBR / quarterly-business-review / value-review / expansion / upsell page. Do NOT combine it with other blocks. All figures are editorial copy, NOT live math — use REAL numbers from the brief. Props: eyebrow (e.g. "Value review for {{company_name}}"), headline (5–12 words, a quantified outcome), subheadline (15–28 words), ctaText (2–5 words), ctaUrl ("#close"), ctaSecondaryText (2–4 words), ctaSecondaryUrl ("#expansion"), productImageUrl (""), productImageAlt (4–8 words), metrics (array of 3–4 of {value (e.g. "32%","$1.4M"), label (2–6 words)}), wins (array of 2–4 of {title (2–5 words), body (12–22 words)}), milestones (array of 2–5 of {title, body, status ("done"|"in-progress"|"upcoming"), timeframe}), expansion (array of 1–3 of {title (2–5 words), body (12–22 words), value (a figure or "")}), terms (array of renewal line rows {label, value}), closeHeading (4–8 words), closeIntro (12–24 words). The tenant logo (logoUrl) and customer lockup (accountLogoUrl) are tenant assets — leave them "".`;
+
 // FULL-PAGE block — a complete page on its own. Only advertised when the user's
 // request is clearly for a podcast / webinar / content-series page.
 const GENERAL_CONTENT_SERIES_BLOCK =
@@ -6092,6 +6119,9 @@ export function buildGeneralSystemPrompt(opts?: {
   includeStorybrandJourney?: boolean;
   includeExecDecisionBrief?: boolean;
   includeChallengerInsight?: boolean;
+  includeDealRoom?: boolean;
+  includeOnboardingHub?: boolean;
+  includeValueRenewalReview?: boolean;
 }): string {
   const disabled = opts?.aiDisabledTypes ?? new Set<string>();
   const paras = GENERAL_SYSTEM_PROMPT_TEMPLATE.split("\n\n");
@@ -6111,6 +6141,9 @@ export function buildGeneralSystemPrompt(opts?: {
       if (opts?.includeStorybrandJourney) out.push(GENERAL_STORYBRAND_JOURNEY_BLOCK);
       if (opts?.includeExecDecisionBrief) out.push(GENERAL_EXEC_DECISION_BRIEF_BLOCK);
       if (opts?.includeChallengerInsight) out.push(GENERAL_CHALLENGER_INSIGHT_BLOCK);
+      if (opts?.includeDealRoom) out.push(GENERAL_DEAL_ROOM_BLOCK);
+      if (opts?.includeOnboardingHub) out.push(GENERAL_ONBOARDING_HUB_BLOCK);
+      if (opts?.includeValueRenewalReview) out.push(GENERAL_VALUE_RENEWAL_REVIEW_BLOCK);
       injectedShowcase = true;
     }
     out.push(para);

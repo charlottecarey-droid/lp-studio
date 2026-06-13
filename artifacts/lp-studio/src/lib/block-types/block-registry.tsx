@@ -152,6 +152,9 @@ import type {
   StorybrandJourneyBlockProps,
   ExecDecisionBriefBlockProps,
   ChallengerInsightBlockProps,
+  DealRoomBlockProps,
+  OnboardingHubBlockProps,
+  ValueRenewalReviewBlockProps,
 } from "./generic-blocks";
 // June-2026 modern block wave: the builder agents export curated default props
 // from the component files (the blocks are self-contained registration
@@ -167,6 +170,9 @@ import { GLASS_PRICING_DEFAULT_TIERS } from "@/blocks/BlockGlassPricingTiers";
 import { STORYBRAND_JOURNEY_DEFAULT_PROPS } from "@/blocks/BlockStorybrandJourney";
 import { EXEC_DECISION_BRIEF_DEFAULT_PROPS } from "@/blocks/BlockExecDecisionBrief";
 import { CHALLENGER_INSIGHT_DEFAULT_PROPS } from "@/blocks/BlockChallengerInsight";
+import { DEAL_ROOM_DEFAULT_PROPS } from "@/blocks/BlockDealRoom";
+import { ONBOARDING_HUB_DEFAULT_PROPS } from "@/blocks/BlockOnboardingHub";
+import { VALUE_RENEWAL_REVIEW_DEFAULT_PROPS } from "@/blocks/BlockValueRenewalReview";
 import type {
   SectionBlockProps,
   ColumnsBlockProps,
@@ -8530,6 +8536,72 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       </svg>
     ),
   },
+  {
+    type: "deal-room",
+    label: "Deal Room — Full Page",
+    category: "Full Page Templates",
+    defaultProps: (): DealRoomBlockProps =>
+      structuredClone(DEAL_ROOM_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0B1220" rx="4" />
+        <rect x="8" y="9" width="18" height="6" rx="1.5" fill="#fff" opacity="0.85" />
+        <rect x="94" y="9" width="18" height="6" rx="1.5" fill="#38BDF8" opacity="0.7" />
+        <rect x="8" y="22" width="72" height="6" rx="1.5" fill="#fff" opacity="0.95" />
+        <rect x="8" y="38" width="104" height="1" fill="#fff" opacity="0.15" />
+        {([0, 1, 2] as const).map(c => (
+          <rect key={c} x={8 + c * 36} y="44" width="30" height="18" rx="3" fill="#fff" opacity="0.07" />
+        ))}
+        <circle cx="14" cy="34" r="2.5" fill="#38BDF8" />
+        <circle cx="34" cy="34" r="2.5" fill="#38BDF8" opacity="0.6" />
+        <circle cx="54" cy="34" r="2.5" fill="#fff" opacity="0.3" />
+      </svg>
+    ),
+  },
+  {
+    type: "onboarding-hub",
+    label: "Onboarding Hub — Full Page",
+    category: "Full Page Templates",
+    defaultProps: (): OnboardingHubBlockProps =>
+      structuredClone(ONBOARDING_HUB_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#F4F7FB" rx="4" />
+        <rect x="8" y="9" width="20" height="2.5" rx="1" fill="#10B981" />
+        <rect x="8" y="15" width="62" height="6" rx="1.5" fill="#0F172A" />
+        <rect x="78" y="9" width="34" height="30" rx="3" fill="#10B981" opacity="0.16" />
+        <rect x="8" y="28" width="46" height="3" rx="1" fill="#0F172A" opacity="0.4" />
+        {([0, 1, 2, 3] as const).map(r => (
+          <g key={r}>
+            <circle cx="11" cy={42 + r * 6} r="2" fill="#10B981" />
+            <rect x="17" y={41 + r * 6} width="44" height="2.5" rx="1" fill="#0F172A" opacity="0.35" />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    type: "value-renewal-review",
+    label: "Value & Renewal Review — Full Page",
+    category: "Full Page Templates",
+    defaultProps: (): ValueRenewalReviewBlockProps =>
+      structuredClone(VALUE_RENEWAL_REVIEW_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#FBFAF7" rx="4" />
+        <rect x="8" y="9" width="22" height="2.5" rx="1" fill="#7C3AED" />
+        <rect x="8" y="15" width="64" height="6" rx="1.5" fill="#1E1B2E" />
+        {([0, 1, 2] as const).map(c => (
+          <g key={c}>
+            <rect x={8 + c * 36} y="30" width="30" height="16" rx="3" fill="#7C3AED" opacity="0.1" />
+            <rect x={12 + c * 36} y="34" width="14" height="5" rx="1" fill="#7C3AED" opacity="0.7" />
+          </g>
+        ))}
+        <rect x="8" y="52" width="60" height="3" rx="1" fill="#1E1B2E" opacity="0.35" />
+        <rect x="8" y="59" width="30" height="6" rx="3" fill="#7C3AED" />
+      </svg>
+    ),
+  },
 ];
 
 // Attach code-default semantic role tags to every registered block from the
@@ -8582,6 +8654,9 @@ export function createBlock(type: "aurora-cta-finale"): Extract<PageBlock, { typ
 export function createBlock(type: "storybrand-journey"): Extract<PageBlock, { type: "storybrand-journey" }>;
 export function createBlock(type: "exec-decision-brief"): Extract<PageBlock, { type: "exec-decision-brief" }>;
 export function createBlock(type: "challenger-insight"): Extract<PageBlock, { type: "challenger-insight" }>;
+export function createBlock(type: "deal-room"): Extract<PageBlock, { type: "deal-room" }>;
+export function createBlock(type: "onboarding-hub"): Extract<PageBlock, { type: "onboarding-hub" }>;
+export function createBlock(type: "value-renewal-review"): Extract<PageBlock, { type: "value-renewal-review" }>;
 export function createBlock(type: "rating-badges"): Extract<PageBlock, { type: "rating-badges" }>;
 export function createBlock(type: "avatar-social-proof"): Extract<PageBlock, { type: "avatar-social-proof" }>;
 export function createBlock(type: "bold-statement"): Extract<PageBlock, { type: "bold-statement" }>;
@@ -8907,6 +8982,9 @@ export function createBlock(type: BlockType): PageBlock {
     case "storybrand-journey": return { id, type: "storybrand-journey", props: props as StorybrandJourneyBlockProps };
     case "exec-decision-brief": return { id, type: "exec-decision-brief", props: props as ExecDecisionBriefBlockProps };
     case "challenger-insight": return { id, type: "challenger-insight", props: props as ChallengerInsightBlockProps };
+    case "deal-room": return { id, type: "deal-room", props: props as DealRoomBlockProps };
+    case "onboarding-hub": return { id, type: "onboarding-hub", props: props as OnboardingHubBlockProps };
+    case "value-renewal-review": return { id, type: "value-renewal-review", props: props as ValueRenewalReviewBlockProps };
     case "rating-badges": return { id, type: "rating-badges", props: props as RatingBadgesBlockProps };
     case "avatar-social-proof": return { id, type: "avatar-social-proof", props: props as AvatarSocialProofBlockProps };
     case "bold-statement": return { id, type: "bold-statement", props: props as BoldStatementBlockProps };
@@ -9010,6 +9088,9 @@ export function templateToBlocks(templateId: string): PageBlock[] {
     "storybrand-journey": ["storybrand-journey"],
     "exec-decision-brief": ["exec-decision-brief"],
     "challenger-insight": ["challenger-insight"],
+    "deal-room": ["deal-room"],
+    "onboarding-hub": ["onboarding-hub"],
+    "value-renewal-review": ["value-renewal-review"],
   };
   const types = templates[templateId] ?? [];
   return types.map(t => createBlock(t));

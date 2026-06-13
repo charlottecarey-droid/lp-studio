@@ -4353,6 +4353,36 @@ export type {
   ChallengerLogo,
   ChallengerPlanStep,
 } from "@/blocks/BlockChallengerInsight";
+export type {
+  DealRoomBlockProps,
+  DealRoomStepStatus,
+  DealRoomMapStep,
+  DealRoomLineItem,
+  DealRoomStakeholder,
+  DealRoomCaseStudy,
+  DealRoomLogo,
+  DealRoomResource,
+  DealRoomFaq,
+} from "@/blocks/BlockDealRoom";
+export type {
+  OnboardingHubBlockProps,
+  OnboardingPhaseStatus,
+  OnboardingPhase,
+  OnboardingContact,
+  OnboardingChecklistItem,
+  OnboardingResourceKind,
+  OnboardingResource,
+  OnboardingResourceGroup,
+  OnboardingMetric,
+} from "@/blocks/BlockOnboardingHub";
+export type {
+  ValueRenewalReviewBlockProps,
+  VrrMetric,
+  VrrMilestone,
+  VrrWin,
+  VrrExpansionItem,
+  VrrTermRow,
+} from "@/blocks/BlockValueRenewalReview";
 
 /**
  * Final CTA — Video background: a final CTA over a looping background video
