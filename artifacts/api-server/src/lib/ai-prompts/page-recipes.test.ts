@@ -91,6 +91,52 @@ describe("pickRecipe — least-recently-used with random fallback", () => {
   it("returns null for an empty recipe set", () => {
     expect(pickRecipe([], [])).toBeNull();
   });
+
+  describe("excludeRecipeIds — 'Shuffle layout' exclusions", () => {
+    it("removes excluded ids from the candidate pool BEFORE LRU selection", () => {
+      // freeform-data-led is the lone never-used recipe and would win the LRU
+      // pick — excluding it must hand the win to the stalest USED recipe.
+      const recent = recipes.map((r) => r.id).filter((id) => id !== "freeform-data-led");
+      const withoutExclusion = pickRecipe(recipes, recent, () => 0);
+      expect(withoutExclusion?.id).toBe("freeform-data-led");
+      const picked = pickRecipe(recipes, recent, () => 0, ["freeform-data-led"]);
+      expect(picked).not.toBeNull();
+      expect(picked?.id).toBe(recent[recent.length - 1]); // stalest of the rest
+    });
+
+    it("guarantees a different recipe than the single excluded one (shuffle contract)", () => {
+      for (const r of recipes) {
+        for (const tie of [0, 0.5, 0.999]) {
+          expect(pickRecipe(recipes, [], () => tie, [r.id])?.id).not.toBe(r.id);
+        }
+      }
+    });
+
+    it("falls back to the full pool minus the FIRST excluded id when exclusion empties the pool", () => {
+      const allIds = recipes.map((r) => r.id);
+      const picked = pickRecipe(recipes, [], () => 0, allIds);
+      expect(picked).not.toBeNull();
+      expect(picked?.id).not.toBe(allIds[0]);
+    });
+
+    it("never fails even when a single-recipe pool is fully excluded", () => {
+      const only = [recipes[0]];
+      expect(pickRecipe(only, [], () => 0, [recipes[0].id])?.id).toBe(recipes[0].id);
+    });
+
+    it("ignores an empty exclusion list (behavior identical to the 3-arg call)", () => {
+      const recent = recipes.map((r) => r.id);
+      expect(pickRecipe(recipes, recent, () => 0, [])?.id).toBe(
+        pickRecipe(recipes, recent, () => 0)?.id,
+      );
+    });
+
+    it("ignores unknown ids — they exclude nothing", () => {
+      const recent = recipes.map((r) => r.id).filter((id) => id !== "freeform-data-led");
+      const picked = pickRecipe(recipes, recent, () => 0, ["nope", "not-a-recipe"]);
+      expect(picked?.id).toBe("freeform-data-led");
+    });
+  });
 });
 
 describe("buildRecipeDirective / injectRecipeIntoBlockSelection", () => {

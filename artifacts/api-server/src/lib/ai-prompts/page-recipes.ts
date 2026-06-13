@@ -257,21 +257,40 @@ export function recipeSkeletonBlockTypes(recipe: PageRecipe): string[] {
  * beats one that appears; among equally-stale candidates the (injectable)
  * `rand` breaks the tie so two tenants with empty history don't all start on
  * the same recipe.
+ *
+ * `excludeRecipeIds` (June 2026, "Shuffle layout") removes recipes from the
+ * candidate pool BEFORE the LRU selection — the caller passes the recipe id(s)
+ * just used so a reshuffle is guaranteed a different recipe. Fail-open: ids
+ * not in the pool are ignored; if exclusion would empty the pool we fall back
+ * to the full pool minus the FIRST excluded id, and if even that is empty
+ * (single-recipe pool) the full pool is used. Selection never fails because
+ * of an exclusion.
  */
 export function pickRecipe(
   recipes: ReadonlyArray<PageRecipe>,
   recentRecipeIds: ReadonlyArray<string>,
   rand: () => number = Math.random,
+  excludeRecipeIds: ReadonlyArray<string> = [],
 ): PageRecipe | null {
   if (recipes.length === 0) return null;
+  let pool: ReadonlyArray<PageRecipe> = recipes;
+  if (excludeRecipeIds.length > 0) {
+    const excluded = new Set(excludeRecipeIds);
+    const filtered = recipes.filter((r) => !excluded.has(r.id));
+    pool =
+      filtered.length > 0
+        ? filtered
+        : recipes.filter((r) => r.id !== excludeRecipeIds[0]);
+    if (pool.length === 0) pool = recipes;
+  }
   // Recency = index of the recipe's most recent use (lower = more recent);
   // never used = +Infinity (the strongest candidate).
-  const recency = recipes.map((r) => {
+  const recency = pool.map((r) => {
     const idx = recentRecipeIds.indexOf(r.id);
     return idx === -1 ? Number.POSITIVE_INFINITY : idx;
   });
   const stalest = Math.max(...recency);
-  const candidates = recipes.filter((_, i) => recency[i] === stalest);
+  const candidates = pool.filter((_, i) => recency[i] === stalest);
   const pick = candidates[Math.floor(rand() * candidates.length)];
   return pick ?? candidates[0] ?? null;
 }

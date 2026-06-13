@@ -6534,10 +6534,18 @@ function logAiGeneration(row: {
 }
 
 router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiHeavyHourlyLimiter, async (req, res): Promise<void> => {
-  const { prompt, segmentContext, templateId, replaceImagery, referenceUrl, referenceUrls: referenceUrlsRaw, screenshotDataUrl, _captureOnly } = req.body as {
+  const { prompt, segmentContext, templateId, replaceImagery, referenceUrl, referenceUrls: referenceUrlsRaw, screenshotDataUrl, excludeRecipeIds: excludeRecipeIdsRaw, _captureOnly } = req.body as {
     prompt?: string;
     segmentContext?: SegmentContext;
     templateId?: number;
+    /** June 2026 — "Shuffle layout": recipe ids the client wants EXCLUDED from
+     *  this generation's recipe rotation (typically the id(s) it just received),
+     *  guaranteeing a different page recipe on regenerate. Validated below:
+     *  non-string entries dropped, deduped, capped at 10, unknown ids ignored.
+     *  Freeform path only — the template/intent paths have no recipe and
+     *  silently ignore it. Never fails generation: if exclusion would empty
+     *  the candidate pool we fall back (see pickRecipe). */
+    excludeRecipeIds?: string[];
     /** Task #1106 — template-rewrite mode only. When true, the template's
      *  original imagery is dropped and image slots are repopulated from the
      *  tenant media library (+ reference-URL imagery when provided) via the
@@ -6573,6 +6581,20 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     res.status(400).json({ error: "prompt is required" });
     return;
   }
+
+  // "Shuffle layout" (June 2026) — sanitize the requested recipe exclusions:
+  // tolerate any malformed input (non-array, non-string entries) by dropping
+  // it, dedupe, and cap at 10. Ids that don't exist in the active path's
+  // recipe pool are filtered out later, at recipe-selection time.
+  const requestedExcludeRecipeIds: string[] = Array.isArray(excludeRecipeIdsRaw)
+    ? [
+        ...new Set(
+          excludeRecipeIdsRaw.filter(
+            (v): v is string => typeof v === "string" && v.trim().length > 0,
+          ),
+        ),
+      ].slice(0, 10)
+    : [];
 
   const captureOnly = _captureOnly === true && process.env.NODE_ENV !== "production";
 
@@ -7666,7 +7688,34 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       );
     }
   }
-  const chosenRecipe: PageRecipe | null = pickRecipe(recipesForPath(recipePath), recentRecipeIds);
+  // "Shuffle layout" — validate the requested exclusions against THIS path's
+  // recipe pool (unknown ids silently dropped) and remove them from the
+  // candidate pool before the LRU pick. `excludedRecipeIds` is the applied,
+  // validated list echoed back in the receipt event + result body. Fail-open:
+  // when the exclusions cover the whole pool, pickRecipe falls back to the
+  // full pool minus the FIRST excluded id — warn (structured) but never fail.
+  const recipePool = recipesForPath(recipePath);
+  const poolRecipeIds = new Set(recipePool.map((r) => r.id));
+  const excludedRecipeIds = requestedExcludeRecipeIds.filter((id) => poolRecipeIds.has(id));
+  if (excludedRecipeIds.length > 0 && excludedRecipeIds.length >= recipePool.length) {
+    logger.warn(
+      {
+        event: "ai_recipe_exclusion_emptied_pool",
+        tenantId,
+        promptPath,
+        recipePath,
+        excludedRecipeIds,
+        poolSize: recipePool.length,
+      },
+      "[generate-page] excludeRecipeIds covers the entire recipe pool — falling back to the pool minus the first excluded id",
+    );
+  }
+  const chosenRecipe: PageRecipe | null = pickRecipe(
+    recipePool,
+    recentRecipeIds,
+    undefined,
+    excludedRecipeIds,
+  );
 
   // Fetch the per-industry block_catalog once: `tags` drives the role-tag guide
   // and `ai_enabled` drives which blocks the GENERAL prompt advertises. Both are
@@ -9061,6 +9110,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
 
     emitter.receipt({
       recipeId: chosenRecipe?.id ?? null,
+      // June 2026 — "Shuffle layout" (additive): the applied, validated recipe
+      // exclusions this generation honored (request `excludeRecipeIds` after
+      // sanitization + pool validation).
+      excludedRecipeIds,
       intentMatchedTemplate,
       referenceUrls: perRequestUrls,
       scrapedUrls,
@@ -9086,6 +9139,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // June 2026 — page-recipe rotation (additive): the recipe injected into
       // this generation's prompt.
       recipeId: chosenRecipe?.id ?? null,
+      // June 2026 — "Shuffle layout" (additive): the applied, validated recipe
+      // exclusions this generation honored (request `excludeRecipeIds` after
+      // sanitization + pool validation).
+      excludedRecipeIds,
       // June 2026 — image-fit advisory review flags (additive; structurally
       // separate from the fact flags in detectedFacts).
       imageFitFlags,

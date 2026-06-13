@@ -369,6 +369,7 @@ export default function PagesGallery() {
     templateId?: number | null,
     referenceUrls?: string[],
     replaceImagery?: boolean,
+    screenshotDataUrl?: string,
   ): GenerationRequestBody => {
     const segmentContext = activeSeg ? {
       id: activeSeg.id,
@@ -390,6 +391,7 @@ export default function PagesGallery() {
       ...(templateId ? { templateId } : {}),
       ...(templateId && replaceImagery ? { replaceImagery: true } : {}),
       ...(cleanedRefUrls.length > 0 ? { referenceUrls: cleanedRefUrls } : {}),
+      ...(screenshotDataUrl ? { screenshotDataUrl } : {}),
     };
   };
 
@@ -446,7 +448,7 @@ export default function PagesGallery() {
   /** NON-STREAMING generation flow — unchanged behavior, now composed from
    *  the extracted body/save helpers. Used by the brief modal and as the
    *  streaming live view's fallback ("Use standard mode" / silent fallback). */
-  const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null, templateId?: number | null, referenceUrls?: string[], replaceImagery?: boolean) => {
+  const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null, templateId?: number | null, referenceUrls?: string[], replaceImagery?: boolean, screenshotDataUrl?: string) => {
     const activeSeg = seg !== undefined ? seg : selectedSegment;
 
     // AI generation legitimately takes 30–70s, but without an explicit timeout
@@ -458,7 +460,7 @@ export default function PagesGallery() {
       genRes = await fetch(`${API_BASE}/lp/generate-page`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildGenerationBody(prompt, activeSeg, templateId, referenceUrls, replaceImagery)),
+        body: JSON.stringify(buildGenerationBody(prompt, activeSeg, templateId, referenceUrls, replaceImagery, screenshotDataUrl)),
         signal: AbortSignal.timeout(180_000),
       });
     } catch (err) {
@@ -476,8 +478,8 @@ export default function PagesGallery() {
     navigate(`/builder/${pageId}`);
   };
 
-  const handleAiGenerateFromModal = async (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean) => {
-    await generatePageFromPrompt(prompt, selectedSegment, templateId, referenceUrls, replaceImagery);
+  const handleAiGenerateFromModal = async (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean, screenshotDataUrl?: string) => {
+    await generatePageFromPrompt(prompt, selectedSegment, templateId, referenceUrls, replaceImagery, screenshotDataUrl);
     setShowCreateModal(false);
   };
 
@@ -733,8 +735,8 @@ export default function PagesGallery() {
         tenantIndustry={user?.tenantIndustry}
         onCreate={handleCreateFromModal}
         onAiGenerate={handleAiGenerateFromModal}
-        buildAiGenerateBody={(prompt, templateId, referenceUrls, replaceImagery) =>
-          buildGenerationBody(prompt, selectedSegment, templateId, referenceUrls, replaceImagery)}
+        buildAiGenerateBody={(prompt, templateId, referenceUrls, replaceImagery, screenshotDataUrl) =>
+          buildGenerationBody(prompt, selectedSegment, templateId, referenceUrls, replaceImagery, screenshotDataUrl)}
         saveGeneratedPage={(result, prompt) => saveGeneratedPage(result, selectedSegment, prompt)}
         onOpenGenerated={(pageId) => {
           setShowCreateModal(false);

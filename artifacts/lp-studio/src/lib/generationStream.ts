@@ -84,6 +84,9 @@ export interface GenerationReceipt {
   imageFitFlagCount: number;
   critiqueCount: number;
   usedScreenshot: boolean;
+  /** Recipe ids the caller asked to avoid (shuffle) — echoed back by the
+   *  server when `excludeRecipeIds` was sent. Absent otherwise. */
+  excludedRecipeIds?: string[];
 }
 
 /** Terminal payload — same JSON body the non-streaming endpoint returns. */
@@ -104,6 +107,15 @@ export interface GenerationRequestBody {
   templateId?: number;
   replaceImagery?: boolean;
   referenceUrls?: string[];
+  /** Singular reference URL — the sales microsite modal's historical field
+   *  (scraped for voice + visual style). The server accepts both forms. */
+  referenceUrl?: string;
+  /** data:image/* URL of a pasted/dropped screenshot of a page the user
+   *  likes — the server preprocesses/resizes it and uses it for layout cues. */
+  screenshotDataUrl?: string;
+  /** Layout recipe ids to avoid ("Shuffle layout") — accumulated across
+   *  shuffles in one modal session, capped at 10. Freeform path only. */
+  excludeRecipeIds?: string[];
 }
 
 export interface GenerationStreamHandlers {

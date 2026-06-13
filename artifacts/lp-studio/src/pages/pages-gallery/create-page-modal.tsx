@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { BookOpen, Building2, FileText, Link2, Sparkles, Users, Wand2, X } from "lucide-react";
 import {
   Dialog,
@@ -15,6 +15,12 @@ import { MICROSITE_TEMPLATES } from "@/lib/microsite-templates";
 import { type AudienceSegment } from "@/lib/brand-config";
 import { type PageBlock } from "@/lib/block-types";
 import type { GenerationRequestBody, GenerationResult } from "@/lib/generationStream";
+import { imageFileFromDataTransfer } from "@/lib/screenshotAttachment";
+import {
+  ScreenshotAttachZone,
+  useScreenshotAttachment,
+} from "@/components/generation/ScreenshotAttach";
+import { StarterPromptChips } from "@/components/generation/StarterPromptChips";
 import { GenerationLiveView } from "./GenerationLiveView";
 import {
   BLANK_OPTION,
@@ -59,10 +65,10 @@ interface Props {
    *  Merged server-side with the brand's persisted inspirationUrls.
    *  June 2026: this is now the NON-STREAMING fallback path (kept fully
    *  intact); the default submit goes through the streaming live view. */
-  onAiGenerate: (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean) => Promise<void>;
+  onAiGenerate: (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean, screenshotDataUrl?: string) => Promise<void>;
   /** June 2026 — live streaming generation. Builds the exact POST body the
    *  generate endpoint expects (including the selected segment's context). */
-  buildAiGenerateBody: (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean) => GenerationRequestBody;
+  buildAiGenerateBody: (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean, screenshotDataUrl?: string) => GenerationRequestBody;
   /** Save flow shared with the non-streaming path (POST /api/lp/pages,
    *  trusted fact forms, critique-annotation stash, brief context). Resolves
    *  with the new page id; navigation is separate (onOpenGenerated). */
@@ -111,6 +117,11 @@ export function CreatePageModal({
   const [referenceUrls, setReferenceUrls] = useState<string[]>([]);
   const [pendingRefUrl, setPendingRefUrl] = useState("");
   const MAX_REF_URLS = 5;
+  // June 2026 — one optional screenshot of a page the user likes (pasted,
+  // dropped, or browsed). Downscaled client-side; threaded into the request
+  // body as `screenshotDataUrl`. A new attach replaces the previous one.
+  const screenshotAttach = useScreenshotAttachment();
+  const promptTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   // June 2026 — live streaming generation. Non-null while the modal content
@@ -124,6 +135,7 @@ export function CreatePageModal({
     templateId: number | null;
     referenceUrls: string[];
     replaceImagery: boolean;
+    screenshotDataUrl?: string;
   } | null>(null);
 
   // Reset transient state on close, and honour `initialMode` on every
@@ -146,6 +158,35 @@ export function CreatePageModal({
       setCreateError(null);
     }
   }, [open, initialMode, initialAiPrompt]);
+
+  // Clipboard paste → screenshot attach, anywhere in the modal while the AI
+  // tab is active (so users don't have to hunt for the drop zone). Only
+  // intercepts pastes that actually contain an image file — pasting text/URLs
+  // into the prompt or reference inputs is untouched.
+  const attachScreenshotFile = screenshotAttach.attachFile;
+  useEffect(() => {
+    if (!open || createMode !== "ai" || liveGen) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const file = imageFileFromDataTransfer(e.clipboardData);
+      if (!file) return;
+      e.preventDefault();
+      attachScreenshotFile(file);
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [open, createMode, liveGen, attachScreenshotFile]);
+
+  // Starter chip → prefill the skeleton and focus the textarea with the text
+  // selected, so typing replaces it and arrow keys extend it naturally.
+  const handleStarterPick = (prompt: string) => {
+    setAiPrompt(prompt);
+    requestAnimationFrame(() => {
+      const el = promptTextareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.select();
+    });
+  };
 
   const handleTitleChange = (v: string) => {
     setNewTitle(v);
@@ -212,6 +253,7 @@ export function CreatePageModal({
     setReplaceImagery(false);
     setReferenceUrls([]);
     setPendingRefUrl("");
+    screenshotAttach.reset();
     setCreateMode("template");
   };
 
@@ -229,12 +271,14 @@ export function CreatePageModal({
       ? [...referenceUrls, trimmedPending].slice(0, MAX_REF_URLS)
       : referenceUrls;
     const effectiveReplaceImagery = tplId !== null ? replaceImagery : false;
+    const screenshotDataUrl = screenshotAttach.screenshot?.dataUrl;
     setLiveGen({
-      body: buildAiGenerateBody(aiPrompt, tplId, finalRefUrls, effectiveReplaceImagery),
+      body: buildAiGenerateBody(aiPrompt, tplId, finalRefUrls, effectiveReplaceImagery, screenshotDataUrl),
       prompt: aiPrompt,
       templateId: tplId,
       referenceUrls: finalRefUrls,
       replaceImagery: effectiveReplaceImagery,
+      screenshotDataUrl,
     });
   };
 
@@ -244,7 +288,7 @@ export function CreatePageModal({
   // propagate so the live view can render its error state.
   const runStandardGeneration = async () => {
     if (!liveGen) return;
-    await onAiGenerate(liveGen.prompt, liveGen.templateId, liveGen.referenceUrls, liveGen.replaceImagery);
+    await onAiGenerate(liveGen.prompt, liveGen.templateId, liveGen.referenceUrls, liveGen.replaceImagery, liveGen.screenshotDataUrl);
     // Success → the parent has already navigated + closed the modal.
     resetAiForm();
   };
@@ -552,7 +596,14 @@ export function CreatePageModal({
 
             <div>
               <Label className="text-sm font-medium">Your Prompt</Label>
+              {/* Starter chips — only while the prompt is empty; picking one
+                  prefills a skeleton with the text selected so typing
+                  replaces it. */}
+              {aiPrompt === "" && (
+                <StarterPromptChips className="mt-1.5" onPick={handleStarterPick} />
+              )}
               <textarea
+                ref={promptTextareaRef}
                 className="mt-1.5 w-full px-3 py-2.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
                 rows={4}
                 placeholder={aiTemplateId
@@ -625,6 +676,12 @@ export function CreatePageModal({
               <p className="text-[11px] text-muted-foreground mt-1.5">
                 We'll scrape these pages and use their voice, structure, and density to anchor your output. Brand settings &gt; Inspiration sites are added automatically.
               </p>
+
+              {/* Screenshot attach — paste anywhere in this dialog, drop on
+                  the zone, or click to browse. One screenshot max. */}
+              <div className="mt-2.5">
+                <ScreenshotAttachZone state={screenshotAttach} />
+              </div>
             </div>
 
             {createError && (

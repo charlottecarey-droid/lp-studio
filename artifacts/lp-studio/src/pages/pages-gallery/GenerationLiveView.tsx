@@ -14,10 +14,15 @@
  *     (keyed by index+type, memoized by a stable JSON hash) so unchanged
  *     blocks never remount or flicker as the images/polish passes land.
  *
- * Saving stays the frontend's job: on `result` we run the caller-provided
- * save flow (POST /api/lp/pages etc.), then arm the "Open in builder" CTA
+ * Saving stays the frontend's job — but it's DEFERRED (June 2026, shuffle):
+ * on `result` we hold the payload in state and arm the "Open in builder" CTA
  * with a 6-second auto-navigate countdown (paused while the user hovers or
- * scrolls the preview).
+ * scrolls the preview). The caller-provided save flow (POST /api/lp/pages
+ * etc., incl. fact flags + critique stash) runs only when the user clicks
+ * "Open in builder" or the countdown fires — so "Shuffle layout" can discard
+ * the held result and re-stream without orphaning a saved page. Shuffling
+ * accumulates the session's used recipe ids into `excludeRecipeIds` (cap 10)
+ * and permanently stops the auto-open countdown (manual open only).
  *
  * Failure handling:
  *   • failure BEFORE any stage event → ONE silent automatic fallback to the
@@ -34,6 +39,7 @@ import {
   ArrowDown,
   ArrowRight,
   Check,
+  Dices,
   Image as ImageIcon,
   Layout,
   Link2,
@@ -94,7 +100,12 @@ interface RefsMeta {
   fromInspiration: string[];
 }
 
-type Phase = "streaming" | "saving" | "saved" | "fallback" | "error";
+/** "ready" = result held in state, NOT yet saved (save-on-exit — see header
+ *  comment); "saving" = the exit save is in flight. */
+type Phase = "streaming" | "ready" | "saving" | "fallback" | "error";
+
+/** Max recipe ids we'll ask the server to avoid across shuffles. */
+const MAX_EXCLUDED_RECIPES = 10;
 
 // ── Block reconciliation ─────────────────────────────────────────────────────
 
@@ -284,16 +295,32 @@ export function GenerationLiveView({
   const [restartMsg, setRestartMsg] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<GenerationReceipt | null>(null);
   const [result, setResult] = useState<GenerationResult | null>(null);
-  const [savedPageId, setSavedPageId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Exit-save failure — shown inline on the receipt card so the (already
+   *  generated) page isn't thrown away; "Open in builder" retries the save. */
+  const [saveError, setSaveError] = useState<string | null>(null);
   const triedAutoFallbackRef = useRef(false);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Shuffle state ──────────────────────────────────────────────────────────
+  // Recipe ids used in THIS modal session (accumulated across shuffles, cap
+  // 10) — sent as `excludeRecipeIds` so a re-roll lands on a fresh layout.
+  const excludedRecipeIdsRef = useRef<string[]>([]);
+  const [shuffleCount, setShuffleCount] = useState(0);
+  // Once the user shuffles (or an exit save fails), the auto-open countdown
+  // stops permanently — only the manual "Open in builder" exits after that.
+  const [autoOpenStopped, setAutoOpenStopped] = useState(false);
+  const autoOpenStoppedRef = useRef(false);
+  const stopAutoOpen = useCallback(() => {
+    autoOpenStoppedRef.current = true;
+    setAutoOpenStopped(true);
+  }, []);
 
   // ── Elapsed timer ──────────────────────────────────────────────────────────
   const startRef = useRef(Date.now());
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
-    if (phase !== "streaming" && phase !== "saving" && phase !== "fallback") return;
+    if (phase !== "streaming" && phase !== "fallback") return;
     const id = setInterval(() => {
       setElapsed(Math.floor((Date.now() - startRef.current) / 1000));
     }, 1000);
@@ -377,16 +404,22 @@ export function GenerationLiveView({
     setRestartMsg(null);
     setReceipt(null);
     setResult(null);
-    setSavedPageId(null);
+    setSaveError(null);
     startRef.current = Date.now();
     setElapsed(0);
     followRef.current = true;
     setFollowing(true);
 
+    // Shuffles re-run this effect (attempt++) with the SAME body plus the
+    // accumulated exclusion list. First run sends the body untouched.
+    const excluded = excludedRecipeIdsRef.current;
+    const effectiveBody: GenerationRequestBody =
+      excluded.length > 0 ? { ...body, excludeRecipeIds: [...excluded] } : body;
+
     void (async () => {
       try {
         const streamed = await streamGeneration(
-          body,
+          effectiveBody,
           {
             onStage: (e) => {
               if (cancelled) return;
@@ -442,12 +475,12 @@ export function GenerationLiveView({
           ac.signal,
         );
         if (cancelled) return;
+        // DELAYED SAVE: hold the result in state. The save flow runs in
+        // commitAndOpen() when the user clicks "Open in builder" or the
+        // countdown fires — a shuffle before then discards this result
+        // without ever creating a page row.
         setResult(streamed);
-        setPhase("saving");
-        const pageId = await onSaveRef.current(streamed);
-        if (cancelled) return;
-        setSavedPageId(pageId);
-        setPhase("saved");
+        setPhase("ready");
       } catch (err) {
         if (cancelled) return;
         if (err instanceof GenerationStreamError && err.kind === "aborted") return;
@@ -501,30 +534,79 @@ export function GenerationLiveView({
     }
   }, []);
 
-  // ── Auto-navigate countdown ────────────────────────────────────────────────
+  // ── Exit: save the held result, then open the builder ─────────────────────
+  // Save-on-exit (not save-on-result) so "Shuffle layout" never orphans a
+  // saved page. Runs from the button click AND the countdown; the phase guard
+  // makes double-fires (countdown tick racing a click) no-ops.
+  const resultRef = useRef<GenerationResult | null>(null);
+  resultRef.current = result;
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+
+  const commitAndOpen = useCallback(async () => {
+    const held = resultRef.current;
+    if (held === null || phaseRef.current !== "ready") return;
+    setPhase("saving");
+    setSaveError(null);
+    try {
+      const pageId = await onSaveRef.current(held);
+      onOpenRef.current(pageId);
+    } catch (err) {
+      // Don't discard a perfectly good generation over a save blip — back to
+      // "ready" with an inline error; the button retries. Auto-open stops so
+      // the countdown can't loop a failing save.
+      stopAutoOpen();
+      setSaveError(err instanceof Error ? err.message : "Could not save the page");
+      setPhase("ready");
+    }
+  }, [stopAutoOpen]);
+
+  // ── Shuffle layout (freeform generations only) ─────────────────────────────
+  const handleShuffle = useCallback(() => {
+    if (phaseRef.current !== "ready") return;
+    const id = receipt?.recipeId;
+    if (id) {
+      const next = excludedRecipeIdsRef.current.filter((x) => x !== id);
+      next.push(id);
+      // Cap at 10 — drop the OLDEST exclusions first so recent layouts stay
+      // excluded.
+      excludedRecipeIdsRef.current = next.slice(-MAX_EXCLUDED_RECIPES);
+    }
+    stopAutoOpen(); // permanent — manual "Open in builder" only from now on
+    setShuffleCount((c) => c + 1);
+    setSaveError(null);
+    setAttempt((a) => a + 1); // re-runs the stream effect (discards held result)
+  }, [receipt, stopAutoOpen]);
+
+  // ── Auto-navigate countdown (runs the delayed save when it fires) ─────────
   const [countdown, setCountdown] = useState(6);
   useEffect(() => {
-    if (phase !== "saved" || savedPageId === null) return;
+    if (phase !== "ready" || result === null || autoOpenStopped) return;
     setCountdown(6);
     const id = setInterval(() => {
-      // Pause while the user is hovering or just scrolled the preview.
+      // Pause while the user is hovering or just scrolled the preview; stop
+      // outright once the user has shuffled.
+      if (autoOpenStoppedRef.current) {
+        clearInterval(id);
+        return;
+      }
       if (hoveringRef.current || Date.now() - lastUserScrollRef.current < 1500) return;
       setCountdown((c) => {
         if (c <= 1) {
           clearInterval(id);
-          onOpenRef.current(savedPageId);
+          void commitAndOpen();
           return 0;
         }
         return c - 1;
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [phase, savedPageId]);
+  }, [phase, result, autoOpenStopped, commitAndOpen]);
 
   // ── Derived bits ───────────────────────────────────────────────────────────
   const streaming = phase === "streaming";
   const brandButtonCss = getBrandButtonCss(brand);
-  const showReceiptCard = receipt !== null && (phase === "saving" || phase === "saved");
+  const showReceiptCard = receipt !== null && (phase === "ready" || phase === "saving");
   const tenantName = brand.brandName?.trim() || "Your page";
 
   const imageCount = useMemo(() => {
@@ -630,8 +712,8 @@ export function GenerationLiveView({
             <div className="pt-1 space-y-2">
               <Button
                 className="w-full gap-2"
-                disabled={phase !== "saved" || savedPageId === null}
-                onClick={() => savedPageId !== null && onOpen(savedPageId)}
+                disabled={phase !== "ready"}
+                onClick={() => void commitAndOpen()}
               >
                 {phase === "saving" ? (
                   <>
@@ -640,14 +722,38 @@ export function GenerationLiveView({
                   </>
                 ) : (
                   <>
-                    Open in builder{countdown > 0 ? ` (${countdown})` : ""}
+                    Open in builder
+                    {!autoOpenStopped && countdown > 0 ? ` (${countdown})` : ""}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </Button>
-              {phase === "saved" && countdown > 0 && (
+              {/* Shuffle — freeform generations only (recipeId is null on the
+                  template path, where the layout is fixed by design). */}
+              {receipt.recipeId !== null && (
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  disabled={phase !== "ready"}
+                  onClick={handleShuffle}
+                >
+                  <Dices className="w-4 h-4" aria-hidden />
+                  Shuffle layout
+                </Button>
+              )}
+              {saveError && (
+                <p className="text-[11px] text-red-600 text-center leading-snug" role="alert">
+                  {saveError} — click "Open in builder" to retry.
+                </p>
+              )}
+              {phase === "ready" && !autoOpenStopped && countdown > 0 && (
                 <p className="text-[11px] text-muted-foreground text-center leading-snug">
                   Opening automatically in {countdown}s — hover the preview to pause.
+                </p>
+              )}
+              {shuffleCount > 0 && !saveError && (
+                <p className="text-[11px] text-muted-foreground text-center leading-snug">
+                  We'll avoid the layouts you've already seen.
                 </p>
               )}
             </div>
@@ -915,7 +1021,7 @@ export function GenerationLiveView({
         )}
 
         {/* Hover hint while the countdown is paused */}
-        {phase === "saved" && hoveringPreview && countdown > 0 && (
+        {phase === "ready" && !autoOpenStopped && hoveringPreview && countdown > 0 && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 rounded-full bg-foreground/90 text-background text-[11px] px-3 py-1 shadow">
             Auto-open paused
           </div>

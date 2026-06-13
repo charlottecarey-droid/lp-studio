@@ -34,6 +34,13 @@ import { fetchBrandConfig, type AudienceSegment } from "@/lib/brand-config";
 import { syncFactFlags } from "@/lib/fact-flags-api";
 import { rememberCritiqueAnnotations } from "@/lib/critiqueAnnotations";
 import { cn } from "@/lib/utils";
+import type { GenerationRequestBody, GenerationResult } from "@/lib/generationStream";
+import { imageFileFromDataTransfer } from "@/lib/screenshotAttachment";
+import {
+  ScreenshotAttachZone,
+  useScreenshotAttachment,
+} from "@/components/generation/ScreenshotAttach";
+import { GenerationLiveView } from "@/pages/pages-gallery/GenerationLiveView";
 
 const API_BASE = "/api";
 
@@ -139,6 +146,23 @@ export function NewMicrositeModal({ open, onClose }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // June 2026 — optional screenshot of a page the rep likes (generic AI path
+  // only — the dedicated account generator doesn't accept one). Pasted,
+  // dropped, or browsed; downscaled client-side; sent as `screenshotDataUrl`.
+  const screenshotAttach = useScreenshotAttachment();
+
+  // June 2026 — live streaming generation for the GENERIC AI path (no
+  // account, or no segments configured). Non-null while the dialog content is
+  // swapped to the GenerationLiveView canvas (dialog expands). Captures
+  // everything the save/fallback flows need so they replay the EXACT same
+  // generation. The ACCOUNT path (dedicated generator) stays non-streaming.
+  const [liveGen, setLiveGen] = useState<{
+    body: GenerationRequestBody;
+    templateId: number | null;
+    acctIdNum: number | null;
+    segmentId: string;
+  } | null>(null);
+
   // Reset transient state every time the modal closes so reopening starts
   // from a clean slate (matches CreatePageModal behaviour).
   useEffect(() => {
@@ -157,7 +181,11 @@ export function NewMicrositeModal({ open, onClose }: Props) {
       setAiReferenceUrl("");
       setError(null);
       setSubmitting(false);
+      setLiveGen(null);
+      screenshotAttach.reset();
     }
+    // screenshotAttach.reset is stable (useCallback []).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Load accounts + tenant-owned templates whenever the modal opens.
@@ -204,6 +232,27 @@ export function NewMicrositeModal({ open, onClose }: Props) {
   // The user has committed to a path (account picked, or explicitly skipped)
   // before they're allowed to fill in title/template/AI fields.
   const pathChosen = noAccount || accountId !== "";
+
+  // True when an AI submit would route through the GENERIC /lp/generate-page
+  // path (vs the dedicated account-aware generator): no account picked, or
+  // the tenant has no segments configured. Mirrors handleSubmit's routing.
+  const genericAiPath = noAccount || accountId === "" || segments.length === 0;
+
+  // Clipboard paste → screenshot attach, anywhere in the dialog while the AI
+  // tab is on the generic path. Only intercepts pastes that contain an image
+  // file; pasting text/URLs into inputs is untouched.
+  const attachScreenshotFile = screenshotAttach.attachFile;
+  useEffect(() => {
+    if (!open || mode !== "ai" || liveGen !== null || !genericAiPath) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const file = imageFileFromDataTransfer(e.clipboardData);
+      if (!file) return;
+      e.preventDefault();
+      attachScreenshotFile(file);
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [open, mode, liveGen, genericAiPath, attachScreenshotFile]);
 
   function handleTitleChange(v: string) {
     setTitle(v);
@@ -297,56 +346,32 @@ export function NewMicrositeModal({ open, onClose }: Props) {
             replaceImagery: aiTemplateId ? replaceImagery : undefined,
           });
         } else {
-          // No account (or no segments configured) → generic generate-page.
-          const tplIdForAi = aiTemplateId ? Number(aiTemplateId) : undefined;
+          // No account (or no segments configured) → GENERIC generate-page,
+          // now streamed through the live build view (June 2026). Capture the
+          // exact request body the non-streaming path used to send, swap the
+          // dialog to GenerationLiveView and bail out — saving is DEFERRED
+          // until the rep opens the builder (see saveStreamedMicrosite), so
+          // "Shuffle layout" can re-roll without orphaning a saved page. The
+          // post-save bookkeeping (fact flags, critique stash, last-segment
+          // memory, contact hotlinks) all moved into that delayed save.
+          const tplIdForAi = aiTemplateId ? Number(aiTemplateId) : null;
           const segmentContext = buildSegmentContext(aiSegmentId);
-          const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
+          setLiveGen({
+            body: {
               prompt: aiPrompt.trim(),
               ...(tplIdForAi ? { templateId: tplIdForAi } : {}),
               ...(tplIdForAi && replaceImagery ? { replaceImagery: true } : {}),
               ...(segmentContext ? { segmentContext } : {}),
               ...(aiReferenceUrl.trim() ? { referenceUrl: aiReferenceUrl.trim() } : {}),
-            }),
+              ...(screenshotAttach.screenshot
+                ? { screenshotDataUrl: screenshotAttach.screenshot.dataUrl }
+                : {}),
+            },
+            templateId: tplIdForAi,
+            acctIdNum,
+            segmentId: aiSegmentId,
           });
-          if (!genRes.ok) {
-            const err = await genRes.json().catch(() => ({ error: "AI generation failed" }));
-            throw new Error((err as { error?: string }).error ?? "AI generation failed");
-          }
-          const generated = (await genRes.json()) as {
-            title?: string;
-            slug?: string;
-            blocks?: unknown[];
-            critiqueAnnotations?: unknown;
-          };
-          // Save the AI-generated page. If the user supplied a title, prefer
-          // theirs; otherwise fall back to the AI's suggestion.
-          const finalTitle = createdTitle || generated.title || "Untitled microsite";
-          const finalSlug = createdSlug || slugify(generated.slug || finalTitle);
-          const saveRes = await fetch(`${API_BASE}/lp/pages`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: finalTitle,
-              slug: finalSlug,
-              blocks: Array.isArray(generated.blocks) ? generated.blocks : [],
-              status: "draft",
-            }),
-          });
-          if (!saveRes.ok) {
-            const err = await saveRes.json().catch(() => ({ error: "Could not save page" }));
-            throw new Error((err as { error?: string }).error ?? "Could not save page");
-          }
-          const page = (await saveRes.json()) as { id: number };
-          pageId = page.id;
-          createdTitle = finalTitle;
-          createdSlug = finalSlug;
-          // Task #1138 — detect + persist per-page fact flags (review banner +
-          // publish gate). Best-effort so a sync failure can't block creation.
-          void syncFactFlags(pageId).catch(() => {});
-          rememberCritiqueAnnotations(pageId, generated.critiqueAnnotations);
+          return; // the live view owns the rest of the flow from here
         }
       } else {
         // Template / Blank mode — POST /lp/pages and let the server clone
@@ -494,6 +519,83 @@ export function NewMicrositeModal({ open, onClose }: Props) {
     }
   }
 
+  // ── Streaming generic path: delayed save + fallback ──────────────────────
+
+  /** Save flow for a STREAMED generic generation — runs when the rep clicks
+   *  "Open in builder" (or the auto-open countdown fires), NOT when the
+   *  result arrives, so "Shuffle layout" can discard the held result without
+   *  orphaning a saved page. Mirrors the original non-streaming sequence
+   *  exactly: POST /lp/pages (rep's title/slug win over the AI's), fact-flags
+   *  sync, critique-annotation stash, then last-segment memory + bulk contact
+   *  hotlinks when an account is attached (generic path can still carry an
+   *  account when the tenant has no segments). Resolves with the page id. */
+  async function saveStreamedMicrosite(
+    gen: { acctIdNum: number | null; segmentId: string },
+    generated: GenerationResult,
+  ): Promise<number> {
+    const finalTitle = title.trim() || generated.title || "Untitled microsite";
+    const finalSlug = slug.trim() || slugify(generated.slug || finalTitle);
+    const saveRes = await fetch(`${API_BASE}/lp/pages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: finalTitle,
+        slug: finalSlug,
+        blocks: Array.isArray(generated.blocks) ? generated.blocks : [],
+        status: "draft",
+      }),
+    });
+    if (!saveRes.ok) {
+      const err = await saveRes.json().catch(() => ({ error: "Could not save page" }));
+      throw new Error((err as { error?: string }).error ?? "Could not save page");
+    }
+    const page = (await saveRes.json()) as { id: number };
+    // Task #1138 — detect + persist per-page fact flags (review banner +
+    // publish gate). Best-effort so a sync failure can't block creation.
+    void syncFactFlags(page.id).catch(() => {});
+    rememberCritiqueAnnotations(page.id, generated.critiqueAnnotations);
+    if (gen.acctIdNum !== null) {
+      rememberLastSegment(gen.acctIdNum, gen.segmentId);
+      // Bulk-create personalised hotlinks for the account's contacts.
+      // Failures are non-fatal — the page exists and the rep can still open
+      // the builder.
+      try {
+        await fetch(`${API_BASE}/sales/accounts/${gen.acctIdNum}/microsites`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pageId: page.id }),
+        });
+      } catch {
+        // swallow — see comment above
+      }
+    }
+    return page.id;
+  }
+
+  /** The original NON-STREAMING generic flow, kept intact as the live view's
+   *  fallback (silent auto-fallback + "Use standard mode"). Generates with
+   *  the captured body, saves, AND navigates — identical end state to the
+   *  pre-streaming behavior. Errors propagate to the live view's error card. */
+  async function runGenericStandardGeneration(gen: NonNullable<typeof liveGen>): Promise<void> {
+    const genRes = await fetch(`${API_BASE}/lp/generate-page`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(gen.body),
+    });
+    if (!genRes.ok) {
+      const err = await genRes.json().catch(() => ({ error: "AI generation failed" }));
+      throw new Error((err as { error?: string }).error ?? "AI generation failed");
+    }
+    const generated = (await genRes.json()) as GenerationResult;
+    const pageId = await saveStreamedMicrosite(gen, generated);
+    onClose();
+    navigate(`/builder/${pageId}`);
+  }
+
+  const liveGenTemplate = liveGen?.templateId != null
+    ? templates.find((t) => t.id === liveGen.templateId) ?? null
+    : null;
+
   // An account is actively selected (not the "no account" escape hatch).
   const accountSelected = !noAccount && accountId !== "";
 
@@ -510,7 +612,35 @@ export function NewMicrositeModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o && !submitting) onClose(); }}>
-      <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh]">
+      <DialogContent
+        className={cn(
+          liveGen
+            ? "max-w-6xl w-[calc(100%-2rem)] h-[85vh] p-0 gap-0 flex flex-col overflow-hidden"
+            : "sm:max-w-lg flex flex-col max-h-[90vh]",
+        )}
+      >
+        {liveGen ? (
+          <>
+            <DialogHeader className="px-5 py-3.5 border-b border-border shrink-0 text-left">
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <Sparkles className="w-4 h-4 text-primary" aria-hidden />
+                Building your microsite
+              </DialogTitle>
+            </DialogHeader>
+            <GenerationLiveView
+              body={liveGen.body}
+              templateName={liveGenTemplate ? (liveGenTemplate.templateLabel || liveGenTemplate.title) : null}
+              onSave={(result) => saveStreamedMicrosite(liveGen, result)}
+              onOpen={(pageId) => {
+                onClose();
+                navigate(`/builder/${pageId}`);
+              }}
+              onFallback={() => runGenericStandardGeneration(liveGen)}
+              onCancel={() => setLiveGen(null)}
+            />
+          </>
+        ) : (
+          <>
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
@@ -825,6 +955,14 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     We'll study its layout, voice, and imagery for inspiration (your brand voice still wins).
                   </p>
+                  {/* Screenshot attach — generic path only; the dedicated
+                      account generator doesn't accept screenshots. Paste an
+                      image anywhere in this dialog, drop it here, or browse. */}
+                  {genericAiPath && (
+                    <div className="mt-2">
+                      <ScreenshotAttachZone state={screenshotAttach} compact />
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -863,6 +1001,8 @@ export function NewMicrositeModal({ open, onClose }: Props) {
             )}
           </Button>
         </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
