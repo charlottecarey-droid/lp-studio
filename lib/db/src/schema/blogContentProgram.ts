@@ -117,6 +117,8 @@ export type NewBlogTopic = typeof blogTopicsTable.$inferInsert;
  *                           pipeline may generate + schedule but the
  *                           blogPublishPoller must not auto-flip to published.
  *   defaultThemeId        — optional theme to weight recommendations toward.
+ *   writingInstructions   — superadmin-editable editorial brief injected into
+ *                           every generation call (outline/draft/metadata).
  */
 export const blogProgramSettingsTable = pgTable("blog_program_settings", {
   id: integer("id").primaryKey().default(1),
@@ -131,6 +133,10 @@ export const blogProgramSettingsTable = pgTable("blog_program_settings", {
     () => blogContentThemesTable.id,
     { onDelete: "set null" },
   ),
+  // Superadmin-editable editorial brief injected into every generation call
+  // (outline + draft + metadata). Seeded with a default once (only when empty)
+  // so the program's writing standard can evolve without code changes.
+  writingInstructions: text("writing_instructions").notNull().default(""),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow()

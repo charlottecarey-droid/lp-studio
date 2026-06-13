@@ -45,7 +45,7 @@ import {
 } from "./blogProgram";
 import { prePublishChecklist } from "./blog";
 import { getBlogBannedPhrases, htmlToPromptText, buildTopicRecommendationMessages, parseRecommendedTopics, completionText, type ThemeBrief } from "./blogAi";
-import { generateDraftForTopic, getOpenAIClientForProgram } from "./blogTopicGenerate";
+import { generateDraftForTopic, getOpenAIClientForProgram, loadWritingInstructions } from "./blogTopicGenerate";
 
 export const BLOG_PROGRAM_POLL_INTERVAL_MS = 30 * 60 * 1000; // every 30 min
 const ADVISORY_LOCK_CLASSID = 9602; // distinct from blogPublishPoller (9601)
@@ -191,6 +191,10 @@ export async function runBlogProgramTick(): Promise<TickResult> {
     return { ...result, skipped: "ai-not-configured" };
   }
   const banned = getBlogBannedPhrases();
+  // The operator's editable editorial brief (same brief manual generation uses).
+  // Read off the already-loaded settings row; fall back to a fresh read.
+  const writingInstructions =
+    (settingsRow as { writingInstructions?: string | null })?.writingInstructions ?? (await loadWritingInstructions());
   let budget = plan.draftBudget;
   for (const topic of approvedTopics) {
     if (budget <= 0) break;
@@ -201,6 +205,7 @@ export async function runBlogProgramTick(): Promise<TickResult> {
         openai,
         topic: { id: topic.id, title: topic.title, angle: topic.angle, targetKeyword: topic.targetKeyword },
         existingSlugs,
+        writingInstructions,
       });
       // QUALITY GATE — the exception path. A failing draft is LEFT as a draft +
       // flagged; the topic is NOT advanced to scheduled.

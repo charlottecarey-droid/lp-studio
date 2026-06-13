@@ -26,6 +26,7 @@ import { rateLimit, envLimit } from "../../lib/rateLimit";
 import { getClientIp } from "../../lib/geo";
 import { withOpenAIConcurrency } from "../../lib/brand-import/openai-semaphore";
 import { sanitizeRawBlogHtml } from "../../lib/blogHtml";
+import { loadWritingInstructions } from "../../lib/blogTopicGenerate";
 import {
   buildMetadataMessages,
   buildOutlineMessages,
@@ -88,6 +89,27 @@ function str(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
 
+/**
+ * Parse the shared draft brief (topic + the blog-specific guidance fields) off
+ * a request body. The guidance fields (secondary keywords, search intent, funnel
+ * stage, desired CTA, topic category) are threaded into the outline + draft
+ * prompts so the article targets the right intent/stage/keywords/CTA. Per-request
+ * (not persisted) — the simpler path.
+ */
+function parseBrief(b: Record<string, unknown>): DraftBrief {
+  return {
+    topic: str(b.topic).trim(),
+    audience: str(b.audience).trim() || undefined,
+    targetKeyword: str(b.targetKeyword).trim() || undefined,
+    notes: str(b.notes).trim() || undefined,
+    secondaryKeywords: str(b.secondaryKeywords).trim() || undefined,
+    searchIntent: str(b.searchIntent).trim() || undefined,
+    funnelStage: str(b.funnelStage).trim() || undefined,
+    desiredCta: str(b.desiredCta).trim() || undefined,
+    topicCategory: str(b.topicCategory).trim() || undefined,
+  };
+}
+
 function mapAiError(err: unknown, res: import("express").Response): void {
   const msg = err instanceof Error ? err.message : String(err);
   if (/not configured/i.test(msg)) {
@@ -146,6 +168,7 @@ router.post(
       return;
     }
 
+    const writingInstructions = await loadWritingInstructions();
     const messages = buildMetadataMessages({
       title,
       bodyHtml: body,
@@ -153,6 +176,7 @@ router.post(
       fields,
       improve,
       existing,
+      writingInstructions,
     });
 
     try {
@@ -187,12 +211,7 @@ router.post(
   blogAiHourlyLimiter,
   async (req, res): Promise<void> => {
     const b = (req.body ?? {}) as Record<string, unknown>;
-    const brief: DraftBrief = {
-      topic: str(b.topic).trim(),
-      audience: str(b.audience).trim() || undefined,
-      targetKeyword: str(b.targetKeyword).trim() || undefined,
-      notes: str(b.notes).trim() || undefined,
-    };
+    const brief: DraftBrief = parseBrief(b);
     if (!brief.topic) {
       res.status(400).json({ error: "A topic is required to generate an outline." });
       return;
@@ -207,11 +226,12 @@ router.post(
     }
 
     try {
+      const writingInstructions = await loadWritingInstructions();
       const completion = await withOpenAIConcurrency(() =>
         openai.chat.completions.create({
           model: MODEL,
-          max_completion_tokens: 700,
-          messages: buildOutlineMessages(brief),
+          max_completion_tokens: 900,
+          messages: buildOutlineMessages(brief, { writingInstructions }),
         }),
       );
       const outline = parseOutline(completionText(completion));
@@ -240,12 +260,7 @@ router.post(
   blogAiHourlyLimiter,
   async (req, res): Promise<void> => {
     const b = (req.body ?? {}) as Record<string, unknown>;
-    const brief: DraftBrief = {
-      topic: str(b.topic).trim(),
-      audience: str(b.audience).trim() || undefined,
-      targetKeyword: str(b.targetKeyword).trim() || undefined,
-      notes: str(b.notes).trim() || undefined,
-    };
+    const brief: DraftBrief = parseBrief(b);
     if (!brief.topic) {
       res.status(400).json({ error: "A topic is required to generate a draft." });
       return;
@@ -280,12 +295,15 @@ router.post(
     }
 
     try {
-      // Full draft (HTML body).
+      const writingInstructions = await loadWritingInstructions();
+      // Full draft (HTML body). A higher completion cap gives the model room to
+      // FULLY develop every section (a complete article, not an outline) without
+      // truncating mid-draft.
       const draftCompletion = await withOpenAIConcurrency(() =>
         openai.chat.completions.create({
           model: MODEL,
-          max_completion_tokens: 3200,
-          messages: buildDraftMessages({ brief, outlineText: outlineToText(outline) }),
+          max_completion_tokens: 6000,
+          messages: buildDraftMessages({ brief, outlineText: outlineToText(outline), opts: { writingInstructions } }),
         }),
       );
       const rawHtml = cleanDraftHtml(completionText(draftCompletion));
@@ -306,6 +324,7 @@ router.post(
               bodyHtml,
               targetKeyword: brief.targetKeyword,
               fields: METADATA_FIELDS,
+              writingInstructions,
             }),
           }),
         );

@@ -1128,6 +1128,11 @@ function DraftGenPanel({
   const [topic, setTopic] = useState("");
   const [audience, setAudience] = useState("");
   const [keyword, setKeyword] = useState(initialKeyword);
+  const [secondaryKeywords, setSecondaryKeywords] = useState("");
+  const [searchIntent, setSearchIntent] = useState("");
+  const [funnelStage, setFunnelStage] = useState("");
+  const [desiredCta, setDesiredCta] = useState("");
+  const [topicCategory, setTopicCategory] = useState("");
   const [notes, setNotes] = useState("");
   const [outline, setOutline] = useState<Outline | null>(null);
   const [phase, setPhase] = useState<"brief" | "outline">("brief");
@@ -1139,6 +1144,11 @@ function DraftGenPanel({
     topic: topic.trim(),
     audience: audience.trim() || undefined,
     targetKeyword: keyword.trim() || undefined,
+    secondaryKeywords: secondaryKeywords.trim() || undefined,
+    searchIntent: searchIntent.trim() || undefined,
+    funnelStage: funnelStage.trim() || undefined,
+    desiredCta: desiredCta.trim() || undefined,
+    topicCategory: topicCategory.trim() || undefined,
     notes: notes.trim() || undefined,
   });
 
@@ -1224,8 +1234,43 @@ function DraftGenPanel({
                   <Input value={audience} onChange={(e) => setAudience(e.target.value)} placeholder="founders, marketers…" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Target keyword(s)</Label>
+                  <Label className="text-xs">Primary keyword</Label>
                   <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="ai landing page builder" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Secondary keywords <span className="text-muted-foreground">(comma-separated)</span></Label>
+                  <Input value={secondaryKeywords} onChange={(e) => setSecondaryKeywords(e.target.value)} placeholder="page builder, conversion copy…" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Topic category <span className="text-muted-foreground">(optional)</span></Label>
+                  <Input value={topicCategory} onChange={(e) => setTopicCategory(e.target.value)} placeholder="conversion, SEO, demand gen…" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Search intent</Label>
+                  <select className="w-full rounded-md border bg-background px-2 py-1.5 text-sm" value={searchIntent} onChange={(e) => setSearchIntent(e.target.value)}>
+                    <option value="">—</option>
+                    <option value="informational">Informational</option>
+                    <option value="comparison">Comparison</option>
+                    <option value="transactional">Transactional</option>
+                    <option value="navigational">Navigational</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Funnel stage</Label>
+                  <select className="w-full rounded-md border bg-background px-2 py-1.5 text-sm" value={funnelStage} onChange={(e) => setFunnelStage(e.target.value)}>
+                    <option value="">—</option>
+                    <option value="TOFU (awareness)">TOFU (awareness)</option>
+                    <option value="MOFU (consideration)">MOFU (consideration)</option>
+                    <option value="BOFU (decision)">BOFU (decision)</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Desired CTA</Label>
+                  <Input value={desiredCta} onChange={(e) => setDesiredCta(e.target.value)} placeholder="start a free build…" />
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -1379,7 +1424,14 @@ interface ProgramSettingsApi {
   maxAutonomousPerWeek: number;
   autopublishEnabled: boolean;
   defaultThemeId: number | null;
+  writingInstructions: string;
 }
+
+// The seeded default editorial brief — kept in sync with the server's
+// DEFAULT_BLOG_WRITING_INSTRUCTIONS (lib/blogAi.ts). Used by the "Reset to
+// default" affordance so the operator can always recover the baseline.
+const DEFAULT_BLOG_WRITING_INSTRUCTIONS =
+  "You are writing on behalf of LP Studio. Write for experienced B2B marketers, demand generation leaders, growth teams, and revenue teams. Your writing should be: Clear and practical. Insightful without being academic. Confident without sounding overly promotional. Structured with strong transitions and logical flow. Grounded in examples, frameworks, and real-world applications. Helpful enough that readers would save or share the article. Avoid: Generic AI phrasing. Excessive hype. Empty buzzwords. Thin sections that restate the heading without adding value. Each section should answer a meaningful question or advance the reader's understanding. Prioritize usefulness over word count. Assume the reader is intelligent, busy, and skeptical. The objective is not simply to publish content. The objective is to publish content that builds trust, demonstrates expertise, and helps readers make better decisions.";
 interface ThemeApi {
   id: number; name: string; description: string; priority: number;
   targetKeywords: string[]; audience: string; active: boolean;
@@ -1582,6 +1634,37 @@ function ProgramSettingsCard({ settings, themes, onSave, saving }: {
     <div className="rounded-lg border">
       <div className="border-b px-4 py-3"><h3 className="text-sm font-semibold inline-flex items-center gap-1.5"><Settings className="w-4 h-4" /> Program settings &amp; guardrails</h3></div>
       <div className="p-4 space-y-4">
+        {/* Editable editorial writing instructions — drives EVERY outline + draft
+            + metadata generation (manual + autonomous). Edit to tune the program's
+            writing standard without engineering. */}
+        <div className="rounded-md border bg-muted/20 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-xs font-medium inline-flex items-center gap-1.5">
+              <Wand2 className="w-3.5 h-3.5" /> Writing instructions
+            </Label>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 text-xs"
+              disabled={draft.writingInstructions === DEFAULT_BLOG_WRITING_INSTRUCTIONS}
+              onClick={() => set({ writingInstructions: DEFAULT_BLOG_WRITING_INSTRUCTIONS })}
+            >
+              <RotateCcw className="w-3 h-3 mr-1" /> Reset to default
+            </Button>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            The editorial brief injected into every blog outline, draft, and metadata generation — manual and autonomous.
+            Tune it to evolve the writing standard; leave blank to use the built-in default.
+          </p>
+          <Textarea
+            rows={8}
+            className="mt-2 text-sm"
+            value={draft.writingInstructions}
+            onChange={(e) => set({ writingInstructions: e.target.value })}
+            placeholder={DEFAULT_BLOG_WRITING_INSTRUCTIONS}
+          />
+        </div>
+
         {/* Mode toggle */}
         <div>
           <Label className="text-xs">Mode</Label>

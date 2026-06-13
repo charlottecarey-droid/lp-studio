@@ -19,6 +19,41 @@
 
 import { getCoreForbiddenPhrases } from "./ai-prompts/copy-principles";
 
+// ── Editable editorial writing instructions ──────────────────────────────────
+
+/**
+ * The DEFAULT editorial brief seeded onto blog_program_settings.writing_instructions
+ * (only when null/empty). The superadmin can edit it in the Content-program tab;
+ * the edited text is injected into EVERY outline + draft + metadata generation
+ * call so the program's writing standard evolves WITHOUT engineering. Exported
+ * so the migrate.ts seed + the settings "reset to default" affordance share the
+ * single source of truth. Kept verbatim per the task spec.
+ */
+export const DEFAULT_BLOG_WRITING_INSTRUCTIONS =
+  "You are writing on behalf of LP Studio. Write for experienced B2B marketers, demand generation leaders, growth teams, and revenue teams. Your writing should be: Clear and practical. Insightful without being academic. Confident without sounding overly promotional. Structured with strong transitions and logical flow. Grounded in examples, frameworks, and real-world applications. Helpful enough that readers would save or share the article. Avoid: Generic AI phrasing. Excessive hype. Empty buzzwords. Thin sections that restate the heading without adding value. Each section should answer a meaningful question or advance the reader's understanding. Prioritize usefulness over word count. Assume the reader is intelligent, busy, and skeptical. The objective is not simply to publish content. The objective is to publish content that builds trust, demonstrates expertise, and helps readers make better decisions.";
+
+/**
+ * Normalise a stored writing-instructions value, falling back to the seeded
+ * default when null/empty/whitespace. Pure — used by every prompt builder so a
+ * blank settings row still generates against a strong brief.
+ */
+export function resolveWritingInstructions(stored?: string | null): string {
+  const s = String(stored ?? "").trim();
+  return s || DEFAULT_BLOG_WRITING_INSTRUCTIONS;
+}
+
+/**
+ * Render the editorial-instructions block injected into every generation system
+ * prompt. Pure. Always present (falls back to the default) so the brief always
+ * applies.
+ */
+export function buildEditorialInstructionsSection(stored?: string | null): string {
+  return [
+    `EDITORIAL INSTRUCTIONS — the operator's living writing standard (follow these exactly; they are tuned by the team and override generic defaults):`,
+    resolveWritingInstructions(stored),
+  ].join("\n");
+}
+
 // ── LP Studio marketing-blog voice grounding ────────────────────────────────
 
 /**
@@ -268,6 +303,7 @@ export function buildMetadataMessages(args: {
   fields: MetadataField[];
   improve?: boolean;
   existing?: Partial<BlogMetadata>;
+  writingInstructions?: string | null;
 }): Array<{ role: "system" | "user"; content: string }> {
   const fields = args.fields.length ? args.fields : METADATA_FIELDS;
   const rules = fields.map((f) => `- ${FIELD_RULES[f]}`).join("\n");
@@ -275,6 +311,8 @@ export function buildMetadataMessages(args: {
 
   const system = [
     buildLpStudioBlogVoicePrompt(),
+    ``,
+    buildEditorialInstructionsSection(args.writingInstructions),
     ``,
     `TASK: ${args.improve ? "IMPROVE the existing" : "Generate"} SEO/social metadata for one blog post, from its title + body${args.targetKeyword ? " + target keyword" : ""}.`,
     `${args.improve ? "Sharpen the existing values without changing their meaning — tighter, more answer-first, within the limits." : "Write each field fresh from the post content."}`,
@@ -314,8 +352,21 @@ export function buildMetadataMessages(args: {
 export interface DraftBrief {
   topic: string;
   audience?: string;
+  /** Primary SEO keyword. (Historically `targetKeyword`; kept for callers.) */
   targetKeyword?: string;
   notes?: string;
+  // ── Blog-specific guidance (threaded into outline + draft so the article
+  //    targets the right intent / stage / keywords / CTA). All optional. ──
+  /** Comma- or line-separated SECONDARY keywords to work in naturally. */
+  secondaryKeywords?: string;
+  /** Search intent: e.g. informational / comparison / transactional / navigational. */
+  searchIntent?: string;
+  /** Funnel stage: e.g. TOFU / MOFU / BOFU (awareness / consideration / decision). */
+  funnelStage?: string;
+  /** The single desired call-to-action this post should drive toward. */
+  desiredCta?: string;
+  /** Topic category / content pillar (helps frame the angle + internal linking). */
+  topicCategory?: string;
 }
 
 export interface OutlineSection {
@@ -323,27 +374,55 @@ export interface OutlineSection {
   h3?: string[];
 }
 
+/**
+ * The optional editorial-instructions override threaded through every prompt
+ * builder. When omitted, the builders use the seeded default — so generation is
+ * always governed by a brief, even before the operator has tuned one.
+ */
+export interface PromptOptions {
+  writingInstructions?: string | null;
+}
+
+/**
+ * Render the blog-specific guidance lines (primary/secondary keyword, search
+ * intent, funnel stage, CTA, topic category, audience, notes) shared by the
+ * outline + draft user messages. Pure. Only non-empty fields appear.
+ */
+export function buildGuidanceLines(brief: DraftBrief): string[] {
+  const lines: string[] = [];
+  if (brief.audience) lines.push(`Audience: ${normalizeWhitespace(brief.audience)}`);
+  if (brief.targetKeyword) lines.push(`Primary keyword: ${normalizeWhitespace(brief.targetKeyword)}`);
+  if (brief.secondaryKeywords) lines.push(`Secondary keywords (work in naturally, never stuff): ${normalizeWhitespace(brief.secondaryKeywords)}`);
+  if (brief.searchIntent) lines.push(`Search intent: ${normalizeWhitespace(brief.searchIntent)}`);
+  if (brief.funnelStage) lines.push(`Funnel stage: ${normalizeWhitespace(brief.funnelStage)}`);
+  if (brief.topicCategory) lines.push(`Topic category: ${normalizeWhitespace(brief.topicCategory)}`);
+  if (brief.desiredCta) lines.push(`Desired call-to-action (the post should lead here): ${normalizeWhitespace(brief.desiredCta)}`);
+  if (brief.notes) lines.push(`Notes / guidance: ${normalizeWhitespace(brief.notes)}`);
+  return lines;
+}
+
 /** Build messages for the OUTLINE step (H2/H3 structure, shown for review). */
-export function buildOutlineMessages(brief: DraftBrief): Array<{ role: "system" | "user"; content: string }> {
+export function buildOutlineMessages(
+  brief: DraftBrief,
+  opts?: PromptOptions,
+): Array<{ role: "system" | "user"; content: string }> {
   const system = [
     buildLpStudioBlogVoicePrompt(),
     ``,
-    `TASK: Propose a blog post OUTLINE (section structure only — no body copy yet).`,
+    buildEditorialInstructionsSection(opts?.writingInstructions),
+    ``,
+    `TASK: Propose a blog post OUTLINE (section structure only — no body copy yet) for a COMPLETE, substantive article — not a thin listicle.`,
     `- 4–7 H2 sections, sentence case, scannable, in a logical answer-first order (the first section delivers the core answer).`,
+    `- Each H2 must be a section that can be FULLY developed into multiple substantive paragraphs (a real question to answer, a framework to explain, a decision to inform) — never a heading that would only restate the title.`,
     `- Each H2 may have 0–4 H3 subsections where genuinely useful.`,
-    `- Also propose a working title (sentence case, ≤ ${SEO_TITLE_MAX} chars, answer-first).`,
+    `- Match the SEARCH INTENT and FUNNEL STAGE in the brief: an informational/TOFU piece teaches; a comparison/MOFU piece weighs trade-offs; a decision/BOFU piece drives toward the CTA.`,
+    `- Plan a logical place for the desired CTA near the end (do not add a separate "conclusion" section that just summarises).`,
+    `- Also propose a working title (sentence case, ≤ ${SEO_TITLE_MAX} chars, answer-first, includes the primary keyword early if natural).`,
     ``,
     `Return ONLY valid JSON, no prose: { "title": "...", "sections": [ { "h2": "...", "h3": ["...", "..."] } ] }`,
   ].join("\n");
 
-  const user = [
-    `Topic: ${normalizeWhitespace(brief.topic)}`,
-    brief.audience ? `Audience: ${normalizeWhitespace(brief.audience)}` : "",
-    brief.targetKeyword ? `Target keyword(s): ${normalizeWhitespace(brief.targetKeyword)}` : "",
-    brief.notes ? `Notes / guidance: ${normalizeWhitespace(brief.notes)}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const user = [`Topic: ${normalizeWhitespace(brief.topic)}`, ...buildGuidanceLines(brief)].join("\n");
 
   return [
     { role: "system", content: system },
@@ -393,31 +472,46 @@ export function outlineToText(outline: ParsedOutline): string {
 export function buildDraftMessages(args: {
   brief: DraftBrief;
   outlineText: string;
+  opts?: PromptOptions;
 }): Array<{ role: "system" | "user"; content: string }> {
   const system = [
     buildLpStudioBlogVoicePrompt(),
     ``,
-    `TASK: Write the FULL blog post body as clean, semantic HTML, following the supplied outline.`,
+    buildEditorialInstructionsSection(args.opts?.writingInstructions),
+    ``,
+    `QUALITY OBJECTIVE — the bar every section must clear: "Would an intelligent, busy, skeptical reader BOOKMARK or SHARE this?" If a passage would not earn a save or a share, it is not done. The objective is not to publish content; it is to publish content that builds trust, demonstrates expertise, and helps the reader make a better decision.`,
+    ``,
+    `TASK: Write the FULL, COMPLETE blog post body as clean, semantic HTML, following the supplied outline. This is a finished article, NOT an expanded outline.`,
+    ``,
+    `DEPTH — non-negotiable (this is the difference between an outline and an article):`,
+    `- FULLY develop every H2 section before moving on. Each section is multiple substantive paragraphs (aim for ~150–300+ words of real content per H2), not one or two sentences under a heading.`,
+    `- Every section must do real work: answer a meaningful question, explain HOW something works step by step, weigh a trade-off, or give a concrete, usable framework or example. Never restate the heading and move on.`,
+    `- Include specifics: examples, mini-frameworks, checklists, before/after contrasts, or a worked walkthrough. Show the mechanics, not abstractions.`,
+    `- Strong transitions + logical flow between sections — each builds on the last; the reader is carried forward, not dropped into disconnected bullet lists.`,
+    `- Target a complete standard guide/how-to of roughly 1,200–2,000 words — but PRIORITIZE USEFULNESS OVER WORD COUNT. Never pad, never repeat, never add filler to hit a number. A tight, dense article beats a bloated one.`,
+    `- No thin sections. No heading-restatement. No "in conclusion" paragraph that only summarises — end by helping the reader act.`,
+    ``,
+    `TARGETING — honour the brief's guidance: write to the AUDIENCE, satisfy the SEARCH INTENT, pitch to the FUNNEL STAGE, work the PRIMARY + SECONDARY keywords in naturally (never keyword-stuff), and build toward the DESIRED CTA.`,
     ``,
     `OUTPUT RULES — the HTML is re-sanitized on render against a strict allowlist, so use ONLY these tags:`,
     `- Structure: <h2>, <h3>, <p>, <ul>/<ol>/<li>, <blockquote>, <table>/<thead>/<tbody>/<tr>/<th>/<td>, <figure>/<figcaption>, <hr>.`,
     `- Inline: <strong>, <em>, <a href="...">, <code>, <br>.`,
+    `- Use lists, tables, and blockquotes to make dense content scannable — but only when they carry real content, never as a substitute for developed prose.`,
     `- Do NOT emit <h1> (the page renders the title). Do NOT emit <script>, <style>, inline event handlers, <html>/<head>/<body>, or markdown — HTML only.`,
-    `- Answer-first intro: the first <p> answers the title in its first two sentences.`,
+    `- Answer-first intro: the first <p> answers the title in its first two sentences (AI answer engines cite the opening).`,
     `- Scannable <h2> sections (sentence case), short paragraphs, parallel triads, real mechanics.`,
     `- You MAY include ONE simple inline <svg> infographic if it genuinely aids understanding: brand-colored (cream #F6F2E9 / ink #1A1815 / indigo #4B47E5, a single coral #E26B4F spark), with a viewBox, no scripts, no external refs. Keep it optional — omit it if it would be filler.`,
-    `- End with one clear, imperative CTA paragraph (e.g. "Describe a page. Watch it build.") — never stacked CTAs.`,
+    `- End with one clear, imperative CTA paragraph driving the desired action (e.g. "Describe a page. Watch it build.") — never stacked CTAs.`,
+    `- NEVER use any of the banned words listed above, and avoid generic AI phrasing, empty buzzwords, and hype.`,
     ``,
     `Return ONLY the HTML body. No JSON, no code fence, no commentary before or after.`,
   ].join("\n");
 
   const user = [
     `Topic: ${normalizeWhitespace(args.brief.topic)}`,
-    args.brief.audience ? `Audience: ${normalizeWhitespace(args.brief.audience)}` : "",
-    args.brief.targetKeyword ? `Target keyword(s): ${normalizeWhitespace(args.brief.targetKeyword)}` : "",
-    args.brief.notes ? `Notes / guidance: ${normalizeWhitespace(args.brief.notes)}` : "",
+    ...buildGuidanceLines(args.brief),
     ``,
-    `OUTLINE to follow:`,
+    `OUTLINE to follow (develop EACH section fully):`,
     args.outlineText,
   ]
     .filter(Boolean)

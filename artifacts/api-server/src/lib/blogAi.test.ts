@@ -23,7 +23,12 @@ import {
   METADATA_FIELDS,
   buildTopicRecommendationMessages,
   parseRecommendedTopics,
+  DEFAULT_BLOG_WRITING_INSTRUCTIONS,
+  resolveWritingInstructions,
+  buildEditorialInstructionsSection,
+  buildGuidanceLines,
   type BlogMetadata,
+  type DraftBrief,
 } from "./blogAi";
 import { sanitizeRawBlogHtml } from "./blogHtml";
 
@@ -376,6 +381,141 @@ describe("parseRecommendedTopics (Phase 4)", () => {
   it("returns [] for garbage / empty", () => {
     expect(parseRecommendedTopics("not json")).toEqual([]);
     expect(parseRecommendedTopics(JSON.stringify({ topics: [] }))).toEqual([]);
+  });
+});
+
+describe("writing instructions — editable editorial brief", () => {
+  it("ships the exact default brief verbatim", () => {
+    expect(DEFAULT_BLOG_WRITING_INSTRUCTIONS).toContain("You are writing on behalf of LP Studio");
+    expect(DEFAULT_BLOG_WRITING_INSTRUCTIONS).toContain("Prioritize usefulness over word count");
+    expect(DEFAULT_BLOG_WRITING_INSTRUCTIONS).toContain("builds trust, demonstrates expertise, and helps readers make better decisions");
+    expect(DEFAULT_BLOG_WRITING_INSTRUCTIONS).toContain("Thin sections that restate the heading");
+  });
+  it("resolveWritingInstructions falls back to the default for null/empty/whitespace", () => {
+    expect(resolveWritingInstructions(null)).toBe(DEFAULT_BLOG_WRITING_INSTRUCTIONS);
+    expect(resolveWritingInstructions("")).toBe(DEFAULT_BLOG_WRITING_INSTRUCTIONS);
+    expect(resolveWritingInstructions("   ")).toBe(DEFAULT_BLOG_WRITING_INSTRUCTIONS);
+    expect(resolveWritingInstructions("Custom brief.")).toBe("Custom brief.");
+  });
+  it("buildEditorialInstructionsSection always includes a brief (default or custom)", () => {
+    expect(buildEditorialInstructionsSection(null)).toContain(DEFAULT_BLOG_WRITING_INSTRUCTIONS);
+    expect(buildEditorialInstructionsSection("Be terse.")).toContain("Be terse.");
+    expect(buildEditorialInstructionsSection(null)).toMatch(/EDITORIAL INSTRUCTIONS/);
+  });
+});
+
+describe("buildGuidanceLines — blog-specific targeting", () => {
+  it("renders every supplied guidance field, omits empty ones", () => {
+    const brief: DraftBrief = {
+      topic: "t",
+      audience: "demand gen leaders",
+      targetKeyword: "primary kw",
+      secondaryKeywords: "kw2, kw3",
+      searchIntent: "comparison",
+      funnelStage: "MOFU (consideration)",
+      desiredCta: "start a build",
+      topicCategory: "conversion",
+    };
+    const lines = buildGuidanceLines(brief).join("\n");
+    expect(lines).toMatch(/Audience: demand gen leaders/);
+    expect(lines).toMatch(/Primary keyword: primary kw/);
+    expect(lines).toMatch(/Secondary keywords.*kw2, kw3/);
+    expect(lines).toMatch(/Search intent: comparison/);
+    expect(lines).toMatch(/Funnel stage: MOFU/);
+    expect(lines).toMatch(/Topic category: conversion/);
+    expect(lines).toMatch(/call-to-action.*start a build/i);
+  });
+  it("returns nothing for a bare topic-only brief", () => {
+    expect(buildGuidanceLines({ topic: "x" })).toEqual([]);
+  });
+});
+
+describe("buildOutlineMessages — instructions + guidance + depth framing", () => {
+  it("injects the editorial instructions and the blog-specific guidance", () => {
+    const msgs = buildOutlineMessages(
+      {
+        topic: "landing page copy",
+        targetKeyword: "lp copy",
+        secondaryKeywords: "conversion copy",
+        searchIntent: "informational",
+        funnelStage: "TOFU (awareness)",
+        desiredCta: "try it",
+        topicCategory: "copywriting",
+      },
+      { writingInstructions: "MY CUSTOM BRIEF" },
+    );
+    // editorial instructions present (custom override)
+    expect(msgs[0].content).toMatch(/EDITORIAL INSTRUCTIONS/);
+    expect(msgs[0].content).toContain("MY CUSTOM BRIEF");
+    // guidance present in the user message
+    expect(msgs[1].content).toMatch(/Primary keyword: lp copy/);
+    expect(msgs[1].content).toMatch(/Secondary keywords/);
+    expect(msgs[1].content).toMatch(/Search intent: informational/);
+    expect(msgs[1].content).toMatch(/Funnel stage: TOFU/);
+    expect(msgs[1].content).toMatch(/call-to-action.*try it/i);
+    // depth framing — sections must be fully developable, not heading-restatements
+    expect(msgs[0].content).toMatch(/FULLY developed|fully develop/i);
+  });
+  it("falls back to the default brief when no override is supplied", () => {
+    const msgs = buildOutlineMessages({ topic: "t" });
+    expect(msgs[0].content).toContain(DEFAULT_BLOG_WRITING_INSTRUCTIONS);
+  });
+});
+
+describe("buildDraftMessages — depth enforcement + bookmark bar + instructions + bans", () => {
+  it("includes the editorial brief, the bookmark/share quality bar, and the depth directive", () => {
+    const msgs = buildDraftMessages({
+      brief: {
+        topic: "how to write a landing page",
+        targetKeyword: "landing page",
+        secondaryKeywords: "page copy",
+        searchIntent: "informational",
+        funnelStage: "BOFU (decision)",
+        desiredCta: "describe a page",
+      },
+      outlineText: "H2: One\nH2: Two",
+      opts: { writingInstructions: "EDITORIAL OVERRIDE TEXT" },
+    });
+    const system = msgs[0].content;
+    // editable instructions injected
+    expect(system).toMatch(/EDITORIAL INSTRUCTIONS/);
+    expect(system).toContain("EDITORIAL OVERRIDE TEXT");
+    // the bookmark/share bar as the quality objective
+    expect(system).toMatch(/BOOKMARK or SHARE/i);
+    expect(system).toMatch(/QUALITY OBJECTIVE/);
+    // depth: full development, target depth, no thin sections
+    expect(system).toMatch(/FULLY develop every H2/i);
+    expect(system).toMatch(/150.?300/); // per-section word target
+    expect(system).toMatch(/1,?200.?2,?000/); // total word target
+    expect(system).toMatch(/PRIORITIZE USEFULNESS OVER WORD COUNT/i);
+    expect(system).toMatch(/No thin sections|heading.restatement/i);
+    // answer-first + sanitizer allowlist still present
+    expect(system).toMatch(/Answer-first/i);
+    expect(system).toMatch(/<h2>/);
+    expect(system).toMatch(/Do NOT emit <h1>/);
+    // banned phrases present (folded into the voice prompt)
+    expect(system).toMatch(/"seamless"/);
+    expect(system).toMatch(/"supercharge"/);
+    // guidance threaded into the user message
+    expect(msgs[1].content).toMatch(/Funnel stage: BOFU/);
+    expect(msgs[1].content).toMatch(/H2: One/);
+  });
+  it("uses the default brief when no override is given", () => {
+    const msgs = buildDraftMessages({ brief: { topic: "t" }, outlineText: "H2: A" });
+    expect(msgs[0].content).toContain(DEFAULT_BLOG_WRITING_INSTRUCTIONS);
+  });
+});
+
+describe("buildMetadataMessages — instructions injected", () => {
+  it("includes the editorial brief", () => {
+    const msgs = buildMetadataMessages({
+      title: "T",
+      bodyHtml: "<p>b</p>",
+      fields: METADATA_FIELDS,
+      writingInstructions: "META BRIEF OVERRIDE",
+    });
+    expect(msgs[0].content).toMatch(/EDITORIAL INSTRUCTIONS/);
+    expect(msgs[0].content).toContain("META BRIEF OVERRIDE");
   });
 });
 

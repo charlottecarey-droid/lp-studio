@@ -24,6 +24,7 @@ import { sql } from "drizzle-orm";
 import { migrate as drizzleMigrate } from "drizzle-orm/node-postgres/migrator";
 import { FULL_PAGE_BLOCK_TYPES } from "@workspace/lp-template-engine";
 import { logger } from "./lib/logger";
+import { DEFAULT_BLOG_WRITING_INSTRUCTIONS } from "./lib/blogAi";
 
 // Schema SQL lives in `lib/db/migrations/*.sql` and is applied via
 // drizzle's tracked migrator (`__drizzle_migrations` table + `meta/_journal.json`)
@@ -1317,7 +1318,7 @@ async function runMigrationsBody(): Promise<void> {
     await runProbedSelfHeal({
       name: "blog content-program schema self-heal (0097)",
       applySqlFile: "0097_blog_content_program.sql",
-      expected: 4,
+      expected: 5,
       checkSql: `SELECT (
           (SELECT count(*) FROM information_schema.tables
              WHERE table_schema='public'
@@ -1325,9 +1326,12 @@ async function runMigrationsBody(): Promise<void> {
         + (SELECT count(*) FROM information_schema.columns
              WHERE table_schema='public' AND table_name='blog_posts'
                AND column_name='topic_id')
+        + (SELECT count(*) FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='blog_program_settings'
+               AND column_name='writing_instructions')
         )::int AS present`,
       shortfall: (present) =>
-        `blog content-program self-heal did not produce all objects (found ${present}/4) — aborting release`,
+        `blog content-program self-heal did not produce all objects (found ${present}/5) — aborting release`,
     });
 
     // Phase 4 — ensure the singleton blog_program_settings row (id=1) exists so
@@ -1353,6 +1357,36 @@ async function runMigrationsBody(): Promise<void> {
         logger.info("blog_program_settings singleton seeded");
       } catch (seedErr) {
         logger.error({ err: seedErr }, "blog_program_settings seed failed (non-fatal)");
+      }
+    });
+
+    // Blog copy quality — seed the DEFAULT editable writing instructions onto the
+    // singleton settings row, but ONLY when it is currently null/empty (so a
+    // superadmin's tuned brief is never clobbered on reboot). Marker-gated so the
+    // seed runs at most once; idempotent regardless via the WHERE-empty guard.
+    // The default text is the single source of truth in lib/blogAi.ts
+    // (DEFAULT_BLOG_WRITING_INSTRUCTIONS) and is injected into every generation
+    // call. Non-fatal — a failed seed must not abort the release; the prompt
+    // builders fall back to the same default at runtime anyway.
+    await runStep("blog writing instructions seed", async () => {
+      try {
+        const MARKER = "blog_writing_instructions_v1";
+        const marker = await db.execute<{ exists: number }>(
+          sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${MARKER}`,
+        );
+        if (marker.rows.length > 0) return;
+        await db.execute(sql`
+          UPDATE blog_program_settings
+             SET writing_instructions = ${DEFAULT_BLOG_WRITING_INSTRUCTIONS}
+           WHERE id = 1
+             AND (writing_instructions IS NULL OR btrim(writing_instructions) = '')
+        `);
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES (${MARKER}) ON CONFLICT DO NOTHING`,
+        );
+        logger.info("blog_program_settings writing_instructions seeded with default");
+      } catch (seedErr) {
+        logger.error({ err: seedErr }, "blog writing_instructions seed failed (non-fatal)");
       }
     });
 

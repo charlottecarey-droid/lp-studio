@@ -98,9 +98,19 @@ CREATE TABLE IF NOT EXISTS blog_program_settings (
   autopublish_enabled      boolean NOT NULL DEFAULT false,
   -- Optional default theme to weight recommendations toward (nullable).
   default_theme_id         integer REFERENCES blog_content_themes(id) ON DELETE SET NULL,
+  -- Superadmin-editable editorial brief injected into EVERY outline/draft/
+  -- metadata generation call so the program's writing standard evolves without
+  -- engineering. Seeded with a default in api-server migrate.ts (only when
+  -- null/empty) so a fresh DB still generates against a strong brief.
+  writing_instructions     text NOT NULL DEFAULT '',
   updated_at               timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT blog_program_settings_singleton CHECK (id = 1)
 );
+
+-- Additive: on a DB that already created blog_program_settings before this
+-- column existed, add it idempotently (the self-heal below re-applies this file).
+ALTER TABLE blog_program_settings
+  ADD COLUMN IF NOT EXISTS writing_instructions text NOT NULL DEFAULT '';
 
 -- Link generated posts back to their originating topic (additive, nullable).
 ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS topic_id integer;

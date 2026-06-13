@@ -38,7 +38,7 @@ import {
   type ProgramSettings,
   type TopicStatus,
 } from "../../lib/blogProgram";
-import { generateDraftForTopic, getOpenAIClientForProgram } from "../../lib/blogTopicGenerate";
+import { generateDraftForTopic, getOpenAIClientForProgram, loadWritingInstructions } from "../../lib/blogTopicGenerate";
 
 const router = Router();
 const MODEL = "gpt-4o";
@@ -104,6 +104,7 @@ function settingsToApi(r: typeof blogProgramSettingsTable.$inferSelect) {
     maxAutonomousPerWeek: r.maxAutonomousPerWeek,
     autopublishEnabled: r.autopublishEnabled,
     defaultThemeId: r.defaultThemeId ?? null,
+    writingInstructions: r.writingInstructions ?? "",
     updatedAt: r.updatedAt ? r.updatedAt.toISOString() : null,
   };
 }
@@ -152,6 +153,15 @@ router.put("/admin/blog/program/settings", requireSuperadmin, async (req, res): 
         ? null
         : intOr(b.defaultThemeId, 0) || null;
 
+    // Writing instructions: only update when the client sends the field (so a
+    // settings save that omits it never wipes the operator's brief). Bounded to
+    // a sane ceiling. Empty string is allowed (the prompt builders fall back to
+    // the seeded default, and the UI's "Reset to default" sends the default text).
+    const writingInstructions =
+      typeof b.writingInstructions === "string"
+        ? b.writingInstructions.slice(0, 8000)
+        : current.writingInstructions;
+
     const [row] = await db
       .update(blogProgramSettingsTable)
       .set({
@@ -163,6 +173,7 @@ router.put("/admin/blog/program/settings", requireSuperadmin, async (req, res): 
         maxAutonomousPerWeek: normalized.maxAutonomousPerWeek,
         autopublishEnabled: normalized.autopublishEnabled,
         defaultThemeId,
+        writingInstructions,
       })
       .where(eq(blogProgramSettingsTable.id, 1))
       .returning();
@@ -540,6 +551,7 @@ router.post("/admin/blog/program/topics/:id/generate", requireSuperadmin, progra
     await db.update(blogTopicsTable).set({ status: "drafting" }).where(eq(blogTopicsTable.id, id));
     const existingSlugs = (await db.select({ slug: blogPostsTable.slug }).from(blogPostsTable)).map((r) => r.slug);
 
+    const writingInstructions = await loadWritingInstructions();
     let draft;
     try {
       draft = await generateDraftForTopic({
@@ -547,6 +559,7 @@ router.post("/admin/blog/program/topics/:id/generate", requireSuperadmin, progra
         topic: { id: topic.id, title: topic.title, angle: topic.angle, targetKeyword: topic.targetKeyword },
         existingSlugs,
         withConcurrency: withOpenAIConcurrency,
+        writingInstructions,
       });
     } catch (genErr) {
       // Generation failed — fall back to 'approved' so it can be retried.

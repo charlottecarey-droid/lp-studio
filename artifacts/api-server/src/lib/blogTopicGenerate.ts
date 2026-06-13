@@ -12,7 +12,7 @@
 // poller can leave a failing draft flagged-for-review.
 
 import OpenAI from "openai";
-import { db, blogPostsTable, blogTopicsTable } from "@workspace/db";
+import { db, blogPostsTable, blogTopicsTable, blogProgramSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { sanitizeRawBlogHtml } from "./blogHtml";
 import {
@@ -54,6 +54,25 @@ export interface GeneratedDraft {
   metadata: Partial<BlogMetadata>;
 }
 
+/**
+ * Read the operator's editable writing instructions off the singleton program
+ * settings row. Returns the raw stored value (may be empty — the prompt builders
+ * fall back to the seeded default). Fail-soft: any read error yields null so
+ * generation still proceeds against the default brief.
+ */
+export async function loadWritingInstructions(): Promise<string | null> {
+  try {
+    const [row] = await db
+      .select({ writingInstructions: blogProgramSettingsTable.writingInstructions })
+      .from(blogProgramSettingsTable)
+      .where(eq(blogProgramSettingsTable.id, 1))
+      .limit(1);
+    return row?.writingInstructions ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Build the OpenAI client from the same env the Phase-3 routes use. */
 export function getOpenAIClientForProgram(): OpenAI {
   const baseURL = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"];
@@ -79,8 +98,11 @@ export async function generateDraftForTopic(args: {
   existingSlugs: string[];
   /** Optional concurrency wrapper (the route uses withOpenAIConcurrency). */
   withConcurrency?: <T>(fn: () => Promise<T>) => Promise<T>;
+  /** Editable editorial brief (program settings); falls back to the seeded default. */
+  writingInstructions?: string | null;
 }): Promise<GeneratedDraft> {
   const run = args.withConcurrency ?? ((fn) => fn());
+  const writingInstructions = args.writingInstructions;
   const brief: DraftBrief = {
     topic: args.topic.title,
     targetKeyword: args.topic.targetKeyword || undefined,
@@ -91,19 +113,21 @@ export async function generateDraftForTopic(args: {
   const outlineCompletion = await run(() =>
     args.openai.chat.completions.create({
       model: MODEL,
-      max_completion_tokens: 700,
-      messages: buildOutlineMessages(brief),
+      max_completion_tokens: 900,
+      messages: buildOutlineMessages(brief, { writingInstructions }),
     }),
   );
   const outline = parseOutline(completionText(outlineCompletion));
   if (!outline.title) outline.title = args.topic.title;
 
-  // 2) Full draft body (sanitized HTML).
+  // 2) Full draft body (sanitized HTML). A higher completion cap gives the model
+  //    room to FULLY develop every section (substantive article, not an outline)
+  //    without truncating mid-draft.
   const draftCompletion = await run(() =>
     args.openai.chat.completions.create({
       model: MODEL,
-      max_completion_tokens: 3200,
-      messages: buildDraftMessages({ brief, outlineText: outlineToText(outline) }),
+      max_completion_tokens: 6000,
+      messages: buildDraftMessages({ brief, outlineText: outlineToText(outline), opts: { writingInstructions } }),
     }),
   );
   const rawHtml = cleanDraftHtml(completionText(draftCompletion));
@@ -122,6 +146,7 @@ export async function generateDraftForTopic(args: {
           bodyHtml,
           targetKeyword: brief.targetKeyword,
           fields: METADATA_FIELDS,
+          writingInstructions,
         }),
       }),
     );
