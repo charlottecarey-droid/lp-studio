@@ -21,6 +21,12 @@ import {
   useScreenshotAttachment,
 } from "@/components/generation/ScreenshotAttach";
 import { StarterPromptChips } from "@/components/generation/StarterPromptChips";
+
+// Owner request (June 2026): hide the marketing-generator starter prefill chips
+// until their presets + template ties are configured in Superadmin and verified.
+// Flip to true (or, once the configurable-presets system lands, drive this from
+// the tenant/global preset config) to re-enable.
+const MARKETING_STARTER_CHIPS_ENABLED = false;
 import { GenerationLiveView } from "./GenerationLiveView";
 import {
   BLANK_OPTION,
@@ -596,10 +602,11 @@ export function CreatePageModal({
 
             <div>
               <Label className="text-sm font-medium">Your Prompt</Label>
-              {/* Starter chips — only while the prompt is empty; picking one
-                  prefills a skeleton with the text selected so typing
-                  replaces it. */}
-              {aiPrompt === "" && (
+              {/* Starter prefill chips are temporarily disabled in the marketing
+                  generator (owner request, June 2026): the presets + their template
+                  ties are being configured in Superadmin first. Re-enable by setting
+                  MARKETING_STARTER_CHIPS_ENABLED true once configured + verified. */}
+              {MARKETING_STARTER_CHIPS_ENABLED && aiPrompt === "" && (
                 <StarterPromptChips className="mt-1.5" onPick={handleStarterPick} />
               )}
               <textarea
