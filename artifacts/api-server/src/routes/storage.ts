@@ -9,6 +9,7 @@ import { OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "../lib/resolvePageOG";
 import { db, lpMediaTable, tenantsTable, pool } from "@workspace/db";
 import { asc, desc, eq, sql, ilike, and, count, inArray, type SQL } from "drizzle-orm";
 import { resolveOwnedTenantIds, libraryReadablePredicate, isSharedOrGlobalAsset } from "../lib/libraryScope";
+import { isProtectedEnterpriseSlug } from "../lib/planFeatures";
 import { getTenantId, SESSION_COOKIE, type AuthUser } from "../middleware/requireAuth";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import { readImageDimensions } from "../lib/imageDimensions";
@@ -858,21 +859,23 @@ router.get("/lp/media", async (req: Request, res: Response) => {
         createdAt: r.createdAt.toISOString(),
       }));
 
-    // Resolve tenant slug so we can gate Dandy-internal-only preloaded
-    // assets (currently just `preloaded-ai-scan-review`, which is a
-    // Dandy-branded UI feature video that should not appear in any
-    // partner / customer media library).
+    // The preloaded library is the Dandy-branded video set (lab / intraoral
+    // scan / doctor-testimonial clips). It must only surface for the Dandy
+    // workspaces — Dandy Enterprise + Dandy SMB, the reciprocal sibling pair
+    // that also shares the uploaded image library. Every other tenant gets
+    // none of them, so Dandy's videos never leak into a partner / customer
+    // media drawer.
     const tenantRow = await db
       .select({ slug: tenantsTable.slug })
       .from(tenantsTable)
       .where(eq(tenantsTable.id, scope.tenantId))
       .limit(1);
     const tenantSlug = tenantRow[0]?.slug ?? null;
-    const isDandyTenant = tenantSlug === "dandy";
+    const isDandyTenant = isProtectedEnterpriseSlug(tenantSlug);
 
-    const preloaded = PRELOADED_VIDEOS
-      .filter(v => v.mediaType === mediaTypeFilter)
-      .filter(v => v.id !== "preloaded-ai-scan-review" || isDandyTenant);
+    const preloaded = isDandyTenant
+      ? PRELOADED_VIDEOS.filter(v => v.mediaType === mediaTypeFilter)
+      : [];
 
     res.json({ items: [...preloaded, ...uploadedItems] });
   } catch (error) {
