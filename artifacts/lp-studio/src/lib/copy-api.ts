@@ -103,6 +103,7 @@ export async function refreshBlockCopy(
   blockType: string,
   fields: string[],
   currentValues: Record<string, string>,
+  instruction?: string,
 ): Promise<Record<string, string>> {
   const { getBriefContext } = await import("./brief-context");
   const briefContext = getBriefContext() ?? undefined;
@@ -110,7 +111,7 @@ export async function refreshBlockCopy(
   const res = await fetch(API, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ blockType, blockCategory, action: "refresh", fields, currentValues, briefContext }),
+    body: JSON.stringify({ blockType, blockCategory, action: "refresh", fields, currentValues, briefContext, instruction }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

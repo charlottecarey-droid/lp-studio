@@ -2099,8 +2099,16 @@ export default function BuilderEditor() {
             const block = blocks[idx];
             const props = block.props as Record<string, unknown>;
             const currentValue = typeof props[field] === "string" ? (props[field] as string) : "";
-            // Route through the SAME per-block copy endpoint the inspector uses.
-            const updated = await refreshBlockCopy(block.type, [field], { [field]: currentValue });
+            const instruction = str(a.instruction);
+            // Route through the SAME per-block copy endpoint the inspector uses,
+            // forwarding the copilot's instruction (e.g. "address dentists, not
+            // patients") so the rewrite actually follows what the user asked for.
+            const updated = await refreshBlockCopy(
+              block.type,
+              [field],
+              { [field]: currentValue },
+              instruction || undefined,
+            );
             const newValue = updated[field];
             if (typeof newValue !== "string" || !newValue.trim()) {
               return { ok: false, message: "Couldn't generate new copy" };

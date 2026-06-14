@@ -146,6 +146,7 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
     fields?: string[];
     currentValues?: Record<string, string>;
     briefContext?: BriefContext;
+    instruction?: string;
     tileTypes?: string[];
     items?: Array<{ value?: string; label?: string; description?: string }>;
   };
@@ -186,6 +187,14 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
       return;
     }
 
+    // Optional steering instruction (e.g. from the Builder Copilot's
+    // rewrite_copy action: "address dentists, not patients"). When present it is
+    // the user's explicit directive for THIS rewrite and takes priority over the
+    // default "keep the same wording angle" behaviour — without it, an explicit
+    // refinement request silently produced the same copy again.
+    const instruction =
+      typeof body.instruction === "string" ? body.instruction.trim().slice(0, 600) : "";
+
     const contextParts: string[] = [];
     for (const f of validFields) {
       if (currentValues[f]) contextParts.push(`${f}: "${currentValues[f]}"`);
@@ -212,6 +221,9 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
       refreshProofSection,
       `You are rewriting landing page copy for a "${blockType}" block.`,
       `Generate fresh, on-brand copy for each of the following fields: ${validFields.join(", ")}.`,
+      instruction
+        ? `EDIT INSTRUCTION (highest priority — this is exactly what the user asked you to change): ${instruction}\nFollow this instruction directly. It may change who the copy speaks to or its angle (for example, addressing the brand's buyer rather than the end-customer). The factual topic and any concrete specifics (numbers, product names, named groups) must stay intact, but the wording, framing, and audience the copy speaks to MUST change to satisfy the instruction.`
+        : "",
       `PRIMARY DRIVERS: the BRAND VOICE PROFILE and ACTIVE CAMPAIGN BRIEF above drive the output. The block's current copy is a REFERENCE for what slot/role each field fills — its topic and concrete specifics (numbers, product names, named groups) must stay intact, but you can freely rewrite wording, rhythm, and structure. If the existing copy is generic placeholder text from the block catalog, lean harder on brand + brief and produce on-brand copy in the same slot.`,
       statBlockRefresh && strictRefresh
         ? `STRICT FACTS: For any numeric stat field (e.g. "stat", "value", "metric"), use ONLY a value from the APPROVED PROOF POINTS above — never invent a number. If none fit, keep the current value verbatim. Non-stat fields (labels, descriptions, footnotes) may still be rewritten in the brand voice.`
@@ -228,11 +240,15 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
 
     const userPrompt = contextParts.length > 0
       ? [
-          allCurrentLines ? `Current block copy (REFERENCE — preserve topic + concrete specifics, rewrite wording in the brand voice):\n${allCurrentLines}` : "",
-          `Rewrite the following fields. Keep each rewrite on the same topic as its current value above — only change wording, rhythm, and structure to match the brand voice and active brief.`,
+          allCurrentLines ? `Current block copy (REFERENCE — preserve topic + concrete specifics):\n${allCurrentLines}` : "",
+          instruction
+            ? `Rewrite the following fields to satisfy this instruction: ${instruction}\nKeep each rewrite on the same factual topic as its current value above, but change the wording, framing, and who the copy speaks to as the instruction requires.`
+            : `Rewrite the following fields. Keep each rewrite on the same topic as its current value above — only change wording, rhythm, and structure to match the brand voice and active brief.`,
           `Fields to rewrite: ${validFields.join(", ")}`,
         ].filter(Boolean).join("\n\n")
-      : `Generate on-brand copy for a "${blockType}" block with fields: ${validFields.join(", ")}.`;
+      : instruction
+        ? `Generate on-brand copy for a "${blockType}" block with fields: ${validFields.join(", ")}. Follow this instruction: ${instruction}`
+        : `Generate on-brand copy for a "${blockType}" block with fields: ${validFields.join(", ")}.`;
 
     try {
       const completion = await withOpenAIConcurrency(() =>
