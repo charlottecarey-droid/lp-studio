@@ -1,0 +1,62 @@
+s: 100% (60/60), 35.33 KiB | 11.78 MiB/s, done.
+Total 60 (delta 46), reused 0 (delta 0), pack-reused 0
+remote: Resolving deltas: 100% (46/46), completed with 37 local objects.
+To https://github.com/charlottecarey-droid/lp-studio.git
+   437d5c752..6ea948963  staging -> staging
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % git push origin staging
+To https://github.com/charlottecarey-droid/lp-studio.git
+ ! [rejected]            staging -> staging (fetch first)
+error: failed to push some refs to 'https://github.com/charlottecarey-droid/lp-studio.git'
+hint: Updates were rejected because the remote contains work that you do
+hint: not have locally. This is usually caused by another repository pushing
+hint: to the same ref. You may want to first integrate the remote changes
+hint: (e.g., 'git pull ...') before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % git status
+Refresh index: 100% (45285/45285), done.
+On branch staging
+Your branch is up to date with 'origin/staging'.
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	LP-Studio-Roadmap-2026-2028.pptx
+
+nothing added to commit but untracked files present (use "git add" to track)
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % git branch backup-before-pull 
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % git add -A
+git commit -m "my local changes before pulling"
+[staging fb23124f1] my local changes before pulling
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ create mode 100644 LP-Studio-Roadmap-2026-2028.pptx
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % git pull --no-rebase
+remote: Enumerating objects: 147, done.
+remote: Counting objects: 100% (147/147), done.
+remote: Compressing objects: 100% (33/33), done.
+remote: Total 127 (delta 93), reused 127 (delta 93), pack-reused 0 (from 0)
+Receiving objects: 100% (127/127), 243.36 KiB | 2.43 MiB/s, done.
+Resolving deltas: 100% (93/93), completed with 15 local objects.
+From https://github.com/charlottecarey-droid/lp-studio
+   6ea948963..acc048fba  staging    -> origin/staging
+hint: Waiting for your editor to close the file... error: There was a problem with the editor 'vi'.
+Not committing merge; use 'git commit' to complete the merge.
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % 
+charlotte.carey@MAC-FQ1NFJD4F1 lp-studio-staging % git commit 
+hint: Waiting for your editor to close the file... 
+#       modified:   .replit
+#       modified:   artifacts/api-server/src/loadEnv.ts
+#       modified:   artifacts/lp-studio/public/opengraph.jpg
+#       modified:   artifacts/lp-studio/src/pages/sales/sales-contacts.tsx
+#       new file:   artifacts/mockup-sandbox/src/components/mockups/wait-screens/Playful.tsx
+#       new file:   artifacts/mockup-sandbox/src/components/mockups/wait-screens/Storyteller.tsx
+#       new file:   artifacts/mockup-sandbox/src/components/mockups/wait-screens/TicTacToe.tsx
+#       new file:   artifacts/mockup-sandbox/src/components/mockups/wait-screens/TicTacToeReveal.tsx
+#       new file:   artifacts/mockup-sandbox/src/components/mockups/wait-screens/_playful.css
+#       new file:   artifacts/mockup-sandbox/src/components/mockups/wait-screens/_storyteller
+
+
+
+
+git commit
+ASSDFASDF['
+#
+-- INSERT --
