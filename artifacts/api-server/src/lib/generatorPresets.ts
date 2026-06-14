@@ -21,6 +21,12 @@
 //     actual gating reuses selectEligibleTemplate downstream — see
 //     resolvePresetTemplateTie.
 
+import {
+  selectEligibleTemplate,
+  type EligibilityCandidate,
+  type TemplateAiBehavior,
+} from "./ai-prompts/template-eligibility";
+
 export type PresetSurface = "marketing" | "sales" | "both";
 export const PRESET_SURFACES: readonly PresetSurface[] = ["marketing", "sales", "both"] as const;
 
@@ -184,4 +190,101 @@ export function mergeEffectivePresets(args: {
       a.key.localeCompare(b.key),
   );
   return out;
+}
+
+// ── Marketing chip template-tie resolution (June 2026) ──────────────────────
+//
+// A MARKETING starter chip can carry a TIED template (tiedTemplateSlug). Today
+// the tie was applied unconditionally; now it is GATED through the SAME
+// eligibility engine + tenant governance setting the sales microsite uses
+// (selectEligibleTemplate / micrositeTemplateAiBehavior). This is the PURE
+// decision core — the route loads the rows + setting and calls it; the same
+// inputs always yield the same decision (so the modal note matches generation).
+//
+// Decision (mirrors /sales/microsite/recommend, but anchored on the chip's
+// already-picked slug rather than an objective→slug mapping):
+//   • Build the candidate pool from the eligible templates available to the
+//     tenant PLUS the tied slug's own row.
+//   • Run selectEligibleTemplate(context, candidates, aiBehavior).
+//   • The chip's tied template is APPLIED only when it is itself ELIGIBLE for
+//     this context AND governance permits an auto-pick at all (i.e. the engine
+//     did not say from-scratch). Otherwise → from-scratch (recommendedSlug
+//     null), matching the scratch-first default.
+//   • Under ai-from-scratch-only the engine always says from-scratch, so the
+//     tied template is never auto-applied — the prompt skeleton still prefills.
+//   • FAIL-OPEN is the ROUTE's job (return the tied slug as-is on any thrown
+//     error); this pure helper never throws for valid inputs.
+
+export interface ResolvePresetTemplateTieInput {
+  /** The chip's tied template slug (already trimmed/non-empty by the caller). */
+  tiedTemplateSlug: string;
+  /** Resolved eligibility context. Persona is omitted for marketing landing
+   *  pages (typically N/A); funnelStage is the preset's objective when it
+   *  carries one, else null (unconstrained). */
+  context: { segment?: string | null; funnelStage?: string | null };
+  /** Candidate templates carrying their declared eligibility constraints.
+   *  MUST include the tied slug's own row (the route adds it). */
+  candidates: EligibilityCandidate[];
+  /** Tenant governance behavior (REUSED micrositeTemplateAiBehavior). */
+  aiBehavior: TemplateAiBehavior;
+}
+
+export interface ResolvePresetTemplateTieResult {
+  /** The slug to use as the AI starting point, or null = build from scratch. */
+  recommendedTemplateSlug: string | null;
+  /** True when generation should go from scratch (no auto template). */
+  fromScratch: boolean;
+  /** Human-readable "why" trail for the modal note. */
+  reasoning: string[];
+}
+
+const normSlug = (v: string | null | undefined): string => (v ?? "").trim().toLowerCase();
+
+/**
+ * Decide whether a marketing chip's tied template should be auto-applied,
+ * gated by eligibility + the tenant's governance behavior. PURE + deterministic.
+ */
+export function resolvePresetTemplateTie(
+  input: ResolvePresetTemplateTieInput,
+): ResolvePresetTemplateTieResult {
+  const tied = input.tiedTemplateSlug.trim();
+  const tiedKey = normSlug(tied);
+  const tiedCandidate = input.candidates.find((c) => normSlug(c.slug) === tiedKey);
+  const tiedLabel = tiedCandidate?.label?.trim() || tied;
+
+  const selection = selectEligibleTemplate(input.context, input.candidates, input.aiBehavior);
+
+  // The chip's tied template is APPLIED only when it is itself in the engine's
+  // eligible set AND governance permitted an auto-pick (not from-scratch). We do
+  // NOT silently substitute a DIFFERENT eligible template — the chip picked THIS
+  // one; if it doesn't fit, we fall back to from-scratch with a reason.
+  const tiedIsEligible = selection.eligible.some((e) => normSlug(e.slug) === tiedKey);
+
+  const reasoning = [...selection.reasoning];
+
+  // We APPLY the tie only when the tied template is itself eligible AND
+  // governance permitted an auto-pick (engine did not say from-scratch).
+  const apply = !selection.fromScratch && tiedIsEligible;
+
+  if (apply) {
+    reasoning.push(`→ Using the “${tiedLabel}” template (eligible for this context)`);
+    return { recommendedTemplateSlug: tied, fromScratch: false, reasoning };
+  }
+
+  // From-scratch. Add a tie-specific note when the tied template itself isn't
+  // eligible (vs. a pure governance/low-confidence reason already in the trail),
+  // so the modal can explain "the X template isn't a fit for this segment".
+  if (!tiedIsEligible && !selection.fromScratch) {
+    // Eligible templates exist, just not THIS one — never silently substitute.
+    reasoning.push(
+      `→ The chip's “${tiedLabel}” template isn't eligible for this context; building from scratch instead`,
+    );
+  } else if (!tiedIsEligible) {
+    // Engine said from-scratch (nothing eligible / governance), AND the tied
+    // template specifically wasn't eligible either — note it explicitly.
+    reasoning.push(
+      `→ The chip's “${tiedLabel}” template isn't eligible for this context`,
+    );
+  }
+  return { recommendedTemplateSlug: null, fromScratch: true, reasoning };
 }

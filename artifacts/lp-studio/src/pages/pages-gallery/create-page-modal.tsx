@@ -23,6 +23,7 @@ import {
 import { StarterPromptChips } from "@/components/generation/StarterPromptChips";
 import {
   fetchGeneratorPresets,
+  resolveChipTemplate,
   type EffectivePreset,
 } from "@/lib/generatorPresets";
 import { GenerationLiveView } from "./GenerationLiveView";
@@ -159,6 +160,18 @@ export function CreatePageModal({
     };
   }, [open]);
 
+  // June 2026 — the marketing chip the user picked (if any). When a chip carries
+  // a TIED template, we GATE that tie through the server's eligibility +
+  // governance system (reused micrositeTemplateAiBehavior) rather than applying
+  // it blindly: only use the tied template when it's ELIGIBLE for the page's
+  // current segment + the chip's implied funnel stage; otherwise fall back to
+  // "build from scratch" with a short friendly note. We keep the picked chip in
+  // state so changing the segment AFTER picking re-resolves the tie. The prompt
+  // skeleton still prefills regardless, and the user can override the starting
+  // template in the dropdown below at any time (non-blocking).
+  const [pickedChip, setPickedChip] = useState<EffectivePreset | null>(null);
+  const [templateNote, setTemplateNote] = useState<string | null>(null);
+
   // Reset transient state on close, and honour `initialMode` on every
   // false→true transition so callers (e.g. the NewLauncher dropdown) can
   // jump straight to the AI / Brief tab on subsequent openings instead of
@@ -199,17 +212,14 @@ export function CreatePageModal({
 
   // Starter chip → prefill the preset's prompt skeleton and focus the textarea
   // with the text selected, so typing replaces it and arrow keys extend it
-  // naturally. If the preset ties to a template (by slug) AND that template is
-  // visible to this tenant, pre-select it as the AI starting point; otherwise
-  // we leave the starting point on "from scratch" (fail-open) — the backend's
-  // template-intent/eligibility system still honours the skeleton's intent.
+  // naturally. Recording the picked chip drives the resolution effect below
+  // (so the tie is gated on pick AND re-gated when the segment changes). A chip
+  // with no tie clears any prior note. The prompt skeleton prefills regardless.
   const handleStarterPick = (preset: EffectivePreset) => {
     const skeleton = preset.promptSkeleton ?? "";
     setAiPrompt(skeleton);
-    if (preset.tiedTemplateSlug) {
-      const tied = visibleApiTemplates.find((t) => t.slug === preset.tiedTemplateSlug);
-      if (tied) setAiTemplateId(String(tied.id));
-    }
+    setPickedChip(preset);
+    if (!preset.tiedTemplateSlug?.trim()) setTemplateNote(null);
     requestAnimationFrame(() => {
       const el = promptTextareaRef.current;
       if (!el) return;
@@ -217,6 +227,51 @@ export function CreatePageModal({
       el.select();
     });
   };
+
+  // GATE a picked chip's tied template through the server's eligibility +
+  // governance system (reused micrositeTemplateAiBehavior) for the CURRENT
+  // segment. Runs on the initial pick (pickedChip change) AND whenever the
+  // segment changes after a chip is picked (the eligibility decision is
+  // segment-dependent). Sets the AI starting-point template id when the tied
+  // template is ELIGIBLE + visible, else clears it to "" (from scratch) and
+  // surfaces a short friendly note. Cancellable so a fast segment toggle doesn't
+  // apply a stale resolution. Non-blocking + fail-open (resolveChipTemplate
+  // returns the tied slug as-is on any failure); the user can still override the
+  // starting template in the dropdown below at any time.
+  const pickedChipKey = pickedChip?.key ?? null;
+  const pickedChipSlug = pickedChip?.tiedTemplateSlug ?? null;
+  const pickedChipLabel = pickedChip?.label ?? null;
+  useEffect(() => {
+    if (!open || !pickedChipSlug) return;
+    let cancelled = false;
+    resolveChipTemplate({ tiedTemplateSlug: pickedChipSlug, segmentId: selectedSegmentId }).then(
+      (result) => {
+        if (cancelled) return;
+        const tiedTemplate = visibleApiTemplates.find((t) => t.slug === pickedChipSlug);
+        const tiedLabel =
+          tiedTemplate?.templateLabel || tiedTemplate?.title || pickedChipLabel || "selected";
+        if (result.recommendedTemplateSlug) {
+          const resolved = visibleApiTemplates.find(
+            (t) => t.slug === result.recommendedTemplateSlug,
+          );
+          if (resolved) {
+            setAiTemplateId(String(resolved.id));
+            setTemplateNote(`Using the ${tiedLabel} template.`);
+            return;
+          }
+        }
+        // From-scratch: ineligible, scratch-only governance, or the eligible
+        // template isn't visible to this tenant (can't select it).
+        setAiTemplateId("");
+        setTemplateNote(
+          `Building from scratch — the ${tiedLabel} template isn't a fit for this segment.`,
+        );
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [open, pickedChipKey, pickedChipSlug, pickedChipLabel, selectedSegmentId, visibleApiTemplates]);
 
   const handleTitleChange = (v: string) => {
     setNewTitle(v);
@@ -283,6 +338,8 @@ export function CreatePageModal({
     setReplaceImagery(false);
     setReferenceUrls([]);
     setPendingRefUrl("");
+    setPickedChip(null);
+    setTemplateNote(null);
     screenshotAttach.reset();
     setCreateMode("template");
   };
@@ -609,6 +666,18 @@ export function CreatePageModal({
                   ? "AI will preserve the template's block layout and only rewrite copy to match your prompt."
                   : "AI will design the page structure from scratch based on your prompt."}
               </p>
+              {/* Eligibility-gated chip-tie note (June 2026): when a marketing
+                  starter chip carries a tied template, the tie is resolved
+                  server-side against the page's segment + the tenant's template
+                  governance. We surface the decision so the user understands why
+                  the starting point is (or isn't) the chip's template. Purely
+                  informational — the dropdown above can still override it. */}
+              {templateNote && (
+                <p className="text-[11px] text-primary/80 mt-1.5 flex items-start gap-1.5">
+                  <Sparkles className="w-3 h-3 mt-0.5 shrink-0" aria-hidden />
+                  <span>{templateNote}</span>
+                </p>
+              )}
               {aiTemplateId && (
                 <label className="mt-2 flex items-start gap-2 cursor-pointer">
                   <input

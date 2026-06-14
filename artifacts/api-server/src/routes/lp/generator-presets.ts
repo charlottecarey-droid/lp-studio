@@ -37,21 +37,37 @@
 // decides whether it actually surfaces.
 
 import { Router } from "express";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, or } from "drizzle-orm";
+import rateLimit from "express-rate-limit";
 import {
   db,
   generatorPresetsTable,
   generatorPresetOverridesTable,
+  lpPagesTable,
+  lpBrandSettingsTable,
 } from "@workspace/db";
-import { getTenantId, requirePermission } from "../../middleware/requireAuth";
+import { getTenantId, requireAuth, requirePermission } from "../../middleware/requireAuth";
 import { requireSuperadmin } from "../../middleware/requireSuperadmin";
 import {
   mergeEffectivePresets,
   normalizeSurface,
+  resolvePresetTemplateTie,
   type PresetRow,
   type PresetOverrideRow,
   type PresetSurface,
 } from "../../lib/generatorPresets";
+// Template eligibility (June 2026). Data-driven gate REUSED from the sales
+// microsite path: templates DECLARE where they may be auto-recommended (segment
+// / persona / funnel stage), and the tenant has ONE governance behavior
+// (micrositeTemplateAiBehavior; default ai-from-scratch-only) controlling how
+// aggressively AI auto-picks vs. defaults to from-scratch. The marketing chip's
+// tied template is gated through the SAME engine + setting so the two paths
+// never drift (see /sales/microsite/recommend).
+import {
+  selectEligibleTemplate,
+  normalizeTemplateAiBehavior,
+  type EligibilityCandidate,
+} from "../../lib/ai-prompts/template-eligibility";
 
 const router = Router();
 
@@ -157,6 +173,170 @@ router.get("/lp/generator-presets", async (req, res): Promise<void> => {
     res.json({ surface, presets: [] });
   }
 });
+
+// ── MARKETING CHIP TEMPLATE-TIE RESOLUTION (June 2026) ──────────────────────
+//
+// A MARKETING starter chip can carry a TIED template (tiedTemplateSlug). This
+// endpoint GATES that tie through the SAME eligibility engine + tenant
+// governance setting (micrositeTemplateAiBehavior, default ai-from-scratch-only)
+// the sales microsite uses — mirroring POST /sales/microsite/recommend. It
+// returns the resolved slug (or null = build from scratch) + a reasoning trail
+// the modal surfaces as a short note. The prompt skeleton still prefills
+// regardless; this governs only whether the tied template becomes the AI's
+// starting point. FAIL-OPEN: on ANY error it returns the tied slug as-is so it
+// never blocks generation. Rate-limited + tenant-auth-gated like the other /lp
+// generator endpoints.
+
+// Light rate limit (pure + cheap — one small DB read + a deterministic decide).
+// Higher ceiling than generation, mirroring /sales/microsite/recommend.
+const resolveTemplateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many template-resolution requests. Please wait a moment." },
+});
+
+interface ResolveTemplateBody {
+  tiedTemplateSlug?: unknown;
+  segmentId?: unknown;
+}
+
+// POST /lp/generator-presets/resolve-template → gate a marketing chip's tied
+// template by eligibility for the page's context.
+router.post(
+  "/lp/generator-presets/resolve-template",
+  requireAuth,
+  resolveTemplateLimiter,
+  async (req, res): Promise<void> => {
+    const b = (req.body ?? {}) as ResolveTemplateBody;
+    const tiedTemplateSlug = typeof b.tiedTemplateSlug === "string" ? b.tiedTemplateSlug.trim() : "";
+    const segmentId = typeof b.segmentId === "string" ? b.segmentId.trim() : "";
+
+    // No tie → nothing to resolve; from-scratch with an empty reasoning trail.
+    if (!tiedTemplateSlug) {
+      res.json({ recommendedTemplateSlug: null, fromScratch: true, reasoning: [] });
+      return;
+    }
+
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return; // getTenantId already 403'd
+
+    try {
+      // 1) Tenant governance behavior — REUSED micrositeTemplateAiBehavior from
+      //    brand_settings.config (additive JSONB key; no migration). Default to
+      //    the owner's safe value (ai-from-scratch-only).
+      let aiBehavior = normalizeTemplateAiBehavior(undefined);
+      // 2) The preset carrying this tie (so we can read its objective → funnel
+      //    stage) + the resolved segment NAME. Load brand config + presets +
+      //    candidate templates in parallel.
+      const [bsRows, candidateRows, presetTieRows] = await Promise.all([
+        db
+          .select({ config: lpBrandSettingsTable.config })
+          .from(lpBrandSettingsTable)
+          .where(eq(lpBrandSettingsTable.tenantId, tenantId))
+          .limit(1),
+        // Candidate pool: every global/tenant template VISIBLE to this tenant
+        // that declares an eligibility constraint (or a primary funnel stage),
+        // which always includes the tied slug's own row when it exists.
+        db
+          .select({
+            slug: lpPagesTable.slug,
+            label: lpPagesTable.templateLabel,
+            eligibleSegments: lpPagesTable.eligibleSegments,
+            eligiblePersonas: lpPagesTable.eligiblePersonas,
+            eligibleFunnelStages: lpPagesTable.eligibleFunnelStages,
+            funnelStage: lpPagesTable.funnelStage,
+          })
+          .from(lpPagesTable)
+          .where(
+            and(
+              eq(lpPagesTable.isTemplate, true),
+              or(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.isGlobal, true)),
+            ),
+          ),
+        // The marketing preset(s) tying THIS slug — global ∪ tenant — so we can
+        // pick up an objective the chip carries as its funnel-stage hint.
+        db
+          .select({
+            objective: generatorPresetsTable.objective,
+            tenantId: generatorPresetsTable.tenantId,
+          })
+          .from(generatorPresetsTable)
+          .where(
+            and(
+              eq(generatorPresetsTable.tiedTemplateSlug, tiedTemplateSlug),
+              or(
+                isNull(generatorPresetsTable.tenantId),
+                eq(generatorPresetsTable.tenantId, tenantId),
+              ),
+            ),
+          ),
+      ]);
+
+      const cfg = (bsRows[0]?.config ?? {}) as Record<string, unknown>;
+      aiBehavior = normalizeTemplateAiBehavior(cfg.micrositeTemplateAiBehavior);
+
+      // Resolve the segment NAME from its id via the brand config's segments
+      // array (the eligibility engine matches on name/id). Persona is omitted —
+      // marketing landing pages typically have no persona axis.
+      let segmentName: string | null = null;
+      if (segmentId) {
+        const segments = Array.isArray((cfg as { segments?: unknown }).segments)
+          ? ((cfg as { segments?: Array<{ id?: unknown; name?: unknown }> }).segments ?? [])
+          : [];
+        const match = segments.find((s) => typeof s?.id === "string" && s.id === segmentId);
+        segmentName =
+          (match && typeof match.name === "string" && match.name) ||
+          // Fall back to the id itself so a template declaring eligibility by id
+          // can still match when the segment has no resolvable name.
+          segmentId;
+      }
+
+      // Funnel stage: the chip's preset objective when present, else null
+      // (unconstrained). Prefer a tenant-specific preset's objective over a
+      // global one (tenant overrides win), mirroring the effective-merge.
+      const tenantTie = presetTieRows.find((p) => p.tenantId === tenantId);
+      const globalTie = presetTieRows.find((p) => p.tenantId === null);
+      const objective =
+        (tenantTie?.objective ?? globalTie?.objective ?? "").trim() || null;
+
+      const asStrArr = (v: unknown): string[] | null =>
+        Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : null;
+      const candidates: EligibilityCandidate[] = candidateRows.map((r) => ({
+        slug: r.slug,
+        label: r.label ?? undefined,
+        eligibleSegments: asStrArr(r.eligibleSegments),
+        eligiblePersonas: asStrArr(r.eligiblePersonas),
+        eligibleFunnelStages: asStrArr(r.eligibleFunnelStages),
+        funnelStage: r.funnelStage ?? null,
+      }));
+      // Guarantee the tied slug is in the candidate pool even if it isn't itself
+      // flagged isTemplate (so a wildcard tie is still considered eligible).
+      if (!candidates.some((c) => c.slug === tiedTemplateSlug)) {
+        candidates.push({ slug: tiedTemplateSlug });
+      }
+
+      const result = resolvePresetTemplateTie({
+        tiedTemplateSlug,
+        context: { segment: segmentName, funnelStage: objective },
+        candidates,
+        aiBehavior,
+      });
+
+      res.json(result);
+    } catch (err) {
+      // FAIL-OPEN: never block generation. Return the tied slug as-is so the
+      // modal applies it exactly as it did before this gate existed.
+      console.error("POST /lp/generator-presets/resolve-template error:", String(err));
+      res.json({
+        recommendedTemplateSlug: tiedTemplateSlug,
+        fromScratch: false,
+        reasoning: [],
+      });
+    }
+  },
+);
 
 // ── TENANT OVERRIDE MANAGEMENT (settings permission) ────────────────────────
 

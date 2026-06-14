@@ -66,6 +66,10 @@ export interface CreatePageData {
 
 export interface ApiTemplate {
   id: number;
+  /** URL slug of the source template page. Returned by GET /lp/templates and
+   *  used to match a generator preset's `tiedTemplateSlug` to a visible
+   *  template (the eligibility-gated chip-tie resolution). */
+  slug: string;
   title: string;
   templateLabel: string;
   templateDescription: string;

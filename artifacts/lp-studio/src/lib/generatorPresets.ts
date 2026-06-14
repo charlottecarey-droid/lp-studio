@@ -49,3 +49,60 @@ export async function fetchGeneratorPresets(
     return [];
   }
 }
+
+/** Result of POST /lp/generator-presets/resolve-template — whether a marketing
+ *  chip's tied template should be auto-applied for the page's context, gated by
+ *  the tenant's eligibility governance (reused micrositeTemplateAiBehavior). */
+export interface ResolvedChipTemplate {
+  /** Slug to use as the AI starting point, or null = build from scratch. */
+  recommendedTemplateSlug: string | null;
+  fromScratch: boolean;
+  /** Human-readable "why" trail (the modal surfaces the last line as a note). */
+  reasoning: string[];
+}
+
+/**
+ * Resolve whether a marketing chip's TIED template is eligible for the page's
+ * current context (segment + the preset's implied funnel stage), gated by the
+ * tenant's template-AI governance. Mirrors the sales microsite recommend gate.
+ *
+ * FAIL-OPEN by contract: the endpoint returns the tied slug as-is on any server
+ * error, and this client returns the tied slug as-is on a network/parse failure,
+ * so generation is never blocked by the gate.
+ */
+export async function resolveChipTemplate(args: {
+  tiedTemplateSlug: string;
+  segmentId?: string;
+}): Promise<ResolvedChipTemplate> {
+  const tiedTemplateSlug = args.tiedTemplateSlug.trim();
+  // Fail-open shape used on any client-side failure.
+  const failOpen: ResolvedChipTemplate = {
+    recommendedTemplateSlug: tiedTemplateSlug || null,
+    fromScratch: !tiedTemplateSlug,
+    reasoning: [],
+  };
+  if (!tiedTemplateSlug) {
+    return { recommendedTemplateSlug: null, fromScratch: true, reasoning: [] };
+  }
+  try {
+    const res = await fetch("/api/lp/generator-presets/resolve-template", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tiedTemplateSlug, segmentId: args.segmentId ?? "" }),
+    });
+    if (!res.ok) return failOpen;
+    const data = (await res.json()) as Partial<ResolvedChipTemplate>;
+    return {
+      recommendedTemplateSlug:
+        typeof data.recommendedTemplateSlug === "string"
+          ? data.recommendedTemplateSlug
+          : null,
+      fromScratch: data.fromScratch === true,
+      reasoning: Array.isArray(data.reasoning)
+        ? data.reasoning.filter((r): r is string => typeof r === "string")
+        : [],
+    };
+  } catch {
+    return failOpen;
+  }
+}

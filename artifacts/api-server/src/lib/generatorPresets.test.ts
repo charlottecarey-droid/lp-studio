@@ -11,6 +11,7 @@ import {
   mergeEffectivePresets,
   normalizeSurface,
   surfaceMatches,
+  resolvePresetTemplateTie,
   type PresetRow,
   type PresetOverrideRow,
 } from "./generatorPresets";
@@ -214,5 +215,115 @@ describe("preset template tie → eligibility gating", () => {
     const out = selectEligibleTemplate({ segment: "DSO" }, [], "template-preferred");
     expect(out.recommendedSlug).toBeNull();
     expect(out.fromScratch).toBe(true);
+  });
+});
+
+describe("resolvePresetTemplateTie — marketing chip tie gating", () => {
+  // The chip already PICKED a specific tied slug; this gates THAT slug through
+  // the eligibility engine + tenant governance, mirroring the sales microsite
+  // recommend gate. Candidates always include the tied slug's own row.
+  const eventTemplate: EligibilityCandidate = {
+    slug: "event-landing",
+    label: "Event",
+    eligibleSegments: ["DSO"],
+    eligibleFunnelStages: ["awareness"],
+  };
+  // A second eligible-elsewhere template proves we never SUBSTITUTE a different
+  // template for the chip's tie — it's the tied slug or from-scratch.
+  const otherTemplate: EligibilityCandidate = {
+    slug: "pricing-landing",
+    label: "Pricing",
+    eligibleSegments: ["SMB"],
+    eligibleFunnelStages: ["decision"],
+  };
+
+  it("ELIGIBLE tied template → returned, fromScratch=false, with reasoning", () => {
+    const out = resolvePresetTemplateTie({
+      tiedTemplateSlug: "event-landing",
+      context: { segment: "DSO", funnelStage: "awareness" },
+      candidates: [eventTemplate, otherTemplate],
+      aiBehavior: "template-preferred",
+    });
+    expect(out.recommendedTemplateSlug).toBe("event-landing");
+    expect(out.fromScratch).toBe(false);
+    expect(out.reasoning.some((r) => /Using the .*Event.* template/.test(r))).toBe(true);
+  });
+
+  it("INELIGIBLE tied template (wrong segment) → null / from-scratch + reason", () => {
+    const out = resolvePresetTemplateTie({
+      tiedTemplateSlug: "event-landing",
+      context: { segment: "SMB", funnelStage: "awareness" },
+      candidates: [eventTemplate, otherTemplate],
+      aiBehavior: "template-preferred",
+    });
+    expect(out.recommendedTemplateSlug).toBeNull();
+    expect(out.fromScratch).toBe(true);
+    expect(out.reasoning.some((r) => /isn't eligible/.test(r))).toBe(true);
+  });
+
+  it("does NOT substitute a different eligible template for the chip's tie", () => {
+    // pricing-landing IS eligible for this context, but the chip tied to the
+    // event template — we must fall back to scratch, not silently swap.
+    const out = resolvePresetTemplateTie({
+      tiedTemplateSlug: "event-landing",
+      context: { segment: "SMB", funnelStage: "decision" },
+      candidates: [eventTemplate, otherTemplate],
+      aiBehavior: "template-preferred",
+    });
+    expect(out.recommendedTemplateSlug).toBeNull();
+    expect(out.fromScratch).toBe(true);
+  });
+
+  it("ai-from-scratch-only (governance default) → null even when eligible", () => {
+    const out = resolvePresetTemplateTie({
+      tiedTemplateSlug: "event-landing",
+      context: { segment: "DSO", funnelStage: "awareness" },
+      candidates: [eventTemplate, otherTemplate],
+      aiBehavior: "ai-from-scratch-only",
+    });
+    expect(out.recommendedTemplateSlug).toBeNull();
+    expect(out.fromScratch).toBe(true);
+    // The governance reason from the engine is preserved.
+    expect(out.reasoning.some((r) => /ai-from-scratch-only/.test(r))).toBe(true);
+  });
+
+  it("template-required: eligible tie returned regardless of confidence", () => {
+    const out = resolvePresetTemplateTie({
+      tiedTemplateSlug: "event-landing",
+      context: { segment: "DSO", funnelStage: "awareness" },
+      candidates: [eventTemplate],
+      aiBehavior: "template-required",
+    });
+    expect(out.recommendedTemplateSlug).toBe("event-landing");
+    expect(out.fromScratch).toBe(false);
+  });
+
+  it("template-preferred + WILDCARD tie (no declared axes) → low confidence → from-scratch", () => {
+    // A tie that declares NOTHING is eligible everywhere but only on a wildcard
+    // basis; under template-preferred it sits below the auto-recommend threshold
+    // → scratch (matches the engine's confidence gate).
+    const wildcardTie: EligibilityCandidate = { slug: "generic-landing", label: "Generic" };
+    const out = resolvePresetTemplateTie({
+      tiedTemplateSlug: "generic-landing",
+      context: { segment: "DSO", funnelStage: "awareness" },
+      candidates: [wildcardTie],
+      aiBehavior: "template-preferred",
+    });
+    expect(out.recommendedTemplateSlug).toBeNull();
+    expect(out.fromScratch).toBe(true);
+  });
+
+  it("unconstrained context (no segment) with a wildcard tie under template-required → returned", () => {
+    // template-required takes the best eligible regardless of threshold; a
+    // wildcard tie remains eligible when there's nothing to contradict it.
+    const wildcardTie: EligibilityCandidate = { slug: "generic-landing", label: "Generic" };
+    const out = resolvePresetTemplateTie({
+      tiedTemplateSlug: "generic-landing",
+      context: {},
+      candidates: [wildcardTie],
+      aiBehavior: "template-required",
+    });
+    expect(out.recommendedTemplateSlug).toBe("generic-landing");
+    expect(out.fromScratch).toBe(false);
   });
 });
