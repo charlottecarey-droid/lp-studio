@@ -17,17 +17,26 @@ import { ImagePicker } from "@/components/ImagePicker";
 import { FontSelect } from "@/components/FontSelect";
 import { ColorField } from "./BlockSettingsPanel";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
+import { CtaActionConfigSection } from "./CtaActionConfigSection";
+import { CtaSecondaryConfigSection } from "./CtaSecondaryConfigSection";
+import type { CtaSuiteFields, CtaSecondaryFields } from "@/lib/cta-modal";
+import type { CtaSourceProps } from "@/lib/cta/ctaSource";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { VideoPicker } from "@/components/VideoPicker";
 import { suggestCopy } from "@/lib/copy-api";
 
+/** BlockCinematicVideoHero primary & secondary actions (all five). */
+const CINEMATIC_CTA_ACTIONS = ["url", "chilipiper", "modal-form", "modal-chilipiper", "video-modal"] as const;
+
 interface Props {
   props: CinematicVideoHeroBlockProps;
   onChange: (props: CinematicVideoHeroBlockProps) => void;
+  /** CTA source indicator + inherit/override controls (Phase 2). */
+  ctaSource?: CtaSourceProps;
 }
 
-export function CinematicVideoHeroPanel({ props, onChange }: Props) {
+export function CinematicVideoHeroPanel({ props, onChange, ctaSource }: Props) {
   const update = (patch: Partial<CinematicVideoHeroBlockProps>) => onChange({ ...props, ...patch });
 
   const updateLink = (i: number, key: keyof NavHeaderLink, value: string) => {
@@ -269,44 +278,17 @@ export function CinematicVideoHeroPanel({ props, onChange }: Props) {
         {/* Primary CTA */}
         <div className="space-y-2 border rounded-md p-2.5">
           <div className="text-[11px] font-semibold text-muted-foreground">Primary CTA</div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Text</Label>
-              <AiTextField type="input" value={props.ctaText} onChange={(v) => update({ ctaText: v })} className="h-8 text-xs" onSuggest={() => suggestCopy("cinematic-video-hero", "ctaText", props.ctaText ?? "", { headline: props.headline ?? "" })} fieldLabel="CTA text" />
-            </div>
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Action</Label>
-              <Select
-                value={props.ctaAction ?? "url"}
-                onValueChange={(v) => update({ ctaAction: v as CinematicVideoHeroBlockProps["ctaAction"] })}
-              >
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="url" className="text-xs">Open URL</SelectItem>
-                  <SelectItem value="chilipiper" className="text-xs">Open Chili Piper</SelectItem>
-                  <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
-                  <SelectItem value="modal-chilipiper" className="text-xs">Open modal → Chili Piper</SelectItem>
-                  <SelectItem value="video-modal" className="text-xs">Open video modal</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
           <div>
-            <Label className="text-[11px] text-muted-foreground">URL</Label>
-            <Input value={props.ctaUrl} onChange={(e) => update({ ctaUrl: e.target.value })} placeholder="/signup" className="h-8 text-xs" />
+            <Label className="text-[11px] text-muted-foreground">Text</Label>
+            <AiTextField type="input" value={props.ctaText} onChange={(v) => update({ ctaText: v })} className="h-8 text-xs" onSuggest={() => suggestCopy("cinematic-video-hero", "ctaText", props.ctaText ?? "", { headline: props.headline ?? "" })} fieldLabel="CTA text" />
           </div>
-          {props.ctaAction === "chilipiper" && (
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Chili Piper URL</Label>
-              <Input value={props.chilipiperUrl ?? ""} onChange={(e) => update({ chilipiperUrl: e.target.value })} placeholder="https://yourcompany.chilipiper.com/..." className="h-8 text-xs font-mono" />
-            </div>
-          )}
-          {props.ctaAction === "video-modal" && (
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Video URL</Label>
-              <Input value={props.videoUrl ?? ""} onChange={(e) => update({ videoUrl: e.target.value })} placeholder="https://…/film.mp4 or YouTube/Vimeo" className="h-8 text-xs font-mono" />
-            </div>
-          )}
+          <CtaActionConfigSection
+            value={props as CtaSuiteFields}
+            onChange={(v) => onChange({ ...props, ...v } as CinematicVideoHeroBlockProps)}
+            allowedActions={CINEMATIC_CTA_ACTIONS}
+            hideModalConfig
+            {...ctaSource}
+          />
           <div>
             <Label className="text-[11px] text-muted-foreground">Style</Label>
             <Select
@@ -362,50 +344,14 @@ export function CinematicVideoHeroPanel({ props, onChange }: Props) {
           </div>
         </div>
 
-        {/* Secondary CTA */}
-        <div className="space-y-2 border rounded-md p-2.5">
-          <div className="text-[11px] font-semibold text-muted-foreground">Secondary CTA (“Watch Film”)</div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Text</Label>
-              <Input value={props.ctaSecondaryText ?? ""} onChange={(e) => update({ ctaSecondaryText: e.target.value })} placeholder="Watch Film" className="h-8 text-xs" />
-            </div>
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Action</Label>
-              <Select
-                value={props.ctaSecondaryAction ?? "video-modal"}
-                onValueChange={(v) => update({ ctaSecondaryAction: v as CinematicVideoHeroBlockProps["ctaSecondaryAction"] })}
-              >
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="url" className="text-xs">Open URL</SelectItem>
-                  <SelectItem value="chilipiper" className="text-xs">Open Chili Piper</SelectItem>
-                  <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
-                  <SelectItem value="modal-chilipiper" className="text-xs">Open modal → Chili Piper</SelectItem>
-                  <SelectItem value="video-modal" className="text-xs">Open video modal</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          {(props.ctaSecondaryAction ?? "video-modal") === "url" && (
-            <div>
-              <Label className="text-[11px] text-muted-foreground">URL</Label>
-              <Input value={props.ctaSecondaryUrl ?? ""} onChange={(e) => update({ ctaSecondaryUrl: e.target.value })} placeholder="#" className="h-8 text-xs" />
-            </div>
-          )}
-          {props.ctaSecondaryAction === "chilipiper" && (
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Chili Piper URL</Label>
-              <Input value={props.secondaryChilipiperUrl ?? ""} onChange={(e) => update({ secondaryChilipiperUrl: e.target.value })} placeholder="https://yourcompany.chilipiper.com/..." className="h-8 text-xs font-mono" />
-            </div>
-          )}
-          {(props.ctaSecondaryAction ?? "video-modal") === "video-modal" && (
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Video URL (defaults to primary video)</Label>
-              <Input value={props.secondaryVideoUrl ?? ""} onChange={(e) => update({ secondaryVideoUrl: e.target.value })} placeholder="https://…/film.mp4 or YouTube/Vimeo" className="h-8 text-xs font-mono" />
-            </div>
-          )}
-        </div>
+        {/* Secondary CTA — shared section (label + action + destination). */}
+        <CtaSecondaryConfigSection
+          value={props as CtaSecondaryFields}
+          onChange={(v) => onChange({ ...props, ...v } as CinematicVideoHeroBlockProps)}
+          allowedActions={CINEMATIC_CTA_ACTIONS}
+          heading="Secondary CTA (“Watch Film”)"
+          labelPlaceholder="Watch Film"
+        />
 
         {/* Shared modal config */}
         {showModalCfg && (

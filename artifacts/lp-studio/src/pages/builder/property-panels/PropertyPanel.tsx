@@ -1513,6 +1513,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <LaunchSpotlightHeroPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
           />
         );
       case "bento-mosaic-hero":
@@ -1602,6 +1603,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             props={block.props}
             onChange={props => onChange({ ...block, props })}
             onApplyCtaToAll={onApplyCtaToAll}
+            ctaSource={ctaSource}
           />
         );
       case "stat-callout":
@@ -6613,6 +6615,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <CinematicVideoHeroPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
           />
         );
       case "aurora-gradient-hero":
@@ -6620,6 +6623,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <AuroraGradientHeroPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
           />
         );
       case "editorial-split-hero":
@@ -6627,6 +6631,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <EditorialSplitHeroPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
           />
         );
       case "parallax-layers-hero":
@@ -6634,6 +6639,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <ParallaxLayersHeroPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
           />
         );
       case "spotlight-glow-hero":
@@ -6641,6 +6647,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <SpotlightGlowHeroPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
           />
         );
       case "bold-statement":
@@ -6648,6 +6655,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <BoldStatementPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
           />
         );
       case "id-hero":
