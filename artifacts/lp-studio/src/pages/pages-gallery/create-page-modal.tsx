@@ -457,7 +457,7 @@ export function CreatePageModal({
             )}
           >
             <FileText className="w-3.5 h-3.5" />
-            Template
+            Template (Exact Copy)
           </button>
           <button
             onClick={() => { setCreateMode("ai"); setCreateError(null); }}
@@ -467,7 +467,7 @@ export function CreatePageModal({
             )}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            AI Generate
+            AI Generate (Rewrites Copy)
           </button>
           <button
             onClick={() => { setCreateMode("brief"); setCreateError(null); }}
