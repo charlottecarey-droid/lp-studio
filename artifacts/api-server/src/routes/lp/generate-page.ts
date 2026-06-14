@@ -4006,6 +4006,40 @@ function sanitizeScrapedText(raw: string): string {
     .trim();
 }
 
+// Block types that ARE a standalone navbar.
+const NAV_TYPES = new Set(["nav-header", "dso-practice-nav"]);
+// Hero / full-page block types that render their OWN sticky navbar internally,
+// so a standalone nav block must never be stacked on top of them. The
+// business-case-* full-page blocks bake their own nav (but no footer, so they
+// are NOT in SELF_CONTAINED_FULL_PAGE_TYPES — a footer is still appended below).
+const SELF_NAV_TYPES = new Set([
+  "full-bleed-hero",
+  "dso-heartland-hero",
+  "hero",
+  "cinematic-video-hero",
+  "aurora-gradient-hero",
+  "editorial-split-hero",
+  "parallax-layers-hero",
+  "spotlight-glow-hero",
+  "business-case-split",
+  "business-case-centered",
+  "business-case-premium",
+]);
+/** Drop a standalone nav block sitting directly before a self-nav hero at the
+ *  top of the page so a page never ships two stacked navbars. Mutates in place.
+ *  Runs on BOTH the template and freeform generation paths — a template whose
+ *  first content block is a self-nav hero (e.g. [nav-header, hero, …]) would
+ *  otherwise stack the template's nav on top of the hero's own nav. */
+function stripRedundantLeadingNav(blocks: Array<{ type?: unknown }>): void {
+  while (
+    blocks.length >= 2 &&
+    NAV_TYPES.has((blocks[0]?.type ?? "") as string) &&
+    SELF_NAV_TYPES.has((blocks[1]?.type ?? "") as string)
+  ) {
+    blocks.shift();
+  }
+}
+
 export function buildBrandContext(brand: BrandConfig, designIntensity: DesignIntensity): string {
   const parts: string[] = [];
   // June 2026 copy-quality audit — an ORDERED context-priority preamble so the
@@ -8464,6 +8498,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         logger.warn({ err: String(err) }, "[generate-page] template AI-mode enforcement skipped");
       }
 
+      // Strip a redundant standalone nav when the template's first content block
+      // is a self-nav hero (e.g. [nav-header, hero, …]) so template pages never
+      // ship two stacked navbars. The freeform path does the same.
+      stripRedundantLeadingNav(mergedBlocks as Array<{ type?: unknown }>);
+
       emitter.stage("polish", "done", "Critiquing & polishing copy");
       emitter.blocksSnapshot(mergedBlocks, "polish");
       emitter.stage("finalize", "start", "Finalizing the page");
@@ -9630,38 +9669,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // the chrome already baked into the block. See isSingleFullPageBlock.
     const isSingleFullPage = isSingleFullPageBlock(blocks);
 
-    // 1. Nav header — prepend if missing
-    const NAV_TYPES = new Set(["nav-header", "dso-practice-nav"]);
-    // These blocks render their own sticky navbar internally — skip
-    // auto-injecting nav-header on top of them, otherwise the page ends up with
-    // two stacked navs. The business-case-* full-page blocks bake their own nav
-    // (but no footer, so they are NOT in SELF_CONTAINED_FULL_PAGE_TYPES — a
-    // footer is still appended below).
-    const SELF_NAV_TYPES = new Set([
-      "full-bleed-hero",
-      "dso-heartland-hero",
-      "hero",
-      "cinematic-video-hero",
-      "aurora-gradient-hero",
-      "editorial-split-hero",
-      "parallax-layers-hero",
-      "spotlight-glow-hero",
-      "business-case-split",
-      "business-case-centered",
-      "business-case-premium",
-    ]);
+    // 1. Nav header — prepend if missing.
     // Defensive strip: the prompt forbids prepending a standalone nav before a
     // self-nav hero, but if the model ignores that and emits e.g.
     // [nav-header, full-bleed-hero, …], drop the leading nav so we don't ship
-    // two stacked navbars. Only strips a nav that sits directly before a
-    // self-nav hero at the very top of the page.
-    while (
-      blocks.length >= 2 &&
-      NAV_TYPES.has(blocks[0].type as string) &&
-      SELF_NAV_TYPES.has(blocks[1].type as string)
-    ) {
-      blocks.shift();
-    }
+    // two stacked navbars. Shared with the template path — see
+    // stripRedundantLeadingNav.
+    stripRedundantLeadingNav(blocks);
     const hasNav = blocks.some(b => NAV_TYPES.has(b.type as string) || SELF_NAV_TYPES.has(b.type as string));
     if (!hasNav && !isSingleFullPage) {
       if (useDsoPractices) {

@@ -57,6 +57,13 @@ export interface CritiqueBrandVoice {
   toneOfVoice?: string | null;
   toneKeywords?: string[] | null;
   avoidPhrases?: string[] | null;
+  /** The brand's own gold-standard marketing lines — fed to the rewrite so the
+   *  corrected copy lands in the actual brand voice instead of generic
+   *  "specific & concrete" filler. */
+  copyExamples?: string[] | null;
+  /** The brand's key themes — kept so a rewrite reinforces them rather than
+   *  drifting into off-brand messaging. */
+  messagingPillars?: { label: string; description: string }[] | null;
 }
 
 interface CritiqueOptions {
@@ -78,7 +85,14 @@ interface CritiqueOptions {
 }
 
 const DEFAULT_MAX_BLOCKS = 2;
-const DEFAULT_TIMEOUT_MS = 3000;
+// The corrective rewrite is a real gpt-4o JSON call that runs behind the shared
+// generation semaphore, so this budget must cover both queue-wait and the
+// model round-trip. The original 3s was far too tight: the pass almost always
+// timed out and failed open, shipping the very banned/cliché phrases it was
+// meant to remove (e.g. a tenant's own avoidPhrases like "streamline"/"unlock"
+// leaking onto the page). 12s lets the rewrite actually land while still
+// bounding the worst-case latency tax on generation.
+const DEFAULT_TIMEOUT_MS = 12000;
 
 /** Minimum total copy length (chars) a block needs to be worth an opt-in
  *  (no-banned-hits) critique — tiny blocks (a lone CTA label) are skipped. */
@@ -198,6 +212,20 @@ function buildVoiceContext(brand: CritiqueBrandVoice): string {
   const parts: string[] = [];
   if (brand.toneOfVoice) parts.push(`Tone: ${brand.toneOfVoice}`);
   if (brand.toneKeywords?.length) parts.push(`Style keywords: ${brand.toneKeywords.join(", ")}`);
+  if (brand.messagingPillars?.length) {
+    parts.push(
+      `Key themes to reinforce: ${brand.messagingPillars
+        .map((p) => `${p.label} (${p.description})`)
+        .join("; ")}`,
+    );
+  }
+  if (brand.copyExamples?.length) {
+    parts.push(
+      `WRITE IN THIS VOICE — match the rhythm, sentence length, vocabulary, and degree of specificity of these example lines from the brand's own marketing. Treat them as the gold standard the rewrite is compared against:\n${brand.copyExamples
+        .map((e) => `  • ${e}`)
+        .join("\n")}`,
+    );
+  }
   return parts.join("\n");
 }
 
