@@ -2583,11 +2583,22 @@ export function buildSystemPrompt(
     customMicrositeExemplars?: unknown;
   };
   const useBuiltInExemplars = salesConsole.useBuiltInExemplars === true;
+  // The page's structure is AUTHORED (fixed block lineup + order) on the
+  // template path and on every fixed-list path (a segment/brand page outline
+  // from Brand Settings, or the legacy/neutral fallback list). It is only
+  // free-composed on the freeform / DSO-freeform / segment-pool paths. When the
+  // structure is authored, the exemplars must drop their "choose your own
+  // lineup / don't reproduce this layout" framing so they don't fight the
+  // configured outline the rep set up.
+  const layoutIsAuthored =
+    (!!templateBlockTypes && templateBlockTypes.length > 0)
+    || !(useFreeform || usePoolFreeform || dsoFreeformMode);
   // Tenant-authored exemplars are always applied (the generic, white-label
   // path); built-in Dandy sample pages stay opt-in via useBuiltInExemplars.
   const exemplarsSection = formatExemplarsSection(
     pickExemplars(segment.id ?? "", accountSegment, 2, { useBuiltIn: useBuiltInExemplars }),
     parseCustomExemplars(salesConsole.customMicrositeExemplars),
+    { layoutIsAuthored },
   );
 
   // Core forbidden list always applied; brand's avoidPhrases add to it

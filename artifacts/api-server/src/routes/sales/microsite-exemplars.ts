@@ -566,11 +566,20 @@ export function parseCustomExemplars(v: unknown): CustomMicrositeExemplar[] {
 export function formatExemplarsSection(
   exemplars: MicrositeExemplar[],
   custom: CustomMicrositeExemplar[] = [],
+  // When TRUE, this page's block lineup + order are fixed by a configured
+  // outline (a segment/brand page outline in Brand Settings) or a template.
+  // In that case the exemplars must NOT carry the "don't reproduce this layout /
+  // choose your own lineup" framing — that contradicts the authored outline and
+  // pushes the model to drift off the configured structure. The outline is
+  // authoritative for structure; the exemplars are then voice/quality refs only.
+  opts: { layoutIsAuthored?: boolean } = {},
 ): string {
   if (exemplars.length === 0 && custom.length === 0) return "";
 
   const intro = [
-    "EXEMPLARS — these are the gold standard for the QUALITY of a great microsite: voice, register, level of specificity, and information density. Study them for THOSE qualities. Their block selection and section order are just ONE example, NOT a layout to reproduce — choose the section lineup and order that best fit THIS account (follow the LAYOUT rules below). Do NOT copy their words OR their structure — write something equally good, but structurally its own, for the new account.",
+    opts.layoutIsAuthored
+      ? "EXEMPLARS — these are the gold standard for the QUALITY of a great microsite: voice, register, level of specificity, and information density. Study them for THOSE qualities and match them. This page's block lineup and section order are already set by the configured outline below — follow that outline exactly. The exemplars are voice and quality references only, not a competing layout. Do NOT copy their words — write something equally good, in the brand's own voice, for the new account."
+      : "EXEMPLARS — these are the gold standard for the QUALITY of a great microsite: voice, register, level of specificity, and information density. Study them for THOSE qualities. Their block selection and section order are just ONE example, NOT a layout to reproduce — choose the section lineup and order that best fit THIS account (follow the LAYOUT rules below). Do NOT copy their words OR their structure — write something equally good, but structurally its own, for the new account.",
     "",
   ].join("\n");
 
