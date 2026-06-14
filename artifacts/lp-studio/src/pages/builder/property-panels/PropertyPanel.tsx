@@ -6659,7 +6659,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           />
         );
       case "id-hero":
-        return <IdHeroPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+        return <IdHeroPanel props={block.props} onChange={props => onChange({ ...block, props })} ctaSource={ctaSource} />;
       case "id-marquee":
         return <IdMarqueePanel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "id-intro":
@@ -6675,13 +6675,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "id-stats":
         return <IdStatsPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "id-invitation":
-        return <IdInvitationPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+        return <IdInvitationPanel props={block.props} onChange={props => onChange({ ...block, props })} ctaSource={ctaSource} />;
       case "id-grid":
         return <IdGridPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "id-spotlight":
         return <IdSpotlightPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "id-reservation-pass":
-        return <IdReservationPassPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
+        return <IdReservationPassPanel props={block.props} onChange={props => onChange({ ...block, props })} ctaSource={ctaSource} />;
       case "gradient-pricing":
         return (
           <GradientPricingPanel

@@ -11,16 +11,39 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
+import { CtaActionConfigSection } from "./CtaActionConfigSection";
+import { CtaSecondaryConfigSection } from "./CtaSecondaryConfigSection";
+import { readPrimarySuite, writePrimarySuite, readSecondary, writeSecondary, type PrimaryKeyMap, type SecondaryKeyMap } from "@/lib/cta/ctaKeyMap";
+import type { CtaSourceProps } from "@/lib/cta/ctaSource";
 import { ImagePicker } from "@/components/ImagePicker";
 import { Slider } from "@/components/ui/slider";
 import { Trash2, Plus, ArrowUp, ArrowDown } from "lucide-react";
 
+/** Primary CTA uses primaryCta* names; secondary uses secondaryCta* names. Both
+ *  action vocabularies already match IdCtaAction, so a key-map remap is safe. */
+const ID_RESERVATION_CTA_ACTIONS = ["url", "chilipiper", "modal-form", "modal-chilipiper", "video-modal"] as const;
+const ID_RESERVATION_PRIMARY_MAP: PrimaryKeyMap = {
+  action: "primaryCtaAction",
+  url: "primaryCtaUrl",
+  chilipiper: "chilipiperUrl",
+  video: "videoUrl",
+};
+const ID_RESERVATION_SECONDARY_MAP: SecondaryKeyMap = {
+  text: "secondaryCtaText",
+  action: "secondaryCtaAction",
+  url: "secondaryCtaUrl",
+  chilipiper: "secondaryChilipiperUrl",
+  video: "secondaryVideoUrl",
+};
+
 interface Props {
   props: IdReservationPassBlockProps;
   onChange: (next: IdReservationPassBlockProps) => void;
+  /** CTA source indicator + inherit/override controls (Phase 2). */
+  ctaSource?: CtaSourceProps;
 }
 
-export function IdReservationPassPanel({ props: p, onChange }: Props) {
+export function IdReservationPassPanel({ props: p, onChange, ctaSource }: Props) {
   const set = <K extends keyof IdReservationPassBlockProps>(key: K, value: IdReservationPassBlockProps[K]) =>
     onChange({ ...p, [key]: value });
 
@@ -152,81 +175,31 @@ export function IdReservationPassPanel({ props: p, onChange }: Props) {
       <Field label="Button label">
         <Input className="h-8 text-xs" value={p.primaryCtaText ?? ""} onChange={(e) => set("primaryCtaText", e.target.value)} placeholder="Reserve your seat" />
       </Field>
-      <Field label="Action">
-        <Select
-          value={p.primaryCtaAction ?? "url"}
-          onValueChange={(v) => set("primaryCtaAction", v as NonNullable<IdReservationPassBlockProps["primaryCtaAction"]>)}
-        >
-          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="url" className="text-xs">Open URL</SelectItem>
-            <SelectItem value="chilipiper" className="text-xs">Open Chili Piper popup</SelectItem>
-            <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
-            <SelectItem value="modal-chilipiper" className="text-xs">Open modal then Chili Piper</SelectItem>
-            <SelectItem value="video-modal" className="text-xs">Open video in modal</SelectItem>
-          </SelectContent>
-        </Select>
-      </Field>
-      {(p.primaryCtaAction ?? "url") === "url" && (
-        <Field label="URL">
-          <Input className="h-8 text-xs" value={p.primaryCtaUrl ?? ""} onChange={(e) => set("primaryCtaUrl", e.target.value)} placeholder="https://…" />
-        </Field>
-      )}
-      {p.primaryCtaAction === "chilipiper" && (
-        <Field label="Chili Piper URL">
-          <Input className="h-8 text-xs font-mono" value={p.chilipiperUrl ?? ""} onChange={(e) => set("chilipiperUrl", e.target.value)} placeholder="https://yourcompany.chilipiper.com/router/…" />
-        </Field>
-      )}
-      {p.primaryCtaAction === "video-modal" && (
-        <Field label="Video URL">
-          <Input className="h-8 text-xs font-mono" value={p.videoUrl ?? ""} onChange={(e) => set("videoUrl", e.target.value)} placeholder="https://… .mp4 or YouTube/Vimeo URL" />
-        </Field>
-      )}
-      {(p.primaryCtaAction === "modal-form" || p.primaryCtaAction === "modal-chilipiper") && (
-        <CtaButtonModalConfigSection
-          ctaAction={p.primaryCtaAction}
-          value={p}
-          onChange={(next) => onChange({ ...p, ...next })}
-        />
-      )}
+      {/* Shared primary action suite (mapped to primaryCta* keys); single shared modal block below. */}
+      <CtaActionConfigSection
+        value={readPrimarySuite(p, ID_RESERVATION_PRIMARY_MAP)}
+        onChange={(v) => onChange(writePrimarySuite(p, v, ID_RESERVATION_PRIMARY_MAP) as IdReservationPassBlockProps)}
+        allowedActions={ID_RESERVATION_CTA_ACTIONS}
+        hideModalConfig
+        {...ctaSource}
+      />
 
       <SectionHeader>Secondary link (optional)</SectionHeader>
-      <Field label="Label">
-        <Input className="h-8 text-xs" value={p.secondaryCtaText ?? ""} onChange={(e) => set("secondaryCtaText", e.target.value)} placeholder="Press inquiry" />
-      </Field>
-      <Field label="Action">
-        <Select
-          value={p.secondaryCtaAction ?? "url"}
-          onValueChange={(v) => set("secondaryCtaAction", v as NonNullable<IdReservationPassBlockProps["secondaryCtaAction"]>)}
-        >
-          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="url" className="text-xs">Open URL</SelectItem>
-            <SelectItem value="chilipiper" className="text-xs">Open Chili Piper popup</SelectItem>
-            <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
-            <SelectItem value="modal-chilipiper" className="text-xs">Open modal then Chili Piper</SelectItem>
-            <SelectItem value="video-modal" className="text-xs">Open video in modal</SelectItem>
-          </SelectContent>
-        </Select>
-      </Field>
-      {(p.secondaryCtaAction ?? "url") === "url" && (
-        <Field label="URL">
-          <Input className="h-8 text-xs" value={p.secondaryCtaUrl ?? ""} onChange={(e) => set("secondaryCtaUrl", e.target.value)} placeholder="mailto:press@example.com" />
-        </Field>
-      )}
-      {p.secondaryCtaAction === "chilipiper" && (
-        <Field label="Chili Piper URL">
-          <Input className="h-8 text-xs font-mono" value={p.secondaryChilipiperUrl ?? ""} onChange={(e) => set("secondaryChilipiperUrl", e.target.value)} placeholder="https://yourcompany.chilipiper.com/router/…" />
-        </Field>
-      )}
-      {p.secondaryCtaAction === "video-modal" && (
-        <Field label="Video URL">
-          <Input className="h-8 text-xs font-mono" value={p.secondaryVideoUrl ?? ""} onChange={(e) => set("secondaryVideoUrl", e.target.value)} placeholder="https://… .mp4 or YouTube/Vimeo URL" />
-        </Field>
-      )}
-      {(p.secondaryCtaAction === "modal-form" || p.secondaryCtaAction === "modal-chilipiper") && (
+      {/* Shared secondary section, mapped to this block's secondaryCta* keys. */}
+      <CtaSecondaryConfigSection
+        value={readSecondary(p, ID_RESERVATION_SECONDARY_MAP)}
+        onChange={(v) => onChange(writeSecondary(p, v, ID_RESERVATION_SECONDARY_MAP) as IdReservationPassBlockProps)}
+        allowedActions={ID_RESERVATION_CTA_ACTIONS}
+      />
+
+      {(p.primaryCtaAction === "modal-form" || p.primaryCtaAction === "modal-chilipiper" ||
+        p.secondaryCtaAction === "modal-form" || p.secondaryCtaAction === "modal-chilipiper") && (
         <CtaButtonModalConfigSection
-          ctaAction={p.secondaryCtaAction}
+          ctaAction={
+            (p.primaryCtaAction === "modal-form" || p.primaryCtaAction === "modal-chilipiper")
+              ? p.primaryCtaAction
+              : (p.secondaryCtaAction as "modal-form" | "modal-chilipiper")
+          }
           value={p}
           onChange={(next) => onChange({ ...p, ...next })}
         />
