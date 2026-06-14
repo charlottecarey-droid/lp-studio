@@ -27,6 +27,8 @@ import {
   Mail,
   Star,
   Loader2,
+  Search,
+  Users,
 } from "lucide-react";
 import {
   Dialog,
@@ -67,6 +69,18 @@ interface SalesRep {
   id: number;
   name: string;
   content: { chilipiperUrl?: string; calendlyUrl?: string; role?: string };
+}
+
+// A contact on the target account, used to hand-pick who gets a personalised
+// hotlink. Personalised links are opt-in (off by default) — the rep ticks the
+// checkbox and selects recipients, with search + job-level filtering.
+interface AccountContact {
+  id: number;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  title: string | null;
+  titleLevel: string | null;
 }
 
 export function GenerateMicrositeModal({
@@ -115,6 +129,15 @@ export function GenerateMicrositeModal({
   // Single personalized link for the targeted contact (contact-page generation)
   const [contactLinkToken, setContactLinkToken] = useState<string | null>(null);
   const [contactLinkCopied, setContactLinkCopied] = useState(false);
+  // Personalised hotlinks for account-page generation are OPT-IN. Off by
+  // default; when enabled, the rep hand-picks recipients from the account's
+  // contacts (searchable + filterable by job level).
+  const [generateHotlinks, setGenerateHotlinks] = useState(false);
+  const [accountContacts, setAccountContacts] = useState<AccountContact[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [selectedContactIds, setSelectedContactIds] = useState<Set<number>>(new Set());
+  const [contactSearch, setContactSearch] = useState("");
+  const [levelFilter, setLevelFilter] = useState<string>("all");
 
   // The account this generation will run against. Fixed when provided by the
   // caller; otherwise resolved from the picker.
@@ -122,6 +145,15 @@ export function GenerateMicrositeModal({
     ? (accountName ?? "this account")
     : (pickedAccount?.name ?? "this account");
   const accountReady = accountProvided || pickedAccount !== null;
+
+  // The numeric account id we can pull contacts from for the recipient picker.
+  // CRM-only picks that haven't been imported yet have no local contacts, so the
+  // picker stays empty until the account exists locally.
+  const contactsAccountId = accountProvided
+    ? (accountId as string)
+    : pickedAccount?.numericId != null
+      ? String(pickedAccount.numericId)
+      : null;
 
   function getHotlinkBase() {
     const partnerDomain = domainContext?.micrositeDomain;
@@ -149,6 +181,44 @@ export function GenerateMicrositeModal({
     });
   }, [open]);
 
+  // Load the account's contacts for the recipient picker the first time the rep
+  // opts into generating personalised links (account-page generation only). New
+  // contacts with an email default to selected so opting in still "just works",
+  // but the rep can trim the list or filter it down.
+  useEffect(() => {
+    if (!open || contactId != null || !generateHotlinks) return;
+    if (!contactsAccountId) {
+      // CRM-only pick with no local contacts yet — drop any stale selection so
+      // the Generate gate can't be satisfied by recipients from another account.
+      setAccountContacts([]);
+      setSelectedContactIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    setContactsLoading(true);
+    fetch(`${API_BASE}/sales/accounts/${contactsAccountId}/contacts`)
+      .then(r => r.json())
+      .then((rows: AccountContact[]) => {
+        if (cancelled) return;
+        const list = Array.isArray(rows) ? rows : [];
+        setAccountContacts(list);
+        setSelectedContactIds(
+          new Set(list.filter(c => c.email && c.email.trim() !== "").map(c => c.id)),
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAccountContacts([]);
+        setSelectedContactIds(new Set());
+      })
+      .finally(() => {
+        if (!cancelled) setContactsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, generateHotlinks, contactsAccountId, contactId]);
+
   function reset() {
     setPickedAccount(null);
     setNoAccount(false);
@@ -167,6 +237,12 @@ export function GenerateMicrositeModal({
     setSelectedRepId(null);
     setContactLinkToken(null);
     setContactLinkCopied(false);
+    setGenerateHotlinks(false);
+    setAccountContacts([]);
+    setContactsLoading(false);
+    setSelectedContactIds(new Set());
+    setContactSearch("");
+    setLevelFilter("all");
   }
 
   function handleClose() {
@@ -237,10 +313,10 @@ export function GenerateMicrositeModal({
 
       setCreatedPageId(pageId);
 
-      setStep("linking");
       if (contactId != null) {
         // Contact-page generation: create (or reuse) a single personalized
         // link for the targeted contact, surfaced immediately on success.
+        setStep("linking");
         const linkRes = await fetch(`${API_BASE}/sales/hotlinks`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -250,16 +326,21 @@ export function GenerateMicrositeModal({
         const hotlink = await linkRes.json();
         setContactLinkToken(hotlink.token ?? null);
         setHotlinkCount(hotlink.token ? 1 : 0);
-      } else {
-        // Account-page generation: bulk-create hotlinks for all contacts with email
+      } else if (generateHotlinks && selectedContactIds.size > 0) {
+        // Account-page generation: personalised links are opt-in — only create
+        // them for the contacts the rep explicitly selected.
+        setStep("linking");
         const linkRes = await fetch(`${API_BASE}/sales/accounts/${resolvedAccountId}/microsites`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pageId }),
+          body: JSON.stringify({ pageId, contactIds: Array.from(selectedContactIds) }),
         });
         if (!linkRes.ok) throw new Error("Failed to create hotlinks");
         const { totalCount } = await linkRes.json();
         setHotlinkCount(totalCount);
+      } else {
+        // No personalised links requested — the microsite is created on its own.
+        setHotlinkCount(0);
       }
 
       setStep("done");
@@ -271,6 +352,62 @@ export function GenerateMicrositeModal({
   }
 
   const busy = step === "generating" || step === "linking";
+
+  // Distinct job levels present on this account's contacts, for the filter.
+  const contactLevels = Array.from(
+    new Set(
+      accountContacts
+        .map(c => (c.titleLevel ?? "").trim())
+        .filter(l => l.length > 0),
+    ),
+  ).sort();
+
+  // Contacts after the search + job-level filters are applied.
+  const filteredContacts = accountContacts.filter(c => {
+    if (levelFilter !== "all" && (c.titleLevel ?? "").trim() !== levelFilter) return false;
+    const q = contactSearch.trim().toLowerCase();
+    if (q) {
+      const hay = `${c.firstName ?? ""} ${c.lastName ?? ""} ${c.email ?? ""} ${c.title ?? ""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const contactDisplayName = (c: AccountContact) =>
+    `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() || c.email || "Unnamed contact";
+
+  function toggleContact(id: number) {
+    setSelectedContactIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // Select / clear all *filtered* contacts that have an email (only emailed
+  // contacts can receive a personalised link).
+  const filteredEmailIds = filteredContacts
+    .filter(c => c.email && c.email.trim() !== "")
+    .map(c => c.id);
+  const allFilteredSelected =
+    filteredEmailIds.length > 0 && filteredEmailIds.every(id => selectedContactIds.has(id));
+
+  function toggleSelectAllFiltered() {
+    setSelectedContactIds(prev => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        for (const id of filteredEmailIds) next.delete(id);
+      } else {
+        for (const id of filteredEmailIds) next.add(id);
+      }
+      return next;
+    });
+  }
+
+  // Block Generate only when links are requested but nobody is selected.
+  const hotlinkSelectionInvalid =
+    contactId == null && generateHotlinks && selectedContactIds.size === 0;
 
   const selectedRep = selectedRepId !== null ? salesReps.find(r => r.id === selectedRepId) : null;
   const selectedRepHasUrl = selectedRep
@@ -303,9 +440,11 @@ export function GenerateMicrositeModal({
                   ? (contactLinkToken
                       ? `Personalised link ready${contactName ? ` for ${contactName}` : ""}.`
                       : "Microsite created — add an email to this contact to generate a personalised link.")
-                  : (hotlinkCount > 0
-                      ? `${hotlinkCount} personalised hotlink${hotlinkCount !== 1 ? "s" : ""} created for contacts with email.`
-                      : "No contacts with email found — add contacts to generate hotlinks.")}
+                  : (generateHotlinks
+                      ? (hotlinkCount > 0
+                          ? `${hotlinkCount} personalised hotlink${hotlinkCount !== 1 ? "s" : ""} created for the selected contacts.`
+                          : "No personalised links were created — the selected contacts need an email address.")
+                      : "No personalised links were generated. You can create them anytime from the account.")}
               </p>
             </div>
 
@@ -410,8 +549,8 @@ export function GenerateMicrositeModal({
                 <>AI will create a personalised landing page for <strong>{effectiveAccountName}</strong> and
                 generate a single personalised link{contactName ? <> for <strong>{contactName}</strong></> : <> for this contact</>}.</>
               ) : (
-                <>AI will create a personalised landing page for <strong>{effectiveAccountName}</strong> and
-                generate unique hotlinks for each contact with an email address.</>
+                <>AI will create a personalised landing page for <strong>{effectiveAccountName}</strong>.
+                Personalised links for contacts are optional — turn them on below to pick who gets one.</>
               )}
             </div>
 
@@ -598,6 +737,146 @@ export function GenerateMicrositeModal({
               </div>
             </div>
 
+            {/* Personalised links — opt-in recipient picker (account-page only) */}
+            {contactId == null && (
+              <div className="flex flex-col gap-2">
+                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={generateHotlinks}
+                    disabled={busy}
+                    onChange={(e) => setGenerateHotlinks(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary/30 disabled:opacity-50"
+                  />
+                  <span className="flex flex-col gap-0.5">
+                    <span className="text-sm font-medium leading-tight flex items-center gap-1.5">
+                      <Link2 className="w-3.5 h-3.5 text-primary" />
+                      Generate personalised links for contacts
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Off by default. Turn on to create trackable hotlinks for the contacts you choose.
+                    </span>
+                  </span>
+                </label>
+
+                {generateHotlinks && (
+                  <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/20 p-3">
+                    {!contactsAccountId ? (
+                      <p className="text-xs text-amber-600">
+                        Pick an existing account to choose recipients. We'll create links after the
+                        account is imported.
+                      </p>
+                    ) : contactsLoading ? (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                        Loading contacts…
+                      </div>
+                    ) : accountContacts.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        No contacts found for this account. Add contacts with email addresses to
+                        generate personalised links.
+                      </p>
+                    ) : (
+                      <>
+                        {/* Search + job-level filter */}
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <div className="relative flex-1">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                            <input
+                              type="text"
+                              value={contactSearch}
+                              disabled={busy}
+                              onChange={(e) => setContactSearch(e.target.value)}
+                              placeholder="Search name, email, or title…"
+                              className="w-full rounded-lg border border-border bg-background pl-8 pr-3 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+                            />
+                          </div>
+                          {contactLevels.length > 0 && (
+                            <select
+                              value={levelFilter}
+                              disabled={busy}
+                              onChange={(e) => setLevelFilter(e.target.value)}
+                              className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+                            >
+                              <option value="all">All job levels</option>
+                              {contactLevels.map((lvl) => (
+                                <option key={lvl} value={lvl}>{lvl}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+
+                        {/* Select-all + count */}
+                        <div className="flex items-center justify-between text-xs">
+                          <button
+                            type="button"
+                            disabled={busy || filteredEmailIds.length === 0}
+                            onClick={toggleSelectAllFiltered}
+                            className="font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                          >
+                            {allFilteredSelected ? "Clear all" : "Select all"}
+                            {contactSearch.trim() || levelFilter !== "all" ? " (filtered)" : ""}
+                          </button>
+                          <span className="text-muted-foreground flex items-center gap-1">
+                            <Users className="w-3 h-3" />
+                            {selectedContactIds.size} selected
+                          </span>
+                        </div>
+
+                        {/* Contact list */}
+                        <div className="max-h-48 overflow-y-auto flex flex-col gap-0.5 -mx-1 px-1">
+                          {filteredContacts.length === 0 ? (
+                            <p className="text-xs text-muted-foreground py-2 text-center">
+                              No contacts match your search.
+                            </p>
+                          ) : (
+                            filteredContacts.map((c) => {
+                              const hasEmail = !!(c.email && c.email.trim() !== "");
+                              return (
+                                <label
+                                  key={c.id}
+                                  className={[
+                                    "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left",
+                                    hasEmail && !busy ? "cursor-pointer hover:bg-muted/60" : "opacity-60 cursor-not-allowed",
+                                  ].join(" ")}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedContactIds.has(c.id)}
+                                    disabled={busy || !hasEmail}
+                                    onChange={() => toggleContact(c.id)}
+                                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary/30 flex-shrink-0 disabled:opacity-50"
+                                  />
+                                  <span className="flex flex-col min-w-0 flex-1">
+                                    <span className="text-sm font-medium leading-tight truncate">
+                                      {contactDisplayName(c)}
+                                      {c.titleLevel ? (
+                                        <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">{c.titleLevel}</span>
+                                      ) : null}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground truncate">
+                                      {hasEmail ? c.email : "No email — can't receive a link"}
+                                      {c.title ? ` · ${c.title}` : ""}
+                                    </span>
+                                  </span>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        {hotlinkSelectionInvalid && (
+                          <p className="text-[11px] text-amber-600">
+                            Select at least one contact, or turn off personalised links to skip them.
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {busy && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin text-primary" />
@@ -613,7 +892,7 @@ export function GenerateMicrositeModal({
             <Button variant="outline" className="flex-1" onClick={handleClose} disabled={busy}>
               Cancel
             </Button>
-            <Button className="flex-1 gap-1.5" onClick={handleGenerate} disabled={busy || !accountReady || !segmentId || !ctaValid}>
+            <Button className="flex-1 gap-1.5" onClick={handleGenerate} disabled={busy || !accountReady || !segmentId || !ctaValid || hotlinkSelectionInvalid}>
               {busy ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (

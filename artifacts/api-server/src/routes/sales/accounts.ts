@@ -492,13 +492,24 @@ router.get("/accounts/:id/microsites", async (req, res): Promise<void> => {
   }
 });
 
-// POST /accounts/:id/microsites — bulk-create hotlinks for contacts with email on this account
+// POST /accounts/:id/microsites — create hotlinks for contacts with email on
+// this account. By default this covers every contact with an email, but callers
+// can pass `contactIds` to restrict link creation to a hand-picked subset (the
+// "New Microsite" modal sends the reps the user explicitly selected).
 router.post("/accounts/:id/microsites", async (req, res): Promise<void> => {
-  const { pageId } = req.body;
+  const { pageId, contactIds } = req.body;
   if (!pageId) {
     res.status(400).json({ error: "pageId is required" });
     return;
   }
+  // Optional allow-list of contact ids to generate links for, treated as a
+  // tri-state so an explicit empty selection never falls back to "everyone":
+  //  - omitted/not an array -> null  -> all contacts (backward compatible)
+  //  - []                    -> empty set -> no contacts get links
+  //  - [ids...]              -> restrict to that hand-picked subset
+  const contactIdAllowList = Array.isArray(contactIds)
+    ? new Set(contactIds.map((v: unknown) => Number(v)).filter((n) => Number.isFinite(n)))
+    : null;
 
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
@@ -517,7 +528,12 @@ router.post("/accounts/:id/microsites", async (req, res): Promise<void> => {
     const contacts = await db.select().from(salesContactsTable)
       .where(eq(salesContactsTable.accountId, accountId));
 
-    const contactsWithEmail = contacts.filter(c => c.email && c.email.trim() !== "");
+    const contactsWithEmail = contacts.filter(
+      c =>
+        c.email &&
+        c.email.trim() !== "" &&
+        (contactIdAllowList === null || contactIdAllowList.has(c.id)),
+    );
 
     const hotlinks: Array<typeof salesHotlinksTable.$inferSelect> = [];
     let createdCount = 0;
