@@ -39,6 +39,24 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
   const bg = p.backgroundColor || DANDY_GREEN;
   const accent = p.accentColor || DANDY_LIME;
   const brand = useBrandConfig() ?? undefined;
+
+  // Resolve a color that may be a brand CSS variable (the default section bg is
+  // `var(--brand-primary)`) into the brand's ACTUAL hex, so the contrast math
+  // below can measure the real surface. Without this, `resolveSectionInk`
+  // receives an unparseable "var(--brand-…)" string, treats the surface as
+  // white, and paints a dark (black) headline onto the dark brand background.
+  // Stays brand-aware: it reads the live tenant brand, never a hardcoded color.
+  const resolveBrandColor = (value: string): string => {
+    if (!value || isValidHex(value)) return value;
+    const m = /var\(\s*(--[\w-]+)\s*(?:,\s*([^)]+))?\)/.exec(value);
+    if (!m) return value;
+    const [, name, fallback] = m;
+    if (name === "--brand-primary" && brand?.primaryColor && isValidHex(brand.primaryColor)) return brand.primaryColor;
+    if (name === "--brand-accent" && brand?.accentColor && isValidHex(brand.accentColor)) return brand.accentColor;
+    const fb = fallback?.trim();
+    return fb && isValidHex(fb) ? fb : value;
+  };
+
   const imageBleed = p.imageBleed ?? true;
   const imageScale = p.imageScale ?? 1.35;
   const imageAnchor = p.imageAnchor || "top left";
@@ -72,7 +90,10 @@ export function BlockDandyProductHero({ block, onCtaClick, pageId, variantId, on
   //
   // For card we honor an explicit `cardTextColor` first (back-compat), then
   // fall back to the contrast-resolved ink for the card surface.
-  const copySurface = variant === "card" ? cardColor : (isValidHex(sectionBg) ? sectionBg : bg);
+  const resolvedSectionBg = resolveBrandColor(sectionBg);
+  const copySurface = variant === "card"
+    ? cardColor
+    : (isValidHex(resolvedSectionBg) ? resolvedSectionBg : sectionBg);
   const resolvedInk = resolveSectionInk({ textColor: p.textColor }, { base: copySurface });
   const cardTextColor = p.cardTextColor
     || resolveSectionInk({ textColor: p.textColor }, { base: cardColor }).text;

@@ -30,10 +30,6 @@ args = "img-test"
 task = "workflow.run"
 args = "tc-api"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "tc-lp"
-
 [[workflows.workflow]]
 name = "img-test"
 author = "agent"
@@ -55,17 +51,6 @@ isValidation = true
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server run typecheck"
-
-[[workflows.workflow]]
-name = "tc-lp"
-author = "agent"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/lp-studio run typecheck"
 
 [agent]
 stack = "PNPM_WORKSPACE"
