@@ -6603,6 +6603,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <MagazineHeroPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
           />
         );
       case "cinematic-video-hero":

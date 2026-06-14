@@ -16,6 +16,21 @@ export interface CtaSuiteFields extends CtaModalConfig {
 }
 
 /**
+ * The canonical SECONDARY-CTA fields (the shim's secondary key names). Edited by
+ * the shared CtaSecondaryConfigSection so every block configures a secondary CTA
+ * the same way. Secondary CTAs reuse the block's single CtaModalConfig (the modal
+ * is shared with the primary), so this shape carries only the secondary's label,
+ * action, and per-action destination — not its own modal config.
+ */
+export interface CtaSecondaryFields {
+  ctaSecondaryText?: string;
+  ctaSecondaryAction?: HeroCtaActionMode;
+  ctaSecondaryUrl?: string;
+  secondaryChilipiperUrl?: string;
+  secondaryVideoUrl?: string;
+}
+
+/**
  * Extract just the shared modal-CTA fields from a block's props so they can be
  * spread onto a <CtaButton> without leaking unrelated block props (which would
  * be a type error). Any block whose props extend CtaModalConfig can do:

@@ -16,13 +16,22 @@ import { ImagePicker } from "@/components/ImagePicker";
 import { FontSelect } from "@/components/FontSelect";
 import { ColorField } from "./BlockSettingsPanel";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
+import { CtaActionConfigSection } from "./CtaActionConfigSection";
+import { CtaSecondaryConfigSection } from "./CtaSecondaryConfigSection";
+import type { CtaSuiteFields, CtaSecondaryFields } from "@/lib/cta-modal";
+import type { CtaSourceProps } from "@/lib/cta/ctaSource";
+
+/** BlockMagazineHero renders these actions for both primary and secondary. */
+const MAGAZINE_CTA_ACTIONS = ["url", "chilipiper", "modal-form", "modal-chilipiper"] as const;
 
 interface Props {
   props: MagazineHeroBlockProps;
   onChange: (props: MagazineHeroBlockProps) => void;
+  /** CTA source indicator + inherit/override controls (Phase 2). */
+  ctaSource?: CtaSourceProps;
 }
 
-export function MagazineHeroPanel({ props, onChange }: Props) {
+export function MagazineHeroPanel({ props, onChange, ctaSource }: Props) {
   const update = (patch: Partial<MagazineHeroBlockProps>) => onChange({ ...props, ...patch });
 
   return (
@@ -155,81 +164,30 @@ export function MagazineHeroPanel({ props, onChange }: Props) {
       <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Calls to action</div>
 
-        {/* Primary CTA */}
+        {/* Primary CTA — label stays panel-owned; action suite is shared. The
+            single block-level modal config is rendered once below (hideModalConfig). */}
         <div className="space-y-2 border rounded-md p-2.5">
           <div className="text-[11px] font-semibold text-muted-foreground">Primary CTA</div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Text</Label>
-              <Input value={props.ctaText} onChange={(e) => update({ ctaText: e.target.value })} className="h-8 text-xs" />
-            </div>
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Action</Label>
-              <Select
-                value={props.ctaAction ?? "url"}
-                onValueChange={(v) => update({ ctaAction: v as MagazineHeroBlockProps["ctaAction"] })}
-              >
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="url" className="text-xs">Open URL</SelectItem>
-                  <SelectItem value="chilipiper" className="text-xs">Open Chili Piper</SelectItem>
-                  <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
-                  <SelectItem value="modal-chilipiper" className="text-xs">Open modal → Chili Piper</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label className="text-[11px] text-muted-foreground">Text</Label>
+            <Input value={props.ctaText} onChange={(e) => update({ ctaText: e.target.value })} className="h-8 text-xs" />
           </div>
-          {(props.ctaAction ?? "url") === "url" && (
-            <div>
-              <Label className="text-[11px] text-muted-foreground">URL</Label>
-              <Input value={props.ctaUrl} onChange={(e) => update({ ctaUrl: e.target.value })} placeholder="/signup" className="h-8 text-xs" />
-            </div>
-          )}
-          {props.ctaAction === "chilipiper" && (
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Chili Piper URL</Label>
-              <Input value={props.chilipiperUrl ?? ""} onChange={(e) => update({ chilipiperUrl: e.target.value })} placeholder="https://yourcompany.chilipiper.com/..." className="h-8 text-xs font-mono" />
-            </div>
-          )}
+          <CtaActionConfigSection
+            value={props as CtaSuiteFields}
+            onChange={(v) => onChange({ ...props, ...v } as MagazineHeroBlockProps)}
+            allowedActions={MAGAZINE_CTA_ACTIONS}
+            hideModalConfig
+            {...ctaSource}
+          />
         </div>
 
-        {/* Secondary CTA */}
-        <div className="space-y-2 border rounded-md p-2.5">
-          <div className="text-[11px] font-semibold text-muted-foreground">Secondary CTA</div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Text</Label>
-              <Input value={props.ctaSecondaryText ?? ""} onChange={(e) => update({ ctaSecondaryText: e.target.value })} placeholder="Read the story" className="h-8 text-xs" />
-            </div>
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Action</Label>
-              <Select
-                value={props.ctaSecondaryAction ?? "url"}
-                onValueChange={(v) => update({ ctaSecondaryAction: v as MagazineHeroBlockProps["ctaSecondaryAction"] })}
-              >
-                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="url" className="text-xs">Open URL</SelectItem>
-                  <SelectItem value="chilipiper" className="text-xs">Open Chili Piper</SelectItem>
-                  <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
-                  <SelectItem value="modal-chilipiper" className="text-xs">Open modal → Chili Piper</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          {(props.ctaSecondaryAction ?? "url") === "url" && (
-            <div>
-              <Label className="text-[11px] text-muted-foreground">URL</Label>
-              <Input value={props.ctaSecondaryUrl ?? ""} onChange={(e) => update({ ctaSecondaryUrl: e.target.value })} placeholder="#" className="h-8 text-xs" />
-            </div>
-          )}
-          {props.ctaSecondaryAction === "chilipiper" && (
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Chili Piper URL</Label>
-              <Input value={props.secondaryChilipiperUrl ?? ""} onChange={(e) => update({ secondaryChilipiperUrl: e.target.value })} placeholder="https://yourcompany.chilipiper.com/..." className="h-8 text-xs font-mono" />
-            </div>
-          )}
-        </div>
+        {/* Secondary CTA — shared section (label + action + destination). */}
+        <CtaSecondaryConfigSection
+          value={props as CtaSecondaryFields}
+          onChange={(v) => onChange({ ...props, ...v } as MagazineHeroBlockProps)}
+          allowedActions={MAGAZINE_CTA_ACTIONS}
+          labelPlaceholder="Read the story"
+        />
 
         {/* Shared modal config (used when either CTA is in modal-* mode) */}
         {(props.ctaAction === "modal-form" || props.ctaAction === "modal-chilipiper" ||

@@ -31,6 +31,12 @@ interface Props {
    */
   allowedActions?: ReadonlyArray<CtaActionMode>;
   /**
+   * Suppress the inline modal-config sub-section. Used by dual-CTA panels where
+   * a SINGLE shared CtaButtonModalConfigSection is rendered once for whichever of
+   * the primary/secondary CTAs opens a modal (the block has one CtaModalConfig).
+   */
+  hideModalConfig?: boolean;
+  /**
    * Unified CTA architecture (Phase 1) — source indicator. When provided, shows
    * which hierarchy layer is supplying this block's EFFECTIVE CTA:
    *   "tenant" → "Using tenant default", "page" → "Using page override",
@@ -59,7 +65,7 @@ const SOURCE_LABEL: Record<CtaSource, string> = {
  * destination + modal config). Reused by every CTA-bearing block panel. The
  * button LABEL is owned by the parent panel (labels differ across blocks).
  */
-export function CtaActionConfigSection({ value, onChange, source, hasOwnOverride, onOverride, onResetToInherit, allowedActions }: Props) {
+export function CtaActionConfigSection({ value, onChange, source, hasOwnOverride, onOverride, onResetToInherit, allowedActions, hideModalConfig }: Props) {
   const action = value.ctaAction ?? "url";
   const set = (patch: Partial<CtaSuiteFields>) => onChange({ ...value, ...patch });
   const inheriting = source != null && source !== "block";
@@ -132,7 +138,7 @@ export function CtaActionConfigSection({ value, onChange, source, hasOwnOverride
         </div>
       )}
 
-      {(action === "modal-form" || action === "modal-chilipiper") && (
+      {!hideModalConfig && (action === "modal-form" || action === "modal-chilipiper") && (
         <CtaButtonModalConfigSection
           ctaAction={action}
           value={value}
