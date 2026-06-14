@@ -1528,6 +1528,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <KineticTypeHeroPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
           />
         );
       case "glass-bento-features":
