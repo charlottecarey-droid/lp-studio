@@ -45,6 +45,20 @@ export function BlockFooter({ props, brand, onFieldChange }: Props) {
   const field = (key: keyof FooterBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as FooterBlockProps[typeof key] }) : undefined;
   const cols = props.columns ?? [];
+  // Social links: fall back to the brand's configured social URLs (these are
+  // populated by Brand Import scraping) whenever the footer block's own props
+  // are empty. Templates ship footers with showSocialLinks on but blank URLs —
+  // without this fallback those footers render nothing while the real links sit
+  // unused in brand settings. An explicit showSocialLinks:false still hides the
+  // row, and when neither props nor the brand have a link we render no dead
+  // social slot at all.
+  const social = brand.socialUrls;
+  const facebookUrl = props.facebookUrl?.trim() || social?.facebook?.trim() || "";
+  const instagramUrl = props.instagramUrl?.trim() || social?.instagram?.trim() || "";
+  const linkedinUrl = props.linkedinUrl?.trim() || social?.linkedin?.trim() || "";
+  const showSocial =
+    props.showSocialLinks !== false &&
+    Boolean(facebookUrl || instagramUrl || linkedinUrl);
   const updateColumn = onFieldChange
     ? (ci: number, patch: Partial<NonNullable<FooterBlockProps["columns"]>[number]>) =>
         onFieldChange({
@@ -195,20 +209,20 @@ export function BlockFooter({ props, brand, onFieldChange }: Props) {
             )}
           </p>
 
-          {props.showSocialLinks && (
+          {showSocial && (
             <div className="flex items-center gap-5">
-              {props.facebookUrl && (
-                <a href={props.facebookUrl} target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="opacity-50 hover:opacity-100 transition-opacity duration-200 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={{ color: onBg, outlineColor: onBg }}>
+              {facebookUrl && (
+                <a href={facebookUrl} target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="opacity-50 hover:opacity-100 transition-opacity duration-200 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={{ color: onBg, outlineColor: onBg }}>
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
                 </a>
               )}
-              {props.instagramUrl && (
-                <a href={props.instagramUrl} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="opacity-50 hover:opacity-100 transition-opacity duration-200 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={{ color: onBg, outlineColor: onBg }}>
+              {instagramUrl && (
+                <a href={instagramUrl} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="opacity-50 hover:opacity-100 transition-opacity duration-200 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={{ color: onBg, outlineColor: onBg }}>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
                 </a>
               )}
-              {props.linkedinUrl && (
-                <a href={props.linkedinUrl} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="opacity-50 hover:opacity-100 transition-opacity duration-200 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={{ color: onBg, outlineColor: onBg }}>
+              {linkedinUrl && (
+                <a href={linkedinUrl} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="opacity-50 hover:opacity-100 transition-opacity duration-200 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={{ color: onBg, outlineColor: onBg }}>
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
                 </a>
               )}
