@@ -77,8 +77,8 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pag
     props.ctaAction === "chilipiper" || props.ctaAction === "modal-form" || props.ctaAction === "modal-chilipiper"
       ? props.ctaAction
       : "url";
-  const secondaryAction: "url" | "chilipiper" | "modal-form" | "modal-chilipiper" =
-    props.ctaSecondaryAction === "chilipiper" || props.ctaSecondaryAction === "modal-form" || props.ctaSecondaryAction === "modal-chilipiper"
+  const secondaryAction: "url" | "chilipiper" | "modal-form" | "modal-chilipiper" | "video-modal" =
+    props.ctaSecondaryAction === "chilipiper" || props.ctaSecondaryAction === "modal-form" || props.ctaSecondaryAction === "modal-chilipiper" || props.ctaSecondaryAction === "video-modal"
       ? props.ctaSecondaryAction
       : "url";
 
@@ -185,6 +185,7 @@ export function BlockMagazineHero({ props, brand, onCtaClick, onFieldChange, pag
           ctaAction={secondaryAction}
           ctaUrl={props.ctaSecondaryUrl}
           chilipiperUrl={props.secondaryChilipiperUrl}
+          videoUrl={props.secondaryVideoUrl}
           {...modalCfg}
           className="inline-flex items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline bg-transparent"
           style={{ color: secondaryText, opacity: 0.85 }}

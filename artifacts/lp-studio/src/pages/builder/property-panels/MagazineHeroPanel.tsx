@@ -21,8 +21,10 @@ import { CtaSecondaryConfigSection } from "./CtaSecondaryConfigSection";
 import type { CtaSuiteFields, CtaSecondaryFields } from "@/lib/cta-modal";
 import type { CtaSourceProps } from "@/lib/cta/ctaSource";
 
-/** BlockMagazineHero renders these actions for both primary and secondary. */
+/** BlockMagazineHero primary actions. */
 const MAGAZINE_CTA_ACTIONS = ["url", "chilipiper", "modal-form", "modal-chilipiper"] as const;
+/** Secondary also supports playing a video in a modal (renderer wired). */
+const MAGAZINE_SECONDARY_ACTIONS = ["url", "chilipiper", "modal-form", "modal-chilipiper", "video-modal"] as const;
 
 interface Props {
   props: MagazineHeroBlockProps;
@@ -185,7 +187,7 @@ export function MagazineHeroPanel({ props, onChange, ctaSource }: Props) {
         <CtaSecondaryConfigSection
           value={props as CtaSecondaryFields}
           onChange={(v) => onChange({ ...props, ...v } as MagazineHeroBlockProps)}
-          allowedActions={MAGAZINE_CTA_ACTIONS}
+          allowedActions={MAGAZINE_SECONDARY_ACTIONS}
           labelPlaceholder="Read the story"
         />
 

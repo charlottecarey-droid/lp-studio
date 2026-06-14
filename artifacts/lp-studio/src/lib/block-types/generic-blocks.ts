@@ -1187,8 +1187,10 @@ export interface MagazineHeroBlockProps extends CtaModalConfig {
    *  button. Useful for "Read the story →" style flows. */
   ctaSecondaryText?: string;
   ctaSecondaryUrl?: string;
-  ctaSecondaryAction?: CtaMode;
+  ctaSecondaryAction?: HeroCtaActionMode;
   secondaryChilipiperUrl?: string;
+  /** Used when ctaSecondaryAction === "video-modal". */
+  secondaryVideoUrl?: string;
   bylineLabel?: string;
   bylineValue?: string;
   imageUrl?: string;
