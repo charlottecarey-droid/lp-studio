@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { BookOpen, Building2, FileText, Link2, Sparkles, Users, Wand2, X } from "lucide-react";
+import { BookOpen, Building2, Check, FileText, Link2, Sparkles, Users, Wand2, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -463,38 +463,51 @@ export function CreatePageModal({
           </div>
         )}
 
-        {/* Mode tabs */}
-        <div className="flex gap-1 p-1 bg-muted rounded-lg">
-          <button
-            onClick={() => { setCreateMode("template"); setCreateError(null); }}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all",
-              createMode === "template" ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            Template (Exact Copy)
-          </button>
-          <button
-            onClick={() => { setCreateMode("ai"); setCreateError(null); }}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all",
-              createMode === "ai" ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            AI Generate (Rewrites Copy)
-          </button>
-          <button
-            onClick={() => { setCreateMode("brief"); setCreateError(null); }}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-all",
-              createMode === "brief" ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            Start with Brief
-          </button>
+        {/* Mode selector — each option states what it does in plain words
+            (no cryptic parentheticals); the active card is clearly marked. */}
+        <div className="grid grid-cols-3 gap-2.5">
+          {([
+            { mode: "template", icon: FileText, title: "Template", desc: "Copy a page exactly" },
+            { mode: "ai", icon: Sparkles, title: "AI Generate", desc: "AI writes fresh copy" },
+            { mode: "brief", icon: BookOpen, title: "Start with Brief", desc: "Plan strategy first" },
+          ] as { mode: CreateMode; icon: typeof FileText; title: string; desc: string }[]).map(
+            ({ mode, icon: Icon, title, desc }) => {
+              const active = createMode === mode;
+              return (
+                <button
+                  key={mode}
+                  onClick={() => { setCreateMode(mode); setCreateError(null); }}
+                  aria-pressed={active}
+                  className={cn(
+                    "group relative flex flex-col items-start gap-2.5 rounded-xl border p-3.5 text-left transition-all duration-200",
+                    active
+                      ? "border-primary/50 bg-primary/[0.06] ring-1 ring-primary/25 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_4px_12px_-4px_rgba(16,24,40,0.08)]"
+                      : "border-border bg-background hover:border-primary/40 hover:bg-muted/40 hover:shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-9 w-9 items-center justify-center rounded-lg transition-colors duration-200",
+                      active
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-muted text-muted-foreground group-hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="space-y-1">
+                    <span className="block text-sm font-semibold leading-none text-foreground">{title}</span>
+                    <span className="block text-[11px] leading-snug text-muted-foreground">{desc}</span>
+                  </span>
+                  {active && (
+                    <span className="absolute right-2.5 top-2.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+                      <Check className="h-2.5 w-2.5 text-primary-foreground" strokeWidth={3} />
+                    </span>
+                  )}
+                </button>
+              );
+            },
+          )}
         </div>
 
         {createMode === "template" ? (
