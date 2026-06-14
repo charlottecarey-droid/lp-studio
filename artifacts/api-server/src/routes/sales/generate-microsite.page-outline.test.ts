@@ -21,6 +21,7 @@ import {
   outlineHasSteps,
   resolvePageOutline,
   resolveBlockTags,
+  NEUTRAL_ROLE_DEFAULT_BLOCKS,
   type PageOutline,
 } from "@workspace/lp-template-engine";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
@@ -88,7 +89,7 @@ function runOutline(input: {
     ? resolvePageOutline(activeOutline, {
         pool,
         rolesOf: (t) => resolveBlockTags(t),
-        roleDefaults: { hero: "hero", cta: "bottom-cta", footer: "footer" },
+        roleDefaults: NEUTRAL_ROLE_DEFAULT_BLOCKS,
         canonicalize: (t) => canonicalizeBlockType(t),
       }).map((r) => ({ type: r.type, schemaHint: r.schemaHint }))
     : undefined;
@@ -210,13 +211,14 @@ describe("generate-microsite — page outline drives output order (Task #14)", (
     expect(orderedTypes).toEqual(["hero", "testimonial", "footer"]);
   });
 
-  it("degrades gracefully: required chrome category falls back, unmatched body category is dropped", () => {
+  it("degrades gracefully: a category with no neutral default and empty pool is dropped; covered roles fall back", () => {
     const outline: PageOutline = {
       steps: [
         { kind: "block", type: "dso-heartland-hero" },
-        // No social-proof block in the (empty) pool and no role default → skipped.
-        { kind: "category", role: "social-proof" },
-        // Required cta with empty pool falls back to the structural default.
+        // `faq` has no neutral role default and the pool is empty → skipped.
+        { kind: "category", role: "faq" },
+        // `cta` IS covered by the neutral defaults, so it falls back even
+        // though the pool is empty.
         { kind: "category", role: "cta" },
       ],
     };
@@ -228,9 +230,40 @@ describe("generate-microsite — page outline drives output order (Task #14)", (
         pool: [],
       });
     }).not.toThrow();
-    // The forced hero survives; the unmatched social-proof category is absent;
-    // the required cta resolved to its structural default.
+    // The forced hero survives; the uncovered faq category is absent; the cta
+    // category resolved to its neutral default.
     expect(result.orderedTypes).toEqual(["dso-heartland-hero", "bottom-cta"]);
+  });
+
+  it("renders EVERY authored category step even with an empty approved pool (generic-tenant brand default)", () => {
+    // Reproduces the reported bug: a brand-default outline made of category
+    // steps must NOT collapse to just hero/cta/footer when the tenant has no
+    // curated/approved pool. Every role falls back to a neutral default block.
+    const { source, orderedTypes } = runOutline({
+      segment: { ...SEGMENT },
+      brand: {
+        brandName: "Acme",
+        defaultPageOutline: {
+          steps: [
+            { kind: "category", role: "header" },
+            { kind: "category", role: "hero" },
+            { kind: "category", role: "social-proof" },
+            { kind: "category", role: "content" },
+            { kind: "category", role: "media" },
+            { kind: "category", role: "features" },
+            { kind: "category", role: "cta" },
+            { kind: "category", role: "footer" },
+          ],
+        },
+      },
+      pool: [],
+    });
+    expect(source).toBe("brand-outline");
+    // All eight authored steps survive (previously collapsed to ~3).
+    expect(orderedTypes).toHaveLength(8);
+    expect(orderedTypes).toEqual(
+      expect.arrayContaining(["hero", "testimonial", "bottom-cta", "footer"]),
+    );
   });
 
   it("uses the model's free block choice when nothing is configured (no outline, no pool)", () => {

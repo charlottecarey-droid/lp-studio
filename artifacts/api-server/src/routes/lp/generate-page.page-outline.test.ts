@@ -96,12 +96,12 @@ describe("buildSegmentSection — page outline precedence (Task #6)", () => {
     expect(section).not.toContain('- "dso-insights-dashboard"');
   });
 
-  it("degrades gracefully when a category has no approved block", () => {
+  it("degrades gracefully when a category has no neutral default and an empty pool", () => {
     const outline: PageOutline = {
       steps: [
         { kind: "block", type: "dso-problem" },
-        // No block of this role exists in the (empty) pool.
-        { kind: "category", role: "social-proof" },
+        // `faq` has no neutral role default and the pool is empty → skipped.
+        { kind: "category", role: "faq" },
       ],
     };
     expect(() =>
@@ -114,8 +114,36 @@ describe("buildSegmentSection — page outline precedence (Task #6)", () => {
       { name: "DSO Operators", pageOutline: outline },
       { approvedPool: [] },
     );
-    // The forced block still appears; the unmatched category is simply absent.
-    expect(section).toContain('- "dso-problem"');
+    // The forced block still appears; the uncovered category is simply absent.
+    expect(preferredListTypes(section)).toEqual(["dso-problem"]);
+  });
+
+  it("renders EVERY authored category step even with an empty pool (generic-tenant brand default)", () => {
+    // Reproduces the reported bug: a category-only brand-default outline must
+    // not collapse when the tenant has no approved pool — each role falls back
+    // to a neutral default block.
+    const brandOutline: PageOutline = {
+      steps: [
+        { kind: "category", role: "header" },
+        { kind: "category", role: "hero" },
+        { kind: "category", role: "social-proof" },
+        { kind: "category", role: "content" },
+        { kind: "category", role: "media" },
+        { kind: "category", role: "features" },
+        { kind: "category", role: "cta" },
+        { kind: "category", role: "footer" },
+      ],
+    };
+    const section = buildSegmentSection(
+      { name: "DSO Operators" },
+      { brandOutline, approvedPool: [] },
+    );
+    expect(section).toContain("PREFERRED BLOCK LIST");
+    const types = preferredListTypes(section);
+    expect(types).toHaveLength(8);
+    expect(types).toEqual(
+      expect.arrayContaining(["hero", "testimonial", "bottom-cta", "footer"]),
+    );
   });
 
   it("honors a configured outline even on DSO landing pages (dsoFreeChoice)", () => {
