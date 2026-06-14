@@ -6,6 +6,8 @@ import type { PageBlock, BlockSettings, CtaMode, DsoCaseFlowStage, DsoCaseStudyE
 import { DSO_CASE_FLOW_DEFAULT_STAGES, createBlock } from "@/lib/block-types";
 import { getBgOptions, type BackgroundStyle } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
+import type { CtaConfig } from "@/lib/cta/ctaConfig";
+import { buildBlockCtaSource } from "@/lib/cta/ctaSource";
 import { BlockSettingsPanel, ColorField } from "./BlockSettingsPanel";
 import { BrandSwatches } from "@/components/BrandSwatches";
 import { HeroPanel } from "./HeroPanel";
@@ -269,6 +271,9 @@ interface Props {
   brand?: BrandConfig;
   pageId?: number;
   onApplyCtaToAll?: () => void;
+  /** Page-level default CTA (lp_pages.cta_default). Used to compute each block's
+   *  effective CTA source (tenant → page → block) for the source indicator. */
+  pageCta?: CtaConfig | null;
   /** Extra tabs rendered after Content / Style (only when block settings are
    *  shown). Used by the Block Defaults editor to add a Governance tab. */
   extraTabs?: PropertyPanelExtraTab[];
@@ -1006,10 +1011,19 @@ function StageReorderList({
   );
 }
 
-export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false, brandVoiceSet, brand, pageId, onApplyCtaToAll, extraTabs }: Props) {
+export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = false, brandVoiceSet, brand, pageId, onApplyCtaToAll, pageCta, extraTabs }: Props) {
   // Resolve once per render so every child panel + every inline Background
   // <Select> below shares the same brand-aware label set.
   const bgOptions = getBgOptions(brand);
+  // CTA source indicator + inherit/override controls for the selected block.
+  // Migrated panels spread this straight into their shared CtaActionConfigSection.
+  const ctaSource = buildBlockCtaSource({
+    blockType: block.type,
+    props: block.props as Record<string, unknown>,
+    onProps: (next) => onChange({ ...block, props: next } as PageBlock),
+    brand,
+    pageCta,
+  });
   const def = getBlockDef(block.type);
   const [dsoRefreshing, setDsoRefreshing] = useState(false);
   const [bentoTilesRefreshing, setBentoTilesRefreshing] = useState(false);
@@ -1470,6 +1484,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             brandVoiceSet={brandVoiceSet}
             bgOptions={bgOptions}
             onApplyCtaToAll={onApplyCtaToAll}
+            ctaSource={ctaSource}
           />
         );
       case "trust-bar":
@@ -1641,6 +1656,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             onChange={props => onChange({ ...block, props })}
             brandVoiceSet={brandVoiceSet}
             onApplyCtaToAll={onApplyCtaToAll}
+            ctaSource={ctaSource}
           />
         );
       case "video-section":
@@ -1652,6 +1668,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             brandVoiceSet={brandVoiceSet}
             bgOptions={bgOptions}
             onApplyCtaToAll={onApplyCtaToAll}
+            ctaSource={ctaSource}
           />
         );
       case "case-studies":

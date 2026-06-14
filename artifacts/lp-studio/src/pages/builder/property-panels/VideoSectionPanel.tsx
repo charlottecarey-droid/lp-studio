@@ -11,7 +11,17 @@ import { HEADLINE_SIZE_LABELS } from "@/lib/typography";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { suggestCopy } from "@/lib/copy-api";
-import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
+import { CtaActionConfigSection } from "./CtaActionConfigSection";
+import type { CtaSuiteFields } from "@/lib/cta-modal";
+import type { CtaSourceProps } from "@/lib/cta/ctaSource";
+
+/**
+ * The CTA button is a conversion button, separate from this block's own video
+ * playback (the "Play in Modal" toggle below). The block reuses `videoUrl` for
+ * its content video, so we deliberately omit the "Play video in modal" CTA
+ * action here to avoid colliding with that field.
+ */
+const VIDEO_SECTION_CTA_ACTIONS = ["url", "chilipiper", "modal-form", "modal-chilipiper"] as const;
 
 interface Props {
   blockType: string;
@@ -20,9 +30,11 @@ interface Props {
   brandVoiceSet?: boolean;
   onApplyCtaToAll?: () => void;
   bgOptions?: BgOpts;
+  /** CTA source indicator + inherit/override controls (Phase 2). */
+  ctaSource?: CtaSourceProps;
 }
 
-export function VideoSectionPanel({ blockType, props, onChange, brandVoiceSet, onApplyCtaToAll, bgOptions }: Props) {
+export function VideoSectionPanel({ blockType, props, onChange, brandVoiceSet, onApplyCtaToAll, bgOptions, ctaSource }: Props) {
   const bgOpts = bgOptions ?? BG_OPTIONS;
   const set = <K extends keyof VideoSectionBlockProps>(k: K, v: VideoSectionBlockProps[K]) =>
     onChange({ ...props, [k]: v });
@@ -164,43 +176,14 @@ export function VideoSectionPanel({ blockType, props, onChange, brandVoiceSet, o
         />
       </div>
       {props.ctaText && (
-        <>
-          <div>
-            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">CTA Action</Label>
-            <Select
-              value={props.ctaAction ?? "url"}
-              onValueChange={v => set("ctaAction", v as "url" | "chilipiper" | "modal-form" | "modal-chilipiper")}
-            >
-              <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="url">Open URL</SelectItem>
-                <SelectItem value="chilipiper">Open Chili Piper</SelectItem>
-                <SelectItem value="modal-form">Open modal with form</SelectItem>
-                <SelectItem value="modal-chilipiper">Open modal → Chili Piper</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {(props.ctaAction ?? "url") === "url" && (
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Button URL</Label>
-              <Input value={props.ctaUrl} onChange={e => set("ctaUrl", e.target.value)} className="text-sm" placeholder="#" />
-            </div>
-          )}
-          {props.ctaAction === "chilipiper" && (
-            <div>
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Chili Piper URL</Label>
-              <Input value={props.chilipiperUrl ?? ""} onChange={e => set("chilipiperUrl", e.target.value)} className="text-sm font-mono" placeholder="https://yourcompany.chilipiper.com/round-robin/..." />
-              <p className="text-[11px] text-muted-foreground mt-1">Leads are captured on meeting confirmation and synced to CRM.</p>
-            </div>
-          )}
-          {(props.ctaAction === "modal-form" || props.ctaAction === "modal-chilipiper") && (
-            <CtaButtonModalConfigSection
-              ctaAction={props.ctaAction}
-              value={props}
-              onChange={(next) => onChange({ ...props, ...next })}
-            />
-          )}
-        </>
+        /* Shared CTA action + modal suite (Phase 2). Button label ("Button Text")
+           stays above; only shown when there is a button. */
+        <CtaActionConfigSection
+          value={props as CtaSuiteFields}
+          onChange={(v) => onChange({ ...props, ...v } as VideoSectionBlockProps)}
+          allowedActions={VIDEO_SECTION_CTA_ACTIONS}
+          {...ctaSource}
+        />
       )}
       {onApplyCtaToAll && (
         <button

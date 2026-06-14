@@ -3389,6 +3389,7 @@ export default function BuilderEditor() {
               brandVoiceSet={!!(brand.brandName?.trim() || brand.toneOfVoice?.trim() || (brand.messagingPillars?.length ?? 0) > 0)}
               brand={brand}
               pageId={parseInt(pageId, 10) || undefined}
+              pageCta={pageCta}
               /* Sales/microsite scope first: a page is a microsite when it's
                  tied to a sales account (pageVariables.salesAccountId →
                  isMicrosite). "Copy this CTA to all sections" is an ABM

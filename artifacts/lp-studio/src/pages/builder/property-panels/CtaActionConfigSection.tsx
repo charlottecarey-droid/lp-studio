@@ -6,12 +6,30 @@ import {
 import { VideoPicker } from "@/components/VideoPicker";
 import { ImagePicker } from "@/components/ImagePicker";
 import type { CtaSuiteFields } from "@/lib/cta-modal";
-import type { CtaSource } from "@/lib/cta/ctaConfig";
+import type { CtaSource, CtaActionMode } from "@/lib/cta/ctaConfig";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
+
+/** Every action the suite can edit, with its dropdown label. Order is the
+ *  display order. Panels can narrow this list via `allowedActions` when their
+ *  block can't render a given action (e.g. a block whose renderer only handles
+ *  url/chilipiper/modal-*, or a content-video block that reuses `videoUrl`). */
+const ACTION_OPTIONS: ReadonlyArray<{ value: CtaActionMode; label: string }> = [
+  { value: "url", label: "Link to URL" },
+  { value: "chilipiper", label: "Chili Piper popup" },
+  { value: "modal-form", label: "Open form modal" },
+  { value: "modal-chilipiper", label: "Open email → Chili Piper modal" },
+  { value: "video-modal", label: "Play video in modal" },
+];
 
 interface Props {
   value: CtaSuiteFields;
   onChange: (next: CtaSuiteFields) => void;
+  /**
+   * Restrict the action dropdown to this set (in this order). Omit to show all
+   * actions (the default — preserves every panel migrated before this prop
+   * existed). Use it so a block never offers an action its renderer can't honor.
+   */
+  allowedActions?: ReadonlyArray<CtaActionMode>;
   /**
    * Unified CTA architecture (Phase 1) — source indicator. When provided, shows
    * which hierarchy layer is supplying this block's EFFECTIVE CTA:
@@ -41,10 +59,13 @@ const SOURCE_LABEL: Record<CtaSource, string> = {
  * destination + modal config). Reused by every CTA-bearing block panel. The
  * button LABEL is owned by the parent panel (labels differ across blocks).
  */
-export function CtaActionConfigSection({ value, onChange, source, hasOwnOverride, onOverride, onResetToInherit }: Props) {
+export function CtaActionConfigSection({ value, onChange, source, hasOwnOverride, onOverride, onResetToInherit, allowedActions }: Props) {
   const action = value.ctaAction ?? "url";
   const set = (patch: Partial<CtaSuiteFields>) => onChange({ ...value, ...patch });
   const inheriting = source != null && source !== "block";
+  const actionOptions = allowedActions
+    ? ACTION_OPTIONS.filter((o) => allowedActions.includes(o.value))
+    : ACTION_OPTIONS;
 
   return (
     <div className="space-y-3">
@@ -83,11 +104,9 @@ export function CtaActionConfigSection({ value, onChange, source, hasOwnOverride
         <Select value={action} onValueChange={(v) => set({ ctaAction: v as CtaSuiteFields["ctaAction"] })}>
           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="url" className="text-xs">Link to URL</SelectItem>
-            <SelectItem value="chilipiper" className="text-xs">Chili Piper popup</SelectItem>
-            <SelectItem value="modal-form" className="text-xs">Open form modal</SelectItem>
-            <SelectItem value="modal-chilipiper" className="text-xs">Open email → Chili Piper modal</SelectItem>
-            <SelectItem value="video-modal" className="text-xs">Open video modal</SelectItem>
+            {actionOptions.map((o) => (
+              <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
