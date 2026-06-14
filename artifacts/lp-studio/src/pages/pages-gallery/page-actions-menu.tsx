@@ -5,6 +5,7 @@ import {
   Link2,
   MoreHorizontal,
   Share2,
+  Sparkles,
   Star,
   Trash2,
 } from "lucide-react";
@@ -16,6 +17,7 @@ export function PageActionsMenu({
   page,
   cloningPageId,
   onClone,
+  onRewriteCopy,
   onAbTest,
   onLinks,
   onShare,
@@ -25,6 +27,7 @@ export function PageActionsMenu({
   page: Page;
   cloningPageId: number | null;
   onClone: () => void;
+  onRewriteCopy: () => void;
   onAbTest: () => void;
   onLinks: () => void;
   onShare: () => void;
@@ -66,6 +69,11 @@ export function PageActionsMenu({
       label: cloningPageId === page.id ? "Duplicating…" : "Duplicate",
       onClick: () => { setOpen(false); onClone(); },
       disabled: cloningPageId === page.id,
+    },
+    {
+      icon: <Sparkles className="w-3.5 h-3.5" />,
+      label: "Rewrite copy with AI",
+      onClick: () => { setOpen(false); onRewriteCopy(); },
     },
     {
       icon: <FlaskConical className="w-3.5 h-3.5" />,

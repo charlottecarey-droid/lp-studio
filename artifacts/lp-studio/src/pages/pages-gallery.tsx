@@ -78,6 +78,10 @@ export default function PagesGallery() {
   const setShowCreateModal = (v: boolean) => setCreateModalMode(v ? "template" : null);
   const [sharePageId, setSharePageId] = useState<{ id: number; title: string } | null>(null);
   const [abTestPage, setAbTestPage] = useState<{ id: number; title: string; slug: string } | null>(null);
+  // Task #1345 — "Rewrite copy with AI": the existing page chosen as the layout
+  // source for an AI copy rewrite. When set, the create modal opens in AI mode
+  // locked to this page (no template dropdown) and threads `sourcePageId`.
+  const [rewriteSource, setRewriteSource] = useState<{ id: number; title: string } | null>(null);
   const [personalizedLinksPage, setPersonalizedLinksPage] = useState<{ id: number; title: string; slug: string } | null>(null);
   const [briefModalOpen, setBriefModalOpen] = useState(initialNewParam === "brief");
   const [cloningPageId, setCloningPageId] = useState<number | null>(null);
@@ -370,6 +374,7 @@ export default function PagesGallery() {
     referenceUrls?: string[],
     replaceImagery?: boolean,
     screenshotDataUrl?: string,
+    sourcePageId?: number | null,
   ): GenerationRequestBody => {
     const segmentContext = activeSeg ? {
       id: activeSeg.id,
@@ -389,7 +394,11 @@ export default function PagesGallery() {
       prompt: prompt.trim(),
       ...(segmentContext ? { segmentContext } : {}),
       ...(templateId ? { templateId } : {}),
-      ...(templateId && replaceImagery ? { replaceImagery: true } : {}),
+      // Task #1345 — "Rewrite copy with AI": source is an existing page, used
+      // only when no explicit template is chosen.
+      ...(!templateId && sourcePageId ? { sourcePageId } : {}),
+      // replaceImagery is honoured for both template and page-rewrite sources.
+      ...((templateId || sourcePageId) && replaceImagery ? { replaceImagery: true } : {}),
       ...(cleanedRefUrls.length > 0 ? { referenceUrls: cleanedRefUrls } : {}),
       ...(screenshotDataUrl ? { screenshotDataUrl } : {}),
     };
@@ -448,7 +457,7 @@ export default function PagesGallery() {
   /** NON-STREAMING generation flow — unchanged behavior, now composed from
    *  the extracted body/save helpers. Used by the brief modal and as the
    *  streaming live view's fallback ("Use standard mode" / silent fallback). */
-  const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null, templateId?: number | null, referenceUrls?: string[], replaceImagery?: boolean, screenshotDataUrl?: string) => {
+  const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null, templateId?: number | null, referenceUrls?: string[], replaceImagery?: boolean, screenshotDataUrl?: string, sourcePageId?: number | null) => {
     const activeSeg = seg !== undefined ? seg : selectedSegment;
 
     // AI generation legitimately takes 30–70s, but without an explicit timeout
@@ -460,7 +469,7 @@ export default function PagesGallery() {
       genRes = await fetch(`${API_BASE}/lp/generate-page`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildGenerationBody(prompt, activeSeg, templateId, referenceUrls, replaceImagery, screenshotDataUrl)),
+        body: JSON.stringify(buildGenerationBody(prompt, activeSeg, templateId, referenceUrls, replaceImagery, screenshotDataUrl, sourcePageId)),
         signal: AbortSignal.timeout(180_000),
       });
     } catch (err) {
@@ -478,8 +487,8 @@ export default function PagesGallery() {
     navigate(`/builder/${pageId}`);
   };
 
-  const handleAiGenerateFromModal = async (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean, screenshotDataUrl?: string) => {
-    await generatePageFromPrompt(prompt, selectedSegment, templateId, referenceUrls, replaceImagery, screenshotDataUrl);
+  const handleAiGenerateFromModal = async (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean, screenshotDataUrl?: string, sourcePageId?: number | null) => {
+    await generatePageFromPrompt(prompt, selectedSegment, templateId, referenceUrls, replaceImagery, screenshotDataUrl, sourcePageId);
     setShowCreateModal(false);
   };
 
@@ -526,6 +535,16 @@ export default function PagesGallery() {
 
   const handleTemplateSaved = (updated: Page) => {
     setPages(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
+  };
+
+  // Task #1345 — "Rewrite copy with AI" on an existing page: open the create
+  // modal in AI mode locked to this page as the layout source, with a default
+  // editable prompt so it's effectively one click.
+  const handleRewriteCopy = (page: Page) => {
+    setRewriteSource({ id: page.id, title: page.title });
+    setSelectedSegmentId(page.segmentId ?? "");
+    setCreateModalInitialPrompt(`Rewrite the copy for "${page.title}" to be sharper and more compelling, keeping the same layout.`);
+    setCreateModalMode("ai");
   };
 
   const handleClone = async (page: Page) => {
@@ -679,6 +698,7 @@ export default function PagesGallery() {
               onToggleSelect={toggleSelect}
               cloningPageId={cloningPageId}
               onClone={handleClone}
+              onRewriteCopy={handleRewriteCopy}
               onAbTest={(page) => setAbTestPage({ id: page.id, title: page.title, slug: page.slug })}
               onLinks={(page) => setPersonalizedLinksPage({ id: page.id, title: page.title, slug: page.slug })}
               onShare={(page) => setSharePageId({ id: page.id, title: page.title })}
@@ -725,7 +745,8 @@ export default function PagesGallery() {
         open={showCreateModal}
         initialMode={createModalMode ?? undefined}
         initialAiPrompt={createModalInitialPrompt}
-        onClose={() => { setShowCreateModal(false); setSelectedSegmentId(""); setCreateModalInitialPrompt(""); }}
+        rewriteSource={rewriteSource}
+        onClose={() => { setShowCreateModal(false); setSelectedSegmentId(""); setCreateModalInitialPrompt(""); setRewriteSource(null); }}
         segments={segments}
         selectedSegmentId={selectedSegmentId}
         setSelectedSegmentId={setSelectedSegmentId}
@@ -735,12 +756,13 @@ export default function PagesGallery() {
         tenantIndustry={user?.tenantIndustry}
         onCreate={handleCreateFromModal}
         onAiGenerate={handleAiGenerateFromModal}
-        buildAiGenerateBody={(prompt, templateId, referenceUrls, replaceImagery, screenshotDataUrl) =>
-          buildGenerationBody(prompt, selectedSegment, templateId, referenceUrls, replaceImagery, screenshotDataUrl)}
+        buildAiGenerateBody={(prompt, templateId, referenceUrls, replaceImagery, screenshotDataUrl, sourcePageId) =>
+          buildGenerationBody(prompt, selectedSegment, templateId, referenceUrls, replaceImagery, screenshotDataUrl, sourcePageId)}
         saveGeneratedPage={(result, prompt) => saveGeneratedPage(result, selectedSegment, prompt)}
         onOpenGenerated={(pageId) => {
           setShowCreateModal(false);
           setSelectedSegmentId("");
+          setRewriteSource(null);
           navigate(`/builder/${pageId}`);
         }}
         onOpenBriefModal={() => { setShowCreateModal(false); setBriefModalOpen(true); }}

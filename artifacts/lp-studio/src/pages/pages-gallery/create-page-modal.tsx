@@ -50,6 +50,11 @@ interface Props {
    *  user's typed prompt is preserved across the redirect to /pages. Empty
    *  / undefined leaves the textarea blank. */
   initialAiPrompt?: string;
+  /** Task #1345 — "Rewrite copy with AI" on an existing page. When set, the
+   *  dialog opens in AI mode locked to this page as the layout source (the
+   *  starting-point template dropdown is hidden) and threads `sourcePageId`
+   *  through generation so the AI rewrites only the page's copy. */
+  rewriteSource?: { id: number; title: string } | null;
   segments: AudienceSegment[];
   selectedSegmentId: string;
   setSelectedSegmentId: (id: string) => void;
@@ -70,10 +75,10 @@ interface Props {
    *  Merged server-side with the brand's persisted inspirationUrls.
    *  June 2026: this is now the NON-STREAMING fallback path (kept fully
    *  intact); the default submit goes through the streaming live view. */
-  onAiGenerate: (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean, screenshotDataUrl?: string) => Promise<void>;
+  onAiGenerate: (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean, screenshotDataUrl?: string, sourcePageId?: number | null) => Promise<void>;
   /** June 2026 — live streaming generation. Builds the exact POST body the
    *  generate endpoint expects (including the selected segment's context). */
-  buildAiGenerateBody: (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean, screenshotDataUrl?: string) => GenerationRequestBody;
+  buildAiGenerateBody: (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean, screenshotDataUrl?: string, sourcePageId?: number | null) => GenerationRequestBody;
   /** Save flow shared with the non-streaming path (POST /api/lp/pages,
    *  trusted fact forms, critique-annotation stash, brief context). Resolves
    *  with the new page id; navigation is separate (onOpenGenerated). */
@@ -88,6 +93,7 @@ export function CreatePageModal({
   onClose,
   initialMode,
   initialAiPrompt,
+  rewriteSource,
   segments,
   selectedSegmentId,
   setSelectedSegmentId,
@@ -138,6 +144,7 @@ export function CreatePageModal({
     body: GenerationRequestBody;
     prompt: string;
     templateId: number | null;
+    sourcePageId: number | null;
     referenceUrls: string[];
     replaceImagery: boolean;
     screenshotDataUrl?: string;
@@ -350,19 +357,25 @@ export function CreatePageModal({
   const handleAiGenerate = () => {
     if (!aiPrompt.trim()) return;
     setCreateError(null);
-    const tplId = aiTemplateId ? Number(aiTemplateId) : null;
+    // Task #1345 — when rewriting an existing page, that page is the layout
+    // source (sourcePageId); the starting-point template dropdown is hidden.
+    const sourcePageId = rewriteSource?.id ?? null;
+    const tplId = sourcePageId !== null ? null : (aiTemplateId ? Number(aiTemplateId) : null);
     // Roll the pending input into the chip list so users don't lose a URL
     // they typed but didn't press Enter on.
     const trimmedPending = pendingRefUrl.trim();
     const finalRefUrls = trimmedPending && !referenceUrls.includes(trimmedPending)
       ? [...referenceUrls, trimmedPending].slice(0, MAX_REF_URLS)
       : referenceUrls;
-    const effectiveReplaceImagery = tplId !== null ? replaceImagery : false;
+    // replaceImagery applies to both a starting-point template and a page
+    // rewrite; otherwise (generate from scratch) it's not applicable.
+    const effectiveReplaceImagery = (tplId !== null || sourcePageId !== null) ? replaceImagery : false;
     const screenshotDataUrl = screenshotAttach.screenshot?.dataUrl;
     setLiveGen({
-      body: buildAiGenerateBody(aiPrompt, tplId, finalRefUrls, effectiveReplaceImagery, screenshotDataUrl),
+      body: buildAiGenerateBody(aiPrompt, tplId, finalRefUrls, effectiveReplaceImagery, screenshotDataUrl, sourcePageId),
       prompt: aiPrompt,
       templateId: tplId,
+      sourcePageId,
       referenceUrls: finalRefUrls,
       replaceImagery: effectiveReplaceImagery,
       screenshotDataUrl,
@@ -375,14 +388,17 @@ export function CreatePageModal({
   // propagate so the live view can render its error state.
   const runStandardGeneration = async () => {
     if (!liveGen) return;
-    await onAiGenerate(liveGen.prompt, liveGen.templateId, liveGen.referenceUrls, liveGen.replaceImagery, liveGen.screenshotDataUrl);
+    await onAiGenerate(liveGen.prompt, liveGen.templateId, liveGen.referenceUrls, liveGen.replaceImagery, liveGen.screenshotDataUrl, liveGen.sourcePageId);
     // Success → the parent has already navigated + closed the modal.
     resetAiForm();
   };
 
+  // Live-view "starting from" label: a chosen template's name, or — for a
+  // Task #1345 page rewrite — the source page's title.
   const liveTemplate = liveGen?.templateId != null
     ? visibleApiTemplates.find(t => t.id === liveGen.templateId) ?? null
     : null;
+  const liveSourceName = liveGen?.sourcePageId != null ? (rewriteSource?.title ?? null) : null;
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
@@ -403,7 +419,7 @@ export function CreatePageModal({
             </DialogHeader>
             <GenerationLiveView
               body={liveGen.body}
-              templateName={liveTemplate ? (liveTemplate.templateLabel || liveTemplate.title) : null}
+              templateName={liveTemplate ? (liveTemplate.templateLabel || liveTemplate.title) : liveSourceName}
               onSave={(result) => saveGeneratedPage(result, liveGen.prompt)}
               onOpen={(pageId) => {
                 resetAiForm();
@@ -656,6 +672,38 @@ export function CreatePageModal({
               </div>
             </div>
 
+            {/* Task #1345 — "Rewrite copy with AI": when launched from an
+                existing page, that page IS the starting point. We hide the
+                template dropdown and show a fixed source card (the layout is
+                preserved; only copy is rewritten). The replaceImagery toggle
+                still applies. */}
+            {rewriteSource ? (
+              <div>
+                <Label className="text-sm font-medium">Starting Point</Label>
+                <div className="mt-1.5 flex items-start gap-2.5 rounded-md border border-input bg-muted/40 px-3 py-2.5">
+                  <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      Rewriting: {rewriteSource.title}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      AI will keep this page's exact layout and only rewrite the copy to match your prompt. A new page is created — the original is unchanged.
+                    </p>
+                  </div>
+                </div>
+                <label className="mt-2 flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={replaceImagery}
+                    onChange={(e) => setReplaceImagery(e.target.checked)}
+                  />
+                  <span className="text-[11px] text-muted-foreground">
+                    <span className="font-medium text-foreground">Replace imagery</span> — swap the page's photos for on-brand images from your library (and any reference URL). Off keeps the original images; copy is rewritten either way.
+                  </span>
+                </label>
+              </div>
+            ) : (
             <div>
               <Label className="text-sm font-medium">Starting Point</Label>
               <select
@@ -705,6 +753,7 @@ export function CreatePageModal({
                 </label>
               )}
             </div>
+            )}
 
             <div>
               <Label className="text-sm font-medium">Your Prompt</Label>

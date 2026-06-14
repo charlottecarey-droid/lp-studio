@@ -32,6 +32,7 @@ interface Props {
   onToggleSelect: () => void;
   cloningPageId: number | null;
   onClone: () => void;
+  onRewriteCopy: () => void;
   onAbTest: () => void;
   onLinks: () => void;
   onShare: () => void;
@@ -53,6 +54,7 @@ export function PageRow({
   onToggleSelect,
   cloningPageId,
   onClone,
+  onRewriteCopy,
   onAbTest,
   onLinks,
   onShare,
@@ -168,6 +170,7 @@ export function PageRow({
               page={page}
               cloningPageId={cloningPageId}
               onClone={onClone}
+              onRewriteCopy={onRewriteCopy}
               onAbTest={onAbTest}
               onLinks={onLinks}
               onShare={onShare}
@@ -328,6 +331,7 @@ export function PageRow({
             page={page}
             cloningPageId={cloningPageId}
             onClone={onClone}
+            onRewriteCopy={onRewriteCopy}
             onAbTest={onAbTest}
             onLinks={onLinks}
             onShare={onShare}

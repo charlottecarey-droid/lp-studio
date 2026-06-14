@@ -7462,10 +7462,17 @@ function logAiGeneration(row: {
 }
 
 router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiHeavyHourlyLimiter, async (req, res): Promise<void> => {
-  const { prompt, segmentContext, templateId, replaceImagery, referenceUrl, referenceUrls: referenceUrlsRaw, screenshotDataUrl, excludeRecipeIds: excludeRecipeIdsRaw, _captureOnly } = req.body as {
+  const { prompt, segmentContext, templateId, sourcePageId, replaceImagery, referenceUrl, referenceUrls: referenceUrlsRaw, screenshotDataUrl, excludeRecipeIds: excludeRecipeIdsRaw, _captureOnly } = req.body as {
     prompt?: string;
     segmentContext?: SegmentContext;
     templateId?: number;
+    /** Task #1345 — "Rewrite copy with AI" on an EXISTING page. The id of a
+     *  tenant-owned (or global) page whose block layout is preserved while the
+     *  AI rewrites only its copy — the same structure-preserving path as an
+     *  explicit `templateId`, but the source page need NOT be marked a template.
+     *  Used only when no explicit `templateId` is supplied; suppresses intent
+     *  routing so the chosen page always wins. */
+    sourcePageId?: number;
     /** June 2026 — "Shuffle layout": recipe ids the client wants EXCLUDED from
      *  this generation's recipe rotation (typically the id(s) it just received),
      *  guaranteeing a different page recipe on regenerate. Validated below:
@@ -7868,10 +7875,23 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // same tenant-or-global predicate as the explicit-template lookup below
   // (and GET /lp/templates/enriched): tenant-owned templates plus the full
   // global library, regardless of industry.
+  // Task #1345 — "Rewrite copy with AI" on an existing page. Resolve the
+  // requested source page id (if any). Only honoured when no explicit
+  // templateId is supplied; it suppresses intent routing below so the page the
+  // user picked always drives the structure-preserving rewrite.
+  const sourcePageIdNum =
+    (templateId === undefined || templateId === null) &&
+    sourcePageId !== undefined &&
+    sourcePageId !== null &&
+    Number.isFinite(Number(sourcePageId))
+      ? Number(sourcePageId)
+      : null;
+
   let intentMatchedTemplate: { slug: string; score: number } | null = null;
   let intentTemplateId: number | null = null;
   if (
     (templateId === undefined || templateId === null) &&
+    sourcePageIdNum === null &&
     perRequestUrls.length === 0 &&
     !visionImage
   ) {
@@ -7977,6 +7997,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   }
   const effectiveTemplateId: unknown =
     templateId !== undefined && templateId !== null ? templateId : intentTemplateId;
+  // Task #1345 — when the caller asked to rewrite an existing page (sourcePageId)
+  // and no explicit/intent template applies, that page becomes the structure
+  // source. Unlike a template, it is NOT required to be `isTemplate`.
+  const rewriteSourceId =
+    effectiveTemplateId === undefined || effectiveTemplateId === null
+      ? sourcePageIdNum
+      : null;
 
   // ── Template-driven mode ──────────────────────────────────────────────
   // When the caller picks a template as the starting point (or the intent
@@ -7986,8 +8013,14 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // CTA labels, list items, etc.) to match the user's prompt. Block ids,
   // types, and non-text props (colors, layout flags, image URLs) are
   // preserved verbatim. The route returns early after this branch.
-  if (effectiveTemplateId !== undefined && effectiveTemplateId !== null) {
-    const tplIdNum = Number(effectiveTemplateId);
+  if (
+    (effectiveTemplateId !== undefined && effectiveTemplateId !== null) ||
+    rewriteSourceId !== null
+  ) {
+    // Task #1345 — the source can be a template (effectiveTemplateId) OR, for
+    // the "Rewrite copy with AI" action, an existing page (rewriteSourceId).
+    const isPageRewrite = rewriteSourceId !== null;
+    const tplIdNum = isPageRewrite ? rewriteSourceId : Number(effectiveTemplateId);
     if (!Number.isFinite(tplIdNum)) {
       sendErrorJson(400, { error: "templateId must be a number" });
       return;
@@ -7996,19 +8029,26 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       const visibility = tenantId !== null
         ? or(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.isGlobal, true))
         : eq(lpPagesTable.isGlobal, true);
+      // A template source must be marked `isTemplate`; a page-rewrite source is
+      // any page the tenant can see (still tenant/global-scoped via visibility).
+      const sourceMatch = isPageRewrite
+        ? and(eq(lpPagesTable.id, tplIdNum), visibility)
+        : and(eq(lpPagesTable.id, tplIdNum), eq(lpPagesTable.isTemplate, true), visibility);
       const rows = await db
         .select()
         .from(lpPagesTable)
-        .where(and(eq(lpPagesTable.id, tplIdNum), eq(lpPagesTable.isTemplate, true), visibility))
+        .where(sourceMatch)
         .limit(1);
       const tpl = rows[0];
       if (!tpl) {
-        sendErrorJson(404, { error: "Template not found or not accessible" });
+        sendErrorJson(404, {
+          error: isPageRewrite ? "Page not found or not accessible" : "Template not found or not accessible",
+        });
         return;
       }
       const tplBlocks = Array.isArray(tpl.blocks) ? tpl.blocks : [];
       if (tplBlocks.length === 0) {
-        sendErrorJson(400, { error: "Template has no blocks" });
+        sendErrorJson(400, { error: isPageRewrite ? "Page has no blocks" : "Template has no blocks" });
         return;
       }
 

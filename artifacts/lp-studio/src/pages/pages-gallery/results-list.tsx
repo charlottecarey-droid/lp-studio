@@ -28,6 +28,7 @@ interface Props {
   onToggleSelect: (id: number) => void;
   cloningPageId: number | null;
   onClone: (page: Page) => void;
+  onRewriteCopy: (page: Page) => void;
   onAbTest: (page: Page) => void;
   onLinks: (page: Page) => void;
   onShare: (page: Page) => void;
@@ -63,6 +64,7 @@ export function ResultsList({
   onToggleSelect,
   cloningPageId,
   onClone,
+  onRewriteCopy,
   onAbTest,
   onLinks,
   onShare,
@@ -122,6 +124,7 @@ export function ResultsList({
             onToggleSelect={() => onToggleSelect(page.id)}
             cloningPageId={cloningPageId}
             onClone={() => onClone(page)}
+            onRewriteCopy={() => onRewriteCopy(page)}
             onAbTest={() => onAbTest(page)}
             onLinks={() => onLinks(page)}
             onShare={() => onShare(page)}

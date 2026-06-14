@@ -105,6 +105,10 @@ export interface GenerationRequestBody {
   prompt: string;
   segmentContext?: Record<string, unknown>;
   templateId?: number;
+  /** Task #1345 — "Rewrite copy with AI" on an existing page. The id of a page
+   *  whose layout is preserved while the AI rewrites its copy. Used instead of
+   *  `templateId` when the source isn't a saved template. */
+  sourcePageId?: number;
   replaceImagery?: boolean;
   referenceUrls?: string[];
   /** Singular reference URL — the sales microsite modal's historical field
