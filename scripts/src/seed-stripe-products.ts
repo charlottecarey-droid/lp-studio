@@ -188,7 +188,8 @@ async function upsertPrice(stripe: Stripe, product: Stripe.Product, seed: PriceS
 
 async function main(): Promise<void> {
   const stripe = await getStripe();
-  console.log(`Seeding LP Studio packaging to Stripe (${process.env.STRIPE_SECRET_KEY ? "env-var" : "connector"} mode)…`);
+  const credentialMode = process.env.STRIPE_SECRET_KEY ? "env-var" : "connector";
+  console.log(`Seeding LP Studio packaging to Stripe (${credentialMode} mode)…`);
   console.log(`Tiers (from @workspace/plan-config): ${CATALOG.map((c) => c.planSlug).join(", ")}`);
   for (const seed of CATALOG) {
     const product = await upsertProduct(stripe, seed);

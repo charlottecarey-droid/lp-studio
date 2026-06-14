@@ -3,7 +3,7 @@ import type { AuthUser } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
-import { lpBrandSettingsTable, lpPagesTable, tenantsTable, lpMediaTable } from "@workspace/db";
+import { lpBrandSettingsTable, lpPagesTable, tenantsTable, lpMediaTable, lpPageReviewsTable } from "@workspace/db";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
 import { isDandyTenant } from "../../lib/planFeatures";
@@ -60,6 +60,7 @@ const DEFAULT_CONFIG = {
 async function resolveBrandTenantId(
   req: Parameters<typeof getRequestHost>[0],
   slug: string | null,
+  reviewToken: string | null,
 ): Promise<number | null> {
   const authedTenantId = (req as { authUser?: { tenantId?: number | null } }).authUser?.tenantId ?? null;
   if (authedTenantId != null) return authedTenantId;
@@ -68,21 +69,27 @@ async function resolveBrandTenantId(
     const match = await findTenantByHost(host);
     if (match?.tenantId != null) return match.tenantId;
   }
-  // SLUG FALLBACK — auth-only. Previously this path was reachable
-  // unauthenticated, which let anyone enumerate page slugs (they are
-  // guessable: business names, public URLs, exports) to fetch any tenant's
-  // full brand config JSONB. The legitimate users of this path are
-  // /preview/:slug viewers on app.lpstudio.ai (review-token shares,
-  // cross-tenant previews) — all of which arrive with a session cookie. An
-  // anonymous caller falls through to DEFAULT_CONFIG instead of leaking the
-  // tenant's brand strategy + sales-console settings.
-  if (slug) {
-    const isAuthenticated = (req as { authUser?: { userId?: number } }).authUser?.userId != null;
-    if (!isAuthenticated) return null;
+  // SLUG FALLBACK — review-token-only. The single legitimate caller is the
+  // /preview/:slug?reviewToken=… share flow on app.lpstudio.ai, where neither
+  // the auth cookie nor the host can identify the tenant. Authorization is the
+  // review-share token itself (an lp_page_reviews row bound to that exact
+  // page), mirroring the /lp/preview/:slug route. Without a valid token we
+  // refuse: previously any authenticated (even tenant-less) caller could
+  // enumerate guessable page slugs — business names, public URLs, exports — to
+  // read another tenant's full brand config JSONB (palette, fonts, sales-
+  // console strategy). Normal authed users never reach here (their own tenant
+  // is returned above); anonymous/host viewers fall through to DEFAULT_CONFIG.
+  if (slug && reviewToken) {
+    const [review] = await db
+      .select({ pageId: lpPageReviewsTable.pageId })
+      .from(lpPageReviewsTable)
+      .where(eq(lpPageReviewsTable.token, reviewToken))
+      .limit(1);
+    if (!review) return null;
     const rows = await db
       .select({ tenantId: lpPagesTable.tenantId })
       .from(lpPagesTable)
-      .where(eq(lpPagesTable.slug, slug))
+      .where(and(eq(lpPagesTable.id, review.pageId), eq(lpPagesTable.slug, slug)))
       .limit(1);
     if (rows.length > 0) return rows[0].tenantId;
   }
@@ -99,6 +106,7 @@ async function resolveBrandTenantId(
 // otherwise, so anonymous requests keep working unchanged.
 router.get("/lp/brand", optionalAuth, async (req, res): Promise<void> => {
   const slugParam = typeof req.query.slug === "string" ? req.query.slug : null;
+  const reviewTokenParam = typeof req.query.reviewToken === "string" ? req.query.reviewToken : null;
   // PREVIEW-AS-BRAND (superadmin only). When a superadmin edits a GLOBAL
   // template or a block-catalog scratch page (both owned by the neutral
   // __system-templates tenant, which has no brand of its own), the builder can
@@ -119,7 +127,7 @@ router.get("/lp/brand", optionalAuth, async (req, res): Promise<void> => {
     }
   }
   if (tenantId == null) {
-    tenantId = await resolveBrandTenantId(req, slugParam);
+    tenantId = await resolveBrandTenantId(req, slugParam, reviewTokenParam);
   }
   if (tenantId == null) {
     // Public request from a host we don't recognize (and no session). Return

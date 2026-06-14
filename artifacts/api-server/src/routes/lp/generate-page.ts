@@ -5,6 +5,7 @@ import { aiGenerationLogTable, lpBrandSettingsTable, lpMediaTable, lpPagesTable,
 import { createHash } from "node:crypto";
 import { eq, desc, and, or, sql } from "drizzle-orm";
 import { logger } from "../../lib/logger";
+import { withDbRetry } from "../../lib/dbResilience";
 import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../lib/tenantSettings";
 import { generateAndStoreImage, loadBrandHints } from "./custom-blocks-generate";
 import { aiHeavyLimiter, aiHeavyHourlyLimiter } from "../../lib/ai-rate-limit";
@@ -1391,13 +1392,15 @@ export async function fetchMediaCatalog(
     return { images: [], allImages: [], catalogText: "" };
   }
   try {
-    const ownedTenantIds = await resolveOwnedTenantIds(tenantId);
-    const rows = await db
-      .select({ url: lpMediaTable.url, title: lpMediaTable.title, tags: lpMediaTable.tags, width: lpMediaTable.width, height: lpMediaTable.height, tenantId: lpMediaTable.tenantId })
-      .from(lpMediaTable)
-      .where(and(eq(lpMediaTable.mediaType, "image"), libraryReadablePredicate(ownedTenantIds)))
-      .orderBy(desc(lpMediaTable.createdAt))
-      .limit(500);
+    const ownedTenantIds = await withDbRetry(() => resolveOwnedTenantIds(tenantId));
+    const rows = await withDbRetry(() =>
+      db
+        .select({ url: lpMediaTable.url, title: lpMediaTable.title, tags: lpMediaTable.tags, width: lpMediaTable.width, height: lpMediaTable.height, tenantId: lpMediaTable.tenantId })
+        .from(lpMediaTable)
+        .where(and(eq(lpMediaTable.mediaType, "image"), libraryReadablePredicate(ownedTenantIds)))
+        .orderBy(desc(lpMediaTable.createdAt))
+        .limit(500),
+    );
 
     const allImages: MediaImage[] = rows.map(r => ({
       url: r.url,

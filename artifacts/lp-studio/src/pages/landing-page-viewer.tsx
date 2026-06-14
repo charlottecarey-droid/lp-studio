@@ -532,11 +532,11 @@ export default function LandingPageViewer() {
     // Pass the slug so the brand endpoint can resolve the tenant from the
     // page record when the request host isn't a tenant microsite (e.g.
     // `app.lpstudio.ai/preview/:slug` review-token views).
-    fetchBrandConfig(slug ?? null)
+    fetchBrandConfig(slug ?? null, undefined, previewReviewToken)
       .then((b) => { if (!cancelled) setBrand(b); })
       .finally(() => { if (!cancelled) setBrandLoaded(true); });
     return () => { cancelled = true; };
-  }, [slug]);
+  }, [slug, previewReviewToken]);
 
   // Watchdog — if we're still sitting on the loading spinner after 15 s,
   // surface a friendly "Trouble loading" screen with a retry button instead

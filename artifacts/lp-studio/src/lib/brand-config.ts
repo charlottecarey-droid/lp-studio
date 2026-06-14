@@ -1651,6 +1651,7 @@ export async function resolveBrandPdfFonts(brand: BrandConfig): Promise<BrandPdf
 export async function fetchBrandConfig(
   slug?: string | null,
   previewTenantId?: number | null,
+  reviewToken?: string | null,
 ): Promise<BrandConfig> {
   // 8 s hard timeout. iOS Safari has been observed leaving fetch() hanging
   // indefinitely across network transitions (Wi-Fi ↔ cellular, iCloud Private
@@ -1674,6 +1675,10 @@ export async function fetchBrandConfig(
   const params = new URLSearchParams();
   if (slug) params.set("slug", slug);
   if (previewTenantId != null) params.set("previewTenantId", String(previewTenantId));
+  // A review-share token authorizes the server's slug→tenant brand lookup for
+  // /preview/:slug?reviewToken=… links so a shared draft renders in the real
+  // brand instead of falling back to the neutral DEFAULT_BRAND blue.
+  if (reviewToken) params.set("reviewToken", reviewToken);
   const qsStr = params.toString();
   const qs = qsStr ? `?${qsStr}` : "";
   try {
