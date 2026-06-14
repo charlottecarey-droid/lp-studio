@@ -2309,6 +2309,72 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
+    // Generator presets (June 2026) — admin-configurable marketing starter
+    // chips + sales objective cards. Two-part: (1) a fail-CLOSED schema
+    // self-heal guaranteeing both tables exist (same high-water-mark drift
+    // hazard as the self-heals above — on a renumbered journal drizzle can
+    // record 0099 as applied without running its DDL); (2) a marker-gated,
+    // FAIL-OPEN seed of the GLOBAL defaults (marketing seeded DISABLED, sales
+    // ENABLED — see seeds/generatorPresets.ts). The generators read the
+    // effective presets from GET /lp/generator-presets and fall back to a safe
+    // built-in state when the config is empty, so the seed is non-fatal.
+    await runProbedSelfHeal({
+      name: "generator_presets schema self-heal (0099)",
+      applySqlFile: "0099_generator_presets.sql",
+      expected: 2,
+      checkSql: `SELECT count(*)::int AS present
+           FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name IN ('generator_presets', 'generator_preset_overrides')`,
+      shortfall: (present) =>
+        `generator_presets schema self-heal did not produce both tables (found ${present}/2) — aborting release`,
+    });
+
+    // Seed GLOBAL presets (tenant_id NULL). Marker-gated so it runs once;
+    // idempotent per-row via a NOT EXISTS guard on (surface, label) among global
+    // rows so a superadmin's later edits/deletions are never resurrected. The
+    // marketing presets seed DISABLED; sales objective presets seed ENABLED.
+    await runStep("generator_presets seed", async () => {
+      try {
+        const PRESET_SEED_MARKER = "generator_presets_seed_v1";
+        const marker = await db.execute<{ exists: number }>(
+          sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${PRESET_SEED_MARKER}`,
+        );
+        if (marker.rows.length > 0) return;
+        const { GLOBAL_GENERATOR_PRESET_SEEDS } = await import("./seeds/generatorPresets");
+        let inserted = 0;
+        for (const p of GLOBAL_GENERATOR_PRESET_SEEDS) {
+          const result = await db.execute<{ "?column?": number }>(sql`
+            INSERT INTO generator_presets (
+              tenant_id, surface, label, description, icon, prompt_skeleton,
+              objective, tied_template_slug, tied_template_intent, enabled, sort_order
+            )
+            SELECT
+              NULL, ${p.surface}, ${p.label}, ${p.description}, ${p.icon},
+              ${p.promptSkeleton}, ${p.objective}, ${p.tiedTemplateSlug},
+              ${p.tiedTemplateIntent}, ${p.enabled}, ${p.sortOrder}
+            WHERE NOT EXISTS (
+              SELECT 1 FROM generator_presets
+              WHERE tenant_id IS NULL
+                AND surface = ${p.surface}
+                AND label = ${p.label}
+            )
+            RETURNING 1
+          `);
+          if (result.rows.length > 0) inserted++;
+        }
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES (${PRESET_SEED_MARKER}) ON CONFLICT DO NOTHING`,
+        );
+        logger.info(
+          { inserted, total: GLOBAL_GENERATOR_PRESET_SEEDS.length },
+          "generator_presets seed applied",
+        );
+      } catch (seedErr) {
+        logger.error({ err: seedErr }, "generator_presets seed failed (non-fatal)");
+      }
+    });
+
     // Task #1206 — retroactively reserve existing team-member headshots from AI
     // reuse. New saves are tagged in routes/lp/library.ts, but headshots uploaded
     // BEFORE this change are still in the media pool the AI scores. This one-shot

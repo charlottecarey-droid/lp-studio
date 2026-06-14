@@ -59,6 +59,7 @@ import copilotChatRouter from "./copilot-chat";
 import blogRouter from "./blog";
 import blogAiRouter from "./blog-ai";
 import blogProgramRouter from "./blog-program";
+import generatorPresetsRouter from "./generator-presets";
 
 const router = Router();
 
@@ -91,6 +92,10 @@ router.use(blogAiRouter);
 // rate-limited per-route; powers the autonomous-publishing backlog. Nothing
 // here auto-publishes (review mode + autopublish off by default).
 router.use(blogProgramRouter);
+// Admin-configurable generator presets: tenant-auth read (GET
+// /lp/generator-presets, through the blanket /lp/* guard) + tenant override
+// mgmt (settings permission) + superadmin global CRUD (/admin/generator-presets).
+router.use(generatorPresetsRouter);
 router.use(emailDomainRouter);
 router.use(brandedEmailSubdomainRouter);
 router.use(resultsRouter);

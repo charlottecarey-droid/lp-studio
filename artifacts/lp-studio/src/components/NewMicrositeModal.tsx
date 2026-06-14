@@ -82,6 +82,10 @@ import {
   type FlowSegment,
   type InferenceContact,
 } from "@/lib/micrositeFlow";
+import {
+  fetchGeneratorPresets,
+  type EffectivePreset,
+} from "@/lib/generatorPresets";
 
 const API_BASE = "/api";
 
@@ -123,6 +127,53 @@ const OBJECTIVE_ICONS: Record<string, typeof CalendarCheck> = {
   Wand2,
 };
 
+/** The objective cards the questionnaire renders. Derived from the effective
+ *  SALES generator presets when configured, else the built-in OBJECTIVE_CARDS.
+ *  A preset supplies the card's label + objective enum + (optional) icon,
+ *  description, and tied template slug. */
+interface ObjectiveCardView {
+  objective: MicrositeObjective;
+  title: string;
+  description: string;
+  icon: string;
+  /** Optional preset template tie (slug); honoured by the recommend/eligibility
+   *  flow as a recommendation INPUT only. null = let the engine pick. */
+  tiedTemplateSlug: string | null;
+}
+
+/** Map effective sales presets → objective cards. Only presets carrying a valid
+ *  objective become cards (objectiveToEnum degrades unknowns to "from-scratch").
+ *  De-dupes by objective (first wins, preset order is already sorted). Falls
+ *  back to the built-in OBJECTIVE_CARDS when there are no usable sales presets,
+ *  so the sales generator is never broken if the config is empty/unavailable. */
+function deriveObjectiveCards(presets: EffectivePreset[]): ObjectiveCardView[] {
+  const cards: ObjectiveCardView[] = [];
+  const seen = new Set<MicrositeObjective>();
+  for (const p of presets) {
+    if (!p.objective) continue;
+    const obj = objectiveToEnum(p.objective);
+    if (seen.has(obj)) continue;
+    seen.add(obj);
+    cards.push({
+      objective: obj,
+      title: p.label,
+      description: p.description ?? "",
+      icon: p.icon ?? "Wand2",
+      tiedTemplateSlug: p.tiedTemplateSlug,
+    });
+  }
+  if (cards.length === 0) {
+    return OBJECTIVE_CARDS.map((c) => ({
+      objective: c.objective,
+      title: c.title,
+      description: c.description,
+      icon: c.icon,
+      tiedTemplateSlug: null,
+    }));
+  }
+  return cards;
+}
+
 type Step = "who" | "goal" | "audience" | "details" | "preview";
 
 interface Props {
@@ -158,9 +209,12 @@ function buildProposedTitle(
   objective: MicrositeObjective,
   accountName: string | null,
   segmentName: string | null,
+  cards: ObjectiveCardView[],
 ): string {
   const goalLabel =
-    OBJECTIVE_CARDS.find((c) => c.objective === objective)?.title ?? "Microsite";
+    cards.find((c) => c.objective === objective)?.title ??
+    OBJECTIVE_CARDS.find((c) => c.objective === objective)?.title ??
+    "Microsite";
   if (accountName) return `${accountName} — ${goalLabel}`;
   if (segmentName) return `${segmentName} — ${goalLabel}`;
   return goalLabel;
@@ -174,6 +228,13 @@ export function NewMicrositeModal({ open, onClose }: Props) {
   const [templates, setTemplates] = useState<TenantTemplate[]>([]);
   const [globalTemplates, setGlobalTemplates] = useState<TenantTemplate[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  // June 2026 — the objective cards are now CONFIG-DRIVEN: derived from the
+  // effective SALES generator presets (global defaults ∪ tenant overrides),
+  // falling back to the built-in OBJECTIVE_CARDS when the config is empty/
+  // unavailable (fetch is fail-open). The preset supplies each card's label +
+  // objective + optional icon/description/tied template.
+  const [salesPresets, setSalesPresets] = useState<EffectivePreset[]>([]);
+  const objectiveCards = useMemo(() => deriveObjectiveCards(salesPresets), [salesPresets]);
 
   // ── Questionnaire answers ─────────────────────────────────────────────────
   const [step, setStep] = useState<Step>("who");
@@ -260,6 +321,8 @@ export function NewMicrositeModal({ open, onClose }: Props) {
       setGlobalTemplates(Array.isArray(salesTpls) ? salesTpls.filter((t) => t.isGlobal === true) : []);
       setLoadingData(false);
     });
+    // Effective SALES presets drive the objective cards (fail-open → []).
+    fetchGeneratorPresets("sales").then(setSalesPresets);
   }, [open]);
 
   // When entering Step 3 with an account that has local contacts, infer a
@@ -321,7 +384,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
   const accountName = account?.name ?? null;
 
   const objectiveEnum = objective ? objectiveToEnum(objective) : "from-scratch";
-  const proposedTitle = buildProposedTitle(objectiveEnum, accountName, selectedSegment?.name ?? null);
+  const proposedTitle = buildProposedTitle(objectiveEnum, accountName, selectedSegment?.name ?? null, objectiveCards);
   const allTemplates = useMemo(() => [...templates, ...globalTemplates], [templates, globalTemplates]);
 
   // Resolve the recommended template slug → label for the preview.
@@ -425,7 +488,10 @@ export function NewMicrositeModal({ open, onClose }: Props) {
 
       // Synthesise a short instruction from the objective + audience; the
       // generator's objective/segment/persona threading does the heavy lifting.
-      const goalLabel = OBJECTIVE_CARDS.find((c) => c.objective === objectiveEnum)?.title ?? "this microsite";
+      const goalLabel =
+        objectiveCards.find((c) => c.objective === objectiveEnum)?.title ??
+        OBJECTIVE_CARDS.find((c) => c.objective === objectiveEnum)?.title ??
+        "this microsite";
       const synthPrompt =
         `Create a microsite to ${goalLabel.toLowerCase()}` +
         (accountName ? ` for ${accountName}` : "") +
@@ -639,7 +705,7 @@ export function NewMicrositeModal({ open, onClose }: Props) {
                   role="radiogroup"
                   aria-label="What are you trying to accomplish?"
                 >
-                  {OBJECTIVE_CARDS.map((card) => {
+                  {objectiveCards.map((card) => {
                     const Icon = OBJECTIVE_ICONS[card.icon] ?? Wand2;
                     const active = objective === card.objective;
                     return (

@@ -21,12 +21,10 @@ import {
   useScreenshotAttachment,
 } from "@/components/generation/ScreenshotAttach";
 import { StarterPromptChips } from "@/components/generation/StarterPromptChips";
-
-// Owner request (June 2026): hide the marketing-generator starter prefill chips
-// until their presets + template ties are configured in Superadmin and verified.
-// Flip to true (or, once the configurable-presets system lands, drive this from
-// the tenant/global preset config) to re-enable.
-const MARKETING_STARTER_CHIPS_ENABLED = false;
+import {
+  fetchGeneratorPresets,
+  type EffectivePreset,
+} from "@/lib/generatorPresets";
 import { GenerationLiveView } from "./GenerationLiveView";
 import {
   BLANK_OPTION,
@@ -144,6 +142,23 @@ export function CreatePageModal({
     screenshotDataUrl?: string;
   } | null>(null);
 
+  // June 2026 — marketing starter chips are now CONFIG-DRIVEN. We fetch the
+  // effective, enabled MARKETING generator presets (global defaults ∪ tenant
+  // overrides) and render them as chips. When none are enabled (the seeded
+  // default), StarterPromptChips renders nothing — replacing the old
+  // MARKETING_STARTER_CHIPS_ENABLED code flag. Fetch is fail-open (returns []).
+  const [marketingPresets, setMarketingPresets] = useState<EffectivePreset[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetchGeneratorPresets("marketing").then((presets) => {
+      if (!cancelled) setMarketingPresets(presets);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
   // Reset transient state on close, and honour `initialMode` on every
   // false→true transition so callers (e.g. the NewLauncher dropdown) can
   // jump straight to the AI / Brief tab on subsequent openings instead of
@@ -182,10 +197,19 @@ export function CreatePageModal({
     return () => document.removeEventListener("paste", onPaste);
   }, [open, createMode, liveGen, attachScreenshotFile]);
 
-  // Starter chip → prefill the skeleton and focus the textarea with the text
-  // selected, so typing replaces it and arrow keys extend it naturally.
-  const handleStarterPick = (prompt: string) => {
-    setAiPrompt(prompt);
+  // Starter chip → prefill the preset's prompt skeleton and focus the textarea
+  // with the text selected, so typing replaces it and arrow keys extend it
+  // naturally. If the preset ties to a template (by slug) AND that template is
+  // visible to this tenant, pre-select it as the AI starting point; otherwise
+  // we leave the starting point on "from scratch" (fail-open) — the backend's
+  // template-intent/eligibility system still honours the skeleton's intent.
+  const handleStarterPick = (preset: EffectivePreset) => {
+    const skeleton = preset.promptSkeleton ?? "";
+    setAiPrompt(skeleton);
+    if (preset.tiedTemplateSlug) {
+      const tied = visibleApiTemplates.find((t) => t.slug === preset.tiedTemplateSlug);
+      if (tied) setAiTemplateId(String(tied.id));
+    }
     requestAnimationFrame(() => {
       const el = promptTextareaRef.current;
       if (!el) return;
@@ -602,12 +626,17 @@ export function CreatePageModal({
 
             <div>
               <Label className="text-sm font-medium">Your Prompt</Label>
-              {/* Starter prefill chips are temporarily disabled in the marketing
-                  generator (owner request, June 2026): the presets + their template
-                  ties are being configured in Superadmin first. Re-enable by setting
-                  MARKETING_STARTER_CHIPS_ENABLED true once configured + verified. */}
-              {MARKETING_STARTER_CHIPS_ENABLED && aiPrompt === "" && (
-                <StarterPromptChips className="mt-1.5" onPick={handleStarterPick} />
+              {/* Config-driven starter prefill chips (June 2026): rendered from the
+                  effective, enabled MARKETING generator presets (global defaults ∪
+                  tenant overrides). When none are enabled, StarterPromptChips
+                  renders nothing — the owner turns them on by enabling presets in
+                  Superadmin (replacing the old MARKETING_STARTER_CHIPS_ENABLED flag). */}
+              {aiPrompt === "" && (
+                <StarterPromptChips
+                  className="mt-1.5"
+                  presets={marketingPresets}
+                  onPick={handleStarterPick}
+                />
               )}
               <textarea
                 ref={promptTextareaRef}

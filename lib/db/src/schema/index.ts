@@ -101,3 +101,7 @@ export * from "./blogPosts";
 // Blog Phase 4 — content program (themes, topic pipeline, program settings)
 // powering the autonomous-publishing backlog. Superadmin-owned, NOT per-tenant.
 export * from "./blogContentProgram";
+
+// Admin-configurable generator presets (marketing starter chips + sales
+// objective cards): global superadmin defaults + per-tenant overrides.
+export * from "./generatorPresets";

@@ -22,6 +22,7 @@ import {
   TemplateEligibilityEditor,
   type EligibilityOption,
 } from "@/components/settings/TemplateEligibilityEditor";
+import { TenantGeneratorPresets } from "@/components/settings/TenantGeneratorPresets";
 import {
   AI_BEHAVIOR_OPTIONS,
   normalizeTemplateAiBehavior,
@@ -470,6 +471,10 @@ export function TemplateSettingsContent() {
           </div>
         )}
       </section>
+
+      {/* Tenant generator-preset overrides (June 2026) — enable/disable/reorder
+          the global generator presets + add tenant-specific ones. */}
+      <TenantGeneratorPresets />
     </div>
   );
 }

@@ -1,73 +1,52 @@
 /**
- * Starter prompt chips (June 2026) — shown above the AI prompt textarea while
- * it's EMPTY; hidden the moment the user types. Each chip prefills a prompt
- * skeleton and the caller focuses the textarea with the skeleton selected so
- * typing replaces it (or arrow-keys extend it) naturally.
+ * Starter prompt chips — shown above the AI prompt textarea while it's EMPTY;
+ * hidden the moment the user types. Each chip prefills a prompt skeleton and the
+ * caller focuses the textarea with the skeleton selected so typing replaces it
+ * (or arrow-keys extend it) naturally.
  *
- * NOTE: the podcast / event / pricing phrasings deliberately contain the
- * trigger nouns the backend's template-intent matcher keys on ("podcast",
- * "episode", "event", "RSVP", "pricing", "tiers", …) — don't reword them.
+ * June 2026: the chips are now CONFIG-DRIVEN. They come from the effective
+ * MARKETING generator presets (GET /lp/generator-presets?surface=marketing —
+ * global defaults ∪ tenant overrides), NOT a hardcoded list. The caller fetches
+ * the presets and passes them in; when there are no enabled marketing presets
+ * (the current default state — they seed disabled), this renders nothing. This
+ * replaces the old MARKETING_STARTER_CHIPS_ENABLED code flag: the owner enables
+ * the chips by enabling presets in Superadmin.
+ *
+ * Each preset carries its own prompt skeleton (and, optionally, a template tie
+ * that the backend's eligibility/intent system honours when generating). The
+ * trigger nouns in the seeded skeletons (podcast/episode/event/RSVP/pricing/
+ * tiers …) still anchor the backend template-intent matcher.
  */
 import { cn } from "@/lib/utils";
-
-export interface StarterPrompt {
-  label: string;
-  prompt: string;
-}
-
-export const STARTER_PROMPTS: StarterPrompt[] = [
-  {
-    label: "Summer sale",
-    prompt:
-      "A bold summer sale landing page for [product/store], highlighting limited-time discounts, with a hero, featured deals, social proof, and a strong shop-now CTA",
-  },
-  {
-    label: "Product launch",
-    prompt:
-      "A product launch page announcing [product], with an announcement hero, key features, social proof, pricing, and an early-access CTA",
-  },
-  {
-    label: "Podcast series",
-    prompt:
-      "A podcast series page for [show name] with episode library, host spotlight, and a subscribe CTA",
-  },
-  {
-    label: "Event RSVP",
-    prompt:
-      "An event landing page for [event] with date/location, agenda highlights, speakers, and an RSVP form",
-  },
-  {
-    label: "Pricing page",
-    prompt:
-      "A pricing page for [product] with 3 tiers, feature comparison, FAQ, and a free-trial CTA",
-  },
-  {
-    label: "Customer story",
-    prompt:
-      "A customer story page about how [customer] achieved [result] with [product], with challenge/solution/results and a quote",
-  },
-];
+import type { EffectivePreset } from "@/lib/generatorPresets";
 
 interface Props {
-  /** Called with the full prompt skeleton — the caller sets the textarea
-   *  value and focuses it with the text selected. */
-  onPick: (prompt: string) => void;
+  /** The effective, enabled MARKETING presets to render as chips. Empty ⇒
+   *  renders nothing (the safe fallback when none are configured/enabled). */
+  presets: EffectivePreset[];
+  /** Called with the preset (so the caller can prefill its prompt skeleton and
+   *  carry its template tie). The caller sets the textarea value and focuses it
+   *  with the text selected. */
+  onPick: (preset: EffectivePreset) => void;
   className?: string;
 }
 
-export function StarterPromptChips({ onPick, className }: Props) {
+export function StarterPromptChips({ presets, onPick, className }: Props) {
+  // Only chips that actually carry a prompt skeleton are useful for prefilling.
+  const chips = presets.filter((p) => (p.promptSkeleton ?? "").trim().length > 0);
+  if (chips.length === 0) return null;
   return (
     <div
       className={cn("flex flex-wrap gap-1.5", className)}
       role="group"
       aria-label="Starter prompts"
     >
-      {STARTER_PROMPTS.map((p) => (
+      {chips.map((p) => (
         <button
-          key={p.label}
+          key={p.key}
           type="button"
-          onClick={() => onPick(p.prompt)}
-          title={p.prompt}
+          onClick={() => onPick(p)}
+          title={p.promptSkeleton ?? p.label}
           className={cn(
             "inline-flex items-center rounded-full border border-input bg-muted/40 px-2.5 py-1",
             "text-[11px] font-medium text-muted-foreground transition-colors",

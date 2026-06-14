@@ -27,7 +27,7 @@ import {
 import {
   ChevronDown, ChevronRight, RefreshCw, LogOut, Globe, Users, FileText,
   Plus, CheckCircle2, Copy, Check, Loader2, Trash2, AlertTriangle, ShieldCheck, ShieldAlert,
-  Library, LayoutTemplate, Activity, CreditCard, Bell, KeyRound, Smartphone, Share2,
+  Library, LayoutTemplate, Activity, CreditCard, Bell, KeyRound, Smartphone, Share2, Wand2,
   Newspaper,
 } from "lucide-react";
 import SuperAdminBlockCatalog from "./SuperAdminBlockCatalog";
@@ -40,6 +40,7 @@ import SuperAdminNotifications from "./SuperAdminNotifications";
 import SuperAdminSuperadmins from "./SuperAdminSuperadmins";
 import SuperAdminTrialPhones from "./SuperAdminTrialPhones";
 import SuperAdminBlog from "./SuperAdminBlog";
+import SuperAdminGeneratorPresets from "./SuperAdminGeneratorPresets";
 import { useAuth } from "@/context/AuthContext";
 import { normalizePlan, type Plan } from "@/lib/plan-features";
 
@@ -1256,9 +1257,10 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [domainHelp, setDomainHelp] = useState<DomainHelp | null>(null);
-  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "featured-templates" | "homepage-og" | "asset-health" | "plans" | "notifications" | "trial-phones" | "blog" | "superadmins">(() => {
+  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "featured-templates" | "generator-presets" | "homepage-og" | "asset-health" | "plans" | "notifications" | "trial-phones" | "blog" | "superadmins">(() => {
     if (typeof window !== "undefined") {
       if (window.location.hash === "#catalog") return "catalog";
+      if (window.location.hash === "#generator-presets") return "generator-presets";
       if (window.location.hash === "#templates") return "templates";
       if (window.location.hash === "#featured-templates") return "featured-templates";
       if (window.location.hash === "#homepage-og") return "homepage-og";
@@ -1422,6 +1424,14 @@ export default function SuperAdminPage() {
             <LayoutTemplate className="w-3.5 h-3.5" /> Homepage Featured
           </button>
           <button
+            onClick={() => setTab("generator-presets")}
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
+              tab === "generator-presets" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Wand2 className="w-3.5 h-3.5" /> Generator Presets
+          </button>
+          <button
             onClick={() => setTab("homepage-og")}
             className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
               tab === "homepage-og" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
@@ -1487,6 +1497,8 @@ export default function SuperAdminPage() {
           <SuperAdminTemplates />
         ) : tab === "featured-templates" ? (
           <SuperAdminFeaturedTemplates />
+        ) : tab === "generator-presets" ? (
+          <SuperAdminGeneratorPresets />
         ) : tab === "homepage-og" ? (
           <div className="flex flex-col gap-6">
             <SuperAdminMarketingShareCard heading="Homepage share card" />
