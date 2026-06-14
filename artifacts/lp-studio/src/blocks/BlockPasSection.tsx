@@ -14,15 +14,18 @@ import {
 import { InlineText } from "@/components/InlineText";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { AlertTriangle } from "lucide-react";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
 
 /* ----------------------------------------------------------------------------
- * PAS — Section: editorial Problem-Agitate-Solve on a brand-primary surface.
- * Eyebrow + bold problem statement in display type, agitate copy at a
- * readable measure (~65ch), pain points as a left-rule editorial list, and an
- * optional accent-tinted solution panel to close the beat.
+ * PAS — Section: Problem-Agitate-Solve on a brand-primary surface.
+ * Split layout: headline + subheadline on one side, the pain points on the
+ * other as an icon list (alert-triangle markers by default). Colors are derived
+ * from the brand primary fill and the type uses the brand display/body fonts, so
+ * the block stays fully brand-aware. An optional accent-tinted solution panel
+ * closes the beat full-width below.
  * -------------------------------------------------------------------------- */
 
 interface Props {
@@ -49,63 +52,74 @@ export function BlockPasSection({ props, brand, onFieldChange }: Props) {
     onFieldChange({ ...props, bullets: newBullets });
   };
 
+  const bullets = props.bullets ?? [];
+  const showBullets = bullets.length > 0 || !!onFieldChange;
+
   return (
     <section className={cn("w-full bg-[var(--brand-primary)] px-6", sectionPy)} style={{ color: onPrimary }}>
-      <div className="mx-auto max-w-5xl">
-        {/* Problem — eyebrow + bold statement in display type. */}
-        {(props.eyebrow || onFieldChange) && (
-          <InlineText
-            as="p"
-            value={props.eyebrow ?? ""}
-            onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined}
-            className="mb-5 text-[11px] font-bold uppercase tracking-[0.28em]"
-            style={{ color: accentOnPrimary, fontFamily: BODY }}
-          />
-        )}
-        <InlineText
-          as="h2"
-          value={props.headline}
-          onUpdate={onFieldChange ? (v) => update("headline", v) : undefined}
-          className={cn(
-            getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"),
-            "max-w-3xl text-balance font-display leading-[1.06]",
-            getHeadingWeightClass(brand),
-            getHeadingLetterSpacingClass(brand),
+      <div className="mx-auto max-w-6xl">
+        <div className="grid grid-cols-1 gap-x-16 gap-y-12 lg:grid-cols-2 lg:items-start">
+          {/* Left — headline + subheadline. */}
+          <div>
+            {(props.eyebrow || onFieldChange) && (
+              <InlineText
+                as="p"
+                value={props.eyebrow ?? ""}
+                onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined}
+                className="mb-5 text-[11px] font-bold uppercase tracking-[0.28em]"
+                style={{ color: accentOnPrimary, fontFamily: BODY }}
+              />
+            )}
+            <InlineText
+              as="h2"
+              value={props.headline}
+              onUpdate={onFieldChange ? (v) => update("headline", v) : undefined}
+              className={cn(
+                getHeadlineSizeClass(props.headlineSize, brand.h2Size ?? "lg"),
+                "text-balance font-display leading-[1.06]",
+                getHeadingWeightClass(brand),
+                getHeadingLetterSpacingClass(brand),
+              )}
+              style={{ fontFamily: DISPLAY }}
+            />
+            <InlineText
+              as="p"
+              value={props.body}
+              onUpdate={onFieldChange ? (v) => update("body", v) : undefined}
+              className={cn(getBodySizeClass(brand), "mt-6 max-w-[55ch] leading-relaxed lg:text-lg")}
+              multiline
+              style={{ fontFamily: BODY, color: `color-mix(in srgb, ${onPrimary} 80%, transparent)` }}
+            />
+          </div>
+
+          {/* Right — pain points as an icon list (alert-triangle markers). */}
+          {showBullets && (
+            <ul className="flex flex-col gap-6 lg:pt-1.5">
+              {bullets.map((bullet, i) => (
+                <li key={i} className="flex items-start gap-4">
+                  <span
+                    aria-hidden="true"
+                    className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                    style={{
+                      background: `color-mix(in srgb, ${accentOnPrimary} 14%, transparent)`,
+                      border: `1px solid color-mix(in srgb, ${accentOnPrimary} 30%, transparent)`,
+                    }}
+                  >
+                    <AlertTriangle className="h-[18px] w-[18px]" style={{ color: accentOnPrimary }} strokeWidth={2.25} />
+                  </span>
+                  <InlineText
+                    as="span"
+                    value={bullet}
+                    onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined}
+                    className="block flex-1 text-base font-medium leading-relaxed"
+                    multiline
+                    style={{ fontFamily: BODY, color: `color-mix(in srgb, ${onPrimary} 92%, transparent)` }}
+                  />
+                </li>
+              ))}
+            </ul>
           )}
-          style={{ fontFamily: DISPLAY }}
-        />
-
-        {/* Agitate — readable measure, quieter tone. */}
-        <InlineText
-          as="p"
-          value={props.body}
-          onUpdate={onFieldChange ? (v) => update("body", v) : undefined}
-          className={cn(getBodySizeClass(brand), "mt-6 max-w-[65ch] leading-relaxed lg:text-lg")}
-          multiline
-          style={{ fontFamily: BODY, color: `color-mix(in srgb, ${onPrimary} 80%, transparent)` }}
-        />
-
-        {/* Pain points — editorial left-rule list, two columns when room allows. */}
-        {props.bullets?.length > 0 && (
-          <ul className="mt-12 grid grid-cols-1 gap-x-12 gap-y-7 sm:grid-cols-2">
-            {props.bullets.map((bullet, i) => (
-              <li
-                key={i}
-                className="border-l-2 pl-5"
-                style={{ borderColor: `color-mix(in srgb, ${accentOnPrimary} 65%, transparent)`, fontFamily: BODY }}
-              >
-                <InlineText
-                  as="span"
-                  value={bullet}
-                  onUpdate={onFieldChange ? (v) => updateBullet(i, v) : undefined}
-                  className="block text-base font-medium leading-relaxed"
-                  multiline
-                  style={{ color: `color-mix(in srgb, ${onPrimary} 92%, transparent)` }}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
+        </div>
 
         {/* Solve — optional closing line in a visually distinct tinted panel. */}
         {(props.solutionText || onFieldChange) && (
