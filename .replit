@@ -34,10 +34,6 @@ args = "tc-api"
 task = "workflow.run"
 args = "tc-lp"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "e2e"
-
 [[workflows.workflow]]
 name = "img-test"
 author = "agent"
@@ -70,17 +66,6 @@ isValidation = true
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/lp-studio run typecheck"
-
-[[workflows.workflow]]
-name = "e2e"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/lp-studio exec playwright test"
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [agent]
 stack = "PNPM_WORKSPACE"

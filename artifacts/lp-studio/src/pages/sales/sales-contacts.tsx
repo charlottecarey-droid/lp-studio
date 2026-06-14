@@ -167,6 +167,7 @@ function getEngagementScore(signals: Signal[]): { label: string; color: string; 
 const CSV_TEMPLATE_HEADERS = [
   "sfdcAccountId",   // Salesforce Account ID — preferred join key
   "accountName",     // Account name — used if sfdcAccountId is blank
+  "accountDomain",   // Account website domain (e.g. acmedental.com)
   "accountOwner",    // Account owner / rep name
   "accountAbmStage",    // ABM stage (e.g. Awareness | Consideration | Decision)
   "accountNumLocations", // Number of practices / locations
@@ -188,6 +189,7 @@ const CSV_TEMPLATE_HEADERS = [
 const CSV_TEMPLATE_EXAMPLE = [
   "0015d00003WBzFNAA1",  // sfdcAccountId
   "Acme Dental Group",   // accountName
+  "acmedental.com",      // accountDomain
   "Jane Doe",            // accountOwner
   "Consideration",       // accountAbmStage
   "12",                  // accountNumLocations
@@ -222,6 +224,7 @@ function downloadCsvTemplate() {
 const DB_FIELD_ALIASES: Record<string, string[]> = {
   sfdcAccountId:  ["sfdcaccountid", "sfdc_account_id", "account_id", "accountid", "salesforce_account_id", "salesforceaccountid"],
   accountName:    ["accountname", "account_name", "account", "organization", "practice", "practicename", "practice_name", "company", "companyname", "company_name"],
+  accountDomain:  ["accountdomain", "account_domain", "domain", "website", "websiteurl", "website_url", "accountwebsite", "account_website", "companywebsite", "company_website", "url"],
   accountOwner:   ["accountowner", "account_owner", "owner", "rep", "ownername", "owner_name", "accountrep", "account_rep"],
   accountAbmStage:     ["accountabmstage", "account_abm_stage", "abmstage", "abm_stage", "stage", "accountstage", "account_stage"],
   accountNumLocations: ["accountnumlocations", "account_num_locations", "numlocations", "num_locations", "numberoflocations", "number_of_locations", "practices", "numberofpractices", "number_of_practices", "locations"],
@@ -243,6 +246,7 @@ const DB_FIELD_ALIASES: Record<string, string[]> = {
 const DB_FIELD_LABELS: Record<string, string> = {
   sfdcAccountId: "SFDC Account ID ★",
   accountName:   "Account Name ★",
+  accountDomain: "Account Domain",
   accountOwner:    "Account Owner",
   accountAbmStage:     "ABM Stage",
   accountNumLocations: "# of Practices",
