@@ -20,7 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus, ArrowLeft,
-  Search, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star, MessageSquare, Palette, Eye,
+  Search, CheckCircle2, Lock, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star, MessageSquare, Palette, Eye,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -2909,30 +2909,30 @@ export default function BuilderEditor() {
           the approved pool). The values stay on the page — this opens the
           review modal so editors can approve, edit, swap or remove each one. */}
       {factFlags.pendingCount > 0 && !strictBannerDismissed && (
-        <div data-testid="fact-review-banner" className="relative mx-4 mt-2 flex items-start gap-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 px-4 py-3">
-          <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+        <div data-testid="fact-review-banner" className="relative mx-4 mt-2 flex items-start gap-3 rounded-xl bg-[hsl(var(--accent-warm)/0.10)] dark:bg-[hsl(var(--accent-warm)/0.15)] border border-[hsl(var(--accent-warm)/0.30)] dark:border-[hsl(var(--accent-warm)/0.35)] px-4 py-3">
+          <div className="w-7 h-7 rounded-lg bg-[hsl(var(--accent-warm)/0.18)] dark:bg-[hsl(var(--accent-warm)/0.25)] flex items-center justify-center shrink-0">
+            <Lock className="w-3.5 h-3.5 text-[hsl(var(--accent-warm-strong))] dark:text-[hsl(var(--accent-warm))]" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+            <p className="text-xs font-semibold text-[hsl(var(--accent-warm-strong))] dark:text-[hsl(var(--accent-warm))]">
               {factFlags.pendingCount === 1
-                ? "1 fact on this page needs review"
-                : `${factFlags.pendingCount} facts on this page need review`}
+                ? "This page won't publish until you approve 1 fact"
+                : `This page won't publish until you approve ${factFlags.pendingCount} facts`}
             </p>
-            <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80 mt-0.5 leading-relaxed">
-              They're kept on the page. Approve, edit, swap or remove each one before publishing — and save the real ones to your library so the AI can reuse them next time.
+            <p className="text-[11px] text-[hsl(var(--accent-warm-strong))] dark:text-[hsl(var(--accent-warm))] mt-0.5 leading-relaxed">
+              Your page is ready — it just can't go live yet. Approve, edit, swap or remove each flagged stat, claim or quote, then publish. Save the real ones to your library so the AI can reuse them next time.
             </p>
             <div className="flex items-center gap-3 mt-1.5">
               <button
                 type="button"
                 onClick={openFactReview}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-[hsl(var(--accent-warm-strong))] dark:text-[hsl(var(--accent-warm))] hover:underline"
               >
-                Review facts
+                Review facts to publish
               </button>
               <Link
                 href="/brand"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-[hsl(var(--accent-warm-strong))] dark:text-[hsl(var(--accent-warm))] hover:underline"
               >
                 Open Brand Settings →
               </Link>
@@ -2942,7 +2942,7 @@ export default function BuilderEditor() {
             type="button"
             aria-label="Dismiss"
             onClick={() => setStrictBannerDismissed(true)}
-            className="text-amber-700/60 hover:text-amber-700 dark:text-amber-400/60 dark:hover:text-amber-300 shrink-0"
+            className="text-[hsl(var(--accent-warm-strong)/0.55)] hover:text-[hsl(var(--accent-warm-strong))] dark:text-[hsl(var(--accent-warm)/0.55)] dark:hover:text-[hsl(var(--accent-warm))] shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
