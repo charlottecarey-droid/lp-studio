@@ -540,6 +540,362 @@ export function applyDandyLayoutVariability(
   });
 }
 
+// ── FREE-FORM microsite chrome + section-rhythm enforcement (Task #37) ──────
+// HARD REQUIREMENT: no generated microsite may look like a plain white document
+// with stacked text. The prompt asks the model for a navbar, a visual hero, and
+// alternating section backgrounds, but the model frequently ignores layout
+// rules, so these passes are the deterministic BACKSTOP that runs after
+// generation. They apply ONLY to the FREE-FORM / AI-assembled path
+// (neutral / DSO / segment-pool freeform) — NEVER to template-driven pages,
+// which keep their own authored chrome (see the route's `!templateBlocks` gate).
+//
+// All three passes are PURE + FAIL-OPEN (a malformed block is skipped, never
+// throws) and return a NEW block array. Each logs what it enforced so a
+// misbehaving model is visible in the logs.
+
+/** Nav / self-nav block types that satisfy "the page has a navbar". A page that
+ *  starts with one of these already presents top-of-page navigation, so we must
+ *  NOT prepend a second nav (which would stack two navbars). Mirrors the
+ *  landing-page generator's NAV_TYPES ∪ SELF_NAV_TYPES intent, scoped to the
+ *  block types the microsite paths can emit. */
+const MICROSITE_NAV_BLOCK_TYPES: ReadonlySet<string> = new Set([
+  "nav-header",
+  "dso-practice-nav",
+]);
+
+/** Hero block types that render their OWN top-of-page chrome (a sticky nav bar
+ *  baked into the hero), so a standalone nav before them is redundant. The
+ *  neutral `hero` block does NOT render its own nav, so it is intentionally
+ *  excluded — a neutral-freeform page that opens with `hero` still needs a
+ *  prepended nav-header. */
+const MICROSITE_SELF_NAV_HERO_TYPES: ReadonlySet<string> = new Set([
+  "dso-heartland-hero",
+  "dso-practice-hero",
+]);
+
+/** Every hero block type a free-form microsite can open with (used to find the
+ *  first content hero for anchor-link derivation + the hero-upgrade pass). */
+const MICROSITE_HERO_BLOCK_TYPES: ReadonlySet<string> = new Set([
+  "hero",
+  ...MICROSITE_SELF_NAV_HERO_TYPES,
+]);
+
+/** Light/near-white section presets — two consecutive of these read as a
+ *  white-on-white "wall" and must be broken up by the rhythm pass. */
+const MICROSITE_LIGHT_BGS: ReadonlySet<string> = new Set(["white", "light-gray", "muted"]);
+/** Dark / brand presets that read as a distinct anchor band. */
+const MICROSITE_DARK_BGS: ReadonlySet<string> = new Set(["dark", "dandy-green", "black", "gradient"]);
+
+function blockTypeOf(block: unknown): string {
+  const t = (block as { type?: unknown })?.type;
+  return typeof t === "string" ? t : "";
+}
+function blockPropsOf(block: unknown): Record<string, unknown> {
+  const p = (block as { props?: unknown })?.props;
+  return p && typeof p === "object" ? (p as Record<string, unknown>) : {};
+}
+
+/** A short, anchor-safe id derived from a block's headline/eyebrow (so nav
+ *  links can target real sections). Falls back to the block type + index. */
+function micrositeSectionAnchorId(block: unknown, index: number): string {
+  const p = blockPropsOf(block);
+  const text =
+    (typeof p.headline === "string" && p.headline) ||
+    (typeof p.heading === "string" && p.heading) ||
+    (typeof p.eyebrow === "string" && p.eyebrow) ||
+    "";
+  const slug = text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 32)
+    .replace(/-$/g, "");
+  if (slug) return slug;
+  const type = blockTypeOf(block) || "section";
+  return `${type}-${index}`;
+}
+
+/**
+ * (1) ALWAYS A NAVBAR. Ensure a free-form microsite STARTS with a nav/header
+ * block. If the model emitted none — and the first content block isn't a
+ * self-nav hero (which bakes its own nav) — PREPEND a `nav-header` populated
+ * with the page's primary CTA (text + url/mode) and anchor links to the page's
+ * key sections (heading-derived ids assigned in place).
+ *
+ * Also defensively strips a leading standalone nav that sits directly before a
+ * self-nav hero (two stacked navbars), mirroring the landing-page pass.
+ *
+ * Pure + fail-open. `enforced` callback reports whether a nav was prepended.
+ */
+export function ensureMicrositeNavbar(
+  blocks: AiBlock[],
+  opts: {
+    brandName?: string;
+    ctaText?: string;
+    ctaUrl?: string;
+    /** "chilipiper" → the nav CTA opens the Chili Piper modal; else a plain link. */
+    ctaMode?: "chilipiper" | "link";
+  } = {},
+  onEnforced?: (info: { prepended: boolean; navLinkCount: number }) => void,
+): AiBlock[] {
+  if (!Array.isArray(blocks) || blocks.length === 0) {
+    onEnforced?.({ prepended: false, navLinkCount: 0 });
+    return blocks;
+  }
+  let next = blocks.slice();
+
+  // Defensive strip: drop a leading standalone nav directly before a self-nav
+  // hero so we never ship two stacked navbars (the model sometimes adds one
+  // despite the prompt forbidding it).
+  while (
+    next.length >= 2 &&
+    MICROSITE_NAV_BLOCK_TYPES.has(blockTypeOf(next[0])) &&
+    MICROSITE_SELF_NAV_HERO_TYPES.has(blockTypeOf(next[1]))
+  ) {
+    next = next.slice(1);
+  }
+
+  const hasNav = next.some(
+    (b) =>
+      MICROSITE_NAV_BLOCK_TYPES.has(blockTypeOf(b)) ||
+      MICROSITE_SELF_NAV_HERO_TYPES.has(blockTypeOf(b)),
+  );
+  if (hasNav) {
+    onEnforced?.({ prepended: false, navLinkCount: 0 });
+    return next;
+  }
+
+  // Derive up to 3 anchor links from the page's key sections (skip the hero,
+  // footer, and the closing CTA — link the substantive middle sections). Assign
+  // each linked block a stable id so the anchor resolves in the renderer.
+  const navLinks: { label: string; url: string }[] = [];
+  for (let i = 0; i < next.length && navLinks.length < 3; i++) {
+    const block = next[i];
+    const type = blockTypeOf(block);
+    if (MICROSITE_HERO_BLOCK_TYPES.has(type)) continue;
+    if (type === "footer" || type === "bottom-cta" || type === "cta" || type === "dso-final-cta") continue;
+    const p = blockPropsOf(block);
+    const label =
+      (typeof p.headline === "string" && p.headline.trim()) ||
+      (typeof p.heading === "string" && p.heading.trim()) ||
+      (typeof p.eyebrow === "string" && p.eyebrow.trim()) ||
+      "";
+    if (!label) continue;
+    const anchor = micrositeSectionAnchorId(block, i);
+    // Stamp the id onto the block so the anchor target exists.
+    next[i] = { ...block, id: anchor, props: { ...p } };
+    navLinks.push({ label: label.slice(0, 40), url: `#${anchor}` });
+  }
+
+  const ctaText = (opts.ctaText && opts.ctaText.trim()) || "Schedule a Demo";
+  const ctaUrl = (opts.ctaUrl && opts.ctaUrl.trim()) || "#";
+  const cta2Action = opts.ctaMode === "chilipiper" ? "chilipiper" : "url";
+
+  const navBlock: AiBlock = {
+    id: "block-nav-header-0",
+    type: "nav-header",
+    props: {
+      logoText: (opts.brandName ?? "").trim(),
+      logoUrl: "",
+      navLinks,
+      phone: "",
+      cta1: { label: "", url: "" },
+      cta2: { label: ctaText, url: ctaUrl },
+      cta2Action,
+    },
+  };
+  onEnforced?.({ prepended: true, navLinkCount: navLinks.length });
+  return [navBlock, ...next];
+}
+
+/**
+ * (2) ALWAYS A STRONG HERO. Ensure the first CONTENT block (after any nav) is a
+ * hero with a dark/brand or image treatment — never a plain-white text-only
+ * opening hero. The neutral `hero` block defaults to `backgroundStyle: "dark"`
+ * in mergeWithDefaults, but the model can override it to `white`/`light-gray`
+ * with no image, producing exactly the forbidden plain-white text hero. This
+ * pass UPGRADES such a hero:
+ *   - force a dark/brand backgroundStyle (prefer the brand "dandy-green" anchor;
+ *     fall back to "dark" charcoal so a pale brand primary can't go white), and
+ *   - attach a hero image when one is available (the image pipeline fills the
+ *     slot from the library afterward) so the hero is visual, not text-only.
+ *
+ * Self-nav heroes (dso-heartland-hero / dso-practice-hero) are part of the
+ * premium dark-by-design DSO system — left untouched (their own variability +
+ * legibility passes handle them). Pure + fail-open.
+ */
+export function upgradeMicrositeHero(
+  blocks: AiBlock[],
+  opts: { hasHeroImage?: boolean } = {},
+  onEnforced?: (info: { upgraded: boolean; setBg?: string; attachedImageSlot?: boolean }) => void,
+): AiBlock[] {
+  if (!Array.isArray(blocks) || blocks.length === 0) {
+    onEnforced?.({ upgraded: false });
+    return blocks;
+  }
+  // Find the first content hero (skip a leading nav).
+  const heroIdx = blocks.findIndex((b) => MICROSITE_HERO_BLOCK_TYPES.has(blockTypeOf(b)));
+  if (heroIdx < 0) {
+    onEnforced?.({ upgraded: false });
+    return blocks;
+  }
+  const hero = blocks[heroIdx];
+  const type = blockTypeOf(hero);
+  // DSO self-nav heroes are dark-by-design — never downgrade/touch them here.
+  if (MICROSITE_SELF_NAV_HERO_TYPES.has(type)) {
+    onEnforced?.({ upgraded: false });
+    return blocks;
+  }
+  const p = blockPropsOf(hero);
+  const bg = typeof p.backgroundStyle === "string" ? p.backgroundStyle : "";
+  const hasImage =
+    (typeof p.imageUrl === "string" && p.imageUrl.trim() !== "") ||
+    (typeof p.mediaUrl === "string" && p.mediaUrl.trim() !== "");
+
+  const isDarkBgStyle = MICROSITE_DARK_BGS.has(bg);
+  // A hero is strong enough when it is dark/brand (a dark hero — with or without
+  // an image — is a valid "distinct visual hero" per the requirement), OR when
+  // it already carries a real hero image (a light hero with a photo is also
+  // acceptable). Only a LIGHT, image-less, text-only hero gets upgraded.
+  if (isDarkBgStyle || hasImage) {
+    onEnforced?.({ upgraded: false });
+    return blocks;
+  }
+
+  // Upgrade: force a dark/brand background. Prefer the brand anchor
+  // ("dandy-green" → --brand-primary) so the hero reads on-brand; the renderer
+  // routes "dark" through the charcoal preset, so even a pale brand primary
+  // stays legible. We use "dandy-green" (brand) as the primary choice.
+  const nextProps: Record<string, unknown> = { ...p, backgroundStyle: "dandy-green" };
+  let attachedImageSlot = false;
+  // Ensure the hero is image-capable so the image pipeline can attach a photo:
+  // set heroType to static-image and seed an empty imageUrl slot when none.
+  if (!hasImage) {
+    nextProps.heroType = "static-image";
+    if (typeof nextProps.imageUrl !== "string" || nextProps.imageUrl === "") {
+      nextProps.imageUrl = "";
+      attachedImageSlot = true;
+    }
+    // A split layout pairs the dark copy column with the image column — a
+    // strong, owner-approved treatment. Only set it when the model left the
+    // default centered layout (don't override an explicit author choice that
+    // already differs).
+    if (!nextProps.layout || nextProps.layout === "centered") {
+      nextProps.layout = "split";
+    }
+  }
+  const upgraded = blocks.slice();
+  upgraded[heroIdx] = { ...hero, props: nextProps };
+  onEnforced?.({ upgraded: true, setBg: "dandy-green", attachedImageSlot });
+  return upgraded;
+}
+
+/**
+ * (3) ENFORCE ALTERNATING SECTION RHYTHM. Walk the final block list and assign
+ * `backgroundStyle`s so surfaces ALTERNATE with NO two consecutive
+ * plain-white/cream sections, AND guarantee at least one dark/brand section per
+ * page. Deterministic (no randomness) so the same page is stable + testable.
+ *
+ * Rules:
+ *   - Nav / footer / self-section-less chrome and any hero are skipped (the hero
+ *     is its own visual moment, handled by upgradeMicrositeHero; dark-required /
+ *     dso-* blocks already render dark).
+ *   - For the remaining "section" blocks that carry a backgroundStyle, if a
+ *     light section directly follows another light section, the second is bumped
+ *     to a DIFFERENT light neutral; every Nth break is promoted to a dark/brand
+ *     band so the page gets real dark anchors and visual variation.
+ *   - If after the walk NO section reads dark/brand, the longest light run's
+ *     middle section is promoted to a dark band so every page has ≥1 dark
+ *     section (the hero already counts, but this guarantees a body anchor too).
+ *
+ * Pure + fail-open. Runs AFTER applyDesignIntensityBackgrounds /
+ * applyDandySupportingVariability so it is the final authority on rhythm.
+ */
+export function enforceSectionBgRhythm(
+  blocks: AiBlock[],
+  onEnforced?: (info: { whiteRunsBroken: number; darkPromoted: number }) => void,
+): AiBlock[] {
+  if (!Array.isArray(blocks) || blocks.length === 0) {
+    onEnforced?.({ whiteRunsBroken: 0, darkPromoted: 0 });
+    return blocks;
+  }
+  const next = blocks.map((b) => ({ ...b, props: { ...blockPropsOf(b) } }));
+
+  // Identify the body "section" blocks eligible for rhythm assignment: anything
+  // that carries a backgroundStyle, is not chrome (nav/footer), not a hero, and
+  // not a dark-by-design dso-* block (those manage their own dark surface).
+  const isSection = (b: AiBlock): boolean => {
+    const t = blockTypeOf(b);
+    if (t === "nav-header" || t === "footer" || t === "dso-practice-nav") return false;
+    if (MICROSITE_HERO_BLOCK_TYPES.has(t)) return false;
+    if (t.startsWith("dso-")) return false; // dark-by-design premium system
+    return "backgroundStyle" in blockPropsOf(b);
+  };
+
+  const lightAlternates = ["white", "muted", "light-gray"];
+  let whiteRunsBroken = 0;
+  let darkPromoted = 0;
+  let sectionOrdinal = 0;
+  let prevLight: string | null = null;
+
+  for (let i = 0; i < next.length; i++) {
+    const block = next[i];
+    if (!isSection(block)) {
+      // A dark/dso/hero band resets the consecutive-light tracking.
+      const t = blockTypeOf(block);
+      if (MICROSITE_DARK_BGS.has(String(blockPropsOf(block).backgroundStyle)) || t.startsWith("dso-")) {
+        prevLight = null;
+      }
+      continue;
+    }
+    const p = block.props;
+    const bg = typeof p.backgroundStyle === "string" ? p.backgroundStyle : "white";
+
+    if (MICROSITE_DARK_BGS.has(bg)) {
+      // Deliberate dark anchor — keep it, reset the light run.
+      prevLight = null;
+      sectionOrdinal++;
+      continue;
+    }
+
+    // This is a light section. Every 3rd body section becomes a dark/brand band
+    // for genuine variation; otherwise it must differ from the previous light.
+    const promoteToDark = sectionOrdinal > 0 && sectionOrdinal % 3 === 2;
+    if (promoteToDark) {
+      p.backgroundStyle = "dandy-green";
+      darkPromoted++;
+      prevLight = null;
+    } else {
+      let chosen = MICROSITE_LIGHT_BGS.has(bg) ? bg : "white";
+      if (prevLight !== null && chosen === prevLight) {
+        chosen = lightAlternates.find((c) => c !== prevLight) ?? "muted";
+        whiteRunsBroken++;
+      }
+      p.backgroundStyle = chosen;
+      prevLight = chosen;
+    }
+    sectionOrdinal++;
+  }
+
+  // Guarantee at least one dark/brand BODY section. The hero is dark too, but a
+  // body anchor breaks up a long light run. If none exists, promote the middle
+  // eligible section to a dark band.
+  const hasDarkBody = next.some(
+    (b) => isSection(b) && MICROSITE_DARK_BGS.has(String(b.props.backgroundStyle)),
+  );
+  if (!hasDarkBody) {
+    const sectionIdxs = next.map((b, i) => (isSection(b) ? i : -1)).filter((i) => i >= 0);
+    if (sectionIdxs.length > 0) {
+      const mid = sectionIdxs[Math.floor(sectionIdxs.length / 2)];
+      next[mid].props.backgroundStyle = "dandy-green";
+      darkPromoted++;
+    }
+  }
+
+  onEnforced?.({ whiteRunsBroken, darkPromoted });
+  return next;
+}
+
 function getOpenAIClient(): OpenAI | null {
   const integrationBase = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   const integrationKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
@@ -1151,6 +1507,12 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
 // them instead of skipping the (previously absent) prop. (Task #1127.)
 const SECTION_BG_SEED_DEFAULTS: Record<string, string> = {
   "dandy-columns-v3": "white",
+  // Task #37 — video-section's renderer honors backgroundStyle but the block has
+  // no explicit mergeWithDefaults case, so it would otherwise reach the rhythm
+  // passes WITHOUT a backgroundStyle and stay invisible to them. Seed a
+  // light-neutral default (like dandy-columns-v3) so enforceSectionBgRhythm /
+  // applyDandySupportingVariability can alternate it.
+  "video-section": "white",
 };
 
 const BLOCK_PROP_SCHEMAS: Record<string, string> = {
@@ -2395,6 +2757,21 @@ export function buildSystemPrompt(
     // forces an unfillable section.
     .filter(b => !excludeTypes.has(canonicalizeBlockType(b.type ?? "")));
 
+  // Task #37 — strong, explicit DESIGN-SYSTEM rules for every FREE-FORM path
+  // (neutral / DSO / segment-pool). The owner's hard requirement: no microsite
+  // may look like a plain white document with stacked text. These rules are
+  // ALSO backstopped by post-generation enforcement (ensureMicrositeNavbar /
+  // upgradeMicrositeHero / enforceSectionBgRhythm) in case the model ignores
+  // them — but stating them here gets the model most of the way there.
+  const FREEFORM_DESIGN_RULES = [
+    "DESIGN SYSTEM — NON-NEGOTIABLE (this must read like a polished modern web page, NOT a white one-page document):",
+    "- START with a navbar/header: a logo lockup + a primary CTA button + 2–3 anchor links to the page's key sections. Never ship a page with no header.",
+    "- The FIRST section MUST be a VISUAL hero: a dark brand-color background with a hero image and overlay, OR a split dark+image hero. NEVER a plain white text-only hero. Set the hero's backgroundStyle to a dark/brand preset (\"dark\", \"dandy-green\", \"gradient\", or \"black\") and give it an image.",
+    "- ALTERNATE section backgrounds down the page (dark/brand, tinted/muted, image, light) — NEVER stack two white/cream sections back-to-back. Include at least one dark brand section and at least one image-bearing section in the body. Use the backgroundStyle field on every section that supports it.",
+    "- Break up text with visual variety: images, stat bars, cards, proof points, pull quotes, and dividers. No dense walls of text; keep generous breathing room between sections.",
+    "- FORBIDDEN: an all-white page, a page with no header, and a text-only opening hero. Any of these is a failure.",
+  ].join("\n");
+
   const blockCount = templateBlockTypes ? templateBlockTypes.length : resolvedBlockTypes.length;
   const footer = [
     "",
@@ -2447,6 +2824,8 @@ export function buildSystemPrompt(
       "- Vary BOTH the selection AND the order across accounts — do NOT emit the same sequence every time. Choose based on THIS account: the brief's emphasis, account size/segment, the REFERENCE PAGE, and the EXAMPLES above.",
       "- Include at least one proof/metrics section and at least one feature/benefit section where they fit. Skip sections that don't fit; NEVER pad with empty or stub blocks.",
       "- Use ONLY the exact block type strings listed above. NEVER invent block types, NEVER use business-case blocks, and NEVER mix in the other DSO product's blocks.",
+      "",
+      FREEFORM_DESIGN_RULES,
       "Every block's copy must feel written specifically for this account — their name, scale, and situation woven in naturally.",
       "Use plain, direct language. If a phrase sounds like it belongs in a pitch deck or a press release, rewrite it.",
       "FINAL CAPITALIZATION REMINDER: Every single string value — headlines, eyebrows, subheadlines, bullet points, step titles, labels, FAQ questions — MUST start with a capital letter. NEVER start any text value with a lowercase letter. NEVER title-case (capitalize every word). Only the first word + proper nouns + acronyms get capitals.",
@@ -2477,6 +2856,8 @@ export function buildSystemPrompt(
       "- Between them, pick the approved blocks that best tell THIS account's story, and place a closing CTA (\"bottom-cta\") immediately before the footer. Vary the selection and order across accounts — do NOT emit the same sequence every time.",
       "- Sequence sections as a logical narrative: hook → problem/value → proof → benefits → closing CTA → footer. Skip blocks that don't fit THIS account; never pad with empty or stub blocks.",
       "- Use ONLY the block types listed above (exact type strings). NEVER invent block types and NEVER use any block not listed above.",
+      "",
+      FREEFORM_DESIGN_RULES,
       "Every block's copy must feel written specifically for this account — their name, scale, and situation woven in naturally.",
       "Use plain, direct language. If a phrase sounds like it belongs in a pitch deck or a press release, rewrite it.",
       "FINAL CAPITALIZATION REMINDER: Every single string value — headlines, eyebrows, subheadlines, bullet points, step titles, labels, FAQ questions — MUST start with a capital letter. NEVER start any text value with a lowercase letter. NEVER title-case (capitalize every word). Only the first word + proper nouns + acronyms get capitals.",
@@ -2507,6 +2888,8 @@ export function buildSystemPrompt(
       "- Include at least one proof/metrics section (trust-bar, stats, stat-callout, or testimonial), at least one features/benefits section (benefits-grid or how-it-works), and a closing CTA (bottom-cta) immediately before the footer.",
       "- Sequence sections as a logical narrative: hook → problem/value → proof → how-it-works/benefits → comparison → closing CTA → footer. Skip sections that don't fit; never pad.",
       "- Use ONLY the block types listed above (exact type strings). NEVER invent block types and NEVER use industry-specific compound blocks.",
+      "",
+      FREEFORM_DESIGN_RULES,
       "Every block's copy must feel written specifically for this account — their name, scale, and situation woven in naturally.",
       "Use plain, direct language. If a phrase sounds like it belongs in a pitch deck or a press release, rewrite it.",
       "FINAL CAPITALIZATION REMINDER: Every single string value — headlines, eyebrows, subheadlines, bullet points, step titles, labels, FAQ questions — MUST start with a capital letter. NEVER start any text value with a lowercase letter. NEVER title-case (capitalize every word). Only the first word + proper nouns + acronyms get capitals.",
@@ -3591,6 +3974,69 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // for parity + future hero variants.
     normalizedBlocks = enforceHeroLegibility(normalizedBlocks as unknown[]) as AiBlock[];
 
+    // ── FREE-FORM chrome + hero enforcement (Task #37) ────────────────────
+    // HARD REQUIREMENT backstop: on the AI-assembled (free-form) path the model
+    // often ships a navbar-less, plain-white text hero. Template-driven pages
+    // keep their own authored chrome, so this is gated to `!templateBlocks`.
+    // Runs BEFORE the image pipeline so a hero image slot the upgrade seeds gets
+    // filled by the library/scraped/AI fill passes below. Fail-open: each pass
+    // skips a malformed block and never throws.
+    const isFreeformMicrosite = !templateBlocks;
+    if (isFreeformMicrosite) {
+      // (1) Always a navbar — prepend a populated nav-header if the model emitted
+      // none (and the page doesn't open with a self-nav hero).
+      const navCtaUrl =
+        ctaOverride?.url ??
+        (brand.chilipiperUrl as string | undefined) ??
+        (brand.defaultCtaUrl as string | undefined) ??
+        "#";
+      const navCtaMode: "chilipiper" | "link" =
+        ctaOverride?.mode === "chilipiper" || (!ctaOverride && Boolean(brand.chilipiperUrl))
+          ? "chilipiper"
+          : "link";
+      normalizedBlocks = ensureMicrositeNavbar(
+        normalizedBlocks,
+        {
+          brandName: (brand.brandName as string | undefined) ?? "",
+          ctaText: "Schedule a Demo",
+          ctaUrl: navCtaUrl,
+          ctaMode: navCtaMode,
+        },
+        (info) => {
+          if (info.prepended) {
+            logger.info(
+              { event: "microsite_navbar_enforced", accountId, tenantId, navLinks: info.navLinkCount },
+              "[generate-microsite] prepended nav-header (model emitted no navbar)",
+            );
+          }
+        },
+      );
+
+      // (2) Always a strong hero — upgrade a plain-white text-only opening hero
+      // to a dark/brand + image treatment. Whether a real hero image exists is
+      // known here (Dandy lp-hero pool below for Dandy; for all tenants the
+      // image fill pass will populate the seeded slot), so we always allow the
+      // hero to carry an image slot.
+      normalizedBlocks = upgradeMicrositeHero(
+        normalizedBlocks,
+        { hasHeroImage: true },
+        (info) => {
+          if (info.upgraded) {
+            logger.info(
+              {
+                event: "microsite_hero_upgraded",
+                accountId,
+                tenantId,
+                setBg: info.setBg,
+                attachedImageSlot: info.attachedImageSlot,
+              },
+              "[generate-microsite] upgraded plain-white text hero to dark/brand + image",
+            );
+          }
+        },
+      );
+    }
+
     // ── Image pipeline (parity with the marketing generator) ──────────────
     // Page-level topic context biases image scoring toward on-topic library
     // imagery even when a block headline is generic.
@@ -3785,6 +4231,29 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       // so pages feel even more distinct. Same deterministic-per-account hash;
       // only named layout/variant props change, order untouched.
       normalizedBlocks = applyDandyLayoutVariability(normalizedBlocks, seedKey);
+    }
+
+    // (3) ENFORCE ALTERNATING SECTION RHYTHM (Task #37) — the FINAL authority on
+    // section backgrounds for the free-form path. Runs after the design-intensity
+    // + Dandy variability passes so it can break any white-after-white run they
+    // left and guarantee at least one dark/brand BODY anchor per page. Template
+    // pages keep their authored rhythm (gated to `!templateBlocks`). Deterministic
+    // + fail-open.
+    if (isFreeformMicrosite) {
+      normalizedBlocks = enforceSectionBgRhythm(normalizedBlocks, (info) => {
+        if (info.whiteRunsBroken > 0 || info.darkPromoted > 0) {
+          logger.info(
+            {
+              event: "microsite_section_rhythm_enforced",
+              accountId,
+              tenantId,
+              whiteRunsBroken: info.whiteRunsBroken,
+              darkPromoted: info.darkPromoted,
+            },
+            "[generate-microsite] enforced alternating section rhythm (broke white runs / added dark anchors)",
+          );
+        }
+      });
     }
 
     // AI image-gen / Unsplash fallback for slots the library couldn't fill —

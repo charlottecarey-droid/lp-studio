@@ -35,7 +35,13 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { normalizeBlock, applyDandySupportingVariability } from "./generate-microsite";
+import {
+  normalizeBlock,
+  applyDandySupportingVariability,
+  ensureMicrositeNavbar,
+  upgradeMicrositeHero,
+  enforceSectionBgRhythm,
+} from "./generate-microsite";
 import { applyDesignIntensityBackgrounds } from "../lp/generate-page";
 
 type Block = Record<string, unknown>;
@@ -321,5 +327,233 @@ describe("microsite section background — structural self-section guard", () =>
         `seeded a light-neutral backgroundStyle by mergeWithDefaults:\n` +
         offenders.map(o => `  • ${o}`).join("\n"),
     ).toEqual([]);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Task #37 — FREE-FORM microsite DESIGN-SYSTEM enforcement: a generated
+// microsite must NEVER look like a plain white document with stacked text.
+// The post-generation backstops must hold even when the model ignores the
+// prompt: (1) a navbar is always present (prepended if missing), (2) the
+// opening hero is dark/image (a plain-white text hero is upgraded), and
+// (3) sections alternate with no two consecutive white bands + ≥1 dark anchor.
+// ───────────────────────────────────────────────────────────────────────────
+
+const typeOf = (b: Block): string => b.type as string;
+
+describe("Task #37 — navbar is always present (prepended if missing)", () => {
+  it("prepends a nav-header with CTA + anchor links when the model emits no nav", () => {
+    const blocks: Block[] = [
+      { type: "hero", props: { headline: "Welcome", backgroundStyle: "dark" } },
+      { type: "benefits-grid", props: { headline: "Why us", backgroundStyle: "white" } },
+      { type: "trust-bar", props: { headline: "Proof", items: [{ value: "10x", label: "faster" }] } },
+      { type: "bottom-cta", props: { headline: "Ready?", backgroundStyle: "dark" } },
+      { type: "footer", props: {} },
+    ];
+    let info: { prepended: boolean; navLinkCount: number } | null = null;
+    const out = ensureMicrositeNavbar(
+      blocks,
+      { brandName: "Acme", ctaText: "Schedule a Demo", ctaUrl: "https://book.example", ctaMode: "chilipiper" },
+      (i) => { info = i; },
+    );
+    expect(typeOf(out[0])).toBe("nav-header");
+    expect(info!.prepended).toBe(true);
+    const navProps = out[0].props as Block;
+    expect((navProps.cta2 as Block).label).toBe("Schedule a Demo");
+    expect((navProps.cta2 as Block).url).toBe("https://book.example");
+    expect(navProps.cta2Action).toBe("chilipiper");
+    // Anchor links derived from real body sections (not the hero/cta/footer).
+    const links = navProps.navLinks as Array<{ label: string; url: string }>;
+    expect(links.length).toBeGreaterThan(0);
+    expect(links.every(l => l.url.startsWith("#"))).toBe(true);
+    // The linked sections carry the matching anchor id.
+    for (const l of links) {
+      const id = l.url.slice(1);
+      expect(out.some(b => (b.id as string) === id)).toBe(true);
+    }
+  });
+
+  it("does NOT prepend a second nav when one already exists", () => {
+    const blocks: Block[] = [
+      { type: "nav-header", props: { logoText: "Acme", navLinks: [] } },
+      { type: "hero", props: { headline: "Welcome", backgroundStyle: "dark" } },
+    ];
+    const out = ensureMicrositeNavbar(blocks, { brandName: "Acme" });
+    expect(out.filter(b => typeOf(b) === "nav-header")).toHaveLength(1);
+    expect(out).toHaveLength(2);
+  });
+
+  it("does NOT prepend a nav before a self-nav hero (it bakes its own nav)", () => {
+    const blocks: Block[] = [
+      { type: "dso-heartland-hero", props: { headline: "Built for scale" } },
+      { type: "dso-final-cta", props: {} },
+    ];
+    const out = ensureMicrositeNavbar(blocks, { brandName: "Dandy" });
+    expect(typeOf(out[0])).toBe("dso-heartland-hero");
+    expect(out.some(b => typeOf(b) === "nav-header")).toBe(false);
+  });
+
+  it("strips a redundant leading nav stacked before a self-nav hero", () => {
+    const blocks: Block[] = [
+      { type: "nav-header", props: { logoText: "Dandy", navLinks: [] } },
+      { type: "dso-heartland-hero", props: { headline: "Built for scale" } },
+    ];
+    const out = ensureMicrositeNavbar(blocks, { brandName: "Dandy" });
+    expect(typeOf(out[0])).toBe("dso-heartland-hero");
+    expect(out.some(b => typeOf(b) === "nav-header")).toBe(false);
+  });
+});
+
+describe("Task #37 — hero is dark/image, never plain-white text-only", () => {
+  it("upgrades a plain-white text-only hero to a dark/brand + image hero", () => {
+    const blocks: Block[] = [
+      { type: "nav-header", props: { navLinks: [] } },
+      { type: "hero", props: { headline: "Hello", backgroundStyle: "white", imageUrl: "" } },
+      { type: "footer", props: {} },
+    ];
+    let info: { upgraded: boolean; setBg?: string } | null = null;
+    const out = upgradeMicrositeHero(blocks, { hasHeroImage: true }, (i) => { info = i; });
+    const hero = out.find(b => typeOf(b) === "hero")!;
+    const p = hero.props as Block;
+    expect(info!.upgraded).toBe(true);
+    expect(DARK_BRAND).toContain(p.backgroundStyle);
+    // Made image-capable so the image pipeline can attach a photo.
+    expect(p.heroType).toBe("static-image");
+    expect("imageUrl" in p).toBe(true);
+  });
+
+  it("leaves an already-dark hero untouched", () => {
+    const blocks: Block[] = [
+      { type: "hero", props: { headline: "Hi", backgroundStyle: "dark", imageUrl: "" } },
+    ];
+    const out = upgradeMicrositeHero(blocks, { hasHeroImage: true });
+    expect((out[0].props as Block).backgroundStyle).toBe("dark");
+  });
+
+  it("leaves a light hero that already has an image untouched", () => {
+    const blocks: Block[] = [
+      { type: "hero", props: { headline: "Hi", backgroundStyle: "white", imageUrl: "/api/storage/x.jpg" } },
+    ];
+    const out = upgradeMicrositeHero(blocks, { hasHeroImage: true });
+    expect((out[0].props as Block).backgroundStyle).toBe("white");
+  });
+
+  it("never downgrades a dso self-nav hero (dark-by-design)", () => {
+    const blocks: Block[] = [
+      { type: "dso-heartland-hero", props: { headline: "Scale" } },
+    ];
+    let info: { upgraded: boolean } | null = null;
+    upgradeMicrositeHero(blocks, {}, (i) => { info = i; });
+    expect(info!.upgraded).toBe(false);
+  });
+});
+
+describe("Task #37 — section rhythm: no two consecutive white, ≥1 dark anchor", () => {
+  const isLight = (v: unknown) => NEAR_WHITE.includes(v as string);
+  const isDark = (v: unknown) => DARK_BRAND.includes(v as string);
+
+  it("breaks a run of white body sections and guarantees a dark band", () => {
+    const blocks: Block[] = [
+      { type: "nav-header", props: { navLinks: [] } },
+      { type: "hero", props: { headline: "H", backgroundStyle: "dark" } },
+      { type: "benefits-grid", props: { backgroundStyle: "white" } },
+      { type: "how-it-works", props: { backgroundStyle: "white" } },
+      { type: "trust-bar", props: { backgroundStyle: "white" } },
+      { type: "comparison", props: { backgroundStyle: "white" } },
+      { type: "bottom-cta", props: { backgroundStyle: "dark" } },
+      { type: "footer", props: {} },
+    ];
+    const out = enforceSectionBgRhythm(blocks);
+    // Collect only the BODY section backgrounds (skip nav/hero/cta/footer).
+    const bodyTypes = new Set(["benefits-grid", "how-it-works", "trust-bar", "comparison"]);
+    const bodyBgs = out
+      .filter(b => bodyTypes.has(typeOf(b)))
+      .map(b => (b.props as Block).backgroundStyle as string);
+    // No two consecutive identical light backgrounds among the body sections.
+    for (let i = 1; i < bodyBgs.length; i++) {
+      if (isLight(bodyBgs[i]) && isLight(bodyBgs[i - 1])) {
+        expect(bodyBgs[i]).not.toBe(bodyBgs[i - 1]);
+      }
+    }
+    // At least one body section reads dark/brand (a real anchor in the body).
+    expect(bodyBgs.some(isDark)).toBe(true);
+  });
+
+  it("adds a dark BODY anchor when every body section is light", () => {
+    const blocks: Block[] = [
+      { type: "hero", props: { headline: "H", backgroundStyle: "dark" } },
+      { type: "benefits-grid", props: { backgroundStyle: "white" } },
+      { type: "trust-bar", props: { backgroundStyle: "muted" } },
+      { type: "footer", props: {} },
+    ];
+    const out = enforceSectionBgRhythm(blocks);
+    const bodyBgs = out
+      .filter(b => ["benefits-grid", "trust-bar"].includes(typeOf(b)))
+      .map(b => (b.props as Block).backgroundStyle as string);
+    expect(bodyBgs.some(isDark)).toBe(true);
+  });
+
+  it("is deterministic — same input yields the same rhythm", () => {
+    const make = (): Block[] => [
+      { type: "hero", props: { headline: "H", backgroundStyle: "dark" } },
+      { type: "benefits-grid", props: { backgroundStyle: "white" } },
+      { type: "how-it-works", props: { backgroundStyle: "white" } },
+      { type: "trust-bar", props: { backgroundStyle: "white" } },
+      { type: "footer", props: {} },
+    ];
+    const a = enforceSectionBgRhythm(make()).map(b => (b.props as Block).backgroundStyle);
+    const b = enforceSectionBgRhythm(make()).map(x => (x.props as Block).backgroundStyle);
+    expect(a).toEqual(b);
+  });
+
+  it("never touches dso-* body blocks (dark-by-design)", () => {
+    const blocks: Block[] = [
+      { type: "dso-heartland-hero", props: { headline: "H" } },
+      { type: "dso-challenges", props: { backgroundStyle: "muted" } },
+      { type: "dso-final-cta", props: { backgroundStyle: "dandy-green" } },
+    ];
+    const out = enforceSectionBgRhythm(blocks);
+    expect((out[1].props as Block).backgroundStyle).toBe("muted");
+    expect((out[2].props as Block).backgroundStyle).toBe("dandy-green");
+  });
+});
+
+describe("Task #37 — full free-form enforcement chain holds end-to-end", () => {
+  it("a navbar-less, white-hero, all-white page becomes nav + dark hero + alternating rhythm", () => {
+    // The worst-case model output the owner complained about: no nav, a plain
+    // white text hero, and a stack of white sections. We use the freeform-vocab
+    // blocks that actually carry a backgroundStyle surface (testimonial /
+    // video-section / dandy-columns-v3) — the rhythm pass can only restyle
+    // blocks whose renderer honors backgroundStyle; blocks with a fixed surface
+    // (benefits-grid/how-it-works) are intentionally left alone.
+    const raw: Block[] = normalize([
+      { type: "hero", props: { headline: "Plain", backgroundStyle: "white", imageUrl: "" } },
+      { type: "dandy-columns-v3", props: { headline: "A", backgroundStyle: "white" } },
+      { type: "testimonial", props: { quote: "Great", author: "Dr. Lee", backgroundStyle: "white" } },
+      { type: "video-section", props: { headline: "Watch", backgroundStyle: "white" } },
+      { type: "bottom-cta", props: { headline: "Go", backgroundStyle: "white" } },
+      { type: "footer", props: {} },
+    ]);
+    let out = ensureMicrositeNavbar(raw, { brandName: "Acme", ctaText: "Book", ctaUrl: "#" });
+    out = upgradeMicrositeHero(out, { hasHeroImage: true });
+    out = enforceSectionBgRhythm(out);
+
+    // (1) Navbar present and first.
+    expect(typeOf(out[0])).toBe("nav-header");
+    // (2) The hero is dark/brand (not plain white) and image-capable.
+    const hero = out.find(b => typeOf(b) === "hero")!;
+    expect(DARK_BRAND).toContain((hero.props as Block).backgroundStyle);
+    expect((hero.props as Block).heroType).toBe("static-image");
+    // (3) No two consecutive white BODY sections; ≥1 dark body anchor.
+    const bodyTypes = new Set(["dandy-columns-v3", "testimonial", "video-section"]);
+    const bodyBgs = out
+      .filter(b => bodyTypes.has(typeOf(b)))
+      .map(b => (b.props as Block).backgroundStyle as string);
+    for (let i = 1; i < bodyBgs.length; i++) {
+      if (NEAR_WHITE.includes(bodyBgs[i]) && NEAR_WHITE.includes(bodyBgs[i - 1])) {
+        expect(bodyBgs[i]).not.toBe(bodyBgs[i - 1]);
+      }
+    }
+    expect(bodyBgs.some(v => DARK_BRAND.includes(v))).toBe(true);
   });
 });
