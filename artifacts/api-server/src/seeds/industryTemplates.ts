@@ -136,7 +136,7 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
           showSocialProof: true,
           socialProofText: "★★★★★  4.9 across 1,800+ Google reviews — top-rated in the East Bay",
           imageUrl:
-            "https://images.unsplash.com/photo-1606811971618-4486d14f3f99?q=80&w=1600&h=1200&fit=crop",
+            "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=1600&h=1200&fit=crop",
           mediaUrl: "",
         },
       },
@@ -348,7 +348,7 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
           images: [
             { src: "https://images.unsplash.com/photo-1581585504334-1cdf9bbb5a05?q=80&w=900&fit=crop", alt: "Invisalign aligners" },
             { src: "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?q=80&w=900&fit=crop", alt: "Bright veneer smile" },
-            { src: "https://images.unsplash.com/photo-1606811971618-4486d14f3f99?q=80&w=900&fit=crop", alt: "Modern operatory" },
+            { src: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=900&fit=crop", alt: "Modern operatory" },
             { src: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=900&fit=crop", alt: "Patient smiling" },
             { src: "https://images.unsplash.com/photo-1607613009820-a29f7bb81c04?q=80&w=900&fit=crop", alt: "Whitening result" },
           ],
@@ -629,7 +629,7 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
               ctaText: "Single implant details",
               ctaUrl: "#",
               imageUrl:
-                "https://images.unsplash.com/photo-1606811971618-4486d14f3f99?q=80&w=900&h=700&fit=crop",
+                "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=900&h=700&fit=crop",
             },
             {
               tag: "FULL-ARCH (ALL-ON-4)",
@@ -660,7 +660,7 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
           subheadline: "A small selection — many more available on request.",
           items: [
             {
-              image: "https://images.unsplash.com/photo-1606811971618-4486d14f3f99?q=80&w=900&h=600&fit=crop",
+              image: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=900&h=600&fit=crop",
               logoUrl: "",
               title: "Full-arch reconstruction in a single visit, 64-year-old male",
               categories: "ALL-ON-4 / IMMEDIATE LOAD",
@@ -792,7 +792,7 @@ export const INDUSTRY_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
               ctaText: "Read our partner manifesto",
               ctaUrl: "#",
               imageUrl:
-                "https://images.unsplash.com/photo-1606811971618-4486d14f3f99?q=80&w=900&h=700&fit=crop",
+                "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=900&h=700&fit=crop",
             },
             {
               tag: "ECONOMICS",

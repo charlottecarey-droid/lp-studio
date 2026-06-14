@@ -1548,7 +1548,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       headline: "DSOs that switched and never looked back.",
       backgroundStyle: "dandy-green",
       cases: [
-        { name: "APEX Dental Partners", stat: "12.5%", label: "annualized revenue potential increase", quote: "Dandy values education, technology, and people. That's what makes them a great partner and not just another lab.", author: "Dr. Layla Lohmann, Founder", image: "https://images.unsplash.com/photo-1606811971618-4486d14f3f99?q=80&w=800&h=480&fit=crop" },
+        { name: "APEX Dental Partners", stat: "12.5%", label: "annualized revenue potential increase", quote: "Dandy values education, technology, and people. That's what makes them a great partner and not just another lab.", author: "Dr. Layla Lohmann, Founder", image: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=800&h=480&fit=crop" },
         { name: "Smile Brands", stat: "2–3 min", label: "saved per crown appointment", quote: "The efficiency gains were immediate. Our doctors noticed the difference from the very first case.", author: "VP of Clinical Operations", image: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=800&h=480&fit=crop" },
         { name: "Tend", stat: "40%", label: "faster lab turnaround", quote: "Speed matters when you're growing fast. Dandy keeps pace with our expansion without sacrificing quality.", author: "Head of Operations", image: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=800&h=480&fit=crop" },
       ],
@@ -3663,7 +3663,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         practice: "Voss & Daughters Dental",
         location: "Charleston, SC",
         imageUrl:
-          "https://images.unsplash.com/photo-1606811971618-4486d14f3f99?w=2000&q=80",
+          "https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=2000&q=80",
         href: "#",
       },
       filters: ["All Stories", "Growth", "Workflow", "Patient Care", "Aesthetics"],
@@ -4813,7 +4813,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       blurb: "70,000 square feet in Provo. AI runs on every workstation. Master technicians refine every output. The result feels inevitable.",
       frames: [
         { imageUrl: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=1600&fit=crop", label: "01 / The lab floor", headline: "<em>Robotic</em> milling, master craft.", where: "Provo, UT" },
-        { imageUrl: "https://images.unsplash.com/photo-1606811971618-4486d14f3f99?q=80&w=900&fit=crop", label: "02 / The crown", headline: "Every <em>margin</em> within microns.", where: "QA bench" },
+        { imageUrl: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=900&fit=crop", label: "02 / The crown", headline: "Every <em>margin</em> within microns.", where: "QA bench" },
         { imageUrl: "https://images.unsplash.com/photo-1629909615184-74f495363b67?q=80&w=1400&fit=crop", label: "03 / The team", headline: "Master ceramists, <em>AI co-pilots</em>.", where: "Design studio" },
       ],
     }),
