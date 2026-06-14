@@ -1,6 +1,6 @@
 /**
  * Screenshot attach zone — "or paste / drop a screenshot of a page you like"
- * (June 2026). Shared by CreatePageModal and NewMicrositeModal's AI tabs.
+ * (June 2026). Shared by CreatePageModal's AI tabs.
  *
  * Split into a hook + a presentational zone because paste handling is
  * modal-scoped (a clipboard image pasted ANYWHERE in the modal while the AI

@@ -50,7 +50,7 @@ import {
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
 import DraftEmailModal from "./DraftEmailModal";
-import { GenerateMicrositeModal } from "./sales-accounts";
+import { GenerateMicrositeModal } from "@/components/sales/GenerateMicrositeModal";
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
 import { useAuth } from "@/context/AuthContext";

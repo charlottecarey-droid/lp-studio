@@ -41,7 +41,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
-import { NewMicrositeModal } from "@/components/NewMicrositeModal";
+import { GenerateMicrositeModal } from "@/components/sales/GenerateMicrositeModal";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PageHint } from "@/components/ui/page-hint";
 import { useAuth } from "@/context/AuthContext";
@@ -1808,7 +1808,7 @@ export default function SalesPages() {
         </DialogContent>
       </Dialog>
 
-      <NewMicrositeModal open={showNewMicrosite} onClose={() => { setShowNewMicrosite(false); load(); }} />
+      <GenerateMicrositeModal open={showNewMicrosite} onClose={() => { setShowNewMicrosite(false); load(); }} onCreated={load} />
     </SalesLayout>
   );
 }

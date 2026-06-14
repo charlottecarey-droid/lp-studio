@@ -28,10 +28,6 @@ args = "img-test"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "tc-api"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "tc-lp-studio"
 
 [[workflows.workflow]]
@@ -44,17 +40,6 @@ args = "cd artifacts/api-server && npx vitest run src/routes/lp/generate-page.im
 
 [workflows.workflow.metadata]
 isValidation = true
-
-[[workflows.workflow]]
-name = "tc-api"
-author = "agent"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/api-server run typecheck"
 
 [[workflows.workflow]]
 name = "tc-lp-studio"

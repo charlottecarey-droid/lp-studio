@@ -35,7 +35,7 @@ import {
 } from "@/lib/heat-tier";
 import { useAuth } from "@/context/AuthContext";
 import { useBrandConfig } from "@/context/BrandConfigContext";
-import { NewMicrositeModal } from "@/components/NewMicrositeModal";
+import { GenerateMicrositeModal } from "@/components/sales/GenerateMicrositeModal";
 
 const API_BASE = "/api";
 
@@ -1071,7 +1071,7 @@ export default function SalesDashboard() {
           </>
         )}
       </div>
-      <NewMicrositeModal open={showNewMicrosite} onClose={() => setShowNewMicrosite(false)} />
+      <GenerateMicrositeModal open={showNewMicrosite} onClose={() => setShowNewMicrosite(false)} />
     </SalesLayout>
   );
 }
