@@ -336,6 +336,39 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
 };
 
 /**
+ * A NEUTRAL, tenant-agnostic default block for each structural role. Used to
+ * satisfy a REQUIRED page-outline CATEGORY step when the segment's approved
+ * pool has no block of that role — e.g. a generic tenant that has not curated
+ * an approved pool (the common case): its pool is empty, so without these
+ * fallbacks an authored category outline silently collapses to only the roles
+ * that happened to have a default (hero/cta/footer). With these, a category
+ * outline always renders the structure the tenant authored.
+ *
+ * Every value here is a GENERIC block (never a Dandy-/DSO-/industry-specific
+ * type) so it is safe to drop into any tenant's page. `layout`, `pricing`, and
+ * `faq` are intentionally omitted: `layout` is a structural primitive (not a
+ * sensible standalone section), and there is no neutral pricing/faq block in
+ * the shared vocabulary — a required step for one of those still falls through
+ * gracefully rather than emitting an industry-specific block.
+ *
+ * These only fill steps the pool could NOT satisfy, so curated tenants (whose
+ * pool covers their roles) are unaffected.
+ */
+export const NEUTRAL_ROLE_DEFAULT_BLOCKS: Partial<Record<BlockRoleTag, string>> = {
+  hero: "hero",
+  header: "nav-header",
+  footer: "footer",
+  stats: "stat-row",
+  "social-proof": "testimonial",
+  cta: "bottom-cta",
+  features: "benefits-grid",
+  comparison: "comparison",
+  content: "rich-text",
+  media: "video-section",
+  form: "form",
+};
+
+/**
  * Full-page template block types — blocks that render an ENTIRE standalone page
  * (their own hero, body, and chrome) rather than composing into a larger page.
  * A page whose first block is one of these is a "full-page template": users

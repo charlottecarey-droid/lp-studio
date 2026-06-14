@@ -35,7 +35,7 @@ import {
   type ImageFitSlot,
 } from "../../lib/ai-prompts/image-fit";
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
-import { resolveBlockTags, getDefaultBlockTags, BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS, type BlockRoleTag } from "@workspace/lp-template-engine";
+import { resolveBlockTags, getDefaultBlockTags, BLOCK_ROLE_TAGS, BLOCK_ROLE_TAG_DESCRIPTIONS, NEUTRAL_ROLE_DEFAULT_BLOCKS, type BlockRoleTag } from "@workspace/lp-template-engine";
 import {
   governanceMapFromRows,
   blocksApprovedForSegment,
@@ -7227,7 +7227,10 @@ export function buildSegmentSection(
       pool: opts.approvedPool ?? [],
       rolesOf: (t) => resolveBlockTags(t),
       canonicalize: (t) => canonicalizeBlockType(t),
-      roleDefaults: { hero: "hero", cta: "bottom-cta", footer: "footer" },
+      // Cover EVERY role so an authored category outline renders in full even
+      // when the segment has no approved pool — otherwise it silently collapses
+      // to just hero/cta/footer.
+      roleDefaults: NEUTRAL_ROLE_DEFAULT_BLOCKS,
     });
     const list = resolved
       .map((b) => `- "${b.type}"${b.schemaHint ? ` — ${b.schemaHint}` : ""}`)

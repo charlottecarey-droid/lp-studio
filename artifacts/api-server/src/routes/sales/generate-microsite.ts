@@ -112,6 +112,7 @@ import {
   outlineHasSteps,
   normalizePageOutline,
   resolvePageOutline,
+  NEUTRAL_ROLE_DEFAULT_BLOCKS,
   type PageOutline,
   type GovernanceMap,
 } from "@workspace/lp-template-engine";
@@ -3551,7 +3552,10 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       ? resolvePageOutline(activeOutline, {
           pool: segmentApprovedTypes,
           rolesOf: (t) => resolveBlockTags(t),
-          roleDefaults: { hero: "hero", cta: "bottom-cta", footer: "footer" },
+          // Cover EVERY role so an authored category outline renders in full
+          // even when this segment has no approved pool (the common case for a
+          // generic tenant) — otherwise it collapses to just hero/cta/footer.
+          roleDefaults: NEUTRAL_ROLE_DEFAULT_BLOCKS,
           canonicalize: (t) => canonicalizeBlockType(t),
         }).map((r) => ({ type: r.type, schemaHint: r.schemaHint }))
       : undefined;
