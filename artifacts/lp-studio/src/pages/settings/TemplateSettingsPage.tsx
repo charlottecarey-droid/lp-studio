@@ -16,7 +16,12 @@ import {
   ChevronDown,
   ShieldCheck,
   Target,
+  Pencil,
+  Check,
+  X,
+  Package,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   TemplateEligibilityEditor,
@@ -36,6 +41,9 @@ const API_BASE = "/api";
 
 interface ManagedTemplate {
   id: number;
+  // Built-in (shared) templates are controlled per-tenant via an override store:
+  // they can be toggled + renamed, but their eligibility is platform-managed.
+  isGlobal: boolean;
   templateLabel: string;
   templateDescription: string;
   blockCount: number;
@@ -83,6 +91,10 @@ export function TemplateSettingsContent() {
   const [savingId, setSavingId] = useState<number | null>(null);
   const [savingEligId, setSavingEligId] = useState<number | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  // Inline rename of the name reps see in the create-microsite dropdown.
+  const [renamingId, setRenamingId] = useState<number | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [savingLabelId, setSavingLabelId] = useState<number | null>(null);
 
   // ── AI-behavior governance (read/write via GET/PUT /lp/brand config) ──────
   const [aiBehavior, setAiBehavior] = useState<TemplateAiBehavior>("ai-from-scratch-only");
@@ -103,6 +115,7 @@ export function TemplateSettingsContent() {
         Array.isArray(data)
           ? data.map((t) => ({
               ...t,
+              isGlobal: t.isGlobal === true,
               eligibleSegments: Array.isArray(t.eligibleSegments) ? t.eligibleSegments : [],
               eligiblePersonas: Array.isArray(t.eligiblePersonas) ? t.eligiblePersonas : [],
               eligibleFunnelStages: Array.isArray(t.eligibleFunnelStages) ? t.eligibleFunnelStages : [],
@@ -201,6 +214,52 @@ export function TemplateSettingsContent() {
       });
     } finally {
       setSavingId(null);
+    }
+  }
+
+  function startRename(t: ManagedTemplate) {
+    setRenamingId(t.id);
+    setRenameDraft(t.templateLabel);
+  }
+
+  function cancelRename() {
+    setRenamingId(null);
+    setRenameDraft("");
+  }
+
+  async function handleSaveLabel(t: ManagedTemplate) {
+    const next = renameDraft.trim();
+    // No change → just close the editor.
+    if (next === t.templateLabel.trim()) {
+      cancelRename();
+      return;
+    }
+    setSavingLabelId(t.id);
+    try {
+      const res = await fetch(`${API_BASE}/lp/templates/${t.id}/microsite-label`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: next }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { templateLabel?: string };
+      const resolved = data.templateLabel || next || t.templateLabel;
+      setTemplates((prev) =>
+        prev.map((row) => (row.id === t.id ? { ...row, templateLabel: resolved } : row)),
+      );
+      toast({
+        title: "Template renamed",
+        description: `Reps now see “${resolved}” in the create-microsite dropdown.`,
+      });
+      cancelRename();
+    } catch {
+      toast({
+        title: "Couldn't rename template",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingLabelId(null);
     }
   }
 
@@ -344,10 +403,11 @@ export function TemplateSettingsContent() {
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Templates</h2>
           <p className="text-muted-foreground text-sm mt-1">
-            Choose which of your saved templates appear in the “New microsite” dropdown, and
-            set each template’s eligibility — the audiences and funnel stages it can be
-            auto-recommended for. Compatible templates are enabled by default. Leave an
-            eligibility axis empty to allow any value.
+            Choose which templates appear in the “New microsite” dropdown and rename them to
+            whatever your reps should see. This covers both your own saved templates and the
+            built-in ones. For your own templates you can also set eligibility — the audiences
+            and funnel stages they can be auto-recommended for. Compatible templates are
+            enabled by default. Leave an eligibility axis empty to allow any value.
           </p>
         </div>
 
@@ -383,9 +443,72 @@ export function TemplateSettingsContent() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium text-sm text-foreground truncate">
-                          {t.templateLabel}
-                        </p>
+                        {renamingId === t.id ? (
+                          <div className="flex items-center gap-1.5">
+                            <Input
+                              value={renameDraft}
+                              onChange={(e) => setRenameDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") void handleSaveLabel(t);
+                                if (e.key === "Escape") cancelRename();
+                              }}
+                              autoFocus
+                              disabled={savingLabelId === t.id}
+                              className="h-7 text-sm w-56"
+                              aria-label={`Rename ${t.templateLabel}`}
+                              data-testid={`template-rename-input-${t.id}`}
+                            />
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              disabled={savingLabelId === t.id}
+                              onClick={() => void handleSaveLabel(t)}
+                              aria-label="Save name"
+                              data-testid={`template-rename-save-${t.id}`}
+                            >
+                              {savingLabelId === t.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
+                              ) : (
+                                <Check className="w-3.5 h-3.5" aria-hidden />
+                              )}
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              disabled={savingLabelId === t.id}
+                              onClick={cancelRename}
+                              aria-label="Cancel rename"
+                            >
+                              <X className="w-3.5 h-3.5" aria-hidden />
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="font-medium text-sm text-foreground truncate">
+                              {t.templateLabel}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => startRename(t)}
+                              className="text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded p-0.5 shrink-0"
+                              aria-label={`Rename ${t.templateLabel}`}
+                              data-testid={`template-rename-${t.id}`}
+                            >
+                              <Pencil className="w-3 h-3" aria-hidden />
+                            </button>
+                          </>
+                        )}
+                        {t.isGlobal && (
+                          <Badge
+                            variant="secondary"
+                            className="gap-1 bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-50"
+                          >
+                            <Package className="w-3 h-3" aria-hidden />
+                            Built-in
+                          </Badge>
+                        )}
                         {t.compatible ? (
                           <Badge
                             variant="secondary"
@@ -419,10 +542,17 @@ export function TemplateSettingsContent() {
                             " You've enabled it anyway — it may not generate correctly."}
                         </p>
                       )}
-                      <p className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1.5">
-                        <Target className="w-3 h-3 shrink-0" aria-hidden />
-                        Eligibility: {formatEligibilitySummary(elig, segmentNames, personaNames)}
-                      </p>
+                      {t.isGlobal ? (
+                        <p className="text-[11px] text-muted-foreground mt-1.5">
+                          Built-in template — controlled by the program. You can show,
+                          hide, or rename it for your reps.
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1.5">
+                          <Target className="w-3 h-3 shrink-0" aria-hidden />
+                          Eligibility: {formatEligibilitySummary(elig, segmentNames, personaNames)}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0 pt-0.5">
                       {savingId === t.id && (
@@ -438,33 +568,37 @@ export function TemplateSettingsContent() {
                     </div>
                   </div>
 
-                  <Collapsible
-                    open={open}
-                    onOpenChange={(o) => setExpandedId(o ? t.id : null)}
-                    className="mt-3 border-t border-border/60 pt-2"
-                  >
-                    <CollapsibleTrigger
-                      className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1 py-1"
-                      data-testid={`template-eligibility-toggle-${t.id}`}
+                  {/* Built-in templates have platform-managed eligibility, so the
+                      per-tenant eligibility editor is hidden for them. */}
+                  {!t.isGlobal && (
+                    <Collapsible
+                      open={open}
+                      onOpenChange={(o) => setExpandedId(o ? t.id : null)}
+                      className="mt-3 border-t border-border/60 pt-2"
                     >
-                      <Target className="w-3.5 h-3.5" aria-hidden />
-                      Edit eligibility
-                      <ChevronDown
-                        className={cn("w-3.5 h-3.5 transition-transform", open && "rotate-180")}
-                        aria-hidden
-                      />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="pt-3">
-                      <EligibilityForm
-                        initial={elig}
-                        segmentOptions={segmentOptions}
-                        personaOptions={personaOptions}
-                        saving={savingEligId === t.id}
-                        onSave={(next) => handleSaveEligibility(t, next)}
-                        onCancel={() => setExpandedId(null)}
-                      />
-                    </CollapsibleContent>
-                  </Collapsible>
+                      <CollapsibleTrigger
+                        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1 py-1"
+                        data-testid={`template-eligibility-toggle-${t.id}`}
+                      >
+                        <Target className="w-3.5 h-3.5" aria-hidden />
+                        Edit eligibility
+                        <ChevronDown
+                          className={cn("w-3.5 h-3.5 transition-transform", open && "rotate-180")}
+                          aria-hidden
+                        />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="pt-3">
+                        <EligibilityForm
+                          initial={elig}
+                          segmentOptions={segmentOptions}
+                          personaOptions={personaOptions}
+                          saving={savingEligId === t.id}
+                          onSave={(next) => handleSaveEligibility(t, next)}
+                          onCancel={() => setExpandedId(null)}
+                        />
+                      </CollapsibleContent>
+                    </Collapsible>
+                  )}
                 </Card>
               );
             })}

@@ -2353,6 +2353,27 @@ async function runMigrationsBody(): Promise<void> {
         `generator_presets schema self-heal did not produce both tables (found ${present}/2) — aborting release`,
     });
 
+    // Microsite template overrides (task #1219 follow-up) — per-tenant overrides
+    // of a GLOBAL template's create-microsite-dropdown settings (enable/hide +
+    // rename). Same high-water-mark drift hazard as the self-heals above, so we
+    // re-assert the table exists here independent of drizzle's journal dedup.
+    // Fails CLOSED: the Templates settings screen + the create-microsite dropdown
+    // both read/write this table, so a missing table must abort the release
+    // rather than silently drop every tenant's built-in-template controls. The
+    // .sql is CREATE TABLE/INDEX IF NOT EXISTS, so it self-heals where missing
+    // and is a no-op everywhere else.
+    await runProbedSelfHeal({
+      name: "lp_microsite_template_overrides schema self-heal (0101)",
+      applySqlFile: "0101_microsite_template_overrides.sql",
+      expected: 1,
+      checkSql: `SELECT count(*)::int AS present
+           FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name = 'lp_microsite_template_overrides'`,
+      shortfall: (present) =>
+        `lp_microsite_template_overrides schema self-heal did not produce the table (found ${present}/1) — aborting release`,
+    });
+
     // Seed GLOBAL presets (tenant_id NULL). Marker-gated so it runs once;
     // idempotent per-row via a NOT EXISTS guard on (surface, label) among global
     // rows so a superadmin's later edits/deletions are never resurrected. The

@@ -3,7 +3,7 @@ import type { AuthUser } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, asc, and, or, desc } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
-import { lpPagesTable, lpPageReviewsTable, salesAccountsTable, lpTemplateUsageTable, tenantsTable } from "@workspace/db";
+import { lpPagesTable, lpPageReviewsTable, salesAccountsTable, lpTemplateUsageTable, tenantsTable, micrositeTemplateOverridesTable } from "@workspace/db";
 import { resolveOGFields } from "../../lib/resolvePageOG";
 import { sql } from "drizzle-orm";
 import { tenantRequiresReview } from "../../lib/tenantSettings";
@@ -385,15 +385,52 @@ router.get("/lp/templates", async (req, res): Promise<void> => {
         ),
       )
       .orderBy(asc(lpPagesTable.templateLabel));
+
+    // Built-in (global) templates are shared rows, so a tenant's enable/hide +
+    // rename of them lives in lp_microsite_template_overrides (task #1219
+    // follow-up). Owned templates keep using their own row columns. Fetch the
+    // tenant's overrides only when global rows are actually present in the
+    // result (salesMode / full library), then apply enabled + label below.
+    const hasGlobals = templates.some((t) => t.isGlobal);
+    const overrideByTemplateId = hasGlobals
+      ? new Map(
+          (
+            await db
+              .select()
+              .from(micrositeTemplateOverridesTable)
+              .where(eq(micrositeTemplateOverridesTable.tenantId, tenantId))
+          ).map((o) => [o.templateId, o]),
+        )
+      : new Map<number, { enabled: boolean | null; label: string | null }>();
+
+    // Overlay a tenant's per-tenant rename of a built-in template so the
+    // dropdown shows the marketing-chosen name (applies regardless of
+    // forMicrosite so every consumer sees the same label).
+    const withOverrides = templates.map((t) => {
+      if (!t.isGlobal) return t;
+      const ov = overrideByTemplateId.get(t.id);
+      return ov?.label ? { ...t, templateLabel: ov.label } : t;
+    });
+
     const result = forMicrosite
-      ? templates.filter((t) => {
+      ? withOverrides.filter((t) => {
+          // Built-in template: tenant override wins, else compatibility default.
+          if (t.isGlobal) {
+            const ov = overrideByTemplateId.get(t.id);
+            if (typeof ov?.enabled === "boolean") return ov.enabled;
+            const blocks = Array.isArray(t.blocks) ? t.blocks : [];
+            return getMicrositeTemplateCompatibility(
+              blocks as ReadonlyArray<{ type?: unknown }>,
+            ).compatible;
+          }
+          // Owned template: explicit row override, else compatibility default.
           if (typeof t.micrositeEnabled === "boolean") return t.micrositeEnabled;
           const blocks = Array.isArray(t.blocks) ? t.blocks : [];
           return getMicrositeTemplateCompatibility(
             blocks as ReadonlyArray<{ type?: unknown }>,
           ).compatible;
         })
-      : templates;
+      : withOverrides;
     res.json(result);
   } catch (err) {
     console.error("GET /lp/templates error:", String(err));
