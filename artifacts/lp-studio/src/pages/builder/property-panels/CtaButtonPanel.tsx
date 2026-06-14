@@ -3,14 +3,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BrandSwatches } from "@/components/BrandSwatches";
+import { CtaActionConfigSection } from "./CtaActionConfigSection";
+import { readPrimarySuite, writePrimarySuite, type PrimaryKeyMap } from "@/lib/cta/ctaKeyMap";
+import type { CtaSourceProps } from "@/lib/cta/ctaSource";
+
+/** This block stores its destination in `url` (not `ctaUrl`) and offers only
+ *  url/chilipiper today — preserve exactly that. */
+const CTA_BUTTON_ACTIONS = ["url", "chilipiper"] as const;
+const CTA_BUTTON_MAP: PrimaryKeyMap = { action: "ctaAction", url: "url", chilipiper: "chilipiperUrl" };
 
 interface Props {
   props: CtaButtonBlockProps;
   onChange: (props: CtaButtonBlockProps) => void;
   onApplyCtaToAll?: () => void;
+  /** CTA source indicator + inherit/override controls (Phase 2). */
+  ctaSource?: CtaSourceProps;
 }
 
-export function CtaButtonPanel({ props, onChange, onApplyCtaToAll }: Props) {
+export function CtaButtonPanel({ props, onChange, onApplyCtaToAll, ctaSource }: Props) {
   const set = <K extends keyof CtaButtonBlockProps>(k: K, v: CtaButtonBlockProps[K]) =>
     onChange({ ...props, [k]: v });
 
@@ -26,37 +36,13 @@ export function CtaButtonPanel({ props, onChange, onApplyCtaToAll }: Props) {
           className="text-sm"
         />
       </div>
-      <div>
-        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-          CTA Action
-        </Label>
-        <Select
-          value={props.ctaAction ?? "url"}
-          onValueChange={v => set("ctaAction", v as "url" | "chilipiper")}
-        >
-          <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="url">Open URL</SelectItem>
-            <SelectItem value="chilipiper">Open Chili Piper</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      {(props.ctaAction ?? "url") === "url" ? (
-        <div>
-          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-            URL
-          </Label>
-          <Input value={props.url} onChange={e => set("url", e.target.value)} className="text-sm" placeholder="#" />
-        </div>
-      ) : (
-        <div>
-          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-            Chili Piper URL
-          </Label>
-          <Input value={props.chilipiperUrl ?? ""} onChange={e => set("chilipiperUrl", e.target.value)} className="text-sm font-mono" placeholder="https://yourcompany.chilipiper.com/round-robin/..." />
-          <p className="text-[11px] text-muted-foreground mt-1">Leads captured on meeting confirmation and synced to CRM.</p>
-        </div>
-      )}
+      {/* Shared CTA action suite, mapped to this block's `url` destination key. */}
+      <CtaActionConfigSection
+        value={readPrimarySuite(props, CTA_BUTTON_MAP)}
+        onChange={(v) => onChange(writePrimarySuite(props, v, CTA_BUTTON_MAP) as CtaButtonBlockProps)}
+        allowedActions={CTA_BUTTON_ACTIONS}
+        {...ctaSource}
+      />
       {onApplyCtaToAll && (
         <button
           type="button"

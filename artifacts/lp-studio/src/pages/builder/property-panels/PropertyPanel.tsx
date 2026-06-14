@@ -1763,6 +1763,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             props={block.props}
             onChange={props => onChange({ ...block, props })}
             onApplyCtaToAll={onApplyCtaToAll}
+            ctaSource={ctaSource}
           />
         );
       case "full-bleed-hero":
