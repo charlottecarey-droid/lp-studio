@@ -56,6 +56,7 @@ import { CommandPalette, useCommandPalette } from "@/components/CommandPalette";
 import { NewLauncher } from "@/components/NewLauncher";
 import { usePendingReviewCount } from "@/hooks/use-pending-review-count";
 import { NotificationBell } from "@/components/NotificationBell";
+import { resolveAppPageName, buildAppDocumentTitle } from "@/lib/app-page-title";
 
 function UserFooter() {
   const { user, logout } = useAuth();
@@ -527,29 +528,47 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   // page inherits the shortcut without each route having to wire it up.
   const { open: cmdOpen, setOpen: setCmdOpen } = useCommandPalette();
 
-  // Task #999 — tenant-default document.title baseline for the authenticated
-  // app shell. After removing the hardcoded per-host index.html title overrides
-  // (ent/lp/partners.meetdandy.com), an admin page that doesn't set its own
-  // title would otherwise read the static "Landing Page Studio". Apply the
-  // tenant's brand-settings default title instead. GUARDED: only set when the
-  // title is still the static placeholder, so page-specific setters (page
-  // detail, landing-page viewer, marketing usePageMeta) always win — those run
-  // in child effects that fire before this parent effect. AppLayout persists
-  // across admin route changes, so this effect does not re-run on navigation
-  // (only when the brand default changes), and never clobbers a page title.
+  // Tenant app-shell browser-tab / share-card metadata. Every authenticated
+  // page maps to a human page name (resolveAppPageName) and the tab reads
+  // "LP Studio - {Tenant Name} - {Page Name}" (e.g. "LP Studio - Dandy - Brand
+  // Settings"). Unmapped app routes fall back to the tenant's brand-settings
+  // default title. Tenant app pages carry NO share-card image or description,
+  // so we strip the marketing/static OG fallbacks (og:image, og:description,
+  // meta description) here and keep og:title coherent with the tab title.
+  //
+  // Pages that set their own title (analytics page-detail) render AppLayout as
+  // a child, so their effect runs AFTER this one and still wins. The builder,
+  // block-test editor and landing-page viewer render without AppLayout and are
+  // unaffected.
+  const [location] = useLocation();
   const { brand } = useBrandConfig();
   useEffect(() => {
     if (typeof document === "undefined") return;
-    const raw = (brand.defaultOgTitle ?? "").trim();
-    if (!raw) return;
-    const baseline = raw
-      .replace(/\{\{\s*page_title\s*\}\}/gi, brand.brandName ?? "")
-      .trim();
-    if (!baseline) return;
-    if (document.title === "Landing Page Studio" || document.title === "") {
-      document.title = baseline;
+    const pageName = resolveAppPageName(location);
+    let title: string | null = null;
+    if (pageName) {
+      title = buildAppDocumentTitle(brand.brandName ?? "", pageName);
+    } else {
+      const raw = (brand.defaultOgTitle ?? "").trim();
+      if (raw) {
+        title =
+          raw.replace(/\{\{\s*page_title\s*\}\}/gi, brand.brandName ?? "").trim() ||
+          null;
+      }
     }
-  }, [brand.defaultOgTitle, brand.brandName]);
+    if (title) document.title = title;
+
+    const removeMeta = (selector: string) => {
+      document.querySelectorAll(selector).forEach((el) => el.remove());
+    };
+    removeMeta('meta[property="og:image"]');
+    removeMeta('meta[property="og:description"]');
+    removeMeta('meta[name="description"]');
+    if (title) {
+      const ogTitle = document.querySelector('meta[property="og:title"]');
+      if (ogTitle) ogTitle.setAttribute("content", title);
+    }
+  }, [location, brand.brandName, brand.defaultOgTitle]);
 
   return (
     <SidebarProvider style={style}>
