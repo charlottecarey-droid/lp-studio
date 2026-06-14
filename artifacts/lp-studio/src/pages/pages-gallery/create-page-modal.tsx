@@ -483,6 +483,19 @@ export function CreatePageModal({
 
         {createMode === "template" ? (
           <div className="space-y-5 py-2">
+            <div className="rounded-lg border border-dashed border-border bg-muted/40 p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                  <FileText className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Exact copy — text is not rewritten</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                    This creates a page with the template's design and wording exactly as-is. To have AI rewrite the copy for your business, use the <span className="font-medium text-foreground">AI Generate</span> tab and pick this template as your starting point.
+                  </p>
+                </div>
+              </div>
+            </div>
             <div>
               <Label className="text-sm font-medium">Page Name</Label>
               <Input
