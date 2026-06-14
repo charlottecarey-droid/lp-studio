@@ -66,6 +66,8 @@ import { MediaLibraryDrawer } from "@/components/MediaLibraryDrawer";
 import { refreshBlockCopy } from "@/lib/copy-api";
 import { COPY_FIELDS } from "@/lib/copy-fields";
 import { propagateCtaToAll, countCtaTargets, blockHasCta } from "@/lib/cta-propagation";
+import type { CtaConfig } from "@/lib/cta/ctaConfig";
+import { PageCtaSection } from "@/pages/builder/property-panels/PageCtaSection";
 import { useToast } from "@/hooks/use-toast";
 import { SaveToLibraryDialog } from "@/components/SaveToLibraryDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -155,6 +157,9 @@ interface FetchedPage {
   animationsEnabled?: boolean;
   smoothScroll?: boolean;
   pageVariables?: Record<string, string>;
+  // Unified CTA architecture, Phase 1. Page-level default CTA. null/absent =
+  // no page-level CTA.
+  ctaDefault?: CtaConfig | null;
   isTemplate?: boolean;
   // Task #1085 — global templates are owned by the neutral __system-templates
   // tenant. Used (with superadmin) to surface the "Preview as brand" control.
@@ -198,6 +203,8 @@ interface SavePageData {
   pageVariables?: Record<string, string>;
   audienceType?: string | null;
   segmentId?: string | null;
+  // Unified CTA architecture, Phase 1. Page-level default CTA (or null to clear).
+  ctaDefault?: CtaConfig | null;
 }
 
 async function savePage(id: string, data: SavePageData) {
@@ -1118,6 +1125,10 @@ export default function BuilderEditor() {
   const [allowIndexing, setAllowIndexing] = useState<boolean | null>(null);
   const [allowFollowing, setAllowFollowing] = useState<boolean | null>(null);
   const [pageVariables, setPageVariables] = useState<Record<string, string>>({});
+  // Unified CTA architecture, Phase 1. Page-level default CTA (normalized
+  // CtaConfig). null = no page-level CTA — every block falls straight through to
+  // its own CTA / the tenant default, exactly as before this feature existed.
+  const [pageCta, setPageCta] = useState<CtaConfig | null>(null);
   const [suggestedSlug, setSuggestedSlug] = useState<string | null>(null);
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
   // Task #1085 — true when this page is a global template (owned by the neutral
@@ -1572,6 +1583,7 @@ export default function BuilderEditor() {
         setAllowIndexing(p.allowIndexing ?? null);
         setAllowFollowing(p.allowFollowing ?? null);
         setPageVariables(p.pageVariables ?? {});
+        setPageCta((p.ctaDefault ?? null) as CtaConfig | null);
         setBrand(b);
         setBlockDefaults(defaults);
         setCustomBlocks(customs);
@@ -1603,6 +1615,7 @@ export default function BuilderEditor() {
             animationsEnabled: p.animationsEnabled !== false,
             smoothScroll: p.smoothScroll !== false,
             pageVariables: p.pageVariables ?? {},
+            ctaDefault: p.ctaDefault ?? null,
           });
           lastSavedSnapshotRef.current = baseline;
           setSavedSnapshot(baseline);
@@ -2254,6 +2267,7 @@ export default function BuilderEditor() {
     allowIndexing,
     allowFollowing,
     pageVariables: Object.keys(pageVariables).length > 0 ? pageVariables : undefined,
+    ctaDefault: pageCta,
     audienceType: pageAudienceType ?? (appliedSegment ? null : undefined),
     segmentId: appliedSegment?.id ?? (pageAudienceType ? null : undefined),
     ...overrides,
@@ -2278,11 +2292,12 @@ export default function BuilderEditor() {
         animationsEnabled,
         smoothScroll,
         pageVariables: pageVariables ?? {},
+        ctaDefault: pageCta ?? null,
       });
     } catch {
       return "";
     }
-  }, [title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, allowIndexing, allowFollowing, animationsEnabled, smoothScroll, pageVariables]);
+  }, [title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, allowIndexing, allowFollowing, animationsEnabled, smoothScroll, pageVariables, pageCta]);
 
   const isDirty = !isLoading && currentSnapshot !== "" && currentSnapshot !== savedSnapshot;
 
@@ -3440,6 +3455,16 @@ export default function BuilderEditor() {
                       </div>
                     </button>
                   )}
+                </div>
+
+                {/* Page CTA (unified CTA architecture, Phase 1). Define one
+                    default CTA for the whole page; sections without their own
+                    CTA inherit it (tenant default < page CTA < block CTA). */}
+                <div className="border-t border-border pt-3">
+                  <PageCtaSection
+                    value={pageCta}
+                    onChange={(next) => { setPageCta(next); setTimeout(handleSave, 150); }}
+                  />
                 </div>
 
               {/* Slug */}

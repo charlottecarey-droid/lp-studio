@@ -26,6 +26,14 @@ export const lpPagesTable = pgTable("lp_pages", {
   animationsEnabled: boolean("animations_enabled").notNull().default(true),
   smoothScroll: boolean("smooth_scroll").notNull().default(true),
   pageVariables: jsonb("page_variables").default({}),
+  // Page-level default CTA (unified CTA architecture, Phase 1). ADDITIVE +
+  // NULLABLE: NULL = no page-level CTA (every block falls straight through to
+  // its own CTA or the tenant default). When set, holds a normalized `CtaConfig`
+  // (src/lib/cta/ctaConfig.ts) that sits BETWEEN the tenant default and each
+  // block override in the resolver hierarchy. Existing pages are unaffected
+  // (they stay NULL) and the renderer only consults it when a block has no
+  // CTA of its own, so published pages keep rendering exactly as today.
+  ctaDefault: jsonb("cta_default"),
   accountId: integer("account_id"),           // internal FK (may be null after re-sync)
   sfdcAccountId: text("sfdc_account_id"),     // stable SFDC Account ID (e.g. 001xxx)
   mode: text("mode").notNull().default("marketing"),  // "marketing" | "sales"

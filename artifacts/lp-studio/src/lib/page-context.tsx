@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import type { CtaConfig } from "@/lib/cta/ctaConfig";
 
 export interface PageContextValue {
   pageId?: number;
@@ -10,6 +11,15 @@ export interface PageContextValue {
   testId?: number;
   variantId?: number;
   sessionId?: string;
+  /**
+   * Unified CTA architecture (Phase 1). The page-level default CTA + the live
+   * tenant-default CTA, threaded so the shared renderer (CtaButton) can resolve
+   * a block's EFFECTIVE CTA as tenant default → page CTA → block override. Both
+   * optional/undefined on pages that predate the feature, so the resolver falls
+   * back to the block's own props exactly as before.
+   */
+  pageCta?: CtaConfig | null;
+  tenantDefaultCta?: CtaConfig | null;
 }
 
 const PageContext = createContext<PageContextValue>({});

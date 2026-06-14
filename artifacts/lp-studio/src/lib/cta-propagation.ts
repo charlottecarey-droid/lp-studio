@@ -1,4 +1,8 @@
 import type { PageBlock } from "@/lib/block-types";
+import {
+  CTA_MODAL_KEYS,
+  CTA_STYLE_KEYS,
+} from "@/lib/cta/ctaConfig";
 
 /**
  * cta-propagation — "configure one CTA, copy it to every CTA on the page".
@@ -48,33 +52,10 @@ const CTA_ACTION_KEYS = [
  *  family. We read/write the first one a block actually exposes. */
 const CTA_LABEL_KEYS = ["ctaText", "ctaLabel"] as const;
 
-/** Per-block style overrides on the shared HeroCtaConfig shape. */
-const CTA_STYLE_KEYS = ["ctaButtonColor", "ctaButtonTextColor"] as const;
-
-/** The 19 modal-config keys (CtaModalConfig). Kept in sync with
- *  pickCtaModalConfig in src/lib/cta-modal.ts. */
-const CTA_MODAL_KEYS = [
-  "modalChilipiperUrl",
-  "modalFormSource",
-  "modalFormId",
-  "modalMarketoBaseUrl",
-  "modalMarketoMunchkinId",
-  "modalMarketoFormId",
-  "modalChiliPiperHandoffUrl",
-  "modalChiliPiperHandoffMode",
-  "modalChiliPiperHandoffFieldMap",
-  "modalHeadline",
-  "modalSubheadline",
-  "modalSubmitText",
-  "modalSuccessMessage",
-  "modalDisclaimer",
-  "modalShowFirstName",
-  "modalShowLastName",
-  "modalShowPhone",
-  "modalShowCompany",
-  // modalShowName variants are not on the shape; the four toggles above are
-  // the canonical set per CtaModalConfig.
-] as const;
+// Per-block style overrides (CTA_STYLE_KEYS) and the 19 modal-config keys
+// (CTA_MODAL_KEYS) are imported from the canonical list in
+// src/lib/cta/ctaConfig.ts so the propagation contract, the legacy shim, and
+// pickCtaModalConfig can never drift apart.
 
 /** "all" copies action + style + modal; "style" copies only the button-style
  *  overrides (and leaves each CTA's own text/url/mode/modal alone). */

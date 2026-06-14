@@ -1,0 +1,11 @@
+-- June 2026 — unified CTA architecture (Phase 1, foundation).
+-- Page-level default CTA. ADDITIVE, NULLABLE, FAIL-OPEN:
+--   cta_default — jsonb holding a normalized CtaConfig
+--                 (artifacts/lp-studio/src/lib/cta/ctaConfig.ts). NULL = the
+--                 page declares no page-level CTA, so every block falls straight
+--                 through to its own CTA (or the tenant default) exactly as
+--                 today. When set, the resolver places it BETWEEN the tenant
+--                 default and each block override (tenant < page < block), and
+--                 only consults it for blocks that have NO CTA of their own —
+--                 so existing pages and published renders are unchanged.
+ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS cta_default jsonb;

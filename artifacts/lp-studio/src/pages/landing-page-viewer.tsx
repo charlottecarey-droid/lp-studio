@@ -948,7 +948,7 @@ export default function LandingPageViewer() {
                 style={block.blockSettings?.animationStyle ?? "fade-up"}
                 enabled={animationsEnabled && !NO_REVEAL.has(block.type)}
               >
-                <BlockRenderer block={dtrBlock as typeof block} brand={renderBrand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} pageVars={pageVars} />
+                <BlockRenderer block={dtrBlock as typeof block} brand={renderBrand} onCtaClick={handleBuilderCtaClick} animationsEnabled={animationsEnabled} pageId={builderPage.id} pageVars={pageVars} pageCta={builderPage.ctaDefault ?? null} />
               </ScrollReveal>
             </BlockErrorBoundary>
           );

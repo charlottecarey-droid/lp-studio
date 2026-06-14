@@ -957,7 +957,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     res.status(413).json({ error: "Request payload exceeds maximum size of 10MB" });
     return;
   }
-  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, smoothScroll, pageVariables, audienceType, segmentId, allowIndexing, allowFollowing, funnelStage, eligibleSegments, eligiblePersonas, eligibleFunnelStages } = req.body as {
+  const { title, slug, blocks, status, customCss, metaTitle, metaDescription, ogImage, animationsEnabled, smoothScroll, pageVariables, audienceType, segmentId, allowIndexing, allowFollowing, funnelStage, eligibleSegments, eligiblePersonas, eligibleFunnelStages, ctaDefault } = req.body as {
     title?: string;
     slug?: string;
     blocks?: unknown[];
@@ -980,9 +980,13 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     eligibleSegments?: unknown;
     eligiblePersonas?: unknown;
     eligibleFunnelStages?: unknown;
+    // Unified CTA architecture, Phase 1. Page-level default CTA (normalized
+    // CtaConfig). Field-present = write (object or null to clear); absent =
+    // leave as-is. NULL = no page-level CTA (additive / fail-open).
+    ctaDefault?: Record<string, unknown> | null;
   };
 
-  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean; smoothScroll: boolean; pageVariables: Record<string, string>; audienceType: string | null; segmentId: string | null; allowIndexing: boolean | null; allowFollowing: boolean | null; funnelStage: string | null; eligibleSegments: string[] | null; eligiblePersonas: string[] | null; eligibleFunnelStages: string[] | null; updatedBy: string | null }> = {};
+  const updates: Partial<{ title: string; slug: string; blocks: unknown[]; status: string; customCss: string; metaTitle: string; metaDescription: string; ogImage: string; animationsEnabled: boolean; smoothScroll: boolean; pageVariables: Record<string, string>; audienceType: string | null; segmentId: string | null; allowIndexing: boolean | null; allowFollowing: boolean | null; funnelStage: string | null; eligibleSegments: string[] | null; eligiblePersonas: string[] | null; eligibleFunnelStages: string[] | null; ctaDefault: Record<string, unknown> | null; updatedBy: string | null }> = {};
   if (title !== undefined) updates.title = title;
   if (slug !== undefined) {
     if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug) && slug.length !== 1) {
@@ -1048,6 +1052,17 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
   if (eligibleSegments !== undefined) updates.eligibleSegments = sanitizeStringArray(eligibleSegments);
   if (eligiblePersonas !== undefined) updates.eligiblePersonas = sanitizeStringArray(eligiblePersonas);
   if (eligibleFunnelStages !== undefined) updates.eligibleFunnelStages = sanitizeStringArray(eligibleFunnelStages);
+  // Unified CTA architecture, Phase 1. Accept a plain-object CtaConfig or null
+  // (= clear). Reject other shapes at the boundary so the column never holds a
+  // non-config value. Stored verbatim (normalization lives in the client
+  // CtaConfig helpers); fail-open — NULL means "no page-level CTA".
+  if (ctaDefault !== undefined) {
+    if (ctaDefault !== null && (typeof ctaDefault !== "object" || Array.isArray(ctaDefault))) {
+      res.status(400).json({ error: "ctaDefault must be a CtaConfig object or null" });
+      return;
+    }
+    updates.ctaDefault = ctaDefault;
+  }
   // Task #494 — accept tri-state robots overrides. An explicit `null` resets
   // the page back to "inherit tenant default", so we must distinguish
   // "field present" (write, possibly null) from "field absent" (leave as-is).

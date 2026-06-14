@@ -56,6 +56,7 @@ import { BlockValueRenewalReview } from "./BlockValueRenewalReview";
 import { BlockEventLandingHero } from "./BlockEventLandingHero";
 import { BlockSpatialTour } from "./BlockSpatialTour";
 import type { BrandConfig } from "@/lib/brand-config";
+import { brandDefaultCtaConfig, type CtaConfig } from "@/lib/cta/ctaConfig";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
 import { BlockPasSection } from "./BlockPasSection";
@@ -262,6 +263,14 @@ interface Props {
   variantId?: number;
   sessionId?: string;
   pageVars?: Record<string, string>;
+  /**
+   * Unified CTA architecture (Phase 1). The page-level default CTA, threaded so
+   * the shared CtaButton can resolve a block's effective CTA as
+   * tenant default → page CTA → block override. Undefined = no page-level CTA
+   * (the common case, and every pre-feature page), so resolution falls back to
+   * the block's own props and the tenant default exactly as before.
+   */
+  pageCta?: CtaConfig | null;
   /** True when rendering inside the LP Studio builder canvas. Blocks that mount
    *  fixed-position chrome (e.g. sticky hero nav) should opt into a contained
    *  variant in builder mode so they don't overlap the builder's top bar. */
@@ -470,7 +479,7 @@ export const NO_REVEAL = new Set<string>([
   "how-it-works-horizontal-stepper",
 ]);
 
-function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, testId, variantId, sessionId, pageVars, isBuilder, path = [], renderChild, renderEmptySlot, renderTailSlot }: Props) {
+function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, testId, variantId, sessionId, pageVars, pageCta, isBuilder, path = [], renderChild, renderEmptySlot, renderTailSlot }: Props) {
   // Helper: render the children slot for container/overlay blocks. Uses the
   // caller-supplied renderChild (builder chrome) when provided, otherwise
   // recurses into BlockRenderer directly (viewer/published pages).
@@ -1576,7 +1585,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
   const final = shouldReveal ? <Reveal>{wrapped}</Reveal> : wrapped;
 
   return (
-    <PageContextProvider value={{ pageId, testId, variantId, sessionId }}>
+    <PageContextProvider value={{ pageId, testId, variantId, sessionId, pageCta, tenantDefaultCta: brandDefaultCtaConfig(brand) }}>
       <BlockErrorBoundary
         key={`${block.id}-${block.type}`}
         blockType={block.type}

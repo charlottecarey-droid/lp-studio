@@ -1037,6 +1037,29 @@ async function runMigrationsBody(): Promise<void> {
         `lp_pages template-eligibility self-heal did not produce all four columns (found ${present}/4) — aborting release`,
     });
 
+    // Durable self-heal for the lp_pages.cta_default column (unified CTA
+    // architecture, Phase 1 — June 2026). Same high-water-mark hazard as the
+    // self-heals above: on a drifted DB whose drizzle.__drizzle_migrations max
+    // created_at already sits ABOVE 0100's journal `when`, the node-postgres
+    // migrator records nothing and never runs 0100's DDL, leaving the column
+    // missing. The page PUT/GET handlers SELECT/UPDATE cta_default, so a missing
+    // column would 500 those routes. Re-applying the file here is independent of
+    // drizzle's dedup and idempotent (ADD COLUMN IF NOT EXISTS). The column is
+    // NULLABLE + FAIL-OPEN (NULL = no page-level CTA), so it is purely additive
+    // and changes no existing page's render; a retry is always safe.
+    await runProbedSelfHeal({
+      name: "lp_pages cta_default column self-heal (0100)",
+      applySqlFile: "0100_lp_pages_cta_default.sql",
+      expected: 1,
+      checkSql: `SELECT count(*)::int AS present
+           FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'lp_pages'
+            AND column_name = 'cta_default'`,
+      shortfall: (present) =>
+        `lp_pages cta_default self-heal did not produce the column (found ${present}/1) — aborting release`,
+    });
+
     // Durable self-heal for the Marketo two-way integration tables (Task #943).
     // Same high-water-mark hazard as the self-heals above: on a drifted DB whose
     // drizzle.__drizzle_migrations max created_at already sits ABOVE 0077's

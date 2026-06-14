@@ -1,4 +1,5 @@
 import type { PageBlock } from "./block-types";
+import type { CtaConfig } from "./cta/ctaConfig";
 
 export interface BuilderPageResponse {
   pageType: "builder";
@@ -35,6 +36,12 @@ export interface BuilderPageResponse {
    * `readLinkedFormStyle(pageVariables)` to parse it.
    */
   pageVariables?: Record<string, string>;
+  /**
+   * Unified CTA architecture (Phase 1). Page-level default CTA (lp_pages
+   * .cta_default jsonb). null/absent = no page-level CTA, so blocks fall through
+   * to their own CTA / the tenant default exactly as before this feature.
+   */
+  ctaDefault?: CtaConfig | null;
 }
 
 export function isBuilderPageResponse(value: unknown): value is BuilderPageResponse {

@@ -8,6 +8,11 @@ import type { BrandConfig } from "@/lib/brand-config";
 import type { CtaModalConfig } from "@/lib/block-types";
 import { usePageContext } from "@/lib/page-context";
 import { safeNavigate } from "@/lib/safe-url";
+import {
+  resolveCtaConfig,
+  ctaConfigHasValue,
+  type CtaConfig,
+} from "@/lib/cta/ctaConfig";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
@@ -103,17 +108,55 @@ export function CtaButton({
   const resolvedPageId = pageId ?? ctx.pageId ?? undefined;
   const resolvedVariantId = variantId ?? ctx.variantId ?? undefined;
 
+  // ── Unified CTA inheritance (Phase 1, backward-compatible) ─────────────────
+  // A button that ALREADY has its own action/destination keeps it verbatim
+  // (block layer wins) — so every existing CTA renders byte-for-byte as today.
+  // ONLY when this button supplies no action AND no destination do we inherit
+  // the page CTA, then the tenant default, via the shared resolver. This is
+  // strictly additive: today such a button renders a dead "#"; now it can
+  // inherit a real action. Pages/tenants without a CTA in context (the common
+  // case, and every pre-feature page) resolve to an empty config → unchanged.
+  const blockCta: CtaConfig = {
+    action: ctaAction,
+    url: ctaUrl,
+    chilipiper: chilipiperUrl,
+    videoUrl,
+    videoPosterUrl,
+    modalChilipiperUrl, modalFormSource, modalFormId,
+    modalMarketoBaseUrl, modalMarketoMunchkinId, modalMarketoFormId,
+    modalChiliPiperHandoffUrl, modalChiliPiperHandoffMode, modalChiliPiperHandoffFieldMap,
+    modalHeadline, modalSubheadline, modalSubmitText, modalSuccessMessage, modalDisclaimer,
+    modalShowFirstName, modalShowLastName, modalShowPhone, modalShowCompany,
+  };
+  const shouldInherit =
+    !ctaConfigHasValue(blockCta) &&
+    (ctaConfigHasValue(ctx.pageCta) || ctaConfigHasValue(ctx.tenantDefaultCta));
+  const eff = shouldInherit
+    ? resolveCtaConfig({
+        tenantDefault: ctx.tenantDefaultCta,
+        pageOverride: ctx.pageCta,
+        blockOverride: blockCta,
+      })
+    : blockCta;
+  // Effective values (block-own when present; inherited only when the block had none).
+  const effAction = eff.action ?? ctaAction;
+  const effUrl = eff.url ?? ctaUrl;
+  const effChilipiper = eff.chilipiper ?? chilipiperUrl;
+  const effVideoUrl = eff.videoUrl ?? videoUrl;
+  const effVideoPosterUrl = eff.videoPosterUrl ?? videoPosterUrl;
+  const effModalChilipiperUrl = eff.modalChilipiperUrl ?? modalChilipiperUrl;
+
   // Chili Piper iframe popup (existing behavior).
-  if (ctaAction === "chilipiper" && chilipiperUrl) {
+  if (effAction === "chilipiper" && effChilipiper) {
     return (
-      <ChiliPiperButton url={chilipiperUrl} className={className} style={style}>
+      <ChiliPiperButton url={effChilipiper} className={className} style={style}>
         {children}
       </ChiliPiperButton>
     );
   }
 
-  const isModal = ctaAction === "modal-form" || ctaAction === "modal-chilipiper";
-  const isVideo = ctaAction === "video-modal";
+  const isModal = effAction === "modal-form" || effAction === "modal-chilipiper";
+  const isVideo = effAction === "video-modal";
 
   const button = (
     <motion.button
@@ -126,19 +169,19 @@ export function CtaButton({
           setOpen(true);
           return;
         }
-        if (isVideo && videoUrl && videoUrl.trim() !== "") {
+        if (isVideo && effVideoUrl && effVideoUrl.trim() !== "") {
           // Same reasoning for the inline video overlay.
           setVideoOpen(true);
           return;
         }
         onClick?.();
         // URL-mode fallback: if no host onClick wired navigation, navigate here.
-        if (!onClick && ctaAction === "url" && ctaUrl && ctaUrl !== "#") {
+        if (!onClick && effAction === "url" && effUrl && effUrl !== "#") {
           // Same-page anchors and relative paths navigate in the same tab so
           // anchor links scroll instead of opening a (popup-blocked) new tab.
-          const trimmed = ctaUrl.trim();
+          const trimmed = effUrl.trim();
           const isSameTab = trimmed.startsWith("#") || trimmed.startsWith("/") || trimmed.startsWith("?");
-          safeNavigate(ctaUrl, isSameTab ? "_self" : "_blank");
+          safeNavigate(effUrl, isSameTab ? "_self" : "_blank");
         }
       }}
       className={className}
@@ -158,8 +201,8 @@ export function CtaButton({
         <VideoModal
           open={videoOpen}
           onClose={() => setVideoOpen(false)}
-          videoUrl={videoUrl}
-          posterUrl={videoPosterUrl}
+          videoUrl={effVideoUrl}
+          posterUrl={effVideoPosterUrl}
           ariaLabel="Video"
         />
       </>
@@ -175,32 +218,32 @@ export function CtaButton({
         open={open}
         onClose={() => setOpen(false)}
         email=""
-        mode={ctaAction === "modal-chilipiper" ? "chilipiper" : "form"}
-        chilipiperUrl={modalChilipiperUrl}
-        formSource={modalFormSource}
-        linkedFormId={modalFormId}
-        marketoBaseUrl={modalMarketoBaseUrl}
-        marketoMunchkinId={modalMarketoMunchkinId}
-        marketoFormId={modalMarketoFormId}
+        mode={effAction === "modal-chilipiper" ? "chilipiper" : "form"}
+        chilipiperUrl={effModalChilipiperUrl}
+        formSource={eff.modalFormSource ?? modalFormSource}
+        linkedFormId={eff.modalFormId ?? modalFormId}
+        marketoBaseUrl={eff.modalMarketoBaseUrl ?? modalMarketoBaseUrl}
+        marketoMunchkinId={eff.modalMarketoMunchkinId ?? modalMarketoMunchkinId}
+        marketoFormId={eff.modalMarketoFormId ?? modalMarketoFormId}
         chiliPiperConfig={
-          modalChiliPiperHandoffUrl
+          (eff.modalChiliPiperHandoffUrl ?? modalChiliPiperHandoffUrl)
             ? {
-                url: modalChiliPiperHandoffUrl,
-                mode: modalChiliPiperHandoffMode ?? "modal",
-                fieldMap: modalChiliPiperHandoffFieldMap,
+                url: (eff.modalChiliPiperHandoffUrl ?? modalChiliPiperHandoffUrl)!,
+                mode: (eff.modalChiliPiperHandoffMode ?? modalChiliPiperHandoffMode) ?? "modal",
+                fieldMap: eff.modalChiliPiperHandoffFieldMap ?? modalChiliPiperHandoffFieldMap,
               }
             : null
         }
         formConfig={{
-          headline: modalHeadline,
-          subheadline: modalSubheadline,
-          submitText: modalSubmitText,
-          successMessage: modalSuccessMessage,
-          disclaimer: modalDisclaimer,
-          showFirstName: modalShowFirstName,
-          showLastName: modalShowLastName,
-          showPhone: modalShowPhone,
-          showCompany: modalShowCompany,
+          headline: eff.modalHeadline ?? modalHeadline,
+          subheadline: eff.modalSubheadline ?? modalSubheadline,
+          submitText: eff.modalSubmitText ?? modalSubmitText,
+          successMessage: eff.modalSuccessMessage ?? modalSuccessMessage,
+          disclaimer: eff.modalDisclaimer ?? modalDisclaimer,
+          showFirstName: eff.modalShowFirstName ?? modalShowFirstName,
+          showLastName: eff.modalShowLastName ?? modalShowLastName,
+          showPhone: eff.modalShowPhone ?? modalShowPhone,
+          showCompany: eff.modalShowCompany ?? modalShowCompany,
         }}
         brand={resolvedBrand}
         pageId={resolvedPageId}

@@ -1,4 +1,5 @@
 import type { CtaModalConfig, HeroCtaActionMode } from "@/lib/block-types";
+import { CTA_MODAL_KEYS } from "@/lib/cta/ctaConfig";
 
 /**
  * The full set of CTA-button fields a block exposes when it uses the shared
@@ -21,24 +22,11 @@ export interface CtaSuiteFields extends CtaModalConfig {
  *   <CtaButton {...pickCtaModalConfig(props)} ctaAction={props.ctaAction} … />
  */
 export function pickCtaModalConfig(p: CtaModalConfig): CtaModalConfig {
-  return {
-    modalChilipiperUrl: p.modalChilipiperUrl,
-    modalFormSource: p.modalFormSource,
-    modalFormId: p.modalFormId,
-    modalMarketoBaseUrl: p.modalMarketoBaseUrl,
-    modalMarketoMunchkinId: p.modalMarketoMunchkinId,
-    modalMarketoFormId: p.modalMarketoFormId,
-    modalChiliPiperHandoffUrl: p.modalChiliPiperHandoffUrl,
-    modalChiliPiperHandoffMode: p.modalChiliPiperHandoffMode,
-    modalChiliPiperHandoffFieldMap: p.modalChiliPiperHandoffFieldMap,
-    modalHeadline: p.modalHeadline,
-    modalSubheadline: p.modalSubheadline,
-    modalSubmitText: p.modalSubmitText,
-    modalSuccessMessage: p.modalSuccessMessage,
-    modalDisclaimer: p.modalDisclaimer,
-    modalShowFirstName: p.modalShowFirstName,
-    modalShowLastName: p.modalShowLastName,
-    modalShowPhone: p.modalShowPhone,
-    modalShowCompany: p.modalShowCompany,
-  };
+  // Keys sourced from the single canonical list in src/lib/cta/ctaConfig.ts so
+  // the modal contract can never drift between the shim, propagation, and here.
+  const out: Record<string, unknown> = {};
+  for (const k of CTA_MODAL_KEYS) {
+    out[k] = (p as Record<string, unknown>)[k];
+  }
+  return out as CtaModalConfig;
 }
