@@ -1520,6 +1520,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
           <BentoMosaicHeroPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
+            ctaSource={ctaSource}
           />
         );
       case "kinetic-type-hero":
