@@ -3205,7 +3205,15 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // so non-Dandy tenants never silently fall through to DSO/dental copy.
     const brandSegments = (brand.segments as BrandAudienceSegment[] | undefined) ?? [];
     const requestedSegmentId = (segmentId ?? audience ?? "").trim();
-    const segment = brandSegments.find(s => (s?.id ?? "").trim() === requestedSegmentId);
+    // Match using the SAME id derivation the picker exposes
+    // (GET /sales/brand/segments → id = s.id || s.name). Segments without a
+    // stored `id` (e.g. AI-imported audiences) are keyed by name, so the FE
+    // sends the name as segmentId. Matching on s.id alone would reject them
+    // with a false "audience segments not configured" error.
+    const segment = brandSegments.find(s => {
+      const sid = (s?.id ?? "").trim() || (s?.name ?? "").trim();
+      return sid === requestedSegmentId;
+    });
     if (!requestedSegmentId || !segment) {
       res.status(400).json({
         error: requestedSegmentId
