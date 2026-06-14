@@ -2,18 +2,18 @@
  * P0-A — Segment → core messaging hierarchy + persona threading.
  *
  * Asserts (pure, no DB):
- *   • buildSegmentSection emits the hard MESSAGING HIERARCHY override directive
+ *   • buildSegmentSection emits the MESSAGING HIERARCHY priority directive
  *     + the segment's value props when a segment is given.
  *   • A selected persona is injected with role + pains + caresAbout and the
  *     model is told to address THAT persona.
  *   • findSelectedPersona resolves by id and by role (case-insensitive).
  *   • The DSO failure guard: a DSO segment's section centers same-store growth /
- *     standardization / margin etc. and carries the override directive; a
+ *     standardization / margin etc. and carries the priority directive; a
  *     brand-defined segment avoid-phrase ("transform your practice with Dandy")
  *     is surfaced as a DO-NOT-USE line.
- *   • buildSystemPrompt with a segment contains the override directive +
+ *   • buildSystemPrompt with a segment contains the priority directive +
  *     segment value props (+ persona when chosen); with no usable segment data
- *     the override directive is absent (core path).
+ *     the priority directive is absent (core path).
  */
 import { describe, it, expect } from "vitest";
 import {
@@ -40,11 +40,11 @@ const DSO_SEGMENT: BrandAudienceSegment = {
   ],
 };
 
-describe("buildSegmentSection — messaging hierarchy override", () => {
-  it("emits the hard override directive + segment value props", () => {
+describe("buildSegmentSection — messaging hierarchy priority", () => {
+  it("emits the priority directive + segment value props", () => {
     const section = buildSegmentSection(DSO_SEGMENT);
     expect(section).toContain("MESSAGING HIERARCHY");
-    expect(section.toUpperCase()).toContain("OVERRIDES");
+    expect(section.toUpperCase()).toContain("LEADS");
     expect(section).toContain("Same-store growth across every location");
     expect(section).toContain("Standardization and margin expansion");
   });
@@ -96,7 +96,7 @@ describe("findSelectedPersona", () => {
 describe("buildSystemPrompt — segment vs core path", () => {
   const brand = { brandName: "Dandy", segments: [DSO_SEGMENT] };
 
-  it("with a selected segment, the prompt contains the override directive + segment props", () => {
+  it("with a selected segment, the prompt contains the priority directive + segment props", () => {
     const prompt = buildSystemPrompt(
       DSO_SEGMENT, brand, undefined, "dso", false, undefined, null, [], false, undefined, undefined,
     );
@@ -113,7 +113,7 @@ describe("buildSystemPrompt — segment vs core path", () => {
     expect(prompt).toContain("VP of Operations");
   });
 
-  it("with no usable segment data, the override directive is absent (core path)", () => {
+  it("with no usable segment data, the priority directive is absent (core path)", () => {
     const emptySeg: BrandAudienceSegment = { id: "x", name: "X" };
     const prompt = buildSystemPrompt(
       emptySeg, { brandName: "Acme", segments: [] }, undefined, null, false, undefined, null, [], false, undefined, undefined,
@@ -145,7 +145,7 @@ describe("buildSystemPrompt — brand-core context parity (June 2026 copy audit)
 
   it("injects an ordered CONTEXT PRIORITY preamble", () => {
     expect(prompt).toContain("CONTEXT PRIORITY");
-    expect(prompt).toMatch(/TARGET SEGMENT[\s\S]*OVERRIDES the brand core/);
+    expect(prompt).toMatch(/TARGET SEGMENT[\s\S]*leads and takes priority/);
   });
 
   it("injects positioning, value propositions, terminology, CTA guidance, dos/donts", () => {

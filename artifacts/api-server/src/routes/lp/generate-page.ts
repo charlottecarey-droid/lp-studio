@@ -4017,7 +4017,7 @@ export function buildBrandContext(brand: BrandConfig, designIntensity: DesignInt
   parts.push(
     [
       "CONTEXT PRIORITY — read before writing, applies to every section below:",
-      "1. AUDIENCE SEGMENT + SELECTED PERSONA guidance (when present) leads — it OVERRIDES the brand core on headlines, value props, pains, and CTAs.",
+      "1. AUDIENCE SEGMENT + SELECTED PERSONA guidance (when present) leads and takes priority on headlines, value props, pains, and CTAs — but still draw on the brand core (item 2) for supporting depth, authority, and proof rather than writing thin segment-only copy.",
       "2. This BRAND CONTEXT anchors the voice, vocabulary, positioning, and product facts — write every line as this specific brand.",
       "3. Approved case studies, proof points, stats, and customer quotes are REAL — cite them by their actual numbers and names; never invent or paraphrase substitutes.",
       "4. Any REFERENCE PAGE / inspiration site is structural + stylistic inspiration ONLY — never copy its claims, never let it override the brand voice.",
@@ -7067,8 +7067,8 @@ export function buildSegmentSection(
 ): string {
   const parts: string[] = [];
   // June 2026 copy-quality audit — bring the LP path to PARITY with the
-  // microsite generator's hard MESSAGING HIERARCHY directive. When a segment
-  // carries usable messaging data, its guidance OVERRIDES the brand core, and a
+  // microsite generator's MESSAGING HIERARCHY directive. When a segment
+  // carries usable messaging data, its guidance LEADS over the brand core, and a
   // persona (when present) overrides on top of the segment. This directive must
   // be unmissable — it is the single biggest lever against generic, core-level
   // copy leaking onto a segment-targeted page. It only fires when there is
@@ -7087,11 +7087,11 @@ export function buildSegmentSection(
   if (segHasUsableData) {
     parts.push(
       [
-        "MESSAGING HIERARCHY — READ FIRST, NON-NEGOTIABLE:",
-        `- The selected segment's messaging (${segName}) OVERRIDES the brand's core/default messaging.`,
-        "- LEAD with the segment's value props, pains, and vocabulary below. Do NOT fall back to generic core/brand-level lines when a segment is selected.",
-        "- When a PERSONA is listed below, that persona's priorities override the segment-wide framing on top of this — frame the hero, value props, and CTA around what THAT persona cares about.",
-        "- The segment-specific data below is the authoritative source for headlines, value props, pains, and proof on this page — prefer it over any core/brand pillar that conflicts.",
+        "MESSAGING HIERARCHY — READ FIRST:",
+        `- The selected segment's messaging (${segName}) LEADS and takes priority over the brand's core/default messaging.`,
+        "- Open and frame the page with the segment's value props, pains, and vocabulary below. You SHOULD still draw on the brand's core authority, story, proof, and pillars for supporting copy where they reinforce this segment — just don't center the page on off-segment core lines.",
+        "- When a PERSONA is listed below, frame the hero, value props, and CTA around what THAT persona cares about, on top of the segment guidance.",
+        "- When the segment-specific data below conflicts with a core/brand pillar on headlines, value props, pains, or proof, prefer the segment data; otherwise blend the two so the copy reads rich and specific, never thin or repetitive.",
       ].join("\n"),
     );
   }

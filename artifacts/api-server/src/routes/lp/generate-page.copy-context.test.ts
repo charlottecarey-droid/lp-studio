@@ -39,7 +39,7 @@ describe("buildBrandContext — full + prioritized brand context", () => {
 
   it("opens with an ordered CONTEXT PRIORITY preamble (segment > brand > proof > reference)", () => {
     expect(ctx).toContain("CONTEXT PRIORITY");
-    expect(ctx).toMatch(/AUDIENCE SEGMENT[\s\S]*OVERRIDES the brand core/);
+    expect(ctx).toMatch(/AUDIENCE SEGMENT[\s\S]*leads and takes priority/);
     expect(ctx.indexOf("CONTEXT PRIORITY")).toBeLessThan(ctx.indexOf("Brand: Acme"));
   });
 
@@ -85,10 +85,10 @@ describe("buildSegmentSection (LP) — messaging-hierarchy parity", () => {
     challenges: [{ title: "Remake rates", desc: "high across the network" }],
   };
 
-  it("emits the hard override directive + leads with segment value props", () => {
+  it("emits the priority directive + leads with segment value props", () => {
     const out = buildSegmentSection(seg);
     expect(out).toContain("MESSAGING HIERARCHY");
-    expect(out.toUpperCase()).toContain("OVERRIDES");
+    expect(out.toUpperCase()).toContain("LEADS");
     expect(out).toContain("Same-store growth");
     expect(out).toContain("LEAD with these");
   });
@@ -99,7 +99,7 @@ describe("buildSegmentSection (LP) — messaging-hierarchy parity", () => {
     expect(out).toContain("inconsistent quality across locations");
   });
 
-  it("omits the override directive for an empty/placeholder segment (core fallback)", () => {
+  it("omits the priority directive for an empty/placeholder segment (core fallback)", () => {
     expect(buildSegmentSection({ name: "X" })).not.toContain("MESSAGING HIERARCHY");
   });
 });

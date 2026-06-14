@@ -2343,10 +2343,11 @@ export function findSelectedPersona(
  * challenges, stats and comparison rows. Returns empty string when no
  * segment matches.
  *
- * MESSAGING HIERARCHY (P0-A): when a segment is selected its messaging
- * OVERRIDES the brand's core/default messaging — the section opens with a hard,
- * unmissable override directive so the model leads with the segment's value
- * props, pains and vocabulary rather than generic core lines (the DSO failure:
+ * MESSAGING HIERARCHY (P0-A): when a segment is selected its messaging LEADS
+ * and takes priority over the brand's core/default messaging — the section opens
+ * with a clear priority directive so the model leads with the segment's value
+ * props, pains and vocabulary while still drawing on brand depth for support
+ * (the DSO failure:
  * "transform your practice with Dandy" is practice-level CORE messaging and
  * must NOT leak onto a DSO-segment page centred on same-store growth,
  * standardization, operational efficiency, margin expansion, enterprise
@@ -2359,10 +2360,10 @@ export function buildSegmentSection(
   selectedPersona?: BrandSegmentPersona | undefined,
 ): string {
   if (!segment) return "";
-  // A segment with NO usable messaging data carries no override to assert — the
+  // A segment with NO usable messaging data carries no priority to assert — the
   // page falls back to CORE messaging (spec: "if NO segment [data], fall back to
-  // core"). The hard override directive only fires when there's segment-specific
-  // content to lead with, so an empty/placeholder segment can't suppress core.
+  // core"). The priority directive only fires when there's segment-specific
+  // content to lead with, so an empty/placeholder segment can't displace core.
   const hasUsableData = Boolean(
     segment.messagingAngle?.trim()
     || segment.uniqueContext?.trim()
@@ -2376,11 +2377,11 @@ export function buildSegmentSection(
   if (!hasUsableData) return "";
   const segName = segment.name?.trim() || "this account's segment";
   const lines: string[] = [
-    // ── Hard messaging-hierarchy directive — segment OVERRIDES core. ──
-    "MESSAGING HIERARCHY — READ FIRST, NON-NEGOTIABLE:",
-    `- The selected segment's messaging (${segName}) OVERRIDES the brand's core/default messaging.`,
-    "- LEAD with the segment's value props, pains, and vocabulary below. Do NOT use generic core/brand-level lines when a segment is selected.",
-    "- The segment-specific data below is the authoritative source for headlines, value props, pains, and proof on this page — prefer it over any core/brand pillar that conflicts.",
+    // ── Messaging-hierarchy directive — segment LEADS, brand core supports. ──
+    "MESSAGING HIERARCHY — READ FIRST:",
+    `- The selected segment's messaging (${segName}) LEADS and takes priority over the brand's core/default messaging.`,
+    "- Open and frame the page with the segment's value props, pains, and vocabulary below. You SHOULD still draw on the brand's core authority, story, proof, and pillars for supporting copy where they reinforce this segment — just don't center the page on off-segment core lines.",
+    "- When the segment-specific data below conflicts with a core/brand pillar on headlines, value props, pains, or proof, prefer the segment data; otherwise blend the two so the copy reads rich and specific, never thin or repetitive.",
     "",
     `TARGET SEGMENT — ${segName} (use this segment's specific data in copy):`,
     "",
@@ -2558,11 +2559,11 @@ export function buildSystemPrompt(
   const segments        = brand.segments as BrandAudienceSegment[] | undefined;
   const matchedSegment  = findMatchingSegment(segments, accountSegment);
   const productCatalog  = buildProductCatalogSection(productLines);
-  // P0-A — build the TARGET SEGMENT section (with its hard messaging-hierarchy
-  // override directive) from the PICKED segment the rep selected, not from
+  // P0-A — build the TARGET SEGMENT section (with its messaging-hierarchy
+  // priority directive) from the PICKED segment the rep selected, not from
   // `matchedSegment` (which is resolved from the account's own segment field
   // and may be empty/different). This is the DSO-failure fix: when the rep picks
-  // the DSO segment but the account row has no `segment` value, the override
+  // the DSO segment but the account row has no `segment` value, the priority
   // directive + segment value props must still fire. `matchedSegment` is only a
   // fallback when the picked segment carries no usable data. The selected
   // persona belongs to the picked segment, so it threads straight through.
@@ -2704,7 +2705,7 @@ export function buildSystemPrompt(
     "",
     [
       "CONTEXT PRIORITY — read before writing, applies to every section below:",
-      "1. The TARGET SEGMENT + SELECTED PERSONA guidance leads — it OVERRIDES the brand core on headlines, value props, pains, and CTAs.",
+      "1. The TARGET SEGMENT + SELECTED PERSONA guidance leads and takes priority on headlines, value props, pains, and CTAs — but still draw on the brand core (item 2) for supporting depth, authority, and proof rather than writing thin segment-only copy.",
       "2. The BRAND VOICE & GUIDELINES anchor the voice, vocabulary, positioning, and product facts — write every line as the selling brand.",
       "3. The account context, approved case studies, proof points, and quotes are REAL — cite them by their actual numbers and names; never invent substitutes.",
       "4. Any REFERENCE PAGE / screenshot is structural + stylistic inspiration ONLY — never copy its claims, never let it override the brand voice.",
