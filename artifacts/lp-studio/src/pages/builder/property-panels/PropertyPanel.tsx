@@ -1769,6 +1769,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             onChange={props => onChange({ ...block, props })}
             brandVoiceSet={brandVoiceSet}
             onApplyCtaToAll={onApplyCtaToAll}
+            ctaSource={ctaSource}
           />
         );
       case "parallax-image-hero":
