@@ -17,6 +17,14 @@ import type { CtaModalConfig, HeroCtaConfig } from "@/lib/block-types";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK, BRAND_NUMBERS_STACK } from "@/lib/brand-fonts";
 import { formatStatValue, parseStatValue } from "./BlockStatCounterBand";
+import {
+  DarkHeroBackdrop,
+  MicrositeNavbar,
+  resolveDarkHeroSurface,
+  resolveHeroLayout,
+  type HeroLayout,
+  type MicrositeNavLink,
+} from "./microsite-chrome";
 
 const DISPLAY = BRAND_DISPLAY_STACK;
 const BODY = BRAND_BODY_STACK;
@@ -103,6 +111,23 @@ export interface ValueRenewalReviewBlockProps extends CtaModalConfig, HeroCtaCon
   sparkColor?: string;
   /** "Year in numbers" dark surface. Defaults to a deep-indigo mix of brand primary. */
   darkColor?: string;
+  /** Dark/brand hero surface (the review band). Defaults to a deep mix of the
+   *  brand primary so the page opens on a distinct branded hero, never white. */
+  heroBgColor?: string;
+
+  /* ── navbar + hero treatment (design-system chrome) ───────────────────── */
+  /** Hero layout. "split" = dark brand panel beside the product image;
+   *  "image-overlay" = full-bleed image + brand scrim; "dark" = a dark headline
+   *  band. Defaults to "split" (or "dark" when no image). Never plain white. */
+  heroLayout?: HeroLayout;
+  /** Show the slim top navbar over the hero. Default true. */
+  showNavbar?: boolean;
+  /** 0–4 navbar anchor links (scroll to page sections). */
+  navLinks?: MicrositeNavLink[];
+  /** Navbar CTA label. Defaults to the hero CTA (ctaText). */
+  navCtaText?: string;
+  /** Navbar CTA href. Defaults to the hero CTA url. */
+  navCtaUrl?: string;
 
   /* ── 1. hero ──────────────────────────────────────────────────────────── */
   /** Eyebrow, personalization-token friendly: "Value review for {{company_name}}". */
@@ -190,6 +215,17 @@ export const VALUE_RENEWAL_REVIEW_DEFAULT_PROPS: ValueRenewalReviewBlockProps = 
   ctaAction: "url",
   ctaSecondaryText: "See what's next",
   ctaSecondaryUrl: "#expansion",
+
+  /* navbar + hero chrome */
+  heroLayout: "split",
+  showNavbar: true,
+  navLinks: [
+    { label: "Value delivered", href: "#value" },
+    { label: "Adoption", href: "#usage" },
+    { label: "The renewal", href: "#close" },
+  ],
+  navCtaText: "Book your renewal conversation",
+  navCtaUrl: "#close",
 
   eyebrow: "Value review for {{company_name}}",
   accountName: "Acme",
@@ -438,6 +474,25 @@ export function BlockValueRenewalReview({ props, brand, onCtaClick, onFieldChang
     4.5,
   );
 
+  /* — Dark/brand HERO surface (the review band). Opens on a distinct branded
+   *   hero rather than a plain white document; all hero chrome AA-resolved. — */
+  const heroBg = resolveDarkHeroSurface(brand, props.heroBgColor, isValidHex, "#12102E", "#1B1840");
+  const heroInk = resolveSectionInk({}, { base: heroBg });
+  const heroAccent = pickContrastingColor(accentRaw, heroBg, [heroInk.text], 4.5);
+  const heroHeadline = pickContrastingColor(
+    brand?.headingOnDarkColor,
+    heroBg,
+    [heroAccent, heroInk.text],
+    4.5,
+  );
+  const navCtaBg = pickContrastingColor(
+    brand?.ctaBackground,
+    heroBg,
+    [accentRaw, brand?.primaryColor, "#FFFFFF"],
+    3.0,
+  );
+  const navCtaTextColor = pickContrastingColor(brand?.ctaText, navCtaBg, [contrastTextColor(navCtaBg)], 4.5);
+
   // Warm gold-leaning tinted chapter band (expansion) — a whisper of tint.
   const bandBg = mixHex(tintChrome, bg, surfaceIsDark ? 0.12 : 0.07);
   const bandInk = resolveSectionInk({ textColor: props.inkColor }, { base: bandBg });
@@ -530,6 +585,21 @@ export function BlockValueRenewalReview({ props, brand, onCtaClick, onFieldChang
   const hasLogo = props.showLogo !== false && !!brand && brandHasLogo(brand, props.logoUrl);
   const isEditor = !!onFieldChange;
 
+  /* — navbar + hero layout (design-system chrome) — */
+  const hasHeroImage = !!props.productImageUrl || isEditor;
+  const showNavbar = props.showNavbar !== false;
+  const heroLayout = resolveHeroLayout(props.heroLayout, hasHeroImage, "split");
+  const navLinks = props.navLinks ?? VALUE_RENEWAL_REVIEW_DEFAULT_PROPS.navLinks ?? [];
+  const navCtaLabel = props.navCtaText ?? props.ctaText;
+  const navCtaHref = props.navCtaUrl || props.ctaUrl || "#close";
+  const handleAnchor = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (!href.startsWith("#") || href.length < 2) return;
+    const target = typeof document !== "undefined" ? document.getElementById(href.slice(1)) : null;
+    if (!target) return;
+    e.preventDefault();
+    target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+  };
+
   /* — shared section header (mono numbered marker + rule + kicker + h2) — */
   const SectionHead = ({
     no,
@@ -620,106 +690,167 @@ export function BlockValueRenewalReview({ props, brand, onCtaClick, onFieldChang
         }
       `}</style>
 
-      <div className="max-w-5xl mx-auto px-5 sm:px-8 lg:px-10">
-        {/* ── 1. Hero ──────────────────────────────────────────────────── */}
-        <header className="pt-12 sm:pt-16 lg:pt-20 pb-10 sm:pb-14">
-          <motion.div {...fadeUp()}>
-            <div className="flex items-center justify-between gap-4 mb-6">
-              <span className={kickerClass} style={{ color: tintText }}>
+      {/* ── 1. HERO — distinct dark/brand review band with navbar ─────────── */}
+      <header
+        className="relative overflow-hidden"
+        style={{ background: heroBg, color: heroInk.text }}
+      >
+        <DarkHeroBackdrop
+          surface={heroBg}
+          accent={accentRaw}
+          primary={primaryHex}
+          isStatic={reduced || isEditor}
+          idPrefix="vrr-hero"
+        >
+          {heroLayout === "image-overlay" && props.productImageUrl && (
+            <>
+              <img
+                src={props.productImageUrl}
+                alt=""
+                aria-hidden
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25"
+                loading="eager"
+              />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background: `linear-gradient(105deg, ${heroBg} 38%, ${mixHex(heroBg, "#000000", 0.7)}cc 100%)`,
+                }}
+              />
+            </>
+          )}
+        </DarkHeroBackdrop>
+
+        {showNavbar && (
+          <MicrositeNavbar
+            brand={brand}
+            logoUrl={props.logoUrl}
+            logoAlt={props.logoAlt}
+            accountLogoUrl={props.accountLogoUrl}
+            accountLogoAlt={props.accountLogoAlt || props.accountName}
+            links={navLinks}
+            ctaText={navCtaLabel}
+            ctaUrl={navCtaHref}
+            ctaBg={navCtaBg}
+            ctaText_color={navCtaTextColor}
+            heroSurface={heroBg}
+            isDark
+            ink={heroInk.text}
+            inkMuted={heroInk.muted}
+            accent={heroAccent}
+            onAnchor={handleAnchor}
+            onCtaClick={onCtaClick}
+          />
+        )}
+
+        <div className="relative z-10 mx-auto w-full max-w-5xl px-5 pb-14 pt-10 sm:px-8 sm:pb-20 sm:pt-14 lg:px-10">
+          <motion.div
+            {...fadeUp()}
+            className={
+              heroLayout === "split" && hasHeroImage
+                ? "grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-12"
+                : undefined
+            }
+          >
+            <div className={heroLayout === "split" && hasHeroImage ? "lg:col-span-7" : "max-w-3xl"}>
+              <span className={kickerClass} style={{ color: heroAccent }}>
                 <InlineText as="span" value={props.eyebrow} onUpdate={edit("eyebrow")} />
               </span>
-              {hasLogo && brand && (
-                <BrandLogo
-                  brand={brand}
-                  url={props.logoUrl}
-                  alt={props.logoAlt || brand.brandName || props.yourName || "Logo"}
-                  tone={surfaceIsDark ? "onDark" : "onLight"}
-                  autoContrast
-                  className="h-6 w-auto shrink-0"
-                />
-              )}
-            </div>
-            {(props.accountLogoUrl || isEditor) && (
-              <div className="mb-6">
-                <InlineImage
-                  src={props.accountLogoUrl ?? ""}
-                  alt={props.accountLogoAlt || props.accountName || "Account logo"}
-                  wrapperClassName="inline-block"
-                  className="h-8 sm:h-9 w-auto object-contain"
-                  onUpdate={edit("accountLogoUrl")}
-                  onAltUpdate={edit("accountLogoAlt")}
-                />
-              </div>
-            )}
-            <h1
-              className="text-4xl sm:text-5xl lg:text-6xl leading-[1.04] tracking-tight max-w-4xl"
-              style={{
-                color: headline,
-                fontFamily: DISPLAY,
-                fontWeight: "var(--brand-heading-weight, 700)" as never,
-              }}
-            >
-              <InlineText as="span" value={props.headline} onUpdate={edit("headline")} multiline />
-            </h1>
-            {(props.subheadline || isEditor) && (
-              <p className="mt-6 text-base sm:text-lg leading-relaxed max-w-2xl" style={{ color: ink.muted }}>
-                <InlineText
-                  as="span"
-                  value={props.subheadline ?? ""}
-                  onUpdate={edit("subheadline")}
-                  multiline
-                />
-              </p>
-            )}
-            {(props.metaLine || isEditor) && (
-              <div
-                className="mt-8 pt-4 text-[11px] uppercase tracking-[0.16em]"
-                style={{ borderTop: `1px solid ${ink.hairline}`, color: ink.muted }}
+              <h1
+                className="mt-6 text-4xl leading-[1.04] tracking-tight sm:text-5xl lg:text-6xl"
+                style={{
+                  color: heroHeadline,
+                  fontFamily: DISPLAY,
+                  fontWeight: "var(--brand-heading-weight, 700)" as never,
+                }}
               >
-                <InlineText as="span" value={props.metaLine ?? ""} onUpdate={edit("metaLine")} />
-              </div>
-            )}
-            {/* Hero CTA suite */}
-            <div className="mt-9 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-              <CtaButton
-                ctaAction={props.ctaAction || "url"}
-                ctaUrl={props.ctaUrl}
-                chilipiperUrl={props.chilipiperUrl}
-                videoUrl={props.videoUrl}
-                {...pickCtaModalConfig(props)}
-                onClick={(props.ctaAction || "url") === "url" ? onCtaClick : undefined}
-                brand={brand}
-                pageId={pageId}
-                variantId={variantId}
-                source="value-renewal-hero-primary"
-                className={`inline-flex items-center justify-center gap-2 px-7 py-3.5 text-sm font-semibold tracking-wide rounded-xl transition-opacity hover:opacity-90 ${focusable}`}
-                style={{ background: heroCtaBg, color: heroCtaText }}
-              >
-                <InlineText as="span" value={props.ctaText} onUpdate={edit("ctaText")} />
-                <ArrowRight className="w-4 h-4" aria-hidden />
-              </CtaButton>
-              {(props.ctaSecondaryText || isEditor) && (
-                <a
-                  href={props.ctaSecondaryUrl || "#"}
-                  className={`inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold tracking-wide rounded-xl transition-colors hover:opacity-90 ${focusable}`}
-                  style={{ border: `1px solid ${ink.hairline}`, color: ink.text }}
-                >
+                <InlineText as="span" value={props.headline} onUpdate={edit("headline")} multiline />
+              </h1>
+              {(props.subheadline || isEditor) && (
+                <p className="mt-6 max-w-2xl text-base leading-relaxed sm:text-lg" style={{ color: heroInk.muted }}>
                   <InlineText
                     as="span"
-                    value={props.ctaSecondaryText ?? ""}
-                    onUpdate={edit("ctaSecondaryText")}
+                    value={props.subheadline ?? ""}
+                    onUpdate={edit("subheadline")}
+                    multiline
                   />
-                </a>
+                </p>
               )}
+              {(props.metaLine || isEditor) && (
+                <div
+                  className="mt-8 pt-4 text-[11px] uppercase tracking-[0.16em]"
+                  style={{ borderTop: `1px solid ${heroInk.hairline}`, color: heroInk.muted }}
+                >
+                  <InlineText as="span" value={props.metaLine ?? ""} onUpdate={edit("metaLine")} />
+                </div>
+              )}
+              {/* Hero CTA suite */}
+              <div className="mt-9 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                <CtaButton
+                  ctaAction={props.ctaAction || "url"}
+                  ctaUrl={props.ctaUrl}
+                  chilipiperUrl={props.chilipiperUrl}
+                  videoUrl={props.videoUrl}
+                  {...pickCtaModalConfig(props)}
+                  onClick={(props.ctaAction || "url") === "url" ? onCtaClick : undefined}
+                  brand={brand}
+                  pageId={pageId}
+                  variantId={variantId}
+                  source="value-renewal-hero-primary"
+                  className={`inline-flex items-center justify-center gap-2 px-7 py-3.5 text-sm font-semibold tracking-wide rounded-xl transition-opacity hover:opacity-90 ${focusable}`}
+                  style={{ background: navCtaBg, color: navCtaTextColor }}
+                >
+                  <InlineText as="span" value={props.ctaText} onUpdate={edit("ctaText")} />
+                  <ArrowRight className="w-4 h-4" aria-hidden />
+                </CtaButton>
+                {(props.ctaSecondaryText || isEditor) && (
+                  <a
+                    href={props.ctaSecondaryUrl || "#"}
+                    onClick={(e) => handleAnchor(e, props.ctaSecondaryUrl || "#")}
+                    className={`inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold tracking-wide rounded-xl transition-colors hover:opacity-90 ${focusable}`}
+                    style={{ border: `1px solid ${heroInk.hairline}`, color: heroInk.text }}
+                  >
+                    <InlineText
+                      as="span"
+                      value={props.ctaSecondaryText ?? ""}
+                      onUpdate={edit("ctaSecondaryText")}
+                    />
+                  </a>
+                )}
+              </div>
             </div>
+
+            {heroLayout === "split" && hasHeroImage && (
+              <div className="lg:col-span-5">
+                <div
+                  className="overflow-hidden rounded-2xl border p-2 backdrop-blur-md"
+                  style={{
+                    background: "rgba(255,255,255,0.045)",
+                    borderColor: "rgba(255,255,255,0.12)",
+                    boxShadow: `0 36px 72px -30px rgba(0,0,0,0.7), 0 0 56px -16px ${mixHex(accentRaw, heroBg, 0.4)}`,
+                  }}
+                >
+                  <InlineImage
+                    src={props.productImageUrl ?? ""}
+                    alt={props.productImageAlt || `${props.accountName} results`}
+                    wrapperClassName="block"
+                    className="w-full h-full object-cover aspect-[4/3] rounded-xl"
+                    onUpdate={edit("productImageUrl")}
+                    onAltUpdate={edit("productImageAlt")}
+                  />
+                </div>
+              </div>
+            )}
           </motion.div>
-        </header>
-      </div>
+        </div>
+      </header>
 
       {/* ── 2. Value delivered — dark "year in numbers" aurora chapter ───── */}
       {showValue && (
         <section
-          className="relative overflow-hidden"
+          id="value"
+          className="relative scroll-mt-8 overflow-hidden"
           style={{ background: dark }}
           aria-label={props.valueKicker || "Value delivered"}
         >
@@ -827,7 +958,8 @@ export function BlockValueRenewalReview({ props, brand, onCtaClick, onFieldChang
         {/* ── 3. Usage & adoption story ────────────────────────────────── */}
         {showUsage && (
           <section
-            className="py-10 sm:py-14"
+            id="usage"
+            className="scroll-mt-8 py-10 sm:py-14"
             aria-label={props.usageKicker || "Usage & adoption"}
           >
             <SectionHead

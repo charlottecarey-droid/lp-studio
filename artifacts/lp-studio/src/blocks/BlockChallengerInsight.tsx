@@ -17,6 +17,11 @@ import {
   BRAND_DISPLAY_STACK,
   BRAND_NUMBERS_STACK,
 } from "@/lib/brand-fonts";
+import {
+  MicrositeNavbar,
+  type HeroLayout,
+  type MicrositeNavLink,
+} from "./microsite-chrome";
 
 /* ----------------------------------------------------------------------------
  * Challenger Insight Brief — type "challenger-insight"
@@ -82,6 +87,23 @@ export interface ChallengerPlanStep {
 }
 
 export interface ChallengerInsightBlockProps {
+  /* ── navbar + hero treatment (design-system chrome) ── */
+  /** Hero layout. This block is always a dark hero; "split" frames the hero
+   *  image beside the headline, "dark" runs the headline full-width. Never
+   *  plain white. Defaults to "split" when a hero image is present. */
+  heroLayout?: HeroLayout;
+  /** Show the slim top navbar over the dark hero. Default true. */
+  showNavbar?: boolean;
+  /** 0–4 navbar anchor links (scroll to page sections). */
+  navLinks?: MicrositeNavLink[];
+  /** Navbar CTA label. Defaults to the final ("Take control") CTA. */
+  navCtaText?: string;
+  /** Navbar CTA href. Defaults to the final CTA url. */
+  navCtaUrl?: string;
+  /** Tenant-logo override URL for the navbar lockup; falls back to brand logo. */
+  logoUrl?: string;
+  logoAlt?: string;
+
   /* ── 1. Insight hero (Teach) ── */
   /** Kicker above the headline, e.g. "An uncomfortable truth about ops reporting". */
   kicker?: string;
@@ -169,6 +191,15 @@ export interface ChallengerInsightBlockProps {
 }
 
 export const CHALLENGER_INSIGHT_DEFAULT_PROPS: ChallengerInsightBlockProps = {
+  heroLayout: "split",
+  showNavbar: true,
+  navLinks: [
+    { label: "The evidence", href: "#evidence" },
+    { label: "The better way", href: "#better-way" },
+    { label: "Take control", href: "#contact" },
+  ],
+  navCtaText: "Book the working session",
+  navCtaUrl: "#contact",
   kicker: "An uncomfortable truth about operations reporting",
   headline: "The way you track operations is costing you the quarter.",
   highlightPhrase: "costing you the quarter",
@@ -521,6 +552,8 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
   /* ── CTAs: runtime-resolved against the exact surface they sit on ───────── */
   const heroCta = pickCtaButtonColors(b, surface);
   const finalCta = pickCtaButtonColors(b, surfaceDeep);
+  /** Navbar CTA, resolved against the hero surface it sits on. */
+  const navCta = pickCtaButtonColors(b, surface);
 
   /* ── Glass + hairline chrome (flips with surface darkness) ──────────────── */
   const glassBg = isDark ? "rgba(255,255,255,0.045)" : "rgba(10,10,14,0.045)";
@@ -553,6 +586,12 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
   const showBetterWay = props.showBetterWay !== false;
   const showProof = props.showProof !== false && (testimonials.length > 0 || logos.length > 0);
   const showPlan = props.showPlan !== false;
+
+  /* ── Navbar (design-system chrome) ──────────────────────────────────────── */
+  const showNavbar = props.showNavbar !== false;
+  const navLinks = props.navLinks ?? D.navLinks ?? [];
+  const navCtaText = props.navCtaText ?? D.navCtaText;
+  const navCtaUrl = props.navCtaUrl || D.navCtaUrl || "#contact";
 
   /* ── Anchor-scroll handler (honors reduced motion) ──────────────────────── */
   const handleAnchor = (e: MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -645,8 +684,27 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
           a={mixHex(rawAccent, surface, 0.28)}
           b={mixHex(primary, surface, 0.4)}
         />
+        {showNavbar && (
+          <MicrositeNavbar
+            brand={b}
+            logoUrl={props.logoUrl}
+            logoAlt={props.logoAlt}
+            links={navLinks}
+            ctaText={navCtaText}
+            ctaUrl={navCtaUrl}
+            ctaBg={navCta.bg}
+            ctaText_color={navCta.text}
+            heroSurface={surface}
+            isDark={isDark}
+            ink={ink.text}
+            inkMuted={ink.muted}
+            accent={accentLabel}
+            onAnchor={handleAnchor}
+            onCtaClick={onCtaClick}
+          />
+        )}
         <div
-          className={`relative mx-auto grid min-h-[88vh] w-full max-w-6xl items-center gap-12 px-6 py-24 md:py-32 lg:px-10 lg:gap-16 ${
+          className={`relative mx-auto grid min-h-[80vh] w-full max-w-6xl items-center gap-12 px-6 pb-24 pt-12 md:pb-32 md:pt-16 lg:px-10 lg:gap-16 ${
             heroImageUrl ? "lg:grid-cols-12" : "grid-cols-1"
           }`}
         >
@@ -1017,7 +1075,7 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
 
       {/* ── 5. THE BETTER WAY — the pivot ───────────────────────────────── */}
       {showBetterWay && (
-        <section className="relative">
+        <section id="better-way" className="relative scroll-mt-8">
           <div aria-hidden className="h-px w-full" style={{ background: ink.hairline }} />
           <div className="mx-auto w-full max-w-6xl px-6 py-20 md:py-28 lg:px-10">
             <div
@@ -1212,7 +1270,7 @@ export function BlockChallengerInsight({ props, brand, isBuilder, onCtaClick }: 
 
       {/* ── 7. TAKE CONTROL — assertive finale ──────────────────────────── */}
       {showPlan && (
-        <section className="relative overflow-hidden" style={{ background: surfaceDeep }}>
+        <section id="contact" className="relative scroll-mt-8 overflow-hidden" style={{ background: surfaceDeep }}>
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0"

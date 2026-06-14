@@ -17,6 +17,14 @@ import type { CtaModalConfig, HeroCtaConfig } from "@/lib/block-types";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK, BRAND_NUMBERS_STACK } from "@/lib/brand-fonts";
 import { formatStatValue, parseStatValue } from "./BlockStatCounterBand";
+import {
+  DarkHeroBackdrop,
+  MicrositeNavbar,
+  resolveDarkHeroSurface,
+  resolveHeroLayout,
+  type HeroLayout,
+  type MicrositeNavLink,
+} from "./microsite-chrome";
 
 const DISPLAY = BRAND_DISPLAY_STACK;
 const BODY = BRAND_BODY_STACK;
@@ -128,6 +136,23 @@ export interface OnboardingHubBlockProps extends CtaModalConfig, HeroCtaConfig {
   sparkColor?: string;
   /** Success-chapter dark surface. Defaults to a deep-indigo mix of brand primary. */
   darkColor?: string;
+  /** Dark/brand hero surface (the welcome band). Defaults to a deep mix of the
+   *  brand primary so the page opens on a distinct branded hero, never white. */
+  heroBgColor?: string;
+
+  /* ── navbar + hero treatment (design-system chrome) ───────────────────── */
+  /** Hero layout. "split" = dark brand panel beside the hero image;
+   *  "image-overlay" = full-bleed image with a brand scrim; "dark" = a dark
+   *  headline band. Defaults to "split" (or "dark" when no image). Never white. */
+  heroLayout?: HeroLayout;
+  /** Show the slim top navbar over the hero. Default true. */
+  showNavbar?: boolean;
+  /** 0–4 navbar anchor links (scroll to page sections). */
+  navLinks?: MicrositeNavLink[];
+  /** Navbar CTA label. Defaults to the hero CTA (ctaText). */
+  navCtaText?: string;
+  /** Navbar CTA href. Defaults to the hero CTA url. */
+  navCtaUrl?: string;
 
   /* ── 1. welcome hero ──────────────────────────────────────────────────── */
   /** Eyebrow, personalization-token friendly: "Welcome to {{company_name}}". */
@@ -202,6 +227,17 @@ export const ONBOARDING_HUB_DEFAULT_PROPS: OnboardingHubBlockProps = {
   ctaAction: "url",
   ctaSecondaryText: "Jump to your checklist",
   ctaSecondaryUrl: "#checklist",
+
+  /* navbar + hero chrome */
+  heroLayout: "split",
+  showNavbar: true,
+  navLinks: [
+    { label: "Your plan", href: "#plan" },
+    { label: "Checklist", href: "#checklist" },
+    { label: "Support", href: "#support" },
+  ],
+  navCtaText: "Book your kickoff call",
+  navCtaUrl: "#support",
 
   eyebrow: "Welcome to {{company_name}}",
   accountName: "Acme",
@@ -479,6 +515,25 @@ export function BlockOnboardingHub({ props, brand, onCtaClick, onFieldChange, pa
     4.5,
   );
 
+  /* — Dark/brand HERO surface (the welcome band). Opens on a distinct branded
+   *   hero rather than a plain white document; all hero chrome AA-resolved. — */
+  const heroBg = resolveDarkHeroSurface(brand, props.heroBgColor, isValidHex, "#12102E", "#1B1840");
+  const heroInk = resolveSectionInk({}, { base: heroBg });
+  const heroAccent = pickContrastingColor(accentRaw, heroBg, [heroInk.text], 4.5);
+  const heroHeadline = pickContrastingColor(
+    brand?.headingOnDarkColor,
+    heroBg,
+    [heroAccent, heroInk.text],
+    4.5,
+  );
+  const navCtaBg = pickContrastingColor(
+    brand?.ctaBackground,
+    heroBg,
+    [accentRaw, brand?.primaryColor, "#FFFFFF"],
+    3.0,
+  );
+  const navCtaTextColor = pickContrastingColor(brand?.ctaText, navCtaBg, [contrastTextColor(navCtaBg)], 4.5);
+
   // Warm sand-leaning tinted chapter band (team) — a whisper of tint over the page.
   const bandBg = mixHex(tintChrome, bg, surfaceIsDark ? 0.12 : 0.07);
   const bandInk = resolveSectionInk({ textColor: props.inkColor }, { base: bandBg });
@@ -580,6 +635,21 @@ export function BlockOnboardingHub({ props, brand, onCtaClick, onFieldChange, pa
 
   const hasLogo = props.showLogo !== false && !!brand && brandHasLogo(brand, props.logoUrl);
   const isEditor = !!onFieldChange;
+
+  /* — navbar + hero layout (design-system chrome) — */
+  const hasHeroImage = !!props.heroImageUrl || isEditor;
+  const showNavbar = props.showNavbar !== false;
+  const heroLayout = resolveHeroLayout(props.heroLayout, hasHeroImage, "split");
+  const navLinks = props.navLinks ?? ONBOARDING_HUB_DEFAULT_PROPS.navLinks ?? [];
+  const navCtaLabel = props.navCtaText ?? props.ctaText;
+  const navCtaHref = props.navCtaUrl || props.ctaUrl || "#support";
+  const handleAnchor = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (!href.startsWith("#") || href.length < 2) return;
+    const target = typeof document !== "undefined" ? document.getElementById(href.slice(1)) : null;
+    if (!target) return;
+    e.preventDefault();
+    target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+  };
 
   /* — shared section header (mono numbered marker + rule + kicker + h2) — */
   const SectionHead = ({
@@ -686,30 +756,77 @@ export function BlockOnboardingHub({ props, brand, onCtaClick, onFieldChange, pa
         }
       `}</style>
 
-      <div className="max-w-5xl mx-auto px-5 sm:px-8 lg:px-10">
-        {/* ── 1. Welcome hero ──────────────────────────────────────────── */}
-        <header className="pt-12 sm:pt-16 lg:pt-20 pb-10 sm:pb-14">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
-            <motion.div {...fadeUp()} className="lg:col-span-7">
-              <div className="flex items-center justify-between gap-4 mb-6">
-                <span className={kickerClass} style={{ color: accentText }}>
-                  <InlineText as="span" value={props.eyebrow} onUpdate={edit("eyebrow")} />
-                </span>
-                {hasLogo && brand && (
-                  <BrandLogo
-                    brand={brand}
-                    url={props.logoUrl}
-                    alt={props.logoAlt || brand.brandName || "Logo"}
-                    tone={surfaceIsDark ? "onDark" : "onLight"}
-                    autoContrast
-                    className="h-6 w-auto shrink-0"
-                  />
-                )}
-              </div>
-              <h1
-                className="text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight"
+      {/* ── 1. WELCOME HERO — distinct dark/brand band with navbar ────────── */}
+      <header
+        className="relative overflow-hidden"
+        style={{ background: heroBg, color: heroInk.text }}
+      >
+        <DarkHeroBackdrop
+          surface={heroBg}
+          accent={accentRaw}
+          primary={primaryHex}
+          isStatic={reduced || isEditor}
+          idPrefix="oh-hero"
+        >
+          {heroLayout === "image-overlay" && props.heroImageUrl && (
+            <>
+              <img
+                src={props.heroImageUrl}
+                alt=""
+                aria-hidden
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-30"
+                loading="eager"
+              />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0"
                 style={{
-                  color: headline,
+                  background: `linear-gradient(105deg, ${heroBg} 38%, ${mixHex(heroBg, "#000000", 0.7)}cc 100%)`,
+                }}
+              />
+            </>
+          )}
+        </DarkHeroBackdrop>
+
+        {showNavbar && (
+          <MicrositeNavbar
+            brand={brand}
+            logoUrl={props.logoUrl}
+            logoAlt={props.logoAlt}
+            links={navLinks}
+            ctaText={navCtaLabel}
+            ctaUrl={navCtaHref}
+            ctaBg={navCtaBg}
+            ctaText_color={navCtaTextColor}
+            heroSurface={heroBg}
+            isDark
+            ink={heroInk.text}
+            inkMuted={heroInk.muted}
+            accent={heroAccent}
+            onAnchor={handleAnchor}
+            onCtaClick={onCtaClick}
+          />
+        )}
+
+        <div className="relative z-10 mx-auto w-full max-w-5xl px-5 pb-14 pt-10 sm:px-8 sm:pb-20 sm:pt-14 lg:px-10">
+          <div
+            className={
+              heroLayout === "split" && hasHeroImage
+                ? "grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-12"
+                : undefined
+            }
+          >
+            <motion.div
+              {...fadeUp()}
+              className={heroLayout === "split" && hasHeroImage ? "lg:col-span-7" : "max-w-3xl"}
+            >
+              <span className={kickerClass} style={{ color: heroAccent }}>
+                <InlineText as="span" value={props.eyebrow} onUpdate={edit("eyebrow")} />
+              </span>
+              <h1
+                className="mt-6 text-4xl leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl"
+                style={{
+                  color: heroHeadline,
                   fontFamily: DISPLAY,
                   fontWeight: "var(--brand-heading-weight, 700)" as never,
                 }}
@@ -717,7 +834,7 @@ export function BlockOnboardingHub({ props, brand, onCtaClick, onFieldChange, pa
                 <InlineText as="span" value={props.headline} onUpdate={edit("headline")} multiline />
               </h1>
               {(props.subheadline || isEditor) && (
-                <p className="mt-6 text-base sm:text-lg leading-relaxed max-w-xl" style={{ color: ink.muted }}>
+                <p className="mt-6 max-w-xl text-base leading-relaxed sm:text-lg" style={{ color: heroInk.muted }}>
                   <InlineText
                     as="span"
                     value={props.subheadline ?? ""}
@@ -740,7 +857,7 @@ export function BlockOnboardingHub({ props, brand, onCtaClick, onFieldChange, pa
                   variantId={variantId}
                   source="onboarding-hub-hero-primary"
                   className={`inline-flex items-center justify-center gap-2 px-7 py-3.5 text-sm font-semibold tracking-wide rounded-xl transition-opacity hover:opacity-90 ${focusable}`}
-                  style={{ background: heroCtaBg, color: heroCtaText }}
+                  style={{ background: navCtaBg, color: navCtaTextColor }}
                 >
                   <InlineText as="span" value={props.ctaText} onUpdate={edit("ctaText")} />
                   <ArrowRight className="w-4 h-4" aria-hidden />
@@ -748,8 +865,9 @@ export function BlockOnboardingHub({ props, brand, onCtaClick, onFieldChange, pa
                 {(props.ctaSecondaryText || isEditor) && (
                   <a
                     href={props.ctaSecondaryUrl || "#"}
+                    onClick={(e) => handleAnchor(e, props.ctaSecondaryUrl || "#")}
                     className={`inline-flex items-center justify-center px-7 py-3.5 text-sm font-semibold tracking-wide rounded-xl transition-colors hover:opacity-90 ${focusable}`}
-                    style={{ border: `1px solid ${ink.hairline}`, color: ink.text }}
+                    style={{ border: `1px solid ${heroInk.hairline}`, color: heroInk.text }}
                   >
                     <InlineText
                       as="span"
@@ -761,20 +879,21 @@ export function BlockOnboardingHub({ props, brand, onCtaClick, onFieldChange, pa
               </div>
             </motion.div>
 
-            {(props.heroImageUrl || isEditor) && (
+            {heroLayout === "split" && hasHeroImage && (
               <motion.div {...fadeUp(0.1)} className="lg:col-span-5">
                 <div
-                  className="overflow-hidden rounded-2xl"
+                  className="overflow-hidden rounded-2xl border p-2 backdrop-blur-md"
                   style={{
-                    border: `1px solid ${ink.hairline}`,
-                    boxShadow: "0 24px 60px -34px rgba(27, 24, 64, 0.45)",
+                    background: "rgba(255,255,255,0.045)",
+                    borderColor: "rgba(255,255,255,0.12)",
+                    boxShadow: `0 36px 72px -30px rgba(0,0,0,0.7), 0 0 56px -16px ${mixHex(accentRaw, heroBg, 0.4)}`,
                   }}
                 >
                   <InlineImage
                     src={props.heroImageUrl ?? ""}
                     alt={props.heroImageAlt || "Your onboarding team"}
                     wrapperClassName="block"
-                    className="w-full h-full object-cover aspect-[4/3]"
+                    className="w-full h-full object-cover aspect-[4/3] rounded-xl"
                     onUpdate={edit("heroImageUrl")}
                     onAltUpdate={edit("heroImageAlt")}
                   />
@@ -782,12 +901,17 @@ export function BlockOnboardingHub({ props, brand, onCtaClick, onFieldChange, pa
               </motion.div>
             )}
           </div>
-        </header>
+        </div>
+      </header>
+
+      <div className="max-w-5xl mx-auto px-5 sm:px-8 lg:px-10">
+        <span aria-hidden className="block pt-12 sm:pt-16" />
 
         {/* ── 2. Onboarding plan ───────────────────────────────────────── */}
         {showPlan && (
           <section
-            className="py-10 sm:py-14"
+            id="plan"
+            className="scroll-mt-8 py-10 sm:py-14"
             style={{ borderTop: `1px solid ${ink.hairline}` }}
             aria-label={props.planKicker || "Your onboarding plan"}
           >

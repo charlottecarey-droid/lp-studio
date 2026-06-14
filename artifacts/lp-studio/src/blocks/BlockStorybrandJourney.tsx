@@ -20,6 +20,13 @@ import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK, BRAND_NUMBERS_STACK } from "@/lib/brand-fonts";
 import { cn } from "@/lib/utils";
+import {
+  DarkHeroBackdrop,
+  MicrositeNavbar,
+  resolveHeroLayout,
+  type HeroLayout,
+  type MicrositeNavLink,
+} from "./microsite-chrome";
 
 /* ----------------------------------------------------------------------------
  * StoryBrand Journey — type "storybrand-journey"
@@ -117,6 +124,24 @@ export interface StorybrandJourneyBlockProps {
   /** "serif" (default — warm editorial) or "brand" (tenant display font). */
   displayFontMode?: "serif" | "brand";
 
+  /* ── navbar + hero treatment (design-system chrome) ───────────────────── */
+  /** Hero layout. "split" frames the hero image beside the headline on a deep
+   *  brand band; "image-overlay" full-bleeds the image with a scrim; "dark"
+   *  runs the headline on a deep band. Defaults to "split" (or "dark" when no
+   *  hero image). The hero opens on a deep brand surface — never plain white. */
+  heroLayout?: HeroLayout;
+  /** Show the slim top navbar over the hero. Default true. */
+  showNavbar?: boolean;
+  /** 0–4 navbar anchor links (scroll to page sections). */
+  navLinks?: MicrositeNavLink[];
+  /** Navbar CTA label. Defaults to the hero primary CTA. */
+  navCtaText?: string;
+  /** Navbar CTA href. Defaults to the hero primary CTA url. */
+  navCtaUrl?: string;
+  /** Tenant-logo override URL for the navbar lockup; falls back to brand logo. */
+  logoUrl?: string;
+  logoAlt?: string;
+
   /* ── 1. hero ────────────────────────────────────────────────────────── */
   kicker?: string;
   heroHeadline?: string;
@@ -209,6 +234,16 @@ export interface StorybrandJourneyBlockProps {
  *  purpose: quotes must be real, logos are tenant assets. */
 export const STORYBRAND_JOURNEY_DEFAULT_PROPS: StorybrandJourneyBlockProps = {
   displayFontMode: "serif",
+
+  heroLayout: "split",
+  showNavbar: true,
+  navLinks: [
+    { label: "The problem", href: "#problem" },
+    { label: "The plan", href: "#plan" },
+    { label: "Get started", href: "#finale" },
+  ],
+  navCtaText: "Book a 20-minute call",
+  navCtaUrl: "#finale",
 
   kicker: "For teams that run on client work",
   heroHeadline: "Every client launch, smooth from day one.",
@@ -638,6 +673,20 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
 
   const hasHeroImage = !!props.heroImageUrl || !!onFieldChange;
 
+  /* ── navbar + hero chrome (design-system) ─────────────────────────────── */
+  const showNavbar = props.showNavbar !== false;
+  const heroLayout = resolveHeroLayout(props.heroLayout, hasHeroImage, "split");
+  const navLinks = props.navLinks ?? D.navLinks ?? [];
+  const navCtaText = props.navCtaText ?? props.heroPrimaryCtaText ?? D.heroPrimaryCtaText;
+  const navCtaUrl = props.navCtaUrl || props.heroPrimaryCtaUrl || D.heroPrimaryCtaUrl || "#finale";
+  const handleAnchor = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (!href.startsWith("#") || href.length < 2) return;
+    const target = typeof document !== "undefined" ? document.getElementById(href.slice(1)) : null;
+    if (!target) return;
+    e.preventDefault();
+    target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+  };
+
   return (
     <div
       className="sbj-root antialiased"
@@ -708,21 +757,72 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
         }
       `}</style>
 
-      {/* ── 1. HERO — "A Character": what the customer wants ─────────────── */}
-      <section className="px-6 lg:px-12 pt-16 pb-20 md:pt-24 md:pb-28">
+      {/* ── 1. HERO — "A Character" on a deep brand band, with navbar ────── */}
+      <section
+        className="sbj-deep relative overflow-hidden"
+        style={{ background: deep, color: deepInk.text }}
+      >
+        <DarkHeroBackdrop
+          surface={deep}
+          accent={accentRaw}
+          primary={primary}
+          isStatic={still}
+          idPrefix="sbj-hero"
+        >
+          {heroLayout === "image-overlay" && props.heroImageUrl && (
+            <>
+              <img
+                src={props.heroImageUrl}
+                alt=""
+                aria-hidden
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-30"
+                loading="eager"
+              />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background: `linear-gradient(105deg, ${deep} 38%, ${mixHex(deep, "#000000", 0.7)}cc 100%)`,
+                }}
+              />
+            </>
+          )}
+        </DarkHeroBackdrop>
+
+        {showNavbar && (
+          <MicrositeNavbar
+            brand={brand}
+            logoUrl={props.logoUrl}
+            logoAlt={props.logoAlt}
+            links={navLinks}
+            ctaText={navCtaText}
+            ctaUrl={navCtaUrl}
+            ctaBg={ctaBgDeep}
+            ctaText_color={ctaInkDeep}
+            heroSurface={deep}
+            isDark
+            ink={deepInk.text}
+            inkMuted={deepInk.muted}
+            accent={accentOnDeep}
+            onAnchor={handleAnchor}
+          />
+        )}
+
         <div
           className={cn(
-            "max-w-6xl mx-auto grid grid-cols-1 gap-12 lg:gap-16 items-center",
-            hasHeroImage ? "lg:grid-cols-12" : "lg:grid-cols-1",
+            "relative z-10 max-w-6xl mx-auto grid grid-cols-1 items-center gap-12 px-6 pb-20 pt-10 md:pb-28 md:pt-14 lg:gap-16 lg:px-12",
+            heroLayout === "split" && hasHeroImage ? "lg:grid-cols-12" : "lg:grid-cols-1",
           )}
         >
-          <div className={cn(hasHeroImage ? "lg:col-span-7" : "max-w-3xl mx-auto text-center")}>
-            <div className={cn(!hasHeroImage && "flex flex-col items-center")}>
-              {kickerEl(props.kicker ?? D.kicker, field("kicker"), kickerInk)}
-            </div>
+          <div
+            className={cn(
+              heroLayout === "split" && hasHeroImage ? "lg:col-span-7" : "max-w-3xl",
+            )}
+          >
+            {kickerEl(props.kicker ?? D.kicker, field("kicker"), accentOnDeep)}
             <h1
               className="text-[2.6rem] leading-[1.06] md:text-6xl xl:text-[4.25rem] font-medium tracking-tight mb-6"
-              style={{ fontFamily: display, color: headline }}
+              style={{ fontFamily: display, color: headlineOnDeep }}
             >
               <InlineText
                 as="span"
@@ -733,7 +833,7 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
             </h1>
             <p
               className="text-lg md:text-xl leading-relaxed max-w-xl mb-10"
-              style={{ color: ink.muted, fontFamily: BODY }}
+              style={{ color: deepInk.muted, fontFamily: BODY }}
             >
               <InlineText
                 as="span"
@@ -753,19 +853,19 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
                 onGhostText: field("heroTransitionalCtaText"),
                 onAssetLabel: field("heroTransitionalAssetLabel"),
               },
-              "light",
-              hasHeroImage ? "start" : "center",
+              "deep",
+              "start",
             )}
           </div>
 
-          {hasHeroImage && (
+          {heroLayout === "split" && hasHeroImage && (
             <Reveal disabled={still} className="lg:col-span-5">
               <div
-                className="relative overflow-hidden rounded-3xl border aspect-[4/5] max-h-[560px] w-full"
+                className="relative overflow-hidden rounded-3xl border aspect-[4/5] max-h-[560px] w-full backdrop-blur-md"
                 style={{
-                  borderColor: ink.hairline,
-                  boxShadow: "0 24px 60px -28px rgba(60, 42, 24, 0.35)",
-                  background: mixHex(accent, bg, 0.1),
+                  borderColor: "rgba(255,255,255,0.12)",
+                  boxShadow: `0 36px 72px -30px rgba(0,0,0,0.7), 0 0 56px -16px ${mixHex(accentRaw, deep, 0.4)}`,
+                  background: "rgba(255,255,255,0.045)",
                 }}
               >
                 <InlineImage
@@ -787,7 +887,7 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
 
       {/* ── 2. PROBLEM — three levels on a warm-tinted band ──────────────── */}
       {props.showProblem !== false && (
-        <section className="px-6 lg:px-12 py-20 md:py-28" style={{ background: problemBg }}>
+        <section id="problem" className="scroll-mt-8 px-6 lg:px-12 py-20 md:py-28" style={{ background: problemBg }}>
           <div className="max-w-6xl mx-auto">
             {(() => {
               const hasProblemImage = !!props.problemImageUrl || !!onFieldChange;
@@ -1228,7 +1328,11 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
 
       {/* ── 5. PLAN — three numbered steps with a connecting line ────────── */}
       {props.showPlan !== false && (
-        <section className="px-6 lg:px-12 py-20 md:py-28">
+        <section
+          id="plan"
+          className="scroll-mt-8 px-6 lg:px-12 py-20 md:py-28"
+          style={{ background: problemBg, borderTop: `1px solid ${ink.hairline}` }}
+        >
           <div className="max-w-6xl mx-auto">
             <Reveal disabled={still} className="max-w-2xl mb-14">
               {kickerEl(props.planKicker ?? D.planKicker, field("planKicker"), kickerInk, "04")}
@@ -1485,7 +1589,8 @@ export function BlockStorybrandJourney({ props, brand, isBuilder, onFieldChange 
       {/* ── 7. FINALE — repeat the direct + transitional ask ─────────────── */}
       {props.showFinale !== false && (
         <section
-          className="sbj-deep relative overflow-hidden px-6 lg:px-12 py-24 md:py-32"
+          id="finale"
+          className="sbj-deep relative scroll-mt-8 overflow-hidden px-6 lg:px-12 py-24 md:py-32"
           style={{ background: deep }}
         >
           {!still && (

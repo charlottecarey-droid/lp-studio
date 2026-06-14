@@ -14,6 +14,14 @@ import { InlineImage } from "@/components/InlineImage";
 import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK, BRAND_NUMBERS_STACK } from "@/lib/brand-fonts";
 import { formatStatValue, parseStatValue } from "./BlockStatCounterBand";
+import {
+  DarkHeroBackdrop,
+  MicrositeNavbar,
+  resolveDarkHeroSurface,
+  resolveHeroLayout,
+  type HeroLayout,
+  type MicrositeNavLink,
+} from "./microsite-chrome";
 
 const DISPLAY = BRAND_DISPLAY_STACK;
 const BODY = BRAND_BODY_STACK;
@@ -92,6 +100,24 @@ export interface ExecDecisionBriefBlockProps {
   accentColor?: string;
   /** Champion-strip dark surface. Defaults to a near-black mix of brand primary. */
   darkColor?: string;
+  /** Dark/brand hero surface (the masthead band). Defaults to a near-black mix
+   *  of the brand primary so the page opens on a distinct branded hero, never a
+   *  plain white document. */
+  heroBgColor?: string;
+
+  /* ── navbar + hero treatment (design-system chrome) ───────────────────── */
+  /** Hero layout. "split" = dark brand panel beside the masthead image;
+   *  "image-overlay" = full-bleed image with a brand scrim; "dark" = a dark
+   *  headline band. Defaults to "split" (or "dark" when no image). NEVER white. */
+  heroLayout?: HeroLayout;
+  /** Show the slim top navbar over the hero. Default true. */
+  showNavbar?: boolean;
+  /** 0–4 anchor links in the navbar (scroll to page sections). */
+  navLinks?: MicrositeNavLink[];
+  /** Navbar CTA label. Defaults to the primary champion-strip CTA. */
+  navCtaText?: string;
+  /** Navbar CTA href. Defaults to the primary champion-strip CTA url. */
+  navCtaUrl?: string;
 
   /* ── 1. masthead ──────────────────────────────────────────────────────── */
   /** Eyebrow, personalization-token friendly: "Prepared for {{company_name}}". */
@@ -198,6 +224,15 @@ export interface ExecDecisionBriefBlockProps {
 }
 
 export const EXEC_DECISION_BRIEF_DEFAULT_PROPS: ExecDecisionBriefBlockProps = {
+  heroLayout: "split",
+  showNavbar: true,
+  navLinks: [
+    { label: "The pain", href: "#pain" },
+    { label: "The proof", href: "#metrics" },
+    { label: "The math", href: "#economics" },
+  ],
+  navCtaText: "Book the review",
+  navCtaUrl: "#champion",
   preparedForLabel: "Prepared for {{company_name}}",
   headline: "Cut order-processing cost 32% within 90 days of go-live.",
   thesis:
@@ -476,6 +511,36 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
     4.5,
   );
 
+  /* — Dark/brand HERO surface (the masthead band). A near-black mix of the
+   *   brand primary so the page opens on a distinct branded hero — never a
+   *   plain white document. All hero chrome is AA-resolved against it. — */
+  const heroBg = resolveDarkHeroSurface(brand, props.heroBgColor, isValidHex, "#0B0B12", "#16263F");
+  const heroInk = resolveSectionInk({}, { base: heroBg });
+  const heroAccent = pickContrastingColor(accentRaw, heroBg, [heroInk.text], 4.5);
+  const heroAccentDisplay = pickContrastingColor(
+    accentRaw,
+    heroBg,
+    [mixHex("#FFFFFF", accentRaw, 0.4), heroInk.text],
+    3.0,
+  );
+  const heroHeadline = pickContrastingColor(
+    brand?.headingOnDarkColor,
+    heroBg,
+    [heroAccent, heroInk.text],
+    4.5,
+  );
+  // Navbar CTA, resolved against the hero surface it sits on.
+  const navCtaBg = pickContrastingColor(
+    brand?.ctaBackground,
+    heroBg,
+    [accentRaw, brand?.primaryColor, "#FFFFFF"],
+    3.0,
+  );
+  const navCtaText = pickContrastingColor(brand?.ctaText, navCtaBg, [contrastTextColor(navCtaBg)], 4.5);
+  // Hero primary CTA (the scroll-to-champion action on the dark hero).
+  const heroCtaBg = navCtaBg;
+  const heroCtaTextColor = navCtaText;
+
   // Warm-tinted band behind the metrics proof so the page reads as distinct
   // chapters rather than one flat surface. A whisper of accent over the page.
   const bandBg = mixHex(accentChrome, bg, surfaceIsDark ? 0.1 : 0.06);
@@ -620,6 +685,20 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
   const hasLogo = props.showLogo !== false && !!brand && brandHasLogo(brand, props.logoUrl);
 
   const hasMastheadImage = !!props.mastheadImageUrl || !!onFieldChange;
+
+  /* — navbar + hero layout (design-system chrome) — */
+  const showNavbar = props.showNavbar !== false;
+  const heroLayout = resolveHeroLayout(props.heroLayout, hasMastheadImage, "split");
+  const navLinks = props.navLinks ?? EXEC_DECISION_BRIEF_DEFAULT_PROPS.navLinks ?? [];
+  const navCtaLabel = props.navCtaText ?? props.primaryCtaText;
+  const navCtaHref = props.navCtaUrl || "#champion";
+  const handleAnchor = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (!href.startsWith("#") || href.length < 2) return;
+    const target = typeof document !== "undefined" ? document.getElementById(href.slice(1)) : null;
+    if (!target) return;
+    e.preventDefault();
+    target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+  };
   const hasProcessImage = !!props.processImageUrl || !!onFieldChange;
 
   /** Shared framed-image shell — rounded, hairline ring, soft boardroom shadow,
@@ -778,92 +857,162 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
           .edb-card, .edb-card:hover { transition: none; transform: none; }
         }
       `}</style>
-      <div className="max-w-5xl mx-auto px-5 sm:px-8 lg:px-10">
-        {/* ── 1. Masthead ──────────────────────────────────────────────── */}
-        <header className="pt-12 sm:pt-16 lg:pt-20 pb-10 sm:pb-14">
+      {/* ── 1. HERO — distinct dark/brand masthead with navbar ─────────────
+          The page opens on a dark brand-color band (never a plain white
+          document). Split layout: headline/thesis/CTA on the dark panel beside
+          the masthead image (image-overlay = full-bleed scrim; dark = band). */}
+      <header
+        className="relative overflow-hidden"
+        style={{ background: heroBg, color: heroInk.text }}
+      >
+        <DarkHeroBackdrop
+          surface={heroBg}
+          accent={accentRaw}
+          primary={primaryHex}
+          isStatic={reduced || !!onFieldChange}
+          idPrefix="edb-hero"
+        >
+          {heroLayout === "image-overlay" && props.mastheadImageUrl && (
+            <>
+              <img
+                src={props.mastheadImageUrl}
+                alt=""
+                aria-hidden
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-30"
+                loading="eager"
+              />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background: `linear-gradient(105deg, ${heroBg} 38%, ${mixHex(heroBg, "#000000", 0.7)}cc 100%)`,
+                }}
+              />
+            </>
+          )}
+        </DarkHeroBackdrop>
+
+        {showNavbar && (
+          <MicrositeNavbar
+            brand={brand}
+            logoUrl={props.logoUrl}
+            logoAlt={props.logoAlt}
+            links={navLinks}
+            ctaText={navCtaLabel}
+            ctaUrl={navCtaHref}
+            ctaBg={navCtaBg}
+            ctaText_color={navCtaText}
+            heroSurface={heroBg}
+            isDark
+            ink={heroInk.text}
+            inkMuted={heroInk.muted}
+            accent={heroAccent}
+            onAnchor={handleAnchor}
+          />
+        )}
+
+        <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-16 pt-10 sm:px-8 sm:pb-20 sm:pt-14 lg:px-10 lg:pb-24">
           <motion.div
             {...fadeUp()}
             className={
-              hasMastheadImage
-                ? "grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center"
+              heroLayout === "split" && hasMastheadImage
+                ? "grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-14"
                 : undefined
             }
           >
-            <div className={hasMastheadImage ? "lg:col-span-7" : undefined}>
-            <div className="flex items-center justify-between gap-4 mb-8 sm:mb-10">
-              <span className={kickerClass} style={kickerStyle}>
+            <div
+              className={heroLayout === "split" && hasMastheadImage ? "lg:col-span-7" : "max-w-3xl"}
+            >
+              <span className={kickerClass} style={{ color: heroAccent }}>
                 <InlineText
                   as="span"
                   value={props.preparedForLabel}
                   onUpdate={edit("preparedForLabel")}
                 />
               </span>
-              {hasLogo && brand && (
-                <BrandLogo
-                  brand={brand}
-                  url={props.logoUrl}
-                  alt={props.logoAlt || brand.brandName || "Logo"}
-                  tone={surfaceIsDark ? "onDark" : "onLight"}
-                  autoContrast
-                  className="h-6 w-auto shrink-0"
-                />
+              <h1
+                className="mt-6 text-4xl leading-[1.04] tracking-tight sm:text-5xl lg:text-6xl"
+                style={{
+                  color: heroHeadline,
+                  fontFamily: DISPLAY,
+                  fontWeight: "var(--brand-heading-weight, 700)" as never,
+                }}
+              >
+                <InlineText as="span" value={props.headline} onUpdate={edit("headline")} multiline />
+              </h1>
+              <p
+                className="mt-6 max-w-2xl text-base leading-relaxed sm:text-lg"
+                style={{ color: heroInk.muted }}
+              >
+                <InlineText as="span" value={props.thesis} onUpdate={edit("thesis")} multiline />
+              </p>
+              {props.primaryCtaText && (
+                <div className="mt-9">
+                  <a
+                    href={navCtaHref}
+                    onClick={(e) => handleAnchor(e, navCtaHref)}
+                    className={`inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full px-7 py-3.5 text-sm font-semibold tracking-wide transition-opacity hover:opacity-90 ${focusable}`}
+                    style={{ background: heroCtaBg, color: heroCtaTextColor }}
+                  >
+                    {props.primaryCtaText}
+                    <ArrowRight className="h-4 w-4" aria-hidden />
+                  </a>
+                </div>
+              )}
+              {(props.metaDate || props.metaPreparer || onFieldChange) && (
+                <div
+                  className="mt-9 flex flex-wrap items-center gap-x-8 gap-y-1 border-t pt-4 text-[11px] uppercase tracking-[0.16em]"
+                  style={{ borderColor: heroInk.hairline, color: heroInk.muted }}
+                >
+                  {(props.metaDate || onFieldChange) && (
+                    <InlineText as="span" value={props.metaDate ?? ""} onUpdate={edit("metaDate")} />
+                  )}
+                  {(props.metaPreparer || onFieldChange) && (
+                    <InlineText
+                      as="span"
+                      value={props.metaPreparer ?? ""}
+                      onUpdate={edit("metaPreparer")}
+                    />
+                  )}
+                </div>
               )}
             </div>
-            <h1
-              className="text-4xl sm:text-5xl lg:text-6xl leading-[1.04] tracking-tight max-w-4xl"
-              style={{
-                color: headline,
-                fontFamily: DISPLAY,
-                fontWeight: "var(--brand-heading-weight, 700)" as never,
-              }}
-            >
-              <InlineText as="span" value={props.headline} onUpdate={edit("headline")} multiline />
-            </h1>
-            <p
-              className="mt-6 text-base sm:text-lg leading-relaxed max-w-2xl"
-              style={{ color: ink.muted }}
-            >
-              <InlineText as="span" value={props.thesis} onUpdate={edit("thesis")} multiline />
-            </p>
-            {(props.metaDate || props.metaPreparer || onFieldChange) && (
-              <div
-                className="mt-8 pt-4 flex flex-wrap items-center gap-x-8 gap-y-1 text-[11px] uppercase tracking-[0.16em]"
-                style={{ borderTop: `1px solid ${ink.hairline}`, color: ink.muted }}
-              >
-                {(props.metaDate || onFieldChange) && (
-                  <InlineText as="span" value={props.metaDate ?? ""} onUpdate={edit("metaDate")} />
-                )}
-                {(props.metaPreparer || onFieldChange) && (
-                  <InlineText
-                    as="span"
-                    value={props.metaPreparer ?? ""}
-                    onUpdate={edit("metaPreparer")}
-                  />
-                )}
-              </div>
-            )}
-            </div>
-            {hasMastheadImage && (
+            {heroLayout === "split" && hasMastheadImage && (
               <div className="lg:col-span-5">
-                <FramedImage
-                  urlKey="mastheadImageUrl"
-                  altKey="mastheadImageAlt"
-                  focalKey="mastheadImageFocal"
-                  src={props.mastheadImageUrl}
-                  alt={props.mastheadImageAlt}
-                  focal={props.mastheadImageFocal}
-                  aspect="4 / 5"
-                  eager
-                />
+                <div
+                  className="relative overflow-hidden rounded-2xl border p-2 backdrop-blur-md"
+                  style={{
+                    background: "rgba(255,255,255,0.045)",
+                    borderColor: "rgba(255,255,255,0.12)",
+                    boxShadow: `0 36px 72px -30px rgba(0,0,0,0.7), 0 0 56px -16px ${mixHex(accentRaw, heroBg, 0.4)}`,
+                  }}
+                >
+                  <InlineImage
+                    src={props.mastheadImageUrl ?? ""}
+                    alt={props.mastheadImageAlt ?? ""}
+                    className="aspect-[4/5] h-auto w-full rounded-xl object-cover"
+                    wrapperClassName="block"
+                    loading="eager"
+                    onUpdate={edit("mastheadImageUrl")}
+                    onAltUpdate={edit("mastheadImageAlt")}
+                    focalPoint={props.mastheadImageFocal}
+                    onFocalUpdate={edit("mastheadImageFocal")}
+                  />
+                </div>
               </div>
             )}
           </motion.div>
-        </header>
+        </div>
+      </header>
+
+      <div className="max-w-5xl mx-auto px-5 sm:px-8 lg:px-10">
+        <span aria-hidden className="block pt-12 sm:pt-16" />
 
         {/* ── 2. Identified pain ───────────────────────────────────────── */}
         {showPain && (
           <section
-            className="py-10 sm:py-14"
+            id="pain"
+            className="scroll-mt-8 py-10 sm:py-14"
             style={{ borderTop: `1px solid ${ink.hairline}` }}
             aria-label={props.painKicker || "Identified pain"}
           >
@@ -951,7 +1100,8 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
         {/* ── 3. Metrics proof band — full-bleed tinted chapter ────────── */}
         {showMetrics && (
           <section
-            className="relative py-12 sm:py-16 -mx-5 sm:-mx-8 lg:-mx-10 px-5 sm:px-8 lg:px-10"
+            id="metrics"
+            className="relative scroll-mt-8 py-12 sm:py-16 -mx-5 sm:-mx-8 lg:-mx-10 px-5 sm:px-8 lg:px-10"
             style={{
               background: bandBg,
               borderTop: `1px solid ${ink.hairline}`,
@@ -1162,7 +1312,8 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
         {/* ── 5. Economic case ─────────────────────────────────────────── */}
         {showEconomics && (
           <section
-            className="py-10 sm:py-14"
+            id="economics"
+            className="scroll-mt-8 py-10 sm:py-14"
             style={{ borderTop: `1px solid ${ink.hairline}` }}
             aria-label={props.economicsKicker || "Economic case"}
           >
@@ -1371,7 +1522,8 @@ export function BlockExecDecisionBrief({ props, brand, onFieldChange }: Props) {
       {/* ── 7. Champion tools strip ──────────────────────────────────────── */}
       {showChampion && (
         <section
-          className="mt-4"
+          id="champion"
+          className="mt-4 scroll-mt-8"
           style={{ background: dark }}
           aria-label={props.championKicker || "Share this brief"}
         >

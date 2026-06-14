@@ -94,6 +94,9 @@ export function ChallengerInsightPanel({ props, onChange }: Props) {
     add: (item: T) => update({ [key]: [...list, item] }),
   });
 
+  const navLinks = props.navLinks ?? D.navLinks ?? [];
+  const navOps = listOps<{ label: string; href: string }>(navLinks, "navLinks");
+
   const stats = listOps<ChallengerCostStat>(costStats, "costStats");
   const cards = listOps<ChallengerStakeholder>(stakeholders, "stakeholders");
   const quotes = listOps<ChallengerTestimonial>(testimonials, "testimonials");
@@ -121,6 +124,95 @@ export function ChallengerInsightPanel({ props, onChange }: Props) {
         }}
         onApply={(u) => onChange({ ...props, ...u })}
       />
+
+      <Section title="Navbar & hero" defaultOpen>
+        <SectionToggle
+          label="Show top navbar"
+          checked={props.showNavbar !== false}
+          onChange={(v) => update({ showNavbar: v })}
+        />
+        <Field label="Hero layout">
+          <select
+            value={props.heroLayout ?? "split"}
+            onChange={(e) => update({ heroLayout: e.target.value as never })}
+            className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs"
+          >
+            <option value="split">Split — image beside headline</option>
+            <option value="dark">Dark band (no image)</option>
+          </select>
+        </Field>
+        {props.showNavbar !== false && (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Navbar CTA label">
+                <Input
+                  value={props.navCtaText ?? D.navCtaText ?? ""}
+                  onChange={(e) => update({ navCtaText: e.target.value })}
+                  className="h-8 text-xs"
+                />
+              </Field>
+              <Field label="Navbar CTA URL / anchor">
+                <Input
+                  value={props.navCtaUrl ?? D.navCtaUrl ?? ""}
+                  onChange={(e) => update({ navCtaUrl: e.target.value || undefined })}
+                  className="h-8 text-xs"
+                  placeholder="#contact"
+                />
+              </Field>
+            </div>
+            <Field label="Logo override (defaults to brand logo)">
+              <ImagePicker
+                value={props.logoUrl ?? ""}
+                onChange={(src) => update({ logoUrl: src || undefined })}
+                label="Logo"
+                aiHint="Brand logo"
+              />
+            </Field>
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Anchor links (0–4) — ids: #evidence, #better-way, #contact
+            </div>
+            <div className="space-y-1.5">
+              {navLinks.map((l, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <Input
+                    value={l.label}
+                    onChange={(e) => navOps.set(i, { label: e.target.value })}
+                    className="h-7 text-xs"
+                    placeholder="Label"
+                    aria-label="Nav link label"
+                  />
+                  <Input
+                    value={l.href}
+                    onChange={(e) => navOps.set(i, { href: e.target.value })}
+                    className="h-7 w-28 text-xs"
+                    placeholder="#evidence"
+                    aria-label="Nav link href"
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
+                    onClick={() => navOps.remove(i)}
+                    title="Remove link"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+            {navLinks.length < 4 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 w-full text-xs"
+                onClick={() => navOps.add({ label: "New link", href: "#evidence" })}
+              >
+                <Plus className="mr-1 h-3 w-3" /> Add anchor link
+              </Button>
+            )}
+          </>
+        )}
+      </Section>
 
       <Section title="1 · Insight hero" defaultOpen>
         <Field label="Kicker">

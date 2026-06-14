@@ -139,6 +139,7 @@ function moveItem<T>(arr: T[], i: number, dir: -1 | 1): T[] {
 export function ExecDecisionBriefPanel({ props, onChange }: Props) {
   const [open, setOpen] = useState({
     sections: true,
+    chrome: true,
     palette: false,
     masthead: true,
     pain: false,
@@ -228,6 +229,21 @@ export function ExecDecisionBriefPanel({ props, onChange }: Props) {
   const moveTakeaway = (i: number, dir: -1 | 1) =>
     set("takeaways", moveItem(props.takeaways, i, dir));
 
+  /* — navbar anchor links — */
+  const navLinks = props.navLinks ?? [];
+  const setNavLink = (i: number, patch: Partial<{ label: string; href: string }>) =>
+    set("navLinks", navLinks.map((l, j) => (j === i ? { ...l, ...patch } : l)));
+  const addNavLink = () =>
+    set("navLinks", [...navLinks, { label: "New link", href: "#section" }]);
+  const removeNavLink = (i: number) => set("navLinks", navLinks.filter((_, j) => j !== i));
+  const moveNavLink = (i: number, dir: -1 | 1) => set("navLinks", moveItem(navLinks, i, dir));
+
+  const HERO_LAYOUTS: Array<{ value: NonNullable<ExecDecisionBriefBlockProps["heroLayout"]>; label: string }> = [
+    { value: "split", label: "Split — dark panel + image" },
+    { value: "image-overlay", label: "Image with brand scrim" },
+    { value: "dark", label: "Dark band (no image)" },
+  ];
+
   const SECTION_TOGGLES: Array<{ key: keyof ExecDecisionBriefBlockProps; label: string }> = [
     { key: "showPain", label: "Identified pain" },
     { key: "showMetrics", label: "Metrics" },
@@ -256,6 +272,75 @@ export function ExecDecisionBriefPanel({ props, onChange }: Props) {
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      {/* Navbar & hero */}
+      <div className="space-y-2">
+        <SectionHeader label="Navbar & hero" open={open.chrome} onToggle={() => toggle("chrome")} />
+        {open.chrome && (
+          <div className="space-y-3 pt-1">
+            <Field label="Hero layout (never plain white)">
+              <select
+                value={props.heroLayout ?? "split"}
+                onChange={(e) => set("heroLayout", e.target.value as never)}
+                className="w-full text-xs h-8 rounded-md border border-border bg-background px-2"
+              >
+                {HERO_LAYOUTS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </Field>
+            <ColorRow
+              label="Hero background"
+              value={props.heroBgColor}
+              fallback="#16263F"
+              onChange={(v) => set("heroBgColor", v)}
+            />
+            <div className="flex items-center justify-between py-1">
+              <Label className="text-xs cursor-pointer">Show top navbar</Label>
+              <Switch checked={props.showNavbar !== false} onCheckedChange={(v) => set("showNavbar", v)} />
+            </div>
+            {props.showNavbar !== false && (
+              <>
+                <Field label="Navbar CTA text (defaults to primary CTA)">
+                  <Input value={props.navCtaText ?? ""} onChange={(e) => set("navCtaText", e.target.value)} placeholder={props.primaryCtaText} className="text-xs h-8" />
+                </Field>
+                <Field label="Navbar CTA URL / anchor">
+                  <Input value={props.navCtaUrl ?? ""} onChange={(e) => set("navCtaUrl", e.target.value)} placeholder="#champion" className="text-xs h-8" />
+                </Field>
+                <div className="space-y-2 pt-1">
+                  <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Anchor links (0–4)</div>
+                  {navLinks.map((l, i) => (
+                    <div key={i} className="space-y-2 p-2 border border-border rounded">
+                      <ArrayItemHeader
+                        label="Link"
+                        index={i}
+                        total={navLinks.length}
+                        onMoveUp={() => moveNavLink(i, -1)}
+                        onMoveDown={() => moveNavLink(i, 1)}
+                        onRemove={() => removeNavLink(i)}
+                      />
+                      <Field label="Label">
+                        <Input value={l.label} onChange={(e) => setNavLink(i, { label: e.target.value })} className="text-xs h-8" />
+                      </Field>
+                      <Field label="Anchor / URL (e.g. #pain)">
+                        <Input value={l.href} onChange={(e) => setNavLink(i, { href: e.target.value })} className="text-xs h-8" />
+                      </Field>
+                    </div>
+                  ))}
+                  {navLinks.length < 4 && (
+                    <Button variant="outline" size="sm" className="w-full text-xs" onClick={addNavLink}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Add anchor link
+                    </Button>
+                  )}
+                  <p className="text-[11px] text-muted-foreground">
+                    Sections expose ids: #pain, #metrics, #economics, #champion.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

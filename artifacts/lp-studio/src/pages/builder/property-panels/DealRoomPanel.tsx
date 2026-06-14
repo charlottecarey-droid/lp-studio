@@ -160,6 +160,7 @@ function moveItem<T>(arr: T[], i: number, dir: -1 | 1): T[] {
 export function DealRoomPanel({ props, onChange, onApplyCtaToAll }: Props) {
   const [open, setOpen] = useState({
     sections: true,
+    chrome: true,
     palette: false,
     hero: true,
     plan: false,
@@ -174,6 +175,14 @@ export function DealRoomPanel({ props, onChange, onApplyCtaToAll }: Props) {
 
   const set = <K extends keyof DealRoomBlockProps>(key: K, value: DealRoomBlockProps[K]) =>
     onChange({ ...props, [key]: value });
+
+  /* — navbar anchor links — */
+  const navLinks = props.navLinks ?? [];
+  const setNavLink = (i: number, patch: Partial<{ label: string; href: string }>) =>
+    set("navLinks", navLinks.map((l, j) => (j === i ? { ...l, ...patch } : l)));
+  const addNavLink = () => set("navLinks", [...navLinks, { label: "New link", href: "#plan" }]);
+  const removeNavLink = (i: number) => set("navLinks", navLinks.filter((_, j) => j !== i));
+  const moveNavLink = (i: number, dir: -1 | 1) => set("navLinks", moveItem(navLinks, i, dir));
 
   /* — array helpers — */
   const setStep = (i: number, patch: Partial<DealRoomMapStep>) =>
@@ -277,6 +286,60 @@ export function DealRoomPanel({ props, onChange, onApplyCtaToAll }: Props) {
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      {/* Navbar & hero */}
+      <div className="space-y-2">
+        <SectionHeader label="Navbar & hero" open={open.chrome} onToggle={() => toggle("chrome")} />
+        {open.chrome && (
+          <div className="space-y-3 pt-1">
+            <Field label="Hero layout (never plain white)">
+              <select
+                value={props.heroLayout ?? "split"}
+                onChange={(e) => set("heroLayout", e.target.value as never)}
+                className="w-full text-xs h-8 rounded-md border border-border bg-background px-2"
+              >
+                <option value="split">Split — dark panel + image</option>
+                <option value="image-overlay">Image with brand scrim</option>
+                <option value="dark">Dark band (no image)</option>
+              </select>
+            </Field>
+            <Field label="Hero image (beside the headline, optional)">
+              <ImagePicker value={props.heroImageUrl ?? ""} onChange={(v) => set("heroImageUrl", v || undefined)} aiHint="The deal team / product aligning on the path to go-live" />
+            </Field>
+            <ColorRow label="Hero background" value={props.heroBgColor} fallback="#1B1840" onChange={(v) => set("heroBgColor", v)} />
+            <div className="flex items-center justify-between py-1">
+              <Label className="text-xs cursor-pointer">Show top navbar</Label>
+              <Switch checked={props.showNavbar !== false} onCheckedChange={(v) => set("showNavbar", v)} />
+            </div>
+            {props.showNavbar !== false && (
+              <>
+                <Field label="Navbar CTA text (defaults to hero CTA)">
+                  <Input value={props.navCtaText ?? ""} onChange={(e) => set("navCtaText", e.target.value)} placeholder={props.ctaText} className="text-xs h-8" />
+                </Field>
+                <Field label="Navbar CTA URL / anchor">
+                  <Input value={props.navCtaUrl ?? ""} onChange={(e) => set("navCtaUrl", e.target.value)} placeholder="#close" className="text-xs h-8" />
+                </Field>
+                <p className="text-[11px] text-muted-foreground">The account + your logos also form the navbar lockup.</p>
+                <div className="space-y-2 pt-1">
+                  <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Anchor links (0–4) — ids: #plan, #case, #close</div>
+                  {navLinks.map((l, i) => (
+                    <div key={i} className="space-y-2 p-2 border border-border rounded">
+                      <ArrayItemHeader label="Link" index={i} total={navLinks.length} onMoveUp={() => moveNavLink(i, -1)} onMoveDown={() => moveNavLink(i, 1)} onRemove={() => removeNavLink(i)} />
+                      <Field label="Label"><Input value={l.label} onChange={(e) => setNavLink(i, { label: e.target.value })} className="text-xs h-8" /></Field>
+                      <Field label="Anchor / URL"><Input value={l.href} onChange={(e) => setNavLink(i, { href: e.target.value })} className="text-xs h-8" /></Field>
+                    </div>
+                  ))}
+                  {navLinks.length < 4 && (
+                    <Button variant="outline" size="sm" className="w-full text-xs" onClick={addNavLink}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Add anchor link
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
