@@ -8,15 +8,30 @@ import { ImagePicker } from "@/components/ImagePicker";
 import { FontSelect } from "@/components/FontSelect";
 import type { DandySideImageV6BlockProps } from "@/lib/block-types";
 import { CtaButtonModalConfigSection } from "./CtaButtonModalConfigSection";
+import { CtaActionConfigSection } from "./CtaActionConfigSection";
+import { CtaSecondaryConfigSection } from "./CtaSecondaryConfigSection";
+import { readPrimarySuite, writePrimarySuite, readSecondary, writeSecondary, type SecondaryKeyMap } from "@/lib/cta/ctaKeyMap";
+import type { CtaSourceProps } from "@/lib/cta/ctaSource";
 import { ColorField } from "./BlockSettingsPanel";
 import { SectionBackgroundControl } from "./SectionBackgroundControl";
+
+/** Primary CTA is canonical; secondary uses this block's secondaryCta* names. */
+const SIDEIMAGE_CTA_ACTIONS = ["url", "chilipiper", "modal-form", "modal-chilipiper"] as const;
+const SIDEIMAGE_SECONDARY_MAP: SecondaryKeyMap = {
+  text: "secondaryCtaText",
+  action: "secondaryCtaAction",
+  url: "secondaryCtaUrl",
+  chilipiper: "secondaryChilipiperUrl",
+};
 
 interface Props {
   props: DandySideImageV6BlockProps;
   onChange: (p: DandySideImageV6BlockProps) => void;
+  /** CTA source indicator + inherit/override controls (Phase 2). */
+  ctaSource?: CtaSourceProps;
 }
 
-export function DandySideImageV6Panel({ props: p, onChange }: Props) {
+export function DandySideImageV6Panel({ props: p, onChange, ctaSource }: Props) {
   const set = <K extends keyof DandySideImageV6BlockProps>(k: K, v: DandySideImageV6BlockProps[K]) =>
     onChange({ ...p, [k]: v });
 
@@ -103,61 +118,22 @@ export function DandySideImageV6Panel({ props: p, onChange }: Props) {
           <Label className="text-xs">Text</Label>
           <Input value={p.ctaText ?? ""} onChange={e => set("ctaText", e.target.value || undefined)} className="h-8 text-xs" />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Action</Label>
-          <Select value={p.ctaAction ?? "url"} onValueChange={v => set("ctaAction", v as DandySideImageV6BlockProps["ctaAction"])}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="url" className="text-xs">Open URL</SelectItem>
-              <SelectItem value="chilipiper" className="text-xs">Open Chili Piper</SelectItem>
-              <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
-              <SelectItem value="modal-chilipiper" className="text-xs">Open modal → Chili Piper</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        {(p.ctaAction ?? "url") === "url" && (
-          <div className="space-y-1.5">
-            <Label className="text-xs">URL</Label>
-            <Input value={p.ctaUrl ?? ""} onChange={e => set("ctaUrl", e.target.value || undefined)} className="h-8 text-xs" placeholder="https://..." />
-          </div>
-        )}
-        {p.ctaAction === "chilipiper" && (
-          <div className="space-y-1.5">
-            <Label className="text-xs">Chili Piper URL</Label>
-            <Input value={p.chilipiperUrl ?? ""} onChange={e => set("chilipiperUrl", e.target.value || undefined)} className="h-8 text-xs font-mono" placeholder="https://yourcompany.chilipiper.com/..." />
-          </div>
-        )}
+        {/* Shared primary action suite (canonical keys); single shared modal block below. */}
+        <CtaActionConfigSection
+          value={readPrimarySuite(p)}
+          onChange={(v) => onChange(writePrimarySuite(p, v))}
+          allowedActions={SIDEIMAGE_CTA_ACTIONS}
+          hideModalConfig
+          {...ctaSource}
+        />
       </div>
       <div className="border-t pt-3 space-y-3">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Secondary CTA</p>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Text</Label>
-          <Input value={p.secondaryCtaText ?? ""} onChange={e => set("secondaryCtaText", e.target.value || undefined)} className="h-8 text-xs" />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Action</Label>
-          <Select value={p.secondaryCtaAction ?? "url"} onValueChange={v => set("secondaryCtaAction", v as DandySideImageV6BlockProps["secondaryCtaAction"])}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="url" className="text-xs">Open URL</SelectItem>
-              <SelectItem value="chilipiper" className="text-xs">Open Chili Piper</SelectItem>
-              <SelectItem value="modal-form" className="text-xs">Open modal with form</SelectItem>
-              <SelectItem value="modal-chilipiper" className="text-xs">Open modal → Chili Piper</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        {(p.secondaryCtaAction ?? "url") === "url" && (
-          <div className="space-y-1.5">
-            <Label className="text-xs">URL</Label>
-            <Input value={p.secondaryCtaUrl ?? ""} onChange={e => set("secondaryCtaUrl", e.target.value || undefined)} className="h-8 text-xs" placeholder="https://..." />
-          </div>
-        )}
-        {p.secondaryCtaAction === "chilipiper" && (
-          <div className="space-y-1.5">
-            <Label className="text-xs">Chili Piper URL</Label>
-            <Input value={p.secondaryChilipiperUrl ?? ""} onChange={e => set("secondaryChilipiperUrl", e.target.value || undefined)} className="h-8 text-xs font-mono" placeholder="https://yourcompany.chilipiper.com/..." />
-          </div>
-        )}
+        {/* Shared secondary section, mapped to this block's secondaryCta* keys. */}
+        <CtaSecondaryConfigSection
+          value={readSecondary(p, SIDEIMAGE_SECONDARY_MAP)}
+          onChange={(v) => onChange(writeSecondary(p, v, SIDEIMAGE_SECONDARY_MAP))}
+          allowedActions={SIDEIMAGE_CTA_ACTIONS}
+        />
       </div>
 
       {(p.ctaAction === "modal-form" || p.ctaAction === "modal-chilipiper" ||

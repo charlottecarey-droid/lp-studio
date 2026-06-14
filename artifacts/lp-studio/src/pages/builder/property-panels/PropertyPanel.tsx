@@ -6545,7 +6545,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "dandy-video-testimonials":
         return <DandyVideoTestimonialsPanel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "dandy-side-image-v6":
-        return <DandySideImageV6Panel props={block.props} onChange={props => onChange({ ...block, props })} />;
+        return <DandySideImageV6Panel props={block.props} onChange={props => onChange({ ...block, props })} ctaSource={ctaSource} />;
       case "dandy-hero-v7-s3":
         return <DandyHeroV7S3Panel props={block.props} onChange={props => onChange({ ...block, props })} />;
       case "dandy-form-right-alt":
