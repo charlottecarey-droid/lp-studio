@@ -29,6 +29,18 @@ export default function PromptCard() {
     setValue(prompt);
   }
 
+  // Hand the brief off to the app's AI create flow. The app shell reads
+  // `prompt` + `new=ai` from the URL (pages-gallery → CreatePageModal) and
+  // the auth gate preserves this exact path through sign-up, so a logged-out
+  // visitor lands back here with their prompt intact after creating an account.
+  function submitHero(override?: string) {
+    const brief = (override ?? value).trim();
+    const url = brief
+      ? `https://app.lpstudio.ai/pages?new=ai&prompt=${encodeURIComponent(brief)}`
+      : "https://app.lpstudio.ai/pages?new=ai";
+    window.location.href = url;
+  }
+
   return (
     <section
       id="prompt"
@@ -42,7 +54,10 @@ export default function PromptCard() {
       <div className="max-w-[1180px] mx-auto" style={{ textAlign: "center" }}>
         {/* Prompt card — single rounded panel, no faux-browser chrome */}
         <form
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={(e) => {
+            e.preventDefault();
+            submitHero();
+          }}
           style={{
             maxWidth: 680,
             margin: "0 auto",
@@ -140,12 +155,14 @@ export default function PromptCard() {
                   Get started for free
                 </a>
                 {/* Primary — flat ink, single sparkle, tight shadow */}
-                <a
-                  href="https://app.lpstudio.ai"
+                <button
+                  type="submit"
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
                     gap: 7,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
                     color: "var(--cream)",
                     background: "var(--ink)",
                     fontSize: 13,
@@ -176,7 +193,7 @@ export default function PromptCard() {
                     <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13 6.5 8.5 2 7l4.5-1.5L8 1z" />
                   </svg>
                   Generate page
-                </a>
+                </button>
             </div>
           </div>
         </form>
