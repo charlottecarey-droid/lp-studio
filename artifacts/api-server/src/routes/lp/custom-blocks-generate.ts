@@ -103,12 +103,17 @@ interface BrandHints {
  *  literal that downstream sanitizers also emit when scrubbing unapproved
  *  numeric values. */
 const STRICT_FACTS_INSTRUCTION =
-  "STRICT FACTS MODE: Use ONLY the statistics, percentages, customer counts, " +
-  "claims, and case studies explicitly listed in this brief. Do NOT invent, " +
-  "extrapolate, round, or paraphrase numbers. If a slot would require a stat " +
-  "or number that is not provided, write \"X\"; if it would require a case " +
-  "study or quote that is not provided, write \"Add a quote in brand settings\". " +
-  "Write nothing else in those slots.";
+  "STRICT FACTS MODE: This restriction applies ONLY to specific figures and " +
+  "attributed proof — exact statistics, percentages, customer counts, dollar " +
+  "amounts, named case studies, and customer quotes. Use ONLY the ones " +
+  "explicitly listed in this brief: do NOT invent, extrapolate, round, or " +
+  "paraphrase a number, and do NOT attribute a quote or case study that is not " +
+  "provided. If a slot would require a stat or number that is not provided, " +
+  "write \"X\"; if it would require a case study or quote that is not provided, " +
+  "write \"Add a quote in brand settings\". For EVERYTHING ELSE — headlines, " +
+  "value propositions, benefits, explanations, and all persuasive body copy — " +
+  "write full, specific, substantive copy in the brand's voice; never leave a " +
+  "section thin, vague, or generic just because it has no hard number to cite.";
 
 function isHexLike(s: unknown): s is string {
   return typeof s === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(s.trim());
