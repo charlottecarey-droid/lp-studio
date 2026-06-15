@@ -93,6 +93,7 @@ export * from "./contentSeriesNotifications";
 
 // Marketing homepage share card (Open Graph) — superadmin-editable, single row
 export * from "./marketingHomepageOg";
+export * from "./marketingAnnouncementBanner";
 export * from "./marketingPageOg";
 
 // LP Studio's own first-party marketing blog (single, NOT per-tenant) —

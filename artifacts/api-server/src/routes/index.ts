@@ -57,6 +57,7 @@ export const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "GET",  pattern: /^\/lp\/plan-config$/ },     // GET /lp/plan-config — public, live (SuperAdmin-editable) plan/pricing config for app billing/upgrade surfaces
   { method: "GET",  pattern: /^\/lp\/featured-templates$/ }, // GET /lp/featured-templates — public, CORS; SuperAdmin-editable list of homepage featured templates (marketing site reads this, falls back to built-in list)
   { method: "GET",  pattern: /^\/lp\/homepage-og$/ },        // GET /lp/homepage-og — public; SuperAdmin-editable marketing homepage share card (OG) config (marketing site reads this, falls back to built-in defaults)
+  { method: "GET",  pattern: /^\/lp\/announcement-banner$/ }, // GET /lp/announcement-banner — public; SuperAdmin-editable slim promo bar at the top of the marketing homepage (marketing site reads this, renders only when enabled + filled)
   { method: "*",    pattern: /^\/lp\/blog\/sitemap\.xml$/ },  // GET/HEAD /lp/blog/sitemap.xml — public; apex blog sitemap of published posts (matched before /posts/:slug below)
   { method: "GET",  pattern: /^\/lp\/blog\/posts$/ },         // GET /lp/blog/posts — public; first-party marketing blog index (published only), CORS-read by the apex marketing app
   { method: "GET",  pattern: /^\/lp\/blog\/posts\/[^/]+$/ },  // GET /lp/blog/posts/:slug — public; a single published blog post

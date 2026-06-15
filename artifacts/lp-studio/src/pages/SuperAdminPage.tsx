@@ -28,12 +28,13 @@ import {
   ChevronDown, ChevronRight, RefreshCw, LogOut, Globe, Users, FileText,
   Plus, CheckCircle2, Copy, Check, Loader2, Trash2, AlertTriangle, ShieldCheck, ShieldAlert,
   Library, LayoutTemplate, Activity, CreditCard, Bell, KeyRound, Smartphone, Share2, Wand2,
-  Newspaper,
+  Newspaper, Megaphone,
 } from "lucide-react";
 import SuperAdminBlockCatalog from "./SuperAdminBlockCatalog";
 import SuperAdminTemplates from "./SuperAdminTemplates";
 import SuperAdminFeaturedTemplates from "./SuperAdminFeaturedTemplates";
 import SuperAdminMarketingShareCard from "./SuperAdminMarketingShareCard";
+import SuperAdminAnnouncementBanner from "./SuperAdminAnnouncementBanner";
 import SuperAdminAssetHealth from "./SuperAdminAssetHealth";
 import SuperAdminPlanConfig from "./SuperAdminPlanConfig";
 import SuperAdminNotifications from "./SuperAdminNotifications";
@@ -1257,13 +1258,14 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [domainHelp, setDomainHelp] = useState<DomainHelp | null>(null);
-  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "featured-templates" | "generator-presets" | "homepage-og" | "asset-health" | "plans" | "notifications" | "trial-phones" | "blog" | "superadmins">(() => {
+  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "featured-templates" | "generator-presets" | "homepage-og" | "announcement" | "asset-health" | "plans" | "notifications" | "trial-phones" | "blog" | "superadmins">(() => {
     if (typeof window !== "undefined") {
       if (window.location.hash === "#catalog") return "catalog";
       if (window.location.hash === "#generator-presets") return "generator-presets";
       if (window.location.hash === "#templates") return "templates";
       if (window.location.hash === "#featured-templates") return "featured-templates";
       if (window.location.hash === "#homepage-og") return "homepage-og";
+      if (window.location.hash === "#announcement") return "announcement";
       if (window.location.hash === "#asset-health") return "asset-health";
       if (window.location.hash === "#plans") return "plans";
       if (window.location.hash === "#notifications") return "notifications";
@@ -1440,6 +1442,14 @@ export default function SuperAdminPage() {
             <Share2 className="w-3.5 h-3.5" /> Share Cards
           </button>
           <button
+            onClick={() => setTab("announcement")}
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
+              tab === "announcement" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Megaphone className="w-3.5 h-3.5" /> Announcement
+          </button>
+          <button
             onClick={() => setTab("asset-health")}
             className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
               tab === "asset-health" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
@@ -1511,6 +1521,8 @@ export default function SuperAdminPage() {
             <SuperAdminMarketingShareCard pageKey="terms" heading="Terms share card" pagePath="/terms" />
             <SuperAdminMarketingShareCard pageKey="zapier" heading="Zapier share card" pagePath="/docs/integrations/zapier" />
           </div>
+        ) : tab === "announcement" ? (
+          <SuperAdminAnnouncementBanner />
         ) : tab === "plans" ? (
           <SuperAdminPlanConfig />
         ) : tab === "notifications" ? (

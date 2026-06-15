@@ -158,6 +158,50 @@ async function loadHomepageOg() {
 }
 
 /**
+ * Best-effort read of the superadmin-editable homepage announcement banner
+ * (`marketing_announcement_banner`). Returns the single row's config so the
+ * prerender can bake the bar into the homepage snapshot (no hydration flash),
+ * or null on any failure (no URL, unreachable, table absent, disabled/empty) —
+ * home.tsx then renders no banner, which is a valid state, so this NEVER fails
+ * the build. Uses `pg` directly (not @workspace/db, which eagerly builds a Pool).
+ */
+async function loadAnnouncementBanner() {
+  const connectionString = process.env.NEON_DATABASE_URL ?? process.env.DATABASE_URL;
+  if (!connectionString) return null;
+  let client;
+  try {
+    const pg = (await import("pg")).default;
+    client = new pg.Client({ connectionString, connectionTimeoutMillis: 5000 });
+    await client.connect();
+    const result = await client.query(
+      `SELECT enabled, text, link_url, cta_label
+         FROM marketing_announcement_banner
+        ORDER BY id ASC
+        LIMIT 1`,
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    const text = typeof row.text === "string" ? row.text.trim() : "";
+    const linkUrl = typeof row.link_url === "string" ? row.link_url.trim() : "";
+    // Only bake when it would actually render — enabled with a message + link.
+    if (row.enabled !== true || !text || !linkUrl) return null;
+    return {
+      enabled: true,
+      text,
+      linkUrl,
+      ctaLabel: typeof row.cta_label === "string" ? row.cta_label.trim() : "",
+    };
+  } catch (err) {
+    process.stdout.write(
+      `[prerender] announcement banner DB read skipped (${err?.message || err}) — no banner baked\n`,
+    );
+    return null;
+  } finally {
+    if (client) await client.end().catch(() => {});
+  }
+}
+
+/**
  * Best-effort read of the superadmin-editable share cards for the secondary
  * marketing routes (`marketing_page_og`, Task #997). Returns a map keyed by
  * page_key (e.g. { features: {...}, pricing: {...} }) so the prerender can bake
@@ -395,6 +439,15 @@ async function main() {
     );
   }
 
+  // Best-effort: pull the superadmin-configured homepage announcement banner so
+  // the bar is baked into the / snapshot (no flash, and visible without JS).
+  const announcementBanner = await loadAnnouncementBanner();
+  if (announcementBanner) {
+    process.stdout.write(
+      `[prerender] announcement banner: baking enabled bar (text="${announcementBanner.text.slice(0, 60)}…")\n`,
+    );
+  }
+
   // Append a snapshot route for each published blog post so per-post HTML +
   // meta + JSON-LD are baked in for crawlers. Best-effort: empty when no DB.
   const blogSlugs = await loadBlogSlugs();
@@ -451,6 +504,14 @@ async function main() {
       await context.addInitScript((map) => {
         window.__LP_PAGE_OG__ = map;
       }, pageOg);
+    }
+    // Inject the superadmin-configured homepage announcement banner BEFORE page
+    // scripts run so home.tsx's useState initializer reads it and bakes the bar
+    // into the / snapshot. Only home.tsx reads this global.
+    if (announcementBanner) {
+      await context.addInitScript((b) => {
+        window.__LP_ANNOUNCEMENT_BANNER__ = b;
+      }, announcementBanner);
     }
     const page = await context.newPage();
     page.on("console", (msg) => {

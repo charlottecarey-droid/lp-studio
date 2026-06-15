@@ -1,4 +1,5 @@
 import Navbar from "../components/Navbar";
+import AnnouncementBanner from "../components/AnnouncementBanner";
 import HeroScene from "../components/HeroScene";
 import PromptCard from "../components/PromptCard";
 import AssembleSceneV2 from "../components/AssembleSceneV2";
@@ -51,7 +52,31 @@ interface HomepageOgConfig {
 declare global {
   interface Window {
     __LP_HOMEPAGE_OG__?: Partial<HomepageOgConfig>;
+    __LP_ANNOUNCEMENT_BANNER__?: Partial<AnnouncementBannerConfig>;
   }
+}
+
+// Slim promo bar at the very top of the homepage. Superadmin-editable
+// (marketing_announcement_banner) and off by default; the bar only renders when
+// it's enabled and has both a message and a link. Like the share card, the
+// prerender injects window.__LP_ANNOUNCEMENT_BANNER__ so it's baked into the
+// static HTML (no flash); the runtime fetch below converges the live value.
+interface AnnouncementBannerConfig {
+  enabled: boolean;
+  text: string;
+  linkUrl: string;
+  ctaLabel: string;
+}
+
+function resolveAnnouncementBanner(
+  raw: Partial<AnnouncementBannerConfig> | null | undefined,
+): AnnouncementBannerConfig {
+  return {
+    enabled: raw?.enabled === true,
+    text: typeof raw?.text === "string" ? raw.text.trim() : "",
+    linkUrl: typeof raw?.linkUrl === "string" ? raw.linkUrl.trim() : "",
+    ctaLabel: typeof raw?.ctaLabel === "string" ? raw.ctaLabel.trim() : "",
+  };
 }
 
 // og:image must be an absolute URL for scrapers. Operator-uploaded images are
@@ -121,6 +146,10 @@ export default function Home() {
     resolveHomepageOg(typeof window !== "undefined" ? window.__LP_HOMEPAGE_OG__ : undefined),
   );
 
+  const [banner, setBanner] = useState<AnnouncementBannerConfig>(() =>
+    resolveAnnouncementBanner(typeof window !== "undefined" ? window.__LP_ANNOUNCEMENT_BANNER__ : undefined),
+  );
+
   useEffect(() => {
     let cancelled = false;
     fetch("/api/lp/homepage-og")
@@ -131,10 +160,20 @@ export default function Home() {
       .catch(() => {
         /* best-effort — the built-in defaults already render */
       });
+    fetch("/api/lp/announcement-banner")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data) setBanner(resolveAnnouncementBanner(data));
+      })
+      .catch(() => {
+        /* best-effort — no banner is a valid state */
+      });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const showBanner = banner.enabled && !!banner.text && !!banner.linkUrl;
 
   usePageMeta({
     title: og.title,
@@ -150,8 +189,16 @@ export default function Home() {
 
   return (
     <div
-      style={{ background: "var(--cream)", color: "var(--ink)", minHeight: "100vh" }}
+      style={{
+        background: "var(--cream)",
+        color: "var(--ink)",
+        minHeight: "100vh",
+        paddingTop: "var(--lp-banner-h, 0px)",
+      }}
     >
+      {showBanner ? (
+        <AnnouncementBanner text={banner.text} linkUrl={banner.linkUrl} ctaLabel={banner.ctaLabel} />
+      ) : null}
       <Navbar />
       <main>
         {/* 1 — v3 editorial hero + Mad Libs prompt card */}

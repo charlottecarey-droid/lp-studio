@@ -27,8 +27,9 @@ export default function Navbar() {
 
   return (
     <nav
-      className="fixed top-0 left-0 right-0 z-50 transition-all"
+      className="fixed left-0 right-0 z-50 transition-all"
       style={{
+        top: "var(--lp-banner-h, 0px)",
         background: scrolled ? "rgba(246, 242, 233, 0.85)" : "transparent",
         backdropFilter: scrolled ? "blur(18px) saturate(140%)" : "none",
         WebkitBackdropFilter: scrolled ? "blur(18px) saturate(140%)" : "none",
