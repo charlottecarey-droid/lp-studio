@@ -4389,6 +4389,14 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
 
     emitter.blocksSnapshot(normalizedBlocks, "images");
     emitter.stage("images", "done", "Resolving page imagery");
+
+    // Polish boundary. The microsite pipeline writes account-deterministic copy
+    // in a single pass (no separate AI critique/rewrite like the marketing
+    // generator), so there's no heavy work here — but the live build checklist
+    // still surfaces the stage so reps see the full, consistent progression.
+    emitter.stage("polish", "start", "Polishing copy");
+    emitter.stage("polish", "done", "Polishing copy");
+
     emitter.stage("finalize", "start", "Finalizing the page");
 
     // Slug uniqueness retry: on a unique-constraint violation (pg error 23505),

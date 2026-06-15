@@ -33,6 +33,7 @@ import {
   DEFAULT_STAGE_DEFS,
   initialStageState,
   toEntries,
+  type GenerationStageDef,
   type LiveEntry,
   type RefsMeta,
   type StageStatus,
@@ -46,8 +47,11 @@ interface MicrositeResult {
   blocks: unknown[];
 }
 
-/** The microsite pipeline runs no copy-critique pass — drop "polish". */
-const MICROSITE_STAGE_DEFS = DEFAULT_STAGE_DEFS.filter((d) => d.id !== "polish");
+/** The microsite checklist mirrors the marketing pipeline's full stage
+ *  progression (context → references → model → images → polish → finalize). The
+ *  microsite generator writes copy in one pass, so the backend emits a brief
+ *  polish boundary with no heavy work — the stage still ticks through. */
+const MICROSITE_STAGE_DEFS: GenerationStageDef[] = DEFAULT_STAGE_DEFS;
 
 type Phase = "streaming" | "fallback" | "ready" | "error";
 
