@@ -72,6 +72,13 @@ export interface BlockSettings {
   bgImageUrl?: string;
   bgImageParallax?: boolean;
   bgImageOpacity?: number;
+  /**
+   * Page CTA opt-out. When a page has a Page CTA configured, every block's
+   * PRIMARY button follows it by default. Set this `true` ("Use a custom button
+   * here") to keep this block's own primary button instead. Absent/false =
+   * follow the Page CTA. Secondary buttons are never affected either way.
+   */
+  useCustomCta?: boolean;
 }
 
 /** Condition that controls whether a step or field is shown */

@@ -985,7 +985,7 @@ export default function LandingPageViewer() {
 
   // If the assigned variant has a linked builder page, render it as blocks.
   // `linkedPage` is typed in the generated Variant schema as LinkedPage | null | undefined.
-  const assignedVariantWithPage = config.assignedVariant as typeof config.assignedVariant & { linkedPage?: LinkedPage | null };
+  const assignedVariantWithPage = config.assignedVariant as typeof config.assignedVariant & { linkedPage?: (LinkedPage & { ctaDefault?: import("@/lib/cta/ctaConfig").CtaConfig | null }) | null };
   if (assignedVariantWithPage.linkedPage !== undefined && assignedVariantWithPage.linkedPage !== null) {
     const linkedPage = assignedVariantWithPage.linkedPage;
     const rawLinkedBlocks = (linkedPage?.blocks ?? []) as import("@/lib/block-types").PageBlock[];
@@ -1078,7 +1078,7 @@ export default function LandingPageViewer() {
                     style={block.blockSettings?.animationStyle ?? "fade-up"}
                     enabled={linkedAnimationsEnabled && !NO_REVEAL.has(block.type)}
                   >
-                    <BlockRenderer block={dtrBlock as typeof block} brand={renderBrand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} testId={config.testId} variantId={config.assignedVariant.id} sessionId={sessionId} pageVars={pageVars} />
+                    <BlockRenderer block={dtrBlock as typeof block} brand={renderBrand} onCtaClick={handleBuilderCtaClick} animationsEnabled={linkedAnimationsEnabled} pageId={linkedPage?.id} testId={config.testId} variantId={config.assignedVariant.id} sessionId={sessionId} pageVars={pageVars} pageCta={linkedPage?.ctaDefault ?? null} />
                   </ScrollReveal>
                 </BlockErrorBoundary>
               );

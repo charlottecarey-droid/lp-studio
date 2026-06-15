@@ -56,7 +56,7 @@ import { BlockValueRenewalReview } from "./BlockValueRenewalReview";
 import { BlockEventLandingHero } from "./BlockEventLandingHero";
 import { BlockSpatialTour } from "./BlockSpatialTour";
 import type { BrandConfig } from "@/lib/brand-config";
-import { brandDefaultCtaConfig, type CtaConfig } from "@/lib/cta/ctaConfig";
+import { brandDefaultCtaConfig, ctaConfigHasValue, blockHasPrimaryCta, applyPageCtaToBlockProps, restorePrimaryCtaProps, type CtaConfig } from "@/lib/cta/ctaConfig";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
 import { BlockPasSection } from "./BlockPasSection";
@@ -479,7 +479,7 @@ export const NO_REVEAL = new Set<string>([
   "how-it-works-horizontal-stepper",
 ]);
 
-function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange, animationsEnabled = true, pageId, testId, variantId, sessionId, pageVars, pageCta, isBuilder, path = [], renderChild, renderEmptySlot, renderTailSlot }: Props) {
+function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange: rawOnBlockChange, animationsEnabled = true, pageId, testId, variantId, sessionId, pageVars, pageCta, isBuilder, path = [], renderChild, renderEmptySlot, renderTailSlot }: Props) {
   // Helper: render the children slot for container/overlay blocks. Uses the
   // caller-supplied renderChild (builder chrome) when provided, otherwise
   // recurses into BlockRenderer directly (viewer/published pages).
@@ -524,6 +524,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
         variantId={variantId}
         sessionId={sessionId}
         pageVars={pageVars}
+        pageCta={pageCta}
         isBuilder={isBuilder}
         path={[...parentPath, i]}
         renderChild={renderChild}
@@ -537,10 +538,34 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange,
   // Guard: AI-generated blocks saved before schema fix may lack a `props` object.
   // Ensure `block.props` always exists so child components don't crash on prop access.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const block: typeof rawBlock = (rawBlock as any).props
+  const baseBlock: typeof rawBlock = (rawBlock as any).props
     ? rawBlock
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     : ({ ...(rawBlock as any), props: {} } as typeof rawBlock);
+
+  // Page CTA = single source of truth for each block's PRIMARY button. A block
+  // follows it by default; it opts out via "Use a custom button here"
+  // (blockSettings.useCustomCta). The transform overwrites ONLY primary CTA props
+  // (label/url/action/chilipiper/modal/button colors) — secondary buttons read
+  // their own untouched props. When there is no page CTA, `block === baseBlock`
+  // so every pre-feature page renders byte-identically.
+  const followsPageCta =
+    baseBlock.blockSettings?.useCustomCta !== true &&
+    ctaConfigHasValue(pageCta) &&
+    blockHasPrimaryCta(baseBlock.props);
+  const block: typeof rawBlock = followsPageCta
+    ? ({ ...baseBlock, props: applyPageCtaToBlockProps(baseBlock.type, baseBlock.props, pageCta) } as typeof rawBlock)
+    : baseBlock;
+
+  // Persist guard: while following, the block component's edit callbacks rebuild
+  // their updated block from `block` (whose primary CTA props are the injected
+  // page CTA). Restore the ORIGINAL primary CTA before it flows back so the page
+  // CTA is never baked into saved props; every other edit (and all secondary CTA
+  // props) passes through untouched.
+  const onBlockChange = followsPageCta && rawOnBlockChange
+    ? (updated: PageBlock) =>
+        rawOnBlockChange({ ...updated, props: restorePrimaryCtaProps(updated.props, baseBlock.props) } as PageBlock)
+    : rawOnBlockChange;
 
   const heroContentPaddingX = block.type === "hero" && block.blockSettings?.paddingX && block.blockSettings.paddingX !== "none"
     ? PADDING_X_PX[block.blockSettings.paddingX]

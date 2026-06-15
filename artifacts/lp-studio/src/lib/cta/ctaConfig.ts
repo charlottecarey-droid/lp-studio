@@ -340,6 +340,75 @@ export function ctaConfigToBlockProps(_blockType: string, cfg: CtaConfig, target
   return next;
 }
 
+/**
+ * The full set of PRIMARY CTA prop keys the shim ever reads or writes. Excludes
+ * every `ctaSecondary*` / `secondary*` key on purpose — secondary buttons are
+ * always left to the block. Used to apply / restore the page CTA on a block's
+ * primary button without disturbing anything else.
+ */
+export const PRIMARY_CTA_KEYS: readonly string[] = [
+  ...CTA_LABEL_KEYS,
+  ...CTA_ACTION_KEYS,
+  ...CTA_URL_KEYS,
+  ...CTA_CHILIPIPER_KEYS,
+  ...CTA_VIDEO_URL_KEYS,
+  ...CTA_VIDEO_POSTER_KEYS,
+  ...CTA_STYLE_KEYS,
+  ...CTA_EMAIL_CAPTURE_KEYS,
+  ...CTA_MODAL_KEYS,
+];
+
+/**
+ * True when `props` declares any PRIMARY CTA key — i.e. the block can render a
+ * primary button that the Page CTA could drive. Drives the builder's "Use a
+ * custom button here" switch visibility and the render-time follow decision.
+ */
+export function blockHasPrimaryCta(props: unknown): boolean {
+  const p = (props && typeof props === "object" ? props : {}) as Props;
+  return (
+    readFirst(p, CTA_LABEL_KEYS) !== undefined ||
+    readFirst(p, CTA_URL_KEYS) !== undefined ||
+    readFirst(p, CTA_ACTION_KEYS) !== undefined ||
+    has(p, "chilipiperUrl")
+  );
+}
+
+/**
+ * Overwrite a block's PRIMARY CTA props with the page CTA, leaving every
+ * secondary key (and all non-CTA props) untouched. Returns a NEW props object;
+ * the input is never mutated. The page CTA's own `secondary` (if any) is
+ * stripped before writing so the block's secondary button is never disturbed.
+ *
+ * Render-only: callers must NOT persist the result back onto the block (use
+ * {@link restorePrimaryCtaProps} to strip it from any edit that does flow back).
+ */
+export function applyPageCtaToBlockProps(
+  blockType: string,
+  props: unknown,
+  pageCta: CtaConfig | null | undefined,
+): Props {
+  const base = (props && typeof props === "object" ? props : {}) as Props;
+  if (!ctaConfigHasValue(pageCta)) return base;
+  const primaryOnly: CtaConfig = { ...(pageCta as CtaConfig), secondary: undefined };
+  return ctaConfigToBlockProps(blockType, primaryOnly, base);
+}
+
+/**
+ * Restore the PRIMARY CTA portion of `updated` from `original`, so a render-time
+ * page-CTA injection never gets baked into a block's saved props. Secondary keys
+ * and every non-CTA edit in `updated` are preserved verbatim. Returns a NEW
+ * props object.
+ */
+export function restorePrimaryCtaProps(updated: unknown, original: unknown): Props {
+  const next = { ...((updated && typeof updated === "object" ? updated : {}) as Props) };
+  const orig = (original && typeof original === "object" ? original : {}) as Props;
+  for (const k of PRIMARY_CTA_KEYS) {
+    if (has(orig, k)) next[k] = orig[k];
+    else delete next[k];
+  }
+  return next;
+}
+
 /* ──────────────────────────── the resolver ───────────────────────────────── */
 
 /** True when a CtaConfig actually supplies a CTA (a label or a non-default

@@ -22,6 +22,7 @@ import type { PageBlock } from "@/lib/block-types";
 import type { BlockPath } from "@/lib/block-tree";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
 import type { BrandConfig } from "@/lib/brand-config";
+import type { CtaConfig } from "@/lib/cta/ctaConfig";
 
 type ParentLayout = "stack" | "grid";
 
@@ -40,6 +41,9 @@ interface NestedChildProps {
    *  child at index 0 renders this chip; pass undefined to skip. */
   onInsertBefore?: () => void;
   onBlockChange: (updated: PageBlock) => void;
+  /** Page-level default CTA, so nested blocks preview their PRIMARY button
+   *  following the Page CTA (matching the published page). */
+  pageCta?: CtaConfig | null;
   renderChild: (c: PageBlock, i: number, parentPath: BlockPath, parentLayout?: ParentLayout) => ReactNode;
   renderEmptySlot: (parentPath: BlockPath, parentLayout?: ParentLayout) => ReactNode;
   renderTailSlot?: (parentPath: BlockPath, parentLayout?: ParentLayout) => ReactNode;
@@ -63,6 +67,7 @@ export function NestedChild({
   onInsertAfter,
   onInsertBefore,
   onBlockChange,
+  pageCta,
   renderChild,
   renderEmptySlot,
   renderTailSlot,
@@ -135,6 +140,7 @@ export function NestedChild({
           onBlockChange={onBlockChange}
           animationsEnabled={false}
           isBuilder
+          pageCta={pageCta}
           path={childPath}
           renderChild={renderChild}
           renderEmptySlot={renderEmptySlot}

@@ -221,6 +221,9 @@ async function enrichVariantWithPage(variant: LpVariant) {
           customCss: linkedPage.customCss ?? "",
           animationsEnabled: linkedPage.animationsEnabled !== false,
           smoothScroll: linkedPage.smoothScroll !== false,
+          // Page-level default CTA, so the viewer's variant render can drive each
+          // block's PRIMARY button from the Page CTA (matching the main path).
+          ctaDefault: linkedPage.ctaDefault ?? null,
           // Page-record variables flow to the viewer so per-page settings
           // (e.g. linked-form colour overrides under the reserved
           // `__linkedFormStyle` key) take effect at runtime.
@@ -261,6 +264,9 @@ async function enrichVariantWithBlockOverrides(variant: LpVariant, basePageId?: 
       blocks,
       animationsEnabled: page.animationsEnabled !== false,
       smoothScroll: page.smoothScroll !== false,
+      // Page-level default CTA, so AB-test variant renders also drive each
+      // block's PRIMARY button from the Page CTA (matching the main path).
+      ctaDefault: page.ctaDefault ?? null,
       pageVariables: (page.pageVariables && typeof page.pageVariables === "object" && !Array.isArray(page.pageVariables))
         ? page.pageVariables as Record<string, string>
         : {},

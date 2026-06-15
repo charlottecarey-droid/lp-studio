@@ -3,6 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { BrandSwatches } from "@/components/BrandSwatches";
@@ -31,6 +32,13 @@ interface Props {
    * override. Omit when there's no brand default configured.
    */
   brandDefaultModalTheme?: "light" | "dark" | null;
+  /**
+   * True when a Page CTA is set AND this block has a primary button — i.e. the
+   * block's primary button follows the Page CTA by default. Surfaces the
+   * "Use a custom button here" opt-out (BlockSettings.useCustomCta). When false
+   * the toggle is hidden (no Page CTA, or the block has no primary button).
+   */
+  canFollowPageCta?: boolean;
 }
 
 const SPACING_OPTIONS = [
@@ -125,7 +133,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function BlockSettingsPanel({ settings, onChange, blockType, modalTheme, onModalThemeChange, brandDefaultModalTheme }: Props) {
+export function BlockSettingsPanel({ settings, onChange, blockType, modalTheme, onModalThemeChange, brandDefaultModalTheme, canFollowPageCta }: Props) {
   const s = settings ?? {};
   const set = <K extends keyof BlockSettings>(k: K, v: BlockSettings[K]) =>
     onChange({ ...s, [k]: v });
@@ -144,6 +152,25 @@ export function BlockSettingsPanel({ settings, onChange, blockType, modalTheme, 
 
   return (
     <div className="space-y-5">
+      {canFollowPageCta && (
+        <section className="space-y-2">
+          <SectionHeading>Button</SectionHeading>
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-0.5">
+              <Label className="text-xs">Use a custom button here</Label>
+              <p className="text-[10px] text-muted-foreground">
+                Off: this block's main button follows the Page CTA. On: keep this
+                block's own button.
+              </p>
+            </div>
+            <Switch
+              checked={s.useCustomCta === true}
+              onCheckedChange={(checked) => set("useCustomCta", checked ? true : undefined)}
+            />
+          </div>
+          <Separator />
+        </section>
+      )}
       {showModalTheme && (
         <section className="space-y-2">
           <SectionHeading>Modal Theme</SectionHeading>

@@ -2199,6 +2199,7 @@ export default function BuilderEditor() {
           setInsertDialogOpen(true);
         }}
         onBlockChange={updateBlock}
+        pageCta={pageCta}
         renderChild={renderNestedChild}
         renderEmptySlot={renderEmptySlot}
         renderTailSlot={renderTailSlot}
@@ -2206,7 +2207,7 @@ export default function BuilderEditor() {
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [brand, selectedBlockId, polishedBlockIds],
+    [brand, selectedBlockId, polishedBlockIds, pageCta],
   );
   const renderEmptySlot = useCallback(
     (parentPath: BlockPath, parentLayout?: "stack" | "grid"): ReactNode => (
@@ -3366,6 +3367,7 @@ export default function BuilderEditor() {
                           onAddComment={addComment}
                           onResolveComment={resolveComment}
                           currentUserName={authDisplayName || undefined}
+                          pageCta={pageCta}
                           path={[index]}
                           renderChild={renderNestedChild}
                           renderEmptySlot={renderEmptySlot}
@@ -4260,6 +4262,9 @@ interface SortableCanvasBlockProps {
   onAddComment: (params: { blockIndex: number; authorName: string; message: string; parentId?: number }) => Promise<void>;
   onResolveComment: (commentId: number) => Promise<void>;
   currentUserName?: string;
+  /** Page-level default CTA, threaded so the canvas preview shows each block's
+   *  PRIMARY button following the Page CTA (matching the published page). */
+  pageCta?: CtaConfig | null;
   /** Path of THIS block within the page tree (top-level paths are `[index]`). */
   path?: BlockPath;
   /** Recursive child renderer (BuilderEditor closure). */
@@ -4269,7 +4274,7 @@ interface SortableCanvasBlockProps {
   renderEmptySlot?: (parentPath: BlockPath) => ReactNode;
 }
 
-function SortableCanvasBlockInner({ block, brand, isSelected, isPolished, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary, onSetAsDefault, commentMode, blockIndex, blockComments, onAddComment, onResolveComment, currentUserName, path, renderChild, renderEmptySlot, renderTailSlot }: SortableCanvasBlockProps) {
+function SortableCanvasBlockInner({ block, brand, isSelected, isPolished, onSelect, onDelete, onTestBlock, onBlockChange, onSaveToLibrary, onSetAsDefault, commentMode, blockIndex, blockComments, onAddComment, onResolveComment, currentUserName, pageCta, path, renderChild, renderEmptySlot, renderTailSlot }: SortableCanvasBlockProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -4507,6 +4512,7 @@ function SortableCanvasBlockInner({ block, brand, isSelected, isPolished, onSele
                   onBlockChange={onBlockChange}
                   animationsEnabled={false}
                   isBuilder
+                  pageCta={pageCta}
                   path={path ?? [blockIndex]}
                   renderChild={renderChild}
                   renderEmptySlot={renderEmptySlot}

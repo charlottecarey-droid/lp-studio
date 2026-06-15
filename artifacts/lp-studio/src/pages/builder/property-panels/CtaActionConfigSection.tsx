@@ -51,6 +51,13 @@ interface Props {
   onOverride?: () => void;
   /** "Reset to inherit" — clear the block-level CTA so it inherits page/tenant. */
   onResetToInherit?: () => void;
+  /**
+   * True when this block's PRIMARY button currently FOLLOWS the Page CTA. When
+   * set, the editor shows a notice and disables the primary-CTA fields, because
+   * any edit is overridden at render time until the block opts out via the
+   * "Use a custom button here" toggle (Style tab). Secondary CTAs are unaffected.
+   */
+  followingPageCta?: boolean;
 }
 
 const SOURCE_LABEL: Record<CtaSource, string> = {
@@ -65,13 +72,24 @@ const SOURCE_LABEL: Record<CtaSource, string> = {
  * destination + modal config). Reused by every CTA-bearing block panel. The
  * button LABEL is owned by the parent panel (labels differ across blocks).
  */
-export function CtaActionConfigSection({ value, onChange, source, hasOwnOverride, onOverride, onResetToInherit, allowedActions, hideModalConfig }: Props) {
+export function CtaActionConfigSection({ value, onChange, source, hasOwnOverride, onOverride, onResetToInherit, allowedActions, hideModalConfig, followingPageCta }: Props) {
   const action = value.ctaAction ?? "url";
   const set = (patch: Partial<CtaSuiteFields>) => onChange({ ...value, ...patch });
   const inheriting = source != null && source !== "block";
   const actionOptions = allowedActions
     ? ACTION_OPTIONS.filter((o) => allowedActions.includes(o.value))
     : ACTION_OPTIONS;
+
+  if (followingPageCta) {
+    return (
+      <div className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2.5 text-[11px] leading-relaxed text-amber-800">
+        This button follows the <span className="font-semibold">Page CTA</span>.
+        To set a different button here, turn on{" "}
+        <span className="font-semibold">"Use a custom button here"</span> in the
+        Style tab.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">

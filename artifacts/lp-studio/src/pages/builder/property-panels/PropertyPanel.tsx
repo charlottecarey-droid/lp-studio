@@ -7,6 +7,7 @@ import { DSO_CASE_FLOW_DEFAULT_STAGES, createBlock } from "@/lib/block-types";
 import { getBgOptions, type BackgroundStyle } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { CtaConfig } from "@/lib/cta/ctaConfig";
+import { ctaConfigHasValue, blockHasPrimaryCta } from "@/lib/cta/ctaConfig";
 import { buildBlockCtaSource } from "@/lib/cta/ctaSource";
 import { BlockSettingsPanel, ColorField } from "./BlockSettingsPanel";
 import { BrandSwatches } from "@/components/BrandSwatches";
@@ -1023,7 +1024,14 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
     onProps: (next) => onChange({ ...block, props: next } as PageBlock),
     brand,
     pageCta,
+    useCustomCta: block.blockSettings?.useCustomCta,
   });
+  // The "Use a custom button here" opt-out is only meaningful when a Page CTA is
+  // set AND this block actually has a primary button to override. Otherwise the
+  // toggle is hidden (the block keeps its own buttons regardless).
+  const canFollowPageCta =
+    ctaConfigHasValue(pageCta ?? null) &&
+    blockHasPrimaryCta(block.props as Record<string, unknown>);
   const def = getBlockDef(block.type);
   const [dsoRefreshing, setDsoRefreshing] = useState(false);
   const [bentoTilesRefreshing, setBentoTilesRefreshing] = useState(false);
@@ -6977,6 +6985,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 <BlockSettingsPanel
                   settings={block.blockSettings}
                   blockType={block.type}
+                  canFollowPageCta={canFollowPageCta}
                   onChange={(settings: BlockSettings) => onChange({ ...block, blockSettings: settings })}
                   modalTheme={(block.props as { modalTheme?: "light" | "dark" } | undefined)?.modalTheme}
                   brandDefaultModalTheme={brand?.modalTheme ?? null}

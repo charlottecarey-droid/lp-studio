@@ -20,6 +20,7 @@ import {
   ctaConfigToBlockProps,
   legacyBlockPropsToCtaConfig,
   resolveCtaConfig,
+  blockHasPrimaryCta,
   CTA_LABEL_KEYS,
   CTA_ACTION_KEYS,
   type CtaConfig,
@@ -34,6 +35,13 @@ export interface CtaSourceProps {
   hasOwnOverride?: boolean;
   onOverride?: () => void;
   onResetToInherit?: () => void;
+  /**
+   * True when this block's PRIMARY button is currently FOLLOWING the Page CTA
+   * (a Page CTA is set and the block hasn't opted out via "Use a custom button
+   * here"). The editor shows a notice + dims the primary-CTA fields, because any
+   * edit to them is overridden at render time until the block opts out.
+   */
+  followingPageCta?: boolean;
 }
 
 type Props = Record<string, unknown>;
@@ -61,8 +69,11 @@ export function buildBlockCtaSource(args: {
   onProps: (next: Props) => void;
   brand?: BrandConfig | null;
   pageCta?: CtaConfig | null;
+  /** Block's per-block opt-out flag (BlockSettings.useCustomCta). When true the
+   *  block keeps its own primary button instead of following the Page CTA. */
+  useCustomCta?: boolean;
 }): CtaSourceProps {
-  const { blockType, props, onProps, brand, pageCta } = args;
+  const { blockType, props, onProps, brand, pageCta, useCustomCta } = args;
 
   const tenantDefault = brandDefaultCtaConfig(brand ?? null);
   const blockOverride = legacyBlockPropsToCtaConfig(blockType, props);
@@ -72,9 +83,18 @@ export function buildBlockCtaSource(args: {
     blockOverride,
   });
 
+  // When a Page CTA is set and the block hasn't opted out, its PRIMARY button is
+  // overridden at render time. Surface that so the editor can dim/annotate the
+  // primary-CTA fields (secondary fields are never affected).
+  const followingPageCta =
+    ctaConfigHasValue(pageCta ?? null) &&
+    useCustomCta !== true &&
+    blockHasPrimaryCta(props);
+
   return {
     source: resolved.source,
     hasOwnOverride: ctaConfigHasValue(blockOverride),
+    followingPageCta,
     // "Override for this block": copy the currently-inherited effective CTA onto
     // the block's own props (using whatever key names the block declares), so the
     // editor below becomes live and the source flips to "block".
