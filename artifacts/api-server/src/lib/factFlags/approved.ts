@@ -18,10 +18,34 @@ function claimApproved(c: ClaimEntry): boolean {
 
 interface BrandConfigLite {
   brandName?: string;
+  aiStrictFactsMode?: boolean;
   productLines?: Array<{ claims?: ClaimEntry[] }>;
   segments?: Array<{
     stats?: Array<{ value?: string; approvedForAi?: boolean; linkProofPointId?: number }>;
   }>;
+}
+
+/**
+ * Whether the tenant has Strict Facts mode ON. Mirrors the `aiStrictFactsMode
+ * !== false` default-ON convention used by the AI generation paths, so the
+ * review surface (banner, publish gate, fact-flag sync) honours the same brand
+ * setting that gates generation.
+ *
+ * Fail-CLOSED: when the tenant is unknown or the read errors we treat Strict
+ * Facts as ON, so a transient DB hiccup can never silently drop the review
+ * gate while a tenant genuinely has it enabled.
+ */
+export async function isStrictFactsEnabled(tenantId: number | null): Promise<boolean> {
+  if (tenantId == null) return true;
+  try {
+    const brandRows = await db.execute(
+      sql`SELECT config FROM lp_brand_settings WHERE tenant_id = ${tenantId} LIMIT 1`,
+    );
+    const cfg = (brandRows.rows[0] as { config?: BrandConfigLite } | undefined)?.config ?? {};
+    return cfg.aiStrictFactsMode !== false;
+  } catch {
+    return true;
+  }
 }
 
 /** The tenant's own SELLING-brand name, used by the claim detector to suppress

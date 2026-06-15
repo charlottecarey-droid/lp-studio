@@ -13,6 +13,7 @@ import { getTenantId } from "../../middleware/requireAuth";
 import {
   buildApprovedFacts,
   fetchTenantBrandName,
+  isStrictFactsEnabled,
   listFactFlags,
   syncFactFlags,
   setAtPath,
@@ -136,6 +137,9 @@ export async function enforceFactFlagPublishGate(
   req: Request,
   res: Response,
 ): Promise<{ blocked: boolean }> {
+  // Honour the brand's Strict Facts toggle: when it's OFF the review surface is
+  // disabled entirely, so publishing is never gated on pending fact flags.
+  if (!(await isStrictFactsEnabled(tenantId))) return { blocked: false };
   const state = await getPendingFactFlagState(tenantId, pageId);
   const needsWarning = !state.ok || state.pending > 0;
   if (!needsWarning) return { blocked: false };
@@ -181,6 +185,12 @@ router.get("/lp/pages/:pageId/fact-flags", async (req, res): Promise<void> => {
   const pageId = parseInt(req.params.pageId, 10);
   if (isNaN(pageId)) { res.status(400).json({ error: "Invalid page ID" }); return; }
   try {
+    // Strict Facts OFF → no review surface: report a clean page so the builder
+    // banner stays hidden regardless of any pre-existing flag rows.
+    if (!(await isStrictFactsEnabled(tenantId))) {
+      res.json({ flags: [], pendingCount: 0, total: 0 });
+      return;
+    }
     const flags = await listFactFlags(tenantId, pageId);
     const pending = flags.filter((f) => f.triageState === "pending").length;
     res.json({ flags, pendingCount: pending, total: flags.length });
@@ -196,6 +206,11 @@ router.post("/lp/pages/:pageId/fact-flags/sync", async (req, res): Promise<void>
   const pageId = parseInt(req.params.pageId, 10);
   if (isNaN(pageId)) { res.status(400).json({ error: "Invalid page ID" }); return; }
   try {
+    // Strict Facts OFF → skip detection entirely so no new flag rows are created.
+    if (!(await isStrictFactsEnabled(tenantId))) {
+      res.json({ flags: [], pendingCount: 0, created: 0, mutated: false });
+      return;
+    }
     const page = await loadPage(tenantId, pageId);
     if (!page) { res.status(404).json({ error: "Page not found" }); return; }
     const templateForms = new Set<string>(

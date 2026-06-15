@@ -37,8 +37,10 @@ let app: Express;
 
 const SID = `it-ff-${randomUUID()}`;
 const SID_NO_TENANT = `it-ff-none-${randomUUID()}`;
+const SID_STRICT_OFF = `it-ff-off-${randomUUID()}`;
 
 let tenantId: number;
+let tenantStrictOff: number;
 
 const PAGE_BLOCKS = [
   { id: "hero", type: "hero", props: { headline: "We deliver 2.5x ROI", subhead: "Trusted by Fortune 500 companies nationwide." } },
@@ -92,6 +94,14 @@ async function seedTenant(): Promise<number> {
   return t.rows[0].id;
 }
 
+async function seedBrandSettings(tid: number, config: Record<string, unknown>): Promise<void> {
+  const { pool } = pgMod;
+  await pool.query(
+    `INSERT INTO lp_brand_settings (tenant_id, config) VALUES ($1, $2::jsonb)`,
+    [tid, JSON.stringify(config)],
+  );
+}
+
 async function seedPage(tid: number, status: string): Promise<number> {
   const { pool } = pgMod;
   const uniq = randomUUID().slice(0, 8);
@@ -133,6 +143,12 @@ beforeAll(async () => {
   tenantId = await seedTenant();
   await seedSession(SID, tenantId, 990001201);
   await seedSession(SID_NO_TENANT, null, 990001202);
+
+  // A second tenant with Strict Facts explicitly turned OFF in brand settings,
+  // used to assert the toggle suppresses the whole review surface.
+  tenantStrictOff = await seedTenant();
+  await seedBrandSettings(tenantStrictOff, { aiStrictFactsMode: false });
+  await seedSession(SID_STRICT_OFF, tenantStrictOff, 990001203);
 }, 120_000);
 
 afterAll(async () => {
@@ -336,6 +352,50 @@ describe("Strict Facts review flow endpoints (#1138)", () => {
       [ppId],
     );
     expect(pp.rows[0].label).toBe("Captured context");
+  });
+
+  it("Strict Facts OFF: sync creates no flags, list reports zero, publish is not gated", async () => {
+    const pageId = await seedPage(tenantStrictOff, "draft");
+
+    // Sync must skip detection entirely — no pending rows are created.
+    const sync = await injectAs(SID_STRICT_OFF, { method: "POST", url: `/lp/pages/${pageId}/fact-flags/sync` });
+    expect(sync.status).toBe(200);
+    const syncBody = sync.json as SyncResponse;
+    expect(syncBody.created).toBe(0);
+    expect(syncBody.pendingCount).toBe(0);
+
+    // The banner-driving list reports a clean page.
+    const list = await injectAs(SID_STRICT_OFF, { method: "GET", url: `/lp/pages/${pageId}/fact-flags` });
+    expect(list.status).toBe(200);
+    const listBody = list.json as ListResponse;
+    expect(listBody.total).toBe(0);
+    expect(listBody.pendingCount).toBe(0);
+
+    // Publishing is not blocked — no 409 fact_flags_pending.
+    const published = await injectAs(SID_STRICT_OFF, {
+      method: "PUT", url: `/lp/pages/${pageId}`, body: { status: "published" },
+    });
+    expect(published.status).toBe(200);
+  });
+
+  it("Strict Facts OFF: pre-existing pending flags are suppressed from the list + publish gate", async () => {
+    const { pool } = pgMod;
+    const pageId = await seedPage(tenantStrictOff, "draft");
+    // Simulate flags created while strict mode was previously ON, then turned off.
+    await pool.query(
+      `INSERT INTO lp_page_fact_flags
+         (tenant_id, page_id, fact_kind, normalized_form, block_id, block_type, field_path, original_text, triage_state)
+       VALUES ($1, $2, 'stat', 'leftover', 'hero', 'hero', 'props.headline', 'We deliver 2.5x ROI', 'pending')`,
+      [tenantStrictOff, pageId],
+    );
+
+    const list = await injectAs(SID_STRICT_OFF, { method: "GET", url: `/lp/pages/${pageId}/fact-flags` });
+    expect((list.json as ListResponse).pendingCount).toBe(0);
+
+    const published = await injectAs(SID_STRICT_OFF, {
+      method: "PUT", url: `/lp/pages/${pageId}`, body: { status: "published" },
+    });
+    expect(published.status).toBe(200);
   });
 
   it("fails closed (403) for a session with no tenant", async () => {
