@@ -4209,6 +4209,51 @@ export function buildBrandContext(brand: BrandConfig, designIntensity: DesignInt
   return parts.join("\n");
 }
 
+/** A SHORT, highest-priority brand-voice anchor for the TOP of the SYSTEM
+ *  prompt. The full brand context (buildBrandContext) rides in the USER prompt,
+ *  but the large structural system prompt — block catalog, density doctrine, and
+ *  its neutral SaaS EXAMPLE copy — otherwise carries no brand identity. Since the
+ *  model weighs the system prompt most heavily, it drifts toward those generic
+ *  examples and the output reads the same for every tenant. Naming the brand and
+ *  its strongest voice cues in the system prompt itself makes the model write AS
+ *  this brand from the first token, while the user-prompt BRAND CONTEXT remains
+ *  the detailed source of truth. Returns "" when the brand has no usable voice
+ *  signal (keeps blank/neutral tenants on the default behavior — no regression). */
+export function buildBrandVoiceAnchor(brand: BrandConfig): string {
+  // Brand fields can originate from brand-import (scraped, semi-trusted text), so
+  // collapse newlines/control chars and cap length/count before interpolating —
+  // a hostile or messy value can't then reshape the system prompt or balloon the
+  // token budget.
+  const clean = (v: unknown, max = 160): string =>
+    typeof v === "string"
+      ? v.replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max)
+      : "";
+  const cleanList = (arr: unknown, maxItems: number, maxEach = 80): string[] =>
+    Array.isArray(arr) ? arr.map((x) => clean(x, maxEach)).filter(Boolean).slice(0, maxItems) : [];
+
+  const name = clean(brand.brandName, 80);
+  const cues: string[] = [];
+  const tone = clean(brand.toneOfVoice);
+  if (tone) cues.push(`tone — ${tone}`);
+  const vpTone = cleanList(brand.voiceProfile?.profile?.tone, 6, 40);
+  if (vpTone.length) cues.push(`voice tags — ${vpTone.join(", ")}`);
+  const personality = cleanList(brand.toneKeywords, 6, 40);
+  if (personality.length) cues.push(`personality — ${personality.join(", ")}`);
+  const sig = cleanList(brand.voiceProfile?.profile?.signaturePhrases, 4, 80);
+  if (sig.length) cues.push(`signature phrasing like — ${sig.join("; ")}`);
+  // Nothing brand-specific to anchor on → leave the system prompt neutral.
+  if (!name && cues.length === 0) return "";
+  const who = name
+    ? `You are writing AS ${name}`
+    : "You are writing AS the specific brand described in the BRAND CONTEXT (in the user message)";
+  const cueLine = cues.length ? ` This brand's voice: ${cues.join(" · ")}.` : "";
+  const label = name || "this brand";
+  return [
+    `BRAND VOICE — HIGHEST PRIORITY (takes priority over the generic EXAMPLE copy further down): ${who}, never a generic vendor.${cueLine}`,
+    `Every headline, subhead, and body line must sound unmistakably like ${label} — match its tone, vocabulary, and rhythm. The EXAMPLE copy in this prompt demonstrates STRUCTURE, length, and density ONLY; never reuse its neutral SaaS phrasing. Two different brands given the same request must produce visibly different copy. Use the BRAND CONTEXT, messaging pillars, value props, and copy examples in the user message as your source of truth for HOW ${label} sounds.`,
+  ].join("\n");
+}
+
 /** Task #253 — fetch tenant's approved case-studies from the content library
  *  for injection into the AI brief when strict mode is on. Returns up to 12. */
 export async function fetchApprovedCaseStudies(
@@ -8854,6 +8899,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           }),
     aiDisabledTypes,
   );
+  // Brand-voice anchor (see buildBrandVoiceAnchor): the full brand context lives
+  // in the user prompt, but the large structural system prompt otherwise carries
+  // no brand identity — so copy trended generic and read the same across tenants.
+  // Prepend a short, highest-priority voice anchor (all paths) so the model
+  // writes AS this brand from the first token. No-op for blank/neutral tenants.
+  const brandVoiceAnchor = buildBrandVoiceAnchor(brand);
+  if (brandVoiceAnchor) systemPrompt = `${brandVoiceAnchor}\n\n${systemPrompt}`;
   // Recipe rotation (June 2026): the DSO paths' BLOCK SELECTION rule carries a
   // static "loose flow that works" example that anchors the model on the same
   // sequence every run — replace it with THIS generation's rotated recipe. The
