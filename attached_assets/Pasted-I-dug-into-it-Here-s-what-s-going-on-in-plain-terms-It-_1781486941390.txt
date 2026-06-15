@@ -1,0 +1,23 @@
+I dug into it. Here's what's going on, in plain terms.
+
+It is firing — but only in a very narrow way, which is why it looks dead. Right now the page CTA only fills in buttons that have no link of their own. The catch: almost every block comes pre-loaded with its own button (a label like "Get started" and a link), and AI-generated pages bake one into each block too. So the block's own button always wins, and your page CTA never gets a chance to show up. The plumbing all works — page setting saves, reaches the page, reaches the buttons — it's just being masked everywhere.
+
+That's the opposite of what you described wanting. You want the page CTA to be the one source of truth that drives every button, with individual blocks able to override it.
+
+To make it behave that way, here's what I'd change:
+
+When you turn the page CTA on, it becomes the default for every button on the page — overriding the labels/links the blocks shipped with.
+Add a small "use a custom button here" switch on individual blocks, so you can opt a specific block out and give it its own button.
+Leave any page where the page CTA is turned off exactly as it is today — so nothing on your existing live pages changes unless you opt in.
+The one tradeoff worth flagging: on a page where you switch the page CTA on, the buttons that blocks came with will be replaced by your page CTA (that's the point) — and for any block you'd previously hand-tweaked, you'd flip its "custom button" switch to keep it.
+
+Before I build this, one quick check on how aggressive you want it:
+
+
+Waiting for user's next prompt
+I'll hold here for your call on that one question above — it's the only thing shaping how I build it. In short:
+
+Page CTA controls every button by default, and any block can opt out with a "custom button" switch (this is the "one place to configure" behavior you described — my recommendation).
+Page CTA controls only the main button in each block, leaving secondary buttons alone.
+Keep today's behavior (only fills empty buttons).
+Tell me 1, 2, or 3 and I'll wire it up.
