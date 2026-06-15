@@ -43,6 +43,7 @@ import {
   AccountSearchTypeahead,
   type SelectedAccount,
 } from "@/components/sales/AccountSearchTypeahead";
+import { MicrositeGenerationLive } from "@/components/sales/MicrositeGenerationLive";
 
 const API_BASE = "/api";
 
@@ -116,7 +117,13 @@ export function GenerateMicrositeModal({
   // (markdown), visual style (screenshot), and imagery, then merged with the
   // brand's saved inspiration URLs.
   const [referenceUrl, setReferenceUrl] = useState("");
-  const [step, setStep] = useState<"idle" | "generating" | "linking" | "done" | "error">("idle");
+  const [step, setStep] = useState<"idle" | "generating" | "live" | "done" | "error">("idle");
+  // June 2026 — live "watch your microsite build" view. Non-null while the modal
+  // content is swapped to the streaming preview (the dialog expands).
+  const [liveConfig, setLiveConfig] = useState<{
+    accountId: string;
+    body: Record<string, unknown>;
+  } | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [createdPageId, setCreatedPageId] = useState<number | null>(null);
   const [hotlinkCount, setHotlinkCount] = useState(0);
@@ -227,6 +234,7 @@ export function GenerateMicrositeModal({
     setPrompt("");
     setReferenceUrl("");
     setStep("idle");
+    setLiveConfig(null);
     setErrorMsg("");
     setCreatedPageId(null);
     setHotlinkCount(0);
@@ -270,53 +278,40 @@ export function GenerateMicrositeModal({
     return String(imported.id);
   }
 
-  async function handleGenerate() {
-    if (!segmentId) return;
-    setStep("generating");
-    setErrorMsg("");
+  // Build the generation request body — identical for the streaming live view
+  // and the live view's own non-streaming fallback. If a use case (template) is
+  // selected, its block layout is passed as a fixed constraint so AI customises
+  // the copy while preserving the structure.
+  function buildGenerationBody(): Record<string, unknown> {
+    let ctaOverride: { mode: "url" | "chilipiper"; url: string } | undefined;
+    if (ctaMode === "chilipiper" && selectedRepId !== null) {
+      const rep = salesReps.find(r => r.id === selectedRepId);
+      const repUrl = rep?.content?.chilipiperUrl || rep?.content?.calendlyUrl || "";
+      if (repUrl) ctaOverride = { mode: "chilipiper", url: repUrl };
+    } else if (ctaMode === "url" && ctaUrl.trim()) {
+      ctaOverride = { mode: "url", url: ctaUrl.trim() };
+    }
+    return {
+      segmentId,
+      audience: segmentId,
+      prompt: prompt.trim() || undefined,
+      ...(referenceUrl.trim() ? { referenceUrl: referenceUrl.trim() } : {}),
+      ...(contactId != null ? { contactId } : {}),
+      ...(selectedTemplate ? { templateId: selectedTemplate.id } : {}),
+      ...(ctaOverride ? { ctaOverride } : {}),
+    };
+  }
+
+  // Runs after the page has been generated (the live view created it server-side
+  // and hands back its id): mint the personalised hotlinks, then show the
+  // success screen. Errors flip the modal to its own error step.
+  async function finishAfterGenerate(resolvedAccountId: string, pageId: number) {
     try {
-      const resolvedAccountId = await resolveAccountId();
-      let pageId: number;
-
-      // Build ctaOverride from the CTA destination selection
-      let ctaOverride: { mode: "url" | "chilipiper"; url: string } | undefined;
-      if (ctaMode === "chilipiper" && selectedRepId !== null) {
-        const rep = salesReps.find(r => r.id === selectedRepId);
-        const repUrl = rep?.content?.chilipiperUrl || rep?.content?.calendlyUrl || "";
-        if (repUrl) ctaOverride = { mode: "chilipiper", url: repUrl };
-      } else if (ctaMode === "url" && ctaUrl.trim()) {
-        ctaOverride = { mode: "url", url: ctaUrl.trim() };
-      }
-
-      // Always AI-generate — if a use case (template) is selected, its block
-      // layout is passed as a fixed constraint so AI customises the copy while
-      // preserving the structure.
-      const genRes = await fetch(`${API_BASE}/sales/accounts/${resolvedAccountId}/generate-microsite`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          segmentId,
-          audience: segmentId,
-          prompt: prompt.trim() || undefined,
-          ...(referenceUrl.trim() ? { referenceUrl: referenceUrl.trim() } : {}),
-          ...(contactId != null ? { contactId } : {}),
-          ...(selectedTemplate ? { templateId: selectedTemplate.id } : {}),
-          ...(ctaOverride ? { ctaOverride } : {}),
-        }),
-      });
-      if (!genRes.ok) {
-        const err = await genRes.json().catch(() => ({ error: "Generation failed" }));
-        throw new Error(err.error ?? "Generation failed");
-      }
-      const { page } = await genRes.json();
-      pageId = page.id;
-
       setCreatedPageId(pageId);
 
       if (contactId != null) {
         // Contact-page generation: create (or reuse) a single personalized
         // link for the targeted contact, surfaced immediately on success.
-        setStep("linking");
         const linkRes = await fetch(`${API_BASE}/sales/hotlinks`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -329,7 +324,6 @@ export function GenerateMicrositeModal({
       } else if (generateHotlinks && selectedContactIds.size > 0) {
         // Account-page generation: personalised links are opt-in — only create
         // them for the contacts the rep explicitly selected.
-        setStep("linking");
         const linkRes = await fetch(`${API_BASE}/sales/accounts/${resolvedAccountId}/microsites`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -343,15 +337,33 @@ export function GenerateMicrositeModal({
         setHotlinkCount(0);
       }
 
+      setLiveConfig(null);
       setStep("done");
       onCreated?.();
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Something went wrong");
+      setLiveConfig(null);
+      setStep("error");
+    }
+  }
+
+  // Resolve (or import) the account, then swap to the live build view, which
+  // streams the generation and renders the stage rail + scaled preview.
+  async function handleGenerate() {
+    if (!segmentId) return;
+    setStep("generating");
+    setErrorMsg("");
+    try {
+      const resolvedAccountId = await resolveAccountId();
+      setLiveConfig({ accountId: resolvedAccountId, body: buildGenerationBody() });
+      setStep("live");
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Something went wrong");
       setStep("error");
     }
   }
 
-  const busy = step === "generating" || step === "linking";
+  const busy = step === "generating" || step === "live";
 
   // Distinct job levels present on this account's contacts, for the filter.
   const contactLevels = Array.from(
@@ -420,7 +432,36 @@ export function GenerateMicrositeModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o && !busy) handleClose(); }}>
-      <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh]">
+      <DialogContent
+        className={
+          liveConfig
+            ? "max-w-6xl w-[calc(100%-2rem)] h-[85vh] p-0 gap-0 flex flex-col overflow-hidden"
+            : "sm:max-w-lg flex flex-col max-h-[90vh]"
+        }
+      >
+        {liveConfig ? (
+          <>
+            <DialogHeader className="px-5 py-3.5 border-b border-border shrink-0 text-left">
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <Sparkles className="w-4 h-4 text-primary" aria-hidden />
+                Building your microsite
+              </DialogTitle>
+            </DialogHeader>
+            <MicrositeGenerationLive
+              accountId={liveConfig.accountId}
+              body={liveConfig.body}
+              accountLabel={effectiveAccountName}
+              onResult={(pageId) => {
+                void finishAfterGenerate(liveConfig.accountId, pageId);
+              }}
+              onCancel={() => {
+                setLiveConfig(null);
+                setStep("idle");
+              }}
+            />
+          </>
+        ) : (
+          <>
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
@@ -901,6 +942,8 @@ export function GenerateMicrositeModal({
               Generate
             </Button>
           </div>
+          </>
+        )}
           </>
         )}
       </DialogContent>

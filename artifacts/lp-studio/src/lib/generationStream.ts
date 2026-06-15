@@ -259,18 +259,28 @@ function isAbortError(err: unknown): boolean {
  * `GenerationStreamError`. The caller's AbortSignal cancels the fetch —
  * the backend treats client disconnect as an abort.
  */
-export async function streamGeneration(
-  body: GenerationRequestBody,
+export async function streamGeneration<
+  TBody = GenerationRequestBody,
+  TResult = GenerationResult,
+>(
+  body: TBody,
   handlers: GenerationStreamHandlers,
   signal?: AbortSignal,
-): Promise<GenerationResult> {
+  opts?: {
+    /** Streaming endpoint to POST to. Defaults to the marketing page
+     *  generator; the sales microsite path passes its own account endpoint.
+     *  Must already include `?stream=1`. */
+    endpoint?: string;
+  },
+): Promise<TResult> {
+  const endpoint = opts?.endpoint ?? `/api/lp/generate-page?stream=1`;
   let receivedStage = false;
   const fail = (message: string, kind: GenerationStreamErrorKind, status?: number) =>
     new GenerationStreamError(message, { kind, status, receivedStage });
 
   let res: Response;
   try {
-    res = await fetch(`/api/lp/generate-page?stream=1`, {
+    res = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -298,7 +308,7 @@ export async function streamGeneration(
     throw fail("Streaming is not supported in this browser", "transport");
   }
 
-  let result: GenerationResult | null = null;
+  let result: TResult | null = null;
   let serverError: GenerationStreamError | null = null;
 
   const parser = new SseParser((name, data) => {
@@ -326,7 +336,7 @@ export async function streamGeneration(
         handlers.onReceipt?.(payload as GenerationReceipt);
         break;
       case "result":
-        result = payload as GenerationResult;
+        result = payload as TResult;
         break;
       case "error":
         serverError = fail(

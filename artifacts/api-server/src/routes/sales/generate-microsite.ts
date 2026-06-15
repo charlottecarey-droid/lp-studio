@@ -8,6 +8,14 @@ import type { ChatCompletionContentPart } from "openai/resources/chat/completion
 import rateLimit from "express-rate-limit";
 import { pickExemplars, formatExemplarsSection, parseCustomExemplars } from "./microsite-exemplars";
 import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
+// Live SSE generation channel shared with /lp/generate-page so the sales
+// microsite generator can stream the same "watch your page build" experience.
+import {
+  createSseGenerationEmitter,
+  wantsGenerationStream,
+  NOOP_GENERATION_EMITTER,
+  type GenerationEmitter,
+} from "../../lib/generationEmitter";
 // Image pipeline shared with the marketing generator so the sales path stays
 // at parity: tenant-scoped media fetch, untagged-image surfacing, broad
 // empty-slot backfill, and AI/Unsplash fallback gated per tenant.
@@ -3160,6 +3168,22 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     referenceUrls?: string[];
   };
 
+  // Live-generation channel. Stays the shared no-op until all plain-JSON
+  // validations have passed (set below), so non-streaming requests — and any
+  // early validation failure — behave byte-identically to before.
+  let emitter: GenerationEmitter = NOOP_GENERATION_EMITTER;
+  /** Terminal success: `result` SSE event in streaming mode, res.json otherwise. */
+  const sendResultJson = (body: unknown): void => {
+    if (emitter.enabled) emitter.result(body);
+    else res.json(body);
+  };
+  /** Terminal failure: `error` SSE event in streaming mode (same message the
+   *  JSON path carries), res.status(...).json otherwise. */
+  const sendErrorJson = (status: number, body: { error: string; [k: string]: unknown }): void => {
+    if (emitter.enabled) emitter.error(body.error);
+    else res.status(status).json(body);
+  };
+
   try {
     const [account] = await db.select().from(salesAccountsTable)
       .where(and(eq(salesAccountsTable.id, accountId), eq(salesAccountsTable.tenantId, tenantId)));
@@ -3235,6 +3259,17 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       return;
     }
 
+    // AI must be configured before we open a stream — keep this a plain-JSON
+    // 503 so a misconfig never half-opens an SSE channel.
+    const openai = getOpenAIClient();
+    if (!openai) { res.status(503).json({ error: "AI not configured" }); return; }
+
+    // All plain-JSON validations have passed — switch into streaming (SSE) mode
+    // when the client opted in (?stream=1). Non-streaming requests keep the
+    // shared no-op emitter so the response stays byte-identical.
+    emitter = wantsGenerationStream(req) ? createSseGenerationEmitter(req, res) : NOOP_GENERATION_EMITTER;
+    emitter.stage("context", "start", "Loading brand & content context");
+
     // P0-A — resolve the persona the rep picked within this segment (by id or
     // role, case-insensitive). Fail-open: an unknown/empty personaId simply
     // yields no persona focus (segment-level guidance still applies).
@@ -3294,8 +3329,24 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // Firecrawl's full-page screenshot drives the visual-style vision context.
     const visionImage: string | undefined = scrapeResult.screenshotUrl;
 
-    const openai = getOpenAIClient();
-    if (!openai) { res.status(503).json({ error: "AI not configured" }); return; }
+    emitter.stage("context", "done", "Loading brand & content context");
+    emitter.stage("references", "start", "Studying reference pages");
+    {
+      const scrapedRefUrls = scrapeResult.scraped ? [scrapeResult.scraped.url] : [];
+      const referenceFailures =
+        scrapeResult.scraped == null &&
+        perRequestReferenceUrls.length > 0 &&
+        scrapeResult.failureReason &&
+        scrapeResult.failureReason !== "no_url"
+          ? perRequestReferenceUrls.map((url) => ({ url, reason: scrapeResult.failureReason as string }))
+          : [];
+      emitter.stage("references", "done", "Studying reference pages", {
+        scraped: scrapedRefUrls,
+        failed: referenceFailures,
+        fromInspiration: inspirationUrls.filter((u) => !perRequestReferenceUrls.includes(u)),
+      });
+    }
+    if (emitter.aborted) { emitter.close(); return; }
 
     // ── All-in-one template intent matching (parity with /lp/generate-page) ──
     // When the caller did NOT pick an explicit template, match the prompt
@@ -3729,16 +3780,23 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // per-audience exemplar otherwise anchors every page to the same sequence.
     // Fixed-template and curated-list pages keep the lower temperature for tighter
     // copy fidelity to their authored layout.
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      temperature: (useFreeform || useDsoFreeform || usePoolFreeform) ? 0.85 : 0.7,
-      max_completion_tokens: 4096,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-    });
+    emitter.stage("model", "start", "Designing your page with AI");
+    const completion = await openai.chat.completions.create(
+      {
+        model: "gpt-4o",
+        temperature: (useFreeform || useDsoFreeform || usePoolFreeform) ? 0.85 : 0.7,
+        max_completion_tokens: 4096,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+      },
+      // A client disconnect aborts the in-flight request (frees the slot).
+      { signal: emitter.signal },
+    );
+    emitter.stage("model", "done", "Designing your page with AI");
+    if (emitter.aborted) { emitter.close(); return; }
 
     const raw = completion.choices?.[0]?.message?.content ?? "{}";
     let parsed: { title?: string; slug?: string; blocks?: unknown[] };
@@ -3756,7 +3814,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       // net below produce NEUTRAL rather than 500. Only the curated-block-list
       // path (no template, not freeform) keeps the hard error.
       if (!templateBlocks && !useFreeform && !useDsoFreeform && !usePoolFreeform) {
-        res.status(500).json({ error: "AI returned invalid JSON", raw });
+        sendErrorJson(500, { error: "AI returned invalid JSON", raw });
         return;
       }
       parsed = {};
@@ -3792,7 +3850,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         parsed.blocks = [];
       }
     } else if (!parsed.title || !parsed.slug || !Array.isArray(parsed.blocks)) {
-      res.status(500).json({ error: "AI response missing required fields" });
+      sendErrorJson(500, { error: "AI response missing required fields" });
       return;
     }
 
@@ -4061,6 +4119,12 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       );
     }
 
+    // Reveal the structurally-complete page (pre-imagery) to the live canvas,
+    // then narrate the image pass.
+    emitter.blocksSnapshot(normalizedBlocks, "normalized");
+    emitter.stage("images", "start", "Resolving page imagery");
+    if (emitter.aborted) { emitter.close(); return; }
+
     // ── Image pipeline (parity with the marketing generator) ──────────────
     // Page-level topic context biases image scoring toward on-topic library
     // imagery even when a block headline is generic.
@@ -4323,6 +4387,10 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // earlier picks are never overwritten.)
     normalizedBlocks = fillEmptyImages(normalizedBlocks, imageFillPool, pageImageContext, true) as AiBlock[];
 
+    emitter.blocksSnapshot(normalizedBlocks, "images");
+    emitter.stage("images", "done", "Resolving page imagery");
+    emitter.stage("finalize", "start", "Finalizing the page");
+
     // Slug uniqueness retry: on a unique-constraint violation (pg error 23505),
     // try appending -2, -3, ... up to MAX_ATTEMPTS before giving up.
     const MAX_SLUG_ATTEMPTS = 5;
@@ -4346,7 +4414,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         const pgCode = (insertErr as { code?: string }).code;
         if (pgCode === "23505") {
           if (attempt < MAX_SLUG_ATTEMPTS) continue; // try next suffix
-          res.status(409).json({
+          sendErrorJson(409, {
             error: `Slug "${baseSlug}" (and variants up to -${MAX_SLUG_ATTEMPTS}) are already taken. Please retry.`,
           });
           return;
@@ -4371,7 +4439,8 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       }
     }
 
-    res.json({ page, blocks: normalizedBlocks });
+    emitter.stage("finalize", "done", "Finalizing the page");
+    sendResultJson({ page, blocks: normalizedBlocks });
   } catch (err) {
     // Surface the real cause + stack in a structured origin log line so a
     // genuine failure is diagnosable (the previous console.error often never
@@ -4389,7 +4458,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       },
       "generate-microsite: generation failed",
     );
-    res.status(500).json({ error: "Failed to generate microsite" });
+    sendErrorJson(500, { error: "Failed to generate microsite" });
   }
 });
 
