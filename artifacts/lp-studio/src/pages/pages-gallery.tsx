@@ -454,10 +454,34 @@ export default function PagesGallery() {
     return page.id as number;
   };
 
+  /** Task #1346 — "Update this page" branch of "Rewrite copy with AI": overwrite
+   *  the source page's blocks (layout preserved, copy rewritten by the server's
+   *  sourcePageId path) instead of creating a new page. Resolves with the source
+   *  page id so the caller can open its builder. */
+  const updateRewrittenPage = async (
+    sourcePageId: number,
+    generated: GenerationResult,
+  ): Promise<number> => {
+    const res = await fetch(`${API_BASE}/lp/pages/${sourcePageId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ blocks: generated.blocks }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Failed to update page" }));
+      throw new Error((err as { error?: string }).error ?? "Failed to update page");
+    }
+    // Mirror the new-page save: best-effort fact-flags sync (builder re-runs the
+    // idempotent sync on load as the source of truth) + critique stash.
+    void syncFactFlags(sourcePageId).catch(() => {});
+    rememberCritiqueAnnotations(sourcePageId, generated.critiqueAnnotations);
+    return sourcePageId;
+  };
+
   /** NON-STREAMING generation flow — unchanged behavior, now composed from
    *  the extracted body/save helpers. Used by the brief modal and as the
    *  streaming live view's fallback ("Use standard mode" / silent fallback). */
-  const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null, templateId?: number | null, referenceUrls?: string[], replaceImagery?: boolean, screenshotDataUrl?: string, sourcePageId?: number | null) => {
+  const generatePageFromPrompt = async (prompt: string, seg?: AudienceSegment | null, templateId?: number | null, referenceUrls?: string[], replaceImagery?: boolean, screenshotDataUrl?: string, sourcePageId?: number | null, updateInPlace?: boolean) => {
     const activeSeg = seg !== undefined ? seg : selectedSegment;
 
     // AI generation legitimately takes 30–70s, but without an explicit timeout
@@ -483,12 +507,16 @@ export default function PagesGallery() {
       throw new Error((err as { error?: string }).error ?? "Generation failed");
     }
     const generated = await genRes.json() as GenerationResult;
-    const pageId = await saveGeneratedPage(generated, activeSeg, prompt);
+    // Task #1346 — "Update this page" overwrites the source page in place;
+    // otherwise (default / no source) save the rewrite as a new page.
+    const pageId = updateInPlace && sourcePageId != null
+      ? await updateRewrittenPage(sourcePageId, generated)
+      : await saveGeneratedPage(generated, activeSeg, prompt);
     navigate(`/builder/${pageId}`);
   };
 
-  const handleAiGenerateFromModal = async (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean, screenshotDataUrl?: string, sourcePageId?: number | null) => {
-    await generatePageFromPrompt(prompt, selectedSegment, templateId, referenceUrls, replaceImagery, screenshotDataUrl, sourcePageId);
+  const handleAiGenerateFromModal = async (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean, screenshotDataUrl?: string, sourcePageId?: number | null, updateInPlace?: boolean) => {
+    await generatePageFromPrompt(prompt, selectedSegment, templateId, referenceUrls, replaceImagery, screenshotDataUrl, sourcePageId, updateInPlace);
     setShowCreateModal(false);
   };
 
@@ -759,6 +787,7 @@ export default function PagesGallery() {
         buildAiGenerateBody={(prompt, templateId, referenceUrls, replaceImagery, screenshotDataUrl, sourcePageId) =>
           buildGenerationBody(prompt, selectedSegment, templateId, referenceUrls, replaceImagery, screenshotDataUrl, sourcePageId)}
         saveGeneratedPage={(result, prompt) => saveGeneratedPage(result, selectedSegment, prompt)}
+        onUpdateRewrittenPage={(sourcePageId, result) => updateRewrittenPage(sourcePageId, result)}
         onOpenGenerated={(pageId) => {
           setShowCreateModal(false);
           setSelectedSegmentId("");

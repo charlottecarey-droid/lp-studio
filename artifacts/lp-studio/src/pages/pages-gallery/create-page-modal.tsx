@@ -75,7 +75,7 @@ interface Props {
    *  Merged server-side with the brand's persisted inspirationUrls.
    *  June 2026: this is now the NON-STREAMING fallback path (kept fully
    *  intact); the default submit goes through the streaming live view. */
-  onAiGenerate: (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean, screenshotDataUrl?: string, sourcePageId?: number | null) => Promise<void>;
+  onAiGenerate: (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean, screenshotDataUrl?: string, sourcePageId?: number | null, updateInPlace?: boolean) => Promise<void>;
   /** June 2026 — live streaming generation. Builds the exact POST body the
    *  generate endpoint expects (including the selected segment's context). */
   buildAiGenerateBody: (prompt: string, templateId: number | null, referenceUrls: string[], replaceImagery: boolean, screenshotDataUrl?: string, sourcePageId?: number | null) => GenerationRequestBody;
@@ -83,6 +83,11 @@ interface Props {
    *  trusted fact forms, critique-annotation stash, brief context). Resolves
    *  with the new page id; navigation is separate (onOpenGenerated). */
   saveGeneratedPage: (result: GenerationResult, prompt: string) => Promise<number>;
+  /** Task #1346 — "Update this page" branch of "Rewrite copy with AI":
+   *  overwrite the source page's blocks with the rewritten copy (layout
+   *  preserved) instead of creating a new page. Resolves with the source
+   *  page id so navigation opens its builder. */
+  onUpdateRewrittenPage: (sourcePageId: number, result: GenerationResult) => Promise<number>;
   /** Close the modal and open /builder/<pageId>. */
   onOpenGenerated: (pageId: number) => void;
   onOpenBriefModal: () => void;
@@ -105,6 +110,7 @@ export function CreatePageModal({
   onAiGenerate,
   buildAiGenerateBody,
   saveGeneratedPage,
+  onUpdateRewrittenPage,
   onOpenGenerated,
   onOpenBriefModal,
 }: Props) {
@@ -122,6 +128,12 @@ export function CreatePageModal({
   // swaps template imagery for on-brand library + reference imagery. Only shown
   // when a starting-point template is selected.
   const [replaceImagery, setReplaceImagery] = useState(false);
+  // Task #1346 — when rewriting an EXISTING page ("Rewrite copy with AI"), the
+  // user chooses whether the rewrite overwrites that page in place ("update")
+  // or is saved as a brand-new page ("new", the original Task #1345 behavior).
+  // Only surfaced when `rewriteSource` is set; default is "update" since the
+  // action is launched from a specific page the user wants refreshed.
+  const [rewriteMode, setRewriteMode] = useState<"update" | "new">("update");
   // Workstream A — reference URL chips. Each chip is one URL we'll scrape
   // and inject into the prompt. Capped at 5 (server caps too). The pending
   // input field commits to a chip on Enter, comma, or blur.
@@ -145,6 +157,9 @@ export function CreatePageModal({
     prompt: string;
     templateId: number | null;
     sourcePageId: number | null;
+    // Task #1346 — "update" overwrites the source page in place; "new" saves a
+    // brand-new page. Only "update" when a sourcePageId is present.
+    rewriteMode: "update" | "new";
     referenceUrls: string[];
     replaceImagery: boolean;
     screenshotDataUrl?: string;
@@ -187,6 +202,8 @@ export function CreatePageModal({
     if (open) {
       setCreateError(null);
       setLiveGen(null);
+      // Task #1346 — default each "Rewrite copy" launch to "update in place".
+      setRewriteMode("update");
       setCreateMode(initialMode ?? "template");
       // Seed the AI prompt textarea from `initialAiPrompt` whenever the
       // dialog opens in AI mode. Only overwrite when we actually have a
@@ -371,11 +388,14 @@ export function CreatePageModal({
     // rewrite; otherwise (generate from scratch) it's not applicable.
     const effectiveReplaceImagery = (tplId !== null || sourcePageId !== null) ? replaceImagery : false;
     const screenshotDataUrl = screenshotAttach.screenshot?.dataUrl;
+    // Task #1346 — the update-in-place choice only applies to a page rewrite.
+    const effectiveRewriteMode: "update" | "new" = sourcePageId !== null ? rewriteMode : "new";
     setLiveGen({
       body: buildAiGenerateBody(aiPrompt, tplId, finalRefUrls, effectiveReplaceImagery, screenshotDataUrl, sourcePageId),
       prompt: aiPrompt,
       templateId: tplId,
       sourcePageId,
+      rewriteMode: effectiveRewriteMode,
       referenceUrls: finalRefUrls,
       replaceImagery: effectiveReplaceImagery,
       screenshotDataUrl,
@@ -388,7 +408,7 @@ export function CreatePageModal({
   // propagate so the live view can render its error state.
   const runStandardGeneration = async () => {
     if (!liveGen) return;
-    await onAiGenerate(liveGen.prompt, liveGen.templateId, liveGen.referenceUrls, liveGen.replaceImagery, liveGen.screenshotDataUrl, liveGen.sourcePageId);
+    await onAiGenerate(liveGen.prompt, liveGen.templateId, liveGen.referenceUrls, liveGen.replaceImagery, liveGen.screenshotDataUrl, liveGen.sourcePageId, liveGen.rewriteMode === "update");
     // Success → the parent has already navigated + closed the modal.
     resetAiForm();
   };
@@ -420,7 +440,11 @@ export function CreatePageModal({
             <GenerationLiveView
               body={liveGen.body}
               templateName={liveTemplate ? (liveTemplate.templateLabel || liveTemplate.title) : liveSourceName}
-              onSave={(result) => saveGeneratedPage(result, liveGen.prompt)}
+              onSave={(result) =>
+                liveGen.rewriteMode === "update" && liveGen.sourcePageId != null
+                  ? onUpdateRewrittenPage(liveGen.sourcePageId, result)
+                  : saveGeneratedPage(result, liveGen.prompt)
+              }
               onOpen={(pageId) => {
                 resetAiForm();
                 setLiveGen(null);
@@ -700,9 +724,37 @@ export function CreatePageModal({
                       Rewriting: {rewriteSource.title}
                     </p>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      AI will keep this page's exact layout and only rewrite the copy to match your prompt. A new page is created — the original is unchanged.
+                      AI will keep this page's exact layout and only rewrite the copy to match your prompt.
                     </p>
                   </div>
+                </div>
+                {/* Task #1346 — choose whether the rewrite overwrites this page
+                    in place or is saved as a new page. */}
+                <div className="mt-2.5 space-y-1.5">
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="rewriteMode"
+                      className="mt-0.5"
+                      checked={rewriteMode === "update"}
+                      onChange={() => setRewriteMode("update")}
+                    />
+                    <span className="text-[11px] text-muted-foreground">
+                      <span className="font-medium text-foreground">Update this page</span> — overwrite this page's copy in place. The layout stays the same and you'll land back in its editor.
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="rewriteMode"
+                      className="mt-0.5"
+                      checked={rewriteMode === "new"}
+                      onChange={() => setRewriteMode("new")}
+                    />
+                    <span className="text-[11px] text-muted-foreground">
+                      <span className="font-medium text-foreground">Create a new copy</span> — keep this page untouched and save the rewrite as a brand-new page.
+                    </span>
+                  </label>
                 </div>
                 <label className="mt-2 flex items-start gap-2 cursor-pointer">
                   <input
