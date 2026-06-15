@@ -16,7 +16,7 @@ import { type ReactNode } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { Trash2, GripVertical, Plus, Sparkles } from "lucide-react";
+import { Trash2, GripVertical, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PageBlock } from "@/lib/block-types";
 import type { BlockPath } from "@/lib/block-tree";
@@ -32,8 +32,6 @@ interface NestedChildProps {
   index: number;
   brand: BrandConfig;
   isSelected: boolean;
-  /** True when the most recent AI generation polished this block's copy. */
-  isPolished?: boolean;
   onSelect: () => void;
   onDelete: () => void;
   onInsertAfter: () => void;
@@ -61,7 +59,6 @@ export function NestedChild({
   index,
   brand,
   isSelected,
-  isPolished,
   onSelect,
   onDelete,
   onInsertAfter,
@@ -96,7 +93,6 @@ export function NestedChild({
         className={cn(
           "relative group/nested",
           isSelected && "outline outline-2 outline-primary outline-offset-[-2px]",
-          !isSelected && isPolished && "outline outline-2 outline-violet-500 outline-offset-[-2px] animate-pulse",
         )}
         data-nested-child={child.id}
         onClick={(e) => {
@@ -104,12 +100,6 @@ export function NestedChild({
           onSelect();
         }}
       >
-        {/* Workstream C — "AI polished this block" marker. */}
-        {isPolished && (
-          <div className="absolute left-2 top-2 z-30 inline-flex items-center gap-1 rounded-md bg-violet-600 text-white text-[10px] font-semibold px-2 py-0.5 shadow pointer-events-none">
-            <Sparkles className="w-3 h-3" /> AI polished
-          </div>
-        )}
         <div className="absolute -left-7 top-1 z-30 opacity-0 group-hover/nested:opacity-100 transition-opacity flex flex-col gap-1">
           <button
             type="button"

@@ -94,7 +94,6 @@ export interface GenerationResult {
   title: string;
   slug: string;
   blocks: PageBlock[];
-  critiqueAnnotations?: unknown;
   trustedFactForms?: string[];
   intentMatchedTemplate?: { slug: string; score: number } | null;
   [key: string]: unknown;

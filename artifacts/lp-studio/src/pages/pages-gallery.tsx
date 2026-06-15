@@ -11,7 +11,6 @@ import { fetchBrandConfig, type AudienceSegment } from "@/lib/brand-config";
 import { audienceBucket, templateContainsLeadershipContent } from "@/lib/audience-gating";
 import { setBriefContext } from "@/lib/brief-context";
 import { syncFactFlags } from "@/lib/fact-flags-api";
-import { rememberCritiqueAnnotations } from "@/lib/critiqueAnnotations";
 import type { GenerationRequestBody, GenerationResult } from "@/lib/generationStream";
 import { useAuth } from "@/context/AuthContext";
 
@@ -431,7 +430,6 @@ export default function PagesGallery() {
     // on this fire-and-forget call winning the race: it re-runs the idempotent
     // sync on load as the source of truth. This stays as a harmless head start.
     void syncFactFlags(page.id).catch(() => {});
-    rememberCritiqueAnnotations(page.id, generated.critiqueAnnotations);
     if (activeSeg) {
       setBriefContext({
         company: generated.title,
@@ -472,9 +470,8 @@ export default function PagesGallery() {
       throw new Error((err as { error?: string }).error ?? "Failed to update page");
     }
     // Mirror the new-page save: best-effort fact-flags sync (builder re-runs the
-    // idempotent sync on load as the source of truth) + critique stash.
+    // idempotent sync on load as the source of truth).
     void syncFactFlags(sourcePageId).catch(() => {});
-    rememberCritiqueAnnotations(sourcePageId, generated.critiqueAnnotations);
     return sourcePageId;
   };
 
