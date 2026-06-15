@@ -492,7 +492,7 @@ export function CreatePageModal({
         <div className="grid grid-cols-3 gap-2.5">
           {([
             { mode: "template", icon: FileText, title: "Template", desc: "Copy a page exactly" },
-            { mode: "ai", icon: Sparkles, title: "AI Generate", desc: "AI writes fresh copy" },
+            { mode: "ai", icon: Sparkles, title: "AI Generate", desc: "Prompt to page" },
             { mode: "brief", icon: BookOpen, title: "Start with Brief", desc: "Plan strategy first" },
           ] as { mode: CreateMode; icon: typeof FileText; title: string; desc: string }[]).map(
             ({ mode, icon: Icon, title, desc }) => {

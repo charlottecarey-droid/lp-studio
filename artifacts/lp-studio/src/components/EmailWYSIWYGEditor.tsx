@@ -16,6 +16,7 @@ import {
   FileText, Code, AlignLeft, AlignCenter, AlignRight, FolderOpen,
 } from "lucide-react";
 import { MediaLibraryDrawer } from "@/components/MediaLibraryDrawer";
+import { SALES_CONTACT_VARIABLES } from "@workspace/notification-variables";
 
 /* ── Merge Variable Extension ── */
 const MergeVariable = TiptapNode.create({
@@ -263,13 +264,15 @@ const ImagePopover = ({
   );
 };
 
-/* ── Merge Variable Buttons ── */
-const MERGE_VARS = [
-  { label: "First Name", variable: "first_name" },
-  { label: "Last Name", variable: "last_name" },
-  { label: "Company", variable: "company" },
-  { label: "Microsite URL", variable: "microsite_url" },
-];
+/* ── Merge Variable Buttons ──
+   Sourced from the shared @workspace/notification-variables catalog so the
+   email composer offers the same contact fields as the rest of the app and
+   stays in sync with what the send path fills in (this is what added the
+   previously-missing sender_name field). */
+const MERGE_VARS: MergeVar[] = SALES_CONTACT_VARIABLES.map((v) => ({
+  label: v.label,
+  variable: v.token,
+}));
 
 /* ── Convert TipTap HTML to inline-CSS email HTML ── */
 const toEmailHTML = (html: string): string => {

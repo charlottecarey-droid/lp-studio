@@ -253,37 +253,86 @@ export const TENANT_NOTIFICATION_VARIABLES: readonly VariableDefinition[] = [
 ];
 
 /**
- * Sales campaign variables. Mirrors the tokens the campaign send path
- * substitutes; kept here so the shared variable inserter can serve both the
- * superadmin email editor and the campaign composer from one catalog.
+ * Sales campaign "contact" variables. These mirror EXACTLY the tokens the
+ * campaign send path substitutes (api-server campaigns.ts) and the personalized
+ * hotlink resolver, so the pill an author clicks always fills in.
+ *
+ * Token names are snake_case to match what the send path replaces literally
+ * (the send path also normalizes case/spacing, but snake_case is canonical).
  */
-export const CAMPAIGN_VARIABLES: readonly VariableDefinition[] = [
+export const SALES_CONTACT_VARIABLES: readonly VariableDefinition[] = [
   {
-    token: "firstName",
+    token: "first_name",
     label: "First name",
-    description: "Contact's first name.",
-    sample: "Jordan",
+    description: "The contact's first name.",
+    sample: "Sarah",
     group: "Contact",
   },
   {
-    token: "lastName",
+    token: "last_name",
     label: "Last name",
-    description: "Contact's last name.",
-    sample: "Rivera",
+    description: "The contact's last name.",
+    sample: "Johnson",
     group: "Contact",
   },
   {
     token: "company",
     label: "Company",
-    description: "Contact's company / account name.",
-    sample: "Acme Dental",
+    description: "The contact's company / account name.",
+    sample: "Pacific Dental Alliance",
     group: "Contact",
   },
   {
-    token: "title",
-    label: "Job title",
-    description: "Contact's job title.",
-    sample: "Practice Manager",
+    token: "microsite_url",
+    label: "Personalized URL",
+    description: "The unique landing-page link for this contact.",
+    sample: "https://acme.lpstudio.ai/p/abc12345",
+    group: "Contact",
+  },
+  {
+    token: "sender_name",
+    label: "Sender name",
+    description: "Your name as the sender (used in signatures).",
+    sample: "Alex Rivera",
     group: "Contact",
   },
 ];
+
+/**
+ * Landing-page personalization variables. These resolve on the personalized
+ * page itself (business-case / microsite content) at generation or hotlink
+ * view time — see api-server businessCaseVars.ts. They fill in on the page,
+ * not inside the email body.
+ */
+export const LANDING_PAGE_VARIABLES: readonly VariableDefinition[] = [
+  {
+    token: "company_name",
+    label: "Company name",
+    description: "The account's name, filled in on the personalized page.",
+    sample: "Pacific Dental Alliance",
+    group: "Landing page",
+  },
+  {
+    token: "practice_count",
+    label: "Practice count",
+    description: "Number of practices / locations for the account.",
+    sample: "12",
+    group: "Landing page",
+  },
+];
+
+/**
+ * Combined sales/landing variable catalog offered by the shared variable
+ * inserter (campaign email composer + page builder property panels). One list
+ * so every surface shows the same complete, consistent set.
+ */
+export const SALES_VARIABLES: readonly VariableDefinition[] = [
+  ...SALES_CONTACT_VARIABLES,
+  ...LANDING_PAGE_VARIABLES,
+];
+
+/**
+ * @deprecated Use SALES_CONTACT_VARIABLES. Retained as an alias so any older
+ * import keeps resolving to the canonical (snake_case) contact tokens.
+ */
+export const CAMPAIGN_VARIABLES: readonly VariableDefinition[] = SALES_CONTACT_VARIABLES;
