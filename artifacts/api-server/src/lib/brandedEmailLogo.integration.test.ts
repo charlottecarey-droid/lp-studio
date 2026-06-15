@@ -8,9 +8,9 @@
  * tenant + lp_brand_settings row whose logoUrl is a ROOT-RELATIVE serve path
  * (the shape uploaded brand logos are stored in), then asserts —
  *
- *   1. A brandable lifecycle email (trial_day_7) sent through the DISPATCHER's
- *      email path renders the tenant's own <img> logo, absolute-URL-normalized
- *      against the app's public host.
+ *   1. A brandable lifecycle email (slug_redirect_expiry) sent through the
+ *      DISPATCHER's email path renders the tenant's own <img> logo,
+ *      absolute-URL-normalized against the app's public host.
  *   2. A brandable account email (payment_failed) sent through the
  *      renderSystemEmail path (sendPaymentFailedEmail) does the same.
  *   3. A non-brandable AUTH email (magic_link) renders the platform LP Studio
@@ -124,8 +124,43 @@ describe("branded email renders the tenant logo end-to-end (Task #620)", () => {
       return;
     }
     const spy = stubResendOk();
-    const email = `brand-trial-${randomUUID()}@example.com`;
-    const dedupeBase = `t620_trial_${SUFFIX}:tenant:${tenantId}`;
+    const email = `brand-slug-${randomUUID()}@example.com`;
+    const dedupeBase = `t620_slug_${SUFFIX}:tenant:${tenantId}`;
+    seededSendDedupeKeys.push(`${dedupeBase}:e:${email.toLowerCase()}`);
+
+    const res = await dispatchNotification({
+      templateKey: "slug_redirect_expiry",
+      tenantId,
+      recipients: [{ appUserId: null, email, name: "Jordan Lee" }],
+      context: {
+        tenantName: BRAND_NAME,
+        workspaceUrl: `https://${PINNED_HOST}`,
+      },
+      dedupeBase,
+      channels: ["email"],
+    });
+
+    expect(res.emailsSent).toBe(1);
+    expect(spy).toHaveBeenCalled();
+
+    const sent = lastSentEmail();
+    // The tenant's own logo renders as an <img>, with its root-relative serve
+    // path normalized to an absolute URL against the pinned public host.
+    expect(sent.html).toContain("<img");
+    expect(sent.html).toContain(`src="${ABSOLUTE_LOGO_URL}"`);
+    expect(sent.html).toContain(`alt="${BRAND_NAME}"`);
+    // The bare root-relative path must NOT survive into the delivered HTML.
+    expect(sent.html).not.toContain(`src="${LOGO_PATH}"`);
+  });
+
+  it("renders the platform LP Studio shell (NOT the tenant logo) for a trial reminder (dispatcher email path)", async () => {
+    if (!hasDb) {
+      expect(true).toBe(true);
+      return;
+    }
+    const spy = stubResendOk();
+    const email = `trial-platform-${randomUUID()}@example.com`;
+    const dedupeBase = `t620_trialshell_${SUFFIX}:tenant:${tenantId}`;
     seededSendDedupeKeys.push(`${dedupeBase}:e:${email.toLowerCase()}`);
 
     const res = await dispatchNotification({
@@ -145,13 +180,12 @@ describe("branded email renders the tenant logo end-to-end (Task #620)", () => {
     expect(spy).toHaveBeenCalled();
 
     const sent = lastSentEmail();
-    // The tenant's own logo renders as an <img>, with its root-relative serve
-    // path normalized to an absolute URL against the pinned public host.
-    expect(sent.html).toContain("<img");
-    expect(sent.html).toContain(`src="${ABSOLUTE_LOGO_URL}"`);
-    expect(sent.html).toContain(`alt="${BRAND_NAME}"`);
-    // The bare root-relative path must NOT survive into the delivered HTML.
-    expect(sent.html).not.toContain(`src="${LOGO_PATH}"`);
+    // Trial reminders are LP Studio account messages — the tenant's logo, name,
+    // and serve path must NOT appear; the platform LP Studio shell renders instead.
+    expect(sent.html).not.toContain(ABSOLUTE_LOGO_URL);
+    expect(sent.html).not.toContain(LOGO_PATH);
+    expect(sent.html).not.toContain(`alt="${BRAND_NAME}"`);
+    expect(sent.html).toContain('href="https://lpstudio.ai/"');
   });
 
   it("renders the tenant's absolute-normalized <img> logo for a brandable account email (renderSystemEmail path)", async () => {

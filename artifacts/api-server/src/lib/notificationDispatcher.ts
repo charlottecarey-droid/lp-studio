@@ -365,9 +365,9 @@ async function dispatchEmail(
   }
 
   try {
-    // Brandable account/lifecycle emails (trial nudges, slug-expiry) co-brand
-    // with the tenant's own logo via the brand-derived shell; everything else
-    // (and any non-brandable key) renders in the platform LP Studio shell.
+    // Brandable account/lifecycle emails (slug-expiry, dunning) co-brand with
+    // the tenant's own logo via the brand-derived shell; everything else (trial
+    // nudges and any non-brandable key) renders in the platform LP Studio shell.
     // Resolves to the platform shell on any DB error, so a send never breaks.
     const { shell, source: shellSource, physicalAddress } = await resolveEmailShellForEmail({
       key: input.templateKey,

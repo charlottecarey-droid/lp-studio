@@ -377,11 +377,16 @@ export function bustTenantEmailShellCache(tenantId?: number): void {
  * INCLUDED — account/lifecycle emails about the recipient's own workspace, where
  * co-branding with their logo is appropriate and they're shell-wrapped (so the
  * brand-derived shell mechanism actually reaches them):
- *   - trial_day_7 / trial_day_11 / trial_day_13  (Growth trial nudges)
  *   - slug_redirect_expiry                        (their old workspace URL expiring)
  *   - payment_failed                              (their workspace subscription dunning)
  *
  * EXCLUDED — kept LP Studio-branded on purpose:
+ *   - trial_day_7 / trial_day_11 / trial_day_13 — Growth trial nudges. These are
+ *     account messages FROM LP Studio about the LP Studio trial itself, so they
+ *     must read as LP Studio (platform shell, logo, and copyright), NOT the
+ *     tenant's own brand. Co-branding a "your free trial" reminder with the
+ *     tenant's logo + copyright made it look like the email came from the
+ *     customer's own company instead of from LP Studio.
  *   - magic_link / password_reset / email_verification — auth/trust emails. A
  *     consistent, recognizable LP Studio identity aids anti-phishing trust and
  *     deliverability; these intentionally never co-brand.
@@ -395,9 +400,6 @@ export function bustTenantEmailShellCache(tenantId?: number): void {
  * domain — only the visual shell co-brands — so deliverability is unaffected.
  */
 export const TENANT_BRANDABLE_EMAIL_KEYS: ReadonlySet<string> = new Set([
-  "trial_day_7",
-  "trial_day_11",
-  "trial_day_13",
   "slug_redirect_expiry",
   "payment_failed",
 ]);

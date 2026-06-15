@@ -132,15 +132,15 @@ describe("account/lifecycle email branding policy (Task #615)", () => {
       [
         "payment_failed",
         "slug_redirect_expiry",
-        "trial_day_11",
-        "trial_day_13",
-        "trial_day_7",
       ].sort(),
     );
   });
 
-  it("never brands auth/trust or full-custom magazine emails", () => {
+  it("never brands trial nudges, auth/trust, or full-custom magazine emails", () => {
     for (const key of [
+      "trial_day_7",
+      "trial_day_11",
+      "trial_day_13",
       "magic_link",
       "password_reset",
       "email_verification",
@@ -155,8 +155,8 @@ describe("account/lifecycle email branding policy (Task #615)", () => {
 
   it("isTenantBrandableEmail agrees with the allowlist", () => {
     expect(isTenantBrandableEmail("payment_failed")).toBe(true);
-    expect(isTenantBrandableEmail("trial_day_7")).toBe(true);
     expect(isTenantBrandableEmail("slug_redirect_expiry")).toBe(true);
+    expect(isTenantBrandableEmail("trial_day_7")).toBe(false);
     expect(isTenantBrandableEmail("unknown_key")).toBe(false);
   });
 });
