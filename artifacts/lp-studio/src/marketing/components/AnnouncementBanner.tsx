@@ -81,6 +81,17 @@ export default function AnnouncementBanner({ text, linkUrl, ctaLabel }: Props) {
     }
   }, [storageKey]);
 
+  // Slide the banner up and out of view once the visitor starts scrolling. The
+  // navbar reads the same threshold (scrollY > 8) and rises to the very top in
+  // lockstep, so no gap ever opens between the menu and the top of the screen.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   if (dismissed || !safe) return null;
 
   const handleDismiss = () => {
@@ -100,7 +111,13 @@ export default function AnnouncementBanner({ text, linkUrl, ctaLabel }: Props) {
       role="region"
       aria-label="Announcement"
       className="fixed top-0 left-0 right-0 z-[60]"
-      style={{ background: "var(--ink)", color: "var(--cream)" }}
+      style={{
+        background: "var(--ink)",
+        color: "var(--cream)",
+        transform: scrolled ? "translateY(-100%)" : "translateY(0)",
+        transition: "transform 0.15s ease",
+        pointerEvents: scrolled ? "none" : "auto",
+      }}
     >
       <div className="max-w-[1180px] mx-auto px-6 py-2.5 flex items-center justify-center gap-x-3 gap-y-1 flex-wrap text-center">
         <a
