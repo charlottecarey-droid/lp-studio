@@ -722,6 +722,13 @@
       "when": 1755600000000,
       "tag": "0102_marketing_announcement_banner",
       "breakpoints": false
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1755700000000,
+      "tag": "0103_lp_tenant_featured_templates",
+      "breakpoints": false
     }
   ]
 }

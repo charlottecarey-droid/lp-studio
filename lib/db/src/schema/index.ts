@@ -15,6 +15,7 @@ export * from "./lpHeatmapEvents";
 export * from "./lpProofPoints";
 export * from "./lpPageFactFlags";
 export * from "./lpTemplateUsage";
+export * from "./lpTenantFeaturedTemplates";
 export * from "./micrositeTemplateOverrides";
 
 // Sales Console tables

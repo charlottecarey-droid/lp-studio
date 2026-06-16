@@ -8,6 +8,7 @@ import { db } from "@workspace/db";
 import {
   lpPagesTable,
   lpTemplateUsageTable,
+  lpTenantFeaturedTemplatesTable,
   micrositeTemplateOverridesTable,
 } from "@workspace/db";
 import { getTenantId, requirePermission } from "../../middleware/requireAuth";
@@ -95,6 +96,18 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
       usageRows.map((r) => [r.templateId, r.lastUsedAt]),
     );
 
+    // Per-workspace "featured" templates (star toggle). A featured template is
+    // surfaced in the marketplace "Featured" group and offered as a starting
+    // point in the create-page modal. Templates with no row here are simply not
+    // featured by this workspace.
+    const featuredRows = await db
+      .select({ templateId: lpTenantFeaturedTemplatesTable.templateId })
+      .from(lpTenantFeaturedTemplatesTable)
+      .where(eq(lpTenantFeaturedTemplatesTable.tenantId, tenantId));
+    const featuredTemplateIds = new Set<number>(
+      featuredRows.map((r) => r.templateId),
+    );
+
     const enriched = templates
       // Drop placeholder/scaffold templates so the gallery shows no junk cards.
       .filter((t) => !isPlaceholderTemplateLabel(t.templateLabel || t.title))
@@ -137,6 +150,9 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
         premiumRank,
         // Per-workspace last-used timestamp (null = never used by this tenant).
         lastUsedAt: lastUsedByTemplateId.get(t.id) ?? null,
+        // Per-workspace "featured" flag (star toggle). true when this tenant
+        // has starred the template.
+        featured: featuredTemplateIds.has(t.id),
         createdAt: t.createdAt,
         updatedAt: t.updatedAt,
       };
@@ -146,6 +162,78 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
   } catch (err) {
     console.error("GET /lp/templates/enriched error:", String(err));
     res.status(500).json({ error: "Failed to load templates" });
+  }
+});
+
+// PUT /lp/templates/:id/featured — toggle whether a template is "featured" for
+// the caller's workspace. Featured templates appear in the marketplace
+// "Featured" group and as starting points in the create-page modal. This is
+// per-tenant curation: a tenant may feature any template it can see (its own,
+// or any global template). Body: { featured: boolean }. Idempotent — starring
+// an already-featured template is a no-op insert; un-starring a row that isn't
+// there is a no-op delete.
+router.put("/lp/templates/:id/featured", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return;
+
+    const templateId = Number(req.params.id);
+    if (!Number.isInteger(templateId) || templateId <= 0) {
+      res.status(400).json({ error: "Invalid template id" });
+      return;
+    }
+
+    const featured = (req.body as { featured?: unknown })?.featured;
+    if (typeof featured !== "boolean") {
+      res.status(400).json({ error: "Body must include a boolean `featured`" });
+      return;
+    }
+
+    // The template must be visible to this tenant to be featured: either the
+    // tenant owns it, or it is a global template. Anything else 404s so a tenant
+    // can never feature (and thereby probe the existence of) another
+    // workspace's private template.
+    const [template] = await db
+      .select({ id: lpPagesTable.id })
+      .from(lpPagesTable)
+      .where(
+        and(
+          eq(lpPagesTable.id, templateId),
+          eq(lpPagesTable.isTemplate, true),
+          or(
+            eq(lpPagesTable.tenantId, tenantId),
+            eq(lpPagesTable.isGlobal, true),
+          ),
+        ),
+      )
+      .limit(1);
+    if (!template) {
+      res.status(404).json({ error: "Template not found" });
+      return;
+    }
+
+    if (featured) {
+      // Idempotent insert — the unique (tenant_id, template_id) index makes a
+      // repeat star a no-op.
+      await db
+        .insert(lpTenantFeaturedTemplatesTable)
+        .values({ tenantId, templateId })
+        .onConflictDoNothing();
+    } else {
+      await db
+        .delete(lpTenantFeaturedTemplatesTable)
+        .where(
+          and(
+            eq(lpTenantFeaturedTemplatesTable.tenantId, tenantId),
+            eq(lpTenantFeaturedTemplatesTable.templateId, templateId),
+          ),
+        );
+    }
+
+    res.json({ featured });
+  } catch (err) {
+    console.error("PUT /lp/templates/:id/featured error:", String(err));
+    res.status(500).json({ error: "Failed to update featured state" });
   }
 });
 

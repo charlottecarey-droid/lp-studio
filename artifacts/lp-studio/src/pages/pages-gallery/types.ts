@@ -78,6 +78,10 @@ export interface ApiTemplate {
   blockTypes?: string[];
   isGlobal: boolean;
   industry: "dental" | "generic" | null;
+  /** Per-workspace "featured" flag (star toggle from the Templates page). When
+   *  true, the template is offered as a starting point under "Featured" in the
+   *  create-page modal. Managed from the Template Marketplace, read-only here. */
+  featured?: boolean;
   /** Creation timestamp (ISO string). Drives the "Newest" ordering that
    *  mirrors the Template Library's default sort in the create dialog. */
   createdAt?: string;

@@ -86,6 +86,10 @@ interface TemplatePage {
   /** Per-workspace last-used timestamp (ISO). null = this workspace has never
    *  cloned this template; the "Recently Used" sort pushes these to the end. */
   lastUsedAt: string | null;
+  /** True when this workspace has starred the template. Starred templates are
+   *  grouped under "Featured" at the top of the gallery and offered as starting
+   *  points in the create-page modal. Toggled via the card's star button. */
+  featured?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -189,6 +193,9 @@ export default function TemplateMarketplace() {
   // confirmation. We stash the full record (not just the id) so the dialog
   // can show the label without re-querying state after the user clicks.
   const [removingTemplateId, setRemovingTemplateId] = useState<number | null>(null);
+  // Track the in-flight star toggle so the card's star shows a spinner and
+  // can't be double-clicked mid-request.
+  const [featuringId, setFeaturingId] = useState<number | null>(null);
   const [removeConfirmTarget, setRemoveConfirmTarget] = useState<TemplatePage | null>(null);
   const [refreshingThumbId, setRefreshingThumbId] = useState<number | null>(null);
   // Industry filter: `null` means "all industries" (default). Otherwise a
@@ -292,33 +299,48 @@ export default function TemplateMarketplace() {
     return sorted;
   }, [templates, searchQuery, sortBy, selectedIndustry, typeFilter]);
 
-  // Build display groups for the Featured sort. Tenant-owned templates
-  // ALWAYS render first ("Your templates") so a tenant's own work stays
-  // above the starter library even after we surface curated flagships.
-  // Then global premium ranks 1-10 are the hand-picked flagships,
-  // followed by "All templates" for everything else. For non-Featured
-  // sorts we render a single ungrouped list.
+  // Build display groups. The tenant's starred templates lead under
+  // "Featured" in every sort. In the "Featured" sort the non-starred
+  // remainder is then split into "Your templates" (tenant-owned) and
+  // "All templates" (global starter library); other sorts render the
+  // remainder as a single ungrouped list.
   const displayGroups = useMemo(() => {
+    // The tenant's starred templates always lead the gallery under "Featured",
+    // regardless of the active sort — this is the curated shelf Charlotte
+    // manages with the star toggle on each card.
+    const featured = filteredAndSorted.filter((t) => t.featured);
+    const remainder = filteredAndSorted.filter((t) => !t.featured);
+    const groups: { label: string | null; items: TemplatePage[] }[] = [];
+    if (featured.length > 0) groups.push({ label: "Featured", items: featured });
+
     if (sortBy !== "Featured") {
-      return [{ label: null as string | null, items: filteredAndSorted }];
-    }
-    const tenant: TemplatePage[] = [];
-    const featured: TemplatePage[] = [];
-    const rest: TemplatePage[] = [];
-    for (const t of filteredAndSorted) {
-      if (!t.isGlobal) {
-        tenant.push(t);
-        continue;
+      if (remainder.length > 0) {
+        groups.push({
+          label: featured.length > 0 ? "All templates" : null,
+          items: remainder,
+        });
       }
-      const rank = t.premiumRank ?? 200;
-      if (rank <= 10) featured.push(t);
+      return groups;
+    }
+
+    // In the "Featured" sort, split the non-starred remainder into the tenant's
+    // own templates and the global starter library (flagship ordering within
+    // each is preserved by the sort comparator).
+    const tenant: TemplatePage[] = [];
+    const rest: TemplatePage[] = [];
+    for (const t of remainder) {
+      if (!t.isGlobal) tenant.push(t);
       else rest.push(t);
     }
-    const groups: { label: string | null; items: TemplatePage[] }[] = [];
-    if (tenant.length > 0) groups.push({ label: "Your templates", items: tenant });
-    if (featured.length > 0) groups.push({ label: "Featured", items: featured });
+    if (tenant.length > 0) {
+      groups.push({
+        label: featured.length > 0 || rest.length > 0 ? "Your templates" : null,
+        items: tenant,
+      });
+    }
     if (rest.length > 0) {
-      const restLabel = tenant.length > 0 || featured.length > 0 ? "All templates" : null;
+      const restLabel =
+        tenant.length > 0 || featured.length > 0 ? "All templates" : null;
       groups.push({ label: restLabel, items: rest });
     }
     return groups;
@@ -423,6 +445,49 @@ export default function TemplateMarketplace() {
       toast({ title: "Couldn't refresh thumbnail", description: message, variant: "destructive" });
     } finally {
       setRefreshingThumbId(null);
+    }
+  };
+
+  // Toggle whether a template is "featured" (starred) for this workspace.
+  // Optimistic: flip the flag locally so the card moves into/out of the
+  // "Featured" group immediately, then persist via the PUT endpoint and revert
+  // on failure. Works for both tenant-owned and global templates.
+  const handleToggleFeatured = async (template: TemplatePage) => {
+    const next = !template.featured;
+    setFeaturingId(template.id);
+    setTemplates((prev) =>
+      prev.map((t) => (t.id === template.id ? { ...t, featured: next } : t)),
+    );
+    try {
+      const res = await fetch(`/api/lp/templates/${template.id}/featured`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ featured: next }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Request failed" }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      toast({
+        title: next ? "Added to Featured" : "Removed from Featured",
+        description: next
+          ? `"${template.templateLabel}" now appears in your Featured templates.`
+          : `"${template.templateLabel}" no longer appears in your Featured templates.`,
+      });
+    } catch (err) {
+      // Revert the optimistic flip.
+      setTemplates((prev) =>
+        prev.map((t) => (t.id === template.id ? { ...t, featured: !next } : t)),
+      );
+      const message =
+        err instanceof Error ? err.message : "Failed to update featured state";
+      toast({
+        title: "Couldn't update Featured",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setFeaturingId(null);
     }
   };
 
@@ -614,33 +679,58 @@ export default function TemplateMarketplace() {
                 >
                   {/* Thumbnail — real screenshot if captured, else ogImage,
                       else a gradient placeholder. Clicking opens the preview
-                      modal (matches the Eye icon affordance on hover). */}
-                  <button
-                    type="button"
-                    onClick={() => handlePreview(template)}
-                    aria-label={`Preview ${template.templateLabel}`}
-                    className="h-40 relative overflow-hidden block w-full text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-muted"
-                  >
-                    <TemplateCardMedia
-                      thumbnailUrl={template.thumbnailUrl}
-                      ogImage={template.ogImage}
-                      gradient={getGradient(index)}
-                      capturing={isCapturingThumbnail(template)}
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
-                      <Eye className="h-8 w-8 text-white" />
-                    </div>
-                    {template.isGlobal && (
-                      <Badge className="absolute top-2 left-2 bg-white/90 text-foreground hover:bg-white text-[10px] font-medium border border-border/40">
-                        Starter
-                      </Badge>
-                    )}
-                    {template.fullPage && (
-                      <Badge className="absolute top-2 right-2 bg-primary/90 text-primary-foreground hover:bg-primary text-[10px] font-medium border border-primary/40">
-                        Full Page
-                      </Badge>
-                    )}
-                  </button>
+                      modal (matches the Eye icon affordance on hover). The star
+                      toggle is a sibling overlay (not nested in the preview
+                      button) so featuring never triggers a preview. */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => handlePreview(template)}
+                      aria-label={`Preview ${template.templateLabel}`}
+                      className="h-40 relative overflow-hidden block w-full text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-muted"
+                    >
+                      <TemplateCardMedia
+                        thumbnailUrl={template.thumbnailUrl}
+                        ogImage={template.ogImage}
+                        gradient={getGradient(index)}
+                        capturing={isCapturingThumbnail(template)}
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
+                        <Eye className="h-8 w-8 text-white" />
+                      </div>
+                      {template.isGlobal && (
+                        <Badge className="absolute top-2 left-2 bg-white/90 text-foreground hover:bg-white text-[10px] font-medium border border-border/40">
+                          Starter
+                        </Badge>
+                      )}
+                      {template.fullPage && (
+                        <Badge className="absolute bottom-2 left-2 bg-primary/90 text-primary-foreground hover:bg-primary text-[10px] font-medium border border-primary/40">
+                          Full Page
+                        </Badge>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleFeatured(template)}
+                      disabled={featuringId === template.id}
+                      aria-pressed={!!template.featured}
+                      aria-label={
+                        template.featured
+                          ? `Remove ${template.templateLabel} from Featured`
+                          : `Add ${template.templateLabel} to Featured`
+                      }
+                      title={template.featured ? "Remove from Featured" : "Add to Featured"}
+                      className="absolute top-2 right-2 z-10 grid h-8 w-8 place-items-center rounded-full border border-border/40 bg-white/90 shadow-sm transition-colors hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                    >
+                      {featuringId === template.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : (
+                        <Star
+                          className={`h-4 w-4 ${template.featured ? "text-amber-500 fill-amber-500" : "text-muted-foreground"}`}
+                        />
+                      )}
+                    </button>
+                  </div>
 
                   {/* Content */}
                   <div className="p-5 flex flex-col flex-grow">

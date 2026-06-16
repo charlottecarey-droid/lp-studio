@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { BookOpen, Building2, ChevronDown, Link2, Sparkles, X } from "lucide-react";
+import { BookOpen, Building2, ChevronDown, Link2, Sparkles, Star, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -561,13 +561,50 @@ export function CreatePageModal({
                     ))}
                   </div>
                 </div>
+                {/* Featured templates — the tenant's starred starting points
+                    (managed via the star toggle on the Templates page). Shown
+                    first so curated starters are front-and-center. */}
+                {visibleApiTemplates.some(t => t.featured) && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Featured</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {visibleApiTemplates.filter(t => t.featured).map(t => {
+                        const optionId = `api:${t.id}`;
+                        return (
+                          <button
+                            key={optionId}
+                            onClick={() => setSelectedTemplate(optionId)}
+                            className={cn(
+                              "text-left px-3 py-2.5 rounded-lg border text-sm transition-all",
+                              selectedTemplate === optionId
+                                ? "border-foreground ring-1 ring-foreground bg-muted/40"
+                                : "border-input hover:border-foreground/40 hover:bg-muted/30"
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-1.5">
+                              <p className="font-medium text-[13px] text-foreground line-clamp-1">{t.templateLabel || t.title}</p>
+                              {t.isGlobal && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-muted text-muted-foreground shrink-0">Global</span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 {/* Industry-filtered templates from the API (global SaaS or
-                    dental templates + this tenant's saved templates). */}
-                {visibleApiTemplates.length > 0 && (
+                    dental templates + this tenant's saved templates). Featured
+                    ones are surfaced separately above, so they're excluded here
+                    to avoid duplication. */}
+                {visibleApiTemplates.some(t => !t.featured) && (
                   <div className="space-y-2">
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Templates</p>
                     <div className="grid grid-cols-2 gap-2.5">
-                      {visibleApiTemplates.map(t => {
+                      {visibleApiTemplates.filter(t => !t.featured).map(t => {
                         const optionId = `api:${t.id}`;
                         return (
                           <button

@@ -14,7 +14,7 @@ import {
   makeCustomGroupToken,
   parseCustomGroupToken,
 } from "../lib/broadcastRecipients";
-import { PLANS, normalizePlan, getTenantPlan, type Plan } from "../lib/planFeatures";
+import { PLANS, normalizePlan, getTenantPlan, isDandyTenant, type Plan } from "../lib/planFeatures";
 import { getPlanFeatures, getPlanConfig, bustPlanConfigCache } from "../lib/planConfig";
 import { capUpgradeBody, featureUpgradeBody } from "../lib/planGate";
 import { PLAN_CONFIG } from "@workspace/plan-config";
@@ -439,7 +439,13 @@ router.post("/superadmin/tenants/:id/members", requireSuperadmin, async (req, re
       const signInUrl = tenantDomain
         ? `https://${tenantDomain}`
         : (process.env["APP_URL"] ?? "https://app.lpstudio.ai");
-      const fromEmail = tenantDomain
+      // Invite/seat-activation emails must ALWAYS be deliverable, so every
+      // tenant sends from the verified LP Studio platform address (fromEmail
+      // undefined → platformFromAddress in notifications.ts). The ONLY
+      // exception is Dandy, whose domain (ent.meetdandy.com) is verified in
+      // Resend — a regular tenant's custom domain is NOT a verified sender,
+      // so sending from noreply@<their-domain> silently fails.
+      const fromEmail = (await isDandyTenant(tenantId)) && tenantDomain
         ? `LP Studio <noreply@${tenantDomain}>`
         : undefined;
       sendInviteEmail({
@@ -1380,14 +1386,20 @@ router.post("/members", async (req, res): Promise<void> => {
       [req.authUser!.tenantId, userId, roleId, email, acceptedAt]
     );
 
-    // Derive per-tenant URLs from the tenant's custom domain when available,
-    // so Dandy and LP Studio each get their own branded sign-in link and from-address.
+    // Derive the per-tenant sign-in link from the tenant's custom domain when
+    // available so each workspace gets its own branded sign-in URL.
     const signInUrl = tenantDomain
       ? `https://${tenantDomain}`
       : (process.env["APP_URL"] ?? "https://app.lpstudio.ai");
-    const fromEmail = tenantDomain
+    // Invite/seat-activation emails must ALWAYS be deliverable, so every tenant
+    // sends from the verified LP Studio platform address (fromEmail undefined →
+    // platformFromAddress in notifications.ts). The ONLY exception is Dandy,
+    // whose domain (ent.meetdandy.com) is verified in Resend — a regular
+    // tenant's custom domain is NOT a verified sender, so sending from
+    // noreply@<their-domain> silently fails.
+    const fromEmail = (await isDandyTenant(req.authUser!.tenantId)) && tenantDomain
       ? `LP Studio <noreply@${tenantDomain}>`
-      : undefined; // falls back to RESEND_FROM_EMAIL env var or default in notifications.ts
+      : undefined;
 
     // Send invite email (fire-and-forget — do not block the response)
     sendInviteEmail({
