@@ -159,7 +159,6 @@ function Harness({
         segments={[]}
         selectedSegmentId=""
         setSelectedSegmentId={vi.fn()}
-        selectedSegment={null}
         selectedAudienceBucket={null}
         visibleApiTemplates={[]}
         tenantIndustry={null}

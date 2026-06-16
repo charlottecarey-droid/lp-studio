@@ -25,10 +25,10 @@ import {
   Copy,
   ExternalLink,
   Mail,
-  Star,
   Loader2,
   Search,
   Users,
+  ChevronDown,
 } from "lucide-react";
 import {
   Dialog,
@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import {
   AccountSearchTypeahead,
@@ -462,10 +463,9 @@ export function GenerateMicrositeModal({
           </>
         ) : (
           <>
-        <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            Generate Microsite
+        <DialogHeader className="flex-shrink-0 text-left">
+          <DialogTitle className="font-serif text-2xl font-normal tracking-tight text-foreground">
+            Generate a microsite
           </DialogTitle>
         </DialogHeader>
 
@@ -554,12 +554,12 @@ export function GenerateMicrositeModal({
           </div>
         ) : step === "error" ? (
           <div className="flex flex-col gap-4 py-2">
-            <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
               {errorMsg}
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={handleClose}>Cancel</Button>
-              <Button className="flex-1" onClick={() => setStep("idle")}>Try Again</Button>
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={handleClose}>Cancel</Button>
+              <Button onClick={() => setStep("idle")}>Try again</Button>
             </div>
           </div>
         ) : (
@@ -567,10 +567,8 @@ export function GenerateMicrositeModal({
           <div className="flex flex-col gap-4 py-2 overflow-y-auto flex-1 min-h-0 pr-1">
             {/* Account picker — only when the caller didn't fix an account. */}
             {!accountProvided && (
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-medium">
-                  Who is this for? <span className="text-red-500">*</span>
-                </Label>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Account</Label>
                 <AccountSearchTypeahead
                   selected={pickedAccount}
                   onSelect={setPickedAccount}
@@ -579,33 +577,17 @@ export function GenerateMicrositeModal({
                 />
                 {noAccount && (
                   <p className="text-[11px] text-amber-600">
-                    Pick an account — microsites are personalised for a specific account's contacts.
+                    Pick an account to personalise this microsite.
                   </p>
                 )}
               </div>
             )}
 
-            <div className="text-sm text-muted-foreground">
-              {contactId != null ? (
-                <>AI will create a personalised landing page for <strong>{effectiveAccountName}</strong> and
-                generate a single personalised link{contactName ? <> for <strong>{contactName}</strong></> : <> for this contact</>}.</>
-              ) : (
-                <>AI will create a personalised landing page for <strong>{effectiveAccountName}</strong>.
-                Personalised links for contacts are optional — turn them on below to pick who gets one.</>
-              )}
-            </div>
-
             {/* Use case (optional starting point) — marketing-curated templates */}
-            {marketingTemplates.length > 0 && (() => {
-              const selectedLabel = selectedTemplate
-                ? (selectedTemplate.templateLabel ?? selectedTemplate.title)
-                : null;
-              return (
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs font-medium flex items-center gap-1.5">
-                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                    Select use case <span className="text-muted-foreground font-normal">(optional)</span>
-                  </Label>
+            {marketingTemplates.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Use case</Label>
+                <div className="relative">
                   <select
                     value={selectedTemplate?.id ?? ""}
                     disabled={busy}
@@ -613,28 +595,23 @@ export function GenerateMicrositeModal({
                       const id = e.target.value ? Number(e.target.value) : null;
                       setSelectedTemplate(id !== null ? marketingTemplates.find(t => t.id === id) ?? null : null);
                     }}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-amber-300 disabled:opacity-50"
+                    aria-label="Use case"
+                    className="w-full appearance-none bg-transparent border-b border-input py-2 pr-6 text-[15px] focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
                   >
-                    <option value="">No specific use case — AI generates from scratch</option>
+                    <option value="">No use case</option>
                     {marketingTemplates.map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.templateLabel ?? t.title}
                       </option>
                     ))}
                   </select>
-                  {selectedTemplate && (
-                    <p className="text-xs text-muted-foreground">
-                      <strong>{selectedLabel}</strong> selected — AI will use this layout and personalise all copy for {effectiveAccountName}.
-                    </p>
-                  )}
+                  <ChevronDown className="w-4 h-4 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
                 </div>
-              );
-            })()}
+              </div>
+            )}
 
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">
-                Who is this page for? <span className="text-red-500">*</span>
-              </Label>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Audience</Label>
               <div className="flex flex-col gap-2">
                 {segments.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-3 text-left">
@@ -657,111 +634,95 @@ export function GenerateMicrositeModal({
                       type="button"
                       disabled={busy}
                       onClick={() => setSegmentId(seg.id)}
-                      className={[
-                        "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors",
-                        "focus:outline-none focus:ring-2 focus:ring-primary/30",
+                      className={cn(
+                        "rounded-lg border px-3 py-2.5 text-left text-sm transition-all focus:outline-none",
                         segmentId === seg.id
-                          ? "border-primary bg-primary/5 ring-1 ring-primary"
-                          : "border-border bg-background hover:border-primary/40",
+                          ? "border-foreground ring-1 ring-foreground bg-muted/40"
+                          : "border-input hover:border-foreground/40 hover:bg-muted/30",
                         busy ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-                      ].join(" ")}
+                      )}
                     >
-                      <span className="text-sm font-medium leading-tight">{seg.name}</span>
-                      {seg.description ? (
-                        <span className="text-xs text-muted-foreground line-clamp-2">{seg.description}</span>
-                      ) : null}
+                      <span className="font-medium text-[13px] text-foreground leading-tight">{seg.name}</span>
                     </button>
                   ))
                 )}
               </div>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="ms-prompt" className="text-xs font-medium">
-                Additional instructions <span className="text-muted-foreground font-normal">(optional)</span>
+            <div className="space-y-1.5">
+              <Label htmlFor="ms-prompt" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Instructions
               </Label>
               <textarea
                 id="ms-prompt"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="e.g. Focus on their enterprise expansion, emphasise ROI and onboarding speed…"
-                rows={2}
+                rows={3}
                 disabled={busy}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+                className="w-full bg-muted/40 border border-input rounded-xl p-4 text-[15px] focus:outline-none focus:border-foreground focus:bg-background transition-colors resize-none disabled:opacity-50"
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="ms-reference-url" className="text-xs font-medium">
-                Reference URL <span className="text-muted-foreground font-normal">(optional)</span>
+            <div className="space-y-1.5">
+              <Label htmlFor="ms-reference-url" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Reference URL
               </Label>
-              <input
-                id="ms-reference-url"
-                type="url"
-                value={referenceUrl}
-                onChange={(e) => setReferenceUrl(e.target.value)}
-                placeholder="https://example.com — a page to draw layout & style inspiration from"
-                disabled={busy}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                We'll study its layout, tone, and imagery for inspiration — your brand voice and guidelines always win.
-              </p>
+              <div className="flex items-center border-b border-input py-1.5 focus-within:border-foreground transition-colors">
+                <Link2 className="w-3.5 h-3.5 text-muted-foreground mr-2 shrink-0" />
+                <input
+                  id="ms-reference-url"
+                  type="url"
+                  value={referenceUrl}
+                  onChange={(e) => setReferenceUrl(e.target.value)}
+                  disabled={busy}
+                  className="w-full bg-transparent focus:outline-none text-sm font-mono disabled:opacity-50"
+                />
+              </div>
             </div>
 
-            {/* CTA Destination */}
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-medium">CTA destination</Label>
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setCtaMode("url")}
-                  className={[
-                    "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors",
-                    "focus:outline-none focus:ring-2 focus:ring-primary/30",
-                    ctaMode === "url"
-                      ? "border-primary bg-primary/5 ring-1 ring-primary"
-                      : "border-border bg-background hover:border-primary/40",
-                    busy ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-                  ].join(" ")}
-                >
-                  <span className="text-sm font-medium leading-tight">URL</span>
-                  <span className="text-xs text-muted-foreground">Send all CTAs to a specific link</span>
-                </button>
-                {ctaMode === "url" && (
-                  <input
-                    type="url"
-                    value={ctaUrl}
-                    onChange={e => setCtaUrl(e.target.value)}
-                    placeholder="https://..."
+            {/* Call to action */}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Call to action</Label>
+              <div className="flex p-1 bg-muted rounded-lg">
+                {([
+                  { mode: "url", label: "Link" },
+                  { mode: "chilipiper", label: "Book a rep" },
+                ] as { mode: "url" | "chilipiper"; label: string }[]).map(({ mode, label }) => (
+                  <button
+                    key={mode}
+                    type="button"
                     disabled={busy}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
-                  />
-                )}
-                <button
-                  type="button"
+                    onClick={() => setCtaMode(mode)}
+                    aria-pressed={ctaMode === mode}
+                    className={cn(
+                      "flex-1 py-2 text-sm font-medium rounded-md transition-all disabled:opacity-50",
+                      ctaMode === mode
+                        ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {ctaMode === "url" ? (
+                <input
+                  type="url"
+                  aria-label="Call to action link"
+                  value={ctaUrl}
+                  onChange={e => setCtaUrl(e.target.value)}
                   disabled={busy}
-                  onClick={() => setCtaMode("chilipiper")}
-                  className={[
-                    "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-colors",
-                    "focus:outline-none focus:ring-2 focus:ring-primary/30",
-                    ctaMode === "chilipiper"
-                      ? "border-primary bg-primary/5 ring-1 ring-primary"
-                      : "border-border bg-background hover:border-primary/40",
-                    busy ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-                  ].join(" ")}
-                >
-                  <span className="text-sm font-medium leading-tight">Book with a rep (Chili Piper)</span>
-                  <span className="text-xs text-muted-foreground">Route all CTAs to a rep's booking link</span>
-                </button>
-                {ctaMode === "chilipiper" && (
-                  <>
+                  className="w-full bg-transparent border-b border-input py-2 text-[15px] focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
+                />
+              ) : (
+                <>
+                  <div className="relative">
                     <select
                       value={selectedRepId ?? ""}
                       onChange={e => setSelectedRepId(e.target.value ? Number(e.target.value) : null)}
                       disabled={busy}
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+                      aria-label="Sales rep"
+                      className="w-full appearance-none bg-transparent border-b border-input py-2 pr-6 text-[15px] focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
                     >
                       <option value="">Select a rep…</option>
                       {salesReps.map(rep => (
@@ -770,12 +731,13 @@ export function GenerateMicrositeModal({
                         </option>
                       ))}
                     </select>
-                    {selectedRepId !== null && !selectedRepHasUrl && (
-                      <p className="text-xs text-amber-600">This rep has no Chili Piper URL saved. Select another rep or add their URL in the Sales Reps library.</p>
-                    )}
-                  </>
-                )}
-              </div>
+                    <ChevronDown className="w-4 h-4 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
+                  </div>
+                  {selectedRepId !== null && !selectedRepHasUrl && (
+                    <p className="text-[11px] text-amber-600">This rep has no booking link saved.</p>
+                  )}
+                </>
+              )}
             </div>
 
             {/* Personalised links — opt-in recipient picker (account-page only) */}
@@ -789,14 +751,9 @@ export function GenerateMicrositeModal({
                     onChange={(e) => setGenerateHotlinks(e.target.checked)}
                     className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary/30 disabled:opacity-50"
                   />
-                  <span className="flex flex-col gap-0.5">
-                    <span className="text-sm font-medium leading-tight flex items-center gap-1.5">
-                      <Link2 className="w-3.5 h-3.5 text-primary" />
-                      Generate personalised links for contacts
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      Off by default. Turn on to create trackable hotlinks for the contacts you choose.
-                    </span>
+                  <span className="text-sm font-medium leading-tight flex items-center gap-1.5">
+                    <Link2 className="w-3.5 h-3.5 text-primary" />
+                    Personalised links for contacts
                   </span>
                 </label>
 
@@ -825,11 +782,11 @@ export function GenerateMicrositeModal({
                             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                             <input
                               type="text"
+                              aria-label="Search contacts"
                               value={contactSearch}
                               disabled={busy}
                               onChange={(e) => setContactSearch(e.target.value)}
-                              placeholder="Search name, email, or title…"
-                              className="w-full rounded-lg border border-border bg-background pl-8 pr-3 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+                              className="w-full rounded-lg border border-border bg-background pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
                             />
                           </div>
                           {contactLevels.length > 0 && (
@@ -929,17 +886,17 @@ export function GenerateMicrositeModal({
           </div>
 
           {/* Pinned action row — always visible outside the scroll area */}
-          <div className="flex gap-2 flex-shrink-0 pt-2 border-t border-border/50">
-            <Button variant="outline" className="flex-1" onClick={handleClose} disabled={busy}>
+          <div className="flex justify-end gap-2 flex-shrink-0 pt-3 border-t border-border/50">
+            <Button variant="ghost" onClick={handleClose} disabled={busy}>
               Cancel
             </Button>
-            <Button className="flex-1 gap-1.5" onClick={handleGenerate} disabled={busy || !accountReady || !segmentId || !ctaValid || hotlinkSelectionInvalid}>
+            <Button className="gap-2" onClick={handleGenerate} disabled={busy || !accountReady || !segmentId || !ctaValid || hotlinkSelectionInvalid}>
               {busy ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <Sparkles className="w-3.5 h-3.5" />
+                <Sparkles className="w-4 h-4" />
               )}
-              Generate
+              Generate microsite
             </Button>
           </div>
           </>

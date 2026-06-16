@@ -775,7 +775,6 @@ export default function PagesGallery() {
         segments={segments}
         selectedSegmentId={selectedSegmentId}
         setSelectedSegmentId={setSelectedSegmentId}
-        selectedSegment={selectedSegment}
         selectedAudienceBucket={selectedAudienceBucket}
         visibleApiTemplates={visibleApiTemplates}
         tenantIndustry={user?.tenantIndustry}

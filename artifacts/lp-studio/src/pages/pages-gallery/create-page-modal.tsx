@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { BookOpen, Building2, Check, FileText, Link2, Sparkles, Users, Wand2, X } from "lucide-react";
+import { BookOpen, Building2, ChevronDown, Link2, Sparkles, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { MICROSITE_TEMPLATES } from "@/lib/microsite-templates";
@@ -58,7 +57,6 @@ interface Props {
   segments: AudienceSegment[];
   selectedSegmentId: string;
   setSelectedSegmentId: (id: string) => void;
-  selectedSegment: AudienceSegment | null;
   selectedAudienceBucket: string | null;
   visibleApiTemplates: ApiTemplate[];
   tenantIndustry: string | null | undefined;
@@ -102,7 +100,6 @@ export function CreatePageModal({
   segments,
   selectedSegmentId,
   setSelectedSegmentId,
-  selectedSegment,
   selectedAudienceBucket,
   visibleApiTemplates,
   tenantIndustry,
@@ -456,145 +453,110 @@ export function CreatePageModal({
           </>
         ) : (
           <>
-        <DialogHeader>
-          <DialogTitle>Create New Page</DialogTitle>
+        <DialogHeader className="space-y-3 text-left">
+          {segments.length > 0 && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <span className="text-[10px] font-medium uppercase tracking-wider">Audience</span>
+              <div className="relative">
+                <select
+                  aria-label="Audience"
+                  className="appearance-none bg-transparent pr-5 py-0.5 text-sm font-medium text-foreground focus:outline-none cursor-pointer"
+                  value={selectedSegmentId}
+                  onChange={e => setSelectedSegmentId(e.target.value)}
+                >
+                  <option value="">All audiences</option>
+                  {segments.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
+              </div>
+            </div>
+          )}
+          <DialogTitle className="font-serif text-2xl font-normal tracking-tight text-foreground">
+            Create a new page
+          </DialogTitle>
         </DialogHeader>
 
-        {/* Segment picker — shown when segments exist */}
-        {segments.length > 0 && (
-          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                <Users className="w-3 h-3 text-primary" />
-              </div>
-              <Label className="text-sm font-semibold text-foreground">Who is this page for?</Label>
-            </div>
-            <select
-              className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-              value={selectedSegmentId}
-              onChange={e => setSelectedSegmentId(e.target.value)}
-            >
-              <option value="">— No specific segment —</option>
-              {segments.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-            {selectedSegment && (
-              <p className="text-[11px] text-muted-foreground leading-snug pl-0.5">
-                {selectedSegment.messagingAngle || selectedSegment.description}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Mode selector — each option states what it does in plain words
-            (no cryptic parentheticals); the active card is clearly marked. */}
-        <div className="grid grid-cols-3 gap-2.5">
+        {/* Mode selector — a quiet segmented control; the active mode is the
+            raised pill. Labels alone carry the meaning (no descriptions). */}
+        <div className="flex p-1 bg-muted rounded-lg">
           {([
-            { mode: "template", icon: FileText, title: "Template", desc: "Copy a page exactly" },
-            { mode: "ai", icon: Sparkles, title: "AI Generate", desc: "Prompt to page" },
-            { mode: "brief", icon: BookOpen, title: "Start with Brief", desc: "Plan strategy first" },
-          ] as { mode: CreateMode; icon: typeof FileText; title: string; desc: string }[]).map(
-            ({ mode, icon: Icon, title, desc }) => {
-              const active = createMode === mode;
-              return (
-                <button
-                  key={mode}
-                  onClick={() => { setCreateMode(mode); setCreateError(null); }}
-                  aria-pressed={active}
-                  className={cn(
-                    "group relative flex flex-col items-start gap-2.5 rounded-xl border p-3.5 text-left transition-all duration-200",
-                    active
-                      ? "border-primary/50 bg-primary/[0.06] ring-1 ring-primary/25 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_4px_12px_-4px_rgba(16,24,40,0.08)]"
-                      : "border-border bg-background hover:border-primary/40 hover:bg-muted/40 hover:shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-lg transition-colors duration-200",
-                      active
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "bg-muted text-muted-foreground group-hover:text-foreground"
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <span className="space-y-1">
-                    <span className="block text-sm font-semibold leading-none text-foreground">{title}</span>
-                    <span className="block text-[11px] leading-snug text-muted-foreground">{desc}</span>
-                  </span>
-                  {active && (
-                    <span className="absolute right-2.5 top-2.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
-                      <Check className="h-2.5 w-2.5 text-primary-foreground" strokeWidth={3} />
-                    </span>
-                  )}
-                </button>
-              );
-            },
-          )}
+            { mode: "template", label: "Template" },
+            { mode: "ai", label: "AI Generate" },
+            { mode: "brief", label: "Start with Brief" },
+          ] as { mode: CreateMode; label: string }[]).map(({ mode, label }) => {
+            const active = createMode === mode;
+            return (
+              <button
+                key={mode}
+                onClick={() => { setCreateMode(mode); setCreateError(null); }}
+                aria-pressed={active}
+                className={cn(
+                  "flex-1 py-2 text-sm font-medium rounded-md transition-all",
+                  active
+                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
 
         {createMode === "template" ? (
-          <div className="space-y-5 py-2">
-            <div className="rounded-lg border border-dashed border-border bg-muted/40 p-4">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0 mt-0.5">
-                  <FileText className="w-4 h-4 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">Exact copy — text is not rewritten</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                    This creates a page with the template's design and wording exactly as-is. To have AI rewrite the copy for your business, use the <span className="font-medium text-foreground">AI Generate</span> tab and pick this template as your starting point.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div>
-              <Label className="text-sm font-medium">Page Name</Label>
-              <Input
-                className="mt-1.5"
-                placeholder="e.g. Summer Promotion"
-                value={newTitle}
-                onChange={e => handleTitleChange(e.target.value)}
-                autoFocus
-              />
-            </div>
-            <div>
-              <Label className="text-sm font-medium">URL Slug</Label>
-              <div className="flex items-center mt-1.5 gap-0 border border-input rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-ring">
-                <span className="px-3 py-2 text-xs text-muted-foreground bg-muted border-r border-input shrink-0">/lp/</span>
-                <Input
-                  className="border-0 rounded-none focus-visible:ring-0 font-mono text-sm"
-                  placeholder="page-slug"
-                  value={newSlug}
-                  onChange={e => setNewSlug(slugify(e.target.value))}
+          <div className="space-y-6 py-1">
+            <div className="grid grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Page name</Label>
+                <input
+                  type="text"
+                  aria-label="Page name"
+                  className="w-full bg-transparent border-b border-input py-2 text-[15px] focus:outline-none focus:border-foreground transition-colors"
+                  value={newTitle}
+                  onChange={e => handleTitleChange(e.target.value)}
+                  autoFocus
                 />
               </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">URL slug</Label>
+                <div className="flex items-center border-b border-input py-2 focus-within:border-foreground transition-colors">
+                  <span className="text-muted-foreground text-[15px]">/lp/</span>
+                  <input
+                    type="text"
+                    aria-label="URL slug"
+                    className="w-full bg-transparent focus:outline-none text-[15px] ml-1 font-mono"
+                    value={newSlug}
+                    onChange={e => setNewSlug(slugify(e.target.value))}
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <Label className="text-sm font-medium mb-2 block">Starting Template</Label>
+
+            <div className="space-y-3">
+              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Starting point</Label>
               <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
                 {/* General templates — Blank is universal; the dental built-in
                     templates (LP_TEMPLATES) and DSO microsite templates contain
                     hardcoded Dandy/dental copy and are only shown to dental
                     tenants. Generic tenants get their starter templates from
                     the API section below, which is industry-filtered server-side. */}
-                <div>
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">General</p>
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">General</p>
+                  <div className="grid grid-cols-2 gap-2.5">
                     {[BLANK_OPTION, ...(tenantIndustry === "dental" ? DENTAL_BUILTIN_OPTIONS : [])].map(t => (
                       <button
                         key={t.id}
                         onClick={() => setSelectedTemplate(t.id)}
                         className={cn(
-                          "text-left p-3 rounded-lg border text-sm transition-all",
+                          "text-left px-3 py-2.5 rounded-lg border text-sm transition-all",
                           selectedTemplate === t.id
-                            ? "border-primary bg-primary/5 ring-1 ring-primary"
-                            : "border-border hover:border-primary/30 hover:bg-muted/50"
+                            ? "border-foreground ring-1 ring-foreground bg-muted/40"
+                            : "border-input hover:border-foreground/40 hover:bg-muted/30"
                         )}
                       >
-                        <p className="font-medium text-xs text-foreground">{t.name}</p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">{t.description}</p>
+                        <p className="font-medium text-[13px] text-foreground">{t.name}</p>
                       </button>
                     ))}
                   </div>
@@ -602,9 +564,9 @@ export function CreatePageModal({
                 {/* Industry-filtered templates from the API (global SaaS or
                     dental templates + this tenant's saved templates). */}
                 {visibleApiTemplates.length > 0 && (
-                  <div>
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Templates</p>
-                    <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Templates</p>
+                    <div className="grid grid-cols-2 gap-2.5">
                       {visibleApiTemplates.map(t => {
                         const optionId = `api:${t.id}`;
                         return (
@@ -612,21 +574,18 @@ export function CreatePageModal({
                             key={optionId}
                             onClick={() => setSelectedTemplate(optionId)}
                             className={cn(
-                              "text-left p-3 rounded-lg border text-sm transition-all",
+                              "text-left px-3 py-2.5 rounded-lg border text-sm transition-all",
                               selectedTemplate === optionId
-                                ? "border-primary bg-primary/5 ring-1 ring-primary"
-                                : "border-border hover:border-primary/30 hover:bg-muted/50"
+                                ? "border-foreground ring-1 ring-foreground bg-muted/40"
+                                : "border-input hover:border-foreground/40 hover:bg-muted/30"
                             )}
                           >
-                            <div className="flex items-center justify-between gap-1">
-                              <p className="font-medium text-xs text-foreground line-clamp-1">{t.templateLabel || t.title}</p>
+                            <div className="flex items-center justify-between gap-1.5">
+                              <p className="font-medium text-[13px] text-foreground line-clamp-1">{t.templateLabel || t.title}</p>
                               {t.isGlobal && (
                                 <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-muted text-muted-foreground shrink-0">Global</span>
                               )}
                             </div>
-                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">
-                              {t.templateDescription || `${t.blockCount} block${t.blockCount === 1 ? "" : "s"}`}
-                            </p>
                           </button>
                         );
                       })}
@@ -638,39 +597,34 @@ export function CreatePageModal({
                     from practice-targeted pages to stop leadership content
                     leaking onto practice/DSO-practice microsites. */}
                 {tenantIndustry === "dental" && selectedAudienceBucket !== "practice" && (
-                <div>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Building2 className="w-3 h-3 text-primary" />
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Building2 className="w-3 h-3 text-muted-foreground" />
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Sales Microsites</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2.5">
                     {MICROSITE_TEMPLATES.map(t => (
                       <button
                         key={t.id}
                         onClick={() => setSelectedTemplate(t.id)}
                         className={cn(
-                          "text-left p-3 rounded-lg border text-sm transition-all relative overflow-hidden",
+                          "text-left px-3 py-2.5 rounded-lg border text-sm transition-all relative overflow-hidden",
                           selectedTemplate === t.id
-                            ? "border-primary bg-primary/5 ring-1 ring-primary"
-                            : "border-border hover:border-primary/30 hover:bg-muted/50"
+                            ? "border-foreground ring-1 ring-foreground bg-muted/40"
+                            : "border-input hover:border-foreground/40 hover:bg-muted/30"
                         )}
                       >
                         <div
-                          className="absolute top-0 right-0 w-8 h-8 rounded-bl-lg opacity-60"
+                          className="absolute top-0 right-0 w-7 h-7 rounded-bl-lg opacity-60"
                           style={{ background: t.accentColor }}
                         />
-                        <div className="flex items-start gap-1.5 pr-6">
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <p className="font-medium text-xs text-foreground">{t.name}</p>
-                              {t.badge && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: t.accentColor, color: t.bgColor }}>
-                                  {t.badge}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">{t.description}</p>
-                          </div>
+                        <div className="flex items-center gap-1.5 pr-6">
+                          <p className="font-medium text-[13px] text-foreground">{t.name}</p>
+                          {t.badge && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: t.accentColor, color: t.bgColor }}>
+                              {t.badge}
+                            </span>
+                          )}
                         </div>
                       </button>
                     ))}
@@ -679,58 +633,39 @@ export function CreatePageModal({
                 )}
               </div>
             </div>
+
             {createError && (
-              <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{createError}</p>
+              <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{createError}</p>
             )}
+
             <DialogFooter>
-              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              <Button variant="ghost" onClick={onClose}>Cancel</Button>
               <Button
                 onClick={handleCreate}
                 disabled={isCreating || !newTitle.trim() || !newSlug.trim()}
-                className="gap-2"
               >
-                {isCreating ? "Creating..." : "Create & Edit"}
+                {isCreating ? "Creating…" : "Create page"}
               </Button>
             </DialogFooter>
           </div>
         ) : createMode === "ai" ? (
-          <div className="space-y-5 py-2">
-            <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <Wand2 className="w-4 h-4 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">Describe your landing page</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                    Tell us what you're promoting, who it's for, and the tone you want. AI will generate a complete page with all sections, copy, and a lead capture form.
-                  </p>
-                </div>
-              </div>
-            </div>
-
+          <div className="space-y-6 py-1">
             {/* Task #1345 — "Rewrite copy with AI": when launched from an
                 existing page, that page IS the starting point. We hide the
                 template dropdown and show a fixed source card (the layout is
                 preserved; only copy is rewritten). The replaceImagery toggle
                 still applies. */}
             {rewriteSource ? (
-              <div>
-                <Label className="text-sm font-medium">Starting Point</Label>
-                <div className="mt-1.5 flex items-start gap-2.5 rounded-md border border-input bg-muted/40 px-3 py-2.5">
-                  <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" aria-hidden />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      Rewriting: {rewriteSource.title}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      AI will keep this page's exact layout and only rewrite the copy to match your prompt.
-                    </p>
-                  </div>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2.5 rounded-lg border border-input bg-muted/40 px-3 py-2.5">
+                  <Sparkles className="w-4 h-4 text-foreground shrink-0" aria-hidden />
+                  <p className="text-sm font-medium text-foreground truncate">
+                    Rewriting: {rewriteSource.title}
+                  </p>
                 </div>
                 {/* Task #1346 — choose whether the rewrite overwrites this page
                     in place or is saved as a new page. */}
-                <div className="mt-2.5 space-y-1.5">
+                <div className="space-y-1.5">
                   <label className="flex items-start gap-2 cursor-pointer">
                     <input
                       type="radio"
@@ -739,8 +674,8 @@ export function CreatePageModal({
                       checked={rewriteMode === "update"}
                       onChange={() => setRewriteMode("update")}
                     />
-                    <span className="text-[11px] text-muted-foreground">
-                      <span className="font-medium text-foreground">Update this page</span> — overwrite this page's copy in place. The layout stays the same and you'll land back in its editor.
+                    <span className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">Update this page</span> — rewrite the copy in place, same layout.
                     </span>
                   </label>
                   <label className="flex items-start gap-2 cursor-pointer">
@@ -751,77 +686,74 @@ export function CreatePageModal({
                       checked={rewriteMode === "new"}
                       onChange={() => setRewriteMode("new")}
                     />
-                    <span className="text-[11px] text-muted-foreground">
-                      <span className="font-medium text-foreground">Create a new copy</span> — keep this page untouched and save the rewrite as a brand-new page.
+                    <span className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">Create a new copy</span> — keep this page, save the rewrite separately.
                     </span>
                   </label>
                 </div>
-                <label className="mt-2 flex items-start gap-2 cursor-pointer">
+                <label className="flex items-start gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     className="mt-0.5"
                     checked={replaceImagery}
                     onChange={(e) => setReplaceImagery(e.target.checked)}
                   />
-                  <span className="text-[11px] text-muted-foreground">
-                    <span className="font-medium text-foreground">Replace imagery</span> — swap the page's photos for on-brand images from your library (and any reference URL). Off keeps the original images; copy is rewritten either way.
+                  <span className="text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">Replace imagery</span> — swap photos for on-brand images.
                   </span>
                 </label>
               </div>
             ) : (
-            <div>
-              <Label className="text-sm font-medium">Starting Point</Label>
-              <select
-                className="mt-1.5 w-full px-3 py-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                value={aiTemplateId}
-                onChange={e => setAiTemplateId(e.target.value)}
-              >
-                <option value="">Generate from scratch (AI chooses blocks)</option>
-                {visibleApiTemplates.length > 0 && (
-                  <optgroup label="Use a template (AI fills copy only)">
-                    {visibleApiTemplates.map(t => (
-                      <option key={t.id} value={String(t.id)}>
-                        {t.templateLabel || t.title}
-                      </option>
-                    ))}
-                  </optgroup>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Starting point</Label>
+                <div className="relative">
+                  <select
+                    aria-label="Starting point"
+                    className="w-full appearance-none bg-transparent border-b border-input py-2 pr-6 text-[15px] focus:outline-none focus:border-foreground transition-colors"
+                    value={aiTemplateId}
+                    onChange={e => setAiTemplateId(e.target.value)}
+                  >
+                    <option value="">Start from scratch</option>
+                    {visibleApiTemplates.length > 0 && (
+                      <optgroup label="Start from a template">
+                        {visibleApiTemplates.map(t => (
+                          <option key={t.id} value={String(t.id)}>
+                            {t.templateLabel || t.title}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                  <ChevronDown className="w-4 h-4 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
+                </div>
+                {/* Eligibility-gated chip-tie note (June 2026): when a marketing
+                    starter chip carries a tied template, the tie is resolved
+                    server-side against the page's segment + the tenant's template
+                    governance. Purely informational — the dropdown can override it. */}
+                {templateNote && (
+                  <p className="text-[11px] text-primary/80 flex items-start gap-1.5">
+                    <Sparkles className="w-3 h-3 mt-0.5 shrink-0" aria-hidden />
+                    <span>{templateNote}</span>
+                  </p>
                 )}
-              </select>
-              <p className="text-[11px] text-muted-foreground mt-1.5">
-                {aiTemplateId
-                  ? "AI will preserve the template's block layout and only rewrite copy to match your prompt."
-                  : "AI will design the page structure from scratch based on your prompt."}
-              </p>
-              {/* Eligibility-gated chip-tie note (June 2026): when a marketing
-                  starter chip carries a tied template, the tie is resolved
-                  server-side against the page's segment + the tenant's template
-                  governance. We surface the decision so the user understands why
-                  the starting point is (or isn't) the chip's template. Purely
-                  informational — the dropdown above can still override it. */}
-              {templateNote && (
-                <p className="text-[11px] text-primary/80 mt-1.5 flex items-start gap-1.5">
-                  <Sparkles className="w-3 h-3 mt-0.5 shrink-0" aria-hidden />
-                  <span>{templateNote}</span>
-                </p>
-              )}
-              {aiTemplateId && (
-                <label className="mt-2 flex items-start gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={replaceImagery}
-                    onChange={(e) => setReplaceImagery(e.target.checked)}
-                  />
-                  <span className="text-[11px] text-muted-foreground">
-                    <span className="font-medium text-foreground">Replace imagery</span> — swap the template's photos for on-brand images from your library (and any reference URL). Off keeps the template's original images; copy is rewritten either way.
-                  </span>
-                </label>
-              )}
-            </div>
+                {aiTemplateId && (
+                  <label className="flex items-start gap-2 cursor-pointer pt-1">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={replaceImagery}
+                      onChange={(e) => setReplaceImagery(e.target.checked)}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">Replace imagery</span> — swap the template's photos for on-brand images.
+                    </span>
+                  </label>
+                )}
+              </div>
             )}
 
-            <div>
-              <Label className="text-sm font-medium">Your Prompt</Label>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Prompt</Label>
               {/* Config-driven starter prefill chips (June 2026): rendered from the
                   effective, enabled MARKETING generator presets (global defaults ∪
                   tenant overrides). When none are enabled, StarterPromptChips
@@ -829,38 +761,33 @@ export function CreatePageModal({
                   Superadmin (replacing the old MARKETING_STARTER_CHIPS_ENABLED flag). */}
               {aiPrompt === "" && (
                 <StarterPromptChips
-                  className="mt-1.5"
                   presets={marketingPresets}
                   onPick={handleStarterPick}
                 />
               )}
               <textarea
                 ref={promptTextareaRef}
-                className="mt-1.5 w-full px-3 py-2.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                aria-label="Prompt"
+                className="w-full bg-muted/40 border border-input rounded-xl p-4 text-[15px] focus:outline-none focus:border-foreground focus:bg-background transition-colors resize-none"
                 rows={4}
-                placeholder={aiTemplateId
-                  ? "e.g. Promote our new service to the audience it's for. Emphasize the benefits and outcomes that matter most to them."
-                  : "e.g. A landing page for our new product or service, targeting the audience it's for. Highlight the top benefits and desired tone, and include a lead capture form asking for name, email, and company."}
                 value={aiPrompt}
                 onChange={e => setAiPrompt(e.target.value)}
                 autoFocus
               />
-              <p className="text-[11px] text-muted-foreground mt-1.5">
-                Tip: The more detail you provide, the better the result. Mention your product, audience, key benefits, and desired tone.
-              </p>
             </div>
 
-            {/* Workstream A — reference URLs. Promoted from advanced/hidden
-                to a primary input. Up to 5 URLs that the generator will
+            {/* Workstream A — reference URLs. Up to 5 URLs the generator will
                 scrape and use to anchor voice / structure / density. */}
-            <div>
-              <Label className="text-sm font-medium flex items-center gap-1.5">
-                <Link2 className="w-3.5 h-3.5 text-muted-foreground" />
-                Pages to learn from
-                <span className="text-[11px] font-normal text-muted-foreground">(optional, up to {MAX_REF_URLS})</span>
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Link2 className="w-3.5 h-3.5" />
+                  Pages to learn from
+                </span>
+                <span className="text-[10px] font-normal normal-case">{referenceUrls.length}/{MAX_REF_URLS}</span>
               </Label>
               {referenceUrls.length > 0 && (
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5">
                   {referenceUrls.map((u) => (
                     <span
                       key={u}
@@ -879,83 +806,70 @@ export function CreatePageModal({
                   ))}
                 </div>
               )}
-              <Input
-                className="mt-1.5 text-sm font-mono"
-                placeholder={referenceUrls.length === 0
-                  ? "https://stripe.com  — paste a URL and press Enter"
-                  : referenceUrls.length >= MAX_REF_URLS
-                    ? `Up to ${MAX_REF_URLS} URLs — remove one to add another`
-                    : "Add another URL and press Enter"}
-                value={pendingRefUrl}
-                disabled={referenceUrls.length >= MAX_REF_URLS}
-                onChange={e => setPendingRefUrl(e.target.value)}
-                onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-                  if (e.key === "Enter" || e.key === ",") {
-                    e.preventDefault();
-                    const v = pendingRefUrl.trim();
-                    if (!v || referenceUrls.includes(v) || referenceUrls.length >= MAX_REF_URLS) return;
-                    setReferenceUrls(prev => [...prev, v]);
-                    setPendingRefUrl("");
-                  }
-                }}
-                onBlur={() => {
-                  const v = pendingRefUrl.trim();
-                  if (!v || referenceUrls.includes(v) || referenceUrls.length >= MAX_REF_URLS) return;
-                  setReferenceUrls(prev => [...prev, v]);
-                  setPendingRefUrl("");
-                }}
-              />
-              <p className="text-[11px] text-muted-foreground mt-1.5">
-                We'll scrape these pages and use their voice, structure, and density to anchor your output. Brand settings &gt; Inspiration sites are added automatically.
-              </p>
-
+              {referenceUrls.length < MAX_REF_URLS && (
+                <div className="flex items-center border-b border-input py-1.5 focus-within:border-foreground transition-colors">
+                  <Link2 className="w-3.5 h-3.5 text-muted-foreground mr-2 shrink-0" />
+                  <input
+                    type="text"
+                    aria-label="Add a reference URL"
+                    className="w-full bg-transparent focus:outline-none text-sm font-mono"
+                    value={pendingRefUrl}
+                    onChange={e => setPendingRefUrl(e.target.value)}
+                    onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                      if (e.key === "Enter" || e.key === ",") {
+                        e.preventDefault();
+                        const v = pendingRefUrl.trim();
+                        if (!v || referenceUrls.includes(v) || referenceUrls.length >= MAX_REF_URLS) return;
+                        setReferenceUrls(prev => [...prev, v]);
+                        setPendingRefUrl("");
+                      }
+                    }}
+                    onBlur={() => {
+                      const v = pendingRefUrl.trim();
+                      if (!v || referenceUrls.includes(v) || referenceUrls.length >= MAX_REF_URLS) return;
+                      setReferenceUrls(prev => [...prev, v]);
+                      setPendingRefUrl("");
+                    }}
+                  />
+                </div>
+              )}
               {/* Screenshot attach — paste anywhere in this dialog, drop on
                   the zone, or click to browse. One screenshot max. */}
-              <div className="mt-2.5">
+              <div className="pt-1">
                 <ScreenshotAttachZone state={screenshotAttach} />
               </div>
             </div>
 
             {createError && (
-              <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{createError}</p>
+              <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">{createError}</p>
             )}
 
             <DialogFooter>
-              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              <Button variant="ghost" onClick={onClose}>Cancel</Button>
               <Button
                 onClick={handleAiGenerate}
                 disabled={!aiPrompt.trim()}
                 className="gap-2"
               >
                 <Sparkles className="w-4 h-4" />
-                Generate Page
+                Generate page
               </Button>
             </DialogFooter>
           </div>
         ) : (
-          <div className="space-y-4 py-2">
-            <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <BookOpen className="w-4 h-4 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">Start with a content brief</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                    Enter your target company or audience and campaign goal. AI will generate a content strategy brief with personas, value props, and messaging guidance — then you can create a page informed by the brief.
-                  </p>
-                </div>
-              </div>
-            </div>
+          <div className="space-y-6 py-1">
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-md">
+              Answer a couple of quick questions and we'll build a strategy brief — audience, value props, tone, and suggested sections — that you can turn into a page.
+            </p>
 
             <DialogFooter>
-              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              <Button variant="ghost" onClick={onClose}>Cancel</Button>
               <Button
                 onClick={onOpenBriefModal}
                 className="gap-2"
               >
                 <BookOpen className="w-4 h-4" />
-                Open Brief Generator
+                Start brief
               </Button>
             </DialogFooter>
           </div>
