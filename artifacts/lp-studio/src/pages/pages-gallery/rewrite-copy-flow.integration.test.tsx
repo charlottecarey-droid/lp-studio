@@ -168,7 +168,6 @@ function Harness({
         saveGeneratedPage={saveGeneratedPage}
         onUpdateRewrittenPage={vi.fn(async () => NEW_PAGE_ID)}
         onOpenGenerated={onOpenGenerated}
-        onOpenBriefModal={vi.fn()}
       />
     </>
   );

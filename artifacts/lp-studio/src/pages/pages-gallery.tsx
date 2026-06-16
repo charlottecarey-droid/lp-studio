@@ -227,6 +227,10 @@ export default function PagesGallery() {
   // SaaS starter templates and dental tenants see the dental ones — never
   // the wrong industry's copy.
   const [apiTemplates, setApiTemplates] = useState<ApiTemplate[]>([]);
+  // Superadmin homepage template-library ids — the default curated starting
+  // points in the create-page modal (a tenant's stars override). Stored as
+  // numeric lp_pages ids parsed from the public endpoint's `global:<id>` keys.
+  const [homepageDefaultIds, setHomepageDefaultIds] = useState<Set<number> | null>(null);
 
   const { data: runningTests = [] } = useRunningTests();
   const { data: commentSummary = [] } = useCommentSummary();
@@ -271,6 +275,25 @@ export default function PagesGallery() {
       .then((rows: ApiTemplate[]) => setApiTemplates(Array.isArray(rows) ? rows : []))
       .catch(() => setApiTemplates([]));
   }, [showCreateModal, briefModalOpen]);
+
+  // Load the superadmin homepage template library when the create modal opens so
+  // its templates drive the default starting points. Empty/failed fetch → the
+  // modal falls back to all visible templates (never an empty picker).
+  useEffect(() => {
+    if (!showCreateModal) return;
+    fetch(`${API_BASE}/lp/featured-templates`, { cache: "no-store", credentials: "include" })
+      .then(r => (r.ok ? r.json() : { templates: [] }))
+      .then((data: { templates?: { id?: string }[] }) => {
+        const ids = new Set<number>();
+        for (const t of data.templates ?? []) {
+          const raw = typeof t.id === "string" ? t.id : "";
+          const num = Number(raw.startsWith("global:") ? raw.slice(7) : raw);
+          if (Number.isInteger(num) && num > 0) ids.add(num);
+        }
+        setHomepageDefaultIds(ids);
+      })
+      .catch(() => setHomepageDefaultIds(new Set()));
+  }, [showCreateModal]);
 
   // The brief modal can be opened directly from the toolbar (skipping the
   // create modal), so also load segments here for audience-aware template
@@ -790,7 +813,9 @@ export default function PagesGallery() {
           setRewriteSource(null);
           navigate(`/builder/${pageId}`);
         }}
-        onOpenBriefModal={() => { setShowCreateModal(false); setBriefModalOpen(true); }}
+        homepageDefaultIds={homepageDefaultIds}
+        briefTemplates={briefTemplateOptions}
+        onBriefGeneratePage={handleGeneratePageFromBrief}
       />
     </AppLayout>
   );

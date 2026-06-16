@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { BookOpen, Building2, ChevronDown, Link2, Sparkles, Star, X } from "lucide-react";
+import { Building2, ChevronDown, Link2, Sparkles, Star, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +33,7 @@ import {
   slugify,
 } from "./utils";
 import type { ApiTemplate } from "./types";
+import { ContentBriefPanel, type BriefTemplateOption } from "@/components/ContentBriefModal";
 
 type CreateMode = "template" | "ai" | "brief";
 
@@ -88,7 +89,14 @@ interface Props {
   onUpdateRewrittenPage: (sourcePageId: number, result: GenerationResult) => Promise<number>;
   /** Close the modal and open /builder/<pageId>. */
   onOpenGenerated: (pageId: number) => void;
-  onOpenBriefModal: () => void;
+  /** Superadmin homepage template-library ids (numeric lp_pages ids) — the
+   *  default curated starting points. A tenant's starred (featured) templates
+   *  override this set when present. */
+  homepageDefaultIds?: Set<number> | null;
+  /** Templates offered in the inline Brief tab's "Starting Point" picker. */
+  briefTemplates?: BriefTemplateOption[];
+  /** Generate a page from the inline brief (mirrors the standalone brief modal). */
+  onBriefGeneratePage?: (prompt: string, segment?: AudienceSegment, templateId?: number | null) => Promise<void>;
 }
 
 export function CreatePageModal({
@@ -109,7 +117,9 @@ export function CreatePageModal({
   saveGeneratedPage,
   onUpdateRewrittenPage,
   onOpenGenerated,
-  onOpenBriefModal,
+  homepageDefaultIds,
+  briefTemplates,
+  onBriefGeneratePage,
 }: Props) {
   const [createMode, setCreateMode] = useState<CreateMode>(initialMode ?? "template");
   const [newTitle, setNewTitle] = useState("");
@@ -417,6 +427,27 @@ export function CreatePageModal({
     : null;
   const liveSourceName = liveGen?.sourcePageId != null ? (rewriteSource?.title ?? null) : null;
 
+  // Starting points = the superadmin homepage template library by default; a
+  // tenant overrides that set by starring its own templates (Templates page).
+  // Fall back to all visible templates only if neither is available so the
+  // picker is never empty.
+  // `homepageDefaultIds === null` means the superadmin defaults are still
+  // loading — hold off on the all-templates fallback until then so we never
+  // flash the full list before the curated set resolves.
+  const homepageDefaultsLoading = homepageDefaultIds === null;
+  const tenantFeaturedTemplates = visibleApiTemplates.filter(t => t.featured);
+  const homepageDefaultTemplates = homepageDefaultIds
+    ? visibleApiTemplates.filter(t => homepageDefaultIds.has(t.id))
+    : [];
+  const curatedTemplates = tenantFeaturedTemplates.length > 0
+    ? tenantFeaturedTemplates
+    : homepageDefaultTemplates.length > 0
+      ? homepageDefaultTemplates
+      : homepageDefaultsLoading
+        ? []
+        : visibleApiTemplates;
+  const curatedIsFeatured = tenantFeaturedTemplates.length > 0;
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
       <DialogContent
@@ -454,7 +485,7 @@ export function CreatePageModal({
         ) : (
           <>
         <DialogHeader className="space-y-3 text-left">
-          {segments.length > 0 && (
+          {segments.length > 0 && createMode !== "brief" && (
             <div className="flex items-center gap-2 text-muted-foreground">
               <span className="text-[10px] font-medium uppercase tracking-wider">Audience</span>
               <div className="relative">
@@ -473,7 +504,7 @@ export function CreatePageModal({
               </div>
             </div>
           )}
-          <DialogTitle className="font-serif text-2xl font-normal tracking-tight text-foreground">
+          <DialogTitle className="font-display text-2xl font-normal tracking-tight text-foreground">
             Create a new page
           </DialogTitle>
         </DialogHeader>
@@ -561,50 +592,20 @@ export function CreatePageModal({
                     ))}
                   </div>
                 </div>
-                {/* Featured templates — the tenant's starred starting points
-                    (managed via the star toggle on the Templates page). Shown
-                    first so curated starters are front-and-center. */}
-                {visibleApiTemplates.some(t => t.featured) && (
+                {/* Starting points — the tenant's starred (featured) templates
+                    when they have any, otherwise the superadmin homepage
+                    template library. The old full "all templates" list is gone:
+                    these curated starters are the only template starting points. */}
+                {curatedTemplates.length > 0 && (
                   <div className="space-y-2">
                     <div className="flex items-center gap-1.5">
-                      <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Featured</p>
+                      {curatedIsFeatured && <Star className="w-3 h-3 text-amber-500 fill-amber-500" />}
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                        {curatedIsFeatured ? "Featured" : "Templates"}
+                      </p>
                     </div>
                     <div className="grid grid-cols-2 gap-2.5">
-                      {visibleApiTemplates.filter(t => t.featured).map(t => {
-                        const optionId = `api:${t.id}`;
-                        return (
-                          <button
-                            key={optionId}
-                            onClick={() => setSelectedTemplate(optionId)}
-                            className={cn(
-                              "text-left px-3 py-2.5 rounded-lg border text-sm transition-all",
-                              selectedTemplate === optionId
-                                ? "border-foreground ring-1 ring-foreground bg-muted/40"
-                                : "border-input hover:border-foreground/40 hover:bg-muted/30"
-                            )}
-                          >
-                            <div className="flex items-center justify-between gap-1.5">
-                              <p className="font-medium text-[13px] text-foreground line-clamp-1">{t.templateLabel || t.title}</p>
-                              {t.isGlobal && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-muted text-muted-foreground shrink-0">Global</span>
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                {/* Industry-filtered templates from the API (global SaaS or
-                    dental templates + this tenant's saved templates). Featured
-                    ones are surfaced separately above, so they're excluded here
-                    to avoid duplication. */}
-                {visibleApiTemplates.some(t => !t.featured) && (
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Templates</p>
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {visibleApiTemplates.filter(t => !t.featured).map(t => {
+                      {curatedTemplates.map(t => {
                         const optionId = `api:${t.id}`;
                         return (
                           <button
@@ -894,20 +895,21 @@ export function CreatePageModal({
             </DialogFooter>
           </div>
         ) : (
-          <div className="space-y-6 py-1">
+          <div className="space-y-4 py-1">
             <p className="text-sm text-muted-foreground leading-relaxed max-w-md">
-              Answer a couple of quick questions and we'll build a strategy brief — audience, value props, tone, and suggested sections — that you can turn into a page.
+              Answer a couple of quick questions and we'll build a strategy brief — audience, value props, tone, and suggested sections — then generate a page straight from it.
             </p>
-
+            <div className="max-h-[60vh] overflow-y-auto pr-1">
+              <ContentBriefPanel
+                active={open && createMode === "brief"}
+                onClose={onClose}
+                onGeneratePage={onBriefGeneratePage}
+                templates={briefTemplates}
+                initialSegmentId={selectedSegmentId}
+              />
+            </div>
             <DialogFooter>
               <Button variant="ghost" onClick={onClose}>Cancel</Button>
-              <Button
-                onClick={onOpenBriefModal}
-                className="gap-2"
-              >
-                <BookOpen className="w-4 h-4" />
-                Start brief
-              </Button>
             </DialogFooter>
           </div>
         )}

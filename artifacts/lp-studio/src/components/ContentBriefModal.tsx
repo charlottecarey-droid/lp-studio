@@ -51,6 +51,19 @@ interface ContentBriefModalProps {
   templates?: BriefTemplateOption[];
 }
 
+interface ContentBriefPanelProps {
+  /** True when the panel is visible (drives the one-time brand fetch). In the
+   *  standalone modal this mirrors `open`; in the create-page modal it's true
+   *  only while the Brief tab is showing. */
+  active: boolean;
+  onClose: () => void;
+  onApply?: (brief: ContentBrief, company: string, objective: string, segment?: AudienceSegment) => void;
+  onGeneratePage?: (prompt: string, segment?: AudienceSegment, templateId?: number | null) => Promise<void>;
+  initialSegmentId?: string;
+  initialCompany?: string;
+  templates?: BriefTemplateOption[];
+}
+
 function isDsoPracticesSegment(segment: AudienceSegment | null): boolean {
   if (!segment) return false;
   const name = segment.name.toLowerCase();
@@ -119,7 +132,7 @@ function buildBrandContext(brand: BrandConfig | null) {
   return Object.keys(ctx).length > 0 ? ctx : undefined;
 }
 
-export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, initialSegmentId, initialCompany, templates }: ContentBriefModalProps) {
+export function ContentBriefPanel({ active, onClose, onApply, onGeneratePage, initialSegmentId, initialCompany, templates }: ContentBriefPanelProps) {
   const [company, setCompany] = useState(initialCompany ?? "");
   const [objective, setObjective] = useState("");
   const [loading, setLoading] = useState(false);
@@ -139,10 +152,10 @@ export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, init
   const selectedSegment = segments.find(s => s.id === selectedSegmentId) ?? null;
 
   useEffect(() => {
-    if (open && !brand) {
+    if (active && !brand) {
       fetchBrandConfig().then(setBrand).catch(() => {});
     }
-  }, [open, brand]);
+  }, [active, brand]);
 
   useEffect(() => {
     if (initialSegmentId !== undefined) setSelectedSegmentId(initialSegmentId);
@@ -256,29 +269,8 @@ export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, init
     }
   };
 
-  const handleClose = () => {
-    onClose();
-    if (!brief) {
-      setCompany(initialCompany ?? "");
-      setObjective("");
-      setError(null);
-      setExtraContext("");
-    }
-  };
-
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-            </div>
-            AI Content Brief
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1">
+    <div className="space-y-4">
           {/* Input form */}
           <div className="rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4 space-y-3">
             {segments.length > 0 && (
@@ -574,6 +566,32 @@ export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, init
               </div>
             </div>
           )}
+    </div>
+  );
+}
+
+export function ContentBriefModal({ open, onClose, onApply, onGeneratePage, initialSegmentId, initialCompany, templates }: ContentBriefModalProps) {
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
+            </div>
+            AI Content Brief
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+          <ContentBriefPanel
+            active={open}
+            onClose={onClose}
+            onApply={onApply}
+            onGeneratePage={onGeneratePage}
+            initialSegmentId={initialSegmentId}
+            initialCompany={initialCompany}
+            templates={templates}
+          />
         </div>
       </DialogContent>
     </Dialog>
