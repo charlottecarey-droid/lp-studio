@@ -701,3 +701,9 @@ id = "AdzAW7zWgEbFPKkV8azQ4"
 uri = "file://.local/why-visit-block.txt"
 type = "text"
 title = "Why visit block — Bagoss headings + Inter body"
+
+[[outputs]]
+id = "SgSId1rMj9wXI4G64bNMl"
+uri = "file://exports/launch-video/lpstudio-product-hunt-launch.mp4"
+type = "video"
+title = "LP Studio — Product Hunt Launch Video"
