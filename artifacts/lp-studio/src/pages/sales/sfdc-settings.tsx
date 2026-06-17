@@ -17,6 +17,15 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,6 +70,107 @@ interface FieldMapping {
   localField: string;
   active: boolean;
 }
+
+// Per-object inbound sync filters (Task #1356). The form keeps everything as
+// strings; helpers below convert to/from the API's typed shape. An empty form
+// means "sync everything".
+interface SyncFiltersForm {
+  accountTypes: string;
+  accountIndustries: string;
+  accountOwners: string;
+  contactCreatedWithinYears: string;
+  leadStatuses: string;
+  leadCreatedWithinYears: string;
+  oppStages: string;
+  oppClosedWithinYears: string;
+  oppStatus: "all" | "open" | "won";
+}
+
+const EMPTY_FILTERS_FORM: SyncFiltersForm = {
+  accountTypes: "",
+  accountIndustries: "",
+  accountOwners: "",
+  contactCreatedWithinYears: "",
+  leadStatuses: "",
+  leadCreatedWithinYears: "",
+  oppStages: "",
+  oppClosedWithinYears: "",
+  oppStatus: "all",
+};
+
+const NO_WINDOW = "none";
+
+// Comma-separated text -> trimmed, de-duped string array (or undefined).
+function parseList(csv: string): string[] | undefined {
+  const items = csv
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const unique = Array.from(new Set(items));
+  return unique.length > 0 ? unique : undefined;
+}
+
+function parseYears(value: string): number | undefined {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 1 && n <= 50 ? n : undefined;
+}
+
+// Build the API payload, omitting empty objects/fields entirely.
+function buildFiltersPayload(form: SyncFiltersForm): Record<string, unknown> {
+  const payload: Record<string, unknown> = {};
+
+  const accounts: Record<string, unknown> = {};
+  if (parseList(form.accountTypes)) accounts.types = parseList(form.accountTypes);
+  if (parseList(form.accountIndustries)) accounts.industries = parseList(form.accountIndustries);
+  if (parseList(form.accountOwners)) accounts.owners = parseList(form.accountOwners);
+  if (Object.keys(accounts).length > 0) payload.accounts = accounts;
+
+  const contactYears = parseYears(form.contactCreatedWithinYears);
+  if (contactYears) payload.contacts = { createdWithinYears: contactYears };
+
+  const leads: Record<string, unknown> = {};
+  if (parseList(form.leadStatuses)) leads.statuses = parseList(form.leadStatuses);
+  const leadYears = parseYears(form.leadCreatedWithinYears);
+  if (leadYears) leads.createdWithinYears = leadYears;
+  if (Object.keys(leads).length > 0) payload.leads = leads;
+
+  const opportunities: Record<string, unknown> = {};
+  if (parseList(form.oppStages)) opportunities.stages = parseList(form.oppStages);
+  const oppYears = parseYears(form.oppClosedWithinYears);
+  if (oppYears) opportunities.closedWithinYears = oppYears;
+  if (form.oppStatus !== "all") opportunities.status = form.oppStatus;
+  if (Object.keys(opportunities).length > 0) payload.opportunities = opportunities;
+
+  return payload;
+}
+
+// Convert the API's typed shape back into the string-based form.
+function filtersToForm(data: any): SyncFiltersForm {
+  const f: SyncFiltersForm = { ...EMPTY_FILTERS_FORM };
+  if (!data || typeof data !== "object") return f;
+  const list = (v: unknown) => (Array.isArray(v) ? v.join(", ") : "");
+  const years = (v: unknown) => (typeof v === "number" ? String(v) : "");
+  if (data.accounts) {
+    f.accountTypes = list(data.accounts.types);
+    f.accountIndustries = list(data.accounts.industries);
+    f.accountOwners = list(data.accounts.owners);
+  }
+  if (data.contacts) f.contactCreatedWithinYears = years(data.contacts.createdWithinYears);
+  if (data.leads) {
+    f.leadStatuses = list(data.leads.statuses);
+    f.leadCreatedWithinYears = years(data.leads.createdWithinYears);
+  }
+  if (data.opportunities) {
+    f.oppStages = list(data.opportunities.stages);
+    f.oppClosedWithinYears = years(data.opportunities.closedWithinYears);
+    if (data.opportunities.status === "open" || data.opportunities.status === "won") {
+      f.oppStatus = data.opportunities.status;
+    }
+  }
+  return f;
+}
+
+const YEAR_WINDOW_OPTIONS = [1, 2, 3, 5, 10];
 
 function ConnectionStatusBadge({ status }: { status?: string }) {
   switch (status) {
@@ -132,6 +242,14 @@ export default function SfdcSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState<string | null>(null);
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
+  const [filtersForm, setFiltersForm] = useState<SyncFiltersForm>(EMPTY_FILTERS_FORM);
+  const [savingFilters, setSavingFilters] = useState(false);
+  const [filtersSaved, setFiltersSaved] = useState(false);
+
+  function updateFilter<K extends keyof SyncFiltersForm>(key: K, value: SyncFiltersForm[K]) {
+    setFiltersSaved(false);
+    setFiltersForm((prev) => ({ ...prev, [key]: value }));
+  }
 
   // Fetch connection status
   useEffect(() => {
@@ -141,10 +259,11 @@ export default function SfdcSettingsPage() {
   async function fetchConnectionStatus() {
     try {
       setLoading(true);
-      const [connRes, logsRes, mappingsRes] = await Promise.all([
+      const [connRes, logsRes, mappingsRes, filtersRes] = await Promise.all([
         fetch(`${API_BASE}/sales/sfdc/connection`),
         fetch(`${API_BASE}/sales/sfdc/sync/log`),
         fetch(`${API_BASE}/sales/sfdc/field-mappings`),
+        fetch(`${API_BASE}/sales/sfdc/sync-filters`),
       ]);
 
       if (connRes.ok) {
@@ -160,6 +279,11 @@ export default function SfdcSettingsPage() {
       if (mappingsRes.ok) {
         const mappings = await mappingsRes.json();
         setFieldMappings(Array.isArray(mappings) ? mappings : []);
+      }
+
+      if (filtersRes.ok) {
+        const filters = await filtersRes.json();
+        setFiltersForm(filtersToForm(filters));
       }
     } catch (error) {
       console.error("Failed to fetch SFDC settings:", error);
@@ -235,6 +359,29 @@ export default function SfdcSettingsPage() {
       await fetchConnectionStatus();
     } catch (error) {
       console.error("Failed to update field mapping:", error);
+    }
+  }
+
+  async function handleSaveFilters() {
+    try {
+      setSavingFilters(true);
+      setFiltersSaved(false);
+      const res = await fetch(`${API_BASE}/sales/sfdc/sync-filters`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildFiltersPayload(filtersForm)),
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        setFiltersForm(filtersToForm(saved));
+        setFiltersSaved(true);
+      } else {
+        console.error("Failed to save sync filters:", res.status);
+      }
+    } catch (error) {
+      console.error("Failed to save sync filters:", error);
+    } finally {
+      setSavingFilters(false);
     }
   }
 
@@ -379,6 +526,205 @@ export default function SfdcSettingsPage() {
                       </Button>
                     ))}
                   </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Sync Filters Card */}
+            <Card className="p-6 border border-border/40 bg-card/50 backdrop-blur-sm">
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold flex items-center gap-3">
+                  <RefreshCw className="w-5 h-5 text-sky-500" />
+                  Sync Filters
+                </h2>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Limit which records each sync pulls from Salesforce. Leave a field
+                  blank to sync everything for that object. Separate multiple values
+                  with commas.
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                {/* Accounts */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold">Accounts</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="acct-types">Types</Label>
+                      <Input
+                        id="acct-types"
+                        placeholder="e.g. Customer, Partner"
+                        value={filtersForm.accountTypes}
+                        onChange={(e) => updateFilter("accountTypes", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="acct-industries">Industries</Label>
+                      <Input
+                        id="acct-industries"
+                        placeholder="e.g. Healthcare, Finance"
+                        value={filtersForm.accountIndustries}
+                        onChange={(e) => updateFilter("accountIndustries", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="acct-owners">Owner names</Label>
+                      <Input
+                        id="acct-owners"
+                        placeholder="e.g. Jane Doe"
+                        value={filtersForm.accountOwners}
+                        onChange={(e) => updateFilter("accountOwners", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Contacts are limited to the accounts matching these filters.
+                  </p>
+                </div>
+
+                <Separator />
+
+                {/* Contacts */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold">Contacts</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Created within</Label>
+                      <Select
+                        value={filtersForm.contactCreatedWithinYears || NO_WINDOW}
+                        onValueChange={(v) =>
+                          updateFilter("contactCreatedWithinYears", v === NO_WINDOW ? "" : v)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Any time" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NO_WINDOW}>Any time</SelectItem>
+                          {YEAR_WINDOW_OPTIONS.map((y) => (
+                            <SelectItem key={y} value={String(y)}>
+                              Last {y} {y === 1 ? "year" : "years"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Leads */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold">Leads</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="lead-statuses">Statuses</Label>
+                      <Input
+                        id="lead-statuses"
+                        placeholder="e.g. Open, Working"
+                        value={filtersForm.leadStatuses}
+                        onChange={(e) => updateFilter("leadStatuses", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Created within</Label>
+                      <Select
+                        value={filtersForm.leadCreatedWithinYears || NO_WINDOW}
+                        onValueChange={(v) =>
+                          updateFilter("leadCreatedWithinYears", v === NO_WINDOW ? "" : v)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Any time" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NO_WINDOW}>Any time</SelectItem>
+                          {YEAR_WINDOW_OPTIONS.map((y) => (
+                            <SelectItem key={y} value={String(y)}>
+                              Last {y} {y === 1 ? "year" : "years"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Opportunities */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold">Opportunities</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="opp-stages">Stages</Label>
+                      <Input
+                        id="opp-stages"
+                        placeholder="e.g. Prospecting, Closed Won"
+                        value={filtersForm.oppStages}
+                        onChange={(e) => updateFilter("oppStages", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Close date within</Label>
+                      <Select
+                        value={filtersForm.oppClosedWithinYears || NO_WINDOW}
+                        onValueChange={(v) =>
+                          updateFilter("oppClosedWithinYears", v === NO_WINDOW ? "" : v)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Any time" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NO_WINDOW}>Any time</SelectItem>
+                          {YEAR_WINDOW_OPTIONS.map((y) => (
+                            <SelectItem key={y} value={String(y)}>
+                              Last {y} {y === 1 ? "year" : "years"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Show</Label>
+                      <Select
+                        value={filtersForm.oppStatus}
+                        onValueChange={(v) =>
+                          updateFilter("oppStatus", v as "all" | "open" | "won")
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All opportunities</SelectItem>
+                          <SelectItem value="open">Open only</SelectItem>
+                          <SelectItem value="won">Won only</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center gap-3">
+                  <Button onClick={handleSaveFilters} disabled={savingFilters} className="gap-2">
+                    {savingFilters ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4" />
+                    )}
+                    {savingFilters ? "Saving..." : "Save Filters"}
+                  </Button>
+                  {filtersSaved && !savingFilters && (
+                    <span className="text-sm text-emerald-600 flex items-center gap-1">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Saved
+                    </span>
+                  )}
                 </div>
               </div>
             </Card>

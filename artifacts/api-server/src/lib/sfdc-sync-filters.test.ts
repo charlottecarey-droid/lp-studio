@@ -73,7 +73,9 @@ describe("sfdc-sync-filters SOQL injection safety", () => {
     });
     // The malicious quote is escaped, so the whole payload stays one literal.
     expect(clause).toBe("Type IN ('Enterprise\\') OR (Name LIKE \\'%')");
-    expect(clause).not.toMatch(/'\) OR \(/);
+    // Every quote from the value is backslash-escaped (no early terminator).
+    expect(clause).toContain("Enterprise\\')");
+    expect(clause).toContain("LIKE \\'%");
   });
 
   it("strips control characters from values", () => {

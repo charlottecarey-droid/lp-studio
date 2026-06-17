@@ -6,6 +6,7 @@ import { logger } from "../../lib/logger";
 import { encryptCredential } from "../../lib/encryption";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { signSfdcState, verifySfdcState } from "../../lib/sfdc-oauth-state";
+import { parseSyncFilters } from "../../lib/sfdc-sync-filters";
 
 const router = Router();
 
@@ -404,6 +405,70 @@ router.put("/sfdc/field-mappings", requireAuth, async (req, res): Promise<void> 
   } catch (err) {
     logger.error(err, "Error creating field mapping");
     res.status(500).json({ error: "Failed to create field mapping" });
+  }
+});
+
+/**
+ * GET /sfdc/sync-filters
+ * Get the per-object inbound sync filters for the current connection (Task #1356).
+ * Returns an empty object ({}) when no connection or no filters are set, which
+ * means "sync everything".
+ */
+router.get("/sfdc/sync-filters", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  try {
+    const [connection] = await db
+      .select({ syncFilters: sfdcConnectionsTable.syncFilters })
+      .from(sfdcConnectionsTable)
+      .where(eq(sfdcConnectionsTable.tenantId, tenantId))
+      .orderBy(desc(sfdcConnectionsTable.createdAt))
+      .limit(1);
+
+    res.json(connection?.syncFilters ?? {});
+  } catch (err) {
+    logger.error(err, "Error fetching sync filters");
+    res.status(500).json({ error: "Failed to fetch sync filters" });
+  }
+});
+
+/**
+ * PUT /sfdc/sync-filters
+ * Replace the per-object inbound sync filters for the current connection.
+ * The payload is validated + normalised by parseSyncFilters (fails closed on
+ * any invalid shape); an empty object clears all filters ("sync everything").
+ */
+router.put("/sfdc/sync-filters", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+
+  const filters = parseSyncFilters(req.body);
+  if (filters === null) {
+    res.status(400).json({ error: "Invalid sync filters" });
+    return;
+  }
+
+  try {
+    const [connection] = await db
+      .select()
+      .from(sfdcConnectionsTable)
+      .where(eq(sfdcConnectionsTable.tenantId, tenantId))
+      .orderBy(desc(sfdcConnectionsTable.createdAt))
+      .limit(1);
+
+    if (!connection) {
+      res.status(404).json({ error: "No SFDC connection found" });
+      return;
+    }
+
+    await db
+      .update(sfdcConnectionsTable)
+      .set({ syncFilters: filters })
+      .where(eq(sfdcConnectionsTable.id, connection.id));
+
+    logger.info({ connectionId: connection.id }, "Updated SFDC sync filters");
+    res.json(filters);
+  } catch (err) {
+    logger.error(err, "Error updating sync filters");
+    res.status(500).json({ error: "Failed to update sync filters" });
   }
 });
 

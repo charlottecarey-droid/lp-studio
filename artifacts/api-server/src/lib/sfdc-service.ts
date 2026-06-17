@@ -4,7 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { logger } from "./logger";
 import { encryptCredential, decryptCredential } from "./encryption";
-import { applyWhere, buildAccountWhere, buildContactWhere, buildLeadWhere, buildOpportunityWhere } from "./sfdc-sync-filters";
+import { applyWhere, buildAccountWhere, buildContactWhere, buildLeadWhere, buildOpportunityWhere, parseSyncFilters } from "./sfdc-sync-filters";
 
 const SFDC_AUTH_URL = "https://login.salesforce.com";
 const SFDC_API_VERSION = "v59.0";
@@ -255,7 +255,9 @@ export class SfdcService {
       .select({ syncFilters: sfdcConnectionsTable.syncFilters })
       .from(sfdcConnectionsTable)
       .where(eq(sfdcConnectionsTable.id, connectionId));
-    return (row?.syncFilters as SfdcSyncFilters | undefined) ?? {};
+    // Re-validate on read so a malformed/legacy row can never reach the SOQL
+    // builders; an invalid shape falls back to "sync everything" ({}).
+    return parseSyncFilters(row?.syncFilters) ?? {};
   }
 
   /**
@@ -589,7 +591,10 @@ export class SfdcService {
       .returning())[0]?.id;
 
     try {
-      const soql = "SELECT Id, AccountId, Name, Amount, StageName, Probability, CloseDate, Type, OwnerId, Owner.Name, IsClosed, IsWon FROM Opportunity LIMIT 10000";
+      const soql = applyWhere(
+        "SELECT Id, AccountId, Name, Amount, StageName, Probability, CloseDate, Type, OwnerId, Owner.Name, IsClosed, IsWon FROM Opportunity LIMIT 10000",
+        buildOpportunityWhere(await this.getSyncFilters(connectionId)),
+      );
       const result = await this.querySalesforce(connectionId, soql);
 
       let created = 0;
