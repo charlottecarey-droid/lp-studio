@@ -6,6 +6,36 @@ import { salesContactsTable } from "./salesContacts";
 import { tenantsTable } from "./tenants";
 
 /**
+ * Per-object inbound sync filters stored on a connection's `sync_filters`
+ * column (Task #1356). An empty object — or any omitted object/field — means
+ * "sync everything" for that object, preserving the original behaviour.
+ *
+ * These values are user-supplied and end up in a Salesforce SOQL WHERE clause,
+ * so they MUST be validated and escaped before interpolation. The canonical
+ * validator + SOQL builder lives in api-server `lib/sfdc-sync-filters.ts`;
+ * this interface only describes the persisted shape.
+ */
+export interface SfdcSyncFilters {
+  accounts?: {
+    types?: string[];       // Account.Type IN (...)
+    industries?: string[];  // Account.Industry IN (...)
+    owners?: string[];      // Account.Owner.Name IN (...)
+  };
+  contacts?: {
+    createdWithinYears?: number; // CreatedDate >= N years ago
+  };
+  leads?: {
+    statuses?: string[];         // Status IN (...)
+    createdWithinYears?: number; // CreatedDate >= N years ago
+  };
+  opportunities?: {
+    stages?: string[];               // StageName IN (...)
+    closedWithinYears?: number;      // CloseDate >= N years ago
+    status?: "all" | "open" | "won"; // open → IsClosed=false, won → IsWon=true
+  };
+}
+
+/**
  * SFDC Connection — stores OAuth credentials and sync state for Salesforce.
  * One row per (tenant, org) pair — each tenant can connect their own Salesforce org.
  */
@@ -21,6 +51,12 @@ export const sfdcConnectionsTable = pgTable("sfdc_connections", {
   lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
   lastSyncError: text("last_sync_error"),
   syncEnabled: boolean("sync_enabled").notNull().default(true),
+  // Per-object inbound sync filters (Task #1356). When a per-object filter is
+  // set, that object's manual sync only pulls the matching subset from
+  // Salesforce instead of ALL records. An empty object ({}) means "sync
+  // everything" — the original behaviour. Values are validated/escaped before
+  // they reach a SOQL WHERE clause (see api-server lib/sfdc-sync-filters.ts).
+  syncFilters: jsonb("sync_filters").$type<SfdcSyncFilters>().notNull().default({}),
   metadata: jsonb("metadata").default({}),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

@@ -1,8 +1,10 @@
 import { db, sfdcConnectionsTable, sfdcFieldMappingsTable, sfdcSyncLogTable, sfdcLeadsTable, sfdcOpportunitiesTable, salesAccountsTable, salesContactsTable } from "@workspace/db";
+import type { SfdcSyncFilters } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { logger } from "./logger";
 import { encryptCredential, decryptCredential } from "./encryption";
+import { applyWhere, buildAccountWhere, buildContactWhere, buildLeadWhere, buildOpportunityWhere } from "./sfdc-sync-filters";
 
 const SFDC_AUTH_URL = "https://login.salesforce.com";
 const SFDC_API_VERSION = "v59.0";
@@ -245,6 +247,18 @@ export class SfdcService {
   }
 
   /**
+   * Load the per-object inbound sync filters saved on a connection (Task #1356).
+   * Returns an empty object — meaning "sync everything" — when none are set.
+   */
+  private async getSyncFilters(connectionId: number): Promise<SfdcSyncFilters> {
+    const [row] = await db
+      .select({ syncFilters: sfdcConnectionsTable.syncFilters })
+      .from(sfdcConnectionsTable)
+      .where(eq(sfdcConnectionsTable.id, connectionId));
+    return (row?.syncFilters as SfdcSyncFilters | undefined) ?? {};
+  }
+
+  /**
    * Sync Salesforce Accounts into sales_accounts table.
    */
   async syncAccounts(connectionId: number, tenantId: number = 1): Promise<{ created: number; updated: number }> {
@@ -261,7 +275,10 @@ export class SfdcService {
       .returning())[0]?.id;
 
     try {
-      const soql = "SELECT Id, Name, Website, Industry, Type, OwnerId, Owner.Name, BillingCity, BillingState FROM Account LIMIT 10000";
+      const soql = applyWhere(
+        "SELECT Id, Name, Website, Industry, Type, OwnerId, Owner.Name, BillingCity, BillingState FROM Account LIMIT 10000",
+        buildAccountWhere(await this.getSyncFilters(connectionId)),
+      );
       const result = await this.querySalesforce(connectionId, soql);
 
       let created = 0;
@@ -360,7 +377,10 @@ export class SfdcService {
       .returning())[0]?.id;
 
     try {
-      const soql = "SELECT Id, AccountId, FirstName, LastName, Email, Title, Phone FROM Contact LIMIT 10000";
+      const soql = applyWhere(
+        "SELECT Id, AccountId, FirstName, LastName, Email, Title, Phone FROM Contact LIMIT 10000",
+        buildContactWhere(await this.getSyncFilters(connectionId)),
+      );
       const result = await this.querySalesforce(connectionId, soql);
 
       let created = 0;
@@ -464,7 +484,10 @@ export class SfdcService {
       .returning())[0]?.id;
 
     try {
-      const soql = "SELECT Id, FirstName, LastName, Email, Company, Title, Phone, Status, LeadSource, Industry, Rating FROM Lead LIMIT 10000";
+      const soql = applyWhere(
+        "SELECT Id, FirstName, LastName, Email, Company, Title, Phone, Status, LeadSource, Industry, Rating FROM Lead LIMIT 10000",
+        buildLeadWhere(await this.getSyncFilters(connectionId)),
+      );
       const result = await this.querySalesforce(connectionId, soql);
 
       let created = 0;

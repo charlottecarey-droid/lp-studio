@@ -729,6 +729,13 @@
       "when": 1755700000000,
       "tag": "0103_lp_tenant_featured_templates",
       "breakpoints": false
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1755800000000,
+      "tag": "0104_sfdc_sync_filters",
+      "breakpoints": false
     }
   ]
 }
