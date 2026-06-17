@@ -707,3 +707,9 @@ id = "SgSId1rMj9wXI4G64bNMl"
 uri = "file://exports/launch-video/lpstudio-product-hunt-launch.mp4"
 type = "video"
 title = "LP Studio — Product Hunt Launch Video"
+
+[[outputs]]
+id = "zJCBL2iBzI0Z9NLNRZIGL"
+uri = "file://exports/launch-video/voiceover-script.md"
+type = "text"
+title = "LP Studio — Product Hunt Voiceover Script"
