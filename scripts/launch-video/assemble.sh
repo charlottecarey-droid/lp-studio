@@ -5,7 +5,7 @@ BASE=assets/launch-video
 OUT=exports/launch-video
 mkdir -p "$OUT"
 
-DEMO="$BASE/demo_2x.mp4"
+DEMO="$BASE/demo_2x_cut.mp4"
 INTRO="$BASE/cards/intro.png"
 OUTRO="$BASE/cards/outro.png"
 FINAL="$OUT/lpstudio-product-hunt-launch.mp4"
