@@ -42,7 +42,7 @@ convert "$OUT/intro_base.png" \
   "$OUT/mark.png" -gravity center -geometry +0-210 -composite \
   "$OUT/wordmark.png" -gravity center -geometry +0-10 -composite \
   -font "$INTR" -pointsize 44 -fill "$MUTED" -gravity center \
-    -annotate +0+95 "The AI Revenue Workspace for One-Team GTM" \
+    -annotate +0+95 "Skip the brief. Ship the page." \
   "$OUT/accent.png" -gravity center -geometry +0+165 -composite \
   "$OUT/intro.png"
 
