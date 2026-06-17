@@ -38,6 +38,10 @@ args = "tc-api"
 task = "workflow.run"
 args = "tc-lp"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "render-2x"
+
 [[workflows.workflow]]
 name = "img-test"
 author = "agent"
@@ -81,6 +85,17 @@ isValidation = true
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/lp-studio run typecheck"
+
+[[workflows.workflow]]
+name = "render-2x"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash scripts/launch-video/render_2x.sh"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [agent]
 stack = "PNPM_WORKSPACE"
