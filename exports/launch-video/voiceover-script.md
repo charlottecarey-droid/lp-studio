@@ -32,33 +32,33 @@
 > *(beat)* You can save your own templates, too, so no one starts from a blank page. Anyone — from your sales team to your events manager — can build an on-brand landing page… or ten… in seconds.
 
 **[1:16 — page starts building]**
-> And it builds. Copy, layout, sections, imagery — a real page, coming together in moments.
+> And it builds. Copy, layout, sections, imagery — a real page, in seconds.
 
-**[~1:25–1:37 — reviewing, unsure about the hero]**
-> This is close… but I'm not sold on the hero. *(beat)* So I'll shuffle the layout.
+**[1:28–1:38 — first draft on screen (collaboration hero)]**
+> This is close… but I'm not sold on the hero.
 
-**[1:37–1:59 — shuffle, then reshuffle]**
-> Hmm — not quite. *(beat)* Again… there, that's better. The hero image is a little off, but that's an easy fix.
+**[1:38–1:50 — it regenerates (first reshuffle)]**
+> So I shuffle the layout. *(beat)* Hmm — not quite.
 
-**[1:59 — open in builder]**
+**[1:50–2:00 — second draft lands, the better one]**
+> Again… *(beat)* there, that's better. The hero image is a little off, but that's an easy fix.
+
+**[2:00 — open in builder]**
 > So I'll open it in the builder.
 
-**[1:59–2:22 — swap hero image, grid 3 → 2 columns]**
-> Drop in a better hero image… *(beat)* and take this grid from three columns down to two. Everything stays clean and on brand as I go.
+**[2:02–2:22 — Media Library: swap hero image, grid 3 → 2 columns]**
+> I'll drop in a better hero image, and take this grid from three columns to two.
+> *(beat)* And here's what most tools miss — a landing page is just one surface. The same workspace runs your microsites, your email, and your lead capture, too.
 
-**[2:22 — publish]**
-> And… publish.
+**[2:22–2:34 — publish, then scroll the finished page]**
+> And… publish. *(beat)* It even tells you who — not just which account — is engaging, and syncs it straight back to the tools your team already uses.
 
-**[2:22–2:33 — scrolling the finished page]**
-> From a URL to a finished, on-brand landing page — in under three minutes.
-> *(beat)* And landing pages are just the start — the same workspace runs your ABM microsites, your email campaigns, your lead capture straight into your CRM, and the analytics that tie it all together. This means LP Studio can tell you *who* — not just which account — is engaging, and sync that back to the platforms your team uses every day.
-
-**[2:33 — outro: "We're live on Product Hunt"]**
+**[2:34 — outro: "We're live on Product Hunt"]**
 > We're live on Product Hunt today. If this is how you wish landing pages worked… *(beat)* give us an upvote. It means everything.
 
 ---
 
 ### Recording notes
-- The closing block (2:22–2:33) is the densest stretch. If it feels rushed against the scroll, move the "microsites / email / analytics" list up into the brand-settings beat (0:39–0:53) and let the close keep only the "who, not which account" line.
-- If the prompt-to-build stretch (0:57–1:16) runs longer on screen than the words, that's fine — let the beats breathe; the section is written to fill extra time.
-- Pace target is a calm ~2 to 2.5 words per second with the pauses built in.
+- The back half is now spread across the real on-screen beats: two regenerations (1:38, then the lead-in to the 2:00 draft), builder edits 2:00–2:22, publish + scroll 2:22–2:34, card at 2:34.
+- The bigger-platform line now rides over the builder edits (2:00–2:22) where there's slack, so the ending isn't crammed — the close keeps only the "who, not which account" punch.
+- The front half (through "And it builds") is unchanged. Pace target is a calm ~1.7–2.2 words per second with the pauses built in.
