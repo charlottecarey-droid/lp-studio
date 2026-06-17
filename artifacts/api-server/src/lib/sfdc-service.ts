@@ -247,6 +247,44 @@ export class SfdcService {
   }
 
   /**
+   * Preview how many records each object's CURRENT filter would match, without
+   * syncing anything (Task #1357). The WHERE clauses come from the same
+   * injection-safe builders the real sync uses, so an empty filter counts the
+   * full object. Each object is counted independently and falls back to null on
+   * error (e.g. a missing object permission) so one failure doesn't sink the
+   * whole preview.
+   */
+  async countSyncRecords(
+    connectionId: number,
+    filters: SfdcSyncFilters,
+  ): Promise<{ accounts: number | null; contacts: number | null; leads: number | null; opportunities: number | null }> {
+    const [accounts, contacts, leads, opportunities] = await Promise.all([
+      this.countObject(connectionId, "Account", buildAccountWhere(filters)),
+      this.countObject(connectionId, "Contact", buildContactWhere(filters)),
+      this.countObject(connectionId, "Lead", buildLeadWhere(filters)),
+      this.countObject(connectionId, "Opportunity", buildOpportunityWhere(filters)),
+    ]);
+    return { accounts, contacts, leads, opportunities };
+  }
+
+  /**
+   * Run a single SOQL COUNT() for one object. The object name is an internal
+   * literal (never user input); the WHERE clause is pre-escaped by the filter
+   * builders. Salesforce returns the match count in `totalSize` with an empty
+   * `records` array. Returns null if the count query fails.
+   */
+  private async countObject(connectionId: number, object: string, where: string): Promise<number | null> {
+    try {
+      const soql = applyWhere(`SELECT COUNT() FROM ${object}`, where);
+      const result = await this.querySalesforce(connectionId, soql);
+      return typeof result.totalSize === "number" ? result.totalSize : null;
+    } catch (err) {
+      logger.error({ connectionId, object, err }, "Error counting SFDC records");
+      return null;
+    }
+  }
+
+  /**
    * Load the per-object inbound sync filters saved on a connection (Task #1356).
    * Returns an empty object — meaning "sync everything" — when none are set.
    */

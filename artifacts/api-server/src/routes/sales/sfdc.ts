@@ -473,6 +473,38 @@ router.put("/sfdc/sync-filters", requireAuth, async (req, res): Promise<void> =>
 });
 
 /**
+ * POST /sfdc/sync-filters/preview-count
+ * Preview how many records each object's filter would match WITHOUT syncing
+ * (Task #1357). The body is the same filter payload as PUT /sfdc/sync-filters
+ * (validated + escaped via parseSyncFilters, fails closed on any invalid
+ * shape); an empty body counts every record. Counts come from Salesforce SOQL
+ * COUNT() using the same injection-safe WHERE builders the real sync uses.
+ */
+router.post("/sfdc/sync-filters/preview-count", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+
+  const filters = parseSyncFilters(req.body);
+  if (filters === null) {
+    res.status(400).json({ error: "Invalid sync filters" });
+    return;
+  }
+
+  try {
+    const connection = await sfdcService.getActiveConnection(tenantId);
+    if (!connection) {
+      res.status(404).json({ error: "No active SFDC connection found" });
+      return;
+    }
+
+    const counts = await sfdcService.countSyncRecords(connection.id, filters);
+    res.json(counts);
+  } catch (err) {
+    logger.error(err, "Error previewing sync filter counts");
+    res.status(500).json({ error: "Failed to preview sync filter counts" });
+  }
+});
+
+/**
  * GET /sfdc/leads
  * List synced SFDC Leads (scoped to caller's tenant).
  */

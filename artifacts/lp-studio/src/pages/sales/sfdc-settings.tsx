@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Clock,
   AlertTriangle,
+  Calculator,
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -172,6 +173,22 @@ function filtersToForm(data: any): SyncFiltersForm {
 
 const YEAR_WINDOW_OPTIONS = [1, 2, 3, 5, 10];
 
+// Per-object record counts returned by the preview endpoint. A null count means
+// the count query for that object failed (e.g. missing permission).
+interface PreviewCounts {
+  accounts: number | null;
+  contacts: number | null;
+  leads: number | null;
+  opportunities: number | null;
+}
+
+const PREVIEW_OBJECTS: { key: keyof PreviewCounts; label: string }[] = [
+  { key: "accounts", label: "Accounts" },
+  { key: "contacts", label: "Contacts" },
+  { key: "leads", label: "Leads" },
+  { key: "opportunities", label: "Opportunities" },
+];
+
 function ConnectionStatusBadge({ status }: { status?: string }) {
   switch (status) {
     case "connected":
@@ -245,9 +262,16 @@ export default function SfdcSettingsPage() {
   const [filtersForm, setFiltersForm] = useState<SyncFiltersForm>(EMPTY_FILTERS_FORM);
   const [savingFilters, setSavingFilters] = useState(false);
   const [filtersSaved, setFiltersSaved] = useState(false);
+  const [previewCounts, setPreviewCounts] = useState<PreviewCounts | null>(null);
+  const [previewingCounts, setPreviewingCounts] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   function updateFilter<K extends keyof SyncFiltersForm>(key: K, value: SyncFiltersForm[K]) {
     setFiltersSaved(false);
+    // The previewed counts no longer reflect the edited filters — clear them so
+    // a stale number can't be mistaken for the current filter's impact.
+    setPreviewCounts(null);
+    setPreviewError(null);
     setFiltersForm((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -382,6 +406,30 @@ export default function SfdcSettingsPage() {
       console.error("Failed to save sync filters:", error);
     } finally {
       setSavingFilters(false);
+    }
+  }
+
+  async function handlePreviewCounts() {
+    try {
+      setPreviewingCounts(true);
+      setPreviewError(null);
+      const res = await fetch(`${API_BASE}/sales/sfdc/sync-filters/preview-count`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildFiltersPayload(filtersForm)),
+      });
+      if (res.ok) {
+        setPreviewCounts(await res.json());
+      } else {
+        setPreviewCounts(null);
+        setPreviewError("Couldn't preview counts. Check your Salesforce connection and try again.");
+      }
+    } catch (error) {
+      console.error("Failed to preview sync filter counts:", error);
+      setPreviewCounts(null);
+      setPreviewError("Couldn't preview counts. Check your Salesforce connection and try again.");
+    } finally {
+      setPreviewingCounts(false);
     }
   }
 
@@ -710,20 +758,62 @@ export default function SfdcSettingsPage() {
 
                 <Separator />
 
-                <div className="flex items-center gap-3">
-                  <Button onClick={handleSaveFilters} disabled={savingFilters} className="gap-2">
-                    {savingFilters ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="w-4 h-4" />
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button onClick={handleSaveFilters} disabled={savingFilters} className="gap-2">
+                      {savingFilters ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4" />
+                      )}
+                      {savingFilters ? "Saving..." : "Save Filters"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handlePreviewCounts}
+                      disabled={previewingCounts}
+                      className="gap-2"
+                    >
+                      {previewingCounts ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Calculator className="w-4 h-4" />
+                      )}
+                      {previewingCounts ? "Counting..." : "Preview count"}
+                    </Button>
+                    {filtersSaved && !savingFilters && (
+                      <span className="text-sm text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 className="w-4 h-4" />
+                        Saved
+                      </span>
                     )}
-                    {savingFilters ? "Saving..." : "Save Filters"}
-                  </Button>
-                  {filtersSaved && !savingFilters && (
-                    <span className="text-sm text-emerald-600 flex items-center gap-1">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Saved
-                    </span>
+                  </div>
+
+                  {previewError && (
+                    <p className="text-sm text-red-600 flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4" />
+                      {previewError}
+                    </p>
+                  )}
+
+                  {previewCounts && (
+                    <div className="rounded-lg border border-border/40 bg-muted/30 p-4">
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Records that would sync with the current filters:
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {PREVIEW_OBJECTS.map(({ key, label }) => (
+                          <div key={key} className="text-center">
+                            <div className="text-2xl font-semibold tabular-nums">
+                              {previewCounts[key] === null
+                                ? "—"
+                                : previewCounts[key]!.toLocaleString()}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
