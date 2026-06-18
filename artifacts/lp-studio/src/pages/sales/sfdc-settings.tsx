@@ -173,6 +173,30 @@ function filtersToForm(data: any): SyncFiltersForm {
 
 const YEAR_WINDOW_OPTIONS = [1, 2, 3, 5, 10];
 
+// Which objects currently have an active filter. A 0-count only signals a
+// "filter excludes everything" problem when a filter is actually applied to
+// that object — otherwise a 0 just means the org has no records of that type
+// and there's nothing for the admin to fix. Account filters also constrain
+// contacts (contacts are scoped to matching accounts), so a contact filter is
+// "active" when either an account filter or the contact window is set.
+function filteredObjects(form: SyncFiltersForm): Record<keyof PreviewCounts, boolean> {
+  const accountFilter = !!(
+    parseList(form.accountTypes) ||
+    parseList(form.accountIndustries) ||
+    parseList(form.accountOwners)
+  );
+  return {
+    accounts: accountFilter,
+    contacts: accountFilter || !!parseYears(form.contactCreatedWithinYears),
+    leads: !!(parseList(form.leadStatuses) || parseYears(form.leadCreatedWithinYears)),
+    opportunities: !!(
+      parseList(form.oppStages) ||
+      parseYears(form.oppClosedWithinYears) ||
+      form.oppStatus !== "all"
+    ),
+  };
+}
+
 // Per-object record counts returned by the preview endpoint. A null count means
 // the count query for that object failed (e.g. missing permission).
 interface PreviewCounts {
@@ -796,25 +820,59 @@ export default function SfdcSettingsPage() {
                     </p>
                   )}
 
-                  {previewCounts && (
-                    <div className="rounded-lg border border-border/40 bg-muted/30 p-4">
-                      <p className="text-xs text-muted-foreground mb-3">
-                        Records that would sync with the current filters:
-                      </p>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {PREVIEW_OBJECTS.map(({ key, label }) => (
-                          <div key={key} className="text-center">
-                            <div className="text-2xl font-semibold tabular-nums">
-                              {previewCounts[key] === null
-                                ? "—"
-                                : previewCounts[key]!.toLocaleString()}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
+                  {previewCounts && (() => {
+                    const filtered = filteredObjects(filtersForm);
+                    // Objects with an active filter that matches nothing — these
+                    // are the ones an admin will be surprised to find empty
+                    // after a sync, so we call them out explicitly.
+                    const zeroMatch = PREVIEW_OBJECTS.filter(
+                      ({ key }) => filtered[key] && previewCounts[key] === 0,
+                    );
+                    return (
+                      <div className="space-y-3">
+                        {zeroMatch.length > 0 && (
+                          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 flex items-start gap-2">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                            <p className="text-sm text-amber-700 dark:text-amber-400">
+                              <span className="font-medium">
+                                {zeroMatch.length === 1
+                                  ? `Your ${zeroMatch[0].label} filter matches 0 records.`
+                                  : `These filters match 0 records: ${zeroMatch
+                                      .map((o) => o.label)
+                                      .join(", ")}.`}
+                              </span>{" "}
+                              Syncing with {zeroMatch.length === 1 ? "it" : "them"} would
+                              pull nothing. Double-check the values before saving.
+                            </p>
                           </div>
-                        ))}
+                        )}
+                        <div className="rounded-lg border border-border/40 bg-muted/30 p-4">
+                          <p className="text-xs text-muted-foreground mb-3">
+                            Records that would sync with the current filters:
+                          </p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {PREVIEW_OBJECTS.map(({ key, label }) => {
+                              const isZeroMatch = filtered[key] && previewCounts[key] === 0;
+                              return (
+                                <div key={key} className="text-center">
+                                  <div
+                                    className={`text-2xl font-semibold tabular-nums ${
+                                      isZeroMatch ? "text-amber-600 dark:text-amber-400" : ""
+                                    }`}
+                                  >
+                                    {previewCounts[key] === null
+                                      ? "—"
+                                      : previewCounts[key]!.toLocaleString()}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
             </Card>
