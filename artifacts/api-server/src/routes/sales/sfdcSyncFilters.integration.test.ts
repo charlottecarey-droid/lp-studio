@@ -31,8 +31,10 @@ import sfdcRouter from "./sfdc";
 
 const A_SID = `it-sfdcfilt-a-${randomUUID()}`;
 const B_SID = `it-sfdcfilt-b-${randomUUID()}`;
+const S_SID = `it-sfdcfilt-super-${randomUUID()}`;
 const A_UID = 999310001;
 const B_UID = 999310002;
+const S_UID = 999310003;
 const A_SLUG = `it-sfdcfilt-a-${randomUUID().slice(0, 8)}`;
 const B_SLUG = `it-sfdcfilt-b-${randomUUID().slice(0, 8)}`;
 
@@ -47,9 +49,11 @@ function injectSid(opts: {
   url: string;
   sid?: string;
   body?: unknown;
+  xTenantId?: string;
 }): Promise<InjectResponse> {
   const headers: Record<string, string> = {};
   if (opts.sid) headers["cookie"] = `${SESSION_COOKIE}=${opts.sid}`;
+  if (opts.xTenantId !== undefined) headers["x-tenant-id"] = opts.xTenantId;
   return inject(app, { method: opts.method, url: opts.url, headers, body: opts.body });
 }
 
@@ -105,6 +109,14 @@ beforeAll(async () => {
 
   await seedSession(A_SID, { userId: A_UID, tenantId: tenantA, isAdmin: true });
   await seedSession(B_SID, { userId: B_UID, tenantId: tenantB, isAdmin: true });
+  // A platform operator (app_users.role='superadmin') whose OWN tenant is A.
+  // The X-Tenant-Id override lets it act on tenant B's connection.
+  await seedSession(S_SID, {
+    userId: S_UID,
+    tenantId: tenantA,
+    isAdmin: false,
+    appUserRole: "superadmin",
+  });
 
   app = express();
   app.use(cookieParser());
@@ -216,5 +228,100 @@ describe("SFDC sync-filters API", () => {
 
     const get = await injectSid({ method: "GET", url: "/api/sales/sfdc/sync-filters", sid: A_SID });
     expect(get.json).toEqual({});
+  });
+
+  it("ignores a forged X-Tenant-Id from a non-superadmin — reads/writes only its own connection", async () => {
+    // Tenant A (an ordinary per-tenant admin, NOT a platform superadmin) forges
+    // an X-Tenant-Id header pointing at tenant B and PUTs distinct filters.
+    const forged: SfdcSyncFilters = {
+      accounts: { types: ["Enterprise"], industries: ["ForgedHeaderTest"] },
+    };
+    const put = await injectSid({
+      method: "PUT",
+      url: "/api/sales/sfdc/sync-filters",
+      sid: A_SID,
+      xTenantId: String(tenantB),
+      body: forged,
+    });
+    expect(put.status).toBe(200);
+    expect(put.json).toEqual(forged);
+
+    // The write landed on A's OWN connection, not the header-named tenant B.
+    const aRow = await pool.query<{ sync_filters: SfdcSyncFilters }>(
+      `SELECT sync_filters FROM sfdc_connections WHERE id = $1`,
+      [connA],
+    );
+    expect(aRow.rows[0]!.sync_filters).toEqual(forged);
+
+    // Tenant B's connection is completely untouched — it still carries only
+    // the filters B wrote earlier, never A's forged payload.
+    const bRow = await pool.query<{ sync_filters: SfdcSyncFilters }>(
+      `SELECT sync_filters FROM sfdc_connections WHERE id = $1`,
+      [connB],
+    );
+    expect(bRow.rows[0]!.sync_filters).toEqual({ leads: { statuses: ["Open"] } });
+
+    // A GET with the same forged header also reads only A's own filters.
+    const get = await injectSid({
+      method: "GET",
+      url: "/api/sales/sfdc/sync-filters",
+      sid: A_SID,
+      xTenantId: String(tenantB),
+    });
+    expect(get.status).toBe(200);
+    expect(get.json).toEqual(forged);
+  });
+
+  it("honours X-Tenant-Id for a superadmin — targets the named tenant's connection", async () => {
+    // A platform superadmin overrides to tenant B via X-Tenant-Id and writes.
+    const superFilters: SfdcSyncFilters = { opportunities: { status: "open" } };
+    const put = await injectSid({
+      method: "PUT",
+      url: "/api/sales/sfdc/sync-filters",
+      sid: S_SID,
+      xTenantId: String(tenantB),
+      body: superFilters,
+    });
+    expect(put.status).toBe(200);
+    expect(put.json).toEqual(superFilters);
+
+    // The write landed on the header-named tenant B's connection.
+    const bRow = await pool.query<{ sync_filters: SfdcSyncFilters }>(
+      `SELECT sync_filters FROM sfdc_connections WHERE id = $1`,
+      [connB],
+    );
+    expect(bRow.rows[0]!.sync_filters).toEqual(superFilters);
+
+    // The superadmin's own tenant (A) connection is left untouched.
+    const aRow = await pool.query<{ sync_filters: SfdcSyncFilters }>(
+      `SELECT sync_filters FROM sfdc_connections WHERE id = $1`,
+      [connA],
+    );
+    expect(aRow.rows[0]!.sync_filters).toEqual({
+      accounts: { types: ["Enterprise"], industries: ["ForgedHeaderTest"] },
+    });
+
+    // A GET with the override pointed at B reads B's filters back exactly.
+    const getB = await injectSid({
+      method: "GET",
+      url: "/api/sales/sfdc/sync-filters",
+      sid: S_SID,
+      xTenantId: String(tenantB),
+    });
+    expect(getB.status).toBe(200);
+    expect(getB.json).toEqual(superFilters);
+
+    // And re-targeting to tenant A reads A's filters — the override selects the
+    // connection precisely, exactly as on other superadmin-capable routes.
+    const getA = await injectSid({
+      method: "GET",
+      url: "/api/sales/sfdc/sync-filters",
+      sid: S_SID,
+      xTenantId: String(tenantA),
+    });
+    expect(getA.status).toBe(200);
+    expect(getA.json).toEqual({
+      accounts: { types: ["Enterprise"], industries: ["ForgedHeaderTest"] },
+    });
   });
 });
