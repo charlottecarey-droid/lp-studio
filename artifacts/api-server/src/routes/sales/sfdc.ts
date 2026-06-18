@@ -148,10 +148,16 @@ router.get("/sfdc/connection", requireAuth, async (req, res): Promise<void> => {
 
     res.json({
       id: connection.id,
+      // The UI gates the Disconnect button, Sync Controls and Sync Filters on
+      // `connected`; a row whose status is "disconnected" must read as not
+      // connected so those controls hide.
+      connected: connection.status === "connected",
       orgId: connection.orgId,
       instanceUrl: connection.instanceUrl,
       status: connection.status,
       lastSyncAt: connection.lastSyncAt,
+      // The UI reads `lastSyncTime`; expose it under that name too.
+      lastSyncTime: connection.lastSyncAt,
       lastSyncError: connection.lastSyncError,
       syncEnabled: connection.syncEnabled,
       createdAt: connection.createdAt,
