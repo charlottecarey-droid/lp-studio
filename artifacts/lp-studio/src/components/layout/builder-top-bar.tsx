@@ -4,6 +4,7 @@ import {
   ArrowLeft, Save, Globe, CheckCircle, FlaskConical,
   MessageSquare, Share2, Eye, ExternalLink, Check, Star, Send, ThumbsUp, ThumbsDown,
   Clock, Megaphone, Users, ChevronDown, X, MoreHorizontal, Loader2,
+  LayoutGrid, SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +64,11 @@ interface BuilderTopBarProps {
   catalogMode?: boolean;
   /** Save-button label override used in catalog mode (e.g. "Save default"). */
   catalogSaveLabel?: string;
+  /** Mobile builder: open/close the left (Blocks) slide-in drawer. Omit to hide
+   *  the toggle (e.g. catalog mode has no block library). Mobile-only (md:hidden). */
+  onOpenBlocks?: () => void;
+  /** Mobile builder: open/close the right (Edit / Page settings) slide-in drawer. */
+  onOpenSettings?: () => void;
 }
 
 /** "Saved 12s ago" / "Saved 5m ago" / "Saved" copy. */
@@ -110,6 +116,8 @@ export function BuilderTopBar({
   reviewWorkflowEnabled = true,
   catalogMode = false,
   catalogSaveLabel,
+  onOpenBlocks,
+  onOpenSettings,
 }: BuilderTopBarProps) {
   const [, navigate] = useLocation();
   const [copied, setCopied] = useState(false);
@@ -176,6 +184,24 @@ export function BuilderTopBar({
       </Button>
 
       <div className="h-5 w-px bg-border" />
+
+      {/* Mobile-only panel toggles — open the slide-in Blocks / Edit drawers.
+          Hidden on md+ where both panels are always-visible columns. */}
+      {(onOpenBlocks || onOpenSettings) && (
+        <div className="flex items-center gap-1 md:hidden">
+          {onOpenBlocks && (
+            <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={onOpenBlocks} aria-label="Add blocks" title="Add blocks">
+              <LayoutGrid className="w-4 h-4" />
+            </Button>
+          )}
+          {onOpenSettings && (
+            <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={onOpenSettings} aria-label="Edit panel" title="Edit">
+              <SlidersHorizontal className="w-4 h-4" />
+            </Button>
+          )}
+          <div className="h-5 w-px bg-border" />
+        </div>
+      )}
 
       <input
         ref={titleRef}

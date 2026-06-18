@@ -91,6 +91,7 @@ import { KeyboardShortcutsHelp } from "@/components/KeyboardShortcutsHelp";
 import { useKeyboardShortcuts, type Shortcut } from "@/lib/keyboard-shortcuts";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { Settings2, BarChart3 } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { isBlockVisibleForAudience, isBlockTypeAllowedForAudience, canUseGridPieces } from "@/lib/audience-gating";
 import CopilotPanel, { type ApplyActionResult } from "./CopilotPanel";
 import type { CopilotAction } from "@/lib/copilotStream";
@@ -1157,6 +1158,19 @@ export default function BuilderEditor() {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   // Builder Copilot (June 2026 chatbot spec) — collapsible "Ask AI" panel.
   const [copilotOpen, setCopilotOpen] = useState(false);
+  // Mobile builder: the two side panels collapse into slide-in drawers so the
+  // canvas + top bar are the only things on screen at once. Desktop never reads
+  // these — the panels stay always-visible columns via base (non-`max-md:`)
+  // classes, so the desktop builder renders exactly as before.
+  const isMobile = useIsMobile();
+  const [mobileLeftOpen, setMobileLeftOpen] = useState(false);
+  const [mobileRightOpen, setMobileRightOpen] = useState(false);
+  // Strict desktop parity: when the viewport grows back to md+, force both
+  // drawers closed so no lingering mobile drawer state can affect desktop
+  // (e.g. the Ask AI button, whose visibility reads these flags).
+  useEffect(() => {
+    if (!isMobile) { setMobileLeftOpen(false); setMobileRightOpen(false); }
+  }, [isMobile]);
   // Task #1138 — Strict Facts review. Persistent per-page fact flags drive both
   // the review banner and the publish gate (review-not-remove: the values stay
   // on the page). `pageId` is the route param string defined just above.
@@ -2763,6 +2777,8 @@ export default function BuilderEditor() {
         reviewWorkflowEnabled={reviewWorkflowEnabled}
         catalogMode={catalogMode}
         catalogSaveLabel="Save default"
+        onOpenBlocks={catalogMode ? undefined : () => { setMobileRightOpen(false); setMobileLeftOpen(o => !o); }}
+        onOpenSettings={() => { setMobileLeftOpen(false); setMobileRightOpen(o => !o); }}
       />
 
       {/* Task #1026 — catalog mode banner. Makes it unmistakable that edits here
@@ -3158,11 +3174,29 @@ export default function BuilderEditor() {
       {/* Three-panel layout */}
       <div className="flex flex-1 min-h-0">
 
+        {/* Mobile drawer backdrop — tap to dismiss either side panel. Hidden on
+            desktop (md:) where the panels are always-visible columns. */}
+        {(mobileLeftOpen || mobileRightOpen) && (
+          <div
+            className="fixed inset-x-0 bottom-0 top-14 z-40 bg-black/40 md:hidden"
+            onClick={() => { setMobileLeftOpen(false); setMobileRightOpen(false); }}
+            aria-hidden="true"
+          />
+        )}
+
         {/* Left panel: Block Library — hidden in catalog mode (task #1026):
             there's exactly one block to edit and adding/removing blocks would
             corrupt the single-block global default. */}
         {!catalogMode && (
-        <aside className="w-64 border-r border-border bg-background/60 overflow-y-auto shrink-0">
+        <aside
+          className={cn(
+            "w-64 border-r border-border bg-background/60 overflow-y-auto shrink-0",
+            // Mobile-only: slide-in drawer over the canvas. Desktop ignores all
+            // `max-md:` classes, so the column above is unchanged at md+.
+            "max-md:fixed max-md:top-14 max-md:bottom-0 max-md:left-0 max-md:z-50 max-md:w-72 max-md:max-w-[85vw] max-md:shadow-xl max-md:transition-transform max-md:duration-300 max-md:ease-in-out",
+            mobileLeftOpen ? "max-md:translate-x-0" : "max-md:-translate-x-full",
+          )}
+        >
           <Tabs defaultValue="blocks">
             <div className="sticky top-0 bg-background/90 backdrop-blur border-b border-border z-10">
               <TabsList className="w-full rounded-none border-0 bg-transparent h-10">
@@ -3174,7 +3208,7 @@ export default function BuilderEditor() {
             </div>
             <TabsContent value="blocks" className="mt-0">
               <BlockLibrary
-                onAdd={addBlock}
+                onAdd={type => { addBlock(type); if (isMobile) setMobileLeftOpen(false); }}
                 customBlocks={visibleCustomBlocks}
                 visibleBlocks={tenantCatalogBlocks}
                 prefs={libraryPrefs}
@@ -3183,7 +3217,7 @@ export default function BuilderEditor() {
             </TabsContent>
             <TabsContent value="segment" className="mt-0">
               <SegmentLibrary
-                onAdd={addBlock}
+                onAdd={type => { addBlock(type); if (isMobile) setMobileLeftOpen(false); }}
                 customBlocks={segmentVisibleCustomBlocks}
                 segments={brand.segments ?? []}
                 visibleBlocks={segmentCatalogBlocks}
@@ -3195,7 +3229,11 @@ export default function BuilderEditor() {
               <LayersPanel
                 blocks={blocks}
                 selectedBlockId={selectedBlockId}
-                onSelect={id => setSelectedBlockId(id === selectedBlockId ? null : id)}
+                onSelect={id => {
+                  const next = id === selectedBlockId ? null : id;
+                  setSelectedBlockId(next);
+                  if (isMobile && next) { setMobileLeftOpen(false); setMobileRightOpen(true); }
+                }}
                 onDelete={deleteBlock}
                 onReorder={setBlocks}
               />
@@ -3207,11 +3245,13 @@ export default function BuilderEditor() {
                 onSelect={templateId => {
                   if (blocks.length === 0 || confirm("Replace current blocks with this template?")) {
                     applyTemplate(templateId);
+                    if (isMobile) setMobileLeftOpen(false);
                   }
                 }}
                 onSelectBlock={type => {
                   if (blocks.length === 0 || confirm("Replace current blocks with this template?")) {
                     applyFullPageBlock(type);
+                    if (isMobile) setMobileLeftOpen(false);
                   }
                 }}
               />
@@ -3257,7 +3297,7 @@ export default function BuilderEditor() {
                           block={block}
                           brand={effectiveBrand}
                           isSelected={selectedBlockId === block.id}
-                          onSelect={() => setSelectedBlockId(block.id)}
+                          onSelect={() => { setSelectedBlockId(block.id); if (isMobile) { setMobileLeftOpen(false); setMobileRightOpen(true); } }}
                           onDelete={() => deleteBlock(block.id)}
                           onTestBlock={() => handleOpenBlockTestModal(block.id)}
                           onBlockChange={updateBlock}
@@ -3291,7 +3331,14 @@ export default function BuilderEditor() {
         </main>
 
         {/* Right panel: Property Editor */}
-        <aside className="w-72 border-l border-border bg-background/60 shrink-0 flex flex-col overflow-hidden">
+        <aside
+          className={cn(
+            "w-72 border-l border-border bg-background/60 shrink-0 flex flex-col overflow-hidden",
+            // Mobile-only: slide-in drawer from the right. Desktop ignores these.
+            "max-md:fixed max-md:top-14 max-md:bottom-0 max-md:right-0 max-md:z-50 max-md:w-80 max-md:max-w-[88vw] max-md:shadow-xl max-md:transition-transform max-md:duration-300 max-md:ease-in-out",
+            mobileRightOpen ? "max-md:translate-x-0" : "max-md:translate-x-full",
+          )}
+        >
           <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
           {selectedBlock ? (
             <PropertyPanel
@@ -3715,7 +3762,7 @@ export default function BuilderEditor() {
 
       {/* Copilot launcher — floating "✦ Ask AI" button (hidden while the panel
           is open or in catalog mode). */}
-      {!catalogMode && pageIdNum > 0 && !copilotOpen && (
+      {!catalogMode && pageIdNum > 0 && !copilotOpen && !mobileLeftOpen && !mobileRightOpen && (
         <button
           onClick={() => setCopilotOpen(true)}
           className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2.5 text-sm font-medium shadow-lg hover:brightness-110 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 outline-none motion-safe:transition"
