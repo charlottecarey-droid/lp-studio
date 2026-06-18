@@ -2,7 +2,7 @@ import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { randomBytes } from "crypto";
 import rateLimit from "express-rate-limit";
-import { eq, and, or, desc, inArray, isNotNull, sql } from "drizzle-orm";
+import { eq, and, or, desc, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesHotlinksTable,
@@ -10,6 +10,7 @@ import {
   salesAccountsTable,
   salesBriefingsTable,
   salesSignalsTable,
+  salesEmailSendsTable,
   lpPagesTable,
 } from "@workspace/db";
 import { deriveCompanyName, derivePracticeCount } from "../../lib/businessCaseVars";
@@ -21,6 +22,15 @@ import { logger } from "../../lib/logger";
 import { resolveTenantSender } from "../../lib/tenantSender";
 
 const router = Router();
+
+// Bot/prefetch tolerance — mirrors campaigns.ts. Gmail / Apple Mail Privacy
+// proxies prefetch links within milliseconds of send; ignore open/click stamps
+// inside this window so the feed reflects real recipient activity, not scanners.
+const RESOLVE_BOT_GRACE_MS = 2000;
+function isLikelyResolveBot(sentAt: Date | null | undefined): boolean {
+  if (!sentAt) return false;
+  return Date.now() - new Date(sentAt).getTime() < RESOLVE_BOT_GRACE_MS;
+}
 
 // ─── Visit alert email ──────────────────────────────────────────────────────
 
@@ -645,6 +655,75 @@ router.get("/resolve/:token", resolveLimiter, async (req, res): Promise<void> =>
       },
     }).returning();
     broadcastSignal(pvSignal);
+
+    // A campaign hotlink resolve IS the recipient clicking their personalized
+    // email link. The dedicated /track/click-hotlink + /track/open-hotlink
+    // endpoints only fire when the email's CTA/pixel are wrapped through them;
+    // campaign emails link straight to /p/<token> (this resolve), and Gmail's
+    // image proxy makes pixel-based opens unreliable. So when this hotlink is
+    // tied to a campaign send, record the open + click here too. Dedup is done
+    // ATOMICALLY: each `UPDATE ... WHERE <stamp> IS NULL RETURNING` lets only
+    // the one request that flips the stamp from NULL emit the signal, so
+    // concurrent resolves (and the pixel/track-hotlink paths) never double-fire.
+    // Mirrors the dual-write in campaigns.ts. Non-blocking.
+    try {
+      const [send] = await db.select({ sentAt: salesEmailSendsTable.sentAt })
+        .from(salesEmailSendsTable)
+        .where(eq(salesEmailSendsTable.hotlinkId, hotlink.id))
+        .orderBy(desc(salesEmailSendsTable.sentAt))
+        .limit(1);
+
+      if (send && !isLikelyResolveBot(send.sentAt)) {
+        const baseSignal = {
+          tenantId: page.tenantId,
+          accountId: contact?.accountId ?? null,
+          contactId: hotlink.contactId,
+          hotlinkId: hotlink.id,
+          source: page.title,
+          metadata: { pageId: hotlink.pageId, email: contact?.email ?? undefined },
+        };
+
+        // Atomically claim the open stamp across ALL tracking paths (pixel /
+        // track-hotlink / this resolve). Only the request that flips openedAt
+        // from NULL gets a row back and emits the signal. CASE prevents
+        // downgrading a terminal/clicked status.
+        const openClaim = await db.update(salesEmailSendsTable)
+          .set({
+            openedAt: new Date(),
+            status: sql`CASE WHEN ${salesEmailSendsTable.status} IN ('bounced','complained','clicked') THEN ${salesEmailSendsTable.status} ELSE 'opened' END`,
+          })
+          .where(and(
+            eq(salesEmailSendsTable.hotlinkId, hotlink.id),
+            isNull(salesEmailSendsTable.openedAt),
+          ))
+          .returning({ id: salesEmailSendsTable.id });
+        if (openClaim.length > 0) {
+          const [openSig] = await db.insert(salesSignalsTable)
+            .values({ ...baseSignal, type: "email_open" }).returning();
+          broadcastSignal(openSig);
+        }
+
+        // Atomically claim the click stamp the same way. A click implies an
+        // open, already handled by the claim above.
+        const clickClaim = await db.update(salesEmailSendsTable)
+          .set({
+            clickedAt: new Date(),
+            status: sql`CASE WHEN ${salesEmailSendsTable.status} IN ('bounced','complained') THEN ${salesEmailSendsTable.status} ELSE 'clicked' END`,
+          })
+          .where(and(
+            eq(salesEmailSendsTable.hotlinkId, hotlink.id),
+            isNull(salesEmailSendsTable.clickedAt),
+          ))
+          .returning({ id: salesEmailSendsTable.id });
+        if (clickClaim.length > 0) {
+          const [clickSig] = await db.insert(salesSignalsTable)
+            .values({ ...baseSignal, type: "email_click" }).returning();
+          broadcastSignal(clickSig);
+        }
+      }
+    } catch (err) {
+      logger.error({ err }, "Hotlink resolve open/click tracking error");
+    }
 
     // Send visit alert email (fire-and-forget)
     setImmediate(async () => {

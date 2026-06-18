@@ -5,7 +5,9 @@ import { db } from "@workspace/db";
 import { isTestLead, leadName, leadEmail } from "@workspace/lead-utils";
 import { withDbRetry } from "../../lib/dbResilience";
 import { restoreRows } from "../../lib/restoreRows";
-import { lpLeadsTable, lpFormNotificationsTable, lpFormsTable, lpPagesTable, lpVariantsTable, lpSessionsTable, lpPageVisitsTable, sfdcFieldMappingsTable, salesEmailTemplatesTable } from "@workspace/db";
+import { lpLeadsTable, lpFormNotificationsTable, lpFormsTable, lpPagesTable, lpVariantsTable, lpSessionsTable, lpPageVisitsTable, sfdcFieldMappingsTable, salesEmailTemplatesTable, salesSignalsTable } from "@workspace/db";
+import { resolveContactByEmail } from "../../lib/signalAttribution";
+import { broadcastSignal } from "../sales/signals";
 import { z } from "zod";
 import { rateLimit, envLimit } from "../../lib/rateLimit";
 import {
@@ -330,6 +332,32 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
   res.status(201).json({ success: true, leadId: lead.id });
 
   setImmediate(async () => {
+    // Record a Sales Console "form_submit" engagement signal so a known
+    // contact filling out a microsite/campaign form shows up in the activity
+    // feed alongside their page views and email opens/clicks. Attribution is
+    // strictly tenant-scoped by email (resolveContactByEmail); when the
+    // submitter isn't a known contact we skip the signal to keep the sales
+    // feed free of anonymous public-form noise. Non-blocking.
+    try {
+      const submitterEmail = findSubmitterEmail(fields);
+      if (page.tenantId && submitterEmail) {
+        const matched = await resolveContactByEmail(page.tenantId, submitterEmail);
+        if (matched) {
+          const [formSig] = await db.insert(salesSignalsTable).values({
+            tenantId: page.tenantId,
+            accountId: matched.accountId,
+            contactId: matched.id,
+            type: "form_submit",
+            source: page.title,
+            metadata: { pageId: page.id, leadId: lead.id, email: submitterEmail },
+          }).returning();
+          broadcastSignal(formSig);
+        }
+      }
+    } catch (err) {
+      console.error("[leads] form_submit signal error for lead", lead.id, ":", err);
+    }
+
     // Content-series guest applications: append the submission to the
     // configured podcast tracker Google Sheet (Applications tab).
     if (fields._source === "content-series-guest") {
