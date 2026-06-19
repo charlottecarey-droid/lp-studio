@@ -2766,6 +2766,7 @@ export default function BuilderEditor() {
         onSaveAsTemplate={() => { setTemplateLabel(templateLabel || title); setShowTemplateDialog(true); }}
         onOpenAbTest={() => setAbTestModalOpen(true)}
         onOpenAdCopy={Number.isFinite(pageIdNum) ? () => setAdCopyDialogOpen(true) : undefined}
+        onRewriteCopy={pageIdNum > 0 ? () => navigate(`/pages?rewrite=${pageIdNum}`) : undefined}
         onPublish={handlePublish}
         onToggleCommentMode={() => setCommentMode(prev => !prev)}
         onShareForReview={() => setShareModalOpen(true)}

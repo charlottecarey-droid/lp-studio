@@ -200,6 +200,23 @@ export default function PagesGallery() {
     })();
   }, [isLoading, pages, navigate]);
 
+  // "Rewrite copy with AI" from inside the page editor: the builder's PAGE
+  // ACTIONS menu sends the user back here with `?rewrite=<pageId>`. Once the
+  // pages have loaded we find that page and open the same rewrite modal the
+  // row's ⋯ menu uses, then strip the param so a refresh/back doesn't re-open.
+  const rewriteHandoffRan = useRef(false);
+  useEffect(() => {
+    if (rewriteHandoffRan.current || isLoading) return;
+    const id = parseInt(new URLSearchParams(window.location.search).get("rewrite") ?? "", 10);
+    if (!Number.isFinite(id)) return;
+    rewriteHandoffRan.current = true;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("rewrite");
+    window.history.replaceState({}, "", url.toString());
+    const page = pages.find(p => p.id === id);
+    if (page) handleRewriteCopy(page);
+  }, [isLoading, pages]);
+
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("All");
   const [sortBy, setSortBy] = useState<SortBy>("recent");
   const [searchQuery, setSearchQuery] = useState("");

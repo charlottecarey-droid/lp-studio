@@ -4,7 +4,7 @@ import {
   ArrowLeft, Save, Globe, CheckCircle, FlaskConical,
   MessageSquare, Share2, Eye, ExternalLink, Check, Star, Send, ThumbsUp, ThumbsDown,
   Clock, Megaphone, Users, ChevronDown, X, MoreHorizontal, Loader2,
-  LayoutGrid, SlidersHorizontal,
+  LayoutGrid, SlidersHorizontal, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +49,9 @@ interface BuilderTopBarProps {
   onSaveAsTemplate: () => void;
   onOpenAbTest: () => void;
   onOpenAdCopy?: () => void;
+  /** Rewrite the whole page's copy with AI. Mirrors the Pages-list "Rewrite
+   *  copy with AI" action so it's reachable without leaving the editor. */
+  onRewriteCopy?: () => void;
   onPublish: () => void;
   onToggleCommentMode: () => void;
   onShareForReview: () => void;
@@ -105,6 +108,7 @@ export function BuilderTopBar({
   onSaveAsTemplate,
   onOpenAbTest,
   onOpenAdCopy,
+  onRewriteCopy,
   onPublish,
   onToggleCommentMode,
   onShareForReview,
@@ -377,6 +381,12 @@ export function BuilderTopBar({
           <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Page actions
           </DropdownMenuLabel>
+          {onRewriteCopy && (
+            <DropdownMenuItem onClick={onRewriteCopy} className="gap-2 text-xs" data-testid="rewrite-copy-button">
+              <Sparkles className="w-3.5 h-3.5 text-violet-600" />
+              Rewrite copy with AI
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={onSaveAsTemplate} className="gap-2 text-xs">
             <Star className="w-3.5 h-3.5 text-amber-500" />
             Save as Template
