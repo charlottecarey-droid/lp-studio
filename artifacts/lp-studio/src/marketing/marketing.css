@@ -191,6 +191,28 @@
   }
 }
 
+/* Gradient-on-text for the hero accent line ("Watch it build."). The text is
+   normally painted via a clipped gradient, but that clip can intermittently
+   fail to paint (web-font swap-in + nearby blurred/composited layers), leaving
+   the glyphs fully transparent and the line invisible. Two guards:
+   1. display: inline-block gives the span its own box so the gradient clip
+      paints reliably (plain inline spans after a <br> are the fragile case).
+   2. A solid --indigo fallback color, with the transparent fill only applied
+      where background-clip:text is actually supported, so the text can never
+      render invisible. */
+.hero-gradient-text {
+  display: inline-block;
+  color: var(--indigo);
+  background: linear-gradient(135deg, var(--indigo) 0%, var(--coral) 100%);
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .hero-gradient-text {
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
 /* ----------------------------------------------------------------------
    Mobile responsiveness for marketing embeds (≤767px). Desktop (≥768px)
    is untouched — every rule lives inside a max-width media query.

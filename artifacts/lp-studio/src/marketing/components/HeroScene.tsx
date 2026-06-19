@@ -98,16 +98,7 @@ export default function HeroScene() {
         >
           Describe a page.
           <br />
-          <span
-            style={{
-              background:
-                "linear-gradient(135deg, var(--indigo) 0%, var(--coral) 100%)",
-              WebkitBackgroundClip: "text",
-              backgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              color: "transparent",
-            }}
-          >
+          <span className="hero-gradient-text">
             Watch it build.
           </span>
         </h1>
