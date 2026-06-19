@@ -156,6 +156,7 @@ describe.skipIf(!HAS_STRIPE)(
       const payload = JSON.stringify({
         id: `evt_downgrade_${Date.now()}`,
         object: "event",
+        created: Math.floor(Date.now() / 1000),
         type: "customer.subscription.updated",
         data: { object: canceled },
       });

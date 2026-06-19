@@ -208,6 +208,7 @@ describe.skipIf(!HAS_STRIPE)(
       const payload = JSON.stringify({
         id: `evt_e2e_${Date.now()}`,
         object: "event",
+        created: Math.floor(Date.now() / 1000),
         type: "customer.subscription.created",
         data: { object: sub },
       });
