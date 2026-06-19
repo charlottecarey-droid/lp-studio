@@ -3,7 +3,8 @@ import { useRef, useState, useCallback } from "react";
 import { ScanLine, RefreshCw, ShieldCheck } from "lucide-react";
 import type { DsoAiFeatureBlockProps } from "@/lib/block-types";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
+import type { BrandConfig } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { WordReveal } from "./WordReveal";
 import { StatCounter } from "./StatCounter";
@@ -31,6 +32,7 @@ const DEFAULT_STATS = [
 ];
 
 interface Props {
+  brand?: BrandConfig;
   props: DsoAiFeatureBlockProps;
   // Concrete headline color from blockSettings.headlineColor (e.g. "#C7E738").
   // Passed as a real hex — NOT a CSS var — because the published headline uses
@@ -42,7 +44,7 @@ interface Props {
   onFieldChange?: (updated: DsoAiFeatureBlockProps) => void;
 }
 
-export function BlockDsoAiFeature({ props, headlineColor, onFieldChange }: Props) {
+export function BlockDsoAiFeature({ props, brand, headlineColor, onFieldChange }: Props) {
   const {
     eyebrow   = "Waste Prevention",
     headline  = "Rework is a tax. AI eliminates it.",
@@ -75,7 +77,7 @@ export function BlockDsoAiFeature({ props, headlineColor, onFieldChange }: Props
       }
     : undefined;
 
-  const dark = isDarkBg(backgroundStyle);
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
   const fg   = dark ? "var(--brand-heading-on-dark, #fff)" : `var(--brand-heading-on-light, ${P})`;
   const mu   = dark ? "rgba(255,255,255,0.60)"  : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.60)";
   const mu2  = dark ? "rgba(255,255,255,0.80)"  : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.80)";

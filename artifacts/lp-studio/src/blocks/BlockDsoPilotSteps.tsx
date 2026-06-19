@@ -3,13 +3,15 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { ScanDown, FlickerDot } from "./SectionAmbient";
 import { Rocket, BarChart3, TrendingUp, CheckCircle2, Star, Zap, Target, Layers } from "lucide-react";
 import type { DsoPilotStepsBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface, getImageBgSectionStyle } from "@/lib/bg-styles";
+import type { BrandConfig } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { InlineText } from "@/components/InlineText";
 
 const STEP_ICONS = [Rocket, BarChart3, TrendingUp, CheckCircle2, Star, Zap, Target, Layers];
 
 interface Props {
+  brand?: BrandConfig;
   props: DsoPilotStepsBlockProps;
   onFieldChange?: (updated: DsoPilotStepsBlockProps) => void;
 }
@@ -64,7 +66,7 @@ const DEFAULT_STEPS = [
   },
 ];
 
-export function BlockDsoPilotSteps({ props, onFieldChange }: Props) {
+export function BlockDsoPilotSteps({ props, brand, onFieldChange }: Props) {
   const { eyebrow, headline, subheadline, backgroundStyle = "muted", backgroundImage, backgroundOverlay, overlayColor = "#000000", ctaText, ctaUrl, ctaMode = "link" } = props;
   const field = (key: keyof DsoPilotStepsBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoPilotStepsBlockProps[typeof key] }) : undefined;
@@ -76,7 +78,7 @@ export function BlockDsoPilotSteps({ props, onFieldChange }: Props) {
         onFieldChange({ ...props, steps: list.map((s, i) => i === idx ? { ...s, ...patch } : s) });
       }
     : undefined;
-  const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark || !!backgroundImage;
   const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
 
   const pilotRef = useRef<HTMLDivElement>(null);

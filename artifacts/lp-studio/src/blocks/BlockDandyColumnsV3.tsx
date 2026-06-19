@@ -4,7 +4,7 @@ import { getHeadingWeightClass } from "@/lib/brand-config";
 import type { DandyColumnsV3BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -26,7 +26,7 @@ export function BlockDandyColumnsV3({ props, brand, onFieldChange }: Props) {
   // unset the block keeps its historical near-white tint so existing pages and
   // the builder default render unchanged. On a dark/brand preset the hardcoded
   // dark text would be illegible, so text colors flip to light. (Task #1127.)
-  const dark = isDarkBg(props.backgroundStyle);
+  const dark = resolveSectionSurface({ backgroundStyle: props.backgroundStyle }, "#ffffff", brand).isDark;
   const sectionStyle = props.backgroundStyle
     ? getBgStyle(props.backgroundStyle)
     : { background: "#FDFCFA" };

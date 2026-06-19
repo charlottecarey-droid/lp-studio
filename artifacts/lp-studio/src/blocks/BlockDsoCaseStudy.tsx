@@ -1,11 +1,13 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import type { DsoCaseStudyBlockProps, DsoCaseStudyBodySection, DsoCaseStudyExtraSection, DsoCaseStudyResultItem } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
+import type { BrandConfig } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 
 interface Props {
+  brand?: BrandConfig;
   props: DsoCaseStudyBlockProps;
   onFieldChange?: (updated: DsoCaseStudyBlockProps) => void;
 }
@@ -66,15 +68,15 @@ const DEFAULT_WHY: DsoCaseStudyBodySection = {
   body: "The biggest gains don't come from technology alone — they come from standardizing the workflow across every site, then letting the data compound. For a 45-site organization, recapturing thousands of hours per year isn't an operational win — it's a revenue transformation.",
 };
 
-export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
+export function BlockDsoCaseStudy({ props, brand, onFieldChange }: Props) {
   const fallback = props.backgroundStyle ?? "white";
   const heroBg    = props.heroBackgroundStyle    ?? fallback;
   const bodyBg    = props.bodyBackgroundStyle    ?? fallback;
   const resultsBg = props.resultsBackgroundStyle ?? fallback;
 
-  const heroDark    = isDarkBg(heroBg);
-  const bodyDark    = isDarkBg(bodyBg);
-  const resultsDark = isDarkBg(resultsBg);
+  const heroDark    = resolveSectionSurface({ backgroundStyle: heroBg }, "#ffffff", brand).isDark;
+  const bodyDark    = resolveSectionSurface({ backgroundStyle: bodyBg }, "#ffffff", brand).isDark;
+  const resultsDark = resolveSectionSurface({ backgroundStyle: resultsBg }, "#ffffff", brand).isDark;
 
   const eyebrow     = props.eyebrow     ?? "Customer Story";
   const headline    = props.headline    ?? "How a 45-site organization cut touchpoints in half and reclaimed 9,600 hours";
@@ -128,7 +130,7 @@ export function BlockDsoCaseStudy({ props, onFieldChange }: Props) {
 
   const renderExtraSection = (sec: DsoCaseStudyExtraSection, i: number) => {
     const secBg   = sec.backgroundStyle ?? fallback;
-    const secDark = isDarkBg(secBg);
+    const secDark = resolveSectionSurface({ backgroundStyle: secBg }, "#ffffff", brand).isDark;
     const secDivider = secDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.07)";
     const hasQuote = (sec.quote ?? "").trim() !== "";
     return (

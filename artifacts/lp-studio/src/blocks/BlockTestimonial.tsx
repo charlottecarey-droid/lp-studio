@@ -5,7 +5,7 @@ import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 
 const DISPLAY = BRAND_DISPLAY_FONT;
 const BODY = BRAND_BODY_FONT;
@@ -25,7 +25,7 @@ export function BlockTestimonial({ props, brand, onFieldChange }: Props) {
   // the block keeps its historical near-white green tint so existing pages and
   // the builder default render unchanged. On a dark/brand preset the hardcoded
   // dark text would be illegible, so text colors flip to light. (Task #1127.)
-  const dark = isDarkBg(props.backgroundStyle);
+  const dark = resolveSectionSurface({ backgroundStyle: props.backgroundStyle }, "#ffffff", brand).isDark;
   const sectionStyle = props.backgroundStyle
     ? getBgStyle(props.backgroundStyle)
     : { background: "color-mix(in srgb, var(--brand-primary) 4%, #ffffff)" };

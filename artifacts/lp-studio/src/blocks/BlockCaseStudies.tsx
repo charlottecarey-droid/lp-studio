@@ -2,7 +2,7 @@ import type { CaseStudiesBlockProps } from "../lib/block-types";
 import type { BrandConfig } from "../lib/brand-config";
 import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "../lib/brand-config";
 import { getHeadlineSizeClass } from "../lib/typography";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import { ImageIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -35,7 +35,7 @@ export default function BlockCaseStudies({ props, brand, animationsEnabled = tru
   const items = props.items ?? [];
   const sectionPy = SECTION_PY[brand.sectionPadding];
 
-  const isDark = isDarkBg(backgroundStyle);
+  const isDark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
   const featured = items[0];
   const rest = items.slice(1);
 

@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import type { DsoActivationStepsBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
@@ -27,7 +27,7 @@ export function BlockDsoActivationSteps({ props, brand, onFieldChange }: Props) 
   // Map legacy ctaMode ("link" | "chilipiper" | "modal-form" | "modal-chilipiper")
   // onto CtaButton's CtaActionMode ("url" | …).
   const ctaAction = ctaMode === "link" ? "url" : ctaMode;
-  const dark = isDarkBg(backgroundStyle);
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
   const sectionBg = getBgStyle(backgroundStyle);
 
   const field = (key: keyof DsoActivationStepsBlockProps) =>

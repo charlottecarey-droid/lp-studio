@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { XCircle, CheckCircle2 } from "lucide-react";
 import type { DsoParadigmShiftBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockDsoCta } from "@/components/BlockDsoCta";
 import { InlineText } from "@/components/InlineText";
@@ -37,7 +37,7 @@ export function BlockDsoParadigmShift({ props, brand, onFieldChange }: Props) {
     ? (i: number, v: string) => onFieldChange({ ...props, newWayItems: newWayItems.map((it, idx) => idx === i ? v : it) })
     : undefined;
 
-  const dark = isDarkBg(backgroundStyle);
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
   const sectionBg = getBgStyle(backgroundStyle);
 
   // ── light-mode tokens ──────────────────────────────────────────

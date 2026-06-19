@@ -3,7 +3,8 @@ import { motion, useInView } from "framer-motion";
 import { createPortal } from "react-dom";
 import { X, Calendar, CheckCircle2, Loader2, ArrowRight } from "lucide-react";
 import type { DsoCtaCaptureBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
+import type { BrandConfig } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
 
@@ -26,6 +27,7 @@ const BG_HEX: Record<string, string> = {
 };
 
 interface Props {
+  brand?: BrandConfig;
   props: DsoCtaCaptureBlockProps;
   pageId?: number;
   variantId?: number;
@@ -54,7 +56,7 @@ function buildChiliPiperUrl(base: string, email: string, company: string): strin
   }
 }
 
-export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, isBuilder, onFieldChange }: Props) {
+export function BlockDsoCtaCapture({ props, brand, pageId, variantId, prefillCompany, isBuilder, onFieldChange }: Props) {
   const field = (key: keyof DsoCtaCaptureBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoCtaCaptureBlockProps[typeof key] }) : undefined;
   const {
@@ -76,7 +78,7 @@ export function BlockDsoCtaCapture({ props, pageId, variantId, prefillCompany, i
     hideCaptureForm = false,
   } = props;
 
-  const dark          = isDarkBg(backgroundStyle);
+  const dark          = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
   const pfg           = dark ? "var(--brand-heading-on-dark, hsl(48,100%,96%))" : "var(--brand-heading-on-light, var(--brand-primary))";
   const muted         = dark ? "hsla(48,100%,96%,0.50)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.55)";
   const bgHex         = BG_HEX[backgroundStyle] ?? "var(--brand-primary)";

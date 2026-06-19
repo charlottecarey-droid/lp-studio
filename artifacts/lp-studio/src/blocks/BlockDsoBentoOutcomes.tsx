@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import type { DsoBentoOutcomesBlockProps, DsoBentoTile } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
@@ -212,7 +212,7 @@ export function BlockDsoBentoOutcomes({ props, brand, onFieldChange }: Props) {
   } = props;
   const field = (key: keyof DsoBentoOutcomesBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoBentoOutcomesBlockProps[typeof key] }) : undefined;
-  const dark = isDarkBg(backgroundStyle ?? "white");
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle ?? "white" }, "#ffffff", brand).isDark;
   const displayTiles: DsoBentoTile[] = tiles && tiles.length > 0 ? tiles : DEFAULT_TILES;
   const updateTile = onFieldChange
     ? (idx: number, patch: Partial<DsoBentoTile>) => {

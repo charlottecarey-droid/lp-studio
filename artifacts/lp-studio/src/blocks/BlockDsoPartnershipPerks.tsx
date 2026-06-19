@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Star } from "lucide-react";
 import { IconOrImage, isImageIcon } from "@/lib/icon-value";
 import type { DsoPartnershipPerksBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
@@ -56,7 +56,7 @@ function PerkIcon({ name, dark }: { name: string; dark: boolean }) {
 
 export function BlockDsoPartnershipPerks({ props, brand, onFieldChange }: Props) {
   const { eyebrow, headline, subheadline, perks = [], ctaText, ctaUrl, ctaMode = "link", ctaVariant = "secondary", backgroundStyle = "dark" } = props;
-  const dark = isDarkBg(backgroundStyle);
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
   const sectionBg = getBgStyle(backgroundStyle);
   const field = (key: keyof DsoPartnershipPerksBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoPartnershipPerksBlockProps[typeof key] }) : undefined;

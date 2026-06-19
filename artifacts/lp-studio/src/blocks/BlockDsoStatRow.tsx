@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import type { DsoStatRowBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockDsoCta } from "@/components/BlockDsoCta";
 import { InlineText } from "@/components/InlineText";
@@ -82,7 +82,7 @@ export function BlockDsoStatRow({ props, brand, onFieldChange }: Props) {
     next[i] = { ...next[i], ...patch };
     onFieldChange({ ...props, items: next });
   };
-  const dark = isDarkBg(backgroundStyle);
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
   const sectionBg = getBgStyle(backgroundStyle);
 
   const eyebrowC  = dark ? LIME : BRAND;

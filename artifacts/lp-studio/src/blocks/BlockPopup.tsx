@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { X, MousePointerClick, Calendar, Loader2, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { PopupBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { safeNavigate } from "@/lib/safe-url";
@@ -216,7 +216,7 @@ function PopupOverlay({
   brand: BrandConfig;
   onDismiss: () => void;
 }) {
-  const isDark = isDarkBg(p.backgroundStyle);
+  const isDark = resolveSectionSurface({ backgroundStyle: p.backgroundStyle }, "#ffffff", brand).isDark;
   const positionClass =
     p.position === "bottom-left" ? "items-end justify-start p-6"
     : p.position === "bottom-right" ? "items-end justify-end p-6"
@@ -292,6 +292,9 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, isBuilder, pag
 
   const storageKey = `lp-popup-${blockId}-dismissed`;
   const isChiliPiper = p.ctaType === "chilipiper" && !!p.chilipiperUrl;
+  // Tone follows the surface the popup ACTUALLY paints (brand-aware), not the
+  // preset key — so a pale "Brand color" popup gets dark, legible text.
+  const isDark = resolveSectionSurface({ backgroundStyle: p.backgroundStyle }, "#ffffff", brand).isDark;
 
   const dismiss = useCallback(() => {
     setDismissed(true);
@@ -391,7 +394,7 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, isBuilder, pag
           )}>
             <div className="absolute inset-0 bg-black/50" onClick={() => setPreviewOpen(false)} />
             <div
-              className={cn("relative rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden", isDarkBg(p.backgroundStyle) ? "text-white" : "text-slate-900")}
+              className={cn("relative rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden", isDark ? "text-white" : "text-slate-900")}
               style={getBgStyle(p.backgroundStyle)}
             >
               <button onClick={() => setPreviewOpen(false)} className="absolute top-3 right-3 p-1 rounded-full hover:bg-slate-100 text-slate-400">
@@ -400,7 +403,7 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, isBuilder, pag
               {p.imageUrl && <div className="w-full h-40 overflow-hidden"><img src={p.imageUrl} alt="" className="w-full h-full object-cover" /></div>}
               <div className="p-6">
                 {p.headline && <h3 className="text-xl font-bold mb-2" style={{ fontFamily: DISPLAY }}>{p.headline}</h3>}
-                {p.body && <p className={cn("text-sm mb-4", isDarkBg(p.backgroundStyle) ? "text-white/70" : "text-slate-600")} style={{ fontFamily: BODY }}>{p.body}</p>}
+                {p.body && <p className={cn("text-sm mb-4", isDark ? "text-white/70" : "text-slate-600")} style={{ fontFamily: BODY }}>{p.body}</p>}
                 {p.ctaText && (
                   <button
                     className="w-full py-3 px-6 rounded-lg font-semibold text-sm"
@@ -487,17 +490,17 @@ export function BlockPopup({ props: p, brand, blockId, isEditing, isBuilder, pag
       <div
         className={cn(
           "relative rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden",
-          isDarkBg(p.backgroundStyle) ? "text-white" : "text-slate-900"
+          isDark ? "text-white" : "text-slate-900"
         )}
         style={{ animation: "lp-scaleIn 0.25s ease-out", ...getBgStyle(p.backgroundStyle) }}
       >
-        <button onClick={dismiss} className={cn("absolute top-3 right-3 p-1 rounded-full transition-colors z-10", isDarkBg(p.backgroundStyle) ? "hover:bg-white/10 text-white/70" : "hover:bg-slate-100 text-slate-400")}>
+        <button onClick={dismiss} className={cn("absolute top-3 right-3 p-1 rounded-full transition-colors z-10", isDark ? "hover:bg-white/10 text-white/70" : "hover:bg-slate-100 text-slate-400")}>
           <X className="w-5 h-5" />
         </button>
         {p.imageUrl && <div className="w-full h-40 overflow-hidden"><img src={p.imageUrl} alt="" className="w-full h-full object-cover" /></div>}
         <div className="p-6">
           {p.headline && <h3 className="text-xl font-bold mb-2" style={{ fontFamily: DISPLAY }}>{p.headline}</h3>}
-          {p.body && <p className={cn("text-sm mb-4", isDarkBg(p.backgroundStyle) ? "text-white/70" : "text-slate-600")} style={{ fontFamily: BODY }}>{p.body}</p>}
+          {p.body && <p className={cn("text-sm mb-4", isDark ? "text-white/70" : "text-slate-600")} style={{ fontFamily: BODY }}>{p.body}</p>}
           {p.ctaText && (
             <button
               onClick={handleCtaClick}

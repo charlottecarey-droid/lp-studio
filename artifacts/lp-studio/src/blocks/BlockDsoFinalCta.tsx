@@ -4,7 +4,7 @@ import { ScanAcross, ScanDown, FlickerDot, PulseGlow } from "./SectionAmbient";
 import { ArrowRight } from "lucide-react";
 import type { DsoFinalCtaBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
-import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface, getImageBgSectionStyle } from "@/lib/bg-styles";
 import { safeNavigate } from "@/lib/safe-url";
 import { InlineText } from "@/components/InlineText";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
@@ -49,7 +49,7 @@ export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, page
     backgroundOverlay,
     overlayColor = "#000000",
   } = props;
-  const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark || !!backgroundImage;
   const sectionBgStyle = backgroundImage ? { ...getImageBgSectionStyle(backgroundImage), overflow: "hidden" as const } : { position: "relative" as const, overflow: "hidden" as const, ...getBgStyle(backgroundStyle) };
 
   const ctaRef = useRef<HTMLElement>(null);

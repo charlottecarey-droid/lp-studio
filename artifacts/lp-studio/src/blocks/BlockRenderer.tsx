@@ -879,19 +879,19 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
       case "dso-lab-tour":
         return (
           <BlockDsoLabTour
-            props={block.props}
+            props={block.props} brand={brand}
             onCtaClick={onCtaClick ? () => onCtaClick(block.props.ctaUrl) : undefined}
             onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined}
           />
         );
       case "dso-stat-bar":
-        return <BlockDsoStatBar props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDsoStatBar props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-success-stories":
-        return <BlockDsoSuccessStories props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDsoSuccessStories props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-challenges":
-        return <BlockDsoChallenges props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDsoChallenges props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-pilot-steps":
-        return <BlockDsoPilotSteps props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDsoPilotSteps props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-final-cta":
         return (
           <BlockDsoFinalCta
@@ -938,11 +938,11 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
           />
         );
       case "dso-problem":
-        return <BlockDsoProblem props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDsoProblem props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-ai-feature":
-        return <BlockDsoAiFeature props={block.props} headlineColor={block.blockSettings?.headlineColor} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDsoAiFeature props={block.props} brand={brand} headlineColor={block.blockSettings?.headlineColor} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-stat-showcase":
-        return <BlockDsoStatShowcase props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDsoStatShowcase props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-scroll-story":
         return <BlockDsoScrollStory props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-scroll-story-hero":
@@ -975,7 +975,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
       case "dso-bento-outcomes":
         return <BlockDsoBentoOutcomes props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-cta-capture":
-        return <BlockDsoCtaCapture props={block.props} pageId={pageId} variantId={variantId} prefillCompany={pageVars?.["{{company}}"]} isBuilder={isBuilder} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDsoCtaCapture props={block.props} brand={brand} pageId={pageId} variantId={variantId} prefillCompany={pageVars?.["{{company}}"]} isBuilder={isBuilder} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-meet-team":
         return <BlockDsoMeetTeam props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-paradigm-shift":
@@ -985,7 +985,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
       case "dso-products-grid":
         return <BlockDsoProductsGrid props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-promo-cards":
-        return <BlockDsoPromoCards props={block.props} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+        return <BlockDsoPromoCards props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-activation-steps":
         return <BlockDsoActivationSteps props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "dso-promises":
@@ -1009,7 +1009,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
       case "dso-case-study":
         return (
           <BlockDsoCaseStudy
-            props={block.props}
+            props={block.props} brand={brand}
             onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined}
           />
         );
@@ -1577,7 +1577,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
       case "testimonial-grid":
         return <BlockTestimonialGrid props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "section":
-        return <BlockSection props={block.props} childrenSlot={childrenSlot} isBuilder={isBuilder} />;
+        return <BlockSection props={block.props} brand={brand} childrenSlot={childrenSlot} isBuilder={isBuilder} />;
       case "columns":
         return <BlockColumns props={block.props} childrenSlot={childrenSlot} isBuilder={isBuilder} />;
       case "grid":

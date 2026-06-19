@@ -3,10 +3,12 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY = BRAND_DISPLAY_FONT;
 import type { SectionBlockProps } from "@/lib/block-types/container-blocks";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
+import type { BrandConfig } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 
 interface Props {
+  brand?: BrandConfig;
   props: SectionBlockProps;
   onFieldChange?: (updated: SectionBlockProps) => void;
   /** Pre-rendered children (the recursive renderer fills this in). */
@@ -34,7 +36,7 @@ const ALIGN: Record<NonNullable<SectionBlockProps["align"]>, string> = {
   stretch: "stretch",
 };
 
-export function BlockSection({ props, onFieldChange, childrenSlot, isBuilder }: Props) {
+export function BlockSection({ props, brand, onFieldChange, childrenSlot, isBuilder }: Props) {
   void isBuilder;
   const {
     eyebrow,
@@ -55,7 +57,7 @@ export function BlockSection({ props, onFieldChange, childrenSlot, isBuilder }: 
   // ink when primary ≈ page bg), on dark sections we use
   // `--brand-eyebrow-on-dark` (a tint that contrasts with brand-primary).
   // Both vars are emitted by getBrandStyleVars on the page wrapper.
-  const eyebrowColor = isDarkBg(backgroundStyle)
+  const eyebrowColor = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark
     ? "var(--brand-eyebrow-on-dark, #ffffff)"
     : "var(--brand-eyebrow-on-light, #003A30)";
   const padY = PAD_Y[paddingY];

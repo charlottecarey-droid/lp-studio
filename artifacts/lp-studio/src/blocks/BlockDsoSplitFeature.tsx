@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
 import type { DsoSplitFeatureBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
@@ -35,7 +35,7 @@ export function BlockDsoSplitFeature({ props, brand, onFieldChange }: Props) {
     backgroundStyle = "white",
   } = props;
 
-  const dark = isDarkBg(backgroundStyle);
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
   const sectionBg = getBgStyle(backgroundStyle);
   const field = (key: keyof DsoSplitFeatureBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v }) : undefined;

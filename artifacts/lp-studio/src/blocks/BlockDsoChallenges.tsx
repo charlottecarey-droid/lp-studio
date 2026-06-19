@@ -1,10 +1,12 @@
 import { motion } from "framer-motion";
 import { TrendingDown, BarChart3, Scale, Wallet } from "lucide-react";
 import type { DsoChallengesBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface, getImageBgSectionStyle } from "@/lib/bg-styles";
+import type { BrandConfig } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 
 interface Props {
+  brand?: BrandConfig;
   props: DsoChallengesBlockProps;
   onFieldChange?: (updated: DsoChallengesBlockProps) => void;
 }
@@ -41,7 +43,7 @@ const DEFAULT_CHALLENGES = [
   },
 ];
 
-export function BlockDsoChallenges({ props, onFieldChange }: Props) {
+export function BlockDsoChallenges({ props, brand, onFieldChange }: Props) {
   const { eyebrow, headline, backgroundStyle = "muted", layout = "4-col", challenges, backgroundImage, backgroundOverlay, overlayColor = "#000000" } = props;
   const field = (key: keyof DsoChallengesBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoChallengesBlockProps[typeof key] }) : undefined;
@@ -56,7 +58,7 @@ export function BlockDsoChallenges({ props, onFieldChange }: Props) {
         });
       }
     : undefined;
-  const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark || !!backgroundImage;
   const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
   const displayChallenges = (challenges && challenges.length > 0) ? challenges : DEFAULT_CHALLENGES;
   const gridCols = layout === "2-col" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2 md:grid-cols-4";

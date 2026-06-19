@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { ShieldCheck, Ban, RotateCcw, Clock, Zap, TrendingUp, Star, CheckCircle, Award, Heart, Users, Package, Layers, Gift } from "lucide-react";
 import type { DsoPromisesBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
@@ -54,7 +54,7 @@ export function BlockDsoPromises({ props, brand, onFieldChange }: Props) {
           promises: promises.map((p, i) => (i === idx ? { ...p, ...patch } : p)),
         })
     : undefined;
-  const dark = isDarkBg(backgroundStyle);
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
   const sectionBg = getBgStyle(backgroundStyle);
 
   const eyebrowC  = dark ? LIME : BRAND;

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { StickyBarBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { ChiliPiperModal } from "./ChiliPiperModal";
@@ -43,7 +43,7 @@ export function BlockStickyBar({ props: p, brand, onCtaClick, pageId, variantId,
   if (dismissed || !visible) return null;
 
   const isBrand = p.backgroundStyle === "brand";
-  const isDark = !isBrand && isDarkBg(p.backgroundStyle);
+  const isDark = !isBrand && resolveSectionSurface({ backgroundStyle: p.backgroundStyle }, "#ffffff", brand).isDark;
 
   const barBgStyle = isBrand
     ? { backgroundColor: brand.primaryColor || "var(--brand-primary)" }

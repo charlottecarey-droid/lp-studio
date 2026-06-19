@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { VideoSectionBlockProps } from "@/lib/block-types";
 import { getButtonClasses, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass, type BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY, pickCtaButtonColors, isValidHex, DEFAULT_BRAND } from "@/lib/brand-config";
@@ -135,7 +135,7 @@ export function BlockVideoSection({ props, brand, onCtaClick, pageId, variantId,
   const sectionPy = SECTION_PY[brand.sectionPadding];
   const bgClass = BG_CLASSES[props.backgroundStyle] ?? BG_CLASSES.white;
   const aspectClass = ASPECT_CLASSES[props.aspectRatio] ?? ASPECT_CLASSES["16/9"];
-  const isDark = isDarkBg(props.backgroundStyle);
+  const isDark = resolveSectionSurface({ backgroundStyle: props.backgroundStyle }, "#ffffff", brand).isDark;
   const bgGradientStyle = props.backgroundStyle === "gradient" ? getBgStyle("gradient") : undefined;
   const layout = props.layout ?? "full-width";
   const isSplit = layout === "split-left" || layout === "split-right";

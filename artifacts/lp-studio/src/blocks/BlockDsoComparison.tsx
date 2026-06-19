@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Check, Minus, ArrowRight } from "lucide-react";
 import type { DsoComparisonBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
-import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface, getImageBgSectionStyle } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 
@@ -66,7 +66,7 @@ export function BlockDsoComparison({ props, brand, onCtaClick, animationsEnabled
         onFieldChange({ ...props, rows: list.map((r, i) => i === idx ? { ...r, ...patch } : r) });
       }
     : undefined;
-  const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark || !!backgroundImage;
   const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
 
   const anim = animationsEnabled;

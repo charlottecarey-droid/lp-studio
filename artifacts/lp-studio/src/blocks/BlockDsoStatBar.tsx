@@ -1,10 +1,12 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import type { DsoStatBarBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
+import type { BrandConfig } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 
 interface Props {
+  brand?: BrandConfig;
   props: DsoStatBarBlockProps;
   onFieldChange?: (updated: DsoStatBarBlockProps) => void;
 }
@@ -71,9 +73,9 @@ const StatItem = ({
   );
 };
 
-export function BlockDsoStatBar({ props, onFieldChange }: Props) {
+export function BlockDsoStatBar({ props, brand, onFieldChange }: Props) {
   const { stats = [], backgroundStyle = "white" } = props;
-  const dark = isDarkBg(backgroundStyle);
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
 
   const displayStats = stats.length > 0
     ? stats.slice(0, 4)

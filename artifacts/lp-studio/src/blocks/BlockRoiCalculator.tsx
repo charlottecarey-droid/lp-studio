@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { ChevronDown } from "lucide-react";
 import type { RoiCalculatorBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import { SECTION_PY } from "@/lib/brand-config";
 import { cn } from "@/lib/utils";
@@ -110,7 +110,7 @@ const BG_STYLES: Record<string, string> = {
 export function BlockRoiCalculator({ props, brand, onCtaClick }: Props) {
   const sectionPy = SECTION_PY[brand.sectionPadding];
   const accentColor = props.accentColor ?? brand.accentColor ?? "var(--brand-accent)";
-  const dark = isDarkBg(props.backgroundStyle ?? "white");
+  const dark = resolveSectionSurface({ backgroundStyle: props.backgroundStyle ?? "white" }, "#ffffff", brand).isDark;
   const headlineColor = dark ? "#fff" : "#0a1628";
   const subColor = dark ? "rgba(255,255,255,0.72)" : "#6b7280";
 

@@ -2,7 +2,8 @@ import { useRef, useEffect, useState } from "react";
 import { motion, useInView, useMotionValue, useMotionValueEvent, animate } from "framer-motion";
 import { ScanAcross, PulseGlow } from "./SectionAmbient";
 import type { DsoStatShowcaseBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
+import type { BrandConfig } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { InlineText } from "@/components/InlineText";
 
@@ -161,11 +162,12 @@ function StatCard({
 }
 
 interface Props {
+  brand?: BrandConfig;
   props: DsoStatShowcaseBlockProps;
   onFieldChange?: (updated: DsoStatShowcaseBlockProps) => void;
 }
 
-export function BlockDsoStatShowcase({ props, onFieldChange }: Props) {
+export function BlockDsoStatShowcase({ props, brand, onFieldChange }: Props) {
   const {
     eyebrow = "By the Numbers",
     headline = "Results that compound at scale.",
@@ -187,7 +189,7 @@ export function BlockDsoStatShowcase({ props, onFieldChange }: Props) {
       }
     : undefined;
 
-  const dark = isDarkBg(backgroundStyle);
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
   const fg         = dark ? "hsl(48,100%,96%)"      : P;
   const eyebrowFg  = AW;
   const mu         = dark ? "rgba(255,255,255,0.46)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.55)";

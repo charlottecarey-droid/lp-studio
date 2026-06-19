@@ -1,10 +1,12 @@
 import { motion } from "framer-motion";
 import type { DsoSuccessStoriesBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface, getImageBgSectionStyle } from "@/lib/bg-styles";
+import type { BrandConfig } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { InlineText } from "@/components/InlineText";
 
 interface Props {
+  brand?: BrandConfig;
   props: DsoSuccessStoriesBlockProps;
   onCtaClick?: () => void;
   onFieldChange?: (updated: DsoSuccessStoriesBlockProps) => void;
@@ -47,7 +49,7 @@ const DEFAULT_CASES = [
   },
 ];
 
-export function BlockDsoSuccessStories({ props, onFieldChange }: Props) {
+export function BlockDsoSuccessStories({ props, brand, onFieldChange }: Props) {
   const { eyebrow, headline, cases, backgroundStyle = "muted", backgroundImage, backgroundOverlay, overlayColor = "#000000", ctaText, ctaUrl, ctaMode = "link" } = props;
   const field = (key: keyof DsoSuccessStoriesBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoSuccessStoriesBlockProps[typeof key] }) : undefined;
@@ -57,7 +59,7 @@ export function BlockDsoSuccessStories({ props, onFieldChange }: Props) {
         onFieldChange({ ...props, cases: list.map((c, i) => i === idx ? { ...c, ...patch } : c) });
       }
     : undefined;
-  const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark || !!backgroundImage;
   const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
   const displayCases = (cases && cases.length > 0) ? cases.slice(0, 3) : DEFAULT_CASES;
 

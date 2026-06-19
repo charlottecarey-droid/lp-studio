@@ -7,7 +7,8 @@ import {
   DollarSign, Network, Activity, Scale,
 } from "lucide-react";
 import type { DsoProblemBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
+import type { BrandConfig } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { InlineText } from "@/components/InlineText";
 
@@ -51,11 +52,12 @@ const DEFAULT_PANELS: DsoProblemBlockProps["panels"] = [
 ];
 
 interface Props {
+  brand?: BrandConfig;
   props: DsoProblemBlockProps;
   onFieldChange?: (updated: DsoProblemBlockProps) => void;
 }
 
-export function BlockDsoProblem({ props, onFieldChange }: Props) {
+export function BlockDsoProblem({ props, brand, onFieldChange }: Props) {
   const {
     eyebrow = "The Problem",
     headline = "Consolidation shouldn't mean compromise.",
@@ -70,7 +72,7 @@ export function BlockDsoProblem({ props, onFieldChange }: Props) {
     ctaMode = "link",
   } = props;
 
-  const dark = isDarkBg(backgroundStyle);
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
   const fg   = dark ? "hsl(48,100%,96%)"      : P;
   const mu   = dark ? "rgba(255,255,255,0.52)" : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.55)";
   const dividerColor = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";

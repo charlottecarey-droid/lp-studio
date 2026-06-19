@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useCallback, useState } from "react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { MonitorPlay, Zap, CheckCircle2, Clock, BarChart3 } from "lucide-react";
 import type { DsoSoftwareShowcaseBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
@@ -96,7 +96,7 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
     }
   }, [inView, props.videoPlayOnScroll]);
 
-  const dark = isDarkBg(backgroundStyle);
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
   const sectionBg = getBgStyle(backgroundStyle);
 
   const eyebrowC  = dark ? LIME  : BRAND;

@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Mail, Calendar, User } from "lucide-react";
 import type { DsoMeetTeamBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
@@ -30,7 +30,7 @@ export function BlockDsoMeetTeam({ props, brand, onFieldChange }: Props) {
     ? (i: number, patch: Partial<DsoMeetTeamBlockProps["members"][number]>) =>
         onFieldChange({ ...props, members: members.map((m, idx) => idx === i ? { ...m, ...patch } : m) })
     : undefined;
-  const dark = isDarkBg(backgroundStyle);
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
   const sectionBg = getBgStyle(backgroundStyle);
 
   const eyebrowC  = dark ? LIME : BRAND;

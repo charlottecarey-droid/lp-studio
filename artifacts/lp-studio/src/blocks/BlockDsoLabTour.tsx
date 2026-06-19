@@ -9,11 +9,13 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { Play, X, Microscope, Cpu, Users, MapPin } from "lucide-react";
 import type { DsoLabTourBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg, getImageBgSectionStyle } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface, getImageBgSectionStyle } from "@/lib/bg-styles";
+import type { BrandConfig } from "@/lib/brand-config";
 import { safeNavigate } from "@/lib/safe-url";
 import { InlineText } from "@/components/InlineText";
 
 interface Props {
+  brand?: BrandConfig;
   props: DsoLabTourBlockProps;
   onCtaClick?: () => void;
   onFieldChange?: (updated: DsoLabTourBlockProps) => void;
@@ -34,7 +36,7 @@ const LAB_HIGHLIGHTS = [
   { icon: MapPin,     label: "Multiple Locations"      },
 ];
 
-export function BlockDsoLabTour({ props, onCtaClick, onFieldChange }: Props) {
+export function BlockDsoLabTour({ props, brand, onCtaClick, onFieldChange }: Props) {
   const {
     eyebrow, headline, body,
     quote, quoteAttribution,
@@ -48,7 +50,7 @@ export function BlockDsoLabTour({ props, onCtaClick, onFieldChange }: Props) {
   } = props;
   const field = (key: keyof DsoLabTourBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoLabTourBlockProps[typeof key] }) : undefined;
-  const dark = isDarkBg(backgroundStyle) || !!backgroundImage;
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark || !!backgroundImage;
   const sectionBgStyle = backgroundImage ? getImageBgSectionStyle(backgroundImage) : getBgStyle(backgroundStyle);
 
   const [videoOpen, setVideoOpen] = useState(false);

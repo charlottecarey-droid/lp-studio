@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Crown, SmilePlus, Stethoscope, Target, Scan, Sparkles, Moon, Shield } from "lucide-react";
 import type { DsoProductsGridBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
@@ -42,7 +42,7 @@ const PRODUCT_ICONS: Record<string, React.ElementType> = {
 
 export function BlockDsoProductsGrid({ props, brand, onFieldChange }: Props) {
   const { eyebrow, headline, subheadline, products = [], ctaText, ctaUrl, ctaMode = "link", ctaVariant = "link", backgroundStyle = "muted" } = props;
-  const dark = isDarkBg(backgroundStyle);
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
   const sectionBg = getBgStyle(backgroundStyle);
   const field = (key: keyof DsoProductsGridBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoProductsGridBlockProps[typeof key] }) : undefined;

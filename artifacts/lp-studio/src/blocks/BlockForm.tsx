@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import type { FormBlockProps, FormField, FormStep, StepCondition, ChiliPiperHandoffConfig } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { contrastTextColor, isValidHex, DEFAULT_BRAND } from "@/lib/brand-config";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import { safeNavigate } from "@/lib/safe-url";
 import { MarketoForm } from "@/components/MarketoForm";
 import { MunchkinLoader } from "@/components/MunchkinLoader";
@@ -440,7 +440,7 @@ export function BlockForm({ props, brand, pageId, testId, variantId, sessionId, 
     "black": "bg-black text-white",
   };
 
-  const isDark = isDarkBg(props.backgroundStyle);
+  const isDark = resolveSectionSurface({ backgroundStyle: props.backgroundStyle }, "#ffffff", brand).isDark;
   const [currentStep, setCurrentStep] = useState(0);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});

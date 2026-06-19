@@ -1,10 +1,12 @@
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import type { DsoPromoCardsBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
+import type { BrandConfig } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 
 interface Props {
+  brand?: BrandConfig;
   props: DsoPromoCardsBlockProps;
   onFieldChange?: (updated: DsoPromoCardsBlockProps) => void;
 }
@@ -24,9 +26,9 @@ const BADGE_PALETTE: Record<string, { bg: string; text: string }> = {
   HOT:    { bg: "#ef4444", text: "#fff" },
 };
 
-export function BlockDsoPromoCards({ props, onFieldChange }: Props) {
+export function BlockDsoPromoCards({ props, brand, onFieldChange }: Props) {
   const { eyebrow, headline, subheadline, cards = [], backgroundStyle = "dark" } = props;
-  const dark = isDarkBg(backgroundStyle);
+  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
   const sectionBg = getBgStyle(backgroundStyle);
   const field = (key: keyof DsoPromoCardsBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoPromoCardsBlockProps[typeof key] }) : undefined;

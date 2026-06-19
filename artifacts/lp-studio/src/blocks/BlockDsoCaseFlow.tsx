@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import { DSO_CASE_FLOW_DEFAULT_STAGES, type DsoCaseFlowBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg, type BackgroundStyle } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface, type BackgroundStyle } from "@/lib/bg-styles";
 import {
   DEFAULT_BRAND,
   isValidHex,
@@ -59,7 +59,7 @@ function resolveCaseFlowColors(brand: BrandConfig, style: BackgroundStyle) {
   const bgHex = resolveSectionBgHex(brand, style);
   // Canonical dark presets stay dark; a light preset a tenant recolored dark
   // is also treated as dark (luminance check), so the fix is robust either way.
-  const dark = isDarkBg(style) || relativeLuminance(bgHex) < 0.4;
+  const dark = resolveSectionSurface({ backgroundStyle: style }, "#ffffff", brand).isDark || relativeLuminance(bgHex) < 0.4;
 
   if (dark) {
     return {

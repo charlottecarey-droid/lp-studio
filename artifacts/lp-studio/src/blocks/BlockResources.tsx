@@ -2,7 +2,7 @@ import type { ResourcesBlockProps } from "../lib/block-types";
 import type { BrandConfig } from "../lib/brand-config";
 import { SECTION_PY, getHeadingWeightClass, getHeadingLetterSpacingClass, getBodySizeClass } from "../lib/brand-config";
 import { getHeadlineSizeClass } from "../lib/typography";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import { ImageIcon, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { InlineText } from "@/components/InlineText";
@@ -25,7 +25,7 @@ export default function BlockResources({ props, brand, animationsEnabled = true,
   const { headline, subheadline, columns, items, backgroundStyle } = props;
   const sectionPy = SECTION_PY[brand.sectionPadding];
 
-  const isDark = isDarkBg(backgroundStyle);
+  const isDark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
   const cardBg = isDark ? "bg-white/10" : "bg-white";
 
   const field = (key: keyof ResourcesBlockProps) =>

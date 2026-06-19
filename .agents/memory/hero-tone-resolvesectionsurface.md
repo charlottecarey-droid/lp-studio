@@ -17,7 +17,20 @@ migrated). For a `bg-image` layout the cover photo is the real surface — keyin
 tone off the (often unset/light) preset ignores the image entirely.
 
 **How to apply:**
-- Migrated blocks: `BlockHero` (no image bg) and `BlockDsoPracticeHero`.
+- Migrated blocks: `BlockHero` + `BlockDsoPracticeHero` (heroes) AND every
+  section/content block that previously called `isDarkBg(...)` for text/contrast
+  (all `Block*` in `src/blocks/`). Pattern: `isDarkBg(X)` →
+  `resolveSectionSurface({ backgroundStyle: X }, "#ffffff", brand).isDark`,
+  keeping any `|| !!backgroundImage` so cover photos stay dark.
+- 12 content blocks had NO `brand` prop (e.g. BlockSection, BlockDsoCaseStudy,
+  BlockDsoProblem, the stat/promo blocks); to call `resolveSectionSurface(..., brand)`
+  you MUST thread `brand` in: add `brand?: BrandConfig` to Props, destructure it,
+  and pass `brand={brand}` at the BlockRenderer callsite (brand is in scope there).
+  Optional `brand?` keeps unit tests (which render without brand) on the legacy
+  key path — identical behavior, no regression.
+- `BlockFooter`/`BlockHowItWorks`/`BlockSpatialTour` use their OWN local
+  `relativeLuminance(...)` darkness var (not the bg-styles `isDarkBg`); leave them.
+  `BlockDsoCaseFlow` already resolves a brand hex — migrated, kept its luminance OR.
 - For an image-background hero, treat the cover image as a DARK surface
   (`layout === "bg-image" && !!imageUrl ? true : surface.isDark`) so it always
   gets light text + the dark scrim — matches sibling DSO content blocks'

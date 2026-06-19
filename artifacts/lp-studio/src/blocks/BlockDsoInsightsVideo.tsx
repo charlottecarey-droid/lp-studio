@@ -13,7 +13,7 @@ import { motion, useInView } from "framer-motion";
 import { Activity, DollarSign, Stethoscope, LineChart, ChevronRight, ScanLine } from "lucide-react";
 import type { DsoInsightsVideoBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import { isNativeVideoUrl, getAutoplayEmbedUrl } from "@/lib/video-utils";
 import { InlineText } from "@/components/InlineText";
@@ -165,7 +165,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
   }, [inView, props.videoPlayOnScroll]);
 
   const bgStyle = getBgStyle(props.backgroundStyle ?? "dandy-green");
-  const dark = isDarkBg(props.backgroundStyle ?? "dandy-green");
+  const dark = resolveSectionSurface({ backgroundStyle: props.backgroundStyle ?? "dandy-green" }, "#ffffff", brand).isDark;
   const sectionStyle: React.CSSProperties = props.imageUrl
     ? {
         backgroundImage: `url(${props.imageUrl})`,
