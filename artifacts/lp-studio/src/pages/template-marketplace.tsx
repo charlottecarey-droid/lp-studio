@@ -49,7 +49,13 @@ import {
   collectIndustries,
   compareRecentlyUsed,
   formatIndustry,
+  buildTemplateGroups,
+  paginateTemplateGroups,
 } from "@/lib/template-library";
+import { TemplatePager } from "@/components/template-pager";
+
+// Same-origin API base for the featured (homepage-default) templates fetch.
+const API_BASE = "/api";
 
 // Matches the enriched response from GET /api/lp/templates/enriched
 interface TemplatePage {
@@ -204,6 +210,13 @@ export default function TemplateMarketplace() {
   // user never loses access to their own work.
   const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
   const [cloningId, setCloningId] = useState<number | null>(null);
+  // Superadmin homepage-default template ids — drives the "Platform Homepage
+  // templates" section. `null` = still loading / fetch failed; in that case the
+  // section is simply skipped and those templates fall through to other buckets.
+  const [homepageDefaultIds, setHomepageDefaultIds] = useState<Set<number> | null>(null);
+  // Current gallery page (1-based). Reset to 1 whenever search/filter/sort
+  // changes so the user never lands on an out-of-range page.
+  const [page, setPage] = useState(1);
   const [previewTemplate, setPreviewTemplate] = useState<TemplatePage | null>(null);
   const [previewBlocks, setPreviewBlocks] = useState<PageBlock[] | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -236,6 +249,25 @@ export default function TemplateMarketplace() {
       .then((data) => setTemplates(data))
       .catch((err) => setError(err.message || "Failed to load templates"))
       .finally(() => setLoading(false));
+  }, []);
+
+  // Load the superadmin homepage-default template ids so the "Platform Homepage
+  // templates" section can be built. Mirrors the create-page modal flow (the
+  // featured-templates endpoint returns ids like "global:123"). A failed/empty
+  // fetch leaves an empty set → the section is skipped gracefully.
+  useEffect(() => {
+    fetch(`${API_BASE}/lp/featured-templates`, { cache: "no-store", credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { templates: [] }))
+      .then((data: { templates?: { id?: string }[] }) => {
+        const ids = new Set<number>();
+        for (const t of data.templates ?? []) {
+          const raw = typeof t.id === "string" ? t.id : "";
+          const num = Number(raw.startsWith("global:") ? raw.slice(7) : raw);
+          if (Number.isInteger(num) && num > 0) ids.add(num);
+        }
+        setHomepageDefaultIds(ids);
+      })
+      .catch(() => setHomepageDefaultIds(new Set()));
   }, []);
 
   // Real industry tags present across the loaded templates (excludes the
@@ -299,52 +331,27 @@ export default function TemplateMarketplace() {
     return sorted;
   }, [templates, searchQuery, sortBy, selectedIndustry, typeFilter]);
 
-  // Build display groups. The tenant's starred templates lead under
-  // "Featured" in every sort. In the "Featured" sort the non-starred
-  // remainder is then split into "Your templates" (tenant-owned) and
-  // "All templates" (global starter library); other sorts render the
-  // remainder as a single ungrouped list.
-  const displayGroups = useMemo(() => {
-    // The tenant's starred templates always lead the gallery under "Featured",
-    // regardless of the active sort — this is the curated shelf Charlotte
-    // manages with the star toggle on each card.
-    const featured = filteredAndSorted.filter((t) => t.featured);
-    const remainder = filteredAndSorted.filter((t) => !t.featured);
-    const groups: { label: string | null; items: TemplatePage[] }[] = [];
-    if (featured.length > 0) groups.push({ label: "Featured", items: featured });
+  // Group the filtered+sorted templates into the ordered display sections
+  // (Featured → Your templates → Platform Homepage → Full page → Block →
+  // Industry). Shared with the Sales marketplace so the two galleries match.
+  const allGroups = useMemo(
+    () => buildTemplateGroups(filteredAndSorted, homepageDefaultIds),
+    [filteredAndSorted, homepageDefaultIds],
+  );
 
-    if (sortBy !== "Featured") {
-      if (remainder.length > 0) {
-        groups.push({
-          label: featured.length > 0 ? "All templates" : null,
-          items: remainder,
-        });
-      }
-      return groups;
-    }
+  // Reset to page 1 whenever the result set changes (search / filter / sort)
+  // so a stale page never strands the user on an out-of-range page.
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, sortBy, selectedIndustry, typeFilter]);
 
-    // In the "Featured" sort, split the non-starred remainder into the tenant's
-    // own templates and the global starter library (flagship ordering within
-    // each is preserved by the sort comparator).
-    const tenant: TemplatePage[] = [];
-    const rest: TemplatePage[] = [];
-    for (const t of remainder) {
-      if (!t.isGlobal) tenant.push(t);
-      else rest.push(t);
-    }
-    if (tenant.length > 0) {
-      groups.push({
-        label: featured.length > 0 || rest.length > 0 ? "Your templates" : null,
-        items: tenant,
-      });
-    }
-    if (rest.length > 0) {
-      const restLabel =
-        tenant.length > 0 || featured.length > 0 ? "All templates" : null;
-      groups.push({ label: restLabel, items: rest });
-    }
-    return groups;
-  }, [filteredAndSorted, sortBy]);
+  // Slice the ordered sections into the current page. The two lowest-priority
+  // sections naturally overflow onto later pages once the total exceeds the
+  // page size; section headers re-render wherever a section starts/continues.
+  const { groups: displayGroups, total, totalPages, page: currentPage } = useMemo(
+    () => paginateTemplateGroups(allGroups, page),
+    [allGroups, page],
+  );
 
   // Clone a template using the real pages clone endpoint
   const handleUseTemplate = async (template: TemplatePage) => {
@@ -656,21 +663,20 @@ export default function TemplateMarketplace() {
         )}
 
         {/* Templates Grid */}
-        {!loading && !error && filteredAndSorted.length > 0 && (
+        {!loading && !error && total > 0 && (
           <>
             <p className="text-sm text-muted-foreground">
-              {filteredAndSorted.length} template{filteredAndSorted.length !== 1 ? "s" : ""} available
+              {total} template{total !== 1 ? "s" : ""} available
+              {totalPages > 1 ? ` · page ${currentPage} of ${totalPages}` : ""}
             </p>
 
-            {displayGroups.map((group, gi) => (
-              <div key={gi} className="space-y-4">
-                {group.label && (
-                  <div className="flex items-center gap-2 pt-2">
-                    {group.label === "Featured" && <Star className="h-4 w-4 text-amber-500 fill-amber-500" />}
-                    <h2 className="text-lg font-semibold tracking-tight">{group.label}</h2>
-                    <span className="text-xs text-muted-foreground">({group.items.length})</span>
-                  </div>
-                )}
+            {displayGroups.map((group) => (
+              <div key={group.key} className="space-y-4">
+                <div className="flex items-center gap-2 pt-2">
+                  {group.key === "featured" && <Star className="h-4 w-4 text-amber-500 fill-amber-500" />}
+                  <h2 className="text-lg font-semibold tracking-tight">{group.label}</h2>
+                  <span className="text-xs text-muted-foreground">({group.items.length})</span>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {group.items.map((template, index) => (
                 <Card
@@ -821,6 +827,15 @@ export default function TemplateMarketplace() {
                 </div>
               </div>
             ))}
+
+            {/* Pager — only shown when the result spans more than one page. */}
+            {totalPages > 1 && (
+              <TemplatePager
+                page={currentPage}
+                totalPages={totalPages}
+                onPageChange={setPage}
+              />
+            )}
           </>
         )}
       </div>

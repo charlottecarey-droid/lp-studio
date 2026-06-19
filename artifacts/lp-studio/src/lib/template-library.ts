@@ -101,3 +101,138 @@ export function formatIndustry(slug: string): string {
     .map((w) => (w.length ? w[0].toUpperCase() + w.slice(1) : ""))
     .join(" ");
 }
+
+// ---------------------------------------------------------------------------
+// Shared section grouping + pagination (task #1371). Both template libraries —
+// the Marketing marketplace and the Sales marketplace — group their filtered+
+// sorted templates into the SAME ordered, labeled sections and paginate them
+// identically. Keeping the logic here guarantees the two galleries never drift.
+// ---------------------------------------------------------------------------
+
+/** Minimal shape needed to assign a template to a display section. Extends the
+ *  Type/Industry shape with the per-tenant id + starred flag the buckets read. */
+export interface TemplateGroupShape extends TemplateTypeShape {
+  /** Stable per-template id — matched against the homepage-default id set. */
+  id: number;
+  /** True when the caller's tenant has starred this template (→ "Featured"). */
+  featured?: boolean;
+}
+
+/** One labeled display section: a stable key (for React lists + page-stitching)
+ *  plus its label and the templates assigned to it (in their incoming order). */
+export interface TemplateGroup<T> {
+  key: string;
+  label: string;
+  items: T[];
+}
+
+/** Page size for the template galleries. With 50 or fewer templates everything
+ *  fits on a single page (no pager). Past 50 the two lowest-priority sections
+ *  ("Block templates", "Industry templates") spill onto later pages. */
+export const TEMPLATE_PAGE_SIZE = 50;
+
+/**
+ * Group filtered+sorted templates into the ordered display sections:
+ *
+ *   1. Featured                    — the tenant's starred templates
+ *   2. Your templates              — the tenant's own (non-global) templates
+ *   3. Platform Homepage templates — superadmin homepage-default templates
+ *   4. Full page templates         — standalone full-page templates
+ *   5. Block templates             — global starters not in any bucket above/below
+ *   6. Industry templates          — global starters with a real industry tag (LAST)
+ *
+ * Every template lands in exactly ONE section — the first it matches in the
+ * priority order above. Industry-tagged globals are pulled out before the
+ * "Block templates" catch-all so block-templates only holds generic untagged
+ * starters. Empty sections are dropped. `homepageDefaultIds` may be null (still
+ * loading) or empty (fetch failed) — in either case the Homepage section is
+ * simply skipped and those templates fall through to their next matching bucket.
+ */
+export function buildTemplateGroups<T extends TemplateGroupShape>(
+  templates: T[],
+  homepageDefaultIds: Set<number> | null,
+): TemplateGroup<T>[] {
+  const featured: T[] = [];
+  const yours: T[] = [];
+  const homepage: T[] = [];
+  const fullPage: T[] = [];
+  const block: T[] = [];
+  const industry: T[] = [];
+
+  for (const t of templates) {
+    if (t.featured) {
+      featured.push(t);
+    } else if (!t.isGlobal) {
+      yours.push(t);
+    } else if (homepageDefaultIds && homepageDefaultIds.has(t.id)) {
+      homepage.push(t);
+    } else if (t.fullPage) {
+      fullPage.push(t);
+    } else if (hasRealIndustry(t)) {
+      industry.push(t);
+    } else {
+      block.push(t);
+    }
+  }
+
+  const groups: TemplateGroup<T>[] = [];
+  if (featured.length) groups.push({ key: "featured", label: "Featured", items: featured });
+  if (yours.length) groups.push({ key: "yours", label: "Your templates", items: yours });
+  if (homepage.length) groups.push({ key: "homepage", label: "Platform Homepage templates", items: homepage });
+  if (fullPage.length) groups.push({ key: "fullPage", label: "Full page templates", items: fullPage });
+  if (block.length) groups.push({ key: "block", label: "Block templates", items: block });
+  if (industry.length) groups.push({ key: "industry", label: "Industry templates", items: industry });
+  return groups;
+}
+
+/** The grouped view of a single gallery page, returned by paginateTemplateGroups. */
+export interface PaginatedTemplateGroups<T> {
+  /** Sections present on THIS page, in order, with their per-page item slices.
+   *  A section that spans a page boundary appears (continued) on each page. */
+  groups: TemplateGroup<T>[];
+  /** Total number of templates across every section (all pages). */
+  total: number;
+  /** Total page count (always >= 1). */
+  totalPages: number;
+  /** The resolved current page (clamped to [1, totalPages]). */
+  page: number;
+}
+
+/**
+ * Flatten the ordered sections into a single stream, slice out the requested
+ * page, then re-group the slice back into sections so headers render per page
+ * wherever a section starts or continues. The flattening preserves section
+ * order, so the highest-priority sections fill page 1 first and the two
+ * lowest-priority sections naturally overflow onto later pages once the total
+ * exceeds the page size. `page` is clamped into range so an out-of-bounds page
+ * (e.g. after a filter shrinks the list) resolves to the last valid page.
+ */
+export function paginateTemplateGroups<T>(
+  groups: TemplateGroup<T>[],
+  page: number,
+  pageSize: number = TEMPLATE_PAGE_SIZE,
+): PaginatedTemplateGroups<T> {
+  const total = groups.reduce((n, g) => n + g.items.length, 0);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const resolved = Math.min(Math.max(1, page), totalPages);
+  const start = (resolved - 1) * pageSize;
+  const end = start + pageSize;
+
+  const flat: { group: TemplateGroup<T>; item: T }[] = [];
+  for (const g of groups) {
+    for (const item of g.items) flat.push({ group: g, item });
+  }
+  const slice = flat.slice(start, end);
+
+  const pageGroups: TemplateGroup<T>[] = [];
+  for (const { group, item } of slice) {
+    const last = pageGroups[pageGroups.length - 1];
+    if (last && last.key === group.key) {
+      last.items.push(item);
+    } else {
+      pageGroups.push({ key: group.key, label: group.label, items: [item] });
+    }
+  }
+
+  return { groups: pageGroups, total, totalPages, page: resolved };
+}

@@ -39,7 +39,13 @@ import {
   collectIndustries,
   compareRecentlyUsed,
   formatIndustry,
+  buildTemplateGroups,
+  paginateTemplateGroups,
 } from "@/lib/template-library";
+import { TemplatePager } from "@/components/template-pager";
+
+// Same-origin API base for the featured (homepage-default) templates fetch.
+const API_BASE = "/api";
 
 interface TemplatePage {
   id: number;
@@ -71,6 +77,11 @@ interface TemplatePage {
   /** Per-workspace last-used timestamp (ISO). null = never cloned by this
    *  workspace; the "Recently Used" sort pushes these to the end. */
   lastUsedAt: string | null;
+  /** True when this workspace has starred the template (→ "Featured" section).
+   *  Returned per-tenant by the enriched endpoint. */
+  featured?: boolean;
+  /** True for standalone full-page templates (drives the "Full page" section). */
+  fullPage?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -174,6 +185,12 @@ export default function SalesMarketplace() {
   const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
   const [cloningId, setCloningId] = useState<number | null>(null);
   const [refreshingThumbId, setRefreshingThumbId] = useState<number | null>(null);
+  // Superadmin homepage-default template ids — drives the "Platform Homepage
+  // templates" section. `null` = still loading / fetch failed; the section is
+  // then skipped and those templates fall through to other buckets.
+  const [homepageDefaultIds, setHomepageDefaultIds] = useState<Set<number> | null>(null);
+  // Current gallery page (1-based). Reset to 1 when search/filter/sort changes.
+  const [page, setPage] = useState(1);
   // In-app preview modal state. Templates aren't published as public /lp
   // pages (opening one in a new tab 404s), so the preview button now opens
   // a modal that fetches the template's full block JSON and renders it
@@ -198,6 +215,24 @@ export default function SalesMarketplace() {
       .then((data) => setTemplates(data))
       .catch((err) => setError(err.message || "Failed to load templates"))
       .finally(() => setLoading(false));
+  }, []);
+
+  // Load the superadmin homepage-default template ids so the "Platform Homepage
+  // templates" section can be built (mirrors the create-page modal flow). A
+  // failed/empty fetch leaves an empty set → the section is skipped gracefully.
+  useEffect(() => {
+    fetch(`${API_BASE}/lp/featured-templates`, { cache: "no-store", credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { templates: [] }))
+      .then((data: { templates?: { id?: string }[] }) => {
+        const ids = new Set<number>();
+        for (const t of data.templates ?? []) {
+          const raw = typeof t.id === "string" ? t.id : "";
+          const num = Number(raw.startsWith("global:") ? raw.slice(7) : raw);
+          if (Number.isInteger(num) && num > 0) ids.add(num);
+        }
+        setHomepageDefaultIds(ids);
+      })
+      .catch(() => setHomepageDefaultIds(new Set()));
   }, []);
 
   // Real industry tags present across the loaded templates (excludes the
@@ -256,6 +291,26 @@ export default function SalesMarketplace() {
 
     return sorted;
   }, [templates, searchQuery, sortBy, typeFilter, selectedIndustry]);
+
+  // Group into the ordered display sections (Featured → Your templates →
+  // Platform Homepage → Full page → Block → Industry) — shared with the
+  // Marketing marketplace so the two galleries stay identical.
+  const allGroups = useMemo(
+    () => buildTemplateGroups(filteredAndSorted, homepageDefaultIds),
+    [filteredAndSorted, homepageDefaultIds],
+  );
+
+  // Reset to page 1 whenever the result set changes (search / filter / sort).
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, sortBy, selectedIndustry, typeFilter]);
+
+  // Slice the ordered sections into the current page; the two lowest-priority
+  // sections overflow onto later pages once the total exceeds the page size.
+  const { groups: displayGroups, total, totalPages, page: currentPage } = useMemo(
+    () => paginateTemplateGroups(allGroups, page),
+    [allGroups, page],
+  );
 
   const handleUseTemplate = async (template: TemplatePage) => {
     setCloningId(template.id);
@@ -476,14 +531,21 @@ export default function SalesMarketplace() {
           </div>
         )}
 
-        {!loading && !error && filteredAndSorted.length > 0 && (
+        {!loading && !error && total > 0 && (
           <>
             <p className="text-sm text-muted-foreground">
-              {filteredAndSorted.length} template{filteredAndSorted.length !== 1 ? "s" : ""} available
+              {total} template{total !== 1 ? "s" : ""} available
+              {totalPages > 1 ? ` · page ${currentPage} of ${totalPages}` : ""}
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredAndSorted.map((template, index) => (
+            {displayGroups.map((group) => (
+              <div key={group.key} className="space-y-4">
+                <div className="flex items-center gap-2 pt-2">
+                  <h2 className="text-lg font-semibold tracking-tight">{group.label}</h2>
+                  <span className="text-xs text-muted-foreground">({group.items.length})</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {group.items.map((template, index) => (
                 <Card
                   key={template.id}
                   className="group overflow-hidden border border-border/40 hover:border-border/80 hover:shadow-lg transition-all duration-300 flex flex-col"
@@ -571,8 +633,19 @@ export default function SalesMarketplace() {
                     </div>
                   </div>
                 </Card>
-              ))}
-            </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {/* Pager — only shown when the result spans more than one page. */}
+            {totalPages > 1 && (
+              <TemplatePager
+                page={currentPage}
+                totalPages={totalPages}
+                onPageChange={setPage}
+              />
+            )}
           </>
         )}
       </div>
