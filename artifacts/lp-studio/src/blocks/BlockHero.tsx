@@ -7,7 +7,7 @@ import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
 import { getHeadlineSizeClass } from "@/lib/typography";
 import { motion } from "framer-motion";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
 import type { ReactNode } from "react";
@@ -32,7 +32,15 @@ export function BlockHero({ props, brand, onCtaClick, onFieldChange, animationsE
   const LIME = props.ctaColor || brand.accentColor;
   const FOREST = brand.primaryColor;
   const isFullWidth = props.buttonWidth === "full";
-  const isDark = isDarkBg(props.backgroundStyle);
+  // Derive light/dark text tone from the surface the hero ACTUALLY paints, not
+  // just the preset key. The legacy `isDarkBg(backgroundStyle)` keyed the
+  // "Brand color" (dandy-green) preset as dark and emitted white heading text —
+  // but a tenant whose `--brand-primary` is a pale color renders a LIGHT hero,
+  // so white-on-light text went invisible. `resolveSectionSurface(..., brand)`
+  // resolves the preset to its real hex (tenant override → brand primary →
+  // historical default) and reports darkness from that, fixing the pale-brand
+  // case while leaving white/light/dark/black/gradient presets unchanged.
+  const isDark = resolveSectionSurface({ backgroundStyle: props.backgroundStyle }, "#ffffff", brand).isDark;
   // The logo lives in the top nav, which paints `brand.navBgColor` (NOT the hero
   // body surface), so its tone must follow THAT color — not the hero `isDark`.
   // A light nav must use `onLight` or the logo whitens into a white-on-light

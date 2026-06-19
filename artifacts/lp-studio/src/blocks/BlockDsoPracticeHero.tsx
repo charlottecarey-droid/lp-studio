@@ -7,7 +7,7 @@
 // through when default_props are overridden.
 import { motion } from "framer-motion";
 import type { DsoPracticeHeroBlockProps } from "@/lib/block-types";
-import { getBgStyle, isDarkBg } from "@/lib/bg-styles";
+import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses, getSecondaryButtonClasses } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
@@ -94,7 +94,19 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
     : heroHeight === "compact" ? "min-h-[40vh]"
     : "min-h-[60vh]";
 
-  const dark = isDarkBg(backgroundStyle);
+  // Tone must follow the surface the hero ACTUALLY paints, not just the preset
+  // key. Two failure modes the old `isDarkBg(backgroundStyle)` missed:
+  //   1. The `bg-image` layout paints a full-bleed cover photo behind the text.
+  //      A dark photo under a light/unset preset keyed `dark=false` → dark brand
+  //      text + a white wash, which both destroys the image and risks
+  //      invisible (light-brand) text. A cover image is always treated as a
+  //      dark surface here (light text + the dark scrim below), matching the
+  //      sibling DSO blocks' `isDarkBg(...) || !!backgroundImage` convention.
+  //   2. The "Brand color" preset keys as dark but renders LIGHT for a tenant
+  //      with a pale `--brand-primary`; resolveSectionSurface(..., brand)
+  //      resolves the real hex so non-image layouts pick the legible tone.
+  const surface = resolveSectionSurface({ backgroundStyle }, "#ffffff", brand);
+  const dark = layout === "bg-image" && !!imageUrl ? true : surface.isDark;
   const sectionBg = getBgStyle(backgroundStyle);
 
   const eyebrowC  = dark ? LIME : BRAND;
