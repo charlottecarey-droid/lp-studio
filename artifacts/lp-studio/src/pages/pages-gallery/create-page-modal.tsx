@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Building2, ChevronDown, Link2, Sparkles, Star, X } from "lucide-react";
+import { Building2, ChevronDown, Eye, Link2, Sparkles, Star, X } from "lucide-react";
+import { Link } from "wouter";
 import {
   Dialog,
   DialogContent,
@@ -447,6 +448,16 @@ export function CreatePageModal({
         ? []
         : visibleApiTemplates;
   const curatedIsFeatured = tenantFeaturedTemplates.length > 0;
+  // "All other templates" — every visible template that isn't already shown in
+  // the curated/featured grid above. Surfaced in a compact dropdown beneath the
+  // Featured section so the full library is still reachable as a starting point.
+  const curatedTemplateIds = new Set(curatedTemplates.map(t => t.id));
+  const otherTemplates = visibleApiTemplates.filter(t => !curatedTemplateIds.has(t.id));
+  const otherTemplateSelectValue =
+    selectedTemplate.startsWith("api:") &&
+    otherTemplates.some(t => `api:${t.id}` === selectedTemplate)
+      ? selectedTemplate
+      : "";
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
@@ -627,6 +638,41 @@ export function CreatePageModal({
                           </button>
                         );
                       })}
+                    </div>
+                  </div>
+                )}
+                {/* All other templates — a purple divider, then a compact
+                    dropdown of every remaining template (those not already in
+                    the Featured grid) on the left and a "Preview templates"
+                    link into the full template library on the right. */}
+                {otherTemplates.length > 0 && (
+                  <div className="space-y-3 pt-1">
+                    <div className="h-px bg-primary/40" />
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="relative flex-1 min-w-0">
+                        <select
+                          aria-label="All other templates"
+                          className="w-full appearance-none rounded-full border border-input bg-background pl-3 pr-7 py-1.5 text-sm font-medium text-foreground shadow-sm transition-colors cursor-pointer hover:border-primary/40 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                          value={otherTemplateSelectValue}
+                          onChange={e => { if (e.target.value) setSelectedTemplate(e.target.value); }}
+                        >
+                          <option value="">All other templates…</option>
+                          {otherTemplates.map(t => (
+                            <option key={t.id} value={`api:${t.id}`}>
+                              {t.templateLabel || t.title}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
+                      </div>
+                      <Link
+                        href="/templates"
+                        onClick={onClose}
+                        className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors shrink-0"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        Preview templates
+                      </Link>
                     </div>
                   </div>
                 )}
