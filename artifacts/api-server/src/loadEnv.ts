@@ -21,4 +21,18 @@ import { resolve } from "node:path";
 if (process.env.NODE_ENV !== "production") {
   config({ path: resolve(process.cwd(), "../../.env"), override: true });
   config({ path: resolve(process.cwd(), ".env"), override: true });
+
+  // Dev/staging ONLY: let a Stripe TEST-mode secret key stand in for the live
+  // `STRIPE_SECRET_KEY` so fake (test-mode) payments can be rehearsed without
+  // ever touching the published live app. The live app never reaches this
+  // branch (NODE_ENV === "production"), so its real Stripe keys are never
+  // overridden. `STRIPE_SECRET_KEY_TEST` is therefore SAFE to store as a
+  // global Replit Secret — only this dev-gated branch ever reads it.
+  if (process.env.STRIPE_SECRET_KEY_TEST) {
+    process.env.STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY_TEST;
+    // The live webhook signing secret cannot verify TEST-mode events. Blank it
+    // (unless an explicit STRIPE_WEBHOOK_SECRET_TEST is provided) so the webhook
+    // layer falls back to the managed test-mode webhook secret created at boot.
+    process.env.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET_TEST ?? "";
+  }
 }

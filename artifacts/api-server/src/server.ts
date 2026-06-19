@@ -38,7 +38,7 @@ import { runAssetsGc } from "./lib/assetsGc";
 import { runSnapshotReconcile } from "./lib/snapshotReconcile";
 import { Sentry } from "./lib/sentry";
 import { setReady } from "./lib/readiness";
-import { getStripeSync, hasExplicitStripeEnv, runStripeSyncSchemaMigrations, WEBHOOK_EVENTS } from "./lib/stripeClient";
+import { getManagedWebhookUrl, getStripeSync, hasExplicitStripeEnv, runStripeSyncSchemaMigrations, WEBHOOK_EVENTS } from "./lib/stripeClient";
 
 /**
  * Task #425 — Stripe gating diagnostic. Stripe credentials are resolved
@@ -98,11 +98,8 @@ async function initStripe(): Promise<void> {
     // PUBLIC_API_BASE_URL or REPLIT_DEV_DOMAIN. If we can't build a
     // valid URL we skip — the operator can run the seed script
     // manually.
-    const base =
-      process.env.PUBLIC_API_BASE_URL ??
-      (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null);
-    if (base) {
-      const url = `${base.replace(/\/$/, "")}/api/stripe/webhook`;
+    const url = getManagedWebhookUrl();
+    if (url) {
       try {
         const wh = await sync.findOrCreateManagedWebhook(url, {
           enabled_events: [...WEBHOOK_EVENTS] as unknown as Parameters<typeof sync.findOrCreateManagedWebhook>[1] extends infer P ? P extends { enabled_events?: infer E } ? E : never : never,

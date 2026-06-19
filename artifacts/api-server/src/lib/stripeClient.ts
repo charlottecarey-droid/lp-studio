@@ -115,6 +115,21 @@ export async function getStripe(): Promise<Stripe> {
 }
 
 /**
+ * The publicly-reachable HTTPS URL the managed webhook is registered against.
+ * Inferred from PUBLIC_API_BASE_URL or REPLIT_DEV_DOMAIN. Returns null when
+ * neither is set (no public host to register). Shared by the boot-time
+ * `findOrCreateManagedWebhook` call in server.ts and the dev test-mode secret
+ * fallback below so the two can never disagree on which webhook row is "ours".
+ */
+export function getManagedWebhookUrl(): string | null {
+  const base =
+    process.env.PUBLIC_API_BASE_URL ??
+    (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null);
+  if (!base) return null;
+  return `${base.replace(/\/$/, "")}/api/stripe/webhook`;
+}
+
+/**
  * Returns the `whsec_*` secret used by `stripe.webhooks.constructEvent`.
  * Env var wins; the Replit connector's stored webhook secret is the
  * fallback. A managed webhook created by `stripe-replit-sync` writes its
@@ -124,6 +139,33 @@ export async function getStripe(): Promise<Stripe> {
 export async function getWebhookSecret(): Promise<string> {
   const envSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (envSecret) return envSecret;
+
+  // Dev/staging TEST-mode fallback. When a Stripe TEST key stands in for the
+  // live key (see loadEnv.ts), STRIPE_WEBHOOK_SECRET is intentionally blank,
+  // so verify against the secret of the managed webhook this instance created
+  // at boot. Scoped to THIS instance's webhook URL so the live and test
+  // managed-webhook rows (which share one DB) can never cross over. In
+  // production STRIPE_WEBHOOK_SECRET is always set, so this branch never runs.
+  const managedUrl = getManagedWebhookUrl();
+  if (managedUrl) {
+    try {
+      const { connectionString } = buildSyncPoolConfig();
+      const pool = new pg.Pool({ connectionString });
+      try {
+        const r = await pool.query<{ secret: string }>(
+          `SELECT secret FROM "stripe"."_managed_webhooks" WHERE url = $1 LIMIT 1`,
+          [managedUrl],
+        );
+        const secret = r.rows[0]?.secret;
+        if (secret) return secret;
+      } finally {
+        await pool.end();
+      }
+    } catch (err) {
+      logger.warn({ err }, "[stripe] managed-webhook secret DB fallback failed");
+    }
+  }
+
   const { webhookSecret } = await fetchReplitStripeCreds();
   if (!webhookSecret) {
     throw new StripeNotConfiguredError(
