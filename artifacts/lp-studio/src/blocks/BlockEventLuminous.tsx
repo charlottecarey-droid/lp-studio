@@ -15,6 +15,8 @@ import type {
   EventFormField,
   EventNavLink,
 } from "@/lib/block-types";
+import { toFontFamilyValue } from "@/lib/font-catalog";
+import { useBlockFonts } from "@/lib/use-block-fonts";
 import {
   resolveSectionSpacingPx,
   resolveContentMaxWidthPx,
@@ -84,16 +86,13 @@ export function BlockEventLuminous({ props }: Props) {
   const headline = props.headlineColor ?? ink;
   const headlineOnDark = props.headlineOnDarkColor ?? "#ffffff";
 
-  const displayFont = props.displayFontFamily
-    ? `'${props.displayFontFamily}', sans-serif`
-    : brand?.displayFont
-      ? `'${brand.displayFont}', sans-serif`
-      : "'Plus Jakarta Sans', system-ui, sans-serif";
-  const bodyFont = props.bodyFontFamily
-    ? `'${props.bodyFontFamily}', sans-serif`
-    : brand?.bodyFont
-      ? `'${brand.bodyFont}', sans-serif`
-      : "'Plus Jakarta Sans', system-ui, sans-serif";
+  const displayFamily = props.displayFontFamily || brand?.displayFont;
+  const bodyFamily = props.bodyFontFamily || brand?.bodyFont;
+  const displayFont =
+    toFontFamilyValue(displayFamily, "display") ?? "'Plus Jakarta Sans', system-ui, sans-serif";
+  const bodyFont =
+    toFontFamilyValue(bodyFamily, "sans") ?? "'Plus Jakarta Sans', system-ui, sans-serif";
+  useBlockFonts(displayFont, bodyFont, "Plus Jakarta Sans");
 
   // Spacing & sizing tokens
   const sectionPad = resolveSectionSpacingPx(props.sectionSpacing);
@@ -397,8 +396,7 @@ export function BlockEventLuminous({ props }: Props) {
     >
       <style
         dangerouslySetInnerHTML={{
-          __html: `@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-          .bel-hide-scrollbar::-webkit-scrollbar{display:none;}
+          __html: `.bel-hide-scrollbar::-webkit-scrollbar{display:none;}
           .bel-hide-scrollbar{scrollbar-width:none;}`,
         }}
       />

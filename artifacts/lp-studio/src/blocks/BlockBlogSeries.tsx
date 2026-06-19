@@ -1,6 +1,5 @@
 import {
   useCallback,
-  useEffect,
   useMemo,
   useState,
   Component,
@@ -8,6 +7,8 @@ import {
   type ErrorInfo,
 } from "react";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { toFontFamilyValue } from "../lib/font-catalog";
+import { useBlockFonts } from "../lib/use-block-fonts";
 
 const BODY = BRAND_BODY_FONT;
 const DISPLAY = BRAND_DISPLAY_FONT;
@@ -150,12 +151,10 @@ function resolveTheme(t: BlogSeriesBlockProps["theme"], brand?: BrandConfig): Re
       typeof v === "string" && v.trim() === "" ? (base as Record<string, unknown>)[k] ?? v : v,
     ]),
   ) as typeof base;
-  const bodyFont = m.bodyFontFamily
-    ? `'${m.bodyFontFamily}', 'Inter', system-ui, sans-serif`
-    : `${BODY}, 'Inter', system-ui, sans-serif`;
-  const displayFont = m.displayFontFamily
-    ? `'${m.displayFontFamily}', Georgia, serif`
-    : `${DISPLAY}, 'Fraunces', Georgia, serif`;
+  const bodyFont =
+    toFontFamilyValue(m.bodyFontFamily, "sans") ?? `${BODY}, 'Inter', system-ui, sans-serif`;
+  const displayFont =
+    toFontFamilyValue(m.displayFontFamily, "display") ?? `${DISPLAY}, 'Fraunces', Georgia, serif`;
   return {
     paper: m.paper,
     paper2: m.paper2,
@@ -168,27 +167,6 @@ function resolveTheme(t: BlogSeriesBlockProps["theme"], brand?: BrandConfig): Re
     bodyFont,
     displayFont,
   };
-}
-
-function useGoogleFonts(displayFamily: string, bodyFamily: string) {
-  useEffect(() => {
-    const families: string[] = [];
-    if (displayFamily) {
-      families.push(`${displayFamily.replace(/\s+/g, "+")}:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500`);
-    }
-    if (bodyFamily && bodyFamily !== displayFamily) {
-      families.push(`${bodyFamily.replace(/\s+/g, "+")}:wght@300;400;500;600;700`);
-    }
-    if (!families.length) return;
-    const href = `https://fonts.googleapis.com/css2?${families.map((f) => `family=${f}`).join("&")}&display=swap`;
-    const id = `bbs-fonts-${href}`;
-    if (document.getElementById(id)) return;
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href = href;
-    document.head.appendChild(link);
-  }, [displayFamily, bodyFamily]);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1264,11 +1242,7 @@ interface Props {
 export function BlockBlogSeries({ props: p, brand, onFieldChange: _onFieldChange, pageId, sessionId }: Props) {
   void _onFieldChange;
   const C = useMemo(() => resolveTheme(p?.theme, brand), [p?.theme, brand]);
-  const base = brandDefaults(brand);
-  useGoogleFonts(
-    p?.theme?.displayFontFamily ?? base.displayFontFamily,
-    p?.theme?.bodyFontFamily ?? base.bodyFontFamily,
-  );
+  useBlockFonts(C.displayFont, C.bodyFont);
 
   const safeProps = useMemo<BlogSeriesBlockProps>(() => {
     if (!p) return { wordmark: "The Margin" } as BlogSeriesBlockProps;

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, Component, type ReactNode, type ErrorInfo } from "react";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "../lib/brand-fonts";
+import { toFontFamilyValue } from "../lib/font-catalog";
+import { useBlockFonts } from "../lib/use-block-fonts";
 
 const BODY = BRAND_BODY_FONT;
 const DISPLAY = BRAND_DISPLAY_FONT;
@@ -147,10 +149,10 @@ function resolveTheme(t: ContentSeriesBlockProps["theme"], brand?: BrandConfig):
     Object.entries({ ...base, ...raw }).map(([k, v]) => [k, (typeof v === "string" && v.trim() === "") ? (base as Record<string, unknown>)[k] ?? v : v])
   ) as typeof base;
   const heading = m.headingColor || m.fg;
-  const bodyFont = m.bodyFontFamily
-    ? `'${m.bodyFontFamily}', sans-serif`
-    : `${BRAND_BODY_FONT}, 'Inter', sans-serif`;
-  const displayFont = m.displayFontFamily ? `'${m.displayFontFamily}', serif` : "'EB Garamond', serif";
+  const bodyFont =
+    toFontFamilyValue(m.bodyFontFamily, "sans") ?? `${BRAND_BODY_FONT}, 'Inter', sans-serif`;
+  const displayFont =
+    toFontFamilyValue(m.displayFontFamily, "display") ?? "'EB Garamond', serif";
   return {
     bg: m.bg,
     card: m.cardBg,
@@ -394,27 +396,6 @@ const stagger = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.1 } },
 };
-
-function useGoogleFonts(displayFamily: string, bodyFamily: string) {
-  useEffect(() => {
-    const families: string[] = [];
-    if (displayFamily) {
-      families.push(`${displayFamily.replace(/\s+/g, "+")}:ital,wght@0,400;0,500;0,600;1,400`);
-    }
-    if (bodyFamily && bodyFamily !== displayFamily) {
-      families.push(`${bodyFamily.replace(/\s+/g, "+")}:wght@300;400;500;600`);
-    }
-    if (!families.length) return;
-    const href = `https://fonts.googleapis.com/css2?${families.map(f => `family=${f}`).join("&")}&display=swap`;
-    const id = `bcs-fonts-${href}`;
-    if (document.getElementById(id)) return;
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href = href;
-    document.head.appendChild(link);
-  }, [displayFamily, bodyFamily]);
-}
 
 function StickyNav({
   p,
@@ -3077,11 +3058,7 @@ function resolveHeroFromEpisodes(
 export function BlockContentSeries({ props: p, brand, onFieldChange: _onFieldChange, pageId, sessionId }: Props) {
   void _onFieldChange;
   const C = useMemo(() => resolveTheme(p?.theme, brand), [p?.theme, brand]);
-  const base = brandDefaults(brand);
-  useGoogleFonts(
-    p?.theme?.displayFontFamily ?? base.displayFontFamily,
-    p?.theme?.bodyFontFamily ?? base.bodyFontFamily,
-  );
+  useBlockFonts(C.displayFont, C.bodyFont);
 
   const safeProps = useMemo<ContentSeriesBlockProps>(() => {
     if (!p) return { seriesType: "podcast", seriesTitle: "Untitled Series", seriesSubtitle: "", heroEpisodeTitle: "", episodes: [] } as ContentSeriesBlockProps;

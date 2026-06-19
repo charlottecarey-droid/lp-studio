@@ -20,6 +20,8 @@ import {
   resolveHeadingScale,
 } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
+import { toFontFamilyValue } from "@/lib/font-catalog";
+import { useBlockFonts } from "@/lib/use-block-fonts";
 
 // ── Icon mapping for approach cards ─────────────────────────────────────────
 const APPROACH_ICONS: Record<string, React.FC<{ className?: string }>> = {
@@ -87,9 +89,10 @@ export function BlockCaseMetrics({ props, brand }: Props) {
 
   const displayFont = props.displayFontFamily || brand?.displayFont || "Space Grotesk";
   const bodyFont = props.bodyFontFamily || brand?.bodyFont || "Inter";
-  const display = `'${displayFont}', sans-serif`;
-  const body = `'${bodyFont}', sans-serif`;
+  const display = toFontFamilyValue(displayFont, "display") ?? `'${displayFont}', sans-serif`;
+  const body = toFontFamilyValue(bodyFont, "sans") ?? `'${bodyFont}', sans-serif`;
   const mono = "'Space Mono', ui-monospace, monospace";
+  useBlockFonts(display, body, mono);
 
   // ── Sizing tokens ─────────────────────────────────────────────────────────
   const sectionPad = resolveSectionSpacingPx(props.sectionSpacing);
@@ -222,18 +225,6 @@ export function BlockCaseMetrics({ props, brand }: Props) {
 
   return (
     <div style={{ background: bg, color: ink, fontFamily: body }}>
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `@import url('https://fonts.googleapis.com/css2?family=${displayFont.replace(
-            /\s+/g,
-            "+",
-          )}:wght@400;500;600;700&family=${bodyFont.replace(
-            /\s+/g,
-            "+",
-          )}:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');`,
-        }}
-      />
-
       {/* 1. Nav */}
       {showNav && (
         <nav

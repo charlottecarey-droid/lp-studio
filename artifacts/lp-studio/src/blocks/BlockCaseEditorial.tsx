@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import {
   ArrowRight,
   Quote,
@@ -15,6 +15,8 @@ import {
   resolveHeadingScale,
 } from "@/lib/block-types";
 import type { BrandConfig } from "../lib/brand-config";
+import { toFontFamilyValue } from "../lib/font-catalog";
+import { useBlockFonts } from "../lib/use-block-fonts";
 
 // ── Editorial defaults (tenant-neutral) ─────────────────────────────────────
 const ED = {
@@ -33,32 +35,6 @@ interface Props {
   /** Tenant brand config. Drives default colors/fonts; per-block props win. */
   brand?: BrandConfig;
   onFieldChange?: (updated: CaseEditorialBlockProps) => void;
-}
-
-/** Inject Google Fonts for the resolved display + body families. */
-function useEditorialFonts(displayFamily: string, bodyFamily: string) {
-  useEffect(() => {
-    const families: string[] = [];
-    if (displayFamily) {
-      families.push(
-        `${displayFamily.replace(/\s+/g, "+")}:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500`,
-      );
-    }
-    if (bodyFamily && bodyFamily !== displayFamily) {
-      families.push(`${bodyFamily.replace(/\s+/g, "+")}:wght@300;400;500;600`);
-    }
-    if (!families.length) return;
-    const href = `https://fonts.googleapis.com/css2?${families
-      .map((f) => `family=${f}`)
-      .join("&")}&display=swap`;
-    const id = `bce-fonts-${href}`;
-    if (document.getElementById(id)) return;
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href = href;
-    document.head.appendChild(link);
-  }, [displayFamily, bodyFamily]);
 }
 
 /** Neutral gradient placeholder used when an image URL is absent. */
@@ -140,10 +116,10 @@ export function BlockCaseEditorial({ props, brand }: Props) {
     props.displayFontFamily?.trim() || brand?.displayFont?.trim() || ED.display;
   const bodyFamily =
     props.bodyFontFamily?.trim() || brand?.bodyFont?.trim() || ED.body;
-  useEditorialFonts(displayFamily, bodyFamily);
 
-  const fontSerif = `'${displayFamily}', serif`;
-  const fontSans = `'${bodyFamily}', sans-serif`;
+  const fontSerif = toFontFamilyValue(displayFamily, "display") ?? `'${displayFamily}', serif`;
+  const fontSans = toFontFamilyValue(bodyFamily, "sans") ?? `'${bodyFamily}', sans-serif`;
+  useBlockFonts(fontSerif, fontSans);
 
   // ── Spacing / sizing tokens via resolve* helpers ──────────────────────────
   const sectionPx = resolveSectionSpacingPx(props.sectionSpacing);

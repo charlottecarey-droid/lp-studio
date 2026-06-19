@@ -24,6 +24,8 @@ import {
   resolveHeadingScale,
 } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
+import { toFontFamilyValue } from "@/lib/font-catalog";
+import { useBlockFonts } from "@/lib/use-block-fonts";
 
 // ── Hardcoded editorial "noir" defaults ─────────────────────────────────────
 const NOIR = {
@@ -62,11 +64,6 @@ function hexToRgb(hex?: string | null): [number, number, number] {
 function rgba(hex: string, alpha: number): string {
   const [r, g, b] = hexToRgb(hex);
   return `rgba(${r},${g},${b},${alpha})`;
-}
-
-function fontStack(name: string | undefined, fallback: string): string {
-  const n = (name ?? "").trim();
-  return n ? `'${n}', ${fallback}` : fallback;
 }
 
 interface Props {
@@ -1278,6 +1275,12 @@ function Footer({ p, C }: { p: EventNoirBlockProps; C: NoirTheme }) {
 export function BlockEventNoir({ props, brand }: Props) {
   const p = props;
 
+  const displayFont =
+    toFontFamilyValue(p.displayFontFamily ?? brand?.displayFont, "display") ?? DEFAULT_DISPLAY;
+  const bodyFont =
+    toFontFamilyValue(p.bodyFontFamily ?? brand?.bodyFont, "sans") ?? DEFAULT_BODY;
+  useBlockFonts(displayFont, bodyFont, "Playfair Display");
+
   const C: NoirTheme = {
     bg: p.bgColor ?? brand?.pageBackground ?? NOIR.bg,
     surface: p.cardBgColor ?? brand?.cardBackground ?? NOIR.surface,
@@ -1288,8 +1291,8 @@ export function BlockEventNoir({ props, brand }: Props) {
     tertiary: NOIR.tertiary,
     accent: p.accentColor ?? brand?.accentColor ?? NOIR.accent,
     accentInk: p.accentInkColor ?? NOIR.accentInk,
-    display: fontStack(p.displayFontFamily ?? brand?.displayFont, DEFAULT_DISPLAY),
-    body: fontStack(p.bodyFontFamily ?? brand?.bodyFont, DEFAULT_BODY),
+    display: displayFont,
+    body: bodyFont,
     sectionPad: resolveSectionSpacingPx(p.sectionSpacing),
     maxW: resolveContentMaxWidthPx(p.contentWidth),
     radius: resolveRadiusPx(p.cornerRadius),
@@ -1324,7 +1327,6 @@ export function BlockEventNoir({ props, brand }: Props) {
       <style
         dangerouslySetInnerHTML={{
           __html: `
-            @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500&display=swap');
             @keyframes spin { to { transform: rotate(360deg); } }
           `,
         }}

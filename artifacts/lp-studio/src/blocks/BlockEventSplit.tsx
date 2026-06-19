@@ -20,6 +20,8 @@ import {
   resolveHeadingScale,
 } from "@/lib/block-types";
 import type { BrandConfig } from "../lib/brand-config";
+import { toFontFamilyValue } from "../lib/font-catalog";
+import { useBlockFonts } from "../lib/use-block-fonts";
 
 // ── small utilities ─────────────────────────────────────────────────────────
 
@@ -46,26 +48,6 @@ function rgba(hex: string, alpha: number): string {
 
 const MONO = "'Space Mono', 'IBM Plex Mono', monospace";
 
-function useEventFonts(displayFamily: string, bodyFamily: string) {
-  useEffect(() => {
-    const families = new Set<string>([
-      "Space+Grotesk:wght@500;700",
-      "Inter:wght@300;400;500;600",
-      "Space+Mono:wght@400;700",
-    ]);
-    if (displayFamily) families.add(`${displayFamily.replace(/\s+/g, "+")}:wght@400;500;600;700`);
-    if (bodyFamily) families.add(`${bodyFamily.replace(/\s+/g, "+")}:wght@300;400;500;600`);
-    const href = `https://fonts.googleapis.com/css2?${[...families].map((f) => `family=${f}`).join("&")}&display=swap`;
-    const id = `bes-fonts-${href}`;
-    if (document.getElementById(id)) return;
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href = href;
-    document.head.appendChild(link);
-  }, [displayFamily, bodyFamily]);
-}
-
 interface Props {
   props: EventSplitBlockProps;
   brand?: BrandConfig;
@@ -85,9 +67,9 @@ export function BlockEventSplit({ props: p, brand }: Props) {
 
   const displayFamily = firstNonEmpty(p.displayFontFamily, brand?.displayFont) ?? "Space Grotesk";
   const bodyFamily = firstNonEmpty(p.bodyFontFamily, brand?.bodyFont) ?? "Inter";
-  useEventFonts(displayFamily, bodyFamily);
-  const displayFont = `'${displayFamily}', sans-serif`;
-  const bodyFont = `'${bodyFamily}', sans-serif`;
+  const displayFont = toFontFamilyValue(displayFamily, "display") ?? `'${displayFamily}', sans-serif`;
+  const bodyFont = toFontFamilyValue(bodyFamily, "sans") ?? `'${bodyFamily}', sans-serif`;
+  useBlockFonts(displayFont, bodyFont, MONO);
 
   // ── spacing / sizing tokens ────────────────────────────────────────────────
   const sectionPad = resolveSectionSpacingPx(p.sectionSpacing);

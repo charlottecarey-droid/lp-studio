@@ -33,6 +33,9 @@ export const FONT_CATALOG: FontCatalogEntry[] = [
   { family: "Inter", category: "sans", selfHosted: true },
   { family: "JetBrains Mono", category: "mono", selfHosted: true },
 
+  // Monospace (design accent used by event/case-study blocks)
+  { family: "Space Mono", category: "mono", googleParam: "Space+Mono:wght@400;700" },
+
   // Sans-serifs
   { family: "DM Sans", category: "sans", googleParam: "DM+Sans:wght@400;500;600;700" },
   { family: "Manrope", category: "sans", googleParam: "Manrope:wght@400;500;600;700" },
