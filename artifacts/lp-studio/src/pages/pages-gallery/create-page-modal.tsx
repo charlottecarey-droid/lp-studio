@@ -454,7 +454,7 @@ export function CreatePageModal({
         className={cn(
           liveGen
             ? "max-w-6xl w-[calc(100%-2rem)] h-[85vh] p-0 gap-0 flex flex-col overflow-hidden"
-            : "sm:max-w-xl",
+            : "sm:max-w-xl shadow-2xl",
         )}
       >
         {liveGen ? (
@@ -484,14 +484,14 @@ export function CreatePageModal({
           </>
         ) : (
           <>
-        <DialogHeader className="space-y-3 text-left">
+        <DialogHeader className="space-y-3">
           {segments.length > 0 && createMode !== "brief" && (
             <div className="flex items-center gap-2 text-muted-foreground">
-              <span className="text-[10px] font-medium uppercase tracking-wider">Audience</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider">Segments</span>
               <div className="relative">
                 <select
-                  aria-label="Audience"
-                  className="appearance-none bg-transparent pr-5 py-0.5 text-sm font-medium text-foreground focus:outline-none cursor-pointer"
+                  aria-label="Segments"
+                  className="appearance-none rounded-full border border-input bg-background pl-3 pr-7 py-1 text-sm font-medium text-foreground shadow-sm transition-colors cursor-pointer hover:border-primary/40 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
                   value={selectedSegmentId}
                   onChange={e => setSelectedSegmentId(e.target.value)}
                 >
@@ -500,11 +500,11 @@ export function CreatePageModal({
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
-                <ChevronDown className="w-3.5 h-3.5 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
+                <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
               </div>
             </div>
           )}
-          <DialogTitle className="font-display text-2xl font-normal tracking-tight text-foreground">
+          <DialogTitle className="font-display text-2xl font-semibold tracking-tight text-foreground text-center">
             Create a new page
           </DialogTitle>
         </DialogHeader>
@@ -526,7 +526,7 @@ export function CreatePageModal({
                 className={cn(
                   "flex-1 py-2 text-sm font-medium rounded-md transition-all",
                   active
-                    ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                    ? "bg-background text-primary shadow-md ring-1 ring-primary/20"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -544,7 +544,7 @@ export function CreatePageModal({
                 <input
                   type="text"
                   aria-label="Page name"
-                  className="w-full bg-transparent border-b border-input py-2 text-[15px] focus:outline-none focus:border-foreground transition-colors"
+                  className="w-full bg-transparent border-b border-input py-2 text-[15px] focus:outline-none focus:border-primary transition-colors"
                   value={newTitle}
                   onChange={e => handleTitleChange(e.target.value)}
                   autoFocus
@@ -552,7 +552,7 @@ export function CreatePageModal({
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">URL slug</Label>
-                <div className="flex items-center border-b border-input py-2 focus-within:border-foreground transition-colors">
+                <div className="flex items-center border-b border-input py-2 focus-within:border-primary transition-colors">
                   <span className="text-muted-foreground text-[15px]">/lp/</span>
                   <input
                     type="text"
@@ -707,6 +707,7 @@ export function CreatePageModal({
                   <label className="flex items-start gap-2 cursor-pointer">
                     <input
                       type="radio"
+                      style={{ accentColor: "hsl(var(--primary))" }}
                       name="rewriteMode"
                       className="mt-0.5"
                       checked={rewriteMode === "update"}
@@ -719,6 +720,7 @@ export function CreatePageModal({
                   <label className="flex items-start gap-2 cursor-pointer">
                     <input
                       type="radio"
+                      style={{ accentColor: "hsl(var(--primary))" }}
                       name="rewriteMode"
                       className="mt-0.5"
                       checked={rewriteMode === "new"}
@@ -732,6 +734,7 @@ export function CreatePageModal({
                 <label className="flex items-start gap-2 cursor-pointer">
                   <input
                     type="checkbox"
+                    style={{ accentColor: "hsl(var(--primary))" }}
                     className="mt-0.5"
                     checked={replaceImagery}
                     onChange={(e) => setReplaceImagery(e.target.checked)}
@@ -747,7 +750,7 @@ export function CreatePageModal({
                 <div className="relative">
                   <select
                     aria-label="Starting point"
-                    className="w-full appearance-none bg-transparent border-b border-input py-2 pr-6 text-[15px] focus:outline-none focus:border-foreground transition-colors"
+                    className="w-full appearance-none bg-transparent border-b border-input py-2 pr-6 text-[15px] focus:outline-none focus:border-primary transition-colors"
                     value={aiTemplateId}
                     onChange={e => setAiTemplateId(e.target.value)}
                   >
@@ -778,6 +781,7 @@ export function CreatePageModal({
                   <label className="flex items-start gap-2 cursor-pointer pt-1">
                     <input
                       type="checkbox"
+                      style={{ accentColor: "hsl(var(--primary))" }}
                       className="mt-0.5"
                       checked={replaceImagery}
                       onChange={(e) => setReplaceImagery(e.target.checked)}
@@ -806,7 +810,7 @@ export function CreatePageModal({
               <textarea
                 ref={promptTextareaRef}
                 aria-label="Prompt"
-                className="w-full bg-muted/40 border border-input rounded-xl p-4 text-[15px] focus:outline-none focus:border-foreground focus:bg-background transition-colors resize-none"
+                className="w-full bg-muted/40 border border-input rounded-xl p-4 text-[15px] focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-background transition-colors resize-none"
                 rows={4}
                 value={aiPrompt}
                 onChange={e => setAiPrompt(e.target.value)}
@@ -845,7 +849,7 @@ export function CreatePageModal({
                 </div>
               )}
               {referenceUrls.length < MAX_REF_URLS && (
-                <div className="flex items-center border-b border-input py-1.5 focus-within:border-foreground transition-colors">
+                <div className="flex items-center border-b border-input py-1.5 focus-within:border-primary transition-colors">
                   <Link2 className="w-3.5 h-3.5 text-muted-foreground mr-2 shrink-0" />
                   <input
                     type="text"
