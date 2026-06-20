@@ -48,7 +48,7 @@ export default function Navbar() {
             src={navyDepthIcon}
             alt=""
             aria-hidden="true"
-            style={{ height: 28, width: 28, display: "block" }}
+            style={{ height: 32, width: 32, display: "block" }}
           />
           <img
             src={navyWordmark}
