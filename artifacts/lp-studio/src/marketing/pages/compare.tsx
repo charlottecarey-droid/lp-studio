@@ -178,49 +178,12 @@ function CompareHero() {
   return (
     <header
       id="top"
-      className="px-6 paper-grain relative"
-      style={{ paddingTop: 140, paddingBottom: 56 }}
+      className="px-6 paper-grain relative pt-28 md:pt-36"
+      style={{ paddingBottom: 56 }}
     >
       <div className="max-w-[1180px] mx-auto">
         <div style={{ maxWidth: 780 }}>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 9,
-              border: "1px solid var(--hairline-strong)",
-              color: "var(--ink-soft)",
-              borderRadius: 999,
-              padding: "6px 14px",
-              marginBottom: 26,
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-              background:
-                "linear-gradient(180deg, #FFFFFF 0%, #F8F4EC 100%)",
-              boxShadow:
-                "inset 0 1px 0 #FFFFFF, 0 1px 2px rgba(26, 24, 21, 0.04)",
-            }}
-          >
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <circle cx="5" cy="6" r="3" />
-              <path d="M5 9v12" />
-              <path d="M19 6h-2a4 4 0 00-4 4v11" />
-              <circle cx="19" cy="6" r="3" />
-            </svg>
-            How we compare
-          </div>
+          <div className="marker marker-rule mb-6">How we compare</div>
           <h1
             className="font-display text-display-lg"
             style={{ color: "var(--ink)", margin: 0, maxWidth: 780 }}

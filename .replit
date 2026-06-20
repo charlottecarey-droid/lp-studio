@@ -42,6 +42,10 @@ args = "tc-lp"
 task = "workflow.run"
 args = "typecheck-lp-studio"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "typecheck-lp"
+
 [[workflows.workflow]]
 name = "img-test"
 author = "agent"
@@ -88,6 +92,17 @@ args = "pnpm --filter @workspace/lp-studio run typecheck"
 
 [[workflows.workflow]]
 name = "typecheck-lp-studio"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm -C artifacts/lp-studio run typecheck"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "typecheck-lp"
 author = "agent"
 
 [[workflows.workflow.tasks]]

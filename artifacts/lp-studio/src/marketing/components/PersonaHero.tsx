@@ -1,16 +1,16 @@
-// PersonaHero — shared hero for /for-marketing and /for-sales solution pages.
+// PersonaHero — shared hero for /features, /for-marketing and /for-sales.
 // Ports the PersonaHero pattern from design-preview/marketing/solution-*.jsx.
-// Eyebrow pill in persona accent color, left-aligned big headline, supporting
-// subhead, primary + secondary CTAs. Sits above the FeatureRow stack on each
-// persona page.
+// Text eyebrow (marker style, matching /pricing), left-aligned big headline,
+// supporting subhead, primary + secondary CTAs. Sits above the FeatureRow
+// stack on each page.
 
 import PersonaToggle from "./PersonaToggle";
 
 interface PersonaHeroProps {
   /**
-   * Accent eyebrow pill shown above the headline. Omitted on the persona
-   * solution pages (/for-marketing, /for-sales), where the PersonaToggle is
-   * the only element above the headline.
+   * Text eyebrow (marker style, matches /pricing) shown above the headline.
+   * Omitted on the persona solution pages (/for-marketing, /for-sales), where
+   * the PersonaToggle is the only element above the headline.
    */
   eyebrow?: string;
   /** Persona accent — typically var(--indigo) for marketing, var(--coral) for sales. */
@@ -36,12 +36,16 @@ export default function PersonaHero({
   secondaryHref = "mailto:admin@lpstudio.ai",
   persona,
 }: PersonaHeroProps) {
+  // Top padding is tuned per-variant so the H1 lands at the SAME vertical
+  // offset as the /pricing hero on every marketing hero page. The persona
+  // toggle is taller than the text eyebrow, so toggle pages get less top
+  // padding to compensate (and that nudges the toggle clear of the navbar).
+  const headerPadClass = persona ? "pt-[91px] md:pt-[123px]" : "pt-28 md:pt-36";
   return (
     <header
       id="top"
-      className="px-6 paper-grain relative"
+      className={`px-6 paper-grain relative ${headerPadClass}`}
       style={{
-        paddingTop: 80,
         paddingBottom: 64,
         overflow: "hidden",
       }}
@@ -65,34 +69,7 @@ export default function PersonaHero({
         <div style={{ maxWidth: 780 }}>
           {persona ? <PersonaToggle active={persona} /> : null}
           {eyebrow ? (
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 9,
-                border: `1px solid ${accent}`,
-                color: accent,
-                background: `color-mix(in srgb, ${accent} 8%, transparent)`,
-                borderRadius: 999,
-                padding: "6px 14px",
-                marginBottom: 26,
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-              }}
-            >
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: 999,
-                  background: accent,
-                  boxShadow: `0 0 8px ${accent}`,
-                }}
-              />
-              {eyebrow}
-            </div>
+            <div className="marker marker-rule mb-6">{eyebrow}</div>
           ) : null}
           <h1
             className="font-display text-display-lg"

@@ -33,7 +33,7 @@ export default function PersonaToggle({ active }: PersonaToggleProps) {
       style={{
         display: "inline-flex",
         flexDirection: "column",
-        marginBottom: 44,
+        marginBottom: 18,
       }}
     >
       <div
