@@ -399,12 +399,9 @@ function MockPage({
             {/* CTAs */}
             <div className="mt-7 flex items-center gap-3">
               <button
-                className="relative px-5 py-2.5 rounded-full text-[13.5px] font-medium overflow-hidden inline-flex items-center gap-1.5"
+                className="relative px-5 py-2.5 rounded-lg text-[13.5px] font-medium overflow-hidden inline-flex items-center gap-2"
                 style={{
-                  background:
-                    ctaColor === LIME
-                      ? `linear-gradient(180deg, #6C68F0 0%, ${LIME} 100%)`
-                      : ctaColor,
+                  background: ctaColor,
                   color: "#FFFFFF",
                   fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
                   letterSpacing: "-0.005em",
@@ -412,21 +409,20 @@ function MockPage({
                   transition: "background 220ms ease, transform 120ms ease",
                   boxShadow:
                     ctaColor === LIME
-                      ? "0 8px 22px -6px rgba(75,71,229,0.5), inset 0 1px 0 rgba(255,255,255,0.35)"
+                      ? "0 8px 22px -6px rgba(60,56,184,0.5), inset 0 1px 0 rgba(255,255,255,0.25)"
                       : "0 6px 18px -6px rgba(26,24,21,0.45), inset 0 1px 0 rgba(255,255,255,0.18)",
                 }}
               >
-                {ctaLabel}
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M5 12h14"/>
-                  <path d="M13 5l7 7-7 7"/>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="var(--coral)" aria-hidden="true">
+                  <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13 6.5 8.5 2 7l4.5-1.5L8 1z" />
                 </svg>
+                {ctaLabel}
                 {primaryClick > 0 && (
                   <span
                     style={{
                       position: "absolute",
                       inset: 0,
-                      borderRadius: 999,
+                      borderRadius: 8,
                       border: `2px solid ${LIME}`,
                       transform: `scale(${1 + primaryClick * 0.45})`,
                       opacity: 1 - primaryClick,

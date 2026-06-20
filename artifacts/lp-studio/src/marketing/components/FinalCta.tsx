@@ -144,25 +144,32 @@ export default function FinalCta() {
           <a
             href="https://app.lpstudio.ai"
             style={{
-              color: "var(--ink)",
-              background:
-                "linear-gradient(180deg, #FDFBF6 0%, #F4EFE3 100%)",
-              padding: "15px 30px",
-              borderRadius: 999,
+              color: "var(--cream)",
+              background: "var(--navy)",
+              padding: "13px 24px",
+              borderRadius: 8,
               fontSize: 15,
               fontWeight: 600,
-              border: "1px solid rgba(0, 0, 0, 0.18)",
+              border: "1px solid rgba(244, 239, 227, 0.14)",
               boxShadow:
-                "inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.10), 0 14px 32px -10px rgba(0,0,0,0.45)",
-              textShadow: "0 1px 0 rgba(255,255,255,0.6)",
+                "0 1px 2px rgba(0,0,0,0.25), 0 10px 26px -10px rgba(0,0,0,0.55)",
               letterSpacing: "-0.005em",
               textDecoration: "none",
               display: "inline-flex",
               alignItems: "center",
               gap: 8,
+              transition: "background .15s, transform .15s, box-shadow .15s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--navy-2)";
+              e.currentTarget.style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "var(--navy)";
+              e.currentTarget.style.transform = "translateY(0)";
             }}
           >
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="var(--coral)" aria-hidden="true">
               <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13 6.5 8.5 2 7l4.5-1.5L8 1z" />
             </svg>
             Generate your first page
@@ -170,24 +177,22 @@ export default function FinalCta() {
           <a
             href="mailto:admin@lpstudio.ai?subject=LP%20Studio%20demo"
             style={{
-              color: "var(--dark-text)",
-              background:
-                "linear-gradient(180deg, rgba(244, 239, 227, 0.10) 0%, rgba(244, 239, 227, 0.04) 100%)",
-              padding: "15px 30px",
-              borderRadius: 999,
+              color: "var(--dark-mute)",
+              background: "transparent",
+              padding: "13px 18px",
+              borderRadius: 8,
               fontSize: 15,
-              fontWeight: 600,
-              border: "1px solid rgba(244, 239, 227, 0.24)",
-              backdropFilter: "blur(10px) saturate(140%)",
-              WebkitBackdropFilter: "blur(10px) saturate(140%)",
-              boxShadow:
-                "inset 0 1px 0 rgba(244, 239, 227, 0.16), inset 0 -1px 0 rgba(0, 0, 0, 0.20), 0 6px 16px -4px rgba(0, 0, 0, 0.35)",
+              fontWeight: 500,
+              border: "none",
               letterSpacing: "-0.005em",
               textDecoration: "none",
               display: "inline-flex",
               alignItems: "center",
               gap: 8,
+              transition: "color .12s",
             }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--dark-text)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--dark-mute)")}
           >
             See a live page
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
