@@ -35,6 +35,7 @@ import {
 } from "@/lib/heat-tier";
 import { useAuth } from "@/context/AuthContext";
 import { useBrandConfig } from "@/context/BrandConfigContext";
+import { displayTier } from "@/lib/sales-tier";
 import { GenerateMicrositeModal } from "@/components/sales/GenerateMicrositeModal";
 
 const API_BASE = "/api";
@@ -317,6 +318,7 @@ export default function SalesDashboard() {
 
   // Workspace-configurable heat scoring (points per signal + tier thresholds).
   const { brand } = useBrandConfig();
+  const isDandy = brand?.isDandy === true;
   const heatScoring = useMemo(() => normalizeHeatScoringConfig(brand.heatScoring), [brand.heatScoring]);
 
   const { hotAccounts, needsAttention, hotCount, filteredAccountCount } = useMemo(() => {
@@ -566,7 +568,7 @@ export default function SalesDashboard() {
                   }`}
                 >
                   <span>
-                    {abmTierFilters.length === 0 ? "All ABM Tiers" : abmTierFilters.length === 1 ? abmTierFilters[0] : `${abmTierFilters.length} Tiers`}
+                    {abmTierFilters.length === 0 ? "All ABM Tiers" : abmTierFilters.length === 1 ? displayTier(abmTierFilters[0], isDandy) : `${abmTierFilters.length} Tiers`}
                   </span>
                   <ChevronDown className="w-3 h-3 text-muted-foreground" />
                 </button>
@@ -588,7 +590,7 @@ export default function SalesDashboard() {
                               onChange={() => toggleTier(tier)}
                               className="w-3.5 h-3.5 accent-primary"
                             />
-                            <span className="text-xs text-foreground truncate">{tier}</span>
+                            <span className="text-xs text-foreground truncate">{displayTier(tier, isDandy)}</span>
                           </label>
                         ))}
                       </>

@@ -54,6 +54,8 @@ import { GenerateMicrositeModal } from "@/components/sales/GenerateMicrositeModa
 import { PaginationBar } from "@/components/ui/pagination-bar";
 import { usePagination } from "@/hooks/use-pagination";
 import { useAuth } from "@/context/AuthContext";
+import { useBrandConfig } from "@/context/BrandConfigContext";
+import { displayTier } from "@/lib/sales-tier";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "@/hooks/use-toast";
 import { toastUndoableDelete } from "@/lib/undo-delete";
@@ -632,6 +634,8 @@ function SaveAudienceModal({
 function ContactListView() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
+  const { brand } = useBrandConfig();
+  const isDandy = brand?.isDandy === true;
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -969,7 +973,7 @@ function ContactListView() {
                 <select value={tierFilter} onChange={(e) => setTierFilter(e.target.value)}
                   className="h-10 appearance-none pl-3 pr-8 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
                   <option value="">All Tiers</option>
-                  {uniqueTiers.map(t => <option key={t} value={t}>{t}</option>)}
+                  {uniqueTiers.map(t => <option key={t} value={t}>{displayTier(t, isDandy)}</option>)}
                 </select>
                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               </div>
@@ -1102,7 +1106,7 @@ function ContactListView() {
                     </span>
                     {abmTier && (
                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${TIER_COLORS[abmTier] ?? "bg-muted text-muted-foreground"}`}>
-                        {abmTier}
+                        {displayTier(abmTier, isDandy)}
                       </span>
                     )}
                     {abmStage && (

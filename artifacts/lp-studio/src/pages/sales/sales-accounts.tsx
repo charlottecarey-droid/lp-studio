@@ -72,6 +72,7 @@ import {
   FOURTEEN_DAYS_MS,
 } from "@/lib/heat-tier";
 import { useBrandConfig } from "@/context/BrandConfigContext";
+import { tierOptions, displayTier } from "@/lib/sales-tier";
 
 const API_BASE = "/api";
 
@@ -570,6 +571,7 @@ function AccountListView() {
 
   // ── Heat scoring ─────────────────────────────────────────────────────────
   const { brand } = useBrandConfig();
+  const isDandy = brand?.isDandy === true;
   const heatScoring = useMemo(() => normalizeHeatScoringConfig(brand.heatScoring), [brand.heatScoring]);
 
   const { accountHeatMap, funnelCounts, funnelTrend } = useMemo(() => {
@@ -736,9 +738,9 @@ function AccountListView() {
                     className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   >
                     <option value="">— Select tier —</option>
-                    <option value="ENT">ENT</option>
-                    <option value="STRAT">STRAT</option>
-                    <option value="LENT">LENT</option>
+                    {tierOptions(isDandy).map(t => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -809,7 +811,7 @@ function AccountListView() {
                   {abmTierFilters.length === 0
                     ? "All ABM Tiers"
                     : abmTierFilters.length === 1
-                    ? abmTierFilters[0]
+                    ? displayTier(abmTierFilters[0], isDandy)
                     : `${abmTierFilters.length} Tiers`}
                 </span>
                 <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
@@ -836,7 +838,7 @@ function AccountListView() {
                             onChange={() => toggleTier(tier)}
                             className="w-3.5 h-3.5 accent-primary"
                           />
-                          <span className="text-sm text-foreground truncate">{tier}</span>
+                          <span className="text-sm text-foreground truncate">{displayTier(tier, isDandy)}</span>
                         </label>
                       ))}
                     </>
@@ -1214,7 +1216,7 @@ function AccountListView() {
                     <span className="font-semibold text-foreground text-sm">{account.displayName ?? account.name}</span>
                     {account.abmTier && (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                        {account.abmTier}
+                        {displayTier(account.abmTier, isDandy)}
                       </span>
                     )}
                     {account.abmStage && (
@@ -2420,6 +2422,8 @@ function ContactImportWizard({ accountId, onImported }: { accountId: number; onI
 function AccountDetailView({ id }: { id: string }) {
   const [, navigate] = useLocation();
   const { domainContext } = useAuth();
+  const { brand } = useBrandConfig();
+  const isDandy = brand?.isDandy === true;
   const [account, setAccount] = useState<Account | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2690,7 +2694,7 @@ function AccountDetailView({ id }: { id: string }) {
               {account.owner && <span>· {account.owner}</span>}
               {account.abmTier && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                  {account.abmTier}
+                  {displayTier(account.abmTier, isDandy)}
                 </span>
               )}
             </div>
