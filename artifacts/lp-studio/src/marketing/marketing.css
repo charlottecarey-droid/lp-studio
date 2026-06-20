@@ -238,8 +238,8 @@
   bottom: -7px;
   height: 9px;
   background: var(--indigo);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 12' preserveAspectRatio='none'%3E%3Cpath d='M2,4.6 C40,5.2 80,5.6 119,5.9 L119,6.1 C80,7.1 40,7.3 2,7.4 C0.3,7.4 0.3,4.6 2,4.6 Z' fill='black'/%3E%3C/svg%3E") no-repeat center / 100% 100%;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 12' preserveAspectRatio='none'%3E%3Cpath d='M2,4.6 C40,5.2 80,5.6 119,5.9 L119,6.1 C80,7.1 40,7.3 2,7.4 C0.3,7.4 0.3,4.6 2,4.6 Z' fill='black'/%3E%3C/svg%3E") no-repeat center / 100% 100%;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 12' preserveAspectRatio='none'%3E%3Cpath d='M2,4.6 C40,6.6 80,6.7 119,6.45 L119,6.75 C80,8.1 40,8.0 2,7.4 C0.3,7.4 0.3,4.6 2,4.6 Z' fill='black'/%3E%3C/svg%3E") no-repeat center / 100% 100%;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 12' preserveAspectRatio='none'%3E%3Cpath d='M2,4.6 C40,6.6 80,6.7 119,6.45 L119,6.75 C80,8.1 40,8.0 2,7.4 C0.3,7.4 0.3,4.6 2,4.6 Z' fill='black'/%3E%3C/svg%3E") no-repeat center / 100% 100%;
   clip-path: inset(0 100% 0 0);
   transition: clip-path 0.3s ease;
 }
