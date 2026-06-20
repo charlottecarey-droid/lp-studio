@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import navyDepthIcon from "@assets/lp-icon-indigo-depth.svg";
-import navyWordmark from "@assets/lp-wordmark-indigo.svg";
+import lpLockup from "@assets/lp-lockup-horizontal-navy-depth_1781934061156.svg";
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -45,15 +44,9 @@ export default function Navbar() {
           aria-label="LP Studio — home"
         >
           <img
-            src={navyDepthIcon}
-            alt=""
-            aria-hidden="true"
-            style={{ height: 32, width: 32, display: "block" }}
-          />
-          <img
-            src={navyWordmark}
+            src={lpLockup}
             alt="LP Studio"
-            style={{ height: 17, width: "auto", display: "block" }}
+            style={{ height: 40, width: "auto", display: "block" }}
           />
         </a>
 

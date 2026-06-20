@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Logo } from "./Logo";
+import lpLockup from "@assets/lp-lockup-horizontal-navy-depth_1781934061156.svg";
 
 // Palette retargeted from "dark + lime" to "warm cream + ink + indigo" to match
 // the app. Names preserved so call sites don't need rewrites.
@@ -1315,7 +1315,11 @@ export default function AssembleSceneV2() {
                     }}
                   />
                   <div className="flex items-center">
-                    <Logo variant="wordmark" height={16} />
+                    <img
+                      src={lpLockup}
+                      alt="LP Studio"
+                      style={{ height: 18, width: "auto", display: "block" }}
+                    />
                   </div>
                   <div className="hidden md:flex items-center gap-1.5 ml-1 min-w-0">
                     <span className="text-[12px]" style={{ color: FAINT }}>/</span>

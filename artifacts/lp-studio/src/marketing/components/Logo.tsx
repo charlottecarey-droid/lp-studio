@@ -41,13 +41,6 @@ interface LogoProps {
   style?: CSSProperties;
   /** Accessible label for the logo. Defaults to "LP Studio". */
   label?: string;
-  /**
-   * Override the wordmark "LP STUDIO" text color. Defaults to the
-   * tone-derived ink. Ignored for the cream `light` tone (which keeps its
-   * cream text for dark surfaces). Use to match a host surface's ink — e.g.
-   * the deep-indigo text inside the scroll-assembly mockup.
-   */
-  inkColor?: string;
 }
 
 export function Logo({
@@ -57,7 +50,6 @@ export function Logo({
   className,
   style,
   label = "LP Studio",
-  inkColor,
 }: LogoProps) {
   if (variant === "icon" || variant === "mark") {
     return (
@@ -77,7 +69,6 @@ export function Logo({
       className={className}
       style={style}
       label={label}
-      inkColor={inkColor}
     />
   );
 }
@@ -187,14 +178,12 @@ function LogoWordmark({
   className,
   style,
   label,
-  inkColor,
 }: {
   height: number;
   tone: "color" | "light" | "dark";
   className?: string;
   style?: CSSProperties;
   label: string;
-  inkColor?: string;
 }) {
   const id = useId();
   const gradientId = `lp-word-grad-${id.replace(/:/g, "")}`;
