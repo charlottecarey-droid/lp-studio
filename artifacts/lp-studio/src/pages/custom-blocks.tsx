@@ -586,27 +586,40 @@ export function CustomBlocksContent() {
                 </div>
               </div>
 
-              {/* Content preview */}
-              <div className="text-xs text-muted-foreground border border-border rounded-md p-2.5 bg-muted/30 min-h-[60px] max-h-[80px] overflow-hidden relative">
-                {block.block_type === "rich-text" && (
-                  <div
-                    className="prose prose-xs max-w-none line-clamp-3"
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(block.props?.html || "<em>Empty</em>") }}
-                  />
-                )}
-                {block.block_type === "custom-html" && (
-                  <code className="text-[10px] font-mono text-muted-foreground line-clamp-3 whitespace-pre-wrap break-all">
-                    {block.props?.html || "(empty)"}
-                  </code>
-                )}
-                {block.block_type === "schema" && (
-                  <div className="text-[11px] line-clamp-3">
-                    {(block.props?.schema?.length ?? 0)} field{(block.props?.schema?.length ?? 0) === 1 ? "" : "s"} ·{" "}
-                    {block.props?.template ? `${(block.props?.template ?? "").length} chars template` : "no template yet"}
-                  </div>
-                )}
-                <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-muted/30 to-transparent pointer-events-none" />
+              {/* Visual preview — renders the block as it appears on a page. */}
+              <div className="relative h-[150px] rounded-md border border-border bg-white overflow-hidden">
+                <div className="absolute inset-0 overflow-hidden">
+                  {block.block_type === "schema" ? (
+                    block.props?.template ? (
+                      <SchemaPreviewFrame
+                        schema={block.props.schema ?? []}
+                        template={block.props.template}
+                        values={block.props.sample ?? {}}
+                        mode="thumbnail"
+                      />
+                    ) : (
+                      <BlockPreviewEmpty label="No template yet" />
+                    )
+                  ) : block.props?.html && block.props.html.trim() ? (
+                    <div
+                      className={cn(
+                        "p-3 text-foreground",
+                        block.block_type === "rich-text" && "prose prose-sm max-w-none",
+                      )}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(block.props.html) }}
+                    />
+                  ) : (
+                    <BlockPreviewEmpty label="Empty block" />
+                  )}
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-white to-transparent pointer-events-none" />
               </div>
+              {block.block_type === "schema" && (
+                <p className="text-[11px] text-muted-foreground -mt-1">
+                  {(block.props?.schema?.length ?? 0)} field{(block.props?.schema?.length ?? 0) === 1 ? "" : "s"}
+                  {block.props?.template ? "" : " · no template yet"}
+                </p>
+              )}
 
               {/* Task #199 — "Used on" section for schema (master) blocks. */}
               {block.block_type === "schema" && (
@@ -1102,6 +1115,15 @@ export function CustomBlocksContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function BlockPreviewEmpty({ label }: { label: string }) {
+  return (
+    <div className="flex h-full w-full items-center justify-center gap-2 bg-muted/30 text-xs text-muted-foreground">
+      <Blocks className="w-4 h-4 opacity-60" />
+      {label}
     </div>
   );
 }
