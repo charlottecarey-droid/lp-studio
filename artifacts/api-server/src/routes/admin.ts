@@ -21,6 +21,8 @@ import { PLAN_CONFIG } from "@workspace/plan-config";
 import {
   validateDomain,
   findDomainConflict,
+  isManagedLpStudioHost,
+  defaultPageSubdomain,
   invalidateTenantHostCache,
   WILDCARD_BASE_HOSTS,
   extractWildcardSlug,
@@ -34,7 +36,6 @@ import {
   getCustomHostname,
   getZoneName,
 } from "../lib/cloudflare";
-import { requirePlanFeature } from "../middleware/requirePlanFeature";
 import { hashPhone, normalizeE164Input } from "../lib/phoneVerification";
 import { invalidateDomainContextForTenant } from "./auth";
 import dns from "dns/promises";
@@ -3289,10 +3290,13 @@ router.post("/invite-test", async (req, res): Promise<void> => {
 //   GET    /api/admin/custom-domain/status — current state + CF status
 //   POST   /api/admin/custom-domain        — attach { hostname }
 //   POST   /api/admin/custom-domain/verify — refresh CF status
-//   DELETE /api/admin/custom-domain        — detach
+//   DELETE /api/admin/custom-domain        — detach (reverts to managed host)
 //
-// `requirePlanFeature("customDomain")` returns 402 for tenants below
-// Growth (superadmin bypasses, matching existing behaviour).
+// The managed *.lpstudio.ai landing-page address is FREE for every tenant, so
+// these routes are not plan-gated at the router level. Attaching a CUSTOM
+// domain is gated inside POST (402, superadmin bypasses) via
+// customDomainAllowedFor; state.customDomainAllowed tells the UI which mode to
+// offer.
 
 function cloudflareErrorToHttp(err: unknown): { status: number; body: { error: string; cloudflareErrors?: unknown } } {
   if (err instanceof CloudflareError) {
@@ -3316,14 +3320,51 @@ interface CustomDomainState {
   ownershipVerification: { name?: string; value?: string; type?: string } | null;
   cnameTarget: string;
   error: string | null;
+  /**
+   * True when the current hostname is a MANAGED LP Studio landing-page
+   * subdomain (e.g. acme-lp.lpstudio.ai) — served off our wildcard cert +
+   * worker with no Cloudflare provisioning and no tenant DNS. The UI uses
+   * this to show the "LP Studio address" editor instead of the custom-domain
+   * DNS flow. Managed hosts are always live, so there is no pending status.
+   */
+  managed: boolean;
+  /**
+   * True when the tenant's plan includes the custom-domain feature (or the
+   * caller is a superadmin). The MANAGED LP Studio address is free for every
+   * tenant, so the editor is always shown; this flag only gates whether the
+   * "use your own domain" custom flow is offered or shows an upgrade prompt.
+   */
+  customDomainAllowed: boolean;
 }
 
-async function loadCustomDomainState(tenantId: number): Promise<CustomDomainState> {
+/**
+ * Whether this caller may attach a CUSTOM domain (the managed *.lpstudio.ai
+ * address is always free). Mirrors requirePlanFeature: superadmin bypasses;
+ * everyone else is gated on the plan's `customDomain` feature. Fails closed.
+ */
+async function customDomainAllowedFor(user: { appUserRole?: string | null; tenantId: number | null }): Promise<boolean> {
+  if (user.appUserRole === "superadmin") return true;
+  if (user.tenantId == null) return false;
+  try {
+    const plan = await getTenantPlan(user.tenantId);
+    const config = await getPlanConfig();
+    return !!config[plan].features.customDomain;
+  } catch (err) {
+    console.error("[admin] customDomainAllowedFor lookup failed:", err);
+    return false;
+  }
+}
+
+async function loadCustomDomainState(tenantId: number, customDomainAllowed: boolean): Promise<CustomDomainState> {
   const trow = await pool.query<{ microsite_domain: string | null; cloudflare_hostname_id: string | null }>(
     `SELECT microsite_domain, cloudflare_hostname_id FROM tenants WHERE id = $1`,
     [tenantId],
   );
   const row = trow.rows[0];
+  const managed =
+    !!row?.microsite_domain &&
+    isManagedLpStudioHost(row.microsite_domain) &&
+    !row.cloudflare_hostname_id;
   // Resolve the CNAME target from Cloudflare zone data so customer DNS
   // instructions follow the configured CLOUDFLARE_ZONE_ID across
   // environments instead of relying on a hardcoded constant. If the
@@ -3345,6 +3386,8 @@ async function loadCustomDomainState(tenantId: number): Promise<CustomDomainStat
     ownershipVerification: null,
     cnameTarget,
     error: zoneError,
+    managed,
+    customDomainAllowed,
   };
   if (state.cloudflareHostnameId) {
     try {
@@ -3370,16 +3413,18 @@ async function loadCustomDomainState(tenantId: number): Promise<CustomDomainStat
   return state;
 }
 
-router.get("/custom-domain/status", requirePlanFeature("customDomain"), async (req, res): Promise<void> => {
-  // Custom domain settings are an admin-only surface — match the role
-  // posture of POST/DELETE so a non-admin teammate can't see the
-  // current vanity host, CF status, or DNS validation tokens.
+router.get("/custom-domain/status", async (req, res): Promise<void> => {
+  // The managed LP Studio address is free for every tenant, so this surface is
+  // NOT plan-gated — the plan only governs whether a CUSTOM domain may be
+  // attached (reported via state.customDomainAllowed). Still admin-only so a
+  // non-admin teammate can't see the host, CF status, or DNS validation tokens.
   if (!req.authUser!.isAdmin) {
-    res.status(403).json({ error: "Only workspace admins can view the custom domain settings" });
+    res.status(403).json({ error: "Only workspace admins can view the landing page domain settings" });
     return;
   }
   try {
-    const state = await loadCustomDomainState(req.authUser!.tenantId!);
+    const allowed = await customDomainAllowedFor(req.authUser!);
+    const state = await loadCustomDomainState(req.authUser!.tenantId!, allowed);
     res.json(state);
   } catch (err) {
     console.error("[admin] GET /custom-domain/status error:", err);
@@ -3387,9 +3432,12 @@ router.get("/custom-domain/status", requirePlanFeature("customDomain"), async (r
   }
 });
 
-router.post("/custom-domain", requirePlanFeature("customDomain"), async (req, res): Promise<void> => {
+router.post("/custom-domain", async (req, res): Promise<void> => {
+  // Not gated at the route level: the managed *.lpstudio.ai address is free for
+  // every tenant. Attaching a CUSTOM domain is plan-gated inside the handler
+  // (402) so the free managed-address editor still works on every plan.
   if (!req.authUser!.isAdmin) {
-    res.status(403).json({ error: "Only workspace admins can change the custom domain" });
+    res.status(403).json({ error: "Only workspace admins can change the landing page domain" });
     return;
   }
   const tenantId = req.authUser!.tenantId!;
@@ -3419,15 +3467,94 @@ router.post("/custom-domain", requirePlanFeature("customDomain"), async (req, re
       [tenantId],
     );
     const prior = existing.rows[0];
-    if (prior?.microsite_domain && prior.microsite_domain.toLowerCase() !== normalized) {
+    const isManaged = isManagedLpStudioHost(normalized);
+    const priorIsCustom = !!prior?.microsite_domain && !!prior.cloudflare_hostname_id;
+    const allowed = await customDomainAllowedFor(req.authUser!);
+
+    // Only a CF-provisioned (custom) domain needs an explicit detach before
+    // switching — otherwise we'd leak its Cloudflare resources. A managed
+    // *.lpstudio.ai host has no CF resources, so a tenant can edit their LP
+    // Studio address (or move on to a custom domain) in place.
+    if (priorIsCustom && prior!.microsite_domain!.toLowerCase() !== normalized) {
       res.status(409).json({
-        error: `Detach the current domain (${prior.microsite_domain}) before attaching a new one`,
+        error: `Detach the current domain (${prior!.microsite_domain}) before attaching a new one`,
       });
       return;
     }
-    if (prior?.microsite_domain?.toLowerCase() === normalized && prior.cloudflare_hostname_id) {
-      // Already attached — return current state idempotently.
-      res.json(await loadCustomDomainState(tenantId));
+    // Idempotent no-op when the exact same host is already fully in place.
+    if (
+      prior?.microsite_domain?.toLowerCase() === normalized &&
+      (isManaged ? !prior.cloudflare_hostname_id : !!prior.cloudflare_hostname_id)
+    ) {
+      res.json(await loadCustomDomainState(tenantId, allowed));
+      return;
+    }
+
+    // Attaching a CUSTOM domain (anything not on our wildcard base) is a paid
+    // feature. The managed LP Studio address below is free for every tenant.
+    if (!isManaged && !allowed) {
+      const plan = await getTenantPlan(tenantId);
+      const config = await getPlanConfig();
+      res.status(402).json(featureUpgradeBody("customDomain", plan, config));
+      return;
+    }
+
+    // Managed LP Studio subdomain (e.g. acme-lp.lpstudio.ai): no Cloudflare
+    // provisioning needed — it's already covered by our wildcard cert + the
+    // tenant-host-router worker. Just store it (clearing any leftover CF
+    // hostname id from a prior custom domain) and refresh resolution caches.
+    if (isManaged) {
+      // Guard against claiming a managed host whose label is ALREADY another
+      // tenant's slug — findTenantByHost matches an exact microsite_domain
+      // before the wildcard slug, so without this we'd shadow that tenant's
+      // <slug>.lpstudio.ai host. A label matching THIS tenant's own slug is
+      // fine (it resolves back to us either way).
+      const managedLabel = extractWildcardSlug(normalized);
+      if (managedLabel) {
+        const slugClash = await pool.query<{ id: number }>(
+          `SELECT id FROM tenants WHERE id <> $1 AND lower(slug) = $2 LIMIT 1`,
+          [tenantId, managedLabel],
+        );
+        if (slugClash.rows.length) {
+          res.status(409).json({ error: `${normalized} isn't available` });
+          return;
+        }
+      }
+      await pool.query(
+        `UPDATE tenants
+            SET microsite_domain = $1,
+                cloudflare_hostname_id = NULL,
+                custom_domain_attached_at = now(),
+                custom_domain_last_seen_status = NULL,
+                custom_domain_notified_active_at = NULL,
+                custom_domain_notified_stuck_at = NULL,
+                updated_at = now()
+          WHERE id = $2`,
+        [normalized, tenantId],
+      );
+      invalidateTenantHostCache();
+      invalidateDomainContextForTenant(tenantId);
+      console.info(
+        "[admin][audit] tenant.customDomain.attached",
+        JSON.stringify({
+          tenantId,
+          hostname: normalized,
+          cloudflareHostnameId: null,
+          managed: true,
+          actorUserId: req.authUser?.userId ?? null,
+          actorEmail: req.authUser?.email ?? null,
+          at: new Date().toISOString(),
+        }),
+      );
+      await writeAuditLog({
+        action: "tenant.customDomain.attached",
+        targetType: "tenant",
+        targetKey: tenantId,
+        actorUserId: req.authUser?.userId ?? null,
+        actorEmail: req.authUser?.email ?? null,
+        metadata: { hostname: normalized, cloudflareHostnameId: null, managed: true },
+      });
+      res.json(await loadCustomDomainState(tenantId, allowed));
       return;
     }
 
@@ -3497,7 +3624,7 @@ router.post("/custom-domain", requirePlanFeature("customDomain"), async (req, re
       metadata: { hostname: normalized, cloudflareHostnameId: ch.id },
     });
 
-    res.json(await loadCustomDomainState(tenantId));
+    res.json(await loadCustomDomainState(tenantId, allowed));
   } catch (err) {
     console.error("[admin] POST /custom-domain error:", err);
     const { status, body } = cloudflareErrorToHttp(err);
@@ -3505,66 +3632,105 @@ router.post("/custom-domain", requirePlanFeature("customDomain"), async (req, re
   }
 });
 
-router.post("/custom-domain/verify", requirePlanFeature("customDomain"), async (req, res): Promise<void> => {
-  // Same read-surface posture as GET /status — admin-only.
+router.post("/custom-domain/verify", async (req, res): Promise<void> => {
+  // Same read-surface posture as GET /status — admin-only, not plan-gated.
   if (!req.authUser!.isAdmin) {
-    res.status(403).json({ error: "Only workspace admins can view the custom domain settings" });
+    res.status(403).json({ error: "Only workspace admins can view the landing page domain settings" });
     return;
   }
   try {
     // Re-fetch from Cloudflare (loadCustomDomainState already does this
     // when cloudflareHostnameId is set). No DB writes — verification is
     // a read-side refresh the UI uses to poll for TLS-active status.
-    res.json(await loadCustomDomainState(req.authUser!.tenantId!));
+    const allowed = await customDomainAllowedFor(req.authUser!);
+    res.json(await loadCustomDomainState(req.authUser!.tenantId!, allowed));
   } catch (err) {
     console.error("[admin] POST /custom-domain/verify error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-router.delete("/custom-domain", requirePlanFeature("customDomain"), async (req, res): Promise<void> => {
+router.delete("/custom-domain", async (req, res): Promise<void> => {
+  // Not plan-gated: detaching always reverts to the FREE managed host, which
+  // every tenant is entitled to. Admin-only to match attach.
   if (!req.authUser!.isAdmin) {
-    res.status(403).json({ error: "Only workspace admins can change the custom domain" });
+    res.status(403).json({ error: "Only workspace admins can change the landing page domain" });
     return;
   }
   const tenantId = req.authUser!.tenantId!;
+  const allowed = await customDomainAllowedFor(req.authUser!);
   try {
-    const row = await pool.query<{ microsite_domain: string | null; cloudflare_hostname_id: string | null }>(
-      `SELECT microsite_domain, cloudflare_hostname_id FROM tenants WHERE id = $1`,
+    const row = await pool.query<{ microsite_domain: string | null; cloudflare_hostname_id: string | null; slug: string | null }>(
+      `SELECT microsite_domain, cloudflare_hostname_id, slug FROM tenants WHERE id = $1`,
       [tenantId],
     );
     const prior = row.rows[0];
+    // Revert to the auto-assigned managed landing-page host rather than
+    // leaving the tenant with NO page address. Fall back to NULL only if the
+    // default host is somehow already claimed by another tenant.
+    const fallbackHost = prior?.slug ? defaultPageSubdomain(prior.slug) : null;
+    // The wildcard label the fallback host resolves through — must not shadow
+    // another tenant's slug (findTenantByHost prefers an exact microsite_domain).
+    const fallbackLabel = fallbackHost ? extractWildcardSlug(fallbackHost) : null;
     if (!prior?.microsite_domain) {
-      res.json(await loadCustomDomainState(tenantId));
+      // Nothing attached — make sure the managed default is in place if we can.
+      if (fallbackHost) {
+        await pool.query(
+          `UPDATE tenants SET microsite_domain = $1, cloudflare_hostname_id = NULL, updated_at = now()
+             WHERE id = $2
+               AND NOT EXISTS (
+                 SELECT 1 FROM tenants o WHERE o.id <> $2
+                   AND (lower(o.domain) = $1 OR lower(o.microsite_domain) = $1)
+               )
+               AND NOT EXISTS (
+                 SELECT 1 FROM tenants s WHERE s.id <> $2 AND lower(s.slug) = $3
+               )`,
+          [fallbackHost, tenantId, fallbackLabel],
+        );
+        invalidateTenantHostCache();
+        invalidateDomainContextForTenant(tenantId);
+      }
+      res.json(await loadCustomDomainState(tenantId, allowed));
       return;
     }
 
-    // Clear Cloudflare side first. If CF deletion partially fails we
-    // still clear the DB columns — leaving a stale microsite_domain
-    // pointing at a half-removed CF resource is worse than a CF leak
-    // (tenant resolution would break for the host) and the operator
-    // can clean up the leak from the Cloudflare dashboard.
+    // Only deprovision Cloudflare when there were CF resources (a custom
+    // domain). A managed *.lpstudio.ai host has none, so skip the CF call.
+    // If CF deletion partially fails we still rewrite the DB columns —
+    // leaving a stale microsite_domain pointing at a half-removed CF resource
+    // is worse than a CF leak (tenant resolution would break for the host)
+    // and the operator can clean up the leak from the Cloudflare dashboard.
     let cfError: string | null = null;
-    try {
-      await deprovisionCustomDomain(prior.microsite_domain, prior.cloudflare_hostname_id);
-    } catch (err) {
-      cfError = err instanceof Error ? err.message : "Cloudflare cleanup failed";
-      console.error("[admin] DELETE /custom-domain Cloudflare cleanup failed:", err);
+    if (prior.cloudflare_hostname_id) {
+      try {
+        await deprovisionCustomDomain(prior.microsite_domain, prior.cloudflare_hostname_id);
+      } catch (err) {
+        cfError = err instanceof Error ? err.message : "Cloudflare cleanup failed";
+        console.error("[admin] DELETE /custom-domain Cloudflare cleanup failed:", err);
+      }
     }
 
     await pool.query(
       // Task #415 — also clear the poller's state columns so a future
-      // re-attach starts from a clean slate.
+      // re-attach starts from a clean slate. Reset to the managed default
+      // host (conflict-safe) instead of NULL so pages stay reachable.
       `UPDATE tenants
-          SET microsite_domain = NULL,
+          SET microsite_domain = CASE
+                WHEN $1::text IS NOT NULL AND NOT EXISTS (
+                  SELECT 1 FROM tenants o WHERE o.id <> $2
+                    AND (lower(o.domain) = $1 OR lower(o.microsite_domain) = $1)
+                ) AND NOT EXISTS (
+                  SELECT 1 FROM tenants s WHERE s.id <> $2 AND lower(s.slug) = $3
+                ) THEN $1
+                ELSE NULL END,
               cloudflare_hostname_id = NULL,
               custom_domain_attached_at = NULL,
               custom_domain_last_seen_status = NULL,
               custom_domain_notified_active_at = NULL,
               custom_domain_notified_stuck_at = NULL,
               updated_at = now()
-        WHERE id = $1`,
-      [tenantId],
+        WHERE id = $2`,
+      [fallbackHost, tenantId, fallbackLabel],
     );
     invalidateTenantHostCache();
     // Same as attach — clear cached domain-context so the SPA stops
@@ -3596,7 +3762,7 @@ router.delete("/custom-domain", requirePlanFeature("customDomain"), async (req, 
       },
     });
 
-    const state = await loadCustomDomainState(tenantId);
+    const state = await loadCustomDomainState(tenantId, allowed);
     if (cfError) state.error = `Domain detached, but Cloudflare cleanup reported: ${cfError}`;
     res.json(state);
   } catch (err) {

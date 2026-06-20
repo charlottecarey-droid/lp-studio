@@ -78,6 +78,13 @@ export const PLATFORM_NOTIFICATION_VARIABLES: readonly VariableDefinition[] = [
     group: "Links",
   },
   {
+    token: "landingPageDomain",
+    label: "Landing-page address",
+    description: "The workspace's managed landing-page host (editable in Settings → Domain).",
+    sample: "acme-lp.lpstudio.ai",
+    group: "Links",
+  },
+  {
     token: "acceptUrl",
     label: "Accept-invite link",
     description: "The invitation accept / sign-in link (workspace invite email).",

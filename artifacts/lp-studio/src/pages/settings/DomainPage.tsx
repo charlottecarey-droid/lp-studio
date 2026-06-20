@@ -11,6 +11,11 @@ import { useToast } from "@/hooks/use-toast";
 import { UpgradePrompt } from "@/components/UpgradePrompt";
 import { MicrositeLinksCard } from "./MicrositeLinksCard";
 
+// The managed wildcard base. Tenants get a free <label>.lpstudio.ai address
+// with no DNS setup; the label is the editable part. Keep this in sync with
+// the backend WILDCARD_BASE_HOSTS default (tenantHosts.ts).
+const MANAGED_SUFFIX = ".lpstudio.ai";
+
 interface CustomDomainState {
   hostname: string | null;
   cloudflareHostnameId: string | null;
@@ -20,6 +25,13 @@ interface CustomDomainState {
   ownershipVerification: { name?: string; value?: string; type?: string } | null;
   cnameTarget: string;
   error: string | null;
+  // True when the current hostname is a managed LP Studio subdomain (always
+  // live, no Cloudflare provisioning). Drives which editor we show.
+  managed: boolean;
+  // True when the tenant's plan (or superadmin) may attach a CUSTOM domain.
+  // The managed LP Studio address is always free, so the managed editor is
+  // shown regardless; this only gates the "use your own domain" flow.
+  customDomainAllowed: boolean;
 }
 
 function isReady(state: CustomDomainState | null): boolean {
@@ -35,6 +47,13 @@ function statusLabel(state: CustomDomainState): { text: string; tone: "ok" | "wa
   return { text: `Pending — ${state.sslStatus ?? state.status}`, tone: "warn" };
 }
 
+// Split a managed host (acme-lp.lpstudio.ai) into its editable label.
+function managedLabelOf(hostname: string | null): string {
+  if (!hostname) return "";
+  const lower = hostname.toLowerCase();
+  return lower.endsWith(MANAGED_SUFFIX) ? lower.slice(0, -MANAGED_SUFFIX.length) : lower;
+}
+
 export function DomainContent() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -47,6 +66,13 @@ export function DomainContent() {
   const [verifying, setVerifying] = useState(false);
   const [detaching, setDetaching] = useState(false);
   const [attachError, setAttachError] = useState<string | null>(null);
+  // Managed-subdomain editor state.
+  const [labelDraft, setLabelDraft] = useState("");
+  const [savingLabel, setSavingLabel] = useState(false);
+  const [labelError, setLabelError] = useState<string | null>(null);
+  // When true, show the "use your own domain" attach flow even though a managed
+  // host is currently in place.
+  const [customMode, setCustomMode] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -66,7 +92,7 @@ export function DomainContent() {
       setPlanLocked(false);
     } catch (err) {
       toast({
-        title: "Failed to load custom domain",
+        title: "Failed to load landing page domain",
         description: err instanceof Error ? err.message : undefined,
         variant: "destructive",
       });
@@ -77,13 +103,61 @@ export function DomainContent() {
 
   useEffect(() => { void load(); }, [load]);
 
-  // Poll while pending so the UI updates as Cloudflare progresses through
-  // validation → active without the user having to refresh manually.
+  // Keep the managed-subdomain editor seeded with the current label whenever
+  // the server state changes (and we're not mid-edit).
+  useEffect(() => {
+    if (state?.managed) setLabelDraft(managedLabelOf(state.hostname));
+  }, [state?.managed, state?.hostname]);
+
+  // Poll while a custom domain is pending so the UI updates as Cloudflare
+  // progresses through validation → active without a manual refresh.
   useEffect(() => {
     if (!state?.cloudflareHostnameId || isReady(state)) return;
     const id = setInterval(() => { void load(); }, 15_000);
     return () => clearInterval(id);
   }, [state, load]);
+
+  // POST a fully-qualified hostname. Shared by the managed editor and the
+  // custom-domain attach flow.
+  async function postHostname(hostname: string): Promise<CustomDomainState | null> {
+    const res = await fetch("/api/admin/custom-domain", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hostname }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
+    return json as CustomDomainState;
+  }
+
+  async function handleSaveLabel() {
+    const label = labelDraft.trim().toLowerCase();
+    setLabelError(null);
+    if (!label) {
+      setLabelError("Enter a subdomain.");
+      return;
+    }
+    if (!/^[a-z0-9-]+$/.test(label) || label.startsWith("-") || label.endsWith("-")) {
+      setLabelError("Use only letters, numbers, and hyphens.");
+      return;
+    }
+    const hostname = `${label}${MANAGED_SUFFIX}`;
+    if (state?.hostname && hostname === state.hostname.toLowerCase()) return;
+    setSavingLabel(true);
+    try {
+      const next = await postHostname(hostname);
+      if (next) setState(next);
+      toast({
+        title: "Landing page address updated",
+        description: `Your pages are now live at ${hostname}.`,
+      });
+    } catch (err) {
+      setLabelError(err instanceof Error ? err.message : "Couldn't update the address");
+    } finally {
+      setSavingLabel(false);
+    }
+  }
 
   async function handleAttach() {
     const hostname = draft.trim().toLowerCase();
@@ -91,19 +165,10 @@ export function DomainContent() {
     setSaving(true);
     setAttachError(null);
     try {
-      const res = await fetch("/api/admin/custom-domain", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hostname }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setAttachError(json?.error ?? `HTTP ${res.status}`);
-        return;
-      }
-      setState(json as CustomDomainState);
+      const next = await postHostname(hostname);
+      if (next) setState(next);
       setDraft("");
+      setCustomMode(false);
       toast({
         title: "Domain attached",
         description: "Add the CNAME record at your DNS provider to finish setup.",
@@ -140,7 +205,7 @@ export function DomainContent() {
     if (!state?.hostname) return;
     if (typeof window !== "undefined") {
       const ok = window.confirm(
-        `Remove ${state.hostname}? Visitors going to that URL will stop reaching your pages immediately.`,
+        `Remove ${state.hostname}? Your pages will fall back to your free LP Studio address.`,
       );
       if (!ok) return;
     }
@@ -153,6 +218,7 @@ export function DomainContent() {
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
       setState(json as CustomDomainState);
+      setCustomMode(false);
       toast({ title: "Domain removed" });
     } catch (err) {
       toast({
@@ -165,13 +231,18 @@ export function DomainContent() {
     }
   }
 
+  const hasCustomDomain = !!state?.hostname && !state.managed;
+  // Show the custom-domain attach UI when a custom domain is already attached,
+  // or the admin chose to set one up.
+  const showCustom = hasCustomDomain || customMode;
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Custom domain</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Landing page domain</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Serve your landing pages from your own subdomain (e.g.{" "}
-          <span className="font-mono">pages.acme.com</span>) instead of the default LP Studio host.
+          The address visitors see when viewing your published landing pages. Every
+          workspace gets a free LP Studio address, or you can connect your own domain.
         </p>
       </div>
 
@@ -183,7 +254,7 @@ export function DomainContent() {
         </Card>
       ) : planLocked ? (
         <UpgradePrompt gate="customDomain" withLayout={false} />
-      ) : (
+      ) : showCustom ? (
         <>
           <Card className="p-5">
             <div className="flex items-start gap-4">
@@ -192,20 +263,21 @@ export function DomainContent() {
               </div>
               <div className="flex-1 min-w-0 space-y-3">
                 <div>
-                  <h2 className="text-sm font-semibold">Landing pages domain</h2>
+                  <h2 className="text-sm font-semibold">Your own domain</h2>
                   <p className="text-xs text-muted-foreground mt-1 max-w-prose">
-                    The hostname that visitors see when viewing your published landing pages.
+                    Serve your landing pages from your own subdomain (e.g.{" "}
+                    <span className="font-mono">pages.acme.com</span>).
                   </p>
                 </div>
 
-                {state?.hostname ? (
+                {hasCustomDomain ? (
                   <>
                     <div className="flex items-center gap-2">
                       <div
                         className="flex-1 min-w-0 font-mono text-sm bg-muted/40 border border-border/60 rounded-md px-3 h-9 inline-flex items-center truncate"
-                        title={state.hostname}
+                        title={state!.hostname!}
                       >
-                        {state.hostname}
+                        {state!.hostname}
                       </div>
                       <Button
                         variant="outline"
@@ -238,7 +310,7 @@ export function DomainContent() {
                       </Button>
                     </div>
                     {(() => {
-                      const label = statusLabel(state);
+                      const label = statusLabel(state!);
                       return (
                         <div
                           className={
@@ -260,9 +332,24 @@ export function DomainContent() {
                         </div>
                       );
                     })()}
-                    {state.error && (
-                      <p className="text-xs text-destructive">{state.error}</p>
+                    {state!.error && (
+                      <p className="text-xs text-destructive">{state!.error}</p>
                     )}
+                  </>
+                ) : state && !state.customDomainAllowed ? (
+                  // Connecting your own domain is a paid feature. The managed
+                  // LP Studio address above stays free, so we show the upgrade
+                  // prompt inline here instead of locking the whole page.
+                  <>
+                    <UpgradePrompt gate="customDomain" withLayout={false} />
+                    <button
+                      type="button"
+                      onClick={() => { setCustomMode(false); setAttachError(null); setDraft(""); }}
+                      className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                      data-testid="use-lpstudio-address"
+                    >
+                      ← Use my free LP Studio address instead
+                    </button>
                   </>
                 ) : (
                   <>
@@ -297,19 +384,27 @@ export function DomainContent() {
                         <AlertCircle className="w-3 h-3" /> {attachError}
                       </p>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => { setCustomMode(false); setAttachError(null); setDraft(""); }}
+                      className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                      data-testid="use-lpstudio-address"
+                    >
+                      ← Use my free LP Studio address instead
+                    </button>
                   </>
                 )}
               </div>
             </div>
           </Card>
 
-          {state?.hostname && !isReady(state) && (
+          {hasCustomDomain && !isReady(state) && (
             <Card className="p-5">
               <div className="space-y-3">
                 <h2 className="text-sm font-semibold">DNS setup</h2>
                 <p className="text-xs text-muted-foreground max-w-prose">
                   Add this CNAME record at your DNS provider so traffic for{" "}
-                  <span className="font-mono">{state.hostname}</span> reaches LP Studio. SSL
+                  <span className="font-mono">{state!.hostname}</span> reaches LP Studio. SSL
                   activates automatically once the record propagates (usually within minutes).
                 </p>
                 <div className="border border-border/60 rounded-md overflow-hidden">
@@ -324,13 +419,13 @@ export function DomainContent() {
                     <tbody>
                       <tr className="border-t border-border/60">
                         <td className="px-3 py-2">CNAME</td>
-                        <td className="px-3 py-2">{state.hostname}</td>
-                        <td className="px-3 py-2">{state.cnameTarget}</td>
+                        <td className="px-3 py-2">{state!.hostname}</td>
+                        <td className="px-3 py-2">{state!.cnameTarget}</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
-                {state.ownershipVerification && (
+                {state!.ownershipVerification && (
                   <>
                     <p className="text-xs text-muted-foreground max-w-prose">
                       If your domain is hosted on Cloudflare, also add this verification record:
@@ -346,9 +441,9 @@ export function DomainContent() {
                         </thead>
                         <tbody>
                           <tr className="border-t border-border/60">
-                            <td className="px-3 py-2">{state.ownershipVerification.type ?? "TXT"}</td>
-                            <td className="px-3 py-2 break-all">{state.ownershipVerification.name}</td>
-                            <td className="px-3 py-2 break-all">{state.ownershipVerification.value}</td>
+                            <td className="px-3 py-2">{state!.ownershipVerification.type ?? "TXT"}</td>
+                            <td className="px-3 py-2 break-all">{state!.ownershipVerification.name}</td>
+                            <td className="px-3 py-2 break-all">{state!.ownershipVerification.value}</td>
                           </tr>
                         </tbody>
                       </table>
@@ -359,6 +454,81 @@ export function DomainContent() {
             </Card>
           )}
         </>
+      ) : (
+        // Managed LP Studio address — always live, editable label, no DNS.
+        <Card className="p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+              <Globe className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <div className="flex-1 min-w-0 space-y-3">
+              <div>
+                <h2 className="text-sm font-semibold">LP Studio address</h2>
+                <p className="text-xs text-muted-foreground mt-1 max-w-prose">
+                  Your free landing-page address. Always on — no DNS setup required.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0 flex items-stretch">
+                  <Input
+                    value={labelDraft}
+                    onChange={(e) => setLabelDraft(e.target.value)}
+                    placeholder="acme-lp"
+                    disabled={!isAdmin || savingLabel}
+                    className="font-mono text-sm h-9 rounded-r-none"
+                    spellCheck={false}
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    data-testid="subdomain-input"
+                  />
+                  <span className="inline-flex items-center px-3 h-9 rounded-r-md border border-l-0 border-border/60 bg-muted/40 font-mono text-sm text-muted-foreground select-none">
+                    {MANAGED_SUFFIX}
+                  </span>
+                </div>
+                <Button
+                  onClick={handleSaveLabel}
+                  disabled={
+                    !isAdmin ||
+                    savingLabel ||
+                    !labelDraft.trim() ||
+                    `${labelDraft.trim().toLowerCase()}${MANAGED_SUFFIX}` === state?.hostname?.toLowerCase()
+                  }
+                  className="shrink-0 h-9"
+                  data-testid="save-subdomain"
+                >
+                  {savingLabel ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                </Button>
+              </div>
+
+              <div className="text-xs inline-flex items-center gap-1.5 text-emerald-600" data-testid="domain-status">
+                <CheckCircle2 className="w-3 h-3" />
+                Active — your pages are live
+              </div>
+
+              {labelError && (
+                <p className="text-xs text-destructive inline-flex items-center gap-1.5">
+                  <AlertCircle className="w-3 h-3" /> {labelError}
+                </p>
+              )}
+              {!isAdmin && (
+                <p className="text-[11px] text-muted-foreground italic">
+                  Only workspace admins can change the landing page address.
+                </p>
+              )}
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => { setCustomMode(true); setLabelError(null); }}
+                  className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                  data-testid="use-custom-domain"
+                >
+                  Use your own domain instead →
+                </button>
+              )}
+            </div>
+          </div>
+        </Card>
       )}
 
       <MicrositeLinksCard />

@@ -5,7 +5,7 @@ import { pool, db, lpPageReviewsTable, lpPagesTable, tenantsTable, lpBrandSettin
 import { eq, and } from "drizzle-orm";
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
-import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BASE_HOSTS, isSlugRedirectReserved, invalidateTenantHostCache } from "../lib/tenantHosts";
+import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BASE_HOSTS, isSlugRedirectReserved, invalidateTenantHostCache, defaultPageSubdomain } from "../lib/tenantHosts";
 import { getRequestHost } from "../lib/requestHost";
 import {
   sendMagicLinkEmail,
@@ -1070,12 +1070,19 @@ router.post("/auth/complete-onboarding", async (req, res): Promise<void> => {
         `UPDATE tenants
             SET welcome_email_sent_at = now()
           WHERE id = $1 AND welcome_email_sent_at IS NULL
-          RETURNING name, slug, domain`,
+          RETURNING name, slug, domain, microsite_domain`,
         [sess.tenantId]
       );
       if (claim.rows.length > 0) {
         const t = claim.rows[0];
         const host = getCanonicalTenantHost({ slug: t.slug ?? null, domain: t.domain ?? null });
+        // The tenant's managed landing-page host. Auto-assigned at signup, so
+        // microsite_domain is normally set; fall back to the deterministic
+        // default if it somehow isn't, so the welcome email always shows a
+        // real address rather than an empty token.
+        const landingPageDomain =
+          (t.microsite_domain ?? "").trim() ||
+          (t.slug ? defaultPageSubdomain(t.slug) : "");
         // Drop a welcome item into the in-app inbox (best-effort, deduped by
         // user). Runs through the notification system so the new signup sees
         // something in their bell on first load.
@@ -1087,6 +1094,7 @@ router.post("/auth/complete-onboarding", async (req, res): Promise<void> => {
             context: {
               tenantName: t.name ?? "your workspace",
               workspaceUrl: host ? `https://${host}` : null,
+              landingPageDomain,
             },
             dedupeBase: `welcome:tenant:${sess.tenantId}`,
             channels: ["in_app"],
@@ -1114,6 +1122,7 @@ router.post("/auth/complete-onboarding", async (req, res): Promise<void> => {
           const welcomeContext = {
             tenantName: t.name ?? "your workspace",
             workspaceUrl,
+            landingPageDomain,
           };
           void enqueueWorkflowTrigger({
             eventKey: "welcome",
@@ -1895,6 +1904,36 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
             [name.trim(), slugClean]
           );
       const tenant = tenantResult.rows[0];
+
+      // Auto-assign a managed landing-page host (e.g. acme-lp.lpstudio.ai) so
+      // every new tenant has a clean public address for their pages from day
+      // one. Served off our wildcard cert + worker — no tenant DNS, no
+      // Cloudflare provisioning. Conflict-safe (only set when that exact host
+      // isn't already claimed by another tenant's domain/microsite_domain) and
+      // editable later in Settings → Domain. The legacy <slug>.lpstudio.ai/lp/…
+      // URLs keep working independently via wildcard slug resolution.
+      const pageHost = defaultPageSubdomain(tenant.slug);
+      // The wildcard label this host resolves through (e.g. "acme-lp"). Guard
+      // against claiming a host whose label is ALREADY another tenant's slug —
+      // findTenantByHost matches an exact microsite_domain before the wildcard
+      // slug, so without this we'd shadow that tenant's <slug>.lpstudio.ai host.
+      const pageHostLabel = extractWildcardSlug(pageHost);
+      await client.query(
+        `UPDATE tenants SET microsite_domain = $1, updated_at = now()
+           WHERE id = $2
+             AND microsite_domain IS NULL
+             AND NOT EXISTS (
+               SELECT 1 FROM tenants o
+                WHERE o.id <> $2
+                  AND (lower(o.domain) = $1 OR lower(o.microsite_domain) = $1)
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM tenants s
+                WHERE s.id <> $2 AND lower(s.slug) = $3
+             )`,
+        [pageHost, tenant.id, pageHostLabel],
+      );
+      invalidateTenantHostCache();
 
       // Record the number as having consumed its one free trial — only when a
       // trial was actually granted, and atomically with the tenant it unlocked.

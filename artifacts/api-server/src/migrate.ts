@@ -1507,6 +1507,50 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
+    // Auto-assign every existing tenant a managed landing-page host
+    // (<slug>-lp.lpstudio.ai), stored in microsite_domain. Marker-guarded +
+    // idempotent. Only fills tenants that have NO microsite_domain yet (never
+    // overwrites a custom/owned domain like Dandy's partners.meetdandy.com),
+    // and is conflict-safe: it skips any tenant whose target host is already
+    // claimed as another tenant's domain/microsite_domain, or whose target
+    // slug "<slug>-lp" collides with another tenant's wildcard slug (which
+    // would make the host ambiguous to resolve). Legacy <slug>.lpstudio.ai/lp/…
+    // URLs keep working independently. R2 snapshots for the new host warm via
+    // the normal reconcile/republish path; the CF worker live-renders from
+    // origin until then, so pages serve immediately.
+    await runStep("tenant managed page subdomain backfill (1374)", async () => {
+    try {
+      const marker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'tenant_page_subdomain_backfill_v1'`
+      );
+      if (marker.rows.length === 0) {
+        const res = await db.execute(sql`
+          UPDATE tenants t
+             SET microsite_domain = lower(t.slug) || '-lp.lpstudio.ai',
+                 updated_at = now()
+           WHERE t.microsite_domain IS NULL
+             AND t.slug IS NOT NULL
+             AND t.status = 'active'
+             AND NOT EXISTS (
+               SELECT 1 FROM tenants o
+                WHERE o.id <> t.id
+                  AND (
+                    lower(o.domain) = lower(t.slug) || '-lp.lpstudio.ai'
+                    OR lower(o.microsite_domain) = lower(t.slug) || '-lp.lpstudio.ai'
+                    OR lower(o.slug) = lower(t.slug) || '-lp'
+                  )
+             )
+        `);
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES ('tenant_page_subdomain_backfill_v1') ON CONFLICT DO NOTHING`
+        );
+        logger.info({ rows: (res as { rowCount?: number }).rowCount ?? 0 }, "tenant managed page subdomain backfill applied");
+      }
+    } catch (err) {
+      logger.error({ err }, "tenant managed page subdomain backfill failed (non-fatal)");
+    }
+    });
+
     // Task #108 — page review workflow rollout. Two backfills, both idempotent
     // and marker-guarded so reboots are no-ops:
     //   1. Add the system "Content Manager" role to every tenant that lacks

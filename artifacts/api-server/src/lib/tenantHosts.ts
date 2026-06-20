@@ -152,6 +152,34 @@ export function isWildcardBaseHost(host: string): boolean {
 }
 
 /**
+ * The landing-page host we auto-assign every tenant: `<slug>-lp.<base>`
+ * (e.g. acme-lp.lpstudio.ai). Served directly off our wildcard cert + the
+ * tenant-host-router worker, so it needs no tenant DNS or per-host setup.
+ */
+export function defaultPageSubdomain(slug: string): string {
+  const base = WILDCARD_BASE_HOSTS[0] ?? "lpstudio.ai";
+  return `${slug.toLowerCase().trim()}-lp.${base}`;
+}
+
+/** True if `host` is one of our wildcard base hosts, or a subdomain of one. */
+export function isUnderWildcardBase(host: string): boolean {
+  const lower = host.toLowerCase();
+  return WILDCARD_BASE_HOSTS.some(
+    base => lower === base || lower.endsWith(`.${base}`),
+  );
+}
+
+/**
+ * True when `host` is a MANAGED LP Studio landing-page subdomain — a single
+ * level, non-reserved subdomain of a wildcard base host (e.g.
+ * acme-lp.lpstudio.ai). These resolve through our wildcard cert + worker, so
+ * they require NO Cloudflare custom-hostname provisioning and NO tenant DNS.
+ */
+export function isManagedLpStudioHost(host: string): boolean {
+  return extractWildcardSlug(host) !== null;
+}
+
+/**
  * Resolve a request's host to a tenant.
  * Tries (in order): exact domain → exact microsite_domain → wildcard subdomain (slug).
  */
@@ -323,8 +351,15 @@ export function validateDomain(input: string): DomainValidation {
   if (host.length > 253) {
     return { ok: false, error: "Hostname too long" };
   }
-  if (isWildcardBaseHost(host)) {
-    return { ok: false, error: `${host} is a reserved base host` };
+  if (isUnderWildcardBase(host)) {
+    // A host on one of our own base domains is only valid as a MANAGED
+    // single-level, non-reserved subdomain (e.g. acme-lp.lpstudio.ai). The
+    // bare base host, reserved names, and multi-level subdomains are rejected
+    // — nobody can claim those as a custom domain.
+    if (!isManagedLpStudioHost(host)) {
+      return { ok: false, error: `${host} isn't an available LP Studio address` };
+    }
+    return { ok: true, normalized: host };
   }
   return { ok: true, normalized: host };
 }
