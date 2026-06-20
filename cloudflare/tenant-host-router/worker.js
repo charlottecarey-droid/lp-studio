@@ -70,6 +70,21 @@ const PASSTHROUGH_HOSTS = new Set([
   "app.lpstudio.ai",
 ]);
 
+// Hosts that serve the multi-page *marketing* site (NOT the SaaS app, which
+// lives on app.lpstudio.ai). On these hosts we serve per-route prerendered
+// marketing HTML from R2 (Tier 0.5). app.lpstudio.ai is deliberately excluded
+// — it must boot the SPA via the Tier 3 passthrough, not be replaced with a
+// static marketing page.
+const MARKETING_HOSTS = new Set([
+  "lpstudio.ai",
+  "www.lpstudio.ai",
+]);
+
+// R2 prefix for the per-route marketing HTML, written by
+// artifacts/lp-studio/scripts/upload-assets-to-r2.mjs (mirrors the
+// dist/public layout: each route is a directory containing index.html).
+const MARKETING_PREFIX = "_studio-marketing/";
+
 const BOT_UA_PATTERN =
   /facebookexternalhit|Facebot|Twitterbot|LinkedInBot|Slackbot|TelegramBot|WhatsApp|Googlebot|Applebot|Discordbot|redditbot|pinterest|vkShare|W3C_Validator|bingbot|DuckDuckBot|Embedly|Iframely|SkypeUriPreview|Mastodon|Bluesky/i;
 
@@ -120,6 +135,41 @@ async function fromR2(env, host, slug) {
   // means fully allowed, so we emit no header (never a redundant index,follow).
   const xRobots = obj.customMetadata && obj.customMetadata["x-robots"];
   if (xRobots) headers.set("X-Robots-Tag", xRobots);
+  return new Response(obj.body, { status: 200, headers });
+}
+
+// ── Marketing per-route prerendered HTML ────────────────────────────────
+//
+// Maps a marketing route to its R2 object key, mirroring the dist/public
+// layout produced by prerender-marketing.mjs: each route is a directory
+// containing index.html, and the home route is the root index.html.
+//   "/"               → _studio-marketing/index.html
+//   "/for-marketing"  → _studio-marketing/for-marketing/index.html
+//   "/blog/some-post" → _studio-marketing/blog/some-post/index.html
+function marketingR2Key(pathname) {
+  let p = pathname.split("?")[0].split("#")[0];
+  p = p.replace(/\/{2,}/g, "/");
+  if (p !== "/" && p.endsWith("/")) p = p.slice(0, -1);
+  // Defense-in-depth: never let a crafted path escape the marketing prefix.
+  if (p.includes("..")) return null;
+  const rel = p === "/" ? "index.html" : `${p.replace(/^\//, "")}/index.html`;
+  return `${MARKETING_PREFIX}${rel}`;
+}
+
+async function fromMarketingR2(env, pathname) {
+  if (!env.PRERENDERED_LP) return null;
+  const key = marketingR2Key(pathname);
+  if (!key) return null;
+  const obj = await env.PRERENDERED_LP.get(key);
+  if (!obj) return null;
+  const headers = new Headers({
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control":
+      "public, max-age=60, s-maxage=300, stale-while-revalidate=86400, stale-if-error=86400",
+    "X-LP-Source": "r2-marketing",
+  });
+  if (obj.httpEtag) headers.set("ETag", obj.httpEtag);
+  if (obj.uploaded) headers.set("Last-Modified", obj.uploaded.toUTCString());
   return new Response(obj.body, { status: 200, headers });
 }
 
@@ -367,6 +417,32 @@ export default {
     // and surfacing as CF 1101 (Worker threw exception) → visitors saw
     // HTTP 500 instead of the reload shim.
     const ua = request.headers.get("user-agent") ?? "";
+
+    // ── Tier 0.5: Marketing per-route prerendered HTML ───────────────
+    // lpstudio.ai / www serve a multi-page marketing site. Replit's static
+    // SPA origin rewrites EVERY path to the root index.html, so without this
+    // every marketing route (/for-marketing, /pricing, /blog/*, …) returned
+    // the homepage HTML to browsers AND crawlers — identical <title> and
+    // canonical on every page. Serve the correct per-route prerendered HTML
+    // (uploaded to R2 by upload-assets-to-r2.mjs) here. On any R2 miss we fall
+    // through to the Tier 3 passthrough (origin homepage) — exactly the pre-fix
+    // behaviour — so a not-yet-uploaded route never hard-fails. Excludes /api,
+    // /assets, /.well-known and any file-extension path via
+    // pathNeedsOriginInsteadOfShell, so robots.txt, sitemap.xml, favicons and
+    // assets keep their own tiers. app.lpstudio.ai is not a MARKETING_HOST, so
+    // the SaaS app still boots via Tier 3.
+    if (
+      MARKETING_HOSTS.has(originalHost) &&
+      isGetOrHead &&
+      !pathNeedsOriginInsteadOfShell(url.pathname)
+    ) {
+      try {
+        const marketing = await fromMarketingR2(env, url.pathname);
+        if (marketing) return marketing;
+      } catch (err) {
+        console.error("marketing R2 fetch failed:", err);
+      }
+    }
 
     // ── Tier 1: R2 prerender ─────────────────────────────────────────
     if (slug && isGetOrHead) {

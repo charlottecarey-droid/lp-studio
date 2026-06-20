@@ -244,6 +244,61 @@ async function main() {
   } else {
     console.warn(`[lp-studio:upload-assets-to-r2] no tenant shell at ${TENANT_SHELL_PATH} — skipping (prerender step likely did not run).`);
   }
+
+  // ── Marketing per-route prerendered HTML (multi-page SEO) ───────────
+  // prerender-marketing.mjs writes one index.html per marketing route into
+  // dist/public (/, /for-marketing, /pricing, /blog/<slug>, …), each with its
+  // OWN <title>, meta description and canonical. Replit's static SPA origin
+  // rewrites every path to the ROOT index.html, so unless the edge serves
+  // these per-route, every marketing page returns the homepage HTML to
+  // crawlers (identical title/canonical everywhere). Upload each to
+  // `_studio-marketing/<relpath>`; the CF tenant-host-router worker serves
+  // them for lpstudio.ai / www on a per-route basis (worker.js Tier 0.5).
+  //
+  // Unlike the hashed assets above these are OVERWRITTEN every deploy (same
+  // path, new content) — so NO existsInR2 skip; always PUT. Runs after the
+  // asset upload so the hashed URLs embedded in the HTML already exist in R2.
+  const PUBLIC_DIR = resolve(__dirname, "..", "dist", "public");
+  const MARKETING_PREFIX = "_studio-marketing/";
+  try {
+    const publicFiles = await walk(PUBLIC_DIR);
+    // Each prerendered route is a directory containing index.html (the home
+    // route is dist/public/index.html). tenant-shell.html and the hashed
+    // assets are excluded by the basename filter.
+    const htmlPages = publicFiles.filter((f) => basename(f) === "index.html");
+    let mUploaded = 0;
+    let mFailed = 0;
+    for (const full of htmlPages) {
+      const rel = full.slice(PUBLIC_DIR.length + 1).replace(/\\/g, "/");
+      const key = `${MARKETING_PREFIX}${rel}`;
+      try {
+        const body = await readFile(full);
+        await cfg.client.send(
+          new PutObjectCommand({
+            Bucket: cfg.bucket,
+            Key: key,
+            Body: body,
+            ContentType: "text/html; charset=utf-8",
+            // Short TTL — the HTML embeds hashed asset URLs that change every
+            // deploy. The worker also sets its own response Cache-Control.
+            CacheControl: "public, max-age=60, must-revalidate",
+            Metadata: { "uploaded-at": new Date().toISOString() },
+          }),
+        );
+        mUploaded++;
+      } catch (err) {
+        mFailed++;
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[lp-studio:upload-assets-to-r2] marketing HTML upload failed: ${key} :: ${msg}`);
+      }
+    }
+    console.log(
+      `[lp-studio:upload-assets-to-r2] marketing HTML done. pages=${htmlPages.length} uploaded=${mUploaded} failed=${mFailed}`,
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[lp-studio:upload-assets-to-r2] marketing HTML walk failed (non-fatal): ${msg}`);
+  }
 }
 
 main().catch((err) => {
