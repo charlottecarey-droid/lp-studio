@@ -33,7 +33,7 @@ export default function PersonaToggle({ active }: PersonaToggleProps) {
       style={{
         display: "inline-flex",
         flexDirection: "column",
-        marginBottom: 24,
+        marginBottom: 18,
       }}
     >
       <div
@@ -48,7 +48,7 @@ export default function PersonaToggle({ active }: PersonaToggleProps) {
           background: "linear-gradient(180deg, #FFFFFF 0%, #F6F1E8 100%)",
           boxShadow:
             "inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(26, 24, 21, 0.04), 0 1px 2px rgba(26, 24, 21, 0.04), 0 10px 26px -12px rgba(26, 24, 21, 0.20)",
-          width: 332,
+          width: 288,
         }}
       >
         {/* Sliding active background */}
@@ -84,10 +84,10 @@ export default function PersonaToggle({ active }: PersonaToggleProps) {
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 8,
-                padding: "9px 12px",
+                gap: 7,
+                padding: "7px 12px",
                 borderRadius: 11,
-                fontSize: 13.5,
+                fontSize: 12.5,
                 fontWeight: 600,
                 letterSpacing: "-0.005em",
                 whiteSpace: "nowrap",
@@ -97,7 +97,7 @@ export default function PersonaToggle({ active }: PersonaToggleProps) {
                 transition: "color 150ms ease-out",
               }}
             >
-              <Icon name={seg.icon} size={14} />
+              <Icon name={seg.icon} size={13} />
               {seg.label}
             </Link>
           );

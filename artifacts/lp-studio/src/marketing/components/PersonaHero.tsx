@@ -41,7 +41,7 @@ export default function PersonaHero({
       id="top"
       className="px-6 paper-grain relative"
       style={{
-        paddingTop: 116,
+        paddingTop: 96,
         paddingBottom: 64,
         overflow: "hidden",
       }}
