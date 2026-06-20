@@ -122,7 +122,7 @@ export default function Footer() {
               />
             </a>
             <p className="text-[14px] leading-[1.6]" style={{ color: "var(--ink-soft)", maxWidth: 240 }}>
-              The landing-page platform for revenue teams who need to move fast without going off-brand.
+              The AI-powered platform for revenue teams that need to move fast without going off-brand.
             </p>
           </div>
 
@@ -164,34 +164,6 @@ export default function Footer() {
             >
               © {new Date().getFullYear()} LP Studio, Inc.
             </p>
-            <span
-              className="hidden md:inline-flex items-center gap-1 text-[11px] uppercase px-1.5 py-0.5 rounded-full"
-              style={{
-                background: "var(--paper)",
-                color: "var(--ink-mute)",
-                border: "1px solid var(--hairline-strong)",
-                letterSpacing: "0.14em",
-                fontWeight: 600,
-              }}
-            >
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="5" y="11" width="14" height="9" rx="1.5"/>
-                <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
-              </svg>
-              SOC 2 Type II
-            </span>
-            <span
-              className="hidden md:inline-flex items-center gap-1 text-[11px] uppercase px-1.5 py-0.5 rounded-full"
-              style={{
-                background: "var(--paper)",
-                color: "var(--ink-mute)",
-                border: "1px solid var(--hairline-strong)",
-                letterSpacing: "0.14em",
-                fontWeight: 600,
-              }}
-            >
-              GDPR
-            </span>
           </div>
           <div className="flex items-center gap-6">
             <a
