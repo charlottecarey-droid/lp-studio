@@ -18,6 +18,10 @@ export interface TemplateTypeShape {
   /** True for standalone full-page templates (the page's first block renders an
    *  entire page rather than composing into one). */
   fullPage?: boolean;
+  /** Stable template slug (e.g. "ind-dental-family-practice"). The seeded
+   *  industry starters all use the "ind-" prefix; we recognize them by it
+   *  because they carry a null `industry` tag (see isIndustryTemplate). */
+  slug?: string | null;
 }
 
 /** Premium = curated flagship starter templates (premiumRank 1–10). */
@@ -38,6 +42,18 @@ export function hasRealIndustry(t: TemplateTypeShape): boolean {
   return !!t.isGlobal && !!tag && tag !== "generic";
 }
 
+/** True when a global template is one of the seeded industry starters. These
+ *  carry slugs like "ind-dental-family-practice" but are deliberately stored
+ *  with a null `industry` tag (so they stay visible to every tenant), so a
+ *  plain `industry`-tag check (hasRealIndustry) misses them and they fall into
+ *  the "Block templates" catch-all. We additionally recognize them by the
+ *  "ind-" slug prefix so they land in their own "Industry templates" section. */
+export function isIndustryTemplate(t: TemplateTypeShape): boolean {
+  if (hasRealIndustry(t)) return true;
+  const slug = t.slug?.trim().toLowerCase();
+  return !!t.isGlobal && !!slug && slug.startsWith("ind-");
+}
+
 /** Type buckets:
  *   - Full Page        → standalone full-page templates (first block is a full page)
  *   - Premium          → curated flagship starters (premiumRank 1–10)
@@ -56,7 +72,7 @@ export function templateMatchesType(t: TemplateTypeShape, type: TemplateTypeFilt
     case "Premium":
       return isPremiumTemplate(t);
     case "Industry-specific":
-      return hasRealIndustry(t) && !isPremiumTemplate(t);
+      return isIndustryTemplate(t) && !isPremiumTemplate(t);
   }
 }
 
@@ -168,7 +184,7 @@ export function buildTemplateGroups<T extends TemplateGroupShape>(
       homepage.push(t);
     } else if (t.fullPage) {
       fullPage.push(t);
-    } else if (hasRealIndustry(t)) {
+    } else if (isIndustryTemplate(t)) {
       industry.push(t);
     } else {
       block.push(t);
