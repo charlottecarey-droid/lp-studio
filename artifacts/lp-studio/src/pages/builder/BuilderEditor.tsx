@@ -3194,6 +3194,11 @@ export default function BuilderEditor() {
             "w-64 border-r border-border bg-background/60 overflow-y-auto shrink-0",
             // Mobile-only: slide-in drawer over the canvas. Desktop ignores all
             // `max-md:` classes, so the column above is unchanged at md+.
+            // Force a fully opaque background on mobile — the translucent
+            // `bg-background/60` is fine as a desktop column but lets the page
+            // canvas bleed through and makes the panel unreadable when it
+            // floats over the canvas as a drawer.
+            "max-md:bg-background",
             "max-md:fixed max-md:top-14 max-md:bottom-0 max-md:left-0 max-md:z-50 max-md:w-72 max-md:max-w-[85vw] max-md:shadow-xl max-md:transition-transform max-md:duration-300 max-md:ease-in-out",
             mobileLeftOpen ? "max-md:translate-x-0" : "max-md:-translate-x-full",
           )}
@@ -3336,6 +3341,9 @@ export default function BuilderEditor() {
           className={cn(
             "w-72 border-l border-border bg-background/60 shrink-0 flex flex-col overflow-hidden",
             // Mobile-only: slide-in drawer from the right. Desktop ignores these.
+            // Force a fully opaque background on mobile so the page canvas
+            // behind the drawer can't bleed through and obscure the controls.
+            "max-md:bg-background",
             "max-md:fixed max-md:top-14 max-md:bottom-0 max-md:right-0 max-md:z-50 max-md:w-80 max-md:max-w-[88vw] max-md:shadow-xl max-md:transition-transform max-md:duration-300 max-md:ease-in-out",
             mobileRightOpen ? "max-md:translate-x-0" : "max-md:translate-x-full",
           )}
