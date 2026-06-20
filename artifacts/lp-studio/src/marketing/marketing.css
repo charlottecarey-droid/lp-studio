@@ -219,8 +219,10 @@
   }
 }
 
-/* Animated coral underline for marketing nav links — grows from the left
-   on hover, retracts on leave. Pseudo-element so it doesn't shift layout. */
+/* Animated underline for marketing nav links. Inactive links grow an indigo
+   underline from the left on hover; the active page keeps a persistent coral
+   underline so coral always reads as "you are here" (wayfinding) while indigo
+   is the interactive hover affordance. Pseudo-element so it never shifts layout. */
 .nav-link {
   position: relative;
 }
@@ -232,12 +234,18 @@
   bottom: -5px;
   height: 2px;
   border-radius: 2px;
-  background: var(--coral);
+  background: var(--indigo);
   transform: scaleX(0);
   transform-origin: left center;
   transition: transform 0.25s ease;
 }
 .nav-link:hover::after {
+  transform: scaleX(1);
+}
+/* Active page: persistent coral underline. Equal specificity to .nav-link::after
+   so source order (this rule is later) makes coral win over the indigo default. */
+.nav-link-active::after {
+  background: var(--coral);
   transform: scaleX(1);
 }
 

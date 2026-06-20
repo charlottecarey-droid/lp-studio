@@ -42,6 +42,7 @@ export default function AnnouncementBanner({ text, linkUrl, ctaLabel }: Props) {
   const storageKey = contentKey(text, linkUrl);
   const ref = useRef<HTMLDivElement>(null);
   const safe = isSafeUrl(linkUrl);
+  const [ctaHover, setCtaHover] = useState(false);
 
   const [dismissed, setDismissed] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -125,12 +126,18 @@ export default function AnnouncementBanner({ text, linkUrl, ctaLabel }: Props) {
           {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
           className="group inline-flex items-center gap-2 text-[13px] leading-snug"
           style={{ color: "var(--cream)" }}
+          onMouseEnter={() => setCtaHover(true)}
+          onMouseLeave={() => setCtaHover(false)}
         >
           <span style={{ opacity: 0.92 }}>{text}</span>
           {ctaLabel ? (
             <span
               className="inline-flex items-center gap-1 font-medium whitespace-nowrap"
-              style={{ borderBottom: "1px solid rgba(246,242,233,0.5)" }}
+              style={{
+                color: ctaHover ? "var(--coral)" : "var(--cream)",
+                borderBottom: `1px solid ${ctaHover ? "var(--coral)" : "rgba(246,242,233,0.5)"}`,
+                transition: "color .15s ease, border-color .15s ease",
+              }}
             >
               {ctaLabel}
               <span

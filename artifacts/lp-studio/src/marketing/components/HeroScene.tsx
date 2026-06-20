@@ -9,8 +9,8 @@ export default function HeroScene() {
     <header
       className="paper-grain px-6 text-center relative"
       style={{
-        paddingTop: 150,
-        paddingBottom: 36,
+        paddingTop: 160,
+        paddingBottom: 48,
         background: "var(--cream)",
         color: "var(--ink)",
         overflow: "hidden",
@@ -52,7 +52,7 @@ export default function HeroScene() {
           className="animate-fade-up inline-flex items-center"
           style={{
             gap: 14,
-            marginBottom: 26,
+            marginBottom: 30,
             fontFamily: "JetBrains Mono, ui-monospace, monospace",
             fontSize: 11,
             fontWeight: 600,
@@ -89,6 +89,7 @@ export default function HeroScene() {
             margin: "0 auto",
             maxWidth: 980,
             color: "var(--navy)",
+            letterSpacing: "-0.02em",
             // Raise only the clamp floor to 48px so the headline reads big and
             // premium on phones (was 42px). Keeping the 7.2vw term means the
             // floor applies below ~666px viewport; tablet/desktop scaling is
@@ -107,7 +108,7 @@ export default function HeroScene() {
         <p
           className="animate-fade-up"
           style={{
-            margin: "26px auto 0",
+            margin: "30px auto 0",
             maxWidth: 660,
             fontSize: 18,
             lineHeight: 1.55,

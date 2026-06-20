@@ -65,7 +65,7 @@ export default function Navbar() {
             <a
               key={l.href}
               href={l.href}
-              className="nav-link transition-colors"
+              className={`nav-link transition-colors${l.active ? " nav-link-active" : ""}`}
               style={{
                 color: l.active ? "var(--ink)" : "var(--ink-soft)",
                 fontWeight: l.active ? 600 : 400,
@@ -96,10 +96,22 @@ export default function Navbar() {
             style={{
               background: "var(--navy)",
               color: "var(--cream)",
-              borderRadius: 6,
+              borderRadius: 8,
+              boxShadow:
+                "0 1px 2px rgba(26, 24, 21, 0.10), 0 4px 12px -6px rgba(26, 24, 21, 0.25)",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--navy-2)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "var(--navy)")}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--navy-2)";
+              e.currentTarget.style.transform = "translateY(-1px)";
+              e.currentTarget.style.boxShadow =
+                "0 1px 2px rgba(26, 24, 21, 0.10), 0 8px 18px -6px rgba(26, 24, 21, 0.32)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "var(--navy)";
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow =
+                "0 1px 2px rgba(26, 24, 21, 0.10), 0 4px 12px -6px rgba(26, 24, 21, 0.25)";
+            }}
           >
             Get started
           </a>
@@ -144,7 +156,7 @@ export default function Navbar() {
             href="https://app.lpstudio.ai"
             onClick={() => setMenuOpen(false)}
             className="self-start mt-2 px-4 py-2 text-sm font-medium"
-            style={{ background: "var(--ink)", color: "var(--cream)", borderRadius: 6 }}
+            style={{ background: "var(--ink)", color: "var(--cream)", borderRadius: 8 }}
           >
             Get started
           </a>

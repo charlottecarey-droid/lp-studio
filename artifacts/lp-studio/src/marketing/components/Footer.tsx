@@ -36,7 +36,7 @@ const legalLinks = [
 ];
 
 const LINK_BASE = { color: "var(--ink-soft)" } as const;
-const LINK_HOVER = "var(--ink)";
+const LINK_HOVER = "var(--coral)";
 
 const sections: { title: string; links: { label: string; href: string }[] }[] = [
   { title: "Product", links: productLinks },
@@ -198,7 +198,7 @@ export default function Footer() {
               href="/privacy"
               className="font-mono uppercase transition-colors"
               style={{ color: "var(--ink-mute)", fontSize: 11, letterSpacing: "0.14em" }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--ink)")}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--coral)")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "var(--ink-mute)")}
             >
               Privacy
@@ -207,7 +207,7 @@ export default function Footer() {
               href="/terms"
               className="font-mono uppercase transition-colors"
               style={{ color: "var(--ink-mute)", fontSize: 11, letterSpacing: "0.14em" }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--ink)")}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--coral)")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "var(--ink-mute)")}
             >
               Terms
@@ -216,7 +216,7 @@ export default function Footer() {
               href="mailto:admin@lpstudio.ai?subject=Security%20inquiry"
               className="font-mono uppercase transition-colors"
               style={{ color: "var(--ink-mute)", fontSize: 11, letterSpacing: "0.14em" }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--ink)")}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--coral)")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "var(--ink-mute)")}
             >
               Security
