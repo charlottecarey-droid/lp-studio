@@ -45,3 +45,14 @@ title but NOT scrapers.
 
 **Why:** keeps the worker-route reconciliation ready for when ent's DNS is
 pointed at Cloudflare. Does nothing on its own.
+
+## Can't deploy the worker from the agent env
+The unlock (redeploy worker + set its `WORKER_HOST_SECRET`) is per
+`cloudflare/tenant-host-router/README.md`: `npx wrangler login` (interactive
+OAuth) → `wrangler secret put WORKER_HOST_SECRET` → `wrangler deploy`. In the
+agent shell wrangler isn't installed and won't auto-install (npx canceled),
+`CLOUDFLARE_ACCOUNT_ID` is absent, and `wrangler login` is interactive — so the
+deploy requires a human with Cloudflare account access. `WORKER_HOST_SECRET`,
+`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ZONE_ID` ARE present in the env; ACCOUNT_ID
+is not.
+
