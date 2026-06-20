@@ -48,12 +48,12 @@ export default function Navbar() {
             src={navyDepthIcon}
             alt=""
             aria-hidden="true"
-            style={{ height: 42, width: 42, display: "block" }}
+            style={{ height: 32, width: 32, display: "block" }}
           />
           <img
             src={navyWordmark}
             alt="LP Studio"
-            style={{ height: 26, width: "auto", display: "block" }}
+            style={{ height: 19, width: "auto", display: "block" }}
           />
         </a>
 
