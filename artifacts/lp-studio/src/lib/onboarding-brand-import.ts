@@ -27,6 +27,17 @@ export interface ReviewedBrandFields {
   logoUrl: string;
   primaryColor: string;
   accentColor: string;
+  /** Heading/display font family the user reviewed in the wizard. Empty string
+   *  means "use the LP Studio default font". Seeded from the import, then
+   *  editable, so it always wins over the imported `proposed` value. */
+  displayFont: string;
+  /** Optional custom CSS URL for the heading font (set for imported families
+   *  that aren't in the catalog; cleared when the user picks a catalog font). */
+  displayFontUrl?: string;
+  /** Body font family the user reviewed. Empty string means the default. */
+  bodyFont: string;
+  /** Optional custom CSS URL for the body font. */
+  bodyFontUrl?: string;
 }
 
 /**
@@ -45,6 +56,17 @@ export interface OnboardingImportPrefill {
    *  Colors step should own up to showing defaults instead of pretending they
    *  were imported. */
   colorImportFailed: boolean;
+  /** Imported heading/display font family, when the importer detected one. */
+  displayFont?: string;
+  /** Imported custom CSS URL for the heading font, when present. */
+  displayFontUrl?: string;
+  /** Imported body font family, when the importer detected one. */
+  bodyFont?: string;
+  /** Imported custom CSS URL for the body font, when present. */
+  bodyFontUrl?: string;
+  /** True when the importer detected at least one usable font family, so the
+   *  wizard can label the font controls as "detected from your site". */
+  fontImportDetected: boolean;
   /** Full proposed field map to persist at finish, minus the UI-only
    *  `logoAlternates` picker list, with the chosen logo pinned into `logoUrl`. */
   proposedForSave: Record<string, unknown>;
@@ -82,6 +104,13 @@ export function computeImportPrefill(
   const gotPrimary = typeof p.primaryColor === "string" && isFullHex(p.primaryColor);
   const gotAccent = typeof p.accentColor === "string" && isFullHex(p.accentColor);
 
+  const str = (v: unknown): string | undefined =>
+    typeof v === "string" && v.trim() ? v.trim() : undefined;
+  const displayFont = str(p.displayFont);
+  const displayFontUrl = str(p.displayFontUrl);
+  const bodyFont = str(p.bodyFont);
+  const bodyFontUrl = str(p.bodyFontUrl);
+
   // Keep the full proposed map (minus the UI-only logo picker list) so the
   // richer fields are saved at finish. Pin the chosen logo into it.
   const proposedForSave: Record<string, unknown> = { ...p };
@@ -95,6 +124,11 @@ export function computeImportPrefill(
     primaryColor: gotPrimary ? (p.primaryColor as string) : undefined,
     accentColor: gotAccent ? (p.accentColor as string) : undefined,
     colorImportFailed: !gotPrimary && !gotAccent,
+    displayFont,
+    displayFontUrl,
+    bodyFont,
+    bodyFontUrl,
+    fontImportDetected: Boolean(displayFont || bodyFont),
     proposedForSave,
     sourceUrl: imported.sourceUrl ?? requestUrl,
   };
@@ -151,5 +185,13 @@ export function buildOnboardingBrandConfig(
     accentColor: safeAccent,
     ctaBackground: safeAccent,
     ctaText: safePrimary,
+    // Fonts the user reviewed win over the imported `proposed` values. An empty
+    // family means "LP Studio default"; clearing the URL lets BrandFontLoader
+    // build the Google Fonts link from the catalog (or fall back to the app
+    // default) instead of an orphaned custom URL.
+    displayFont: reviewed.displayFont,
+    displayFontUrl: reviewed.displayFontUrl,
+    bodyFont: reviewed.bodyFont,
+    bodyFontUrl: reviewed.bodyFontUrl,
   } as BrandConfig;
 }

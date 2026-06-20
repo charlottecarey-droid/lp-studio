@@ -2,6 +2,8 @@ import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FONT_CATALOG, toFontFamilyValue } from "@/lib/font-catalog";
 import { saveBrandConfig, fetchBrandConfig, type BrandConfig } from "@/lib/brand-config";
 import { Upload, Palette, Building2, ArrowRight, ArrowLeft, Check, X, Copy, ExternalLink, PartyPopper, Globe, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -99,6 +101,72 @@ function ColorSwatch({ color, accent }: { color: string; accent: string }) {
   );
 }
 
+// Sentinel select value for "use the LP Studio default font" (stored as an
+// empty family). Kept distinct from the empty string so the dropdown always
+// has a concrete selected option.
+const FONT_DEFAULT_VALUE = "__default__";
+// Sentinel for the imported custom family that isn't in the catalog, so it
+// stays selectable/visible after import without polluting the catalog list.
+const FONT_CUSTOM_VALUE = "__custom__";
+
+/**
+ * Compact font picker for the onboarding wizard. Shows the catalog of standard
+ * fonts plus, when present, the family the importer detected from the user's
+ * site (so they can see what was matched and keep or change it). Picking a
+ * catalog font or the default clears any imported custom URL so
+ * `BrandFontLoader` resolves the font deterministically.
+ */
+function FontSelect({ label, hint, value, detected, onPick }: {
+  label: string;
+  hint: string;
+  value: string;
+  detected: boolean;
+  onPick: (family: string) => void;
+}) {
+  const inCatalog = !!value && FONT_CATALOG.some((f) => f.family === value);
+  const selectValue = !value ? FONT_DEFAULT_VALUE : inCatalog ? value : FONT_CUSTOM_VALUE;
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Label>{label}</Label>
+        {detected && (
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700">
+            <Check className="w-3 h-3" /> From your site
+          </span>
+        )}
+      </div>
+      <Select
+        value={selectValue}
+        onValueChange={(v) => {
+          if (v === FONT_CUSTOM_VALUE) return;
+          onPick(v === FONT_DEFAULT_VALUE ? "" : v);
+        }}
+      >
+        <SelectTrigger className="h-10">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={FONT_DEFAULT_VALUE}>LP Studio default</SelectItem>
+          {!inCatalog && value ? (
+            <SelectItem value={FONT_CUSTOM_VALUE}>
+              <span style={{ fontFamily: `"${value}", sans-serif` }}>{value}</span>
+              <span className="text-xs text-muted-foreground ml-2">(detected)</span>
+            </SelectItem>
+          ) : null}
+          {FONT_CATALOG.map((f) => (
+            <SelectItem key={f.family} value={f.family}>
+              <span style={{ fontFamily: toFontFamilyValue(f.family, f.category === "serif" ? "display" : "sans") }}>
+                {f.label ?? f.family}
+              </span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p className="text-[11px] text-muted-foreground">{hint}</p>
+    </div>
+  );
+}
+
 export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const { domainContext } = useAuth();
   const { refreshBrand } = useBrandConfig();
@@ -110,6 +178,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [primaryColor, setPrimaryColor] = useState("#1a1a2e");
   const [accentColor, setAccentColor] = useState("#4f46e5");
+  // Fonts shown beside the colors in the wizard. Empty family => LP Studio
+  // default. Seeded from the import (so the user sees what was matched) and
+  // editable. The optional URLs carry an imported custom font's CSS link.
+  const [displayFont, setDisplayFont] = useState("");
+  const [displayFontUrl, setDisplayFontUrl] = useState<string | undefined>(undefined);
+  const [bodyFont, setBodyFont] = useState("");
+  const [bodyFontUrl, setBodyFontUrl] = useState<string | undefined>(undefined);
+  // True once an import surfaced at least one font, so the controls can label
+  // themselves "from your site".
+  const [fontImportDetected, setFontImportDetected] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   // Task #132 — populated after complete-onboarding so we can show the
@@ -210,6 +288,18 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       // presenting the navy/indigo defaults as if they were imported.
       setColorImportFailed(prefill.colorImportFailed);
 
+      // Surface the matched fonts so the user can see and adjust them next to
+      // the colors. Only overwrite when the importer actually returned a family.
+      if (prefill.displayFont !== undefined) {
+        setDisplayFont(prefill.displayFont);
+        setDisplayFontUrl(prefill.displayFontUrl);
+      }
+      if (prefill.bodyFont !== undefined) {
+        setBodyFont(prefill.bodyFont);
+        setBodyFontUrl(prefill.bodyFontUrl);
+      }
+      setFontImportDetected(prefill.fontImportDetected);
+
       setImportedProposed(prefill.proposedForSave);
       setImportSourceUrl(prefill.sourceUrl);
       setShowImport(false);
@@ -241,6 +331,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           logoUrl,
           primaryColor,
           accentColor,
+          displayFont,
+          displayFontUrl,
+          bodyFont,
+          bodyFontUrl,
         }),
       );
 
@@ -635,6 +729,33 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               </div>
 
               <ColorSwatch color={primaryColor} accent={accentColor} />
+            </div>
+
+            <div className="space-y-4 pt-6 border-t border-border">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Fonts</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {fontImportDetected
+                    ? "We matched these from your site. Change them if they're not right."
+                    : "Pick the fonts for your pages, or keep the LP Studio default."}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FontSelect
+                  label="Heading font"
+                  hint="Titles and headlines"
+                  value={displayFont}
+                  detected={fontImportDetected && !!displayFont}
+                  onPick={(family) => { setDisplayFont(family); setDisplayFontUrl(undefined); }}
+                />
+                <FontSelect
+                  label="Body font"
+                  hint="Paragraphs and labels"
+                  value={bodyFont}
+                  detected={fontImportDetected && !!bodyFont}
+                  onPick={(family) => { setBodyFont(family); setBodyFontUrl(undefined); }}
+                />
+              </div>
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}

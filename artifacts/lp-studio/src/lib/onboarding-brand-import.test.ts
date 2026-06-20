@@ -44,6 +44,8 @@ function reviewed(overrides: Partial<ReviewedBrandFields> = {}): ReviewedBrandFi
     logoUrl: "/reviewed-logo.png",
     primaryColor: "#112233",
     accentColor: "#445566",
+    displayFont: "",
+    bodyFont: "",
     ...overrides,
   };
 }
@@ -196,6 +198,58 @@ describe("buildOnboardingBrandConfig — the three import outcomes", () => {
     });
   });
 
+  it("reviewed fonts win over imported proposed fonts, and clearing the URL sticks", () => {
+    // The wizard seeds the font state from the import, then the user picks a
+    // catalog font (clearing the custom URL). The reviewed values must override
+    // the imported `proposed` displayFont/displayFontUrl/bodyFont/bodyFontUrl.
+    const proposed = {
+      displayFont: "Adelle Sans",
+      displayFontUrl: "https://use.typekit.net/abc.css",
+      bodyFont: "Adelle Sans",
+      bodyFontUrl: "https://use.typekit.net/abc.css",
+    };
+    const out = buildOnboardingBrandConfig(
+      existingConfig(),
+      proposed,
+      reviewed({ displayFont: "Montserrat", displayFontUrl: undefined, bodyFont: "Inter", bodyFontUrl: undefined }),
+    );
+
+    expect(out.displayFont).toBe("Montserrat");
+    expect(out.bodyFont).toBe("Inter");
+    // Picking a catalog font clears the imported custom URL so BrandFontLoader
+    // resolves the font deterministically.
+    expect(out.displayFontUrl).toBeUndefined();
+    expect(out.bodyFontUrl).toBeUndefined();
+  });
+
+  it("keeps an imported custom font + its URL when the user leaves it as-is", () => {
+    const proposed = {
+      displayFont: "Adelle Sans",
+      displayFontUrl: "https://use.typekit.net/abc.css",
+    };
+    const out = buildOnboardingBrandConfig(
+      existingConfig(),
+      proposed,
+      reviewed({ displayFont: "Adelle Sans", displayFontUrl: "https://use.typekit.net/abc.css" }),
+    );
+
+    expect(out.displayFont).toBe("Adelle Sans");
+    expect(out.displayFontUrl).toBe("https://use.typekit.net/abc.css");
+  });
+
+  it("empty reviewed fonts persist as '' (LP Studio default), even over imported fonts", () => {
+    // The user chose the "LP Studio default" option, which the wizard stores as
+    // an empty family — this must beat anything the importer proposed.
+    const out = buildOnboardingBrandConfig(
+      existingConfig(),
+      { displayFont: "Imported Heading", bodyFont: "Imported Body" },
+      reviewed({ displayFont: "", bodyFont: "" }),
+    );
+
+    expect(out.displayFont).toBe("");
+    expect(out.bodyFont).toBe("");
+  });
+
   it("skip: behaves identically to failure — nothing imported is persisted", () => {
     const out = buildOnboardingBrandConfig(existingConfig(), null, reviewed());
     // Only the reviewed fields differ from existing; no stray imported keys.
@@ -264,6 +318,30 @@ describe("computeImportPrefill — success prefill from an import result", () =>
     expect("logoAlternates" in prefill.proposedForSave).toBe(false);
     expect(prefill.proposedForSave.logoUrl).toBe("/best-logo.svg");
     expect(prefill.proposedForSave.toneOfVoice).toBe("warm");
+  });
+
+  it("surfaces detected fonts and flags fontImportDetected", () => {
+    const imported = importResult({
+      proposed: {
+        displayFont: "  Adelle Sans  ",
+        displayFontUrl: " https://use.typekit.net/abc.css ",
+        bodyFont: "Inter",
+      },
+    });
+    const prefill = computeImportPrefill(imported, "acme.com");
+
+    expect(prefill.displayFont).toBe("Adelle Sans");
+    expect(prefill.displayFontUrl).toBe("https://use.typekit.net/abc.css");
+    expect(prefill.bodyFont).toBe("Inter");
+    expect(prefill.bodyFontUrl).toBeUndefined();
+    expect(prefill.fontImportDetected).toBe(true);
+  });
+
+  it("leaves fonts undefined and fontImportDetected false when none were detected", () => {
+    const prefill = computeImportPrefill(importResult({ proposed: { brandName: "Acme" } }), "acme.com");
+    expect(prefill.displayFont).toBeUndefined();
+    expect(prefill.bodyFont).toBeUndefined();
+    expect(prefill.fontImportDetected).toBe(false);
   });
 
   it("falls back to the flat logoUrl when there are no alternates", () => {
