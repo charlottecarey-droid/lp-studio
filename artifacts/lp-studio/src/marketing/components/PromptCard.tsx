@@ -66,12 +66,14 @@ export default function PromptCard() {
         >
           <div
             style={{
-              background: "var(--paper)",
-              border: "1px solid var(--hairline)",
+              background: "color-mix(in srgb, var(--cream) 30%, var(--paper))",
+              border: focused ? "1px solid var(--navy)" : "1px solid var(--hairline)",
               borderRadius: 16,
               overflow: "hidden",
-              boxShadow:
-                "0 1px 0 rgba(255,255,255,0.6) inset, 0 30px 60px -28px rgba(26,24,21,0.22), 0 10px 22px -14px rgba(26,24,21,0.14)",
+              boxShadow: focused
+                ? "0 0 0 3px color-mix(in srgb, var(--navy) 16%, transparent), 0 30px 60px -28px rgba(26,24,21,0.22), 0 10px 22px -14px rgba(26,24,21,0.14)"
+                : "0 1px 0 rgba(255,255,255,0.6) inset, 0 30px 60px -28px rgba(26,24,21,0.22), 0 10px 22px -14px rgba(26,24,21,0.14)",
+              transition: "border-color .15s ease, box-shadow .15s ease",
             }}
           >
             {/* Textarea body */}
