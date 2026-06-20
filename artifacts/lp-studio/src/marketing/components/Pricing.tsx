@@ -262,7 +262,6 @@ const ENTERPRISE_FEATURES = [
   "AI image generation",
   "SSO / SAML",
   "99.9% uptime SLA",
-  "SOC 2 Type II report",
   "DPA & MSA",
   "Custom data residency",
   "Dedicated account manager",
@@ -463,7 +462,7 @@ export default function Pricing({ defaultCompareOpen = false }: PricingProps = {
               For procurement-driven deals.
             </div>
             <p style={{ color: "rgba(244,239,227,0.65)", fontSize: 14, lineHeight: 1.55, maxWidth: 480 }}>
-              SOC 2 Type II, SSO/SAML, MSA, custom DPA, dedicated CSM, AI image generation, custom integrations, and unlimited everything else. Custom pricing tied to seats and usage.
+              SSO/SAML, MSA, custom DPA, dedicated CSM, AI image generation, custom integrations, and unlimited everything else. Custom pricing tied to seats and usage.
             </p>
           </div>
           <div style={{ flex: "1 1 320px" }}>
