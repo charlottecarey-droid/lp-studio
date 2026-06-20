@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Logo } from "./Logo";
+import navyDepthIcon from "@assets/lp-icon-navy-depth_1781930852665.svg";
+import navyWordmark from "@assets/lp-wordmark-navy_1781930852669.svg";
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -39,11 +40,21 @@ export default function Navbar() {
       <div className="max-w-[1180px] mx-auto px-6 h-16 flex items-center justify-between">
         <a
           href="/"
-          className="flex items-center"
+          className="flex items-center gap-2"
           style={{ color: "var(--ink)" }}
           aria-label="LP Studio — home"
         >
-          <Logo variant="wordmark" height={38} />
+          <img
+            src={navyDepthIcon}
+            alt=""
+            aria-hidden="true"
+            style={{ height: 42, width: 42, display: "block" }}
+          />
+          <img
+            src={navyWordmark}
+            alt="LP Studio"
+            style={{ height: 26, width: "auto", display: "block" }}
+          />
         </a>
 
         <div

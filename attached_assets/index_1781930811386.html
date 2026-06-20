@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LP Studio — Logo Export Kit</title>
+<style>
+  @font-face{font-family:'Satoshi';font-weight:700;font-style:normal;src:url('../../fonts/Satoshi-Bold.woff2') format('woff2');}
+  @font-face{font-family:'Satoshi';font-weight:500;font-style:normal;src:url('../../fonts/Satoshi-Medium.woff2') format('woff2');}
+  @font-face{font-family:'Satoshi';font-weight:400;font-style:normal;src:url('../../fonts/Satoshi-Regular.woff2') format('woff2');}
+  :root{ --navy:#252B63; --cream:#F6F2E9; --coral:#E26B4F; --paper:#F4F1EA; --hair:rgba(37,43,99,.14); --mute:#7C8194; }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--navy);font-family:'Satoshi',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1120px;margin:0 auto;padding:56px 44px 110px;}
+  .eyebrow{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--mute);}
+  h1{font-weight:700;font-size:34px;letter-spacing:-0.01em;margin:14px 0 6px;}
+  .sub{color:var(--mute);font-size:15px;max-width:60ch;line-height:1.5;margin:0;}
+  .rule{height:1px;background:var(--hair);margin:30px 0;}
+  h2{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--mute);font-weight:500;margin:0 0 14px;}
+  .grid{display:grid;gap:1px;background:var(--hair);border:1px solid var(--hair);border-radius:14px;overflow:hidden;}
+  .g3{grid-template-columns:repeat(3,1fr);}
+  .g2{grid-template-columns:repeat(2,1fr);}
+  .cell{background:var(--paper);padding:34px 26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;min-height:200px;}
+  .cell.dark{background:#15161C;}
+  .cell img{display:block;max-width:100%;height:auto;}
+  .name{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10px;letter-spacing:.06em;color:var(--mute);text-align:center;word-break:break-all;}
+  .dark .name{color:rgba(246,242,233,.55);}
+  .row-favicon{display:flex;align-items:flex-end;gap:26px;}
+  .swatches{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;}
+  .sw{display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;}
+  .chip{width:30px;height:30px;border-radius:7px;border:1px solid var(--hair);}
+  .note{font-size:13px;color:var(--mute);line-height:1.6;margin-top:10px;}
+  .block{margin-bottom:36px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">LP Studio · Logo Export Kit</div>
+  <h1>Logo assets</h1>
+  <p class="sub">The canonical mark and wordmark in every format. SVGs are self-contained — the Satoshi wordmark is embedded, so they render anywhere with no font install. PNGs are transparent.</p>
+
+  <div class="rule"></div>
+
+  <div class="block">
+    <h2>Primary lockup · horizontal</h2>
+    <div class="grid g2">
+      <div class="cell"><img src="png/lp-lockup-horizontal-navy.png" style="max-width:78%;" alt=""><span class="name">lp-lockup-horizontal-navy</span></div>
+      <div class="cell dark"><img src="png/lp-lockup-horizontal-cream.png" style="max-width:78%;" alt=""><span class="name">lp-lockup-horizontal-cream</span></div>
+    </div>
+  </div>
+
+  <div class="block">
+    <h2>Lockup · stacked</h2>
+    <div class="grid g2">
+      <div class="cell"><img src="png/lp-lockup-stacked-navy.png" style="max-width:46%;" alt=""><span class="name">lp-lockup-stacked-navy</span></div>
+      <div class="cell dark"><img src="png/lp-lockup-stacked-cream.png" style="max-width:46%;" alt=""><span class="name">lp-lockup-stacked-cream</span></div>
+    </div>
+  </div>
+
+  <div class="block">
+    <h2>Wordmark</h2>
+    <div class="grid g2">
+      <div class="cell"><img src="png/lp-wordmark-navy.png" style="max-width:74%;" alt=""><span class="name">lp-wordmark-navy</span></div>
+      <div class="cell dark"><img src="png/lp-wordmark-cream.png" style="max-width:74%;" alt=""><span class="name">lp-wordmark-cream</span></div>
+    </div>
+  </div>
+
+  <div class="block">
+    <h2>Icon · tile</h2>
+    <div class="grid g2">
+      <div class="cell"><img src="svg/lp-icon-navy.svg" width="132" height="132" alt=""><span class="name">lp-icon-navy</span></div>
+      <div class="cell dark"><img src="svg/lp-icon-cream.svg" width="132" height="132" alt=""><span class="name">lp-icon-cream</span></div>
+    </div>
+  </div>
+
+  <div class="block">
+    <h2>Icon · tile · depth</h2>
+    <div class="grid g2">
+      <div class="cell"><img src="svg/lp-icon-navy-depth.svg" width="150" height="150" alt=""><span class="name">lp-icon-navy-depth</span></div>
+      <div class="cell dark"><img src="svg/lp-icon-cream-depth.svg" width="150" height="150" alt=""><span class="name">lp-icon-cream-depth</span></div>
+    </div>
+    <p class="note">App-icon / avatar use: subtle top sheen + soft drop shadow baked into a self-contained SVG (168×168, tile inset for the shadow). PNGs at 256 / 512 / 1024. Use the flat tiles above for print, embroidery, and single-color reproduction.</p>
+  </div>
+
+  <div class="block">
+    <h2>Mark · no tile</h2>
+    <div class="grid g2">
+      <div class="cell"><img src="svg/lp-mark-navy.svg" width="120" height="120" alt=""><span class="name">lp-mark-navy</span></div>
+      <div class="cell dark"><img src="svg/lp-mark-cream.svg" width="120" height="120" alt=""><span class="name">lp-mark-cream</span></div>
+    </div>
+  </div>
+
+  <div class="block">
+    <h2>Monochrome · one color</h2>
+    <div class="grid g2">
+      <div class="cell"><img src="png/lp-lockup-horizontal-mono-navy.png" style="max-width:74%;" alt=""><span class="name">lp-lockup-horizontal-mono-navy</span></div>
+      <div class="cell dark"><img src="png/lp-lockup-horizontal-mono-cream.png" style="max-width:74%;" alt=""><span class="name">lp-lockup-horizontal-mono-cream</span></div>
+      <div class="cell"><img src="png/lp-lockup-stacked-mono-navy.png" style="max-width:42%;" alt=""><span class="name">lp-lockup-stacked-mono-navy</span></div>
+      <div class="cell dark"><img src="png/lp-lockup-stacked-mono-cream.png" style="max-width:42%;" alt=""><span class="name">lp-lockup-stacked-mono-cream</span></div>
+      <div class="cell"><img src="svg/lp-mark-mono-navy.svg" width="120" height="120" alt=""><span class="name">lp-mark-mono-navy</span></div>
+      <div class="cell dark"><img src="svg/lp-mark-mono-cream.svg" width="120" height="120" alt=""><span class="name">lp-mark-mono-cream</span></div>
+    </div>
+  </div>
+
+  <div class="block">
+    <h2>Favicon / app icon · PNG</h2>
+    <div class="grid g2">
+      <div class="cell">
+        <div class="row-favicon">
+          <img src="png/lp-icon-navy-128.png" width="96" height="96" alt="">
+          <img src="png/lp-icon-navy-64.png" width="64" height="64" alt="">
+          <img src="png/lp-icon-navy-48.png" width="48" height="48" alt="">
+          <img src="png/lp-icon-navy-32.png" width="32" height="32" alt="">
+          <img src="png/lp-icon-navy-16.png" width="16" height="16" alt="">
+        </div>
+        <span class="name">lp-icon-navy · 1024 / 512 / 256 / 128 / 64 / 48 / 32 / 16</span>
+      </div>
+      <div class="cell dark">
+        <div class="row-favicon">
+          <img src="png/lp-icon-cream-256.png" width="96" height="96" alt="">
+          <img src="png/lp-icon-cream-256.png" width="64" height="64" alt="">
+          <img src="png/lp-icon-cream-256.png" width="48" height="48" alt="">
+        </div>
+        <span class="name">lp-icon-cream · 1024 / 512 / 256</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <div class="block">
+    <h2>Palette</h2>
+    <div class="swatches">
+      <div class="sw"><span class="chip" style="background:#252B63;"></span>Navy #252B63</div>
+      <div class="sw"><span class="chip" style="background:#F6F2E9;"></span>Cream #F6F2E9</div>
+      <div class="sw"><span class="chip" style="background:#E26B4F;"></span>Coral #E26B4F</div>
+      <div class="sw"><span class="chip" style="background:#4B47E5;"></span>Indigo #4B47E5</div>
+    </div>
+    <p class="note">Wordmark: Satoshi Bold (700), uppercase, +0.06em tracking. Clear space ≥ the height of the tile's corner radius on all sides. Minimum icon size 16px; use the wordmark-only or stacked lockup below ~120px lockup width.</p>
+  </div>
+</div>
+</body>
+</html>
