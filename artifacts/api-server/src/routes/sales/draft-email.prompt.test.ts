@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildDraftEmailPrompt,
+  spaceOutEmailSections,
   type DraftEmailPromptArgs,
   type DraftEmailContactFields,
   type DraftEmailAccountFields,
@@ -163,6 +164,22 @@ describe("buildDraftEmailPrompt — per-tenant brand framing", () => {
     expect(prompt).toContain('Theme: "Remakes are silently destroying margin"');
   });
 
+  it("injects per-tenant customerNameRules verbatim as a mandatory phrasing rule", () => {
+    const rule =
+      'NEVER write that DCA consolidated practices "down to one"; always say "through a strategic partnership with Dandy".';
+    const prompt = buildPrompt(
+      makeBrandCtx({ tenantId: 1, brandName: "Dandy", customerNameRules: rule }),
+    );
+
+    expect(prompt).toContain("CUSTOMER NAMING & PHRASING RULES");
+    expect(prompt).toContain(rule);
+  });
+
+  it("omits the phrasing-rules section entirely when customerNameRules is empty", () => {
+    const prompt = buildPrompt(makeBrandCtx({ tenantId: 2, brandName: "Royal Design" }));
+    expect(prompt).not.toContain("CUSTOMER NAMING & PHRASING RULES");
+  });
+
   it("produces a coherent, brand-neutral prompt for a no-config tenant", () => {
     const prompt = buildPrompt(makeBrandCtx({ tenantId: 99 }));
 
@@ -181,5 +198,19 @@ describe("buildDraftEmailPrompt — per-tenant brand framing", () => {
     // No stray "for  —" (empty brand name) or "for ." artifacts.
     expect(prompt).not.toContain("emails for  —");
     expect(prompt).not.toContain("emails for .");
+  });
+});
+
+describe("spaceOutEmailSections", () => {
+  it("inserts a blank line between sentences that arrived on consecutive lines", () => {
+    const raw = "Hi Jason,\n\nProblem sentence.\nProof sentence.\nAsk sentence?\nBest,";
+    expect(spaceOutEmailSections(raw)).toBe(
+      "Hi Jason,\n\nProblem sentence.\n\nProof sentence.\n\nAsk sentence?\n\nBest,",
+    );
+  });
+
+  it("collapses runs of blank lines and trailing whitespace to a single blank line", () => {
+    const raw = "Hi Jason,   \n\n\n\nProblem.\n   \nProof.\n\n";
+    expect(spaceOutEmailSections(raw)).toBe("Hi Jason,\n\nProblem.\n\nProof.");
   });
 });

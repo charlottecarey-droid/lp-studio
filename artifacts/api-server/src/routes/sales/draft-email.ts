@@ -18,6 +18,22 @@ async function bestEffort<T>(label: string, p: Promise<T>, fallback: T): Promise
   }
 }
 
+/**
+ * Ensure a blank line between every content line so the email reads as
+ * distinct sections. The composer renders the body in a <textarea> that
+ * preserves newlines verbatim, and the model is told to leave a blank line
+ * between sentences but doesn't always comply — so we normalize
+ * deterministically: drop blank/whitespace-only lines, then rejoin the
+ * remaining content lines with a single blank line between each.
+ */
+export function spaceOutEmailSections(text: string): string {
+  return text
+    .split("\n")
+    .map((l) => l.trimEnd())
+    .filter((l) => l.trim().length > 0)
+    .join("\n\n");
+}
+
 const router = Router();
 
 // ─── Simple in-memory rate limiter for AI routes ────────────
@@ -201,6 +217,11 @@ export function buildDraftEmailPrompt(args: DraftEmailPromptArgs): {
   const micrositeNote = hasMicrosite
     ? `A personalized microsite for ${accountName} is already live. Include a reference to it using the exact placeholder [MICROSITE_URL] where the link belongs naturally in the email. Example: "I put together a quick look at how ${tenantBrandName} would work for ${accountName} — [MICROSITE_URL]". Do NOT invent a URL — always use the literal placeholder [MICROSITE_URL]; the system will swap it for the real link.`
     : "No microsite exists for this contact yet. Do NOT mention a microsite, a page, a link, or anything the recipient should click on. Do NOT include the placeholder [MICROSITE_URL] anywhere.";
+
+  // Per-tenant naming & phrasing rules (brand/legal copy constraints). Editable
+  // in brand settings ("Customer naming rules"); injected verbatim so the model
+  // can't paraphrase an approved proof point into language the brand disallows.
+  const customerRules = brandCtx.customerNameRules?.trim() ?? "";
 
   const noPersonInfo = !personResearch || personResearch.includes("No person-level information found");
   const noCompanyNews = !companyResearch || companyResearch.includes("No recent company news found");
@@ -399,7 +420,11 @@ Sentence 2 (THE PROOF): State the ONE proof point from your chosen theme. This s
 Sentence 3 (THE ASK): A low-pressure CTA that connects back to the theme. Reference ${accountName} by name. If a microsite exists, the CTA should include the [MICROSITE_URL] placeholder.
 
 THE COHERENCE TEST — Read your three sentences back. If you removed the greeting and sign-off, would a stranger understand what single argument you're making? If any sentence feels like it belongs in a different email, rewrite it.
-
+${customerRules ? `
+=== CUSTOMER NAMING & PHRASING RULES (MANDATORY — these override your own wording) ===
+Follow these exactly, even when paraphrasing, shortening, or rewording a proof point:
+${customerRules}
+` : ""}
 === ROLE RELEVANCE RULE ===
 Before choosing a theme, ask: "Is this directly relevant to what THIS PERSON cares about in THEIR ROLE?"
 - A same-store revenue stat is NOT relevant to an IT Manager
@@ -809,6 +834,12 @@ Be factual and specific. Only include what's on the site.`;
       );
       body = body.slice(0, firstMetaIdx).trimEnd();
     }
+
+    // Normalize section spacing so each part (greeting, problem, proof, ask,
+    // sign-off) reads on its own — the composer textarea preserves newlines
+    // verbatim and the model is inconsistent about leaving a blank line between
+    // sentences.
+    body = spaceOutEmailSections(body);
 
     // ─── Filter citations to only relevant sources ─────────────────
     // Perplexity often returns junk citations (random government PDFs, pharma sites, disease databases)

@@ -41,6 +41,9 @@ export function buildGenerateEmailSystemPrompt(args: GenerateEmailPromptArgs): s
     "Return JSON with exactly these fields: { subject: string, bodyHtml: string }",
     "The bodyHtml should be clean HTML suitable for email (no <html>/<head>/<body> tags — just the content).",
     "Use <p>, <br>, <strong>, <a> tags. Keep paragraphs short (2-3 sentences max).",
+    brandCtx.customerNameRules?.trim()
+      ? `MANDATORY customer naming & phrasing rules (follow exactly, even when paraphrasing a proof point): ${brandCtx.customerNameRules.trim()}`
+      : "",
     includesMicrositeLink ? 'Include a natural CTA linking to {{microsite_url}} — e.g. "I put together a quick page with some relevant info: {{microsite_url}}"' : "",
     "Sign off with {{sender_name}}.",
   ].filter(Boolean).join("\n");
