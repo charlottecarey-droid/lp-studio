@@ -25,7 +25,7 @@
 import { useId } from "react";
 import type { CSSProperties } from "react";
 
-const INDIGO = "#2E2A8C";
+const INDIGO = "#3C38B8";
 const INDIGO_LIGHT = "#6A66F0";
 const CORAL = "#E26B4F";
 const INK = "#1A1815";

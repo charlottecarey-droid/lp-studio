@@ -35,7 +35,7 @@ function Select({ value }: { value: string }) {
 
 export default function NewMicrositeOverlay() {
   const [tab, setTab] = useState<"template" | "ai">("ai");
-  const VIOLET = "#2E2A8C";
+  const VIOLET = "#3C38B8";
   const LAVENDER = "var(--tint-lavender)";
 
   return (
@@ -121,7 +121,7 @@ export default function NewMicrositeOverlay() {
               style={{
                 background: LAVENDER,
                 border:
-                  "1px solid color-mix(in srgb, #2E2A8C 16%, transparent)",
+                  "1px solid color-mix(in srgb, #3C38B8 16%, transparent)",
                 borderRadius: 12,
                 padding: "14px 16px",
                 marginBottom: 14,
@@ -215,7 +215,7 @@ export default function NewMicrositeOverlay() {
                     gap: 10,
                     background: LAVENDER,
                     border:
-                      "1px dashed color-mix(in srgb, #2E2A8C 28%, transparent)",
+                      "1px dashed color-mix(in srgb, #3C38B8 28%, transparent)",
                     borderRadius: 12,
                     padding: "13px 15px",
                     marginBottom: 14,
@@ -287,7 +287,7 @@ export default function NewMicrositeOverlay() {
                   style={{
                     border: `1px solid ${VIOLET}`,
                     boxShadow:
-                      "0 0 0 3px color-mix(in srgb, #2E2A8C 12%, transparent)",
+                      "0 0 0 3px color-mix(in srgb, #3C38B8 12%, transparent)",
                     borderRadius: 10,
                     padding: "12px 14px",
                     minHeight: 76,

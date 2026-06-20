@@ -30,7 +30,7 @@ type AccentKey =
   | "neon";
 
 const ACCENTS: Record<AccentKey, { hex: string; soft: string; label: string }> = {
-  indigo: { hex: "#2E2A8C", soft: "rgba(75,71,229,0.10)", label: "Indigo" },
+  indigo: { hex: "#3C38B8", soft: "rgba(75,71,229,0.10)", label: "Indigo" },
   coral: { hex: "#E26B4F", soft: "rgba(226,107,79,0.10)", label: "Coral" },
   sage: { hex: "#6B9171", soft: "rgba(107,145,113,0.12)", label: "Sage" },
   gold: { hex: "#C8923D", soft: "rgba(200,146,61,0.12)", label: "Gold" },
@@ -450,7 +450,7 @@ export default function BuildScene() {
               <span style={{ color: "var(--sage)" }}>●</span> Shipped · 47s
               <span
                 style={{
-                  background: "linear-gradient(180deg, #5C58EB 0%, #2E2A8C 100%)",
+                  background: "linear-gradient(180deg, #5C58EB 0%, #3C38B8 100%)",
                   color: "#fff",
                   padding: "4px 10px",
                   borderRadius: 5,

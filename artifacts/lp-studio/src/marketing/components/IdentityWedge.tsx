@@ -299,7 +299,7 @@ export function AnalyticsMock() {
                 fontSize: 10.5,
                 fontWeight: 700,
                 background:
-                  "linear-gradient(180deg, #6C68F0 0%, #2E2A8C 100%)",
+                  "linear-gradient(180deg, #6C68F0 0%, #3C38B8 100%)",
                 color: "#fff",
                 padding: "3px 10px",
                 borderRadius: 7,
