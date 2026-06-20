@@ -164,7 +164,7 @@ export default function PromptCard() {
                     cursor: "pointer",
                     fontFamily: "inherit",
                     color: "var(--cream)",
-                    background: "var(--ink)",
+                    background: "var(--navy)",
                     fontSize: 13,
                     fontWeight: 500,
                     padding: "9px 16px",
@@ -177,13 +177,13 @@ export default function PromptCard() {
                     transition: "background .15s, transform .15s, box-shadow .15s",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "var(--ink-2)";
+                    e.currentTarget.style.background = "var(--navy-2)";
                     e.currentTarget.style.transform = "translateY(-1px)";
                     e.currentTarget.style.boxShadow =
                       "0 1px 2px rgba(26, 24, 21, 0.10), 0 8px 18px -6px rgba(26, 24, 21, 0.32)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "var(--ink)";
+                    e.currentTarget.style.background = "var(--navy)";
                     e.currentTarget.style.transform = "translateY(0)";
                     e.currentTarget.style.boxShadow =
                       "0 1px 2px rgba(26, 24, 21, 0.10), 0 4px 12px -6px rgba(26, 24, 21, 0.25)";
