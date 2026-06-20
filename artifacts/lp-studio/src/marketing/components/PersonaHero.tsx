@@ -117,7 +117,7 @@ export default function PersonaHero({
                 letterSpacing: "-0.005em",
               }}
             >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="var(--coral)" aria-hidden="true">
                 <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13 6.5 8.5 2 7l4.5-1.5L8 1z" />
               </svg>
               Start free

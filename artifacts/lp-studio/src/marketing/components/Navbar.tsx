@@ -85,7 +85,7 @@ export default function Navbar() {
           </a>
           <a
             href="https://app.lpstudio.ai"
-            className="px-4 py-2 text-[13px] font-medium transition-all"
+            className="px-4 py-2 text-[13px] font-medium transition-all inline-flex items-center gap-1.5"
             style={{
               background: "var(--navy)",
               color: "var(--cream)",
@@ -106,6 +106,9 @@ export default function Navbar() {
                 "0 1px 2px rgba(26, 24, 21, 0.10), 0 4px 12px -6px rgba(26, 24, 21, 0.25)";
             }}
           >
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="var(--coral)" aria-hidden="true">
+              <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13 6.5 8.5 2 7l4.5-1.5L8 1z" />
+            </svg>
             Get started
           </a>
         </div>
@@ -148,9 +151,12 @@ export default function Navbar() {
           <a
             href="https://app.lpstudio.ai"
             onClick={() => setMenuOpen(false)}
-            className="self-start mt-2 px-4 py-2 text-sm font-medium"
+            className="self-start mt-2 px-4 py-2 text-sm font-medium inline-flex items-center gap-1.5"
             style={{ background: "var(--ink)", color: "var(--cream)", borderRadius: 8 }}
           >
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="var(--coral)" aria-hidden="true">
+              <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13 6.5 8.5 2 7l4.5-1.5L8 1z" />
+            </svg>
             Get started
           </a>
         </div>
