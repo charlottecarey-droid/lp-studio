@@ -218,6 +218,28 @@
   }
 }
 
+/* Animated coral underline for marketing nav links — grows from the left
+   on hover, retracts on leave. Pseudo-element so it doesn't shift layout. */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -5px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--coral);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.25s ease;
+}
+.nav-link:hover::after {
+  transform: scaleX(1);
+}
+
 /* ----------------------------------------------------------------------
    Mobile responsiveness for marketing embeds (≤767px). Desktop (≥768px)
    is untouched — every rule lives inside a max-width media query.

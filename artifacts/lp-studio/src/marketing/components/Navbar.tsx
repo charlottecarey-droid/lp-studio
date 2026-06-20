@@ -65,7 +65,7 @@ export default function Navbar() {
             <a
               key={l.href}
               href={l.href}
-              className="transition-colors"
+              className="nav-link transition-colors"
               style={{
                 color: l.active ? "var(--ink)" : "var(--ink-soft)",
                 fontWeight: l.active ? 600 : 400,
