@@ -88,7 +88,7 @@ export default function HeroScene() {
           style={{
             margin: "0 auto",
             maxWidth: 980,
-            color: "var(--ink)",
+            color: "var(--navy)",
             // Raise only the clamp floor to 48px so the headline reads big and
             // premium on phones (was 42px). Keeping the 7.2vw term means the
             // floor applies below ~666px viewport; tablet/desktop scaling is

@@ -94,12 +94,12 @@ export default function Navbar() {
             href="https://app.lpstudio.ai"
             className="px-4 py-2 text-[13px] font-medium transition-all"
             style={{
-              background: "var(--ink)",
+              background: "var(--navy)",
               color: "var(--cream)",
               borderRadius: 6,
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--ink-2)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "var(--ink)")}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--navy-2)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "var(--navy)")}
           >
             Get started
           </a>
