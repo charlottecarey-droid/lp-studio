@@ -1,4 +1,4 @@
-import { Logo } from "./Logo";
+import navyDepthIcon from "@assets/lp-icon-navy-depth_1781930852665.svg";
 
 // All in-page hashes target ids that actually exist on the new home —
 // see home.tsx (FeatureRow id="builder", id="generate", id="templates",
@@ -115,7 +115,11 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-10 mt-12 mb-14">
           <div className="col-span-2 md:col-span-1">
             <a href="#" className="inline-flex mb-5" aria-label="LP Studio — home">
-              <Logo variant="icon" height={56} />
+              <img
+                src={navyDepthIcon}
+                alt="LP Studio"
+                style={{ height: 56, width: 56, display: "block" }}
+              />
             </a>
             <p className="text-[14px] leading-[1.6]" style={{ color: "var(--ink-soft)", maxWidth: 240 }}>
               The landing-page platform for revenue teams who need to move fast without going off-brand.
