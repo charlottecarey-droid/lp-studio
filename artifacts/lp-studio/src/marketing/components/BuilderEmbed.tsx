@@ -8,7 +8,7 @@ import Icon from "./EmbedIcons";
 // floating toolbar wraps just the hero (the "selected block") and the rest
 // of the page scrolls below it in the canvas pane.
 
-const VIOLET = "#4B47E5";
+const VIOLET = "#2E2A8C";
 const NAV_LINKS = ["Agenda", "Details", "Photos"];
 const NAV_LINKS_PROPS: [string, string][] = [
   ["Agenda", "#agenda"],
@@ -326,8 +326,8 @@ export default function BuilderEmbed() {
               gap: 5,
               fontSize: 11.5,
               color: VIOLET,
-              background: "color-mix(in srgb, #4B47E5 10%, #fff)",
-              border: "1px solid color-mix(in srgb, #4B47E5 22%, transparent)",
+              background: "color-mix(in srgb, #2E2A8C 10%, #fff)",
+              border: "1px solid color-mix(in srgb, #2E2A8C 22%, transparent)",
               borderRadius: 999,
               padding: "3px 9px",
               fontWeight: 600,
@@ -365,7 +365,7 @@ export default function BuilderEmbed() {
               padding: "5px 10px",
               borderRadius: 6,
               background:
-                "linear-gradient(180deg, #5C58EB 0%, #4B47E5 100%)",
+                "linear-gradient(180deg, #5C58EB 0%, #2E2A8C 100%)",
               color: "#fff",
               border: "1px solid rgba(46, 42, 140, 0.55)",
               boxShadow:
@@ -706,7 +706,7 @@ export default function BuilderEmbed() {
                           justifyContent: "center",
                           borderRadius: 5,
                           color: VIOLET,
-                          background: "color-mix(in srgb, #4B47E5 12%, #fff)",
+                          background: "color-mix(in srgb, #2E2A8C 12%, #fff)",
                         }}
                       >
                         <Icon name="type" size={13} />
@@ -1331,7 +1331,7 @@ export default function BuilderEmbed() {
                   flex: 1,
                   justifyContent: "center",
                   background:
-                    "linear-gradient(180deg, #5C58EB 0%, #4B47E5 100%)",
+                    "linear-gradient(180deg, #5C58EB 0%, #2E2A8C 100%)",
                   color: "#fff",
                   border: "1px solid rgba(46, 42, 140, 0.55)",
                   boxShadow:

@@ -17,7 +17,7 @@ const COMPARE_COLS = ["LP Studio", "Webflow", "Unbounce", "Mutiny"];
 // hero "comparing against" strip. Picked from each brand's primary color
 // (the marketing mention is fair-use editorial — no logos reproduced).
 const BRAND_ACCENTS: Record<string, { color: string; soft: string; mark: string }> = {
-  "LP Studio": { color: "#4B47E5", soft: "rgba(75,71,229,0.05)", mark: "LP" },
+  "LP Studio": { color: "#2E2A8C", soft: "rgba(75,71,229,0.05)", mark: "LP" },
   "Webflow":   { color: "#146EF5", soft: "rgba(20,110,245,0.05)", mark: "Wf" },
   "Unbounce":  { color: "#FF7A30", soft: "rgba(255,122,48,0.06)",  mark: "Ub" },
   "Mutiny":    { color: "#7B5BD8", soft: "rgba(123,91,216,0.05)",  mark: "Mu" },

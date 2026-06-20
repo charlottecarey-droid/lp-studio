@@ -3,7 +3,7 @@ import { useInView } from "../hooks/useInView";
 // Marketing section is cream/ink; the product mockup cards stay in the app's
 // dark mode so they read as actual screenshots of the product, not generic
 // chrome. Indigo is the only chromatic accent — matches the app's primary.
-const INDIGO = "#4B47E5";
+const INDIGO = "#2E2A8C";
 const CARD_BG = "#15130F";
 const CARD_INNER = "#1F1C17";
 const CARD_TEXT = "#F4EFE3";

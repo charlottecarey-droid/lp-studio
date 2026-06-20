@@ -53,7 +53,7 @@ const BULLET: React.CSSProperties = {
 
 export default function DraftEmailOverlay() {
   const [briefOpen, setBriefOpen] = useState(true);
-  const VIOLET = "#4B47E5";
+  const VIOLET = "#2E2A8C";
 
   return (
     <div

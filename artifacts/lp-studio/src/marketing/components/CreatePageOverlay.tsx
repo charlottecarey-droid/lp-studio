@@ -10,7 +10,7 @@ import Icon from "./EmbedIcons";
 // (CenterHero) for visual consistency with the A/B section below, but
 // uses a fresh title + image so it doesn't read as a duplicate.
 
-const VIOLET = "#4B47E5";
+const VIOLET = "#2E2A8C";
 const LAVENDER = "var(--tint-lavender)";
 
 export default function CreatePageOverlay() {
@@ -113,7 +113,7 @@ function CreateNewPageModal() {
         <div
           style={{
             background: LAVENDER,
-            border: "1px solid color-mix(in srgb, #4B47E5 16%, transparent)",
+            border: "1px solid color-mix(in srgb, #2E2A8C 16%, transparent)",
             borderRadius: 12,
             padding: "11px 13px 13px",
             marginBottom: 12,
@@ -180,7 +180,7 @@ function CreateNewPageModal() {
             display: "flex",
             gap: 10,
             background: LAVENDER,
-            border: "1px solid color-mix(in srgb, #4B47E5 16%, transparent)",
+            border: "1px solid color-mix(in srgb, #2E2A8C 16%, transparent)",
             borderRadius: 12,
             padding: "11px 13px",
             marginBottom: 14,
@@ -229,7 +229,7 @@ function CreateNewPageModal() {
         <div
           style={{
             border: `1px dashed ${VIOLET}`,
-            boxShadow: "0 0 0 3px color-mix(in srgb, #4B47E5 10%, transparent)",
+            boxShadow: "0 0 0 3px color-mix(in srgb, #2E2A8C 10%, transparent)",
             borderRadius: 10,
             padding: "10px 12px",
             minHeight: 78,

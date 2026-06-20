@@ -28,13 +28,13 @@ interface Template {
 }
 
 const CAT_COLOR: Record<string, string> = {
-  Marketing: "#4B47E5",
+  Marketing: "#2E2A8C",
   Sales: "#E26B4F",
   Events: "#C8923D",
   Story: "#6B9171",
-  Launch: "#4B47E5",
+  Launch: "#2E2A8C",
 };
-const CAT_COLOR_FALLBACK = "#4B47E5";
+const CAT_COLOR_FALLBACK = "#2E2A8C";
 
 // Curated subset of LP_TEMPLATES (artifacts/lp-studio/src/lib/templates.ts).
 // IDs map 1:1 to /preview/template/:id (App.tsx mounts that route inside the
@@ -480,7 +480,7 @@ function PreviewModal({
                 fontWeight: 600,
                 padding: "8px 14px",
                 borderRadius: 8,
-                background: "#4B47E5",
+                background: "#2E2A8C",
                 color: "#fff",
                 border: "none",
                 textDecoration: "none",
@@ -676,7 +676,7 @@ function MobilePreviewSheet({
             fontWeight: 600,
             padding: "12px 16px",
             borderRadius: 10,
-            background: "#4B47E5",
+            background: "#2E2A8C",
             color: "#fff",
             border: "none",
             textDecoration: "none",

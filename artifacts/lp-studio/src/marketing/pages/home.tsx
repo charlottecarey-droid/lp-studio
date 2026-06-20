@@ -390,7 +390,7 @@ interface WhatsInsideRow {
   side: "left" | "right";
 }
 
-const WHATS_INSIDE_INDIGO = "#4B47E5";
+const WHATS_INSIDE_INDIGO = "#2E2A8C";
 
 function WhatsInside() {
   const rows: WhatsInsideRow[] = [
@@ -885,7 +885,7 @@ function VisualCard({
 
 function BrandVisual() {
   const colors: { name: string; hex: string; role: string }[] = [
-    { name: "Primary", hex: "#4B47E5", role: "CTA · links" },
+    { name: "Primary", hex: "#2E2A8C", role: "CTA · links" },
     { name: "Ink", hex: "#0F1217", role: "Text · headers" },
     { name: "Cream", hex: "#F6F2E9", role: "Surface" },
     { name: "Coral", hex: "#E26F5C", role: "Accent" },
@@ -1427,10 +1427,10 @@ function MarketingVisual() {
             key={v.name}
             style={{
               background: v.winning
-                ? "color-mix(in srgb, #4B47E5 7%, var(--paper))"
+                ? "color-mix(in srgb, #2E2A8C 7%, var(--paper))"
                 : "var(--paper)",
               border: v.winning
-                ? "1px solid color-mix(in srgb, #4B47E5 32%, transparent)"
+                ? "1px solid color-mix(in srgb, #2E2A8C 32%, transparent)"
                 : "1px solid var(--hairline)",
               borderRadius: 9,
               padding: "9px 11px",

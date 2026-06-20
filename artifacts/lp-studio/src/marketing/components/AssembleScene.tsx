@@ -4,7 +4,7 @@ import { useMadLibsPlaceholder } from "../lib/madLibsPlaceholder";
 
 // Palette retargeted from "dark + lime" to "warm cream + ink + indigo" to match
 // the app. Names preserved so call sites don't need rewrites.
-const LIME = "#4B47E5";          // primary accent (indigo, matches app)
+const LIME = "#2E2A8C";          // primary accent (indigo, matches app)
 const INK = "#F6F2E9";           // page background (cream paper)
 const INK_2 = "#FFFFFF";         // card / panel surface (pure white)
 const INK_3 = "#FAF7EE";         // nested inner panel
@@ -1763,7 +1763,7 @@ export default function AssembleScene() {
                   <div className="hidden md:flex items-center">
                     {[
                       { initials: "JM", color: "linear-gradient(135deg,#F4A172 0%,#E37051 100%)" },
-                      { initials: "AR", color: "linear-gradient(135deg,#6C68F0 0%,#4B47E5 100%)" },
+                      { initials: "AR", color: "linear-gradient(135deg,#6C68F0 0%,#2E2A8C 100%)" },
                       { initials: "SK", color: "linear-gradient(135deg,#7BBE8B 0%,#3F8F5C 100%)" },
                     ].map((a, i) => (
                       <div

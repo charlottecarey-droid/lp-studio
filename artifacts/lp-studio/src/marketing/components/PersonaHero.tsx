@@ -127,7 +127,7 @@ export default function PersonaHero({
                 gap: 8,
                 color: "#fff",
                 background:
-                  "linear-gradient(180deg, #5C58EB 0%, #4B47E5 55%, #3F3BD3 100%)",
+                  "linear-gradient(180deg, #5C58EB 0%, #2E2A8C 55%, #3F3BD3 100%)",
                 fontSize: 14.5,
                 fontWeight: 600,
                 padding: "13px 24px",
