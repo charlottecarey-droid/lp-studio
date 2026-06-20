@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import lpLockup from "@assets/lp-lockup-horizontal-navy-depth_1781934061156.svg";
+import lpLockup from "@assets/lp-lockup-horizontal-navy-depth-2048_1781934486001.png";
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
