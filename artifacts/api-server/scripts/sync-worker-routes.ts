@@ -59,10 +59,11 @@ const PLATFORM_HOSTS: readonly string[] = [
   // accept a wildcard pattern; findWorkerRouteByHostname matches the
   // exact `<hostname>/*` string we POST, so the lookup is symmetric.
   "*.lpstudio.ai",
-  // Tenant 5 (Dandy SMB).
+  // Tenant 5 (Dandy SMB) — app domain + microsite host.
   "meetdandy-lp.com",
   "lp.meetdandy.com",
-  // Tenant 1 (Dandy ENT) — production microsite host.
+  // Tenant 1 (Dandy ENT) — app domain + production microsite host.
+  "ent.meetdandy.com",
   "partners.meetdandy.com",
 ];
 
