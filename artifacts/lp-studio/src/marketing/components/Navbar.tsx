@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import navyDepthIcon from "@assets/lp-icon-navy-depth_1781930852665.svg";
-import navyWordmark from "@assets/lp-wordmark-navy_1781930852669.svg";
+import navyDepthIcon from "@assets/lp-icon-indigo-depth.svg";
+import navyWordmark from "@assets/lp-wordmark-indigo.svg";
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);

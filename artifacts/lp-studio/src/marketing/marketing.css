@@ -42,9 +42,10 @@
   --hairline: rgba(26, 24, 21, 0.10);
   --hairline-strong: rgba(26, 24, 21, 0.18);
 
-  /* Brand navy — matches the navy logo mark used in the navbar + footer */
-  --navy: #252B63;
-  --navy-2: #2E3578;
+  /* Brand mark indigo — matches the logo mark (navbar + footer) and the
+     deep-indigo final CTA section, keeping the purple brand identity */
+  --navy: #25214D;
+  --navy-2: #2E2966;
 
   /* Accent palette — primary indigo + spark coral, plus sage and gold for variety */
   --indigo: #4B47E5;

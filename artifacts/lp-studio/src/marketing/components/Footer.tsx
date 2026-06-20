@@ -1,4 +1,4 @@
-import navyDepthIcon from "@assets/lp-icon-navy-depth_1781930852665.svg";
+import navyDepthIcon from "@assets/lp-icon-indigo-depth.svg";
 
 // All in-page hashes target ids that actually exist on the new home —
 // see home.tsx (FeatureRow id="builder", id="generate", id="templates",
