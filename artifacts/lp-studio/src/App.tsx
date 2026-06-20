@@ -203,6 +203,8 @@ const MARKETING_PATHS = new Set([
   "/pricing",
   "/privacy",
   "/terms",
+  "/blog",
+  "/docs/integrations",
   "/docs/integrations/zapier",
 ]);
 
@@ -229,6 +231,8 @@ function isMarketingHost(): boolean {
     // Default in dev: marketing only for paths the marketing app actually
     // renders. Everything else falls through to the SaaS app routes.
     const path = window.location.pathname.replace(/\/+$/, "") || "/";
+    // Blog posts are dynamic (`/blog/:slug`), so match the prefix too.
+    if (path === "/blog" || path.startsWith("/blog/")) return true;
     return MARKETING_PATHS.has(path);
   }
   const h = window.location.hostname.toLowerCase();
