@@ -31,8 +31,9 @@
   --cream-2: #EFE9DC;
   --paper: #FFFFFF;
 
-  /* Warm ink text — matches app's near-black on cream */
-  --ink: #1A1815;
+  /* Primary text — deep indigo (matches the "Describe a page." headline and
+     brand mark) instead of near-black, so all headline/body black reads indigo */
+  --ink: #25214D;
   --ink-2: #2A2722;
   --ink-soft: #5C5853;
   --ink-mute: #8B857C;
