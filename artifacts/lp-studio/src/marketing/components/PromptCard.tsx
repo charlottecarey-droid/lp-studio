@@ -162,7 +162,7 @@ export default function PromptCard() {
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: 7,
+                    gap: 4,
                     cursor: "pointer",
                     fontFamily: "inherit",
                     color: "var(--cream)",
