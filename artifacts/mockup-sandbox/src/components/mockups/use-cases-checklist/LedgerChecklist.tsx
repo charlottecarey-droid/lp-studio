@@ -16,13 +16,13 @@ const groups: Group[] = [
   {
     num: "01",
     name: "Sales",
-    headline: "Stop waiting on marketing.",
+    headline: "A personalized page for every account.",
     items: [
       "Live pages embedded right in your 1:1 outreach",
       "The exact case study each buyer relates to",
       "Their logo and use case, not a generic deck",
       "See who viewed, and for how long",
-      "No design tickets, no back-and-forth, no queue",
+      "No design tickets, no waiting on marketing",
     ],
     accent: "var(--indigo)",
     cta: { label: "Explore sales pages", href: "/for-sales" },
