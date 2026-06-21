@@ -116,10 +116,7 @@ export default function HeroScene() {
           }}
         >
           Type a prompt, paste a URL, or drop a screenshot — and get a
-          real, on-brand page in{" "}
-          <strong style={{ color: "var(--ink)", fontWeight: 600 }}>
-            under a minute.
-          </strong>
+          real, on-brand page in under a minute.
         </p>
 
       </div>
