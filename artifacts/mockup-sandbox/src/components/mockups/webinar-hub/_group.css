@@ -1,0 +1,77 @@
+.webinar-hub-wrapper {
+  --bg-base: #FDFCF9;
+  --bg-surface: #FFFFFF;
+  --bg-surface-alt: #F4F1E9;
+  --text-ink: #191816;
+  --text-dim: #6B665D;
+  --border-soft: #EAE6DB;
+  
+  --accent-upcoming: #BC4733;
+  --accent-live: #D92D20;
+  --accent-ondemand: #255848;
+}
+
+/* Typography resets inside the wrapper */
+.webinar-hub-wrapper h1,
+.webinar-hub-wrapper h2,
+.webinar-hub-wrapper h3,
+.webinar-hub-wrapper h4 {
+  font-family: 'Playfair Display', serif;
+  letter-spacing: -0.01em;
+}
+
+.webinar-hub-wrapper p,
+.webinar-hub-wrapper span,
+.webinar-hub-wrapper button,
+.webinar-hub-wrapper input,
+.webinar-hub-wrapper textarea {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.webinar-hub-wrapper .font-mono {
+  font-family: 'DM Mono', monospace;
+}
+
+@keyframes wh-fade-up {
+  0% { opacity: 0; transform: translateY(24px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.wh-animate-fade-up {
+  opacity: 0;
+  animation: wh-fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.wh-delay-1 { animation-delay: 150ms; }
+.wh-delay-2 { animation-delay: 300ms; }
+.wh-delay-3 { animation-delay: 450ms; }
+.wh-delay-4 { animation-delay: 600ms; }
+
+.wh-glass-panel {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.wh-dark-glass {
+  background: rgba(25, 24, 22, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.wh-hero-gradient {
+  background: radial-gradient(100% 100% at 50% 0%, rgba(188, 71, 51, 0.08) 0%, transparent 50%),
+              radial-gradient(80% 80% at 100% 0%, rgba(37, 88, 72, 0.06) 0%, transparent 50%),
+              #FDFCF9;
+}
+
+.wh-hover-lift {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wh-hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -15px rgba(25, 24, 22, 0.08);
+}
