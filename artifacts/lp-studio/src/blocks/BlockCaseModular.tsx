@@ -302,8 +302,6 @@ export function BlockCaseModular({ props }: Props) {
               borderRight: `1px solid ${t.border}`,
               background: t.bg,
               zIndex: 40,
-              display: "flex",
-              flexDirection: "column",
             }}
           >
             <div
@@ -752,7 +750,8 @@ export function BlockCaseModular({ props }: Props) {
                     className="bcm-approach-grid"
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
                       gap: "2rem",
                     }}
                   >
@@ -836,7 +835,8 @@ export function BlockCaseModular({ props }: Props) {
                     className="bcm-results-grid"
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
                       gap: "1.5rem",
                     }}
                   >
@@ -1027,7 +1027,7 @@ export function BlockCaseModular({ props }: Props) {
                         flexWrap: "wrap",
                       }}
                     >
-                      <div style={{ flex: "1 1 320px", minWidth: 280 }}>
+                      <div style={{ flex: "1 1 320px", minWidth: 0 }}>
                         <SectionTitle
                           t={t}
                           number={numberFor[`module-${i + 1}`]}
@@ -1047,7 +1047,7 @@ export function BlockCaseModular({ props }: Props) {
                           </p>
                         )}
                       </div>
-                      <div style={{ flex: "1 1 320px", minWidth: 280, width: "100%" }}>
+                      <div style={{ flex: "1 1 320px", minWidth: 0, width: "100%" }}>
                         <div
                           style={{
                             aspectRatio: "4 / 3",
@@ -1095,7 +1095,8 @@ export function BlockCaseModular({ props }: Props) {
                 className="bcm-gallery-grid"
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
                   gap: "1.5rem",
                   maxWidth: t.maxWidth,
                 }}
@@ -1155,7 +1156,8 @@ export function BlockCaseModular({ props }: Props) {
                 style={{
                   maxWidth: t.maxWidth,
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
                   columnGap: "3rem",
                   rowGap: "2rem",
                 }}
@@ -1337,7 +1339,7 @@ export function BlockCaseModular({ props }: Props) {
         .bcm-mobile-nav { display: flex; }
         .bcm-metrics-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
         @media (min-width: 768px) {
-          .bcm-rail { display: flex; }
+          .bcm-rail { display: flex; flex-direction: column; }
           .bcm-mobile-nav { display: none; }
           .bcm-metrics-grid { grid-template-columns: repeat(4, minmax(0,1fr)); }
         }
