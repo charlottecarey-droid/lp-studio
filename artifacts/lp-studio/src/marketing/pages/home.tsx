@@ -518,29 +518,12 @@ function WhatsInside() {
             >
               What&apos;s inside
             </span>
-            <span
-              aria-hidden="true"
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: 999,
-                background: WHATS_INSIDE_INDIGO,
-                boxShadow: `0 0 8px color-mix(in srgb, ${WHATS_INSIDE_INDIGO} 60%, transparent)`,
-              }}
-            />
           </div>
           <h2
-            className="font-display"
-            style={{
-              color: "var(--ink)",
-              fontSize: "clamp(46px, 5.4vw, 68px)",
-              fontWeight: 500,
-              letterSpacing: "-0.034em",
-              lineHeight: 1.02,
-            }}
+            className="font-display text-display-lg"
+            style={{ color: "var(--ink)" }}
           >
-            Brand-locked AI that{" "}
-            <span style={{ color: WHATS_INSIDE_INDIGO }}>doesn&apos;t sound like AI</span>.
+            Brand-locked AI that doesn&apos;t sound like AI.
           </h2>
           <p
             className="mt-6 text-[17px] leading-[1.55]"
