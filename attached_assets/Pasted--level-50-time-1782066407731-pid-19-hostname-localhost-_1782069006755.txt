@@ -1,0 +1,108 @@
+
+{"level":50,"time":1782066407731,"pid":19,"hostname":"localhost","err":{"type":"Error","message":"Connection terminated due to connection timeout: Connection terminated unexpectedly","stack":"Error: Connection terminated due to connection timeout\n at <anonymous> (/home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11)\n at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n at async listEnabledWorkflowsByTriggerType (/home/runner/workspace/artifacts/api-server/src/lib/workflowStore.ts:200:15)\n at async produceScheduledEnrollments (/home/runner/workspace/artifacts/api-server/src/lib/workflowProducers.ts:88:16)\n at async runWorkflowTick (/home/runner/workspace/artifacts/api-server/src/lib/workflowEngine.ts:543:18)\ncaused by: Error: Connection terminated unexpectedly\n at Connection2.<anonymous> (/home/runner/workspace/node_modules/.pnpm/pg@8.20.0/node_modules/pg/lib/client.js:180:73)\n at Object.onceWrapper (node:events:622:28)\n at Connection2.emit (node:events:508:28)\n at Socket.<anonymous> (/home/runner/workspace/node_modules/.pnpm/pg@8.20.0/node_modules/pg/lib/connection.js:61:12)\n at Socket.emit (node:events:508:28)\n at TCP.<anonymous> (node:net:346:12)"},"triggerType":"scheduled","msg":"[workflowStore] listEnabledWorkflowsByTriggerType failed"}
+
+
+2026-06-21 13:27:05.12
+9a2c2cf3
+User
+{"level":40,"time":1782066425122,"pid":19,"hostname":"localhost","err":{"type":"Error","message":"timeout expired","stack":"Error: timeout expired\n at Timeout._onTimeout (/home/runner/workspace/node_modules/.pnpm/pg@8.20.0/node_modules/pg/lib/client.js:150:28)\n at listOnTimeout (node:internal/timers:605:17)\n at process.processTimers (node:internal/timers:541:7)"},"msg":"[notificationBroker] failed to start listener; will retry"}
+
+2026-06-21 13:27:17.52
+9a2c2cf3
+User
+This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). The promise rejected with the reason:
+
+2026-06-21 13:27:17.52
+9a2c2cf3
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+2026-06-21 13:27:17.52
+9a2c2cf3
+User
+at <anonymous> (/home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11)
+
+2026-06-21 13:27:17.52
+9a2c2cf3
+User
+Error: Connection terminated due to connection timeout
+
+2026-06-21 13:27:17.52
+9a2c2cf3
+User
+at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/lib/brandedSubdomainReconcilePoller.ts:59:20)
+
+2026-06-21 13:27:18.32
+9a2c2cf3
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+2026-06-21 13:27:18.32
+9a2c2cf3
+User
+at Connection2.emit (node:events:508:28)
+
+2026-06-21 13:27:18.32
+9a2c2cf3
+User
+at Connection2.<anonymous> (/home/runner/workspace/node_modules/.pnpm/pg@8.20.0/node_modules/pg/lib/client.js:180:73)
+
+2026-06-21 13:27:18.32
+9a2c2cf3
+User
+at Socket.emit (node:events:508:28)
+
+2026-06-21 13:27:18.32
+9a2c2cf3
+User
+[cause]: Error: Connection terminated unexpectedly
+
+2026-06-21 13:27:18.32
+9a2c2cf3
+User
+at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/lib/brandedSubdomainReconcilePoller.ts:59:20) {
+
+2026-06-21 13:27:18.32
+9a2c2cf3
+User
+at Object.onceWrapper (node:events:622:28)
+
+2026-06-21 13:27:18.32
+9a2c2cf3
+User
+at Socket.<anonymous> (/home/runner/workspace/node_modules/.pnpm/pg@8.20.0/node_modules/pg/lib/connection.js:61:12)
+
+2026-06-21 13:27:18.32
+9a2c2cf3
+User
+at <anonymous> (/home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11)
+
+2026-06-21 13:27:18.32
+9a2c2cf3
+User
+[unhandledRejection] background promise rejected (kept alive): Error: Connection terminated due to connection timeout
+
+2026-06-21 13:27:18.32
+9a2c2cf3
+User
+at TCP.<anonymous> (node:net:346:12)
+
+2026-06-21 13:27:18.32
+9a2c2cf3
+User
+}
+
+2026-06-21 13:27:18.72
+9a2c2cf3
+User
+{"level":50,"time":1782066438323,"pid":19,"hostname":"localhost","err":{"type":"Error","message":"Connection terminated due to connection timeout: Connection terminated unexpectedly","stack":"Error: Connection terminated due to connection timeout\n at <anonymous> (/home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11)\n at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n at async listEnabledWorkflowsByTriggerType (/home/runner/workspace/artifacts/api-server/src/lib/workflowStore.ts:200:15)\n at async produceAudienceEnrollments (/home/runner/workspace/artifacts/api-server/src/lib/workflowProducers.ts:131:16)\n at async runWorkflowTick (/home/runner/workspace/artifacts/api-server/src/lib/workflowEngine.ts:548:17)\ncaused by: Error: Connection terminated unexpectedly\n at Connection2.<anonymous> (/home/runner/workspace/node_modules/.pnpm/pg@8.20.0/node_modules/pg/lib/client.js:180:73)\n at Object.onceWrapper (node:events:622:28)\n at Connection2.emit (node:events:508:28)\n at Socket.<anonymous> (/home/runner/workspace/node_modules/.pnpm/pg@8.20.0/node_modules/pg/lib/connection.js:61:12)\n at Socket.emit (node:events:520:35)\n at TCP.<anonymous> (node:net:346:12)"},"triggerType":"audience","msg":"[workflowStore] listEnabledWorkflowsByTriggerType failed"}
+
+2026-06-21 13:27:47.82
+9a2c2cf3
+User
+{"level":50,"time":1782066467823,"pid":19,"hostname":"localhost","err":{"type":"Error","message":"Connection terminated due to connection timeout: Connection terminated unexpectedly","stack":"Error: Connection terminated due to connection timeout\n at <anonymous> (/home/runner/workspace/node_modules/.pnpm/pg-pool@3.13.0_pg@8.20.0/node_modules/pg-pool/index.js:45:11)\n at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n at async <anonymous> (/home/runner/workspace/artifacts/api-server/src/lib/customDomainPoller.ts:197:20)\ncaused by: Error: Connection terminated unexpectedly\n at Connection2.<anonymous> (/home/runner/workspace/node_modules/.pnpm/pg@8.20.0/node_modules/pg/lib/client.js:180:73)\n at Object.onceWrapper (node:events:622:28)\n at Connection2.emit (node:events:508:28)\n at Socket.<anonymous> (/home/runner/workspace/node_modules/.pnpm/pg@8.20.0/node_modules/pg/lib/connection.js:61:12)\n at Socket.emit (node:events:508:28)\n at TCP.<anonymous> (node:net:346:12)"},"msg":"customDomainPoller: scan failed (will retry next interval)"}
+
+2026-06-21 13:28:04.02
+9a2c2cf3
+User
+{"level":
