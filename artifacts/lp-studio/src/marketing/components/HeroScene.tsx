@@ -113,15 +113,11 @@ export default function HeroScene() {
             fontSize: 18,
             lineHeight: 1.55,
             color: "var(--ink-soft)",
+            textWrap: "balance",
           }}
         >
-          Type a prompt, paste a URL, or
-          <br />
-          drop a screenshot — and get
-          <br />
-          a real, on-brand page
-          <br />
-          in under a minute.
+          Type a prompt, paste a URL, or drop a screenshot — and get a
+          real, on-brand page in under a minute.
         </p>
 
       </div>
