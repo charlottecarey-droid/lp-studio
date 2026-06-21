@@ -32,7 +32,7 @@ const groups: Group[] = [
     name: "Marketing",
     headline: "Every page on-brand, on-message, on time.",
     items: [
-      "Five variants live by Friday",
+      "Five variants live by Friday, with A/B and multivariate testing",
       "Pull your brand from any URL — colors, fonts, logo",
       "Save your own templates and reuse them anywhere",
       "Sync to your campaigns, or send straight from LP Studio",
