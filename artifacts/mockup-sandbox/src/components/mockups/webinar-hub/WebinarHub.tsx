@@ -1,39 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  Play,
-  Calendar,
-  Clock,
-  Users,
-  ArrowRight,
-  Check,
-  Linkedin,
-  ChevronDown,
-  Radio,
-  Video,
-  FileText,
-  Download,
-  MessageSquare,
-  Mail,
-  Bell,
-  Globe,
-  Sparkles,
-  CalendarPlus,
-  CircleHelp,
-  BookOpen,
-  ClipboardCheck,
-  Newspaper,
-  PlayCircle,
-  Layers,
-  Send,
-  ShieldCheck,
-  Quote,
-  MoveRight
+  Play, Calendar, ArrowRight, Check, Linkedin, ChevronDown,
+  Video, FileText, Download, Sparkles, PlayCircle, Share2
 } from "lucide-react";
-
 import "./_group.css";
 
 /* ------------------------------------------------------------------ */
-/* Editable template config — this is what would become LP Studio fields */
+/* Editable template config */
 /* ------------------------------------------------------------------ */
 
 type EventStatus = "upcoming" | "live" | "on-demand";
@@ -42,118 +15,36 @@ const webinarConfig = {
   brand: "Pipeline Studio",
   status: "upcoming" as EventStatus,
   title: "How Modern Teams Turn Content Into Pipeline",
-  subtitle:
-    "Join a tactical session on building webinar, podcast, and campaign hubs that keep working long after the live event ends.",
+  subtitle: "Join a tactical session on building webinar, podcast, and campaign hubs that keep working long after the live event ends.",
   date: "Thursday, July 17, 2026",
   time: "11:00 AM – 12:00 PM",
   timezone: "ET",
   registrations: 1842,
   nav: ["Overview", "Speakers", "Agenda", "Resources", "FAQ"],
   speakers: [
-    {
-      id: "maya-chen",
-      name: "Maya Chen",
-      role: "VP Marketing, Northwind",
-      bio: "Built a content engine that sources 40% of pipeline. Obsessed with assets that compound.",
-      initials: "MC",
-      tint: "#255848", // Forest
-    },
-    {
-      id: "dev-okafor",
-      name: "Dev Okafor",
-      role: "Head of Demand, Lumen",
-      bio: "Runs always-on webinar programs across three regions. Former RevOps lead.",
-      initials: "DO",
-      tint: "#B9422F", // Terracotta
-    },
-    {
-      id: "sara-lind",
-      name: "Sara Lind",
-      role: "Founder, Studio Method",
-      bio: "Advises B2B teams on turning live events into evergreen demand surfaces.",
-      initials: "SL",
-      tint: "#8F7B66", // Taupe
-    },
+    { id: "maya-chen", name: "Maya Chen", role: "VP Marketing, Northwind", bio: "Built a content engine that sources 40% of pipeline. Obsessed with assets that compound.", initials: "MC", tint: "#2A3C34" },
+    { id: "dev-okafor", name: "Dev Okafor", role: "Head of Demand, Lumen", bio: "Runs always-on webinar programs across three regions. Former RevOps lead.", initials: "DO", tint: "#8C4A32" },
+    { id: "sara-lind", name: "Sara Lind", role: "Founder, Studio Method", bio: "Advises B2B teams on turning live events into evergreen demand surfaces.", initials: "SL", tint: "#DDA25D" },
   ],
   agenda: [
-    {
-      time: "11:00",
-      title: "Welcome & framing",
-      desc: "Why one-off webinars leak pipeline — and the hub model that fixes it.",
-      speaker: "Maya Chen",
-    },
-    {
-      time: "11:08",
-      title: "Main presentation",
-      desc: "The promotion → live → replay → follow-up loop, built once and reused everywhere.",
-      speaker: "Dev Okafor",
-    },
-    {
-      time: "11:35",
-      title: "Customer breakdown",
-      desc: "A teardown of a hub that sourced 1,200 MQLs from a single recorded session.",
-      speaker: "Sara Lind",
-    },
-    {
-      time: "11:50",
-      title: "Live Q&A",
-      desc: "Bring your questions — we answer as many as we can before time.",
-      speaker: "All speakers",
-    },
+    { time: "11:00", title: "Welcome & framing", desc: "Why one-off webinars leak pipeline — and the hub model that fixes it.", speaker: "Maya Chen" },
+    { time: "11:08", title: "Main presentation", desc: "The promotion → live → replay → follow-up loop, built once and reused everywhere.", speaker: "Dev Okafor" },
+    { time: "11:35", title: "Customer breakdown", desc: "A teardown of a hub that sourced 1,200 MQLs from a single recorded session.", speaker: "Sara Lind" },
+    { time: "11:50", title: "Live Q&A", desc: "Bring your questions — we answer as many as we can before time.", speaker: "All speakers" },
   ],
   resources: [
-    {
-      title: "The Webinar Hub Playbook",
-      format: "Slide deck",
-      desc: "The full framework from the session, ready to share internally.",
-      icon: "deck",
-    },
-    {
-      title: "From Event to Evergreen",
-      format: "Guide",
-      desc: "A step-by-step guide to converting live sessions into always-on demand.",
-      icon: "guide",
-    },
-    {
-      title: "Pre-Launch Checklist",
-      format: "Checklist",
-      desc: "Everything to ship before, during, and after a webinar.",
-      icon: "checklist",
-    },
-    {
-      title: "Northwind Pipeline Story",
-      format: "Case study",
-      desc: "How one team turned a quarterly webinar into 40% of sourced pipeline.",
-      icon: "case",
-    },
-    {
-      title: "Why Hubs Beat Pages",
-      format: "Article",
-      desc: "The short read on why a campaign hub outperforms a registration page.",
-      icon: "article",
-    },
+    { title: "The Webinar Hub Playbook", format: "Slide deck", desc: "The full framework from the session, ready to share internally.", icon: "deck" },
+    { title: "From Event to Evergreen", format: "Guide", desc: "A step-by-step guide to converting live sessions into always-on demand.", icon: "guide" },
+    { title: "Pre-Launch Checklist", format: "Checklist", desc: "Everything to ship before, during, and after a webinar.", icon: "checklist" },
+    { title: "Northwind Pipeline Story", format: "Case study", desc: "How one team turned a quarterly webinar into 40% of sourced pipeline.", icon: "case" },
+    { title: "Why Hubs Beat Pages", format: "Article", desc: "The short read on why a campaign hub outperforms a registration page.", icon: "article" },
   ],
   faqs: [
-    {
-      q: "Is the webinar live or on-demand?",
-      a: "It runs live with full Q&A, then converts automatically into an on-demand replay you can watch anytime.",
-    },
-    {
-      q: "Will I get the recording?",
-      a: "Yes. Everyone who registers gets the replay, slides, and resources by email — whether or not you attend live.",
-    },
-    {
-      q: "Can I share this with my team?",
-      a: "Absolutely. Forward the link or invite colleagues directly — the hub works for one person or a whole team.",
-    },
-    {
-      q: "How do I submit a question?",
-      a: "During the live session you can submit questions in the Q&A panel. Before the event, just reply to your confirmation email.",
-    },
-    {
-      q: "Can I book a follow-up session?",
-      a: "Yes — there's a 'Book a follow-up' option throughout the hub to set up a 1:1 with our team.",
-    },
+    { q: "Is the webinar live or on-demand?", a: "It runs live with full Q&A, then converts automatically into an on-demand replay you can watch anytime." },
+    { q: "Will I get the recording?", a: "Yes. Everyone who registers gets the replay, slides, and resources by email — whether or not you attend live." },
+    { q: "Can I share this with my team?", a: "Absolutely. Forward the link or invite colleagues directly — the hub works for one person or a whole team." },
+    { q: "How do I submit a question?", a: "During the live session you can submit questions in the Q&A panel. Before the event, just reply to your confirmation email." },
+    { q: "Can I book a follow-up session?", a: "Yes — there's a 'Book a follow-up' option throughout the hub to set up a 1:1 with our team." },
   ],
   emails: {
     sender: "events@pipeline.studio",
@@ -166,825 +57,336 @@ const webinarConfig = {
     ],
   },
   topics: {
-    ai: {
-      sub: "A tactical session on using AI to turn webinars, podcasts, and content into compounding pipeline — without the busywork.",
-      resource: "The AI Content Engine Playbook",
-    },
-    abm: {
-      sub: "A tactical session on building account-based webinar and campaign hubs that route target accounts straight to pipeline.",
-      resource: "The ABM Hub Playbook",
-    },
-    content: {
-      sub: "A tactical session on building content hubs that keep generating demand long after the publish date.",
-      resource: "The Evergreen Content Playbook",
-    },
+    ai: { sub: "A tactical session on using AI to turn webinars, podcasts, and content into compounding pipeline.", resource: "The AI Content Engine Playbook" },
+    abm: { sub: "A tactical session on building account-based webinar and campaign hubs that route target accounts straight to pipeline.", resource: "The ABM Hub Playbook" },
+    content: { sub: "A tactical session on building content hubs that keep generating demand long after the publish date.", resource: "The Evergreen Content Playbook" },
   },
 };
 
-/* ------------------------------------------------------------------ */
-/* Status-driven copy + accents                                        */
-/* ------------------------------------------------------------------ */
-
-const STATUS_META: Record<
-  EventStatus,
-  {
-    eyebrow: string;
-    kicker: string;
-    cta: string;
-    formCta: string;
-    formSuccess: string;
-    videoLabel: string;
-    accent: string;
-    soft: string;
-    pulse: boolean;
-  }
-> = {
-  upcoming: {
-    eyebrow: "Upcoming Event",
-    kicker: "Reserve your place",
-    cta: "Request Invitation",
-    formCta: "Secure Registration",
-    formSuccess: "You're confirmed. We've sent a calendar invitation and further details to your inbox.",
-    videoLabel: "Trailer preview",
-    accent: "var(--accent-upcoming)",
-    soft: "#F8EDE9",
-    pulse: false,
-  },
-  live: {
-    eyebrow: "Live Broadcast",
-    kicker: "Session in progress",
-    cta: "Enter Broadcast",
-    formCta: "Join Session",
-    formSuccess: "Access granted. Launching the live secure broadcast environment.",
-    videoLabel: "Live stream",
-    accent: "var(--accent-live)",
-    soft: "#FAEBDA",
-    pulse: true,
-  },
-  "on-demand": {
-    eyebrow: "On Demand",
-    kicker: "Access the archive",
-    cta: "Watch Recording",
-    formCta: "Unlock Recording",
-    formSuccess: "Archive unlocked. The full recording and associated materials are below.",
-    videoLabel: "Archived recording",
-    accent: "var(--accent-ondemand)",
-    soft: "#EAF1EF",
-    pulse: false,
-  },
+const STATUS_META: Record<EventStatus, any> = {
+  upcoming: { eyebrow: "Upcoming Event", kicker: "Reserve your place", cta: "Request Invitation", formCta: "Secure Registration", formSuccess: "You're confirmed. We've sent a calendar invitation and further details to your inbox.", videoLabel: "Trailer preview", accent: "var(--wh-accent-upcoming)", pulse: false },
+  live: { eyebrow: "Live Broadcast", kicker: "Session in progress", cta: "Enter Broadcast", formCta: "Join Session", formSuccess: "Access granted. Launching the live secure broadcast environment.", videoLabel: "Live stream", accent: "var(--wh-accent-live)", pulse: true },
+  "on-demand": { eyebrow: "On Demand", kicker: "Access the archive", cta: "Watch Recording", formCta: "Unlock Recording", formSuccess: "Archive unlocked. The full recording and associated materials are below.", videoLabel: "Archived recording", accent: "var(--wh-accent-ondemand)", pulse: false },
 };
 
 /* ------------------------------------------------------------------ */
-/* Small shared atoms                                                  */
+/* Atoms */
 /* ------------------------------------------------------------------ */
 
-function Eyebrow({ children, dark = false, className = "" }: { children: React.ReactNode; dark?: boolean; className?: string }) {
-  return (
-    <span
-      className={`font-mono uppercase tracking-[0.2em] text-[11.5px] font-semibold ${className}`}
-      style={{
-        color: dark ? "rgba(255,255,255,0.7)" : "var(--text-dim)",
-      }}
-    >
-      {children}
-    </span>
-  );
+function MonoLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <span className={`wh-mono text-[10px] uppercase tracking-[0.15em] opacity-60 ${className}`}>{children}</span>;
 }
 
 function StatusPill({ status }: { status: EventStatus }) {
   const m = STATUS_META[status];
   return (
-    <span
-      className="inline-flex items-center gap-2.5 rounded-full px-4 py-1.5"
-      style={{
-        fontSize: 12,
-        fontWeight: 600,
-        letterSpacing: "0.05em",
-        color: m.accent,
-        background: m.soft,
-        textTransform: "uppercase",
-        fontFamily: "'DM Mono', monospace"
-      }}
-    >
-      <span className="relative flex items-center justify-center" style={{ width: 6, height: 6 }}>
-        {m.pulse && (
-          <span
-            className="absolute inline-flex h-full w-full rounded-full opacity-60 animate-ping"
-            style={{ background: m.accent }}
-          />
-        )}
-        <span className="relative inline-flex rounded-full" style={{ width: 6, height: 6, background: m.accent }} />
+    <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 backdrop-blur-md rounded-full border border-white/10 wh-mono text-[11px] uppercase tracking-widest text-white">
+      <span className="relative flex items-center justify-center w-2 h-2">
+        {m.pulse && <span className="absolute w-full h-full rounded-full opacity-60 animate-ping" style={{ background: m.accent }} />}
+        <span className="relative w-1.5 h-1.5 rounded-full" style={{ background: m.accent }} />
       </span>
       {m.eyebrow}
-    </span>
+    </div>
   );
 }
 
-function Avatar({ initials, tint, size = 40, ring = false }: { initials: string; tint: string; size?: number; ring?: boolean }) {
+function Avatar({ initials, tint, size = 48 }: { initials: string; tint: string; size?: number }) {
   return (
-    <div
-      className="flex items-center justify-center rounded-full font-serif font-medium text-white shrink-0 relative overflow-hidden"
-      style={{
-        width: size,
-        height: size,
-        fontSize: size * 0.4,
-        background: tint,
-        boxShadow: ring ? `0 0 0 3px var(--bg-base), 0 0 0 5px ${tint}40` : "none",
-      }}
+    <div 
+      className="flex items-center justify-center rounded-full wh-serif font-medium text-white relative overflow-hidden shrink-0 border border-black/10 shadow-inner"
+      style={{ width: size, height: size, fontSize: size * 0.4, background: tint }}
     >
-      <div className="absolute inset-0 opacity-20" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 100%)" }}></div>
+      <div className="wh-noise opacity-20"></div>
+      <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent"></div>
       <span className="relative z-10">{initials}</span>
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Floating demo toggle                                                */
+/* Sections */
 /* ------------------------------------------------------------------ */
 
-function FloatingToggle({ status, setStatus }: { status: EventStatus; setStatus: (s: EventStatus) => void }) {
-  const opts: EventStatus[] = ["upcoming", "live", "on-demand"];
-  const label: Record<EventStatus, string> = { upcoming: "Upcoming", live: "Live", "on-demand": "On-demand" };
-  return (
-    <div
-      className="fixed z-50 flex items-center gap-1.5 rounded-full p-1.5 wh-glass-panel shadow-xl"
-      style={{
-        bottom: 30,
-        left: "50%",
-        transform: "translateX(-50%)",
-        background: "rgba(25, 24, 22, 0.85)",
-        border: "1px solid rgba(255,255,255,0.1)",
-      }}
-    >
-      <span className="px-3 font-mono text-[10px] tracking-widest text-white/50 uppercase" aria-hidden>
-        Demo State
-      </span>
-      <div className="flex bg-white/5 rounded-full p-0.5">
-        {opts.map((o) => {
-          const active = o === status;
-          return (
-            <button
-              key={o}
-              onClick={() => setStatus(o)}
-              className="rounded-full transition-all duration-300"
-              style={{
-                padding: "8px 18px",
-                fontSize: 12,
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontWeight: 600,
-                color: active ? "#191816" : "rgba(255,255,255,0.7)",
-                background: active ? "white" : "transparent",
-                boxShadow: active ? "0 2px 10px rgba(0,0,0,0.2)" : "none"
-              }}
-            >
-              {label[o]}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Hero video card mockup (no external images)                         */
-/* ------------------------------------------------------------------ */
-
-function HeroVideoCard({ status }: { status: EventStatus }) {
+function Hero({ status, topicSub }: { status: EventStatus; topicSub?: string }) {
   const m = STATUS_META[status];
   return (
-    <div
-      className="relative rounded-2xl overflow-hidden wh-hover-lift group"
-      style={{
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border-soft)",
-        boxShadow: "0 30px 60px -20px rgba(25, 24, 22, 0.08)",
-      }}
-    >
-      {/* video surface */}
-      <div
-        className="relative overflow-hidden"
-        style={{
-          aspectRatio: "16 / 10",
-          background: `radial-gradient(100% 100% at 50% 0%, ${m.soft} 0%, var(--bg-surface-alt) 100%)`,
-        }}
-      >
-        {/* Subtle grid pattern overlay */}
-        <div className="absolute inset-0 opacity-[0.03]" 
-             style={{ backgroundImage: "linear-gradient(var(--text-ink) 1px, transparent 1px), linear-gradient(90deg, var(--text-ink) 1px, transparent 1px)", backgroundSize: "32px 32px" }}></div>
+    <section className="wh-bg-dark relative pt-32 pb-48 px-6 lg:px-12 overflow-hidden">
+      <div className="wh-noise wh-noise-dark"></div>
+      
+      {/* Decorative bg light */}
+      <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-bl from-[#D65A41]/10 via-[#244C3F]/5 to-transparent blur-3xl opacity-60 rounded-full translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
+
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-8 relative z-10">
         
-        {/* status chip */}
-        <div className="absolute left-5 top-5 z-10">
-          <StatusPill status={status} />
-        </div>
-
-        {/* play button */}
-        <div className="absolute inset-0 flex items-center justify-center z-10">
-          <div
-            className="flex items-center justify-center rounded-full transition-all duration-500 group-hover:scale-110"
-            style={{
-              width: 88,
-              height: 88,
-              background: "rgba(255,255,255,0.9)",
-              boxShadow: `0 0 0 1px rgba(0,0,0,0.05), 0 20px 40px -10px rgba(25, 24, 22, 0.15)`,
-            }}
-          >
-            <Play style={{ width: 28, height: 28, color: "var(--text-ink)", marginLeft: 4 }} fill="var(--text-ink)" />
+        {/* Left: Copy */}
+        <div className="lg:col-span-6 xl:col-span-5 flex flex-col justify-center wh-animate-fade-up">
+          <div className="mb-6 flex items-center gap-4">
+            <StatusPill status={status} />
+            <span className="wh-mono text-[11px] uppercase tracking-widest opacity-50">Edition 004</span>
           </div>
-        </div>
-
-        {/* faux waveform / progress for on-demand */}
-        {status === "on-demand" && (
-          <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/5">
-            <div className="h-full" style={{ width: "45%", background: m.accent }} />
-          </div>
-        )}
-      </div>
-
-      {/* meta footer */}
-      <div className="p-6 md:p-8" style={{ background: "var(--bg-surface)" }}>
-        <h3 className="font-serif text-xl md:text-2xl font-medium leading-tight" style={{ color: "var(--text-ink)" }}>
-          {webinarConfig.title}
-        </h3>
-        <div className="mt-3 font-sans font-medium flex items-center gap-2" style={{ fontSize: 14, color: "var(--text-dim)" }}>
-          <Calendar className="w-4 h-4 opacity-70" />
-          <span>{webinarConfig.date}</span>
-          <span className="mx-1 opacity-40">•</span>
-          <span>{webinarConfig.time} {webinarConfig.timezone}</span>
-        </div>
-        
-        <div className="mt-8 pt-6 border-t flex flex-wrap items-center justify-between gap-4" style={{ borderColor: "var(--border-soft)" }}>
-          <div className="flex items-center">
-            <div className="flex -space-x-3">
-              {webinarConfig.speakers.map((s) => (
-                <div key={s.id} className="relative transition-transform hover:-translate-y-1 z-0 hover:z-10">
-                  <Avatar initials={s.initials} tint={s.tint} size={38} ring />
-                </div>
-              ))}
+          <h1 className="wh-serif text-5xl sm:text-6xl lg:text-7xl leading-[1.05] tracking-tight mb-8">
+            {webinarConfig.title}
+          </h1>
+          <p className="wh-sans text-lg sm:text-xl text-white/70 leading-relaxed mb-12 max-w-lg wh-delay-1 wh-animate-fade-up">
+            {topicSub || webinarConfig.subtitle}
+          </p>
+          
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-4 pt-8 border-t border-white/10 wh-delay-2 wh-animate-fade-up">
+            <div>
+              <MonoLabel>Date & Time</MonoLabel>
+              <div className="mt-1 text-sm">{webinarConfig.date}</div>
+              <div className="text-sm opacity-60">{webinarConfig.time} {webinarConfig.timezone}</div>
             </div>
-            <div className="ml-4">
-              <div className="text-[13px] font-semibold tracking-wide uppercase font-mono text-ink">Expert Panel</div>
-              <div className="text-[13px] text-dim mt-0.5">{webinarConfig.speakers.length} Speakers</div>
+            <div>
+              <MonoLabel>Format</MonoLabel>
+              <div className="mt-1 text-sm">{status === 'upcoming' ? 'Live Broadcast' : 'Archive'}</div>
+              <div className="text-sm opacity-60">Interactive Q&A</div>
+            </div>
+            <div>
+              <MonoLabel>{status === 'live' ? 'Watching now' : status === 'on-demand' ? 'Have attended' : 'Registered'}</MonoLabel>
+              <div className="mt-1 text-sm flex items-center gap-2">
+                {status === 'live' && <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: m.accent }} />}
+                {webinarConfig.registrations.toLocaleString()}
+              </div>
+              <div className="text-sm opacity-60">Across all teams</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Video Card & Form */}
+        <div className="lg:col-span-6 xl:col-span-6 xl:col-start-7 relative">
+          <div className="absolute top-8 left-12 right-0 bottom-0 border border-white/5 bg-white/[0.02] -z-10 translate-x-4 translate-y-4"></div>
+          
+          <div className="wh-cinematic-card p-2 sm:p-4 wh-delay-2 wh-animate-fade-up">
+            <div className="wh-gradient-mesh"></div>
+            <div className="relative aspect-[16/10] bg-black overflow-hidden flex flex-col items-center justify-center group cursor-pointer border border-white/10">
+              <div className="wh-noise opacity-30"></div>
+              {/* Play button */}
+              <div className="relative z-10 w-20 h-20 rounded-full border border-white/20 bg-white/5 backdrop-blur-sm flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:bg-white/10">
+                <Play className="w-8 h-8 text-white ml-1" fill="currentColor" />
+              </div>
+              <div className="absolute top-6 left-6 right-6 flex justify-between items-start">
+                <span className="wh-mono text-[10px] tracking-widest uppercase bg-black/50 px-2 py-1 backdrop-blur-md rounded-sm">
+                  {m.videoLabel}
+                </span>
+                <span className="wh-mono text-[10px] tracking-widest opacity-50">
+                  {webinarConfig.brand}
+                </span>
+              </div>
             </div>
           </div>
           
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md" style={{ background: "var(--bg-surface-alt)" }}>
-             <Users className="w-4 h-4" style={{ color: "var(--text-dim)" }} />
-             <span className="text-[13px] font-semibold font-mono" style={{ color: "var(--text-ink)" }}>
-               {webinarConfig.registrations.toLocaleString()} Attending
-             </span>
+          {/* Overlapping form card (shifted down) */}
+          <div className="relative z-20 w-11/12 ml-auto -mt-16 sm:-mt-24 wh-delay-3 wh-animate-fade-up">
+            <RegistrationForm status={status} />
           </div>
         </div>
+        
       </div>
-    </div>
+    </section>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/* Registration / access form                                          */
-/* ------------------------------------------------------------------ */
 
 function RegistrationForm({ status }: { status: EventStatus }) {
   const m = STATUS_META[status];
   const [done, setDone] = useState(false);
 
-  useEffect(() => {
-    setDone(false);
-  }, [status]);
-
-  const field =
-    "w-full rounded-sm border-b px-2 py-3.5 text-[15px] outline-none transition-all duration-300 font-sans";
+  useEffect(() => { setDone(false); }, [status]);
 
   if (done) {
     return (
-      <div
-        className="rounded-2xl p-10 text-center relative overflow-hidden"
-        style={{ background: "var(--bg-surface)", border: "1px solid var(--border-soft)", boxShadow: "0 20px 40px -20px rgba(25, 24, 22, 0.08)" }}
-      >
-        <div className="absolute top-0 left-0 w-full h-1" style={{ background: m.accent }}></div>
-        <div
-          className="mx-auto mb-8 flex items-center justify-center rounded-full"
-          style={{ width: 72, height: 72, background: m.soft }}
-        >
-          <Check style={{ width: 32, height: 32, color: m.accent }} strokeWidth={2} />
+      <div className="wh-ticket-stub p-8 text-center bg-white border border-[#E6E1D6]">
+        <div className="w-16 h-16 mx-auto mb-6 bg-[#244C3F]/10 text-[#244C3F] rounded-full flex items-center justify-center">
+          <Check className="w-8 h-8" strokeWidth={2} />
         </div>
-        <h3 className="font-serif text-3xl font-medium" style={{ color: "var(--text-ink)" }}>
-          {status === "live" ? "Access Granted" : status === "on-demand" ? "Archive Unlocked" : "Registration Confirmed"}
+        <h3 className="wh-serif text-3xl text-black mb-3">
+          {status === "live" ? "Access Granted" : status === "on-demand" ? "Archive Unlocked" : "Confirmed"}
         </h3>
-        <p className="mx-auto mt-4 max-w-sm text-[16px] leading-relaxed" style={{ color: "var(--text-dim)" }}>{m.formSuccess}</p>
-        <button
-          onClick={() => setDone(false)}
-          className="mt-8 inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-[14px] font-semibold tracking-wide uppercase font-mono transition-transform hover:-translate-y-0.5"
-          style={{ background: "var(--text-ink)", color: "white" }}
-        >
+        <p className="text-black/60 text-sm mb-8 leading-relaxed max-w-[260px] mx-auto">{m.formSuccess}</p>
+        <button onClick={() => setDone(false)} className="w-full py-4 bg-black text-white wh-mono text-[11px] uppercase tracking-widest hover:bg-black/80 transition-colors flex justify-center items-center gap-2">
           {status === "on-demand" ? "Play recording" : "Add to calendar"}
-          <MoveRight style={{ width: 16, height: 16 }} />
+          <ArrowRight className="w-4 h-4" />
         </button>
       </div>
     );
   }
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        setDone(true);
-      }}
-      className="rounded-2xl p-8 sm:p-10 relative overflow-hidden"
-      style={{ background: "var(--bg-surface)", border: "1px solid var(--border-soft)", boxShadow: "0 20px 40px -20px rgba(25, 24, 22, 0.08)" }}
-    >
-      <div className="absolute top-0 right-0 w-32 h-32 opacity-10 pointer-events-none" 
-           style={{ background: `radial-gradient(circle at top right, ${m.accent}, transparent)` }}></div>
-           
+    <form onSubmit={(e) => { e.preventDefault(); setDone(true); }} className="wh-ticket-stub p-8 bg-white border border-[#E6E1D6]">
       <div className="mb-8">
-        <Eyebrow>{status === "on-demand" ? "Archive access" : "Secure your place"}</Eyebrow>
-        <h3 className="mt-3 font-serif text-3xl sm:text-4xl font-medium leading-tight" style={{ color: "var(--text-ink)" }}>
-          {status === "on-demand" ? "Unlock the full recording" : "Register for the session"}
+        <MonoLabel className="text-black/40">{status === "on-demand" ? "Archive access" : "Secure your place"}</MonoLabel>
+        <h3 className="mt-2 wh-serif text-3xl text-black leading-tight">
+          {status === "on-demand" ? "Unlock the recording" : "Register for session"}
         </h3>
       </div>
-      
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <input className={field} style={{ borderColor: "var(--border-soft)", background: "transparent", color: "var(--text-ink)" }} placeholder="First name" required />
-          <input className={field} style={{ borderColor: "var(--border-soft)", background: "transparent", color: "var(--text-ink)" }} placeholder="Last name" required />
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <input className="wh-input" placeholder="First name" required />
+          <input className="wh-input" placeholder="Last name" required />
         </div>
-        <input className={field} style={{ borderColor: "var(--border-soft)", background: "transparent", color: "var(--text-ink)" }} type="email" placeholder="Work email address" required />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <input className={field} style={{ borderColor: "var(--border-soft)", background: "transparent", color: "var(--text-ink)" }} placeholder="Company name" required />
-          <input className={field} style={{ borderColor: "var(--border-soft)", background: "transparent", color: "var(--text-ink)" }} placeholder="Job title" />
-        </div>
+        <input className="wh-input" type="email" placeholder="Work email" required />
+        <input className="wh-input" placeholder="Company name" required />
       </div>
-      
-      <button
-        type="submit"
-        className="mt-10 flex w-full items-center justify-center gap-3 rounded-full py-4 text-[14px] font-bold tracking-wider uppercase font-mono text-white transition-all duration-300 hover:opacity-90 hover:shadow-lg"
-        style={{ background: m.accent }}
-      >
+      <div className="wh-ticket-divider"></div>
+      <button type="submit" className="w-full py-4 text-white wh-mono text-[11px] uppercase tracking-widest hover:opacity-90 transition-opacity flex justify-center items-center gap-2" style={{ background: m.accent }}>
         {m.formCta}
-        <MoveRight style={{ width: 16, height: 16 }} />
+        <ArrowRight className="w-4 h-4" />
       </button>
-      
-      <p className="mt-6 flex items-center justify-center gap-2 text-center text-[13px] font-medium" style={{ color: "var(--text-dim)" }}>
-        <ShieldCheck style={{ width: 14, height: 14, opacity: 0.6 }} />
-        Materials sent to all registrants automatically.
-      </p>
     </form>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Status-specific side panel                                          */
-/* ------------------------------------------------------------------ */
-
-function StatusPanel({ status }: { status: EventStatus }) {
-  const m = STATUS_META[status];
-
-  if (status === "live") {
-    return (
-      <div className="space-y-6">
-        <div
-          className="relative overflow-hidden rounded-2xl border"
-          style={{ aspectRatio: "16/9", background: "var(--text-ink)", borderColor: "rgba(255,255,255,0.1)" }}
-        >
-          <div className="absolute left-4 top-4 z-10">
-            <span
-              className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-bold tracking-widest uppercase font-mono text-white"
-              style={{ background: m.accent }}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span> LIVE
-            </span>
-          </div>
-          <div className="absolute inset-0 flex flex-col items-center justify-center opacity-40">
-             <Video className="w-10 h-10 text-white mb-3" strokeWidth={1.5} />
-             <div className="text-white font-mono text-xs uppercase tracking-widest">Broadcast Environment</div>
-          </div>
-        </div>
-        
-        <div className="rounded-2xl p-6 relative overflow-hidden" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-soft)" }}>
-          <div className="flex items-center justify-between border-b pb-4 mb-4" style={{ borderColor: "var(--border-soft)" }}>
-            <span className="font-serif font-medium text-lg" style={{ color: "var(--text-ink)" }}>
-              Live Q&amp;A
-            </span>
-            <span className="text-[12px] font-mono tracking-wider" style={{ color: "var(--text-dim)" }}>312 JOINED</span>
-          </div>
-          <div className="space-y-5">
-            {[
-              ["AR", "Where do you host the live stream?", "#8F7B66"],
-              ["TM", "Will this work for a 6-person team?", "#255848"],
-            ].map(([i, q, color]) => (
-              <div key={q} className="flex items-start gap-4">
-                <Avatar initials={i} tint={color} size={32} />
-                <p className="text-[14px] leading-relaxed pt-1" style={{ color: "var(--text-ink)" }}>{q}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-6 flex gap-3">
-            <input
-              className="flex-1 rounded-full border px-4 py-2.5 text-[14px] outline-none bg-transparent"
-              style={{ borderColor: "var(--border-soft)", color: "var(--text-ink)" }}
-              placeholder="Ask a question…"
-            />
-            <button className="rounded-full w-11 h-11 flex items-center justify-center text-white shrink-0 transition-transform hover:scale-105" style={{ background: "var(--text-ink)" }}>
-              <Send style={{ width: 16, height: 16, marginLeft: -2 }} />
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === "on-demand") {
-    return (
-      <div className="space-y-6">
-        <div
-          className="relative overflow-hidden rounded-2xl group cursor-pointer"
-          style={{ aspectRatio: "16/9", background: "var(--text-ink)" }}
-        >
-          <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "url('data:image/svg+xml,%3Csvg width=\\'20\\' height=\\'20\\' viewBox=\\'0 0 20 20\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cg fill=\\'%23ffffff\\' fill-opacity=\\'0.4\\' fill-rule=\\'evenodd\\'%3E%3Ccircle cx=\\'3\\' cy=\\'3\\' r=\\'3\\'/%3E%3Ccircle cx=\\'13\\' cy=\\'13\\' r=\\'3\\'/%3E%3C/g%3E%3C/svg%3E')", backgroundSize: "20px 20px" }}></div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div
-              className="flex items-center justify-center rounded-full transition-transform duration-500 group-hover:scale-110"
-              style={{ width: 72, height: 72, background: "rgba(255,255,255,0.1)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.2)" }}
-            >
-              <div className="flex items-center justify-center rounded-full" style={{ width: 56, height: 56, background: "white" }}>
-                <Play style={{ width: 20, height: 20, color: "var(--text-ink)", marginLeft: 4 }} fill="var(--text-ink)" />
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-4">
-          <button
-            className="flex items-center justify-center gap-2.5 rounded-full border py-3.5 text-[13px] font-bold uppercase tracking-wide font-mono transition-colors hover:bg-black/5"
-            style={{ borderColor: "var(--border-soft)", background: "transparent", color: "var(--text-ink)" }}
-          >
-            <Download style={{ width: 16, height: 16 }} /> Presentation
-          </button>
-          <button
-            className="flex items-center justify-center gap-2.5 rounded-full py-3.5 text-[13px] font-bold uppercase tracking-wide font-mono text-white transition-opacity hover:opacity-90"
-            style={{ background: "var(--text-ink)" }}
-          >
-            <Calendar style={{ width: 16, height: 16 }} /> Consultation
-          </button>
-        </div>
-        
-        <div className="rounded-2xl p-6" style={{ border: "1px solid var(--border-soft)", background: "var(--bg-surface)" }}>
-          <Eyebrow>Archive Contents</Eyebrow>
-          <ul className="mt-5 space-y-4">
-            {["The hub model, end to end", "Northwind's 40% pipeline story", "Live Q&A highlights"].map((t) => (
-              <li key={t} className="flex items-start gap-3 text-[15px] font-medium" style={{ color: "var(--text-dim)" }}>
-                <div className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-0.5" style={{ background: m.soft }}>
-                  <Check style={{ width: 12, height: 12, color: m.accent }} strokeWidth={3} />
-                </div>
-                {t}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    );
-  }
-
-  // upcoming
+function Workflow() {
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl p-7 md:p-8" style={{ border: "1px solid var(--border-soft)", background: "var(--bg-surface)" }}>
-        <h3 className="font-serif text-2xl font-medium mb-6" style={{ color: "var(--text-ink)" }}>Session Overview</h3>
-        <ul className="space-y-5">
-          {[
-            "The hub model that keeps webinars working after the live date",
-            "How to wire registration, reminders, and replay into one flow",
-            "A teardown of a hub that sourced 40% of pipeline",
-          ].map((t) => (
-            <li key={t} className="flex items-start gap-4">
-              <span
-                className="mt-1 flex items-center justify-center rounded-full shrink-0"
-                style={{ width: 28, height: 28, background: m.soft }}
-              >
-                <Check style={{ width: 14, height: 14, color: m.accent }} strokeWidth={2.5} />
-              </span>
-              <span className="text-[16px] leading-relaxed" style={{ color: "var(--text-dim)" }}>{t}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-      
-      <div
-        className="flex items-start gap-4 rounded-2xl p-6 relative overflow-hidden"
-        style={{ background: m.soft }}
-      >
-        <div className="absolute top-0 right-0 w-24 h-24 opacity-20 pointer-events-none" style={{ background: `radial-gradient(circle at top right, ${m.accent}, transparent)` }}></div>
-        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
-          <Bell style={{ width: 18, height: 18, color: m.accent }} />
-        </div>
-        <div>
-          <h4 className="font-serif text-lg font-medium mb-1" style={{ color: "var(--text-ink)" }}>Automated Reminders</h4>
-          <p className="text-[14px] leading-relaxed opacity-80" style={{ color: "var(--text-ink)" }}>
-            Register once. We handle calendar holds and send notifications 24h and 1h prior to broadcast.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Workflow feature section                                            */
-/* ------------------------------------------------------------------ */
-
-const WORKFLOW_FEATURES: { icon: React.ReactNode; label: string }[] = [
-  { icon: <FileText />, label: "Registration interface" },
-  { icon: <CalendarPlus />, label: "Calendar integration" },
-  { icon: <Bell />, label: "Reminder sequence" },
-  { icon: <Video />, label: "Live broadcast" },
-  { icon: <MessageSquare />, label: "Interactive Q&A" },
-  { icon: <PlayCircle />, label: "Archival replay" },
-  { icon: <Layers />, label: "Resource library" },
-  { icon: <Globe />, label: "UTM tracking" },
-];
-
-const EMAIL_ICONS: Record<string, React.ReactNode> = {
-  confirm: <Mail style={{ width: 18, height: 18 }} />,
-  bell: <Bell style={{ width: 18, height: 18 }} />,
-  clock: <Clock style={{ width: 18, height: 18 }} />,
-  replay: <PlayCircle style={{ width: 18, height: 18 }} />,
-};
-
-function WorkflowSection() {
-  return (
-    <section className="px-6 py-32 border-t" style={{ background: "var(--bg-base)", borderColor: "var(--border-soft)" }}>
-      <div className="mx-auto max-w-6xl">
-        <div className="grid lg:grid-cols-12 gap-16 items-start">
-          <div className="lg:col-span-4 lg:sticky lg:top-32">
-            <Eyebrow>Architecture</Eyebrow>
-            <h2
-              className="mt-4 font-serif"
-              style={{ fontSize: "clamp(36px,4vw,48px)", fontWeight: 500, lineHeight: 1.1, color: "var(--text-ink)" }}
-            >
-              Engineered for the full lifecycle.
-            </h2>
-            <p className="mt-6 text-[17px] leading-relaxed" style={{ color: "var(--text-dim)" }}>
-              Beyond a simple registration form—this is a comprehensive campaign architecture. A single destination governs promotion, live interaction, archival access, and automated follow-up.
+    <section className="py-32 px-6 lg:px-12 bg-white relative">
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
+          <div>
+            <MonoLabel>The Lifecycle</MonoLabel>
+            <h2 className="wh-serif text-4xl sm:text-5xl leading-[1.1] mt-4 mb-8">From registration to pipeline generation</h2>
+            <p className="text-black/60 text-lg leading-relaxed max-w-md">
+              We treat the live event as just the beginning. See how our automated sequence ensures no attendee is left behind, transitioning smoothly into evergreen demand.
             </p>
           </div>
           
-          <div className="lg:col-span-8">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {WORKFLOW_FEATURES.map((f, i) => (
-                <div
-                  key={f.label}
-                  className="rounded-2xl p-6 wh-hover-lift flex flex-col items-center text-center wh-animate-fade-up"
-                  style={{ background: "var(--bg-surface)", border: "1px solid var(--border-soft)", animationDelay: `${i * 50}ms` }}
-                >
-                  <span className="flex items-center justify-center rounded-full mb-5" style={{ width: 48, height: 48, background: "var(--bg-surface-alt)", color: "var(--text-ink)" }}>
-                    <span className="[&>svg]:h-[20px] [&>svg]:w-[20px] opacity-80">{f.icon}</span>
-                  </span>
-                  <div className="text-[14px] font-medium leading-snug" style={{ color: "var(--text-ink)" }}>{f.label}</div>
+          <div className="relative pl-8 sm:pl-12">
+            {/* Spine */}
+            <div className="absolute top-0 bottom-0 left-[15px] sm:left-[23px] w-px bg-[#E6E1D6]"></div>
+            
+            <div className="space-y-12 relative z-10">
+              {webinarConfig.emails.sequence.map((step, i) => (
+                <div key={i} className="relative">
+                  <div className="absolute -left-[38px] sm:-left-[46px] top-1 w-8 h-8 rounded-full bg-white border border-[#E6E1D6] flex items-center justify-center text-[10px] wh-mono font-bold">
+                    0{i+1}
+                  </div>
+                  <div>
+                    <span className="wh-mono text-[10px] uppercase tracking-widest text-[#D65A41]">{step.when}</span>
+                    <h4 className="text-lg font-medium mt-1 mb-2">{step.label}</h4>
+                    <p className="text-black/60 text-sm">{step.desc}</p>
+                  </div>
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
-            {/* email sequence */}
-            <div className="mt-12 rounded-3xl p-8 md:p-10 relative overflow-hidden" style={{ background: "var(--text-ink)" }}>
-              <div className="absolute right-0 bottom-0 w-64 h-64 opacity-5 pointer-events-none" style={{ background: "radial-gradient(circle, white, transparent 70%)" }}></div>
+function Agenda() {
+  return (
+    <section className="py-32 px-6 lg:px-12 bg-[#F4F1ED]">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-20">
+          <MonoLabel>Itinerary</MonoLabel>
+          <h2 className="wh-serif text-4xl sm:text-5xl mt-4">Session Agenda</h2>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {webinarConfig.agenda.map((item, i) => (
+            <div key={i} className="wh-hover-card bg-white p-8 border border-[#E6E1D6] flex flex-col h-full relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-black/5"></div>
+              <div className="wh-mono text-3xl font-light text-black/20 mb-6">{item.time}</div>
+              <h4 className="text-xl font-medium mb-3">{item.title}</h4>
+              <p className="text-black/60 text-sm leading-relaxed mb-8 flex-1">{item.desc}</p>
               
-              <div className="flex flex-wrap items-center justify-between gap-6 mb-10 relative z-10">
-                <div>
-                  <Eyebrow dark>Communications</Eyebrow>
-                  <h3 className="mt-3 font-serif text-2xl md:text-3xl text-white">
-                    Automated engagement sequence
-                  </h3>
-                </div>
-                <div className="flex items-center gap-2 rounded-full px-4 py-2 bg-white/10 border border-white/10 backdrop-blur-sm">
-                  <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                  <span className="font-mono text-[12px] tracking-wide text-white/80 uppercase">
-                    {webinarConfig.emails.sender}
-                  </span>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
-                {webinarConfig.emails.sequence.map((e, i) => (
-                  <div key={e.label} className="flex gap-5 p-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
-                    <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-full bg-white/10 text-white border border-white/5">
-                      {EMAIL_ICONS[e.icon]}
-                    </div>
-                    <div>
-                      <div className="font-mono text-[10px] tracking-widest uppercase text-white/50 mb-1">
-                        Phase 0{i + 1} • {e.when}
-                      </div>
-                      <div className="text-[16px] font-medium text-white mb-1.5">{e.label}</div>
-                      <p className="text-[14px] text-white/60 leading-relaxed">{e.desc}</p>
-                    </div>
-                  </div>
-                ))}
+              <div className="pt-6 border-t border-[#E6E1D6] mt-auto flex items-center gap-3">
+                <Avatar initials={item.speaker.split(' ').map(n=>n[0]).join('')} tint="#1A1A1A" size={24} />
+                <span className="text-xs font-medium">{item.speaker}</span>
               </div>
             </div>
-          </div>
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Agenda                                                              */
-/* ------------------------------------------------------------------ */
-
-function AgendaSection() {
+function Speakers({ highlightId }: { highlightId?: string | null }) {
   return (
-    <section id="agenda" className="px-6 py-32 border-t" style={{ background: "var(--bg-surface)", borderColor: "var(--border-soft)" }}>
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-16 text-center">
-          <Eyebrow>Itinerary</Eyebrow>
-          <h2 className="mt-4 font-serif" style={{ fontSize: "clamp(36px,4vw,48px)", fontWeight: 500, color: "var(--text-ink)" }}>
-            A precise, structured hour.
-          </h2>
+    <section className="py-32 px-6 lg:px-12 bg-white border-y border-[#E6E1D6]">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row justify-between items-baseline mb-20 gap-8">
+          <div>
+            <MonoLabel>The Panel</MonoLabel>
+            <h2 className="wh-serif text-4xl sm:text-5xl mt-4">Industry Experts</h2>
+          </div>
+          <p className="text-black/60 max-w-xs md:text-right">Hear directly from leaders who have built revenue-driving content engines.</p>
         </div>
         
-        <div className="relative">
-          {/* Vertical timeline line */}
-          <div className="absolute top-8 bottom-8 left-[39px] w-[1px] hidden md:block" style={{ background: "var(--border-soft)" }}></div>
-          
-          <div className="space-y-6">
-            {webinarConfig.agenda.map((a, i) => (
-              <div
-                key={a.title}
-                className="group relative flex flex-col gap-6 rounded-2xl p-6 md:p-8 md:flex-row md:items-start transition-colors hover:bg-black/[0.02]"
-                style={{ border: "1px solid var(--border-soft)" }}
-              >
-                <div className="flex items-center gap-6 md:w-48 shrink-0 relative z-10">
-                  <div className="flex items-center justify-center w-20 h-20 rounded-full font-mono text-xl shrink-0" style={{ background: "var(--bg-base)", color: "var(--text-ink)", border: "1px solid var(--border-soft)" }}>
-                    {a.time}
-                  </div>
-                </div>
-                <div className="flex-1 pt-2">
-                  <div className="font-mono text-[12px] tracking-widest uppercase mb-3" style={{ color: "var(--text-dim)" }}>
-                    Section 0{i + 1} <span className="mx-2 opacity-30">|</span> {a.speaker}
-                  </div>
-                  <h3 className="text-2xl font-serif font-medium mb-3" style={{ color: "var(--text-ink)" }}>{a.title}</h3>
-                  <p className="text-[16px] leading-relaxed max-w-xl" style={{ color: "var(--text-dim)" }}>{a.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Speakers                                                            */
-/* ------------------------------------------------------------------ */
-
-function SpeakersSection({ highlight }: { highlight?: string }) {
-  return (
-    <section id="speakers" className="px-6 py-32 border-t" style={{ background: "var(--bg-base)", borderColor: "var(--border-soft)" }}>
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-16 md:flex items-end justify-between gap-8">
-          <div className="max-w-2xl">
-            <Eyebrow>Faculty</Eyebrow>
-            <h2 className="mt-4 font-serif" style={{ fontSize: "clamp(36px,4vw,48px)", fontWeight: 500, color: "var(--text-ink)" }}>
-              Guided by practitioners.
-            </h2>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-          {webinarConfig.speakers.map((s, i) => {
-            const on = highlight === s.id;
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-16">
+          {webinarConfig.speakers.map((s) => {
+            const highlighted = highlightId === s.id;
             return (
-              <div
-                key={s.id}
-                className="rounded-2xl p-8 relative overflow-hidden wh-hover-lift wh-animate-fade-up"
-                style={{
-                  background: "var(--bg-surface)",
-                  border: `1px solid ${on ? s.tint : 'var(--border-soft)'}`,
-                  boxShadow: on ? `0 10px 40px -10px ${s.tint}30` : "none",
-                  animationDelay: `${i * 150}ms`
-                }}
-              >
-                {on && (
-                  <div className="absolute top-0 left-0 w-full h-1" style={{ background: s.tint }}></div>
-                )}
-                
-                <div className="flex justify-between items-start mb-6">
-                  <Avatar initials={s.initials} tint={s.tint} size={80} />
-                  <a href="#" className="w-10 h-10 rounded-full flex items-center justify-center border transition-colors hover:bg-black/5" style={{ borderColor: "var(--border-soft)", color: "var(--text-dim)" }}>
-                    <Linkedin style={{ width: 16, height: 16 }} />
-                  </a>
+            <div key={s.id} className={`group relative ${highlighted ? 'lg:-mt-4' : ''}`}>
+              {highlighted && <div className="absolute -inset-4 sm:-inset-6 border border-[#D65A41]/40 rounded-sm -z-10"></div>}
+              <div className="mb-6 relative inline-block">
+                <Avatar initials={s.initials} tint={s.tint} size={120} />
+                <div className="absolute bottom-0 right-0 bg-[#0A66C2] text-white p-2 rounded-full border-2 border-white transition-transform group-hover:scale-110">
+                  <Linkedin className="w-4 h-4" />
                 </div>
-                
-                <h3 className="text-2xl font-serif font-medium mb-1" style={{ color: "var(--text-ink)" }}>{s.name}</h3>
-                <p className="text-[14px] font-mono uppercase tracking-wide mb-6" style={{ color: s.tint }}>
-                  {s.role}
-                </p>
-                <div className="w-8 h-[1px] mb-6" style={{ background: "var(--border-soft)" }}></div>
-                <p className="text-[15px] leading-relaxed" style={{ color: "var(--text-dim)" }}>{s.bio}</p>
               </div>
-            );
-          })}
+              {highlighted && (
+                <span className="inline-block mb-3 px-2 py-1 wh-mono text-[10px] uppercase tracking-widest text-white rounded-sm" style={{ background: "#D65A41" }}>Featured for you</span>
+              )}
+              <h3 className="wh-serif text-2xl mb-1">{s.name}</h3>
+              <p className="wh-mono text-[11px] uppercase tracking-widest text-[#D65A41] mb-4">{s.role}</p>
+              <p className="text-black/70 text-sm leading-relaxed">{s.bio}</p>
+            </div>
+          );})}
         </div>
       </div>
     </section>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Featured video module with tabs                                     */
-/* ------------------------------------------------------------------ */
-
-const VIDEO_TABS = [
-  { id: "replay", label: "Full Recording", icon: <PlayCircle style={{ width: 16, height: 16 }} /> },
-  { id: "highlight", label: "Executive Summary", icon: <Sparkles style={{ width: 16, height: 16 }} /> },
-  { id: "slides", label: "Presentation Deck", icon: <FileText style={{ width: 16, height: 16 }} /> },
-  { id: "transcript", label: "Full Transcript", icon: <Quote style={{ width: 16, height: 16 }} /> },
-  { id: "related", label: "Related Sessions", icon: <Layers style={{ width: 16, height: 16 }} /> },
-];
-
-function VideoModule({ status, slidesFirst }: { status: EventStatus; slidesFirst?: boolean }) {
-  const m = STATUS_META[status];
-  const [tab, setTab] = useState(slidesFirst ? "slides" : "replay");
+function FeaturedVideo({ status, initialTab = 0 }: { status: EventStatus; initialTab?: number }) {
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const tabs = ["Full Recording", "Executive Summary", "Slides", "Transcript", "Related"];
   
-  useEffect(() => {
-    setTab(slidesFirst ? "slides" : "replay");
-  }, [slidesFirst]);
-
+  if (status !== 'on-demand') return null;
+  
   return (
-    <section className="px-6 py-32" style={{ background: "var(--text-ink)" }}>
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-12 flex flex-col lg:flex-row lg:items-end justify-between gap-8">
-          <div className="max-w-2xl">
-            <Eyebrow dark>Multimedia Archive</Eyebrow>
-            <h2 className="mt-4 font-serif text-white" style={{ fontSize: "clamp(36px,4vw,48px)", fontWeight: 400 }}>
-              {status === "live" ? "Live broadcast underway." : status === "on-demand" ? "Explore the full session." : "Preview the curriculum."}
-            </h2>
-          </div>
-          
-          <div className="flex flex-wrap gap-2">
-            {VIDEO_TABS.map((t) => {
-              const active = t.id === tab;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => setTab(t.id)}
-                  className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-mono tracking-wide uppercase transition-all duration-300"
-                  style={{
-                    background: active ? "white" : "transparent",
-                    color: active ? "var(--text-ink)" : "rgba(255,255,255,0.6)",
-                    border: active ? "1px solid white" : "1px solid rgba(255,255,255,0.2)",
-                  }}
-                >
-                  {t.icon}
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
+    <section className="py-32 px-6 lg:px-12 bg-black text-white relative">
+      <div className="wh-noise opacity-10 mix-blend-overlay"></div>
+      <div className="max-w-7xl mx-auto relative z-10">
+        <div className="mb-16">
+          <MonoLabel className="text-white/50">The Archive</MonoLabel>
+          <h2 className="wh-serif text-4xl sm:text-5xl mt-4">Session Materials</h2>
         </div>
-
-        <div
-          className="relative overflow-hidden rounded-2xl group cursor-pointer"
-          style={{ aspectRatio: "16/8", border: "1px solid rgba(255,255,255,0.15)", background: "#11100F" }}
-        >
-          {/* Cinematic lighting effect */}
-          <div
-            className="absolute inset-0 opacity-40 transition-opacity duration-700 group-hover:opacity-60"
-            style={{ 
-              background: `radial-gradient(120% 120% at 50% 100%, ${m.accent}40, transparent 60%), radial-gradient(circle at 50% 50%, rgba(255,255,255,0.05), transparent 70%)` 
-            }}
-          />
-          
-          {/* Grid pattern overlay */}
-          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px)", backgroundSize: "40px 40px" }}></div>
-          
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-6">
-            {status === "live" && (
-              <span className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-[12px] font-mono uppercase tracking-widest font-bold text-white shadow-lg" style={{ background: m.accent }}>
-                <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span> LIVE BROADCAST
-              </span>
-            )}
-            
-            <div className="flex items-center justify-center rounded-full transition-transform duration-500 group-hover:scale-110" 
-                 style={{ width: 100, height: 100, background: "rgba(255,255,255,0.05)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)" }}>
-              <div className="flex items-center justify-center rounded-full" style={{ width: 72, height: 72, background: "white" }}>
-                {tab === "slides" ? (
-                  <FileText style={{ width: 28, height: 28, color: "var(--text-ink)" }} />
-                ) : tab === "transcript" ? (
-                  <Quote style={{ width: 28, height: 28, color: "var(--text-ink)" }} />
-                ) : tab === "related" ? (
-                  <Layers style={{ width: 28, height: 28, color: "var(--text-ink)" }} />
-                ) : (
-                  <Play style={{ width: 32, height: 32, color: "var(--text-ink)", marginLeft: 4 }} fill="var(--text-ink)" />
-                )}
+        
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          {/* Main Stage */}
+          <div className="lg:col-span-8">
+            <div className="wh-cinematic-card aspect-video flex items-center justify-center mb-6">
+              <div className="wh-noise opacity-20"></div>
+              <div className="text-center">
+                <PlayCircle className="w-16 h-16 mx-auto mb-4 opacity-50 hover:opacity-100 transition-opacity cursor-pointer" />
+                <p className="wh-mono text-[11px] tracking-widest uppercase opacity-50">Press to play</p>
               </div>
             </div>
-            
-            <div className="font-mono text-[13px] tracking-widest uppercase text-white/60">
-              {VIDEO_TABS.find((t) => t.id === tab)?.label}
-              {tab === "replay" && " • 58 MIN"}
-              {tab === "highlight" && " • 03 MIN"}
+          </div>
+          
+          {/* Tabs */}
+          <div className="lg:col-span-4">
+            <div className="border-b border-white/10 pb-4 mb-6">
+              <h4 className="text-lg font-medium">{tabs[activeTab]}</h4>
+            </div>
+            <div className="flex flex-col gap-2">
+              {tabs.map((tab, i) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(i)}
+                  className={`text-left px-4 py-3 text-sm wh-mono tracking-wider transition-colors border-l-2 ${
+                    activeTab === i 
+                      ? "border-[#D65A41] bg-white/5 text-white" 
+                      : "border-transparent text-white/40 hover:text-white/80 hover:bg-white/[0.02]"
+                  }`}
+                >
+                  0{i+1} — {tab}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -993,361 +395,213 @@ function VideoModule({ status, slidesFirst }: { status: EventStatus; slidesFirst
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Resources                                                           */
-/* ------------------------------------------------------------------ */
-
-const RES_ICON: Record<string, React.ReactNode> = {
-  deck: <FileText strokeWidth={1.5} />,
-  guide: <BookOpen strokeWidth={1.5} />,
-  checklist: <ClipboardCheck strokeWidth={1.5} />,
-  case: <Layers strokeWidth={1.5} />,
-  article: <Newspaper strokeWidth={1.5} />,
-};
-
-function ResourcesSection({ featured }: { featured?: string }) {
-  const list = useMemo(() => {
-    const items = [...webinarConfig.resources];
-    if (featured) {
-      items.sort((a, b) => (a.title === featured ? -1 : b.title === featured ? 1 : 0));
-    }
-    return items;
-  }, [featured]);
-
+function Resources({ featuredResource }: { featuredResource?: string }) {
   return (
-    <section id="resources" className="px-6 py-32 border-t" style={{ background: "var(--bg-base)", borderColor: "var(--border-soft)" }}>
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-16 md:flex justify-between items-end">
-          <div className="max-w-2xl">
-            <Eyebrow>Library</Eyebrow>
-            <h2 className="mt-4 font-serif" style={{ fontSize: "clamp(36px,4vw,48px)", fontWeight: 500, color: "var(--text-ink)" }}>
-              Supplementary materials.
-            </h2>
+    <section className="py-32 px-6 lg:px-12 bg-[#F4F1ED]">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-20 flex flex-col md:flex-row md:items-end justify-between gap-8">
+          <div>
+            <MonoLabel>Library</MonoLabel>
+            <h2 className="wh-serif text-4xl sm:text-5xl mt-4">Featured Resources</h2>
           </div>
-          <button className="mt-6 md:mt-0 flex items-center gap-2 font-mono uppercase tracking-wide text-[13px] font-bold pb-1 border-b" style={{ color: "var(--text-ink)", borderColor: "var(--text-ink)" }}>
-            Download All <Download className="w-4 h-4" />
+          <button className="text-sm border-b border-black pb-1 hover:text-[#D65A41] hover:border-[#D65A41] transition-colors inline-flex items-center gap-2">
+            View all materials <ArrowRight className="w-3 h-3" />
           </button>
         </div>
         
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {list.map((r, i) => {
-            const isFeatured = featured && r.title === featured && i === 0;
-            return (
-              <div
-                key={r.title}
-                className="group flex flex-col rounded-2xl p-8 transition-all duration-300 hover:-translate-y-1 wh-animate-fade-up"
-                style={{ 
-                  background: isFeatured ? "var(--text-ink)" : "var(--bg-surface)",
-                  border: `1px solid ${isFeatured ? 'transparent' : 'var(--border-soft)'}`,
-                  boxShadow: isFeatured ? "0 20px 40px -10px rgba(0,0,0,0.2)" : "none",
-                  animationDelay: `${i * 100}ms`
-                }}
-              >
-                <div className="flex items-start justify-between mb-8">
-                  <div className="flex items-center justify-center rounded-xl transition-transform duration-500 group-hover:scale-110" 
-                       style={{ width: 56, height: 56, background: isFeatured ? "rgba(255,255,255,0.1)" : "var(--bg-surface-alt)", color: isFeatured ? "white" : "var(--text-ink)" }}>
-                    <span className="[&>svg]:w-[24px] [&>svg]:h-[24px]">{RES_ICON[r.icon]}</span>
-                  </div>
-                  <span className="font-mono text-[11px] uppercase tracking-widest px-3 py-1 rounded-full border" 
-                        style={{ color: isFeatured ? "white" : "var(--text-dim)", borderColor: isFeatured ? "rgba(255,255,255,0.2)" : "var(--border-soft)" }}>
-                    {r.format}
-                  </span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {featuredResource && (
+            <div className="bg-black text-white p-6 wh-hover-card group cursor-pointer flex flex-col relative overflow-hidden">
+              <div className="wh-noise opacity-10"></div>
+              <div className="flex justify-between items-start mb-12 relative z-10">
+                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white">
+                  <Sparkles className="w-4 h-4" />
                 </div>
-                
-                <h3 className="text-xl font-serif font-medium mb-3" style={{ color: isFeatured ? "white" : "var(--text-ink)" }}>{r.title}</h3>
-                <p className="flex-1 text-[15px] leading-relaxed" style={{ color: isFeatured ? "rgba(255,255,255,0.7)" : "var(--text-dim)" }}>{r.desc}</p>
-                
-                <div className="mt-8 pt-6 border-t flex items-center justify-between" style={{ borderColor: isFeatured ? "rgba(255,255,255,0.1)" : "var(--border-soft)" }}>
-                  <span className="font-mono uppercase tracking-widest text-[12px] font-bold transition-transform group-hover:translate-x-1" 
-                        style={{ color: isFeatured ? "white" : "var(--text-ink)" }}>
-                    Access Document
-                  </span>
-                  <MoveRight className={`w-4 h-4 transition-transform group-hover:translate-x-2 ${isFeatured ? 'text-white' : 'text-ink'}`} />
-                </div>
+                <MonoLabel className="text-white/60">Recommended</MonoLabel>
               </div>
-            );
-          })}
+              <h4 className="text-lg font-medium mb-2 relative z-10">{featuredResource}</h4>
+              <p className="text-white/60 text-sm leading-relaxed mb-6 flex-1 relative z-10">Hand-picked for you based on your interest. Start here.</p>
+              <div className="flex justify-end relative z-10">
+                <Download className="w-4 h-4" />
+              </div>
+            </div>
+          )}
+          {webinarConfig.resources.map((res, i) => (
+            <div key={i} className="bg-white p-6 border border-[#E6E1D6] wh-hover-card group cursor-pointer flex flex-col">
+              <div className="flex justify-between items-start mb-12">
+                <div className="w-10 h-10 rounded-full bg-[#F4F1ED] flex items-center justify-center text-black/60 group-hover:bg-black group-hover:text-white transition-colors">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <MonoLabel>{res.format}</MonoLabel>
+              </div>
+              <h4 className="text-lg font-medium mb-2 group-hover:text-[#D65A41] transition-colors">{res.title}</h4>
+              <p className="text-black/60 text-sm leading-relaxed mb-6 flex-1">{res.desc}</p>
+              <div className="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                <Download className="w-4 h-4" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* FAQ                                                                 */
-/* ------------------------------------------------------------------ */
-
-function FaqSection() {
+function FAQ() {
   const [open, setOpen] = useState<number | null>(0);
   return (
-    <section id="faq" className="px-6 py-32 border-t" style={{ background: "var(--bg-surface)", borderColor: "var(--border-soft)" }}>
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-16 text-center">
-          <Eyebrow>Support</Eyebrow>
-          <h2 className="mt-4 font-serif" style={{ fontSize: "clamp(36px,4vw,48px)", fontWeight: 500, color: "var(--text-ink)" }}>
-            Common inquiries.
-          </h2>
+    <section className="py-32 px-6 lg:px-12 bg-white">
+      <div className="max-w-3xl mx-auto">
+        <div className="text-center mb-20">
+          <MonoLabel>Information</MonoLabel>
+          <h2 className="wh-serif text-4xl sm:text-5xl mt-4">Common Questions</h2>
         </div>
         
-        <div className="border-t" style={{ borderColor: "var(--border-soft)" }}>
-          {webinarConfig.faqs.map((f, i) => {
-            const isOpen = open === i;
-            return (
-              <div key={f.q} className="border-b" style={{ borderColor: "var(--border-soft)" }}>
-                <button
-                  onClick={() => setOpen(isOpen ? null : i)}
-                  className="flex w-full items-center justify-between gap-6 py-8 text-left group"
-                >
-                  <span className="text-xl font-serif font-medium transition-colors group-hover:opacity-70" style={{ color: "var(--text-ink)" }}>{f.q}</span>
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full border flex items-center justify-center transition-all duration-300"
-                       style={{ borderColor: "var(--border-soft)", background: isOpen ? "var(--text-ink)" : "transparent", color: isOpen ? "white" : "var(--text-ink)" }}>
-                    <ChevronDown
-                      style={{ width: 20, height: 20, transition: "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)", transform: isOpen ? "rotate(180deg)" : "none" }}
-                    />
-                  </div>
-                </button>
-                <div 
-                  className="overflow-hidden transition-all duration-500 ease-in-out" 
-                  style={{ maxHeight: isOpen ? "200px" : "0", opacity: isOpen ? 1 : 0 }}
-                >
-                  <p className="pb-8 pr-12 text-[16px] leading-relaxed max-w-3xl" style={{ color: "var(--text-dim)" }}>{f.a}</p>
+        <div className="border-t border-[#E6E1D6]">
+          {webinarConfig.faqs.map((faq, i) => (
+            <div key={i} className="border-b border-[#E6E1D6]">
+              <button 
+                onClick={() => setOpen(open === i ? null : i)}
+                className="w-full py-6 flex items-center justify-between text-left group"
+              >
+                <div className="flex items-center gap-6">
+                  <span className="wh-serif text-2xl text-black/20 group-hover:text-black transition-colors">Q{i+1}</span>
+                  <h4 className="text-lg font-medium pr-8">{faq.q}</h4>
+                </div>
+                <ChevronDown className={`w-5 h-5 text-black/40 transition-transform duration-300 ${open === i ? 'rotate-180' : ''}`} />
+              </button>
+              <div className={`overflow-hidden transition-all duration-300 ${open === i ? 'max-h-40 pb-8' : 'max-h-0'}`}>
+                <div className="pl-14 text-black/60 leading-relaxed max-w-2xl">
+                  {faq.a}
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Final CTA + footer                                                  */
-/* ------------------------------------------------------------------ */
-
-function FinalCta({ status, onCta }: { status: EventStatus; onCta: () => void }) {
-  const m = STATUS_META[status];
-  const headline =
-    status === "live" ? "Enter the broadcast." : status === "on-demand" ? "Explore the archive." : "Confirm your attendance.";
-    
-  return (
-    <section className="px-6 pt-32 pb-12" style={{ background: "var(--bg-base)" }}>
-      <div
-        className="mx-auto max-w-5xl rounded-[2rem] p-12 md:p-24 text-center relative overflow-hidden"
-        style={{
-          background: "var(--text-ink)",
-        }}
-      >
-        <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px)", backgroundSize: "40px 40px" }}></div>
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-2xl h-64 opacity-30 pointer-events-none" style={{ background: `radial-gradient(circle, ${m.accent}, transparent 70%)` }}></div>
-
-        <div className="relative z-10">
-          <div className="flex justify-center mb-8">
-            <StatusPill status={status} />
-          </div>
-          <h2 className="mx-auto max-w-3xl font-serif text-white" style={{ fontSize: "clamp(40px,6vw,72px)", fontWeight: 400, lineHeight: 1.05 }}>
-            {headline}
-          </h2>
-          <p className="mx-auto mt-6 max-w-xl text-[18px] leading-relaxed text-white/60">
-            A comprehensive hub spanning the entire campaign lifecycle—promotion, live interaction, and evergreen distribution.
-          </p>
-          
-          <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <button
-              onClick={onCta}
-              className="inline-flex items-center justify-center gap-3 rounded-full px-10 py-4 text-[14px] font-bold tracking-widest uppercase font-mono transition-transform hover:-translate-y-1 hover:shadow-2xl"
-              style={{ background: m.accent, color: "white" }}
-            >
-              {m.cta}
-              <MoveRight style={{ width: 18, height: 18 }} />
-            </button>
-            <button
-              className="inline-flex items-center justify-center gap-3 rounded-full border px-10 py-4 text-[14px] font-bold tracking-widest uppercase font-mono text-white transition-colors hover:bg-white/10"
-              style={{ borderColor: "rgba(255,255,255,0.2)" }}
-            >
-              <Calendar style={{ width: 18, height: 18 }} /> Advisory Session
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <div className="mx-auto mt-24 flex max-w-5xl flex-col items-center justify-between gap-6 border-t pt-8 text-center md:flex-row md:text-left" style={{ borderColor: "var(--border-soft)" }}>
-        <span className="font-serif text-2xl font-medium" style={{ color: "var(--text-ink)" }}>{webinarConfig.brand}</span>
-        <div className="flex items-center gap-8">
-          <span className="text-[13px] font-mono tracking-wide uppercase" style={{ color: "var(--text-dim)" }}>© 2026 {webinarConfig.brand}.</span>
-          <span className="text-[13px] font-mono tracking-wide uppercase opacity-60" style={{ color: "var(--text-dim)" }}>Engineered via LP Studio</span>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Top nav                                                             */
-/* ------------------------------------------------------------------ */
-
-function Nav({ status, onCta }: { status: EventStatus; onCta: () => void }) {
+function TopNav({ status }: { status: EventStatus }) {
   const m = STATUS_META[status];
   return (
-    <nav
-      className="sticky top-0 z-40 transition-all duration-300"
-      style={{ background: "rgba(253, 252, 249, 0.9)", borderBottom: "1px solid var(--border-soft)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
-    >
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 md:py-5">
+    <nav className="fixed top-0 left-0 right-0 z-50 wh-nav-glass">
+      <div className="max-w-[1400px] mx-auto px-6 h-20 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="flex items-center justify-center rounded-full" style={{ width: 36, height: 36, background: "var(--text-ink)" }}>
-            <PlayCircle style={{ width: 20, height: 20, color: "white" }} />
-          </span>
-          <span className="font-serif text-xl font-medium tracking-tight" style={{ color: "var(--text-ink)" }}>{webinarConfig.brand}</span>
+          <div className="w-6 h-6 rounded-sm bg-white"></div>
+          <span className="font-medium text-white tracking-wide">{webinarConfig.brand}</span>
         </div>
-        
-        <div className="hidden items-center gap-10 lg:flex">
-          {webinarConfig.nav.map((n) => (
-            <a key={n} href={`#${n.toLowerCase()}`} className="text-[13px] font-mono tracking-widest uppercase font-semibold transition-colors hover:text-black" style={{ color: "var(--text-dim)" }}>
-              {n}
+        <div className="hidden md:flex items-center gap-8">
+          {webinarConfig.nav.map(item => (
+            <a key={item} href="#" className="wh-mono text-[11px] uppercase tracking-widest text-white/70 hover:text-white transition-colors">
+              {item}
             </a>
           ))}
         </div>
-        
-        <button
-          onClick={onCta}
-          className="hidden md:inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-[12px] font-bold tracking-widest uppercase font-mono transition-colors hover:opacity-90"
-          style={{ background: "var(--text-ink)", color: "white" }}
-        >
-          {m.cta}
-        </button>
+        <div className="flex items-center gap-2">
+          <button className="hidden sm:inline-flex items-center justify-center w-10 h-10 border border-white/15 text-white/70 hover:text-white hover:border-white/30 transition-colors" aria-label="Share event">
+            <Share2 className="w-4 h-4" />
+          </button>
+          <button className="px-5 py-2.5 text-white wh-mono text-[11px] uppercase tracking-widest hover:opacity-90 transition-opacity" style={{ background: m.accent }}>
+            {m.cta}
+          </button>
+        </div>
       </div>
     </nav>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Page                                                                */
-/* ------------------------------------------------------------------ */
-
-export function WebinarHub() {
-  const [status, setStatus] = useState<EventStatus>(webinarConfig.status);
-  const [params, setParams] = useState<{ topic?: string; speaker?: string; resource?: string }>({});
-
-  // UTM / personalization via URLSearchParams
-  useEffect(() => {
-    const sp = new URLSearchParams(window.location.search);
-    const topic = sp.get("topic") || undefined;
-    const speaker = sp.get("speaker") || undefined;
-    const resource = sp.get("resource") || undefined;
-    if (sp.get("replay") === "true") setStatus("on-demand");
-    setParams({ topic, speaker, resource });
-  }, []);
-
+function FinalCTA({ status }: { status: EventStatus }) {
   const m = STATUS_META[status];
-  const topicVariant = params.topic ? (webinarConfig.topics as Record<string, { sub: string; resource: string }>)[params.topic] : undefined;
-  const subheadline = topicVariant?.sub ?? webinarConfig.subtitle;
-  const featuredResource = topicVariant?.resource;
-  const slidesFirst = params.resource === "slides";
-
-  const scrollToRegister = () => {
-    document.getElementById("register")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
+  const headline = status === "live" ? "The session is live right now" : status === "on-demand" ? "Watch the full session on your time" : "Save your seat before it fills";
   return (
-    <div className="webinar-hub-wrapper antialiased selection:bg-black selection:text-white" style={{ background: "var(--bg-base)", color: "var(--text-ink)" }}>
-      <Nav status={status} onCta={scrollToRegister} />
+    <section className="wh-bg-dark relative py-32 px-6 lg:px-12 overflow-hidden text-center">
+      <div className="wh-noise wh-noise-dark"></div>
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full blur-3xl opacity-40 pointer-events-none" style={{ background: "radial-gradient(circle, rgba(214,90,65,0.3), transparent 70%)" }}></div>
+      <div className="max-w-3xl mx-auto relative z-10">
+        <MonoLabel className="text-white/50">{m.kicker}</MonoLabel>
+        <h2 className="wh-serif text-4xl sm:text-6xl mt-6 mb-8 leading-[1.05]">{headline}</h2>
+        <p className="text-white/60 text-lg mb-12 max-w-xl mx-auto">{webinarConfig.subtitle}</p>
+        <button className="px-8 py-4 text-white wh-mono text-[11px] uppercase tracking-widest hover:opacity-90 transition-opacity inline-flex items-center gap-2" style={{ background: m.accent }}>
+          {m.cta} <ArrowRight className="w-4 h-4" />
+        </button>
+        <p className="wh-mono text-[10px] uppercase tracking-widest text-white/40 mt-8">
+          {webinarConfig.registrations.toLocaleString()} {status === "live" ? "watching now" : status === "on-demand" ? "have attended" : "already registered"}
+        </p>
+      </div>
+    </section>
+  );
+}
 
-      {/* HERO */}
-      <header id="overview" className="relative overflow-hidden px-6 pb-24 pt-20 lg:pt-32 lg:pb-32 wh-hero-gradient border-b" style={{ borderColor: "var(--border-soft)" }}>
-        <div className="relative mx-auto grid max-w-7xl items-center gap-16 lg:grid-cols-12">
-          
-          <div className="lg:col-span-6 z-10 relative">
-            <div className="wh-animate-fade-up">
-              <StatusPill status={status} />
-            </div>
-            
-            <p className="mt-8 font-mono uppercase tracking-[0.2em] font-semibold text-[12px] wh-animate-fade-up wh-delay-1" style={{ color: m.accent }}>
-              {m.kicker}
-            </p>
-            
-            <h1
-              className="mt-4 font-serif text-[clamp(44px,6vw,76px)] font-medium leading-[1.05] wh-animate-fade-up wh-delay-2"
-              style={{ color: "var(--text-ink)" }}
-            >
-              {webinarConfig.title}.
-            </h1>
-            
-            <p className="mt-8 max-w-lg text-[18px] leading-relaxed wh-animate-fade-up wh-delay-3" style={{ color: "var(--text-dim)" }}>
-              {subheadline}
-            </p>
-
-            {/* meta row */}
-            <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4 pt-8 border-t wh-animate-fade-up wh-delay-4" style={{ borderColor: "var(--border-soft)", color: "var(--text-ink)" }}>
-              <span className="flex items-center gap-2.5 text-[15px] font-medium">
-                <Calendar className="w-5 h-5 opacity-40" /> {webinarConfig.date}
-              </span>
-              <span className="flex items-center gap-2.5 text-[15px] font-medium">
-                <Clock className="w-5 h-5 opacity-40" /> {webinarConfig.time} {webinarConfig.timezone}
-              </span>
-            </div>
-
-            <div className="mt-12 flex flex-col gap-4 sm:flex-row wh-animate-fade-up wh-delay-4">
-              <button
-                onClick={scrollToRegister}
-                className="inline-flex items-center justify-center gap-3 rounded-full px-8 py-4 text-[13px] font-bold tracking-widest uppercase font-mono transition-transform hover:-translate-y-1 shadow-xl shadow-black/5"
-                style={{ background: "var(--text-ink)", color: "white" }}
-              >
-                {m.cta}
-                <MoveRight style={{ width: 16, height: 16 }} />
-              </button>
-              <a
-                href="#agenda"
-                className="inline-flex items-center justify-center gap-3 rounded-full border px-8 py-4 text-[13px] font-bold tracking-widest uppercase font-mono transition-colors hover:bg-black/5"
-                style={{ borderColor: "var(--border-soft)", color: "var(--text-ink)" }}
-              >
-                View Itinerary
-              </a>
-            </div>
-          </div>
-
-          <div className="lg:col-span-6 z-10 wh-animate-fade-up wh-delay-3">
-            <HeroVideoCard status={status} />
+function Footer({ status }: { status: EventStatus }) {
+  const m = STATUS_META[status];
+  return (
+    <footer className="bg-black text-white py-20 px-6 lg:px-12 border-t border-white/10">
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+        <div>
+          <h2 className="wh-serif text-3xl mb-4">{webinarConfig.brand}</h2>
+          <p className="text-white/50 text-sm">Building better campaign experiences.</p>
+        </div>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+          <button className="px-6 py-3 text-white wh-mono text-[11px] uppercase tracking-widest hover:opacity-90 transition-opacity inline-flex items-center gap-2" style={{ background: m.accent }}>
+            {m.cta} <ArrowRight className="w-4 h-4" />
+          </button>
+          <div className="flex gap-4">
+            <MonoLabel className="text-white/40">© 2026</MonoLabel>
+            <MonoLabel className="text-white/40">Privacy Policy</MonoLabel>
+            <MonoLabel className="text-white/40">Terms</MonoLabel>
           </div>
         </div>
-      </header>
+      </div>
+    </footer>
+  );
+}
 
-      {/* REGISTRATION + STATUS PANEL */}
-      <section id="register" className="px-6 py-32 relative" style={{ background: "var(--bg-base)" }}>
-        <div className="mx-auto grid max-w-6xl items-start gap-16 lg:grid-cols-12">
-          <div className="lg:col-span-5 lg:sticky lg:top-32">
-            <Eyebrow>{m.eyebrow}</Eyebrow>
-            <h2 className="mt-4 font-serif text-[clamp(36px,4vw,48px)] font-medium leading-[1.1]" style={{ color: "var(--text-ink)" }}>
-              {m.kicker}.
-            </h2>
-            <p className="mt-6 text-[17px] leading-relaxed" style={{ color: "var(--text-dim)" }}>
-              {status === "on-demand"
-                ? "Provide your details to securely access the comprehensive archive, presentation deck, and supplemental materials."
-                : status === "live"
-                ? "Broadcast currently underway. Enter the live environment to observe and participate in the Q&A."
-                : "Register to receive the calendar invitation, automated reminders, and eventual access to the session archive."}
-            </p>
-            <div className="mt-12">
-              <StatusPanel status={status} />
-            </div>
-          </div>
-          <div className="lg:col-span-7">
-            <RegistrationForm status={status} />
-          </div>
-        </div>
-      </section>
-
-      <WorkflowSection />
-      <AgendaSection />
-      <SpeakersSection highlight={params.speaker} />
-      <VideoModule status={status} slidesFirst={slidesFirst} />
-      <ResourcesSection featured={featuredResource} />
-      <FaqSection />
-      <FinalCta status={status} onCta={scrollToRegister} />
-
-      <FloatingToggle status={status} setStatus={setStatus} />
+function FloatingToggle({ status, setStatus }: { status: EventStatus; setStatus: (s: EventStatus) => void }) {
+  const opts: EventStatus[] = ["upcoming", "live", "on-demand"];
+  return (
+    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-1.5 bg-black/80 backdrop-blur-xl rounded-full border border-white/10 shadow-2xl">
+      {opts.map(o => (
+        <button
+          key={o}
+          onClick={() => setStatus(o)}
+          className={`px-4 py-2 rounded-full wh-mono text-[10px] uppercase tracking-widest transition-all ${
+            status === o ? 'bg-white text-black' : 'text-white/60 hover:text-white'
+          }`}
+        >
+          {o}
+        </button>
+      ))}
     </div>
   );
 }
 
-export default WebinarHub;
+export default function WebinarHub() {
+  // Fake URL param logic for preview / personalization
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const topicParam = searchParams.get('topic') as keyof typeof webinarConfig.topics | null;
+  const topicData = topicParam ? webinarConfig.topics[topicParam] : null;
+  const replayParam = searchParams.get('replay') === 'true';
+  const speakerParam = searchParams.get('speaker');
+  const resourceParam = searchParams.get('resource');
+
+  const [status, setStatus] = useState<EventStatus>(replayParam ? 'on-demand' : webinarConfig.status);
+  const initialTab = resourceParam === 'slides' ? 2 : 0;
+
+  return (
+    <div className="wh-wrapper relative min-h-screen">
+      <TopNav status={status} />
+      <Hero status={status} topicSub={topicData?.sub} />
+      <Workflow />
+      <Agenda />
+      <FeaturedVideo status={status} initialTab={initialTab} />
+      <Speakers highlightId={speakerParam} />
+      <Resources featuredResource={topicData?.resource} />
+      <FAQ />
+      <FinalCTA status={status} />
+      <Footer status={status} />
+      <FloatingToggle status={status} setStatus={setStatus} />
+    </div>
+  );
+}
