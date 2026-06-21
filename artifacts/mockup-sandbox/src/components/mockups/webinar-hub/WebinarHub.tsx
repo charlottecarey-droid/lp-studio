@@ -900,6 +900,7 @@ const VIDEO_TABS = [
   { id: "highlight", label: "Executive Summary", icon: <Sparkles style={{ width: 16, height: 16 }} /> },
   { id: "slides", label: "Presentation Deck", icon: <FileText style={{ width: 16, height: 16 }} /> },
   { id: "transcript", label: "Full Transcript", icon: <Quote style={{ width: 16, height: 16 }} /> },
+  { id: "related", label: "Related Sessions", icon: <Layers style={{ width: 16, height: 16 }} /> },
 ];
 
 function VideoModule({ status, slidesFirst }: { status: EventStatus; slidesFirst?: boolean }) {
@@ -972,6 +973,8 @@ function VideoModule({ status, slidesFirst }: { status: EventStatus; slidesFirst
                   <FileText style={{ width: 28, height: 28, color: "var(--text-ink)" }} />
                 ) : tab === "transcript" ? (
                   <Quote style={{ width: 28, height: 28, color: "var(--text-ink)" }} />
+                ) : tab === "related" ? (
+                  <Layers style={{ width: 28, height: 28, color: "var(--text-ink)" }} />
                 ) : (
                   <Play style={{ width: 32, height: 32, color: "var(--text-ink)", marginLeft: 4 }} fill="var(--text-ink)" />
                 )}
