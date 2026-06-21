@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   Play, Calendar, ArrowRight, Check, Linkedin, ChevronDown,
-  Video, FileText, Download, Sparkles, PlayCircle, Share2
+  Video, FileText, Download, Sparkles, Share2,
+  Users, Volume2, Settings, Maximize
 } from "lucide-react";
 import "./_group.css";
 
@@ -166,7 +167,8 @@ function Hero({ status, topicSub }: { status: EventStatus; topicSub?: string }) 
                 <Play className="w-8 h-8 text-white ml-1" fill="currentColor" />
               </div>
               <div className="absolute top-6 left-6 right-6 flex justify-between items-start">
-                <span className="wh-mono text-[10px] tracking-widest uppercase bg-black/50 px-2 py-1 backdrop-blur-md rounded-sm">
+                <span className="inline-flex items-center gap-2 wh-mono text-[10px] tracking-widest uppercase px-2 py-1 backdrop-blur-md rounded-sm text-white" style={{ background: status === 'live' ? 'rgba(220,38,38,0.9)' : 'rgba(0,0,0,0.5)' }}>
+                  {status === 'live' && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>}
                   {m.videoLabel}
                 </span>
                 <span className="wh-mono text-[10px] tracking-widest opacity-50">
@@ -341,53 +343,131 @@ function Speakers({ highlightId }: { highlightId?: string | null }) {
   );
 }
 
+function StreamPlayer({ status }: { status: EventStatus }) {
+  const live = status === "live";
+  return (
+    <div className="relative aspect-video bg-black overflow-hidden border border-white/10 group cursor-pointer">
+      <div className="wh-gradient-mesh opacity-60"></div>
+      <div className="wh-noise opacity-20"></div>
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/30"></div>
+
+      {/* Top row: status + viewers */}
+      <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-20">
+        <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-sm wh-mono text-[10px] uppercase tracking-widest text-white backdrop-blur-md" style={{ background: live ? "rgba(220,38,38,0.9)" : "rgba(0,0,0,0.5)" }}>
+          {live && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>}
+          {live ? "Live" : "Recording"}
+        </span>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-black/50 backdrop-blur-md wh-mono text-[10px] tracking-widest text-white/80">
+          <Users className="w-3 h-3" /> {webinarConfig.registrations.toLocaleString()} {live ? "watching" : "views"}
+        </span>
+      </div>
+
+      {/* Center play */}
+      <div className="absolute inset-0 flex items-center justify-center z-10">
+        <div className="w-20 h-20 rounded-full border border-white/20 bg-white/5 backdrop-blur-sm flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:bg-white/10">
+          <Play className="w-8 h-8 text-white ml-1" fill="currentColor" />
+        </div>
+      </div>
+
+      {/* Control bar */}
+      <div className="absolute bottom-0 left-0 right-0 z-20 px-4 pb-4 pt-10 bg-gradient-to-t from-black/80 to-transparent">
+        <div className="relative h-1 rounded-full bg-white/20 mb-3">
+          <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: live ? "100%" : "38%", background: live ? "#dc2626" : "#D65A41" }}></div>
+          {!live && <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow" style={{ left: "calc(38% - 6px)" }}></div>}
+        </div>
+        <div className="flex items-center justify-between text-white/90">
+          <div className="flex items-center gap-4">
+            <Play className="w-4 h-4" fill="currentColor" />
+            <Volume2 className="w-4 h-4" />
+            <span className="wh-mono text-[10px] tracking-widest">{live ? "LIVE" : "18:24 / 48:30"}</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <Settings className="w-4 h-4" />
+            <Maximize className="w-4 h-4" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FeaturedVideo({ status, initialTab = 0 }: { status: EventStatus; initialTab?: number }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const tabs = ["Full Recording", "Executive Summary", "Slides", "Transcript", "Related"];
-  
-  if (status !== 'on-demand') return null;
-  
+
+  if (status === 'upcoming') return null;
+
+  const live = status === 'live';
+  const liveQuestions = [
+    { who: "Maya C.", q: "How are you measuring replay attribution back to pipeline?" },
+    { who: "Dev O.", q: "What's the best setup for an always-on webinar hub?" },
+    { who: "Sara L.", q: "Does this model work for account-based programs?" },
+  ];
+
   return (
     <section className="py-32 px-6 lg:px-12 bg-black text-white relative">
       <div className="wh-noise opacity-10 mix-blend-overlay"></div>
       <div className="max-w-7xl mx-auto relative z-10">
         <div className="mb-16">
-          <MonoLabel className="text-white/50">The Archive</MonoLabel>
-          <h2 className="wh-serif text-4xl sm:text-5xl mt-4">Session Materials</h2>
+          <MonoLabel className="text-white/50">{live ? "On Air" : "The Archive"}</MonoLabel>
+          <h2 className="wh-serif text-4xl sm:text-5xl mt-4">{live ? "Live Broadcast" : "Session Materials"}</h2>
         </div>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           {/* Main Stage */}
           <div className="lg:col-span-8">
-            <div className="wh-cinematic-card aspect-video flex items-center justify-center mb-6">
-              <div className="wh-noise opacity-20"></div>
-              <div className="text-center">
-                <PlayCircle className="w-16 h-16 mx-auto mb-4 opacity-50 hover:opacity-100 transition-opacity cursor-pointer" />
-                <p className="wh-mono text-[11px] tracking-widest uppercase opacity-50">Press to play</p>
-              </div>
-            </div>
+            <StreamPlayer status={status} />
+            <p className="wh-mono text-[10px] tracking-widest uppercase text-white/40 mt-4">
+              {live ? "Streaming now — your seat is reserved" : "Full recording • slides and transcript included"}
+            </p>
           </div>
-          
-          {/* Tabs */}
+
+          {/* Side panel */}
           <div className="lg:col-span-4">
-            <div className="border-b border-white/10 pb-4 mb-6">
-              <h4 className="text-lg font-medium">{tabs[activeTab]}</h4>
-            </div>
-            <div className="flex flex-col gap-2">
-              {tabs.map((tab, i) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(i)}
-                  className={`text-left px-4 py-3 text-sm wh-mono tracking-wider transition-colors border-l-2 ${
-                    activeTab === i 
-                      ? "border-[#D65A41] bg-white/5 text-white" 
-                      : "border-transparent text-white/40 hover:text-white/80 hover:bg-white/[0.02]"
-                  }`}
-                >
-                  0{i+1} — {tab}
-                </button>
-              ))}
-            </div>
+            {live ? (
+              <div>
+                <div className="border-b border-white/10 pb-4 mb-6 flex items-center justify-between">
+                  <h4 className="text-lg font-medium">Live Q&A</h4>
+                  <span className="wh-mono text-[10px] tracking-widest text-white/40">{webinarConfig.registrations.toLocaleString()} watching</span>
+                </div>
+                <div className="space-y-5 mb-6">
+                  {liveQuestions.map((item, i) => (
+                    <div key={i} className="flex gap-3">
+                      <Avatar initials={item.who.split(' ').map(n => n[0]).join('')} tint="#2A3C34" size={32} />
+                      <div>
+                        <span className="wh-mono text-[10px] uppercase tracking-widest text-white/40">{item.who}</span>
+                        <p className="text-sm text-white/80 mt-1 leading-snug">{item.q}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 border border-white/10 rounded-sm px-3 py-2">
+                  <input className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/30" placeholder="Ask a question…" />
+                  <button className="text-white/60 hover:text-white transition-colors" aria-label="Send question"><ArrowRight className="w-4 h-4" /></button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="border-b border-white/10 pb-4 mb-6">
+                  <h4 className="text-lg font-medium">{tabs[activeTab]}</h4>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {tabs.map((tab, i) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(i)}
+                      className={`text-left px-4 py-3 text-sm wh-mono tracking-wider transition-colors border-l-2 ${
+                        activeTab === i
+                          ? "border-[#D65A41] bg-white/5 text-white"
+                          : "border-transparent text-white/40 hover:text-white/80 hover:bg-white/[0.02]"
+                      }`}
+                    >
+                      0{i+1} — {tab}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
