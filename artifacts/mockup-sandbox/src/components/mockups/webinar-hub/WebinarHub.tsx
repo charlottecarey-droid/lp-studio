@@ -1171,7 +1171,7 @@ export function WebinarHub() {
       <Nav status={status} onCta={scrollToRegister} />
 
       {/* HERO */}
-      <header className="relative overflow-hidden px-6 pb-24 pt-20" style={{ background: INK }}>
+      <header id="overview" className="relative overflow-hidden px-6 pb-24 pt-20" style={{ background: INK }}>
         {/* glows */}
         <div
           className="pointer-events-none absolute -left-32 -top-32 rounded-full"
