@@ -336,45 +336,11 @@ export default function BuilderEmbed() {
             <Icon name="users" size={11} /> Enterprise RevOps
             <Icon name="chevron-down" size={11} />
           </span>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "#1f9d57",
-              background: "#e7f6ed",
-              borderRadius: 999,
-              padding: "3px 9px",
-            }}
-          >
-            Live
-          </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
           <span style={{ fontSize: 12, color: "#b5832a" }}>Unsaved changes</span>
-          <PanelButton icon="message-square" label="Comments" small />
-          <PanelButton icon="more-horizontal" small />
           <PanelButton icon="external-link" label="View" small />
           <PanelButton icon="save" label="Save" primary small />
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 5,
-              fontSize: 11.5,
-              fontWeight: 600,
-              padding: "5px 10px",
-              borderRadius: 6,
-              background:
-                "linear-gradient(180deg, #5C58EB 0%, #3C38B8 100%)",
-              color: "#fff",
-              border: "1px solid rgba(46, 42, 140, 0.55)",
-              boxShadow:
-                "inset 0 1px 0 rgba(255,255,255,0.22), 0 6px 14px -6px rgba(75,71,229,0.45)",
-              textShadow: "0 1px 0 rgba(46,42,140,0.4)",
-            }}
-          >
-            <Icon name="globe" size={12} /> Unpublish
-          </span>
         </div>
       </div>
 
