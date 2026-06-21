@@ -1,0 +1,255 @@
+Build a polished, production-quality React + Tailwind landing page template called “Webinar Hub.”
+
+The goal is to create a reusable LP Studio template for webinars, virtual events, expert sessions, and video-based campaigns. It should feel like a full campaign hub, not a generic webinar registration page.
+
+Use the existing podcast hub at lp.meetdandy.com/margin-line as conceptual inspiration, but redesign it for webinars. Keep the idea of a premium content hub with featured content, a library, speaker/host sections, subscribe/register CTAs, and a clean editorial layout.
+
+Core positioning:
+A webinar hub that automatically changes based on event status: upcoming, live, and on-demand.
+
+Primary user:
+A B2B marketer who wants one page that can promote an upcoming webinar, host the live session, convert to an on-demand replay page afterward, collect registrations, send reminders, and route people to related resources.
+
+Design direction:
+
+* Premium B2B SaaS / editorial content hub
+* Clean, modern, warm, and polished
+* Spacious layout with strong section contrast
+* Use a dark hero section, light content sections, and subtle accent colors
+* Rounded cards, soft shadows, elegant dividers
+* Mobile responsive
+* Avoid looking like a generic webinar page or cheap template
+* It should feel like a real campaign asset a marketing team would proudly launch
+
+Page structure:
+
+1. Top navigation
+
+* Logo placeholder
+* Nav links: Overview, Speakers, Agenda, Resources, FAQ
+* Primary CTA button that changes based on event status:
+
+  * Upcoming: “Register Now”
+  * Live: “Join Live”
+  * On-demand: “Watch Replay”
+
+2. Hero section
+   Include editable content:
+
+* Eyebrow: “Upcoming Webinar” / “Live Now” / “On Demand”
+* H1: “How Modern Teams Turn Content Into Pipeline”
+* Subheadline: “Join a tactical session on building webinar, podcast, and campaign hubs that keep working long after the live event ends.”
+* Date/time block
+* Speaker count
+* Registration count/social proof
+* Primary CTA
+* Secondary CTA: “View Agenda”
+* Hero visual: create a stylized webinar/video card UI mockup with speaker avatars, play button, and event metadata. Do not use external images.
+
+3. Smart event-status behavior
+   Create a mock variable called eventStatus with three possible values:
+
+* “upcoming”
+* “live”
+* “on-demand”
+
+The page content should change based on this variable.
+
+Upcoming mode:
+
+* CTA says “Register Now”
+* Hero says “Save your seat”
+* Shows registration form
+* Shows “What you’ll learn”
+* Shows reminder messaging
+
+Live mode:
+
+* CTA says “Join Live”
+* Hero says “We’re live now”
+* Show embedded live video placeholder
+* Show chat/Q&A placeholder
+* Show “Add to calendar” and “Submit a question”
+
+On-demand mode:
+
+* CTA says “Watch Replay”
+* Hero says “Watch the replay”
+* Replace registration form with replay access form
+* Show embedded replay video placeholder
+* Show clips/resources section
+* Show “Get the slides” and “Book a follow-up” CTAs
+
+Include a small floating toggle for demo purposes that lets me switch between Upcoming, Live, and On-demand states.
+
+4. Registration / access form
+   Build a clean form component with:
+
+* First name
+* Last name
+* Work email
+* Company
+* Job title
+* Company website
+* Optional: “What are you hoping to learn?”
+* Submit button changes by mode:
+
+  * Upcoming: “Register for Webinar”
+  * Live: “Join Session”
+  * On-demand: “Watch Replay”
+
+After submit, show a success state:
+
+* Upcoming: “You’re registered. Check your email for the calendar invite and reminders.”
+* Live: “You’re in. Launching the live session.”
+* On-demand: “Here’s your replay.”
+
+No backend needed. Use local component state.
+
+5. Calendar and email reminder features
+   Add a section or card called “Built for the full webinar workflow.”
+
+Show feature cards:
+
+* Registration page
+* Calendar hold
+* Reminder emails
+* Live video embed
+* Q&A collection
+* On-demand replay
+* Resource follow-up
+* UTM-based personalization
+
+Include placeholder logic/data for:
+
+* Confirmation email
+* 24-hour reminder
+* 1-hour reminder
+* Replay follow-up email
+* Branded sender/domain setting
+
+Do not actually send emails. Just create UI and mock data showing how it would work.
+
+6. Agenda section
+   Create an agenda with 3–4 sessions:
+
+* Welcome & framing
+* Main presentation
+* Customer/example breakdown
+* Live Q&A
+
+Each agenda card should include:
+
+* Time
+* Title
+* Description
+* Speaker
+
+7. Speakers section
+   Create speaker cards with:
+
+* Headshot placeholder using initials/avatar circles
+* Name
+* Title/company
+* Short bio
+* LinkedIn icon placeholder
+
+Use 2–3 speakers.
+
+8. Featured replay / video section
+   Create a large video module that changes by event status:
+
+* Upcoming: teaser video placeholder
+* Live: live stream placeholder
+* On-demand: replay video placeholder
+
+Add tabs or cards for:
+
+* Full replay
+* 3-minute highlight
+* Slides
+* Transcript
+* Related resources
+
+9. Resources section
+   Create a resource library below the webinar:
+
+* Slide deck
+* Related guide
+* Checklist
+* Case study
+* Blog/article
+  Each card should include title, format, short description, and CTA.
+
+10. UTM personalization behavior
+    Add mock support for URL parameters.
+
+If the URL contains:
+
+* ?topic=ai → change hero subheadline and featured resource to AI-focused messaging
+* ?topic=abm → change hero subheadline and featured resource to ABM-focused messaging
+* ?topic=content → change hero subheadline and featured resource to content marketing messaging
+
+Also support:
+
+* ?speaker=name → highlight a specific speaker card
+* ?resource=slides → feature slides first
+* ?replay=true → automatically switch to on-demand mode
+
+Use URLSearchParams in the frontend.
+
+11. FAQ section
+    Add 5 FAQs:
+
+* Is the webinar live or on-demand?
+* Will I get the recording?
+* Can I share this with my team?
+* How do I submit a question?
+* Can I book a follow-up session?
+
+12. Footer CTA
+    Create a strong final CTA that changes by mode:
+
+* Upcoming: “Save your seat”
+* Live: “Join the session”
+* On-demand: “Watch the replay”
+
+Also include a secondary CTA:
+
+* “Book a follow-up”
+
+13. Admin/editable content structure
+    Create a data object at the top of the file called webinarConfig that controls:
+
+* Event title
+* Subtitle
+* Date
+* Time
+* Timezone
+* Status
+* Speakers
+* Agenda
+* Resources
+* FAQs
+* CTA labels
+* Email sender/domain settings
+* Platform links
+* UTM personalization variants
+
+Structure the code so this could later become an LP Studio template with editable fields.
+
+14. Technical requirements
+
+* Use React and Tailwind CSS
+* Use clean reusable components
+* Keep everything frontend-only
+* No external APIs
+* No image dependencies
+* Use lucide-react icons if available; otherwise use simple inline SVG/icons
+* Make the layout responsive
+* Prioritize polished visual quality
+* Include realistic sample copy
+* Ensure it runs successfully in Replit
+
+15. Important product idea
+    This should demonstrate that LP Studio templates are not just page designs. They are prebuilt campaign systems. The webinar hub should feel like a mini product that manages the full lifecycle of a webinar: promotion, registration, live event, replay, resources, follow-up, and personalization.

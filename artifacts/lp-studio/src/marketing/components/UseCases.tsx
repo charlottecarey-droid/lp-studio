@@ -18,7 +18,7 @@ const cases: UseCase[] = [
   {
     num: "01",
     name: "Sales",
-    headline: "A personalized page for every account.",
+    headline: "From prompt to pipeline",
     items: [
       "Live pages embedded right in your 1:1 outreach",
       "The exact case study each buyer relates to",
@@ -32,7 +32,7 @@ const cases: UseCase[] = [
   {
     num: "02",
     name: "Marketing",
-    headline: "Every page on-brand, on-message, on time.",
+    headline: "On-brand, on-message, on time.",
     items: [
       "Five variants live by Friday, with A/B and multivariate testing",
       "Pull your brand from any URL — colors, fonts, logo",
