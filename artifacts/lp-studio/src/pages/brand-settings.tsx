@@ -2630,6 +2630,7 @@ export default function BrandSettings() {
     title: "", description: "", imageUrl: "",
   });
   const [savingOgDefaults, setSavingOgDefaults] = useState(false);
+  const [autofillingOgDefaults, setAutofillingOgDefaults] = useState(false);
   const [uploadingOgImage, setUploadingOgImage] = useState(false);
   const ogImageFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -2702,6 +2703,42 @@ export default function BrandSettings() {
       toast({ title: "Save failed", description: err instanceof Error ? err.message : "Please try again.", variant: "destructive" });
     } finally {
       setSavingOgDefaults(false);
+    }
+  };
+
+  // AI autofill for the default share card — drafts a brand-level title and
+  // description from this tenant's brand profile. Only the text fields are
+  // generated; the image is left as-is. The draft is staged in the form so the
+  // user can review and tweak before clicking Save.
+  const handleAutofillOgDefaults = async () => {
+    setAutofillingOgDefaults(true);
+    try {
+      const res = await fetch(`${BASE}/api/lp/og-defaults-generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Could not generate a share card");
+      }
+      const data = await res.json();
+      const nextTitle = typeof data.ogTitle === "string" ? data.ogTitle.trim() : "";
+      const nextDescription = typeof data.ogDescription === "string" ? data.ogDescription.trim() : "";
+      if (!nextTitle && !nextDescription) {
+        throw new Error("The AI didn't return anything — please try again.");
+      }
+      setOgDefaults((p) => ({
+        ...p,
+        title: nextTitle || p.title,
+        description: nextDescription || p.description,
+      }));
+      toast({ title: "Share card drafted", description: "Review the title and description, then click Save to apply." });
+    } catch (err) {
+      toast({ title: "Couldn't generate", description: err instanceof Error ? err.message : "Please try again.", variant: "destructive" });
+    } finally {
+      setAutofillingOgDefaults(false);
     }
   };
 
@@ -3815,6 +3852,18 @@ export default function BrandSettings() {
                 <div className="flex items-center gap-2 mb-1">
                   <Share2 className="w-4 h-4 text-primary" />
                   <h2 className="font-display font-semibold text-lg">Default share card</h2>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAutofillOgDefaults}
+                    disabled={autofillingOgDefaults}
+                    className="gap-1.5 ml-auto shrink-0"
+                  >
+                    {autofillingOgDefaults
+                      ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Writing…</>
+                      : <><Sparkles className="w-3.5 h-3.5" /> AI autofill</>}
+                  </Button>
                 </div>
                 <p className="text-xs text-muted-foreground -mt-2">
                   Shown when a landing page link is shared on social media or messaging apps. Used as the
