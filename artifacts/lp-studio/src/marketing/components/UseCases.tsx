@@ -1,10 +1,9 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useInView } from "../hooks/useInView";
 
-// Use-case section: each case now has a tiny live-looking page preview that
-// matches the motion it powers — ABM hero with company name swap, A/B/C
-// variant strip, locked-brand block library, QBR success page. Lifts the
-// section out of "marketing copy in a 2x2" into a visible product story.
+// Use-case section: two cards (Sales, Marketing), each with a tiny live-looking
+// page preview that matches the motion it powers — ABM hero with company name
+// swap, and an A/B/C variant strip — plus a link out to the matching core page.
 
 interface UseCase {
   num: string;
@@ -15,6 +14,7 @@ interface UseCase {
   accent: string;
   tint: string;
   visual: () => ReactNode;
+  cta: { label: string; href: string };
 }
 
 // ── Mini-visuals ─────────────────────────────────────────────────────────
@@ -117,111 +117,6 @@ function VariantsPreview({ accent }: { accent: string }) {
         ))}
       </div>
       <Annotation accent={accent} label="Smart Traffic routing 64% to variant B" />
-    </Frame>
-  );
-}
-
-function BrandLockedPreview({ accent }: { accent: string }) {
-  return (
-    <Frame accent={accent}>
-      <BrowserBar accent={accent} label="brand-system" />
-      <div style={{ padding: "14px 14px 16px" }}>
-        <div style={{ ...meta, marginBottom: 8 }}>Color tokens</div>
-        <div className="flex items-center gap-1.5 mb-4">
-          {["var(--ink)", accent, `color-mix(in srgb, ${accent} 60%, #000)`, "var(--coral)", "#F4E8D8"].map((c, i) => (
-            <div
-              key={i}
-              style={{
-                position: "relative",
-                width: 24,
-                height: 24,
-                borderRadius: 5,
-                background: c,
-                border: "1px solid rgba(26,24,21,0.10)",
-                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25)",
-              }}
-            >
-              <span
-                aria-hidden
-                style={{
-                  position: "absolute",
-                  right: -3,
-                  bottom: -3,
-                  width: 9,
-                  height: 9,
-                  borderRadius: 999,
-                  background: "#FFFFFF",
-                  border: `1.5px solid ${accent}`,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <svg width="5" height="5" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="5" y="11" width="14" height="9" rx="1.5" />
-                  <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-                </svg>
-              </span>
-            </div>
-          ))}
-        </div>
-        <div style={{ ...meta, marginBottom: 8 }}>Approved blocks</div>
-        <div className="grid grid-cols-3 gap-1.5">
-          {["Hero", "Logos", "Features", "Stats", "Quote", "CTA"].map((b) => (
-            <div
-              key={b}
-              style={{
-                background: "#FFFFFF",
-                border: "1px solid rgba(26,24,21,0.08)",
-                borderRadius: 5,
-                padding: "6px 7px",
-                fontSize: 9,
-                fontWeight: 600,
-                color: "rgba(26,24,21,0.7)",
-                fontFamily: "'DM Sans', 'Inter', ui-sans-serif, sans-serif",
-                letterSpacing: "-0.005em",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              {b}
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M5 12.5L10 17.5L20 7.5"/>
-              </svg>
-            </div>
-          ))}
-        </div>
-      </div>
-      <Annotation accent={accent} label="Locked tokens · 6 approved blocks · 0 rogue hex" />
-    </Frame>
-  );
-}
-
-function QbrPreview({ accent }: { accent: string }) {
-  return (
-    <Frame accent={accent}>
-      <BrowserBar accent={accent} label="northwind / Q3-2026" />
-      <div style={{ padding: "14px 14px 16px" }}>
-        <div className="flex items-center justify-between mb-3">
-          <Bone w={120} h={10} />
-          <Pill bg={`color-mix(in srgb, ${accent} 12%, #FFFFFF)`} fg={accent} label="QBR" border accentBorder={accent} />
-        </div>
-        <div className="flex items-end justify-between gap-2 mb-3" style={{ height: 56 }}>
-          {[34, 46, 38, 58, 50, 70, 64, 82].map((h, i) => (
-            <div key={i} style={{ flex: 1, height: `${h}%`, background: i >= 6 ? accent : "rgba(26,24,21,0.18)", borderRadius: 2 }} />
-          ))}
-        </div>
-        <div className="flex items-center gap-2 mt-1">
-          <span style={{ ...meta, color: accent, textTransform: "none", fontWeight: 700, letterSpacing: "-0.005em" }}>
-            +28%
-          </span>
-          <span style={{ ...meta, textTransform: "none", letterSpacing: "-0.005em" }}>
-            vs Q2 — renewals trending up
-          </span>
-        </div>
-      </div>
-      <Annotation accent={accent} label="Auto-pulled from CRM · refreshes nightly" />
     </Frame>
   );
 }
@@ -402,7 +297,7 @@ function Annotation({ accent, label }: { accent: string; label: string }) {
 const cases: UseCase[] = [
   {
     num: "01",
-    name: "ABM Sales",
+    name: "Sales",
     headline: "One page for every account on the list.",
     body:
       "Pull the logo, swap the hero, drop in the case study they actually relate to. Personalized at the account level — no design ticket, no waiting on marketing.",
@@ -414,10 +309,11 @@ const cases: UseCase[] = [
     accent: "var(--indigo)",
     tint: "var(--indigo-soft)",
     visual: () => <AbmPreview accent="var(--indigo)" />,
+    cta: { label: "See it for sales", href: "/for-sales" },
   },
   {
     num: "02",
-    name: "Demand Gen",
+    name: "Marketing",
     headline: "Five variants live by Friday.",
     body:
       "Run paid traffic across A/B/C variants of headline, hero, and CTA. Smart Traffic routes to the winner the moment significance lands.",
@@ -429,36 +325,7 @@ const cases: UseCase[] = [
     accent: "var(--coral)",
     tint: "var(--coral-soft)",
     visual: () => <VariantsPreview accent="var(--coral)" />,
-  },
-  {
-    num: "03",
-    name: "Product Launches",
-    headline: "Brand-locked. Marketer-fast.",
-    body:
-      "Brand tokens, blocks, and approvals baked in. Anyone ships on-brand the first time. Designers stay in the loop only when they want to.",
-    bullets: [
-      "Tokens enforced at the block level",
-      "Approval workflows when you need them",
-      "Locked vs editable regions",
-    ],
-    accent: "var(--sage)",
-    tint: "var(--sage-soft)",
-    visual: () => <BrandLockedPreview accent="var(--sage)" />,
-  },
-  {
-    num: "04",
-    name: "Customer Success",
-    headline: "QBRs and renewals, repeatable.",
-    body:
-      "Executive-ready pages for QBRs, expansions, and renewals. Build the page once, personalize per account. Send a link, not a deck — and see exactly who opened it.",
-    bullets: [
-      "Reusable templates per account motion",
-      "Per-account personalization, on-brand",
-      "Branded, shareable, trackable",
-    ],
-    accent: "var(--gold)",
-    tint: "var(--gold-soft)",
-    visual: () => <QbrPreview accent="var(--gold)" />,
+    cta: { label: "See it for marketing", href: "/for-marketing" },
   },
 ];
 
@@ -484,7 +351,7 @@ export default function UseCases() {
             className="mt-6 text-[17px] leading-[1.55]"
             style={{ color: "var(--ink-soft)", maxWidth: 580 }}
           >
-            Sales personalizes per account. Demand gen tests every variant. Product launches new pages. Success runs QBRs. Same brand. Same blocks. Same canvas.
+            Sales personalizes pages per account. Marketing tests every variant and routes the winner. Same brand. Same blocks. Same canvas.
           </p>
         </div>
 
@@ -626,6 +493,35 @@ function CaseCard({ c }: { c: UseCase }) {
           </li>
         ))}
       </ul>
+
+      <a
+        href={c.cta.href}
+        className="inline-flex items-center gap-1.5 mt-7 text-[14px] font-medium transition-colors"
+        style={{
+          color: c.accent,
+          background: `color-mix(in srgb, ${c.accent} 8%, transparent)`,
+          border: `1px solid color-mix(in srgb, ${c.accent} 22%, transparent)`,
+          borderRadius: 8,
+          padding: "9px 14px",
+          textDecoration: "none",
+          letterSpacing: "-0.005em",
+        }}
+      >
+        {c.cta.label}
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M5 12h14M13 5l7 7-7 7" />
+        </svg>
+      </a>
     </div>
   );
 }

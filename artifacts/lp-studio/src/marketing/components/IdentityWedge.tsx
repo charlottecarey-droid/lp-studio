@@ -1000,7 +1000,7 @@ export default function IdentityWedge() {
         <div style={{ maxWidth: 760, marginBottom: 36 }}>
           <div className="marker marker-rule mb-5">09 / Signal</div>
           <h2
-            className="font-display text-display-lg"
+            className="font-display text-display-md"
             style={{ color: "var(--ink)", margin: 0 }}
           >
             Know exactly{" "}

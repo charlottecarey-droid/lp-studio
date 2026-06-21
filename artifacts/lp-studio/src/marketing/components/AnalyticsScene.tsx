@@ -52,7 +52,7 @@ export default function AnalyticsScene() {
         <div style={{ maxWidth: 760, marginBottom: 36 }}>
           <div className="marker marker-rule mb-5">10 / Analytics</div>
           <h2
-            className="font-display text-display-lg"
+            className="font-display text-display-md"
             style={{ color: "var(--ink)", margin: 0 }}
           >
             Analytics that tell you{" "}
