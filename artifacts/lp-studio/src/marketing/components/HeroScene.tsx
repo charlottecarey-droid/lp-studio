@@ -113,6 +113,7 @@ export default function HeroScene() {
             fontSize: 18,
             lineHeight: 1.55,
             color: "var(--ink-soft)",
+            textWrap: "balance",
           }}
         >
           Type a prompt, paste a URL, or drop a screenshot — and get a
