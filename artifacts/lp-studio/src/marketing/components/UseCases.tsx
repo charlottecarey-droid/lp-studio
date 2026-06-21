@@ -32,7 +32,7 @@ const cases: UseCase[] = [
   {
     num: "02",
     name: "Marketing",
-    headline: "Brand-locked. Marketer-fast.",
+    headline: "Campaign ready in minutes.",
     items: [
       "Five variants live by Friday, with A/B and multivariate testing",
       "Pull your brand from any URL — colors, fonts, logo",
