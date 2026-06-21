@@ -115,10 +115,10 @@ export default function HeroScene() {
             color: "var(--ink-soft)",
           }}
         >
-          Type a prompt, paste a URL, or drop a screenshot. Get a real,
-          on-brand page in under a minute — and{" "}
+          Prompt, URL, or screenshot in. A real, on-brand page out in
+          under a minute —{" "}
           <strong style={{ color: "var(--ink)", fontWeight: 600 }}>
-            know exactly which person is reading it.
+            built to know who's reading it.
           </strong>
         </p>
 
