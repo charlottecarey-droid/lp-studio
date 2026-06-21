@@ -1,0 +1,21 @@
+/* Brand tokens mirrored from artifacts/lp-studio/src/marketing/marketing.css
+   so these mockups read exactly like the live homepage. */
+:root {
+  --cream: #F6F2E9;
+  --cream-2: #EFE9DC;
+  --paper: #FFFFFF;
+  --ink: #25214D;
+  --ink-2: #2A2722;
+  --ink-soft: #5C5853;
+  --ink-mute: #8B857C;
+  --ink-faint: #B5AEA2;
+  --hairline: rgba(26, 24, 21, 0.10);
+  --hairline-strong: rgba(26, 24, 21, 0.18);
+  --indigo: #3C38B8;
+  --indigo-soft: rgba(75, 71, 229, 0.10);
+  --indigo-deep: #2E2A8C;
+  --coral: #E26B4F;
+  --coral-soft: rgba(226, 107, 79, 0.12);
+  --font-display: 'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'DM Mono', 'IBM Plex Mono', ui-monospace, monospace;
+}
