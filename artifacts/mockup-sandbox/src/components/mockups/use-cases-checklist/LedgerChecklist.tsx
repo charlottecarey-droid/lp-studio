@@ -33,10 +33,10 @@ const groups: Group[] = [
     headline: "Every page on-brand, on-message, on time.",
     items: [
       "Five variants live by Friday",
-      "Pull your brand from any URL — colors, fonts, and logo",
-      "Lock in your own templates so every page stays on-brand",
+      "Pull your brand from any URL — colors, fonts, logo",
+      "Save your own templates and reuse them anywhere",
       "Sync to your campaigns, or send straight from LP Studio",
-      "AI builds from your media library — and only your approved stats",
+      "AI writes from your media library, with approved stats only",
     ],
     accent: "var(--coral)",
     cta: { label: "Explore marketing pages", href: "/for-marketing" },
