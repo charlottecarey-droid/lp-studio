@@ -24,6 +24,15 @@ interface BannerRow {
   text: string;
   link_url: string;
   cta_label: string;
+  bg_color: string;
+}
+
+// On-brand ink color; the default the bar has always used. A malformed/legacy
+// value falls back to this so the bar never renders with a broken color.
+const DEFAULT_BANNER_BG = "#1A1815";
+function normalizeBannerBg(c: unknown): string {
+  const v = typeof c === "string" ? c.trim() : "";
+  return /^#[0-9a-fA-F]{6}$/.test(v) ? v : DEFAULT_BANNER_BG;
 }
 
 // Shape returned to clients. Empty values + enabled=false signal "don't render
@@ -34,6 +43,7 @@ function toPublic(r: BannerRow | undefined) {
     text: r?.text ?? "",
     linkUrl: r?.link_url ?? "",
     ctaLabel: r?.cta_label ?? "",
+    bgColor: normalizeBannerBg(r?.bg_color),
   };
 }
 
@@ -54,7 +64,7 @@ function isSafeBannerUrl(u: string): boolean {
 
 async function readRow(): Promise<BannerRow | undefined> {
   const result = await pool.query<BannerRow>(
-    `SELECT enabled, text, link_url, cta_label
+    `SELECT enabled, text, link_url, cta_label, bg_color
        FROM marketing_announcement_banner
       ORDER BY id ASC
       LIMIT 1`,
@@ -88,6 +98,7 @@ router.put("/admin/lp/announcement-banner", requireSuperadmin, async (req, res):
     const text = typeof body.text === "string" ? body.text.trim() : "";
     const linkUrl = typeof body.linkUrl === "string" ? body.linkUrl.trim() : "";
     const ctaLabel = typeof body.ctaLabel === "string" ? body.ctaLabel.trim() : "";
+    const bgColor = normalizeBannerBg(body.bgColor);
 
     if (!isSafeBannerUrl(linkUrl)) {
       res.status(400).json({ error: "Link URL must start with http:// or https://" });
@@ -96,15 +107,16 @@ router.put("/admin/lp/announcement-banner", requireSuperadmin, async (req, res):
 
     await pool.query(
       `INSERT INTO marketing_announcement_banner
-         (id, enabled, text, link_url, cta_label, updated_at)
-       VALUES (1, $1, $2, $3, $4, now())
+         (id, enabled, text, link_url, cta_label, bg_color, updated_at)
+       VALUES (1, $1, $2, $3, $4, $5, now())
        ON CONFLICT (id) DO UPDATE SET
          enabled = EXCLUDED.enabled,
          text = EXCLUDED.text,
          link_url = EXCLUDED.link_url,
          cta_label = EXCLUDED.cta_label,
+         bg_color = EXCLUDED.bg_color,
          updated_at = now()`,
-      [enabled, text, linkUrl, ctaLabel],
+      [enabled, text, linkUrl, ctaLabel, bgColor],
     );
 
     res.json(toPublic(await readRow()));

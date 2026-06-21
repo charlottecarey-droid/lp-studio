@@ -743,6 +743,13 @@
       "when": 1755900000000,
       "tag": "0105_dandy_dca_phrasing_rule",
       "breakpoints": false
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1756000000000,
+      "tag": "0106_announcement_banner_bg_color",
+      "breakpoints": false
     }
   ]
 }

@@ -1,9 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { bannerInk } from "@/lib/banner-color";
 
 interface Props {
   text: string;
   linkUrl: string;
   ctaLabel: string;
+  bgColor: string;
 }
 
 // A tiny, stable key so dismissal is remembered per banner content: when the
@@ -38,11 +40,12 @@ function isSafeUrl(u: string): boolean {
   }
 }
 
-export default function AnnouncementBanner({ text, linkUrl, ctaLabel }: Props) {
+export default function AnnouncementBanner({ text, linkUrl, ctaLabel, bgColor }: Props) {
   const storageKey = contentKey(text, linkUrl);
   const ref = useRef<HTMLDivElement>(null);
   const safe = isSafeUrl(linkUrl);
   const [ctaHover, setCtaHover] = useState(false);
+  const ink = bannerInk(bgColor);
 
   const [dismissed, setDismissed] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -113,8 +116,8 @@ export default function AnnouncementBanner({ text, linkUrl, ctaLabel }: Props) {
       aria-label="Announcement"
       className="fixed top-0 left-0 right-0 z-[60]"
       style={{
-        background: "var(--ink)",
-        color: "var(--cream)",
+        background: bgColor,
+        color: ink.text,
         transform: scrolled ? "translateY(-100%)" : "translateY(0)",
         transition: "transform 0.15s ease",
         pointerEvents: scrolled ? "none" : "auto",
@@ -125,7 +128,7 @@ export default function AnnouncementBanner({ text, linkUrl, ctaLabel }: Props) {
           href={linkUrl}
           {...(isExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
           className="group inline-flex items-center gap-2 text-[13px] leading-snug"
-          style={{ color: "var(--cream)" }}
+          style={{ color: ink.text }}
           onMouseEnter={() => setCtaHover(true)}
           onMouseLeave={() => setCtaHover(false)}
         >
@@ -134,8 +137,8 @@ export default function AnnouncementBanner({ text, linkUrl, ctaLabel }: Props) {
             <span
               className="inline-flex items-center gap-1 font-medium whitespace-nowrap"
               style={{
-                color: ctaHover ? "var(--coral)" : "var(--cream)",
-                borderBottom: `1px solid ${ctaHover ? "var(--coral)" : "rgba(246,242,233,0.5)"}`,
+                color: ctaHover ? "var(--coral)" : ink.text,
+                borderBottom: `1px solid ${ctaHover ? "var(--coral)" : ink.textSoft}`,
                 transition: "color .15s ease, border-color .15s ease",
               }}
             >
@@ -155,7 +158,7 @@ export default function AnnouncementBanner({ text, linkUrl, ctaLabel }: Props) {
         onClick={handleDismiss}
         aria-label="Dismiss announcement"
         className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-6 h-6 rounded transition-opacity"
-        style={{ color: "var(--cream)", opacity: 0.65 }}
+        style={{ color: ink.text, opacity: 0.65 }}
         onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
         onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.65")}
       >

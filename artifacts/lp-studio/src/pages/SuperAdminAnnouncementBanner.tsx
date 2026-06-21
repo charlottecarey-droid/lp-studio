@@ -6,18 +6,31 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Loader2, Megaphone, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { bannerInk, isHexColor, normalizeBannerBg, BANNER_DEFAULT_BG } from "@/lib/banner-color";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const ENDPOINT = `${BASE}/api/admin/lp/announcement-banner`;
+
+// A small set of tasteful presets; operators can also pick any color.
+const COLOR_PRESETS: { label: string; value: string }[] = [
+  { label: "Ink (default)", value: "#1A1815" },
+  { label: "Indigo", value: "#4F46E5" },
+  { label: "Forest", value: "#0E7C66" },
+  { label: "Plum", value: "#6D28D9" },
+  { label: "Coral", value: "#E2603F" },
+  { label: "Slate", value: "#334155" },
+  { label: "Cream", value: "#F6F2E9" },
+];
 
 interface BannerData {
   enabled: boolean;
   text: string;
   linkUrl: string;
   ctaLabel: string;
+  bgColor: string;
 }
 
-const EMPTY: BannerData = { enabled: false, text: "", linkUrl: "", ctaLabel: "" };
+const EMPTY: BannerData = { enabled: false, text: "", linkUrl: "", ctaLabel: "", bgColor: BANNER_DEFAULT_BG };
 
 function normalize(data: unknown): BannerData {
   const d = (data ?? {}) as Record<string, unknown>;
@@ -26,6 +39,7 @@ function normalize(data: unknown): BannerData {
     text: typeof d.text === "string" ? d.text : "",
     linkUrl: typeof d.linkUrl === "string" ? d.linkUrl : "",
     ctaLabel: typeof d.ctaLabel === "string" ? d.ctaLabel : "",
+    bgColor: normalizeBannerBg(typeof d.bgColor === "string" ? d.bgColor : ""),
   };
 }
 
@@ -71,6 +85,7 @@ export default function SuperAdminAnnouncementBanner() {
           text: banner.text,
           linkUrl: banner.linkUrl,
           ctaLabel: banner.ctaLabel,
+          bgColor: banner.bgColor,
         }),
       });
       if (!res.ok) {
@@ -102,6 +117,7 @@ export default function SuperAdminAnnouncementBanner() {
   }
 
   const liveOnSite = banner.enabled && !!banner.text.trim() && !!banner.linkUrl.trim();
+  const previewInk = bannerInk(banner.bgColor);
 
   return (
     <Card className="p-6 flex flex-col gap-5 max-w-3xl">
@@ -162,11 +178,51 @@ export default function SuperAdminAnnouncementBanner() {
       </div>
 
       <div>
+        <Label className="text-sm font-medium mb-1.5 block">Banner color</Label>
+        <div className="flex items-center gap-2 flex-wrap">
+          {COLOR_PRESETS.map((p) => (
+            <button
+              key={p.value}
+              type="button"
+              title={p.label}
+              aria-label={p.label}
+              onClick={() => setBanner((b) => ({ ...b, bgColor: p.value }))}
+              className="w-8 h-8 rounded-full border border-black/10"
+              style={{
+                background: p.value,
+                outline:
+                  banner.bgColor.toLowerCase() === p.value.toLowerCase()
+                    ? "2px solid var(--primary)"
+                    : "none",
+                outlineOffset: 2,
+              }}
+            />
+          ))}
+          <input
+            type="color"
+            value={isHexColor(banner.bgColor) ? banner.bgColor : BANNER_DEFAULT_BG}
+            onChange={(e) => setBanner((b) => ({ ...b, bgColor: e.target.value }))}
+            aria-label="Custom color"
+            className="w-9 h-9 rounded cursor-pointer border border-input bg-transparent p-0.5"
+          />
+          <Input
+            value={banner.bgColor}
+            onChange={(e) => setBanner((b) => ({ ...b, bgColor: e.target.value }))}
+            placeholder={BANNER_DEFAULT_BG}
+            className="w-28 font-mono text-xs"
+          />
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-1">
+          Pick a background color. The text color adjusts automatically so the message stays readable.
+        </p>
+      </div>
+
+      <div>
         <Label className="text-sm font-medium mb-2 block">Preview</Label>
         {banner.text.trim() || banner.linkUrl.trim() ? (
           <div
             className="rounded-md px-6 py-2.5 flex items-center justify-center gap-2 text-center"
-            style={{ background: "#1A1815", color: "#F6F2E9" }}
+            style={{ background: normalizeBannerBg(banner.bgColor), color: previewInk.text }}
           >
             <span className="text-[13px]" style={{ opacity: 0.92 }}>
               {banner.text.trim() || "Your message"}
@@ -174,7 +230,7 @@ export default function SuperAdminAnnouncementBanner() {
             {banner.ctaLabel.trim() ? (
               <span
                 className="text-[13px] font-medium inline-flex items-center gap-1"
-                style={{ borderBottom: "1px solid rgba(246,242,233,0.5)" }}
+                style={{ borderBottom: `1px solid ${previewInk.textSoft}` }}
               >
                 {banner.ctaLabel.trim()} <span aria-hidden="true">→</span>
               </span>

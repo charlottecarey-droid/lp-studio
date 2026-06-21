@@ -1,5 +1,6 @@
 import Navbar from "../components/Navbar";
 import AnnouncementBanner from "../components/AnnouncementBanner";
+import { normalizeBannerBg } from "@/lib/banner-color";
 import HeroScene from "../components/HeroScene";
 import PromptCard from "../components/PromptCard";
 import AssembleSceneV2 from "../components/AssembleSceneV2";
@@ -66,6 +67,7 @@ interface AnnouncementBannerConfig {
   text: string;
   linkUrl: string;
   ctaLabel: string;
+  bgColor: string;
 }
 
 function resolveAnnouncementBanner(
@@ -76,6 +78,7 @@ function resolveAnnouncementBanner(
     text: typeof raw?.text === "string" ? raw.text.trim() : "",
     linkUrl: typeof raw?.linkUrl === "string" ? raw.linkUrl.trim() : "",
     ctaLabel: typeof raw?.ctaLabel === "string" ? raw.ctaLabel.trim() : "",
+    bgColor: normalizeBannerBg(raw?.bgColor),
   };
 }
 
@@ -197,7 +200,7 @@ export default function Home() {
       }}
     >
       {showBanner ? (
-        <AnnouncementBanner text={banner.text} linkUrl={banner.linkUrl} ctaLabel={banner.ctaLabel} />
+        <AnnouncementBanner text={banner.text} linkUrl={banner.linkUrl} ctaLabel={banner.ctaLabel} bgColor={banner.bgColor} />
       ) : null}
       <Navbar />
       <main>

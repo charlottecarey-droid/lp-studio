@@ -174,7 +174,7 @@ async function loadAnnouncementBanner() {
     client = new pg.Client({ connectionString, connectionTimeoutMillis: 5000 });
     await client.connect();
     const result = await client.query(
-      `SELECT enabled, text, link_url, cta_label
+      `SELECT enabled, text, link_url, cta_label, bg_color
          FROM marketing_announcement_banner
         ORDER BY id ASC
         LIMIT 1`,
@@ -185,11 +185,14 @@ async function loadAnnouncementBanner() {
     const linkUrl = typeof row.link_url === "string" ? row.link_url.trim() : "";
     // Only bake when it would actually render — enabled with a message + link.
     if (row.enabled !== true || !text || !linkUrl) return null;
+    const bgRaw = typeof row.bg_color === "string" ? row.bg_color.trim() : "";
+    const bgColor = /^#[0-9a-fA-F]{6}$/.test(bgRaw) ? bgRaw : "#1A1815";
     return {
       enabled: true,
       text,
       linkUrl,
       ctaLabel: typeof row.cta_label === "string" ? row.cta_label.trim() : "",
+      bgColor,
     };
   } catch (err) {
     process.stdout.write(
