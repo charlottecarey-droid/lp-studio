@@ -1,35 +1,29 @@
 ---
-name: Storage serve ACL must match library list scope (reciprocal siblings)
-description: Object-serve ACL allowed only the exact owner tenant while the media library listed reciprocal-sibling images, so sibling-owned thumbnails 403'd and rendered as empty frames.
+name: Storage serve ACL must match the media-library list scope
+description: Any route that SERVES tenant media must allow the same owned-tenant set the library LIST exposes, or legitimately-listed sibling images render as broken/empty frames.
 ---
 
 # Storage serve ACL vs media-library list scope parity
 
-The media library LIST endpoints (`GET /lp/media`, `/lp/media/images`) scope
-visible rows via `resolveOwnedTenantIds(tenantId)` — the requester's own tenant
-**plus reciprocally-linked sibling tenants** (e.g. an account-microsite pair),
-plus shared/global rows. The object SERVE route (`GET /storage/objects/*path`)
-must honor that **same** owned-tenant set, or sibling-owned images the library
-legitimately lists 403 on serve and the content-library `<img onError>` hides
-them → user sees "empty frame" / broken thumbnails (only shared images survive).
+**Rule:** The object-serve route (`GET /storage/objects/*path`) must authorize a
+logged-in requester against `resolveOwnedTenantIds()` (own tenant **plus
+reciprocally-linked sibling tenants**, plus shared/global) — the *same* scope the
+media-library LIST endpoints (`/lp/media`, `/lp/media/images`) use — not an
+exact-owner-only check (`tenantCanReadAcl`). Keep the anonymous (no-session) path
+open so public microsites still serve ACL'd images.
 
-**Why:** `tenantCanReadAcl` allows ONLY the exact owner tenant
-(`requester === ownerTenant`). The serve route used it, so it diverged from the
-list scope. Reproduced on prod data: a tenant-10 session lists 594 library
-images but 147 are owned by sibling 14055 → all 147 would 403. Tenants 10↔14055
-are reciprocal siblings (`owned [10,14055]`/`[14055,10]`); singletons aren't
-affected, which is why only some tenants hit the bug.
+**Why:** When serve authorization is narrower than list authorization, a
+sibling-owned image the library legitimately shows fails its `<img>` request;
+`content-library.tsx`'s `onError` hides it, so the user sees an empty/broken
+frame. Only shared/global images survive, making it look like "most of my images
+are missing." Singleton tenants don't hit it; only reciprocal-sibling pairs do.
 
-**How to apply:** On the cross-tenant path only (after the exact-owner
-`tenantCanReadAcl` check fails, before the `isSharedOrGlobalAsset` fallback),
-resolve `resolveOwnedTenantIds(requesterTenantId)` and allow if the object's
-owner tenant is in that set. Keep the anonymous (no-session) path untouched —
-public microsites must serve ACL'd images with no cookie. This grants nothing
-the library list didn't already expose, and runs only on the rare cross-tenant
-branch (hot path unaffected). Same class as the
-generator-catalog-drawer-acl-parity lesson: any surface that READS tenant media
-must share `lib/libraryScope.ts` scope, never a narrower hand-rolled check.
+**How to apply:** Do the owned-set check on the cross-tenant branch only (after
+the cheap exact-owner check, before the shared/global fallback) so the hot path
+is untouched. This grants nothing the library list didn't already expose. Same
+class as `generator-catalog-drawer-acl-parity` — every surface that READS tenant
+media must derive scope from `lib/libraryScope.ts`, never a hand-rolled check.
 
-Brand-import/AI-gen mirror uploads carry `owner: tenant:<id>` ACL
-(assets-uploader); legacy `/lp/upload` manual uploads have no ACL (public by
-URL), which is why manual uploads never showed the bug.
+Brand-import / AI-gen mirror uploads carry an `owner: tenant:<id>` ACL; legacy
+manual `/lp/upload` uploads have no ACL (public by URL), so only ACL'd assets
+ever exhibit the gap.
