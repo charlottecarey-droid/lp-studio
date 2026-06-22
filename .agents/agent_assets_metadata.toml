@@ -450,6 +450,30 @@ uri = "file://artifacts/mockup-sandbox/public/images/csb-spotlight-hero.png"
 type = "image"
 title = "professional working in modern office"
 
+[[generated]]
+id = "70NJR9LsbplsVC2i1-jra"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-warm-spotlight-bg.png"
+type = "image"
+title = "Soft indigo to warm spotlight background"
+
+[[generated]]
+id = "Me_4pMEDh5vJ0VM3V2V44"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-editorial-art-1.png"
+type = "image"
+title = "Ivory abstract editorial art"
+
+[[generated]]
+id = "bKYAObbWupsm9ikva32UG"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-editorial-art-2.png"
+type = "image"
+title = "Abstract navy and cream texture"
+
+[[generated]]
+id = "FaxynDO9uoqaNxRJ1FR0n"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-dealroom-hero-bg.png"
+type = "image"
+title = "dark cinematic mesh background"
+
 [[outputs]]
 id = "2sUbM7UegFOFtU0kTdNUi"
 uri = "file://.local/cheatsheet.md"
