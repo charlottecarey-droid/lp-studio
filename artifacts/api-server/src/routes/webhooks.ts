@@ -29,7 +29,7 @@ import {
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { broadcastSignal } from "./sales/signals";
-import { resolveSignalLinkage } from "../lib/signalAttribution";
+import { resolveSignalLinkage, deriveDomainFromEmail } from "../lib/signalAttribution";
 import { logger } from "../lib/logger";
 
 // ─── Payload schemas ──────────────────────────────────────────
@@ -224,7 +224,9 @@ router.post("/rb2b/:secret", async (req, res): Promise<void> => {
     const lastName: string             = props.lastName || props.last_name || "";
     const title: string                = props.title || "";
     const companyName: string          = props.companyName || props.company_name || "";
-    const companyDomain: string | null = normaliseDomain(props.companyDomain ?? props.company_domain);
+    // Enrich a missing company domain from a corporate email so the signal both
+    // carries a usable domain (in metadata) AND can match an account by domain.
+    const companyDomain: string | null = normaliseDomain(props.companyDomain ?? props.company_domain) ?? deriveDomainFromEmail(email);
     const pageUrl: string | null       = props.pageUrl || props.page_url || null;
     const slug                         = slugFromUrl(pageUrl ?? undefined);
 
@@ -359,10 +361,14 @@ router.post("/apollo/:secret", async (req, res): Promise<void> => {
     const lastName: string           = person.last_name ?? person.lastName ?? "";
     const title: string              = person.title ?? "";
 
+    // Enrich a missing org domain from a corporate email so the signal carries a
+    // usable domain and can match an account by domain.
+    const resolvedDomain: string | null = companyDomain ?? deriveDomainFromEmail(email);
+
     const { accountId, contactId } = await resolveSignalLinkage(tenantId, {
       email,
       linkedinUrl,
-      companyDomain,
+      companyDomain: resolvedDomain,
       companyName,
     });
 
@@ -374,7 +380,7 @@ router.post("/apollo/:secret", async (req, res): Promise<void> => {
         hasEmail: Boolean(email),
         hasLinkedin: Boolean(linkedinUrl),
         hasIdentity: Boolean(firstName || lastName || email || linkedinUrl),
-        hasCompanyDomain: Boolean(companyDomain),
+        hasCompanyDomain: Boolean(resolvedDomain),
         accountMatched: Boolean(accountId),
         contactMatched: Boolean(contactId),
       },
@@ -391,7 +397,7 @@ router.post("/apollo/:secret", async (req, res): Promise<void> => {
         source: "apollo",
         metadata: {
           companyName,
-          companyDomain,
+          companyDomain: resolvedDomain,
           apolloOrgId,
           pageUrl,
           ip,
@@ -469,7 +475,9 @@ router.post("/letterdrop/:secret", async (req, res): Promise<void> => {
       const email: string | null       = props.email ?? null;
       const title: string              = props.job_title ?? props.title ?? "";
       const companyName: string        = props.company_name ?? props.company ?? props.organization ?? "";
-      const companyDomain: string | null = normaliseDomain(props.domain ?? props.company_domain);
+      // Enrich a missing company domain from a corporate email so the signal
+      // carries a usable domain and can match an account by domain.
+      const companyDomain: string | null = normaliseDomain(props.domain ?? props.company_domain) ?? deriveDomainFromEmail(email);
       const linkedinUrl: string | null   = props.linkedin_url ?? props.linkedinUrl ?? props.linkedin ?? null;
       const pageUrl: string | null       = props.pageUrl ?? props.page_url ?? props.url ?? null;
       const slug = slugFromUrl(pageUrl ?? undefined);

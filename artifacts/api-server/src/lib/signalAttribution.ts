@@ -45,6 +45,38 @@ export function normalizeDomain(raw: string | null | undefined): string | null {
 }
 
 /**
+ * Free / personal email providers whose domain tells us NOTHING about the
+ * visitor's company. We must never derive a "company domain" from these — a
+ * gmail.com address is not Gmail Inc., and matching on it would mis-attribute
+ * every consumer-email visitor to the same bogus account.
+ */
+const FREE_EMAIL_DOMAINS = new Set<string>([
+  "gmail.com", "googlemail.com",
+  "yahoo.com", "yahoo.co.uk", "ymail.com", "rocketmail.com",
+  "hotmail.com", "hotmail.co.uk", "outlook.com", "live.com", "msn.com",
+  "aol.com", "icloud.com", "me.com", "mac.com",
+  "proton.me", "protonmail.com", "pm.me",
+  "gmx.com", "gmx.net", "mail.com", "zoho.com", "yandex.com",
+  "comcast.net", "verizon.net", "att.net", "sbcglobal.net",
+  "bellsouth.net", "cox.net", "charter.net", "earthlink.net",
+]);
+
+/**
+ * Derive a company domain from a corporate email address. Returns the lowercased
+ * domain after the `@`, or null when the input is empty, malformed, or a known
+ * free/personal provider (so we never enrich a consumer address into a fake
+ * company domain). Pure string work — no fuzzy matching, fully deterministic.
+ */
+export function deriveDomainFromEmail(email: string | null | undefined): string | null {
+  const trimmed = (email ?? "").trim().toLowerCase();
+  if (!trimmed || !trimmed.includes("@")) return null;
+  const domain = trimmed.split("@")[1]?.trim();
+  if (!domain || !domain.includes(".")) return null;
+  if (FREE_EMAIL_DOMAINS.has(domain)) return null;
+  return domain;
+}
+
+/**
  * Canonicalise a LinkedIn profile URL for equality matching: lowercase, drop
  * the protocol + `www.`, and strip any query string / trailing slash. Two URLs
  * that point at the same profile (with/without scheme, trailing slash, or
@@ -102,7 +134,11 @@ export async function resolveSignalLinkage(
 
   const email = (identity.email ?? "").trim();
   const linkedin = normalizeLinkedinUrl(identity.linkedinUrl);
-  const domain = normalizeDomain(identity.companyDomain);
+  // Prefer an explicit company domain; otherwise enrich it from a corporate
+  // email address. Both feed the SAME exact, tenant-scoped account lookups —
+  // deriving a domain just lets a signal that carried only an email (very common
+  // from rb2b / apollo) reach the domain match it otherwise couldn't.
+  const domain = normalizeDomain(identity.companyDomain) ?? deriveDomainFromEmail(email);
   const companyName = (identity.companyName ?? "").trim();
 
   let contactId: number | null = null;
@@ -143,6 +179,24 @@ export async function resolveSignalLinkage(
       ))
       .limit(1);
     if (row) accountId = row.id;
+  }
+  // Tenant-derived alias map: a company domain whose `sales_accounts.domain`
+  // field is blank/different still belongs to whichever account already has
+  // contacts on that email domain. Resolve via the tenant's OWN contacts —
+  // exact domain, never fuzzy — and ONLY when it's unambiguous (the domain maps
+  // to exactly one account in this tenant). Fail closed on 0 or >1 matches so we
+  // never mis-attribute. This is what lifts email-only / domain-only signals
+  // onto their account when the account record itself never had a domain set.
+  if (accountId == null && domain) {
+    const rows = await db
+      .select({ accountId: salesContactsTable.accountId })
+      .from(salesContactsTable)
+      .where(and(
+        eq(salesContactsTable.tenantId, tenantId),
+        eq(sql`split_part(lower(${salesContactsTable.email}), '@', 2)`, domain),
+      ))
+      .groupBy(salesContactsTable.accountId);
+    if (rows.length === 1) accountId = rows[0].accountId;
   }
   if (accountId == null && companyName) {
     const [row] = await db

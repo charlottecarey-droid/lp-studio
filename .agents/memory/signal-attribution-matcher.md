@@ -25,6 +25,22 @@ strip query/fragment, strip trailing slash — **KEEP THE PATH**.
 contact matches every signal → mass mis-attribution. Use `[?#].*$` then `/+$` instead. In a JS template literal
 `'^www\.'` becomes `'^www.'` (dot=any char); write `'^www\\.'` to keep the literal dot.
 
+## Identity enrichment at match-time (still exact, still fail-closed)
+`resolveSignalLinkage` enriches thin identity WITHOUT fuzzy/cross-tenant matching:
+1. **email → company domain** via `deriveDomainFromEmail` (exported): domain after `@`, lowercased,
+   but `null` for free providers (`FREE_EMAIL_DOMAINS` set: gmail/yahoo/outlook/icloud/…). An explicit
+   `companyDomain` always wins; otherwise the derived domain feeds the SAME exact account-by-domain lookup.
+   Webhooks (rb2b/apollo/letterdrop) also store this enriched domain into `metadata.companyDomain` so the
+   signal *carries* it.
+2. **tenant-derived alias map**: if no `sales_accounts.domain` matches, resolve the domain through the
+   tenant's OWN contacts (`split_part(lower(email),'@',2) = domain`, `GROUP BY account_id`). Use the account
+   ONLY when exactly one matches — 0 or >1 fails closed (no mis-attribution). This lifts email/domain-only
+   signals onto accounts whose `domain` field was never set.
+**Why no physical alias table / external enrichment:** the contact-domain map is derived live from real CRM
+data (no staleness, degrades to no-match when absent) and needs no API keys. **Why free-provider exclusion:**
+a gmail.com address is not a company; deriving a domain from it would collapse every consumer visitor onto
+one bogus account.
+
 ## Scoring is frontend-derived
 Account "heat" score is computed client-side from `signal.accountId` over a 14-day window (lp-studio heat-tier.ts).
 There is NO stored score column — fixing `account_id` is sufficient; nothing to recompute server-side.
