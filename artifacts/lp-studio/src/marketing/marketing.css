@@ -209,7 +209,7 @@
 .hero-gradient-text {
   display: inline-block;
   color: var(--indigo);
-  background: linear-gradient(135deg, var(--indigo) 0%, var(--coral) 100%);
+  background: linear-gradient(135deg, var(--indigo) 0%, var(--indigo) 40%, var(--coral) 100%);
 }
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .hero-gradient-text {
