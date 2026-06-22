@@ -522,6 +522,78 @@ uri = "file://artifacts/mockup-sandbox/public/images/abm-atelier-office.png"
 type = "image"
 title = "Minimalist luxury office environment"
 
+[[generated]]
+id = "4tNTbyKFr3ImagzkjLjVm"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-cine-hero.png"
+type = "image"
+title = "Architectural hero image"
+
+[[generated]]
+id = "wTeQK0lc-3K3zfgcoJQD_"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-cine-band1.png"
+type = "image"
+title = "Abstract moody texture"
+
+[[generated]]
+id = "oMaqbw_YC83BKZw-1RyZ-"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-cine-band2.png"
+type = "image"
+title = "Meeting room candid"
+
+[[generated]]
+id = "Iz07W2cJNaSZepoDTjq7j"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-cine-resource.png"
+type = "image"
+title = "Still life workspace"
+
+[[generated]]
+id = "rC9PiJODBmticY7Nd054f"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-split-hero.png"
+type = "image"
+title = "minimalist corporate architecture"
+
+[[generated]]
+id = "yuB4YZK8Dt0hOyX8DuU90"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-split-whynow.png"
+type = "image"
+title = "modern sleek office interior"
+
+[[generated]]
+id = "aNPf5PcDuEPpSf2QhMT-I"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-split-casestudy.png"
+type = "image"
+title = "minimalist workspace still life"
+
+[[generated]]
+id = "VfnCDJ-YCSCZ2OckUG9_F"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-split-contact1.png"
+type = "image"
+title = "professional woman portrait"
+
+[[generated]]
+id = "LtdTDV2aw6scZHcw7qVrA"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-split-contact2.png"
+type = "image"
+title = "professional man portrait"
+
+[[generated]]
+id = "HV-88pBt_8YpitZHkEeXp"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-show-hero.png"
+type = "image"
+title = "editorial architecture photo"
+
+[[generated]]
+id = "FkhRsSNlZRshK8LNyMC63"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-show-why.png"
+type = "image"
+title = "collaborative team meeting"
+
+[[generated]]
+id = "NY0vLLh-QyirngTqxyiPJ"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-show-case-study.png"
+type = "image"
+title = "modern desk setup"
+
 [[outputs]]
 id = "2sUbM7UegFOFtU0kTdNUi"
 uri = "file://.local/cheatsheet.md"
