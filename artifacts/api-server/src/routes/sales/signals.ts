@@ -11,7 +11,7 @@ import {
 import { sfdcService } from "../../lib/sfdc-service";
 import { marketoService } from "../../lib/marketo-service";
 import { restoreRows } from "../../lib/restoreRows";
-import { resolveContactByEmail } from "../../lib/signalAttribution";
+import { resolveSignalLinkage } from "../../lib/signalAttribution";
 
 const router = Router();
 
@@ -241,21 +241,24 @@ router.post("/signals", async (req, res): Promise<void> => {
   }
   try {
     // Attribute the signal to a contact + account whenever possible so the
-    // activity feed never shows a blank/anonymous row. If the caller (e.g. an
-    // integration) didn't supply a contactId, resolve one from any email in the
-    // payload via a strictly tenant-scoped match — never a global lookup, which
-    // would leak attribution across tenants. The account is then derived from
-    // the resolved contact when not explicitly provided.
+    // activity feed never shows a blank/anonymous row and accounts roll up
+    // engagement. If the caller (e.g. an integration) didn't supply ids, resolve
+    // them from the identity left in metadata (email / LinkedIn / company domain
+    // / company name) via the shared, strictly tenant-scoped matcher — never a
+    // global lookup, which would leak attribution across tenants.
     const meta = (metadata ?? {}) as Record<string, unknown>;
-    const metaEmail = typeof meta.email === "string" ? meta.email : null;
+    const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v : null);
     let resolvedContactId: number | null = contactId ?? null;
     let resolvedAccountId: number | null = accountId ?? null;
-    if (resolvedContactId == null && metaEmail) {
-      const match = await resolveContactByEmail(tenantId, metaEmail);
-      if (match) {
-        resolvedContactId = match.id;
-        if (resolvedAccountId == null) resolvedAccountId = match.accountId;
-      }
+    if (resolvedContactId == null || resolvedAccountId == null) {
+      const match = await resolveSignalLinkage(tenantId, {
+        email: str(meta.email),
+        linkedinUrl: str(meta.linkedinUrl),
+        companyDomain: str(meta.companyDomain),
+        companyName: str(meta.companyName),
+      });
+      if (resolvedContactId == null) resolvedContactId = match.contactId;
+      if (resolvedAccountId == null) resolvedAccountId = match.accountId;
     }
 
     const [signal] = await db

@@ -2605,6 +2605,145 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
+    // Retroactive signal attribution backfill v2. The v1 pass only attached a
+    // contact via an unambiguous metadata.email match on NULL-contact rows. It
+    // left three gaps that this pass closes, all strictly tenant-scoped, exact /
+    // canonical (never fuzzy → never mis-attributing), unambiguous (HAVING
+    // count = 1), idempotent, and non-fatal:
+    //   0. Null out any DANGLING contact_id / account_id (pointing at a deleted
+    //      row) first, so the COALESCE/IS NULL logic below can re-resolve and so
+    //      the feed never joins to a ghost.
+    //   1. Resolve contact_id (+ derive account_id) for NULL / dangling-contact
+    //      rows via metadata.email, then via a CANONICALISED metadata.linkedinUrl
+    //      (same normalisation as resolveSignalLinkage).
+    //   2. Fill NULL account_id via the matched contact's account, then via a
+    //      normalised metadata.companyDomain, then via an exact metadata.
+    //      companyName — each only when exactly one tenant account matches.
+    //   3. Re-null any contact_id we still couldn't resolve to a live row.
+    await runStep("sales signal attribution backfill v2", async () => {
+    try {
+      const SIGNAL_ATTR_MARKER_V2 = "sales_signal_attribution_backfill_v2";
+      const marker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${SIGNAL_ATTR_MARKER_V2}`
+      );
+      if (marker.rows.length === 0) {
+        // 0. Clear dangling pointers up front (so COALESCE + IS NULL re-resolve).
+        const danglingAccountsCleared = await db.execute(sql`
+          UPDATE sales_signals s
+             SET account_id = NULL
+           WHERE s.account_id IS NOT NULL
+             AND NOT EXISTS (SELECT 1 FROM sales_accounts a WHERE a.id = s.account_id)
+        `);
+
+        // 1a. Contact by unambiguous tenant-scoped email (NULL or dangling).
+        const contactByEmail = await db.execute(sql`
+          UPDATE sales_signals s
+             SET contact_id = m.contact_id,
+                 account_id = COALESCE(s.account_id, m.account_id)
+            FROM (
+              SELECT s2.id AS signal_id,
+                     (array_agg(c.id))[1] AS contact_id,
+                     (array_agg(c.account_id))[1] AS account_id
+                FROM sales_signals s2
+                JOIN sales_contacts c
+                  ON c.tenant_id = s2.tenant_id
+                 AND lower(c.email) = lower(s2.metadata ->> 'email')
+               WHERE (s2.contact_id IS NULL
+                      OR NOT EXISTS (SELECT 1 FROM sales_contacts cx WHERE cx.id = s2.contact_id))
+                 AND COALESCE(s2.metadata ->> 'email', '') <> ''
+               GROUP BY s2.id
+              HAVING count(*) = 1
+            ) m
+           WHERE s.id = m.signal_id
+        `);
+
+        // 1b. Contact by unambiguous tenant-scoped canonical LinkedIn URL.
+        const contactByLinkedin = await db.execute(sql`
+          UPDATE sales_signals s
+             SET contact_id = m.contact_id,
+                 account_id = COALESCE(s.account_id, m.account_id)
+            FROM (
+              SELECT s2.id AS signal_id,
+                     (array_agg(c.id))[1] AS contact_id,
+                     (array_agg(c.account_id))[1] AS account_id
+                FROM sales_signals s2
+                JOIN sales_contacts c
+                  ON c.tenant_id = s2.tenant_id
+                 AND c.linkedin_url IS NOT NULL
+                 AND regexp_replace(regexp_replace(regexp_replace(regexp_replace(lower(c.linkedin_url), '^https?://', ''), '^www\\.', ''), '[?#].*$', ''), '/+$', '')
+                   = regexp_replace(regexp_replace(regexp_replace(regexp_replace(lower(s2.metadata ->> 'linkedinUrl'), '^https?://', ''), '^www\\.', ''), '[?#].*$', ''), '/+$', '')
+               WHERE (s2.contact_id IS NULL
+                      OR NOT EXISTS (SELECT 1 FROM sales_contacts cx WHERE cx.id = s2.contact_id))
+                 AND COALESCE(s2.metadata ->> 'linkedinUrl', '') <> ''
+               GROUP BY s2.id
+              HAVING count(*) = 1
+            ) m
+           WHERE s.id = m.signal_id
+        `);
+
+        // 2a. Account by unambiguous normalised company domain (NULL account only).
+        const accountByDomain = await db.execute(sql`
+          UPDATE sales_signals s
+             SET account_id = m.account_id
+            FROM (
+              SELECT s2.id AS signal_id, (array_agg(a.id))[1] AS account_id
+                FROM sales_signals s2
+                JOIN sales_accounts a
+                  ON a.tenant_id = s2.tenant_id
+                 AND a.domain IS NOT NULL
+                 AND regexp_replace(regexp_replace(regexp_replace(lower(btrim(a.domain)), '^https?://', ''), '^www\\.', ''), '[/?#].*$', '')
+                   = regexp_replace(regexp_replace(regexp_replace(lower(btrim(s2.metadata ->> 'companyDomain')), '^https?://', ''), '^www\\.', ''), '[/?#].*$', '')
+               WHERE s2.account_id IS NULL
+                 AND COALESCE(btrim(s2.metadata ->> 'companyDomain'), '') <> ''
+               GROUP BY s2.id
+              HAVING count(*) = 1
+            ) m
+           WHERE s.id = m.signal_id
+        `);
+
+        // 2b. Account by unambiguous exact company name (NULL account only).
+        const accountByName = await db.execute(sql`
+          UPDATE sales_signals s
+             SET account_id = m.account_id
+            FROM (
+              SELECT s2.id AS signal_id, (array_agg(a.id))[1] AS account_id
+                FROM sales_signals s2
+                JOIN sales_accounts a
+                  ON a.tenant_id = s2.tenant_id
+                 AND lower(btrim(a.name)) = lower(btrim(s2.metadata ->> 'companyName'))
+               WHERE s2.account_id IS NULL
+                 AND COALESCE(btrim(s2.metadata ->> 'companyName'), '') <> ''
+               GROUP BY s2.id
+              HAVING count(*) = 1
+            ) m
+           WHERE s.id = m.signal_id
+        `);
+
+        // 3. Re-null any still-dangling contact pointer we couldn't resolve.
+        const danglingContactsCleared = await db.execute(sql`
+          UPDATE sales_signals s
+             SET contact_id = NULL
+           WHERE s.contact_id IS NOT NULL
+             AND NOT EXISTS (SELECT 1 FROM sales_contacts c WHERE c.id = s.contact_id)
+        `);
+
+        await db.execute(
+          sql`INSERT INTO _schema_migration_markers (key) VALUES (${SIGNAL_ATTR_MARKER_V2}) ON CONFLICT DO NOTHING`
+        );
+        logger.info({
+          danglingAccountsCleared: danglingAccountsCleared.rowCount ?? 0,
+          contactByEmail: contactByEmail.rowCount ?? 0,
+          contactByLinkedin: contactByLinkedin.rowCount ?? 0,
+          accountByDomain: accountByDomain.rowCount ?? 0,
+          accountByName: accountByName.rowCount ?? 0,
+          danglingContactsCleared: danglingContactsCleared.rowCount ?? 0,
+        }, "sales signal attribution backfill v2 applied");
+      }
+    } catch (backfillErr) {
+      logger.error({ err: backfillErr }, "sales signal attribution backfill v2 failed (non-fatal)");
+    }
+    });
+
     // Task #641 — seed the root superadmin platform-operator account. This is
     // the single bootstrap account (admin@lpstudio.ai by default, overridable
     // via ROOT_SUPERADMIN_EMAIL) that owns the superadmin roster and can never

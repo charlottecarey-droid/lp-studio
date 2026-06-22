@@ -25,12 +25,11 @@ import { z } from "zod";
 import { db } from "@workspace/db";
 import {
   salesSignalsTable,
-  salesAccountsTable,
-  salesContactsTable,
   tenantWebhookSecretsTable,
 } from "@workspace/db";
-import { and, eq, ilike, or } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { broadcastSignal } from "./sales/signals";
+import { resolveSignalLinkage } from "../lib/signalAttribution";
 import { logger } from "../lib/logger";
 
 // ─── Payload schemas ──────────────────────────────────────────
@@ -155,57 +154,6 @@ function normaliseDomain(raw: string | undefined): string | null {
 }
 
 /**
- * Try to find a matching account by company domain, scoped to a single
- * tenant. The tenant scope is mandatory: without it, a webhook routed to
- * tenant B could attach an `accountId` belonging to tenant A whenever
- * domains overlap (a common case — many tenants will track visits to the
- * same Fortune 500 companies). Returns the account id, or null.
- */
-async function findAccountByDomain(
-  tenantId: number,
-  domain: string | null,
-): Promise<number | null> {
-  if (!domain) return null;
-  const [row] = await db
-    .select({ id: salesAccountsTable.id })
-    .from(salesAccountsTable)
-    .where(
-      and(
-        eq(salesAccountsTable.tenantId, tenantId),
-        ilike(salesAccountsTable.domain, domain),
-      ),
-    )
-    .limit(1);
-  return row?.id ?? null;
-}
-
-/**
- * Fallback account matcher by company name. Letterdrop frequently identifies
- * a lead by company name without a clean domain, so we try a case-insensitive
- * exact match on the account name within the tenant. Returns the account id,
- * or null. Always tenant-scoped to prevent cross-tenant linking.
- */
-async function findAccountByName(
-  tenantId: number,
-  name: string | null,
-): Promise<number | null> {
-  if (!name) return null;
-  const trimmed = name.trim();
-  if (!trimmed) return null;
-  const [row] = await db
-    .select({ id: salesAccountsTable.id })
-    .from(salesAccountsTable)
-    .where(
-      and(
-        eq(salesAccountsTable.tenantId, tenantId),
-        ilike(salesAccountsTable.name, trimmed),
-      ),
-    )
-    .limit(1);
-  return row?.id ?? null;
-}
-
-/**
  * Returns true if the lead is from Dandy itself (internal employee browsing
  * our own LPs). We don't want these polluting the sales console.
  */
@@ -223,35 +171,6 @@ function isInternalDandyLead(
   const n = companyName.toLowerCase().trim();
   if (n === "dandy" || n === "meet dandy" || n === "meetdandy") return true;
   return false;
-}
-
-/**
- * Try to find a matching contact by LinkedIn URL or email, scoped to a
- * single tenant. Same isolation rationale as findAccountByDomain — emails
- * and LinkedIn URLs can legitimately appear in multiple tenants' CRMs and
- * we never want to cross-link them. Returns the contact id, or null.
- */
-async function findContact(
-  tenantId: number,
-  linkedinUrl: string | null,
-  email: string | null,
-): Promise<number | null> {
-  const identityConditions: ReturnType<typeof eq>[] = [];
-  if (linkedinUrl) identityConditions.push(eq(salesContactsTable.linkedinUrl, linkedinUrl));
-  if (email)       identityConditions.push(ilike(salesContactsTable.email, email));
-  if (!identityConditions.length) return null;
-
-  const [row] = await db
-    .select({ id: salesContactsTable.id })
-    .from(salesContactsTable)
-    .where(
-      and(
-        eq(salesContactsTable.tenantId, tenantId),
-        or(...identityConditions),
-      ),
-    )
-    .limit(1);
-  return row?.id ?? null;
 }
 
 // ─── POST /webhooks/rb2b/:secret ─────────────────────────────
@@ -318,10 +237,12 @@ router.post("/rb2b/:secret", async (req, res): Promise<void> => {
       return;
     }
 
-    const [accountId, contactId] = await Promise.all([
-      findAccountByDomain(tenantId, companyDomain),
-      findContact(tenantId, linkedinUrl, email),
-    ]);
+    const { accountId, contactId } = await resolveSignalLinkage(tenantId, {
+      email,
+      linkedinUrl,
+      companyDomain,
+      companyName,
+    });
 
     logger.info(
       {
@@ -438,10 +359,12 @@ router.post("/apollo/:secret", async (req, res): Promise<void> => {
     const lastName: string           = person.last_name ?? person.lastName ?? "";
     const title: string              = person.title ?? "";
 
-    const [accountId, contactId] = await Promise.all([
-      findAccountByDomain(tenantId, companyDomain),
-      findContact(tenantId, linkedinUrl, email),
-    ]);
+    const { accountId, contactId } = await resolveSignalLinkage(tenantId, {
+      email,
+      linkedinUrl,
+      companyDomain,
+      companyName,
+    });
 
     logger.info(
       {
@@ -566,12 +489,12 @@ router.post("/letterdrop/:secret", async (req, res): Promise<void> => {
         continue;
       }
 
-      const contactPromise = findContact(tenantId, linkedinUrl, email);
-      let accountId = await findAccountByDomain(tenantId, companyDomain);
-      if (accountId == null) {
-        accountId = await findAccountByName(tenantId, companyName);
-      }
-      const contactId = await contactPromise;
+      const { accountId, contactId } = await resolveSignalLinkage(tenantId, {
+        email,
+        linkedinUrl,
+        companyDomain,
+        companyName,
+      });
 
       logger.info(
         {
