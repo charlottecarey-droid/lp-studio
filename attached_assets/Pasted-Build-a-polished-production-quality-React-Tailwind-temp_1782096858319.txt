@@ -1,0 +1,655 @@
+Build a polished, production-quality React + Tailwind template called “1:1 Account Microsite.”
+
+This should be a buyer-facing ABM microsite that sales and marketing teams can create for a specific target account. It should feel like a premium personalized sales story, not a dashboard, CRM record, or generic landing page.
+
+The page should help an account understand:
+
+* Why this matters
+* Why now
+* What is relevant to their business
+* What value applies to each stakeholder
+* What proof supports the recommendation
+* What resources they should review
+* What the next step is
+
+The template should customize dynamically based on:
+
+1. Account
+2. Persona
+3. Funnel stage
+4. Use case
+5. Campaign source / UTM parameters
+6. Salesforce fields
+7. Manual content overrides
+
+The final result should demonstrate that LP Studio templates are not static landing page layouts. They are dynamic campaign systems that can personalize based on account context, buyer role, sales stage, and campaign logic.
+
+Default example:
+
+* Account: LP Studio Enterprise
+* Industry: B2B SaaS
+* Segment: Enterprise
+* Persona: Marketing
+* Funnel stage: Engaged
+* Use case: ABM account pages
+
+Design direction:
+
+* Premium B2B SaaS / enterprise microsite
+* Editorial, spacious, warm, and polished
+* Cream/light background with deep navy, indigo, and subtle coral accents
+* Strong typography
+* Large sections with breathing room
+* Minimal but elegant cards
+* High-quality buyer-facing experience
+* No visible internal demo controls
+* No dashboard clutter
+* No fake admin panels on the visitor-facing page
+* No obvious “Hi {{First Name}}” personalization
+* The page should feel strategically tailored, not mail-merge personalized
+
+Important:
+
+* The page should NOT show internal controls to the visitor.
+* Stage, persona, account, use case, and content variation should be determined behind the scenes through config, URL parameters, SFDC-style fields, or manual overrides.
+* Admin/editor logic can exist in the code/config, but do not display it on the page.
+* The page should feel like something an AE, BDR, or marketer would confidently send to a real enterprise buyer.
+
+Technical requirements:
+
+* Use React and Tailwind CSS
+* Use clean reusable components
+* Frontend-only
+* No external APIs
+* No external images
+* Use placeholder logos, initials, and UI graphics
+* Use lucide-react icons if available
+* Fully responsive
+* Put all editable content in a config object
+* Include clear data structures for account fields, personas, funnel stages, resources, proof, CTAs, and override rules
+* Ensure it runs successfully in Replit
+
+Personalization logic:
+
+Create a config object called accountMicrositeConfig.
+
+It should include:
+
+* accountName
+* accountLogo
+* industry
+* segment
+* companySize
+* region
+* primaryUseCase
+* accountOwner
+* BDR
+* solutionsConsultant
+* funnelStage
+* persona
+* campaignSource
+* utmCampaign
+* utmContent
+* utmPersona
+* utmUseCase
+* salesforceFields
+* manualOverrides
+* personas
+* funnelStages
+* useCases
+* proof
+* resources
+* mutualActionPlan
+* accountTeam
+* CTA labels
+
+Support these personas:
+
+* Executive
+* Marketing
+* Sales
+* RevOps / Ops
+* Practitioner
+
+Support these funnel stages:
+
+* Target
+* Engaged
+* Meeting Booked
+* Opportunity
+* Customer
+
+Support these use cases:
+
+* ABM account pages
+* Webinar hubs
+* Podcast / content hubs
+* Event meeting pages
+* Campaign landing pages
+* Product launch pages
+* Interactive report / ebook pages
+
+Personalization precedence:
+
+Content should resolve in this order:
+
+1. Manual content override
+2. UTM parameter
+3. Salesforce field
+4. Account config
+5. Persona default
+6. Funnel stage default
+7. Generic fallback
+
+Build a helper function called getPersonalizedContent().
+
+It should accept:
+
+* accountConfig
+* selectedPersona
+* selectedFunnelStage
+* selectedUseCase
+* urlParams
+* salesforceFields
+* manualOverrides
+
+It should return:
+
+* hero eyebrow
+* hero headline
+* hero subheadline
+* primary CTA
+* secondary CTA
+* why now cards
+* recommended approach
+* use case cards
+* persona-specific value section
+* proof section
+* recommended resources
+* mutual action plan
+* account team module
+* final CTA
+
+URL parameter support:
+
+Use URLSearchParams to support:
+
+* ?account=Northstar%20Dental%20Group
+* ?persona=executive
+* ?persona=marketing
+* ?persona=sales
+* ?persona=revops
+* ?persona=practitioner
+* ?stage=target
+* ?stage=engaged
+* ?stage=meeting-booked
+* ?stage=opportunity
+* ?stage=customer
+* ?usecase=abm
+* ?usecase=webinar
+* ?usecase=podcast
+* ?usecase=event
+* ?usecase=launch
+* ?utm_campaign=q3_enterprise_abm
+* ?utm_content=roi
+* ?utm_persona=ops
+
+If URL parameters are present, they should influence page copy and resource ordering, but they should not create visible demo controls.
+
+Salesforce-style field support:
+
+Create a mock salesforceFields object with fields like:
+
+* Account.Name
+* Account.Industry
+* Account.Segment__c
+* Account.Number_of_Employees__c
+* Account.Website
+* Account.Owner.Name
+* Account.Current_Campaign__c
+* Account.Lifecycle_Stage__c
+* Account.Primary_Use_Case__c
+* Account.Top_Pain_Point__c
+* Account.Last_Engagement__c
+* Opportunity.StageName
+* Opportunity.Amount
+* Opportunity.CloseDate
+* Contact.Title
+* Contact.Persona__c
+* Campaign.Name
+* Campaign.Source__c
+
+These fields should be used to populate or influence the page content. For example:
+
+* Account.Name updates the hero and account brief
+* Account.Industry influences proof and use cases
+* Account.Lifecycle_Stage__c influences the funnel stage
+* Contact.Persona__c influences the persona version
+* Account.Primary_Use_Case__c influences the relevant use case section
+* Account.Top_Pain_Point__c influences the “Why this matters now” section
+* Opportunity.StageName influences CTA and mutual action plan
+
+Manual override support:
+
+Create a manualOverrides object that allows a marketer or sales rep to manually replace specific content without changing the full template.
+
+Support overrides for:
+
+* heroHeadline
+* heroSubheadline
+* primaryCTA
+* secondaryCTA
+* whyNowCards
+* recommendedUseCases
+* proofItems
+* resources
+* finalCTA
+* accountTeam
+* mutualActionPlan
+
+If a manual override exists, use it instead of generated/default content.
+
+Page structure:
+
+1. Header
+
+Include:
+
+* LP Studio logo placeholder
+* Simple navigation: Overview, Plan, Use Cases, Proof, Resources, Next Step
+* Primary CTA that changes based on funnel stage
+
+CTA by stage:
+
+* Target: Explore the opportunity
+* Engaged: Talk through your goals
+* Meeting Booked: Review meeting agenda
+* Opportunity: Review the business case
+* Customer: Start onboarding
+
+2. Personalized hero
+
+This is the “you are in the right place” moment.
+
+Include:
+
+* Account name
+* Persona/funnel stage context
+* Main headline
+* Subheadline
+* Primary CTA
+* Secondary CTA
+* A refined account brief card
+
+The account brief card should include:
+
+* Account
+* Industry
+* Segment
+* Persona
+* Funnel stage
+* Primary use case
+* Recommended next step
+* Account team initials
+
+Do not make the account brief card look like a dashboard. Make it look like a polished strategy brief.
+
+Example hero for Marketing + Engaged:
+Headline:
+“A faster way to launch campaign pages for every priority account.”
+
+Subheadline:
+“Built for the LP Studio Enterprise team: campaign-ready pages, microsites, and content hubs that stay on brand without waiting on a full web production cycle.”
+
+Example hero for Sales + Engaged:
+Headline:
+“Give every target account a page worth clicking.”
+
+Subheadline:
+“Equip reps with personalized follow-up destinations that educate buyers, share relevant proof, and move accounts toward the next conversation.”
+
+Example hero for RevOps + Opportunity:
+Headline:
+“A governed rollout plan for scaling personalized campaign pages.”
+
+Subheadline:
+“Align CRM/MAP handoffs, routing, attribution, approvals, and lifecycle logic before expanding LP Studio across your GTM team.”
+
+3. Why this matters now
+
+Create a narrative section with 3 cards.
+
+The cards should change based on persona and funnel stage.
+
+For Marketing:
+
+* Campaign volume is increasing
+* Brand consistency is harder at scale
+* Web and design queues slow down launches
+
+For Sales:
+
+* Generic follow-up is easy to ignore
+* Buyers need relevant proof
+* Multi-stakeholder deals need a shared destination
+
+For RevOps:
+
+* Personalization needs governance
+* Routing and attribution need clean logic
+* Scaling without structure creates operational debt
+
+For Executive:
+
+* Speed to market affects pipeline
+* Team capacity is under pressure
+* Campaign execution needs leverage
+
+For Practitioner:
+
+* Page requests take too long
+* Editing should be easier
+* Launching should not require technical support
+
+4. Recommended approach
+
+Create a 3-step “recommended approach” section.
+
+Default model:
+
+1. Start with governed templates
+2. Personalize by account, persona, and stage
+3. Connect the follow-through
+
+Copy should change slightly based on persona.
+
+For RevOps, emphasize governance, lifecycle fields, routing, attribution, and approvals.
+For Marketing, emphasize brand-safe templates and faster campaign launches.
+For Sales, emphasize account-specific follow-up and buyer engagement.
+For Executive, emphasize business impact and operational leverage.
+For Practitioner, emphasize ease of use and faster publishing.
+
+5. Relevant use cases for this account
+
+Show 3–5 use cases based on the account’s stage, persona, use case, and UTM/source.
+
+Possible use cases:
+
+* ABM account pages
+* Webinar hubs
+* Podcast / content hubs
+* Event meeting pages
+* Campaign landing pages
+* Product launch pages
+* Interactive report / ebook pages
+
+Each use case card should include:
+
+* Title
+* Short description
+* Best-fit team/persona
+* Example CTA
+
+Use case examples:
+
+ABM account pages:
+“One personalized destination for each priority account, with content that adapts by persona and funnel stage.”
+
+Webinar hubs:
+“Registration, live session, replay, resources, and follow-up in one campaign-ready page.”
+
+Podcast / content hubs:
+“A self-updating content hub that organizes episodes, guest intake, booking, and episode promotion.”
+
+Event meeting pages:
+“Trackable event pages for booking meetings, sharing resources, and following up after the show.”
+
+Campaign landing pages:
+“Fast, on-brand pages for paid, email, launch, and sales campaigns.”
+
+6. Persona-specific value section
+
+Create a section that changes based on persona.
+
+Executive:
+Headline:
+“Built for faster revenue execution.”
+
+Focus on:
+
+* Speed to market
+* Pipeline influence
+* Team efficiency
+* Cost of delay
+* Strategic differentiation
+
+Marketing:
+Headline:
+“Campaign-ready in minutes.”
+
+Focus on:
+
+* Brand consistency
+* Templates
+* Landing pages
+* Microsites
+* Content reuse
+* Less dependency on web/design
+
+Sales:
+Headline:
+“From prompt to pipeline.”
+
+Focus on:
+
+* Personalized follow-up
+* Account engagement
+* Buyer education
+* Proof sharing
+* Meeting conversion
+
+RevOps / Ops:
+Headline:
+“Governed personalization at scale.”
+
+Focus on:
+
+* CRM/MAP handoff
+* UTM logic
+* Attribution
+* Routing
+* Approval workflows
+* Lifecycle stages
+
+Practitioner:
+Headline:
+“Build the page without waiting on everyone else.”
+
+Focus on:
+
+* Editing
+* Guided templates
+* Reusable sections
+* AI-assisted copy
+* Faster publishing
+* Fewer blockers
+
+7. Proof section
+
+Create a proof section that adapts by persona and funnel stage.
+
+Include:
+
+* 3 metric cards
+* 1 customer quote
+* 1 mini case study card
+* 1 visual proof placeholder
+
+Example metrics:
+
+* 75% faster page launches
+* 3x more campaign variations shipped
+* 12 hours saved per campaign
+* 42% more account engagement
+* 80% less manual routing
+* Fewer web/design tickets required
+
+Proof emphasis by persona:
+
+* Executive: business impact and speed
+* Marketing: campaign volume and brand consistency
+* Sales: account engagement and buyer response
+* RevOps: governance, routing, attribution, and reduced manual work
+* Practitioner: ease, speed, and fewer blockers
+
+8. Recommended resources
+
+Show only the most relevant 3–4 resources.
+
+Resource ordering should change based on:
+
+* Persona
+* Funnel stage
+* UTM content
+* Salesforce fields
+* Manual overrides
+
+Resource types:
+
+* Executive brief
+* ROI calculator
+* Customer story
+* Template gallery
+* ABM page example
+* Webinar hub example
+* Podcast hub example
+* Event page example
+* CRM/MAP workflow guide
+* Governance checklist
+* Implementation checklist
+* Launch checklist
+* Demo video
+* Meeting agenda
+
+By stage:
+
+* Target: educational resources
+* Engaged: use case examples and relevant proof
+* Meeting Booked: agenda, prep materials, and questions
+* Opportunity: business case, ROI, implementation, and proof
+* Customer: onboarding, training, and launch checklist
+
+9. Mutual action plan / next steps
+
+Create a section that changes by funnel stage.
+
+Target:
+
+* Explore relevant use cases
+* Review examples
+* Book intro
+
+Engaged:
+
+* Confirm goals
+* Select pilot use case
+* Review examples
+* Talk through workflow
+
+Meeting Booked:
+
+* Review meeting agenda
+* Confirm attendees
+* Submit questions
+* Review prep materials
+
+Opportunity:
+
+* Confirm business goals
+* Review business case
+* Align stakeholders
+* Confirm workflow and integrations
+* Launch pilot
+
+Customer:
+
+* Confirm workspace settings
+* Add brand guidelines
+* Invite team members
+* Connect forms/calendar/email
+* Launch first campaign page
+* Review analytics
+
+Each step should include:
+
+* Step title
+* Owner
+* Status
+* Short description
+
+10. Account team / human handoff
+
+Create a warm, buyer-facing account team section.
+
+Include:
+
+* AE
+* BDR
+* Solutions consultant
+* Customer success, if customer stage
+* Placeholder initials/avatar
+* Role
+* Short “how they help” line
+* Email icon
+* Calendar CTA
+
+Do not make this look like a directory. It should feel personal and helpful.
+
+11. Final CTA
+
+The final CTA should change by funnel stage and persona.
+
+Examples:
+
+* Target + Executive: “Explore the business case”
+* Engaged + Marketing: “Talk through your campaign goals”
+* Engaged + Sales: “See account follow-up examples”
+* Opportunity + RevOps: “Review the rollout plan”
+* Meeting Booked + Sales: “Review the meeting agenda”
+* Customer + Practitioner: “Launch your first campaign page”
+
+Include:
+
+* Headline
+* Short supporting copy
+* Primary CTA
+* Secondary CTA
+
+12. Optional hidden admin/config notes
+
+In the code comments only, document how the template could later connect to:
+
+* Salesforce fields
+* HubSpot fields
+* Marketo fields
+* Outreach/Salesloft sequences
+* UTM parameters
+* Manual editor overrides
+* CSV-uploaded account data
+
+Do not show these notes on the visitor-facing page.
+
+Visual quality requirements:
+
+* Use strong but restrained design
+* Avoid clutter
+* Avoid too many small cards
+* Keep a clear narrative flow
+* Use large sections with whitespace
+* Keep the page buyer-facing and polished
+* Do not make it look like a control panel
+* Do not show demo controls
+* The experience should feel consultative, personalized, and premium
+
+Final reminder:
+This is a long-form 1:1 account microsite, not a simple landing page. It should help an account move from interest to action by combining personalized messaging, recommended use cases, stakeholder-specific value, relevant proof, curated resources, and clear next steps.
