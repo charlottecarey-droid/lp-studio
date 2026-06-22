@@ -53,11 +53,14 @@ vi.mock("@workspace/db", () => ({
 
 // The shared/global allow-list lookup — exercised on its own in
 // libraryScope.sharedAsset.test.ts. Here we only verify the route WIRES it in.
-const { isSharedOrGlobalAsset } = vi.hoisted(() => ({
+// resolveOwnedTenantIds drives the reciprocal-sibling read scope: the serve
+// ACL allows a requester whose owned-tenant set includes the object owner.
+const { isSharedOrGlobalAsset, resolveOwnedTenantIds } = vi.hoisted(() => ({
   isSharedOrGlobalAsset: vi.fn(async () => false),
+  resolveOwnedTenantIds: vi.fn(async (id: number) => [id]),
 }));
 vi.mock("../lib/libraryScope", () => ({
-  resolveOwnedTenantIds: vi.fn(),
+  resolveOwnedTenantIds,
   libraryReadablePredicate: vi.fn(),
   isSharedOrGlobalAsset,
 }));
@@ -102,6 +105,9 @@ describe("GET /api/storage/objects/* — shared/global ACL allow-list", () => {
     sessionRows = [];
     isSharedOrGlobalAsset.mockClear();
     isSharedOrGlobalAsset.mockResolvedValue(false);
+    // Default: no siblings — each tenant owns only itself.
+    resolveOwnedTenantIds.mockClear();
+    resolveOwnedTenantIds.mockImplementation(async (id: number) => [id]);
   });
 
   it("serves a shared/global asset to an authenticated NON-owning tenant", async () => {
@@ -127,6 +133,37 @@ describe("GET /api/storage/objects/* — shared/global ACL allow-list", () => {
     expect(res.status).toBe(403);
     expect(isSharedOrGlobalAsset).toHaveBeenCalledWith("uploads/some-object-uuid");
     expect(res.headers["vary"]).toBe("Cookie");
+  });
+
+  it("serves a sibling-tenant-owned asset (reciprocal library scope)", async () => {
+    // Requester is tenant 2; the object is owned by tenant 1; the two are
+    // reciprocal siblings (e.g. an account-microsite pair), so the library
+    // lists tenant 1's image to tenant 2 and the serve route must match.
+    sessionRows = sessionFor(2);
+    resolveOwnedTenantIds.mockImplementation(async (id: number) =>
+      id === 2 ? [2, 1] : [id],
+    );
+
+    const res = await getObject({ cookie: "sid-tenant-2" });
+
+    expect(res.status).toBe(200);
+    expect(res.text).toBe("IMAGE-BYTES");
+    expect(resolveOwnedTenantIds).toHaveBeenCalledWith(2);
+    // Sibling access resolves before the shared/global fallback is consulted.
+    expect(isSharedOrGlobalAsset).not.toHaveBeenCalled();
+    expect(res.headers["vary"]).toBe("Cookie");
+  });
+
+  it("still 403s a non-sibling, non-shared tenant upload", async () => {
+    // Requester tenant 2 has NO siblings; object owned by tenant 1.
+    sessionRows = sessionFor(2);
+    resolveOwnedTenantIds.mockImplementation(async (id: number) => [id]);
+    isSharedOrGlobalAsset.mockResolvedValue(false);
+
+    const res = await getObject({ cookie: "sid-tenant-2" });
+
+    expect(res.status).toBe(403);
+    expect(resolveOwnedTenantIds).toHaveBeenCalledWith(2);
   });
 
   it("serves the owning tenant without consulting the allow-list", async () => {

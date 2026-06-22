@@ -1308,8 +1308,25 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
       // Anonymous (no session) is allowed through. Only block authenticated
       // callers from a *different* tenant.
       if (requesterTenantId !== null) {
-        const allowed = tenantCanReadAcl(aclPolicy, requesterTenantId);
-        if (allowed !== true) {
+        let allowed = tenantCanReadAcl(aclPolicy, requesterTenantId) === true;
+        // Reciprocal-sibling read parity: the media library (GET /lp/media and
+        // /lp/media/images) lists every image owned by the requester's
+        // `resolveOwnedTenantIds` set — the requester's own tenant PLUS any
+        // reciprocally-linked sibling tenants (e.g. an account-microsite
+        // pair). The serve ACL must honor that SAME set, or the sibling-owned
+        // thumbnails and heroes the library legitimately shows render as broken
+        // (empty) <img> frames in the content library and builder. This lookup
+        // runs ONLY on the cross-tenant path (exact-owner already returned
+        // true above), so the hot path is unaffected, and it grants no access
+        // the library list did not already expose to this requester.
+        if (!allowed) {
+          const ownerTenant = tenantIdFromAclOwner(aclPolicy.owner);
+          if (ownerTenant != null) {
+            const ownedTenantIds = await resolveOwnedTenantIds(requesterTenantId);
+            allowed = ownedTenantIds.includes(ownerTenant);
+          }
+        }
+        if (!allowed) {
           // Before refusing, allow the request when this object is an
           // intentionally-shared asset (shared starter-library row or imagery
           // referenced by a GLOBAL template). Global/shared imagery is meant to
