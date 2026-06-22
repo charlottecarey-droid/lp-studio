@@ -9742,16 +9742,26 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // reference images (current reference before stale prior-generation scrapes)
     // is handled when the pool is built, just below.
     //
-    // The harvest ran concurrently with the (multi-second) LLM call and is
-    // almost always finished by now. To keep it strictly latency-free we only
-    // wait a short grace window past the LLM: if a slow CDN means it hasn't
-    // settled, we proceed with the drawer-only pool. The mirror still completes
-    // in the background and persists its rows, so the next generation from the
-    // same site picks them up via the refsrc dedup — no work is wasted.
-    // 8s, not 4s: under DB-pool contention the mirror's lp_media inserts can
-    // queue behind a connection-timeout, so a too-tight grace window discards
-    // freshly-scraped reference images that would have landed a beat later.
-    const SCRAPED_MEDIA_GRACE_MS = 8000;
+    // The harvest ran concurrently with the (multi-second) LLM call, but it does
+    // NOT just fetch+upload — the mirror AWAITS per-image GPT-4o-vision tagging
+    // (bounded at AUTO_TAG_TIMEOUT_MS = 25s each, run in parallel) so the page
+    // sees real purpose/hero tags. Under proxy contention (up to 12 tag calls
+    // queued behind this generation's own composer call on the shared AI proxy)
+    // that tagging routinely outlasts the LLM. The old 8s grace then abandoned a
+    // still-tagging harvest: scrapedMedia resolved to [] so the freshly-scraped
+    // reference images never entered the pool — yet they DID finish saving to
+    // lp_media a beat later. Net symptom: the app scrapes a reference page's
+    // images on request and then doesn't use them on that page. (The next
+    // generation from the same site would pick them up via the refsrc/host
+    // dedup, but the user expects THIS page to use them.)
+    //
+    // Fix: give the consumer the same patience the producer is bounded by, so
+    // the harvest the mirror is DESIGNED to deliver actually reaches the pool.
+    // This is NOT a flat latency add: Promise.race resolves the instant the
+    // harvest settles, so we only ever wait as long as the harvest genuinely
+    // needs (and only when the user pointed us at a reference URL). A pathologi-
+    // cally slow CDN/tagger still falls back to the drawer-only pool at the cap.
+    const SCRAPED_MEDIA_GRACE_MS = 25000;
     const scrapedMedia = await Promise.race([
       scrapedMediaPromise,
       new Promise<MediaImage[]>((resolve) =>
