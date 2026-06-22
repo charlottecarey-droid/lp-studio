@@ -623,6 +623,11 @@ router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
     let siteResearch     = "";
     const allCitations: string[] = [];
 
+    // Industry context for the research queries, derived from the account so
+    // searches are never hardcoded to a single vertical (this is a multi-tenant
+    // app). An empty hint means "search the whole web with no industry filter".
+    const industryHint = [industry, segment].filter(Boolean).join(", ").trim();
+
     const researchTasks: Promise<void>[] = [];
 
     if (PERPLEXITY_KEY && accountName) {
@@ -634,8 +639,8 @@ Title: ${title || "unknown"}
 Company: ${accountName}
 
 Search broadly across the web for:
-- "${fullName}" conference talk, keynote, panel, or presentation (dental industry, DSO, healthcare ops)
-- "${fullName}" quoted or interviewed in: Dental Economics, DSO News, Group Dentistry Now, Dentistry Today, podcasts, industry blogs
+- "${fullName}" conference talk, keynote, panel, or presentation${industryHint ? ` (${industryHint})` : ""}
+- "${fullName}" quoted or interviewed in news outlets, trade publications, podcasts, or industry blogs
 - "${fullName}" authored article, LinkedIn post, or published content
 - "${fullName}" award, recognition, or leadership mention
 - Any professional achievement, career move, or public statement from the last 6 months
@@ -650,7 +655,7 @@ Company: ${accountName}${segment ? ` (${segment})` : ""}${numLocations ? `, ${nu
 Search for:
 - "${accountName}" expansion, new locations, acquisition, merger — 2025 or 2026
 - "${accountName}" press release, funding, leadership hire, partnership
-- "${accountName}" DSO news, dental group news, job postings signaling growth
+- "${accountName}"${industryHint ? ` ${industryHint}` : ""} industry news, job postings signaling growth
 
 Return ONLY recent news (last 6 months). If nothing found, say "No recent company news found." Be brief.`;
 
@@ -664,7 +669,7 @@ Extract:
 - How long they've been in their current role and what they did before
 - Any recent posts, shared articles, or comments (last 6 months) — what topics do they engage with?
 - Career trajectory and stated professional priorities
-- Any shared content about DSO growth, operations, technology, or dental industry trends
+- Any shared content about growth, operations, technology, or${industryHint ? ` ${industryHint}` : ""} industry trends
 
 Be specific. If LinkedIn content is behind a paywall, report what's visible from search snippets.`
         : `Search for "${fullName}" "${accountName}" on LinkedIn and across the web.
@@ -689,7 +694,7 @@ Only report what you can confirm from public sources.`;
     } else if (PERPLEXITY_KEY && domain && accountName) {
       // Fallback: use Perplexity for site if no Firecrawl key
       const siteQuery = `Summarize the key facts about ${accountName} from their website at ${domain}. Focus on:
-- What type of dental organization they are (DSO, group practice, independent)
+- What type of organization they are and what they do
 - Number of locations or practices
 - Geographic footprint (states, regions)
 - Any stated growth strategy, M&A activity, or expansion plans
