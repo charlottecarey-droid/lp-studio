@@ -30,3 +30,14 @@ trimmed.
 shared helper AND to the resolve route's JSON AND to the client resolver's var
 map AND to `substituteAccountVars`'s replace list — missing any one re-introduces
 the literal-token bug on either the baked or the live path.
+
+**Closed-set trap (the bigger gotcha):** the supported personalization vocabulary
+is a CLOSED set (`{{company_name}}` + `{{practice_count}}`). There is NO
+unknown-token stripper on either path — any other `{{…}}` you put in a new
+template/block's DEFAULT props (e.g. `{{industry}}`, `{{company_size}}`,
+`{{first_name}}`) ships verbatim and renders as literal text on /p/:token pages.
+So a new full-page sales template (e.g. `account-microsite`) must either (a) use
+ONLY the two supported tokens in its seed + block defaults, or (b) extend ALL four
+fill points above first. Default to (a); deeper per-field personalization is its
+own task. Also narrow any property-panel helper copy from generic "supports
+{{tokens}}" to the actual supported token, or operators type leaking tokens.

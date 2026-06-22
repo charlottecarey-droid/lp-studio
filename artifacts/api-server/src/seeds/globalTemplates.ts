@@ -3713,6 +3713,127 @@ const DEAL_ROOM_GENERIC_PROPS = {
   footerNote: "Shared for internal review. Figures and dates refined jointly as we go.",
 } as Record<string, unknown>;
 
+const ACCOUNT_MICROSITE_GENERIC_PROPS = {
+  ctaText: "Book a working session",
+  ctaUrl: "#close",
+  ctaAction: "url",
+  ctaSecondaryText: "Forward to your team",
+  ctaSecondaryUrl: "#",
+  heroLayout: "split",
+  showNavbar: true,
+  heroImageUrl:
+    "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?q=80&w=1100&h=900&fit=crop",
+  heroImageAlt: "Two teams aligning on a shared plan",
+  navLinks: [
+    { label: "Why now", href: "#why" },
+    { label: "The approach", href: "#approach" },
+    { label: "Next step", href: "#close" },
+  ],
+  navCtaText: "Book a working session",
+  navCtaUrl: "#close",
+  eyebrow: "Prepared for {{company_name}}",
+  accountName: "Acme",
+  yourName: "Your Co",
+  showYourLogo: true,
+  headline: "A plan built around where your team is headed.",
+  subheadline:
+    "We pulled together what we know about your goals, the approach we'd recommend, and the proof it works — so your team can decide together, fast.",
+  showBrief: true,
+  briefHeading: "What we know about you",
+  briefItems: [
+    { label: "Industry", value: "Operations & service" },
+    { label: "Size", value: "Growing team" },
+    { label: "Focus", value: "Reducing manual work" },
+    { label: "Timeline", value: "This quarter" },
+  ],
+  showWhy: true,
+  whyKicker: "Why this matters now",
+  whyHeading: "The window to move is open.",
+  whyIntro:
+    "Three things make this the right quarter to act, based on what your team has shared and where the market is heading.",
+  reasons: [
+    { title: "Costs keep climbing", detail: "Every quarter of manual work compounds — the savings start the moment you switch." },
+    { title: "Your team is ready", detail: "You already have the process; this removes the friction without a disruptive rollout." },
+    { title: "A clear runway", detail: "Start small this quarter and scale on results, not on a leap of faith." },
+  ],
+  showApproach: true,
+  approachKicker: "Recommended approach",
+  approachHeading: "How we'd get you there.",
+  approachIntro:
+    "A staged path that proves value early and scales on results — no big-bang rollout.",
+  phases: [
+    { title: "Align on outcomes", timeframe: "Weeks 1–2", detail: "Agree the success criteria and the one workflow we prove first." },
+    { title: "Run a focused pilot", timeframe: "Weeks 3–6", detail: "Go live with one team, measured against the baseline we set together." },
+    { title: "Review & expand", timeframe: "Weeks 7–8", detail: "Take the results to your sponsor and plan the rollout that fits." },
+  ],
+  showUseCases: true,
+  useCasesKicker: "Where it fits",
+  useCasesHeading: "The use cases that match your team.",
+  useCasesIntro:
+    "The places we'd expect the biggest, fastest wins for an organization like yours.",
+  useCases: [
+    { title: "Faster order entry", detail: "Replace the manual steps that slow your team down every single day.", metric: "Hours back / week" },
+    { title: "Fewer errors", detail: "Catch issues before they cost you, with checks built into the flow.", metric: "Lower rework" },
+    { title: "Clear visibility", detail: "Everyone sees status in one place, so nothing slips between teams.", metric: "One source of truth" },
+  ],
+  showPersona: true,
+  personaKicker: "Value for your team",
+  personaHeading: "What each person gets out of this.",
+  personaIntro:
+    "A decision moves when everyone sees their own win. Here's the value by role.",
+  personaValues: [
+    { role: "Economic buyer", gets: "Payback inside the year and a return that clears the bar, with the math on the record." },
+    { role: "Technical lead", gets: "Security, SSO, and native integrations — reviewed before sign-off." },
+    { role: "End users", gets: "Hours back every week and an end to the rework, with a guided rollout." },
+  ],
+  showProof: true,
+  proofKicker: "Proof for this buyer",
+  proofHeading: "Teams like yours, already there.",
+  caseStudies: [
+    { name: "Northwind", result: "34% lower cost per order within 90 days", quote: "We expected a six-month slog. We were measuring savings by week four, and the rollout never fought our team.", attribution: "VP Operations, Northwind" },
+    { name: "Vertex Logistics", result: "4.1× faster exception resolution", quote: "Escalations used to disappear into shared inboxes. Now every one has an owner and a clock.", attribution: "Director of Support, Vertex Logistics" },
+  ],
+  logoWallLabel: "In good company",
+  logos: [
+    { name: "Acme Corp" }, { name: "Northwind" }, { name: "Globex" }, { name: "Initech" }, { name: "Vertex" },
+  ],
+  showResources: true,
+  resourcesKicker: "Recommended resources",
+  resourcesHeading: "The docs your team will ask for.",
+  resources: [
+    { title: "Security & compliance overview", type: "PDF · Security", url: "#" },
+    { title: "Pricing & packaging", type: "PDF · Pricing", url: "#" },
+    { title: "Implementation plan", type: "PDF · Onboarding", url: "#" },
+  ],
+  showPlan: true,
+  planKicker: "Mutual action plan",
+  planHeading: "The steps to a decision — owners and dates.",
+  planIntro:
+    "A shared plan beats a sales pitch. Here's what we move through together, who owns each step, and when it lands.",
+  planSteps: [
+    { title: "Discovery & alignment", owner: "Both teams", date: "Done", detail: "Success criteria and scope agreed in a working session.", status: "done" },
+    { title: "Security review", owner: "Your IT", date: "This week", detail: "Security package and architecture review with your team.", status: "in-progress" },
+    { title: "Pilot", owner: "Both teams", date: "Weeks 3–6", detail: "One live workflow, measured against the baseline we set.", status: "upcoming" },
+    { title: "Executive review", owner: "Your sponsor", date: "Week 7", detail: "Pilot results to the committee; rollout plan on the table.", status: "upcoming" },
+  ],
+  showTeam: true,
+  teamKicker: "Your team",
+  teamHeading: "The people behind this — start to finish.",
+  teamIntro:
+    "You're not handed off to a queue. Here's who you'll work with and how to reach them.",
+  teamMembers: [
+    { name: "Your account executive", role: "Your main point of contact", note: "Owns the plan with you." },
+    { name: "Solutions engineer", role: "Technical partner", note: "Handles the security review and setup." },
+    { name: "Customer success", role: "Onboarding lead", note: "Gets your team live and measuring." },
+  ],
+  showClose: true,
+  closeKicker: "Next step",
+  closeHeading: "Ready to move? Let's book it.",
+  closeIntro:
+    "Pick a time that works for your team and we'll walk the plan together. Bring whoever needs to be in the room.",
+  footerNote: "Prepared for your team's internal review. Details refined together as we go.",
+} as Record<string, unknown>;
+
 const ONBOARDING_HUB_GENERIC_PROPS = {
   ctaText: "Book your kickoff call",
   ctaUrl: "#support",
@@ -4097,6 +4218,29 @@ const BUSINESS_CASE_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
         id: "seed-deal-room-1",
         type: "deal-room",
         props: DEAL_ROOM_GENERIC_PROPS,
+      },
+    ],
+  },
+  {
+    slug: "global-account-microsite",
+    title: "1:1 Account Microsite",
+    templateLabel: "1:1 Account Microsite",
+    templateDescription:
+      "A premium, buyer-facing strategy story a rep generates for one target account: a personalized co-brand hero, a short brief of what we know about them, why-now reasons, the recommended approach, matching use cases, value by role, proof and a logo wall, recommended resources, a mutual action plan, the people on your team, and a scheduling close. Personalized behind the scenes — no visible controls. Inherits the tenant brand's colors and logo.",
+    ogImage: "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=1200&q=80",
+    industry: null,
+    premiumRank: 34,
+    category: "business-case",
+    keywords: ["account microsite", "1:1", "ABM", "target account",
+      "strategy story", "personalized", "account based", "first meeting",
+      "buyer", "outreach"],
+    isAllInOne: true,
+    funnelStage: "first-meeting",
+    blocks: [
+      {
+        id: "seed-account-microsite-1",
+        type: "account-microsite",
+        props: ACCOUNT_MICROSITE_GENERIC_PROPS,
       },
     ],
   },

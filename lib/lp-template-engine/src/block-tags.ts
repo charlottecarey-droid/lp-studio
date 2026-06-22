@@ -279,6 +279,7 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "exec-decision-brief": ["content"],
   "challenger-insight": ["content"],
   "deal-room": ["content"],
+  "account-microsite": ["content"],
   "onboarding-hub": ["content"],
   "value-renewal-review": ["content"],
 
@@ -400,6 +401,7 @@ export const FULL_PAGE_BLOCK_TYPES: ReadonlySet<string> = new Set([
   "exec-decision-brief",
   "challenger-insight",
   "deal-room",
+  "account-microsite",
   "onboarding-hub",
   "value-renewal-review",
 ]);

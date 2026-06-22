@@ -2085,7 +2085,7 @@ async function runMigrationsBody(): Promise<void> {
       // databases already past this marker. Conservative seed: only the
       // funnel-stage / framework templates declare anything; everything else
       // stays wildcard (NULL = ANY) so nothing breaks.
-      const SEED_MARKER = "global_templates_seed_v33";
+      const SEED_MARKER = "global_templates_seed_v34";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;

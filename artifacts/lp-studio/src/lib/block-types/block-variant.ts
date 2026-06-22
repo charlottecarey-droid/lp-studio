@@ -159,6 +159,7 @@ import type {
   ExecDecisionBriefBlockProps,
   ChallengerInsightBlockProps,
   DealRoomBlockProps,
+  AccountMicrositeBlockProps,
   OnboardingHubBlockProps,
   ValueRenewalReviewBlockProps,
 } from "./generic-blocks";
@@ -338,6 +339,7 @@ export type BlockVariant =
   | { type: "exec-decision-brief"; props: ExecDecisionBriefBlockProps }
   | { type: "challenger-insight"; props: ChallengerInsightBlockProps }
   | { type: "deal-room"; props: DealRoomBlockProps }
+  | { type: "account-microsite"; props: AccountMicrositeBlockProps }
   | { type: "onboarding-hub"; props: OnboardingHubBlockProps }
   | { type: "value-renewal-review"; props: ValueRenewalReviewBlockProps }
   | { type: "magazine-hero"; props: MagazineHeroBlockProps }

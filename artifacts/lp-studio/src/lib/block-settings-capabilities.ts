@@ -204,6 +204,7 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   "exec-decision-brief": SELF_STYLED,
   "challenger-insight": SELF_STYLED,
   "deal-room": SELF_STYLED,
+  "account-microsite": SELF_STYLED,
   "onboarding-hub": SELF_STYLED,
   "value-renewal-review": SELF_STYLED,
 

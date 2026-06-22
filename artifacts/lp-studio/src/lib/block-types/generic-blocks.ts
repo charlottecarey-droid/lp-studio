@@ -4558,6 +4558,20 @@ export type {
   DealRoomFaq,
 } from "@/blocks/BlockDealRoom";
 export type {
+  AccountMicrositeBlockProps,
+  AccountMicrositeStepStatus,
+  AccountMicrositeBriefItem,
+  AccountMicrositeReason,
+  AccountMicrositePhase,
+  AccountMicrositeUseCase,
+  AccountMicrositePersonaValue,
+  AccountMicrositeCaseStudy,
+  AccountMicrositeLogo,
+  AccountMicrositeResource,
+  AccountMicrositePlanStep,
+  AccountMicrositeTeamMember,
+} from "@/blocks/BlockAccountMicrosite";
+export type {
   OnboardingHubBlockProps,
   OnboardingPhaseStatus,
   OnboardingPhase,

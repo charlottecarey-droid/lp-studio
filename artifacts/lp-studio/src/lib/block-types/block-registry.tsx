@@ -154,6 +154,7 @@ import type {
   ExecDecisionBriefBlockProps,
   ChallengerInsightBlockProps,
   DealRoomBlockProps,
+  AccountMicrositeBlockProps,
   OnboardingHubBlockProps,
   ValueRenewalReviewBlockProps,
 } from "./generic-blocks";
@@ -172,6 +173,7 @@ import { STORYBRAND_JOURNEY_DEFAULT_PROPS } from "@/blocks/BlockStorybrandJourne
 import { EXEC_DECISION_BRIEF_DEFAULT_PROPS } from "@/blocks/BlockExecDecisionBrief";
 import { CHALLENGER_INSIGHT_DEFAULT_PROPS } from "@/blocks/BlockChallengerInsight";
 import { DEAL_ROOM_DEFAULT_PROPS } from "@/blocks/BlockDealRoom";
+import { ACCOUNT_MICROSITE_DEFAULT_PROPS } from "@/blocks/BlockAccountMicrosite";
 import { ONBOARDING_HUB_DEFAULT_PROPS } from "@/blocks/BlockOnboardingHub";
 import { VALUE_RENEWAL_REVIEW_DEFAULT_PROPS } from "@/blocks/BlockValueRenewalReview";
 import type {
@@ -8654,6 +8656,29 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "account-microsite",
+    label: "1:1 Account Microsite — Full Page",
+    category: "Full Page Templates",
+    defaultProps: (): AccountMicrositeBlockProps =>
+      structuredClone(ACCOUNT_MICROSITE_DEFAULT_PROPS),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#12102E" rx="4" />
+        <rect x="8" y="9" width="16" height="6" rx="1.5" fill="#fff" opacity="0.85" />
+        <rect x="27" y="10" width="3" height="4" fill="#fff" opacity="0.4" />
+        <rect x="33" y="9" width="16" height="6" rx="1.5" fill="#7C7AF0" opacity="0.8" />
+        <rect x="8" y="22" width="74" height="6" rx="1.5" fill="#fff" opacity="0.95" />
+        <rect x="8" y="34" width="104" height="14" rx="2" fill="#fff" opacity="0.1" />
+        {([0, 1, 2, 3] as const).map(c => (
+          <rect key={c} x={11 + c * 25} y="38" width="20" height="6" rx="1" fill="#fff" opacity="0.5" />
+        ))}
+        {([0, 1, 2] as const).map(c => (
+          <rect key={c} x={8 + c * 36} y="54" width="30" height="10" rx="2" fill="#fff" opacity="0.07" />
+        ))}
+      </svg>
+    ),
+  },
+  {
     type: "onboarding-hub",
     label: "Onboarding Hub — Full Page",
     category: "Full Page Templates",
@@ -8750,6 +8775,7 @@ export function createBlock(type: "storybrand-journey"): Extract<PageBlock, { ty
 export function createBlock(type: "exec-decision-brief"): Extract<PageBlock, { type: "exec-decision-brief" }>;
 export function createBlock(type: "challenger-insight"): Extract<PageBlock, { type: "challenger-insight" }>;
 export function createBlock(type: "deal-room"): Extract<PageBlock, { type: "deal-room" }>;
+export function createBlock(type: "account-microsite"): Extract<PageBlock, { type: "account-microsite" }>;
 export function createBlock(type: "onboarding-hub"): Extract<PageBlock, { type: "onboarding-hub" }>;
 export function createBlock(type: "value-renewal-review"): Extract<PageBlock, { type: "value-renewal-review" }>;
 export function createBlock(type: "rating-badges"): Extract<PageBlock, { type: "rating-badges" }>;
@@ -9079,6 +9105,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "exec-decision-brief": return { id, type: "exec-decision-brief", props: props as ExecDecisionBriefBlockProps };
     case "challenger-insight": return { id, type: "challenger-insight", props: props as ChallengerInsightBlockProps };
     case "deal-room": return { id, type: "deal-room", props: props as DealRoomBlockProps };
+    case "account-microsite": return { id, type: "account-microsite", props: props as AccountMicrositeBlockProps };
     case "onboarding-hub": return { id, type: "onboarding-hub", props: props as OnboardingHubBlockProps };
     case "value-renewal-review": return { id, type: "value-renewal-review", props: props as ValueRenewalReviewBlockProps };
     case "rating-badges": return { id, type: "rating-badges", props: props as RatingBadgesBlockProps };
@@ -9186,6 +9213,7 @@ export function templateToBlocks(templateId: string): PageBlock[] {
     "exec-decision-brief": ["exec-decision-brief"],
     "challenger-insight": ["challenger-insight"],
     "deal-room": ["deal-room"],
+    "account-microsite": ["account-microsite"],
     "onboarding-hub": ["onboarding-hub"],
     "value-renewal-review": ["value-renewal-review"],
   };
