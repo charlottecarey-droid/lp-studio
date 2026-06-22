@@ -474,6 +474,54 @@ uri = "file://artifacts/mockup-sandbox/public/images/abm-dealroom-hero-bg.png"
 type = "image"
 title = "dark cinematic mesh background"
 
+[[generated]]
+id = "uzf7yPqThHpE4wEeuvC8q"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-dossier-hero.png"
+type = "image"
+title = "Minimalist modern architecture hero"
+
+[[generated]]
+id = "gKpZeQZpSHFdrijQ6L9uz"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-dossier-art-1.png"
+type = "image"
+title = "Professionals in refined office"
+
+[[generated]]
+id = "MUg7dtPrpPGs93F9I-Wld"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-dossier-art-2.png"
+type = "image"
+title = "Fine art paper still life"
+
+[[generated]]
+id = "wVBM_pbwbn94Q5XnqunY5"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-editorial2-hero.png"
+type = "image"
+title = "architectural fine art photo"
+
+[[generated]]
+id = "7SgYMHjqqbBtMiJKAwkPP"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-editorial2-detail.png"
+type = "image"
+title = "macro architect desk photo"
+
+[[generated]]
+id = "ag1XGabED3L1BwztmSQl9"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-atelier-hero.png"
+type = "image"
+title = "Luxury architectural interior with dramatic lighting"
+
+[[generated]]
+id = "JFYOiY595tIddofzkQzPZ"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-atelier-still.png"
+type = "image"
+title = "Minimalist fine art still life with natural light"
+
+[[generated]]
+id = "zAd7lpHsD0ib63SOl2mEf"
+uri = "file://artifacts/mockup-sandbox/public/images/abm-atelier-office.png"
+type = "image"
+title = "Minimalist luxury office environment"
+
 [[outputs]]
 id = "2sUbM7UegFOFtU0kTdNUi"
 uri = "file://.local/cheatsheet.md"

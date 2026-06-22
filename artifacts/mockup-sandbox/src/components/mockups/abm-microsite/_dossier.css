@@ -1,0 +1,167 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600&family=Space+Grotesk:wght@300;400;500;600&display=swap');
+
+.dossier-magazine {
+  --color-paper: 40 33% 96%;      /* Warm off-white */
+  --color-paper-alt: 40 20% 92%;  
+  --color-ink: 240 10% 10%;       /* True ink black */
+  --color-accent: 14 75% 50%;     /* Muted terracotta */
+  --color-ink-muted: 240 5% 40%;
+  
+  --font-serif: 'Playfair Display', serif;
+  --font-sans: 'Space Grotesk', sans-serif;
+  
+  background-color: hsl(var(--color-paper));
+  color: hsl(var(--color-ink));
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dossier-magazine .bg-paper { background-color: hsl(var(--color-paper)); }
+.dossier-magazine .bg-paper-alt { background-color: hsl(var(--color-paper-alt)); }
+.dossier-magazine .bg-ink { background-color: hsl(var(--color-ink)); }
+.dossier-magazine .bg-accent { background-color: hsl(var(--color-accent)); }
+
+.dossier-magazine .text-paper { color: hsl(var(--color-paper)); }
+.dossier-magazine .text-ink { color: hsl(var(--color-ink)); }
+.dossier-magazine .text-accent { color: hsl(var(--color-accent)); }
+.dossier-magazine .text-ink-muted { color: hsl(var(--color-ink-muted)); }
+
+.dossier-magazine .border-ink { border-color: hsl(var(--color-ink)); }
+.dossier-magazine .border-ink-10 { border-color: hsla(var(--color-ink) / 0.1); }
+.dossier-magazine .border-ink-20 { border-color: hsla(var(--color-ink) / 0.2); }
+
+.dossier-magazine .font-serif {
+  font-family: var(--font-serif);
+}
+
+.dossier-magazine .font-sans {
+  font-family: var(--font-sans);
+}
+
+.dossier-magazine .small-caps {
+  font-variant-caps: small-caps;
+  letter-spacing: 0.05em;
+}
+
+/* Hairlines */
+.dossier-magazine .hairline-t { border-top: 1px solid hsla(var(--color-ink) / 0.15); }
+.dossier-magazine .hairline-b { border-bottom: 1px solid hsla(var(--color-ink) / 0.15); }
+.dossier-magazine .hairline-l { border-left: 1px solid hsla(var(--color-ink) / 0.15); }
+.dossier-magazine .hairline-r { border-right: 1px solid hsla(var(--color-ink) / 0.15); }
+
+/* Typography scale for this magazine */
+.dossier-magazine .display-1 {
+  font-family: var(--font-serif);
+  font-size: clamp(3rem, 8vw, 7rem);
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+}
+
+.dossier-magazine .display-2 {
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 5vw, 4rem);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+
+.dossier-magazine .pull-quote {
+  font-family: var(--font-serif);
+  font-size: clamp(1.5rem, 3vw, 2.5rem);
+  line-height: 1.2;
+  font-style: italic;
+  letter-spacing: -0.01em;
+}
+
+.dossier-magazine .body-text {
+  font-size: 1.125rem;
+  line-height: 1.7;
+  font-weight: 300;
+}
+
+.dossier-magazine .label-text {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 500;
+}
+
+/* Multi-column support */
+.dossier-magazine .multi-col {
+  column-count: 1;
+  column-gap: 3rem;
+}
+@media (min-width: 768px) {
+  .dossier-magazine .multi-col {
+    column-count: 2;
+  }
+}
+
+/* Image treatments */
+.dossier-magazine .art-directed-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: sepia(0.2) contrast(1.1) brightness(0.9);
+}
+
+.dossier-magazine .duotone {
+  mix-blend-mode: multiply;
+  opacity: 0.9;
+}
+
+.dossier-magazine .btn-editorial {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 500;
+  color: hsl(var(--color-ink));
+  border-bottom: 1px solid hsl(var(--color-ink));
+  padding-bottom: 0.25rem;
+  transition: all 0.3s ease;
+}
+.dossier-magazine .btn-editorial:hover {
+  color: hsl(var(--color-accent));
+  border-color: hsl(var(--color-accent));
+}
+
+.dossier-magazine .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: hsl(var(--color-ink));
+  color: hsl(var(--color-paper));
+  padding: 1rem 2rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dossier-magazine .btn-primary:hover {
+  background-color: hsl(var(--color-accent));
+  transform: translateY(-2px);
+}
+
+/* Animations */
+.dossier-magazine .reveal-slow {
+  opacity: 0;
+  transform: translateY(30px);
+  animation: revealSlow 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+.dossier-magazine .delay-100 { animation-delay: 100ms; }
+.dossier-magazine .delay-200 { animation-delay: 200ms; }
+.dossier-magazine .delay-300 { animation-delay: 300ms; }
+.dossier-magazine .delay-500 { animation-delay: 500ms; }
+
+@keyframes revealSlow {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
