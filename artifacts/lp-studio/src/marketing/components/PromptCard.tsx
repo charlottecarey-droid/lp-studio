@@ -230,7 +230,7 @@ export default function PromptCard() {
               onClick={() => applyPill(p.prompt)}
               style={{
                 fontSize: 12.5,
-                background: "transparent",
+                background: "color-mix(in srgb, var(--cream) 30%, var(--paper))",
                 color: "var(--ink-faint)",
                 border: "1px solid rgba(26, 24, 21, 0.10)",
                 borderRadius: 999,
@@ -247,7 +247,7 @@ export default function PromptCard() {
               }}
               onMouseLeave={(e) => {
                 const el = e.currentTarget;
-                el.style.background = "transparent";
+                el.style.background = "color-mix(in srgb, var(--cream) 30%, var(--paper))";
                 el.style.color = "var(--ink-faint)";
                 el.style.borderColor = "rgba(26, 24, 21, 0.10)";
               }}
