@@ -472,6 +472,105 @@ Output only the email followed by the HOOK_SOURCE and THEME lines. Nothing else.
   return { systemMsg: DRAFT_EMAIL_SYSTEM_MSG, prompt };
 }
 
+export interface ResearchQueryInputs {
+  fullName: string;
+  title: string;
+  accountName: string;
+  /** Account industry — drives the vertical hint; empty = no industry filter. */
+  industry: string;
+  /** Account segment — also contributes to the vertical hint. */
+  segment: string;
+  numLocations: number | null;
+  privateEquityFirm: string;
+  linkedinUrl: string;
+  domain: string;
+}
+
+export interface ResearchQueries {
+  /** Derived vertical hint ("industry, segment"); empty = search the whole web. */
+  industryHint: string;
+  personQuery: string;
+  companyQuery: string;
+  linkedinQuery: string;
+  /** Perplexity site-fallback query (used only when there is no Firecrawl key). */
+  siteQuery: string;
+}
+
+/**
+ * Build the Perplexity research prompts for a prospect. These MUST stay
+ * vertical-neutral: this is a multi-tenant app, so the only industry context
+ * comes from the account's own `industry`/`segment` fields via `industryHint`.
+ * An empty hint means "search the whole web with no industry filter" — never
+ * bake a single vertical (e.g. dental/DSO) into these strings.
+ */
+export function buildResearchQueries(input: ResearchQueryInputs): ResearchQueries {
+  const {
+    fullName, title, accountName, industry, segment,
+    numLocations, privateEquityFirm, linkedinUrl, domain,
+  } = input;
+
+  // Industry context for the research queries, derived from the account so
+  // searches are never hardcoded to a single vertical (this is a multi-tenant
+  // app). An empty hint means "search the whole web with no industry filter".
+  const industryHint = [industry, segment].filter(Boolean).join(", ").trim();
+
+  // ── Person-specific search: talks, quotes, interviews, articles ──
+  const personQuery = `Find public professional information about this specific person for a B2B sales outreach:
+
+Name: ${fullName}
+Title: ${title || "unknown"}
+Company: ${accountName}
+
+Search broadly across the web for:
+- "${fullName}" conference talk, keynote, panel, or presentation${industryHint ? ` (${industryHint})` : ""}
+- "${fullName}" quoted or interviewed in news outlets, trade publications, podcasts, or industry blogs
+- "${fullName}" authored article, LinkedIn post, or published content
+- "${fullName}" award, recognition, or leadership mention
+- Any professional achievement, career move, or public statement from the last 6 months
+
+Be specific. Include exact quotes, dates, and sources when found. If nothing found, say "No person-level information found."`;
+
+  // ── Company news search: expansion, acquisition, growth signals ──
+  const companyQuery = `Find recent company news about ${accountName} for a B2B sales team:
+
+Company: ${accountName}${segment ? ` (${segment})` : ""}${numLocations ? `, ${numLocations} locations` : ""}${privateEquityFirm ? `, PE-backed by ${privateEquityFirm}` : ""}
+
+Search for:
+- "${accountName}" expansion, new locations, acquisition, merger — 2025 or 2026
+- "${accountName}" press release, funding, leadership hire, partnership
+- "${accountName}"${industryHint ? ` ${industryHint}` : ""} industry news, job postings signaling growth
+
+Return ONLY recent news (last 6 months). If nothing found, say "No recent company news found." Be brief.`;
+
+  // ── LinkedIn: broad web search for this person's profile + activity ──
+  const linkedinQuery = linkedinUrl
+    ? `Look up ${fullName}'s LinkedIn profile at ${linkedinUrl} and also search the web for any of their recent LinkedIn posts, comments, or professional activity.
+
+Also search: "${fullName}" site:linkedin.com OR "${fullName}" "${accountName}" LinkedIn
+
+Extract:
+- How long they've been in their current role and what they did before
+- Any recent posts, shared articles, or comments (last 6 months) — what topics do they engage with?
+- Career trajectory and stated professional priorities
+- Any shared content about growth, operations, technology, or${industryHint ? ` ${industryHint}` : ""} industry trends
+
+Be specific. If LinkedIn content is behind a paywall, report what's visible from search snippets.`
+    : `Search for "${fullName}" "${accountName}" on LinkedIn and across the web.
+Find their career background, current role details, any public posts or professional activity, and stated interests.
+Only report what you can confirm from public sources.`;
+
+  // ── Perplexity site fallback (used only when no Firecrawl key) ──
+  const siteQuery = `Summarize the key facts about ${accountName} from their website at ${domain}. Focus on:
+- What type of organization they are and what they do
+- Number of locations or practices
+- Geographic footprint (states, regions)
+- Any stated growth strategy, M&A activity, or expansion plans
+- Key leadership or brand positioning
+Be factual and specific. Only include what's on the site.`;
+
+  return { industryHint, personQuery, companyQuery, linkedinQuery, siteQuery };
+}
+
 // POST /sales/draft-email — rich cold email using all account/contact fields + Perplexity research + Firecrawl site crawl
 router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
@@ -623,59 +722,16 @@ router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
     let siteResearch     = "";
     const allCitations: string[] = [];
 
-    // Industry context for the research queries, derived from the account so
-    // searches are never hardcoded to a single vertical (this is a multi-tenant
-    // app). An empty hint means "search the whole web with no industry filter".
-    const industryHint = [industry, segment].filter(Boolean).join(", ").trim();
+    // Research queries are built vertical-neutral (see buildResearchQueries):
+    // the only industry context comes from the account's own fields.
+    const { personQuery, companyQuery, linkedinQuery, siteQuery } = buildResearchQueries({
+      fullName, title, accountName, industry, segment,
+      numLocations, privateEquityFirm, linkedinUrl, domain,
+    });
 
     const researchTasks: Promise<void>[] = [];
 
     if (PERPLEXITY_KEY && accountName) {
-      // ── Person-specific search: talks, quotes, interviews, articles ──
-      const personQuery = `Find public professional information about this specific person for a B2B sales outreach:
-
-Name: ${fullName}
-Title: ${title || "unknown"}
-Company: ${accountName}
-
-Search broadly across the web for:
-- "${fullName}" conference talk, keynote, panel, or presentation${industryHint ? ` (${industryHint})` : ""}
-- "${fullName}" quoted or interviewed in news outlets, trade publications, podcasts, or industry blogs
-- "${fullName}" authored article, LinkedIn post, or published content
-- "${fullName}" award, recognition, or leadership mention
-- Any professional achievement, career move, or public statement from the last 6 months
-
-Be specific. Include exact quotes, dates, and sources when found. If nothing found, say "No person-level information found."`;
-
-      // ── Company news search: expansion, acquisition, growth signals ──
-      const companyQuery = `Find recent company news about ${accountName} for a B2B sales team:
-
-Company: ${accountName}${segment ? ` (${segment})` : ""}${numLocations ? `, ${numLocations} locations` : ""}${privateEquityFirm ? `, PE-backed by ${privateEquityFirm}` : ""}
-
-Search for:
-- "${accountName}" expansion, new locations, acquisition, merger — 2025 or 2026
-- "${accountName}" press release, funding, leadership hire, partnership
-- "${accountName}"${industryHint ? ` ${industryHint}` : ""} industry news, job postings signaling growth
-
-Return ONLY recent news (last 6 months). If nothing found, say "No recent company news found." Be brief.`;
-
-      // ── LinkedIn: broad web search for this person's profile + activity ──
-      const linkedinQuery = linkedinUrl
-        ? `Look up ${fullName}'s LinkedIn profile at ${linkedinUrl} and also search the web for any of their recent LinkedIn posts, comments, or professional activity.
-
-Also search: "${fullName}" site:linkedin.com OR "${fullName}" "${accountName}" LinkedIn
-
-Extract:
-- How long they've been in their current role and what they did before
-- Any recent posts, shared articles, or comments (last 6 months) — what topics do they engage with?
-- Career trajectory and stated professional priorities
-- Any shared content about growth, operations, technology, or${industryHint ? ` ${industryHint}` : ""} industry trends
-
-Be specific. If LinkedIn content is behind a paywall, report what's visible from search snippets.`
-        : `Search for "${fullName}" "${accountName}" on LinkedIn and across the web.
-Find their career background, current role details, any public posts or professional activity, and stated interests.
-Only report what you can confirm from public sources.`;
-
       researchTasks.push(
         bestEffort("perplexity person", perplexitySearch(PERPLEXITY_KEY, personQuery), { content: "", citations: [] as string[] })
           .then(r => { personResearch = r.content; allCitations.push(...r.citations); }),
@@ -693,13 +749,6 @@ Only report what you can confirm from public sources.`;
       );
     } else if (PERPLEXITY_KEY && domain && accountName) {
       // Fallback: use Perplexity for site if no Firecrawl key
-      const siteQuery = `Summarize the key facts about ${accountName} from their website at ${domain}. Focus on:
-- What type of organization they are and what they do
-- Number of locations or practices
-- Geographic footprint (states, regions)
-- Any stated growth strategy, M&A activity, or expansion plans
-- Key leadership or brand positioning
-Be factual and specific. Only include what's on the site.`;
       researchTasks.push(
         bestEffort("perplexity site", perplexitySearch(PERPLEXITY_KEY, siteQuery, [domain]), { content: "", citations: [] as string[] })
           .then(r => { siteResearch = r.content; allCitations.push(...r.citations); }),
