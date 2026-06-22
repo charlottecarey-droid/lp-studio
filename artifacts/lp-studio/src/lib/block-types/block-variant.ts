@@ -130,6 +130,7 @@ import type {
   SingleQuoteBlockProps,
   TestimonialGridBlockProps,
   ContentSeriesBlockProps,
+  WebinarHubBlockProps,
   BlogSeriesBlockProps,
   StorefrontBlockProps,
   CinematicVideoHeroBlockProps,
@@ -390,6 +391,7 @@ export type BlockVariant =
   | { type: "single-quote"; props: SingleQuoteBlockProps }
   | { type: "testimonial-grid"; props: TestimonialGridBlockProps }
   | { type: "content-series"; props: ContentSeriesBlockProps }
+  | { type: "webinar-hub"; props: WebinarHubBlockProps }
   | { type: "blog-series"; props: BlogSeriesBlockProps }
   | { type: "storefront"; props: StorefrontBlockProps }
   | { type: "cinematic-video-hero"; props: CinematicVideoHeroBlockProps }

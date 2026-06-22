@@ -224,6 +224,7 @@ import { HoursLocationPanel } from "./HoursLocationPanel";
 import { BeforeAfterGalleryPanel } from "./BeforeAfterGalleryPanel";
 import { SpeakerGridPanel } from "./SpeakerGridPanel";
 import { ContentSeriesPanel } from "./ContentSeriesPanel";
+import { WebinarHubPanel } from "./WebinarHubPanel";
 import { BlogSeriesPanel } from "./BlogSeriesPanel";
 import { StorefrontPanel } from "./StorefrontPanel";
 import { BusinessCasePanel } from "./BusinessCasePanel";
@@ -6893,6 +6894,8 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       }
       case "content-series":
         return <ContentSeriesPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} pageId={pageId} />;
+      case "webinar-hub":
+        return <WebinarHubPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} />;
       case "blog-series":
         return <BlogSeriesPanel props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} />;
       case "storefront":

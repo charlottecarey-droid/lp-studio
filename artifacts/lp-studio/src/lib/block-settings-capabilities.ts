@@ -209,6 +209,7 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
 
   // Self-styled content directory (owns its bg / surface) ------------------
   "resource-link-list": SELF_STYLED,
+  "webinar-hub": SELF_STYLED,
 
   // Card-less content blocks -----------------------------------------------
   "rich-text":      { ...ALL, cardBgColor: false, bgImage: false, minHeight: false },

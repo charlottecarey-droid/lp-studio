@@ -2120,6 +2120,184 @@ export interface ContentSeriesBlockProps {
 }
 
 /* ------------------------------------------------------------------------- */
+/*  Webinar Hub block — `webinar-hub`. A self-contained, brand-aware,        */
+/*  full-page event landing surface (its own nav AND footer). Cinematic      */
+/*  editorial layout: hero + registration form, automated email-sequence     */
+/*  timeline, agenda, featured video / live Q&A, speakers, resources, FAQ,   */
+/*  final CTA, footer. Status drives copy + accent (upcoming/live/on-demand).*/
+/* ------------------------------------------------------------------------- */
+
+/** Event availability state. Drives copy, accent, and which sections show. */
+export type WebinarStatus = "upcoming" | "live" | "on-demand";
+
+/** Action a webinar-hub button performs. "scroll-to-form" jumps to the hero
+ *  registration form; the rest mirror the unified CTA logical actions. */
+export type WebinarCtaAction = "scroll-to-form" | "url" | "open-form" | "chilipiper";
+
+export interface WebinarSpeaker {
+  /** URL-safe id used to highlight this speaker via `?speaker=<id>`. */
+  id?: string;
+  name: string;
+  role?: string;
+  bio?: string;
+  /** Editable headshot (media library). When absent, an initials avatar shows. */
+  imageUrl?: string;
+  /** Fallback initials for the avatar when no photo is set. */
+  initials?: string;
+  linkedinUrl?: string;
+}
+
+export interface WebinarAgendaItem {
+  time: string;
+  title: string;
+  desc?: string;
+  speaker?: string;
+}
+
+export interface WebinarEmailStep {
+  when: string;
+  label: string;
+  desc?: string;
+}
+
+export interface WebinarResource {
+  title: string;
+  format?: string;
+  desc?: string;
+}
+
+export interface WebinarFaq {
+  q: string;
+  a: string;
+}
+
+export interface WebinarHubBlockProps {
+  /** Event state — drives default copy + accent. Defaults to "upcoming". */
+  status?: WebinarStatus;
+
+  /** Brand wordmark shown in nav/footer. Falls back to tenant brand name. */
+  brandName?: string;
+  /** Optional logo (media library). When absent the wordmark text renders. */
+  logoUrl?: string;
+
+  /** Section visibility toggles — all default to true when absent. */
+  showNav?: boolean;
+  showHero?: boolean;
+  showWorkflow?: boolean;
+  showAgenda?: boolean;
+  showVideo?: boolean;
+  showSpeakers?: boolean;
+  showResources?: boolean;
+  showFaq?: boolean;
+  showFinalCta?: boolean;
+  showFooter?: boolean;
+  /** Show the in-hero registration form card. Defaults to true. */
+  showForm?: boolean;
+
+  /** Sticky-nav anchor links. */
+  navLinks?: string[];
+
+  /** Hero. */
+  editionLabel?: string;
+  title: string;
+  subtitle?: string;
+  date?: string;
+  time?: string;
+  timezone?: string;
+  /** Social-proof registration count shown in hero/final CTA. */
+  registrations?: number;
+  /** Optional immersive hero background image (media library). */
+  heroBackgroundImageUrl?: string;
+  /** Hero overlay darkness as a whole-number percent (0–100). Defaults to 55. */
+  heroOverlayOpacity?: number;
+  /** Poster image for the hero video card (media library). */
+  heroVideoPosterUrl?: string;
+
+  /** Registration / access form (mirrors the event-page FormStep pattern). */
+  formSteps?: import("./common").FormStep[];
+  formSubmitUrl?: string;
+  formSuccessMessage?: string;
+
+  /** Email-sequence ("workflow") timeline. */
+  workflowEyebrow?: string;
+  workflowHeadline?: string;
+  workflowDescription?: string;
+  emailSequence?: WebinarEmailStep[];
+
+  /** Agenda. */
+  agendaEyebrow?: string;
+  agendaHeadline?: string;
+  agenda?: WebinarAgendaItem[];
+
+  /** Featured video / live broadcast (hidden when status === "upcoming"). */
+  videoEyebrow?: string;
+  videoHeadline?: string;
+  /** Poster image for the featured stream player (media library). */
+  featuredVideoPosterUrl?: string;
+
+  /** Speakers. */
+  speakersEyebrow?: string;
+  speakersHeadline?: string;
+  speakersDescription?: string;
+  speakers?: WebinarSpeaker[];
+
+  /** Resources. */
+  resourcesEyebrow?: string;
+  resourcesHeadline?: string;
+  /** Optional pinned "recommended for you" resource title. */
+  featuredResourceTitle?: string;
+  resources?: WebinarResource[];
+
+  /** FAQ. */
+  faqEyebrow?: string;
+  faqHeadline?: string;
+  faqs?: WebinarFaq[];
+
+  /** Final CTA band. */
+  finalCtaKicker?: string;
+  finalCtaHeadline?: string;
+  finalCtaSubtitle?: string;
+  /** Optional background image for the final-CTA band (media library). */
+  finalCtaBackgroundImageUrl?: string;
+  /** Final-CTA overlay darkness as a whole-number percent (0–100). Defaults to 55. */
+  finalCtaOverlayOpacity?: number;
+
+  /** Footer. */
+  footerTagline?: string;
+  footerCopyright?: string;
+
+  /** Primary CTA — the register/watch button reused on nav, final CTA, and
+   *  footer. Label defaults from status when blank. */
+  primaryCtaText?: string;
+  primaryCtaAction?: WebinarCtaAction;
+  primaryCtaUrl?: string;
+  primaryChilipiperUrl?: string;
+
+  /** Optional SECONDARY CTA — independently toggleable on each of the three
+   *  button surfaces (nav / final CTA / footer). Renders as an outline button
+   *  before the primary. Supports link / form / Chili Piper actions. */
+  secondaryCtaText?: string;
+  secondaryCtaAction?: WebinarCtaAction;
+  secondaryCtaUrl?: string;
+  secondaryChilipiperUrl?: string;
+  /** Modal form opened when secondaryCtaAction === "open-form". Uses the
+   *  shared simple-form capture (name/email/phone/company); only the copy
+   *  fields below are customisable. */
+  secondaryFormHeadline?: string;
+  secondaryFormSubheadline?: string;
+  secondaryFormSuccessMessage?: string;
+  /** Per-surface secondary-CTA visibility (all default false). */
+  secondaryCtaInNav?: boolean;
+  secondaryCtaInFinalCta?: boolean;
+  secondaryCtaInFooter?: boolean;
+
+  /** Optional accent overrides. When blank, upcoming/on-demand fall back to the
+   *  tenant brand color and "live" uses a semantic broadcast red. */
+  accentColor?: string;
+  liveAccentColor?: string;
+}
+
+/* ------------------------------------------------------------------------- */
 /*  Inside Dandy block family — `id-*`. Cinematic teal/citron Dandy lab     */
 /*  page broken into reusable text/image-editable sections.                 */
 /* ------------------------------------------------------------------------- */

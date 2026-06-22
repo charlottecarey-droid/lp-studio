@@ -134,6 +134,7 @@ import type {
   SingleQuoteBlockProps,
   TestimonialGridBlockProps,
   ContentSeriesBlockProps,
+  WebinarHubBlockProps,
   BlogSeriesBlockProps,
   StorefrontBlockProps,
   LogoWallBlockProps,
@@ -7712,6 +7713,97 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "webinar-hub" as const,
+    label: "Webinar Hub",
+    category: "Events" as BlockCategory,
+    defaultProps: (): WebinarHubBlockProps => ({
+      status: "upcoming",
+      editionLabel: "Edition 01",
+      title: "The Future of Your Industry",
+      subtitle: "An in-depth session with the operators and innovators redefining how the work gets done. Live discussion, real frameworks, and an interactive Q&A.",
+      date: "Thursday, October 16",
+      time: "11:00 AM",
+      timezone: "ET",
+      registrations: 1240,
+      navLinks: ["Overview", "Speakers", "Agenda", "Resources", "FAQ"],
+      primaryCtaText: "",
+      primaryCtaAction: "scroll-to-form",
+      formSteps: [
+        {
+          title: "Register",
+          fields: [
+            { id: "first_name", type: "text", label: "First name", placeholder: "First name", required: true },
+            { id: "last_name", type: "text", label: "Last name", placeholder: "Last name", required: true },
+            { id: "email", type: "email", label: "Work email", placeholder: "Work email", required: true },
+            { id: "company", type: "text", label: "Company name", placeholder: "Company name", required: true },
+          ],
+        },
+      ],
+      formSubmitUrl: "",
+      workflowEyebrow: "The Lifecycle",
+      workflowHeadline: "From registration to ready",
+      workflowDescription: "Every registrant moves through a thoughtful sequence — confirmation, reminders, and a personalized follow-up — so no one misses the moment.",
+      emailSequence: [
+        { when: "Instantly", label: "Confirmation & calendar", desc: "A clean confirmation with a one-tap calendar invite lands the second they register." },
+        { when: "24 hours before", label: "The reminder", desc: "A timely nudge with the agenda and what to bring to the conversation." },
+        { when: "Live", label: "We're on", desc: "A direct link to the broadcast the moment the session opens." },
+        { when: "Day after", label: "The follow-up", desc: "The recording, the slides, and a curated set of next steps." },
+      ],
+      agendaEyebrow: "Itinerary",
+      agendaHeadline: "Session Agenda",
+      agenda: [
+        { time: "00:00", title: "Welcome & framing", desc: "Setting the stage for the conversation ahead.", speaker: "Jordan Avery" },
+        { time: "00:10", title: "The core discussion", desc: "The frameworks and decisions that actually move the needle.", speaker: "Sam Rivera" },
+        { time: "00:35", title: "Live Q&A", desc: "Your questions, answered in real time.", speaker: "Jordan Avery" },
+        { time: "00:50", title: "What's next", desc: "Resources and next steps to put it into practice." },
+      ],
+      videoEyebrow: "The Archive",
+      videoHeadline: "Session Materials",
+      speakersEyebrow: "The Panel",
+      speakersHeadline: "Industry Experts",
+      speakersDescription: "Leaders who've done the work and are sharing what they learned.",
+      speakers: [
+        { id: "jordan-avery", name: "Jordan Avery", role: "Host", bio: "Brings together the people building what's next." },
+        { id: "sam-rivera", name: "Sam Rivera", role: "Featured Guest", bio: "Operator and advisor with a track record of scaling teams." },
+      ],
+      resourcesEyebrow: "Library",
+      resourcesHeadline: "Featured Resources",
+      resources: [
+        { title: "The Playbook", format: "PDF", desc: "The complete framework discussed in the session." },
+        { title: "Slide Deck", format: "Slides", desc: "Every slide, ready to share with your team." },
+        { title: "Worksheet", format: "Template", desc: "A practical template to apply it immediately." },
+      ],
+      faqEyebrow: "Information",
+      faqHeadline: "Common Questions",
+      faqs: [
+        { q: "Will the session be recorded?", a: "Yes — every registrant receives the full recording and materials the day after." },
+        { q: "Is there a cost to attend?", a: "No, the session is complimentary. Just register to save your place." },
+        { q: "Can I ask questions live?", a: "Absolutely. The session includes a dedicated live Q&A." },
+      ],
+      footerTagline: "Bringing the industry together, one conversation at a time.",
+      secondaryCtaText: "",
+      secondaryCtaAction: "url",
+      secondaryCtaInNav: false,
+      secondaryCtaInFinalCta: false,
+      secondaryCtaInFooter: false,
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#0A0A0A" rx="4" />
+        <rect x="10" y="8" width="40" height="5" rx="2" fill="#6366F1" />
+        <rect x="10" y="18" width="52" height="3" rx="1" fill="#F4F1ED" opacity="0.85" />
+        <rect x="10" y="25" width="44" height="2" rx="1" fill="#F4F1ED" opacity="0.4" />
+        <rect x="66" y="14" width="44" height="30" rx="2" fill="#1A1A1A" stroke="#262626" strokeWidth="0.5" />
+        <circle cx="88" cy="29" r="6" fill="none" stroke="#F4F1ED" strokeWidth="0.8" opacity="0.6" />
+        <path d="M86 26 L91 29 L86 32 Z" fill="#F4F1ED" opacity="0.8" />
+        <rect x="66" y="48" width="44" height="14" rx="1" fill="#FFFFFF" />
+        <rect x="70" y="52" width="24" height="2" rx="1" fill="#0A0A0A" opacity="0.5" />
+        <rect x="70" y="57" width="36" height="3" rx="1" fill="#6366F1" />
+        <rect x="10" y="54" width="14" height="6" rx="2" fill="#6366F1" />
+      </svg>
+    ),
+  },
+  {
     type: "content-series" as const,
     label: "Content Series",
     category: "Events" as BlockCategory,
@@ -8831,6 +8923,7 @@ export function createBlock(type: "dandy-conversion-panel-1"): Extract<PageBlock
 export function createBlock(type: "dandy-cta-block"): Extract<PageBlock, { type: "dandy-cta-block" }>;
 export function createBlock(type: "one-pager-hero"): Extract<PageBlock, { type: "one-pager-hero" }>;
 export function createBlock(type: "content-series"): Extract<PageBlock, { type: "content-series" }>;
+export function createBlock(type: "webinar-hub"): Extract<PageBlock, { type: "webinar-hub" }>;
 export function createBlock(type: "blog-series"): Extract<PageBlock, { type: "blog-series" }>;
 export function createBlock(type: "storefront"): Extract<PageBlock, { type: "storefront" }>;
 export function createBlock(type: "event-noir"): Extract<PageBlock, { type: "event-noir" }>;
@@ -9059,6 +9152,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "single-quote": return { id, type: "single-quote", props: props as SingleQuoteBlockProps };
     case "testimonial-grid": return { id, type: "testimonial-grid", props: props as TestimonialGridBlockProps };
     case "content-series": return { id, type: "content-series", props: props as ContentSeriesBlockProps };
+    case "webinar-hub": return { id, type: "webinar-hub", props: props as WebinarHubBlockProps };
     case "blog-series": return { id, type: "blog-series", props: props as BlogSeriesBlockProps };
     case "storefront": return { id, type: "storefront", props: props as StorefrontBlockProps };
     case "event-noir": return { id, type: "event-noir", props: props as EventNoirBlockProps };

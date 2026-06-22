@@ -838,6 +838,37 @@ export function applyContentSeriesBranding(
   }
 }
 
+/**
+ * Bake the brand accent + logo onto a generated "webinar-hub" page (mirrors
+ * applyContentSeriesBranding / the blog-series + storefront baking — Tasks
+ * #1173 / #1176). Unlike content-series (nested `theme.primary`) the webinar-hub
+ * renderer reads a TOP-LEVEL `accentColor` prop (with a live brand-var fallback)
+ * and a top-level `logoUrl`, so we set those directly. The "live" status uses a
+ * semantic broadcast red baked into the renderer, never this accent. The brand
+ * accent is applied unconditionally so the generated page carries the tenant
+ * identity even when rendered without live brand-CSS-var context (snapshots /
+ * prerender). The text-wordmark fallback (brandName) is preserved for brands
+ * with no logo (logoUrl stays "").
+ */
+export function applyWebinarHubBranding(
+  blocks: Array<Record<string, unknown>>,
+  brand: { accentColor?: string; primaryColor?: string; logoUrl?: string },
+): void {
+  const webinarAccent = brand.accentColor || brand.primaryColor;
+  const webinarLogo = (brand.logoUrl ?? "").trim();
+  for (const block of blocks) {
+    if (block?.type !== "webinar-hub") continue;
+    if (!block.props || typeof block.props !== "object") continue;
+    const props = block.props as Record<string, unknown>;
+    if (webinarAccent) {
+      props.accentColor = webinarAccent;
+    }
+    if (webinarLogo) {
+      props.logoUrl = webinarLogo;
+    }
+  }
+}
+
 /** Image-overlay heroes (`full-bleed-hero`, `parallax-image-hero`) render white
  *  headline/CTA copy on top of a background photo dimmed by `overlayOpacity`
  *  (0–100; higher = darker). A too-light overlay leaves that white text
@@ -2072,6 +2103,17 @@ export function collectImageSlots(
   // (real buying-committee faces). All are excluded from the auto-fill scalar
   // set above and the array passes below so they stay tenant-controlled.
   pushScalar("bundleImageUrl", "lp-feature", blockContext); // storefront closing-CTA bundle
+  // webinar-hub (Task #1380) full-page block. The OPTIONAL hero / final-CTA
+  // background images are author-controlled side-panel slots (NOT auto-filled —
+  // see fillEmptyImages), but they ARE collected here so a manually-set bg URL
+  // is tracked for dedupe + survives the template-restore path. The video/
+  // broadcast poster slots ARE part of the auto-fill pipeline (mirrors the spec
+  // request), so they are collected for dedupe too. speakers[].imageUrl is
+  // handled by the array pass below.
+  pushScalar("heroBackgroundImageUrl", "lp-hero", blockContext);
+  pushScalar("finalCtaBackgroundImageUrl", "lp-hero", blockContext);
+  pushScalar("heroVideoPosterUrl", "lp-feature", blockContext);
+  pushScalar("featuredVideoPosterUrl", "lp-feature", blockContext);
   // Decorative-mockup blocks with an OPTIONAL real-image override (mockup shows
   // when blank): features-spotlight-cards spotlight visual. Per-item variants
   // (benefits rows, tabbed categories, bento tiles) are handled by the array
@@ -3236,6 +3278,29 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       props.backgroundImageUrl = pick(blockContext, images, usedIds, "lp-hero");
     }
 
+    // webinar-hub (Task #1380): auto-fill the speaker headshots + the video /
+    // broadcast poster slots. The OPTIONAL hero / final-CTA BACKGROUND images
+    // are deliberately NOT auto-filled — they are an author opt-in (side-panel
+    // background-image + overlay control); the block renders its polished dark
+    // gradient when blank. Speaker photos use a portrait-leaning lp-feature pick
+    // against each speaker's OWN name/role; posters use the section context.
+    if (blockType === "webinar-hub") {
+      if (Array.isArray(props.speakers)) {
+        props.speakers = (props.speakers as Record<string, unknown>[]).map((sp) => {
+          if (!sp || typeof sp !== "object") return sp;
+          if (sp.imageUrl) return sp;
+          const ctx = `${sp.name ?? ""} ${sp.role ?? ""} portrait headshot`;
+          return { ...sp, imageUrl: pick(ctx, images, usedIds, "lp-feature", false) };
+        });
+      }
+      if (!props.heroVideoPosterUrl) {
+        props.heroVideoPosterUrl = pick(blockContext, images, usedIds, "lp-feature");
+      }
+      if (!props.featuredVideoPosterUrl) {
+        props.featuredVideoPosterUrl = pick(blockContext, images, usedIds, "lp-feature");
+      }
+    }
+
     // ── June-2026 modern block wave ─────────────────────────────────────
     // bento-mosaic-hero: large mosaic image tile — hero-grade slot.
     if (blockType === "bento-mosaic-hero" && !props.imageTileUrl) {
@@ -3776,6 +3841,20 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     }
     if (typeof props.heroImageUrl === "string" && props.heroImageUrl) {
       props.heroImageUrl = cleanUrl(props.heroImageUrl);
+    }
+    // webinar-hub (Task #1380) image-bearing scalar slots. speakers[].imageUrl
+    // is handled by the array pass below.
+    if (typeof props.heroBackgroundImageUrl === "string" && props.heroBackgroundImageUrl) {
+      props.heroBackgroundImageUrl = cleanUrl(props.heroBackgroundImageUrl);
+    }
+    if (typeof props.finalCtaBackgroundImageUrl === "string" && props.finalCtaBackgroundImageUrl) {
+      props.finalCtaBackgroundImageUrl = cleanUrl(props.finalCtaBackgroundImageUrl);
+    }
+    if (typeof props.heroVideoPosterUrl === "string" && props.heroVideoPosterUrl) {
+      props.heroVideoPosterUrl = cleanUrl(props.heroVideoPosterUrl);
+    }
+    if (typeof props.featuredVideoPosterUrl === "string" && props.featuredVideoPosterUrl) {
+      props.featuredVideoPosterUrl = cleanUrl(props.featuredVideoPosterUrl);
     }
     // bento-mosaic-hero's large mosaic image tile.
     if (typeof props.imageTileUrl === "string" && props.imageTileUrl) {
@@ -6162,7 +6241,7 @@ RULES:
 11. IMAGERY IS REQUIRED — pages must be visually rich, NOT a single hero photo on an otherwise text-only page. When the IMAGE LIBRARY above is non-empty (the tenant has tagged photos), build a page that USES that library: emit MULTIPLE image-bearing blocks across the page (a hero WITH an imageUrl, PLUS at least 2–3 of: zigzag-features, photo-strip, product-grid, before-after-gallery, horizontal-showcase, gallery-* , bento-showcase, cta-split-image) so several real library photos appear, not one. For a product / visual / consumer / healthcare-results page especially, lean into imagery: the library typically holds many tagged product and lifestyle photos, so give the hero a real lp-hero photo and put feature/showcase blocks with real photos throughout. Leave each image field "" and the server fills it from the correct library section, OR copy a verbatim library URL — but the BLOCKS that carry image slots must be present in your output for the server to fill them.
 12. CAPITALIZATION: Always use sentence casing — first word of every sentence is capitalized only — unless you are using acronyms, names, cities, states, countries, or other proper nouns, or specific product names from the BRAND CONTEXT. Headlines and all copy should follow sentence casing as a general rule. NEVER use all-lowercase. Examples: "Get more done in less time" (correct), "Get More Done In Less Time" (wrong — no title case), "get more done in less time" (wrong — no all-lowercase).
 13. When the user provides specific numbers or stats in their prompt, use those EXACT numbers. Do not invent different statistics.
-14. NAVIGATION: every page needs a top nav and an end footer — EXCEPT a page that is a single full-page block ("content-series", "blog-series", "storefront", or ANY block whose schema describes it as "A COMPLETE, full-page block"). Those are self-contained pages that render their OWN nav AND footer, so when you use one as the page's only block, NEVER add a separate "nav-header" or "footer" block alongside it (that produces a duplicate stacked nav/footer). For all OTHER (multi-block) pages: Heroes that render their OWN sticky nav — "hero", "full-bleed-hero", "dso-heartland-hero", "cinematic-video-hero", "aurora-gradient-hero", "editorial-split-hero", "parallax-layers-hero", and "spotlight-glow-hero" — must be the page's FIRST block; NEVER prepend a "nav-header" before them (that produces two stacked navs). Heroes that do NOT render a nav — "magazine-hero", "parallax-image-hero", "launch-spotlight-hero", "bento-mosaic-hero", and "kinetic-type-hero" — MUST be preceded by a "nav-header" block as the page's first block. Always end the page with a "footer" block.
+14. NAVIGATION: every page needs a top nav and an end footer — EXCEPT a page that is a single full-page block ("content-series", "webinar-hub", "blog-series", "storefront", or ANY block whose schema describes it as "A COMPLETE, full-page block"). Those are self-contained pages that render their OWN nav AND footer, so when you use one as the page's only block, NEVER add a separate "nav-header" or "footer" block alongside it (that produces a duplicate stacked nav/footer). For all OTHER (multi-block) pages: Heroes that render their OWN sticky nav — "hero", "full-bleed-hero", "dso-heartland-hero", "cinematic-video-hero", "aurora-gradient-hero", "editorial-split-hero", "parallax-layers-hero", and "spotlight-glow-hero" — must be the page's FIRST block; NEVER prepend a "nav-header" before them (that produces two stacked navs). Heroes that do NOT render a nav — "magazine-hero", "parallax-image-hero", "launch-spotlight-hero", "bento-mosaic-hero", and "kinetic-type-hero" — MUST be preceded by a "nav-header" block as the page's first block. Always end the page with a "footer" block.
 15. VARY THE STRUCTURE PER BRAND — never emit the same block sequence every time. Read the brand's personality from BRAND CONTEXT (tone, style keywords, design feel, colors) and choose blocks to match it: premium/editorial brands lean on magazine-hero, bold-statement, editorial-carousel, bento-showcase; energetic/visual/consumer brands lean on full-bleed-hero, sticky-stack, horizontal-showcase, before-after-gallery; straightforward B2B leans on hero, benefits-grid, comparison, zigzag-features. Include AT LEAST 2 SHOWCASE blocks (full-bleed-hero, magazine-hero, cinematic-video-hero, aurora-gradient-hero, editorial-split-hero, parallax-layers-hero, spotlight-glow-hero, launch-spotlight-hero, bento-mosaic-hero, kinetic-type-hero, parallax-image-hero, sticky-stack, horizontal-showcase, bento-showcase, glass-bento-features, feature-tabs-showcase, stat-counter-band, bold-statement, before-after-gallery, gallery-carousel-spotlight, gallery-filmstrip, gallery-masonry, gallery-split-feature, case-study-card-grid, case-study-spotlight-feature, media-feature-reel, media-looping-showcase, media-thumbnail-grid, media-video-split, cta-split-image, editorial-carousel, scroll-assembly, video-section) on every page so two different brands never produce identical-looking pages.
 16. VIDEO: Only set videoUrl, backgroundType:"video", or backgroundVideoUrl when you have a REAL video URL provided in the brand assets or the DANDY VIDEOS section. Otherwise use backgroundType:"image" (full-bleed-hero) and leave image fields "" for the server to fill. NEVER invent or guess a video URL.
 17. ITEM COUNTS — match each block's canonical count: every repeating array MUST contain exactly the number of items stated in that block's schema in AVAILABLE BLOCK TYPES above. When a block says "EXACTLY N" use N; when it gives a range (e.g. "3–5"), pick a value inside the range and fully populate it. A block must look complete and balanced — e.g. "trust-bar" always has EXACTLY 4 items, never 2, 3, or 5. Never emit a block with fewer items than its minimum or a half-filled array. EXCEPTION — testimonial/quote blocks: real quotes only; when the brand context provides fewer real quotes than a block's stated count, emit fewer items rather than inventing or padding with placeholders.
@@ -6254,6 +6333,11 @@ const GENERAL_VALUE_RENEWAL_REVIEW_BLOCK =
 const GENERAL_CONTENT_SERIES_BLOCK =
   `- "content-series": A COMPLETE, full-page block for a podcast, webinar series, or content show — it renders its OWN nav, hero, episode library, hosts, about, lead form, and CTA. Use this as the SINGLE block on the page ONLY when the request is for a podcast / webinar / video-series / show page. Do NOT combine it with other blocks and do NOT use it for ordinary product or marketing pages. Props: seriesType ("podcast"|"webinar"|"series"), seriesTitle (2–6 words), seriesSubtitle (12–24 words), logoUrl (""), navLinks (array of 2–5 of {label, href}), heroEpisodeTitle (5–12 words), heroEpisodeDescription (18–32 words), heroGuestName (full name), heroGuestTitle (specific role), episodes (array of EXACTLY 3–8 of {title (5–12 words), guestName, guestTitle, description (18–32 words), publishDate (e.g. "May 2026"), thumbnailUrl (""), ctaUrl ("#")}), hosts (array of 1–3 of {name, title, photoUrl ("")}), aboutHeadline (5–12 words), aboutDescription (30–55 words), ctaSectionHeadline (5–12 words), ctas (array of 1–2 of {label (2–5 words), url ("#")}).`;
 
+// FULL-PAGE block — a complete single-webinar registration hub. Only advertised
+// when the request is clearly for a webinar / virtual-event registration page.
+const GENERAL_WEBINAR_HUB_BLOCK =
+  `- "webinar-hub": A COMPLETE, full-page block for a SINGLE webinar / virtual event — it renders its OWN sticky nav, immersive hero with a registration form, an email-sequence lifecycle, a session agenda, a featured video / live-broadcast area, a speaker grid, a resource library, an FAQ, a final CTA, and a footer. Use this as the SINGLE block on the page ONLY when the request is for a webinar / virtual-event / online-session registration page (a ONE-TIME event with a date/time and a register-to-attend flow). For a recurring podcast / video SERIES with an episode library, prefer "content-series" instead. Do NOT combine it with other blocks and do NOT use it for ordinary product or marketing pages. Leave EVERY image URL as "" (an image service fills them). Props: status ("upcoming"|"live"|"on-demand", almost always "upcoming"), brandName (1–3 words), navLinks (array of 3–6 short anchor labels, e.g. ["Overview","Speakers","Agenda","Resources","FAQ"]), editionLabel (2–3 words, e.g. "Edition 01"), title (5–10 words), subtitle (18–32 words), date (e.g. "Thursday, October 16"), time (e.g. "11:00 AM"), timezone (e.g. "ET"), registrations (number 200–5000), primaryCtaText (2–4 words, e.g. "Save my seat"), workflowEyebrow (1–3 words), workflowHeadline (4–8 words), workflowDescription (20–36 words), emailSequence (array of 3–5 of {when (e.g. "24 hours before"), label (2–5 words), desc (12–24 words)}), agendaEyebrow (1–2 words), agendaHeadline (2–5 words), agenda (array of 3–6 of {time (e.g. "00:10"), title (3–7 words), desc (8–18 words), speaker (full name)}), videoEyebrow (1–2 words), videoHeadline (2–5 words), speakersEyebrow (1–3 words), speakersHeadline (2–5 words), speakersDescription (12–24 words), speakers (array of 2–5 of {id (url-safe slug of the name), name (full name), role (2–4 words), bio (14–28 words), initials (2 letters), imageUrl ("")}), resourcesEyebrow (1–2 words), resourcesHeadline (2–5 words), resources (array of 2–4 of {title (1–4 words), format (e.g. "PDF"), desc (8–16 words)}), faqEyebrow (1–2 words), faqHeadline (2–5 words), faqs (array of 3–6 of {q (a real question), a (16–32 words)}), finalCtaKicker (1–3 words), finalCtaHeadline (4–8 words), finalCtaSubtitle (14–28 words), footerTagline (8–18 words), footerCopyright (e.g. "© 2026 Acme. All rights reserved.").`;
+
 // FULL-PAGE block — a complete editorial page. Only advertised when the user's
 // request is clearly for a blog / editorial / essay / article series.
 const GENERAL_BLOG_SERIES_BLOCK =
@@ -6313,6 +6397,23 @@ export function isContentSeriesRequest(prompt: string): boolean {
   return kws.some((kw) => lower.includes(kw));
 }
 
+// Keywords that indicate the request is for a SINGLE webinar / virtual-event
+// registration page, which unlocks the full-page "webinar-hub" block. Distinct
+// from isContentSeriesRequest (which also matches "webinar" for a recurring
+// SERIES): both schemas can be advertised together and the model picks the
+// single-event hub over the episode-library series when the request is for a
+// one-time webinar with a date/time and a register-to-attend flow.
+export function isWebinarHubRequest(prompt: string): boolean {
+  const lower = (prompt ?? "").toLowerCase();
+  const kws = [
+    "webinar", "virtual event", "virtual summit", "online event",
+    "live session", "register to attend", "registration page", "rsvp",
+    "save my seat", "save your seat", "reserve your spot", "fireside chat",
+    "broadcast", "live stream", "livestream", "masterclass", "workshop",
+  ];
+  return kws.some((kw) => lower.includes(kw));
+}
+
 // Keywords that indicate the request is for a blog / editorial / essay-series
 // page, which unlocks the full-page "blog-series" block.
 export function isBlogSeriesRequest(prompt: string): boolean {
@@ -6349,6 +6450,7 @@ export function isStorefrontRequest(prompt: string): boolean {
 // superadmin filter) see FULL_PAGE_BLOCK_TYPES in @workspace/lp-template-engine.
 export const SELF_CONTAINED_FULL_PAGE_TYPES = new Set([
   "content-series",
+  "webinar-hub",
   "blog-series",
   "storefront",
   "event-noir",
@@ -6378,6 +6480,7 @@ export function isSingleFullPageBlock(
 export function buildGeneralSystemPrompt(opts?: {
   aiDisabledTypes?: Set<string>;
   includeContentSeries?: boolean;
+  includeWebinarHub?: boolean;
   includeBlogSeries?: boolean;
   includeStorefront?: boolean;
   includeStorybrandJourney?: boolean;
@@ -6400,6 +6503,7 @@ export function buildGeneralSystemPrompt(opts?: {
     if (!injectedShowcase && para.startsWith(GENERAL_FOOTER_MARKER)) {
       out.push(...GENERAL_EXTRA_SHOWCASE_BLOCKS);
       if (opts?.includeContentSeries) out.push(GENERAL_CONTENT_SERIES_BLOCK);
+      if (opts?.includeWebinarHub) out.push(GENERAL_WEBINAR_HUB_BLOCK);
       if (opts?.includeBlogSeries) out.push(GENERAL_BLOG_SERIES_BLOCK);
       if (opts?.includeStorefront) out.push(GENERAL_STOREFRONT_BLOCK);
       if (opts?.includeStorybrandJourney) out.push(GENERAL_STORYBRAND_JOURNEY_BLOCK);
@@ -8899,6 +9003,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         : buildGeneralSystemPrompt({
             aiDisabledTypes,
             includeContentSeries: isContentSeriesRequest(prompt),
+            includeWebinarHub: isWebinarHubRequest(prompt),
             includeBlogSeries: isBlogSeriesRequest(prompt),
             includeStorefront: isStorefrontRequest(prompt),
           }),
@@ -9011,6 +9116,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       if (extraTypes.length > 0) {
         const generalLibrary = buildGeneralSystemPrompt({
           includeContentSeries: true,
+          includeWebinarHub: true,
           includeBlogSeries: true,
           includeStorefront: true,
         });
@@ -9510,6 +9616,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // Task #1173 — bake the brand accent + logo onto a generated content-series
     // page (see applyContentSeriesBranding for the rationale).
     applyContentSeriesBranding(parsed.blocks as Array<Record<string, unknown>>, brand);
+
+    // Task #1380 — same brand accent + logo baking for the "webinar-hub"
+    // full-page block (top-level accentColor + logoUrl; see
+    // applyWebinarHubBranding for the rationale).
+    applyWebinarHubBranding(parsed.blocks as Array<Record<string, unknown>>, brand);
 
     // Task #1176 — extend the same brand accent + logo baking to the other two
     // self-contained full-page blocks ("blog-series", "storefront"). Like

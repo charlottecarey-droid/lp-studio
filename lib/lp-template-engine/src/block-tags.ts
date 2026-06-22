@@ -256,6 +256,7 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "product-launch": ["hero", "content"],
   "spatial-tour": ["media", "features"],
   "content-series": ["content", "media"],
+  "webinar-hub": ["hero", "content", "media", "cta"],
   "blog-series": ["content", "media"],
   storefront: ["features", "media"],
 
@@ -383,6 +384,7 @@ export const NEUTRAL_ROLE_DEFAULT_BLOCKS: Partial<Record<BlockRoleTag, string>> 
  */
 export const FULL_PAGE_BLOCK_TYPES: ReadonlySet<string> = new Set([
   "content-series",
+  "webinar-hub",
   "blog-series",
   "storefront",
   "event-noir",

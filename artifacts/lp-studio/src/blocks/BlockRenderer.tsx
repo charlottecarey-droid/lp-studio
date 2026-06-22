@@ -206,6 +206,7 @@ import { BlockSingleQuote } from "./BlockSingleQuote";
 import { BlockTestimonialGrid } from "./BlockTestimonialGrid";
 import { BlockSpeakerGrid } from "./BlockSpeakerGrid";
 import { BlockContentSeries } from "./BlockContentSeries";
+import { BlockWebinarHub } from "./BlockWebinarHub";
 import { BlockEventNoir } from "./BlockEventNoir";
 import { BlockEventLuminous } from "./BlockEventLuminous";
 import { BlockEventSplit } from "./BlockEventSplit";
@@ -448,7 +449,7 @@ export const NO_REVEAL = new Set<string>([
   "business-case-split", "business-case-centered", "business-case-premium",
   "storybrand-journey", "exec-decision-brief", "challenger-insight",
   "deal-room", "onboarding-hub", "value-renewal-review",
-  "content-series", "blog-series", "storefront",
+  "content-series", "blog-series", "storefront", "webinar-hub",
   "event-noir", "event-luminous", "event-split",
   "case-metrics", "case-editorial", "case-modular",
   // Inside Dandy blocks: own their own scroll-driven internals (sticky cinema
@@ -1043,6 +1044,8 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
         return <BlockOnePagerHero props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "content-series":
         return <BlockContentSeries props={block.props} brand={brand} pageId={pageId} sessionId={sessionId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
+      case "webinar-hub":
+        return <BlockWebinarHub props={block.props} brand={brand} pageId={pageId} variantId={variantId} testId={testId} sessionId={sessionId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "blog-series":
         return <BlockBlogSeries props={block.props} brand={brand} pageId={pageId} sessionId={sessionId} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "storefront":
