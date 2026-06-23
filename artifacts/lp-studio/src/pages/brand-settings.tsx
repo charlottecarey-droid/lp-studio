@@ -3328,8 +3328,8 @@ export default function BrandSettings() {
     <AppLayout>
       <div className="flex flex-col gap-8 pb-16">
 
-        <div className="flex items-end justify-between">
-          <div>
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="text-center md:text-left">
             <button
               onClick={() => window.history.length > 1 ? window.history.back() : window.location.assign("/")}
               className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
@@ -3340,7 +3340,7 @@ export default function BrandSettings() {
             <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">Brand & Content</h1>
             <p className="text-muted-foreground mt-2 text-lg">Configure your brand identity and manage reusable content library.</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-3 md:justify-end">
             <Button variant="outline" onClick={() => { setImportMode("url"); setImportOpen(true); }} className="gap-2">
               <Globe className="w-4 h-4" />
               Import from Website
@@ -3390,11 +3390,11 @@ export default function BrandSettings() {
             history.replaceState(null, "", `${window.location.pathname}${window.location.search}${hash}`);
           }
         }} className="w-full">
-          <TabsList className="grid w-full max-w-2xl grid-cols-4">
-            <TabsTrigger value="brand-settings">Brand Settings</TabsTrigger>
-            <TabsTrigger value="sales-console">Sales Console</TabsTrigger>
-            <TabsTrigger value="content-library">Content Library</TabsTrigger>
-            <TabsTrigger value="block-governance">Block Governance</TabsTrigger>
+          <TabsList className="grid h-auto w-full max-w-2xl grid-cols-2 gap-1 sm:h-9 sm:grid-cols-4">
+            <TabsTrigger value="brand-settings" className="w-full">Brand Settings</TabsTrigger>
+            <TabsTrigger value="sales-console" className="w-full">Sales Console</TabsTrigger>
+            <TabsTrigger value="content-library" className="w-full">Content Library</TabsTrigger>
+            <TabsTrigger value="block-governance" className="w-full">Block Governance</TabsTrigger>
           </TabsList>
 
           <TabsContent value="brand-settings" className="space-y-8">
