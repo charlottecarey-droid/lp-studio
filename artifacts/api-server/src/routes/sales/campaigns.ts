@@ -327,6 +327,29 @@ router.get("/campaigns", async (req, res): Promise<void> => {
   }
 });
 
+// Lightweight tenant-scoped campaign list for pickers (e.g. the Webinar Hub /
+// form "enroll submitters into a campaign" selector). Returns only id/name/
+// status so it's cheap to load from the form-settings UI. Declared BEFORE
+// /campaigns/:id so "options" isn't swallowed by the :id route.
+router.get("/campaigns/options", async (req, res): Promise<void> => {
+  try {
+    const tenantId = getTenantId(req, res); if (tenantId === null) return;
+    const campaigns = await db
+      .select({
+        id: salesEmailCampaignsTable.id,
+        name: salesEmailCampaignsTable.name,
+        status: salesEmailCampaignsTable.status,
+      })
+      .from(salesEmailCampaignsTable)
+      .where(eq(salesEmailCampaignsTable.tenantId, tenantId))
+      .orderBy(desc(salesEmailCampaignsTable.updatedAt));
+    res.json(campaigns);
+  } catch (err) {
+    logger.error({ err }, "GET /sales/campaigns/options error");
+    res.status(500).json({ error: "Failed to load campaigns" });
+  }
+});
+
 router.get("/campaigns/:id", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;

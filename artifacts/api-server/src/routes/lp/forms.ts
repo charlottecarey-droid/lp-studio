@@ -2,7 +2,7 @@ import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { lpFormsTable } from "@workspace/db";
+import { lpFormsTable, salesEmailCampaignsTable } from "@workspace/db";
 import { findTenantByHost } from "../../lib/tenantHosts";
 import { getRequestHost } from "../../lib/requestHost";
 import { getTenantPlan } from "../../lib/planFeatures";
@@ -72,6 +72,7 @@ router.post("/lp/forms", async (req, res): Promise<void> => {
       // formName: "Demo Form" }) — matches the SMB trios5 form 6 behavior
       // for every new form out of the box.
       gtmDataLayerConfig: null,
+      enrollCampaignId: null,
     })
     .returning();
   res.status(201).json(form);
@@ -178,6 +179,7 @@ router.put("/lp/forms/:id", async (req, res): Promise<void> => {
     "sheetsConfig",
     "chiliPiperConfig", "gtmDataLayerConfig",
     "sendFollowUpToSubmitter", "followUpTemplateId",
+    "enrollCampaignId",
     "styling",
   ];
   const updates: Record<string, unknown> = { updatedAt: new Date() };
@@ -211,6 +213,26 @@ router.put("/lp/forms/:id", async (req, res): Promise<void> => {
         clean.tabName = raw.tabName.trim();
       }
       updates.sheetsConfig = clean;
+    }
+  }
+
+  // Validate enrollCampaignId belongs to this tenant; null clears it. An
+  // unknown / cross-tenant id is rejected (the FK would otherwise 500, and we
+  // never want one tenant's form pointing at another tenant's campaign).
+  if ("enrollCampaignId" in updates) {
+    const raw = updates.enrollCampaignId;
+    if (raw === null || raw === undefined || raw === "") {
+      updates.enrollCampaignId = null;
+    } else {
+      const campaignId = Number(raw);
+      if (!Number.isInteger(campaignId)) { res.status(400).json({ error: "enrollCampaignId must be an integer or null" }); return; }
+      const [campaign] = await db
+        .select({ id: salesEmailCampaignsTable.id })
+        .from(salesEmailCampaignsTable)
+        .where(and(eq(salesEmailCampaignsTable.tenantId, tenantId), eq(salesEmailCampaignsTable.id, campaignId)))
+        .limit(1);
+      if (!campaign) { res.status(400).json({ error: "Campaign not found" }); return; }
+      updates.enrollCampaignId = campaignId;
     }
   }
 

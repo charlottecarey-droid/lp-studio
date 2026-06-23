@@ -29,6 +29,7 @@ interface NotificationConfig {
   } | null;
   sendFollowUpToSubmitter?: boolean;
   followUpTemplateId?: number | null;
+  enrollCampaignId?: number | null;
 }
 
 const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
@@ -349,6 +350,8 @@ function NotificationsTab({ pageId }: NotificationsTabProps) {
         templateId={config.followUpTemplateId ?? null}
         onEnabledChange={v => setConfig(c => ({ ...c, sendFollowUpToSubmitter: v }))}
         onTemplateIdChange={v => setConfig(c => ({ ...c, followUpTemplateId: v }))}
+        enrollCampaignId={config.enrollCampaignId ?? null}
+        onEnrollCampaignChange={v => setConfig(c => ({ ...c, enrollCampaignId: v }))}
       />
 
       {/* Marketo */}

@@ -2,7 +2,7 @@ import { pgTable, text, serial, timestamp, integer, jsonb, boolean } from "drizz
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { lpPagesTable } from "./lpPages";
-import { salesEmailTemplatesTable } from "./salesEmails";
+import { salesEmailTemplatesTable, salesEmailCampaignsTable } from "./salesEmails";
 
 export const lpLeadsTable = pgTable("lp_leads", {
   id: serial("id").primaryKey(),
@@ -39,6 +39,9 @@ export const lpFormNotificationsTable = pgTable("lp_form_notifications", {
   salesforceConfig: jsonb("salesforce_config"),
   sendFollowUpToSubmitter: boolean("send_follow_up_to_submitter").notNull().default(false),
   followUpTemplateId: integer("follow_up_template_id").references(() => salesEmailTemplatesTable.id, { onDelete: "set null" }),
+  // When set, a submitter via this page's form is auto-enrolled (best-effort)
+  // as a `queued` recipient of this Sales Campaign. NULL = no enrollment.
+  enrollCampaignId: integer("enroll_campaign_id").references(() => salesEmailCampaignsTable.id, { onDelete: "set null" }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 

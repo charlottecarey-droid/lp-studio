@@ -1,11 +1,13 @@
-import { useState } from "react";
-import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUp, ArrowDown, Upload, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImagePicker } from "@/components/ImagePicker";
 import { BrandSwatches } from "@/components/BrandSwatches";
+import { FollowUpEmailSection } from "@/components/FollowUpEmailSection";
+import { buildPdfUploadFormData } from "@/lib/pdf-upload";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type {
   WebinarHubBlockProps,
@@ -22,7 +24,23 @@ import type { FormStep, FormField, FormFieldType } from "@/lib/block-types";
 interface Props {
   props: WebinarHubBlockProps;
   onChange: (next: WebinarHubBlockProps) => void;
+  /** Set once the page is saved. Enables the per-page follow-up email +
+   *  campaign-enrollment controls, which persist to the page's form
+   *  notification config (the Webinar Hub form posts without a formId). */
+  pageId?: number;
 }
+
+/** Subset of the page form-notification config this panel reads/writes. The
+ *  full payload has more fields (email recipients, webhook, etc.) which we
+ *  preserve verbatim on save so we don't clobber the Forms-tab settings. */
+interface PageNotificationConfig {
+  sendFollowUpToSubmitter?: boolean;
+  followUpTemplateId?: number | null;
+  enrollCampaignId?: number | null;
+  [k: string]: unknown;
+}
+
+const NOTIF_API_BASE = "/api";
 
 function SectionHeader({ label, open, onToggle }: { label: string; open: boolean; onToggle: () => void }) {
   return (
@@ -65,6 +83,81 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
       <span className="text-xs">{label}</span>
       <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} className="h-3.5 w-3.5 cursor-pointer" />
     </label>
+  );
+}
+
+// Match the server-side cap in /lp/pdf/upload (50 MB) so we fail fast.
+const MAX_PDF_BYTES = 50 * 1024 * 1024;
+
+/** Upload a PDF to the shared /api/lp/pdf/upload endpoint and return the serve
+ *  URL + cleaned-up filename (mirrors ResourcesPanel). */
+async function uploadResourcePdf(file: File): Promise<{ url: string; title: string }> {
+  const formData = await buildPdfUploadFormData(file);
+  const res = await fetch("/api/lp/pdf/upload", { method: "POST", body: formData, credentials: "include" });
+  const data = (await res.json().catch(() => ({}))) as { url?: string; title?: string; error?: string };
+  if (!res.ok) throw new Error(data.error ?? "Upload failed");
+  if (!data.url) throw new Error("Upload succeeded but no URL was returned");
+  return { url: data.url, title: data.title ?? "" };
+}
+
+/** Inline "Upload PDF" button for a webinar resource card. Writes the serve URL
+ *  into `url`, defaults `format` to "PDF", and pre-fills the title when it's
+ *  still the placeholder. */
+function PdfUploadButton({ resource, onPatch }: { resource: WebinarResource; onPatch: (patch: Partial<WebinarResource>) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const resourceRef = useRef(resource);
+  resourceRef.current = resource;
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type && file.type !== "application/pdf") {
+      setError("Only PDF files are supported.");
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+    if (file.size > MAX_PDF_BYTES) {
+      setError("File too large. Maximum size is 50 MB.");
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+    setUploading(true);
+    setError(null);
+    try {
+      const { url, title } = await uploadResourcePdf(file);
+      const latest = resourceRef.current;
+      const patch: Partial<WebinarResource> = { url };
+      if (!latest.format) patch.format = "PDF";
+      if (!latest.title || latest.title === "New resource") patch.title = title || file.name.replace(/\.pdf$/i, "");
+      onPatch(patch);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  const isPdf = typeof resource.url === "string" && /\.pdf(\?|$)/i.test(resource.url);
+  return (
+    <>
+      <input ref={inputRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={handleFile} />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-7 px-2 text-[11px] gap-1 shrink-0"
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        title={isPdf ? "Replace uploaded PDF" : "Upload a PDF and link it here"}
+      >
+        {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : isPdf ? <FileText className="w-3 h-3" /> : <Upload className="w-3 h-3" />}
+        {uploading ? "Uploading…" : isPdf ? "Replace" : "Upload PDF"}
+      </Button>
+      {error && <p className="text-[10px] text-red-500 mt-1">{error}</p>}
+    </>
   );
 }
 
@@ -139,11 +232,37 @@ function FormStepsEditor({
   );
 }
 
-export function WebinarHubPanel({ props, onChange }: Props) {
+export function WebinarHubPanel({ props, onChange, pageId }: Props) {
   const p = props;
   const set = (patch: Partial<WebinarHubBlockProps>) => onChange({ ...p, ...patch });
   const [open, setOpen] = useState<Record<string, boolean>>({ content: true });
   const toggle = (k: string) => setOpen(o => ({ ...o, [k]: !o[k] }));
+
+  // ── Page form-notification config (follow-up email + campaign enrollment) ──
+  // The Webinar Hub registration form posts without a formId, so its delivery
+  // settings live on the PAGE's notification row. We load them lazily and save
+  // (debounced) whenever the editor flips a control.
+  const [notif, setNotif] = useState<PageNotificationConfig | null>(null);
+  useEffect(() => {
+    if (pageId == null) return;
+    let cancelled = false;
+    fetch(`${NOTIF_API_BASE}/lp/pages/${pageId}/notifications`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((data: PageNotificationConfig | null) => { if (!cancelled && data) setNotif(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [pageId]);
+
+  const saveNotif = (patch: Partial<PageNotificationConfig>) => {
+    if (pageId == null) return;
+    const next = { ...(notif ?? {}), ...patch };
+    setNotif(next);
+    fetch(`${NOTIF_API_BASE}/lp/pages/${pageId}/notifications`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    }).catch(() => {});
+  };
 
   // ── Collection helpers ─────────────────────────────────────────────────
   const navLinks = p.navLinks ?? [];
@@ -375,6 +494,24 @@ export function WebinarHubPanel({ props, onChange }: Props) {
             <Button type="button" variant="outline" size="sm" className="h-6 text-[11px] w-full" onClick={() => set({ emailSequence: [...emailSequence, { when: "", label: "New step", desc: "" } as WebinarEmailStep] })}>
               <Plus className="w-3 h-3 mr-1" /> Add step
             </Button>
+
+            {/* Live delivery — the visual sequence above is illustrative; these
+                controls actually fire on registration. Persist to the page's
+                form-notification config. */}
+            <div className="pt-2 mt-1 border-t border-border">
+              {pageId == null ? (
+                <p className="text-[11px] text-muted-foreground">Save the page to configure the automatic follow-up email and campaign enrollment for registrations.</p>
+              ) : (
+                <FollowUpEmailSection
+                  enabled={!!notif?.sendFollowUpToSubmitter}
+                  templateId={notif?.followUpTemplateId ?? null}
+                  onEnabledChange={v => saveNotif({ sendFollowUpToSubmitter: v })}
+                  onTemplateIdChange={v => saveNotif({ followUpTemplateId: v })}
+                  enrollCampaignId={notif?.enrollCampaignId ?? null}
+                  onEnrollCampaignChange={v => saveNotif({ enrollCampaignId: v })}
+                />
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -480,6 +617,26 @@ export function WebinarHubPanel({ props, onChange }: Props) {
                   <Input value={r.format ?? ""} onChange={e => set({ resources: resources.map((x, j) => (j === i ? { ...x, format: e.target.value } : x)) })} placeholder="PDF" className="text-[11px] h-6 w-16 shrink-0" />
                 </div>
                 <Textarea value={r.desc ?? ""} onChange={e => set({ resources: resources.map((x, j) => (j === i ? { ...x, desc: e.target.value } : x)) })} placeholder="Description" className="text-[11px] min-h-[2.5rem]" />
+                <Field label="Thumbnail" hint="Optional image shown above the card.">
+                  <ImagePicker
+                    value={r.imageUrl ?? ""}
+                    onChange={url => set({ resources: resources.map((x, j) => (j === i ? { ...x, imageUrl: url || undefined } : x)) })}
+                  />
+                </Field>
+                <Field label="Link / download URL" hint="Where the card links. Upload a PDF or paste any URL. Leave blank for a non-clickable card.">
+                  <div className="flex gap-1.5 items-start">
+                    <Input
+                      value={r.url ?? ""}
+                      onChange={e => set({ resources: resources.map((x, j) => (j === i ? { ...x, url: e.target.value || undefined } : x)) })}
+                      placeholder="https://… or upload a PDF"
+                      className="text-[11px] h-7 flex-1"
+                    />
+                    <PdfUploadButton
+                      resource={r}
+                      onPatch={patch => set({ resources: resources.map((x, j) => (j === i ? { ...x, ...patch } : x)) })}
+                    />
+                  </div>
+                </Field>
               </div>
             ))}
             <Button type="button" variant="outline" size="sm" className="h-6 text-[11px] w-full" onClick={() => set({ resources: [...resources, { title: "New resource", format: "PDF", desc: "" } as WebinarResource] })}>

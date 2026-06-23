@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { lpFormNotificationsTable, lpPagesTable } from "@workspace/db";
+import { lpFormNotificationsTable, lpPagesTable, salesEmailCampaignsTable } from "@workspace/db";
 import { getTenantId } from "../../middleware/requireAuth";
 
 const router = Router();
@@ -66,6 +66,7 @@ router.get("/lp/pages/:id/notifications", async (req, res): Promise<void> => {
       salesforceConfig: null,
       sendFollowUpToSubmitter: false,
       followUpTemplateId: null,
+      enrollCampaignId: null,
     });
     return;
   }
@@ -81,13 +82,14 @@ router.put("/lp/pages/:id/notifications", async (req, res): Promise<void> => {
   }
   if (!(await assertPageInTenant(id, tenantId, res))) return;
 
-  const { emailRecipients, webhookUrl, marketoConfig, salesforceConfig, sendFollowUpToSubmitter, followUpTemplateId } = req.body as {
+  const { emailRecipients, webhookUrl, marketoConfig, salesforceConfig, sendFollowUpToSubmitter, followUpTemplateId, enrollCampaignId } = req.body as {
     emailRecipients?: string[];
     webhookUrl?: string | null;
     marketoConfig?: unknown | null;
     salesforceConfig?: unknown | null;
     sendFollowUpToSubmitter?: boolean;
     followUpTemplateId?: number | null;
+    enrollCampaignId?: number | null;
   };
 
   // Validate webhook URL if provided
@@ -95,6 +97,18 @@ router.put("/lp/pages/:id/notifications", async (req, res): Promise<void> => {
     const validation = validateWebhookUrl(webhookUrl);
     if (!validation.valid) {
       res.status(400).json({ error: validation.error });
+      return;
+    }
+  }
+
+  // Validate the enroll campaign belongs to this tenant if provided.
+  if (enrollCampaignId !== undefined && enrollCampaignId !== null) {
+    const [campaign] = await db
+      .select({ id: salesEmailCampaignsTable.id })
+      .from(salesEmailCampaignsTable)
+      .where(and(eq(salesEmailCampaignsTable.id, enrollCampaignId), eq(salesEmailCampaignsTable.tenantId, tenantId)));
+    if (!campaign) {
+      res.status(400).json({ error: "Campaign not found" });
       return;
     }
   }
@@ -109,6 +123,7 @@ router.put("/lp/pages/:id/notifications", async (req, res): Promise<void> => {
     if (salesforceConfig !== undefined) updates.salesforceConfig = salesforceConfig;
     if (sendFollowUpToSubmitter !== undefined) updates.sendFollowUpToSubmitter = sendFollowUpToSubmitter;
     if (followUpTemplateId !== undefined) updates.followUpTemplateId = followUpTemplateId;
+    if (enrollCampaignId !== undefined) updates.enrollCampaignId = enrollCampaignId;
 
     const [updated] = await db
       .update(lpFormNotificationsTable)
@@ -127,6 +142,7 @@ router.put("/lp/pages/:id/notifications", async (req, res): Promise<void> => {
         salesforceConfig: salesforceConfig ?? null,
         sendFollowUpToSubmitter: sendFollowUpToSubmitter ?? false,
         followUpTemplateId: followUpTemplateId ?? null,
+        enrollCampaignId: enrollCampaignId ?? null,
       })
       .returning();
     res.json(created);

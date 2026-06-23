@@ -1,11 +1,11 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router, type Request } from "express";
-import { eq, desc, gte, and, inArray } from "drizzle-orm";
+import { eq, desc, gte, and, inArray, ilike } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { isTestLead, leadName, leadEmail } from "@workspace/lead-utils";
 import { withDbRetry } from "../../lib/dbResilience";
 import { restoreRows } from "../../lib/restoreRows";
-import { lpLeadsTable, lpFormNotificationsTable, lpFormsTable, lpPagesTable, lpVariantsTable, lpSessionsTable, lpPageVisitsTable, sfdcFieldMappingsTable, salesEmailTemplatesTable, salesSignalsTable } from "@workspace/db";
+import { lpLeadsTable, lpFormNotificationsTable, lpFormsTable, lpPagesTable, lpVariantsTable, lpSessionsTable, lpPageVisitsTable, sfdcFieldMappingsTable, salesEmailTemplatesTable, salesSignalsTable, salesContactsTable, salesAccountsTable, salesEmailCampaignsTable } from "@workspace/db";
 import { resolveContactByEmail } from "../../lib/signalAttribution";
 import { broadcastSignal } from "../sales/signals";
 import { z } from "zod";
@@ -193,6 +193,125 @@ async function sendFollowUpEmailToSubmitter(opts: {
     return;
   }
   console.info("[lead", leadId, "] follow-up email sent to", submitterEmail, "(template", templateId, ")");
+}
+
+// Derive a {firstName,lastName} from the submitted fields, falling back to the
+// email local part so the notNull contact name columns always have a value.
+function deriveSubmitterName(fields: Record<string, unknown>, email: string): { firstName: string; lastName: string } {
+  const pick = (keys: string[]): string => {
+    for (const [k, v] of Object.entries(fields)) {
+      if (typeof v !== "string" || !v.trim()) continue;
+      const norm = k.toLowerCase().replace(/[^a-z]/g, "");
+      if (keys.includes(norm)) return v.trim();
+    }
+    return "";
+  };
+  let firstName = pick(["firstname", "fname", "givenname"]);
+  let lastName = pick(["lastname", "lname", "surname", "familyname"]);
+  if (!firstName && !lastName) {
+    const full = pick(["name", "fullname"]);
+    if (full) {
+      const parts = full.split(/\s+/);
+      firstName = parts[0] ?? "";
+      lastName = parts.slice(1).join(" ");
+    }
+  }
+  if (!firstName) firstName = (email.split("@")[0] || "Unknown").trim();
+  if (!lastName) lastName = "";
+  return { firstName, lastName };
+}
+
+// Best-effort enrollment of a form submitter into a Sales Campaign. Resolves a
+// tenant-scoped contact by email (find-or-create, deriving an account from the
+// email domain), then appends the contact id to the campaign's
+// `metadata.contactIds` list idempotently. recipientCount is intentionally left
+// alone — it is recomputed authoritatively at send time. Throws on failure; the
+// caller swallows it so lead capture never blocks.
+async function enrollSubmitterInCampaign(opts: {
+  tenantId: number;
+  campaignId: number;
+  fields: Record<string, unknown>;
+}): Promise<void> {
+  const { tenantId, campaignId, fields } = opts;
+  const email = findSubmitterEmail(fields);
+  if (!email) return;
+
+  // Re-validate the campaign belongs to this tenant before touching it.
+  const [campaign] = await db
+    .select({ id: salesEmailCampaignsTable.id })
+    .from(salesEmailCampaignsTable)
+    .where(and(eq(salesEmailCampaignsTable.id, campaignId), eq(salesEmailCampaignsTable.tenantId, tenantId)));
+  if (!campaign) return;
+
+  // Find-or-create a tenant-scoped contact by email.
+  let contactId: number | null = null;
+  const [existingContact] = await db
+    .select({ id: salesContactsTable.id })
+    .from(salesContactsTable)
+    .where(and(eq(salesContactsTable.tenantId, tenantId), ilike(salesContactsTable.email, email)))
+    .limit(1);
+
+  if (existingContact) {
+    contactId = existingContact.id;
+  } else {
+    // Derive the account from the email domain (find-or-create by domain).
+    const domain = (email.split("@")[1] || "").trim().toLowerCase();
+    let accountId: number | null = null;
+    if (domain) {
+      const [existingAccount] = await db
+        .select({ id: salesAccountsTable.id })
+        .from(salesAccountsTable)
+        .where(and(eq(salesAccountsTable.tenantId, tenantId), ilike(salesAccountsTable.domain, domain)))
+        .limit(1);
+      if (existingAccount) {
+        accountId = existingAccount.id;
+      } else {
+        const [newAccount] = await db
+          .insert(salesAccountsTable)
+          .values({ tenantId, name: domain, domain, status: "prospect" })
+          .returning({ id: salesAccountsTable.id });
+        accountId = newAccount.id;
+      }
+    } else {
+      // No domain (shouldn't happen for a valid email) — fall back to a generic
+      // account so the notNull accountId is satisfied.
+      const [newAccount] = await db
+        .insert(salesAccountsTable)
+        .values({ tenantId, name: email, status: "prospect" })
+        .returning({ id: salesAccountsTable.id });
+      accountId = newAccount.id;
+    }
+
+    const { firstName, lastName } = deriveSubmitterName(fields, email);
+    const [newContact] = await db
+      .insert(salesContactsTable)
+      .values({ tenantId, accountId, firstName, lastName, email, status: "active" })
+      .returning({ id: salesContactsTable.id });
+    contactId = newContact.id;
+  }
+
+  if (contactId === null) return;
+
+  // Idempotently append the contact id to metadata.contactIds. Use a row-locked
+  // transaction so concurrent submitters don't clobber each other's appends.
+  await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ metadata: salesEmailCampaignsTable.metadata })
+      .from(salesEmailCampaignsTable)
+      .where(and(eq(salesEmailCampaignsTable.id, campaignId), eq(salesEmailCampaignsTable.tenantId, tenantId)))
+      .for("update");
+    if (!row) return;
+    const metadata = (row.metadata as Record<string, unknown> | null) ?? {};
+    const existingIds = Array.isArray(metadata.contactIds)
+      ? (metadata.contactIds as unknown[]).filter((n): n is number => typeof n === "number")
+      : [];
+    if (existingIds.includes(contactId!)) return; // already enrolled — idempotent
+    const nextIds = [...existingIds, contactId!];
+    await tx
+      .update(salesEmailCampaignsTable)
+      .set({ metadata: { ...metadata, contactIds: nextIds } })
+      .where(eq(salesEmailCampaignsTable.id, campaignId));
+  });
 }
 
 function getClientIp(req: Request): string {
@@ -396,6 +515,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
       let sheetsConfig: { enabled?: boolean; sheetId?: string; tabName?: string } | null = null;
       let sendFollowUpToSubmitter = false;
       let followUpTemplateId: number | null = null;
+      let enrollCampaignId: number | null = null;
 
       if (formId) {
         // Tenant-scoped lookup: a global form's config only applies when it
@@ -414,6 +534,7 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
           sheetsConfig = (globalForm.sheetsConfig as typeof sheetsConfig) ?? null;
           sendFollowUpToSubmitter = !!globalForm.sendFollowUpToSubmitter;
           followUpTemplateId = globalForm.followUpTemplateId ?? null;
+          enrollCampaignId = globalForm.enrollCampaignId ?? null;
         }
       } else {
         const [notif] = await db.select().from(lpFormNotificationsTable).where(eq(lpFormNotificationsTable.pageId, pageId));
@@ -424,6 +545,23 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
           salesforceConfig = notif.salesforceConfig as SalesforceConfig | null;
           sendFollowUpToSubmitter = !!notif.sendFollowUpToSubmitter;
           followUpTemplateId = notif.followUpTemplateId ?? null;
+          enrollCampaignId = notif.enrollCampaignId ?? null;
+        }
+      }
+
+      // Best-effort: enroll the submitter into the configured Sales Campaign as
+      // a queued recipient. Finds-or-creates a tenant-scoped contact (+ account
+      // from the email domain), then appends the contact id to the campaign's
+      // recipient list idempotently. Never blocks lead capture; swallows errors.
+      if (enrollCampaignId) {
+        try {
+          await enrollSubmitterInCampaign({
+            tenantId: page.tenantId,
+            campaignId: enrollCampaignId,
+            fields: fields as Record<string, unknown>,
+          });
+        } catch (err) {
+          console.error("Campaign enrollment error for lead", lead.id, ":", err);
         }
       }
 

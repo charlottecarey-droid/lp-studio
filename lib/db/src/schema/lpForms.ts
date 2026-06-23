@@ -1,5 +1,5 @@
 import { pgTable, text, serial, timestamp, jsonb, boolean, integer } from "drizzle-orm/pg-core";
-import { salesEmailTemplatesTable } from "./salesEmails";
+import { salesEmailTemplatesTable, salesEmailCampaignsTable } from "./salesEmails";
 
 export const lpFormsTable = pgTable("lp_forms", {
   id: serial("id").primaryKey(),
@@ -36,6 +36,9 @@ export const lpFormsTable = pgTable("lp_forms", {
   sheetsConfig: jsonb("sheets_config"),
   sendFollowUpToSubmitter: boolean("send_follow_up_to_submitter").notNull().default(false),
   followUpTemplateId: integer("follow_up_template_id").references(() => salesEmailTemplatesTable.id, { onDelete: "set null" }),
+  // When set, a submitter of this form is auto-enrolled (best-effort) as a
+  // `queued` recipient of this Sales Campaign. NULL = no enrollment.
+  enrollCampaignId: integer("enroll_campaign_id").references(() => salesEmailCampaignsTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

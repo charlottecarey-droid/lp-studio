@@ -29,15 +29,28 @@ interface SalesTemplate {
 
 const LABEL_CLS = "text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block";
 
+interface CampaignOption {
+  id: number;
+  name: string;
+  status: string;
+}
+
 interface FollowUpEmailSectionProps {
   enabled: boolean;
   templateId: number | null;
   onEnabledChange: (enabled: boolean) => void;
   onTemplateIdChange: (id: number | null) => void;
+  // Optional Sales Campaign enrollment picker. When `onEnrollCampaignChange`
+  // is provided, a "enroll submitters into a campaign" selector renders below
+  // the follow-up controls. Omitting it hides the picker entirely (existing
+  // callsites are unaffected).
+  enrollCampaignId?: number | null;
+  onEnrollCampaignChange?: (id: number | null) => void;
 }
 
 export function FollowUpEmailSection({
   enabled, templateId, onEnabledChange, onTemplateIdChange,
+  enrollCampaignId, onEnrollCampaignChange,
 }: FollowUpEmailSectionProps) {
   const { brand } = useBrandConfig();
   const { user } = useAuth();
@@ -61,6 +74,21 @@ export function FollowUpEmailSection({
       .finally(() => setLoading(false));
   };
   useEffect(() => { loadTemplates(); }, []);
+
+  // Sales Campaign options for the (optional) enrollment picker. Only fetched
+  // when the picker is actually wired in via `onEnrollCampaignChange`.
+  const [campaigns, setCampaigns] = useState<CampaignOption[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
+  const enrollPickerEnabled = !!onEnrollCampaignChange;
+  useEffect(() => {
+    if (!enrollPickerEnabled) return;
+    setCampaignsLoading(true);
+    fetch(`${API_BASE}/sales/campaigns/options`)
+      .then(r => r.ok ? r.json() : [])
+      .then((rows: CampaignOption[]) => setCampaigns(Array.isArray(rows) ? rows : []))
+      .catch(() => setCampaigns([]))
+      .finally(() => setCampaignsLoading(false));
+  }, [enrollPickerEnabled]);
 
   // New template form state
   const [newName, setNewName] = useState("");
@@ -99,6 +127,7 @@ export function FollowUpEmailSection({
   };
 
   return (
+    <div className="space-y-3">
     <div className="border rounded-lg overflow-hidden">
       <div className="flex items-center justify-between px-3 py-2.5 bg-muted/30">
         <div className="flex-1">
@@ -154,6 +183,46 @@ export function FollowUpEmailSection({
           </div>
         </div>
       )}
+    </div>
+
+    {enrollPickerEnabled && (
+      <div className="border rounded-lg overflow-hidden">
+        <div className="px-3 py-2.5 bg-muted/30">
+          <div className="text-sm font-medium">Enroll submitters in a campaign</div>
+          <div className="text-xs text-muted-foreground">Add each person who submits this form to a Sales → Campaigns audience as a queued recipient.</div>
+        </div>
+        <div className="p-3 space-y-2">
+          <Label className={LABEL_CLS}>Sales Campaign</Label>
+          <Select
+            value={enrollCampaignId != null ? String(enrollCampaignId) : "none"}
+            onValueChange={v => onEnrollCampaignChange?.(v === "none" ? null : Number(v))}
+          >
+            <SelectTrigger className="text-sm">
+              <SelectValue placeholder={campaignsLoading ? "Loading…" : "No campaign"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No campaign</SelectItem>
+              {campaigns.map(c => (
+                <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[11px] text-muted-foreground">
+            Submitters are matched to (or created as) a contact and added to the campaign's recipients. They are <strong>not</strong> emailed automatically — you still send the campaign from{" "}
+            {salesConsoleAvailable ? (
+              <a href="/sales/campaigns" target="_blank" rel="noopener noreferrer" className="underline inline-flex items-center gap-0.5">
+                Sales → Campaigns <ExternalLink className="w-2.5 h-2.5" />
+              </a>
+            ) : (
+              <>Sales → Campaigns</>
+            )}.
+          </p>
+          {campaigns.length === 0 && !campaignsLoading && (
+            <p className="text-[11px] text-amber-700">No campaigns yet — create one in Sales → Campaigns first.</p>
+          )}
+        </div>
+      </div>
+    )}
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">

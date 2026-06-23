@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, Component, type ReactNode, type ErrorInfo } from "react";
 import {
-  Play, ArrowRight, Check, Linkedin, ChevronDown,
+  Play, ArrowRight, ArrowUpRight, Check, Linkedin, ChevronDown,
   FileText, Download, Sparkles, Share2, Users, Volume2, Settings, Maximize,
 } from "lucide-react";
 import type { WebinarHubBlockProps, WebinarStatus, WebinarCtaAction } from "@/lib/block-types";
@@ -653,17 +653,41 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
                   <div style={{ display: "flex", justifyContent: "flex-end" }}><Download style={{ width: 16, height: 16 }} /></div>
                 </div>
               )}
-              {resources.map((res, i) => (
-                <div key={i} style={{ background: "#fff", padding: "1.5rem", border: "1px solid #E6E1D6", display: "flex", flexDirection: "column" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "3rem" }}>
-                    <div style={{ width: 40, height: 40, borderRadius: "9999px", background: C.sand, display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(0,0,0,0.6)" }}><FileText style={{ width: 16, height: 16 }} /></div>
-                    {res.format && <MonoLabel opacity={1}>{res.format}</MonoLabel>}
-                  </div>
-                  <h4 style={{ fontSize: "1.125rem", fontWeight: 500, marginBottom: "0.5rem" }}>{res.title}</h4>
-                  {res.desc && <p style={{ color: "rgba(0,0,0,0.6)", fontSize: "0.875rem", lineHeight: 1.6, marginBottom: "1.5rem", flex: 1 }}>{res.desc}</p>}
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}><Download style={{ width: 16, height: 16 }} /></div>
-                </div>
-              ))}
+              {resources.map((res, i) => {
+                const href = res.url?.trim();
+                const isPdf = !!href && /\.pdf(\?|$)/i.test(href);
+                const cardStyle: React.CSSProperties = { background: "#fff", padding: "1.5rem", border: "1px solid #E6E1D6", display: "flex", flexDirection: "column", textDecoration: "none", color: "inherit" };
+                const inner = (
+                  <>
+                    {res.imageUrl && (
+                      <div style={{ marginBottom: "1.5rem", overflow: "hidden", borderRadius: "0.25rem", aspectRatio: "16 / 9", background: C.sand }}>
+                        <img src={res.imageUrl} alt={res.title} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                      </div>
+                    )}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: res.imageUrl ? "1.5rem" : "3rem" }}>
+                      <div style={{ width: 40, height: 40, borderRadius: "9999px", background: C.sand, display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(0,0,0,0.6)" }}><FileText style={{ width: 16, height: 16 }} /></div>
+                      {res.format && <MonoLabel opacity={1}>{res.format}</MonoLabel>}
+                    </div>
+                    <h4 style={{ fontSize: "1.125rem", fontWeight: 500, marginBottom: "0.5rem" }}>{res.title}</h4>
+                    {res.desc && <p style={{ color: "rgba(0,0,0,0.6)", fontSize: "0.875rem", lineHeight: 1.6, marginBottom: "1.5rem", flex: 1 }}>{res.desc}</p>}
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>{href ? (isPdf ? <Download style={{ width: 16, height: 16 }} /> : <ArrowUpRight style={{ width: 16, height: 16 }} />) : <Download style={{ width: 16, height: 16 }} />}</div>
+                  </>
+                );
+                return href ? (
+                  <a
+                    key={i}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    {...(isPdf ? { download: "" } : {})}
+                    style={cardStyle}
+                  >
+                    {inner}
+                  </a>
+                ) : (
+                  <div key={i} style={cardStyle}>{inner}</div>
+                );
+              })}
             </div>
           </div>
         </section>

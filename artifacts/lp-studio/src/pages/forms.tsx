@@ -39,6 +39,7 @@ interface GlobalForm {
   gtmDataLayerConfig: GtmDataLayerConfig | null;
   sendFollowUpToSubmitter: boolean;
   followUpTemplateId: number | null;
+  enrollCampaignId: number | null;
   /** Per-form visual styling. NULL = use block-level styling on each
    *  rendered form block (legacy behavior). Set via the Style tab. */
   styling: FormStyling | null;
@@ -447,6 +448,7 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
           gtmDataLayerConfig: local.gtmDataLayerConfig,
           sendFollowUpToSubmitter: local.sendFollowUpToSubmitter,
           followUpTemplateId: local.followUpTemplateId,
+          enrollCampaignId: local.enrollCampaignId,
           styling: local.styling,
         }),
       });
@@ -629,6 +631,8 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
               templateId={local.followUpTemplateId ?? null}
               onEnabledChange={v => set("sendFollowUpToSubmitter", v)}
               onTemplateIdChange={v => set("followUpTemplateId", v)}
+              enrollCampaignId={local.enrollCampaignId ?? null}
+              onEnrollCampaignChange={v => set("enrollCampaignId", v)}
             />
 
             {/* Marketo */}

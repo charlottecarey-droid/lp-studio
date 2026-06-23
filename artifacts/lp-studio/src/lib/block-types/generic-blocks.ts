@@ -2164,6 +2164,12 @@ export interface WebinarResource {
   title: string;
   format?: string;
   desc?: string;
+  /** Optional thumbnail image (media library URL). Renders above the card body. */
+  imageUrl?: string;
+  /** Optional link/download target. When set the card becomes a working link;
+   *  PDF URLs render with a `download` attribute. Absent = non-interactive card
+   *  (legacy behavior). */
+  url?: string;
 }
 
 export interface WebinarFaq {

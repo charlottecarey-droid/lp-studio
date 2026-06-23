@@ -107,6 +107,37 @@ describe("BlockWebinarHub render", () => {
     expect(screen.queryByText("Talk to sales")).toBeNull();
   });
 
+  it("renders a resource with a thumbnail and a working PDF download link", () => {
+    const props: WebinarHubBlockProps = {
+      ...defaults(),
+      showResources: true,
+      resourcesHeadline: "Featured Resources",
+      resources: [
+        { title: "Slide deck", format: "PDF", desc: "The full slides.", imageUrl: "https://example.com/thumb.jpg", url: "https://example.com/deck.pdf" },
+        { title: "Read the recap", format: "Article", url: "https://example.com/recap" },
+        { title: "No-link card", format: "Note" },
+      ],
+    };
+    render(<BlockWebinarHub props={props} />);
+
+    // PDF resource → anchor with download attr.
+    const pdfLink = screen.getByText("Slide deck").closest("a");
+    expect(pdfLink).toBeTruthy();
+    expect(pdfLink!.getAttribute("href")).toBe("https://example.com/deck.pdf");
+    expect(pdfLink!.hasAttribute("download")).toBe(true);
+    // Thumbnail image renders.
+    expect(pdfLink!.querySelector('img[src="https://example.com/thumb.jpg"]')).toBeTruthy();
+
+    // Non-PDF URL → anchor, no download attr.
+    const articleLink = screen.getByText("Read the recap").closest("a");
+    expect(articleLink).toBeTruthy();
+    expect(articleLink!.getAttribute("href")).toBe("https://example.com/recap");
+    expect(articleLink!.hasAttribute("download")).toBe(false);
+
+    // No url → non-interactive card (no anchor wrapper).
+    expect(screen.getByText("No-link card").closest("a")).toBeNull();
+  });
+
   it.each(["upcoming", "live", "on-demand"] as const)(
     "renders status state %s without crashing",
     (status) => {
