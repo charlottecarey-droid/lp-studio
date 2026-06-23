@@ -571,6 +571,98 @@ Be factual and specific. Only include what's on the site.`;
   return { industryHint, personQuery, companyQuery, linkedinQuery, siteQuery };
 }
 
+export interface CitationRelevanceInputs {
+  firstName: string;
+  lastName: string;
+  accountName: string;
+  domain: string;
+  /** Account industry — the ONLY source of vertical "keep" terms; empty = neutral. */
+  industry: string;
+  /** Account segment — also contributes vertical terms; empty = neutral. */
+  segment: string;
+}
+
+const VERTICAL_TERM_STOPWORDS = new Set([
+  "and", "the", "for", "with", "inc", "llc", "ltd", "co", "corp", "company",
+  "group", "holdings", "enterprise", "enterprises", "mid", "market", "midmarket",
+  "smb", "b2b", "b2c", "national", "regional", "global", "other", "general",
+  "industry", "industries", "sector", "services", "solutions",
+]);
+
+/**
+ * Derive vertical "keep" terms from the account's own industry/segment.
+ * Multi-tenant safe: the only vertical bias comes from the account itself, never
+ * a hardcoded vertical (e.g. dental/DSO). Empty industry/segment → no terms →
+ * neutral citation ranking. Common size/legal stopwords are dropped so a segment
+ * like "Mid-Market" or "Enterprise" can't over-match unrelated URLs.
+ */
+export function deriveVerticalSourceTerms(industry: string, segment: string): string[] {
+  const seen = new Set<string>();
+  for (const raw of [industry, segment]) {
+    if (!raw) continue;
+    for (const word of raw.toLowerCase().split(/[^a-z0-9]+/)) {
+      const w = word.trim();
+      if (w.length > 2 && !VERTICAL_TERM_STOPWORDS.has(w)) seen.add(w);
+    }
+  }
+  return [...seen];
+}
+
+/**
+ * Build the predicate that decides whether a Perplexity citation URL is relevant
+ * enough to surface as a research source. MUST stay vertical-neutral: Perplexity
+ * often returns junk citations (random government PDFs, pharma sites, disease
+ * databases) and we only keep plausibly-relevant ones.
+ *
+ * Industry-specific "keep" terms are derived solely from the account's own
+ * industry/segment via {@link deriveVerticalSourceTerms} — never a hardcoded
+ * vertical. The trusted-domain list is limited to vertical-neutral sources
+ * (news/PR wires, business-intel databases, LinkedIn) that aid prospect
+ * research in any industry. An account with no industry/segment gets no
+ * vertical boosting at all.
+ */
+export function buildCitationRelevanceCheck(
+  input: CitationRelevanceInputs
+): (url: string) => boolean {
+  const { firstName, lastName, accountName, domain, industry, segment } = input;
+
+  const normalizedDomain = domain
+    ? domain.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].toLowerCase()
+    : "";
+
+  const relevanceTerms = [
+    firstName?.toLowerCase(),
+    lastName?.toLowerCase(),
+    accountName?.toLowerCase(),
+    normalizedDomain,
+  ].filter((t): t is string => Boolean(t));
+
+  // Vertical-neutral trusted domains: news/PR wires, business-intelligence
+  // databases, and LinkedIn are useful for prospect research in any industry.
+  const trustedDomains = [
+    "linkedin.com",
+    "prnewswire.com", "businesswire.com", "globenewswire.com",
+    "bloomberg.com", "reuters.com", "pitchbook.com", "crunchbase.com",
+  ];
+
+  // Industry-specific keep terms come ONLY from the account (multi-tenant safe).
+  const verticalTerms = deriveVerticalSourceTerms(industry, segment);
+
+  return function isCitationRelevant(url: string): boolean {
+    const lower = url.toLowerCase();
+    // Always keep the company's own domain.
+    if (normalizedDomain && lower.includes(normalizedDomain)) return true;
+    // Keep vertical-neutral trusted news/business databases.
+    if (trustedDomains.some(d => lower.includes(d))) return true;
+    // Keep if URL or path contains the person's or company's name.
+    if (relevanceTerms.some(term => term.length > 2 && lower.includes(term))) return true;
+    // Keep sources matching the account's own industry/segment (if any).
+    if (verticalTerms.some(term => lower.includes(term))) return true;
+    // Filter out everything else — random government, pharma, disease DBs, etc.
+    return false;
+  };
+}
+
 // POST /sales/draft-email — rich cold email using all account/contact fields + Perplexity research + Firecrawl site crawl
 router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
@@ -896,36 +988,14 @@ router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
     body = spaceOutEmailSections(body);
 
     // ─── Filter citations to only relevant sources ─────────────────
-    // Perplexity often returns junk citations (random government PDFs, pharma sites, disease databases)
-    // when it can't find specific info about the person/company. Only keep URLs that are plausibly relevant.
-    const relevanceTerms = [
-      firstName?.toLowerCase(),
-      lastName?.toLowerCase(),
-      accountName?.toLowerCase(),
-      domain?.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0]?.toLowerCase(),
-    ].filter(Boolean) as string[];
-
-    // Domains that are almost always relevant for dental/DSO research
-    const trustedDomains = [
-      "linkedin.com", "groupdentistrynow.com", "dentaleconomics.com",
-      "dentistrytoday.com", "dsonews.com", "beckersdental.com",
-      "prnewswire.com", "businesswire.com", "globenewswire.com",
-      "bloomberg.com", "reuters.com", "pitchbook.com", "crunchbase.com",
-    ];
-
-    function isCitationRelevant(url: string): boolean {
-      const lower = url.toLowerCase();
-      // Always keep the company's own domain
-      if (domain && lower.includes(domain.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0])) return true;
-      // Keep trusted industry/news domains
-      if (trustedDomains.some(d => lower.includes(d))) return true;
-      // Keep if URL or path contains the person's name or company name
-      if (relevanceTerms.some(term => term.length > 2 && lower.includes(term))) return true;
-      // Keep dental/DSO industry sources
-      if (/dental|dso|dentist|orthodont/.test(lower)) return true;
-      // Filter out everything else — random government, pharma, disease DBs, etc.
-      return false;
-    }
+    // Perplexity often returns junk citations (random government PDFs, pharma
+    // sites, disease databases) when it can't find specific info. Keep only
+    // plausibly-relevant URLs. The relevance check is vertical-neutral: any
+    // industry preference is derived from THIS account's industry/segment, so
+    // non-dental tenants get no dental-specific source boosting.
+    const isCitationRelevant = buildCitationRelevanceCheck({
+      firstName, lastName, accountName, domain, industry, segment,
+    });
 
     const sources: string[] = [];
     if (hookSource && hookSource.startsWith("http") && !sources.includes(hookSource)) {
