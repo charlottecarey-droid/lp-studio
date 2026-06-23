@@ -53,9 +53,19 @@ function checkAIRateLimit(key: string): boolean {
   return true;
 }
 
+/**
+ * Was this thrown error an abort fired by fetchWithTimeout's AbortController?
+ * Used to distinguish a timeout from a generic network/parse failure in the
+ * research telemetry below.
+ */
+function isTimeoutError(err: unknown): boolean {
+  return err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError");
+}
+
 async function perplexitySearch(
   apiKey: string,
   query: string,
+  queryType: string,
   domainFilter?: string[]
 ): Promise<{ content: string; citations: string[] }> {
   const body: Record<string, unknown> = {
@@ -78,16 +88,21 @@ async function perplexitySearch(
       },
       12000
     );
-    if (!res.ok) return { content: "", citations: [] };
+    if (!res.ok) {
+      console.warn(`[draft-email] research perplexity:${queryType} http_error status=${res.status}`);
+      return { content: "", citations: [] };
+    }
     const data = await res.json() as {
       choices?: Array<{ message?: { content?: string } }>;
       citations?: string[];
     };
-    return {
-      content: data.choices?.[0]?.message?.content ?? "",
-      citations: data.citations ?? [],
-    };
-  } catch {
+    const content = data.choices?.[0]?.message?.content ?? "";
+    const citations = data.citations ?? [];
+    console.info(`[draft-email] research perplexity:${queryType} ok chars=${content.length} citations=${citations.length}`);
+    return { content, citations };
+  } catch (err) {
+    const outcome = isTimeoutError(err) ? "timeout" : "error";
+    console.warn(`[draft-email] research perplexity:${queryType} ${outcome}:`, err instanceof Error ? err.message : err);
     return { content: "", citations: [] };
   }
 }
@@ -112,11 +127,17 @@ async function firecrawlScrape(apiKey: string, domain: string): Promise<string> 
       },
       15000
     );
-    if (!res.ok) return "";
+    if (!res.ok) {
+      console.warn(`[draft-email] research firecrawl:site http_error status=${res.status}`);
+      return "";
+    }
     const data = await res.json() as { success?: boolean; data?: { markdown?: string } };
     const md = data?.data?.markdown ?? "";
+    console.info(`[draft-email] research firecrawl:site ok chars=${Math.min(md.length, 4000)}`);
     return md.slice(0, 4000);
-  } catch {
+  } catch (err) {
+    const outcome = isTimeoutError(err) ? "timeout" : "error";
+    console.warn(`[draft-email] research firecrawl:site ${outcome}:`, err instanceof Error ? err.message : err);
     return "";
   }
 }
@@ -825,11 +846,11 @@ router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
 
     if (PERPLEXITY_KEY && accountName) {
       researchTasks.push(
-        bestEffort("perplexity person", perplexitySearch(PERPLEXITY_KEY, personQuery), { content: "", citations: [] as string[] })
+        bestEffort("perplexity person", perplexitySearch(PERPLEXITY_KEY, personQuery, "person"), { content: "", citations: [] as string[] })
           .then(r => { personResearch = r.content; allCitations.push(...r.citations); }),
-        bestEffort("perplexity company", perplexitySearch(PERPLEXITY_KEY, companyQuery), { content: "", citations: [] as string[] })
+        bestEffort("perplexity company", perplexitySearch(PERPLEXITY_KEY, companyQuery, "company"), { content: "", citations: [] as string[] })
           .then(r => { companyResearch = r.content; allCitations.push(...r.citations); }),
-        bestEffort("perplexity linkedin", perplexitySearch(PERPLEXITY_KEY, linkedinQuery), { content: "", citations: [] as string[] })
+        bestEffort("perplexity linkedin", perplexitySearch(PERPLEXITY_KEY, linkedinQuery, "linkedin"), { content: "", citations: [] as string[] })
           .then(r => { linkedinResearch = r.content; allCitations.push(...r.citations); }),
       );
     }
@@ -842,7 +863,7 @@ router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
     } else if (PERPLEXITY_KEY && domain && accountName) {
       // Fallback: use Perplexity for site if no Firecrawl key
       researchTasks.push(
-        bestEffort("perplexity site", perplexitySearch(PERPLEXITY_KEY, siteQuery, [domain]), { content: "", citations: [] as string[] })
+        bestEffort("perplexity site", perplexitySearch(PERPLEXITY_KEY, siteQuery, "site", [domain]), { content: "", citations: [] as string[] })
           .then(r => { siteResearch = r.content; allCitations.push(...r.citations); }),
       );
     }
@@ -851,6 +872,19 @@ router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
 
     const noPersonInfo = !personResearch || personResearch.includes("No person-level information found");
     const noCompanyNews = !companyResearch || companyResearch.includes("No recent company news found");
+    const noLinkedin = !linkedinResearch.trim();
+    const noSite = !siteResearch.trim();
+
+    // Telemetry: surface when research quietly came back empty across the board,
+    // so "no research found" reports are diagnosable from logs without guesswork.
+    // The per-call helpers above already log each ok/timeout/http_error outcome;
+    // this is the route-level rollup. No effect on the email output.
+    if (noPersonInfo && noCompanyNews && noLinkedin && noSite) {
+      console.warn(
+        `[draft-email] research thin: no usable research for ${fullName} @ ${accountName || "unknown"} ` +
+        `(perplexity_key=${!!PERPLEXITY_KEY} firecrawl_key=${!!FIRECRAWL_KEY} domain=${!!domain} citations=${allCitations.length})`
+      );
+    }
 
     // ─── 6-8. Build the brand-aware prompt (per-tenant; extracted) ──
     const { systemMsg, prompt } = buildDraftEmailPrompt({
