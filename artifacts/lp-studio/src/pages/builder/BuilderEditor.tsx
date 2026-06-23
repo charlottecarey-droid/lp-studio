@@ -20,7 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus, ArrowLeft,
-  Search, CheckCircle2, Lock, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star, MessageSquare, Palette, Eye,
+  Search, CheckCircle2, Lock, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star, MessageSquare, Palette, Eye, Monitor,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -2781,6 +2781,23 @@ export default function BuilderEditor() {
         onOpenBlocks={catalogMode ? undefined : () => { setMobileRightOpen(false); setMobileLeftOpen(o => !o); }}
         onOpenSettings={() => { setMobileLeftOpen(false); setMobileRightOpen(o => !o); }}
       />
+
+      {/* Desktop-recommended notice. The page builder works on a phone, but the
+          drag-and-drop editing experience is designed for a larger screen.
+          Shown only on mobile (hidden at the `md` breakpoint and up). */}
+      <div className="md:hidden mx-4 mt-2 flex items-start gap-3 rounded-xl bg-primary/5 border border-primary/20 px-4 py-2.5">
+        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+          <Monitor className="w-3.5 h-3.5 text-primary" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-foreground">
+            Best on desktop
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+            You can edit on your phone, but the page builder is designed for a larger screen. For the smoothest experience, open it on a computer.
+          </p>
+        </div>
+      </div>
 
       {/* Task #1026 — catalog mode banner. Makes it unmistakable that edits here
           set a GLOBAL block default (not a page) and gives a clear way back to
