@@ -4228,7 +4228,7 @@ export function buildBrandContext(brand: BrandConfig, designIntensity: DesignInt
   }
   if (brand.copyInstructions?.trim()) parts.push(brand.copyInstructions.trim());
   if (brand.productLines?.length) {
-    const strict = brand.aiStrictFactsMode !== false;
+    const strict = brand.aiStrictFactsMode === true;
     const productInfo = brand.productLines
       .filter((p) => p.name)
       .map((p) => {
@@ -4251,7 +4251,7 @@ export function buildBrandContext(brand: BrandConfig, designIntensity: DesignInt
   // (brand-and-brief.ts); full page generation never saw them, so strict-mode
   // tenants with rich brand settings shipped bare stat slots ("X") and empty
   // testimonial blocks. In strict mode only owner-approved rows are listed.
-  const strictFacts = brand.aiStrictFactsMode !== false;
+  const strictFacts = brand.aiStrictFactsMode === true;
   if (brand.scrapedStats?.length) {
     const stats = (strictFacts
       ? brand.scrapedStats.filter((s) => s.approvedForAi !== false)
@@ -4287,9 +4287,9 @@ export function buildBrandContext(brand: BrandConfig, designIntensity: DesignInt
       );
     }
   }
-  // Strict facts mode defaults ON: legacy rows where the field is unset
-  // (`undefined`) still receive the "do not invent stats" instruction.
-  if (brand.aiStrictFactsMode !== false) parts.push(STRICT_FACTS_INSTRUCTION);
+  // Strict facts mode defaults OFF: only tenants who explicitly enabled it
+  // receive the "do not invent stats" instruction (unset = OFF).
+  if (brand.aiStrictFactsMode === true) parts.push(STRICT_FACTS_INSTRUCTION);
   return parts.join("\n");
 }
 
@@ -7951,7 +7951,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // "APPROVED CASE STUDIES" with the locked-down "do not invent others"
   // language. When OFF we fetch every case study and surface them under a
   // neutral "CASE STUDIES" header (no exclusivity language).
-  const strict = brand.aiStrictFactsMode !== false;
+  const strict = brand.aiStrictFactsMode === true;
   const caseStudies = await fetchApprovedCaseStudies(tenantId, strict);
   // Task #256 — proof-point library section. Always emit when there are
   // points (it's useful context for non-strict generations too); strict

@@ -4,9 +4,11 @@ description: Why STRICT_FACTS_INSTRUCTION must restrict ONLY specific numbers/na
 ---
 
 `STRICT_FACTS_INSTRUCTION` is appended to AI page/section prompts whenever a
-brand has Strict Facts Mode on — and it is **ON by default** (`aiStrictFactsMode
-!== false`, a legacy default-on boolean). So its wording shapes copy for almost
-every tenant.
+brand has Strict Facts Mode on — and it is **OPT-IN, default OFF** (June 2026
+flip from default-ON; now read as `aiStrictFactsMode === true`, unset = OFF). It
+was flipped because users complained it stamped "X" placeholders / "Add a quote
+in brand settings" onto everything. So its wording only shapes copy for the
+tenants who explicitly turned it on.
 
 **Rule:** the restriction must apply ONLY to *specific figures and attributed
 proof* — exact statistics, percentages, customer counts, dollar amounts, named

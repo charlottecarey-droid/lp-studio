@@ -183,7 +183,7 @@ function buildBrandPrompt(brand: BrandConfig, segmentName?: string, toneOverride
   // strict mode, instruct the model not to invent numbers. We always show
   // approved facts (so the model can quote them) but only emit the strict
   // instruction when the toggle is on.
-  const strict = brand.aiStrictFactsMode !== false;
+  const strict = brand.aiStrictFactsMode === true;
   const approvedClaims: string[] = [];
   for (const pl of brand.productLines ?? []) {
     for (const c of pl.claims ?? []) {

@@ -3409,11 +3409,11 @@ export default function BrandSettings() {
                   <h3 className="text-sm font-semibold">Strict AI facts mode</h3>
                   <span className={cn(
                     "text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 font-mono",
-                    config.aiStrictFactsMode !== false
+                    config.aiStrictFactsMode === true
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground",
                   )}>
-                    {config.aiStrictFactsMode !== false ? "On" : "Off"}
+                    {config.aiStrictFactsMode === true ? "On" : "Off"}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -3437,7 +3437,7 @@ export default function BrandSettings() {
                 <input
                   type="checkbox"
                   className="sr-only peer"
-                  checked={config.aiStrictFactsMode !== false}
+                  checked={config.aiStrictFactsMode === true}
                   onChange={(e) => update("aiStrictFactsMode", e.target.checked)}
                 />
                 <div className="w-10 h-6 bg-muted rounded-full peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-transform peer-checked:after:translate-x-4" />
@@ -5185,7 +5185,7 @@ export default function BrandSettings() {
                   <ProductLineCard
                     key={i}
                     product={product}
-                    strictMode={config.aiStrictFactsMode !== false}
+                    strictMode={config.aiStrictFactsMode === true}
                     onChange={(key, value) => updateProductLine(i, key, value)}
                     onRemove={() => removeProductLine(i)}
                   />
@@ -5241,7 +5241,7 @@ export default function BrandSettings() {
                   <SegmentCard
                     key={seg.id || i}
                     segment={seg}
-                    strictMode={config.aiStrictFactsMode !== false}
+                    strictMode={config.aiStrictFactsMode === true}
                     onChange={(updated) => updateSegment(i, updated)}
                     onRemove={() => removeSegment(i)}
                   />

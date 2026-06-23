@@ -733,11 +733,12 @@ export const DEFAULT_BRAND: BrandConfig = {
   websiteUrl: "",
   logoLinkEnabled: false,
   emailBannerUrl: "",
-  // Strict facts default ON: new tenants get the safer "don't invent
-  // numbers" behaviour by default. Existing tenants whose row was
-  // written before this change still read `undefined` from DB → callsites
-  // were updated to treat `aiStrictFactsMode !== false` as ON.
-  aiStrictFactsMode: true,
+  // Strict facts default OFF: it's opt-in. Tenants enable it from Brand
+  // Settings when they want AI generation restricted to approved stats /
+  // claims / quotes. Existing tenants whose row predates this read
+  // `undefined` from DB → callsites treat `aiStrictFactsMode === true` as
+  // ON, so unset always means OFF.
+  aiStrictFactsMode: false,
   scrapedStats: [],
   scrapedTestimonials: [],
 };
@@ -1443,7 +1444,7 @@ export function buildCopySystemPrompt(brand: BrandConfig): string {
     parts.push(brand.copyInstructions.trim());
   }
   if (brand.productLines?.length > 0) {
-    const strict = brand.aiStrictFactsMode !== false;
+    const strict = brand.aiStrictFactsMode === true;
     const productInfo = brand.productLines
       .filter((p) => p.name)
       .map((p) => {
@@ -1465,7 +1466,7 @@ export function buildCopySystemPrompt(brand: BrandConfig): string {
   // regenerations, etc.) is also bound to the approved pool. In strict mode
   // we filter to approved entries; otherwise we list everything for context.
   if (brand.segments?.length) {
-    const strict = brand.aiStrictFactsMode !== false;
+    const strict = brand.aiStrictFactsMode === true;
     const segLines: string[] = [];
     for (const seg of brand.segments) {
       const stats = (seg.stats ?? []).filter((s) => s.value || s.label);

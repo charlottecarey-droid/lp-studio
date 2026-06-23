@@ -4,9 +4,14 @@ description: How to roll out a new boolean BrandConfig field that needs to defau
 ---
 
 When a new boolean flag on `lp_brand_settings.config` needs to default to
-ON (e.g. `aiStrictFactsMode`), do NOT gate behavior on a truthy check —
-existing tenants whose JSON config predates the field will read as
-`undefined`, which is falsy, and they'll silently behave as if it's OFF.
+ON, do NOT gate behavior on a truthy check — existing tenants whose JSON
+config predates the field will read as `undefined`, which is falsy, and
+they'll silently behave as if it's OFF.
+
+(NOTE: `aiStrictFactsMode` was the original example here, but it was
+intentionally flipped to OPT-IN / default-OFF in June 2026 — now read as
+`=== true`, NOT `!== false`. Do NOT "restore" it to default-ON. See
+strict-facts-wording-scope.md.)
 
 **Rule:** every read site — FE, AI prompt builders, and every route
 that reads brand config (`generate-page.ts`, `custom-blocks-generate.ts`,

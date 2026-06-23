@@ -2645,7 +2645,7 @@ export function buildSystemPrompt(
   const writingDos = brand.writingDos as string[] | undefined;
   const writingDonts = brand.writingDonts as string[] | undefined;
   const vp = (brand.voiceProfile as { profile?: { tone?: string[]; summary?: string; signaturePhrases?: string[] } } | undefined)?.profile;
-  const strictFacts = (brand.aiStrictFactsMode as boolean | undefined) !== false;
+  const strictFacts = (brand.aiStrictFactsMode as boolean | undefined) === true;
   const scrapedStats = (brand.scrapedStats as Array<{ value?: string; label?: string; approvedForAi?: boolean }> | undefined) ?? [];
   const scrapedTestimonials = (brand.scrapedTestimonials as Array<{ quote?: string; author?: string; role?: string; approvedForAi?: boolean }> | undefined) ?? [];
   const approvedStats = (strictFacts ? scrapedStats.filter((s) => s.approvedForAi !== false) : scrapedStats).filter((s) => s.value && s.label);
@@ -3981,7 +3981,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // case studies (never invented stories), ranked by relevance to this
     // account's size and segment, matching the marketing generator. No-op when
     // the page has no such block.
-    const micrositeStrict = (brand.aiStrictFactsMode as boolean | undefined) !== false;
+    const micrositeStrict = (brand.aiStrictFactsMode as boolean | undefined) === true;
     const micrositeLocationCount = ((): number | null => {
       const sl = (briefingData?.sizeAndLocations ?? undefined) as Record<string, unknown> | undefined;
       const v = sl?.locationCount;

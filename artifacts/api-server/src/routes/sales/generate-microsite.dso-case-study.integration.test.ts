@@ -100,7 +100,11 @@ async function seedTenant(opts: { strictFacts: boolean }): Promise<{ tenantId: n
       },
     ],
   };
-  if (!opts.strictFacts) config.aiStrictFactsMode = false;
+  // Strict Facts Mode defaults OFF. Enable it explicitly when requested;
+  // otherwise leave the field unset so the test exercises the default-OFF path.
+  if (opts.strictFacts) {
+    config.aiStrictFactsMode = true;
+  }
 
   await pool.query(
     `INSERT INTO lp_brand_settings (tenant_id, config)

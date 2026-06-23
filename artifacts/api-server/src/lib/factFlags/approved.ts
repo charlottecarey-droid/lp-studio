@@ -27,13 +27,13 @@ interface BrandConfigLite {
 
 /**
  * Whether the tenant has Strict Facts mode ON. Mirrors the `aiStrictFactsMode
- * !== false` default-ON convention used by the AI generation paths, so the
- * review surface (banner, publish gate, fact-flag sync) honours the same brand
- * setting that gates generation.
+ * === true` default-OFF convention used by the AI generation paths (the toggle
+ * is opt-in), so the review surface (banner, publish gate, fact-flag sync)
+ * honours the same brand setting that gates generation. Unset = OFF.
  *
- * Fail-CLOSED: when the tenant is unknown or the read errors we treat Strict
- * Facts as ON, so a transient DB hiccup can never silently drop the review
- * gate while a tenant genuinely has it enabled.
+ * Fail-CLOSED only on uncertainty: when the tenant is unknown or the read
+ * errors we treat Strict Facts as ON, so a transient DB hiccup can never
+ * silently drop the review gate for a tenant that genuinely has it enabled.
  */
 export async function isStrictFactsEnabled(tenantId: number | null): Promise<boolean> {
   if (tenantId == null) return true;
@@ -42,7 +42,7 @@ export async function isStrictFactsEnabled(tenantId: number | null): Promise<boo
       sql`SELECT config FROM lp_brand_settings WHERE tenant_id = ${tenantId} LIMIT 1`,
     );
     const cfg = (brandRows.rows[0] as { config?: BrandConfigLite } | undefined)?.config ?? {};
-    return cfg.aiStrictFactsMode !== false;
+    return cfg.aiStrictFactsMode === true;
   } catch {
     return true;
   }

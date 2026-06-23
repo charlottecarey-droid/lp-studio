@@ -65,10 +65,10 @@ export interface BrandConfig {
   /** Workstream A (May 2026) — persistent "inspiration sites" for this brand.
    *  Stored as `{url, note}` objects; legacy string entries tolerated. */
   inspirationUrls?: Array<string | { url?: string; note?: string }>;
-  /** When true (the default for new tenants), AI generation is restricted
-   *  to facts the brand owner has explicitly approved and the model is
-   *  instructed not to invent stats / quotes. Legacy rows without the
-   *  field set are treated as ON (use `!== false`). */
+  /** When true, AI generation is restricted to facts the brand owner has
+   *  explicitly approved and the model is instructed not to invent stats /
+   *  quotes. Opt-in: default OFF. Rows without the field set are treated as
+   *  OFF (use `=== true`). */
   aiStrictFactsMode?: boolean;
   /** Stats scraped from the brand's own marketing pages during URL brand
    *  import. Each row carries an `approvedForAi` flag (default true on
@@ -243,7 +243,7 @@ export function buildBrandSystemPrompt(brand: BrandConfig): string {
 
   // Scraped proof points — stats and testimonials pulled from the
   // brand's marketing pages during URL brand-import. When strict facts
-  // mode is on (now the default), we filter to rows the brand owner
+  // mode is on (opt-in, default OFF), we filter to rows the brand owner
   // has approved (`approvedForAi !== false`). Without strict mode every
   // scraped row is fair game. Either way these are the highest-quality
   // evidence the model has access to — they came from the brand's own
@@ -258,7 +258,7 @@ export function buildBrandSystemPrompt(brand: BrandConfig): string {
       .replace(/[\u0000-\u001F\u007F]+/g, " ")
       .replace(/\s+/g, " ")
       .trim();
-  const strict = brand.aiStrictFactsMode !== false;
+  const strict = brand.aiStrictFactsMode === true;
   if (brand.scrapedStats?.length) {
     const stats = strict
       ? brand.scrapedStats.filter((s) => s.approvedForAi !== false)

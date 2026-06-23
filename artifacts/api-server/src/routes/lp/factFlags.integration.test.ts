@@ -141,6 +141,9 @@ beforeAll(async () => {
   app.use(pagesRouter);
 
   tenantId = await seedTenant();
+  // Strict Facts now defaults OFF; this tenant's assertions expect the review
+  // surface ON, so enable it explicitly.
+  await seedBrandSettings(tenantId, { aiStrictFactsMode: true });
   await seedSession(SID, tenantId, 990001201);
   await seedSession(SID_NO_TENANT, null, 990001202);
 

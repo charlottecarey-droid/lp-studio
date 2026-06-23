@@ -204,7 +204,7 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
     // tenant has strict facts ON, inject the approved proof points and forbid
     // inventing numbers for stat-shaped fields. After generation we revert any
     // unapproved numeric value so no fabricated stats reach the block.
-    const strictRefresh = brand.aiStrictFactsMode !== false;
+    const strictRefresh = brand.aiStrictFactsMode === true;
     const statBlockRefresh = STAT_COPY_BLOCK_TYPES.has(blockType);
     let refreshPool: Set<string> | null = null;
     let refreshProofSection = "";
@@ -325,7 +325,7 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
     // id-stats items carry a description; trust-bar / stats are value+label only.
     const withDescription = blockType === "id-stats";
 
-    const strict = brand.aiStrictFactsMode !== false;
+    const strict = brand.aiStrictFactsMode === true;
     const proofPoints = await fetchProofPoints(tenantId);
     const pool = strict ? buildCopyApprovedStatPool(brand, proofPoints) : null;
     const proofSection = buildProofPointsSection(proofPoints, strict);

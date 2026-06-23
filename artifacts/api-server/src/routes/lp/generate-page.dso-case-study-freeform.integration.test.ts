@@ -74,8 +74,8 @@ function adminSession(tenantId: number): { sid: string; sess: string } {
 
 /**
  * Seed a growth tenant + admin session + a brand row. `strictFacts` controls
- * whether the brand has Strict Facts Mode left at its default (true) or
- * explicitly disabled (aiStrictFactsMode:false).
+ * whether the brand has Strict Facts Mode explicitly enabled
+ * (aiStrictFactsMode:true) or left unset, which is the default-OFF state.
  */
 async function seedTenant(opts: { strictFacts: boolean }): Promise<{ tenantId: number; sid: string }> {
   const slug = `it-gp-dso-cs-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
@@ -92,8 +92,12 @@ async function seedTenant(opts: { strictFacts: boolean }): Promise<{ tenantId: n
     brandName: "IT Brand",
     segments: [{ id: "general", name: "General Buyers" }],
   };
-  // Default (omitted) leaves Strict Facts Mode ON (strict = aiStrictFactsMode !== false).
-  if (!opts.strictFacts) config.aiStrictFactsMode = false;
+  // Strict Facts Mode defaults OFF (strict = aiStrictFactsMode === true). When
+  // the option is true, enable it explicitly; otherwise leave the field unset
+  // so the test exercises the real default-OFF path.
+  if (opts.strictFacts) {
+    config.aiStrictFactsMode = true;
+  }
 
   await pool.query(
     `INSERT INTO lp_brand_settings (tenant_id, config)
