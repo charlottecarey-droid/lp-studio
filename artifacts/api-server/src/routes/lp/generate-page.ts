@@ -8839,13 +8839,28 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           })
       : Promise.resolve([] as MediaImage[]);
 
+  // The dental "DSO" / "DSO Practices" writing paths are dental-only. They were
+  // previously selected from prompt/segment keywords alone ("practice", "group",
+  // "dso", "multi-location"), so a NON-dental tenant whose prompt happened to use
+  // those common B2B words got routed into the dental system prompt + dental
+  // fallback copy — producing a dental page. Gate entry on the tenant actually
+  // being a dental business: the protected Dandy tenant, or any tenant whose
+  // industry resolves to 'dental'. Every other tenant falls through to GENERAL
+  // regardless of keywords. Fail-closed: getTenantIndustry defaults to 'generic'.
+  const dsoEligible =
+    isDandyTenant || (await getTenantIndustry(tenantId)) === "dental";
+
   // DSO Practices = practice-level staff WITHIN a DSO network. Match the segment
   // name on "dso practice" specifically — a bare "practice" substring wrongly
   // routed standalone segments like "Private Practice" into the DSO Practices path.
   const useDsoPractices =
-    isDsoPracticesPrompt(prompt) ||
-    (segmentContext?.name?.toLowerCase().includes("dso practice") ?? false);
-  const useDso = !useDsoPractices && (isDsoPrompt(prompt) || (segmentContext?.name?.toLowerCase().includes("dso") ?? false));
+    dsoEligible &&
+    (isDsoPracticesPrompt(prompt) ||
+      (segmentContext?.name?.toLowerCase().includes("dso practice") ?? false));
+  const useDso =
+    dsoEligible &&
+    !useDsoPractices &&
+    (isDsoPrompt(prompt) || (segmentContext?.name?.toLowerCase().includes("dso") ?? false));
   const promptPath = useDsoPractices ? "DSO_PRACTICES" : useDso ? "DSO_ENTERPRISE" : "GENERAL";
 
   // ── Page-recipe rotation + block-sequence repeat guard inputs (June 2026) ──

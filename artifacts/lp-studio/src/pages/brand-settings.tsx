@@ -429,7 +429,7 @@ function ProductLineCard({ product, onChange, onRemove, strictMode }: {
               <Input
                 value={product.name}
                 onChange={(e) => onChange("name", e.target.value)}
-                placeholder="e.g. Acme Crowns"
+                placeholder="e.g. Acme Pro"
                 className="h-9 text-sm"
               />
             </div>
@@ -872,7 +872,7 @@ function SegmentCard({ segment, onChange, onRemove, strictMode }: {
               <Input
                 value={segment.name}
                 onChange={(e) => set("name", e.target.value)}
-                placeholder="e.g. Enterprise DSO, Mid-Market Group"
+                placeholder="e.g. Enterprise, Mid-Market"
                 className="h-9 text-sm"
               />
             </div>
@@ -958,7 +958,7 @@ function SegmentCard({ segment, onChange, onRemove, strictMode }: {
                       <Input
                         value={persona.role}
                         onChange={(e) => updatePersona(i, "role", e.target.value)}
-                        placeholder="Role / title (e.g. Chief Clinical Officer)"
+                        placeholder="Role / title (e.g. Chief Operating Officer)"
                         aria-label="Persona role"
                         className="h-8 text-sm flex-1"
                       />
@@ -2153,7 +2153,7 @@ function SalesConsoleSettings({
             rows={2}
             value={sc.salesIntroLine ?? ""}
             onChange={e => patch({ salesIntroLine: e.target.value })}
-            placeholder='e.g. You write short, human cold emails for Acme — a vertically integrated dental lab and clinical performance platform for DSOs.'
+            placeholder='e.g. You write short, human cold emails for Acme — a workflow automation platform for mid-market operations teams.'
           />
           <p className="text-xs text-muted-foreground">First line of the cold-email system prompt. Sets the tone and explains who the brand is to the model.</p>
         </div>
@@ -2162,7 +2162,7 @@ function SalesConsoleSettings({
           <Input
             value={sc.briefBlurb ?? ""}
             onChange={e => patch({ briefBlurb: e.target.value })}
-            placeholder="e.g. a vertically integrated dental lab and clinical performance platform"
+            placeholder="e.g. a workflow automation platform for operations teams"
           />
           <p className="text-xs text-muted-foreground">Short parenthetical appended after the brand name in person briefs.</p>
         </div>
@@ -2172,7 +2172,7 @@ function SalesConsoleSettings({
             rows={3}
             value={sc.customerNameRules ?? ""}
             onChange={e => patch({ customerNameRules: e.target.value })}
-            placeholder='e.g. "Apex Dental Partners" or "Apex" — NEVER "APEX DSOs"'
+            placeholder='e.g. "Apex Partners" or "Apex" — NEVER "APEX Inc."'
           />
           <p className="text-xs text-muted-foreground">Free-form rules appended to the prompt about how customer names should be written.</p>
         </div>
@@ -4945,7 +4945,7 @@ export default function BrandSettings() {
                   <Textarea
                     value={config.companyDescription ?? ""}
                     onChange={(e) => update("companyDescription", e.target.value)}
-                    placeholder="e.g. Acme is a dental technology company that provides in-office digital dentistry — crowns, aligners, and implants — to dental practices and DSOs across the US."
+                    placeholder="e.g. Acme is a B2B software company that provides workflow automation tools to mid-market operations teams across the US."
                     className="min-h-[80px] text-sm resize-none"
                   />
                 </div>
@@ -4973,7 +4973,7 @@ export default function BrandSettings() {
                   <Textarea
                     value={config.targetAudience}
                     onChange={(e) => update("targetAudience", e.target.value)}
-                    placeholder="Dental professionals looking to modernize their practice..."
+                    placeholder="Operations leaders looking to modernize their workflows..."
                     className="min-h-[60px] text-sm resize-none"
                   />
                 </div>
