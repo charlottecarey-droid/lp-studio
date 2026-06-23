@@ -17,7 +17,6 @@ interface Props {
 }
 
 export function BlockFooter({ props, brand, onFieldChange }: Props) {
-  const bg = props.backgroundColor || "var(--brand-primary)";
   // Resolve the real background hex so every text type (logo, column titles,
   // links, copyright, borders) gets a contrast-checked color. Without this a
   // brand whose primary/accent is the same hue as the footer renders blue
@@ -77,7 +76,7 @@ export function BlockFooter({ props, brand, onFieldChange }: Props) {
     : undefined;
 
   return (
-    <footer style={{ backgroundColor: bg, color: onBg }} className="w-full">
+    <footer style={{ backgroundColor: bgHex, color: onBg }} className="w-full">
       <div className="max-w-7xl mx-auto px-6 lg:px-10 pt-20 pb-12">
         <div className="flex flex-col md:flex-row gap-12 md:gap-20">
           <div className="flex-shrink-0">
