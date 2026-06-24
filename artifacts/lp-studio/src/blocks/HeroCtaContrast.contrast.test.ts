@@ -86,6 +86,18 @@ function filledCtas(markup: string, tag: "a" | "button"): CtaColors[] {
   return out;
 }
 
+/** Pull the inline `color:` off the first `<h1 … style="…">` (the headline). */
+function headlineColor(markup: string): string | undefined {
+  const m = /<h1\b[^>]*?\sstyle="([^"]*)"/.exec(markup);
+  if (!m) return undefined;
+  for (const decl of m[1].split(";")) {
+    const idx = decl.indexOf(":");
+    if (idx === -1) continue;
+    if (decl.slice(0, idx).trim() === "color") return decl.slice(idx + 1).trim();
+  }
+  return undefined;
+}
+
 /**
  * The "blue-on-blue" trap: the hero sits on `primaryColor` and the accent is
  * the same blue, so a naive accent-colored CTA collapses onto the surface.
@@ -313,6 +325,39 @@ describe("Hero/header CTA contrast across styles", () => {
 
     it("keeps the CTA readable for a contrasting brand", () => {
       expectReadable(filledCtas(render(contrastingBrand(), CONTRAST_PRIMARY), "button"), CONTRAST_PRIMARY);
+    });
+  });
+
+  // Regression: the inline-form variant on a PALE brand primary used to render a
+  // hard-coded white headline and a white email input with a transparent border
+  // — both invisible (white-on-white) on the light surface.
+  describe("BlockDandyHeroV7S3 inline form on a pale surface", () => {
+    const PALE = "#FAF7F2";
+    function render(surface: string): string {
+      const brand: BrandConfig = { ...DEFAULT_BRAND, primaryColor: surface };
+      const props = {
+        headline: "Hero seven, style three",
+        subheadline: "A digital-first lab.",
+        ctaText: "Get started",
+        ctaAction: "inline-form",
+        bgColor: surface,
+        inputPlaceholder: "Enter your work email",
+      } as DandyHeroV7S3BlockProps;
+      return renderToStaticMarkup(
+        createElement(BlockDandyHeroV7S3, { props, brand, animationsEnabled: false }),
+      );
+    }
+
+    it("renders a readable (dark) headline, not white-on-white", () => {
+      const color = headlineColor(render(PALE));
+      expect(color).toBeDefined();
+      expect(contrast(color!, PALE)).toBeGreaterThanOrEqual(TEXT_MIN);
+    });
+
+    it("gives the white email input a visible border on the pale surface", () => {
+      const markup = render(PALE);
+      expect(markup).toContain("border-slate-300");
+      expect(markup).not.toMatch(/<input\b[^>]*border-transparent/);
     });
   });
 });

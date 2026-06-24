@@ -1,9 +1,9 @@
 ---
-name: Footer paint-vs-contrast divergence (white-on-white)
-description: Why footers rendered white text/logo on a white surface and the rule to prevent it.
+name: Surface paint-vs-contrast divergence (white-on-white)
+description: Why on-brand surfaces (footers, inline-form heroes) rendered white-on-white and the rule to prevent it.
 ---
 
-# Footer white-on-white: paint the SAME color you contrast against
+# Surface white-on-white: paint the SAME color you contrast against
 
 A footer (or any block) must paint its background from the EXACT resolved hex it
 runs its contrast math against. The generic footer used to paint
@@ -32,3 +32,10 @@ bare `var()` with no fallback collapses to transparent (white).
   fallback so they never vanish when the var is out of scope.
 - Any new on-brand block surface: give every `var(--brand-*)` a hex fallback and
   paint the resolved hex, not the bare var.
+- On-brand hero w/ inline email form (`BlockDandyHeroV7S3.tsx`): two failure modes
+  beyond the bare-var paint — (1) hard-coded `text-white` headline/sub/trust/
+  disclaimer vanish on a pale brand primary; (2) the white email input had a
+  `border-transparent` so the box itself disappeared on white. Fix = derive all
+  text from `resolveSectionInk({}, { base: bgHex })` and give the input
+  `border-slate-300` when the surface is light (luminance >= 0.4), keeping
+  `border-transparent` only on dark surfaces.
