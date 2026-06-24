@@ -2643,48 +2643,52 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
-    // Task #641 — seed the root superadmin platform-operator account. This is
-    // the single bootstrap account (admin@lpstudio.ai by default, overridable
-    // via ROOT_SUPERADMIN_EMAIL) that owns the superadmin roster and can never
-    // be demoted/removed. It belongs to NO tenant (tenant_id stays NULL) — it
-    // is a platform operator, not a tenant member. Idempotent: the INSERT keys
-    // on the unique email and, on conflict, only ensures the role is
-    // 'superadmin' (so a fresh DB ends up with EXACTLY one superadmin, and an
-    // accidental demotion of the root account self-heals on the next boot). We
-    // never null out an existing row's tenant_id on conflict so we don't detach
-    // a pre-existing account; on a fresh insert there is no tenant scope by
-    // construction. Fails CLOSED: this account is the only way into the
-    // superadmin surface on a fresh DB, so a failure here must abort the
-    // release rather than ship a database with no operator access.
+    // Task #641 — seed the root superadmin platform-operator accounts. These are
+    // the bootstrap accounts (admin@lpstudio.ai + charlotte.carey@meetdandy.com
+    // built-in, plus any configured via ROOT_SUPERADMIN_EMAIL) that own the
+    // superadmin roster and can never be demoted/removed. They belong to NO
+    // tenant (tenant_id stays NULL) — they are platform operators, not tenant
+    // members. Idempotent: each INSERT keys on the unique email and, on
+    // conflict, only ensures the role is 'superadmin' (so a fresh DB ends up
+    // with the root operators present, and an accidental demotion of a root
+    // account self-heals on the next boot). We never null out an existing row's
+    // tenant_id on conflict so we don't detach a pre-existing account; on a
+    // fresh insert there is no tenant scope by construction. Fails CLOSED: these
+    // accounts are the only way into the superadmin surface on a fresh DB, so a
+    // failure here must abort the release rather than ship a database with no
+    // operator access.
     await runStep("root superadmin seed", async () => {
-      const { getRootSuperadminEmail } = await import("./lib/rootSuperadmin");
-      const rootEmail = getRootSuperadminEmail();
-      await db.execute(sql`
-        INSERT INTO app_users (email, name, role, status, tenant_id)
-        VALUES (${rootEmail}, 'LP Studio Root Admin', 'superadmin', 'active', NULL)
-        ON CONFLICT (email) DO UPDATE SET role = 'superadmin', updated_at = now()
-      `);
-      // Verify the invariant we actually care about: a superadmin row exists
-      // for this email. We must NOT read an arbitrary row via `rows[0]` — a
-      // case-variant collision (e.g. a tenant user who signed up as
-      // "Admin@lpstudio.ai" with role 'user') makes a bare
-      // `WHERE LOWER(email)=LOWER($1)` return multiple rows in nondeterministic
-      // order, which would intermittently abort an otherwise-healthy release.
-      // Filtering on role = 'superadmin' + EXISTS keys on the row the INSERT
-      // above actually upserts, independent of unrelated collision rows.
-      const { rows } = await pool.query<{ exists: boolean }>(
-        `SELECT EXISTS (
-           SELECT 1 FROM app_users
-           WHERE LOWER(email) = LOWER($1) AND role = 'superadmin'
-         ) AS exists`,
-        [rootEmail],
-      );
-      if (!rows[0]?.exists) {
-        throw new Error(
-          `root superadmin seed did not produce a superadmin row for ${rootEmail} — aborting release`,
+      const { getRootSuperadminEmails } = await import("./lib/rootSuperadmin");
+      const rootEmails = getRootSuperadminEmails();
+      for (const rootEmail of rootEmails) {
+        await db.execute(sql`
+          INSERT INTO app_users (email, name, role, status, tenant_id)
+          VALUES (${rootEmail}, 'LP Studio Root Admin', 'superadmin', 'active', NULL)
+          ON CONFLICT (email) DO UPDATE SET role = 'superadmin', updated_at = now()
+        `);
+        // Verify the invariant we actually care about: a superadmin row exists
+        // for this email. We must NOT read an arbitrary row via `rows[0]` — a
+        // case-variant collision (e.g. a tenant user who signed up as
+        // "Admin@lpstudio.ai" with role 'user') makes a bare
+        // `WHERE LOWER(email)=LOWER($1)` return multiple rows in
+        // nondeterministic order, which would intermittently abort an
+        // otherwise-healthy release. Filtering on role = 'superadmin' + EXISTS
+        // keys on the row the INSERT above actually upserts, independent of
+        // unrelated collision rows.
+        const { rows } = await pool.query<{ exists: boolean }>(
+          `SELECT EXISTS (
+             SELECT 1 FROM app_users
+             WHERE LOWER(email) = LOWER($1) AND role = 'superadmin'
+           ) AS exists`,
+          [rootEmail],
         );
+        if (!rows[0]?.exists) {
+          throw new Error(
+            `root superadmin seed did not produce a superadmin row for ${rootEmail} — aborting release`,
+          );
+        }
       }
-      logger.info({ rootEmail }, "root superadmin seed applied");
+      logger.info({ rootEmails }, "root superadmin seed applied");
     });
 
     // Migrations 0019 / 0020 / 0022 (sales tenant scoping, Dandy salesConsole

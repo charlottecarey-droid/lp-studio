@@ -985,6 +985,15 @@ router.get("/auth/me", async (req, res): Promise<void> => {
       const ur = await pool.query(`SELECT role FROM app_users WHERE id = $1`, [sess.userId]);
       if (ur.rows.length > 0) appUserRole = ur.rows[0].role ?? null;
     }
+    // A configured root superadmin is identified purely by email
+    // (case-insensitive), so it ALWAYS resolves to the superadmin role here —
+    // even if the app_users row this session logged into never received the
+    // seeded 'superadmin' role (e.g. an OAuth email-casing mismatch created a
+    // separate row). This mirrors the override in requireSuperadmin so the
+    // frontend SuperAdmin guard and the API agree on who is a superadmin.
+    if (isRootSuperadminEmail(sess.email)) {
+      appUserRole = "superadmin";
+    }
     // Task #641 — flag the bootstrap root superadmin so the SuperAdmin UI can
     // reveal the root-only "Superadmins" roster management section. Identity is
     // email-based (ROOT_SUPERADMIN_EMAIL, default admin@lpstudio.ai); only a
@@ -1275,20 +1284,31 @@ router.post("/auth/password", passwordAuthLimiter, async (req, res): Promise<voi
   }
 
   try {
-    // Only allow login for pre-existing users with the superadmin role.
-    // This prevents arbitrary email → admin-session creation via the shared
-    // password, which was the primary platform-takeover path.
+    // Only allow login for pre-existing superadmin accounts (matched
+    // case-insensitively). This prevents arbitrary email → admin-session
+    // creation via the shared password, which was the primary platform-takeover
+    // path. A configured root superadmin (e.g. admin@lpstudio.ai) is always
+    // allowed even if its row never received the seeded 'superadmin' role — the
+    // email itself is the authority. The ORDER BY prefers an actual superadmin
+    // row when a case-variant collision left more than one row for the email.
     const userResult = await pool.query(
       `SELECT id, email, name, avatar_url, role, tenant_id,
               last_login_at, updated_at
-       FROM app_users WHERE email = $1 AND role = 'superadmin'`,
+       FROM app_users
+       WHERE LOWER(email) = LOWER($1)
+       ORDER BY (role = 'superadmin') DESC NULLS LAST, id ASC
+       LIMIT 1`,
       [email]
     );
-    if (!userResult.rows.length) {
+    const candidate = userResult.rows[0];
+    const isAllowed =
+      !!candidate &&
+      (candidate.role === "superadmin" || isRootSuperadminEmail(candidate.email));
+    if (!isAllowed) {
       res.status(403).json({ error: "No superadmin account found for that email" });
       return;
     }
-    const user = userResult.rows[0];
+    const user = candidate;
 
     // Stamp last login
     await pool.query(
@@ -1353,8 +1373,10 @@ router.post("/auth/password", passwordAuthLimiter, async (req, res): Promise<voi
       permissions,
       isAdmin,
       micrositeDomain,
-      // See login route — same rationale (task #108).
-      appUserRole: user.role ?? null,
+      // See login route — same rationale (task #108). Root superadmins are
+      // email-identified, so stamp the superadmin role even if their row's
+      // role column says otherwise.
+      appUserRole: isRootSuperadminEmail(user.email) ? "superadmin" : (user.role ?? null),
     });
     const expire = new Date(Date.now() + SESSION_TTL_MS);
 
