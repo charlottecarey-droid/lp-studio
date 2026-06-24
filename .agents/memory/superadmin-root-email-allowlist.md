@@ -8,7 +8,7 @@ The platform superadmin surface is gated on the FRONTEND by `appUserRole === "su
 **Rule:** every place that computes `appUserRole` for the client — especially `/auth/me`, but also the session-stamping login/password paths — must apply `isRootSuperadminEmail(email)` → force `"superadmin"`. Fixing only the API middleware leaves the root account locked out of the UI with "does not have the superadmin role".
 
 **Root identity** lives in `lib/rootSuperadmin.ts` as a case-insensitive ALLOWLIST, not a single email:
-- `ALWAYS_ROOT_SUPERADMIN_EMAILS` = built-in, always-on roots (currently admin@lpstudio.ai + charlotte.carey@meetdandy.com).
+- `ALWAYS_ROOT_SUPERADMIN_EMAILS` = built-in, always-on roots (the actual addresses live ONLY in `lib/rootSuperadmin.ts` — do not duplicate personal emails here).
 - `ROOT_SUPERADMIN_EMAIL` env is ADDITIVE (single or comma/space/semicolon list), never replaces the built-ins.
 - `getRootSuperadminEmails()` = union, lowercased/deduped; `isRootSuperadminEmail()` = membership; `getRootSuperadminEmail()` = a single "primary" (env first entry, else default) kept only for display/back-compat.
 

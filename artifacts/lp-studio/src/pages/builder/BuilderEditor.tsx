@@ -233,14 +233,15 @@ function CustomBlockThumbnail({ blockType }: { blockType: string }) {
 }
 
 function BlockLibrary({ onAdd, customBlocks, visibleBlocks, prefs, onCustomize }: { onAdd: (type: string) => void; customBlocks: CustomBlock[]; visibleBlocks: ResolvedBlockDef[]; prefs: BlockLibraryPrefs; onCustomize: () => void }) {
-  // Core categories only — "Grid Pieces" and "Showcase" live in the Segment
+  // Core categories for the Blocks tab. "Hero" and "Showcase" sit right under
+  // the header (Layout) section here. "Grid Pieces" still lives in the Segment
   // tab so the two tabs never duplicate the same block.
-  const defaultCoreOrder = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"] as const;
+  const defaultCoreOrder = ["Layout", "Hero", "Showcase", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"] as const;
   // Any category that exists in the catalog but is neither a known core nor a
   // known non-core (SegmentLibrary) category is a tenant-created shelf — a
   // user moved a block into a new bucket via the Customize dialog. Surface
   // those in the Blocks tab so the block is reachable.
-  const knownNonCore = new Set(["DSO", "DSO Practices", "Events", "Grid Pieces", "Showcase", "Full Page Templates"]);
+  const knownNonCore = new Set(["DSO", "DSO Practices", "Events", "Grid Pieces", "Full Page Templates"]);
   const tenantExtras = Array.from(new Set(
     visibleBlocks
       .map(b => b.category)
@@ -338,7 +339,7 @@ function BlockLibrary({ onAdd, customBlocks, visibleBlocks, prefs, onCustomize }
   );
 }
 
-const CORE_CATEGORIES = new Set(["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"]);
+const CORE_CATEGORIES = new Set(["Layout", "Hero", "Showcase", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"]);
 // Catalog category (set in superadmin) that marks a block as a whole-page
 // template. These render in the builder's Templates tab — never in the block
 // library shelf (Segment tab) or the Insert Block dialog — so a full-page
@@ -363,7 +364,7 @@ function SegmentLibrary({ onAdd, customBlocks, segments, visibleBlocks, prefs, g
   // Stable category order so DSO Practices is prominent and consistent. Any
   // extra categories not in this list (custom tenant shelves) fall through to
   // the prefs-based ordering after the preferred ones.
-  const preferredOrder = ["DSO", "DSO Practices", "Showcase", "Grid Pieces", "Events"];
+  const preferredOrder = ["DSO", "DSO Practices", "Grid Pieces", "Events"];
   const presentCategories = Object.keys(segmentGroupMap);
   const orderedGroupNames = [
     ...preferredOrder.filter(c => presentCategories.includes(c)),
@@ -740,7 +741,7 @@ interface InsertBlockDialogProps {
 }
 
 function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlocks, prefs, nestedTarget, initialSearch }: InsertBlockDialogProps) {
-  const defaultCategories = ["Layout", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces", "DSO", "DSO Practices", "Showcase", "Events"] as const;
+  const defaultCategories = ["Layout", "Hero", "Showcase", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces", "DSO", "DSO Practices", "Events"] as const;
   // Append any extra categories that exist in the (prefs-applied) catalog but
   // aren't in the default list, then sort the whole thing per tenant prefs.
   // Full-page templates are intentionally excluded — they belong in the
@@ -1351,7 +1352,7 @@ export default function BuilderEditor() {
     [tenantCatalogBlocks],
   );
   // Segment tab is the home for industry-specific blocks (DSO, DSO Practices,
-  // Showcase, Grid Pieces, Events). It intentionally skips audience gating so
+  // Grid Pieces, Events). It intentionally skips audience gating so
   // a leadership page can still insert a "Meet the Team" block from the
   // practice category — gating only filters the core Blocks tab.
   const segmentCatalogBlocks = useMemo<ResolvedBlockDef[]>(
