@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Loader2, CheckCircle2, Calendar } from "lucide-react";
-import { type BrandConfig, isValidHex, pickCtaButtonColors, pickContrastingColor } from "@/lib/brand-config";
+import { type BrandConfig, isValidHex, pickCtaButtonColors, pickContrastingColor, relativeLuminance } from "@/lib/brand-config";
+import { resolveSectionInk } from "@/lib/section-ink";
 import type { DandyHeroV7S3BlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
@@ -66,6 +67,15 @@ export function BlockDandyHeroV7S3({ props, brand, onFieldChange, pageId, varian
         4.5,
       )
     : null;
+  // Derive text tone from the surface the hero ACTUALLY paints. The headline,
+  // subheadline, trust stats and disclaimer used to be hard-coded white, so on
+  // a light brand primary (e.g. a pale tenant) they rendered white-on-white —
+  // invisible. Resolve inks from the real surface hex (same value the contrast
+  // math uses) so light surfaces get dark text and the white email input gets a
+  // visible border.
+  const inkBase = bgHex ?? "#0f172a";
+  const surfaceIsDark = relativeLuminance(inkBase) < 0.4;
+  const ink = resolveSectionInk({}, { base: inkBase });
   const bgImage = props.backgroundImageUrl;
 
   const field = (key: keyof DandyHeroV7S3BlockProps) =>
@@ -108,7 +118,7 @@ export function BlockDandyHeroV7S3({ props, brand, onFieldChange, pageId, varian
   return (
     <section
       className="relative w-full overflow-hidden flex items-center justify-center"
-      style={{ backgroundColor: bg, minHeight: "min(85vh, 780px)" }}
+      style={{ backgroundColor: bgHex ?? bg, minHeight: "min(85vh, 780px)" }}
     >
       {bgImage && (
         <div
@@ -127,13 +137,13 @@ export function BlockDandyHeroV7S3({ props, brand, onFieldChange, pageId, varian
           </p>
         )}
         <h1
-          className="text-5xl md:text-6xl lg:text-7xl text-white leading-[1.05] tracking-tight mb-6"
-          style={{ fontWeight: "var(--brand-heading-weight, 700)" as unknown as number, fontFamily: DISPLAY }}
+          className="text-5xl md:text-6xl lg:text-7xl leading-[1.05] tracking-tight mb-6"
+          style={{ fontWeight: "var(--brand-heading-weight, 700)" as unknown as number, fontFamily: DISPLAY, color: ink.text }}
         >
           <InlineText value={props.headline} onUpdate={field("headline")} style={{ fontFamily: DISPLAY }}/>
         </h1>
         {props.subheadline && (
-          <p className="text-xl text-white/80 leading-relaxed mb-10 max-w-2xl" style={{ fontFamily: BODY }}>
+          <p className="text-xl leading-relaxed mb-10 max-w-2xl" style={{ fontFamily: BODY, color: ink.muted }}>
             <InlineText value={props.subheadline} onUpdate={field("subheadline")} style={{ fontFamily: BODY }}/>
           </p>
         )}
@@ -171,10 +181,10 @@ export function BlockDandyHeroV7S3({ props, brand, onFieldChange, pageId, varian
             <InlineText value={props.ctaText ?? "Get Started"} onUpdate={field("ctaText")} style={{ fontFamily: BODY }}/>
           </CtaButton>
         ) : formState === "success" ? (
-          <div className="flex flex-col items-center gap-3 bg-white/10 border border-white/20 rounded-2xl px-8 py-6 max-w-md w-full">
-            <CheckCircle2 className="w-8 h-8 text-[var(--brand-accent)]" />
-            <p className="text-white font-bold text-lg" style={{ fontFamily: BODY }}>You're on the list!</p>
-            <p className="text-white/70 text-sm" style={{ fontFamily: BODY }}>Check your inbox — we'll be in touch shortly.</p>
+          <div className="flex flex-col items-center gap-3 rounded-2xl px-8 py-6 max-w-md w-full" style={{ backgroundColor: ink.hairline, border: `1px solid ${ink.hairline}` }}>
+            <CheckCircle2 className="w-8 h-8" style={{ color: accentOnBg ?? "var(--brand-accent)" }} />
+            <p className="font-bold text-lg" style={{ fontFamily: BODY, color: ink.text }}>You're on the list!</p>
+            <p className="text-sm" style={{ fontFamily: BODY, color: ink.muted }}>Check your inbox — we'll be in touch shortly.</p>
             {props.chilipiperUrl && (
               <button
                 onClick={() => { setCpUrl(buildCpUrl(props.chilipiperUrl!, email.trim())); setCpOpen(true); }}
@@ -192,7 +202,7 @@ export function BlockDandyHeroV7S3({ props, brand, onFieldChange, pageId, varian
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={props.inputPlaceholder ?? "Enter your work email"}
-              className="flex-1 px-6 py-4 rounded-xl text-slate-900 bg-white text-base font-medium outline-none border-2 border-transparent focus:border-[var(--brand-accent)] transition-colors"
+              className={`flex-1 px-6 py-4 rounded-xl text-slate-900 bg-white text-base font-medium outline-none border-2 ${surfaceIsDark ? "border-transparent" : "border-slate-300"} focus:border-[var(--brand-accent)] transition-colors`}
               required
               disabled={formState === "loading"}
             />
@@ -212,20 +222,20 @@ export function BlockDandyHeroV7S3({ props, brand, onFieldChange, pageId, varian
         )}
 
         {props.formDisclaimer && ctaAction === "inline-form" && formState !== "success" && (
-          <p className="mt-4 text-sm text-white/60" style={{ fontFamily: BODY }}>
+          <p className="mt-4 text-sm" style={{ fontFamily: BODY, color: ink.muted }}>
             <InlineText value={props.formDisclaimer} onUpdate={field("formDisclaimer")} style={{ fontFamily: BODY }}/>
           </p>
         )}
 
         {(props.trustItems ?? []).length > 0 && (
-          <div className="mt-14 flex flex-wrap justify-center gap-x-12 gap-y-4 pt-10 border-t border-white/10 w-full">
+          <div className="mt-14 flex flex-wrap justify-center gap-x-12 gap-y-4 pt-10 border-t w-full" style={{ borderColor: ink.hairline }}>
             {(props.trustItems ?? []).map((item, i) => (
               <div key={i} className="flex flex-col items-center gap-0.5">
                 <span
                   className={`text-3xl font-bold ${accentOnBg ? "" : "text-[var(--brand-accent)]"}`}
                   style={accentOnBg ? { fontFamily: BODY, color: accentOnBg } : { fontFamily: BODY }}
                 >{item.value}</span>
-                <span className="text-sm text-white/70" style={{ fontFamily: BODY }}>{item.label}</span>
+                <span className="text-sm" style={{ fontFamily: BODY, color: ink.muted }}>{item.label}</span>
               </div>
             ))}
           </div>
