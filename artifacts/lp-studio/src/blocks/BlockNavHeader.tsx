@@ -3,12 +3,11 @@ import { BRAND_BODY_FONT } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 import { Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getButtonClasses, getLogoLinkUrl } from "@/lib/brand-config";
+import { getButtonClasses, getLogoLinkUrl, contrastTextColor, relativeLuminance, isValidHex } from "@/lib/brand-config";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { NavHeaderBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
-import { BrandLogo, brandLogoToneForSurface, brandLogoToneForText } from "@/components/BrandLogo";
-import { resolveSectionSurface } from "@/lib/bg-styles";
+import { BrandLogo, brandLogoToneForSurface } from "@/components/BrandLogo";
 import { useBlockFonts } from "@/lib/use-block-fonts";
 import { motion } from "framer-motion";
 import { ChiliPiperButton } from "@/components/ChiliPiperButton";
@@ -45,27 +44,37 @@ export function BlockNavHeader({ props, brand, onFieldChange, pageId, variantId,
     onFieldChange({ ...props, navLinks });
   };
 
-  const headerBg = props.backgroundColor ?? "#ffffff";
-  const headerFg = props.textColor;
+  // Resolve the painted background to a single real hex so the logo tone and
+  // the link/phone ink are computed against the SAME surface we actually paint
+  // — never a Tailwind class that silently assumes a light header. A dark
+  // backgroundColor (or a background image) with no explicit textColor used to
+  // keep the default dark-slate links, rendering them invisible "dark-on-dark".
+  const bgHex = isValidHex(props.backgroundColor ?? "")
+    ? (props.backgroundColor as string)
+    : "#ffffff";
+  const hasBgImage = !!props.backgroundImage;
+  // A background image sits behind a dark overlay, so treat it as a dark surface.
+  const isDarkBg = hasBgImage ? true : relativeLuminance(bgHex) < 0.4;
+  // Foreground ink: an explicit textColor override wins; otherwise derive a
+  // contrast-safe ink from the resolved background hex.
+  const onBg = isValidHex(props.textColor ?? "")
+    ? (props.textColor as string)
+    : hasBgImage
+      ? "#ffffff"
+      : contrastTextColor(bgHex);
   const overlay = Math.max(0, Math.min(1, props.backgroundOverlay ?? 0));
   const headerStyle: React.CSSProperties = {
-    background: props.backgroundImage
-      ? `linear-gradient(rgba(0,0,0,${overlay}), rgba(0,0,0,${overlay})), url("${props.backgroundImage}") center/cover no-repeat, ${headerBg}`
-      : headerBg,
-    color: headerFg || undefined,
+    background: hasBgImage
+      ? `linear-gradient(rgba(0,0,0,${overlay}), rgba(0,0,0,${overlay})), url("${props.backgroundImage}") center/cover no-repeat, ${bgHex}`
+      : bgHex,
+    color: onBg,
     fontFamily: props.fontFamily || undefined,
   };
   const hasBgOverride = !!(props.backgroundColor || props.backgroundImage);
-  const hasFgOverride = !!props.textColor;
-  // Pick the brand logo tone from the header surface so a light/white logo is
-  // used on dark headers (image / dark color) and the dark logo on light ones.
-  const logoTone = props.backgroundImage
-    ? "onDark"
-    : props.textColor
-      ? brandLogoToneForText(props.textColor)
-      : brandLogoToneForSurface(
-          resolveSectionSurface({ bgColor: props.backgroundColor }, "#ffffff").isDark,
-        );
+  // Pick the brand logo tone from the SAME resolved surface so a light/white
+  // logo is used on dark headers (image / dark color) and the dark logo on
+  // light ones.
+  const logoTone = brandLogoToneForSurface(isDarkBg);
 
   const cta1Action = normalizeAction(props.cta1Action);
   const cta2Action = normalizeAction(props.cta2Action);
@@ -136,6 +145,7 @@ export function BlockNavHeader({ props, brand, onFieldChange, pageId, variantId,
                 brand={brand}
                 url={props.logoUrl}
                 tone={logoTone}
+                autoContrast
                 alt={props.logoText || brand.brandName || "Logo"}
                 className="h-8 w-auto"
               />
@@ -155,10 +165,8 @@ export function BlockNavHeader({ props, brand, onFieldChange, pageId, variantId,
               <a
                 key={i}
                 href={link.url || "#"}
-                className={cn(
-                  "text-sm font-medium transition-colors whitespace-nowrap",
-                  hasFgOverride ? "hover:opacity-80" : "text-slate-600 hover:text-slate-900",
-                )}
+                className="text-sm font-medium transition-opacity whitespace-nowrap opacity-70 hover:opacity-100"
+                style={{ color: onBg }}
               >
                 <InlineText
                   value={link.label}
@@ -173,10 +181,8 @@ export function BlockNavHeader({ props, brand, onFieldChange, pageId, variantId,
           {props.phone && (
             <a
               href={`tel:${props.phone.replace(/\s/g, "")}`}
-              className={cn(
-                "hidden lg:flex items-center gap-1.5 text-sm font-medium transition-colors",
-                hasFgOverride ? "hover:opacity-80" : "text-slate-600 hover:text-slate-900",
-              )}
+              className="hidden lg:flex items-center gap-1.5 text-sm font-medium transition-opacity opacity-70 hover:opacity-100"
+              style={{ color: onBg }}
             >
               <Phone className="w-4 h-4" />
               <InlineText
