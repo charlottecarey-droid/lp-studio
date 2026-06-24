@@ -1107,6 +1107,10 @@ export default function BuilderEditor() {
     });
   }, []);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+  // Mobile "Best on desktop" notice — dismissable, remembered across visits.
+  const [desktopNoticeDismissed, setDesktopNoticeDismissed] = useState<boolean>(() => {
+    try { return localStorage.getItem("lp-builder-desktop-notice-dismissed") === "1"; } catch { return false; }
+  });
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [status, setStatus] = useState<"draft" | "pending_review" | "published">("draft");
@@ -2784,20 +2788,34 @@ export default function BuilderEditor() {
 
       {/* Desktop-recommended notice. The page builder works on a phone, but the
           drag-and-drop editing experience is designed for a larger screen.
-          Shown only on mobile (hidden at the `md` breakpoint and up). */}
-      <div className="md:hidden mx-4 mt-2 flex items-start gap-3 rounded-xl bg-primary/5 border border-primary/20 px-4 py-2.5">
-        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-          <Monitor className="w-3.5 h-3.5 text-primary" />
+          Shown only on mobile (hidden at the `md` breakpoint and up), and only
+          until the user dismisses it with the close button. */}
+      {!desktopNoticeDismissed && (
+        <div className="md:hidden mx-4 mt-2 flex items-start gap-3 rounded-xl bg-primary/5 border border-primary/20 px-4 py-2.5">
+          <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <Monitor className="w-3.5 h-3.5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-foreground">
+              Best on desktop
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+              You can edit on your phone, but the page builder is designed for a larger screen. For the smoothest experience, open it on a computer.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => {
+              setDesktopNoticeDismissed(true);
+              try { localStorage.setItem("lp-builder-desktop-notice-dismissed", "1"); } catch { /* ignore */ }
+            }}
+            className="ml-auto -mr-1 -mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-muted-foreground hover:text-foreground hover:bg-primary/10 transition-colors"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
-        <div className="min-w-0">
-          <p className="text-xs font-semibold text-foreground">
-            Best on desktop
-          </p>
-          <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-            You can edit on your phone, but the page builder is designed for a larger screen. For the smoothest experience, open it on a computer.
-          </p>
-        </div>
-      </div>
+      )}
 
       {/* Task #1026 — catalog mode banner. Makes it unmistakable that edits here
           set a GLOBAL block default (not a page) and gives a clear way back to
