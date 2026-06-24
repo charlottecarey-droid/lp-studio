@@ -1245,6 +1245,7 @@ function cssColorToHex(value: string): string | null {
  * color nor a parseable background is available (block default then applies).
  */
 function resolveImportedButtonLabelColor(raw: ImportedButtonStyle): string | null {
+  const bgHex = raw.background?.value ? cssColorToHex(raw.background.value) : null;
   const scraped = raw.textColor ? sanitizeCssValue(raw.textColor) : null;
   // Only trust a scraped color that resolves to a concrete value here. Tokenized
   // forms (var(...), color-mix(...)) depend on custom properties that the source
@@ -1255,9 +1256,19 @@ function resolveImportedButtonLabelColor(raw: ImportedButtonStyle): string | nul
     && !/^(transparent|inherit|initial|unset|currentcolor|none)$/i.test(scraped)
     && !/\bvar\(|\bcolor-mix\(/i.test(scraped)
   ) {
-    return scraped;
+    // …and only when it's actually legible against the resolved fill. A
+    // mis-scraped CTA can capture a label color equal to (or barely distinct
+    // from) its own background; emitted with `!important` that paints invisible
+    // "same color text and background" buttons across the page. When the fill
+    // resolves to a concrete color (cssColorToHex also reads a gradient's first
+    // stop) and the scraped label fails a basic contrast bar, drop it and use
+    // the guaranteed-contrast fallback below. Only a truly unparseable fill
+    // can't be measured, so its scraped label color is kept as-is.
+    const scrapedHex = cssColorToHex(scraped);
+    if (!bgHex || !scrapedHex || contrastRatio(scrapedHex, bgHex) >= 3) {
+      return scraped;
+    }
   }
-  const bgHex = raw.background?.value ? cssColorToHex(raw.background.value) : null;
   if (bgHex) return contrastTextColor(bgHex);
   return null;
 }

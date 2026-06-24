@@ -131,6 +131,38 @@ describe("getBrandButtonCss import gating", () => {
     expect(getBrandButtonCss(brand)).toContain("color:#fffbe6 !important");
   });
 
+  it("drops a scraped label color equal to its own fill (same color text + background)", () => {
+    // The reported invo bug: the importer captured a CTA whose text color
+    // equalled its background. Emitted with !important page-wide it paints every
+    // primary button as same-color-on-same-color (invisible). The label must
+    // fall back to a guaranteed-legible color instead of the scraped match.
+    const sameColor: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, textColor: "#ff0066", background: { type: "solid", value: "#ff0066" } },
+    };
+    const css = getBrandButtonCss(sameColor);
+    expect(css).not.toContain("color:#ff0066 !important");
+    expect(css).toContain("color:#ffffff !important");
+  });
+
+  it("drops a scraped label color too low-contrast against its fill and derives a legible one", () => {
+    const lowContrast: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, textColor: "#ff3377", background: { type: "solid", value: "#ff0066" } },
+    };
+    const css = getBrandButtonCss(lowContrast);
+    expect(css).not.toContain("color:#ff3377 !important");
+    expect(css).toContain("color:#ffffff !important");
+  });
+
+  it("keeps a scraped label color that contrasts adequately with its fill", () => {
+    const ok: BrandConfig = {
+      ...DEFAULT_BRAND,
+      buttonStyleRaw: { ...IMPORTED_STYLE, textColor: "#ffffff", background: { type: "solid", value: "#1d4ed8" } },
+    };
+    expect(getBrandButtonCss(ok)).toContain("color:#ffffff !important");
+  });
+
   it("derives a legible label color from the background when none was scraped", () => {
     // #ff0066 is a dark-ish pink → contrast helper resolves to white text,
     // preventing the white-on-white "blank label" failure mode.
