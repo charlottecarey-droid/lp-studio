@@ -936,6 +936,7 @@ export default function BuilderEmbed() {
                     fontWeight: 500,
                     letterSpacing: "-0.01em",
                     margin: 0,
+                    color: "#f3f0ec",
                   }}
                 >
                   Speakers
