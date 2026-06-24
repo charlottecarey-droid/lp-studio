@@ -3246,18 +3246,23 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // stored `id` (e.g. AI-imported audiences) are keyed by name, so the FE
     // sends the name as segmentId. Matching on s.id alone would reject them
     // with a false "audience segments not configured" error.
-    const segment = brandSegments.find(s => {
+    const pickedSegment = brandSegments.find(s => {
       const sid = (s?.id ?? "").trim() || (s?.name ?? "").trim();
       return sid === requestedSegmentId;
     });
-    if (!requestedSegmentId || !segment) {
+    // A specific segment that doesn't match this tenant's brand is a genuine bad
+    // reference and still fails closed with a 400, so non-Dandy tenants never
+    // silently fall through to another audience's (e.g. DSO/dental) copy. But
+    // selecting NO segment is allowed: fall back to a synthetic CORE segment
+    // carrying no segment-specific data, so buildSegmentSection emits nothing
+    // and the page leads with the brand's own core/default messaging.
+    if (requestedSegmentId && !pickedSegment) {
       res.status(400).json({
-        error: requestedSegmentId
-          ? `Unknown segmentId "${requestedSegmentId}". Configure audience segments in Brand Settings.`
-          : "segmentId is required.",
+        error: `Unknown segmentId "${requestedSegmentId}". Configure audience segments in Brand Settings.`,
       });
       return;
     }
+    const segment: BrandAudienceSegment = pickedSegment ?? { id: "core", name: "Core" };
 
     // AI must be configured before we open a stream — keep this a plain-JSON
     // 503 so a misconfig never half-opens an SSE channel.
@@ -3633,7 +3638,13 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       if (entry.aiMode === "noai") excludeTypes.add(canonicalizeBlockType(type));
     }
 
-    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, account.segment, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes, usePoolFreeform, outlineBlockList, selectedPersona, excludeTypes);
+    // When the rep explicitly picked a segment, pass the account's own segment so
+    // buildSystemPrompt can fall back to it if the picked segment carries no
+    // usable data (the DSO-failure fix). But when NO segment was picked (synthetic
+    // core), pass null so the account's segment can't silently promote a different
+    // audience's TARGET SEGMENT directive onto a page that should read as core.
+    const accountSegmentForPrompt = pickedSegment ? account.segment : null;
+    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, accountSegmentForPrompt, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes, usePoolFreeform, outlineBlockList, selectedPersona, excludeTypes);
 
     // Task #976 — REFERENCE PAGE (voice) + VISUAL REFERENCE (style) sections,
     // appended to the user prompt exactly like /lp/generate-page. The brand's

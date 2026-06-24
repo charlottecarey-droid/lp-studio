@@ -351,7 +351,8 @@ export function GenerateMicrositeModal({
   // Resolve (or import) the account, then swap to the live build view, which
   // streams the generation and renders the stage rail + scaled preview.
   async function handleGenerate() {
-    if (!segmentId) return;
+    // Segment is optional — when none is picked the server falls back to the
+    // brand's core messaging, so we don't gate generation on a selection.
     setStep("generating");
     setErrorMsg("");
     try {
@@ -611,13 +612,13 @@ export function GenerateMicrositeModal({
             )}
 
             <div className="space-y-1.5">
-              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Audience</Label>
+              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Audience (optional)</Label>
               <div className="flex flex-col gap-2">
                 {segments.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-3 text-left">
-                    <p className="text-sm font-medium text-foreground">No audience segments yet</p>
+                    <p className="text-sm font-medium text-foreground">Using your brand's core messaging</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Add audience segments in Brand Settings to target this page.
+                      No audience segments yet — this page leads with your core brand messaging. Add segments in Brand Settings to target specific audiences.
                     </p>
                     <button
                       type="button"
@@ -628,23 +629,42 @@ export function GenerateMicrositeModal({
                     </button>
                   </div>
                 ) : (
-                  segments.map((seg) => (
+                  <>
+                    {/* Core (no segment) — the default. Leads with the brand's
+                        own core messaging when no specific audience is picked. */}
                     <button
-                      key={seg.id}
                       type="button"
                       disabled={busy}
-                      onClick={() => setSegmentId(seg.id)}
+                      onClick={() => setSegmentId(null)}
                       className={cn(
                         "rounded-lg border px-3 py-2.5 text-left text-sm transition-all focus:outline-none",
-                        segmentId === seg.id
+                        segmentId === null
                           ? "border-foreground ring-1 ring-foreground bg-muted/40"
                           : "border-input hover:border-foreground/40 hover:bg-muted/30",
                         busy ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
                       )}
                     >
-                      <span className="font-medium text-[13px] text-foreground leading-tight">{seg.name}</span>
+                      <span className="font-medium text-[13px] text-foreground leading-tight">Core (general audience)</span>
+                      <span className="block text-[11px] text-muted-foreground mt-0.5">Lead with your brand's core messaging — no specific segment.</span>
                     </button>
-                  ))
+                    {segments.map((seg) => (
+                      <button
+                        key={seg.id}
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setSegmentId(seg.id)}
+                        className={cn(
+                          "rounded-lg border px-3 py-2.5 text-left text-sm transition-all focus:outline-none",
+                          segmentId === seg.id
+                            ? "border-foreground ring-1 ring-foreground bg-muted/40"
+                            : "border-input hover:border-foreground/40 hover:bg-muted/30",
+                          busy ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+                        )}
+                      >
+                        <span className="font-medium text-[13px] text-foreground leading-tight">{seg.name}</span>
+                      </button>
+                    ))}
+                  </>
                 )}
               </div>
             </div>
@@ -890,7 +910,7 @@ export function GenerateMicrositeModal({
             <Button variant="ghost" onClick={handleClose} disabled={busy}>
               Cancel
             </Button>
-            <Button className="gap-2" onClick={handleGenerate} disabled={busy || !accountReady || !segmentId || !ctaValid || hotlinkSelectionInvalid}>
+            <Button className="gap-2" onClick={handleGenerate} disabled={busy || !accountReady || !ctaValid || hotlinkSelectionInvalid}>
               {busy ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (

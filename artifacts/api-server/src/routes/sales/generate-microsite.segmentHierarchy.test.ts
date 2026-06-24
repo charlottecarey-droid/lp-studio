@@ -120,6 +120,29 @@ describe("buildSystemPrompt — segment vs core path", () => {
     );
     expect(prompt).not.toContain("MESSAGING HIERARCHY");
   });
+
+  // Segment is now OPTIONAL: when the rep picks no segment the route resolves a
+  // synthetic core segment ({ id: "core" }) AND passes accountSegment = null so
+  // a different audience can't leak in. The page must read as core.
+  it("no segment selected (synthetic core + null accountSegment) stays core even when the brand has a rich segment", () => {
+    const coreSeg: BrandAudienceSegment = { id: "core", name: "Core" };
+    const prompt = buildSystemPrompt(
+      coreSeg, { brandName: "Acme", segments: [DSO_SEGMENT] }, undefined, null, false, undefined, null, [], false, undefined, undefined,
+    );
+    expect(prompt).not.toContain("MESSAGING HIERARCHY");
+    expect(prompt).not.toContain("Same-store growth across every location");
+  });
+
+  // Guard rationale: this is WHY the route passes accountSegment = null for the
+  // core path. If the account's segment WERE forwarded, the data-empty core
+  // segment would fall back to that matched segment and leak its directive.
+  it("a data-empty segment WITH a matching accountSegment would inherit that segment's directive", () => {
+    const coreSeg: BrandAudienceSegment = { id: "core", name: "Core" };
+    const prompt = buildSystemPrompt(
+      coreSeg, { brandName: "Acme", segments: [DSO_SEGMENT] }, undefined, "dso", false, undefined, null, [], false, undefined, undefined,
+    );
+    expect(prompt).toContain("MESSAGING HIERARCHY");
+  });
 });
 
 describe("buildSystemPrompt — brand-core context parity (June 2026 copy audit)", () => {
