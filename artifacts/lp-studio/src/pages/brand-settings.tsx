@@ -1988,6 +1988,30 @@ function SalesConsoleSettings({
     patch({ customMicrositeExemplars: [...exemplars, { label: "", content: "" }] });
   };
 
+  // ─── Trusted research domains (chip list) ────────────────────
+  const trustedDomains: string[] = Array.isArray(sc.trustedResearchDomains)
+    ? sc.trustedResearchDomains
+    : [];
+  const [domainDraft, setDomainDraft] = useState("");
+  const normalizeDomain = (raw: string): string =>
+    raw.trim().toLowerCase()
+      .replace(/^https?:\/\//, "")
+      .replace(/^www\./, "")
+      .split("/")[0]
+      .split("?")[0]
+      .trim();
+  const addDomain = () => {
+    const d = normalizeDomain(domainDraft);
+    if (!d) { setDomainDraft(""); return; }
+    if (!trustedDomains.includes(d)) {
+      patch({ trustedResearchDomains: [...trustedDomains, d] });
+    }
+    setDomainDraft("");
+  };
+  const removeDomain = (idx: number) => {
+    patch({ trustedResearchDomains: trustedDomains.filter((_, i) => i !== idx) });
+  };
+
   // Single fetch of /sales/brand-context that feeds both the Setup status
   // card (server-saved summary + checklist verification state) and the
   // pill rendered next to the Sending domain input below. Keeping it in
@@ -2175,6 +2199,48 @@ function SalesConsoleSettings({
             placeholder='e.g. "Apex Partners" or "Apex" — NEVER "APEX Inc."'
           />
           <p className="text-xs text-muted-foreground">Free-form rules appended to the prompt about how customer names should be written.</p>
+        </div>
+        <div className="space-y-1.5 pt-2 border-t border-border">
+          <Label className="text-sm">Trusted research sources (optional)</Label>
+          <p className="text-xs text-muted-foreground">
+            Domains you trust for prospect research — e.g. your industry's trade journals. When the AI gathers research, citations from these sources rank higher. Leave empty to keep neutral ranking driven by the account's own industry.
+          </p>
+          {trustedDomains.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {trustedDomains.map((d, i) => (
+                <span
+                  key={`${d}-${i}`}
+                  className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs"
+                >
+                  {d}
+                  <button
+                    type="button"
+                    onClick={() => removeDomain(i)}
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label={`Remove ${d}`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2 pt-1">
+            <Input
+              value={domainDraft}
+              onChange={e => setDomainDraft(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" || e.key === ",") {
+                  e.preventDefault();
+                  addDomain();
+                }
+              }}
+              placeholder="e.g. dentaleconomics.com"
+            />
+            <Button type="button" variant="outline" size="sm" onClick={addDomain}>
+              <Plus className="w-3.5 h-3.5 mr-1" /> Add
+            </Button>
+          </div>
         </div>
         <div className="space-y-4 pt-2 border-t border-border">
           <div className="flex items-start gap-3">

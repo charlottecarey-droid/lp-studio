@@ -71,6 +71,7 @@ function makeBrandCtx(overrides: Partial<SalesBrandContext> = {}): SalesBrandCon
     useBuiltInExemplars: false,
     customerNameRules: "",
     valuePropPairs: [],
+    trustedResearchDomains: [],
     ...overrides,
   };
 }

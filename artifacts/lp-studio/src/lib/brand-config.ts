@@ -609,6 +609,13 @@ export interface SalesConsoleConfig {
   customerNameRules?: string;
   valuePropPairs?: SalesConsoleValuePropPair[];
   /**
+   * Tenant-curated list of trusted research domains (e.g. their industry's
+   * trade journals). Biases prospect-research citation ranking toward sources
+   * the tenant trusts. Stored as bare hostnames; empty/unset keeps the
+   * vertical-neutral default behavior.
+   */
+  trustedResearchDomains?: string[];
+  /**
    * One-pager generator header images, keyed by audience. Used as the banner
    * image at the top of each generated one-pager PDF / web one-pager for the
    * matching audience. When a key is empty/unset, the one-pager renders a

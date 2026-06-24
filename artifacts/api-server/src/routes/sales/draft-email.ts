@@ -601,6 +601,12 @@ export interface CitationRelevanceInputs {
   industry: string;
   /** Account segment — also contributes vertical terms; empty = neutral. */
   segment: string;
+  /**
+   * Tenant-curated trusted research domains (from Brand Settings → Sales
+   * Console). Treated like the vertical-neutral trusted-domain list, but
+   * tenant-specific. Empty/omitted = today's neutral behavior.
+   */
+  trustedResearchDomains?: string[];
 }
 
 const VERTICAL_TERM_STOPWORDS = new Set([
@@ -660,10 +666,19 @@ export function buildCitationRelevanceCheck(
 
   // Vertical-neutral trusted domains: news/PR wires, business-intelligence
   // databases, and LinkedIn are useful for prospect research in any industry.
+  // Tenant-curated trusted research domains (e.g. their industry's trade
+  // journals) are appended so citations rank toward sources THIS tenant trusts.
+  // They're normalized to bare hostnames upstream; we lowercase/strip again here
+  // defensively in case a caller passes raw values. Empty list = no change.
   const trustedDomains = [
     "linkedin.com",
     "prnewswire.com", "businesswire.com", "globenewswire.com",
     "bloomberg.com", "reuters.com", "pitchbook.com", "crunchbase.com",
+    ...(input.trustedResearchDomains ?? [])
+      .map(d => (typeof d === "string"
+        ? d.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0]
+        : ""))
+      .filter(d => d.length > 0),
   ];
 
   // Industry-specific keep terms come ONLY from the account (multi-tenant safe).
@@ -1029,6 +1044,7 @@ router.post("/draft-email", requireAuth, async (req, res): Promise<void> => {
     // non-dental tenants get no dental-specific source boosting.
     const isCitationRelevant = buildCitationRelevanceCheck({
       firstName, lastName, accountName, domain, industry, segment,
+      trustedResearchDomains: brandCtx.trustedResearchDomains,
     });
 
     const sources: string[] = [];

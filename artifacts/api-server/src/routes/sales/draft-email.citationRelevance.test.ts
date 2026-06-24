@@ -67,6 +67,39 @@ describe("buildCitationRelevanceCheck — stays vertical-neutral", () => {
     expect(isRelevant("https://en.wikipedia.org/wiki/Random_topic")).toBe(false);
   });
 
+  it("keeps tenant-curated trusted research domains in addition to neutral defaults", () => {
+    // A tenant adds their industry's trade journals as trusted sources. Those
+    // domains are now kept even for an account with no matching industry/segment.
+    const isRelevant = buildCitationRelevanceCheck({
+      ...NEUTRAL_INPUT,
+      trustedResearchDomains: ["dentaleconomics.com", "groupdentistrynow.com"],
+    });
+
+    expect(isRelevant("https://www.dentaleconomics.com/practice/article")).toBe(true);
+    expect(isRelevant("https://www.groupdentistrynow.com/dso-news/some-article")).toBe(true);
+    // The vertical-neutral defaults still pass.
+    expect(isRelevant("https://www.bloomberg.com/news/salesforce")).toBe(true);
+    // A non-trusted, non-matching source is still filtered out.
+    expect(isRelevant("https://www.cdc.gov/diseases/flu.pdf")).toBe(false);
+  });
+
+  it("normalizes tenant domains (protocol/www/path) before matching", () => {
+    const isRelevant = buildCitationRelevanceCheck({
+      ...NEUTRAL_INPUT,
+      trustedResearchDomains: ["https://www.DentalEconomics.com/some/path"],
+    });
+    expect(isRelevant("https://www.dentaleconomics.com/practice/article")).toBe(true);
+  });
+
+  it("empty/omitted trusted domains keeps neutral behavior", () => {
+    const omitted = buildCitationRelevanceCheck(NEUTRAL_INPUT);
+    const empty = buildCitationRelevanceCheck({ ...NEUTRAL_INPUT, trustedResearchDomains: [] });
+    for (const url of DENTAL_SOURCE_URLS) {
+      expect(omitted(url)).toBe(false);
+      expect(empty(url)).toBe(false);
+    }
+  });
+
   it("derives vertical keep-terms ONLY from the account's industry/segment", () => {
     // A dental account DOES get dental sources boosted — but because the
     // preference comes from its own industry field, not a hardcoded vertical.

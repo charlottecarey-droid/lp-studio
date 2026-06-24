@@ -53,6 +53,13 @@ export interface SalesBrandContext {
   useBuiltInExemplars: boolean;       // gate the hardcoded Dandy microsite exemplars
   customerNameRules: string;          // optional inline customer naming rules
   valuePropPairs: ValuePropPair[];
+  /**
+   * Tenant-curated list of trusted research domains (e.g. their industry's
+   * trade journals). Used to bias prospect-research citation ranking toward
+   * sources the tenant trusts. Normalized to bare hostnames (no protocol/www/
+   * path), lowercased, deduped. Empty = today's neutral behavior.
+   */
+  trustedResearchDomains: string[];
 }
 
 export interface SalesBrandSetupChecklist {
@@ -111,6 +118,36 @@ function asString(v: unknown, fallback = ""): string {
 function asBool(v: unknown, fallback = false): boolean {
   return typeof v === "boolean" ? v : fallback;
 }
+/**
+ * Normalize a research-source domain to a bare lowercase hostname so the
+ * citation relevance check (substring match) compares apples to apples:
+ * strips protocol, leading "www.", any path/query, and surrounding
+ * whitespace. Returns "" for unusable input.
+ */
+export function normalizeResearchDomain(raw: string): string {
+  if (typeof raw !== "string") return "";
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .split("/")[0]
+    .split("?")[0]
+    .trim();
+}
+
+/** Parse + normalize a stored trusted-research-domains list (dedupes, drops blanks). */
+function asTrustedResearchDomains(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const seen = new Set<string>();
+  for (const item of v) {
+    if (typeof item !== "string") continue;
+    const d = normalizeResearchDomain(item);
+    if (d.length > 0) seen.add(d);
+  }
+  return [...seen];
+}
+
 function asValuePropPairs(v: unknown): ValuePropPair[] {
   if (!Array.isArray(v)) return [];
   return v
@@ -201,6 +238,7 @@ export async function getSalesBrandContext(tenantId: number): Promise<SalesBrand
     useBuiltInExemplars:    asBool(sales["useBuiltInExemplars"], false),
     customerNameRules:      asString(sales["customerNameRules"]),
     valuePropPairs,
+    trustedResearchDomains: asTrustedResearchDomains(sales["trustedResearchDomains"]),
   };
 }
 

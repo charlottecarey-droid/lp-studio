@@ -176,6 +176,7 @@ function ctxForBranded(tenantId: number, brandedEmailSubdomain: string): SalesBr
     useBuiltInExemplars: false,
     customerNameRules: "",
     valuePropPairs: [],
+    trustedResearchDomains: [],
   };
 }
 

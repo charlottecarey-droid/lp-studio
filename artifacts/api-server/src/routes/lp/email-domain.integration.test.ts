@@ -155,6 +155,7 @@ function ctxFor(tenantId: number, sendingDomain: string): SalesBrandContext {
     useBuiltInExemplars: false,
     customerNameRules: "",
     valuePropPairs: [],
+    trustedResearchDomains: [],
   };
 }
 

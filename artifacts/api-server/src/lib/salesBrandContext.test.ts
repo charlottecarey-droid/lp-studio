@@ -28,6 +28,7 @@ function makeCtx(overrides: Partial<SalesBrandContext> = {}): SalesBrandContext 
     useBuiltInExemplars: false,
     customerNameRules: "",
     valuePropPairs: [],
+    trustedResearchDomains: [],
     ...overrides,
   };
 }
