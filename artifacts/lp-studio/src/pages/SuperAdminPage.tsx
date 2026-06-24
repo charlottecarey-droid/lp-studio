@@ -192,7 +192,7 @@ function NewWorkspaceModal({
   const [domain, setDomain]                 = useState("");
   const [micrositeDomain, setMicrositeDomain] = useState("");
   const [adminEmail, setAdminEmail]         = useState("");
-  const [plan, setPlan]                     = useState("trial");
+  const [plan, setPlan]                     = useState("free");
   const [copyFrom, setCopyFrom]             = useState("none");
   const [submitting, setSubmitting]         = useState(false);
   const [error, setError]                   = useState<string | null>(null);
@@ -210,7 +210,7 @@ function NewWorkspaceModal({
   const reset = () => {
     setName(""); setSlug(""); setSlugTouched(false);
     setDomain(""); setMicrositeDomain(""); setAdminEmail("");
-    setPlan("trial"); setCopyFrom("none");
+    setPlan("free"); setCopyFrom("none");
     setError(null); setResult(null); setCopied(false);
   };
 
@@ -339,9 +339,11 @@ function NewWorkspaceModal({
                   <Select value={plan} onValueChange={setPlan}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="trial">Trial</SelectItem>
-                      <SelectItem value="pro">Pro</SelectItem>
-                      <SelectItem value="business">Business</SelectItem>
+                      {PLAN_TIERS.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          {p.charAt(0).toUpperCase() + p.slice(1)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
