@@ -50,7 +50,7 @@ export interface SalesBrandContext {
   emailFooter: string;
   salesIntroLine: string;             // first line of draft-email system prompt
   briefBlurb: string;                 // parenthetical after brand name in person-brief
-  useBuiltInExemplars: boolean;       // gate the hardcoded Dandy microsite exemplars
+  useBuiltInExemplars: boolean;       // legacy no-op flag (built-in microsite exemplars were removed)
   customerNameRules: string;          // optional inline customer naming rules
   valuePropPairs: ValuePropPair[];
   /**

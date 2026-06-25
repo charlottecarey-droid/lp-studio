@@ -2625,10 +2625,9 @@ export function buildSystemPrompt(
     || segment.challenges?.length
   ) ? segment : (matchedSegment ?? segment);
   const segmentSection  = buildSegmentSection(sectionSegment, selectedPersona);
-  // Phase B: few-shot examples — pick up to 2 hand-curated exemplars
-  // matching the requested audience (and boosted by segment hints).
-  // Returns "" when no exemplars apply (e.g. independent-practice audience
-  // for which we don't ship an exemplar yet) so the prompt stays clean.
+  // Phase B: few-shot examples. The built-in (Dandy) exemplars were removed, so
+  // the only source now is the tenant's own custom microsite exemplars added in
+  // Brand Settings. Returns "" when the tenant has none, so the prompt stays clean.
   const salesConsole = (brand.salesConsole ?? {}) as {
     useBuiltInExemplars?: boolean;
     customMicrositeExemplars?: unknown;
@@ -2644,8 +2643,9 @@ export function buildSystemPrompt(
   const layoutIsAuthored =
     (!!templateBlockTypes && templateBlockTypes.length > 0)
     || !(useFreeform || usePoolFreeform || dsoFreeformMode);
-  // Tenant-authored exemplars are always applied (the generic, white-label
-  // path); built-in Dandy sample pages stay opt-in via useBuiltInExemplars.
+  // Tenant-authored exemplars are always applied (the generic, white-label path).
+  // The built-in sample pages were removed; useBuiltInExemplars / pickExemplars
+  // are kept only as a vestigial no-op (pickExemplars always returns []).
   const exemplarsSection = formatExemplarsSection(
     pickExemplars(segment.id ?? "", accountSegment, 2, { useBuiltIn: useBuiltInExemplars }),
     parseCustomExemplars(salesConsole.customMicrositeExemplars),

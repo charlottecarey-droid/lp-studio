@@ -2243,20 +2243,6 @@ function SalesConsoleSettings({
           </div>
         </div>
         <div className="space-y-4 pt-2 border-t border-border">
-          <div className="flex items-start gap-3">
-            <Checkbox
-              id="useBuiltInExemplars"
-              checked={!!sc.useBuiltInExemplars}
-              onCheckedChange={v => patch({ useBuiltInExemplars: v === true })}
-            />
-            <div className="space-y-1">
-              <Label htmlFor="useBuiltInExemplars" className="text-sm font-medium">Use built-in microsite exemplars</Label>
-              <p className="text-xs text-muted-foreground">
-                Off by default. When on, the microsite generator studies a set of built-in reference pages as style examples. Prefer your own? Enter them below.
-              </p>
-            </div>
-          </div>
-
           <div className="space-y-3">
             <div>
               <Label className="text-sm">Your microsite exemplars (optional)</Label>
