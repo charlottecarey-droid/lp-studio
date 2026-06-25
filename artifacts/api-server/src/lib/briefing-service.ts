@@ -106,7 +106,7 @@ async function perplexityResearch(account: AccountContext): Promise<{ text: stri
 
 // ─── Firecrawl Website Scrape ───────────────────────────────
 
-async function scrapeWebsite(url: string): Promise<string> {
+export async function scrapeWebsite(url: string): Promise<string> {
   if (!FIRECRAWL_API_KEY || !url) return "";
 
   try {

@@ -564,6 +564,12 @@ export interface SalesConsoleMicrositeExemplar {
   label: string;
   /** The example microsite copy or a detailed description of a great page. */
   content: string;
+  /**
+   * Optional source URL the content was imported from (via the "Fetch" button
+   * in Brand Settings). Stored for provenance / re-fetch only — the AI
+   * generator studies `content`, never this URL.
+   */
+  url?: string;
 }
 
 export interface SalesConsoleConfig {

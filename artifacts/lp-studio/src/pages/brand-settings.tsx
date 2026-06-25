@@ -1987,6 +1987,44 @@ function SalesConsoleSettings({
   const addExemplar = () => {
     patch({ customMicrositeExemplars: [...exemplars, { label: "", content: "" }] });
   };
+  const [exemplarFetching, setExemplarFetching] = useState<Record<number, boolean>>({});
+  const [exemplarFetchError, setExemplarFetchError] = useState<Record<number, string>>({});
+  const fetchExemplarContent = async (idx: number) => {
+    const url = (exemplars[idx]?.url ?? "").trim();
+    if (!url) return;
+    setExemplarFetching(s => ({ ...s, [idx]: true }));
+    setExemplarFetchError(s => ({ ...s, [idx]: "" }));
+    try {
+      const r = await fetch("/api/sales/microsite-exemplars/fetch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const data = await r.json().catch(() => ({} as { content?: string; error?: string }));
+      if (!r.ok) {
+        setExemplarFetchError(s => ({ ...s, [idx]: data?.error || "Couldn't read that page." }));
+        return;
+      }
+      const content = typeof data?.content === "string" ? data.content : "";
+      if (!content) {
+        setExemplarFetchError(s => ({ ...s, [idx]: "No readable content found at that URL." }));
+        return;
+      }
+      // Apply against the latest config (not the closure's stale `exemplars`)
+      // so edits to other rows made while this fetch was in flight survive.
+      setConfig(c => {
+        const list = Array.isArray(c.salesConsole?.customMicrositeExemplars)
+          ? c.salesConsole.customMicrositeExemplars
+          : [];
+        const next = list.map((e, i) => (i === idx ? { ...e, content } : e));
+        return { ...c, salesConsole: { ...(c.salesConsole ?? {}), customMicrositeExemplars: next } };
+      });
+    } catch {
+      setExemplarFetchError(s => ({ ...s, [idx]: "Couldn't reach that page. Try again or paste the copy in manually." }));
+    } finally {
+      setExemplarFetching(s => ({ ...s, [idx]: false }));
+    }
+  };
 
   // ─── Trusted research domains (chip list) ────────────────────
   const trustedDomains: string[] = Array.isArray(sc.trustedResearchDomains)
@@ -2247,7 +2285,7 @@ function SalesConsoleSettings({
             <div>
               <Label className="text-sm">Your microsite exemplars (optional)</Label>
               <p className="text-xs text-muted-foreground mt-1">
-                Reference pages the AI should study as style examples. Paste the copy from a microsite you're proud of, or describe a great example in detail (sections, headlines, proof points, tone). The generator matches this register, specificity and structure — it won't copy them verbatim.
+                Reference pages the AI should study as style examples. Paste a URL and hit Fetch to pull in that page's copy automatically, paste the copy from a microsite you're proud of, or describe a great example in detail (sections, headlines, proof points, tone). The generator matches this register, specificity and structure — it won't copy them verbatim.
               </p>
             </div>
 
@@ -2270,6 +2308,27 @@ function SalesConsoleSettings({
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="url"
+                    value={ex.url ?? ""}
+                    onChange={e => updateExemplar(idx, { url: e.target.value })}
+                    placeholder="Or paste a URL to fetch — e.g. https://example.com/great-page"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!!exemplarFetching[idx] || !(ex.url ?? "").trim()}
+                    onClick={() => fetchExemplarContent(idx)}
+                  >
+                    {exemplarFetching[idx] ? "Fetching…" : "Fetch"}
+                  </Button>
+                </div>
+                {exemplarFetchError[idx] ? (
+                  <p className="text-xs text-destructive">{exemplarFetchError[idx]}</p>
+                ) : null}
                 <Textarea
                   rows={5}
                   value={ex.content ?? ""}
