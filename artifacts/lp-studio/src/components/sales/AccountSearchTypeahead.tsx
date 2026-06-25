@@ -5,17 +5,16 @@
 // well it matches the query) and a DATA-RICHNESS hint (how much context the
 // generator can personalise from). The search already groups same-company rows
 // and flags the non-canonical ones `isLikelyDuplicateOf`, so we surface the
-// richest first and WARN before a rep creates a new (possibly duplicate)
-// account (P0 — don't silently create dupes). A "Continue without an account"
-// escape hatch is always available.
+// richest first. This is a pure SELECTION flow — it never creates an account,
+// so it shows no "duplicate account" creation warning. A "Continue without an
+// account" escape hatch is always available.
 //
 // Selecting a result lifts the chosen account up to the modal; the existing
 // account-context pull happens server-side at generate time.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   Building2,
-  Check,
   Database,
   Loader2,
   Search,
@@ -23,9 +22,7 @@ import {
   UserX,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { duplicateWarning, type DuplicateCandidate } from "@/lib/micrositeFlow";
 
 const API_BASE = "/api";
 
@@ -119,11 +116,6 @@ export function AccountSearchTypeahead({
     }, 250);
     return () => clearTimeout(handle);
   }, [query, selected]);
-
-  const dupWarn = useMemo(
-    () => duplicateWarning(query, results as DuplicateCandidate[]),
-    [query, results],
-  );
 
   function choose(r: AccountSearchResult) {
     onSelect({
@@ -239,18 +231,6 @@ export function AccountSearchTypeahead({
         )}
       </div>
 
-      {/* Duplicate warning — shown above results when the matches look like the
-          same company; steers the rep to the richest existing account (P0). */}
-      {dupWarn.warn && (
-        <div
-          className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800"
-          role="status"
-        >
-          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden />
-          <span>{dupWarn.message}</span>
-        </div>
-      )}
-
       {/* Results */}
       {query.trim() && !loading && (
         <ul
@@ -343,22 +323,6 @@ export function AccountSearchTypeahead({
         >
           Continue without an account
         </button>
-        {dupWarn.warn && dupWarn.suggested && (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs gap-1.5"
-            onClick={() => {
-              const s = dupWarn.suggested!;
-              const match = results.find((r) => r.id === s.id);
-              if (match) choose(match);
-            }}
-          >
-            <Check className="w-3 h-3" aria-hidden />
-            Use “{dupWarn.suggested.name}”
-          </Button>
-        )}
       </div>
 
       {!crmConnected && query.trim() && results.length === 0 && !loading && (
