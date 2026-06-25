@@ -1,0 +1,236 @@
+# LPStudio — Generation Fixes Rollout Runbook
+
+**File touched (all phases):** `lp-studio-staging/.../routes/lp/generate-page.ts`
+**The rule for this rollout:** one change per phase → verify → commit. Never start the next phase on a red checkpoint.
+
+Two things that bit us last time, now designed out:
+- **`stripExampleProse` is removed from the plan.** It stripped the worked EXAMPLE blocks that were teaching the model how *much* and how *specifically* to write, which made copy go short. Phase 5 (the voice anchor) covers the buzzword intent surgically without that side effect.
+- **The model swap is its own final phase.** Pointing `GENERATION_MODEL` at a model your proxy doesn't serve makes every generation 500 and blanks the preview. It stays `gpt-4o` until Phase 6.
+
+---
+
+## Phase 0 — Baseline (do this first, no code change)
+
+1. Confirm the preview works right now (you've reverted, so it should).
+2. Commit the clean state so you have a known-good point:
+   ```
+   git add -A && git commit -m "baseline: working preview before generation fixes"
+   ```
+
+**CHECKPOINT 0:** preview loads, a page generates. ✅ → Phase 1.
+
+---
+
+## Phase 1 — Temperature (keep the model as gpt-4o)
+
+Add near the top, right after `getOpenAIClient()`:
+
+```ts
+/** Generation model. Stays gpt-4o until Phase 6 — do NOT change yet. */
+const GENERATION_MODEL = "gpt-4o";
+
+/** Generation sampling temperature. 0.9 → 0.45: 0.9 reshuffled block choice,
+ *  copy, and image picks every run ("pages feel random"). */
+const GENERATION_TEMPERATURE = 0.45;
+```
+
+At all **four** model-call sites (lines ~112, ~8357, ~9256, ~9328) replace:
+
+```ts
+        model: "gpt-4o",
+        temperature: 0.9,
+```
+
+with:
+
+```ts
+        model: GENERATION_MODEL,
+        temperature: GENERATION_TEMPERATURE,
+```
+
+**CHECKPOINT 1:** it compiles (no red in the terminal), preview loads, a page generates.
+✅ → `git commit -m "phase 1: lower generation temperature to 0.45"` → Phase 2.
+❌ → you only changed these lines; the compile error names the bad one. Fix or `git checkout -- <file>` and retry.
+
+---
+
+## Phase 2 — Deterministic image rotation (removes Math.random)
+
+Add this helper right **after** the `lpHashSeed` function:
+
+```ts
+/** Deterministic per-page image-rotation seed (replaces Math.random()). Same
+ *  page → same images every run; different pages still differ. */
+function imageRotationSeed(parts: Array<string | number | null | undefined>): number {
+  return lpHashSeed(parts.map((p) => String(p ?? "")).join("::"));
+}
+```
+
+Replace the seed at the **freeform** fill site (~line 9802):
+
+```ts
+    const fillPool: MediaImage[] = buildReferenceFillPool(
+      mediaCatalog.images,
+      scrapedMedia,
+      scrapedUrls,
+      imageRotationSeed([tenantId, parsed.slug, segmentContext?.name, prompt]),
+    );
+```
+
+And at the **template `replaceImagery`** fill site (~line 8541):
+
+```ts
+        const fillPool: MediaImage[] = buildReferenceFillPool(
+          mediaCatalog.images,
+          scrapedRefMedia,
+          scrapedUrls,
+          imageRotationSeed([tenantId, parsed.slug, segmentContext?.name, prompt]),
+        );
+```
+
+**CHECKPOINT 2:** compiles, preview loads, a page generates **with images** in the slots.
+✅ → `git commit -m "phase 2: deterministic image rotation seed"` → Phase 3.
+
+---
+
+## Phase 3 — Turn off the repeat guard
+
+Find (~line 9293):
+
+```ts
+      if (recentSequenceHashes.length > 0 && shouldRetryForRepeatedSequence(firstHash, recentSequenceHashes)) {
+```
+
+Replace with:
+
+```ts
+      // Repeat guard DISABLED: regenerating a whole page to force it to differ
+      // from recent ones was a primary source of "pages feel random."
+      const REPEAT_GUARD_ENABLED = false;
+      if (REPEAT_GUARD_ENABLED && recentSequenceHashes.length > 0 && shouldRetryForRepeatedSequence(firstHash, recentSequenceHashes)) {
+```
+
+**CHECKPOINT 3:** compiles, preview loads, a page generates.
+✅ → `git commit -m "phase 3: disable block-sequence repeat guard"` → Phase 4.
+
+---
+
+## Phase 4 — Deterministic recipe selection
+
+Replace the `pickRecipe(...)` call (the `const chosenRecipe` assignment):
+
+```ts
+  // Deterministic recipe choice: same segment + intent → same recipe, so a
+  // "kind" of page looks like itself. "Shuffle layout" still works (excluded
+  // ids drop out, next deterministic candidate is chosen).
+  const recipeCandidates =
+    excludedRecipeIds.length > 0
+      ? recipePool.filter((r) => !excludedRecipeIds.includes(r.id))
+      : recipePool;
+  const recipeChoicePool = recipeCandidates.length > 0 ? recipeCandidates : recipePool;
+  const chosenRecipe: PageRecipe | null =
+    recipeChoicePool.length > 0
+      ? recipeChoicePool[
+          lpHashSeed(
+            `${promptPath}::${segmentContext?.name ?? ""}::${intentMatchedTemplate?.slug ?? ""}`,
+          ) % recipeChoicePool.length
+        ]
+      : null;
+  void recentRecipeIds; // kept for logging; no longer drives selection
+```
+
+⚠️ **Compile-break watch:** `pickRecipe` is now unused. Only remove it from the `page-recipes` import if nothing else references it — search the file for `pickRecipe` first. If a stray reference remains and you delete the import, the build breaks. Leave `shouldRetryForRepeatedSequence` and `buildRepeatCorrectiveMessage` in the import (Phase 3's disabled guard still names them).
+
+**CHECKPOINT 4 (the big one):** compiles, preview loads, then **run the same prompt twice** → you should get recognizably the same page (block sequence + images stable).
+✅ → `git commit -m "phase 4: deterministic recipe selection"` → Phase 5.
+❌ compile → almost certainly the import removal above; restore the `pickRecipe` import.
+
+---
+
+## Phase 5 — Brand voice anchor (the buzzword fix)
+
+**Pre-flight (do this BEFORE judging copy):** confirm the tenant/segment you're testing actually has `copyExamples` populated with 3–4 real on-brand lines. If that field is empty, this anchor has no positive target and copy stays generic — that's a data gap, not a code bug. Populate it, then regenerate.
+
+Replace the whole `buildBrandVoiceAnchor` function with:
+
+```ts
+export function buildBrandVoiceAnchor(brand: BrandConfig): string {
+  const clean = (v: unknown, max = 160): string =>
+    typeof v === "string"
+      ? v.replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max)
+      : "";
+  const cleanList = (arr: unknown, maxItems: number, maxEach = 80): string[] =>
+    Array.isArray(arr) ? arr.map((x) => clean(x, maxEach)).filter(Boolean).slice(0, maxItems) : [];
+
+  const name = clean(brand.brandName, 80);
+  const cues: string[] = [];
+  const tone = clean(brand.toneOfVoice);
+  if (tone) cues.push(`tone — ${tone}`);
+  const vpTone = cleanList(brand.voiceProfile?.profile?.tone, 6, 40);
+  if (vpTone.length) cues.push(`voice tags — ${vpTone.join(", ")}`);
+  const personality = cleanList(brand.toneKeywords, 6, 40);
+  if (personality.length) cues.push(`personality — ${personality.join(", ")}`);
+  const sig = cleanList(brand.voiceProfile?.profile?.signaturePhrases, 4, 80);
+  if (sig.length) cues.push(`signature phrasing like — ${sig.join("; ")}`);
+
+  // The brand's REAL example copy is the strongest tone lever — promote it into
+  // the top-of-system-prompt anchor (it previously rode buried in the user prompt).
+  const examples = cleanList(brand.copyExamples, 4, 120);
+
+  if (!name && cues.length === 0 && examples.length === 0) return "";
+
+  const who = name
+    ? `You are writing AS ${name}`
+    : "You are writing AS the specific brand described in the BRAND CONTEXT (in the user message)";
+  const cueLine = cues.length ? ` This brand's voice: ${cues.join(" · ")}.` : "";
+  const label = name || "this brand";
+  const lines = [
+    `BRAND VOICE — HIGHEST PRIORITY (overrides every generic EXAMPLE in the block schemas below): ${who}, never a generic vendor.${cueLine}`,
+    `Every headline, subhead, and body line must sound unmistakably like ${label} — match its tone, vocabulary, and rhythm. The EXAMPLE copy in the block schemas shows STRUCTURE, length, and density ONLY; NEVER reuse its phrasing or its neutral SaaS vocabulary. Two different brands given the same request must produce visibly different copy.`,
+  ];
+  if (examples.length) {
+    lines.push(
+      `WRITE IN THIS VOICE — these are real lines from ${label}'s own marketing. Match their cadence, specificity, and word choice; treat them as the gold standard your copy is compared against:\n${examples
+        .map((e) => `- ${e}`)
+        .join("\n")}`,
+    );
+  }
+  return lines.join("\n");
+}
+```
+
+**CHECKPOINT 5:** compiles, preview loads, generate a page for a tenant whose `copyExamples` are populated → copy should sound more like that brand and stay full-length (the schema EXAMPLE blocks are still in place, so density is intact).
+✅ → `git commit -m "phase 5: promote brand copyExamples into voice anchor"` → optional tuning, then Phase 6.
+
+**Optional tuning:** if copy is full-length but a touch flat, nudge `GENERATION_TEMPERATURE` from `0.45` to `0.55`. Small liveliness gain without bringing back the shuffle. Re-run the same-prompt-twice check after.
+
+---
+
+## Phase 6 — Model swap (isolated, last, easy rollback)
+
+Change ONLY this line:
+
+```ts
+const GENERATION_MODEL = "gpt-4o"; // → your best current model string
+```
+
+**CHECKPOINT 6:** generate a page.
+✅ copy is sharper and it still works → `git commit -m "phase 6: upgrade generation model"`. Done.
+❌ generation 500s / preview blanks → the proxy doesn't serve that model string. Set it straight back to `"gpt-4o"`. Do **not** commit the broken value. (This is exactly the failure that blanked your preview before — now it's contained to one line in one phase.)
+
+---
+
+## If a preview ever goes dark mid-rollout
+
+It's one of two things, and the fix is the same either way:
+1. **Compile error** — the dev server failed to build and took the preview with it. The red error in your terminal names the file + line.
+2. **Generation throws** — the page never comes back to render. Check the browser console / network tab on the failed request, or the server log.
+
+Because every phase is its own commit, recovery is `git revert HEAD` (undo just the last phase) — never a full re-revert. Paste me the actual error and I'll point at the exact line.
+
+---
+
+## What's intentionally NOT here
+
+- `stripExampleProse` — removed; it shortened copy. Phase 5 covers the buzzword intent.
+- Loosening forced-density minimums, and the selection-vs-writing brief split — real refactors, not paste-ins. Once Phases 1–6 are committed and stable, ping me and I'll take the density loosening next.
