@@ -1,0 +1,264 @@
+# LPStudio — Prompt-to-Page Quality Fixes
+
+**File touched:** `lp-studio-staging/.../routes/lp/generate-page.ts`
+**Symptoms being fixed:** pages feel random · copy is buzzwordy · output regressed from an earlier, better version
+
+---
+
+## The diagnosis in one line
+
+The generator isn't broken — it's buried. Three forces are fighting output quality, and all three were added over time, which is exactly why it reads as *random + buzzwordy + worse than before*. The fix is mostly subtraction.
+
+---
+
+## Root causes, ranked by leverage
+
+1. **Temperature 0.9 is the randomness engine.** Set at the four model-call sites (lines ~113, ~8358, ~9257, ~9329). At 0.9 the model reshuffles block choice, copy, and phrasing on every run. It was raised to "push past the median safe answer," but high temperature doesn't make copy *specific* — it makes it *variable*, so you got genericness **and** randomness. Specificity comes from the brief, not from entropy.
+
+2. **Image selection is literally randomized.** Lines ~8541 and ~9802 seed the fill-pool rotation with `Math.floor(Math.random() * 1_000_000)`. Images play musical chairs every generation by design. A deterministic per-page seed gives variety *across* pages without shuffling *within* a page.
+
+3. **The anti-repetition machinery manufactures the "random" feeling.** Recipe rotation (`pickRecipe`, LRU over recent generations) + a repeat guard that regenerates the whole page with a second model call when the block sequence matches a recent one (line ~9293). You are spending tokens to force pages to differ from each other — the opposite of consistency.
+
+4. **The buzzwords are baked into the prompt as examples.** Nearly every block schema ships neutral SaaS sample copy ("Run your entire workflow from one place," "From first request to final delivery, the platform unifies…"). The model weighs the system prompt most heavily and anchors on those; `buildBrandVoiceAnchor`'s own comment admits this. The downstream banned-phrase list + critique-and-rewrite second model call (line ~8666) treat the symptom, not the cause.
+
+5. **Forced density manufactures filler.** DENSITY DOCTRINE + "EXACTLY N items" + "complete rows" + "≥2 showcase blocks" + `enforceRequiredRoles` force the model to fill slots whether or not it has anything specific to say. The cheapest way to fill a mandatory slot is a platitude.
+
+6. **The brief is buried, and the June-2026 audit made it worse.** The user's actual request lands near the bottom of a huge user prompt that follows a massive block-catalog system prompt. `buildBrandContext` now injects everything verbatim (description, taglines, positioning, value props, terminology pref/avoid, CTA guidance, dos/don'ts, voice profile, pillars, scraped stats, scraped testimonials, copy examples). Past a point, more context is dilution — almost certainly why it "used to be better," since the early version was leaner.
+
+7. **The model itself.** `gpt-4o` at temp 0.9 is the weakest link on the exact axis you're unhappy about (nuanced B2B copy). A stronger current model + lower temperature moves quality more than any single prompt edit. You have A/B testing built in — prove it.
+
+**On the overengineering you already suspected:** 21+ deterministic post-passes, the full image scorer (verticals, plural-folding, cross-vertical penalties, starter floors), plus two extra model calls — each traceable to a `Task #` bug fix. Individually defensible, collectively unpredictable. Don't rip it out blind; instrument it (log block + image choices per run, diff two runs of the same prompt). Most of the "random" delta is items 1–3.
+
+---
+
+## Change set (drop-in)
+
+Items 1–5 below are find-and-replace. Item 6 is the only change that touches the big prompt string — apply it last, after confirming 1–5 helped.
+
+### 1. Model + temperature constants
+
+Add near the top, right after `getOpenAIClient()`:
+
+```ts
+/** Generation model. Point this at the strongest current model your AI proxy
+ *  exposes — gpt-4o is dated for nuanced B2B copy and is the weakest link on the
+ *  exact "buzzwordy / generic" axis you're fixing. A/B it before fully cutting over. */
+const GENERATION_MODEL = "gpt-4o"; // ← change to your best available model string
+
+/** Generation sampling temperature. Lowered 0.9 → 0.45 (June 2026): 0.9 was
+ *  reshuffling block choice, copy, and image picks every run ("pages feel
+ *  random"). Specificity comes from the brief, not from entropy. */
+const GENERATION_TEMPERATURE = 0.45;
+```
+
+Then at all **four** model-call sites (lines ~112, ~8357, ~9256, ~9328) replace:
+
+```ts
+        model: "gpt-4o",
+        temperature: 0.9,
+```
+
+with:
+
+```ts
+        model: GENERATION_MODEL,
+        temperature: GENERATION_TEMPERATURE,
+```
+
+### 2. Deterministic image rotation (removes `Math.random()`)
+
+Add this helper right **after** the `lpHashSeed` function:
+
+```ts
+/** Deterministic per-page image-rotation seed (replaces Math.random()). Same
+ *  page → same image rotation every run; different pages still differ. Variety
+ *  without the musical-chairs randomness. */
+function imageRotationSeed(parts: Array<string | number | null | undefined>): number {
+  return lpHashSeed(parts.map((p) => String(p ?? "")).join("::"));
+}
+```
+
+Replace the seed at the **freeform** fill site (~line 9802):
+
+```ts
+    const fillPool: MediaImage[] = buildReferenceFillPool(
+      mediaCatalog.images,
+      scrapedMedia,
+      scrapedUrls,
+      imageRotationSeed([tenantId, parsed.slug, segmentContext?.name, prompt]),
+    );
+```
+
+And at the **template `replaceImagery`** fill site (~line 8541):
+
+```ts
+        const fillPool: MediaImage[] = buildReferenceFillPool(
+          mediaCatalog.images,
+          scrapedRefMedia,
+          scrapedUrls,
+          imageRotationSeed([tenantId, parsed.slug, segmentContext?.name, prompt]),
+        );
+```
+
+### 3. Turn off the repeat guard
+
+Find (~line 9293):
+
+```ts
+      if (recentSequenceHashes.length > 0 && shouldRetryForRepeatedSequence(firstHash, recentSequenceHashes)) {
+```
+
+Replace with:
+
+```ts
+      // Repeat guard DISABLED (June 2026): regenerating a whole page just to make
+      // it differ from recent ones was a primary source of "pages feel random."
+      // Consistency beats forced novelty. Flip to re-enable.
+      const REPEAT_GUARD_ENABLED = false;
+      if (REPEAT_GUARD_ENABLED && recentSequenceHashes.length > 0 && shouldRetryForRepeatedSequence(firstHash, recentSequenceHashes)) {
+```
+
+### 4. Deterministic recipe selection
+
+Replace the `pickRecipe(...)` call (the `const chosenRecipe` assignment):
+
+```ts
+  // Deterministic recipe choice (June 2026): the same segment + intent always
+  // gets the same recipe, so a "kind" of page looks like itself instead of
+  // rotating per generation. (Was LRU over recent history → felt random.)
+  // "Shuffle layout" still works: excluded ids drop out, the next deterministic
+  // candidate is chosen.
+  const recipeCandidates =
+    excludedRecipeIds.length > 0
+      ? recipePool.filter((r) => !excludedRecipeIds.includes(r.id))
+      : recipePool;
+  const recipeChoicePool = recipeCandidates.length > 0 ? recipeCandidates : recipePool;
+  const chosenRecipe: PageRecipe | null =
+    recipeChoicePool.length > 0
+      ? recipeChoicePool[
+          lpHashSeed(
+            `${promptPath}::${segmentContext?.name ?? ""}::${intentMatchedTemplate?.slug ?? ""}`,
+          ) % recipeChoicePool.length
+        ]
+      : null;
+  void recentRecipeIds; // retained for logging/back-compat; no longer drives selection
+```
+
+`pickRecipe` is now unused — drop it from the `page-recipes` import to keep the linter quiet. Leave `shouldRetryForRepeatedSequence` / `buildRepeatCorrectiveMessage`; the disabled guard still references them.
+
+### 5. Make the brand's real voice win (replaces the buzzword anchor)
+
+Replace the whole `buildBrandVoiceAnchor` function with this — it promotes the brand's actual `copyExamples` into the top of the system prompt, where the generic schema examples currently out-weigh them:
+
+```ts
+export function buildBrandVoiceAnchor(brand: BrandConfig): string {
+  const clean = (v: unknown, max = 160): string =>
+    typeof v === "string"
+      ? v.replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max)
+      : "";
+  const cleanList = (arr: unknown, maxItems: number, maxEach = 80): string[] =>
+    Array.isArray(arr) ? arr.map((x) => clean(x, maxEach)).filter(Boolean).slice(0, maxItems) : [];
+
+  const name = clean(brand.brandName, 80);
+  const cues: string[] = [];
+  const tone = clean(brand.toneOfVoice);
+  if (tone) cues.push(`tone — ${tone}`);
+  const vpTone = cleanList(brand.voiceProfile?.profile?.tone, 6, 40);
+  if (vpTone.length) cues.push(`voice tags — ${vpTone.join(", ")}`);
+  const personality = cleanList(brand.toneKeywords, 6, 40);
+  if (personality.length) cues.push(`personality — ${personality.join(", ")}`);
+  const sig = cleanList(brand.voiceProfile?.profile?.signaturePhrases, 4, 80);
+  if (sig.length) cues.push(`signature phrasing like — ${sig.join("; ")}`);
+
+  // June 2026 — the brand's REAL example copy is the single strongest tone lever,
+  // so promote it into the top-of-system-prompt anchor. It previously only rode
+  // in the user prompt, buried under the brand context, where the generic EXAMPLE
+  // copy in the block schemas out-weighed it.
+  const examples = cleanList(brand.copyExamples, 4, 120);
+
+  if (!name && cues.length === 0 && examples.length === 0) return "";
+
+  const who = name
+    ? `You are writing AS ${name}`
+    : "You are writing AS the specific brand described in the BRAND CONTEXT (in the user message)";
+  const cueLine = cues.length ? ` This brand's voice: ${cues.join(" · ")}.` : "";
+  const label = name || "this brand";
+  const lines = [
+    `BRAND VOICE — HIGHEST PRIORITY (overrides every generic EXAMPLE in the block schemas below): ${who}, never a generic vendor.${cueLine}`,
+    `Every headline, subhead, and body line must sound unmistakably like ${label} — match its tone, vocabulary, and rhythm. The EXAMPLE copy in the block schemas shows STRUCTURE, length, and density ONLY; NEVER reuse its phrasing or its neutral SaaS vocabulary. Two different brands given the same request must produce visibly different copy.`,
+  ];
+  if (examples.length) {
+    lines.push(
+      `WRITE IN THIS VOICE — these are real lines from ${label}'s own marketing. Match their cadence, specificity, and word choice; treat them as the gold standard your copy is compared against:\n${examples
+        .map((e) => `- ${e}`)
+        .join("\n")}`,
+    );
+  }
+  return lines.join("\n");
+}
+```
+
+### 6. (Apply last) Strip the generic sample prose from the prompt
+
+Removes the neutral SaaS example *sentences* while keeping every block's structure. This is the only change touching the 5,000-line prompt string, so review one generated prompt (`_captureOnly: true`) before shipping.
+
+Add the helper:
+
+```ts
+/** June 2026 — strip generic SAMPLE PROSE from an assembled system prompt while
+ *  keeping each block's STRUCTURE (field names + word/item counts). The neutral
+ *  SaaS EXAMPLE sentences were the model's strongest anchor and made every
+ *  tenant's copy read the same. Removes single EXAMPLE lines and the multi-line
+ *  "EXAMPLE OF A FULLY-POPULATED … BLOCK" specimen. Keeps NEGATIVE examples
+ *  ("NEVER write: …"). Review the output once after enabling. */
+export function stripExampleProse(prompt: string): string {
+  let out = prompt.replace(/\nEXAMPLE OF A FULLY-POPULATED[\s\S]*?(?=\nRULES:)/, "\n");
+  out = out
+    .split("\n")
+    .filter((line) => !/^\s*EXAMPLE\b/.test(line))
+    .join("\n");
+  return out;
+}
+```
+
+Then wrap the `systemPrompt` assignment (the big ternary, ~line 9100):
+
+```ts
+  let systemPrompt = stripExampleProse(
+    stripAiDisabledBlockLines(
+      useDsoPractices
+        ? buildDsoPracticesSystemPrompt({ isDandyTenant, brandName: resolvedBrandName })
+        : useDso
+          ? buildDsoSystemPrompt({ isDandyTenant, brandName: resolvedBrandName })
+          : buildGeneralSystemPrompt({
+              aiDisabledTypes,
+              includeContentSeries: isContentSeriesRequest(prompt),
+              includeWebinarHub: isWebinarHubRequest(prompt),
+              includeBlogSeries: isBlogSeriesRequest(prompt),
+              includeStorefront: isStorefrontRequest(prompt),
+            }),
+      aiDisabledTypes,
+    ),
+  );
+```
+
+---
+
+## Not in this doc (real refactors, not find-and-replace)
+
+These two were in the diagnosis but are genuine refactors across the prompt schemas and the route flow — handing them over as quick pastes would give you something that breaks:
+
+- **Loosen the forced-density minimums** (root cause #5). Relax the "EXACTLY N" / complete-row / required-role rules so the model can emit fewer, fuller sections — "specific or omit" instead of "always N."
+- **Separate selection from writing** (root cause #6). A cheap first pass picks the 2–3 relevant value props / proof points / one persona for *this* page, then hands the writer a tight brief instead of the whole bank.
+
+---
+
+## Order of operations + verification
+
+1. Apply **1–4** → most of the randomness dies. Verify: run the **same prompt twice** and confirm you get recognizably the same page (block sequence + images stable).
+2. Apply **5** → copy starts sounding like the brand instead of generic SaaS.
+3. Apply **7 (model swap)** + A/B it against the current model.
+4. Apply **6** once 1–5 are confirmed → inspect one captured prompt first.
+5. Then do the two refactors above.
+
+You don't need to rebuild this. You need to subtract from it.
