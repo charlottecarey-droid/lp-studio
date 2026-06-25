@@ -35,6 +35,7 @@ import type { Request, Response } from "express";
 import { logger } from "./logger";
 
 export type GenerationStageId =
+  | "research"
   | "context"
   | "references"
   | "model"

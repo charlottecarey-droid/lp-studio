@@ -40,11 +40,12 @@ export const DEFAULT_STAGE_DEFS: GenerationStageDef[] = [
   { id: "finalize", label: "Finalizing the page" },
 ];
 
-/** A total status map keyed by every stage id — kept total (all 6 keys) even
- *  when a caller's rail only shows a subset, so an out-of-order event never
- *  indexes a missing key. */
+/** A total status map keyed by every stage id — kept total (all 7 keys) even
+ *  when a caller's rail only shows a subset (e.g. the marketing rail omits
+ *  `research`), so an out-of-order event never indexes a missing key. */
 export function initialStageState(): Record<GenerationStageId, StageStatus> {
   return {
+    research: "pending",
     context: "pending",
     references: "pending",
     model: "pending",

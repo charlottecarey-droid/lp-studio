@@ -24,6 +24,7 @@ import type { PageBlock } from "@/lib/block-types";
 // ── Event payload types (mirror api-server generationEmitter contract) ──────
 
 export type GenerationStageId =
+  | "research"
   | "context"
   | "references"
   | "model"

@@ -47,11 +47,17 @@ interface MicrositeResult {
   blocks: unknown[];
 }
 
-/** The microsite checklist mirrors the marketing pipeline's full stage
- *  progression (context → references → model → images → polish → finalize). The
- *  microsite generator writes copy in one pass, so the backend emits a brief
- *  polish boundary with no heavy work — the stage still ticks through. */
-const MICROSITE_STAGE_DEFS: GenerationStageDef[] = DEFAULT_STAGE_DEFS;
+/** The microsite checklist leads with a dedicated account-research step — the
+ *  slow 30-90s of account research + brief synthesis the rep used to wait
+ *  through with a blank rail — then mirrors the marketing pipeline (context →
+ *  references → model → images → polish → finalize). The microsite generator
+ *  writes copy in one pass, so the backend emits a brief polish boundary with no
+ *  heavy work — the stage still ticks through. The "research" step lives only on
+ *  this rail, never on the shared marketing one. */
+const MICROSITE_STAGE_DEFS: GenerationStageDef[] = [
+  { id: "research", label: "Researching the account" },
+  ...DEFAULT_STAGE_DEFS,
+];
 
 type Phase = "streaming" | "fallback" | "ready" | "error";
 

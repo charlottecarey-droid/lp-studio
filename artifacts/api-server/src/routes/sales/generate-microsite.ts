@@ -3247,68 +3247,13 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       .where(and(eq(salesAccountsTable.id, accountId), eq(salesAccountsTable.tenantId, tenantId)));
     if (!account) { res.status(404).json({ error: "Account not found" }); return; }
 
-    let [briefing] = await db.select().from(salesBriefingsTable)
-      .where(and(
-        eq(salesBriefingsTable.tenantId, tenantId),
-        eq(salesBriefingsTable.accountId, accountId),
-      ))
-      .orderBy(desc(salesBriefingsTable.updatedAt))
-      .limit(1);
-
-    // Account-specific research is what turns a microsite into a tailored pitch
-    // rather than a generic segment-level landing page. If this account has no
-    // briefing yet, research + generate one inline now so the prompt below has
-    // real account facts to anchor the hero and primary value prop on.
-    // FAIL OPEN: if research/synthesis fails (missing keys, timeout, AI error),
-    // log and proceed with whatever account data exists — never block or fail
-    // the microsite generation on this best-effort enrichment.
-    if (!briefing) {
-      // Surface the research wait under the existing "context" stage so the live
-      // view shows an active step instead of a frozen, all-pending rail during
-      // the 30-90s of account research. Emit only "start" here (marks the stage
-      // active with a research label); the regular context stage below re-emits
-      // its own "start" (updating the label) and owns the matching "done", so
-      // the rail ticks through cleanly without a premature completion.
-      emitter.stage("context", "start", "Researching the account");
-      try {
-        const generated = await generateAndPersistAccountBriefing({ tenantId, accountId });
-        briefing = generated.briefing;
-      } catch (err) {
-        console.warn(
-          "[generate-microsite] inline briefing generation failed (continuing without it):",
-          err instanceof Error ? err.message : err,
-        );
-      }
-      if (emitter.aborted) { emitter.close(); return; }
-    }
-
-    // Optional: personalise the microsite toward a specific contact. Scope the
-    // lookup to BOTH this tenant AND this account so we never pull another
-    // account's people (or another tenant's) into the prompt. Its AI brief
-    // (sales_contact_briefings.briefText) is injected into the context below.
-    let contact: typeof salesContactsTable.$inferSelect | undefined;
-    let contactBriefText: string | null = null;
-    if (contactId != null && Number.isInteger(contactId)) {
-      const [c] = await db.select().from(salesContactsTable)
-        .where(and(
-          eq(salesContactsTable.id, contactId),
-          eq(salesContactsTable.tenantId, tenantId),
-          eq(salesContactsTable.accountId, accountId),
-        ))
-        .limit(1);
-      if (c) {
-        contact = c;
-        const [cb] = await db.select().from(salesContactBriefingsTable)
-          .where(and(
-            eq(salesContactBriefingsTable.tenantId, tenantId),
-            eq(salesContactBriefingsTable.contactId, contactId),
-          ))
-          .orderBy(desc(salesContactBriefingsTable.updatedAt))
-          .limit(1);
-        contactBriefText = (cb?.briefText as string | undefined) ?? null;
-      }
-    }
-
+    // ── Plain-JSON validations FIRST (before any SSE headers are flushed) ──
+    // Brand config, audience segment, and AI availability can still answer with
+    // a real HTTP status, so they must run before we open the live stream: once
+    // the SSE headers are flushed we can only surface failures as `error`
+    // events. The slow account research (30-90s) deliberately runs AFTER the
+    // stream is open so the live view shows a real "Researching the account"
+    // step instead of a frozen, all-pending rail — that blank wait was the bug.
     const brandRows = await db.select().from(lpBrandSettingsTable)
       .where(eq(lpBrandSettingsTable.tenantId, account.tenantId))
       .limit(1);
@@ -3356,8 +3301,88 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
 
     // All plain-JSON validations have passed — switch into streaming (SSE) mode
     // when the client opted in (?stream=1). Non-streaming requests keep the
-    // shared no-op emitter so the response stays byte-identical.
+    // shared no-op emitter so the response stays byte-identical. The stream is
+    // open BEFORE research so the rep watches the research step run live.
     emitter = wantsGenerationStream(req) ? createSseGenerationEmitter(req, res) : NOOP_GENERATION_EMITTER;
+
+    // ── Account research & brief — the spine of a tailored pitch ──────────
+    // Account-specific research is what turns a microsite into a tailored pitch
+    // rather than a generic segment-level landing page. If this account has no
+    // briefing yet, research + generate one inline now (the slow 30-90s step) so
+    // the prompt below has real account facts to anchor the hero and primary
+    // value prop on. We emit a dedicated "research" stage around it so the live
+    // view shows real progress instead of a blank rail.
+    // FAIL OPEN: if research/synthesis fails (missing keys, timeout, AI error),
+    // log and proceed with whatever account data exists — never block or fail
+    // the microsite generation on this best-effort enrichment.
+    let [briefing] = await db.select().from(salesBriefingsTable)
+      .where(and(
+        eq(salesBriefingsTable.tenantId, tenantId),
+        eq(salesBriefingsTable.accountId, accountId),
+      ))
+      .orderBy(desc(salesBriefingsTable.updatedAt))
+      .limit(1);
+
+    if (!briefing) {
+      emitter.stage("research", "start", "Researching the account");
+      try {
+        const generated = await generateAndPersistAccountBriefing({ tenantId, accountId });
+        briefing = generated.briefing;
+      } catch (err) {
+        console.warn(
+          "[generate-microsite] inline briefing generation failed (continuing without it):",
+          err instanceof Error ? err.message : err,
+        );
+      }
+      if (emitter.aborted) { emitter.close(); return; }
+    } else {
+      // A brief is already on file — surface the step so the rail reads
+      // honestly, but it completes right away (no new research ran).
+      emitter.stage("research", "start", "Reviewing account research");
+    }
+
+    // Optional: personalise the microsite toward a specific contact. Scope the
+    // lookup to BOTH this tenant AND this account so we never pull another
+    // account's people (or another tenant's) into the prompt. Its AI brief
+    // (sales_contact_briefings.briefText) is injected into the context below.
+    let contact: typeof salesContactsTable.$inferSelect | undefined;
+    let contactBriefText: string | null = null;
+    if (contactId != null && Number.isInteger(contactId)) {
+      const [c] = await db.select().from(salesContactsTable)
+        .where(and(
+          eq(salesContactsTable.id, contactId),
+          eq(salesContactsTable.tenantId, tenantId),
+          eq(salesContactsTable.accountId, accountId),
+        ))
+        .limit(1);
+      if (c) {
+        contact = c;
+        const [cb] = await db.select().from(salesContactBriefingsTable)
+          .where(and(
+            eq(salesContactBriefingsTable.tenantId, tenantId),
+            eq(salesContactBriefingsTable.contactId, contactId),
+          ))
+          .orderBy(desc(salesContactBriefingsTable.updatedAt))
+          .limit(1);
+        contactBriefText = (cb?.briefText as string | undefined) ?? null;
+      }
+    }
+
+    // Close out the research step. When we're tailoring to a specific contact
+    // (using their brief), say so — that's the real work this step covers.
+    {
+      const contactName = contact
+        ? `${contact.firstName} ${contact.lastName}`.trim()
+        : "";
+      const researchDoneLabel = contactName
+        ? `Account research ready · tailoring for ${contactName}`
+        : briefing
+          ? "Account research ready"
+          : "Continued without research";
+      emitter.stage("research", "done", researchDoneLabel);
+    }
+    if (emitter.aborted) { emitter.close(); return; }
+
     emitter.stage("context", "start", "Loading brand & content context");
 
     // P0-A — resolve the persona the rep picked within this segment (by id or
