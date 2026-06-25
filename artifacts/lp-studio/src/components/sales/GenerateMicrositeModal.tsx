@@ -587,7 +587,7 @@ export function GenerateMicrositeModal({
             {/* Use case (optional starting point) — marketing-curated templates */}
             {marketingTemplates.length > 0 && (
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Use case</Label>
+                <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Use case template</Label>
                 <div className="relative">
                   <select
                     value={selectedTemplate?.id ?? ""}
@@ -596,7 +596,7 @@ export function GenerateMicrositeModal({
                       const id = e.target.value ? Number(e.target.value) : null;
                       setSelectedTemplate(id !== null ? marketingTemplates.find(t => t.id === id) ?? null : null);
                     }}
-                    aria-label="Use case"
+                    aria-label="Use case template"
                     className="w-full appearance-none bg-transparent border-b border-input py-2 pr-6 text-[15px] focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
                   >
                     <option value="">No use case</option>
