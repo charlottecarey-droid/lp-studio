@@ -8,6 +8,10 @@ import type { ChatCompletionContentPart } from "openai/resources/chat/completion
 import rateLimit from "express-rate-limit";
 import { pickExemplars, formatExemplarsSection, parseCustomExemplars } from "./microsite-exemplars";
 import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
+// Account-briefing generation shared with the briefings route. Used to research
+// an account inline (fail-open) when it has no briefing yet, so the microsite
+// prompt has real account facts to anchor the page on.
+import { generateAndPersistAccountBriefing } from "../../lib/briefing-service";
 // Live SSE generation channel shared with /lp/generate-page so the sales
 // microsite generator can stream the same "watch your page build" experience.
 import {
@@ -2767,10 +2771,11 @@ export function buildSystemPrompt(
     "",
     [
       "CONTEXT PRIORITY — read before writing, applies to every section below:",
-      "1. The TARGET SEGMENT + SELECTED PERSONA guidance leads and takes priority on headlines, value props, pains, and CTAs — but still draw on the brand core (item 2) for supporting depth, authority, and proof rather than writing thin segment-only copy.",
-      "2. The BRAND VOICE & GUIDELINES anchor the voice, vocabulary, positioning, and product facts — write every line as the selling brand.",
-      "3. The account context, approved case studies, proof points, and quotes are REAL — cite them by their actual numbers and names; never invent substitutes.",
-      "4. Any REFERENCE PAGE / screenshot is structural + stylistic inspiration ONLY — never copy its claims, never let it override the brand voice.",
+      "1. When ACCOUNT-SPECIFIC RESEARCH is provided below, it ANCHORS the page: build the hero, opening argument, primary value prop, pain framing, and CTA around why THIS specific named account should care right now. Lead with their actual situation, scale, and priorities — not a generic audience pitch — while still drawing on the segment, brand core, and proof (items 2-4) for supporting depth so the copy is never thin.",
+      "2. The TARGET SEGMENT + SELECTED PERSONA provide the audience frame: use them to choose which pains and value props are relevant and to set tone — but do not let them flatten the page into generic segment-level copy when real account facts exist.",
+      "3. The BRAND VOICE & GUIDELINES anchor the voice, vocabulary, positioning, and product facts — write every line as the selling brand.",
+      "4. The account research, approved case studies, proof points, and quotes are REAL — cite them by their actual numbers and names; never invent substitutes. If account research is thin or absent, do NOT invent account-specific facts — fall back to the segment/persona frame and keep claims general and brand-true.",
+      "5. Any REFERENCE PAGE / screenshot is structural + stylistic inspiration ONLY — never copy its claims, never let it override the brand voice.",
       "",
       "CONTENT-FIRST RULE — only include a block if you have REAL content to fill it. Never emit a case-study, success-stories, or testimonials block unless you have actual APPROVED case studies / customer quotes (listed below) to populate it — if you don't, OMIT the block entirely. An empty section (a heading with no real stories, stats, or quotes) is worse than no section. The same applies to any proof/stats/products block: skip it rather than ship a placeholder.",
     ].join("\n"),
@@ -3242,13 +3247,40 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       .where(and(eq(salesAccountsTable.id, accountId), eq(salesAccountsTable.tenantId, tenantId)));
     if (!account) { res.status(404).json({ error: "Account not found" }); return; }
 
-    const [briefing] = await db.select().from(salesBriefingsTable)
+    let [briefing] = await db.select().from(salesBriefingsTable)
       .where(and(
         eq(salesBriefingsTable.tenantId, tenantId),
         eq(salesBriefingsTable.accountId, accountId),
       ))
       .orderBy(desc(salesBriefingsTable.updatedAt))
       .limit(1);
+
+    // Account-specific research is what turns a microsite into a tailored pitch
+    // rather than a generic segment-level landing page. If this account has no
+    // briefing yet, research + generate one inline now so the prompt below has
+    // real account facts to anchor the hero and primary value prop on.
+    // FAIL OPEN: if research/synthesis fails (missing keys, timeout, AI error),
+    // log and proceed with whatever account data exists — never block or fail
+    // the microsite generation on this best-effort enrichment.
+    if (!briefing) {
+      // Surface the research wait under the existing "context" stage so the live
+      // view shows an active step instead of a frozen, all-pending rail during
+      // the 30-90s of account research. Emit only "start" here (marks the stage
+      // active with a research label); the regular context stage below re-emits
+      // its own "start" (updating the label) and owns the matching "done", so
+      // the rail ticks through cleanly without a premature completion.
+      emitter.stage("context", "start", "Researching the account");
+      try {
+        const generated = await generateAndPersistAccountBriefing({ tenantId, accountId });
+        briefing = generated.briefing;
+      } catch (err) {
+        console.warn(
+          "[generate-microsite] inline briefing generation failed (continuing without it):",
+          err instanceof Error ? err.message : err,
+        );
+      }
+      if (emitter.aborted) { emitter.close(); return; }
+    }
 
     // Optional: personalise the microsite toward a specific contact. Scope the
     // lookup to BOTH this tenant AND this account so we never pull another
@@ -3744,6 +3776,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     contextParts.push(`MICROSITE AUDIENCE: ${segment.name?.trim() || segment.id || ""}`);
 
     if (briefingData) {
+      contextParts.push(`\nACCOUNT-SPECIFIC RESEARCH — this is the spine of the page. Shape the hero, primary value prop, pain framing, and CTA around these REAL facts about ${account.displayName ?? account.name}. Do not paste any of it verbatim, and do not invent facts beyond what is given here.`);
       if (briefingData.overview) contextParts.push(`\nACCOUNT OVERVIEW:\n${briefingData.overview}`);
       if (briefingData.tier) contextParts.push(`Tier: ${briefingData.tier}`);
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildAccountBriefingPrompt,
   type AccountBriefingPromptArgs,
-} from "./briefings";
+} from "../../lib/briefing-service";
 import type { SalesBrandContext } from "../../lib/salesBrandContext";
 
 // ─── Fixtures ──────────────────────────────────────────────
