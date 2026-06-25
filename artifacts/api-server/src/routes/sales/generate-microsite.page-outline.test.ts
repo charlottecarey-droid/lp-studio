@@ -14,7 +14,7 @@
  * (free-choice) paths. A sibling file covers the landing-page generator.
  */
 import { describe, it, expect } from "vitest";
-import { buildSystemPrompt, resolveMicrositeBlockSource } from "./generate-microsite";
+import { buildSystemPrompt, resolveMicrositeBlockSource, reconcileBlocksToOutline } from "./generate-microsite";
 import {
   effectiveOutline,
   normalizePageOutline,
@@ -53,9 +53,11 @@ function runOutline(input: {
   segment: Segment;
   brand: Brand;
   pool?: string[];
+  dsoFreeformMode?: "enterprise" | "practices" | null;
 }): { source: string; orderedTypes: string[]; systemPrompt: string } {
   const { segment, brand } = input;
   const pool = input.pool ?? [];
+  const dsoFreeformMode = input.dsoFreeformMode ?? null;
 
   const segmentOutline = effectiveOutline({
     outline: normalizePageOutline(segment.pageOutline),
@@ -74,7 +76,7 @@ function runOutline(input: {
 
   const source = resolveMicrositeBlockSource({
     hasTemplate: false,
-    dsoFreeformMode: null,
+    dsoFreeformMode,
     hasSegmentOutline: outlineHasSteps(segmentOutline),
     hasSegmentPool: pool.length > 0,
     hasBrandOutline: outlineHasSteps(brandOutline),
@@ -101,7 +103,7 @@ function runOutline(input: {
     segment.name ?? null, // accountSegment
     source === "neutral-freeform", // useFreeform
     undefined, // templateBlocks
-    null, // dsoFreeformMode
+    dsoFreeformMode, // dsoFreeformMode
     pool, // segmentApprovedTypes
     source === "segment-pool", // usePoolFreeform
     outlineBlockList,
@@ -278,5 +280,95 @@ describe("generate-microsite — page outline drives output order (Task #14)", (
     expect(systemPrompt).toContain(
       "AVAILABLE BLOCKS (choose from these — you decide which and in what order):",
     );
+  });
+
+  it("still emits the fixed outline list when the segment carries a DSO vocabulary (Defect B)", () => {
+    // A Dandy/DSO segment can have BOTH a configured outline AND a DSO
+    // vocabulary (dsoFreeformMode). The outline must win: buildSystemPrompt must
+    // emit the fixed ordered list — not the DSO "vary the mix" freeform
+    // vocabulary — or the configured order is silently dropped on DSO segments.
+    const outline: PageOutline = {
+      steps: [
+        { kind: "block", type: "dso-heartland-hero" },
+        { kind: "block", type: "dso-success-stories" },
+        { kind: "block", type: "dso-final-cta" },
+      ],
+    };
+    const { source, orderedTypes, systemPrompt } = runOutline({
+      segment: { ...SEGMENT, pageOutline: outline },
+      brand: { brandName: "Acme" },
+      dsoFreeformMode: "enterprise",
+    });
+    expect(source).toBe("segment-outline");
+    expect(orderedTypes).toEqual([
+      "dso-heartland-hero",
+      "dso-success-stories",
+      "dso-final-cta",
+    ]);
+    // The fixed-list marker is present; the freeform "choose from these" marker
+    // (used by the DSO / pool / neutral branches) is not.
+    expect(systemPrompt).toContain("AVAILABLE BLOCKS (use only these, in this order):");
+    expect(systemPrompt).not.toContain("AVAILABLE BLOCKS (choose from these");
+  });
+});
+
+describe("reconcileBlocksToOutline — hard order authority (pure)", () => {
+  const BRAND = {
+    name: "Acme",
+    tagline: "",
+    valuePropPairs: [] as { theme: string; proof: string }[],
+  };
+
+  it("reorders scrambled AI blocks into the outline order, preserving props + id", () => {
+    const outline = [
+      { type: "hero" },
+      { type: "testimonial" },
+      { type: "bottom-cta" },
+      { type: "footer" },
+    ];
+    const aiBlocks = [
+      { type: "footer", id: "f1", props: { note: "foot" } },
+      { type: "bottom-cta", id: "c1", props: {} },
+      { type: "hero", id: "h1", props: { headline: "Hi" } },
+      { type: "testimonial", id: "t1", props: {} },
+    ];
+    const result = reconcileBlocksToOutline(aiBlocks, outline, BRAND);
+    expect(result.map((b) => b.type)).toEqual([
+      "hero",
+      "testimonial",
+      "bottom-cta",
+      "footer",
+    ]);
+    // The model contributes copy; the outline contributes order — so the hero
+    // keeps the AI's id + headline.
+    expect(result[0].id).toBe("h1");
+    expect((result[0].props as { headline?: string }).headline).toBe("Hi");
+    expect(result[3].id).toBe("f1");
+  });
+
+  it("drops AI blocks whose type is not in the outline", () => {
+    const outline = [{ type: "hero" }, { type: "footer" }];
+    const aiBlocks = [
+      { type: "hero", id: "h1", props: {} },
+      { type: "pricing", id: "p1", props: {} },
+      { type: "footer", id: "f1", props: {} },
+    ];
+    const result = reconcileBlocksToOutline(aiBlocks, outline, BRAND);
+    expect(result.map((b) => b.type)).toEqual(["hero", "footer"]);
+    expect(result.some((b) => b.type === "pricing")).toBe(false);
+  });
+
+  it("synthesizes a default block for an outline slot the AI omitted", () => {
+    const outline = [{ type: "hero" }, { type: "testimonial" }, { type: "footer" }];
+    const aiBlocks = [
+      { type: "hero", id: "h1", props: { headline: "H" } },
+      { type: "footer", id: "f1", props: {} },
+    ];
+    const result = reconcileBlocksToOutline(aiBlocks, outline, BRAND);
+    expect(result.map((b) => b.type)).toEqual(["hero", "testimonial", "footer"]);
+    // The omitted testimonial slot still exists, synthesized with a props object.
+    expect(result[1].type).toBe("testimonial");
+    expect(typeof result[1].props).toBe("object");
+    expect(result[1].props).not.toBeNull();
   });
 });

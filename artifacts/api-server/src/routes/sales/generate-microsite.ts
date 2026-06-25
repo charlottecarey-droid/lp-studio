@@ -2513,6 +2513,48 @@ export function deriveSchemaHintFromProps(props: unknown): string {
   return `{ ${parts.join(", ")} } — rewrite ALL human-readable copy for this account; keep the same shape and array lengths`;
 }
 
+/**
+ * HARD outline authority (microsites). When a segment / brand page outline drives
+ * a generated microsite, the configured ORDER and block TYPES are authoritative —
+ * the AI only contributes copy. Reconcile the model's output to the resolved,
+ * ordered outline, mirroring the fixed-template reconcile: bucket the AI's blocks
+ * by canonical type (preserving emission order), then walk the outline in order
+ * and, for each slot, consume the first unused AI block of that type — keeping its
+ * props/id but forcing its `type` to the outline's type. A slot the model omitted
+ * is synthesized as a neutral default block of that type; any AI block whose type
+ * isn't in the outline is dropped. Pure + deterministic.
+ */
+export function reconcileBlocksToOutline(
+  blocks: AiBlock[],
+  outlineBlockList: BrandMicrositeBlockListEntry[],
+  fallbackBrand: FallbackBrand,
+): AiBlock[] {
+  const unusedByType = new Map<string, AiBlock[]>();
+  for (const b of blocks) {
+    const key = canonicalizeBlockType(String(b.type ?? ""));
+    if (!key) continue;
+    const queue = unusedByType.get(key);
+    if (queue) queue.push(b);
+    else unusedByType.set(key, [b]);
+  }
+  return outlineBlockList
+    .filter((entry) => (entry.type ?? "").trim())
+    .map((entry, i) => {
+      const type = String(entry.type);
+      const key = canonicalizeBlockType(type);
+      const queue = unusedByType.get(key);
+      const aiBlock = queue && queue.length ? queue.shift() : undefined;
+      if (aiBlock) {
+        // Keep the AI's copy/props/id; force the type to the outline's exact
+        // type (a canonical match may have collapsed an alias).
+        return { ...aiBlock, type } as AiBlock;
+      }
+      // The model didn't emit this slot — synthesize a neutral default so the
+      // outline's slot still exists; downstream enrichment fills it in.
+      return normalizeBlock({ type, props: {} } as AiBlock, i, fallbackBrand);
+    });
+}
+
 export function buildSystemPrompt(
   segment: BrandAudienceSegment,
   brand: Record<string, unknown>,
@@ -2778,6 +2820,17 @@ export function buildSystemPrompt(
     // forces an unfillable section.
     .filter(b => !excludeTypes.has(canonicalizeBlockType(b.type ?? "")));
 
+  // HARD outline authority — when a configured page outline drives this page the
+  // route passes its resolved, ordered, exclusion-filtered list as
+  // `outlineBlockList`. The fixed-list path below (the only branch that emits the
+  // outline's exact order) MUST win over the DSO / segment-pool / neutral
+  // freeform branches even when this segment also carries a DSO vocabulary
+  // (`dsoFreeformMode`) — otherwise an outline configured on a DSO/Dandy segment
+  // is silently dropped from the prompt. resolveMicrositeBlockSource already
+  // ranks an outline above those sources; this flag keeps buildSystemPrompt in
+  // lockstep with that decision.
+  const hasOutlineFixedList = !!outlineBlockList?.some(b => (b.type ?? "").trim());
+
   // Task #37 — strong, explicit DESIGN-SYSTEM rules for every FREE-FORM path
   // (neutral / DSO / segment-pool). The owner's hard requirement: no microsite
   // may look like a plain white document with stacked text. These rules are
@@ -2831,7 +2884,7 @@ export function buildSystemPrompt(
   // every account, advertise the full DSO (enterprise or practices) vocabulary
   // + a few general supporting blocks and let the model pick a varied layout.
   // Falls back to the curated DSO list in the route if it yields nothing usable.
-  if (dsoFreeformMode) {
+  if (dsoFreeformMode && !hasOutlineFixedList) {
     const isPractices = dsoFreeformMode === "practices";
     const countRange = isPractices ? "6–9" : "6–10";
     const heroLine = isPractices
@@ -2869,7 +2922,7 @@ export function buildSystemPrompt(
   // accounts in the same segment no longer share one identical brand-default
   // lineup. The route validation clamps output to the same pool ∪ structural
   // set, falling back to NEUTRAL if nothing usable remains.
-  if (usePoolFreeform) {
+  if (usePoolFreeform && !hasOutlineFixedList) {
     const poolFooter = [
       "",
       "LAYOUT — YOU choose the sections from the APPROVED BLOCKS for this audience (no fixed list):",
@@ -2900,7 +2953,7 @@ export function buildSystemPrompt(
   // and let IT compose a varied layout, instead of emitting the flat 7-block
   // NEUTRAL list every time. NEUTRAL stays a last-resort validation safety net
   // in the route if this yields nothing usable.
-  if (useFreeform) {
+  if (useFreeform && !hasOutlineFixedList) {
     const freeformFooter = [
       "",
       "LAYOUT — YOU choose the sections (this page has NO fixed block list):",
@@ -3638,13 +3691,27 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       if (entry.aiMode === "noai") excludeTypes.add(canonicalizeBlockType(type));
     }
 
+    // HARD outline authority (this task) — when a segment / brand page outline
+    // drives the page, its resolved order + block types are AUTHORITATIVE: the
+    // model only supplies copy. Filter the resolved outline by the SAME
+    // exclusions the prompt applies (no-approved-case-study / `noai`) so the
+    // prompt and the post-generation reconcile agree on the exact slot list. The
+    // page is "outline-driven" only when an outline actually resolved to >=1
+    // allowed block; otherwise we fall back to the legacy freeform chain.
+    const authoritativeOutlineBlockList = outlineBlockList?.filter(
+      (entry) => !excludeTypes.has(canonicalizeBlockType(entry.type ?? "")),
+    );
+    const outlineActive =
+      (blockSource === "segment-outline" || blockSource === "brand-outline") &&
+      (authoritativeOutlineBlockList?.length ?? 0) > 0;
+
     // When the rep explicitly picked a segment, pass the account's own segment so
     // buildSystemPrompt can fall back to it if the picked segment carries no
     // usable data (the DSO-failure fix). But when NO segment was picked (synthetic
     // core), pass null so the account's segment can't silently promote a different
     // audience's TARGET SEGMENT directive onto a page that should read as core.
     const accountSegmentForPrompt = pickedSegment ? account.segment : null;
-    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, accountSegmentForPrompt, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes, usePoolFreeform, outlineBlockList, selectedPersona, excludeTypes);
+    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, accountSegmentForPrompt, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes, usePoolFreeform, authoritativeOutlineBlockList, selectedPersona, excludeTypes);
 
     // Task #976 — REFERENCE PAGE (voice) + VISUAL REFERENCE (style) sections,
     // appended to the user prompt exactly like /lp/generate-page. The brand's
@@ -3884,6 +3951,41 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
 
     let normalizedBlocks = (parsed.blocks as AiBlock[]).map((b, i) => normalizeBlock(b, i, fallbackBrand));
 
+    // HARD outline authority (this task) — when a configured page outline drives
+    // the page, REORDER/RECONCILE the model's output to the outline's exact
+    // ordered block types so the outline OVERRIDES the AI's choice and ordering
+    // of blocks AND categories (parity with the fixed-template reconcile below).
+    // The model only contributes copy: each outline slot consumes the first
+    // unused AI block of that type (props/id preserved), a slot the model omitted
+    // is synthesized as a neutral default, and any AI block not in the outline is
+    // dropped. Because this runs first, downstream enrichment (case-study
+    // approval, governance modes, prune, design backgrounds, hero legibility,
+    // image/video fill, brand injection, Dandy variability, section rhythm)
+    // operates on the outline skeleton. The freeform clamps below are inert here
+    // (blockSource is segment/brand-outline, so the pool/dso/neutral flags are
+    // all false); the required-role backfill and freeform chrome injection are
+    // additionally gated on `!outlineActive` so they can't reintroduce or
+    // reorder off-outline blocks.
+    if (outlineActive && authoritativeOutlineBlockList?.length) {
+      const beforeCount = normalizedBlocks.length;
+      normalizedBlocks = reconcileBlocksToOutline(
+        normalizedBlocks,
+        authoritativeOutlineBlockList,
+        fallbackBrand,
+      );
+      logger.info(
+        {
+          event: "microsite_outline_reconciled",
+          accountId,
+          tenantId,
+          blockSource,
+          before: beforeCount,
+          after: normalizedBlocks.length,
+        },
+        "[generate-microsite] reconciled AI output to the configured page outline (hard order authority)",
+      );
+    }
+
     // Task #976 — freeform safety: drop any block whose type is outside the
     // neutral freeform vocabulary (defence-in-depth so dso-*/business-case-* can
     // never leak into a non-Dandy freeform page even if the model ignores the
@@ -3969,8 +4071,10 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // role. Skipped for fixed-template pages, whose layout is an explicit
     // authored choice. Idempotent: a complete page is left unchanged. Runs
     // before the design-intensity pass so any injected blocks also receive
-    // deterministic backgroundStyle treatment.
-    if (!templateBlocks) {
+    // deterministic backgroundStyle treatment. Skipped for outline-driven pages:
+    // the configured outline is the authoritative structure, so backfilling extra
+    // roles would add blocks the outline didn't ask for.
+    if (!templateBlocks && !outlineActive) {
       enforceRequiredRoles(normalizedBlocks as unknown as Array<Record<string, unknown>>, {
         brandName: (brand.brandName as string | undefined) ?? "",
         ctaUrl:
@@ -4038,7 +4142,16 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // section. Defensive backstop for when the model emits a case-study block
     // despite the vocabulary gate (no approved case studies). Never empties the
     // page (degenerate prune returns the original list).
-    {
+    // HARD outline authority — skip the empty-block prune on outline-driven
+    // pages. When an outline is active, every surviving block is a slot the
+    // superadmin explicitly configured: reconcileBlocksToOutline already dropped
+    // anything off-outline (including case-study blocks excluded for lack of
+    // approved studies, which are filtered out of authoritativeOutlineBlockList
+    // before both the prompt and the reconcile). So here the prune can ONLY
+    // remove an authored slot — never a stray empty section — and removing a
+    // configured slot would break the outline's hard ordering. Leave the page
+    // exactly as the outline + reconcile produced it.
+    if (!outlineActive) {
       const before = normalizedBlocks.length;
       normalizedBlocks = pruneEmptyContentBlocks(
         normalizedBlocks as Array<{ type?: string; props?: Record<string, unknown> }>,
@@ -4075,7 +4188,12 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // filled by the library/scraped/AI fill passes below. Fail-open: each pass
     // skips a malformed block and never throws.
     const isFreeformMicrosite = !templateBlocks;
-    if (isFreeformMicrosite) {
+    // Outline-driven pages own their chrome: the configured outline decides
+    // whether the page has a navbar/header and what the opening hero is, so the
+    // freeform navbar-prepend + hero-upgrade must NOT run (they'd reintroduce or
+    // restyle blocks the outline didn't ask for). The section-bg rhythm pass
+    // below stays enabled for outline pages (it never adds or reorders blocks).
+    if (isFreeformMicrosite && !outlineActive) {
       // (1) Always a navbar — prepend a populated nav-header if the model emitted
       // none (and the page doesn't open with a self-nav hero).
       const navCtaUrl =
