@@ -19,6 +19,7 @@ import { findBannedPhrases, type BannedPhraseHit } from "../../lib/ai-prompts/ba
 import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-prompts/critique-pass";
 import {
   recipesForPath,
+  pickRecipe,
   buildRecipeDirective,
   injectRecipeIntoBlockSelection,
   blockSequenceHash,
@@ -75,18 +76,6 @@ function getOpenAIClient(): OpenAI {
   return new OpenAI({ baseURL, apiKey });
 }
 
-/** Generation model. KEEP "gpt-4o". Do NOT "upgrade" this to gpt-5 / gpt-5-mini
- *  or any reasoning model: under this pipeline's tight max_completion_tokens they
- *  silently return EMPTY content, which breaks page generation with no error
- *  surfaced. gpt-4o is the proven model here — change only after verifying
- *  non-empty output end-to-end on a real generation. */
-const GENERATION_MODEL = "gpt-4o";
-
-/** Generation sampling temperature. Lowered 0.9 → 0.45 (June 2026): 0.9 was
- *  reshuffling block choice, copy, and image picks every run ("pages feel
- *  random"). Specificity comes from the brief, not from entropy. */
-const GENERATION_TEMPERATURE = 0.45;
-
 // Launch hardening (June 2026) — cap concurrent OpenAI CHAT calls from page
 // generation process-wide (GENERATE_OPENAI_CONCURRENCY, default 8) so a
 // launch-day burst queues at the proxy instead of 429-storming it. The slot
@@ -120,8 +109,8 @@ async function runStreamedChatCompletion(opts: {
 }): Promise<{ text: string; finishReason: string | null }> {
   const stream = await opts.client.chat.completions.create(
     {
-      model: GENERATION_MODEL,
-      temperature: GENERATION_TEMPERATURE,
+      model: "gpt-4o",
+      temperature: 0.9,
       max_completion_tokens: 12288,
       // The page-generation contract is a single JSON object; json_object mode
       // stops the model from wrapping it in prose / markdown fences so the
@@ -744,13 +733,6 @@ function lpHashSeed(s: string): number {
   h = Math.imul(h, 3266489909);
   h ^= h >>> 16;
   return h >>> 0;
-}
-
-/** Deterministic per-page image-rotation seed (replaces Math.random()). Same
- *  page → same image rotation every run; different pages still differ. Variety
- *  without the musical-chairs randomness. */
-function imageRotationSeed(parts: Array<string | number | null | undefined>): number {
-  return lpHashSeed(parts.map((p) => String(p ?? "")).join("::"));
 }
 
 /** Block types that do NOT render a `backgroundStyle` section surface and so
@@ -4322,6 +4304,10 @@ export function buildBrandContext(brand: BrandConfig, designIntensity: DesignInt
  *  the detailed source of truth. Returns "" when the brand has no usable voice
  *  signal (keeps blank/neutral tenants on the default behavior — no regression). */
 export function buildBrandVoiceAnchor(brand: BrandConfig): string {
+  // Brand fields can originate from brand-import (scraped, semi-trusted text), so
+  // collapse newlines/control chars and cap length/count before interpolating —
+  // a hostile or messy value can't then reshape the system prompt or balloon the
+  // token budget.
   const clean = (v: unknown, max = 160): string =>
     typeof v === "string"
       ? v.replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max)
@@ -4339,47 +4325,17 @@ export function buildBrandVoiceAnchor(brand: BrandConfig): string {
   if (personality.length) cues.push(`personality — ${personality.join(", ")}`);
   const sig = cleanList(brand.voiceProfile?.profile?.signaturePhrases, 4, 80);
   if (sig.length) cues.push(`signature phrasing like — ${sig.join("; ")}`);
-
-  // June 2026 — the brand's REAL example copy is the single strongest tone lever,
-  // so promote it into the top-of-system-prompt anchor. It previously only rode
-  // in the user prompt, buried under the brand context, where the generic EXAMPLE
-  // copy in the block schemas out-weighed it.
-  const examples = cleanList(brand.copyExamples, 4, 120);
-
-  if (!name && cues.length === 0 && examples.length === 0) return "";
-
+  // Nothing brand-specific to anchor on → leave the system prompt neutral.
+  if (!name && cues.length === 0) return "";
   const who = name
     ? `You are writing AS ${name}`
     : "You are writing AS the specific brand described in the BRAND CONTEXT (in the user message)";
   const cueLine = cues.length ? ` This brand's voice: ${cues.join(" · ")}.` : "";
   const label = name || "this brand";
-  const lines = [
-    `BRAND VOICE — HIGHEST PRIORITY (overrides every generic EXAMPLE in the block schemas below): ${who}, never a generic vendor.${cueLine}`,
-    `Every headline, subhead, and body line must sound unmistakably like ${label} — match its tone, vocabulary, and rhythm. The EXAMPLE copy in the block schemas shows STRUCTURE, length, and density ONLY; NEVER reuse its phrasing or its neutral SaaS vocabulary. Two different brands given the same request must produce visibly different copy.`,
-  ];
-  if (examples.length) {
-    lines.push(
-      `WRITE IN THIS VOICE — these are real lines from ${label}'s own marketing. Match their cadence, specificity, and word choice; treat them as the gold standard your copy is compared against:\n${examples
-        .map((e) => `- ${e}`)
-        .join("\n")}`,
-    );
-  }
-  return lines.join("\n");
-}
-
-/** June 2026 — strip generic SAMPLE PROSE from an assembled system prompt while
- *  keeping each block's STRUCTURE (field names + word/item counts). The neutral
- *  SaaS EXAMPLE sentences were the model's strongest anchor and made every
- *  tenant's copy read the same. Removes single EXAMPLE lines and the multi-line
- *  "EXAMPLE OF A FULLY-POPULATED … BLOCK" specimen. Keeps NEGATIVE examples
- *  ("NEVER write: …"). Review the output once after enabling. */
-export function stripExampleProse(prompt: string): string {
-  let out = prompt.replace(/\nEXAMPLE OF A FULLY-POPULATED[\s\S]*?(?=\nRULES:)/, "\n");
-  out = out
-    .split("\n")
-    .filter((line) => !/^\s*EXAMPLE\b/.test(line))
-    .join("\n");
-  return out;
+  return [
+    `BRAND VOICE — HIGHEST PRIORITY (takes priority over the generic EXAMPLE copy further down): ${who}, never a generic vendor.${cueLine}`,
+    `Every headline, subhead, and body line must sound unmistakably like ${label} — match its tone, vocabulary, and rhythm. The EXAMPLE copy in this prompt demonstrates STRUCTURE, length, and density ONLY; never reuse its neutral SaaS phrasing. Two different brands given the same request must produce visibly different copy. Use the BRAND CONTEXT, messaging pillars, value props, and copy examples in the user message as your source of truth for HOW ${label} sounds.`,
+  ].join("\n");
 }
 
 /** Task #253 — fetch tenant's approved case-studies from the content library
@@ -8398,8 +8354,8 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       } else {
         const completion = await generateOpenAISemaphore.run(() =>
           openai!.chat.completions.create({
-            model: GENERATION_MODEL,
-            temperature: GENERATION_TEMPERATURE,
+            model: "gpt-4o",
+            temperature: 0.9,
             max_completion_tokens: 12288,
             response_format: { type: "json_object" },
             messages: templateMessages,
@@ -8582,7 +8538,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           mediaCatalog.images,
           scrapedRefMedia,
           scrapedUrls,
-          imageRotationSeed([tenantId, parsed.slug, segmentContext?.name, prompt]),
+          Math.floor(Math.random() * 1_000_000) + 1,
         );
 
         mergedBlocks = sanitizeAIImageUrls(mergedBlocks, mediaCatalog.allImages, brandLogoUrls) as typeof mergedBlocks;
@@ -8950,10 +8906,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   }
   // "Shuffle layout" — validate the requested exclusions against THIS path's
   // recipe pool (unknown ids silently dropped) and remove them from the
-  // candidate pool before the deterministic pick below. `excludedRecipeIds` is
-  // the applied, validated list echoed back in the receipt event + result body.
-  // Fail-open: when the exclusions cover the whole pool we fall back to the full
-  // pool (deterministic choice over it) — warn (structured) but never fail.
+  // candidate pool before the LRU pick. `excludedRecipeIds` is the applied,
+  // validated list echoed back in the receipt event + result body. Fail-open:
+  // when the exclusions cover the whole pool, pickRecipe falls back to the
+  // full pool minus the FIRST excluded id — warn (structured) but never fail.
   const recipePool = recipesForPath(recipePath);
   const poolRecipeIds = new Set(recipePool.map((r) => r.id));
   const excludedRecipeIds = requestedExcludeRecipeIds.filter((id) => poolRecipeIds.has(id));
@@ -8967,28 +8923,15 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         excludedRecipeIds,
         poolSize: recipePool.length,
       },
-      "[generate-page] excludeRecipeIds covers the entire recipe pool — falling back to the full pool (deterministic choice)",
+      "[generate-page] excludeRecipeIds covers the entire recipe pool — falling back to the pool minus the first excluded id",
     );
   }
-  // Deterministic recipe choice (June 2026): the same segment + intent always
-  // gets the same recipe, so a "kind" of page looks like itself instead of
-  // rotating per generation. (Was LRU over recent history → felt random.)
-  // "Shuffle layout" still works: excluded ids drop out, the next deterministic
-  // candidate is chosen.
-  const recipeCandidates =
-    excludedRecipeIds.length > 0
-      ? recipePool.filter((r) => !excludedRecipeIds.includes(r.id))
-      : recipePool;
-  const recipeChoicePool = recipeCandidates.length > 0 ? recipeCandidates : recipePool;
-  const chosenRecipe: PageRecipe | null =
-    recipeChoicePool.length > 0
-      ? recipeChoicePool[
-          lpHashSeed(
-            `${promptPath}::${segmentContext?.name ?? ""}::${intentMatchedTemplate?.slug ?? ""}`,
-          ) % recipeChoicePool.length
-        ] ?? null
-      : null;
-  void recentRecipeIds; // retained for logging/back-compat; no longer drives selection
+  const chosenRecipe: PageRecipe | null = pickRecipe(
+    recipePool,
+    recentRecipeIds,
+    undefined,
+    excludedRecipeIds,
+  );
 
   // Fetch the per-industry block_catalog once: `tags` drives the role-tag guide
   // and `ai_enabled` drives which blocks the GENERAL prompt advertises. Both are
@@ -9067,21 +9010,19 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // also filters the DSO paths (which build hardcoded block lists) so the
   // superadmin "Available to AI generation" toggle is honored on every path.
   // Re-stripping the general prompt is idempotent.
-  let systemPrompt = stripExampleProse(
-    stripAiDisabledBlockLines(
-      useDsoPractices
-        ? buildDsoPracticesSystemPrompt({ isDandyTenant, brandName: resolvedBrandName })
-        : useDso
-          ? buildDsoSystemPrompt({ isDandyTenant, brandName: resolvedBrandName })
-          : buildGeneralSystemPrompt({
-              aiDisabledTypes,
-              includeContentSeries: isContentSeriesRequest(prompt),
-              includeWebinarHub: isWebinarHubRequest(prompt),
-              includeBlogSeries: isBlogSeriesRequest(prompt),
-              includeStorefront: isStorefrontRequest(prompt),
-            }),
-      aiDisabledTypes,
-    ),
+  let systemPrompt = stripAiDisabledBlockLines(
+    useDsoPractices
+      ? buildDsoPracticesSystemPrompt({ isDandyTenant, brandName: resolvedBrandName })
+      : useDso
+        ? buildDsoSystemPrompt({ isDandyTenant, brandName: resolvedBrandName })
+        : buildGeneralSystemPrompt({
+            aiDisabledTypes,
+            includeContentSeries: isContentSeriesRequest(prompt),
+            includeWebinarHub: isWebinarHubRequest(prompt),
+            includeBlogSeries: isBlogSeriesRequest(prompt),
+            includeStorefront: isStorefrontRequest(prompt),
+          }),
+    aiDisabledTypes,
   );
   // Brand-voice anchor (see buildBrandVoiceAnchor): the full brand context lives
   // in the user prompt, but the large structural system prompt otherwise carries
@@ -9312,8 +9253,8 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     } else {
       const completion = await generateOpenAISemaphore.run(() =>
         openai!.chat.completions.create({
-          model: GENERATION_MODEL,
-          temperature: GENERATION_TEMPERATURE,
+          model: "gpt-4o",
+          temperature: 0.9,
           max_completion_tokens: 12288,
           response_format: { type: "json_object" },
           messages: baseMessages,
@@ -9349,11 +9290,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       };
       const firstTypes = parsed.blocks.map(typeOf);
       const firstHash = blockSequenceHash(firstTypes);
-      // Repeat guard DISABLED (June 2026): regenerating a whole page just to make
-      // it differ from recent ones was a primary source of "pages feel random."
-      // Consistency beats forced novelty. Flip to re-enable.
-      const REPEAT_GUARD_ENABLED = false;
-      if (REPEAT_GUARD_ENABLED && recentSequenceHashes.length > 0 && shouldRetryForRepeatedSequence(firstHash, recentSequenceHashes)) {
+      if (recentSequenceHashes.length > 0 && shouldRetryForRepeatedSequence(firstHash, recentSequenceHashes)) {
         // Streaming: the client already previewed the first completion's
         // blocks — tell it to clear the canvas; a fresh sequence of `block`
         // events follows from the corrective retry below.
@@ -9388,8 +9325,8 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         } else {
           const retryCompletion = await generateOpenAISemaphore.run(() =>
             openai!.chat.completions.create({
-              model: GENERATION_MODEL,
-              temperature: GENERATION_TEMPERATURE,
+              model: "gpt-4o",
+              temperature: 0.9,
               max_completion_tokens: 12288,
               response_format: { type: "json_object" },
               messages: retryMessages,
@@ -9862,7 +9799,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       mediaCatalog.images,
       scrapedMedia,
       scrapedUrls,
-      imageRotationSeed([tenantId, parsed.slug, segmentContext?.name, prompt]),
+      Math.floor(Math.random() * 1_000_000) + 1,
     );
 
     // Subject the model's OWN image picks to the same dedup + purpose/relevance
