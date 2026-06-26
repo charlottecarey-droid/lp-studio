@@ -93,6 +93,13 @@ import { isSocialCardDims } from "../../lib/imageAutoTag";
 import { mirrorReferenceImages } from "../../lib/brand-import/assets-uploader";
 import { getTenantIndustry, getIndustryImageKeywords } from "../../lib/tenantIndustry";
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
+// Copy ENFORCEMENT (parity with /lp/generate-page): the prompt instructs
+// sentence-case + no-buzzword copy, but gpt-4o ignores instructions, so we run
+// the same post-generation validator + critique rewrite the page path runs,
+// plus a deterministic sentence-case normalizer that fixes Title Case for sure.
+import { findBannedPhrases } from "../../lib/ai-prompts/banned-phrase-validator";
+import { critiqueAndRewriteBlocks } from "../../lib/ai-prompts/critique-pass";
+import { normalizeHeadingsToSentenceCase } from "../../lib/ai-prompts/sentence-case-normalizer";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
 // All-in-one template intent matching (parity with /lp/generate-page): route a
 // prompt that names a framework ("MEDDIC decision brief", "StoryBrand",
@@ -4628,11 +4635,98 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     emitter.blocksSnapshot(normalizedBlocks, "images");
     emitter.stage("images", "done", "Resolving page imagery");
 
-    // Polish boundary. The microsite pipeline writes account-deterministic copy
-    // in a single pass (no separate AI critique/rewrite like the marketing
-    // generator), so there's no heavy work here — but the live build checklist
-    // still surfaces the stage so reps see the full, consistent progression.
+    // Polish boundary — copy ENFORCEMENT (parity with /lp/generate-page). The
+    // microsite prompt instructs sentence-case + no-buzzword copy, but gpt-4o
+    // ignores instructions; these post-passes make the brand guidelines hold
+    // EVERY time, no matter what the model returns:
+    //   1. banned-phrase validator + corrective critique rewrite (buzzwords),
+    //   2. deterministic sentence-case normalizer (Title Case → sentence case).
+    // Both are fail-open: any hiccup ships the unmodified copy, never a 500.
     emitter.stage("polish", "start", "Polishing copy");
+
+    // 1. Buzzword / banned-phrase enforcement. findBannedPhrases flags only;
+    //    critiqueAndRewriteBlocks rewrites just the worst 1–2 flagged blocks in
+    //    the brand voice and is a no-op when there are zero hits (corrective
+    //    only — no tighten-anyway pass).
+    try {
+      const bannedPhraseHits = findBannedPhrases(
+        normalizedBlocks as unknown[],
+        [...new Set([
+          ...getCoreForbiddenPhrases(),
+          ...((brand.avoidPhrases as string[] | undefined) ?? []),
+        ])],
+      );
+      if (bannedPhraseHits.length > 0) {
+        logger.warn(
+          {
+            event: "ai_banned_phrase_hits",
+            tenantId,
+            promptPath: "MICROSITE",
+            accountId,
+            count: bannedPhraseHits.length,
+            phrases: [...new Set(bannedPhraseHits.map(h => h.phrase))],
+          },
+          "[generate-microsite] banned-phrase post-validator found hits in output",
+        );
+      }
+      const critique = await critiqueAndRewriteBlocks({
+        blocks: normalizedBlocks as unknown[],
+        bannedPhraseHits,
+        brand: {
+          toneOfVoice: brand.toneOfVoice as string | undefined,
+          toneKeywords: brand.toneKeywords as string[] | undefined,
+          avoidPhrases: brand.avoidPhrases as string[] | undefined,
+          copyExamples: brand.copyExamples as string[] | undefined,
+          messagingPillars: brand.messagingPillars as { label: string; description: string }[] | undefined,
+        },
+        openai,
+      });
+      if (critique.critiqued) {
+        logger.info(
+          {
+            event: "ai_critique_rewrite",
+            tenantId,
+            promptPath: "MICROSITE",
+            accountId,
+            rewrittenBlocks: critique.annotations.map(a => a.blockId),
+            resolved: critique.annotations.filter(a => a.resolved).length,
+          },
+          "[generate-microsite] two-pass critique rewrote low-quality blocks",
+        );
+      }
+    } catch (critiqueErr) {
+      logger.warn(
+        { err: critiqueErr, accountId, tenantId },
+        "[generate-microsite] banned-phrase/critique pass skipped",
+      );
+    }
+
+    // 2. Deterministic sentence-case normalizer — the LAST copy mutation so an
+    //    AI rewrite (above) can never re-introduce Title Case. Protects the
+    //    brand / product / account proper nouns and acronyms.
+    try {
+      const { changed } = normalizeHeadingsToSentenceCase(normalizedBlocks as unknown[], {
+        properNouns: [
+          brand.brandName as string | undefined,
+          brand.name as string | undefined,
+          account.displayName ?? account.name,
+          ...(((brand.productLines as BrandProductLine[] | undefined) ?? []).map(p => p?.name)),
+        ],
+      });
+      if (changed > 0) {
+        logger.info(
+          { event: "ai_sentence_case_normalized", tenantId, accountId, changed },
+          "[generate-microsite] sentence-case normalizer fixed Title Case headings",
+        );
+      }
+    } catch (caseErr) {
+      logger.warn(
+        { err: caseErr, accountId, tenantId },
+        "[generate-microsite] sentence-case normalizer skipped",
+      );
+    }
+
+    emitter.blocksSnapshot(normalizedBlocks, "polish");
     emitter.stage("polish", "done", "Polishing copy");
 
     emitter.stage("finalize", "start", "Finalizing the page");
