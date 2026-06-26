@@ -81,10 +81,14 @@ function getOpenAIClient(): OpenAI {
  *  model string makes every generation fail and blanks the preview. */
 const GENERATION_MODEL = "gpt-4o";
 
-/** Generation sampling temperature (lowered from 0.9 → 0.45). At 0.9 the model
- *  reshuffled block choice, copy, and image picks on every run, so the same
- *  prompt produced a visibly different page each time ("pages feel random"). */
-const GENERATION_TEMPERATURE = 0.45;
+/** Generation sampling temperature. Page STRUCTURE (which recipe + which
+ *  images) is now held stable per-input by lpHashSeed seeding (pickRecipe +
+ *  supporting picks), NOT by low sampling — so the temperature can stay
+ *  creative for COPY without bringing back the old "every refresh is a
+ *  different page" structural churn that motivated the original 0.9 → 0.45
+ *  drop. 0.45 read flat/generic; raised to 0.7 to restore brand voice and
+ *  copy variety while the seeding keeps the layout deterministic. */
+const GENERATION_TEMPERATURE = 0.7;
 
 // Launch hardening (June 2026) — cap concurrent OpenAI CHAT calls from page
 // generation process-wide (GENERATE_OPENAI_CONCURRENCY, default 8) so a
