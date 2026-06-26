@@ -99,6 +99,10 @@ import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
 // "challenger") to the matching GLOBAL template instead of the generic block
 // assembler. Brand-aware (storefront gating) and fail-open.
 import { matchTemplateIntent } from "../../lib/ai-prompts/template-intent";
+// Shared pg-error helper: drizzle wraps the driver error so a unique-constraint
+// violation (23505) lives on `.cause`, not the top-level `.code`. Used by the
+// slug-uniqueness retry below so a colliding slug retries instead of throwing.
+import { isUniqueViolation } from "../../lib/dbErrors";
 // P0-C — pure objective→plan decision engine. The /recommend endpoint returns
 // the plan (template + reasoning) for the FE preview step; the resolved
 // template/segment/persona/objective then flow into the generate call.
@@ -4649,8 +4653,10 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         page = inserted as typeof page;
         break;
       } catch (insertErr: unknown) {
-        const pgCode = (insertErr as { code?: string }).code;
-        if (pgCode === "23505") {
+        // Drizzle wraps the pg error, so the 23505 code is on `.cause` — walk the
+        // chain (isUniqueViolation) rather than reading the wrapper's `.code`,
+        // which is undefined and would skip every retry on a colliding slug.
+        if (isUniqueViolation(insertErr)) {
           if (attempt < MAX_SLUG_ATTEMPTS) continue; // try next suffix
           sendErrorJson(409, {
             error: `Slug "${baseSlug}" (and variants up to -${MAX_SLUG_ATTEMPTS}) are already taken. Please retry.`,
