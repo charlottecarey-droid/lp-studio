@@ -150,17 +150,19 @@ export const DSO_RECIPES: PageRecipe[] = [
   {
     id: "dso-narrative",
     label: "Customer narrative",
-    description: "a story-driven page built around one flagship customer journey",
+    description:
+      "a structured growth page modeled on a flagship DSO partner growth page: a stat-backed hero, an ROI proof grid, the core challenges, an old-way vs new-way contrast, one capability spotlight, then stacked customer proof",
     skeleton: [
-      "dso-scroll-story-hero",
-      "dso-problem",
-      "dso-scroll-story OR dso-flow-canvas",
-      "dso-case-study OR dso-success-stories",
-      "dso-case-flow",
-      "dso-cta-capture",
+      "dso-heartland-hero",
+      "dso-stat-showcase",
+      "dso-challenges",
+      "dso-comparison",
+      "dso-ai-feature",
+      "dso-success-stories",
+      "dso-final-cta OR dso-cta-capture",
     ],
     styleNotes:
-      "Narrative arc over feature list: open on the operational pain, walk one customer's transformation chapter by chapter, close on the workflow that made it repeatable. Use approved case studies only.",
+      "A confident, executive growth story told through outcomes, not a feature list. Open on a dark, full-bleed hero whose headline names the growth outcome, with a 3–4 metric stat bar underneath. Follow with an ROI stat grid that quantifies the result, then 3–4 sharply-named operational challenges. The old-way vs new-way comparison is the centerpiece — make both columns substantive and specific. Spotlight ONE capability with its own supporting metrics and an image, then stack 3 customer success stories using approved case studies only (each with a real logo, stat, and quote). Close on a single, unmissable CTA. Dark, premium backgrounds; every section earns its scroll.",
   },
   {
     id: "dso-pilot-push",
