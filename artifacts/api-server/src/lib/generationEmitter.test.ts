@@ -1,8 +1,8 @@
 /**
  * GenerationEmitter SSE serialization tests (mock req/res — no DB, no HTTP).
  * Covers: header setup, opening frames, event framing for every event type,
- * flush-after-every-write, the 15s heartbeat, terminal result/error ending
- * the stream, and client-disconnect abort semantics.
+ * flush-after-every-write, the padded anti-buffering keepalive, terminal
+ * result/error ending the stream, and client-disconnect abort semantics.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -70,6 +70,10 @@ describe("SseGenerationEmitter", () => {
     expect(res.flushHeadersCalls).toBe(1);
     expect(res.writes[0]).toBe("retry: 5000\n\n");
     expect(res.writes[1]).toBe(": connected\n\n");
+    // Opening anti-buffering pad: a large `:`-comment that pushes past the
+    // proxy's first-chunk buffer so opening events flush immediately.
+    expect(res.writes[2].startsWith(":")).toBe(true);
+    expect(res.writes[2].length).toBeGreaterThan(1_000);
   });
 
   it("frames every event type as `event: <name>` + JSON data and flushes after each", () => {
@@ -110,17 +114,21 @@ describe("SseGenerationEmitter", () => {
     expect(res.flushCalls).toBe(res.writes.length);
   });
 
-  it("emits a heartbeat comment every 15s until the stream ends", () => {
+  it("emits a padded keepalive comment every 1s until the stream ends", () => {
     const { res, emitter } = makeEmitter();
     const before = res.writes.length;
-    vi.advanceTimersByTime(15_000);
-    expect(res.writes.slice(before)).toEqual([": hb\n\n"]);
-    vi.advanceTimersByTime(15_000);
-    expect(res.writes.slice(before)).toEqual([": hb\n\n", ": hb\n\n"]);
+    vi.advanceTimersByTime(1_000);
+    const first = res.writes.slice(before);
+    expect(first).toHaveLength(1);
+    expect(first[0].startsWith(":")).toBe(true);
+    // Padded large enough to push past a proxy's buffer (not a tiny ": hb").
+    expect(first[0].length).toBeGreaterThan(1_000);
+    vi.advanceTimersByTime(1_000);
+    expect(res.writes.slice(before)).toHaveLength(2);
     emitter.result({ ok: true });
     const afterEnd = res.writes.length;
     vi.advanceTimersByTime(60_000);
-    expect(res.writes.length).toBe(afterEnd); // heartbeat stopped
+    expect(res.writes.length).toBe(afterEnd); // keepalive stopped
   });
 
   it("result emits the terminal event then ends the response; later events are dropped", () => {

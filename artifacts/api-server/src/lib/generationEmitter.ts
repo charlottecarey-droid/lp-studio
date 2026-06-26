@@ -30,6 +30,16 @@
  *   • On client disconnect the emitter aborts `signal` so the route can
  *     cancel the in-flight OpenAI request (releasing its semaphore slot) and
  *     stop all remaining work.
+ *   • Anti-buffering keepalive: the Replit preview proxy forwards a response
+ *     only once enough bytes accumulate. The marketing generator streams
+ *     per-block tokens continuously so that buffer fills and flushes the whole
+ *     time; the microsite generator does ONE non-streaming model call with long
+ *     no-data gaps, during which a tiny `: hb` could sit in the proxy buffer for
+ *     the entire generation (blank rail/canvas, then every event at once at the
+ *     end). We instead send an oversized comment (`SSE_KEEPALIVE`) on open and
+ *     on a tight interval so the stream always carries enough bytes to flush —
+ *     stage/blocks events then reach the client live. Comments are ignored by
+ *     every SSE client, so this is invisible to the contract above.
  */
 import type { Request, Response } from "express";
 import { logger } from "./logger";
@@ -87,7 +97,18 @@ export const NOOP_GENERATION_EMITTER: GenerationEmitter = {
   close: () => {},
 };
 
-const HEARTBEAT_MS = 15_000;
+/** Keepalive cadence. A tight interval (vs the old 15s heartbeat) so each real
+ *  event flushes through a buffering proxy within ~1s instead of being held
+ *  until the stream ends. */
+const KEEPALIVE_MS = 1_000;
+
+/** Oversized SSE comment line written on open and every KEEPALIVE_MS. Comments
+ *  (`:`-prefixed) are ignored by every SSE client; the BYTES are the point —
+ *  they push past the Replit preview proxy's accumulate-before-forward buffer so
+ *  sparse streams (the microsite generator) flush live instead of in one final
+ *  burst. Single line (no interior newline) so the client parser drops it whole.
+ *  16 KiB comfortably exceeds typical proxy buffers. */
+const SSE_KEEPALIVE = `: ${" ".repeat(16_384)}\n\n`;
 
 /** Minimal Response surface the emitter needs — widened for unit tests. */
 export interface SseResponseLike {
@@ -122,10 +143,13 @@ class SseGenerationEmitter implements GenerationEmitter {
     res.flushHeaders?.();
     this.writeRaw(`retry: 5000\n\n`);
     this.writeRaw(`: connected\n\n`);
+    // Blow past the proxy's first-chunk buffer immediately so the opening stage
+    // events (research/context/…) reach the client right away.
+    this.writeRaw(SSE_KEEPALIVE);
 
     this.heartbeat = setInterval(() => {
-      this.writeRaw(`: hb\n\n`);
-    }, HEARTBEAT_MS);
+      this.writeRaw(SSE_KEEPALIVE);
+    }, KEEPALIVE_MS);
     // Don't let the heartbeat keep the process alive on its own.
     if (typeof this.heartbeat === "object" && "unref" in this.heartbeat) {
       this.heartbeat.unref();
