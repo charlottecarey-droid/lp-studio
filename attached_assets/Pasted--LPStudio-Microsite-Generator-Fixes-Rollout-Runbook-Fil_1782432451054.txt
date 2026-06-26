@@ -1,0 +1,208 @@
+# LPStudio — Microsite Generator Fixes Rollout Runbook
+
+**File touched (all phases):** `lp-studio-staging/.../routes/sales/generate-microsite.ts`
+**The rule (same as the marketing runbook):** one change per phase → verify → commit. Never start the next phase on a red checkpoint.
+
+## Read this first — how this file differs from the marketing generator
+
+Several `generate-page.ts` fixes do **not** apply here. Don't go looking for them:
+
+- **No repeat guard, no `pickRecipe` / recipe rotation.** Nothing to disable.
+- **No inline SaaS example prose in the block schemas.** `BLOCK_PROP_SCHEMAS` are terse field specs, so there is **no `stripExampleProse` step** (that's the change that shortened copy last time — it has no analog here).
+- **No `buildBrandVoiceAnchor` to replace** — the voice fix here is a small insert into `buildSystemPrompt`.
+- **Only one model call** in the route (no critique/second pass).
+- **The per-account variability passes are already deterministic** (`applyDandyHeroVariability` / supporting / layout, via the local `hashSeed`). That's the behavior we want — leave them alone.
+
+The standout finding unique to this file: **the output token ceiling is 4096** (the marketing generator uses 12288). That alone can produce short/terse copy or silent truncation. It's Phase 1.
+
+---
+
+## Phase 0 — Baseline (no code change)
+
+1. Confirm the microsite generator works right now.
+2. Commit the clean state:
+   ```
+   git add -A && git commit -m "baseline: working microsite generator before fixes"
+   ```
+
+**CHECKPOINT 0:** a microsite generates and previews. ✅ → Phase 1.
+
+---
+
+## Phase 1 — Raise the output token ceiling (biggest "short copy" win)
+
+Add these constants near the top, right after `getOpenAIClient()`:
+
+```ts
+/** Generation model. Stays gpt-4o until Phase 5 — do NOT change yet. */
+const GENERATION_MODEL = "gpt-4o";
+
+/** Output token budget. 4096 → 8192: 4096 truncated full multi-block microsites,
+ *  producing short/terse copy or invalid JSON that silently fell back to the
+ *  template/neutral layout. (The marketing generator uses 12288.) */
+const GENERATION_MAX_TOKENS = 8192;
+
+/** Sampling temperature. Freeform paths compose their own lineup so they get a
+ *  little more room; fixed/curated paths stay tight. Lowered from 0.85 / 0.7. */
+const GENERATION_TEMPERATURE_FREEFORM = 0.5;
+const GENERATION_TEMPERATURE_FIXED = 0.45;
+```
+
+At the single model call (`openai.chat.completions.create`), replace:
+
+```ts
+        model: "gpt-4o",
+        temperature: (useFreeform || useDsoFreeform || usePoolFreeform) ? 0.85 : 0.7,
+        max_completion_tokens: 4096,
+```
+
+with (this phase only changes the token line — temp comes in Phase 2, but set the model constant now):
+
+```ts
+        model: GENERATION_MODEL,
+        temperature: (useFreeform || useDsoFreeform || usePoolFreeform) ? 0.85 : 0.7,
+        max_completion_tokens: GENERATION_MAX_TOKENS,
+```
+
+**CHECKPOINT 1:** compiles, preview loads, generate a real account microsite → copy is fuller, no mid-section truncation, no unexpected fallback to a bare template.
+✅ → `git commit -m "phase 1: raise microsite output token ceiling to 8192"` → Phase 2.
+
+---
+
+## Phase 2 — Lower temperature
+
+Same call site — now swap the temperature line:
+
+```ts
+        temperature: (useFreeform || useDsoFreeform || usePoolFreeform) ? GENERATION_TEMPERATURE_FREEFORM : GENERATION_TEMPERATURE_FIXED,
+```
+
+**CHECKPOINT 2:** compiles, preview loads, generate the **same account twice** → the block lineup and copy are recognizably steadier run-to-run (freeform pages will still vary somewhat by design, but far less churn).
+✅ → `git commit -m "phase 2: lower microsite generation temperature"` → Phase 3.
+
+---
+
+## Phase 3 — Deterministic image seed (removes Math.random)
+
+Find the image-fill pool construction:
+
+```ts
+    const imageFillPool: MediaImage[] = buildReferenceFillPool(
+      images,
+      scrapedMedia,
+      mergedReferenceUrls,
+      Math.floor(Math.random() * 1_000_000) + 1,
+    );
+```
+
+Replace the seed line with the file's existing deterministic `hashSeed` (no import needed — it's defined in this file), keyed on account + page + segment:
+
+```ts
+    const imageFillPool: MediaImage[] = buildReferenceFillPool(
+      images,
+      scrapedMedia,
+      mergedReferenceUrls,
+      // Deterministic per account+page+segment: same page → same image rotation
+      // every run; different pages still differ. (Was Math.random() → churn.)
+      hashSeed(`${accountId}:${baseSlug}:${segment.id ?? ""}`),
+    );
+```
+
+(`accountId`, `baseSlug`, and `segment.id` are all in scope at this point.)
+
+**CHECKPOINT 3:** compiles, preview loads, regenerate the same account → the images are stable across runs.
+✅ → `git commit -m "phase 3: deterministic microsite image rotation seed"` → Phase 4.
+
+---
+
+## Phase 4 — Hoist the brand voice to the top of the prompt
+
+**Pre-flight (do this BEFORE judging copy):** confirm the test tenant has `copyExamples` populated with 3–4 real on-brand lines. If it's empty, this anchor has little to assert and copy stays generic — that's a data gap, not a code bug.
+
+In `buildSystemPrompt`, just **after** the `brandSection` is assembled (the big `.filter(Boolean).join("\n")` block) and **before** `const header = [`, add:
+
+```ts
+  // June 2026 — hoist the brand's REAL voice to the TOP of the prompt. The brand
+  // context is rich but long; the model weighs the front of the system prompt
+  // most heavily, so the brand's own example copy + voice cues lead here as the
+  // highest-priority register. (They still appear in full in BRAND VOICE below.)
+  const voiceAnchorExamples = (copyExamples ?? [])
+    .map((e) => (e ?? "").trim())
+    .filter(Boolean)
+    .slice(0, 4);
+  const voiceAnchorCues = [
+    tone?.trim() ? `tone — ${tone.trim()}` : "",
+    vp?.tone?.length ? `voice tags — ${vp.tone.join(", ")}` : "",
+    toneKeywords?.length ? `personality — ${toneKeywords.slice(0, 6).join(", ")}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const brandLabel = brandName.trim() || "this brand";
+  const voiceAnchor =
+    brandName.trim() || voiceAnchorExamples.length || voiceAnchorCues
+      ? [
+          `BRAND VOICE — HIGHEST PRIORITY: write every line as ${brandLabel}, never a generic vendor.${voiceAnchorCues ? ` Voice: ${voiceAnchorCues}.` : ""}`,
+          voiceAnchorExamples.length
+            ? `Match the cadence, specificity, and word choice of ${brandLabel}'s own copy — treat these real lines as the gold standard:\n${voiceAnchorExamples
+                .map((e) => `  "${e}"`)
+                .join("\n")}`
+            : "",
+          "Two different brands given the same brief must produce visibly different copy. Generic SaaS phrasing is a failure.",
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : "";
+```
+
+Then insert it as the second element of the `header` array (right after the opening "You are an expert B2B copywriter…" line). Change:
+
+```ts
+  const header = [
+    `You are an expert B2B copywriter for ${sellerIdentity}. You write personalized microsites for ${audienceDescription}.`,
+    "",
+    pitchDirection,
+```
+
+to:
+
+```ts
+  const header = [
+    `You are an expert B2B copywriter for ${sellerIdentity}. You write personalized microsites for ${audienceDescription}.`,
+    voiceAnchor ? `\n${voiceAnchor}` : "",
+    "",
+    pitchDirection,
+```
+
+(The header array already ends with `.filter(s => s !== "").join("\n")`, so an empty `voiceAnchor` drops out cleanly.)
+
+**CHECKPOINT 4:** compiles, preview loads, generate for a tenant whose `copyExamples` are populated → copy sounds more like that brand and stays full-length (the schemas are untouched, so density is intact).
+✅ → `git commit -m "phase 4: hoist brand voice anchor to top of microsite prompt"` → Phase 5.
+
+---
+
+## Phase 5 — Model swap (isolated, last, one-line rollback)
+
+Change ONLY:
+
+```ts
+const GENERATION_MODEL = "gpt-4o"; // → your best current model string
+```
+
+**CHECKPOINT 5:** generate a microsite.
+✅ sharper copy, still works → `git commit -m "phase 5: upgrade microsite generation model"`.
+❌ generation errors / preview blanks → the proxy doesn't serve that model string. Set it straight back to `"gpt-4o"`; do not commit the broken value.
+
+---
+
+## If a preview goes dark mid-rollout
+
+Same as the marketing runbook: it's either a **compile error** (the red error in your terminal names the line) or **generation throws** (check the server log / the failed request in the network tab). Because every phase is its own commit, recovery is `git revert HEAD` — never a full re-revert.
+
+---
+
+## What's intentionally NOT here
+
+- No repeat-guard / recipe-rotation step (this file has neither).
+- No `stripExampleProse` (no inline schema examples — and that's the change that shortened copy last time).
+- The deterministic per-account variability passes are left untouched on purpose.
+- Forced-density loosening and the selection-vs-writing brief split — same as the marketing generator, those are real refactors, not paste-ins. Once Phases 1–5 are stable on both generators, that's the next piece of work.

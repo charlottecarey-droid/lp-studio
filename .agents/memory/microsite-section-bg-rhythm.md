@@ -1,7 +1,26 @@
 ---
 name: Microsite section-bg rhythm needs seeded backgroundStyle
-description: Why AI sales-microsite sections render all-white, and the two-place fix to make them participate in the background-rhythm passes.
+description: Why AI sales-microsite sections render all-white/washed-out, and the fixes — seed self-section blocks AND coerce hallucinated backgroundStyle tokens to real presets.
 ---
+
+**Coerce hallucinated `backgroundStyle` to a real preset (washed-out microsite).**
+The renderer's `getBgStyle()` only knows the 7 canonical presets (white,
+light-gray, muted, dark, dandy-green, black, gradient) and SILENTLY falls back to
+plain WHITE for anything else. The AI generator hallucinates non-preset tokens
+into the field — image-scene words like `starter`/`flagship`/`laptop`/`doctor` —
+so every affected section washes out. `mergeWithDefaults` used
+`backgroundStyle: p.backgroundStyle ?? <default>`, but a non-null junk string is
+NOT nullish, so the junk survived the `??`; and `enforceSectionBgRhythm` skips
+`dso-*` blocks (`isSection` is false for `dso-`), so nothing downstream corrected
+them. **Fix:** `coerceBackgroundStyle(v)` returns `v` only if it's in
+`VALID_BACKGROUND_STYLES` (= union of `MICROSITE_LIGHT_BGS` + `MICROSITE_DARK_BGS`),
+else `undefined`, so the per-block `?? <default>` fires. Applied at ALL ~19
+`backgroundStyle: p.backgroundStyle ??` merge callsites AND in the `default:`
+fall-through (seed when no valid bg, else drop an invalid present value).
+**Why:** the value is persisted into block JSON at generation time, so merge is
+the right normalization layer; the renderer can't know each block's intended
+default. **Boundary:** this only fixes NEW generations — already-saved page rows
+keep their bad tokens and need regeneration.
 
 The deterministic background-rhythm passes in sales-microsite generation only
 touch blocks that ALREADY carry a `backgroundStyle` prop:

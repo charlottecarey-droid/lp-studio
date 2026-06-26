@@ -599,6 +599,24 @@ const MICROSITE_LIGHT_BGS: ReadonlySet<string> = new Set(["white", "light-gray",
 /** Dark / brand presets that read as a distinct anchor band. */
 const MICROSITE_DARK_BGS: ReadonlySet<string> = new Set(["dark", "dandy-green", "black", "gradient"]);
 
+/** The complete set of `backgroundStyle` presets the renderer actually knows
+ *  (getBgStyle / resolveSectionSurface). ANY other value — an empty string, a
+ *  legacy token, or a model hallucination (the AI sometimes emits image-scene
+ *  words like "starter"/"flagship"/"laptop" into this field) — resolves to plain
+ *  WHITE in getBgStyle's fallback, washing the whole microsite out. */
+const VALID_BACKGROUND_STYLES: ReadonlySet<string> = new Set([
+  ...MICROSITE_LIGHT_BGS,
+  ...MICROSITE_DARK_BGS,
+]);
+
+/** Return `v` only when it is a real renderer preset, else `undefined`. Used so
+ *  a hallucinated/blank `backgroundStyle` falls through to each block's intended
+ *  `?? default` instead of surviving (a non-null junk string isn't nullish, so a
+ *  bare `p.backgroundStyle ?? "dark"` would otherwise keep the junk → white). */
+function coerceBackgroundStyle(v: unknown): string | undefined {
+  return typeof v === "string" && VALID_BACKGROUND_STYLES.has(v) ? v : undefined;
+}
+
 function blockTypeOf(block: unknown): string {
   const t = (block as { type?: unknown })?.type;
   return typeof t === "string" ? t : "";
@@ -1105,7 +1123,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         ctaTextColor: p.ctaTextColor,
         heroType: p.heroType ?? "static-image",
         layout: p.layout ?? "centered",
-        backgroundStyle: p.backgroundStyle ?? "dark",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "dark",
         showSocialProof: p.showSocialProof ?? false,
         socialProofText: p.socialProofText ?? "",
         imageUrl: p.imageUrl ?? "",
@@ -1178,7 +1196,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         // the block falls back to its hardcoded near-white tint and every
         // section reads as white (Task #1127). The block still renders that
         // near-white look when no style is set (legacy pages unaffected).
-        backgroundStyle: p.backgroundStyle ?? "muted",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "muted",
       };
     }
 
@@ -1189,7 +1207,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         subheadline: p.subheadline ?? p.subheading ?? "",
         ctaText: p.ctaText ?? "Get started",
         ctaUrl: p.ctaUrl ?? "#",
-        backgroundStyle: p.backgroundStyle ?? "dark",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "dark",
       };
 
     case "how-it-works": {
@@ -1259,7 +1277,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         stats: stats.length > 0
           ? stats.map(s => ({ value: s.value ?? "", label: s.label ?? "" }))
           : [],
-        backgroundStyle: p.backgroundStyle ?? "white",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "white",
       };
     }
 
@@ -1268,7 +1286,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
       return {
         eyebrow: p.eyebrow ?? "",
         headline: p.headline ?? p.heading ?? "At scale, small inefficiencies compound fast.",
-        backgroundStyle: p.backgroundStyle ?? "muted",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "muted",
         layout: p.layout ?? "4-col",
         challenges: challenges.length > 0
           ? challenges.map(c => ({ title: c.title ?? c.name ?? "", desc: c.desc ?? c.description ?? c.body ?? "" }))
@@ -1282,7 +1300,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         headline: p.headline ?? p.heading ?? "One dashboard for every location.",
         subheadline: p.subheadline ?? p.subheading ?? "",
         practiceLabel: p.practiceLabel ?? "locations",
-        backgroundStyle: p.backgroundStyle ?? "muted",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "muted",
         dashboardVariant: p.dashboardVariant ?? "light",
       };
 
@@ -1291,7 +1309,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
       return {
         eyebrow: p.eyebrow ?? "Proven results",
         headline: p.headline ?? p.heading ?? "Customers that switched and never looked back.",
-        backgroundStyle: p.backgroundStyle ?? "dandy-green",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "dandy-green",
         cases: cases.length > 0
           ? cases.map(c => ({ name: c.name ?? "", stat: c.stat ?? "", label: c.label ?? "", quote: c.quote ?? "", author: c.author ?? "" }))
           : [],
@@ -1304,7 +1322,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         eyebrow: p.eyebrow ?? "How it works",
         headline: p.headline ?? p.heading ?? "Start small. Prove it out. Then scale.",
         subheadline: p.subheadline ?? p.subheading ?? "",
-        backgroundStyle: p.backgroundStyle ?? "muted",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "muted",
         steps: steps.length > 0
           ? steps.map(s => ({
               title: s.title ?? s.name ?? "",
@@ -1325,7 +1343,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         primaryCtaUrl: p.primaryCtaUrl ?? p.ctaUrl ?? "#",
         secondaryCtaText: p.secondaryCtaText ?? "",
         secondaryCtaUrl: p.secondaryCtaUrl ?? "#",
-        backgroundStyle: p.backgroundStyle ?? "dandy-green",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "dandy-green",
       };
 
     case "dso-comparison": {
@@ -1342,7 +1360,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         // Leaving the key name unchanged here to keep stored block JSON
         // compatible with the renderer; copy is brand-neutral.
         rows: rows.map(r => ({ need: r.need ?? r.feature ?? "", dandy: r.dandy ?? r.us ?? "", traditional: r.traditional ?? "" })),
-        backgroundStyle: p.backgroundStyle ?? "muted",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "muted",
       };
     }
 
@@ -1357,7 +1375,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         videoUrl: p.videoUrl ?? "",
         ctaText: p.ctaText ?? "Request a tour",
         ctaUrl: p.ctaUrl ?? "#",
-        backgroundStyle: p.backgroundStyle ?? "white",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "white",
       };
 
     // ── DSO Practice blocks ──────────────────────────────────────────
@@ -1383,7 +1401,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         secondaryCtaText: p.secondaryCtaText ?? "See how it works",
         secondaryCtaUrl: p.secondaryCtaUrl ?? "#",
         trustLine: p.trustLine ?? "",
-        backgroundStyle: p.backgroundStyle ?? "dark",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "dark",
       };
 
     case "dso-stat-row": {
@@ -1394,7 +1412,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         items: items.length > 0
           ? items.map(s => ({ value: s.value ?? "", label: s.label ?? "", detail: s.detail ?? "" }))
           : [],
-        backgroundStyle: p.backgroundStyle ?? "dark",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "dark",
       };
     }
 
@@ -1407,7 +1425,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         perks: perks.length > 0
           ? perks.map(pk => ({ icon: pk.icon ?? "star", title: pk.title ?? pk.name ?? "", desc: pk.desc ?? pk.description ?? "" }))
           : [],
-        backgroundStyle: p.backgroundStyle ?? "dark",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "dark",
       };
     }
 
@@ -1422,7 +1440,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         ctaUrl: p.ctaUrl ?? "#",
         imageUrl: p.imageUrl ?? "",
         imagePosition: p.imagePosition ?? "right",
-        backgroundStyle: p.backgroundStyle ?? "white",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "white",
       };
     }
 
@@ -1438,7 +1456,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
           : [],
         ctaText: p.ctaText ?? "See it in action",
         ctaUrl: p.ctaUrl ?? "#",
-        backgroundStyle: p.backgroundStyle ?? "dandy-green",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "dandy-green",
         layout: p.layout ?? "centered",
       };
     }
@@ -1452,7 +1470,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         items: items.length > 0
           ? items.map(i => ({ question: i.question ?? i.q ?? i.title ?? "", answer: i.answer ?? i.a ?? i.body ?? "" }))
           : [],
-        backgroundStyle: p.backgroundStyle ?? "white",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "white",
       };
     }
 
@@ -1467,7 +1485,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
           : [],
         ctaText: p.ctaText ?? "Book your kickoff call",
         ctaUrl: p.ctaUrl ?? "#",
-        backgroundStyle: p.backgroundStyle ?? "dark",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "dark",
       };
     }
 
@@ -1480,7 +1498,7 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
         cards: cards.length > 0
           ? cards.map(c => ({ title: c.title ?? c.name ?? "", desc: c.desc ?? c.description ?? "", badge: c.badge ?? "OFFER", ctaText: c.ctaText ?? "Claim now" }))
           : [],
-        backgroundStyle: p.backgroundStyle ?? "dark",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "dark",
       };
     }
 
@@ -1506,8 +1524,18 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
       // The block still renders its hardcoded near-white look when no style is
       // set, so legacy DB rows are unaffected.
       const seeded = SECTION_BG_SEED_DEFAULTS[type];
-      if (seeded && !("backgroundStyle" in p)) {
+      const validBg = coerceBackgroundStyle(p.backgroundStyle);
+      if (seeded && !validBg) {
+        // No usable preset (absent, blank, or a hallucinated token) — seed the
+        // light-neutral default so the rhythm passes have a value to alternate.
         return { ...p, backgroundStyle: seeded };
+      }
+      if ("backgroundStyle" in p && !validBg) {
+        // A non-preset backgroundStyle survives `...p` and renders white. Drop it
+        // so the block falls back to its own hardcoded surface (legacy behavior).
+        const { backgroundStyle: _invalidBg, ...pWithoutBg } = p;
+        void _invalidBg;
+        return { ...pWithoutBg };
       }
       return { ...p };
     }
