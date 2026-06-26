@@ -37,10 +37,14 @@ const RICH_BRAND = {
 describe("buildBrandContext — full + prioritized brand context", () => {
   const ctx = buildBrandContext(RICH_BRAND as never, "balanced");
 
-  it("opens with an ordered CONTEXT PRIORITY preamble (segment > brand > proof > reference)", () => {
+  it("opens with a CONTEXT PRIORITY preamble — brand foundation constant, segment additive", () => {
     expect(ctx).toContain("CONTEXT PRIORITY");
-    expect(ctx).toMatch(/AUDIENCE SEGMENT[\s\S]*leads and takes priority/);
+    expect(ctx).toContain("CONSTANT BRAND FOUNDATION");
+    expect(ctx).toContain("ADDITIVE AUDIENCE EMPHASIS");
     expect(ctx.indexOf("CONTEXT PRIORITY")).toBeLessThan(ctx.indexOf("Brand: Acme"));
+    // Must NOT teach the model that the segment overrides the brand core.
+    expect(ctx).not.toMatch(/leads and takes priority/);
+    expect(ctx).not.toContain("which take precedence");
   });
 
   it("injects positioning, value propositions, terminology, CTA guidance, and dos/donts", () => {
@@ -76,7 +80,7 @@ describe("buildBrandContext — full + prioritized brand context", () => {
   });
 });
 
-describe("buildSegmentSection (LP) — messaging-hierarchy parity", () => {
+describe("buildSegmentSection (LP) — additive-emphasis parity", () => {
   const seg = {
     name: "DSO",
     messagingAngle: "Operational efficiency at scale",
@@ -85,12 +89,16 @@ describe("buildSegmentSection (LP) — messaging-hierarchy parity", () => {
     challenges: [{ title: "Remake rates", desc: "high across the network" }],
   };
 
-  it("emits the priority directive + leads with segment value props", () => {
+  it("emits the additive-emphasis directive + emphasizes segment value props", () => {
     const out = buildSegmentSection(seg);
-    expect(out).toContain("MESSAGING HIERARCHY");
-    expect(out.toUpperCase()).toContain("LEADS");
+    expect(out).toContain("ADDITIVE AUDIENCE EMPHASIS — READ FIRST");
+    expect(out).toContain("sound unmistakably like the core brand");
     expect(out).toContain("Same-store growth");
-    expect(out).toContain("LEAD with these");
+    expect(out).toContain("emphasize these for this audience");
+    // Old override framing must be gone.
+    expect(out).not.toContain("MESSAGING HIERARCHY");
+    expect(out).not.toMatch(/LEADS and takes priority/);
+    expect(out).not.toContain("not core lines");
   });
 
   it("addresses personas directly with their pains", () => {
@@ -99,8 +107,8 @@ describe("buildSegmentSection (LP) — messaging-hierarchy parity", () => {
     expect(out).toContain("inconsistent quality across locations");
   });
 
-  it("omits the priority directive for an empty/placeholder segment (core fallback)", () => {
-    expect(buildSegmentSection({ name: "X" })).not.toContain("MESSAGING HIERARCHY");
+  it("omits the emphasis directive for an empty/placeholder segment (core fallback)", () => {
+    expect(buildSegmentSection({ name: "X" })).not.toContain("ADDITIVE AUDIENCE EMPHASIS");
   });
 });
 

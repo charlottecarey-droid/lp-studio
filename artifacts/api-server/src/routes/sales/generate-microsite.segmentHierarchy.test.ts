@@ -40,13 +40,16 @@ const DSO_SEGMENT: BrandAudienceSegment = {
   ],
 };
 
-describe("buildSegmentSection — messaging hierarchy priority", () => {
-  it("emits the priority directive + segment value props", () => {
+describe("buildSegmentSection — additive audience emphasis", () => {
+  it("emits the additive-emphasis directive + segment value props", () => {
     const section = buildSegmentSection(DSO_SEGMENT);
-    expect(section).toContain("MESSAGING HIERARCHY");
-    expect(section.toUpperCase()).toContain("LEADS");
+    expect(section).toContain("ADDITIVE AUDIENCE EMPHASIS — READ FIRST");
+    expect(section).toContain("sound unmistakably like the core brand");
     expect(section).toContain("Same-store growth across every location");
     expect(section).toContain("Standardization and margin expansion");
+    // Old override framing must be gone.
+    expect(section).not.toContain("MESSAGING HIERARCHY");
+    expect(section).not.toMatch(/LEADS and takes priority/);
   });
 
   it("surfaces segment avoid-phrases as a DO-NOT-USE line (DSO failure guard)", () => {
@@ -96,11 +99,11 @@ describe("findSelectedPersona", () => {
 describe("buildSystemPrompt — segment vs core path", () => {
   const brand = { brandName: "Dandy", segments: [DSO_SEGMENT] };
 
-  it("with a selected segment, the prompt contains the priority directive + segment props", () => {
+  it("with a selected segment, the prompt contains the additive-emphasis directive + segment props", () => {
     const prompt = buildSystemPrompt(
       DSO_SEGMENT, brand, undefined, "dso", false, undefined, null, [], false, undefined, undefined,
     );
-    expect(prompt).toContain("MESSAGING HIERARCHY");
+    expect(prompt).toContain("ADDITIVE AUDIENCE EMPHASIS — READ FIRST");
     expect(prompt).toContain("Same-store growth across every location");
   });
 
@@ -113,12 +116,12 @@ describe("buildSystemPrompt — segment vs core path", () => {
     expect(prompt).toContain("VP of Operations");
   });
 
-  it("with no usable segment data, the priority directive is absent (core path)", () => {
+  it("with no usable segment data, the emphasis directive is absent (core path)", () => {
     const emptySeg: BrandAudienceSegment = { id: "x", name: "X" };
     const prompt = buildSystemPrompt(
       emptySeg, { brandName: "Acme", segments: [] }, undefined, null, false, undefined, null, [], false, undefined, undefined,
     );
-    expect(prompt).not.toContain("MESSAGING HIERARCHY");
+    expect(prompt).not.toContain("ADDITIVE AUDIENCE EMPHASIS — READ FIRST");
   });
 
   // Segment is now OPTIONAL: when the rep picks no segment the route resolves a
@@ -129,7 +132,7 @@ describe("buildSystemPrompt — segment vs core path", () => {
     const prompt = buildSystemPrompt(
       coreSeg, { brandName: "Acme", segments: [DSO_SEGMENT] }, undefined, null, false, undefined, null, [], false, undefined, undefined,
     );
-    expect(prompt).not.toContain("MESSAGING HIERARCHY");
+    expect(prompt).not.toContain("ADDITIVE AUDIENCE EMPHASIS — READ FIRST");
     expect(prompt).not.toContain("Same-store growth across every location");
   });
 
@@ -141,7 +144,7 @@ describe("buildSystemPrompt — segment vs core path", () => {
     const prompt = buildSystemPrompt(
       coreSeg, { brandName: "Acme", segments: [DSO_SEGMENT] }, undefined, "dso", false, undefined, null, [], false, undefined, undefined,
     );
-    expect(prompt).toContain("MESSAGING HIERARCHY");
+    expect(prompt).toContain("ADDITIVE AUDIENCE EMPHASIS — READ FIRST");
   });
 });
 
@@ -166,9 +169,13 @@ describe("buildSystemPrompt — brand-core context parity (June 2026 copy audit)
     DSO_SEGMENT, richBrand, undefined, "dso", false, undefined, null, [], false, undefined, undefined,
   );
 
-  it("injects an ordered CONTEXT PRIORITY preamble", () => {
+  it("injects a CONTEXT PRIORITY preamble — brand foundation constant, segment additive", () => {
     expect(prompt).toContain("CONTEXT PRIORITY");
-    expect(prompt).toMatch(/TARGET SEGMENT[\s\S]*leads and takes priority/);
+    expect(prompt).toContain("CONSTANT BRAND FOUNDATION");
+    expect(prompt).toContain("ADDITIVE AUDIENCE EMPHASIS");
+    expect(prompt).toContain("TARGET SEGMENT");
+    // Old override framing must be gone.
+    expect(prompt).not.toMatch(/leads and takes priority/);
   });
 
   it("injects positioning, value propositions, terminology, CTA guidance, dos/donts", () => {

@@ -2403,17 +2403,19 @@ export function findSelectedPersona(
  * challenges, stats and comparison rows. Returns empty string when no
  * segment matches.
  *
- * MESSAGING HIERARCHY (P0-A): when a segment is selected its messaging LEADS
- * and takes priority over the brand's core/default messaging — the section opens
- * with a clear priority directive so the model leads with the segment's value
- * props, pains and vocabulary while still drawing on brand depth for support
- * (the DSO failure:
+ * ADDITIVE AUDIENCE EMPHASIS (P0-A): the brand voice, copy examples, products,
+ * and core identity are the CONSTANT FOUNDATION on every page; when a segment is
+ * selected it is ADDITIVE — the section opens with a clear directive so the model
+ * keeps the core brand voice and identity unchanged while emphasizing the
+ * segment's value props, pains and vocabulary and adding what's DIFFERENT for
+ * this audience (the DSO failure:
  * "transform your practice with Dandy" is practice-level CORE messaging and
  * must NOT leak onto a DSO-segment page centred on same-store growth,
  * standardization, operational efficiency, margin expansion, enterprise
- * rollout). When a persona within the segment is selected, that persona's role
- * + pains + what-they-care-about are injected and the model is told to address
- * THAT persona on top of the segment guidance.
+ * rollout — its per-segment avoidPhrases DO-NOT-USE list guards this). When a
+ * persona within the segment is selected, that persona's role + pains +
+ * what-they-care-about are injected and the model is told to address THAT
+ * persona on top of the segment emphasis.
  */
 export function buildSegmentSection(
   segment: BrandAudienceSegment | undefined,
@@ -2437,11 +2439,13 @@ export function buildSegmentSection(
   if (!hasUsableData) return "";
   const segName = segment.name?.trim() || "this account's segment";
   const lines: string[] = [
-    // ── Messaging-hierarchy directive — segment LEADS, brand core supports. ──
-    "MESSAGING HIERARCHY — READ FIRST:",
-    `- The selected segment's messaging (${segName}) LEADS and takes priority over the brand's core/default messaging.`,
-    "- Open and frame the page with the segment's value props, pains, and vocabulary below. You SHOULD still draw on the brand's core authority, story, proof, and pillars for supporting copy where they reinforce this segment — just don't center the page on off-segment core lines.",
-    "- When the segment-specific data below conflicts with a core/brand pillar on headlines, value props, pains, or proof, prefer the segment data; otherwise blend the two so the copy reads rich and specific, never thin or repetitive.",
+    // ── Additive-emphasis directive — brand voice/identity is the constant ──
+    // ── foundation; the segment only adjusts emphasis and adds what differs. ──
+    "ADDITIVE AUDIENCE EMPHASIS — READ FIRST:",
+    "- This is still the selling brand's own page: the BRAND VOICE & GUIDELINES above (voice, copy examples, products, terminology, positioning, and core identity) apply IN FULL and UNCHANGED. Every line must sound unmistakably like the core brand — exactly as it would on any other page.",
+    `- The selected segment (${segName}) is ADDITIVE: it does NOT replace or outrank the brand core. Use it to choose WHICH of the brand's value props, pains, and proof to foreground for this audience, and to add this audience's specific angle and vocabulary — i.e. show what's DIFFERENT for them, layered on top of the same core brand.`,
+    "- Emphasize the segment's value props and pains below where they fit, and keep drawing on the brand's core authority, story, proof, and pillars throughout so the copy stays rich and specific — never thin it down to segment-only lines.",
+    "- Where the segment names audience-specific priorities, use them to set the emphasis and examples while preserving the brand's core claims and voice. Only drop a core line when it is in the DO-NOT-USE phrases below or is clearly written for a different audience.",
     "",
     `TARGET SEGMENT — ${segName} (use this segment's specific data in copy):`,
     "",
@@ -2454,7 +2458,7 @@ export function buildSegmentSection(
     lines.push(`What makes this segment unique: ${segment.uniqueContext.trim()}`);
   }
   const vp = toPromptStringList(segment.valueProps);
-  if (vp.length) lines.push(`Segment-specific value props (LEAD with these, not core lines): ${vp.join("; ")}`);
+  if (vp.length) lines.push(`Segment-specific value props (emphasize these for this audience, alongside — not instead of — the brand's core value props): ${vp.join("; ")}`);
 
   // Segment-level avoid phrases: any core/practice-level line that must never
   // leak onto this segment's page. Stored as `avoidPhrases` on the segment when
@@ -2752,7 +2756,7 @@ export function buildSystemPrompt(
     toneKeywords?.length ? `Style words — your copy should feel: ${toneKeywords.join(", ")}` : null,
     positioningStatement?.trim() ? `POSITIONING — the brand's core stance; anchor the argument on this: ${positioningStatement.trim()}` : null,
     pillars?.length   ? `Messaging pillars:\n${pillars.map(p => `- ${p.label}: ${p.description}`).join("\n")}` : null,
-    valuePropositions?.length ? `Core value propositions (lead with these unless the TARGET SEGMENT below provides segment-specific value props, which take precedence):\n${valuePropositions.map(v => `- ${v}`).join("\n")}` : null,
+    valuePropositions?.length ? `Core value propositions (the brand's top-level promises — these apply on EVERY page; lead with them, and where a TARGET SEGMENT is present, emphasize its segment-specific value props alongside them):\n${valuePropositions.map(v => `- ${v}`).join("\n")}` : null,
     taglines?.length  ? `Brand taglines (reference these, don't repeat them verbatim): ${taglines.join(" | ")}` : null,
     copyExamples?.length ? `Copy that nails the voice — study these and write in this register:\n${copyExamples.map(e => `  "${e}"`).join("\n")}` : null,
     terminologyPreferred?.length ? `PREFERRED TERMINOLOGY — use the brand's own words over generic synonyms: ${terminologyPreferred.join(", ")}` : null,
@@ -2818,9 +2822,9 @@ export function buildSystemPrompt(
     "",
     [
       "CONTEXT PRIORITY — read before writing, applies to every section below:",
-      "1. When ACCOUNT-SPECIFIC RESEARCH is provided below, it ANCHORS the page: build the hero, opening argument, primary value prop, pain framing, and CTA around why THIS specific named account should care right now. Lead with their actual situation, scale, and priorities — not a generic audience pitch — while still drawing on the segment, brand core, and proof (items 2-4) for supporting depth so the copy is never thin.",
-      "2. The TARGET SEGMENT + SELECTED PERSONA provide the audience frame: use them to choose which pains and value props are relevant and to set tone — but do not let them flatten the page into generic segment-level copy when real account facts exist.",
-      "3. The BRAND VOICE & GUIDELINES anchor the voice, vocabulary, positioning, and product facts — write every line as the selling brand.",
+      "1. CONSTANT BRAND FOUNDATION: the BRAND VOICE & GUIDELINES (voice, copy examples, products, terminology, positioning, and core identity) are the constant foundation of EVERY microsite — they apply IN FULL and UNCHANGED for every account and every segment. Write every line as the selling brand; it must sound unmistakably like this brand, never generic.",
+      "2. When ACCOUNT-SPECIFIC RESEARCH is provided below, it ANCHORS what the page is ABOUT: build the hero, opening argument, primary value prop, pain framing, and CTA around why THIS specific named account should care right now — their actual situation, scale, and priorities, not a generic pitch.",
+      "3. ADDITIVE AUDIENCE EMPHASIS: the TARGET SEGMENT + SELECTED PERSONA are additive on top of the foundation — use them to choose WHICH of the brand's pains and value props to foreground and to add this audience's angle and vocabulary (what's DIFFERENT for them). They never change the brand voice and never flatten the page into generic segment-level copy.",
       "4. The account research, approved case studies, proof points, and quotes are REAL — cite them by their actual numbers and names; never invent substitutes. If account research is thin or absent, do NOT invent account-specific facts — fall back to the segment/persona frame and keep claims general and brand-true.",
       "5. Any REFERENCE PAGE / screenshot is structural + stylistic inspiration ONLY — never copy its claims, never let it override the brand voice.",
       "",

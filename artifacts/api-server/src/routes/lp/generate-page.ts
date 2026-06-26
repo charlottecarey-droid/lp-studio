@@ -4147,15 +4147,16 @@ export function buildBrandContext(brand: BrandConfig, designIntensity: DesignInt
   const parts: string[] = [];
   // June 2026 copy-quality audit — an ORDERED context-priority preamble so the
   // model knows how to weigh the sections that follow (in BOTH the system and
-  // user prompts). Mirrors the microsite's MESSAGING HIERARCHY intent: the
-  // segment + persona guidance leads, the brand core anchors voice, reference
-  // material is inspiration only, and the supplied proof points are to be USED,
-  // never ignored or replaced with invented numbers.
+  // user prompts). The brand voice/identity is the CONSTANT FOUNDATION applied
+  // unchanged on every page; the segment + persona guidance is ADDITIVE emphasis
+  // on top of it (what's different for this audience), reference material is
+  // inspiration only, and the supplied proof points are to be USED, never
+  // ignored or replaced with invented numbers.
   parts.push(
     [
       "CONTEXT PRIORITY — read before writing, applies to every section below:",
-      "1. AUDIENCE SEGMENT + SELECTED PERSONA guidance (when present) leads and takes priority on headlines, value props, pains, and CTAs — but still draw on the brand core (item 2) for supporting depth, authority, and proof rather than writing thin segment-only copy.",
-      "2. This BRAND CONTEXT anchors the voice, vocabulary, positioning, and product facts — write every line as this specific brand.",
+      "1. CONSTANT BRAND FOUNDATION: this BRAND CONTEXT (voice, copy examples, products, terminology, positioning, and core identity) is the constant foundation of EVERY page — it applies IN FULL and UNCHANGED regardless of audience. Write every line as this specific brand; it must sound unmistakably like this brand, never generic.",
+      "2. ADDITIVE AUDIENCE EMPHASIS: the AUDIENCE SEGMENT + SELECTED PERSONA guidance (when present) is additive on top of that foundation — use it to choose WHICH of the brand's value props, pains, and proof to foreground and to add this audience's angle and vocabulary (what's DIFFERENT for them). It never changes the brand voice and never replaces the core identity; keep drawing on the brand core for depth so the copy is never thin.",
       "3. Approved case studies, proof points, stats, and customer quotes are REAL — cite them by their actual numbers and names; never invent or paraphrase substitutes.",
       "4. Any REFERENCE PAGE / inspiration site is structural + stylistic inspiration ONLY — never copy its claims, never let it override the brand voice.",
     ].join("\n"),
@@ -4191,7 +4192,7 @@ export function buildBrandContext(brand: BrandConfig, designIntensity: DesignInt
   }
   if (brand.valuePropositions?.length) {
     parts.push(
-      `Core value propositions (the brand's top-level promises — lead with these unless an AUDIENCE SEGMENT below provides segment-specific value props, which take precedence):\n${brand.valuePropositions
+      `Core value propositions (the brand's top-level promises — these apply on EVERY page; lead with them, and where an AUDIENCE SEGMENT is present, emphasize its segment-specific value props alongside them):\n${brand.valuePropositions
         .map((v) => `- ${v}`)
         .join("\n")}`,
     );
@@ -7287,14 +7288,15 @@ export function buildSegmentSection(
   opts: { strict?: boolean; proofPoints?: ProofPoint[]; dsoFreeChoice?: boolean; approvedPool?: readonly string[]; brandOutline?: PageOutline | null } = {},
 ): string {
   const parts: string[] = [];
-  // June 2026 copy-quality audit — bring the LP path to PARITY with the
-  // microsite generator's MESSAGING HIERARCHY directive. When a segment
-  // carries usable messaging data, its guidance LEADS over the brand core, and a
-  // persona (when present) overrides on top of the segment. This directive must
-  // be unmissable — it is the single biggest lever against generic, core-level
-  // copy leaking onto a segment-targeted page. It only fires when there is
-  // real segment data to lead with (an empty/placeholder segment falls back to
-  // brand core, exactly like the microsite path).
+  // June 2026 copy-quality audit — parity with the microsite generator's
+  // additive-emphasis directive. The brand voice/identity is the CONSTANT
+  // FOUNDATION (injected unchanged via buildBrandContext); when a segment
+  // carries usable messaging data, its guidance is ADDITIVE on top — it adjusts
+  // which brand value props/pains to foreground and adds this audience's angle,
+  // and a persona (when present) sharpens that focus. This directive must be
+  // unmissable — it is the lever that makes a segment page address its audience
+  // WITHOUT drifting off the core brand voice. It only fires when there is real
+  // segment data (an empty/placeholder segment falls back to brand core).
   const segHasUsableData = Boolean(
     seg.messagingAngle?.trim()
     || seg.uniqueContext?.trim()
@@ -7308,11 +7310,12 @@ export function buildSegmentSection(
   if (segHasUsableData) {
     parts.push(
       [
-        "MESSAGING HIERARCHY — READ FIRST:",
-        `- The selected segment's messaging (${segName}) LEADS and takes priority over the brand's core/default messaging.`,
-        "- Open and frame the page with the segment's value props, pains, and vocabulary below. You SHOULD still draw on the brand's core authority, story, proof, and pillars for supporting copy where they reinforce this segment — just don't center the page on off-segment core lines.",
-        "- When a PERSONA is listed below, frame the hero, value props, and CTA around what THAT persona cares about, on top of the segment guidance.",
-        "- When the segment-specific data below conflicts with a core/brand pillar on headlines, value props, pains, or proof, prefer the segment data; otherwise blend the two so the copy reads rich and specific, never thin or repetitive.",
+        "ADDITIVE AUDIENCE EMPHASIS — READ FIRST:",
+        "- This is still the brand's own page: the BRAND CONTEXT above (voice, copy examples, products, terminology, positioning, and core identity) applies IN FULL and UNCHANGED. Every line must sound unmistakably like the core brand — exactly as it would on any other page.",
+        `- The selected segment (${segName}) is ADDITIVE: it does NOT replace or outrank the brand core. Use it to choose WHICH of the brand's value props, pains, and proof to foreground for this audience, and to add this audience's specific angle and vocabulary — i.e. show what's DIFFERENT for them, layered on top of the same core brand.`,
+        "- Emphasize the segment's value props and pains below where they fit, and keep drawing on the brand's core authority, story, proof, and pillars throughout so the copy stays rich and specific — never thin it down to segment-only lines.",
+        "- When a PERSONA is listed below, sharpen the hero, value props, and CTA around what THAT persona cares about, on top of the segment emphasis.",
+        "- Where the segment names audience-specific priorities, use them to set the emphasis and examples while preserving the brand's core claims and voice. Only drop a core line when it is clearly written for a different audience.",
       ].join("\n"),
     );
   }
@@ -7320,7 +7323,7 @@ export function buildSegmentSection(
   if (seg.description) parts.push(`Segment Description: ${seg.description}`);
   if (seg.messagingAngle) parts.push(`Messaging Angle: ${seg.messagingAngle}`);
   if (seg.uniqueContext) parts.push(`Unique Context: ${seg.uniqueContext}`);
-  if (seg.valueProps?.length) parts.push(`Segment Value Props (LEAD with these, not core lines):\n${seg.valueProps.map(v => `- ${v}`).join("\n")}`);
+  if (seg.valueProps?.length) parts.push(`Segment Value Props (emphasize these for this audience, alongside the brand's core value props):\n${seg.valueProps.map(v => `- ${v}`).join("\n")}`);
   if (seg.personas?.length) {
     const ps = seg.personas.map(p => `${p.role}: ${p.painPoints.join(", ")}`).join("\n");
     parts.push(`Known Personas (address these people directly; their pains drive pain-section copy and their priorities take precedence over a generic segment-wide framing):\n${ps}`);
