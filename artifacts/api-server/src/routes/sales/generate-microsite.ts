@@ -938,6 +938,21 @@ function getOpenAIClient(): OpenAI | null {
   return null;
 }
 
+/** Generation model. Stays gpt-4o until Phase 5 — do NOT change yet. */
+const GENERATION_MODEL = "gpt-4o";
+
+/** Output token budget. 4096 → 8192: 4096 truncated full multi-block microsites,
+ *  producing short/terse copy or invalid JSON that silently fell back to the
+ *  template/neutral layout. (The marketing generator uses 12288.) */
+const GENERATION_MAX_TOKENS = 8192;
+
+/** Sampling temperature. Freeform paths compose their own lineup so they get a
+ *  little more room; fixed/curated paths stay tight. Lowered from 0.85 / 0.7.
+ *  Wired in at the model call in Phase 2 (defined now so the constants land
+ *  together). */
+const GENERATION_TEMPERATURE_FREEFORM = 0.5;
+const GENERATION_TEMPERATURE_FIXED = 0.45;
+
 type AiBlock = Record<string, unknown>;
 
 // ── Compound business-case template personalisation ───────────────────────
@@ -3947,9 +3962,9 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     emitter.stage("model", "start", "Designing your page with AI");
     const completion = await openai.chat.completions.create(
       {
-        model: "gpt-4o",
+        model: GENERATION_MODEL,
         temperature: (useFreeform || useDsoFreeform || usePoolFreeform) ? 0.85 : 0.7,
-        max_completion_tokens: 4096,
+        max_completion_tokens: GENERATION_MAX_TOKENS,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },
