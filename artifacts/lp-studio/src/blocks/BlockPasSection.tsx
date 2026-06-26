@@ -91,7 +91,7 @@ export function BlockPasSection({ props, brand, onFieldChange }: Props) {
           {/* Left — eyebrow pill + headline + subheadline. */}
           <Reveal disabled={!animate} y={20}>
             <div>
-              {(props.eyebrow || onFieldChange) && (
+              {props.eyebrow && (
                 <div
                   className="mb-6 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5"
                   style={{
@@ -181,7 +181,7 @@ export function BlockPasSection({ props, brand, onFieldChange }: Props) {
 
         {/* Solve — optional closing line in a distinct accent panel with a
             forward cue that resolves the agitation beat. */}
-        {(props.solutionText || onFieldChange) && (
+        {props.solutionText && (
           <Reveal disabled={!animate} delay={0.12} y={20}>
             <div
               className="relative mt-14 flex items-start gap-5 overflow-hidden rounded-[1.75rem] border p-6 sm:p-8"
