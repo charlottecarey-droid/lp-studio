@@ -29,6 +29,9 @@ export function getCoreForbiddenPhrases(): string[] {
     // banned-phrase validator (both paths pass this list to findBannedPhrases).
     "transform your business", "unlock your potential",
     "revolutionize your workflow", "take things to the next level",
+    // June 2026 — the buzzword the Dandy brand guideline calls out by name, plus
+    // the generic "with ease" filler family it stands for.
+    "transform with ease", "with ease",
   ];
 }
 

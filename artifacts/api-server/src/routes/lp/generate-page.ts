@@ -8038,6 +8038,21 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     ? `DANDY-INTERNAL VIDEO ASSETS (Dandy tenant only — safe to use):\n- AI Scan Review video URL: /videos/ai-scan-review.mp4 (use this for any dso-ai-feature videoUrl)`
     : "";
 
+  // Dandy sells to DSOs (dental service organizations); the model kept calling
+  // the DSO customer a "practice". Pin the tenant's vocabulary + the two core
+  // brand-voice guidelines (sentence case, no buzzwords) as a high-priority
+  // system-prompt rule. The "practice = a single office inside a DSO" carve-out
+  // keeps the DSO Practices path (which addresses individual offices) correct.
+  // Dandy tenant only (slug "dandy" / "dandy-smb").
+  const dandyTerminologySection = isDandyTenant
+    ? `DANDY BRAND TERMINOLOGY & VOICE — follow on every line:
+- Dandy sells to DSOs (dental service organizations). Always call the customer, the buyer, and the audience a "DSO" or "dental service organization" — never a "practice" or "practices" when you mean the DSO itself.
+- Reserve "practice" / "practices" ONLY for an individual dental office or location inside a DSO network.
+- CORRECT: "Built for DSOs scaling across 50+ locations." WRONG: "Built for practices scaling across 50+ locations." (when you mean the DSO)
+- Always write in sentence case: capitalize only the first word of a sentence, plus proper nouns and acronyms (DSO, AI, ROI). Never use Title Case, never use all-lowercase.
+- Never use buzzwords or clichés such as "transform with ease", "seamless", "cutting-edge", or "industry-leading". Write plainly, specifically, and in Dandy's own voice.`
+    : "";
+
   // Task #871 — the resolved SELLING-brand name threaded through the DSO prompt
   // builders and post-processing. The real Dandy tenant (slug "dandy" or
   // brandName "Dandy") resolves to "Dandy"; every other tenant resolves to its
@@ -9085,6 +9100,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // writes AS this brand from the first token. No-op for blank/neutral tenants.
   const brandVoiceAnchor = buildBrandVoiceAnchor(brand);
   if (brandVoiceAnchor) systemPrompt = `${brandVoiceAnchor}\n\n${systemPrompt}`;
+  // Dandy-only: pin the DSO-not-practices vocabulary + the two core brand-voice
+  // guidelines (sentence case, no buzzwords) at the top of the system prompt so
+  // they lead the structural rules on every Dandy path. No-op for other tenants.
+  if (dandyTerminologySection) systemPrompt = `${dandyTerminologySection}\n\n${systemPrompt}`;
   // Recipe rotation (June 2026): the DSO paths' BLOCK SELECTION rule carries a
   // static "loose flow that works" example that anchors the model on the same
   // sequence every run — replace it with THIS generation's rotated recipe. The
