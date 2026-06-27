@@ -132,29 +132,35 @@ function isCapturingThumbnail(t: { thumbnailUrl: string | null; thumbnailCapture
  * onError. Layered absolutely so the parent button's hover overlay + badges sit
  * on top. */
 function TemplateCardMedia({
+  featuredThumbnail,
   thumbnailUrl,
   ogImage,
   gradient,
   capturing,
 }: {
+  /** Curated homepage thumbnail (featured_homepage_templates.thumbnail_url) for
+   *  templates also shown on the marketing homepage. When present it takes
+   *  priority so the in-app "Homepage templates" cards match the homepage. */
+  featuredThumbnail?: string | null;
   thumbnailUrl: string | null;
   ogImage: string;
   gradient: string;
   capturing: boolean;
 }) {
-  // Ordered candidate sources: the real screenshot first, then the OG image. A
-  // broken/slow image advances to the next candidate via onError, so a stale or
-  // unreachable thumbnail still falls back to the OG image (then the gradient)
-  // rather than showing a blank/grey card.
+  // Ordered candidate sources: the curated homepage image first (so featured
+  // templates match the marketing homepage), then the real screenshot, then the
+  // OG image. A broken/slow image advances to the next candidate via onError, so
+  // a stale or unreachable source still falls back rather than showing a
+  // blank/grey card.
   const sources = useMemo(
-    () => [thumbnailUrl, ogImage].filter((s): s is string => !!s),
-    [thumbnailUrl, ogImage],
+    () => [featuredThumbnail, thumbnailUrl, ogImage].filter((s): s is string => !!s),
+    [featuredThumbnail, thumbnailUrl, ogImage],
   );
   const [idx, setIdx] = useState(0);
   // Reset to the first candidate when the sources change (e.g. after a refresh).
   useEffect(() => {
     setIdx(0);
-  }, [thumbnailUrl, ogImage]);
+  }, [featuredThumbnail, thumbnailUrl, ogImage]);
   const src = sources[idx];
   const showImage = !!src;
   return (
@@ -214,6 +220,10 @@ export default function TemplateMarketplace() {
   // templates" section. `null` = still loading / fetch failed; in that case the
   // section is simply skipped and those templates fall through to other buckets.
   const [homepageDefaultIds, setHomepageDefaultIds] = useState<Set<number> | null>(null);
+  // Curated homepage thumbnails (template lp_pages id → featured_homepage_templates
+  // thumbnail_url) so the in-app "Homepage templates" cards show the SAME
+  // hand-picked images as the marketing homepage. Empty until the fetch lands.
+  const [homepageThumbnails, setHomepageThumbnails] = useState<Map<number, string>>(new Map());
   // Current gallery page (1-based). Reset to 1 whenever search/filter/sort
   // changes so the user never lands on an out-of-range page.
   const [page, setPage] = useState(1);
@@ -258,16 +268,25 @@ export default function TemplateMarketplace() {
   useEffect(() => {
     fetch(`${API_BASE}/lp/featured-templates`, { cache: "no-store", credentials: "include" })
       .then((r) => (r.ok ? r.json() : { templates: [] }))
-      .then((data: { templates?: { id?: string }[] }) => {
+      .then((data: { templates?: { id?: string; thumbnail?: string }[] }) => {
         const ids = new Set<number>();
+        const thumbs = new Map<number, string>();
         for (const t of data.templates ?? []) {
           const raw = typeof t.id === "string" ? t.id : "";
           const num = Number(raw.startsWith("global:") ? raw.slice(7) : raw);
-          if (Number.isInteger(num) && num > 0) ids.add(num);
+          if (Number.isInteger(num) && num > 0) {
+            ids.add(num);
+            const thumb = typeof t.thumbnail === "string" ? t.thumbnail.trim() : "";
+            if (thumb) thumbs.set(num, thumb);
+          }
         }
         setHomepageDefaultIds(ids);
+        setHomepageThumbnails(thumbs);
       })
-      .catch(() => setHomepageDefaultIds(new Set()));
+      .catch(() => {
+        setHomepageDefaultIds(new Set());
+        setHomepageThumbnails(new Map());
+      });
   }, []);
 
   // Real industry tags present across the loaded templates (excludes the
@@ -696,6 +715,7 @@ export default function TemplateMarketplace() {
                       className="h-40 relative overflow-hidden block w-full text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-muted"
                     >
                       <TemplateCardMedia
+                        featuredThumbnail={homepageThumbnails.get(template.id) ?? null}
                         thumbnailUrl={template.thumbnailUrl}
                         ogImage={template.ogImage}
                         gradient={getGradient(index)}

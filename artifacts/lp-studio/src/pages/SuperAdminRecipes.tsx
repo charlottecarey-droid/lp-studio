@@ -21,17 +21,25 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
+  Check,
   CheckCircle2,
+  ChevronsUpDown,
   Loader2,
   Plus,
   RotateCcw,
@@ -150,6 +158,79 @@ function draftFromItem(r: RecipeItem): Draft {
   };
 }
 
+// ─── Block picker ───────────────────────────────────────────────────────────
+// A searchable section picker. The available section vocabulary per group can
+// run to dozens of blocks, so a plain dropdown is hard to scan — this is a
+// scrollable, type-to-filter combobox (Popover + Command) instead.
+function BlockCombobox({
+  value,
+  options,
+  onValue,
+  disabled,
+}: {
+  value: string;
+  options: BlockOption[];
+  onValue: (v: string) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const labelFor = (type: string) =>
+    options.find((o) => o.type === type)?.label ?? type;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className="h-8 w-[200px] justify-between text-xs font-normal"
+        >
+          <span className="truncate">{labelFor(value)}</span>
+          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[260px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search sections…" className="text-xs" />
+          <CommandList>
+            <CommandEmpty>No sections found.</CommandEmpty>
+            <CommandGroup>
+              {options.map((o) => (
+                <CommandItem
+                  key={o.type}
+                  value={`${o.label} ${o.type}`}
+                  onSelect={() => {
+                    onValue(o.type);
+                    setOpen(false);
+                  }}
+                  className="text-xs"
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4 shrink-0",
+                      value === o.type ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate">{o.label}</span>
+                    {o.description && (
+                      <span className="truncate text-[10px] text-muted-foreground">
+                        {o.description}
+                      </span>
+                    )}
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ─── Slot editor (shared by existing + new recipe cards) ─────────────────────
 function SlotEditor({
   slots,
@@ -163,8 +244,6 @@ function SlotEditor({
   disabled?: boolean;
 }) {
   const fallback = options[0]?.type ?? "hero";
-  const labelFor = (type: string) =>
-    options.find((o) => o.type === type)?.label ?? type;
 
   const setAlt = (si: number, ai: number, value: string) => {
     const next = slots.map((alts, i) =>
@@ -190,18 +269,7 @@ function SlotEditor({
   const addSlot = () => onChange([...slots, [fallback]]);
 
   const blockSelect = (value: string, onValue: (v: string) => void) => (
-    <Select value={value} onValueChange={onValue} disabled={disabled}>
-      <SelectTrigger className="h-8 text-xs w-[200px]">
-        <SelectValue>{labelFor(value)}</SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((o) => (
-          <SelectItem key={o.type} value={o.type} className="text-xs">
-            {o.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <BlockCombobox value={value} options={options} onValue={onValue} disabled={disabled} />
   );
 
   return (
