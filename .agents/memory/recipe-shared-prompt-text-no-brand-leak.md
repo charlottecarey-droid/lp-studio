@@ -10,3 +10,5 @@ DSO page recipes in `page-recipes.ts` (DSO_RECIPES) are selected for Dandy AND e
 **Why:** architect flagged a "modeled on Dandy's flagship DSO partner page" description as a scope leak — non-Dandy dental tenants would get Dandy-referential prompt text despite the DSO prompt's anti-leak rules. Brand-specific wording belongs only in `isDandyTenant`-gated prompt sections (e.g. dandyTerminologySection), not in recipe data.
 
 **How to apply:** when editing DSO_RECIPES skeleton/description/styleNotes, describe the layout and tone generically; let the isDandyTenant gating supply the brand voice.
+
+**Editor caveat (Jun 2026):** a superadmin "Page Recipes" tab (SuperAdminRecipes.tsx → /api/admin/page-recipes → page_recipe_overrides) now lets a human OVERRIDE description/styleNotes at runtime. Those overrides feed the SAME shared buildRecipeDirective prompt, so the brand-neutral rule above is now a human-editable risk — there is no server-side brand-leak guard on the override text. If a leak appears in shared DSO prompts, check the override row, not just the code default.

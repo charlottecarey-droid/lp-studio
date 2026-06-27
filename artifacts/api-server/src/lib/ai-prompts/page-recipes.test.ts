@@ -19,8 +19,10 @@ import {
   blockSequenceHash,
   shouldRetryForRepeatedSequence,
   buildRepeatCorrectiveMessage,
+  mergeRecipeOverrides,
   SEQUENCE_STRUCTURAL_TYPES,
   type PageRecipe,
+  type RecipeOverride,
 } from "./page-recipes";
 
 describe("recipe sets", () => {
@@ -231,5 +233,64 @@ describe("buildRepeatCorrectiveMessage", () => {
     expect(msg).not.toContain("nav-header");
     expect(msg).toMatch(/change the hero block type and at least 2 other sections/i);
     expect(msg).toMatch(/explicit user requests still override/i);
+  });
+});
+
+describe("mergeRecipeOverrides — superadmin wording overrides", () => {
+  const base: PageRecipe[] = [
+    { id: "r1", label: "One", description: "First", skeleton: ["hero", "cta"], styleNotes: "Notes one." },
+    { id: "r2", label: "Two", description: "Second", skeleton: ["hero", "faq"], styleNotes: "Notes two." },
+  ];
+  const ov = (o: Partial<RecipeOverride> & { recipeId: string }): RecipeOverride => ({
+    label: null,
+    description: null,
+    styleNotes: null,
+    enabled: true,
+    ...o,
+  });
+
+  it("returns the base unchanged (by value) when there are no overrides", () => {
+    const out = mergeRecipeOverrides(base, []);
+    expect(out).toEqual(base);
+  });
+
+  it("replaces non-blank label / description / styleNotes and keeps the code skeleton", () => {
+    const out = mergeRecipeOverrides(base, [
+      ov({ recipeId: "r1", label: "Renamed", description: "New desc", styleNotes: "New art direction." }),
+    ]);
+    const r1 = out.find((r) => r.id === "r1")!;
+    expect(r1.label).toBe("Renamed");
+    expect(r1.description).toBe("New desc");
+    expect(r1.styleNotes).toBe("New art direction.");
+    // Skeleton (block order) always comes from code, never the override.
+    expect(r1.skeleton).toEqual(["hero", "cta"]);
+  });
+
+  it("inherits the code default for null OR blank/whitespace fields", () => {
+    const out = mergeRecipeOverrides(base, [
+      ov({ recipeId: "r1", label: "   ", description: null, styleNotes: "" }),
+    ]);
+    const r1 = out.find((r) => r.id === "r1")!;
+    expect(r1.label).toBe("One");
+    expect(r1.description).toBe("First");
+    expect(r1.styleNotes).toBe("Notes one.");
+  });
+
+  it("drops a recipe whose override has enabled === false", () => {
+    const out = mergeRecipeOverrides(base, [ov({ recipeId: "r2", enabled: false })]);
+    expect(out.map((r) => r.id)).toEqual(["r1"]);
+  });
+
+  it("ignores override rows for unknown / removed recipe ids", () => {
+    const out = mergeRecipeOverrides(base, [ov({ recipeId: "gone", label: "X" })]);
+    expect(out).toEqual(base);
+  });
+
+  it("preserves the base order regardless of override order", () => {
+    const out = mergeRecipeOverrides(base, [
+      ov({ recipeId: "r2", label: "B" }),
+      ov({ recipeId: "r1", label: "A" }),
+    ]);
+    expect(out.map((r) => r.id)).toEqual(["r1", "r2"]);
   });
 });

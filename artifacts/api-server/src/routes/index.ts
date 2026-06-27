@@ -18,6 +18,7 @@ import videoRouter from "./video";
 import authRouter from "./auth";
 import adminRouter from "./admin";
 import blockCatalogRouter from "./blockCatalog";
+import pageRecipesRouter from "./pageRecipes";
 import tenantBlockLibraryRouter from "./tenantBlockLibrary";
 import tenantBlockGovernanceRouter from "./tenantBlockGovernance";
 import webhooksRouter from "./webhooks";
@@ -114,6 +115,9 @@ router.use(videoRouter);
 // blockCatalogRouter first lets its specific routes match before
 // adminRouter gets a chance to swallow the request.
 router.use(blockCatalogRouter);
+// Same constraint as blockCatalogRouter: its /admin/page-recipes paths
+// (requireSuperadmin) MUST match before adminRouter's blanket requireAuth.
+router.use(pageRecipesRouter);
 router.use(tenantBlockLibraryRouter);
 router.use(tenantBlockGovernanceRouter);
 // notificationsRouter owns /notifications/* (requireAuth) AND

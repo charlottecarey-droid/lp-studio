@@ -108,3 +108,7 @@ export * from "./blogContentProgram";
 // Admin-configurable generator presets (marketing starter chips + sales
 // objective cards): global superadmin defaults + per-tenant overrides.
 export * from "./generatorPresets";
+
+// Superadmin WORDING overrides for AI page-generation recipes (label /
+// description / style notes + on/off). Recipe skeletons stay code-defined.
+export * from "./pageRecipeOverrides";

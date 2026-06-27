@@ -18,7 +18,6 @@ import type { ChatCompletionContentPart, ChatCompletionMessageParam } from "open
 import { findBannedPhrases, type BannedPhraseHit } from "../../lib/ai-prompts/banned-phrase-validator";
 import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-prompts/critique-pass";
 import {
-  recipesForPath,
   pickRecipe,
   buildRecipeDirective,
   injectRecipeIntoBlockSelection,
@@ -28,6 +27,7 @@ import {
   type PageRecipe,
   type RecipePromptPath,
 } from "../../lib/ai-prompts/page-recipes";
+import { loadEffectiveRecipesForPath } from "../../lib/ai-prompts/page-recipe-overrides";
 import {
   computeImageFitFlags,
   type ImageFitFlag,
@@ -8962,7 +8962,9 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // validated list echoed back in the receipt event + result body. Fail-open:
   // when the exclusions cover the whole pool, pickRecipe falls back to the
   // full pool minus the FIRST excluded id — warn (structured) but never fail.
-  const recipePool = recipesForPath(recipePath);
+  // EFFECTIVE pool = code recipes with any superadmin wording overrides applied
+  // and disabled recipes dropped (fail-open to code recipes on any DB error).
+  const recipePool = await loadEffectiveRecipesForPath(recipePath);
   const poolRecipeIds = new Set(recipePool.map((r) => r.id));
   const excludedRecipeIds = requestedExcludeRecipeIds.filter((id) => poolRecipeIds.has(id));
   if (excludedRecipeIds.length > 0 && excludedRecipeIds.length >= recipePool.length) {

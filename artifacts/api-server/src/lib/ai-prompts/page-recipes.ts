@@ -242,6 +242,59 @@ export function recipesForPath(path: RecipePromptPath): PageRecipe[] {
   }
 }
 
+/**
+ * A superadmin's WORDING override of one recipe (June 2026). Only the
+ * human-facing label / description / styleNotes can be overridden — the recipe's
+ * block SKELETON stays code-defined. `enabled=false` drops the recipe from the
+ * AI rotation. Each text field is `null` = "inherit the code default for this
+ * field" (the shadow-override contract; persisted in page_recipe_overrides).
+ */
+export interface RecipeOverride {
+  recipeId: string;
+  label: string | null;
+  description: string | null;
+  styleNotes: string | null;
+  enabled: boolean;
+}
+
+/**
+ * Apply superadmin wording overrides onto the code-defined recipe list. PURE
+ * and DB-free (the DB read lives in page-recipe-overrides.ts).
+ *
+ *   • A recipe with `enabled === false` in its override is DROPPED (removed from
+ *     the rotation pool).
+ *   • For a kept recipe, each non-empty override field (label / description /
+ *     styleNotes) REPLACES the code value; a null/blank field inherits the code
+ *     default. The `skeleton` (block order) is ALWAYS the code value.
+ *   • Override entries whose recipeId is not in `base` are ignored (a recipe was
+ *     removed/renamed in code → its stale override row is a no-op).
+ *   • Recipe ORDER follows `base`.
+ */
+export function mergeRecipeOverrides(
+  base: ReadonlyArray<PageRecipe>,
+  overrides: ReadonlyArray<RecipeOverride>,
+): PageRecipe[] {
+  const byId = new Map(overrides.map((o) => [o.recipeId, o]));
+  const out: PageRecipe[] = [];
+  for (const recipe of base) {
+    const o = byId.get(recipe.id);
+    if (o && o.enabled === false) continue;
+    if (!o) {
+      out.push(recipe);
+      continue;
+    }
+    const pick = (override: string | null, fallback: string): string =>
+      typeof override === "string" && override.trim() ? override : fallback;
+    out.push({
+      ...recipe,
+      label: pick(o.label, recipe.label),
+      description: pick(o.description, recipe.description),
+      styleNotes: pick(o.styleNotes, recipe.styleNotes),
+    });
+  }
+  return out;
+}
+
 /** Every individual block type a recipe's skeleton references ("a OR b" → both). */
 export function recipeSkeletonBlockTypes(recipe: PageRecipe): string[] {
   return recipe.skeleton
