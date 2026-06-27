@@ -161,6 +161,76 @@ function PdfUploadButton({ resource, onPatch }: { resource: WebinarResource; onP
   );
 }
 
+// Match the server-side cap in /api/lp/media/upload (200 MB) so we fail fast.
+const MAX_VIDEO_BYTES = 200 * 1024 * 1024;
+const ALLOWED_VIDEO_MIME = ["video/mp4", "video/webm", "video/ogg", "video/quicktime", "video/x-msvideo", "video/x-matroska"];
+
+/** Upload a video file to the shared /api/lp/media/upload endpoint and return
+ *  the served URL. */
+async function uploadWebinarVideo(file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch("/api/lp/media/upload", { method: "POST", body: formData, credentials: "include" });
+  const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+  if (!res.ok) throw new Error(data.error ?? "Upload failed");
+  if (!data.url) throw new Error("Upload succeeded but no URL was returned");
+  return { url: data.url };
+}
+
+/** Inline "Upload video" button paired with a video-URL field. Validates the
+ *  type/size client-side, then writes the served URL into the field. */
+function VideoUploadButton({ value, onChange }: { value?: string; onChange: (url: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type && !ALLOWED_VIDEO_MIME.includes(file.type)) {
+      setError("Unsupported file. Use MP4, WebM, OGG, MOV, AVI, or MKV.");
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+    if (file.size > MAX_VIDEO_BYTES) {
+      setError("File too large. Maximum size is 200 MB.");
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+    setUploading(true);
+    setError(null);
+    try {
+      const { url } = await uploadWebinarVideo(file);
+      onChange(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  const hasUpload = typeof value === "string" && value.startsWith("/");
+  return (
+    <>
+      <input ref={inputRef} type="file" accept="video/*" className="hidden" onChange={handleFile} />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-7 px-2 text-[11px] gap-1 shrink-0"
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        title={hasUpload ? "Replace uploaded video" : "Upload a video file"}
+      >
+        {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+        {uploading ? "Uploading…" : hasUpload ? "Replace" : "Upload video"}
+      </Button>
+      {error && <p className="text-[10px] text-red-500 mt-1">{error}</p>}
+    </>
+  );
+}
+
 const CTA_ACTIONS: { value: WebinarCtaAction; label: string }[] = [
   { value: "scroll-to-form", label: "Scroll to registration form" },
   { value: "url", label: "Link to URL" },
@@ -359,7 +429,18 @@ export function WebinarHubPanel({ props, onChange, pageId }: Props) {
                 <input type="range" min={0} max={100} value={p.heroOverlayOpacity ?? 55} onChange={e => set({ heroOverlayOpacity: Number(e.target.value) })} className="w-full" />
               </Field>
             )}
-            <Field label="Hero video poster" hint="Thumbnail for the hero video card.">
+            <Field label="Hero video" hint="Paste a YouTube, Vimeo, or Loom link, or upload a video file. Leave blank to show just the poster image.">
+              <div className="flex gap-1.5 items-start">
+                <Input
+                  value={p.heroVideoUrl ?? ""}
+                  onChange={e => set({ heroVideoUrl: e.target.value || undefined })}
+                  placeholder="https://… or upload"
+                  className="text-[11px] h-7 flex-1 font-mono"
+                />
+                <VideoUploadButton value={p.heroVideoUrl} onChange={url => set({ heroVideoUrl: url })} />
+              </div>
+            </Field>
+            <Field label="Hero video poster" hint="Thumbnail shown before the video plays.">
               <ImagePicker value={p.heroVideoPosterUrl ?? ""} onChange={v => set({ heroVideoPosterUrl: v || undefined })} aiHint="Webinar video thumbnail" />
             </Field>
           </div>
@@ -476,6 +557,7 @@ export function WebinarHubPanel({ props, onChange, pageId }: Props) {
             <Field label="Eyebrow"><Input value={p.workflowEyebrow ?? ""} onChange={e => set({ workflowEyebrow: e.target.value })} className="text-xs h-7" /></Field>
             <Field label="Headline"><Input value={p.workflowHeadline ?? ""} onChange={e => set({ workflowHeadline: e.target.value })} className="text-xs h-7" /></Field>
             <Field label="Description"><Textarea value={p.workflowDescription ?? ""} onChange={e => set({ workflowDescription: e.target.value })} className="text-xs min-h-[3rem]" /></Field>
+            <p className="text-[10px] text-muted-foreground">These steps are shown to visitors as the email journey they can expect. Set up the follow-up email that actually sends below.</p>
             {emailSequence.map((step, i) => (
               <div key={i} className="rounded border border-border p-2 space-y-1.5">
                 <div className="flex items-center justify-between">
@@ -555,9 +637,21 @@ export function WebinarHubPanel({ props, onChange, pageId }: Props) {
           <div className="space-y-2 pt-2">
             <Field label="Eyebrow"><Input value={p.videoEyebrow ?? ""} onChange={e => set({ videoEyebrow: e.target.value })} className="text-xs h-7" /></Field>
             <Field label="Headline"><Input value={p.videoHeadline ?? ""} onChange={e => set({ videoHeadline: e.target.value })} className="text-xs h-7" /></Field>
-            <Field label="Stream poster image" hint="Shown for live / on-demand sessions.">
+            <Field label="Featured video" hint="Paste a YouTube, Vimeo, or Loom link, or upload a video file. Leave blank to show just the poster image.">
+              <div className="flex gap-1.5 items-start">
+                <Input
+                  value={p.featuredVideoUrl ?? ""}
+                  onChange={e => set({ featuredVideoUrl: e.target.value || undefined })}
+                  placeholder="https://… or upload"
+                  className="text-[11px] h-7 flex-1 font-mono"
+                />
+                <VideoUploadButton value={p.featuredVideoUrl} onChange={url => set({ featuredVideoUrl: url })} />
+              </div>
+            </Field>
+            <Field label="Stream poster image" hint="Thumbnail shown before the video plays.">
               <ImagePicker value={p.featuredVideoPosterUrl ?? ""} onChange={v => set({ featuredVideoPosterUrl: v || undefined })} aiHint="Webinar stream poster" />
             </Field>
+            <p className="text-[10px] text-muted-foreground">This section is hidden on upcoming events. The “Related materials” list beside the video shows any resources below that have a link.</p>
           </div>
         )}
       </div>
@@ -601,7 +695,6 @@ export function WebinarHubPanel({ props, onChange, pageId }: Props) {
           <div className="space-y-2 pt-2">
             <Field label="Eyebrow"><Input value={p.resourcesEyebrow ?? ""} onChange={e => set({ resourcesEyebrow: e.target.value })} className="text-xs h-7" /></Field>
             <Field label="Headline"><Input value={p.resourcesHeadline ?? ""} onChange={e => set({ resourcesHeadline: e.target.value })} className="text-xs h-7" /></Field>
-            <Field label="Featured resource title (optional)"><Input value={p.featuredResourceTitle ?? ""} onChange={e => set({ featuredResourceTitle: e.target.value })} className="text-xs h-7" /></Field>
             {resources.map((r, i) => (
               <div key={i} className="rounded border border-border p-2 space-y-1.5">
                 <div className="flex items-center justify-between">

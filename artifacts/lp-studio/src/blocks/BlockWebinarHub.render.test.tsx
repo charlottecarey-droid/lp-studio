@@ -14,7 +14,7 @@
  * behind modal state, so the default render never reaches them.
  */
 import { describe, it, expect, afterEach } from "vitest";
-import { render, screen, cleanup, within } from "@testing-library/react";
+import { render, screen, cleanup, within, fireEvent } from "@testing-library/react";
 import { BlockWebinarHub } from "@/blocks/BlockWebinarHub";
 import { createBlock } from "@/lib/block-types/block-registry";
 import type { WebinarHubBlockProps } from "@/lib/block-types";
@@ -136,6 +136,64 @@ describe("BlockWebinarHub render", () => {
 
     // No url → non-interactive card (no anchor wrapper).
     expect(screen.getByText("No-link card").closest("a")).toBeNull();
+  });
+
+  it("plays a hero video (YouTube link → embed iframe) on click", () => {
+    const props: WebinarHubBlockProps = {
+      ...defaults(),
+      heroVideoUrl: "https://www.youtube.com/watch?v=abc123",
+    };
+    const { container } = render(<BlockWebinarHub props={props} />);
+    // A poster-less video shows a play button, not a player, until clicked.
+    expect(container.querySelector("iframe")).toBeNull();
+    const playBtn = screen.getByLabelText("Play video");
+    fireEvent.click(playBtn);
+    // Now the provider embed mounts with the parsed video id.
+    expect(container.querySelector('iframe[src*="youtube.com/embed/abc123"]')).toBeTruthy();
+  });
+
+  it("plays a featured video and lists only linked resources beside it", () => {
+    const props: WebinarHubBlockProps = {
+      ...defaults(),
+      status: "on-demand",
+      featuredVideoUrl: "https://vimeo.com/123456",
+      resources: [
+        { title: "Slide deck", format: "PDF", url: "https://example.com/deck.pdf" },
+        { title: "Unlinked note", format: "Note" },
+      ],
+    };
+    const { container } = render(<BlockWebinarHub props={props} />);
+    // The "Related materials" sidebar appears with the one linked resource.
+    const sidebar = screen.getByText("Related materials").closest("div")!;
+    expect(within(sidebar).getByText(/Slide deck/)).toBeTruthy();
+    expect(within(sidebar).queryByText(/Unlinked note/)).toBeNull();
+    // Play → Vimeo embed iframe.
+    fireEvent.click(screen.getByLabelText("Play video"));
+    expect(container.querySelector('iframe[src*="player.vimeo.com/video/123456"]')).toBeTruthy();
+  });
+
+  it("ignores an unsafe video URL — no player ever mounts", () => {
+    const props: WebinarHubBlockProps = {
+      ...defaults(),
+      status: "on-demand",
+      featuredVideoUrl: "javascript:alert(1)",
+      featuredVideoPosterUrl: "https://example.com/poster.jpg",
+    };
+    const { container } = render(<BlockWebinarHub props={props} />);
+    // The poster keeps the section visible, but the unsafe URL yields no play
+    // affordance and no iframe/video element at all.
+    expect(screen.queryByLabelText("Play video")).toBeNull();
+    expect(container.querySelector("iframe")).toBeNull();
+    expect(container.querySelector("video")).toBeNull();
+  });
+
+  it("hides the featured-video section entirely when there is nothing to show", () => {
+    // Bare upcoming event: no video, no poster, no linked resources → no fake
+    // player chrome anywhere on the published page.
+    const { container } = render(<BlockWebinarHub props={defaults()} />);
+    expect(screen.queryByLabelText("Play video")).toBeNull();
+    expect(screen.queryByText("Related materials")).toBeNull();
+    expect(container.querySelector("iframe")).toBeNull();
   });
 
   it.each(["upcoming", "live", "on-demand"] as const)(

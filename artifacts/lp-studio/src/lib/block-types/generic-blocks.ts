@@ -2122,8 +2122,8 @@ export interface ContentSeriesBlockProps {
 /* ------------------------------------------------------------------------- */
 /*  Webinar Hub block — `webinar-hub`. A self-contained, brand-aware,        */
 /*  full-page event landing surface (its own nav AND footer). Cinematic      */
-/*  editorial layout: hero + registration form, automated email-sequence     */
-/*  timeline, agenda, featured video / live Q&A, speakers, resources, FAQ,   */
+/*  editorial layout: hero + registration form, email-sequence timeline,     */
+/*  agenda, featured video, speakers, resources, FAQ,                         */
 /*  final CTA, footer. Status drives copy + accent (upcoming/live/on-demand).*/
 /* ------------------------------------------------------------------------- */
 
@@ -2216,6 +2216,9 @@ export interface WebinarHubBlockProps {
   heroBackgroundImageUrl?: string;
   /** Hero overlay darkness as a whole-number percent (0–100). Defaults to 55. */
   heroOverlayOpacity?: number;
+  /** Hero video — a YouTube/Vimeo/Loom link or an uploaded video file. When set,
+   *  the hero card plays it; otherwise the card shows the poster image only. */
+  heroVideoUrl?: string;
   /** Poster image for the hero video card (media library). */
   heroVideoPosterUrl?: string;
 
@@ -2238,6 +2241,9 @@ export interface WebinarHubBlockProps {
   /** Featured video / live broadcast (hidden when status === "upcoming"). */
   videoEyebrow?: string;
   videoHeadline?: string;
+  /** Featured video — a YouTube/Vimeo/Loom link or an uploaded video file. When
+   *  set, the stream player plays it; otherwise it shows the poster image only. */
+  featuredVideoUrl?: string;
   /** Poster image for the featured stream player (media library). */
   featuredVideoPosterUrl?: string;
 
@@ -2250,8 +2256,6 @@ export interface WebinarHubBlockProps {
   /** Resources. */
   resourcesEyebrow?: string;
   resourcesHeadline?: string;
-  /** Optional pinned "recommended for you" resource title. */
-  featuredResourceTitle?: string;
   resources?: WebinarResource[];
 
   /** FAQ. */

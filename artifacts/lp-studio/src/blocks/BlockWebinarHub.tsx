@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, Component, type ReactNode, type ErrorInfo } from "react";
 import {
   Play, ArrowRight, ArrowUpRight, Check, Linkedin, ChevronDown,
-  FileText, Download, Sparkles, Share2, Users, Volume2, Settings, Maximize,
+  FileText, Download, Share2, Users,
 } from "lucide-react";
 import type { WebinarHubBlockProps, WebinarStatus, WebinarCtaAction } from "@/lib/block-types";
 import type { FormStep } from "@/lib/block-types";
@@ -79,6 +79,50 @@ function slugify(s: string): string {
   return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
+/** A playable video resolved from a raw field: either a provider embed
+ *  (iframe) or a direct file (native <video>). */
+type ResolvedWebinarVideo = { kind: "iframe" | "file"; src: string };
+
+/** Turn a raw video field (a provider link or an uploaded-file URL) into
+ *  something we can actually play. Detects YouTube / Vimeo / Loom and returns an
+ *  embed iframe; site-relative or other http(s) URLs become a native <video>.
+ *  Unsafe schemes (javascript:, data:, etc.) return null so nothing renders. */
+function resolveWebinarVideo(raw: string | undefined, opts?: { autoplay?: boolean }): ResolvedWebinarVideo | null {
+  const url = (raw ?? "").trim();
+  if (!url) return null;
+  // Site-relative uploads (e.g. /api/storage/...) → native player.
+  if (url.startsWith("/")) return { kind: "file", src: url };
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  const scheme = parsed.protocol.toLowerCase();
+  if (scheme !== "http:" && scheme !== "https:") return null;
+  const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+  const ap = opts?.autoplay ? 1 : 0;
+  if (host === "youtube.com" || host === "m.youtube.com" || host === "youtube-nocookie.com") {
+    const id = parsed.searchParams.get("v") || parsed.pathname.split("/").filter(Boolean).pop();
+    if (id) return { kind: "iframe", src: `https://www.youtube.com/embed/${id}?rel=0&autoplay=${ap}` };
+  }
+  if (host === "youtu.be") {
+    const id = parsed.pathname.split("/").filter(Boolean)[0];
+    if (id) return { kind: "iframe", src: `https://www.youtube.com/embed/${id}?rel=0&autoplay=${ap}` };
+  }
+  if (host === "vimeo.com") {
+    const id = parsed.pathname.split("/").filter(Boolean).pop();
+    if (id && /^\d+$/.test(id)) return { kind: "iframe", src: `https://player.vimeo.com/video/${id}?autoplay=${ap}` };
+  }
+  if (host === "player.vimeo.com") return { kind: "iframe", src: url };
+  if (host === "loom.com") {
+    const id = parsed.pathname.split("/").filter(Boolean).pop();
+    if (id) return { kind: "iframe", src: `https://www.loom.com/embed/${id}` };
+  }
+  // Any other safe http(s) URL → treat as a direct video file (native player).
+  return { kind: "file", src: url };
+}
+
 const DEFAULT_FORM_STEPS: FormStep[] = [
   {
     title: "Register",
@@ -150,6 +194,14 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
   const emailSequence = p.emailSequence ?? [];
   const resources = p.resources ?? [];
   const faqs = p.faqs ?? [];
+
+  /* ---- Video resolution (hero + featured) ---- */
+  const heroVideo = resolveWebinarVideo(p.heroVideoUrl, { autoplay: true });
+  const featuredVideo = resolveWebinarVideo(p.featuredVideoUrl, { autoplay: true });
+  // Sidebar reuses the resources list — only the ones with a real link.
+  const featuredSidebar = resources.filter(r => (r.url ?? "").trim().length > 0);
+  const hasHeroPoster = !!(p.heroVideoPosterUrl && p.heroVideoPosterUrl.trim());
+  const hasFeaturedMedia = !!featuredVideo || !!(p.featuredVideoPosterUrl && p.featuredVideoPosterUrl.trim());
 
   const heroOverlay = (typeof p.heroOverlayOpacity === "number" ? p.heroOverlayOpacity : 55) / 100;
   const finalOverlay = (typeof p.finalCtaOverlayOpacity === "number" ? p.finalCtaOverlayOpacity : 55) / 100;
@@ -278,7 +330,8 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
     }
   }
 
-  const [activeTab, setActiveTab] = useState(0);
+  const [heroPlaying, setHeroPlaying] = useState(false);
+  const [featuredPlaying, setFeaturedPlaying] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   /* ===================================================================== */
@@ -296,6 +349,28 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
       <div style={{ width: size, height: size, fontSize: size * 0.4, background: tint, borderRadius: "9999px", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontFamily: displayFont, flexShrink: 0, border: "1px solid rgba(0,0,0,0.1)" }}>
         {initials}
       </div>
+    )
+  );
+
+  const VideoPlayer = ({ video, poster }: { video: ResolvedWebinarVideo; poster?: string }) => (
+    video.kind === "iframe" ? (
+      <iframe
+        src={video.src}
+        title="Webinar video"
+        allow="autoplay; fullscreen; picture-in-picture"
+        allowFullScreen
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none" }}
+      />
+    ) : (
+      <video
+        src={video.src}
+        poster={poster}
+        controls
+        autoPlay
+        playsInline
+        preload="metadata"
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", background: "#000" }}
+      />
     )
   );
 
@@ -444,13 +519,11 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
                 <div>
                   <MonoLabel>Format</MonoLabel>
                   <div style={{ marginTop: 4, fontSize: "0.875rem" }}>{status === "upcoming" ? "Live Broadcast" : "Archive"}</div>
-                  <div style={{ fontSize: "0.875rem", opacity: 0.6 }}>Interactive Q&amp;A</div>
                 </div>
                 {registrations > 0 && (
                   <div>
                     <MonoLabel>{status === "live" ? "Watching now" : status === "on-demand" ? "Have attended" : "Registered"}</MonoLabel>
                     <div style={{ marginTop: 4, fontSize: "0.875rem" }}>{registrations.toLocaleString()}</div>
-                    <div style={{ fontSize: "0.875rem", opacity: 0.6 }}>Across all teams</div>
                   </div>
                 )}
               </div>
@@ -458,17 +531,35 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
             {/* Right video + form */}
             <div style={{ gridColumn: "span 6 / span 6", position: "relative" }} className="wh-hero-media">
               <div style={{ position: "relative", background: "#1A1A1A", boxShadow: "0 40px 80px -20px rgba(0,0,0,0.5)", padding: "1rem" }}>
-                <div style={{ position: "relative", aspectRatio: "16 / 10", background: "#000", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(255,255,255,0.1)", ...(p.heroVideoPosterUrl ? getImageBgSectionStyle(p.heroVideoPosterUrl) : {}) }}>
-                  <div style={{ position: "relative", zIndex: 10, width: 80, height: 80, borderRadius: "9999px", border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.05)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Play style={{ width: 32, height: 32, color: "#fff", marginLeft: 4 }} fill="currentColor" />
-                  </div>
-                  <div style={{ position: "absolute", top: 24, left: 24, right: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", fontFamily: monoFont, fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase", padding: "0.25rem 0.5rem", backdropFilter: "blur(8px)", color: "#fff", background: status === "live" ? "rgba(229,46,32,0.9)" : "rgba(0,0,0,0.5)" }}>
-                      {status === "live" && <span style={{ width: 6, height: 6, borderRadius: "9999px", background: "#fff" }} className="wh-ping" />}
-                      {m.videoLabel}
-                    </span>
-                    <span style={{ fontFamily: monoFont, fontSize: "10px", letterSpacing: "0.15em", opacity: 0.5, color: "#fff" }}>{brandName}</span>
-                  </div>
+                <div style={{ position: "relative", aspectRatio: "16 / 10", background: "#000", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(255,255,255,0.1)", ...((!heroPlaying && hasHeroPoster) ? getImageBgSectionStyle(p.heroVideoPosterUrl) : {}) }}>
+                  {heroPlaying && heroVideo ? (
+                    <VideoPlayer video={heroVideo} poster={p.heroVideoPosterUrl} />
+                  ) : (
+                    <>
+                      {heroVideo && (
+                        <button
+                          type="button"
+                          onClick={() => setHeroPlaying(true)}
+                          aria-label="Play video"
+                          style={{ position: "relative", zIndex: 10, width: 80, height: 80, borderRadius: "9999px", border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.05)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                        >
+                          <Play style={{ width: 32, height: 32, color: "#fff", marginLeft: 4 }} fill="currentColor" />
+                        </button>
+                      )}
+                      {!heroVideo && !hasHeroPoster && isBuilder && (
+                        <span style={{ fontFamily: monoFont, fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.5)", textAlign: "center", padding: "0 2rem" }}>
+                          Add a hero video link or poster image →
+                        </span>
+                      )}
+                      <div style={{ position: "absolute", top: 24, left: 24, right: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", fontFamily: monoFont, fontSize: "10px", letterSpacing: "0.15em", textTransform: "uppercase", padding: "0.25rem 0.5rem", backdropFilter: "blur(8px)", color: "#fff", background: status === "live" ? "rgba(229,46,32,0.9)" : "rgba(0,0,0,0.5)" }}>
+                          {status === "live" && <span style={{ width: 6, height: 6, borderRadius: "9999px", background: "#fff" }} className="wh-ping" />}
+                          {m.videoLabel}
+                        </span>
+                        <span style={{ fontFamily: monoFont, fontSize: "10px", letterSpacing: "0.15em", opacity: 0.5, color: "#fff" }}>{brandName}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
               {show.form && registrationForm}
@@ -533,7 +624,7 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
       )}
 
       {/* ---- Featured video / stream ---- */}
-      {show.video && (
+      {show.video && (isBuilder || hasFeaturedMedia || featuredSidebar.length > 0) && (
         <section style={{ padding: "8rem 1.5rem", background: "#000", color: "#fff" }}>
           <div style={{ maxWidth: "80rem", margin: "0 auto" }}>
             <div style={{ marginBottom: "4rem" }}>
@@ -541,55 +632,71 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
               <h2 style={{ fontFamily: displayFont, fontSize: "clamp(2rem, 4vw, 3rem)", marginTop: "1rem" }}>{p.videoHeadline || (status === "live" ? "Live Broadcast" : "Session Materials")}</h2>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(12, minmax(0,1fr))", gap: "3rem" }} className="wh-video-grid">
-              <div style={{ gridColumn: "span 8 / span 8" }} className="wh-video-main">
-                <div style={{ position: "relative", aspectRatio: "16 / 9", background: "#000", overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", ...(p.featuredVideoPosterUrl ? getImageBgSectionStyle(p.featuredVideoPosterUrl) : {}) }}>
-                  <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, #000, transparent, rgba(0,0,0,0.3))" }} />
-                  <div style={{ position: "absolute", top: 16, left: 16, right: 16, display: "flex", alignItems: "center", justifyContent: "space-between", zIndex: 20 }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.25rem 0.625rem", fontFamily: monoFont, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.15em", color: "#fff", backdropFilter: "blur(8px)", background: status === "live" ? "rgba(229,46,32,0.9)" : "rgba(0,0,0,0.5)" }}>
-                      {status === "live" && <span style={{ width: 6, height: 6, borderRadius: "9999px", background: "#fff" }} className="wh-ping" />}
-                      {status === "live" ? "Live" : "Recording"}
-                    </span>
-                    {registrations > 0 && (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem", padding: "0.25rem 0.625rem", background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)", fontFamily: monoFont, fontSize: "10px", letterSpacing: "0.1em", color: "rgba(255,255,255,0.8)" }}>
-                        <Users style={{ width: 12, height: 12 }} /> {registrations.toLocaleString()} {status === "live" ? "watching" : "views"}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10 }}>
-                    <div style={{ width: 80, height: 80, borderRadius: "9999px", border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.05)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <Play style={{ width: 32, height: 32, color: "#fff", marginLeft: 4 }} fill="currentColor" />
-                    </div>
-                  </div>
-                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 20, padding: "2.5rem 1rem 1rem", background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)" }}>
-                    <div style={{ position: "relative", height: 4, borderRadius: "9999px", background: "rgba(255,255,255,0.2)", marginBottom: "0.75rem" }}>
-                      <div style={{ position: "absolute", insetBlock: 0, left: 0, borderRadius: "9999px", width: status === "live" ? "100%" : "38%", background: status === "live" ? liveAccent : accent }} />
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: "rgba(255,255,255,0.9)" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                        <Play style={{ width: 16, height: 16 }} fill="currentColor" />
-                        <Volume2 style={{ width: 16, height: 16 }} />
-                        <span style={{ fontFamily: monoFont, fontSize: "10px", letterSpacing: "0.1em" }}>{status === "live" ? "LIVE" : "18:24 / 48:30"}</span>
+              <div style={{ gridColumn: featuredSidebar.length > 0 ? "span 8 / span 8" : "span 12 / span 12" }} className="wh-video-main">
+                <div style={{ position: "relative", aspectRatio: "16 / 9", background: "#000", overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)", ...((!featuredPlaying && p.featuredVideoPosterUrl) ? getImageBgSectionStyle(p.featuredVideoPosterUrl) : {}) }}>
+                  {featuredPlaying && featuredVideo ? (
+                    <VideoPlayer video={featuredVideo} poster={p.featuredVideoPosterUrl} />
+                  ) : (
+                    <>
+                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.6), transparent 45%)" }} />
+                      <div style={{ position: "absolute", top: 16, left: 16, right: 16, display: "flex", alignItems: "center", justifyContent: "space-between", zIndex: 20 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.25rem 0.625rem", fontFamily: monoFont, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.15em", color: "#fff", backdropFilter: "blur(8px)", background: status === "live" ? "rgba(229,46,32,0.9)" : "rgba(0,0,0,0.5)" }}>
+                          {status === "live" && <span style={{ width: 6, height: 6, borderRadius: "9999px", background: "#fff" }} className="wh-ping" />}
+                          {status === "live" ? "Live" : "Recording"}
+                        </span>
+                        {registrations > 0 && (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem", padding: "0.25rem 0.625rem", background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)", fontFamily: monoFont, fontSize: "10px", letterSpacing: "0.1em", color: "rgba(255,255,255,0.8)" }}>
+                            <Users style={{ width: 12, height: 12 }} /> {registrations.toLocaleString()} {status === "live" ? "watching" : "views"}
+                          </span>
+                        )}
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                        <Settings style={{ width: 16, height: 16 }} />
-                        <Maximize style={{ width: 16, height: 16 }} />
-                      </div>
-                    </div>
-                  </div>
+                      {featuredVideo && (
+                        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10 }}>
+                          <button
+                            type="button"
+                            onClick={() => setFeaturedPlaying(true)}
+                            aria-label="Play video"
+                            style={{ width: 80, height: 80, borderRadius: "9999px", border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.05)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                          >
+                            <Play style={{ width: 32, height: 32, color: "#fff", marginLeft: 4 }} fill="currentColor" />
+                          </button>
+                        </div>
+                      )}
+                      {!hasFeaturedMedia && isBuilder && (
+                        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10, padding: "0 2rem", textAlign: "center" }}>
+                          <span style={{ fontFamily: monoFont, fontSize: "11px", letterSpacing: "0.1em", color: "rgba(255,255,255,0.5)" }}>Add a featured video link or poster image in the panel →</span>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
-              <div style={{ gridColumn: "span 4 / span 4" }} className="wh-video-side">
-                <div style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "1rem", marginBottom: "1.5rem" }}>
-                  <h4 style={{ fontSize: "1.125rem", fontWeight: 500 }}>{status === "live" ? "Live Q&A" : "Session Materials"}</h4>
+              {featuredSidebar.length > 0 && (
+                <div style={{ gridColumn: "span 4 / span 4" }} className="wh-video-side">
+                  <div style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "1rem", marginBottom: "1.5rem" }}>
+                    <h4 style={{ fontSize: "1.125rem", fontWeight: 500 }}>Related materials</h4>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    {featuredSidebar.map((res, i) => {
+                      const href = (res.url ?? "").trim();
+                      const isPdf = /\.pdf(\?|$)/i.test(href);
+                      return (
+                        <a
+                          key={i}
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          {...(isPdf ? { download: "" } : {})}
+                          style={{ padding: "0.75rem 1rem", fontSize: "0.875rem", fontFamily: monoFont, letterSpacing: "0.05em", background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.85)", borderLeft: `2px solid ${accent}`, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem" }}
+                        >
+                          <span>0{i + 1} — {res.title}</span>
+                          {isPdf ? <Download style={{ width: 14, height: 14, flexShrink: 0 }} /> : <ArrowUpRight style={{ width: 14, height: 14, flexShrink: 0 }} />}
+                        </a>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  {["Full Recording", "Executive Summary", "Slides", "Transcript", "Related"].map((tab, i) => (
-                    <button key={tab} type="button" onClick={() => setActiveTab(i)} style={{ textAlign: "left", padding: "0.75rem 1rem", fontSize: "0.875rem", fontFamily: monoFont, letterSpacing: "0.05em", background: activeTab === i ? "rgba(255,255,255,0.05)" : "transparent", color: activeTab === i ? "#fff" : "rgba(255,255,255,0.4)", borderLeft: `2px solid ${activeTab === i ? accent : "transparent"}`, border: "none", borderLeftWidth: 2, borderLeftStyle: "solid", borderLeftColor: activeTab === i ? accent : "transparent", cursor: "pointer" }}>
-                      0{i + 1} — {tab}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </section>
@@ -634,7 +741,7 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
       )}
 
       {/* ---- Resources ---- */}
-      {show.resources && (resources.length > 0 || p.featuredResourceTitle) && (
+      {show.resources && resources.length > 0 && (
         <section id="resources" style={{ padding: "8rem 1.5rem", background: C.sand }}>
           <div style={{ maxWidth: "80rem", margin: "0 auto" }}>
             <div style={{ marginBottom: "5rem" }}>
@@ -642,17 +749,6 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
               <h2 style={{ fontFamily: displayFont, fontSize: "clamp(2rem, 4vw, 3rem)", marginTop: "1rem" }}>{p.resourcesHeadline || "Featured Resources"}</h2>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
-              {p.featuredResourceTitle && (
-                <div style={{ background: "#000", color: "#fff", padding: "1.5rem", display: "flex", flexDirection: "column", position: "relative" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "3rem" }}>
-                    <div style={{ width: 40, height: 40, borderRadius: "9999px", background: "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}><Sparkles style={{ width: 16, height: 16 }} /></div>
-                    <MonoLabel color="rgba(255,255,255,0.6)" opacity={1}>Recommended</MonoLabel>
-                  </div>
-                  <h4 style={{ fontSize: "1.125rem", fontWeight: 500, marginBottom: "0.5rem" }}>{p.featuredResourceTitle}</h4>
-                  <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.875rem", lineHeight: 1.6, marginBottom: "1.5rem", flex: 1 }}>Hand-picked for you. Start here.</p>
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}><Download style={{ width: 16, height: 16 }} /></div>
-                </div>
-              )}
               {resources.map((res, i) => {
                 const href = res.url?.trim();
                 const isPdf = !!href && /\.pdf(\?|$)/i.test(href);
