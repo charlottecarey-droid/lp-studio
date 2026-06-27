@@ -23,6 +23,13 @@ import {
   buildProofPointsSection,
   type ProofPoint,
 } from "./generate-page";
+import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
+// Deterministic sentence-case enforcement (parity with the page + microsite
+// generators): the prompt asks for sentence case, but gpt-4o ignores
+// instructions, so we normalize Title Case in the returned copy after the fact.
+import { normalizeHeadingsToSentenceCase } from "../../lib/ai-prompts/sentence-case-normalizer";
+import { findBannedPhrases } from "../../lib/ai-prompts/banned-phrase-validator";
+import { critiqueAndRewriteBlocks } from "../../lib/ai-prompts/critique-pass";
 
 const router = Router();
 
@@ -173,6 +180,27 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
   const briefPrompt = body.briefContext ? buildBriefContextPrompt(body.briefContext) : "";
   const briefPresent = hasBriefSignal(body.briefContext);
 
+  // Copy-quality rules (parity with /lp/generate-page + microsite). The shared
+  // buildBrandSystemPrompt only forbids the brand's OWN avoid-phrases, so the
+  // in-builder Suggest/Refresh prompts never received the universal buzzword
+  // ban, the sentence-case rules, or the copy-quality principles — that gap is
+  // why these surfaces produced buzzword soup. Inject them here (no audience
+  // segment in the builder, so matchedSegment is always false).
+  const forbiddenList = [...new Set([...getCoreForbiddenPhrases(), ...(brand.avoidPhrases ?? [])])];
+  const copyPrinciples = getCopyPrinciplesSection({
+    brandName: typeof brand.brandName === "string" ? brand.brandName : "",
+    matchedSegment: false,
+    forbiddenList,
+  });
+  // Proper nouns protected by the deterministic sentence-case normalizer so
+  // de-title-casing never lowercases the brand, a product, or the account/
+  // company named in the active brief (e.g. "42 North Dental").
+  const brandProperNouns: (string | undefined)[] = [
+    brand.brandName,
+    typeof body.briefContext?.company === "string" ? body.briefContext.company : undefined,
+    ...(brand.productLines ?? []).map((p) => p?.name),
+  ];
+
   const dsoContext = buildSegmentCopyContext(blockType, body.blockCategory);
 
   if (action === "refresh") {
@@ -218,6 +246,7 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
       brandPrompt,
       dsoContext,
       briefPrompt,
+      copyPrinciples,
       refreshProofSection,
       `You are rewriting landing page copy for a "${blockType}" block.`,
       `Generate fresh, on-brand copy for each of the following fields: ${validFields.join(", ")}.`,
@@ -284,6 +313,52 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
         // existing approved value rather than shipping an invented number.
         if (refreshPool && STAT_FIELD_KEYS.has(f) && !isApprovedStat(val, refreshPool)) continue;
         updated[f] = val;
+      }
+
+      // Copy ENFORCEMENT (parity with /lp/generate-page + microsite). Refresh is
+      // a single committed replacement, so it gets the full net: (1) a banned-
+      // phrase critique rewrite when the model emits buzzwords despite the
+      // strengthened prompt ban, then (2) deterministic sentence-case. Both
+      // fail-open — any hiccup ships the un-enforced copy, never a 500.
+      try {
+        const critiqueBlocks: unknown[] = [{ id: "refresh", type: blockType, props: { ...updated } }];
+        const hits = findBannedPhrases(critiqueBlocks, forbiddenList);
+        if (hits.length > 0) {
+          await critiqueAndRewriteBlocks({
+            blocks: critiqueBlocks,
+            bannedPhraseHits: hits,
+            brand: {
+              toneOfVoice: brand.toneOfVoice,
+              toneKeywords: brand.toneKeywords,
+              avoidPhrases: brand.avoidPhrases,
+              copyExamples: brand.copyExamples,
+              messagingPillars: brand.messagingPillars,
+            },
+            openai,
+          });
+          const rewritten = (critiqueBlocks[0] as { props?: Record<string, unknown> }).props ?? {};
+          for (const f of Object.keys(updated)) {
+            const v = rewritten[f];
+            if (typeof v === "string" && v.trim()) updated[f] = v.trim();
+          }
+        }
+      } catch {
+        // fail-open: keep the un-critiqued copy
+      }
+      // Deterministic sentence-case on heading-like fields. Wrap WITH the block's
+      // current values so the normalizer can detect a person/author card and skip
+      // the job title inside it (keep "Chief Dental Officer" intact); only the
+      // refreshed fields are read back out.
+      try {
+        const scBlocks: unknown[] = [{ props: { ...currentValues, ...updated } }];
+        normalizeHeadingsToSentenceCase(scBlocks, { properNouns: brandProperNouns });
+        const normProps = (scBlocks[0] as { props?: Record<string, unknown> }).props ?? {};
+        for (const f of Object.keys(updated)) {
+          const v = normProps[f];
+          if (typeof v === "string") updated[f] = v;
+        }
+      } catch {
+        // fail-open: keep the un-normalized copy
       }
 
       logCopyCall({
@@ -531,6 +606,7 @@ Use specific Dandy DSO metrics and product names. Return ONLY a JSON object { "t
     brandPrompt,
     dsoContext,
     briefPrompt,
+    copyPrinciples,
     `You are writing a "${field}" field for a landing page "${blockType}" block.`,
     hasCurrent
       ? `PRIMARY DRIVERS: the BRAND VOICE PROFILE and ACTIVE CAMPAIGN BRIEF above drive the output. The current field value is a REFERENCE for the slot's topic and concrete specifics (numbers, product names, named groups, audience) — preserve those — but freely rewrite wording, rhythm, and structure to match the brand voice and brief. The other fields on this block tell you what the block is about; stay on that topic.`
@@ -614,6 +690,24 @@ Use specific Dandy DSO metrics and product names. Return ONLY a JSON object { "t
         });
         return;
       }
+    }
+
+    // Deterministic sentence-case enforcement on each suggestion when the field
+    // is heading-like (the normalizer no-ops on body fields + long strings).
+    // Wrap WITH the block's sibling fields so the normalizer can detect a
+    // person/author card and skip the job title inside it; only the generated
+    // field is read back out. Fail-open: keep the original suggestion.
+    try {
+      const wrapped = suggestions.map((s) => ({
+        props: { ...siblingFields, [field]: s } as Record<string, unknown>,
+      }));
+      normalizeHeadingsToSentenceCase(wrapped, { properNouns: brandProperNouns });
+      suggestions = wrapped.map((b, i) => {
+        const v = (b.props as Record<string, unknown>)[field];
+        return typeof v === "string" ? v : suggestions[i];
+      });
+    } catch {
+      // keep original suggestions
     }
 
     logCopyCall({
