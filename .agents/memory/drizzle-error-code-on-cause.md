@@ -27,5 +27,6 @@ no detection, the retry just never runs.
 walks the `.cause` chain (depth-capped, null-safe). Do NOT inspect top-level
 `.code`. When you touch any of these still-direct callsites, migrate them to the
 helper — they are latent-broken the same way: `routes/admin.ts`,
-`routes/notifications.ts`, `routes/lp/pages.ts`, `routes/auth.ts`,
-`routes/lp/programmatic-pages.ts`.
+`routes/notifications.ts`, `routes/auth.ts`,
+`routes/lp/programmatic-pages.ts`. (`routes/lp/pages.ts` create + update
+catches were migrated to `isUniqueViolation` — June 2026.)

@@ -16,6 +16,7 @@ import { getRequestHost } from "../../lib/requestHost";
 import crypto from "node:crypto";
 import { triggerPublishedRender, triggerPublishedDelete } from "../../lib/triggerPublishedRender";
 import { withDbRetry, isTransientDbError } from "../../lib/dbResilience";
+import { isUniqueViolation } from "../../lib/dbErrors";
 import { handlePagePublishNotifications } from "../../lib/contentSeriesNotify";
 import { triggerTemplateThumbnailCapture } from "../../lib/captureTemplateThumbnail";
 import { getMicrositeTemplateCompatibility } from "@workspace/lp-template-engine";
@@ -157,14 +158,6 @@ function buildReviewUrl(req: import("express").Request, pageId: number): string 
   const proto = (req.headers["x-forwarded-proto"] as string)?.split(",")[0] || req.protocol || "https";
   const host = (req.headers["x-forwarded-host"] as string) || req.headers.host || "";
   return `${proto}://${host}/builder/${pageId}`;
-}
-
-interface DbError {
-  code?: string;
-}
-
-function isDbError(err: unknown): err is DbError {
-  return typeof err === "object" && err !== null && "code" in err;
 }
 
 /**
@@ -655,12 +648,33 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
           ),
         )
       : [];
+    // Slug uniqueness: a page slug must be unique per tenant. The AI page
+    // generator derives the slug from the title, so regenerating pages for the
+    // same product yields a colliding slug and the insert would otherwise fail.
+    // Mirror the clone path: auto-suffix to the next free slug (foo, foo-2,
+    // foo-3, …) so creation succeeds instead of erroring. The catch below still
+    // maps the rare concurrent-insert race to a clean 409.
+    let finalSlug = slug;
+    for (let suffix = 2; ; suffix++) {
+      const [existing] = await withDbRetry(() => db
+        .select({ id: lpPagesTable.id })
+        .from(lpPagesTable)
+        .where(and(eq(lpPagesTable.slug, finalSlug), eq(lpPagesTable.tenantId, tenantId)))
+        .limit(1));
+      if (!existing) break;
+      // Keep the suffixed slug within the 255-char column/validation cap by
+      // trimming the base before appending "-N" (trailing dashes stripped so we
+      // never produce "base--2").
+      const suffixPart = `-${suffix}`;
+      const base = slug.slice(0, 255 - suffixPart.length).replace(/-+$/, "");
+      finalSlug = `${base}${suffixPart}`;
+    }
     const [page] = await withDbRetry(() => db
       .insert(lpPagesTable)
       .values({
         tenantId,
         title,
-        slug,
+        slug: finalSlug,
         blocks: effectiveBlocks,
         status: effectiveStatus,
         customCss: finalCustomCss,
@@ -696,7 +710,7 @@ router.post("/lp/pages", async (req, res): Promise<void> => {
     }
     res.status(201).json(page);
   } catch (err) {
-    if (isDbError(err) && err.code === "23505") {
+    if (isUniqueViolation(err)) {
       res.status(409).json({ error: "A page with that slug already exists" });
     } else if (isTransientDbError(err)) {
       // Pool was briefly saturated even after retries. Tell the client it's a
@@ -1171,7 +1185,7 @@ router.put("/lp/pages/:pageId", async (req, res): Promise<void> => {
     }
     res.json(page);
   } catch (err) {
-    if (isDbError(err) && err.code === "23505") {
+    if (isUniqueViolation(err)) {
       res.status(409).json({ error: "A page with that slug already exists" });
     } else {
       res.status(500).json({ error: "Failed to update page" });
