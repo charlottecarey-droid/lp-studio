@@ -245,7 +245,10 @@ describe("mergeRecipeOverrides — superadmin wording overrides", () => {
     label: null,
     description: null,
     styleNotes: null,
+    skeleton: null,
     enabled: true,
+    isCustom: false,
+    sortOrder: 0,
     ...o,
   });
 
@@ -290,6 +293,84 @@ describe("mergeRecipeOverrides — superadmin wording overrides", () => {
     const out = mergeRecipeOverrides(base, [
       ov({ recipeId: "r2", label: "B" }),
       ov({ recipeId: "r1", label: "A" }),
+    ]);
+    expect(out.map((r) => r.id)).toEqual(["r1", "r2"]);
+  });
+
+  it("REPLACES the code skeleton with a non-empty override skeleton", () => {
+    const out = mergeRecipeOverrides(base, [
+      ov({ recipeId: "r1", skeleton: ["hero", "stat-showcase", "comparison", "cta"] }),
+    ]);
+    expect(out.find((r) => r.id === "r1")!.skeleton).toEqual([
+      "hero",
+      "stat-showcase",
+      "comparison",
+      "cta",
+    ]);
+    // r2 (no override) keeps its code skeleton.
+    expect(out.find((r) => r.id === "r2")!.skeleton).toEqual(["hero", "faq"]);
+  });
+
+  it("inherits the code skeleton when the override skeleton is null or all-blank", () => {
+    const out = mergeRecipeOverrides(base, [
+      ov({ recipeId: "r1", skeleton: null }),
+      ov({ recipeId: "r2", skeleton: ["  ", ""] }),
+    ]);
+    expect(out.find((r) => r.id === "r1")!.skeleton).toEqual(["hero", "cta"]);
+    expect(out.find((r) => r.id === "r2")!.skeleton).toEqual(["hero", "faq"]);
+  });
+
+  it("appends enabled custom recipes AFTER the built-ins, in their given order", () => {
+    const out = mergeRecipeOverrides(base, [
+      ov({
+        recipeId: "freeform-custom-aa",
+        label: "Custom A",
+        description: "Desc A",
+        styleNotes: "Art A.",
+        skeleton: ["hero", "cta"],
+        isCustom: true,
+        sortOrder: 1,
+      }),
+      ov({
+        recipeId: "freeform-custom-bb",
+        label: "Custom B",
+        description: "Desc B",
+        styleNotes: "Art B.",
+        skeleton: ["hero", "faq", "cta"],
+        isCustom: true,
+        sortOrder: 2,
+      }),
+    ]);
+    expect(out.map((r) => r.id)).toEqual([
+      "r1",
+      "r2",
+      "freeform-custom-aa",
+      "freeform-custom-bb",
+    ]);
+    const custom = out.find((r) => r.id === "freeform-custom-bb")!;
+    expect(custom.label).toBe("Custom B");
+    expect(custom.skeleton).toEqual(["hero", "faq", "cta"]);
+  });
+
+  it("drops a disabled custom recipe", () => {
+    const out = mergeRecipeOverrides(base, [
+      ov({
+        recipeId: "freeform-custom-cc",
+        label: "Hidden",
+        description: "Desc",
+        styleNotes: "Art.",
+        skeleton: ["hero", "cta"],
+        isCustom: true,
+        enabled: false,
+      }),
+    ]);
+    expect(out.map((r) => r.id)).toEqual(["r1", "r2"]);
+  });
+
+  it("skips a malformed custom recipe (missing required fields)", () => {
+    const out = mergeRecipeOverrides(base, [
+      ov({ recipeId: "freeform-custom-dd", label: "No skeleton", description: "D", styleNotes: "Art.", isCustom: true }),
+      ov({ recipeId: "freeform-custom-ee", skeleton: ["hero", "cta"], isCustom: true }),
     ]);
     expect(out.map((r) => r.id)).toEqual(["r1", "r2"]);
   });

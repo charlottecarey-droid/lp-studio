@@ -243,64 +243,115 @@ export function recipesForPath(path: RecipePromptPath): PageRecipe[] {
 }
 
 /**
- * A superadmin's WORDING override of one recipe (June 2026). Only the
- * human-facing label / description / styleNotes can be overridden — the recipe's
- * block SKELETON stays code-defined. `enabled=false` drops the recipe from the
- * AI rotation. Each text field is `null` = "inherit the code default for this
- * field" (the shadow-override contract; persisted in page_recipe_overrides).
+ * A superadmin's override of one recipe (June 2026, recipe BUILDER).
+ *
+ *   • For a BUILT-IN recipe (isCustom=false): each text field is `null` =
+ *     "inherit the code default for this field"; `skeleton=null` = inherit the
+ *     code section order, a non-null array REPLACES it.
+ *   • For a CUSTOM recipe (isCustom=true): the row IS the recipe — label,
+ *     description, styleNotes and skeleton are all populated (no code fallback);
+ *     sortOrder positions it among the path's custom recipes.
+ *   • `enabled=false` drops the recipe from the AI rotation pool.
+ *
+ * Persisted in page_recipe_overrides; merged onto the code recipes by
+ * mergeRecipeOverrides (PURE) at generation time.
  */
 export interface RecipeOverride {
   recipeId: string;
   label: string | null;
   description: string | null;
   styleNotes: string | null;
+  /** Ordered section slots, or null to inherit the code skeleton (built-ins). */
+  skeleton: string[] | null;
   enabled: boolean;
+  /** true = from-scratch recipe (no code base); false = override of a built-in. */
+  isCustom: boolean;
+  /** Position among a path's custom recipes (built-ins always come first). */
+  sortOrder: number;
+}
+
+/** A non-null, non-empty string array (a usable skeleton override). */
+function usableSkeleton(skeleton: string[] | null): string[] | null {
+  if (!Array.isArray(skeleton)) return null;
+  const cleaned = skeleton
+    .map((s) => (typeof s === "string" ? s.trim() : ""))
+    .filter((s) => s.length > 0);
+  return cleaned.length > 0 ? cleaned : null;
 }
 
 /**
- * Apply superadmin wording overrides onto the code-defined recipe list. PURE
- * and DB-free (the DB read lives in page-recipe-overrides.ts).
+ * Apply superadmin overrides onto the code-defined recipe list. PURE and DB-free
+ * (the DB read lives in page-recipe-overrides.ts).
  *
- *   • A recipe with `enabled === false` in its override is DROPPED (removed from
- *     the rotation pool).
- *   • For a kept recipe, each non-empty override field (label / description /
- *     styleNotes) REPLACES the code value; a null/blank field inherits the code
- *     default. The `skeleton` (block order) is ALWAYS the code value.
- *   • Override entries whose recipeId is not in `base` are ignored (a recipe was
- *     removed/renamed in code → its stale override row is a no-op).
- *   • Recipe ORDER follows `base`.
+ *   • BUILT-IN recipes: a matching override drops the recipe when
+ *     `enabled === false`; otherwise each non-empty text field and a non-empty
+ *     `skeleton` REPLACE the code values (blank/null inherits the code default).
+ *     Built-in override entries whose recipeId is not in `base` are ignored
+ *     (a recipe was removed/renamed in code → its stale row is a no-op).
+ *   • CUSTOM recipes (`isCustom === true`): enabled ones are APPENDED after the
+ *     built-ins, in the order given (the loader pre-sorts by sortOrder then
+ *     createdAt). A custom row missing label/description/styleNotes/skeleton is
+ *     skipped (defensive — never emit a malformed recipe).
+ *   • Built-in ORDER follows `base`; customs follow in their given order.
  */
 export function mergeRecipeOverrides(
   base: ReadonlyArray<PageRecipe>,
   overrides: ReadonlyArray<RecipeOverride>,
 ): PageRecipe[] {
-  const byId = new Map(overrides.map((o) => [o.recipeId, o]));
+  const builtinById = new Map(
+    overrides.filter((o) => !o.isCustom).map((o) => [o.recipeId, o]),
+  );
   const out: PageRecipe[] = [];
+  const pick = (override: string | null, fallback: string): string =>
+    typeof override === "string" && override.trim() ? override : fallback;
   for (const recipe of base) {
-    const o = byId.get(recipe.id);
+    const o = builtinById.get(recipe.id);
     if (o && o.enabled === false) continue;
     if (!o) {
       out.push(recipe);
       continue;
     }
-    const pick = (override: string | null, fallback: string): string =>
-      typeof override === "string" && override.trim() ? override : fallback;
     out.push({
       ...recipe,
       label: pick(o.label, recipe.label),
       description: pick(o.description, recipe.description),
       styleNotes: pick(o.styleNotes, recipe.styleNotes),
+      skeleton: usableSkeleton(o.skeleton) ?? recipe.skeleton,
+    });
+  }
+  for (const o of overrides) {
+    if (!o.isCustom || o.enabled === false) continue;
+    const skeleton = usableSkeleton(o.skeleton);
+    if (
+      !skeleton ||
+      !o.label?.trim() ||
+      !o.description?.trim() ||
+      !o.styleNotes?.trim()
+    ) {
+      continue;
+    }
+    out.push({
+      id: o.recipeId,
+      label: o.label.trim(),
+      description: o.description.trim(),
+      styleNotes: o.styleNotes.trim(),
+      skeleton,
     });
   }
   return out;
 }
 
-/** Every individual block type a recipe's skeleton references ("a OR b" → both). */
-export function recipeSkeletonBlockTypes(recipe: PageRecipe): string[] {
-  return recipe.skeleton
+/** Every individual block type a list of skeleton slots references ("a OR b" → both). */
+export function skeletonBlockTypes(skeleton: ReadonlyArray<string>): string[] {
+  return skeleton
     .flatMap((entry) => entry.split(/\s+OR\s+/))
     .map((t) => t.trim())
     .filter((t) => t.length > 0);
+}
+
+/** Every individual block type a recipe's skeleton references ("a OR b" → both). */
+export function recipeSkeletonBlockTypes(recipe: PageRecipe): string[] {
+  return skeletonBlockTypes(recipe.skeleton);
 }
 
 /**

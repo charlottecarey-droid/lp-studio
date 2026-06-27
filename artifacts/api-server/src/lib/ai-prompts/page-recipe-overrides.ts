@@ -19,15 +19,37 @@ import {
   type RecipePromptPath,
 } from "./page-recipes";
 
-/** Read the override rows for one prompt path. Fail-open: returns [] on error. */
+/** Parse a jsonb skeleton column into a clean string[] (or null). Defensive:
+ *  pg returns jsonb already parsed, but a hand-edited / legacy value could be a
+ *  JSON string or a non-array — never let that throw. */
+function parseSkeleton(raw: unknown): string[] | null {
+  let value = raw;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  if (!Array.isArray(value)) return null;
+  const cleaned = value
+    .map((s) => (typeof s === "string" ? s.trim() : ""))
+    .filter((s) => s.length > 0);
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+/** Read the override rows for one prompt path, ordered so custom recipes append
+ *  deterministically (sort_order then created_at). Fail-open: [] on error. */
 export async function loadRecipeOverrides(
   path: RecipePromptPath,
 ): Promise<RecipeOverride[]> {
   try {
     const result = await pool.query(
-      `SELECT recipe_id, label, description, style_notes, enabled
+      `SELECT recipe_id, label, description, style_notes, skeleton, is_custom,
+              sort_order, enabled
          FROM page_recipe_overrides
-        WHERE recipe_path = $1`,
+        WHERE recipe_path = $1
+        ORDER BY sort_order ASC, created_at ASC`,
       [path],
     );
     return result.rows.map((r: any) => ({
@@ -35,8 +57,11 @@ export async function loadRecipeOverrides(
       label: r.label ?? null,
       description: r.description ?? null,
       styleNotes: r.style_notes ?? null,
+      skeleton: parseSkeleton(r.skeleton),
       // Treat anything but an explicit false as enabled (defensive).
       enabled: r.enabled !== false,
+      isCustom: r.is_custom === true,
+      sortOrder: Number.isFinite(Number(r.sort_order)) ? Number(r.sort_order) : 0,
     }));
   } catch (err) {
     console.error("[page-recipe-overrides] load error:", err);
@@ -45,9 +70,10 @@ export async function loadRecipeOverrides(
 }
 
 /**
- * The EFFECTIVE recipe pool for a prompt path: code recipes with any superadmin
- * wording overrides applied and disabled recipes dropped. Fail-open to the raw
- * code recipes — the caller's existing empty-pool handling covers the (rare)
+ * The EFFECTIVE recipe pool for a prompt path: code (built-in) recipes with any
+ * superadmin overrides applied (wording, section skeleton, on/off) plus the
+ * superadmin's enabled custom recipes appended. Fail-open to the raw code
+ * recipes — the caller's existing empty-pool handling covers the (rare)
  * all-disabled case.
  */
 export async function loadEffectiveRecipesForPath(

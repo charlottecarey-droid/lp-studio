@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomBytes } from "node:crypto";
 import { pool } from "@workspace/db";
 import { requireSuperadmin } from "../middleware/requireSuperadmin";
 import {
@@ -6,18 +7,27 @@ import {
   type PageRecipe,
   type RecipePromptPath,
 } from "../lib/ai-prompts/page-recipes";
+import {
+  availableBlocksForPath,
+  validateSkeleton,
+} from "../lib/ai-prompts/recipe-block-vocab";
 
 /**
- * Superadmin CRUD for AI page-generation RECIPE wording overrides (June 2026).
+ * Superadmin CRUD for the AI page-generation RECIPE builder (June 2026).
  *
- * The recipes (id, section SKELETON / block order, prompt paths) stay hardcoded
- * in lib/ai-prompts/page-recipes.ts — code is the source of truth and fallback.
- * These routes only let a superadmin override each recipe's human-facing WORDING
- * (label / description / style notes) and turn it on/off. SHADOW-OVERRIDE:
- *   • PUT upserts a page_recipe_overrides row (empty fields stored NULL = inherit
- *     the code default).
- *   • DELETE removes the row → the recipe resets fully to its code default.
- *   • An absent row means "code default, enabled".
+ * A recipe is one page archetype the generator rotates between. There are two
+ * kinds of row in page_recipe_overrides:
+ *   • BUILT-IN overrides (is_custom=false): a code recipe from
+ *     lib/ai-prompts/page-recipes.ts whose WORDING (label/description/style
+ *     notes), section SKELETON (block order) and on/off flag a superadmin may
+ *     override. SHADOW-OVERRIDE: empty text → NULL (inherit code); empty
+ *     skeleton → NULL (inherit code order); DELETE → reset to code default;
+ *     absent row → pure code default, enabled.
+ *   • CUSTOM recipes (is_custom=true): a from-scratch recipe — label,
+ *     description, style notes and skeleton are all required; DELETE removes it.
+ *
+ * Every skeleton is validated against the path's advertised AI vocabulary, so a
+ * recipe can never name a block the path's AI cannot build.
  *
  * Must mount BEFORE the "/admin" adminRouter (its blanket requireAuth wildcard
  * would otherwise swallow these /admin/page-recipes paths).
@@ -53,39 +63,64 @@ function cleanText(v: unknown, max: number): string | null {
   return t.slice(0, max);
 }
 
+/** Look up an existing CUSTOM recipe row (is_custom=true). */
+async function customRow(
+  path: RecipePromptPath,
+  id: string,
+): Promise<{ sort_order: number } | null> {
+  const res = await pool.query(
+    `SELECT sort_order FROM page_recipe_overrides
+      WHERE recipe_path = $1 AND recipe_id = $2 AND is_custom = true`,
+    [path, id],
+  );
+  return res.rows[0] ?? null;
+}
+
 // ─── GET /api/admin/page-recipes ─────────────────────────────────────────────
-// Every code recipe (grouped + read-only skeleton) with its current override /
-// effective wording. The skeleton is informational only — it is never editable.
+// Every recipe (built-in + custom) grouped, with its current override /
+// effective values and editable skeleton, plus the per-path block menu the
+// builder UI offers (availableBlocks).
 router.get("/admin/page-recipes", requireSuperadmin, async (_req, res): Promise<void> => {
   try {
     const ovRes = await pool.query(
-      `SELECT recipe_path, recipe_id, label, description, style_notes, enabled, updated_at, updated_by
+      `SELECT recipe_path, recipe_id, label, description, style_notes, skeleton,
+              is_custom, sort_order, enabled, created_at, updated_at, updated_by
          FROM page_recipe_overrides`,
     );
-    const byKey = new Map<string, any>(
-      ovRes.rows.map((r: any) => [`${r.recipe_path}::${r.recipe_id}`, r]),
+    const rows = ovRes.rows as any[];
+    const pick = (override: string | null | undefined, fallback: string): string =>
+      typeof override === "string" && override.trim() ? override : fallback;
+    const overrideSkeleton = (raw: unknown): string[] | null =>
+      Array.isArray(raw) && raw.every((s) => typeof s === "string") && raw.length > 0
+        ? (raw as string[])
+        : null;
+
+    // Built-in recipes (code = source) with any override applied.
+    const builtinByKey = new Map<string, any>(
+      rows.filter((r) => r.is_custom !== true).map((r) => [`${r.recipe_path}::${r.recipe_id}`, r]),
     );
-    const recipes = RECIPE_PATHS.flatMap((path) =>
+    const builtinItems = RECIPE_PATHS.flatMap((path) =>
       recipesForPath(path).map((r) => {
-        const ov = byKey.get(`${path}::${r.id}`) ?? null;
-        const pick = (override: string | null | undefined, fallback: string): string =>
-          typeof override === "string" && override.trim() ? override : fallback;
+        const ov = builtinByKey.get(`${path}::${r.id}`) ?? null;
+        const ovSkeleton = ov ? overrideSkeleton(ov.skeleton) : null;
         return {
           path,
           id: r.id,
           group: PATH_GROUP[path],
-          // Read-only — surfaced so the operator can see the section order.
-          skeleton: r.skeleton,
+          isCustom: false,
+          skeleton: ovSkeleton ?? r.skeleton,
           default: {
             label: r.label,
             description: r.description,
             styleNotes: r.styleNotes,
+            skeleton: r.skeleton,
           },
           override: ov
             ? {
                 label: ov.label ?? null,
                 description: ov.description ?? null,
                 styleNotes: ov.style_notes ?? null,
+                skeleton: ovSkeleton,
                 enabled: ov.enabled !== false,
                 updatedAt: ov.updated_at ?? null,
               }
@@ -99,7 +134,46 @@ router.get("/admin/page-recipes", requireSuperadmin, async (_req, res): Promise<
         };
       }),
     );
-    res.json({ recipes });
+
+    // Custom recipes (the row IS the recipe).
+    const customItems = rows
+      .filter((r) => r.is_custom === true && isRecipePath(r.recipe_path))
+      .sort(
+        (a, b) =>
+          (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
+          new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime(),
+      )
+      .map((r) => {
+        const path = r.recipe_path as RecipePromptPath;
+        const skeleton = overrideSkeleton(r.skeleton) ?? [];
+        return {
+          path,
+          id: String(r.recipe_id),
+          group: PATH_GROUP[path],
+          isCustom: true,
+          skeleton,
+          default: null,
+          override: {
+            label: r.label ?? "",
+            description: r.description ?? "",
+            styleNotes: r.style_notes ?? "",
+            skeleton,
+            enabled: r.enabled !== false,
+            updatedAt: r.updated_at ?? null,
+          },
+          effective: {
+            label: r.label ?? "",
+            description: r.description ?? "",
+            styleNotes: r.style_notes ?? "",
+            enabled: r.enabled !== false,
+          },
+        };
+      });
+
+    const availableBlocks = Object.fromEntries(
+      RECIPE_PATHS.map((path) => [path, availableBlocksForPath(path)]),
+    );
+    res.json({ recipes: [...builtinItems, ...customItems], availableBlocks });
   } catch (err) {
     console.error("[page-recipes admin] GET error:", err);
     res.status(500).json({ error: "Server error" });
@@ -107,10 +181,10 @@ router.get("/admin/page-recipes", requireSuperadmin, async (_req, res): Promise<
 });
 
 // ─── PUT /api/admin/page-recipes ─────────────────────────────────────────────
-// Upsert one recipe's wording override. Body:
-//   { recipe_path, recipe_id, label?, description?, styleNotes?, enabled? }
-// (recipe_path, recipe_id) MUST name a recipe that exists in code. Empty text
-// fields are stored NULL = inherit the code default for that field.
+// Update a BUILT-IN recipe override OR an existing CUSTOM recipe. Body:
+//   { recipe_path, recipe_id, label?, description?, styleNotes?, skeleton?, enabled? }
+// Built-in: empty text/skeleton → NULL (inherit the code default for that field).
+// Custom: label/description/styleNotes/skeleton are all required.
 router.put("/admin/page-recipes", requireSuperadmin, async (req, res): Promise<void> => {
   const body = (req.body ?? {}) as Record<string, unknown>;
   const recipePath = body["recipe_path"];
@@ -119,30 +193,75 @@ router.put("/admin/page-recipes", requireSuperadmin, async (req, res): Promise<v
     res.status(400).json({ error: "Invalid recipe_path" });
     return;
   }
-  if (typeof recipeId !== "string" || !codeRecipe(recipePath, recipeId)) {
-    res.status(400).json({ error: "Unknown recipe_id" });
+  if (typeof recipeId !== "string" || !recipeId) {
+    res.status(400).json({ error: "Missing recipe_id" });
     return;
   }
-  const label = cleanText(body["label"], LABEL_MAX);
-  const description = cleanText(body["description"], DESCRIPTION_MAX);
-  const styleNotes = cleanText(body["styleNotes"], STYLE_NOTES_MAX);
-  // Default true when omitted/invalid; only an explicit `false` disables.
-  const enabled = body["enabled"] === false ? false : true;
   const updatedBy = req.authUser?.userId ?? null;
+  const enabled = body["enabled"] === false ? false : true;
+  const isBuiltin = Boolean(codeRecipe(recipePath, recipeId));
+
   try {
+    if (isBuiltin) {
+      const label = cleanText(body["label"], LABEL_MAX);
+      const description = cleanText(body["description"], DESCRIPTION_MAX);
+      const styleNotes = cleanText(body["styleNotes"], STYLE_NOTES_MAX);
+      // Skeleton: omitted/empty → NULL (inherit code order); otherwise validate.
+      let skeletonJson: string | null = null;
+      const rawSkeleton = body["skeleton"];
+      if (Array.isArray(rawSkeleton) && rawSkeleton.length > 0) {
+        const v = validateSkeleton(recipePath, rawSkeleton);
+        if (!v.ok) {
+          res.status(400).json({ error: v.error });
+          return;
+        }
+        skeletonJson = JSON.stringify(v.skeleton);
+      }
+      const result = await pool.query(
+        `INSERT INTO page_recipe_overrides
+           (recipe_path, recipe_id, label, description, style_notes, skeleton,
+            is_custom, sort_order, enabled, updated_by, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, false, 0, $7, $8, now())
+         ON CONFLICT (recipe_path, recipe_id) DO UPDATE SET
+           label = EXCLUDED.label,
+           description = EXCLUDED.description,
+           style_notes = EXCLUDED.style_notes,
+           skeleton = EXCLUDED.skeleton,
+           enabled = EXCLUDED.enabled,
+           updated_by = EXCLUDED.updated_by,
+           updated_at = now()
+         RETURNING recipe_path, recipe_id`,
+        [recipePath, recipeId, label, description, styleNotes, skeletonJson, enabled, updatedBy],
+      );
+      res.json(result.rows[0]);
+      return;
+    }
+
+    // Custom recipe update — must already exist.
+    const existing = await customRow(recipePath, recipeId);
+    if (!existing) {
+      res.status(400).json({ error: "Unknown recipe_id" });
+      return;
+    }
+    const label = cleanText(body["label"], LABEL_MAX);
+    const description = cleanText(body["description"], DESCRIPTION_MAX);
+    const styleNotes = cleanText(body["styleNotes"], STYLE_NOTES_MAX);
+    if (!label || !description || !styleNotes) {
+      res.status(400).json({ error: "Name, description and style notes are required." });
+      return;
+    }
+    const v = validateSkeleton(recipePath, body["skeleton"]);
+    if (!v.ok) {
+      res.status(400).json({ error: v.error });
+      return;
+    }
     const result = await pool.query(
-      `INSERT INTO page_recipe_overrides
-         (recipe_path, recipe_id, label, description, style_notes, enabled, updated_by, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, now())
-       ON CONFLICT (recipe_path, recipe_id) DO UPDATE SET
-         label = EXCLUDED.label,
-         description = EXCLUDED.description,
-         style_notes = EXCLUDED.style_notes,
-         enabled = EXCLUDED.enabled,
-         updated_by = EXCLUDED.updated_by,
-         updated_at = now()
-       RETURNING recipe_path, recipe_id, label, description, style_notes, enabled, updated_at`,
-      [recipePath, recipeId, label, description, styleNotes, enabled, updatedBy],
+      `UPDATE page_recipe_overrides SET
+         label = $3, description = $4, style_notes = $5, skeleton = $6::jsonb,
+         enabled = $7, updated_by = $8, updated_at = now()
+       WHERE recipe_path = $1 AND recipe_id = $2 AND is_custom = true
+       RETURNING recipe_path, recipe_id`,
+      [recipePath, recipeId, label, description, styleNotes, JSON.stringify(v.skeleton), enabled, updatedBy],
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -151,8 +270,55 @@ router.put("/admin/page-recipes", requireSuperadmin, async (req, res): Promise<v
   }
 });
 
+// ─── POST /api/admin/page-recipes ────────────────────────────────────────────
+// Create a CUSTOM recipe. Body: { recipe_path, label, description, styleNotes,
+// skeleton }. All fields required; the id is generated server-side.
+router.post("/admin/page-recipes", requireSuperadmin, async (req, res): Promise<void> => {
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const recipePath = body["recipe_path"];
+  if (!isRecipePath(recipePath)) {
+    res.status(400).json({ error: "Invalid recipe_path" });
+    return;
+  }
+  const label = cleanText(body["label"], LABEL_MAX);
+  const description = cleanText(body["description"], DESCRIPTION_MAX);
+  const styleNotes = cleanText(body["styleNotes"], STYLE_NOTES_MAX);
+  if (!label || !description || !styleNotes) {
+    res.status(400).json({ error: "Name, description and style notes are required." });
+    return;
+  }
+  const v = validateSkeleton(recipePath, body["skeleton"]);
+  if (!v.ok) {
+    res.status(400).json({ error: v.error });
+    return;
+  }
+  const id = `${recipePath}-custom-${randomBytes(5).toString("hex")}`;
+  const updatedBy = req.authUser?.userId ?? null;
+  try {
+    const nextSort = await pool.query(
+      `SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM page_recipe_overrides
+        WHERE recipe_path = $1 AND is_custom = true`,
+      [recipePath],
+    );
+    const sortOrder = Number(nextSort.rows[0]?.next ?? 1);
+    const result = await pool.query(
+      `INSERT INTO page_recipe_overrides
+         (recipe_path, recipe_id, label, description, style_notes, skeleton,
+          is_custom, sort_order, enabled, updated_by, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, true, $7, true, $8, now(), now())
+       RETURNING recipe_path, recipe_id`,
+      [recipePath, id, label, description, styleNotes, JSON.stringify(v.skeleton), sortOrder, updatedBy],
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("[page-recipes admin] POST error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // ─── DELETE /api/admin/page-recipes/:path/:id ────────────────────────────────
-// Remove a recipe's override row → reset it fully to the code default.
+// Built-in: remove the override row → reset to the code default.
+// Custom: remove the recipe entirely.
 router.delete(
   "/admin/page-recipes/:path/:id",
   requireSuperadmin,
