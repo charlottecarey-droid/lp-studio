@@ -12,7 +12,7 @@ import {
   validateSkeleton,
   MAX_SKELETON_SLOTS,
 } from "./recipe-block-vocab";
-import { FREEFORM_RECIPES, recipeSkeletonBlockTypes } from "./page-recipes";
+import { FREEFORM_RECIPES, MICROSITE_RECIPES, recipeSkeletonBlockTypes } from "./page-recipes";
 
 describe("friendlyBlockLabel", () => {
   it("title-cases hyphenated block types", () => {
@@ -28,7 +28,7 @@ describe("friendlyBlockLabel", () => {
 
 describe("availableBlocksForPath", () => {
   it("returns a non-empty, alphabetically-sorted, de-duplicated menu for each path", () => {
-    for (const path of ["freeform", "dso", "dso-practices"] as const) {
+    for (const path of ["freeform", "dso", "dso-practices", "microsite"] as const) {
       const blocks = availableBlocksForPath(path);
       expect(blocks.length).toBeGreaterThan(0);
       const labels = blocks.map((b) => b.label);
@@ -53,6 +53,26 @@ describe("GENERAL vocabulary is broader than the curated built-in recipes", () =
     for (const t of curated) expect(advertised.has(t)).toBe(true);
     // The full advertised vocabulary is a STRICT superset of the curated subset.
     expect(advertised.size).toBeGreaterThan(curated.size);
+  });
+});
+
+describe("MICROSITE vocabulary + recipes", () => {
+  it("advertises every block the built-in microsite recipes use", () => {
+    const advertised = advertisedBlockTypesForPath("microsite");
+    expect(advertised.size).toBeGreaterThan(0);
+    for (const recipe of MICROSITE_RECIPES) {
+      for (const type of recipeSkeletonBlockTypes(recipe)) {
+        expect(
+          advertised.has(type),
+          `microsite recipe "${recipe.id}" names unadvertised block "${type}"`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("accepts a built-in microsite recipe skeleton through validateSkeleton", () => {
+    const res = validateSkeleton("microsite", MICROSITE_RECIPES[0].skeleton);
+    expect(res.ok).toBe(true);
   });
 });
 

@@ -21,6 +21,10 @@ import {
   buildDsoPracticesSystemPrompt,
 } from "../../routes/lp/generate-page";
 import { skeletonBlockTypes, type RecipePromptPath } from "./page-recipes";
+import {
+  FREEFORM_MICROSITE_DISPLAY_TYPES,
+  FREEFORM_ROLE_HINTS,
+} from "./microsite-block-vocab";
 
 export interface AvailableBlock {
   type: string;
@@ -65,10 +69,36 @@ function systemPromptForPath(path: RecipePromptPath): string {
 // changes at runtime — memoize the parse per path.
 const cache = new Map<RecipePromptPath, AvailableBlock[]>();
 
+/**
+ * The neutral-freeform MICROSITE vocabulary is NOT a single assembled system
+ * prompt (the generator builds the AVAILABLE BLOCKS guide from a shared
+ * pure-data module), so it can't be derived by parsing schema bullets like the
+ * other paths. Build the menu directly from the SAME two constants the generator
+ * uses (FREEFORM_MICROSITE_DISPLAY_TYPES + FREEFORM_ROLE_HINTS) so the recipe
+ * builder and the generator can never drift.
+ */
+function micrositeAvailableBlocks(): AvailableBlock[] {
+  const byType = new Map<string, AvailableBlock>();
+  for (const type of FREEFORM_MICROSITE_DISPLAY_TYPES) {
+    if (byType.has(type)) continue;
+    byType.set(type, {
+      type,
+      label: friendlyBlockLabel(type),
+      description: FREEFORM_ROLE_HINTS[type] ?? "section",
+    });
+  }
+  return [...byType.values()].sort((a, b) => a.label.localeCompare(b.label));
+}
+
 /** The friendly, de-duplicated, alphabetically-sorted block menu for a path. */
 export function availableBlocksForPath(path: RecipePromptPath): AvailableBlock[] {
   const cached = cache.get(path);
   if (cached) return cached;
+  if (path === "microsite") {
+    const micrositeList = micrositeAvailableBlocks();
+    cache.set(path, micrositeList);
+    return micrositeList;
+  }
   const byType = new Map<string, AvailableBlock>();
   for (const line of systemPromptForPath(path).split("\n")) {
     const m = line.match(BLOCK_BULLET_RE);

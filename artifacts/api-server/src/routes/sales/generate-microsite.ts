@@ -101,6 +101,12 @@ import { findBannedPhrases } from "../../lib/ai-prompts/banned-phrase-validator"
 import { critiqueAndRewriteBlocks } from "../../lib/ai-prompts/critique-pass";
 import { normalizeHeadingsToSentenceCase } from "../../lib/ai-prompts/sentence-case-normalizer";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
+import type { PageRecipe } from "../../lib/ai-prompts/page-recipes";
+import { loadEffectiveRecipesForPath } from "../../lib/ai-prompts/page-recipe-overrides";
+import {
+  FREEFORM_MICROSITE_DISPLAY_TYPES,
+  FREEFORM_ROLE_HINTS,
+} from "../../lib/ai-prompts/microsite-block-vocab";
 // All-in-one template intent matching (parity with /lp/generate-page): route a
 // prompt that names a framework ("MEDDIC decision brief", "StoryBrand",
 // "challenger") to the matching GLOBAL template instead of the generic block
@@ -587,12 +593,25 @@ const MICROSITE_NAV_BLOCK_TYPES: ReadonlySet<string> = new Set([
   "dso-practice-nav",
 ]);
 
-/** Hero block types that render their OWN top-of-page chrome (a sticky nav bar
- *  baked into the hero), so a standalone nav before them is redundant. The
- *  neutral `hero` block does NOT render its own nav, so it is intentionally
- *  excluded — a neutral-freeform page that opens with `hero` still needs a
- *  prepended nav-header. */
+/** Hero block types that render their OWN top-of-page chrome (a nav bar baked
+ *  into the hero), so a standalone nav before them is redundant and prepending
+ *  one would stack two navbars. The neutral `hero` block renders its own <nav>
+ *  (logo + nav CTA) at the very top of the block, so it belongs here: without it
+ *  a neutral-freeform page opening with `hero` gets a second, prepended
+ *  nav-header stacked above the hero's own bar (the double-navbar bug). */
 const MICROSITE_SELF_NAV_HERO_TYPES: ReadonlySet<string> = new Set([
+  "hero",
+  "dso-heartland-hero",
+  "dso-practice-hero",
+]);
+
+/** Hero block types that are DARK BY DESIGN — the premium DSO hero system always
+ *  paints a dark/brand, image-backed hero, so the white-hero upgrade pass must
+ *  never touch them. The neutral `hero` is deliberately NOT here: it can be
+ *  emitted as a plain white text-only hero, which the upgrade pass fixes. Kept
+ *  SEPARATE from MICROSITE_SELF_NAV_HERO_TYPES (which now includes the neutral
+ *  `hero` for nav de-duplication) so the two concerns never re-couple. */
+const MICROSITE_DARK_BY_DESIGN_HERO_TYPES: ReadonlySet<string> = new Set([
   "dso-heartland-hero",
   "dso-practice-hero",
 ]);
@@ -762,9 +781,10 @@ export function ensureMicrositeNavbar(
  *   - attach a hero image when one is available (the image pipeline fills the
  *     slot from the library afterward) so the hero is visual, not text-only.
  *
- * Self-nav heroes (dso-heartland-hero / dso-practice-hero) are part of the
- * premium dark-by-design DSO system — left untouched (their own variability +
- * legibility passes handle them). Pure + fail-open.
+ * The premium DSO heroes (dso-heartland-hero / dso-practice-hero) are dark by
+ * design — left untouched (their own variability + legibility passes handle
+ * them). The neutral `hero`, though it bakes its own nav, is still upgraded here
+ * when it arrives plain-white and text-only. Pure + fail-open.
  */
 export function upgradeMicrositeHero(
   blocks: AiBlock[],
@@ -783,8 +803,11 @@ export function upgradeMicrositeHero(
   }
   const hero = blocks[heroIdx];
   const type = blockTypeOf(hero);
-  // DSO self-nav heroes are dark-by-design — never downgrade/touch them here.
-  if (MICROSITE_SELF_NAV_HERO_TYPES.has(type)) {
+  // The premium DSO heroes are dark-by-design — never downgrade/touch them here.
+  // Gated on the dedicated dark-by-design set, NOT the self-nav set: the neutral
+  // `hero` is self-nav but may still arrive as a plain white text hero that this
+  // pass must upgrade.
+  if (MICROSITE_DARK_BY_DESIGN_HERO_TYPES.has(type)) {
     onEnforced?.({ upgraded: false });
     return blocks;
   }
@@ -1699,34 +1722,12 @@ const NEUTRAL_MICROSITE_BLOCK_LIST: BrandMicrositeBlockListEntry[] = [
   { type: "bottom-cta" },
 ];
 
-// Task #976 — Freeform layout vocabulary. When neither the selected segment
-// nor the brand defines a curated micrositeBlockList, we no longer fall back to
-// the flat 7-block NEUTRAL list (which made every non-Dandy microsite look the
-// same). Instead the model picks a varied layout from this neutral,
-// industry-agnostic block set. It is deliberately restricted to general blocks:
-// NEVER the Dandy-curated dso-* or business-case-* compound blocks, which carry
-// dental/DSO vocabulary and are reserved for Dandy's curated path. NEUTRAL
-// stays a last-resort safety net (see route) if freeform yields nothing usable.
-// NOTE: every entry here MUST have a renderer in lp-studio's BlockRenderer.
-// `features` was removed (Task #1066): it has NO renderer (it produced an
-// "Unknown block type" placeholder), and `benefits-grid` (plus `zigzag-features`)
-// already cover the "features" role. `stats` is kept as a distinct semantic
-// label but is canonicalized to the renderable `trust-bar` at normalize time.
-const FREEFORM_MICROSITE_DISPLAY_TYPES = [
-  "hero",
-  "trust-bar",
-  "benefits-grid",
-  "testimonial",
-  "how-it-works",
-  "comparison",
-  "stats",
-  "pas-section",
-  "stat-callout",
-  "rich-text",
-  "video-section",
-  "bottom-cta",
-  "footer",
-] as const;
+// The neutral-freeform microsite layout vocabulary
+// (FREEFORM_MICROSITE_DISPLAY_TYPES) and per-block role hints
+// (FREEFORM_ROLE_HINTS) now live in the pure-data leaf module
+// lib/ai-prompts/microsite-block-vocab.ts so the superadmin recipe builder can
+// share the exact same vocabulary without importing this whole route. See that
+// module for the rationale; canonicalization + the allow-set stay here.
 
 // Validation allow-list — the displayed vocabulary canonicalized to the actual
 // renderer types (e.g. "stats" → "trust-bar"). normalizeBlock canonicalizes
@@ -1737,24 +1738,6 @@ const FREEFORM_MICROSITE_DISPLAY_TYPES = [
 export const FREEFORM_ALLOWED_TYPE_SET: ReadonlySet<string> = new Set<string>(
   FREEFORM_MICROSITE_DISPLAY_TYPES.map((t) => canonicalizeBlockType(t)),
 );
-
-// Short role hint per displayed block so the model understands each section's
-// job (mirrors the shared block-role-tag vocabulary used by enforceRequiredRoles).
-const FREEFORM_ROLE_HINTS: Record<string, string> = {
-  "hero": "hero — opens the page; exactly ONE, always first",
-  "trust-bar": "social proof + stats — quick credibility/metrics bar",
-  "benefits-grid": "features — benefit/value cards",
-  "testimonial": "social proof — a real-sounding customer quote",
-  "how-it-works": "features — numbered process steps",
-  "comparison": "comparison — old-way vs new-way",
-  "stats": "stats — hard metrics row",
-  "pas-section": "content — problem / agitate / solve narrative",
-  "stat-callout": "stats — one big highlighted metric",
-  "rich-text": "content — short narrative prose section",
-  "video-section": "media — embedded video",
-  "bottom-cta": "cta — closing call to action",
-  "footer": "footer — closes the page; always last",
-};
 
 /** Build the freeform "AVAILABLE BLOCKS" guide: each allowed neutral block
  *  with its role hint and prop schema. The model chooses which to use and in
@@ -2657,6 +2640,13 @@ export function buildSystemPrompt(
   // is never even an option), plus any block governed `noai` (human-only). The
   // model never sees them in the AVAILABLE BLOCKS guide / fixed list.
   excludeTypes: ReadonlySet<string> = new Set(),
+  // Task #1411 — the neutral-freeform MICROSITE page recipe (a superadmin-
+  // configurable layout archetype) the route chose deterministically. When
+  // present it replaces the generic narrative-flow suggestion in the freeform
+  // branch with this recipe's section flow + art-direction, so non-Dandy
+  // microsites VARY their layout per account. Null on every other path and
+  // whenever no recipe resolves (then the generic freeform flow is used).
+  micrositeRecipe: PageRecipe | null = null,
 ): string {
   const tone            = brand.toneOfVoice as string | undefined;
   const pillars         = brand.messagingPillars as Array<{ label: string; description: string }> | undefined;
@@ -3017,13 +3007,21 @@ export function buildSystemPrompt(
   // NEUTRAL list every time. NEUTRAL stays a last-resort validation safety net
   // in the route if this yields nothing usable.
   if (useFreeform && !hasOutlineFixedList) {
+    // Task #1411 — when a page recipe resolved, swap the generic narrative-flow
+    // suggestion for THIS recipe's section flow + art-direction (a STARTING
+    // suggestion the model adapts), so non-Dandy microsites vary per account.
+    // The hero-first / footer-last / vary-the-selection / required-sections
+    // rules around it stay intact, and explicit user requests still win.
+    const narrativeFlowLine = micrositeRecipe
+      ? `- Suggested flow for THIS page — "${micrositeRecipe.label}" (${micrositeRecipe.description}): ${micrositeRecipe.skeleton.join(" → ")} → footer. ${micrositeRecipe.styleNotes} Treat this as a STARTING SUGGESTION to adapt, not a fixed template: where an entry offers alternatives ("a OR b") pick whichever best fits the brand, swap any suggested block for a better-fitting one from the AVAILABLE BLOCKS, and vary it for this specific account — but ALWAYS keep exactly one hero first and the footer last. EXPLICIT USER REQUESTS OVERRIDE THIS SUGGESTION.`
+      : "- Sequence sections as a logical narrative: hook → problem/value → proof → how-it-works/benefits → comparison → closing CTA → footer. Skip sections that don't fit; never pad.";
     const freeformFooter = [
       "",
       "LAYOUT — YOU choose the sections (this page has NO fixed block list):",
       "- Open with EXACTLY ONE \"hero\" block (first) and END with a \"footer\" block.",
       "- Between them, pick 5–9 sections from the AVAILABLE BLOCKS that best tell THIS account's story. Vary the selection and order across accounts — do NOT emit the same flat sequence every time.",
       "- Include at least one proof/metrics section (trust-bar, stats, stat-callout, or testimonial), at least one features/benefits section (benefits-grid or how-it-works), and a closing CTA (bottom-cta) immediately before the footer.",
-      "- Sequence sections as a logical narrative: hook → problem/value → proof → how-it-works/benefits → comparison → closing CTA → footer. Skip sections that don't fit; never pad.",
+      narrativeFlowLine,
       "- Use ONLY the block types listed above (exact type strings). NEVER invent block types and NEVER use industry-specific compound blocks.",
       "",
       FREEFORM_DESIGN_RULES,
@@ -3826,7 +3824,35 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // core), pass null so the account's segment can't silently promote a different
     // audience's TARGET SEGMENT directive onto a page that should read as core.
     const accountSegmentForPrompt = pickedSegment ? account.segment : null;
-    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, accountSegmentForPrompt, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes, usePoolFreeform, authoritativeOutlineBlockList, selectedPersona, excludeTypes);
+
+    // Task #1411 — neutral-freeform microsites rotate a superadmin-configurable
+    // page RECIPE so the layout VARIES per account instead of converging on one
+    // fixed lineup. Deterministic: same tenant + account + segment → same recipe
+    // across runs (so a page reads like itself; regenerating is stable).
+    // loadEffectiveRecipesForPath already fails open to the code recipes (or []
+    // on a hard failure); an empty / throwing pool leaves micrositeRecipe null →
+    // the generic freeform flow. Gated on useFreeform (the neutral-freeform path)
+    // and never reached when an outline is active, so Dandy / DSO / template /
+    // outline / segment-pool paths are untouched.
+    let micrositeRecipe: PageRecipe | null = null;
+    if (useFreeform && !outlineActive) {
+      try {
+        const recipePool = await loadEffectiveRecipesForPath("microsite");
+        if (recipePool.length > 0) {
+          micrositeRecipe =
+            recipePool[
+              hashSeed(`microsite::${tenantId}::${accountId}::${segment.id ?? "core"}`) %
+                recipePool.length
+            ] ?? null;
+        }
+      } catch (err) {
+        logger.warn(
+          { event: "microsite_recipe_load_failed", err: String(err), tenantId, accountId },
+          "[generate-microsite] recipe load failed — falling back to the generic freeform flow",
+        );
+      }
+    }
+    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, accountSegmentForPrompt, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes, usePoolFreeform, authoritativeOutlineBlockList, selectedPersona, excludeTypes, micrositeRecipe);
 
     // Task #976 — REFERENCE PAGE (voice) + VISUAL REFERENCE (style) sections,
     // appended to the user prompt exactly like /lp/generate-page. The brand's
@@ -4304,6 +4330,15 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // filled by the library/scraped/AI fill passes below. Fail-open: each pass
     // skips a malformed block and never throws.
     const isFreeformMicrosite = !templateBlocks;
+    // SCOPE NOTE (Task #1411): this nav/hero enforcement covers ALL non-template,
+    // non-outline microsite paths — neutral-freeform, DSO-freeform, AND
+    // segment-pool. Because the neutral `hero` block is now treated as self-nav
+    // (MICROSITE_SELF_NAV_HERO_TYPES), the double-navbar fix also applies to a
+    // segment-pool page that opens with `hero`: that is intentional — a stacked
+    // second navbar is never a desired design, and de-duplicating it changes
+    // NOTHING about which blocks those paths select. Only the recipe-driven
+    // layout VARIETY (the other half of Task #1411) is scoped to neutral-freeform
+    // — it lives in buildSystemPrompt and the DSO/pool branches return before it.
     // Outline-driven pages own their chrome: the configured outline decides
     // whether the page has a navbar/header and what the opening hero is, so the
     // freeform navbar-prepend + hero-upgrade must NOT run (they'd reintroduce or

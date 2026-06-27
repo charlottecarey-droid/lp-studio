@@ -20,8 +20,10 @@ import {
   FREEFORM_RECIPES,
   DSO_RECIPES,
   DSO_PRACTICES_RECIPES,
+  MICROSITE_RECIPES,
   recipeSkeletonBlockTypes,
 } from "../../lib/ai-prompts/page-recipes";
+import { advertisedBlockTypesForPath } from "../../lib/ai-prompts/recipe-block-vocab";
 
 /** Every block schema bullet looks like `- "type": …`; collect the types. */
 function advertisedTypes(prompt: string): Set<string> {
@@ -79,6 +81,19 @@ describe("page-recipe skeletons reference only advertised block types", () => {
     for (const recipe of DSO_PRACTICES_RECIPES) {
       for (const type of recipeSkeletonBlockTypes(recipe)) {
         expect(vocab.has(type), `recipe "${recipe.id}" names unknown DSO-Practices block "${type}"`).toBe(true);
+      }
+    }
+  });
+
+  it("MICROSITE recipes ⊆ microsite prompt vocabulary", () => {
+    // The microsite vocabulary is data-driven (FREEFORM_MICROSITE_DISPLAY_TYPES),
+    // not a parsed system prompt, so it's resolved via the shared allow-set
+    // helper the recipe builder uses — keeping recipe + generator in lockstep.
+    const vocab = advertisedBlockTypesForPath("microsite");
+    expect(vocab.size).toBeGreaterThan(0);
+    for (const recipe of MICROSITE_RECIPES) {
+      for (const type of recipeSkeletonBlockTypes(recipe)) {
+        expect(vocab.has(type), `recipe "${recipe.id}" names unknown MICROSITE block "${type}"`).toBe(true);
       }
     }
   });

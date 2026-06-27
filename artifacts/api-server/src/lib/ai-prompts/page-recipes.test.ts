@@ -11,6 +11,7 @@ import {
   FREEFORM_RECIPES,
   DSO_RECIPES,
   DSO_PRACTICES_RECIPES,
+  MICROSITE_RECIPES,
   recipesForPath,
   recipeSkeletonBlockTypes,
   pickRecipe,
@@ -26,12 +27,13 @@ import {
 } from "./page-recipes";
 
 describe("recipe sets", () => {
-  it("has 4-5 freeform recipes and 3 per DSO path, all with unique ids and non-empty skeletons", () => {
+  it("has 4-5 freeform recipes, 3 per DSO path, 4+ microsite recipes, all with unique ids and non-empty skeletons", () => {
     expect(FREEFORM_RECIPES.length).toBeGreaterThanOrEqual(4);
     expect(FREEFORM_RECIPES.length).toBeLessThanOrEqual(5);
     expect(DSO_RECIPES).toHaveLength(3);
     expect(DSO_PRACTICES_RECIPES).toHaveLength(3);
-    const all = [...FREEFORM_RECIPES, ...DSO_RECIPES, ...DSO_PRACTICES_RECIPES];
+    expect(MICROSITE_RECIPES.length).toBeGreaterThanOrEqual(4);
+    const all = [...FREEFORM_RECIPES, ...DSO_RECIPES, ...DSO_PRACTICES_RECIPES, ...MICROSITE_RECIPES];
     expect(new Set(all.map((r) => r.id)).size).toBe(all.length);
     for (const r of all) {
       expect(r.skeleton.length).toBeGreaterThanOrEqual(4);
@@ -40,10 +42,29 @@ describe("recipe sets", () => {
     }
   });
 
+  it("MICROSITE recipes open with a hero, close with bottom-cta, omit nav/footer, and carry proof + benefits sections", () => {
+    for (const r of MICROSITE_RECIPES) {
+      // hero is always the FIRST slot (the generator's nav/footer chrome rules
+      // own those; the recipe must never name them).
+      expect(r.skeleton[0]).toBe("hero");
+      expect(r.skeleton[r.skeleton.length - 1]).toBe("bottom-cta");
+      const types = recipeSkeletonBlockTypes(r);
+      expect(types).not.toContain("nav-header");
+      expect(types).not.toContain("footer");
+      // ≥1 features/benefits section (freeform rule).
+      expect(types.some((t) => t === "benefits-grid" || t === "how-it-works")).toBe(true);
+      // ≥1 proof/metrics section (freeform rule).
+      expect(
+        types.some((t) => ["trust-bar", "stats", "stat-callout", "testimonial"].includes(t)),
+      ).toBe(true);
+    }
+  });
+
   it("recipesForPath routes to the right set", () => {
     expect(recipesForPath("freeform")).toBe(FREEFORM_RECIPES);
     expect(recipesForPath("dso")).toBe(DSO_RECIPES);
     expect(recipesForPath("dso-practices")).toBe(DSO_PRACTICES_RECIPES);
+    expect(recipesForPath("microsite")).toBe(MICROSITE_RECIPES);
   });
 
   it("recipeSkeletonBlockTypes splits OR-alternatives into individual types", () => {

@@ -70,7 +70,7 @@ async function apiFetch(path: string, opts?: RequestInit) {
   return res.json();
 }
 
-type RecipePath = "freeform" | "dso" | "dso-practices";
+type RecipePath = "freeform" | "dso" | "dso-practices" | "microsite";
 
 interface BlockOption {
   type: string;
@@ -116,16 +116,18 @@ interface NewDraft {
   slots: Slot[];
 }
 
-const GROUP_ORDER = ["General", "Enterprise", "Practices"] as const;
+const GROUP_ORDER = ["General", "Enterprise", "Practices", "Microsites"] as const;
 const GROUP_BLURB: Record<string, string> = {
   General: "Recipes used for general landing pages.",
   Enterprise: "Recipes used for enterprise (DSO) pages.",
   Practices: "Recipes used for practice-facing pages.",
+  Microsites: "Recipes used for sales account microsites (general/non-Dandy).",
 };
 const PATH_BY_GROUP: Record<string, RecipePath> = {
   General: "freeform",
   Enterprise: "dso",
   Practices: "dso-practices",
+  Microsites: "microsite",
 };
 
 const keyOf = (r: { path: string; id: string }) => `${r.path}::${r.id}`;
@@ -361,6 +363,7 @@ export default function SuperAdminRecipes() {
     freeform: [],
     dso: [],
     "dso-practices": [],
+    microsite: [],
   });
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [newDrafts, setNewDrafts] = useState<Partial<Record<RecipePath, NewDraft>>>({});
@@ -382,6 +385,7 @@ export default function SuperAdminRecipes() {
           freeform: data.availableBlocks.freeform ?? [],
           dso: data.availableBlocks.dso ?? [],
           "dso-practices": data.availableBlocks["dso-practices"] ?? [],
+          microsite: data.availableBlocks.microsite ?? [],
         });
       }
       const next: Record<string, Draft> = {};

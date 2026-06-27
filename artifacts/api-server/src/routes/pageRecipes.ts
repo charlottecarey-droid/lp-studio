@@ -39,6 +39,7 @@ const PATH_GROUP: Record<RecipePromptPath, string> = {
   freeform: "General",
   dso: "Enterprise",
   "dso-practices": "Practices",
+  microsite: "Microsites",
 };
 const RECIPE_PATHS = Object.keys(PATH_GROUP) as RecipePromptPath[];
 
