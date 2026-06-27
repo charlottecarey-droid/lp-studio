@@ -373,30 +373,50 @@ export default function SuperAdminRecipes() {
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [rowError, setRowError] = useState<Record<string, string>>({});
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await apiFetch("/api/admin/page-recipes");
-      const list: RecipeItem[] = Array.isArray(data.recipes) ? data.recipes : [];
-      setRecipes(list);
-      if (data.availableBlocks && typeof data.availableBlocks === "object") {
-        setAvailableBlocks({
-          freeform: data.availableBlocks.freeform ?? [],
-          dso: data.availableBlocks.dso ?? [],
-          "dso-practices": data.availableBlocks["dso-practices"] ?? [],
-          microsite: data.availableBlocks.microsite ?? [],
+  // `silent` keeps the page mounted (no full-page spinner) so a save / create /
+  // delete refresh never bounces the superadmin back to the top or loses their
+  // place. On a silent refresh we KEEP any in-progress edits on the other rows
+  // and only snap `resetDraftKey` (the row just saved/reset) back to server
+  // truth; the initial (non-silent) load starts every row from server truth.
+  const load = useCallback(
+    async (opts?: { silent?: boolean; resetDraftKey?: string }) => {
+      const silent = opts?.silent === true;
+      if (!silent) setLoading(true);
+      setError(null);
+      try {
+        const data = await apiFetch("/api/admin/page-recipes");
+        const list: RecipeItem[] = Array.isArray(data.recipes) ? data.recipes : [];
+        setRecipes(list);
+        if (data.availableBlocks && typeof data.availableBlocks === "object") {
+          setAvailableBlocks({
+            freeform: data.availableBlocks.freeform ?? [],
+            dso: data.availableBlocks.dso ?? [],
+            "dso-practices": data.availableBlocks["dso-practices"] ?? [],
+            microsite: data.availableBlocks.microsite ?? [],
+          });
+        }
+        setDrafts((prev) => {
+          const next: Record<string, Draft> = {};
+          for (const r of list) {
+            const k = keyOf(r);
+            const existing = prev[k];
+            next[k] =
+              silent && existing && k !== opts?.resetDraftKey
+                ? existing
+                : draftFromItem(r);
+          }
+          return next;
         });
+      } catch (e) {
+        // Never replace the page (and lose their place) on a background refresh;
+        // the mutation already succeeded and reports its own per-row errors.
+        if (!silent) setError(e instanceof Error ? e.message : "Failed to load recipes");
+      } finally {
+        if (!silent) setLoading(false);
       }
-      const next: Record<string, Draft> = {};
-      for (const r of list) next[keyOf(r)] = draftFromItem(r);
-      setDrafts(next);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load recipes");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     load();
@@ -461,7 +481,7 @@ export default function SuperAdminRecipes() {
           skeleton: skeletonPayload,
         }),
       });
-      await load();
+      await load({ silent: true, resetDraftKey: k });
       setSavedKey(k);
     } catch (e) {
       setRowError((p) => ({ ...p, [k]: e instanceof Error ? e.message : "Save failed" }));
@@ -482,7 +502,7 @@ export default function SuperAdminRecipes() {
         `/api/admin/page-recipes/${encodeURIComponent(r.path)}/${encodeURIComponent(r.id)}`,
         { method: "DELETE" },
       );
-      await load();
+      await load({ silent: true, resetDraftKey: k });
       setSavedKey(null);
     } catch (e) {
       setRowError((p) => ({ ...p, [k]: e instanceof Error ? e.message : "Action failed" }));
@@ -537,7 +557,7 @@ export default function SuperAdminRecipes() {
         }),
       });
       cancelNew(path);
-      await load();
+      await load({ silent: true });
     } catch (e) {
       setRowError((p) => ({ ...p, [k]: e instanceof Error ? e.message : "Create failed" }));
     } finally {
