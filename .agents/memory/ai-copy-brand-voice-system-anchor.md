@@ -5,7 +5,7 @@ description: When full-page AI copy reads generic/identical across tenants, anch
 
 **Rule:** rich brand voice in the USER prompt alone is not enough to stop full-page AI copy from reading generic and identical across tenants. The large structural SYSTEM prompt (block catalog + density doctrine + neutral SaaS example copy) is weighed heaviest, so the model anchors on its generic examples. The brand must ALSO be named at the TOP of the system prompt.
 
-**Why:** Charlotte reported generic, same-for-every-tenant copy despite rich saved voice data and a comprehensive user-prompt brand context. There was no single-line regression — the system prompt simply had no brand identity, so example-style anchoring won.
+**Why:** The superadmin reported generic, same-for-every-tenant copy despite rich saved voice data and a comprehensive user-prompt brand context. There was no single-line regression — the system prompt simply had no brand identity, so example-style anchoring won.
 
 **How to apply:**
 - Strengthen PRIORITY/placement, stay ADDITIVE. Do NOT churn or over-tighten the user-prompt brand context, and do NOT widen the 2-pass critique (both are documented regression sources → "bare blocks"/thin copy).

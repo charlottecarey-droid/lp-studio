@@ -22,6 +22,6 @@ the navbar where page content shows through while scrolling — looks buggy.
   it mid-scroll reflows/jumps content. Only reset it on dismiss. Slide the banner
   out visually (transform) instead.
 
-**Why:** Charlotte reported the banner leaving a visible gap under the nav while
+**Why:** The superadmin reported the banner leaving a visible gap under the nav while
 scrolling. Keeping the var stable avoids content jump; a shared threshold + equal
 durations keep the two fixed bars synchronized so no gap ever appears.
