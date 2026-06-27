@@ -531,7 +531,7 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
             {/* Right video + form */}
             <div style={{ gridColumn: "span 6 / span 6", position: "relative" }} className="wh-hero-media">
               <div style={{ position: "relative", background: "#1A1A1A", boxShadow: "0 40px 80px -20px rgba(0,0,0,0.5)", padding: "1rem" }}>
-                <div style={{ position: "relative", aspectRatio: "16 / 10", background: "#000", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(255,255,255,0.1)", ...((!heroPlaying && hasHeroPoster) ? getImageBgSectionStyle(p.heroVideoPosterUrl) : {}) }}>
+                <div style={{ position: "relative", aspectRatio: "16 / 10", background: "#000", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(255,255,255,0.1)", ...((!heroPlaying && hasHeroPoster && p.heroVideoPosterUrl) ? getImageBgSectionStyle(p.heroVideoPosterUrl) : {}) }}>
                   {heroPlaying && heroVideo ? (
                     <VideoPlayer video={heroVideo} poster={p.heroVideoPosterUrl} />
                   ) : (
