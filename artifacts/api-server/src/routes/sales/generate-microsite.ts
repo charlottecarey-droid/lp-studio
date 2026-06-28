@@ -609,7 +609,7 @@ const MICROSITE_NAV_BLOCK_TYPES: ReadonlySet<string> = new Set([
  *  a neutral-freeform page opening with `hero` gets a second, prepended
  *  nav-header stacked above the hero's own bar (the double-navbar bug). */
 const MICROSITE_SELF_NAV_HERO_TYPES: ReadonlySet<string> = new Set([
-  "hero",
+  "full-bleed-hero",
   "dso-heartland-hero",
   "dso-practice-hero",
 ]);
@@ -628,7 +628,7 @@ const MICROSITE_DARK_BY_DESIGN_HERO_TYPES: ReadonlySet<string> = new Set([
 /** Every hero block type a free-form microsite can open with (used to find the
  *  first content hero for anchor-link derivation + the hero-upgrade pass). */
 const MICROSITE_HERO_BLOCK_TYPES: ReadonlySet<string> = new Set([
-  "hero",
+  "full-bleed-hero",
   ...MICROSITE_SELF_NAV_HERO_TYPES,
 ]);
 
@@ -1840,7 +1840,7 @@ export interface BrandAudienceSegment {
 // used when neither the selected segment nor the brand defines one. No
 // DSO / dental vocabulary, so it's safe for any tenant.
 const NEUTRAL_MICROSITE_BLOCK_LIST: BrandMicrositeBlockListEntry[] = [
-  { type: "hero" },
+  { type: "full-bleed-hero" },
   { type: "trust-bar" },
   { type: "benefits-grid" },
   { type: "testimonial" },
@@ -1970,7 +1970,7 @@ export function segmentPoolFallbackBlockList(poolTypes: string[]): string[] {
     body.push(t);
   }
   return [
-    canonicalizeBlockType("hero"),
+    canonicalizeBlockType("full-bleed-hero"),
     ...body,
     canonicalizeBlockType("bottom-cta"),
     canonicalizeBlockType("footer"),
@@ -2084,7 +2084,6 @@ const DSO_PRACTICES_BLOCK_TYPES = [
 const DSO_GENERAL_SUPPORTING_TYPES = [
   "testimonial",
   "video-section",
-  "rich-text",
   "footer",
 ] as const;
 
