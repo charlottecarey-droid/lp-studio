@@ -1363,9 +1363,26 @@ export default function SuperAdminPage() {
     );
   }
 
+  const navTabs: { key: typeof tab; label: string; icon: typeof Users }[] = [
+    { key: "tenants", label: "Tenants", icon: Users },
+    { key: "catalog", label: "Block Catalog", icon: Library },
+    { key: "templates", label: "Templates", icon: LayoutTemplate },
+    { key: "featured-templates", label: "Homepage Featured", icon: LayoutTemplate },
+    { key: "generator-presets", label: "Generator Presets", icon: Wand2 },
+    { key: "page-recipes", label: "Page Recipes", icon: ChefHat },
+    { key: "homepage-og", label: "Share Cards", icon: Share2 },
+    { key: "announcement", label: "Announcement", icon: Megaphone },
+    { key: "asset-health", label: "Asset Health", icon: Activity },
+    { key: "plans", label: "Plans", icon: CreditCard },
+    { key: "notifications", label: "Notifications", icon: Bell },
+    { key: "trial-phones", label: "Trial Phones", icon: Smartphone },
+    { key: "blog", label: "Blog", icon: Newspaper },
+    ...(isRoot ? [{ key: "superadmins" as typeof tab, label: "Superadmins", icon: KeyRound }] : []),
+  ];
+
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold">Superadmin</h1>
@@ -1395,124 +1412,27 @@ export default function SuperAdminPage() {
           </div>
         </div>
 
-        {/* Tab nav */}
-        <div className="border-b flex items-center gap-1">
-          <button
-            onClick={() => setTab("tenants")}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
-              tab === "tenants" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" /> Tenants
-          </button>
-          <button
-            onClick={() => setTab("catalog")}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
-              tab === "catalog" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Library className="w-3.5 h-3.5" /> Block Catalog
-          </button>
-          <button
-            onClick={() => setTab("templates")}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
-              tab === "templates" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <LayoutTemplate className="w-3.5 h-3.5" /> Templates
-          </button>
-          <button
-            onClick={() => setTab("featured-templates")}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
-              tab === "featured-templates" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <LayoutTemplate className="w-3.5 h-3.5" /> Homepage Featured
-          </button>
-          <button
-            onClick={() => setTab("generator-presets")}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
-              tab === "generator-presets" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Wand2 className="w-3.5 h-3.5" /> Generator Presets
-          </button>
-          <button
-            onClick={() => setTab("page-recipes")}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
-              tab === "page-recipes" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <ChefHat className="w-3.5 h-3.5" /> Page Recipes
-          </button>
-          <button
-            onClick={() => setTab("homepage-og")}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
-              tab === "homepage-og" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Share2 className="w-3.5 h-3.5" /> Share Cards
-          </button>
-          <button
-            onClick={() => setTab("announcement")}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
-              tab === "announcement" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Megaphone className="w-3.5 h-3.5" /> Announcement
-          </button>
-          <button
-            onClick={() => setTab("asset-health")}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
-              tab === "asset-health" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Activity className="w-3.5 h-3.5" /> Asset Health
-          </button>
-          <button
-            onClick={() => setTab("plans")}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
-              tab === "plans" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <CreditCard className="w-3.5 h-3.5" /> Plans
-          </button>
-          <button
-            onClick={() => setTab("notifications")}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
-              tab === "notifications" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Bell className="w-3.5 h-3.5" /> Notifications
-          </button>
-          <button
-            onClick={() => setTab("trial-phones")}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
-              tab === "trial-phones" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Smartphone className="w-3.5 h-3.5" /> Trial Phones
-          </button>
-          <button
-            onClick={() => setTab("blog")}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
-              tab === "blog" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Newspaper className="w-3.5 h-3.5" /> Blog
-          </button>
-          {isRoot && (
-            <button
-              onClick={() => setTab("superadmins")}
-              className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 transition-colors ${
-                tab === "superadmins" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <KeyRound className="w-3.5 h-3.5" /> Superadmins
-            </button>
-          )}
-        </div>
+        <div className="flex flex-col gap-6 md:flex-row md:items-start">
+          {/* Tab nav */}
+          <nav className="md:w-56 md:shrink-0">
+            <div className="flex gap-1 overflow-x-auto pb-1 md:flex-col md:gap-0.5 md:overflow-visible md:pb-0">
+              {navTabs.map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setTab(key)}
+                  className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors md:w-full ${
+                    tab === key
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" /> {label}
+                </button>
+              ))}
+            </div>
+          </nav>
 
+          <div className="min-w-0 flex-1">
         {tab === "catalog" ? (
           <SuperAdminBlockCatalog />
         ) : tab === "templates" ? (
@@ -1585,6 +1505,8 @@ export default function SuperAdminPage() {
           </Table>
         </div>
         )}
+          </div>
+        </div>
       </div>
 
       <NewWorkspaceModal
