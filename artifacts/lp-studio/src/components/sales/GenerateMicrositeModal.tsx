@@ -45,6 +45,10 @@ import {
   type SelectedAccount,
 } from "@/components/sales/AccountSearchTypeahead";
 import { MicrositeGenerationLive } from "@/components/sales/MicrositeGenerationLive";
+import { GenerationLiveView } from "@/pages/pages-gallery/GenerationLiveView";
+import { createPage } from "@/pages/pages-gallery/api";
+import { syncFactFlags } from "@/lib/fact-flags-api";
+import type { GenerationRequestBody, GenerationResult } from "@/lib/generationStream";
 
 const API_BASE = "/api";
 
@@ -119,6 +123,16 @@ export function GenerateMicrositeModal({
 
   const [segments, setSegments] = useState<PickerSegment[]>([]);
   const [segmentId, setSegmentId] = useState<string | null>(null);
+  // Whether the rep has made an explicit audience choice. Audience is required
+  // when the tenant has segments configured; "Core" is a valid pick but still a
+  // deliberate one, so we track the selection separately from segmentId (which
+  // is null for both "not yet picked" and "Core").
+  const [segmentPicked, setSegmentPicked] = useState(false);
+  // Brand/templates/reps fetch has resolved. Generate stays disabled until then
+  // so a fast click can't bypass the required-audience gate before segments load
+  // (a failed brand fetch collapses segments to [], which would otherwise read as
+  // "no segments configured" and skip the requirement).
+  const [brandLoaded, setBrandLoaded] = useState(false);
   const [prompt, setPrompt] = useState("");
   // Optional per-generation reference URL — scraped server-side for voice
   // (markdown), visual style (screenshot), and imagery, then merged with the
@@ -127,10 +141,14 @@ export function GenerateMicrositeModal({
   const [step, setStep] = useState<"idle" | "generating" | "live" | "done" | "error">("idle");
   // June 2026 — live "watch your microsite build" view. Non-null while the modal
   // content is swapped to the streaming preview (the dialog expands).
-  const [liveConfig, setLiveConfig] = useState<{
-    accountId: string;
-    body: Record<string, unknown>;
-  } | null>(null);
+  // Two generation paths share this slot: an account-personalised microsite
+  // (streamed by MicrositeGenerationLive) and an account-less general page
+  // (streamed by the marketing GenerationLiveView via POST /lp/generate-page).
+  const [liveConfig, setLiveConfig] = useState<
+    | { kind: "account"; accountId: string; body: Record<string, unknown> }
+    | { kind: "generic"; body: GenerationRequestBody; templateName: string | null }
+    | null
+  >(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [createdPageId, setCreatedPageId] = useState<number | null>(null);
   const [hotlinkCount, setHotlinkCount] = useState(0);
@@ -158,7 +176,7 @@ export function GenerateMicrositeModal({
   const effectiveAccountName = accountProvided
     ? (accountName ?? "this account")
     : (pickedAccount?.name ?? "this account");
-  const accountReady = accountProvided || pickedAccount !== null;
+  const accountReady = accountProvided || pickedAccount !== null || noAccount;
 
   // The numeric account id we can pull contacts from for the recipient picker.
   // CRM-only picks that haven't been imported yet have no local contacts, so the
@@ -199,6 +217,7 @@ export function GenerateMicrositeModal({
       setCtaUrl(defaultUrl);
       const segs = Array.isArray(brandConfig.segments) ? (brandConfig.segments as PickerSegment[]) : [];
       setSegments(segs.filter(s => s?.id && s?.name));
+      setBrandLoaded(true);
     });
   }, [open, initialTemplateId]);
 
@@ -244,7 +263,9 @@ export function GenerateMicrositeModal({
     setPickedAccount(null);
     setNoAccount(false);
     setSegmentId(null);
+    setSegmentPicked(false);
     setSegments([]);
+    setBrandLoaded(false);
     setPrompt("");
     setReferenceUrl("");
     setStep("idle");
@@ -316,6 +337,118 @@ export function GenerateMicrositeModal({
     };
   }
 
+  // ── Account-less generation ───────────────────────────────────────────────
+  // "Continue without an account" has no account to personalise against, so it
+  // uses the same account-agnostic generator the create-page modal's AI tab uses
+  // (POST /lp/generate-page). That API has no ctaOverride, so the CTA the rep
+  // picked is applied to the generated blocks here at save time, mirroring the
+  // microsite server's authoritative injectBrandIntoBlocks override behaviour.
+
+  // The CTA the rep configured, if any — shared by the block patch below.
+  function currentCtaOverride(): { mode: "url" | "chilipiper"; url: string } | null {
+    if (ctaMode === "chilipiper" && selectedRepId !== null) {
+      const rep = salesReps.find(r => r.id === selectedRepId);
+      const repUrl = rep?.content?.chilipiperUrl || rep?.content?.calendlyUrl || "";
+      return repUrl ? { mode: "chilipiper", url: repUrl } : null;
+    }
+    if (ctaMode === "url" && ctaUrl.trim()) return { mode: "url", url: ctaUrl.trim() };
+    return null;
+  }
+
+  // Build the POST /lp/generate-page body for the no-account path.
+  function buildGenericGenerationBody(): GenerationRequestBody {
+    const seg = segmentId ? segments.find(s => s.id === segmentId) ?? null : null;
+    const segmentContext = seg
+      ? { id: seg.id, name: seg.name, ...(seg.description ? { description: seg.description } : {}) }
+      : undefined;
+    const refs = referenceUrl.trim() ? [referenceUrl.trim()] : [];
+    // /lp/generate-page always needs a prompt; synthesise a sensible one from the
+    // rep's selections when they didn't type instructions.
+    const typed = prompt.trim();
+    const fallback = `Create a compelling landing page${seg ? ` for ${seg.name}` : ""}${selectedTemplate ? ` based on the "${selectedTemplate.templateLabel ?? selectedTemplate.title}" use case` : ""}.`;
+    return {
+      prompt: typed || fallback,
+      ...(segmentContext ? { segmentContext } : {}),
+      ...(selectedTemplate ? { templateId: selectedTemplate.id } : {}),
+      ...(refs.length > 0 ? { referenceUrls: refs } : {}),
+    };
+  }
+
+  // Apply the rep's CTA to the generated blocks — mirrors the microsite server's
+  // authoritative ctaOverride branch (top-level blocks only; only fields that
+  // already exist on a block are touched).
+  function applyCtaToBlocks(
+    blocks: GenerationResult["blocks"],
+    cta: { mode: "url" | "chilipiper"; url: string } | null,
+  ): GenerationResult["blocks"] {
+    if (!cta) return blocks;
+    const isChilipiper = cta.mode === "chilipiper";
+    return blocks.map((block) => {
+      const b = { ...(block as Record<string, unknown>) };
+      const props = { ...(b.props as Record<string, unknown>) };
+      if ("primaryCtaUrl" in props) {
+        props.primaryCtaUrl = cta.url;
+        props.primaryCtaMode = isChilipiper ? "chilipiper" : "link";
+      }
+      if ("ctaUrl" in props) {
+        props.ctaUrl = cta.url;
+        props.ctaMode = isChilipiper ? "chilipiper" : "link";
+      }
+      if ("secondaryCtaUrl" in props) props.secondaryCtaUrl = cta.url;
+      b.props = props;
+      return b as GenerationResult["blocks"][number];
+    });
+  }
+
+  // Persist a no-account generation result (POST /lp/pages + fact-flags sync).
+  // Returns the new page id; navigation stays with the caller (GenerationLiveView
+  // needs the id before it navigates).
+  async function saveGenericGeneratedPage(result: GenerationResult): Promise<number> {
+    const page = await createPage({
+      title: result.title,
+      slug: result.slug,
+      blocks: applyCtaToBlocks(result.blocks, currentCtaOverride()),
+      status: "draft",
+      segmentId: segmentId ?? null,
+      // Strict Facts — persist trusted (url-sourced) quote forms so the later
+      // fact-flags sync never flags quotes that came from the reference URL.
+      trustedFactForms: Array.isArray(result.trustedFactForms) ? result.trustedFactForms : undefined,
+    });
+    // Best-effort fact-flags sync; the builder re-runs the idempotent sync on load.
+    void syncFactFlags(page.id).catch(() => {});
+    onCreated?.();
+    return page.id as number;
+  }
+
+  // Non-streaming fallback for the no-account path (used by the live view's
+  // silent auto-fallback + "Use standard mode"): generate, save, navigate.
+  // Throws on failure so the live view can render its own error state.
+  async function runGenericFallback() {
+    if (!liveConfig || liveConfig.kind !== "generic") return;
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/lp/generate-page`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(liveConfig.body),
+        signal: AbortSignal.timeout(180_000),
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "TimeoutError") {
+        throw new Error("Generation took too long and timed out. Please try again.");
+      }
+      throw err;
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Generation failed" }));
+      throw new Error((err as { error?: string }).error ?? "Generation failed");
+    }
+    const result = (await res.json()) as GenerationResult;
+    const pageId = await saveGenericGeneratedPage(result);
+    handleClose();
+    navigate(`/builder/${pageId}`);
+  }
+
   // Runs after the page has been generated (the live view created it server-side
   // and hands back its id): mint the personalised hotlinks, then show the
   // success screen. Errors flip the modal to its own error step.
@@ -364,13 +497,26 @@ export function GenerateMicrositeModal({
   // Resolve (or import) the account, then swap to the live build view, which
   // streams the generation and renders the stage rail + scaled preview.
   async function handleGenerate() {
-    // Segment is optional — when none is picked the server falls back to the
-    // brand's core messaging, so we don't gate generation on a selection.
+    // Audience is a required choice when the tenant has segments configured (the
+    // Generate button is gated on it). Picking "Core" sends no segmentId, so the
+    // server falls back to the brand's core messaging.
     setStep("generating");
     setErrorMsg("");
     try {
+      // "Continue without an account" → no account to personalise against, so
+      // route through the account-agnostic page generator + marketing live view,
+      // which saves the page and opens the builder itself.
+      if (noAccount && !accountProvided && !pickedAccount) {
+        setLiveConfig({
+          kind: "generic",
+          body: buildGenericGenerationBody(),
+          templateName: selectedTemplate?.templateLabel ?? selectedTemplate?.title ?? null,
+        });
+        setStep("live");
+        return;
+      }
       const resolvedAccountId = await resolveAccountId();
-      setLiveConfig({ accountId: resolvedAccountId, body: buildGenerationBody() });
+      setLiveConfig({ kind: "account", accountId: resolvedAccountId, body: buildGenerationBody() });
       setStep("live");
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Something went wrong");
@@ -436,6 +582,10 @@ export function GenerateMicrositeModal({
   const hotlinkSelectionInvalid =
     contactId == null && generateHotlinks && selectedContactIds.size === 0;
 
+  // Audience is a required choice whenever the tenant has segments configured
+  // (Core is a valid pick — the rep just has to choose deliberately).
+  const segmentRequiredUnmet = segments.length > 0 && !segmentPicked;
+
   const selectedRep = selectedRepId !== null ? salesReps.find(r => r.id === selectedRepId) : null;
   const selectedRepHasUrl = selectedRep
     ? !!(selectedRep.content?.chilipiperUrl || selectedRep.content?.calendlyUrl)
@@ -459,21 +609,38 @@ export function GenerateMicrositeModal({
             <DialogHeader className="px-5 py-3.5 border-b border-border shrink-0 text-left">
               <DialogTitle className="flex items-center gap-2 text-base">
                 <Sparkles className="w-4 h-4 text-primary" aria-hidden />
-                Building your microsite
+                {liveConfig.kind === "account" ? "Building your microsite" : "Building your page"}
               </DialogTitle>
             </DialogHeader>
-            <MicrositeGenerationLive
-              accountId={liveConfig.accountId}
-              body={liveConfig.body}
-              accountLabel={effectiveAccountName}
-              onResult={(pageId) => {
-                void finishAfterGenerate(liveConfig.accountId, pageId);
-              }}
-              onCancel={() => {
-                setLiveConfig(null);
-                setStep("idle");
-              }}
-            />
+            {liveConfig.kind === "account" ? (
+              <MicrositeGenerationLive
+                accountId={liveConfig.accountId}
+                body={liveConfig.body}
+                accountLabel={effectiveAccountName}
+                onResult={(pageId) => {
+                  void finishAfterGenerate(liveConfig.accountId, pageId);
+                }}
+                onCancel={() => {
+                  setLiveConfig(null);
+                  setStep("idle");
+                }}
+              />
+            ) : (
+              <GenerationLiveView
+                body={liveConfig.body}
+                templateName={liveConfig.templateName}
+                onSave={(result) => saveGenericGeneratedPage(result)}
+                onOpen={(pageId) => {
+                  handleClose();
+                  navigate(`/builder/${pageId}`);
+                }}
+                onFallback={runGenericFallback}
+                onCancel={() => {
+                  setLiveConfig(null);
+                  setStep("idle");
+                }}
+              />
+            )}
           </>
         ) : (
           <>
@@ -587,11 +754,18 @@ export function GenerateMicrositeModal({
                   selected={pickedAccount}
                   onSelect={setPickedAccount}
                   noAccount={noAccount}
-                  onNoAccount={setNoAccount}
+                  onNoAccount={(v) => {
+                    setNoAccount(v);
+                    // No account → no contacts to personalise links for.
+                    if (v) {
+                      setGenerateHotlinks(false);
+                      setSelectedContactIds(new Set());
+                    }
+                  }}
                 />
                 {noAccount && (
-                  <p className="text-[11px] text-amber-600">
-                    Pick an account to personalise this microsite.
+                  <p className="text-[11px] text-muted-foreground">
+                    We'll create a general version of this page — no account personalisation or contact links.
                   </p>
                 )}
               </div>
@@ -625,61 +799,62 @@ export function GenerateMicrositeModal({
             )}
 
             <div className="space-y-1.5">
-              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Audience (optional)</Label>
-              <div className="flex flex-col gap-2">
-                {segments.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-3 text-left">
-                    <p className="text-sm font-medium text-foreground">Using your brand's core messaging</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      No audience segments yet — this page leads with your core brand messaging. Add segments in Brand Settings to target specific audiences.
-                    </p>
-                    <button
-                      type="button"
-                      className="mt-2 text-xs font-medium text-primary hover:underline"
-                      onClick={() => { handleClose(); navigate("/brand"); }}
-                    >
-                      Open Brand Settings →
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    {/* Core (no segment) — the default. Leads with the brand's
-                        own core messaging when no specific audience is picked. */}
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => setSegmentId(null)}
-                      className={cn(
-                        "rounded-lg border px-3 py-2.5 text-left text-sm transition-all focus:outline-none",
-                        segmentId === null
-                          ? "border-foreground ring-1 ring-foreground bg-muted/40"
-                          : "border-input hover:border-foreground/40 hover:bg-muted/30",
-                        busy ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-                      )}
-                    >
-                      <span className="font-medium text-[13px] text-foreground leading-tight">Core (general audience)</span>
-                      <span className="block text-[11px] text-muted-foreground mt-0.5">Lead with your brand's core messaging — no specific segment.</span>
-                    </button>
-                    {segments.map((seg) => (
-                      <button
-                        key={seg.id}
-                        type="button"
-                        disabled={busy}
-                        onClick={() => setSegmentId(seg.id)}
-                        className={cn(
-                          "rounded-lg border px-3 py-2.5 text-left text-sm transition-all focus:outline-none",
-                          segmentId === seg.id
-                            ? "border-foreground ring-1 ring-foreground bg-muted/40"
-                            : "border-input hover:border-foreground/40 hover:bg-muted/30",
-                          busy ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-                        )}
-                      >
-                        <span className="font-medium text-[13px] text-foreground leading-tight">{seg.name}</span>
-                      </button>
-                    ))}
-                  </>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Audience</Label>
+                {segments.length > 0 && (
+                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                    Required
+                  </span>
                 )}
               </div>
+              {segments.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-3 text-left">
+                  <p className="text-sm font-medium text-foreground">Using your brand's core messaging</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    No audience segments yet — this page leads with your core brand messaging. Add segments in Brand Settings to target specific audiences.
+                  </p>
+                  <button
+                    type="button"
+                    className="mt-2 text-xs font-medium text-primary hover:underline"
+                    onClick={() => { handleClose(); navigate("/brand"); }}
+                  >
+                    Open Brand Settings →
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* A single dropdown keeps the audience choice compact. "Core"
+                      sends no segment (brand's general messaging); any other
+                      option targets that segment. The field is required, so the
+                      rep must pick before generating. */}
+                  <div className="relative">
+                    <select
+                      value={segmentPicked ? (segmentId ?? "__core__") : ""}
+                      disabled={busy}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (!v) { setSegmentPicked(false); setSegmentId(null); return; }
+                        setSegmentPicked(true);
+                        setSegmentId(v === "__core__" ? null : v);
+                      }}
+                      aria-label="Audience"
+                      className="w-full appearance-none bg-transparent border-b border-input py-2 pr-6 text-[15px] focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
+                    >
+                      <option value="" disabled>Choose an audience…</option>
+                      <option value="__core__">Core — your brand's general messaging</option>
+                      {segments.map((seg) => (
+                        <option key={seg.id} value={seg.id}>{seg.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
+                  </div>
+                  {!segmentPicked && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Pick who this microsite is for so the copy speaks directly to them.
+                    </p>
+                  )}
+                </>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -774,7 +949,7 @@ export function GenerateMicrositeModal({
             </div>
 
             {/* Personalised links — opt-in recipient picker (account-page only) */}
-            {contactId == null && (
+            {contactId == null && !noAccount && (
               <div className="flex flex-col gap-2">
                 <label className="flex items-start gap-2.5 cursor-pointer select-none">
                   <input
@@ -923,7 +1098,7 @@ export function GenerateMicrositeModal({
             <Button variant="ghost" onClick={handleClose} disabled={busy}>
               Cancel
             </Button>
-            <Button className="gap-2" onClick={handleGenerate} disabled={busy || !accountReady || !ctaValid || hotlinkSelectionInvalid}>
+            <Button className="gap-2" onClick={handleGenerate} disabled={busy || !brandLoaded || !accountReady || !ctaValid || hotlinkSelectionInvalid || segmentRequiredUnmet}>
               {busy ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
