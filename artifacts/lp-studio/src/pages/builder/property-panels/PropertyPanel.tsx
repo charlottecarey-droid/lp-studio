@@ -5460,6 +5460,14 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <div className="space-y-1.5"><Label className="text-xs">New Way Label</Label><Input value={p.newWayLabel ?? ""} onChange={e => onChange({ ...block, props: { ...p, newWayLabel: e.target.value } })} className="h-8 text-xs" placeholder="The Acme Way" /></div>
             </div>
             <div className="space-y-1.5"><Label className="text-xs">Background</Label><Select value={p.backgroundStyle ?? "dark"} onValueChange={v => onChange({ ...block, props: { ...p, backgroundStyle: v as BackgroundStyle } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{bgOptions.map(o => <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>)}</SelectContent></Select></div>
+            <div className="border-t pt-3 space-y-3">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Colors</Label>
+              <p className="text-[10px] text-muted-foreground leading-snug">Leave a color empty to use the auto, contrast-correct brand default.</p>
+              <ColorField label="Headline text color" value={p.headlineColor} onChange={v => onChange({ ...block, props: { ...p, headlineColor: v } })} />
+              <ColorField label="Old Way card background" value={p.oldWayCardBg} onChange={v => onChange({ ...block, props: { ...p, oldWayCardBg: v } })} />
+              <ColorField label="New Way card background" value={p.newWayCardBg} onChange={v => onChange({ ...block, props: { ...p, newWayCardBg: v } })} />
+              <ColorField label="Card text color" value={p.cardTextColor} onChange={v => onChange({ ...block, props: { ...p, cardTextColor: v } })} />
+            </div>
             {(["oldWayItems", "newWayItems"] as const).map(side => (
               <div key={side} className="border-t pt-3">
                 <div className="flex items-center justify-between mb-2">

@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { XCircle, CheckCircle2 } from "lucide-react";
 import type { DsoParadigmShiftBlockProps } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
+import { resolveBrandColor, pickContrastingColor, relativeLuminance } from "@/lib/brand-config";
 import type { BrandConfig } from "@/lib/brand-config";
 import { BlockDsoCta } from "@/components/BlockDsoCta";
 import { InlineText } from "@/components/InlineText";
@@ -27,6 +28,7 @@ export function BlockDsoParadigmShift({ props, brand, onFieldChange }: Props) {
     newWayItems = [],
     ctaText, ctaUrl, ctaMode = "link", ctaVariant = "primary",
     backgroundStyle = "dark",
+    headlineColor, oldWayCardBg, newWayCardBg, cardTextColor,
   } = props;
   const field = (key: keyof DsoParadigmShiftBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoParadigmShiftBlockProps[typeof key] }) : undefined;
@@ -37,34 +39,53 @@ export function BlockDsoParadigmShift({ props, brand, onFieldChange }: Props) {
     ? (i: number, v: string) => onFieldChange({ ...props, newWayItems: newWayItems.map((it, idx) => idx === i ? v : it) })
     : undefined;
 
-  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
+  const surface = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand);
+  const dark = surface.isDark;
   const sectionBg = getBgStyle(backgroundStyle);
 
   // ── light-mode tokens ──────────────────────────────────────────
   // Section uses a very light mint tint so white cards pop
   const lightSectionBg = { backgroundColor: "#f2f5f2" };
+  const effectiveSectionBg = dark ? sectionBg : lightSectionBg;
 
-  const eyebrowC  = dark ? LIME : BRAND;
-  const headlineC = dark ? "#fff" : BRAND;
+  // Concrete hex for the painted section surface, fed to all contrast math.
+  // CRITICAL: resolve var(--brand-*) to a live hex BEFORE any contrast/luminance
+  // call — a raw var() string reads as "light" and silently mispicks colors.
+  const sectionBaseHex = dark ? surface.base : "#f2f5f2";
+  const brandPrimaryHex = resolveBrandColor(brand, BRAND, "#0f172a");
+  const brandAccentHex  = resolveBrandColor(brand, LIME, "#3b82f6");
+
+  // ── Section header (derives ink from the real section surface) ──
+  const headlineC = headlineColor
+    ?? (dark ? "#ffffff" : pickContrastingColor(brandPrimaryHex, sectionBaseHex, ["#0f172a", "#111827"], 4.5));
+  const eyebrowC  = dark
+    ? pickContrastingColor(brandAccentHex, sectionBaseHex, ["#ffffff"], 3)
+    : pickContrastingColor(brandPrimaryHex, sectionBaseHex, ["#0f172a"], 4.5);
   const subC      = dark ? "rgba(255,255,255,0.60)" : "#6b7280";
 
-  // Old Way
-  const oldCardBg  = dark ? "rgba(255,255,255,0.04)" : "#e8ece8";
-  const oldCardBor = dark ? "1px solid rgba(255,255,255,0.12)" : "1px solid #d4d9d4";
-  const oldSubC    = dark ? "rgba(255,255,255,0.40)" : "#9ca3af";
-  const oldHeadC   = dark ? "rgba(255,255,255,0.65)" : "#374151";
-  const oldItemC   = dark ? "rgba(255,255,255,0.55)" : "#6b7280";
-  const oldIconC   = "#f87171"; // soft red
+  // ── Old Way card ──────────────────────────────────────────────
+  // Default bg is a translucent overlay (≈ section) or a light neutral; derive
+  // its ink from the override hex when set, else from the section surface.
+  const oldCardBg        = oldWayCardBg ?? (dark ? "rgba(255,255,255,0.04)" : "#e8ece8");
+  const oldCardSurface   = oldWayCardBg ?? (dark ? sectionBaseHex : "#e8ece8");
+  const oldCardDark      = relativeLuminance(oldCardSurface) < 0.4;
+  const oldCardBor       = oldCardDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid #d4d9d4";
+  const oldSubC          = oldCardDark ? "rgba(255,255,255,0.45)" : "#9ca3af";
+  const oldHeadC         = cardTextColor ?? (oldCardDark ? "rgba(255,255,255,0.70)" : "#374151");
+  const oldItemC         = cardTextColor ?? (oldCardDark ? "rgba(255,255,255,0.60)" : "#6b7280");
+  const oldIconC         = "#f87171"; // soft red
 
-  // New Way
-  const newCardBg  = dark ? BRAND : BRAND;
-  const newCardBor = dark ? `2px solid rgb(var(--brand-accent-rgb, 59 130 246) / 0.55)` : "2px solid transparent";
-  const newSubC    = LIME;
-  const newHeadC   = "#ffffff";
-  const newItemC   = "rgba(255,255,255,0.88)";
-  const newIconC   = LIME;
-
-  const effectiveSectionBg = dark ? sectionBg : lightSectionBg;
+  // ── New Way card (the bug fix) ────────────────────────────────
+  // Was hardcoded to the brand-primary var() bg + white text; a light brand
+  // primary then painted a near-white card with invisible white text. Resolve
+  // the card bg to a concrete hex and derive readable ink from its luminance.
+  const newCardBg        = newWayCardBg ?? brandPrimaryHex;
+  const newCardDark      = relativeLuminance(newCardBg) < 0.4;
+  const newCardBor       = newCardDark ? `2px solid rgb(var(--brand-accent-rgb, 59 130 246) / 0.55)` : "2px solid rgba(0,0,0,0.08)";
+  const newHeadC         = cardTextColor ?? (newCardDark ? "#ffffff" : "#0b0b0f");
+  const newItemC         = cardTextColor ?? (newCardDark ? "rgba(255,255,255,0.88)" : "rgba(11,11,15,0.82)");
+  const newSubC          = pickContrastingColor(brandAccentHex, newCardBg, [newCardDark ? "#ffffff" : "#0b0b0f"], 3);
+  const newIconC         = newSubC;
 
   return (
     <section style={effectiveSectionBg} className="py-24 md:py-32">

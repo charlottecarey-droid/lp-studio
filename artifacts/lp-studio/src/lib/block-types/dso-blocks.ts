@@ -569,6 +569,11 @@ export interface DsoParadigmShiftBlockProps {
   ctaMode?: CtaMode;
   ctaVariant?: "primary" | "secondary" | "link";
   backgroundStyle?: BackgroundStyle;
+  /** Optional color overrides. Unset → auto-derived, contrast-correct defaults. */
+  headlineColor?: string;
+  oldWayCardBg?: string;
+  newWayCardBg?: string;
+  cardTextColor?: string;
 }
 
 export interface DsoPartnershipPerk {
