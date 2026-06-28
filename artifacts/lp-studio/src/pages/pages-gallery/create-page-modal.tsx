@@ -496,6 +496,30 @@ export function CreatePageModal({
       ? selectedTemplate
       : "";
 
+  // Audience segment selector — shared by the Template and AI tabs. It used to
+  // sit as a small pill in the header where it was easy to miss; it now renders
+  // as a standard labeled field directly above each tab's starting-point picker,
+  // styled to match the modal's other inputs.
+  const segmentSelector = segments.length > 0 ? (
+    <div className="space-y-1.5">
+      <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Audience segment</Label>
+      <div className="relative">
+        <select
+          aria-label="Audience segment"
+          className="w-full appearance-none bg-transparent border-b border-input py-2 pr-6 text-[15px] focus:outline-none focus:border-primary transition-colors"
+          value={selectedSegmentId}
+          onChange={e => setSelectedSegmentId(e.target.value)}
+        >
+          <option value="">All audiences</option>
+          {segments.map(s => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+        <ChevronDown className="w-4 h-4 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none opacity-50" />
+      </div>
+    </div>
+  ) : null;
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
       <DialogContent
@@ -532,26 +556,7 @@ export function CreatePageModal({
           </>
         ) : (
           <>
-        <DialogHeader className="space-y-3">
-          {segments.length > 0 && createMode !== "brief" && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <span className="text-[10px] font-semibold uppercase tracking-wider">Segments</span>
-              <div className="relative">
-                <select
-                  aria-label="Segments"
-                  className="appearance-none rounded-full border border-input bg-background pl-3 pr-7 py-1 text-sm font-medium text-foreground shadow-sm transition-colors cursor-pointer hover:border-primary/40 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
-                  value={selectedSegmentId}
-                  onChange={e => setSelectedSegmentId(e.target.value)}
-                >
-                  <option value="">All audiences</option>
-                  {segments.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
-              </div>
-            </div>
-          )}
+        <DialogHeader>
           <DialogTitle className="font-display text-2xl font-semibold tracking-tight text-foreground text-center">
             Create a new page
           </DialogTitle>
@@ -612,6 +617,8 @@ export function CreatePageModal({
                 </div>
               </div>
             </div>
+
+            {segmentSelector}
 
             <div className="space-y-3">
               <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Starting point</Label>
@@ -771,6 +778,7 @@ export function CreatePageModal({
           </div>
         ) : createMode === "ai" ? (
           <div className="space-y-6 py-1">
+            {segmentSelector}
             {/* Task #1345 — "Rewrite copy with AI": when launched from an
                 existing page, that page IS the starting point. We hide the
                 template dropdown and show a fixed source card (the layout is
