@@ -1503,6 +1503,56 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
       };
     }
 
+    case "dso-paradigm-shift": {
+      // Renderer shows EMPTY columns unless oldWayItems/newWayItems are paired
+      // string lists. The model sometimes emits them as oldWayBullets/
+      // newWayBullets — accept those aliases and coerce into the renderer's
+      // exact prop names. All fallback copy stays brand-neutral.
+      const oldWay = (Array.isArray(p.oldWayItems) ? p.oldWayItems : p.oldWayBullets) as unknown;
+      const newWay = (Array.isArray(p.newWayItems) ? p.newWayItems : p.newWayBullets) as unknown;
+      const toStrings = (v: unknown): string[] =>
+        Array.isArray(v) ? v.map(x => (typeof x === "string" ? x : "")).filter(s => s.length > 0) : [];
+      return {
+        eyebrow: p.eyebrow ?? "",
+        headline: p.headline ?? p.heading ?? "A better way forward.",
+        subheadline: p.subheadline ?? p.subheading ?? "",
+        oldWayLabel: p.oldWayLabel || "The old way",
+        newWayLabel: p.newWayLabel || us,
+        oldWayItems: toStrings(oldWay),
+        newWayItems: toStrings(newWay),
+        ctaText: p.ctaText ?? "",
+        ctaUrl: p.ctaUrl ?? "#",
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "dark",
+      };
+    }
+
+    case "dso-ai-feature": {
+      const bullets = (p.bullets ?? []) as unknown;
+      const stats = (p.stats ?? []) as AiBlock[];
+      return {
+        eyebrow: p.eyebrow ?? "",
+        headline: p.headline ?? p.heading ?? "",
+        body: p.body ?? p.description ?? "",
+        bullets: Array.isArray(bullets)
+          ? bullets.map(b => (typeof b === "string" ? b : "")).filter(s => s.length > 0)
+          : [],
+        stats: stats.length > 0
+          ? stats.map(s => ({ value: s.value ?? "", label: s.label ?? "" }))
+          : [],
+        // Image-bearing block: leave imageUrl empty so the microsite image-fill
+        // pass (it recognizes `imageUrl` as a fill slot) supplies a real image;
+        // otherwise the visual area collapses.
+        imageUrl: p.imageUrl ?? "",
+        videoUrl: p.videoUrl ?? "",
+        ctaText: p.ctaText ?? "",
+        ctaUrl: p.ctaUrl ?? "#",
+        // "dandy-green" is the legacy storage key for the BRAND-COLOR preset
+        // (resolves to --brand-primary for non-Dandy tenants); the tenant's own
+        // brand color, never a hard-coded Dandy green.
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "dandy-green",
+      };
+    }
+
     case "dso-partnership-perks": {
       const perks = (p.perks ?? p.benefits ?? p.items ?? []) as AiBlock[];
       return {
@@ -1671,9 +1721,11 @@ const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   "dso-practice-nav": "{ dsoName, links: [{ label, anchor }], ctaText, ctaUrl } — sticky nav bar; use the DSO/practice name for dsoName; keep links to 3–4 section anchors on this page",
   "dso-practice-hero": "{ eyebrow, headline, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, trustLine, backgroundStyle }",
   "dso-stat-row": "{ eyebrow, headline, items: [{ value, label, detail }], backgroundStyle }",
+  "dso-paradigm-shift": "{ eyebrow, headline, subheadline, oldWayLabel, oldWayItems: string[], newWayLabel, newWayItems: string[], ctaText, ctaUrl, backgroundStyle } — a premium old-way vs new-way contrast; oldWayItems and newWayItems MUST each contain EXACTLY 4–5 PAIRED bullets (item N of oldWayItems is the pain that item N of newWayItems resolves) — the block renders empty columns otherwise",
   "dso-partnership-perks": "{ eyebrow, headline, subheadline, perks: [exactly 6 × { icon, title, desc }], backgroundStyle }",
   "dso-split-feature": "{ eyebrow, headline, body, bullets: string[], ctaText, ctaUrl, imagePosition (\"left\"|\"right\"), backgroundStyle }",
   "dso-software-showcase": "{ eyebrow, headline, body, features: [{ icon, label }], ctaText, ctaUrl, backgroundStyle, layout }",
+  "dso-ai-feature": "{ eyebrow, headline, body, bullets: string[] (3–5), stats: [{ value, label }], imageUrl (\"\" — leave empty; a real product/feature image is filled in), videoUrl (OPTIONAL — leave \"\" unless a real product video URL is provided), ctaText, ctaUrl, backgroundStyle } — a premium feature showcase with a visual; keep copy GENERIC (a real feature this brand offers), never dental AI-scan framing",
   "dso-faq": "{ eyebrow, headline, subheadline, items: [{ question, answer }], backgroundStyle } — 4–5 questions",
   "dso-activation-steps": "{ eyebrow, headline, subheadline, steps: [{ step, title, desc }], ctaText, ctaUrl, backgroundStyle }",
   "dso-promo-cards": "{ eyebrow, headline, subheadline, cards: [{ title, desc, badge, ctaText }], backgroundStyle }",

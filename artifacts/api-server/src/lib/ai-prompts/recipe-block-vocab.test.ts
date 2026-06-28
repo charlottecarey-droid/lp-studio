@@ -74,6 +74,31 @@ describe("MICROSITE vocabulary + recipes", () => {
     const res = validateSkeleton("microsite", MICROSITE_RECIPES[0].skeleton);
     expect(res.ok).toBe(true);
   });
+
+  it("advertises the five premium DSO blocks for the microsite path", () => {
+    const advertised = advertisedBlockTypesForPath("microsite");
+    for (const type of [
+      "dso-paradigm-shift",
+      "dso-stat-row",
+      "dso-final-cta",
+      "dso-software-showcase",
+      "dso-ai-feature",
+    ]) {
+      expect(advertised.has(type), `microsite vocab is missing "${type}"`).toBe(true);
+    }
+  });
+
+  it("accepts a microsite recipe skeleton built from the five premium DSO blocks", () => {
+    const res = validateSkeleton("microsite", [
+      "hero",
+      "dso-paradigm-shift",
+      "dso-stat-row",
+      "dso-software-showcase",
+      "dso-ai-feature",
+      "dso-final-cta",
+    ]);
+    expect(res.ok).toBe(true);
+  });
 });
 
 describe("validateSkeleton", () => {

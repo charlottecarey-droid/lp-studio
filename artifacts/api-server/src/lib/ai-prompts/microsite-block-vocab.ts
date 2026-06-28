@@ -39,6 +39,11 @@ export const FREEFORM_MICROSITE_DISPLAY_TYPES = [
   "stat-callout",
   "rich-text",
   "video-section",
+  "dso-paradigm-shift",
+  "dso-stat-row",
+  "dso-software-showcase",
+  "dso-ai-feature",
+  "dso-final-cta",
   "bottom-cta",
   "footer",
 ] as const;
@@ -59,6 +64,11 @@ export const FREEFORM_ROLE_HINTS: Record<string, string> = {
   "stat-callout": "stats — one big highlighted metric",
   "rich-text": "content — short narrative prose section",
   "video-section": "media — embedded video",
+  "dso-paradigm-shift": "comparison — premium old-way vs new-way paired bullets",
+  "dso-stat-row": "stats — premium headlined metrics row",
+  "dso-software-showcase": "features — premium product/feature showcase with a visual",
+  "dso-ai-feature": "features — premium feature showcase with bullets, stats, and a visual",
+  "dso-final-cta": "cta — premium closing call to action",
   "bottom-cta": "cta — closing call to action",
   "footer": "footer — closes the page; always last",
 };
