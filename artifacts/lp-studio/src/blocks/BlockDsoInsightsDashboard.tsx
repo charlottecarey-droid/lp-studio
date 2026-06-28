@@ -740,10 +740,19 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
       : dashboardVariant === "dark"
         ? "dark"
         : "muted";
+  // The inner dashboard theme MUST follow the surface it actually renders on.
+  // `dashboardVariant` is a separate control that can disagree with the section
+  // background (e.g. a "dark" dashboard saved onto a light/muted section — the
+  // common result of the microsite layout-variability pass). That paints
+  // near-white text + glass cards on a light background and washes the whole
+  // block out. Derive the theme from the resolved section background so the two
+  // can never diverge — this also matches the header text, which already uses
+  // the same `isDark` signal.
+  const isDark = ["dark", "dandy-green", "black", "gradient"].includes(resolvedBackgroundStyle);
   const field = (key: keyof DsoInsightsDashboardBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoInsightsDashboardBlockProps[typeof key] }) : undefined;
 
-  const t = getTheme(dashboardVariant);
+  const t = getTheme(isDark ? "dark" : "light");
 
   const [activeTab, setActiveTab]         = useState("overview");
   const [selectedLocation, setSelectedLocation] = useState<number | null>(null);
@@ -793,8 +802,6 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
     }, 7800);
     return () => clearInterval(id);
   }, []);
-
-  const isDark = ["dark", "dandy-green", "black", "gradient"].includes(resolvedBackgroundStyle);
 
   const handleTabChange = (id: string) => {
     setActiveTab(id);
@@ -910,7 +917,7 @@ export function BlockDsoInsightsDashboard({ props, brand, onCtaClick, onFieldCha
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
-                    className={`absolute right-0 top-full mt-1 z-20 rounded-lg border ${t.cardBorder} ${dashboardVariant === "dark" ? "bg-[#1a1f1c]" : "bg-white"} shadow-lg py-1 min-w-[140px]`}
+                    className={`absolute right-0 top-full mt-1 z-20 rounded-lg border ${t.cardBorder} ${isDark ? "bg-[#1a1f1c]" : "bg-white"} shadow-lg py-1 min-w-[140px]`}
                   >
                     {DATE_RANGES.map((range) => (
                       <button
