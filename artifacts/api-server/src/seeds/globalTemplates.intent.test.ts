@@ -37,6 +37,7 @@ const EXPECTED_ALL_IN_ONE_SLUGS = [
   "global-exec-decision-brief",
   "global-challenger-insight",
   "global-deal-room",
+  "global-account-microsite",
   "global-onboarding-hub",
   "global-value-renewal-review",
   "global-flagship-event-landing",
