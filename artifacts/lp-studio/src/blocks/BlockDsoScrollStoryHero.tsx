@@ -5,7 +5,13 @@ import type { DsoScrollStoryHeroBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
-import type { BrandConfig } from "@/lib/brand-config";
+import {
+  DEFAULT_BRAND,
+  isValidHex,
+  pickContrastingColor,
+  pickCtaButtonColors,
+  type BrandConfig,
+} from "@/lib/brand-config";
 
 import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
@@ -16,6 +22,10 @@ const P      = "var(--brand-primary, #0f172a)";
 const PFG    = "hsl(48,100%,96%)";
 const AW     = "var(--brand-accent, hsl(68,60%,52%))";
 const MUTED  = "hsla(48,100%,96%,0.55)";
+// This hero forces near-white copy (PFG) on a dark text panel, so it is always
+// a dark surface. Resolve accent legibility against a representative dark hex
+// so a tenant whose brand accent is itself dark doesn't vanish into the panel.
+const HERO_DARK_SURFACE = "#0f172a";
 
 const BG_PANEL_MAP: Record<string, string> = {
   "white":       "#ffffff",
@@ -91,6 +101,17 @@ export function BlockDsoScrollStoryHero({ props, brand, onCtaClick, onFieldChang
       }
     : undefined;
   const imageRight = imagePosition !== "left";
+  // ── Accent legibility on the always-dark panel ──────────────────────────
+  // The eyebrow, the active progress-dot fill, and the CTA fill were painted
+  // with the raw brand accent (`AW`). On this dark panel a tenant whose accent
+  // is itself dark made them vanish. Resolve a readable accent (falling back to
+  // white when too dark) for the foreground elements and a contrast-guarded CTA
+  // fill, mirroring BlockDsoHeartlandHero / BlockHero.
+  const accentHex = isValidHex(brand?.accentColor ?? "")
+    ? (brand as BrandConfig).accentColor
+    : DEFAULT_BRAND.accentColor;
+  const accentFg = pickContrastingColor(accentHex, HERO_DARK_SURFACE, ["#ffffff"], 4.5);
+  const ctaColors = pickCtaButtonColors(brand ?? DEFAULT_BRAND, HERO_DARK_SURFACE);
   const panelBg = BG_PANEL_MAP[backgroundStyle] ?? P;
   const panelOverlay = BG_OVERLAY_MAP[backgroundStyle] ?? "rgb(var(--brand-primary-rgb, 15 23 42) / 0.60)";
   const displayChapters = chapters && chapters.length > 0 ? chapters.slice(0, 4) : DEFAULT_CHAPTERS;
@@ -142,7 +163,7 @@ export function BlockDsoScrollStoryHero({ props, brand, onCtaClick, onFieldChang
         }}
       >
         {/* Eyebrow */}
-        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: AW, marginBottom: "2.5rem", fontFamily: BODY }}>
+        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: accentFg, marginBottom: "2.5rem", fontFamily: BODY }}>
           <InlineText as="span" value={eyebrow} onUpdate={field("eyebrow")} style={{ fontFamily: BODY }}/>
         </p>
 
@@ -205,13 +226,13 @@ export function BlockDsoScrollStoryHero({ props, brand, onCtaClick, onFieldChang
               {active === i && !paused ? (
                 <motion.div
                   key={`fill-${i}-${active}`}
-                  style={{ position: "absolute", inset: 0, borderRadius: 2, background: AW, originX: 0 }}
+                  style={{ position: "absolute", inset: 0, borderRadius: 2, background: accentFg, originX: 0 }}
                   initial={{ scaleX: 0 }}
                   animate={{ scaleX: 1 }}
                   transition={{ duration: 4, ease: "linear" }}
                 />
               ) : (
-                <div style={{ position: "absolute", inset: 0, borderRadius: 2, background: active === i ? AW : "rgba(255,255,255,0.25)" }} />
+                <div style={{ position: "absolute", inset: 0, borderRadius: 2, background: active === i ? accentFg : "rgba(255,255,255,0.25)" }} />
               )}
             </button>
           ))}
@@ -255,8 +276,8 @@ export function BlockDsoScrollStoryHero({ props, brand, onCtaClick, onFieldChang
               style={{
                 display: "inline-block",
                 padding: "0.875rem 2rem",
-                background: AW,
-                color: P,
+                background: ctaColors.bg,
+                color: ctaColors.text,
                 fontFamily: DISPLAY_FONT,
                 fontSize: "0.9375rem",
                 fontWeight: 700,

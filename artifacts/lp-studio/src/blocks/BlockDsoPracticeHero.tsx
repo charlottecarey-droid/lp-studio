@@ -9,7 +9,14 @@ import { motion } from "framer-motion";
 import type { DsoPracticeHeroBlockProps } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
-import { getButtonClasses, getSecondaryButtonClasses } from "@/lib/brand-config";
+import {
+  getButtonClasses,
+  getSecondaryButtonClasses,
+  DEFAULT_BRAND,
+  isValidHex,
+  pickContrastingColor,
+  pickCtaButtonColors,
+} from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 
@@ -23,6 +30,11 @@ interface Props {
 
 const BRAND   = "var(--brand-primary, #003A30)";
 const LIME    = "var(--brand-accent, hsl(68,60%,52%))";
+// Representative dark hero surface used for accent legibility math when this
+// hero paints a dark variant (dark/brand-primary preset, or a cover image
+// under the dark scrim). A tenant whose brand accent is itself dark would
+// otherwise vanish into the surface — resolve a contrast-safe accent instead.
+const HERO_DARK_SURFACE = "#0b0f0e";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY = BRAND_DISPLAY_STACK;
@@ -109,7 +121,20 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
   const dark = layout === "bg-image" && !!imageUrl ? true : surface.isDark;
   const sectionBg = getBgStyle(backgroundStyle);
 
-  const eyebrowC  = dark ? LIME : BRAND;
+  // ── Accent legibility on the dark hero variant ──────────────────────────
+  // The eyebrow and the primary CTA fill were painted with the raw brand
+  // accent (`LIME` / `brand.accentColor`); on the dark variant a tenant whose
+  // accent is itself dark made them vanish. Resolve a readable accent (falling
+  // back to white when too dark) and a contrast-guarded CTA fill against the
+  // dark surface, mirroring BlockDsoHeartlandHero / BlockHero. The light
+  // variant keeps its existing colors (a dark accent reads fine there).
+  const accentHex = isValidHex(brand?.accentColor ?? "")
+    ? brand.accentColor
+    : DEFAULT_BRAND.accentColor;
+  const darkAccentFg = pickContrastingColor(accentHex, HERO_DARK_SURFACE, ["#ffffff"], 4.5);
+  const darkCtaColors = pickCtaButtonColors(brand, HERO_DARK_SURFACE);
+
+  const eyebrowC  = dark ? darkAccentFg : BRAND;
   const headlineC = dark ? "#fff" : BRAND;
   const subC      = dark ? "rgba(255,255,255,0.6)" : "#4b5563";
   const trustC    = dark ? "rgba(255,255,255,0.35)" : "#9ca3af";
@@ -169,7 +194,9 @@ export function BlockDsoPracticeHero({ props, brand, onFieldChange, pageId, vari
           chilipiperUrl={primaryChilipiperUrl ?? (primaryCtaMode === "chilipiper" ? primaryCtaUrl : undefined)}
           {...modalCfg}
           className={getButtonClasses(brand, "inline-flex items-center")}
-          style={{ backgroundColor: brand.accentColor, color: brand.primaryColor }}
+          style={dark
+            ? { backgroundColor: darkCtaColors.bg, color: darkCtaColors.text }
+            : { backgroundColor: brand.accentColor, color: brand.primaryColor }}
           brand={brand}
           pageId={pageId}
           variantId={variantId}
