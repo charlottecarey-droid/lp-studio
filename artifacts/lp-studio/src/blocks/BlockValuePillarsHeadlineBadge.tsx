@@ -4,8 +4,7 @@ import type {
   SectionFeatureItem,
 } from "@/lib/block-types";
 import { cn } from "@/lib/utils";
-import { InlineText } from "@/components/InlineText";
-import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { BRAND_BODY_FONT } from "@/lib/brand-fonts";
 import {
   alignJustifyClass,
   alignTextClass,
@@ -13,6 +12,8 @@ import {
   useSectionTheme,
   SectionHeader,
   SectionIconVisual,
+  SectionItemTitle,
+  SectionItemBody,
   SectionCtas,
 } from "./shared/section-kit";
 
@@ -96,25 +97,22 @@ export function BlockValuePillarsHeadlineBadge({
                     value={item.icon}
                     color={theme.accent}
                     iconClassName="h-5 w-5"
+                    imageClassName="h-8 w-8"
                     radiusClass={radius}
                     alt={item.title}
                     withTile={false}
                   />
-                  <InlineText
-                    as="h3"
-                    value={item.title ?? ""}
+                  <SectionItemTitle
+                    value={item.title}
                     onUpdate={isBuilder ? (v) => updateItem(i, { title: v }) : undefined}
-                    className="text-lg font-bold tracking-tight sm:text-xl"
-                    style={{ color: theme.ink, fontFamily: BRAND_DISPLAY_FONT }}
+                    color={theme.ink}
                   />
                 </div>
-                <InlineText
-                  as="p"
-                  value={item.description ?? ""}
+                <SectionItemBody
+                  value={item.description}
                   onUpdate={isBuilder ? (v) => updateItem(i, { description: v }) : undefined}
-                  className="mt-4 text-base leading-7"
-                  style={{ color: theme.muted, fontFamily: BRAND_BODY_FONT }}
-                  multiline
+                  color={theme.muted}
+                  className="mt-4"
                 />
               </div>
             ))}

@@ -4,14 +4,15 @@ import type {
   SectionFeatureItem,
 } from "@/lib/block-types";
 import { cn } from "@/lib/utils";
-import { InlineText } from "@/components/InlineText";
-import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { BRAND_BODY_FONT } from "@/lib/brand-fonts";
 import {
   alignTextClass,
   sectionRadiusClass,
   useSectionTheme,
   SectionHeader,
   SectionIconVisual,
+  SectionItemTitle,
+  SectionItemBody,
   SectionCtas,
 } from "./shared/section-kit";
 
@@ -109,20 +110,16 @@ export function BlockFeaturePhotoCards({
                 </div>
 
                 <div className={cn("px-2 pb-1 pt-5", alignTextClass(align))}>
-                  <InlineText
-                    as="h3"
-                    value={item.title ?? ""}
+                  <SectionItemTitle
+                    value={item.title}
                     onUpdate={isBuilder ? (v) => updateItem(i, { title: v }) : undefined}
-                    className="text-lg font-bold tracking-tight sm:text-xl"
-                    style={{ color: theme.cardInk, fontFamily: BRAND_DISPLAY_FONT }}
+                    color={theme.cardInk}
                   />
-                  <InlineText
-                    as="p"
-                    value={item.description ?? ""}
+                  <SectionItemBody
+                    value={item.description}
                     onUpdate={isBuilder ? (v) => updateItem(i, { description: v }) : undefined}
-                    className="mt-2 text-sm leading-6"
-                    style={{ color: theme.cardMuted, fontFamily: BRAND_BODY_FONT }}
-                    multiline
+                    color={theme.cardMuted}
+                    className="mt-2"
                   />
                 </div>
               </div>

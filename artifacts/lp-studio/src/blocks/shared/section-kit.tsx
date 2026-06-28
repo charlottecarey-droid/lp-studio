@@ -245,7 +245,7 @@ export function SectionIconVisual({
   value,
   color,
   iconClassName = "h-8 w-8",
-  imageClassName = "h-16 w-16",
+  imageClassName = "h-24 w-24",
   tileClassName,
   tileBg,
   radiusClass,
@@ -281,6 +281,73 @@ export function SectionIconVisual({
     >
       {icon}
     </span>
+  );
+}
+
+/* -------------------------------------------------------------- item text */
+
+/**
+ * Per-item TITLE. ONE centralized type contract for every graduated section so
+ * the family reads identically (Requirement: consistent typography). The scale
+ * lives HERE, not in the blocks: `md` (default) for the card / column / badge
+ * layouts, `lg` for the large-format big-features rows. Callers pass only
+ * LAYOUT classes (margins / width) via `className`, never a type scale.
+ */
+export function SectionItemTitle({
+  value,
+  onUpdate,
+  color,
+  as = "h3",
+  size = "md",
+  className,
+}: {
+  value?: string;
+  onUpdate?: (v: string) => void;
+  color?: string;
+  as?: "h3" | "h4";
+  size?: "md" | "lg";
+  className?: string;
+}) {
+  return (
+    <InlineText
+      as={as}
+      value={value ?? ""}
+      onUpdate={onUpdate}
+      className={cn(
+        "font-bold tracking-tight",
+        size === "lg" ? "text-2xl sm:text-3xl" : "text-xl",
+        className,
+      )}
+      style={{ color, fontFamily: BRAND_DISPLAY_FONT }}
+    />
+  );
+}
+
+/**
+ * Per-item BODY — the matching half of the centralized type contract: brand
+ * body font + one base scale across every section. Callers pass only LAYOUT
+ * classes (margins / width / flex) via `className`.
+ */
+export function SectionItemBody({
+  value,
+  onUpdate,
+  color,
+  className,
+}: {
+  value?: string;
+  onUpdate?: (v: string) => void;
+  color?: string;
+  className?: string;
+}) {
+  return (
+    <InlineText
+      as="p"
+      value={value ?? ""}
+      onUpdate={onUpdate}
+      className={cn("text-base leading-7", className)}
+      style={{ color, fontFamily: BRAND_BODY_FONT }}
+      multiline
+    />
   );
 }
 

@@ -5,8 +5,7 @@ import type {
   SectionFeatureItem,
 } from "@/lib/block-types";
 import { cn } from "@/lib/utils";
-import { InlineText } from "@/components/InlineText";
-import { BRAND_BODY_FONT, BRAND_DISPLAY_FONT } from "@/lib/brand-fonts";
+import { BRAND_BODY_FONT } from "@/lib/brand-fonts";
 import {
   alignItemsClass,
   alignTextClass,
@@ -14,6 +13,8 @@ import {
   useSectionTheme,
   SectionHeader,
   SectionIconVisual,
+  SectionItemTitle,
+  SectionItemBody,
   SectionCtas,
 } from "./shared/section-kit";
 
@@ -129,20 +130,16 @@ export function BlockValuePillarsDividedColumns({
                     alt={item.title}
                   />
                 </div>
-                <InlineText
-                  as="h3"
-                  value={item.title ?? ""}
+                <SectionItemTitle
+                  value={item.title}
                   onUpdate={isBuilder ? (v) => updateItem(i, { title: v }) : undefined}
-                  className="text-xl font-bold tracking-tight"
-                  style={{ color: theme.ink, fontFamily: BRAND_DISPLAY_FONT }}
+                  color={theme.ink}
                 />
-                <InlineText
-                  as="p"
-                  value={item.description ?? ""}
+                <SectionItemBody
+                  value={item.description}
                   onUpdate={isBuilder ? (v) => updateItem(i, { description: v }) : undefined}
-                  className="mt-3 text-base leading-7"
-                  style={{ color: theme.muted, fontFamily: BRAND_BODY_FONT }}
-                  multiline
+                  color={theme.muted}
+                  className="mt-3"
                 />
 
                 {/* Horizontal divider between stacked rows (mobile). */}
