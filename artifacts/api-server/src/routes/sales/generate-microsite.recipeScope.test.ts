@@ -21,6 +21,7 @@ const CORE: BrandAudienceSegment = { id: "core", name: "Core" };
 const BRAND = { brandName: "Acme", segments: [] as BrandAudienceSegment[] };
 const RECIPE = MICROSITE_RECIPES[0];
 const GENERIC_FLOW = "Sequence sections as a logical narrative";
+const FREESTYLE_MARKER = "WHEN THE SUGGESTED RECIPE / FLOW DOES NOT FIT";
 
 describe("buildSystemPrompt — microsite recipe injection scoping (Task #1411)", () => {
   it("injects the recipe's flow + art-direction on the neutral-freeform path", () => {
@@ -29,6 +30,11 @@ describe("buildSystemPrompt — microsite recipe injection scoping (Task #1411)"
     );
     expect(prompt).toContain(`"${RECIPE.label}"`);
     expect(prompt).toContain("STARTING SUGGESTION");
+    // Off-topic requests are told to discard the recipe and freestyle.
+    expect(prompt).toContain(FREESTYLE_MARKER);
+    // The proof/metrics/CTA requirement is conditional, not absolute, so an
+    // off-topic page isn't forced into a sales structure.
+    expect(prompt).toContain("does NOT apply when the freestyle rule below takes over");
     // The generic fallback narrative is replaced, not appended.
     expect(prompt).not.toContain(GENERIC_FLOW);
   });
@@ -39,6 +45,8 @@ describe("buildSystemPrompt — microsite recipe injection scoping (Task #1411)"
     );
     expect(prompt).toContain(GENERIC_FLOW);
     expect(prompt).not.toContain("STARTING SUGGESTION");
+    // The freestyle override still applies even without a resolved recipe.
+    expect(prompt).toContain(FREESTYLE_MARKER);
   });
 
   it("does NOT inject the recipe on the segment-pool path (usePoolFreeform)", () => {
@@ -47,6 +55,8 @@ describe("buildSystemPrompt — microsite recipe injection scoping (Task #1411)"
     );
     expect(prompt).not.toContain(`"${RECIPE.label}"`);
     expect(prompt).not.toContain("STARTING SUGGESTION");
+    // Freestyle override is scoped to neutral-freeform; not the segment-pool path.
+    expect(prompt).not.toContain(FREESTYLE_MARKER);
   });
 
   it("does NOT inject the recipe on the DSO-freeform path", () => {

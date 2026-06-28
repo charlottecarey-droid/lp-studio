@@ -494,6 +494,18 @@ export function pickRecipe(
 }
 
 /**
+ * Appended to every recipe directive (and the microsite freeform flow). The
+ * recipes are sales / marketing archetypes that are ROTATED, never matched to
+ * the request, so only the generation model can judge whether the archetype
+ * actually fits. Without this, an off-topic request (e.g. an "about us" page) or
+ * a reference URL/screenshot that isn't a sales page gets dragged into an
+ * irrelevant proof/conversion layout. This tells the model to discard the
+ * recipe and freestyle in those cases.
+ */
+export const RECIPE_FREESTYLE_OVERRIDE_CLAUSE =
+  "WHEN THE SUGGESTED RECIPE / FLOW DOES NOT FIT, FREESTYLE INSTEAD: the recipe and flow above describe a sales / marketing landing page. Before following them, judge whether they actually fit the USER REQUEST and any provided reference URL or screenshot. If the request is a different kind of page — e.g. about-us, team, company-story, careers, contact, FAQ, support, documentation, event, or policy/legal — or a provided URL/screenshot is clearly not a sales page, IGNORE the suggested recipe/flow completely and build the page from scratch: choose whichever sections from the available block types best fit the REAL subject and write the content for that subject. Do not force proof, metrics, ROI, comparison, case-study, or hard-sell CTA sections onto a page where they do not belong.";
+
+/**
  * Prompt text for the chosen recipe. Framed as a per-generation suggestion the
  * model adapts — never a mandatory template — and explicitly outranked by
  * explicit user requests (mirrors the "REQUESTED SECTIONS ARE MANDATORY" rule).
@@ -504,6 +516,7 @@ export function buildRecipeDirective(recipe: PageRecipe): string {
     `Suggested flow: ${recipe.skeleton.join(" → ")}.`,
     `Style notes: ${recipe.styleNotes}`,
     "Adapt this recipe to the brief — it is a starting suggestion, NOT a mandatory template. Where an entry offers alternatives (\"a OR b\"), pick whichever fits the brand; swap any suggested block for a better-fitting one from the available block types, and keep the standard nav/footer and hero rules. EXPLICIT USER REQUESTS ALWAYS OVERRIDE THIS RECIPE: never drop or skip a block, section, feature, or topic the USER REQUEST explicitly asks for.",
+    RECIPE_FREESTYLE_OVERRIDE_CLAUSE,
   ].join("\n");
 }
 
@@ -532,7 +545,8 @@ export function injectRecipeIntoBlockSelection(
   const replacement =
     `RECIPE FOR THIS GENERATION — "${recipe.label}" (${recipe.description}): ` +
     `${recipe.skeleton.join(" → ")}. ${recipe.styleNotes} ` +
-    `Adapt this recipe — it is a suggestion, NOT a mandatory template (each "OR" offers alternatives), and explicit user requests always override it.`;
+    `Adapt this recipe — it is a suggestion, NOT a mandatory template (each "OR" offers alternatives), and explicit user requests always override it. ` +
+    RECIPE_FREESTYLE_OVERRIDE_CLAUSE;
   return { prompt: systemPrompt.replace(LOOSE_FLOW_SENTENCE_RE, replacement), injected: true };
 }
 

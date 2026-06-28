@@ -102,6 +102,7 @@ import { critiqueAndRewriteBlocks } from "../../lib/ai-prompts/critique-pass";
 import { normalizeHeadingsToSentenceCase } from "../../lib/ai-prompts/sentence-case-normalizer";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
 import type { PageRecipe } from "../../lib/ai-prompts/page-recipes";
+import { RECIPE_FREESTYLE_OVERRIDE_CLAUSE } from "../../lib/ai-prompts/page-recipes";
 import { loadEffectiveRecipesForPath } from "../../lib/ai-prompts/page-recipe-overrides";
 import { FREEFORM_ROLE_HINTS } from "../../lib/ai-prompts/microsite-block-vocab";
 // Microsites now offer the SAME block set as a landing page (the general prompt)
@@ -3135,8 +3136,9 @@ export function buildSystemPrompt(
       "LAYOUT — YOU choose the sections (this page has NO fixed block list):",
       "- Open with EXACTLY ONE \"hero\" block (first) and END with a \"footer\" block.",
       "- Between them, pick 5–9 sections from the AVAILABLE BLOCKS that best tell THIS account's story. Vary the selection and order across accounts — do NOT emit the same flat sequence every time.",
-      "- Include at least one proof/metrics section (trust-bar, stats, stat-callout, or testimonial), at least one features/benefits section (benefits-grid or how-it-works), and a closing CTA (bottom-cta) immediately before the footer.",
+      "- For a sales or marketing microsite, include at least one proof/metrics section (trust-bar, stats, stat-callout, or testimonial), at least one features/benefits section (benefits-grid or how-it-works), and a closing CTA (bottom-cta) immediately before the footer. This is REQUIRED for a sales page but does NOT apply when the freestyle rule below takes over for a non-sales page (about-us, FAQ, contact, etc.) — then pick sections only for the real subject.",
       narrativeFlowLine,
+      `- ${RECIPE_FREESTYLE_OVERRIDE_CLAUSE}`,
       "- Use ONLY the block types listed above (exact type strings). NEVER invent block types and NEVER use industry-specific compound blocks.",
       "",
       FREEFORM_DESIGN_RULES,

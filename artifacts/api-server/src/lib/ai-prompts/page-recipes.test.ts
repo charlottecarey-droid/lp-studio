@@ -174,6 +174,26 @@ describe("buildRecipeDirective / injectRecipeIntoBlockSelection", () => {
     for (const entry of recipe.skeleton) expect(text).toContain(entry);
   });
 
+  it("tells the model to freestyle when the recipe does not fit an off-topic request", () => {
+    const text = buildRecipeDirective(recipe);
+    expect(text).toContain("FREESTYLE");
+    expect(text).toContain("IGNORE the suggested recipe/flow completely");
+    // Names concrete off-topic page kinds so the model recognizes them.
+    expect(text).toContain("about-us");
+    expect(text).toContain("FAQ");
+  });
+
+  it("carries the freestyle override into the system-prompt injection too", () => {
+    const prompt = [
+      "5. BLOCK SELECTION — vary the mix.",
+      "A loose flow that works is hero → problem → stat-showcase → cta — but treat this as ONE option, never a fixed template you must follow.",
+    ].join(" ");
+    const { prompt: out, injected } = injectRecipeIntoBlockSelection(prompt, recipe);
+    expect(injected).toBe(true);
+    expect(out).toContain("FREESTYLE");
+    expect(out).toContain("IGNORE the suggested recipe/flow completely");
+  });
+
   it("replaces the 'loose flow that works' example sentence with the recipe", () => {
     const prompt = [
       "5. BLOCK SELECTION — vary the mix.",
