@@ -9,6 +9,7 @@ import type { EventPageBlockProps, EventPageTheme } from "@/lib/block-types";
 import type { FormField } from "@/lib/block-types";
 import { useBlockFonts } from "@/lib/use-block-fonts";
 import { pushMarketoSubmissionToDataLayer } from "@/lib/gtm-datalayer";
+import { pickContrastingColor, relativeLuminance } from "@/lib/brand-config";
 
 // Default dark luxury palette — used when theme overrides are absent
 const DEFAULT_THEME: Required<Omit<EventPageTheme, "headingColor">> & { headingColor: string } = {
@@ -55,18 +56,51 @@ interface ResolvedTheme {
   navText: string;
   navTextDim: string;          // 0.5 alpha
   navTextSoft: string;         // 0.7 alpha
-  overlay: string;             // gradient using bg
+  overlay: string;             // dark scrim gradient laid over the hero photo
+  // Hero text inks. The hero always renders over a cover photo, so these are
+  // resolved to contrast a dark surface regardless of how light the theme
+  // palette is (see resolveTheme). Non-hero sections keep using `heading` /
+  // `primary` / `muted` against their solid theme backgrounds.
+  heroHeading: string;
+  heroEyebrow: string;
+  heroTagline: string;
+  heroCtaLabel: string;
   bodyFont: string;
   displayFont: string;
 }
 
-function resolveTheme(t: EventPageTheme | undefined): ResolvedTheme {
+// Warm-gold fill the hero CTA always paints (kept theme-independent below).
+const HERO_CTA_FILL = "#b59a6e";
+
+export function resolveTheme(t: EventPageTheme | undefined): ResolvedTheme {
   const m = { ...DEFAULT_THEME, ...(t ?? {}) };
   const headingColor = m.headingColor || m.fg;
   const bodyFont = m.bodyFontFamily
     ? `'${m.bodyFontFamily}', sans-serif`
     : `${BRAND_BODY_FONT}, 'Inter', sans-serif`;
   const displayFont = m.displayFontFamily ? `'${m.displayFontFamily}', serif` : "'EB Garamond', serif";
+
+  // The hero always renders over a cover photo (a fallback image is used when
+  // none is set), so its text area must be treated as a DARK surface — the
+  // shared "bg-image heroes treat the cover image as dark" convention. A light
+  // theme palette (light bg, dark heading/accent) would otherwise paint dark
+  // text plus a light theme-bg wash over a dark photo → invisible copy. We lay
+  // a dark scrim and resolve every theme-derived hero ink to contrast it.
+  //
+  // The scrim base is the theme bg when it is already dark (so the default
+  // "Inside Dandy" hero is byte-for-byte unchanged), otherwise a near-black
+  // fallback. pickContrastingColor keeps a theme color when it already clears
+  // WCAG AA against that scrim (default gold eyebrow / off-white heading stay),
+  // and only swaps in a light ink when the theme color would be illegible.
+  const heroScrimBase = relativeLuminance(m.bg) < 0.4 ? m.bg : "#0b0b0f";
+  const overlay = `linear-gradient(180deg, ${rgba(heroScrimBase, 0.5)} 0%, ${rgba(heroScrimBase, 0.85)} 100%)`;
+  const heroHeading = pickContrastingColor(headingColor, heroScrimBase, ["#f5f3ef", "#ffffff"], 4.5);
+  const heroEyebrow = pickContrastingColor(m.primary, heroScrimBase, ["#d8c9ae", "#ffffff"], 4.5);
+  const heroTagline = pickContrastingColor(m.muted, heroScrimBase, ["#cfd3d8", "#ffffff"], 4.5);
+  // The CTA label sits on the fixed warm-gold fill, not the photo, so it must
+  // contrast that fill (the theme bg only works when it happens to be dark).
+  const heroCtaLabel = pickContrastingColor(m.bg, HERO_CTA_FILL, ["#0b0b0f", "#ffffff"], 4.5);
+
   return {
     bg: m.bg,
     card: m.cardBg,
@@ -84,7 +118,11 @@ function resolveTheme(t: EventPageTheme | undefined): ResolvedTheme {
     navText: m.navText,
     navTextDim: rgba(m.navText, 0.5),
     navTextSoft: rgba(m.navText, 0.7),
-    overlay: `linear-gradient(180deg, ${rgba(m.bg, 0.5)} 0%, ${rgba(m.bg, 0.85)} 100%)`,
+    overlay,
+    heroHeading,
+    heroEyebrow,
+    heroTagline,
+    heroCtaLabel,
     bodyFont,
     displayFont,
   };
@@ -523,7 +561,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
             initial={{ opacity: 0, filter: "blur(8px)" }}
             animate={{ opacity: 1, filter: "blur(0px)" }}
             transition={{ duration: 1, delay: 0.3 }}
-            style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.4em", textTransform: "uppercase", color: C.primary, marginBottom: "2rem" }}
+            style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.7rem", letterSpacing: "0.4em", textTransform: "uppercase", color: C.heroEyebrow, marginBottom: "2rem" }}
           >
             {p.heroEyebrow}
           </motion.p>
@@ -532,7 +570,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1.2, delay: 0.6 }}
-            style={{ fontFamily: displayFont, fontWeight: 400, fontSize: "clamp(3rem, 8vw, 5.5rem)", lineHeight: 1.1, marginBottom: "1rem", color: C.heading }}
+            style={{ fontFamily: displayFont, fontWeight: 400, fontSize: "clamp(3rem, 8vw, 5.5rem)", lineHeight: 1.1, marginBottom: "1rem", color: C.heroHeading }}
           >
             {p.eventName}
           </motion.h1>
@@ -557,7 +595,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 1.2 }}
-            style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.875rem", color: C.muted, maxWidth: "28rem", margin: "0 auto 2rem", lineHeight: 1.7 }}
+            style={{ fontFamily: bodyFont, fontWeight: 300, fontSize: "0.875rem", color: C.heroTagline, maxWidth: "28rem", margin: "0 auto 2rem", lineHeight: 1.7 }}
           >
             {p.heroTagline}
           </motion.p>
@@ -579,7 +617,7 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
                 position: "relative",
                 padding: "1rem 2.5rem",
                 backgroundColor: "rgba(181,154,110,0.9)",
-                color: C.bg,
+                color: C.heroCtaLabel,
                 fontFamily: bodyFont,
                 fontWeight: 400,
                 fontSize: "0.7rem",
