@@ -1,19 +1,41 @@
 import React from "react";
-import { ArrowRight, Zap, BarChart3, ShieldCheck } from "lucide-react";
+import { ArrowRight, Zap, BarChart3, ShieldCheck, LucideIcon } from "lucide-react";
 
-export function ColorBlockCards() {
-  const pillars = [
+export interface ColorBlockCardsProps {
+  eyebrow?: string;
+  heading?: string;
+  subhead?: string;
+  showImages?: boolean;
+  showCta?: boolean;
+  ctaLabel?: string;
+  pillars?: Array<{
+    id?: string;
+    title: string;
+    description: string;
+    icon?: LucideIcon;
+    image?: string;
+    brandVar?: string;
+    fallbackColor?: string;
+    ctaHref?: string;
+  }>;
+}
+
+export function ColorBlockCards({
+  eyebrow = "Core Values",
+  heading = "Everything you need. Nothing you don't.",
+  subhead = "A platform engineered to stay out of your way while delivering the power and performance your team demands.",
+  showImages = true,
+  showCta = true,
+  ctaLabel = "Learn more",
+  pillars = [
     {
       id: "setup",
       title: "Effortless setup",
       description: "Get started and ship in minutes. Zero engineering required to integrate into your existing workflow.",
       icon: Zap,
       image: "/__mockup/images/colorblock-setup.png",
-      colorClass: "bg-[#E3F2FD]", // Light Blue
-      textClass: "text-[#0D47A1]",
-      titleClass: "text-[#0D47A1]",
-      descClass: "text-[#1565C0]",
-      iconBg: "bg-[#BBDEFB]",
+      brandVar: "--brand-primary",
+      fallbackColor: "#2563eb", // blue-600
     },
     {
       id: "clarity",
@@ -21,11 +43,8 @@ export function ColorBlockCards() {
       description: "Real-time insight and analytics that are actually easy to read, bringing your key metrics into focus.",
       icon: BarChart3,
       image: "/__mockup/images/colorblock-clarity.png",
-      colorClass: "bg-[#F3E5F5]", // Light Purple
-      textClass: "text-[#4A148C]",
-      titleClass: "text-[#4A148C]",
-      descClass: "text-[#6A1B9A]",
-      iconBg: "bg-[#E1BEE7]",
+      brandVar: "--brand-secondary",
+      fallbackColor: "#9333ea", // purple-600
     },
     {
       id: "reliability",
@@ -33,63 +52,125 @@ export function ColorBlockCards() {
       description: "Enterprise-grade dependability from day one. Build with confidence knowing our infrastructure grows with you.",
       icon: ShieldCheck,
       image: "/__mockup/images/colorblock-reliability.png",
-      colorClass: "bg-[#FBE9E7]", // Light Pink/Rose
-      textClass: "text-[#880E4F]",
-      titleClass: "text-[#880E4F]",
-      descClass: "text-[#AD1457]",
-      iconBg: "bg-[#F8BBD0]",
+      brandVar: "--brand-accent",
+      fallbackColor: "#e11d48", // rose-600
     },
-  ];
-
+  ],
+}: ColorBlockCardsProps) {
   return (
-    <section className="w-full bg-white py-24 sm:py-32">
+    <section 
+      className="w-full py-16 sm:py-24"
+      style={{ backgroundColor: "var(--brand-surface, #ffffff)" }}
+    >
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl lg:text-center">
-          <h2 className="text-base font-semibold leading-7 text-indigo-600 tracking-wide uppercase">Core Values</h2>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-5xl">
-            Everything you need. Nothing you don't.
-          </p>
-          <p className="mt-6 text-lg leading-8 text-slate-600">
-            A platform engineered to stay out of your way while delivering the power and performance your team demands.
-          </p>
+          {eyebrow && (
+            <h2 
+              className="text-sm font-bold tracking-widest uppercase mb-3"
+              style={{ 
+                color: "var(--brand-primary, #2563eb)",
+                fontFamily: "var(--brand-font-heading, Inter, ui-sans-serif, system-ui, -apple-system, sans-serif)"
+              }}
+            >
+              {eyebrow}
+            </h2>
+          )}
+          {heading && (
+            <p 
+              className="text-3xl font-bold tracking-tight sm:text-4xl"
+              style={{ 
+                color: "var(--brand-ink, #0f172a)",
+                fontFamily: "var(--brand-font-heading, Inter, ui-sans-serif, system-ui, -apple-system, sans-serif)"
+              }}
+            >
+              {heading}
+            </p>
+          )}
+          {subhead && (
+            <p 
+              className="mt-4 text-lg leading-8"
+              style={{ 
+                color: "var(--brand-muted, #475569)",
+                fontFamily: "var(--brand-font-body, Inter, ui-sans-serif, system-ui, -apple-system, sans-serif)"
+              }}
+            >
+              {subhead}
+            </p>
+          )}
         </div>
 
-        <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
-          <div className="grid max-w-xl grid-cols-1 gap-8 lg:max-w-none lg:grid-cols-3">
-            {pillars.map((pillar) => {
+        <div className="mx-auto mt-12 max-w-2xl sm:mt-16 lg:max-w-none">
+          <div className="grid max-w-xl grid-cols-1 gap-6 lg:max-w-none md:grid-cols-3">
+            {pillars.map((pillar, i) => {
               const Icon = pillar.icon;
+              const hasImage = showImages && pillar.image;
+              const bVar = pillar.brandVar || "--brand-primary";
+              const fColor = pillar.fallbackColor || "#2563eb";
+              
               return (
                 <div
-                  key={pillar.id}
-                  className={`flex flex-col overflow-hidden rounded-3xl ${pillar.colorClass} shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1`}
+                  key={pillar.id || i}
+                  className="flex flex-col overflow-hidden rounded-2xl shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-1"
+                  style={{
+                    backgroundColor: `color-mix(in srgb, var(${bVar}, ${fColor}) 8%, var(--brand-surface, #ffffff))`
+                  }}
                 >
-                  <div className="aspect-[4/3] w-full overflow-hidden">
-                    <img
-                      src={pillar.image}
-                      alt={pillar.title}
-                      className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
-                    />
-                  </div>
-                  <div className="flex flex-1 flex-col justify-between p-8 sm:p-10">
+                  {hasImage && (
+                    <div className="aspect-[16/9] w-full overflow-hidden bg-slate-100">
+                      <img
+                        src={pillar.image}
+                        alt={pillar.title}
+                        className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
+                      />
+                    </div>
+                  )}
+                  
+                  <div className={`flex flex-1 flex-col justify-between p-6 sm:p-8 ${!hasImage ? 'pt-8' : ''}`}>
                     <div>
-                      <div className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${pillar.iconBg} mb-6`}>
-                        <Icon className={`h-6 w-6 ${pillar.textClass}`} aria-hidden="true" />
-                      </div>
-                      <h3 className={`text-xl font-bold leading-8 tracking-tight ${pillar.titleClass}`}>
+                      {Icon && (
+                        <div 
+                          className="inline-flex h-12 w-12 items-center justify-center rounded-xl mb-6 shadow-sm"
+                          style={{
+                            backgroundColor: `var(--brand-surface, #ffffff)`,
+                            color: `var(${bVar}, ${fColor})`
+                          }}
+                        >
+                          <Icon className="h-6 w-6" aria-hidden="true" />
+                        </div>
+                      )}
+                      <h3 
+                        className="text-xl font-bold leading-8 tracking-tight"
+                        style={{ 
+                          color: `color-mix(in srgb, var(${bVar}, ${fColor}) 90%, black)`,
+                          fontFamily: "var(--brand-font-heading, Inter, ui-sans-serif, system-ui, -apple-system, sans-serif)"
+                        }}
+                      >
                         {pillar.title}
                       </h3>
-                      <p className={`mt-4 text-base leading-7 ${pillar.descClass}`}>
+                      <p 
+                        className="mt-3 text-base leading-7"
+                        style={{ 
+                          color: `color-mix(in srgb, var(${bVar}, ${fColor}) 70%, black)`,
+                          fontFamily: "var(--brand-font-body, Inter, ui-sans-serif, system-ui, -apple-system, sans-serif)"
+                        }}
+                      >
                         {pillar.description}
                       </p>
                     </div>
-                    <div className="mt-8">
-                      <a
-                        href="#"
-                        className={`inline-flex items-center text-sm font-semibold ${pillar.textClass} hover:opacity-80 transition-opacity`}
-                      >
-                        Learn more <ArrowRight className="ml-2 h-4 w-4" />
-                      </a>
-                    </div>
+                    {showCta && ctaLabel && (
+                      <div className="mt-8">
+                        <a
+                          href={pillar.ctaHref || "#"}
+                          className="inline-flex items-center text-sm font-semibold hover:opacity-80 transition-opacity"
+                          style={{ 
+                            color: `var(${bVar}, ${fColor})`,
+                            fontFamily: "var(--brand-font-body, Inter, ui-sans-serif, system-ui, -apple-system, sans-serif)"
+                          }}
+                        >
+                          {ctaLabel} <ArrowRight className="ml-2 h-4 w-4" />
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               );

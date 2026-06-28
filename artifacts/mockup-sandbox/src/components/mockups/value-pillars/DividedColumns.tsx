@@ -1,72 +1,150 @@
 import React from 'react';
-import { Settings, BarChart2, Shield } from 'lucide-react';
+import { Settings, BarChart2, Shield, LucideIcon } from 'lucide-react';
 
-export function DividedColumns() {
+export interface Pillar {
+  title: string;
+  description: string;
+  icon?: LucideIcon;
+  image?: string;
+}
+
+export interface DividedColumnsProps {
+  eyebrow?: string;
+  heading?: React.ReactNode;
+  subhead?: string;
+  pillars?: Pillar[];
+  showImages?: boolean; // Included for interface compliance, though this variant is image-free
+}
+
+const DEFAULT_PILLARS: Pillar[] = [
+  {
+    title: 'Effortless setup',
+    description: 'Get started and ship in minutes, no engineering required. Connect your data sources instantly and see value on day one.',
+    icon: Settings,
+  },
+  {
+    title: 'Clarity at a glance',
+    description: 'Real-time insight and analytics that are actually easy to read. Turn complex datasets into clear, actionable narratives.',
+    icon: BarChart2,
+  },
+  {
+    title: 'Reliability that scales',
+    description: 'Enterprise-grade dependability from day one. As your team grows, our infrastructure seamlessly handles the increased load.',
+    icon: Shield,
+  },
+];
+
+export function DividedColumns({
+  eyebrow = 'Platform Capabilities',
+  heading = (
+    <>
+      Designed for velocity.
+      <br className="hidden md:block" /> Built for scale.
+    </>
+  ),
+  subhead = "Everything you need to orchestrate your team's workflow, without the complexity that usually comes with it.",
+  pillars = DEFAULT_PILLARS,
+}: DividedColumnsProps) {
   return (
-    <section className="w-full bg-[#FAFAFA] py-24 md:py-32 px-6 md:px-12 lg:px-24 font-sans">
+    <section 
+      className="w-full py-16 md:py-20 px-6 md:px-12 lg:px-24"
+      style={{
+        backgroundColor: 'var(--brand-surface-2, #FAFAFA)',
+        fontFamily: 'var(--brand-font-body, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif)',
+      }}
+    >
       <div className="mx-auto max-w-7xl">
-        <div className="mb-20 md:mb-28 max-w-3xl text-center mx-auto">
-          <span className="inline-block mb-5 text-xs font-bold tracking-[0.2em] text-[#B24B36] uppercase">
-            Platform Capabilities
-          </span>
-          <h2 className="mb-6 text-4xl md:text-5xl lg:text-6xl font-serif text-slate-900 tracking-tight leading-tight">
-            Designed for velocity.
-            <br className="hidden md:block" /> Built for scale.
-          </h2>
-          <p className="text-lg md:text-xl text-slate-500 font-light max-w-2xl mx-auto leading-relaxed">
-            Everything you need to orchestrate your team's workflow, without the complexity that usually comes with it.
-          </p>
+        <div className="mb-12 md:mb-16 max-w-3xl text-center mx-auto">
+          {eyebrow && (
+            <span 
+              className="inline-block mb-4 text-xs font-bold tracking-[0.2em] uppercase"
+              style={{ color: 'var(--brand-accent, #B24B36)' }}
+            >
+              {eyebrow}
+            </span>
+          )}
+          {heading && (
+            <h2 
+              className="mb-4 text-3xl md:text-4xl lg:text-5xl tracking-tight leading-tight"
+              style={{
+                fontFamily: 'var(--brand-font-heading, ui-serif, Georgia, Cambria, "Times New Roman", Times, serif)',
+                color: 'var(--brand-ink, #0f172a)'
+              }}
+            >
+              {heading}
+            </h2>
+          )}
+          {subhead && (
+            <p 
+              className="text-base md:text-lg font-light max-w-2xl mx-auto leading-relaxed"
+              style={{ color: 'var(--brand-muted, #475569)' }}
+            >
+              {subhead}
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 relative">
           {/* Vertical dividers for desktop */}
-          <div className="hidden md:block absolute top-0 bottom-0 left-[33.333%] w-[1px] bg-slate-200" />
-          <div className="hidden md:block absolute top-0 bottom-0 left-[66.666%] w-[1px] bg-slate-200" />
+          <div className="hidden md:block absolute top-0 bottom-0 left-[33.333%] w-[1px] bg-slate-200/60" />
+          <div className="hidden md:block absolute top-0 bottom-0 left-[66.666%] w-[1px] bg-slate-200/60" />
 
-          {/* Column 1 */}
-          <div className="relative p-8 md:px-12 lg:px-16 md:py-8 group transition-all duration-500 hover:-translate-y-2">
-            <div className="mb-10 inline-flex items-center justify-center p-4 bg-white shadow-sm border border-slate-100 rounded-2xl text-[#B24B36] group-hover:bg-[#B24B36] group-hover:text-white group-hover:border-[#B24B36] transition-all duration-500">
-              <Settings className="w-7 h-7" strokeWidth={1.5} />
-            </div>
-            <h3 className="mb-5 text-2xl font-serif text-slate-900 tracking-tight">
-              Effortless setup
-            </h3>
-            <p className="text-slate-500 leading-relaxed font-light text-base md:text-lg">
-              Get started and ship in minutes, no engineering required. Connect your data sources instantly and see value on day one.
-            </p>
-            {/* Horizontal divider for mobile */}
-            <div className="block md:hidden absolute bottom-0 left-8 right-8 h-[1px] bg-slate-200" />
-          </div>
+          {pillars.map((pillar, idx) => {
+            const Icon = pillar.icon;
+            return (
+              <div 
+                key={idx} 
+                className="relative p-6 md:px-10 lg:px-12 md:py-4 group transition-all duration-500 hover:-translate-y-1"
+              >
+                {Icon && (
+                  <div 
+                    className="mb-6 inline-flex items-center justify-center p-3 shadow-sm border rounded-xl transition-all duration-500"
+                    style={{
+                      backgroundColor: 'var(--brand-surface, #ffffff)',
+                      borderColor: 'color-mix(in srgb, var(--brand-ink, #0f172a) 10%, transparent)',
+                      color: 'var(--brand-accent, #B24B36)',
+                      // Using a hack for hover styles with inline styles is tough, we'll use a scoped style block below
+                    }}
+                  >
+                    <Icon className="w-6 h-6 icon-hover-target" strokeWidth={1.5} />
+                  </div>
+                )}
+                
+                <h3 
+                  className="mb-3 text-xl tracking-tight"
+                  style={{
+                    fontFamily: 'var(--brand-font-heading, ui-serif, Georgia, Cambria, "Times New Roman", Times, serif)',
+                    color: 'var(--brand-ink, #0f172a)'
+                  }}
+                >
+                  {pillar.title}
+                </h3>
+                
+                <p 
+                  className="leading-relaxed font-light text-sm md:text-base"
+                  style={{ color: 'var(--brand-muted, #475569)' }}
+                >
+                  {pillar.description}
+                </p>
 
-          {/* Column 2 */}
-          <div className="relative p-8 md:px-12 lg:px-16 md:py-8 group transition-all duration-500 hover:-translate-y-2">
-            <div className="mb-10 inline-flex items-center justify-center p-4 bg-white shadow-sm border border-slate-100 rounded-2xl text-[#B24B36] group-hover:bg-[#B24B36] group-hover:text-white group-hover:border-[#B24B36] transition-all duration-500">
-              <BarChart2 className="w-7 h-7" strokeWidth={1.5} />
-            </div>
-            <h3 className="mb-5 text-2xl font-serif text-slate-900 tracking-tight">
-              Clarity at a glance
-            </h3>
-            <p className="text-slate-500 leading-relaxed font-light text-base md:text-lg">
-              Real-time insight and analytics that are actually easy to read. Turn complex datasets into clear, actionable narratives.
-            </p>
-            {/* Horizontal divider for mobile */}
-            <div className="block md:hidden absolute bottom-0 left-8 right-8 h-[1px] bg-slate-200" />
-          </div>
-
-          {/* Column 3 */}
-          <div className="relative p-8 md:px-12 lg:px-16 md:py-8 group transition-all duration-500 hover:-translate-y-2">
-            <div className="mb-10 inline-flex items-center justify-center p-4 bg-white shadow-sm border border-slate-100 rounded-2xl text-[#B24B36] group-hover:bg-[#B24B36] group-hover:text-white group-hover:border-[#B24B36] transition-all duration-500">
-              <Shield className="w-7 h-7" strokeWidth={1.5} />
-            </div>
-            <h3 className="mb-5 text-2xl font-serif text-slate-900 tracking-tight">
-              Reliability that scales
-            </h3>
-            <p className="text-slate-500 leading-relaxed font-light text-base md:text-lg">
-              Enterprise-grade dependability from day one. As your team grows, our infrastructure seamlessly handles the increased load.
-            </p>
-          </div>
+                {/* Horizontal divider for mobile */}
+                {idx < pillars.length - 1 && (
+                  <div className="block md:hidden absolute bottom-0 left-6 right-6 h-[1px] bg-slate-200/60" />
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
+      <style>{`
+        .group:hover .icon-hover-target {
+          color: var(--brand-surface, #ffffff);
+        }
+        .group:hover > div:first-child {
+          background-color: var(--brand-accent, #B24B36) !important;
+          border-color: var(--brand-accent, #B24B36) !important;
+        }
+      `}</style>
     </section>
   );
 }
