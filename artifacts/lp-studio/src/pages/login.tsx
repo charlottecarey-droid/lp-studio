@@ -12,11 +12,13 @@ function safeRedirectTarget(raw: string | null): string {
 }
 
 /**
- * Standalone sign-in screen. Linked to from SuperAdminPage's "Sign in"
- * button (`${BASE}/login?redirect=...`) and usable directly on dev/staging
- * hosts where the open-domain landing flow is otherwise blocked. On a
- * successful login EmailAuthForms reloads the page; once the session is
- * present we forward to the requested redirect target.
+ * Standalone, barebones sign-in screen served at `/login-admin`. Linked to
+ * from SuperAdminPage's "Sign in" button (`${BASE}/login-admin?redirect=...`)
+ * and usable directly on dev/staging hosts (e.g. the Replit preview) where the
+ * main landing flow at `/` otherwise redirects to the live site. The public
+ * `/login` path now redirects to the main login/signup at `/`. On a successful
+ * login EmailAuthForms reloads the page; once the session is present we forward
+ * to the requested redirect target.
  */
 export default function LoginPage() {
   const { user, loading } = useAuth();

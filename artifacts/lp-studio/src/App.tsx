@@ -185,8 +185,9 @@ const MarketingApp = lazy(() => import("@/marketing/MarketingApp"));
  * - On marketing paths (`/`, `/privacy`, `/terms`) → marketing site by
  *   default, so we can iterate on it in the Replit preview pane without a
  *   custom DNS setup.
- * - On every other path (`/builder/...`, `/preview/...`, `/login`, etc.) →
- *   the SaaS app, so the product UI still works in dev.
+ * - On every other path (`/builder/...`, `/preview/...`, `/login-admin`, etc.)
+ *   → the SaaS app, so the product UI still works in dev. (`/login` mounts the
+ *   SaaS app too, then redirects to the main login/signup at `/`.)
  * - Explicit overrides: `?preview=marketing` or `?preview=app` force one
  *   side regardless of path.
  *
@@ -614,6 +615,7 @@ function AppShell() {
 
   const isPublicRoute =
     location === "/login" ||
+    location === "/login-admin" ||
     location.startsWith("/lp/") ||
     location.startsWith("/p/") ||
     location.startsWith("/review/") || location === "/review" ||
@@ -627,7 +629,8 @@ function AppShell() {
       <>
         <Suspense fallback={<LoadingFallback />}>
           <Switch>
-            <Route path="/login" component={LoginPage} />
+            <Route path="/login">{() => <Redirect to="/" replace />}</Route>
+            <Route path="/login-admin" component={LoginPage} />
             <Route path="/lp/:slug" component={LandingPageViewer} />
             <Route path="/p/:token" component={PersonalizedLinkResolver} />
             <Route path="/review/:token" component={ReviewShell} />

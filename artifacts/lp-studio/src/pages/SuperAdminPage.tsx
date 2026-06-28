@@ -1338,7 +1338,7 @@ export default function SuperAdminPage() {
             You need to be signed in to access the superadmin platform.
           </p>
           <Button asChild>
-            <a href={`${BASE}/login?redirect=${encodeURIComponent(window.location.pathname + window.location.hash)}`}>
+            <a href={`${BASE}/login-admin?redirect=${encodeURIComponent(window.location.pathname + window.location.hash)}`}>
               Sign in
             </a>
           </Button>
