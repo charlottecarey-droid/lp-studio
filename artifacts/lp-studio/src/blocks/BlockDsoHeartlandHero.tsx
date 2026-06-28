@@ -6,7 +6,14 @@ import type { DsoHeartlandHeroBlockProps } from "@/lib/block-types";
 import { getBgStyle } from "@/lib/bg-styles";
 import { StickyHeroNav } from "@/components/StickyHeroNav";
 import { BrandLogo } from "@/components/BrandLogo";
-import { DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
+import {
+  DEFAULT_BRAND,
+  isValidHex,
+  pickContrastingColor,
+  pickCtaButtonColors,
+  contrastTextColor,
+  type BrandConfig,
+} from "@/lib/brand-config";
 import { EmailCaptureModal } from "@/components/EmailCaptureModal";
 
 interface Props {
@@ -21,7 +28,12 @@ interface Props {
   variantId?: number;
 }
 
-const PRIMARY  = "var(--brand-accent, #C7E738)";
+// The Heartland hero always renders dark (the curated gradient bottoms out near
+// black; the asset-backed branches sit under a dark overlay + concentrated
+// scrim). Resolve accent legibility against this representative dark surface so
+// a dark brand accent can fall back to a readable light color instead of
+// vanishing into the hero.
+const HERO_DARK_SURFACE = "#0b0f0e";
 const MUTED_FG = "hsl(192, 10%, 55%)";
 import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
@@ -128,6 +140,22 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
   const imageRight = (p.heroImageSide ?? "right") !== "left";
   const company = p.companyName?.trim() ?? "";
 
+  // ── Accent legibility on the dark hero surface ──────────────────────────
+  // The accent elements (eyebrow, highlighted headline word, stat values, CTA
+  // fill) were painted with the raw brand accent and vanished when a tenant's
+  // accent was itself dark. Resolve a readable accent against the dark hero
+  // (falling back to white when the accent is too dark) and a contrast-guarded
+  // CTA fill, mirroring BlockHero / the section blocks. Explicit per-block
+  // overrides are still honored at each call site.
+  const accentHex = isValidHex(brand.accentColor)
+    ? brand.accentColor
+    : DEFAULT_BRAND.accentColor;
+  const ACCENT_FG = pickContrastingColor(accentHex, HERO_DARK_SURFACE, ["#ffffff"], 4.5);
+  const ctaButtonColors = pickCtaButtonColors(brand, HERO_DARK_SURFACE);
+  const CTA_BG = p.buttonColor || ctaButtonColors.bg;
+  const CTA_TEXT =
+    p.buttonTextColor || contrastTextColor(isValidHex(CTA_BG) ? CTA_BG : ctaButtonColors.bg);
+
   const renderHeadline = () => {
     const text = p.headline ?? "";
 
@@ -142,7 +170,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           parts.push(text.slice(lastIndex, match.index));
         }
         parts.push(
-          <span key={key++} style={{ color: PRIMARY, fontFamily: DISPLAY_FONT }}>{match[1]}</span>
+          <span key={key++} style={{ color: ACCENT_FG, fontFamily: DISPLAY_FONT }}>{match[1]}</span>
         );
         lastIndex = match.index + match[0].length;
       }
@@ -156,7 +184,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       return (
         <>
           {before}
-          <span style={{ color: PRIMARY, fontFamily: DISPLAY_FONT }}>{company}</span>
+          <span style={{ color: ACCENT_FG, fontFamily: DISPLAY_FONT }}>{company}</span>
           {after}
         </>
       );
@@ -193,7 +221,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                   ? `calc(clamp(1.375rem, 3vw, 2rem) * ${p.statValueSize / 100})`
                   : "clamp(1.375rem, 3vw, 2rem)",
               fontWeight: 600,
-              color: p.statValueColor ?? PRIMARY,
+              color: p.statValueColor ?? ACCENT_FG,
               letterSpacing: "-0.02em",
               lineHeight: 1,
             }}
@@ -331,8 +359,8 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
         type="submit"
         className="inline-flex items-center justify-center rounded-full text-sm font-semibold"
         style={{
-          background: p.buttonColor || PRIMARY,
-          color: p.buttonTextColor || "hsl(192, 30%, 6%)",
+          background: CTA_BG,
+          color: CTA_TEXT,
           padding: "0.75rem 1.5rem",
           border: "none",
           cursor: "pointer",
@@ -379,8 +407,8 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           onClick={onCtaClick ? (e) => { e.preventDefault(); onCtaClick(); } : undefined}
           className="inline-flex items-center justify-center gap-2 rounded-full px-8 py-3.5 text-sm font-semibold transition-opacity hover:opacity-90"
           style={{
-            background: p.buttonColor || PRIMARY,
-            color: p.buttonTextColor || "hsl(192, 30%, 6%)",
+            background: CTA_BG,
+            color: CTA_TEXT,
             cursor: "pointer",
           }}
         >
@@ -416,8 +444,8 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
       primaryCtaUrl={p.primaryCtaUrl}
       onPrimaryCtaClick={onCtaClick}
       theme="dark"
-      accentColor={p.buttonColor || PRIMARY}
-      accentTextColor={p.buttonTextColor || "hsl(192, 30%, 6%)"}
+      accentColor={CTA_BG}
+      accentTextColor={CTA_TEXT}
       position={isBuilder ? "absolute" : "fixed"}
       invertLogo
       hideBrandLogo={p.hideBrandLogo}
@@ -482,7 +510,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
           href={onCtaClick ? undefined : (p.primaryCtaUrl || "#")}
           onClick={onCtaClick ? (e) => { e.preventDefault(); onCtaClick(); } : undefined}
           className="inline-flex items-center gap-1.5 rounded-full text-sm font-semibold transition-opacity hover:opacity-85"
-          style={{ background: p.buttonColor || PRIMARY, color: p.buttonTextColor || "hsl(192, 30%, 6%)", padding: "0.5rem 1.125rem", cursor: "pointer" }}
+          style={{ background: CTA_BG, color: CTA_TEXT, padding: "0.5rem 1.125rem", cursor: "pointer" }}
         >
           {p.primaryCtaText}
           <ArrowRight className="w-3.5 h-3.5" />
@@ -570,7 +598,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               className="relative z-10 flex flex-col justify-center hl-split-content"
             >
               {p.eyebrow && (
-                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: PRIMARY, marginBottom: "1.25rem", fontFamily: BODY }}>
+                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
                   {p.eyebrow}
                 </motion.p>
               )}
@@ -698,7 +726,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               className="relative z-10 flex flex-col justify-center"
             >
               {p.eyebrow && (
-                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: PRIMARY, marginBottom: "1.25rem", fontFamily: BODY }}>
+                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
                   {p.eyebrow}
                 </motion.p>
               )}
@@ -868,7 +896,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
               }}
             >
               {p.eyebrow && (
-                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: PRIMARY, marginBottom: "1.25rem", fontFamily: BODY }}>
+                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
                   {p.eyebrow}
                 </motion.p>
               )}
@@ -909,7 +937,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                     href={onCtaClick ? undefined : (p.primaryCtaUrl || "#")}
                     onClick={onCtaClick ? (e) => { e.preventDefault(); onCtaClick(); } : undefined}
                     className="inline-flex items-center justify-center gap-2 rounded-full px-8 py-3.5 text-sm font-semibold transition-opacity hover:opacity-90"
-                    style={{ background: p.buttonColor || PRIMARY, color: p.buttonTextColor || "hsl(192, 30%, 6%)", cursor: "pointer" }}
+                    style={{ background: CTA_BG, color: CTA_TEXT, cursor: "pointer" }}
                   >
                     {p.primaryCtaText}
                     <ArrowRight className="w-4 h-4" />
@@ -1053,7 +1081,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
                         fontFamily: DISPLAY_FONT,
                         fontSize: "clamp(1.375rem, 3vw, 2rem)",
                         fontWeight: 600,
-                        color: PRIMARY,
+                        color: p.statValueColor ?? ACCENT_FG,
                         letterSpacing: "-0.02em",
                         lineHeight: 1,
                       }}
@@ -1180,7 +1208,7 @@ export function BlockDsoHeartlandHero({ props: p, brand = DEFAULT_BRAND, onCtaCl
         >
           <div className="max-w-[1200px] mx-auto px-6 md:px-10 w-full">
             {p.eyebrow && (
-              <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: PRIMARY, marginBottom: "1.25rem", fontFamily: BODY }}>
+              <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }} style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.15em", color: ACCENT_FG, marginBottom: "1.25rem", fontFamily: BODY }}>
                 {p.eyebrow}
               </motion.p>
             )}

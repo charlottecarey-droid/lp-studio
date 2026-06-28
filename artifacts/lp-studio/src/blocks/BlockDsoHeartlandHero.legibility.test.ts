@@ -204,3 +204,166 @@ describe("BlockDsoHeartlandHero full-bleed legibility", () => {
     expect(isBrightenedNearWhite(colorOf(subStyle))).toBe(false);
   });
 });
+
+/**
+ * Accent-legibility regression guard for the dark Heartland hero. Every accent
+ * element (eyebrow, the highlighted word inside the headline, the stat values,
+ * and the primary CTA button) used to be painted with the raw brand accent. The
+ * hero is ALWAYS dark (near-black gradient, or a dark-overlaid/scrimmed asset),
+ * so when a tenant's brand accent is itself dark those elements vanished into
+ * the hero — the bug reported on the Heartland template preview.
+ *
+ * These cases render the hero with (a) a deliberately DARK brand accent and
+ * assert each accent element resolves to a contrasting, non-dark color, the CTA
+ * fill is visibly distinct from the dark hero, and the CTA label contrasts its
+ * own fill; and (b) a BRIGHT brand accent and assert it is passed through
+ * unchanged. Thresholds are hardcoded so the contract fails loudly if a future
+ * change drops the contrast guard.
+ */
+
+// A near-black brand accent — the adversarial case that vanished into the hero.
+const DARK_ACCENT = "#1e1b4b"; // indigo-950
+// A bright brand accent (Dandy lime) that must be used unchanged.
+const BRIGHT_ACCENT = "#C7E738";
+
+// Accent elements must be readable on the dark hero. A resolved color this
+// luminous reads clearly against a near-black surface.
+const MIN_READABLE_ACCENT_LUMINANCE = 0.5;
+// The CTA fill must stand off the dark hero, and its label must clear AA (4.5).
+const MIN_CTA_BG_LUMINANCE = 0.3;
+const MIN_LABEL_ON_FILL_CONTRAST = 4.5;
+
+const EYEBROW = "Inside the partnership";
+const HIGHLIGHT_WORD = "growth";
+const STAT_VALUE = "120";
+const CTA_LABEL = "Book a walkthrough";
+
+function accentProps(
+  overrides: Partial<DsoHeartlandHeroBlockProps> = {},
+): DsoHeartlandHeroBlockProps {
+  return baseProps({
+    eyebrow: EYEBROW,
+    headline: `A lab built for {${HIGHLIGHT_WORD}}`,
+    primaryCtaText: CTA_LABEL,
+    stats: [
+      { value: STAT_VALUE, label: "Practices" },
+      { value: "4.9", label: "Rating" },
+    ],
+    ...overrides,
+  });
+}
+
+function renderWithBrand(
+  props: DsoHeartlandHeroBlockProps,
+  accentColor: string,
+): string {
+  return renderToStaticMarkup(
+    createElement(BlockDsoHeartlandHero, {
+      props,
+      brand: { ...DEFAULT_BRAND, accentColor },
+    }),
+  );
+}
+
+/** Pull `prop: value` out of a serialized inline style string. */
+function declOf(style: string, prop: string): string | undefined {
+  for (const decl of style.split(";")) {
+    const idx = decl.indexOf(":");
+    if (idx === -1) continue;
+    if (decl.slice(0, idx).trim() === prop) return decl.slice(idx + 1).trim();
+  }
+  return undefined;
+}
+
+/** Relative luminance (sRGB) of a #rrggbb color, 0 (black) … 1 (white). */
+function luminance(hex: string): number {
+  const m = hex.match(/^#?([0-9a-f]{6})$/i);
+  if (!m) return 0;
+  const n = parseInt(m[1], 16);
+  const ch = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  const r = ch((n >> 16) & 0xff);
+  const g = ch((n >> 8) & 0xff);
+  const b = ch(n & 0xff);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** WCAG contrast ratio between two #rrggbb colors. */
+function contrast(a: string, b: string): number {
+  const la = luminance(a);
+  const lb = luminance(b);
+  const [hi, lo] = la >= lb ? [la, lb] : [lb, la];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+function normHex(color: string | undefined): string {
+  return (color ?? "").trim().toLowerCase();
+}
+
+describe("BlockDsoHeartlandHero accent legibility on the dark hero", () => {
+  it("rescues a DARK brand accent to a readable color across all accent elements", () => {
+    const markup = renderWithBrand(accentProps(), DARK_ACCENT);
+
+    const eyebrow = colorOf(styleOfElementContaining(markup, EYEBROW));
+    const highlight = colorOf(styleOfElementContaining(markup, HIGHLIGHT_WORD));
+    const statValue = colorOf(styleOfElementContaining(markup, STAT_VALUE));
+
+    // None of the foreground accent elements keep the dark accent…
+    for (const color of [eyebrow, highlight, statValue]) {
+      expect(normHex(color)).not.toBe(normHex(DARK_ACCENT));
+      // …and each resolves to a clearly readable (light) color on the dark hero.
+      expect(luminance(color ?? "")).toBeGreaterThanOrEqual(
+        MIN_READABLE_ACCENT_LUMINANCE,
+      );
+    }
+
+    // The CTA fill stands off the dark hero and its label contrasts the fill.
+    const ctaStyle = styleOfElementContaining(markup, CTA_LABEL);
+    const ctaBg = declOf(ctaStyle, "background");
+    const ctaText = declOf(ctaStyle, "color");
+    expect(normHex(ctaBg)).not.toBe(normHex(DARK_ACCENT));
+    expect(luminance(ctaBg ?? "")).toBeGreaterThanOrEqual(MIN_CTA_BG_LUMINANCE);
+    expect(contrast(ctaBg ?? "#000000", ctaText ?? "#000000")).toBeGreaterThanOrEqual(
+      MIN_LABEL_ON_FILL_CONTRAST,
+    );
+  });
+
+  it("passes a BRIGHT brand accent through unchanged", () => {
+    const markup = renderWithBrand(accentProps(), BRIGHT_ACCENT);
+
+    expect(normHex(colorOf(styleOfElementContaining(markup, EYEBROW)))).toBe(
+      normHex(BRIGHT_ACCENT),
+    );
+    expect(
+      normHex(colorOf(styleOfElementContaining(markup, HIGHLIGHT_WORD))),
+    ).toBe(normHex(BRIGHT_ACCENT));
+    expect(normHex(colorOf(styleOfElementContaining(markup, STAT_VALUE)))).toBe(
+      normHex(BRIGHT_ACCENT),
+    );
+
+    // The bright accent is contrast-safe, so the CTA fill keeps it too.
+    const ctaBg = declOf(styleOfElementContaining(markup, CTA_LABEL), "background");
+    expect(normHex(ctaBg)).toBe(normHex(BRIGHT_ACCENT));
+  });
+
+  it("honors explicit per-block accent/CTA overrides even when dark", () => {
+    const markup = renderWithBrand(
+      accentProps({
+        statValueColor: "#123456",
+        buttonColor: "#222222",
+        buttonTextColor: "#abcdef",
+      }),
+      BRIGHT_ACCENT,
+    );
+
+    // Explicit overrides win over the contrast guard, exactly as set.
+    expect(normHex(colorOf(styleOfElementContaining(markup, STAT_VALUE)))).toBe(
+      "#123456",
+    );
+    const ctaStyle = styleOfElementContaining(markup, CTA_LABEL);
+    expect(normHex(declOf(ctaStyle, "background"))).toBe("#222222");
+    expect(normHex(declOf(ctaStyle, "color"))).toBe("#abcdef");
+  });
+});
