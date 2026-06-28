@@ -113,8 +113,8 @@ import { micrositeFreeformVocab } from "../../lib/ai-prompts/recipe-block-vocab"
 import {
   buildGeneralSystemPrompt,
   extractGeneralBlockBullets,
-  SELF_NAV_TYPES,
 } from "../lp/generate-page";
+import { SELF_NAV_TYPES } from "../../lib/nav-dedup";
 // All-in-one template intent matching (parity with /lp/generate-page): route a
 // prompt that names a framework ("MEDDIC decision brief", "StoryBrand",
 // "challenger") to the matching GLOBAL template instead of the generic block

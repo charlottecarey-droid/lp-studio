@@ -17,6 +17,11 @@ import {
   GLOBAL_TEMPLATE_SEEDS,
   ALL_IN_ONE_TEMPLATE_SEEDS,
 } from "./globalTemplates";
+import {
+  NAV_TYPES,
+  SELF_NAV_TYPES,
+  stripRedundantLeadingNav,
+} from "../lib/nav-dedup";
 
 const EXPECTED_ALL_IN_ONE_SLUGS = [
   "global-flagship-storefront-dtc",
@@ -336,5 +341,76 @@ describe("ABM funnel-stage microsite templates", () => {
       const leaks = findVocabLeaks(seed!);
       expect(leaks, `${slug} dental-vocabulary leaks`).toEqual([]);
     }
+  });
+});
+
+// ─── No double navbar in seeded template lineups (#1415) ──────────────────────
+// A template whose lineup starts with a standalone nav block (nav-header /
+// dso-practice-nav) directly followed by a self-nav hero (which renders its own
+// internal navbar) would ship TWO stacked navbars on every page created from it
+// — and in the marketplace preview. The migrate.ts seed loop runs
+// stripRedundantLeadingNav over each lineup before insert; this pins the
+// contract so a future seed edit that re-introduces the bad pair fails CI.
+
+/** Mirrors exactly what the migrate.ts seed loop does to each lineup before
+ *  insert: shallow-copy the blocks, then strip a redundant leading nav. */
+function dedupe(blocks: Array<{ type: string }>): Array<{ type: string }> {
+  const copy = blocks.map((b) => ({ ...b }));
+  stripRedundantLeadingNav(copy);
+  return copy;
+}
+
+describe("seeded template lineups never ship a double navbar", () => {
+  it("after the seed-time strip, no template begins with a standalone nav before a self-nav hero", () => {
+    const offenders: string[] = [];
+    for (const tpl of GLOBAL_TEMPLATE_SEEDS) {
+      const deduped = dedupe(tpl.blocks as Array<{ type: string }>);
+      const first = (deduped[0]?.type ?? "") as string;
+      const second = (deduped[1]?.type ?? "") as string;
+      if (NAV_TYPES.has(first) && SELF_NAV_TYPES.has(second)) {
+        offenders.push(`${tpl.slug} [${first}, ${second}, …]`);
+      }
+    }
+    expect(offenders, "templates that still ship a redundant leading nav").toEqual([]);
+  });
+
+  it("the strip actually fires for templates that lead with [nav, self-nav-hero]", () => {
+    // Sanity that the fix has real coverage: some seeds DO carry the bad pair
+    // before the strip, and the strip removes the leading nav for them.
+    let stripped = 0;
+    for (const tpl of GLOBAL_TEMPLATE_SEEDS) {
+      const first = (tpl.blocks[0]?.type ?? "") as string;
+      const second = (tpl.blocks[1]?.type ?? "") as string;
+      const hadBadPair = NAV_TYPES.has(first) && SELF_NAV_TYPES.has(second);
+      if (!hadBadPair) continue;
+      const deduped = dedupe(tpl.blocks as Array<{ type: string }>);
+      expect(deduped.length, `${tpl.slug} lost exactly the leading nav`).toBe(tpl.blocks.length - 1);
+      expect(deduped[0].type, `${tpl.slug} now leads with the self-nav hero`).toBe(second);
+      stripped++;
+    }
+    expect(stripped, "templates affected by the double-nav strip").toBeGreaterThan(0);
+  });
+
+  it("templates that use a non-self-nav hero (e.g. magazine-hero) keep their standalone nav", () => {
+    for (const tpl of GLOBAL_TEMPLATE_SEEDS) {
+      const first = (tpl.blocks[0]?.type ?? "") as string;
+      const second = (tpl.blocks[1]?.type ?? "") as string;
+      if (NAV_TYPES.has(first) && !SELF_NAV_TYPES.has(second)) {
+        const deduped = dedupe(tpl.blocks as Array<{ type: string }>);
+        expect(deduped.map((b) => b.type), `${tpl.slug} unchanged`).toEqual(
+          tpl.blocks.map((b) => b.type),
+        );
+      }
+    }
+  });
+
+  it("the seed-time strip removes the leading nav for [nav-header, hero] and is a no-op for non-self-nav heroes", () => {
+    const selfNav = [{ type: "nav-header" }, { type: "hero" }, { type: "footer" }];
+    stripRedundantLeadingNav(selfNav);
+    expect(selfNav.map((b) => b.type)).toEqual(["hero", "footer"]);
+
+    const magazine = [{ type: "nav-header" }, { type: "magazine-hero" }, { type: "footer" }];
+    stripRedundantLeadingNav(magazine);
+    expect(magazine.map((b) => b.type)).toEqual(["nav-header", "magazine-hero", "footer"]);
   });
 });

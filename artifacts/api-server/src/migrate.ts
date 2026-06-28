@@ -2085,7 +2085,7 @@ async function runMigrationsBody(): Promise<void> {
       // databases already past this marker. Conservative seed: only the
       // funnel-stage / framework templates declare anything; everything else
       // stays wildcard (NULL = ANY) so nothing breaks.
-      const SEED_MARKER = "global_templates_seed_v34";
+      const SEED_MARKER = "global_templates_seed_v35";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;
@@ -2100,9 +2100,19 @@ async function runMigrationsBody(): Promise<void> {
           logger.warn("Skipping global_templates seed — system tenant unavailable");
         } else {
           const { GLOBAL_TEMPLATE_SEEDS } = await import("./seeds/globalTemplates");
+          // #1415 double-navbar fix: a template whose lineup starts with a
+          // standalone nav directly before a self-nav hero (e.g. [nav-header,
+          // hero, …]) would ship two stacked navbars. Strip the redundant
+          // leading nav at seed time (same helper the generation paths use) so
+          // pages created from these templates — and the previews — show one
+          // nav. Operates on a shallow copy so the in-memory seed is untouched;
+          // the strip is a no-op for non-self-nav heroes (e.g. magazine-hero).
+          const { stripRedundantLeadingNav } = await import("./lib/nav-dedup");
           let upserted = 0;
           for (const tpl of GLOBAL_TEMPLATE_SEEDS) {
-            const blocksJson = JSON.stringify(tpl.blocks);
+            const dedupedBlocks = [...tpl.blocks];
+            stripRedundantLeadingNav(dedupedBlocks as Array<{ type?: unknown }>);
+            const blocksJson = JSON.stringify(dedupedBlocks);
             // All-in-one intent fields (June 2026). On conflict these are
             // NULL-GUARDED (COALESCE / OR) rather than overwritten, so a
             // superadmin's manual category/keyword edits survive future
