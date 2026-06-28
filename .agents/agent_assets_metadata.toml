@@ -594,6 +594,42 @@ uri = "file://artifacts/mockup-sandbox/public/images/abm-show-case-study.png"
 type = "image"
 title = "modern desk setup"
 
+[[generated]]
+id = "JyEXlcSJ2nrVljq8UzeDa"
+uri = "file://artifacts/mockup-sandbox/public/images/colorblock-setup.png"
+type = "image"
+title = "Abstract setup 3D blocks"
+
+[[generated]]
+id = "8E3jni0kCIv5jMagZ6ekQ"
+uri = "file://artifacts/mockup-sandbox/public/images/colorblock-clarity.png"
+type = "image"
+title = "Abstract clarity dashboard"
+
+[[generated]]
+id = "2TDZlfcIWtNyasoCRLbjE"
+uri = "file://artifacts/mockup-sandbox/public/images/colorblock-reliability.png"
+type = "image"
+title = "Abstract scaling servers"
+
+[[generated]]
+id = "wIAK9C-P-K3qnuISSX-kd"
+uri = "file://artifacts/mockup-sandbox/public/images/headlinebox-setup.png"
+type = "image"
+title = "Abstract UI setup flowing"
+
+[[generated]]
+id = "y4KOlJOb6T89eVSZjsMmp"
+uri = "file://artifacts/mockup-sandbox/public/images/headlinebox-clarity.png"
+type = "image"
+title = "Abstract data visualization charts"
+
+[[generated]]
+id = "ZjEZZhtcUIoKxAE8Qnk-M"
+uri = "file://artifacts/mockup-sandbox/public/images/headlinebox-reliability.png"
+type = "image"
+title = "Abstract interlocking server nodes"
+
 [[outputs]]
 id = "2sUbM7UegFOFtU0kTdNUi"
 uri = "file://.local/cheatsheet.md"
