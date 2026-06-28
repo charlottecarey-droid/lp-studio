@@ -3262,11 +3262,15 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       });
     }
 
-    // DSO bento-outcomes photo tiles
+    // DSO bento-outcomes photo tiles. This block is exposed to EVERY tenant's
+    // general + microsite generation (not just dental/DSO), so the fill context
+    // must stay brand-neutral: use the tile caption + the section's own copy
+    // (blockContext), never a hardcoded vertical keyword that would bias a
+    // non-dental tenant's tile toward clinical imagery.
     if (blockType === "dso-bento-outcomes" && Array.isArray(props.tiles)) {
       props.tiles = (props.tiles as Record<string, unknown>[]).map((tile) => {
         if (tile.type === "photo" && !tile.imageUrl) {
-          const tileContext = `${tile.caption ?? ""} dental clinical`;
+          const tileContext = `${tile.caption ?? ""} ${blockContext}`.trim();
           return { ...tile, imageUrl: pick(tileContext, images, usedIds, "lp-feature") };
         }
         return tile;
@@ -6267,6 +6271,9 @@ const GENERAL_EXTRA_CORE_BLOCKS: string[] = [
   `- "roi-calculator": Interactive ROI / savings calculator with live inputs and computed outputs. Props: headline (5–12 words), subheadline (12–24 words), resultsPanelLabel (2–4 words, e.g. "Your estimated savings"), disclaimer (8–16 words), ctaEnabled (boolean), ctaText (2–5 words), ctaUrl ("#"), inputFields (array of EXACTLY 2–4 of {id (slug), label (2–5 words), defaultValue (number), min (number), max (number), step (number), suffix (e.g. "cases/mo", "$"), inputType ("number"|"slider")}), outputFields (array of EXACTLY 1–3 of {id (slug), label (2–5 words), formula (arithmetic over input ids, e.g. "cases * 480 * 12"), format ("currency"|"number"|"percent"), decimals (number), highlight (boolean)}).`,
   `- "story-hub": Customer-story hub with a featured story, filter chips, a story grid, and stats. Props: eyebrow (2–4 words), heroTitle (5–12 words), subhead (12–24 words), filters (array of 3–5 short category labels), featured ({tag (1–3 words), title (5–12 words), practice (name), location (city, state), imageUrl (""), href ("#")}), stories (array of EXACTLY 3–6 of {practice (name), location (city, state), headline (5–12 words), tag (1–3 words), imageUrl (""), href ("#")}), stats (array of EXACTLY 3–4 of {number (metric), label (2–5 words)}), ctaHeadline (5–12 words), ctaPrimaryText (2–5 words), ctaPrimaryUrl ("#").`,
   `- "resources": Grid of resource / blog / guide cards. Props: headline (5–12 words), subheadline (12–24 words), columns (3 or 4), backgroundStyle ("white"|"muted"|"dark"), items (array of EXACTLY 3–6 of {title (5–12 words), description (14–24 words), category (1–3 words, e.g. "Guide", "Webinar"), image (""), url ("#")}).`,
+  `- "dso-bento-outcomes": Bento grid of outcomes — a mosaic of mixed tiles (big stats, a photo, a short feature, a pull quote) that together tell the result story. A premium alternative to a plain stats row. Props: eyebrow (2–4 words), headline (5–12 words), tiles (array of EXACTLY 4–6, each ONE of: {type:"stat", value (metric), label (2–5 words), description (6–14 words)} | {type:"photo", imageUrl ("" — server fills), caption (4–10 words)} | {type:"feature", headline (2–5 words), body (12–22 words)} | {type:"quote", quote (12–24 words), author (name, title)}). Use REAL numbers from the brief — never invent precise stats.`,
+  `- "dso-activation-steps": Numbered getting-started / onboarding steps — EXACTLY 4 steps shown as a sequence, with an optional closing CTA. Ideal for a "how to get started" or activation flow. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (12–24 words), steps (array of EXACTLY 4 of {step ("01"|"02"|"03"|"04"), title (2–6 words), desc (12–22 words)}), ctaText (2–4 words or ""), ctaUrl ("#"), backgroundStyle ("dark"|"white"|"muted").`,
+  `- "dso-meet-team": Meet-the-team section — member cards (photo, name, role) each with an optional booking button, plus a section CTA. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (12–24 words), ctaText (2–4 words), ctaUrl ("#"), members (array of {name (full name), role (title), email (or ""), photo ("" — leave empty), chilipiperUrl (a booking URL, or "")}), backgroundStyle ("dark"|"white"|"muted"). Include ONLY real people provided in the BRAND CONTEXT — NEVER invent names or place a non-portrait library photo into a member's photo. If no team members are known, leave the members array empty.`,
   // Premium B2B section blocks — polished, conversion-oriented layouts. All colors
   // resolve from the brand palette automatically, so use them freely for any brand.
   `- "dandy-product-hero": Premium split hero — a solid brand-color left half with an eyebrow, headline, subheadline, and an inline email-capture pill, paired with a large product/app image on the right that bleeds off the corner. A strong single hero for product-led B2B brands. Props: eyebrow (2–4 words), headline (4–9 words), subheadline (15–28 words), emailPlaceholder ("Email address"), primaryCtaText (2–3 words, action verb first), primaryCtaUrl ("#"), disclaimer (6–14 words), variant ("split"|"card"|"gradient"), imageUrl ("" — server fills).`,

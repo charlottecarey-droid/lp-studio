@@ -127,4 +127,36 @@ describe("premium DSO microsite blocks — normalizer field-name drift guard", (
     // Image-bearing block: imageUrl present but empty for the fill pass.
     expect(props.imageUrl).toBe("");
   });
+
+  it("dso-meet-team keeps names/roles/booking urls but clears every model-emitted member photo", () => {
+    const props = propsOf("dso-meet-team", {
+      headline: "Meet the team",
+      members: [
+        {
+          name: "Jane Doe",
+          role: "Practice Lead",
+          email: "jane@example.com",
+          photo: "https://cdn.example.com/face.jpg",
+          chilipiperUrl: "https://book.example.com/jane",
+        },
+        // alias forms the model emits: `title` -> role, `imageUrl` -> photo source
+        { name: "John Roe", title: "Hygienist", imageUrl: "https://cdn.example.com/face2.jpg" },
+      ],
+    });
+
+    const members = props.members as Record<string, string>[];
+    expect(members.length).toBe(2);
+    // Text fields are preserved (incl. the title -> role alias and booking url).
+    expect(members[0].name).toBe("Jane Doe");
+    expect(members[0].role).toBe("Practice Lead");
+    expect(members[0].email).toBe("jane@example.com");
+    expect(members[0].chilipiperUrl).toBe("https://book.example.com/jane");
+    expect(members[1].name).toBe("John Roe");
+    expect(members[1].role).toBe("Hygienist");
+    // Microsites have no saved-team source / reconciliation pass, so EVERY
+    // member photo is forced empty — an unverified or hallucinated headshot must
+    // never reach a published microsite. Block degrades to placeholder cards.
+    expect(members[0].photo).toBe("");
+    expect(members[1].photo).toBe("");
+  });
 });

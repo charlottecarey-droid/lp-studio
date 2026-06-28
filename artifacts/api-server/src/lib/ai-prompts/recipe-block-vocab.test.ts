@@ -101,6 +101,38 @@ describe("MICROSITE vocabulary + recipes", () => {
   });
 });
 
+describe("DSO content blocks exposed in BOTH the general landing-page and microsite menus", () => {
+  // Advertised in the GENERAL system prompt, so they flow into the freeform
+  // landing-page dropdown AND (via the general ∪ extras union) the microsite
+  // dropdown — alongside the dso/dso-practices paths that already offer them.
+  const NEWLY_EXPOSED = [
+    "dso-bento-outcomes",
+    "dso-activation-steps",
+    "dso-meet-team",
+  ] as const;
+
+  for (const path of ["freeform", "microsite"] as const) {
+    it(`advertises the DSO content blocks for the ${path} path`, () => {
+      const advertised = advertisedBlockTypesForPath(path);
+      for (const type of NEWLY_EXPOSED) {
+        expect(advertised.has(type), `${path} vocab is missing "${type}"`).toBe(true);
+      }
+    });
+
+    it(`shows the DSO content blocks in the ${path} friendly menu`, () => {
+      const menuTypes = new Set(availableBlocksForPath(path).map((b) => b.type));
+      for (const type of NEWLY_EXPOSED) {
+        expect(menuTypes.has(type), `${path} menu is missing "${type}"`).toBe(true);
+      }
+    });
+
+    it(`accepts a ${path} skeleton built from the DSO content blocks`, () => {
+      const res = validateSkeleton(path, ["hero", ...NEWLY_EXPOSED, "footer"]);
+      expect(res.ok).toBe(true);
+    });
+  }
+});
+
 describe("validateSkeleton", () => {
   const path = "freeform" as const;
   const vocab = [...advertisedBlockTypesForPath(path)];

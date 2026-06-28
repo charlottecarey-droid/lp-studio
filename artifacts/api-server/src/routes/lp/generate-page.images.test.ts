@@ -2299,3 +2299,34 @@ describe("fillEmptyImages — topical relevance vs purpose-only (sleep-appliance
     expect(blocks[0].props.products[0].imageUrl).toBe("/objects/sleep");
   });
 });
+
+describe("dso-bento-outcomes photo tiles — brand-neutral fill context", () => {
+  // dso-bento-outcomes is now selectable by EVERY tenant (general LP + microsite),
+  // not just dental/DSO. The photo-tile fill context must be driven by the tile
+  // caption + the section's own copy, never a hardcoded vertical keyword that
+  // would steer a non-dental tenant's tile toward clinical/dental imagery.
+  const RETAIL_PAGE = "online checkout retail storefront conversion shoppers";
+
+  it("fills a non-dental bento photo tile with the on-topic image, not a dental one", () => {
+    const lib: MediaImage[] = [
+      { url: "/objects/retail-feature", title: "Shoppers at the register", tags: ["lp-feature", "shoppers", "retail", "checkout", "store"] },
+      { url: "/objects/dental-feature", title: "Dentist with patient", tags: ["lp-feature", "dental", "clinical", "dentist", "clinic"] },
+    ];
+    let blocks: any[] = [
+      {
+        type: "dso-bento-outcomes",
+        props: {
+          headline: "Faster checkout, happier shoppers",
+          tiles: [
+            { type: "photo", caption: "shoppers at the register", imageUrl: "" },
+          ],
+        },
+      },
+    ];
+    blocks = fillEmptyImages(blocks, lib, RETAIL_PAGE) as any[];
+    // The retail image (matching the caption + section copy) wins. Before the
+    // fix, the appended "dental clinical" keyword would have boosted the dental
+    // image even on a non-dental page.
+    expect(blocks[0].props.tiles[0].imageUrl).toBe("/objects/retail-feature");
+  });
+});

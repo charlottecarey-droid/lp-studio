@@ -1627,6 +1627,42 @@ function mergeWithDefaults(type: string, p: AiBlock, brand: FallbackBrand): AiBl
       };
     }
 
+    case "dso-bento-outcomes": {
+      const tiles = (p.tiles ?? []) as AiBlock[];
+      return {
+        eyebrow: p.eyebrow ?? "By the numbers",
+        headline: p.headline ?? p.heading ?? "The outcomes that matter.",
+        tiles: Array.isArray(tiles) ? tiles : [],
+      };
+    }
+
+    case "dso-meet-team": {
+      const members = (p.members ?? p.team ?? []) as AiBlock[];
+      return {
+        eyebrow: p.eyebrow ?? "Meet the team",
+        headline: p.headline ?? p.heading ?? "The people behind the work.",
+        subheadline: p.subheadline ?? p.subheading ?? "",
+        ctaText: p.ctaText ?? "",
+        ctaUrl: p.ctaUrl ?? "#",
+        members: Array.isArray(members)
+          ? members.map(m => ({
+              name: m.name ?? "",
+              role: m.role ?? m.title ?? "",
+              email: m.email ?? "",
+              // Microsites have no saved-team source and run no team-photo
+              // reconciliation pass (unlike the LP path's reconcileTeamMemberPhotos),
+              // so any model-emitted photo URL here is unverified — it could be a
+              // hallucinated link or an arbitrary library face on a fabricated
+              // person. Force it empty so the block renders neutral placeholder
+              // cards instead of an invented headshot.
+              photo: "",
+              chilipiperUrl: m.chilipiperUrl ?? m.bookingUrl ?? "",
+            }))
+          : [],
+        backgroundStyle: coerceBackgroundStyle(p.backgroundStyle) ?? "white",
+      };
+    }
+
     case "dso-promo-cards": {
       const cards = (p.cards ?? p.offers ?? []) as AiBlock[];
       return {
