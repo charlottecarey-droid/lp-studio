@@ -1,13 +1,19 @@
 /**
- * Neutral-freeform MICROSITE block vocabulary — PURE DATA, no imports.
+ * MICROSITE-only block extras — PURE DATA, no imports.
  *
- * When neither the selected segment nor the brand defines a curated
- * micrositeBlockList, the neutral-freeform microsite path lets the model pick a
- * VARIED layout from this neutral, industry-agnostic block set (instead of the
- * old flat 7-block NEUTRAL list, which made every non-Dandy microsite look the
- * same). It is deliberately restricted to general blocks: NEVER the Dandy-curated
- * dso-* or business-case-* compound blocks, which carry dental/DSO vocabulary and
- * are reserved for Dandy's curated path.
+ * Microsites now offer the SAME freeform vocabulary as a landing page: the
+ * GENERAL landing-page system prompt's block set UNION the microsite-only extras
+ * listed below. This list enumerates the curated microsite members; the entries
+ * that the general prompt does NOT already advertise (currently `stats`,
+ * `rich-text`, `footer`) are layered on as the microsite-only extras, while the
+ * rest are already covered by the general set. The union (general ∪ extras) is
+ * assembled in recipe-block-vocab.ts (`micrositeFreeformVocab`) and consumed by
+ * both the generator and the recipe builder.
+ *
+ * This means microsites DO get the premium dso- blocks the general prompt
+ * advertises (e.g. dso-heartland-hero) — that is intentional. This list itself
+ * carries no dso- or business-case- compound entries; those reach microsites only
+ * via the general prompt, exactly as they reach landing pages.
  *
  * This module holds ONLY the two pure-data constants so they can be shared by
  * BOTH the generator (generate-microsite.ts) AND the recipe-builder vocabulary

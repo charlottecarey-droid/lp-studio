@@ -103,10 +103,18 @@ import { normalizeHeadingsToSentenceCase } from "../../lib/ai-prompts/sentence-c
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
 import type { PageRecipe } from "../../lib/ai-prompts/page-recipes";
 import { loadEffectiveRecipesForPath } from "../../lib/ai-prompts/page-recipe-overrides";
+import { FREEFORM_ROLE_HINTS } from "../../lib/ai-prompts/microsite-block-vocab";
+// Microsites now offer the SAME block set as a landing page (the general prompt)
+// plus a few microsite-only extras. The vocabulary is derived from a single
+// shared source so the recipe menu, the AI guide, and the runtime allow-set can
+// never drift. SELF_NAV_TYPES is imported for nav de-dup parity with the
+// landing-page generator (the #1412 double-navbar fix).
+import { micrositeFreeformVocab } from "../../lib/ai-prompts/recipe-block-vocab";
 import {
-  FREEFORM_MICROSITE_DISPLAY_TYPES,
-  FREEFORM_ROLE_HINTS,
-} from "../../lib/ai-prompts/microsite-block-vocab";
+  buildGeneralSystemPrompt,
+  extractGeneralBlockBullets,
+  SELF_NAV_TYPES,
+} from "../lp/generate-page";
 // All-in-one template intent matching (parity with /lp/generate-page): route a
 // prompt that names a framework ("MEDDIC decision brief", "StoryBrand",
 // "challenger") to the matching GLOBAL template instead of the generic block
@@ -623,6 +631,34 @@ const MICROSITE_HERO_BLOCK_TYPES: ReadonlySet<string> = new Set([
   ...MICROSITE_SELF_NAV_HERO_TYPES,
 ]);
 
+// ── Nav de-dup recognition (the #1412 double-navbar fix, decoupled) ──────────
+// Now that microsites offer the SAME block set as landing pages, the model can
+// open a page with a general standalone nav VARIANT (centered-logo-nav, …) or a
+// general self-nav HERO that bakes its own navbar (aurora-gradient-hero, …). The
+// chrome-enforcement pass must recognize those so it never prepends a SECOND
+// nav-header on top. These two sets exist ONLY for that recognition and are kept
+// SEPARATE from MICROSITE_HERO_BLOCK_TYPES so widening nav recognition never
+// drags new hero types into the hero-UPGRADE pass (whose prop rewrites are
+// specific to the neutral `hero`).
+
+/** Standalone nav block types that satisfy "the page already has a navbar".
+ *  = the microsite nav types ∪ the general standalone nav variants. */
+const MICROSITE_NAV_PRESENT_TYPES: ReadonlySet<string> = new Set<string>([
+  ...MICROSITE_NAV_BLOCK_TYPES,
+  "centered-logo-nav",
+  "mega-menu-nav",
+  "minimal-nav",
+  "transparent-overlay-nav",
+]);
+
+/** Hero / full-page block types that bake their OWN top-of-page nav, so a
+ *  standalone nav before them is redundant. = the microsite self-nav heroes ∪
+ *  the landing-page generator's SELF_NAV_TYPES (imported single source). */
+const MICROSITE_SELF_NAV_PRESENT_TYPES: ReadonlySet<string> = new Set<string>([
+  ...MICROSITE_SELF_NAV_HERO_TYPES,
+  ...SELF_NAV_TYPES,
+]);
+
 /** Light/near-white section presets — two consecutive of these read as a
  *  white-on-white "wall" and must be broken up by the rhythm pass. */
 const MICROSITE_LIGHT_BGS: ReadonlySet<string> = new Set(["white", "light-gray", "muted"]);
@@ -710,16 +746,16 @@ export function ensureMicrositeNavbar(
   // despite the prompt forbidding it).
   while (
     next.length >= 2 &&
-    MICROSITE_NAV_BLOCK_TYPES.has(blockTypeOf(next[0])) &&
-    MICROSITE_SELF_NAV_HERO_TYPES.has(blockTypeOf(next[1]))
+    MICROSITE_NAV_PRESENT_TYPES.has(blockTypeOf(next[0])) &&
+    MICROSITE_SELF_NAV_PRESENT_TYPES.has(blockTypeOf(next[1]))
   ) {
     next = next.slice(1);
   }
 
   const hasNav = next.some(
     (b) =>
-      MICROSITE_NAV_BLOCK_TYPES.has(blockTypeOf(b)) ||
-      MICROSITE_SELF_NAV_HERO_TYPES.has(blockTypeOf(b)),
+      MICROSITE_NAV_PRESENT_TYPES.has(blockTypeOf(b)) ||
+      MICROSITE_SELF_NAV_PRESENT_TYPES.has(blockTypeOf(b)),
   );
   if (hasNav) {
     onEnforced?.({ prepended: false, navLinkCount: 0 });
@@ -733,7 +769,9 @@ export function ensureMicrositeNavbar(
   for (let i = 0; i < next.length && navLinks.length < 3; i++) {
     const block = next[i];
     const type = blockTypeOf(block);
-    if (MICROSITE_HERO_BLOCK_TYPES.has(type)) continue;
+    // Skip ANY hero variant (neutral, DSO, or a general self-nav hero) so an
+    // auto-derived nav link never points back at the opening hero.
+    if (MICROSITE_HERO_BLOCK_TYPES.has(type) || type.endsWith("-hero")) continue;
     if (type === "footer" || type === "bottom-cta" || type === "cta" || type === "dso-final-cta") continue;
     const p = blockPropsOf(block);
     const label =
@@ -1729,26 +1767,51 @@ const NEUTRAL_MICROSITE_BLOCK_LIST: BrandMicrositeBlockListEntry[] = [
 // share the exact same vocabulary without importing this whole route. See that
 // module for the rationale; canonicalization + the allow-set stay here.
 
-// Validation allow-list — the displayed vocabulary canonicalized to the actual
+// The GENERAL landing-page system prompt, built once. Microsites now offer the
+// SAME block set as landing pages, so the freeform guide lifts each general
+// block's canonical schema bullet straight from this prompt. Safe to build at
+// module load: generate-page imports nothing back into this module.
+const GENERAL_SYSTEM_PROMPT = buildGeneralSystemPrompt();
+
+// Validation allow-list — the freeform vocabulary canonicalized to the actual
 // renderer types (e.g. "stats" → "trust-bar"). normalizeBlock canonicalizes
 // every emitted type via canonicalizeBlockType BEFORE this filter runs, so a
 // hallucinated synonym ("features", "testimonials", "cta") becomes a renderable
 // canonical type and passes; any type still outside this set is dropped in
-// freeform mode so dso-*/business-case-* (and truly unknown types) can never leak.
+// freeform mode. The set equals the GENERAL landing-page vocabulary plus the
+// microsite-only extras, so microsites offer the SAME blocks as a landing page —
+// INCLUDING the premium dso-* blocks the general prompt advertises (e.g.
+// dso-heartland-hero), which is intentional. Only blocks the general prompt does
+// NOT advertise are dropped here: the gated self-contained full-page blocks
+// (content-series / storefront / webinar-hub / blog-series), business-case-*
+// templates, and truly unknown/hallucinated types.
 export const FREEFORM_ALLOWED_TYPE_SET: ReadonlySet<string> = new Set<string>(
-  FREEFORM_MICROSITE_DISPLAY_TYPES.map((t) => canonicalizeBlockType(t)),
+  micrositeFreeformVocab().types.map((t) => canonicalizeBlockType(t)),
 );
 
-/** Build the freeform "AVAILABLE BLOCKS" guide: each allowed neutral block
- *  with its role hint and prop schema. The model chooses which to use and in
- *  what order (constrained by the best-practice rules in the freeform footer). */
+/** Build the freeform "AVAILABLE BLOCKS" guide: every block a microsite may use
+ *  — the SAME set as a landing page (general prompt) plus the microsite-only
+ *  extras — each with its prop schema. General blocks carry the canonical schema
+ *  bullet lifted from the landing-page prompt (identical options/props to a
+ *  landing page); the extras get their role hint + registry schema. The model
+ *  chooses which to use and in what order (constrained by the best-practice rules
+ *  in the freeform footer). */
 export function buildFreeformBlockGuide(
   extraTypes: string[] = [],
   exclude: ReadonlySet<string> = new Set(),
 ): string {
-  const base = excludeDisplayTypes(FREEFORM_MICROSITE_DISPLAY_TYPES, exclude);
-  const lines = base
-    .map((t) => `- "${t}" (${FREEFORM_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`);
+  const vocab = micrositeFreeformVocab();
+  const base = excludeDisplayTypes(vocab.types, exclude);
+  // GENERAL blocks: lift each one's canonical schema bullet from the landing-page
+  // system prompt (single source), preserving the requested order.
+  const generalSubset = base.filter((t) => vocab.generalTypes.has(t));
+  const lines = extractGeneralBlockBullets(GENERAL_SYSTEM_PROMPT, generalSubset);
+  // Microsite-only extras the general prompt does not document (stats /
+  // rich-text / footer): advertise with their role hint + registry schema.
+  for (const t of base) {
+    if (vocab.generalTypes.has(t)) continue;
+    lines.push(`- "${t}" (${FREEFORM_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`);
+  }
   // Segment-approval expansion — append superadmin-approved blocks for this
   // segment that aren't already in the freeform vocab, deduped by canonical
   // type. Unioned ON TOP of the freeform set (not a clamp).

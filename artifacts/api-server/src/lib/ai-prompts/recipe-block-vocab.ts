@@ -69,16 +69,36 @@ function systemPromptForPath(path: RecipePromptPath): string {
 // changes at runtime — memoize the parse per path.
 const cache = new Map<RecipePromptPath, AvailableBlock[]>();
 
+/** Parse a system prompt's `- "type": …` schema bullets into ordered, de-duped
+ *  AvailableBlocks (prompt order preserved; the first occurrence of a type wins). */
+function parsePromptBlocks(prompt: string): Map<string, AvailableBlock> {
+  const byType = new Map<string, AvailableBlock>();
+  for (const line of prompt.split("\n")) {
+    const m = line.match(BLOCK_BULLET_RE);
+    if (!m) continue;
+    const type = m[1];
+    if (byType.has(type)) continue;
+    byType.set(type, {
+      type,
+      label: friendlyBlockLabel(type),
+      description: firstSentence(m[2] ?? ""),
+    });
+  }
+  return byType;
+}
+
 /**
- * The neutral-freeform MICROSITE vocabulary is NOT a single assembled system
- * prompt (the generator builds the AVAILABLE BLOCKS guide from a shared
- * pure-data module), so it can't be derived by parsing schema bullets like the
- * other paths. Build the menu directly from the SAME two constants the generator
- * uses (FREEFORM_MICROSITE_DISPLAY_TYPES + FREEFORM_ROLE_HINTS) so the recipe
- * builder and the generator can never drift.
+ * The MICROSITE freeform vocabulary now equals the SAME blocks the LANDING-PAGE
+ * (general) generator offers, UNIONED with the few neutral microsite-only blocks
+ * the general prompt does not document ("stats", "rich-text", "footer"). A
+ * microsite therefore offers the exact same building blocks as a landing page.
+ * Derived from the SAME sources the generator uses (the general system prompt +
+ * the shared microsite-only extras) so the recipe-builder menu and the generator
+ * can never drift. General blocks carry their canonical schema-bullet
+ * description; the extras fall back to their role hint.
  */
 function micrositeAvailableBlocks(): AvailableBlock[] {
-  const byType = new Map<string, AvailableBlock>();
+  const byType = parsePromptBlocks(buildGeneralSystemPrompt());
   for (const type of FREEFORM_MICROSITE_DISPLAY_TYPES) {
     if (byType.has(type)) continue;
     byType.set(type, {
@@ -90,6 +110,35 @@ function micrositeAvailableBlocks(): AvailableBlock[] {
   return [...byType.values()].sort((a, b) => a.label.localeCompare(b.label));
 }
 
+export interface MicrositeFreeformVocab {
+  /** Ordered display types: the GENERAL landing-page blocks (in system-prompt
+   *  order) followed by the microsite-only neutral extras the general prompt does
+   *  not document. */
+  types: readonly string[];
+  /** Which of `types` come from the GENERAL prompt (so their full schema bullets
+   *  can be lifted from it); the remainder are the microsite-only extras. */
+  generalTypes: ReadonlySet<string>;
+}
+
+let micrositeVocabCache: MicrositeFreeformVocab | null = null;
+
+/**
+ * The microsite freeform vocabulary as an ORDERED type list plus the subset that
+ * comes from the general landing-page prompt. Shared by the generator
+ * (generate-microsite.ts) for BOTH its freeform "AVAILABLE BLOCKS" guide and its
+ * runtime allow-set, so the recipe menu, the AI guide, and the allow-set are one
+ * source of truth. Memoized: it is derived from code-constant prompts and never
+ * changes at runtime.
+ */
+export function micrositeFreeformVocab(): MicrositeFreeformVocab {
+  if (micrositeVocabCache) return micrositeVocabCache;
+  const general = [...parsePromptBlocks(buildGeneralSystemPrompt()).keys()];
+  const generalTypes = new Set(general);
+  const extras = FREEFORM_MICROSITE_DISPLAY_TYPES.filter((t) => !generalTypes.has(t));
+  micrositeVocabCache = { types: [...general, ...extras], generalTypes };
+  return micrositeVocabCache;
+}
+
 /** The friendly, de-duplicated, alphabetically-sorted block menu for a path. */
 export function availableBlocksForPath(path: RecipePromptPath): AvailableBlock[] {
   const cached = cache.get(path);
@@ -99,19 +148,9 @@ export function availableBlocksForPath(path: RecipePromptPath): AvailableBlock[]
     cache.set(path, micrositeList);
     return micrositeList;
   }
-  const byType = new Map<string, AvailableBlock>();
-  for (const line of systemPromptForPath(path).split("\n")) {
-    const m = line.match(BLOCK_BULLET_RE);
-    if (!m) continue;
-    const type = m[1];
-    if (byType.has(type)) continue;
-    byType.set(type, {
-      type,
-      label: friendlyBlockLabel(type),
-      description: firstSentence(m[2] ?? ""),
-    });
-  }
-  const list = [...byType.values()].sort((a, b) => a.label.localeCompare(b.label));
+  const list = [...parsePromptBlocks(systemPromptForPath(path)).values()].sort((a, b) =>
+    a.label.localeCompare(b.label),
+  );
   cache.set(path, list);
   return list;
 }

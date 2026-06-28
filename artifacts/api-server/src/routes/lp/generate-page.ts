@@ -4119,7 +4119,7 @@ const NAV_TYPES = new Set(["nav-header", "dso-practice-nav"]);
 // so a standalone nav block must never be stacked on top of them. The
 // business-case-* full-page blocks bake their own nav (but no footer, so they
 // are NOT in SELF_CONTAINED_FULL_PAGE_TYPES — a footer is still appended below).
-const SELF_NAV_TYPES = new Set([
+export const SELF_NAV_TYPES = new Set([
   "full-bleed-hero",
   "dso-heartland-hero",
   "hero",

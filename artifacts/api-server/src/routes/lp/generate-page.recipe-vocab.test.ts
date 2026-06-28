@@ -86,9 +86,10 @@ describe("page-recipe skeletons reference only advertised block types", () => {
   });
 
   it("MICROSITE recipes ⊆ microsite prompt vocabulary", () => {
-    // The microsite vocabulary is data-driven (FREEFORM_MICROSITE_DISPLAY_TYPES),
-    // not a parsed system prompt, so it's resolved via the shared allow-set
-    // helper the recipe builder uses — keeping recipe + generator in lockstep.
+    // The microsite vocabulary now equals the GENERAL landing-page block set
+    // (parsed from its system prompt) UNIONED with a few microsite-only extras
+    // (stats / rich-text / footer), resolved via the shared allow-set helper the
+    // recipe builder uses — keeping recipe + generator in lockstep.
     const vocab = advertisedBlockTypesForPath("microsite");
     expect(vocab.size).toBeGreaterThan(0);
     for (const recipe of MICROSITE_RECIPES) {
