@@ -229,7 +229,7 @@ export function SectionBlockPanel<T extends SectionBlockBase>({
       {/* Call to action */}
       <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Call to action</div>
-        <p className="text-[11px] text-muted-foreground">Leave the label blank to inherit the page's main call to action.</p>
+        <p className="text-[11px] text-muted-foreground">These buttons use the page's main call to action by default. Add a label below to show a custom button for this section instead.</p>
         <div>
           <Label className="text-[11px] text-muted-foreground">Primary button label</Label>
           <AiTextField
