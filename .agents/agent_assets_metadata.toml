@@ -630,6 +630,54 @@ uri = "file://artifacts/mockup-sandbox/public/images/headlinebox-reliability.png
 type = "image"
 title = "Abstract interlocking server nodes"
 
+[[generated]]
+id = "iE3kxVTmBTqFasF64POSr"
+uri = "file://artifacts/mockup-sandbox/public/images/bigfeatures-civil.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "zPpZ4ifrkaQgJNvi5MVLw"
+uri = "file://artifacts/mockup-sandbox/public/images/bigfeatures-commercial.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "0e3KLKV9yGiO17HENxI-3"
+uri = "file://artifacts/mockup-sandbox/public/images/bigfeatures-datacenter.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "Lz2-qj1WNwzeuxogdL9F4"
+uri = "file://artifacts/mockup-sandbox/public/images/bigfeatures-government.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "qhB9_Ia7-c6lg9eLgvXDK"
+uri = "file://artifacts/mockup-sandbox/public/images/bigcard-project.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "rPxV2VeOWGXG039oEEnpx"
+uri = "file://artifacts/mockup-sandbox/public/images/bigcard-quality.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "pD9l-zYTcFYGsfbgCnbVP"
+uri = "file://artifacts/mockup-sandbox/public/images/bigcard-financials.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "RwDkDbhfT70iD9yWjGqF6"
+uri = "file://artifacts/mockup-sandbox/public/images/bigcard-field.png"
+type = "image"
+title = "generated_image"
+
 [[outputs]]
 id = "2sUbM7UegFOFtU0kTdNUi"
 uri = "file://.local/cheatsheet.md"

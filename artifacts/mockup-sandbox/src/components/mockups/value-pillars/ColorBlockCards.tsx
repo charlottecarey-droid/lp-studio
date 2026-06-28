@@ -63,7 +63,7 @@ export function ColorBlockCards({
       style={{ backgroundColor: "var(--brand-surface, #ffffff)" }}
     >
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl lg:text-center">
+        <div className="mx-auto max-w-2xl text-center">
           {eyebrow && (
             <h2 
               className="text-sm font-bold tracking-widest uppercase mb-3"
