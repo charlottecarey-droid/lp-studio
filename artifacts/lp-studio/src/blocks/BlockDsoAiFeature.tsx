@@ -142,7 +142,7 @@ export function BlockDsoAiFeature({ props, brand, headlineColor, onFieldChange }
               width: 500,
               height: 500,
               borderRadius: "50%",
-              background: `radial-gradient(circle, hsl(152,60%,25%)22 0%, transparent 65%)`,
+              background: `radial-gradient(circle, rgb(var(--brand-accent-rgb, 59 130 246) / 0.13) 0%, transparent 65%)`,
               pointerEvents: "none",
             }}
           />
