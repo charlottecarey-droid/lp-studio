@@ -13,6 +13,7 @@ import {
   LayoutTemplate,
   StarOff,
   RefreshCw,
+  Sparkles,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { Button } from "@/components/ui/button";
@@ -371,6 +372,15 @@ export default function TemplateMarketplace() {
     () => paginateTemplateGroups(allGroups, page),
     [allGroups, page],
   );
+
+  // "Customize with AI": jump to the page builder's AI Generate tab with this
+  // template preselected as the starting point. The create-page modal reads
+  // `?new=ai&aiTemplate=<id>` and seeds the starting-point dropdown when the
+  // template is selectable; the AI then keeps the structure and rewrites the
+  // copy/imagery. Distinct from "Use Template" (a verbatim clone).
+  const handleCustomizeWithAI = (template: TemplatePage) => {
+    navigate(`/pages?new=ai&aiTemplate=${template.id}`);
+  };
 
   // Clone a template using the real pages clone endpoint
   const handleUseTemplate = async (template: TemplatePage) => {
@@ -784,7 +794,8 @@ export default function TemplateMarketplace() {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-2">
                       <Button
                         variant="default"
                         size="sm"
@@ -840,6 +851,17 @@ export default function TemplateMarketplace() {
                           )}
                         </Button>
                       )}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-1.5"
+                        onClick={() => handleCustomizeWithAI(template)}
+                        title="Open the AI generator with this template as the starting point"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Customize with AI
+                      </Button>
                     </div>
                   </div>
                 </Card>

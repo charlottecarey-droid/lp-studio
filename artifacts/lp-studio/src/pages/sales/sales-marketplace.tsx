@@ -11,9 +11,11 @@ import {
   Loader2,
   LayoutTemplate,
   RefreshCw,
+  Sparkles,
 } from "lucide-react";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { SalesPageHeader } from "@/components/sales/sales-page-header";
+import { GenerateMicrositeModal } from "@/components/sales/GenerateMicrositeModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -209,6 +211,10 @@ export default function SalesMarketplace() {
   const [previewBlocks, setPreviewBlocks] = useState<PageBlock[] | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  // "Customize with AI": the template a rep chose to seed the microsite
+  // generator with. Non-null opens GenerateMicrositeModal with this template
+  // preselected as the "use case" starting point.
+  const [aiTemplate, setAiTemplate] = useState<TemplatePage | null>(null);
   // Monotonic request token: when the user rapidly switches templates or
   // closes the modal mid-fetch, only the most recent request is allowed
   // to write state. Prevents stale-response-A from overwriting newer-B.
@@ -356,6 +362,14 @@ export default function SalesMarketplace() {
     } finally {
       setCloningId(null);
     }
+  };
+
+  // "Customize with AI": open the microsite generator with this template
+  // preselected as the "use case" starting point. The rep then picks the
+  // account/audience and the AI rewrites the copy for that prospect. Distinct
+  // from "Use Template" (a verbatim clone).
+  const handleCustomizeWithAI = (template: TemplatePage) => {
+    setAiTemplate(template);
   };
 
   // Force a fresh screenshot capture for a tenant-owned template. Awaits the
@@ -610,46 +624,58 @@ export default function SalesMarketplace() {
                       </div>
                     </div>
 
-                    <div className="flex gap-2">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="flex-1 gap-1"
-                        disabled={cloningId === template.id}
-                        onClick={() => handleUseTemplate(template)}
-                      >
-                        {cloningId === template.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                        {cloningId === template.id ? "Cloning..." : "Use Template"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePreview(template)}
-                        title="Preview template"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {/* Refresh thumbnail — tenant-owned only (the server
-                          refuses to re-capture shared global templates). */}
-                      {!template.isGlobal && (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-2">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="flex-1 gap-1"
+                          disabled={cloningId === template.id}
+                          onClick={() => handleUseTemplate(template)}
+                        >
+                          {cloningId === template.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                          {cloningId === template.id ? "Cloning..." : "Use Template"}
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleRefreshThumbnail(template)}
-                          title="Refresh preview thumbnail"
-                          disabled={refreshingThumbId === template.id}
+                          onClick={() => handlePreview(template)}
+                          title="Preview template"
                         >
-                          {refreshingThumbId === template.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <RefreshCw className="h-4 w-4" />
-                          )}
+                          <Eye className="h-4 w-4" />
                         </Button>
-                      )}
+                        {/* Refresh thumbnail — tenant-owned only (the server
+                            refuses to re-capture shared global templates). */}
+                        {!template.isGlobal && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRefreshThumbnail(template)}
+                            title="Refresh preview thumbnail"
+                            disabled={refreshingThumbId === template.id}
+                          >
+                            {refreshingThumbId === template.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-1.5"
+                        onClick={() => handleCustomizeWithAI(template)}
+                        title="Open the microsite generator with this template as the starting point"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Customize with AI
+                      </Button>
                     </div>
                   </div>
                 </Card>
@@ -747,6 +773,16 @@ export default function SalesMarketplace() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* "Customize with AI" — the microsite generator opened with the chosen
+          template preselected as the use case. The rep picks the account /
+          audience inside the modal, then the AI rewrites the copy for that
+          prospect. Closing clears the seed so reopening starts fresh. */}
+      <GenerateMicrositeModal
+        open={aiTemplate !== null}
+        onClose={() => setAiTemplate(null)}
+        initialTemplateId={aiTemplate?.id ?? null}
+      />
     </SalesLayout>
   );
 }

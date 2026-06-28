@@ -73,6 +73,15 @@ export default function PagesGallery() {
   const [createModalInitialPrompt, setCreateModalInitialPrompt] = useState<string>(() => {
     return new URLSearchParams(window.location.search).get("prompt") ?? "";
   });
+  // Marketing Template Library "Customize with AI" handoff: land here with
+  // `?new=ai&aiTemplate=<id>` and preselect that template as the AI tab's
+  // starting point. Read up-front (mirrors initialPrompt) and stripped from the
+  // URL alongside `new`/`prompt` so refreshes don't re-trigger.
+  const [createModalInitialAiTemplateId, setCreateModalInitialAiTemplateId] = useState<number | null>(() => {
+    const raw = new URLSearchParams(window.location.search).get("aiTemplate");
+    const num = raw ? Number(raw) : NaN;
+    return Number.isInteger(num) && num > 0 ? num : null;
+  });
   const showCreateModal = createModalMode !== null;
   const setShowCreateModal = (v: boolean) => setCreateModalMode(v ? "template" : null);
   const [sharePageId, setSharePageId] = useState<{ id: number; title: string } | null>(null);
@@ -128,13 +137,20 @@ export default function PagesGallery() {
     if (v === "ai" && p) {
       setCreateModalInitialPrompt(p);
     }
-    // Strip the `?new=` (and `?prompt=`) params after consuming them so that
-    // closing the modal and reopening it doesn't immediately re-trigger this
-    // effect, and a refresh doesn't re-open / re-prefill.
-    if (v !== null || p !== null) {
+    // Same for the "Customize with AI" starting-point seed (?aiTemplate=<id>).
+    const at = params.get("aiTemplate");
+    if (v === "ai" && at) {
+      const num = Number(at);
+      setCreateModalInitialAiTemplateId(Number.isInteger(num) && num > 0 ? num : null);
+    }
+    // Strip the `?new=` (and `?prompt=` / `?aiTemplate=`) params after consuming
+    // them so that closing the modal and reopening it doesn't immediately
+    // re-trigger this effect, and a refresh doesn't re-open / re-prefill.
+    if (v !== null || p !== null || at !== null) {
       const url = new URL(window.location.href);
       url.searchParams.delete("new");
       url.searchParams.delete("prompt");
+      url.searchParams.delete("aiTemplate");
       window.history.replaceState({}, "", url.toString());
     }
   }, [search]);
@@ -810,8 +826,9 @@ export default function PagesGallery() {
         open={showCreateModal}
         initialMode={createModalMode ?? undefined}
         initialAiPrompt={createModalInitialPrompt}
+        initialAiTemplateId={createModalInitialAiTemplateId}
         rewriteSource={rewriteSource}
-        onClose={() => { setShowCreateModal(false); setSelectedSegmentId(""); setCreateModalInitialPrompt(""); setRewriteSource(null); }}
+        onClose={() => { setShowCreateModal(false); setSelectedSegmentId(""); setCreateModalInitialPrompt(""); setCreateModalInitialAiTemplateId(null); setRewriteSource(null); }}
         segments={segments}
         selectedSegmentId={selectedSegmentId}
         setSelectedSegmentId={setSelectedSegmentId}

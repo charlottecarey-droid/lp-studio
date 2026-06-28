@@ -51,6 +51,12 @@ interface Props {
    *  user's typed prompt is preserved across the redirect to /pages. Empty
    *  / undefined leaves the textarea blank. */
   initialAiPrompt?: string;
+  /** Marketing Template Library "Customize with AI" handoff: a numeric
+   *  lp_pages template id to preselect as the AI tab's starting-point template
+   *  when the dialog opens in AI mode. Applied only when the template is
+   *  actually selectable (present in visibleApiTemplates); otherwise the picker
+   *  stays on "Start from scratch". */
+  initialAiTemplateId?: number | null;
   /** Task #1345 — "Rewrite copy with AI" on an existing page. When set, the
    *  dialog opens in AI mode locked to this page as the layout source (the
    *  starting-point template dropdown is hidden) and threads `sourcePageId`
@@ -105,6 +111,7 @@ export function CreatePageModal({
   onClose,
   initialMode,
   initialAiPrompt,
+  initialAiTemplateId,
   rewriteSource,
   segments,
   selectedSegmentId,
@@ -131,6 +138,10 @@ export function CreatePageModal({
   // rewrites copy for the template's predefined blocks instead of choosing
   // its own block layout. "" means "Generate from scratch".
   const [aiTemplateId, setAiTemplateId] = useState<string>("");
+  // Guards the "Customize with AI" seeding so we apply the incoming
+  // initialAiTemplateId at most once per open (reset on close) and never
+  // clobber a manual dropdown change afterwards.
+  const seededAiTemplateRef = useRef(false);
   // Task #1106 — when starting from a template, default to preserving the
   // template's original photos (copy is still rewritten). When checked, the AI
   // swaps template imagery for on-brand library + reference imagery. Only shown
@@ -224,6 +235,32 @@ export function CreatePageModal({
       setCreateError(null);
     }
   }, [open, initialMode, initialAiPrompt]);
+
+  // Marketing Template Library "Customize with AI": when the dialog opens in AI
+  // mode with a starting-point template id, preselect it as soon as that
+  // template is present in the selectable list. The list loads async, so this
+  // re-checks whenever visibleApiTemplates changes. Seeds at most once per open
+  // (ref reset on close); if the template never becomes selectable the picker
+  // simply stays on "Start from scratch".
+  useEffect(() => {
+    if (!open) {
+      // Clear a starting point that WE seeded from initialAiTemplateId so a
+      // later normal open of the AI flow starts from scratch. We only clear our
+      // own seed (gated on the ref) to avoid wiping a user's manual choice.
+      if (seededAiTemplateRef.current) {
+        setAiTemplateId("");
+      }
+      seededAiTemplateRef.current = false;
+      return;
+    }
+    if (seededAiTemplateRef.current) return;
+    if ((initialMode ?? "template") !== "ai") return;
+    if (initialAiTemplateId == null) return;
+    if (visibleApiTemplates.some(t => t.id === initialAiTemplateId)) {
+      setAiTemplateId(String(initialAiTemplateId));
+      seededAiTemplateRef.current = true;
+    }
+  }, [open, initialMode, initialAiTemplateId, visibleApiTemplates]);
 
   // Clipboard paste → screenshot attach, anywhere in the modal while the AI
   // tab is active (so users don't have to hunt for the drop zone). Only

@@ -93,6 +93,7 @@ export function GenerateMicrositeModal({
   contactId,
   contactName,
   onCreated,
+  initialTemplateId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -101,6 +102,11 @@ export function GenerateMicrositeModal({
   contactId?: number;
   contactName?: string;
   onCreated?: () => void;
+  /** Sales Template Library "Customize with AI" handoff: a numeric lp_pages
+   *  template id to preselect as the "use case" starting point when the modal
+   *  opens. Preselected only when microsite-eligible; falls back cleanly (no
+   *  preselection) when the template isn't in the eligible list. */
+  initialTemplateId?: number | null;
 }) {
   const [, navigate] = useLocation();
   const { domainContext } = useAuth();
@@ -179,7 +185,14 @@ export function GenerateMicrositeModal({
       fetch(`${API_BASE}/lp/library/team_member`).then(r => r.json()).catch(() => []),
       fetch(`${API_BASE}/lp/brand`).then(r => r.json()).catch(() => ({})),
     ]).then(([templates, reps, brand]: [MarketingTemplate[], SalesRep[], Record<string, unknown>]) => {
-      setMarketingTemplates(Array.isArray(templates) ? templates : []);
+      const tplList = Array.isArray(templates) ? templates : [];
+      setMarketingTemplates(tplList);
+      // Sales Template Library "Customize with AI" handoff: preselect the
+      // clicked template as the use case when it's microsite-eligible. Falls
+      // back cleanly (no preselection) when the template isn't in the list.
+      if (initialTemplateId != null) {
+        setSelectedTemplate(tplList.find(t => t.id === initialTemplateId) ?? null);
+      }
       setSalesReps(Array.isArray(reps) ? reps : []);
       const brandConfig = (brand.config ?? brand) as Record<string, unknown>;
       const defaultUrl = (brandConfig.defaultCtaUrl as string | undefined) ?? "";
@@ -187,7 +200,7 @@ export function GenerateMicrositeModal({
       const segs = Array.isArray(brandConfig.segments) ? (brandConfig.segments as PickerSegment[]) : [];
       setSegments(segs.filter(s => s?.id && s?.name));
     });
-  }, [open]);
+  }, [open, initialTemplateId]);
 
   // Load the account's contacts for the recipient picker the first time the rep
   // opts into generating personalised links (account-page generation only). New
