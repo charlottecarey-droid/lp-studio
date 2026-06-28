@@ -1,7 +1,7 @@
 import React from 'react';
 import { Settings, BarChart2, Shield, ArrowRight, LucideIcon } from 'lucide-react';
 
-export interface Pillar {
+export interface CardColumnsPillar {
   title: string;
   description: string;
   icon?: LucideIcon;
@@ -9,17 +9,17 @@ export interface Pillar {
   ctaHref?: string;
 }
 
-export interface DividedColumnsProps {
+export interface CardColumnsProps {
   eyebrow?: string;
   heading?: React.ReactNode;
   subhead?: string;
-  pillars?: Pillar[];
-  showImages?: boolean; // Included for interface compliance, though this variant is image-free
+  pillars?: CardColumnsPillar[];
+  showImages?: boolean; // Included for interface compliance; this variant is image-free
   showCta?: boolean;
   ctaLabel?: string;
 }
 
-const DEFAULT_PILLARS: Pillar[] = [
+const DEFAULT_PILLARS: CardColumnsPillar[] = [
   {
     title: 'Effortless setup',
     description: 'Get started and ship in minutes, no engineering required. Connect your data sources instantly and see value on day one.',
@@ -37,7 +37,7 @@ const DEFAULT_PILLARS: Pillar[] = [
   },
 ];
 
-export function DividedColumns({
+export function CardColumns({
   eyebrow = 'Platform Capabilities',
   heading = (
     <>
@@ -49,19 +49,19 @@ export function DividedColumns({
   pillars = DEFAULT_PILLARS,
   showCta = true,
   ctaLabel = 'Learn more',
-}: DividedColumnsProps) {
+}: CardColumnsProps) {
   return (
-    <section 
+    <section
       className="w-full py-16 md:py-20 px-6 md:px-12 lg:px-24"
       style={{
-        backgroundColor: 'var(--brand-surface-2, #FAFAFA)',
+        backgroundColor: 'var(--brand-surface, #ffffff)',
         fontFamily: 'var(--brand-font-body, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif)',
       }}
     >
       <div className="mx-auto max-w-7xl">
         <div className="mb-12 md:mb-16 max-w-3xl text-center mx-auto">
           {eyebrow && (
-            <span 
+            <span
               className="inline-block mb-4 text-xs font-bold tracking-[0.2em] uppercase"
               style={{ color: 'var(--brand-accent, #B24B36)' }}
             >
@@ -69,18 +69,18 @@ export function DividedColumns({
             </span>
           )}
           {heading && (
-            <h2 
+            <h2
               className="mb-4 text-3xl md:text-4xl lg:text-5xl tracking-tight leading-tight"
               style={{
                 fontFamily: 'var(--brand-font-heading, ui-serif, Georgia, Cambria, "Times New Roman", Times, serif)',
-                color: 'var(--brand-ink, #0f172a)'
+                color: 'var(--brand-ink, #0f172a)',
               }}
             >
               {heading}
             </h2>
           )}
           {subhead && (
-            <p 
+            <p
               className="text-base md:text-lg font-light max-w-2xl mx-auto leading-relaxed"
               style={{ color: 'var(--brand-muted, #475569)' }}
             >
@@ -89,43 +89,42 @@ export function DividedColumns({
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 relative">
-          {/* Vertical dividers for desktop */}
-          <div className="hidden md:block absolute top-0 bottom-0 left-[33.333%] w-[1px] bg-slate-200/60" />
-          <div className="hidden md:block absolute top-0 bottom-0 left-[66.666%] w-[1px] bg-slate-200/60" />
-
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
           {pillars.map((pillar, idx) => {
             const Icon = pillar.icon;
             return (
-              <div 
-                key={idx} 
-                className="relative p-6 md:px-10 lg:px-12 md:py-4 group transition-all duration-500 hover:-translate-y-1"
+              <div
+                key={idx}
+                className="group flex flex-col rounded-2xl p-8 border transition-all duration-500 hover:-translate-y-1 hover:shadow-lg"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--brand-ink, #0f172a) 5%, var(--brand-surface, #ffffff))',
+                  borderColor: 'color-mix(in srgb, var(--brand-ink, #0f172a) 8%, transparent)',
+                }}
               >
                 {Icon && (
-                  <div 
+                  <div
                     className="mb-6 inline-flex items-center justify-center p-3 shadow-sm border rounded-xl transition-all duration-500"
                     style={{
                       backgroundColor: 'var(--brand-surface, #ffffff)',
                       borderColor: 'color-mix(in srgb, var(--brand-ink, #0f172a) 10%, transparent)',
                       color: 'var(--brand-accent, #B24B36)',
-                      // Using a hack for hover styles with inline styles is tough, we'll use a scoped style block below
                     }}
                   >
                     <Icon className="w-6 h-6 icon-hover-target" strokeWidth={1.5} />
                   </div>
                 )}
-                
-                <h3 
+
+                <h3
                   className="mb-3 text-xl tracking-tight"
                   style={{
                     fontFamily: 'var(--brand-font-heading, ui-serif, Georgia, Cambria, "Times New Roman", Times, serif)',
-                    color: 'var(--brand-ink, #0f172a)'
+                    color: 'var(--brand-ink, #0f172a)',
                   }}
                 >
                   {pillar.title}
                 </h3>
-                
-                <p 
+
+                <p
                   className="leading-relaxed font-light text-sm md:text-base"
                   style={{ color: 'var(--brand-muted, #475569)' }}
                 >
@@ -135,7 +134,7 @@ export function DividedColumns({
                 {showCta && ctaLabel && (
                   <a
                     href={pillar.ctaHref || '#'}
-                    className="pillar-cta mt-6 inline-flex items-center gap-2 text-sm font-semibold w-fit"
+                    className="pillar-cta mt-auto pt-6 inline-flex items-center gap-2 text-sm font-semibold transition-colors duration-300 w-fit"
                     style={{ color: 'var(--brand-accent, #B24B36)' }}
                   >
                     <span
@@ -148,11 +147,6 @@ export function DividedColumns({
                       <ArrowRight className="w-4 h-4" strokeWidth={2} />
                     </span>
                   </a>
-                )}
-
-                {/* Horizontal divider for mobile */}
-                {idx < pillars.length - 1 && (
-                  <div className="block md:hidden absolute bottom-0 left-6 right-6 h-[1px] bg-slate-200/60" />
                 )}
               </div>
             );
