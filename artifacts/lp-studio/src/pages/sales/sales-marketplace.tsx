@@ -115,29 +115,35 @@ function isCapturingThumbnail(t: { thumbnailUrl: string | null; thumbnailCapture
  * gradient placeholder. A broken/slow image falls back to the gradient via
  * onError. Layered absolutely so the parent hover overlay + badges sit on top. */
 function TemplateCardMedia({
+  featuredThumbnail,
   thumbnailUrl,
   ogImage,
   gradient,
   capturing,
 }: {
+  /** Curated homepage thumbnail (featured_homepage_templates.thumbnail_url) for
+   *  templates also shown on the marketing homepage. When present it takes
+   *  priority so the sales cards match the main Templates library. */
+  featuredThumbnail?: string | null;
   thumbnailUrl: string | null;
   ogImage: string;
   gradient: string;
   capturing: boolean;
 }) {
-  // Ordered candidate sources: the real screenshot first, then the OG image. A
-  // broken/slow image advances to the next candidate via onError, so a stale or
-  // unreachable thumbnail still falls back to the OG image (then the gradient)
-  // rather than showing a blank/grey card.
+  // Ordered candidate sources: the curated homepage image first (so featured
+  // templates match the main Templates library), then the real screenshot, then
+  // the OG image. A broken/slow image advances to the next candidate via
+  // onError, so a stale or unreachable source still falls back to the next
+  // candidate (then the gradient) rather than showing a blank/grey card.
   const sources = useMemo(
-    () => [thumbnailUrl, ogImage].filter((s): s is string => !!s),
-    [thumbnailUrl, ogImage],
+    () => [featuredThumbnail, thumbnailUrl, ogImage].filter((s): s is string => !!s),
+    [featuredThumbnail, thumbnailUrl, ogImage],
   );
   const [idx, setIdx] = useState(0);
   // Reset to the first candidate when the sources change (e.g. after a refresh).
   useEffect(() => {
     setIdx(0);
-  }, [thumbnailUrl, ogImage]);
+  }, [featuredThumbnail, thumbnailUrl, ogImage]);
   const src = sources[idx];
   const showImage = !!src;
   return (
@@ -189,6 +195,10 @@ export default function SalesMarketplace() {
   // templates" section. `null` = still loading / fetch failed; the section is
   // then skipped and those templates fall through to other buckets.
   const [homepageDefaultIds, setHomepageDefaultIds] = useState<Set<number> | null>(null);
+  // Curated homepage preview images keyed by template id, mirroring the main
+  // Templates library. Empty map = none available / fetch failed; cards then
+  // fall back to their screenshot/social-image/gradient chain.
+  const [homepageThumbnails, setHomepageThumbnails] = useState<Map<number, string>>(new Map());
   // Current gallery page (1-based). Reset to 1 when search/filter/sort changes.
   const [page, setPage] = useState(1);
   // In-app preview modal state. Templates aren't published as public /lp
@@ -223,16 +233,25 @@ export default function SalesMarketplace() {
   useEffect(() => {
     fetch(`${API_BASE}/lp/featured-templates`, { cache: "no-store", credentials: "include" })
       .then((r) => (r.ok ? r.json() : { templates: [] }))
-      .then((data: { templates?: { id?: string }[] }) => {
+      .then((data: { templates?: { id?: string; thumbnail?: string }[] }) => {
         const ids = new Set<number>();
+        const thumbs = new Map<number, string>();
         for (const t of data.templates ?? []) {
           const raw = typeof t.id === "string" ? t.id : "";
           const num = Number(raw.startsWith("global:") ? raw.slice(7) : raw);
-          if (Number.isInteger(num) && num > 0) ids.add(num);
+          if (Number.isInteger(num) && num > 0) {
+            ids.add(num);
+            const thumb = typeof t.thumbnail === "string" ? t.thumbnail.trim() : "";
+            if (thumb) thumbs.set(num, thumb);
+          }
         }
         setHomepageDefaultIds(ids);
+        setHomepageThumbnails(thumbs);
       })
-      .catch(() => setHomepageDefaultIds(new Set()));
+      .catch(() => {
+        setHomepageDefaultIds(new Set());
+        setHomepageThumbnails(new Map());
+      });
   }, []);
 
   // Real industry tags present across the loaded templates (excludes the
@@ -555,6 +574,7 @@ export default function SalesMarketplace() {
                     onClick={() => handlePreview(template)}
                   >
                     <TemplateCardMedia
+                      featuredThumbnail={homepageThumbnails.get(template.id) ?? null}
                       thumbnailUrl={template.thumbnailUrl}
                       ogImage={template.ogImage}
                       gradient={getGradient(index)}
