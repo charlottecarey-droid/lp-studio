@@ -133,6 +133,47 @@ describe("DSO content blocks exposed in BOTH the general landing-page and micros
   }
 });
 
+describe("graduated value-pillars-* / feature-* section blocks are AI-selectable in BOTH LP and microsite recipes", () => {
+  // These nine blocks are advertised in the GENERAL system prompt
+  // (GENERAL_EXTRA_CORE_BLOCKS), so — like the DSO content blocks above — they
+  // flow into the freeform landing-page vocabulary AND, via the general ∪ extras
+  // union, the microsite vocabulary. This guards the Task #1436 locked
+  // requirement that the graduated sections be selectable by the recipe AI in
+  // both the LP and microsite flows.
+  const GRADUATED_SECTIONS = [
+    "value-pillars-icon-trio",
+    "value-pillars-outlined-cards",
+    "value-pillars-color-block-cards",
+    "value-pillars-divided-columns",
+    "value-pillars-headline-badge",
+    "value-pillars-card-columns",
+    "feature-photo-cards",
+    "feature-card-grid",
+    "feature-big-features",
+  ] as const;
+
+  for (const path of ["freeform", "microsite"] as const) {
+    it(`advertises the graduated section blocks for the ${path} path`, () => {
+      const advertised = advertisedBlockTypesForPath(path);
+      for (const type of GRADUATED_SECTIONS) {
+        expect(advertised.has(type), `${path} vocab is missing "${type}"`).toBe(true);
+      }
+    });
+
+    it(`shows the graduated section blocks in the ${path} friendly menu`, () => {
+      const menuTypes = new Set(availableBlocksForPath(path).map((b) => b.type));
+      for (const type of GRADUATED_SECTIONS) {
+        expect(menuTypes.has(type), `${path} menu is missing "${type}"`).toBe(true);
+      }
+    });
+
+    it(`accepts a ${path} skeleton built from the graduated section blocks`, () => {
+      const res = validateSkeleton(path, ["hero", ...GRADUATED_SECTIONS, "footer"]);
+      expect(res.ok).toBe(true);
+    });
+  }
+});
+
 describe("validateSkeleton", () => {
   const path = "freeform" as const;
   const vocab = [...advertisedBlockTypesForPath(path)];

@@ -1947,6 +1947,25 @@ const ITEM_PHOTO_BLOCK_TYPES = new Set(["benefits-grid", "features"]);
  *  per-item photo in AI output. */
 export const STAT_BAR_BLOCK_TYPES = new Set(["trust-bar", "stats"]);
 
+/** Graduated section blocks (value-pillars-* / feature-*, Task #1436) whose
+ *  per-item visual is an ICON (Lucide name) or an author-chosen image — the AI
+ *  generator must NEVER inject a library/AI photo into their items. The renderer
+ *  shows the icon via IconOrImage, and stripUrlValuedIcons blanks any URL the
+ *  model puts in `icon`, so AI output stays icon-only while authors can still
+ *  swap to an image in the builder. Excluded from items[] image collection +
+ *  fill below. */
+export const ICON_ONLY_ITEM_BLOCK_TYPES = new Set([
+  "value-pillars-icon-trio",
+  "value-pillars-outlined-cards",
+  "value-pillars-color-block-cards",
+  "value-pillars-divided-columns",
+  "value-pillars-headline-badge",
+  "value-pillars-card-columns",
+  "feature-photo-cards",
+  "feature-card-grid",
+  "feature-big-features",
+]);
+
 /** Task #1134 — logo asset paths bundled with the app (the Dandy brand marks).
  *  They ship as static files and are referenced root-relative in seed templates,
  *  so they never live under `/api/storage` and must be matched by pathname. */
@@ -2204,7 +2223,7 @@ export function collectImageSlots(
   // (logo-style) → lp-feature; product-grid items are product shots →
   // product-detail. trust-bar / stats are numeric bars and never carry photos.
   const itemsPurpose = ITEM_PHOTO_BLOCK_TYPES.has(blockType) ? "lp-feature" : "product-detail";
-  if (!STAT_BAR_BLOCK_TYPES.has(blockType)) {
+  if (!STAT_BAR_BLOCK_TYPES.has(blockType) && !ICON_ONLY_ITEM_BLOCK_TYPES.has(blockType)) {
     pushArrField(props.items, "image", itemsPurpose, it => `${it.title ?? it.label ?? ""} ${it.description ?? ""}`);
   }
   // Dandy premium blocks carry a per-item/-tab photo under a distinct `imageUrl`
@@ -3135,6 +3154,7 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
     if (
       Array.isArray(props.items) &&
       !STAT_BAR_BLOCK_TYPES.has(blockType) &&
+      !ICON_ONLY_ITEM_BLOCK_TYPES.has(blockType) &&
       (!ITEM_PHOTO_BLOCK_TYPES.has(blockType) || props.useItemPhotos === true)
     ) {
       const itemsPurpose = ITEM_PHOTO_BLOCK_TYPES.has(blockType) ? "lp-feature" : "product-detail";
@@ -3559,6 +3579,10 @@ export async function aiFillEmptyImages(
     // reintroduce the "label above a random photo" mismatch.
     for (const arrKey of ["items", "cases"] as const) {
       if (arrKey === "items" && STAT_BAR_BLOCK_TYPES.has(blockType)) continue;
+      // Graduated value-pillars-* / feature-* sections (Task #1436) are
+      // icon-only: never AI-generate a photo for their items (authors can still
+      // add one in the builder).
+      if (arrKey === "items" && ICON_ONLY_ITEM_BLOCK_TYPES.has(blockType)) continue;
       // benefits-grid / features per-item photos are icon-only by default — only
       // AI-generate them when the block opted in via useItemPhotos === true
       // (mirrors the library-fill gate above).
@@ -6274,6 +6298,20 @@ const GENERAL_EXTRA_CORE_BLOCKS: string[] = [
   `- "dso-bento-outcomes": Bento grid of outcomes — a mosaic of mixed tiles (big stats, a photo, a short feature, a pull quote) that together tell the result story. A premium alternative to a plain stats row. Props: eyebrow (2–4 words), headline (5–12 words), tiles (array of EXACTLY 4–6, each ONE of: {type:"stat", value (metric), label (2–5 words), description (6–14 words)} | {type:"photo", imageUrl ("" — server fills), caption (4–10 words)} | {type:"feature", headline (2–5 words), body (12–22 words)} | {type:"quote", quote (12–24 words), author (name, title)}). Use REAL numbers from the brief — never invent precise stats.`,
   `- "dso-activation-steps": Numbered getting-started / onboarding steps — EXACTLY 4 steps shown as a sequence, with an optional closing CTA. Ideal for a "how to get started" or activation flow. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (12–24 words), steps (array of EXACTLY 4 of {step ("01"|"02"|"03"|"04"), title (2–6 words), desc (12–22 words)}), ctaText (2–4 words or ""), ctaUrl ("#"), backgroundStyle ("dark"|"white"|"muted").`,
   `- "dso-meet-team": Meet-the-team section — member cards (photo, name, role) each with an optional booking button, plus a section CTA. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (12–24 words), ctaText (2–4 words), ctaUrl ("#"), members (array of {name (full name), role (title), email (or ""), photo ("" — leave empty), chilipiperUrl (a booking URL, or "")}), backgroundStyle ("dark"|"white"|"muted"). Include ONLY real people provided in the BRAND CONTEXT — NEVER invent names or place a non-portrait library photo into a member's photo. If no team members are known, leave the members array empty.`,
+  // ── Graduated value-pillars-* / feature-* section blocks (Task #1436). Clean,
+  // brand-colored value/feature sections that share ONE type style and center by
+  // default. Their per-item visual is ALWAYS a Lucide ICON in AI output — the
+  // `icon` field takes a Lucide icon NAME only; NEVER put an image URL there
+  // (authors can swap to an image later in the builder).
+  `- "value-pillars-icon-trio": A clean, centered three-up value section — an eyebrow, heading, and subhead above EXACTLY 3 columns, each with a brand-accent icon, a title, and a short description. Use for three core values / benefits. Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 3 of {icon (Lucide icon NAME, e.g. "Zap","ShieldCheck","Gauge" — NEVER an image URL), title (2–5 words), description (12–22 words)}).`,
+  `- "value-pillars-outlined-cards": Value pillars as outlined cards — an eyebrow, heading, and subhead above 3–4 transparent cards with a thin brand-tinted outline, each holding an accent icon, title, and description. Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 3–4 of {icon (Lucide icon NAME — NEVER an image URL), title (2–5 words), description (12–22 words)}).`,
+  `- "value-pillars-color-block-cards": Value pillars as solid brand-color cards — an eyebrow, heading, and subhead above 3–4 filled cards (brand surface), each with an icon, title, and description. Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 3–4 of {icon (Lucide icon NAME — NEVER an image URL), title (2–5 words), description (12–22 words)}).`,
+  `- "value-pillars-divided-columns": Value pillars as columns separated by thin divider lines — an eyebrow, heading, and subhead above 3–4 columns, each with an accent icon, title, and description. Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 3–4 of {icon (Lucide icon NAME — NEVER an image URL), title (2–5 words), description (12–22 words)}).`,
+  `- "value-pillars-headline-badge": Value pillars where each item leads with a small accent badge/icon beside a bold title and a description — an eyebrow, heading, and subhead above 3–4 items. Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 3–4 of {icon (Lucide icon NAME — NEVER an image URL), title (2–5 words), description (12–22 words)}).`,
+  `- "value-pillars-card-columns": Value pillars as a row of clean cards — an eyebrow, heading, and subhead above 3–4 cards, each with an accent icon, title, and description. Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 3–4 of {icon (Lucide icon NAME — NEVER an image URL), title (2–5 words), description (12–22 words)}).`,
+  `- "feature-photo-cards": A feature section of cards, each led by a large brand-accent icon above a title and description — an eyebrow, heading, and subhead above 3–4 cards. Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 3–4 of {icon (Lucide icon NAME — NEVER an image URL), title (3–6 words), description (14–24 words)}).`,
+  `- "feature-card-grid": A responsive grid of feature cards — an eyebrow, heading, and subhead above 3–6 cards, each with an accent icon, title, and description. A clean, brand-colored alternative to "benefits-grid". Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 3–6 of {icon (Lucide icon NAME — NEVER an image URL), title (2–5 words), description (12–22 words)}).`,
+  `- "feature-big-features": A spacious section of 2–4 large features, each pairing a big accent icon with a bold title and a longer description. Use for a few flagship capabilities. Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 2–4 of {icon (Lucide icon NAME — NEVER an image URL), title (3–6 words), description (16–28 words)}).`,
   // Premium B2B section blocks — polished, conversion-oriented layouts. All colors
   // resolve from the brand palette automatically, so use them freely for any brand.
   `- "dandy-product-hero": Premium split hero — a solid brand-color left half with an eyebrow, headline, subheadline, and an inline email-capture pill, paired with a large product/app image on the right that bleeds off the corner. A strong single hero for product-led B2B brands. Props: eyebrow (2–4 words), headline (4–9 words), subheadline (15–28 words), emailPlaceholder ("Email address"), primaryCtaText (2–3 words, action verb first), primaryCtaUrl ("#"), disclaimer (6–14 words), variant ("split"|"card"|"gradient"), imageUrl ("" — server fills).`,

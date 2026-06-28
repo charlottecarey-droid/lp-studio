@@ -1863,7 +1863,7 @@ async function runMigrationsBody(): Promise<void> {
       // tests). Also cleans up 5 "neutral-sounding" rows whose component
       // code hardcodes Dandy colors/copy. Then runs the standard upsert.
       const marker = await db.execute<{ exists: number }>(
-        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'block_catalog_generic_seed_v3'`
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'block_catalog_generic_seed_v4'`
       );
       const alreadySeeded = marker.rows.length > 0;
       if (!alreadySeeded) {
@@ -1903,11 +1903,11 @@ async function runMigrationsBody(): Promise<void> {
           if (result.rows.length > 0) inserted++;
         }
         await db.execute(sql`
-          INSERT INTO _schema_migration_markers (key) VALUES ('block_catalog_generic_seed_v3') ON CONFLICT DO NOTHING
+          INSERT INTO _schema_migration_markers (key) VALUES ('block_catalog_generic_seed_v4') ON CONFLICT DO NOTHING
         `);
         logger.info(
           { removed, inserted, total: GENERIC_BLOCK_CATALOG_SEED.length },
-          "block_catalog generic seed applied (v3 cleanup)"
+          "block_catalog generic seed applied (v4: graduated section blocks)"
         );
       }
     } catch (seedErr) {

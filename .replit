@@ -83,12 +83,12 @@ args = "pnpm --filter @workspace/api-server run typecheck"
 name = "tc-lp"
 author = "agent"
 
+[workflows.workflow.metadata]
+isValidation = true
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/lp-studio run typecheck"
-
-[workflows.workflow.metadata]
-isValidation = true
 
 [[workflows.workflow]]
 name = "copy-test"

@@ -162,6 +162,17 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   "menu-section": ["content"],
   "hours-location": ["content"],
 
+  // ── Graduated value-pillars / feature section blocks (Task #1436) ────────────
+  "value-pillars-icon-trio": ["features"],
+  "value-pillars-outlined-cards": ["features"],
+  "value-pillars-color-block-cards": ["features"],
+  "value-pillars-divided-columns": ["features"],
+  "value-pillars-headline-badge": ["features"],
+  "value-pillars-card-columns": ["features"],
+  "feature-photo-cards": ["features"],
+  "feature-card-grid": ["features"],
+  "feature-big-features": ["features"],
+
   // ── Grid Pieces ─────────────────────────────────────────────────────────────
   "benefits-grid": ["features"],
   "product-grid": ["features", "media"],

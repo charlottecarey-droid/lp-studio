@@ -1,7 +1,7 @@
 import type React from "react";
 import type { BackgroundStyle } from "../bg-styles";
 
-export type BlockCategory = "Layout" | "Content" | "Social Proof" | "CTA" | "Lead Capture" | "Engagement" | "Interactive" | "DSO" | "DSO Practices" | "Events" | "Grid Pieces" | "Showcase" | "Full Page Templates";
+export type BlockCategory = "Layout" | "Content" | "Social Proof" | "CTA" | "Lead Capture" | "Engagement" | "Interactive" | "DSO" | "DSO Practices" | "Events" | "Grid Pieces" | "Showcase" | "Features" | "Full Page Templates";
 
 export type CtaMode = "link" | "chilipiper" | "modal-form" | "modal-chilipiper";
 

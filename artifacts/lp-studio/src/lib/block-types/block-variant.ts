@@ -143,6 +143,15 @@ import type {
   RatingBadgesBlockProps,
   AvatarSocialProofBlockProps,
   MediaFeatureReelBlockProps,
+  ValuePillarsIconTrioBlockProps,
+  ValuePillarsOutlinedCardsBlockProps,
+  ValuePillarsColorBlockCardsBlockProps,
+  ValuePillarsDividedColumnsBlockProps,
+  ValuePillarsHeadlineBadgeBlockProps,
+  ValuePillarsCardColumnsBlockProps,
+  FeaturePhotoCardsBlockProps,
+  FeatureCardGridBlockProps,
+  FeatureBigFeaturesBlockProps,
   MediaLoopingShowcaseBlockProps,
   MediaThumbnailGridBlockProps,
   MediaVideoSplitBlockProps,
@@ -240,6 +249,15 @@ export type BlockVariant =
   | { type: "bottom-cta"; props: BottomCtaBlockProps }
   | { type: "video-section"; props: VideoSectionBlockProps }
   | { type: "media-feature-reel"; props: MediaFeatureReelBlockProps }
+  | { type: "value-pillars-icon-trio"; props: ValuePillarsIconTrioBlockProps }
+  | { type: "value-pillars-outlined-cards"; props: ValuePillarsOutlinedCardsBlockProps }
+  | { type: "value-pillars-color-block-cards"; props: ValuePillarsColorBlockCardsBlockProps }
+  | { type: "value-pillars-divided-columns"; props: ValuePillarsDividedColumnsBlockProps }
+  | { type: "value-pillars-headline-badge"; props: ValuePillarsHeadlineBadgeBlockProps }
+  | { type: "value-pillars-card-columns"; props: ValuePillarsCardColumnsBlockProps }
+  | { type: "feature-photo-cards"; props: FeaturePhotoCardsBlockProps }
+  | { type: "feature-card-grid"; props: FeatureCardGridBlockProps }
+  | { type: "feature-big-features"; props: FeatureBigFeaturesBlockProps }
   | { type: "media-looping-showcase"; props: MediaLoopingShowcaseBlockProps }
   | { type: "media-thumbnail-grid"; props: MediaThumbnailGridBlockProps }
   | { type: "media-video-split"; props: MediaVideoSplitBlockProps }

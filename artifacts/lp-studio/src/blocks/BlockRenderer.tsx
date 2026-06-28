@@ -11,6 +11,15 @@ import { BlockDsoPilotSteps } from "./BlockDsoPilotSteps";
 import { BlockDsoFinalCta } from "./BlockDsoFinalCta";
 import { BlockDsoComparison } from "./BlockDsoComparison";
 import { BlockDsoHeartlandHero } from "./BlockDsoHeartlandHero";
+import { BlockValuePillarsIconTrio } from "./BlockValuePillarsIconTrio";
+import { BlockValuePillarsOutlinedCards } from "./BlockValuePillarsOutlinedCards";
+import { BlockValuePillarsColorBlockCards } from "./BlockValuePillarsColorBlockCards";
+import { BlockValuePillarsDividedColumns } from "./BlockValuePillarsDividedColumns";
+import { BlockValuePillarsHeadlineBadge } from "./BlockValuePillarsHeadlineBadge";
+import { BlockValuePillarsCardColumns } from "./BlockValuePillarsCardColumns";
+import { BlockFeaturePhotoCards } from "./BlockFeaturePhotoCards";
+import { BlockFeatureCardGrid } from "./BlockFeatureCardGrid";
+import { BlockFeatureBigFeatures } from "./BlockFeatureBigFeatures";
 import { BlockDandyProductHero } from "./BlockDandyProductHero";
 import { BlockDsoProblem } from "./BlockDsoProblem";
 import { BlockDsoAiFeature } from "./BlockDsoAiFeature";
@@ -621,6 +630,105 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
             onFieldChange={onBlockChange
               ? (updated: ComparisonBlockProps) => onBlockChange({ ...block, props: updated })
               : undefined}
+          />
+        );
+      case "value-pillars-icon-trio":
+        return (
+          <BlockValuePillarsIconTrio
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick}
+            onFieldChange={onBlockChange ? updated => onBlockChange({ ...block, props: updated }) : undefined}
+          />
+        );
+      case "value-pillars-outlined-cards":
+        return (
+          <BlockValuePillarsOutlinedCards
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick}
+            onFieldChange={onBlockChange ? updated => onBlockChange({ ...block, props: updated }) : undefined}
+          />
+        );
+      case "value-pillars-color-block-cards":
+        return (
+          <BlockValuePillarsColorBlockCards
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick}
+            onFieldChange={onBlockChange ? updated => onBlockChange({ ...block, props: updated }) : undefined}
+          />
+        );
+      case "value-pillars-divided-columns":
+        return (
+          <BlockValuePillarsDividedColumns
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick}
+            onFieldChange={onBlockChange ? updated => onBlockChange({ ...block, props: updated }) : undefined}
+          />
+        );
+      case "value-pillars-headline-badge":
+        return (
+          <BlockValuePillarsHeadlineBadge
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick}
+            onFieldChange={onBlockChange ? updated => onBlockChange({ ...block, props: updated }) : undefined}
+          />
+        );
+      case "value-pillars-card-columns":
+        return (
+          <BlockValuePillarsCardColumns
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick}
+            onFieldChange={onBlockChange ? updated => onBlockChange({ ...block, props: updated }) : undefined}
+          />
+        );
+      case "feature-photo-cards":
+        return (
+          <BlockFeaturePhotoCards
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick}
+            onFieldChange={onBlockChange ? updated => onBlockChange({ ...block, props: updated }) : undefined}
+          />
+        );
+      case "feature-card-grid":
+        return (
+          <BlockFeatureCardGrid
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick}
+            onFieldChange={onBlockChange ? updated => onBlockChange({ ...block, props: updated }) : undefined}
+          />
+        );
+      case "feature-big-features":
+        return (
+          <BlockFeatureBigFeatures
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick}
+            onFieldChange={onBlockChange ? updated => onBlockChange({ ...block, props: updated }) : undefined}
           />
         );
       case "stat-callout":

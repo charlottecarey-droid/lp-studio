@@ -718,6 +718,21 @@ const GENERIC_SEED = [
   { block_type: "bento-showcase",     label: "Bento Showcase",     category: "Content", sort_order: 111, default_props: {} },
   { block_type: "gradient-pricing",   label: "Gradient Pricing",   category: "Content", sort_order: 113, default_props: {} },
   { block_type: "event-landing-hero", label: "Event Landing Hero", category: "Events",  sort_order: 121, default_props: {} },
+
+  // Graduated section blocks (Task #1436). value-pillars-* are shelved under
+  // "Layout" and feature-* under the "Features" category, per product request.
+  // Empty default_props inherits the BLOCK_REGISTRY defaults (neutral, brand-
+  // driven — safe for any tenant). sort_order placed after the existing Layout
+  // chrome (hero=10 … footer=15) so Hero still leads the Layout shelf.
+  { block_type: "value-pillars-icon-trio",        label: "Value Pillars — Icon Trio",        category: "Layout",   sort_order: 16, default_props: {} },
+  { block_type: "value-pillars-outlined-cards",   label: "Value Pillars — Outlined Cards",   category: "Layout",   sort_order: 17, default_props: {} },
+  { block_type: "value-pillars-color-block-cards", label: "Value Pillars — Color Block Cards", category: "Layout", sort_order: 18, default_props: {} },
+  { block_type: "value-pillars-divided-columns",  label: "Value Pillars — Divided Columns",  category: "Layout",   sort_order: 19, default_props: {} },
+  { block_type: "value-pillars-headline-badge",   label: "Value Pillars — Headline Badge",   category: "Layout",   sort_order: 20, default_props: {} },
+  { block_type: "value-pillars-card-columns",     label: "Value Pillars — Card Columns",     category: "Layout",   sort_order: 21, default_props: {} },
+  { block_type: "feature-photo-cards",            label: "Feature — Photo Cards",            category: "Features", sort_order: 16, default_props: {} },
+  { block_type: "feature-card-grid",              label: "Feature — Card Grid",              category: "Features", sort_order: 17, default_props: {} },
+  { block_type: "feature-big-features",           label: "Feature — Big Features",           category: "Features", sort_order: 18, default_props: {} },
 ];
 
 module.exports = { GENERIC_SEED };

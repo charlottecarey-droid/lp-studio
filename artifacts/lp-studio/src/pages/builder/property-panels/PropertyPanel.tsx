@@ -235,6 +235,7 @@ import { DealRoomPanel } from "./DealRoomPanel";
 import { AccountMicrositePanel } from "./AccountMicrositePanel";
 import { OnboardingHubPanel } from "./OnboardingHubPanel";
 import { ValueRenewalReviewPanel } from "./ValueRenewalReviewPanel";
+import { SectionBlockPanel } from "./SectionBlockPanel";
 import { TemplateEventPanel } from "./TemplateEventPanel";
 import { TemplateCaseStudyPanel } from "./TemplateCaseStudyPanel";
 import { SpatialTourPanel } from "./SpatialTourPanel";
@@ -6929,6 +6930,24 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "case-editorial":
       case "case-modular":
         return <TemplateCaseStudyPanel props={block.props} onChange={next => onChange({ ...block, props: next })} />;
+      case "value-pillars-icon-trio":
+        return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Pillar" />;
+      case "value-pillars-outlined-cards":
+        return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Pillar" showCardBorder />;
+      case "value-pillars-color-block-cards":
+        return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Pillar" />;
+      case "value-pillars-divided-columns":
+        return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Pillar" showDividers />;
+      case "value-pillars-headline-badge":
+        return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Pillar" />;
+      case "value-pillars-card-columns":
+        return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Pillar" />;
+      case "feature-photo-cards":
+        return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Feature" />;
+      case "feature-card-grid":
+        return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Feature" />;
+      case "feature-big-features":
+        return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Feature" showImageTreatment />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

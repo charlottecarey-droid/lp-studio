@@ -139,6 +139,20 @@ export type {
   GallerySplitFeatureBlockProps,
   MediaFeatureReelBlockProps,
   MediaFeatureReelFeature,
+  SectionAlign,
+  SectionRadius,
+  SectionCtaVariant,
+  SectionFeatureItem,
+  SectionBlockBase,
+  ValuePillarsIconTrioBlockProps,
+  ValuePillarsOutlinedCardsBlockProps,
+  ValuePillarsColorBlockCardsBlockProps,
+  ValuePillarsDividedColumnsBlockProps,
+  ValuePillarsHeadlineBadgeBlockProps,
+  ValuePillarsCardColumnsBlockProps,
+  FeaturePhotoCardsBlockProps,
+  FeatureCardGridBlockProps,
+  FeatureBigFeaturesBlockProps,
   MediaLoopingShowcaseBlockProps,
   MediaThumbnailGridBlockProps,
   MediaThumbnailGridItem,
@@ -352,6 +366,9 @@ export type {
   VrrExpansionItem,
   VrrTermRow,
 } from "./generic-blocks";
+
+// Graduated section-block CTA defaults (value export, used by block-registry).
+export { sectionCtaDefaults } from "./generic-blocks";
 
 // DSO block types
 export type {

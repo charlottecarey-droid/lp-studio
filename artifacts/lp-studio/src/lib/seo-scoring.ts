@@ -174,6 +174,11 @@ export const AUTHORITY_TYPES = new Set([
 
 // Structured content sections AI engines can extract organized answers from.
 export const STRUCTURED_TYPES = new Set([
+  // Graduated value-pillars-* / feature-* section blocks (Task #1436).
+  "value-pillars-icon-trio", "value-pillars-outlined-cards",
+  "value-pillars-color-block-cards", "value-pillars-divided-columns",
+  "value-pillars-headline-badge", "value-pillars-card-columns",
+  "feature-photo-cards", "feature-card-grid", "feature-big-features",
   "how-it-works", "benefits-grid", "comparison", "product-grid",
   "zigzag-features", "product-showcase", "product-launch",
   "dandy-columns-v2", "dandy-columns-v3", "dandy-vertical-tabs",

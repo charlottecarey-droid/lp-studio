@@ -243,6 +243,144 @@ export interface MediaFeatureReelBlockProps {
   bodyFont?: string;
 }
 
+/* ====================================================================== *
+ *  Graduated "value pillars" + "feature" section blocks (Task #1436).
+ *  Nine sibling blocks that share ONE contract via SectionBlockBase so they
+ *  read consistently and edit the same way. Rendering helpers live in
+ *  src/blocks/shared/section-kit.tsx.
+ * ====================================================================== */
+
+/** Content alignment for a graduated section block. Default "center". */
+export type SectionAlign = "left" | "center" | "right";
+
+/** Corner-radius scale for cards / icon tiles / images. Maps to rounded-*. */
+export type SectionRadius = "none" | "sm" | "md" | "lg" | "xl" | "2xl" | "3xl";
+
+/** Button render style for a section CTA: filled / outline / text link. */
+export type SectionCtaVariant = "primary" | "secondary" | "link";
+
+/**
+ * One icon-or-image led item shared by every graduated section block.
+ * `icon` holds EITHER a Lucide icon name (e.g. "Sparkles") OR an image URL /
+ * data-URI. The AI generator only ever writes Lucide names; a human author may
+ * pick an image, which renders LARGER than an icon.
+ */
+export interface SectionFeatureItem {
+  /** Lucide icon name OR image URL (dual field). */
+  icon?: string;
+  title?: string;
+  description?: string;
+}
+
+/**
+ * Shared base for the nine graduated section blocks. Carries the common
+ * header, alignment, color, radius, items, and CTA contract so the blocks stay
+ * consistent. The CTA keys are the canonical ones BlockRenderer uses for
+ * page-CTA inheritance (ctaText / ctaUrl / ctaAction / chilipiperUrl).
+ */
+export interface SectionBlockBase extends CtaModalConfig {
+  eyebrow?: string;
+  heading?: string;
+  subhead?: string;
+  /** Content alignment. Defaults to "center". */
+  align?: SectionAlign;
+  /** Background preset (white / light / muted / dark / brand / gradient). */
+  backgroundStyle?: BackgroundStyle;
+  /** Legacy custom background hex, used when backgroundStyle is unset. */
+  bgColor?: string;
+  /** Heading + per-card title ink (shared type style). */
+  headingColor?: string;
+  /** Subhead + per-card body ink. */
+  bodyColor?: string;
+  /** Card surface color for carded variants. */
+  cardBgColor?: string;
+  /** Accent color for icons + eyebrow. Defaults to the brand accent. */
+  accentColor?: string;
+  /** Corner radius for cards / icon tiles / images. Defaults to "2xl". */
+  cardRadius?: SectionRadius;
+  items: SectionFeatureItem[];
+
+  /** Primary CTA. Inherits the page CTA when left at its canonical defaults. */
+  ctaText?: string;
+  ctaUrl?: string;
+  ctaAction?: "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
+  chilipiperUrl?: string;
+  /** Primary button style: Button / Outline / Link. Defaults to "primary". */
+  ctaVariant?: SectionCtaVariant;
+
+  /** Optional secondary CTA. */
+  ctaSecondaryText?: string;
+  ctaSecondaryUrl?: string;
+  ctaSecondaryAction?: "url" | "chilipiper" | "modal-form" | "modal-chilipiper";
+  secondaryChilipiperUrl?: string;
+  /** Secondary button style. Defaults to "secondary" (outline). */
+  ctaSecondaryVariant?: SectionCtaVariant;
+}
+
+export type ValuePillarsIconTrioBlockProps = SectionBlockBase;
+
+export interface ValuePillarsOutlinedCardsBlockProps extends SectionBlockBase {
+  /** Card outline color. Defaults to a brand-tinted hairline. Set "" for brand default. */
+  cardBorderColor?: string;
+  /** Card outline width in px (0 = no outline). Defaults to 1. */
+  cardBorderWidth?: number;
+}
+
+export type ValuePillarsColorBlockCardsBlockProps = SectionBlockBase;
+
+export interface ValuePillarsDividedColumnsBlockProps extends SectionBlockBase {
+  /** Divider line color. Defaults to a brand-tinted hairline. Set "" for brand default. */
+  dividerColor?: string;
+  /** Divider line width in px (0 = no divider). Defaults to 1. */
+  dividerWidth?: number;
+}
+
+export type ValuePillarsHeadlineBadgeBlockProps = SectionBlockBase;
+export type ValuePillarsCardColumnsBlockProps = SectionBlockBase;
+export type FeaturePhotoCardsBlockProps = SectionBlockBase;
+export type FeatureCardGridBlockProps = SectionBlockBase;
+
+export interface FeatureBigFeaturesBlockProps extends SectionBlockBase {
+  /** "blended" = screenshots blend into the section (no card chrome);
+   *  "card" = each feature image sits in a bordered card. Default "blended". */
+  imageTreatment?: "blended" | "card";
+}
+
+/**
+ * Canonical CTA defaults for every graduated section block. Seeds the keys the
+ * BlockRenderer page-CTA shim reads (label / url / action / chilipiper) so a
+ * section inherits the page CTA by default, plus the style + secondary knobs so
+ * the shared panel edits every block identically. (Modal keys are intentionally
+ * NOT seeded — JSON.stringify drops `undefined` and no block in the registry
+ * seeds them; modal page CTAs flow through the resolver, matching convention.)
+ */
+export function sectionCtaDefaults(): Pick<
+  SectionBlockBase,
+  | "ctaText"
+  | "ctaUrl"
+  | "ctaAction"
+  | "chilipiperUrl"
+  | "ctaVariant"
+  | "ctaSecondaryText"
+  | "ctaSecondaryUrl"
+  | "ctaSecondaryAction"
+  | "secondaryChilipiperUrl"
+  | "ctaSecondaryVariant"
+> {
+  return {
+    ctaText: "Get started",
+    ctaUrl: "#",
+    ctaAction: "url",
+    chilipiperUrl: "",
+    ctaVariant: "primary",
+    ctaSecondaryText: "",
+    ctaSecondaryUrl: "",
+    ctaSecondaryAction: "url",
+    secondaryChilipiperUrl: "",
+    ctaSecondaryVariant: "secondary",
+  };
+}
+
 export interface MediaLoopingShowcaseBlockProps {
   backgroundStyle?: BackgroundStyle;
   heading: string;

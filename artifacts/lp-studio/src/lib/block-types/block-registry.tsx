@@ -3,6 +3,18 @@ import type { BlockCategory, BlockSettings, CtaMode } from "./common";
 import { DEFAULT_GUEST_FORM_STEPS } from "./common";
 import type { BackgroundStyle } from "../bg-styles";
 import type {
+  ValuePillarsIconTrioBlockProps,
+  ValuePillarsOutlinedCardsBlockProps,
+  ValuePillarsColorBlockCardsBlockProps,
+  ValuePillarsDividedColumnsBlockProps,
+  ValuePillarsHeadlineBadgeBlockProps,
+  ValuePillarsCardColumnsBlockProps,
+  FeaturePhotoCardsBlockProps,
+  FeatureCardGridBlockProps,
+  FeatureBigFeaturesBlockProps,
+} from "./generic-blocks";
+import { sectionCtaDefaults } from "./generic-blocks";
+import type {
   HeroBlockProps,
   TrustBarBlockProps,
   PasSectionBlockProps,
@@ -6755,6 +6767,275 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     ),
   },
   {
+    type: "value-pillars-icon-trio",
+    label: "Value Pillars — Icon Trio",
+    category: "Layout",
+    defaultProps: (): ValuePillarsIconTrioBlockProps => ({
+      eyebrow: "Why teams choose us",
+      heading: "Built to move your work forward",
+      subhead: "A few clear reasons customers stick with us.",
+      align: "center",
+      cardRadius: "2xl",
+      items: [
+        { icon: "Zap", title: "Fast to launch", description: "Get up and running in days, not months, with guided setup." },
+        { icon: "ShieldCheck", title: "Secure by default", description: "Your data is protected with enterprise-grade safeguards." },
+        { icon: "Sparkles", title: "Built to scale", description: "From your first customer to your millionth, we grow with you." },
+      ],
+      ...sectionCtaDefaults(),
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" rx="6" fill="#F8FAFC" />
+        <circle cx="30" cy="30" r="8" fill="#4f46e5" />
+        <circle cx="60" cy="30" r="8" fill="#4f46e5" />
+        <circle cx="90" cy="30" r="8" fill="#4f46e5" />
+        <rect x="20" y="46" width="20" height="4" rx="2" fill="#CBD5E1" />
+        <rect x="50" y="46" width="20" height="4" rx="2" fill="#CBD5E1" />
+        <rect x="80" y="46" width="20" height="4" rx="2" fill="#CBD5E1" />
+      </svg>
+    ),
+  },
+  {
+    type: "value-pillars-outlined-cards",
+    label: "Value Pillars — Outlined Cards",
+    category: "Layout",
+    defaultProps: (): ValuePillarsOutlinedCardsBlockProps => ({
+      eyebrow: "What you get",
+      heading: "Everything you need, nothing you don't",
+      subhead: "Clean, outlined cards that keep the focus on your message.",
+      align: "center",
+      cardRadius: "2xl",
+      cardBorderWidth: 1,
+      items: [
+        { icon: "Gauge", title: "Real performance", description: "Page loads stay quick so visitors never wait around." },
+        { icon: "Lock", title: "Private and safe", description: "Built-in protections keep your customers' data secure." },
+        { icon: "Workflow", title: "Fits your flow", description: "Connects to the tools your team already relies on." },
+      ],
+      ...sectionCtaDefaults(),
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" rx="6" fill="#F8FAFC" />
+        <rect x="14" y="20" width="28" height="40" rx="5" fill="#FFFFFF" stroke="#CBD5E1" strokeWidth="2" />
+        <rect x="46" y="20" width="28" height="40" rx="5" fill="#FFFFFF" stroke="#CBD5E1" strokeWidth="2" />
+        <rect x="78" y="20" width="28" height="40" rx="5" fill="#FFFFFF" stroke="#CBD5E1" strokeWidth="2" />
+        <circle cx="28" cy="32" r="4" fill="#4f46e5" />
+        <circle cx="60" cy="32" r="4" fill="#4f46e5" />
+        <circle cx="92" cy="32" r="4" fill="#4f46e5" />
+      </svg>
+    ),
+  },
+  {
+    type: "value-pillars-color-block-cards",
+    label: "Value Pillars — Color Block Cards",
+    category: "Layout",
+    defaultProps: (): ValuePillarsColorBlockCardsBlockProps => ({
+      eyebrow: "The difference",
+      heading: "Bold value, front and center",
+      subhead: "Solid brand-colored cards that command attention.",
+      align: "center",
+      cardRadius: "2xl",
+      items: [
+        { icon: "Rocket", title: "Launch faster", description: "Skip the setup headaches and ship sooner." },
+        { icon: "TrendingUp", title: "Grow steadily", description: "Tools that scale right alongside your business." },
+        { icon: "HeartHandshake", title: "Real support", description: "A team that actually answers when you need help." },
+      ],
+      ...sectionCtaDefaults(),
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" rx="6" fill="#F8FAFC" />
+        <rect x="14" y="20" width="28" height="40" rx="5" fill="#4f46e5" />
+        <rect x="46" y="20" width="28" height="40" rx="5" fill="#4f46e5" />
+        <rect x="78" y="20" width="28" height="40" rx="5" fill="#4f46e5" />
+        <circle cx="28" cy="32" r="4" fill="#FFFFFF" />
+        <circle cx="60" cy="32" r="4" fill="#FFFFFF" />
+        <circle cx="92" cy="32" r="4" fill="#FFFFFF" />
+      </svg>
+    ),
+  },
+  {
+    type: "value-pillars-divided-columns",
+    label: "Value Pillars — Divided Columns",
+    category: "Layout",
+    defaultProps: (): ValuePillarsDividedColumnsBlockProps => ({
+      eyebrow: "How we help",
+      heading: "Three ways we make work easier",
+      subhead: "Clean columns separated by simple dividers.",
+      align: "center",
+      cardRadius: "2xl",
+      dividerWidth: 1,
+      items: [
+        { icon: "Clock", title: "Save time", description: "Automate the busywork so your team can focus on what matters." },
+        { icon: "Users", title: "Work together", description: "Keep everyone aligned in one shared, organized space." },
+        { icon: "BarChart3", title: "See results", description: "Clear reporting shows exactly what's working." },
+      ],
+      ...sectionCtaDefaults(),
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" rx="6" fill="#F8FAFC" />
+        <circle cx="28" cy="30" r="7" fill="#4f46e5" />
+        <circle cx="60" cy="30" r="7" fill="#4f46e5" />
+        <circle cx="92" cy="30" r="7" fill="#4f46e5" />
+        <rect x="18" y="44" width="20" height="4" rx="2" fill="#CBD5E1" />
+        <rect x="50" y="44" width="20" height="4" rx="2" fill="#CBD5E1" />
+        <rect x="82" y="44" width="20" height="4" rx="2" fill="#CBD5E1" />
+        <line x1="44" y1="18" x2="44" y2="62" stroke="#CBD5E1" strokeWidth="2" />
+        <line x1="76" y1="18" x2="76" y2="62" stroke="#CBD5E1" strokeWidth="2" />
+      </svg>
+    ),
+  },
+  {
+    type: "value-pillars-headline-badge",
+    label: "Value Pillars — Headline Badge",
+    category: "Layout",
+    defaultProps: (): ValuePillarsHeadlineBadgeBlockProps => ({
+      eyebrow: "Our promise",
+      heading: "Value you can see at a glance",
+      subhead: "Each point leads with a clear, badged headline.",
+      align: "center",
+      cardRadius: "xl",
+      items: [
+        { icon: "CheckCircle2", title: "Always reliable", description: "Count on consistent uptime and predictable performance." },
+        { icon: "Smile", title: "Easy to love", description: "A simple experience your whole team can pick up fast." },
+        { icon: "Award", title: "Proven results", description: "Trusted by teams who needed something that just works." },
+      ],
+      ...sectionCtaDefaults(),
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" rx="6" fill="#F8FAFC" />
+        <rect x="16" y="22" width="88" height="12" rx="6" fill="#E0E7FF" />
+        <rect x="16" y="40" width="88" height="12" rx="6" fill="#E0E7FF" />
+        <rect x="16" y="58" width="88" height="12" rx="6" fill="#E0E7FF" />
+        <circle cx="26" cy="28" r="3" fill="#4f46e5" />
+        <circle cx="26" cy="46" r="3" fill="#4f46e5" />
+        <circle cx="26" cy="64" r="3" fill="#4f46e5" />
+      </svg>
+    ),
+  },
+  {
+    type: "value-pillars-card-columns",
+    label: "Value Pillars — Card Columns",
+    category: "Layout",
+    defaultProps: (): ValuePillarsCardColumnsBlockProps => ({
+      eyebrow: "Why it matters",
+      heading: "Strong reasons, side by side",
+      subhead: "Tall cards that give each point room to breathe.",
+      align: "center",
+      cardRadius: "2xl",
+      items: [
+        { icon: "Layers", title: "All in one place", description: "Everything your team needs, without juggling tools." },
+        { icon: "Compass", title: "Easy to navigate", description: "Find what you need quickly with a clear layout." },
+        { icon: "Star", title: "Built to impress", description: "A polished feel that reflects well on your brand." },
+      ],
+      ...sectionCtaDefaults(),
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" rx="6" fill="#F8FAFC" />
+        <rect x="14" y="14" width="28" height="52" rx="5" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="2" />
+        <rect x="46" y="14" width="28" height="52" rx="5" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="2" />
+        <rect x="78" y="14" width="28" height="52" rx="5" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="2" />
+        <circle cx="28" cy="26" r="4" fill="#4f46e5" />
+        <circle cx="60" cy="26" r="4" fill="#4f46e5" />
+        <circle cx="92" cy="26" r="4" fill="#4f46e5" />
+      </svg>
+    ),
+  },
+  {
+    type: "feature-photo-cards",
+    label: "Feature — Photo Cards",
+    category: "Features",
+    defaultProps: (): FeaturePhotoCardsBlockProps => ({
+      eyebrow: "Features",
+      heading: "See what's possible",
+      subhead: "Photo-led cards that bring each feature to life.",
+      align: "center",
+      cardRadius: "2xl",
+      items: [
+        { icon: "Image", title: "Visual storytelling", description: "Lead with imagery that shows the value instantly." },
+        { icon: "PenTool", title: "Make it yours", description: "Adjust colors, copy, and layout to match your brand." },
+        { icon: "Share2", title: "Share anywhere", description: "Publish once and reach every channel that matters." },
+      ],
+      ...sectionCtaDefaults(),
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" rx="6" fill="#F8FAFC" />
+        <rect x="14" y="16" width="28" height="48" rx="5" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="2" />
+        <rect x="46" y="16" width="28" height="48" rx="5" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="2" />
+        <rect x="78" y="16" width="28" height="48" rx="5" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="2" />
+        <rect x="18" y="20" width="20" height="20" rx="3" fill="#C7D2FE" />
+        <rect x="50" y="20" width="20" height="20" rx="3" fill="#C7D2FE" />
+        <rect x="82" y="20" width="20" height="20" rx="3" fill="#C7D2FE" />
+      </svg>
+    ),
+  },
+  {
+    type: "feature-card-grid",
+    label: "Feature — Card Grid",
+    category: "Features",
+    defaultProps: (): FeatureCardGridBlockProps => ({
+      eyebrow: "Capabilities",
+      heading: "A feature for every need",
+      subhead: "A tidy grid of cards that scans in seconds.",
+      align: "center",
+      cardRadius: "2xl",
+      items: [
+        { icon: "Settings", title: "Flexible setup", description: "Configure things your way without writing code." },
+        { icon: "Bell", title: "Stay in the loop", description: "Timely alerts keep you on top of what's happening." },
+        { icon: "Search", title: "Find it fast", description: "Powerful search surfaces exactly what you're after." },
+        { icon: "Cloud", title: "Always in sync", description: "Your work stays current across every device." },
+      ],
+      ...sectionCtaDefaults(),
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" rx="6" fill="#F8FAFC" />
+        <rect x="16" y="16" width="40" height="22" rx="4" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="2" />
+        <rect x="64" y="16" width="40" height="22" rx="4" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="2" />
+        <rect x="16" y="44" width="40" height="22" rx="4" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="2" />
+        <rect x="64" y="44" width="40" height="22" rx="4" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="2" />
+        <circle cx="26" cy="27" r="3" fill="#4f46e5" />
+        <circle cx="74" cy="27" r="3" fill="#4f46e5" />
+        <circle cx="26" cy="55" r="3" fill="#4f46e5" />
+        <circle cx="74" cy="55" r="3" fill="#4f46e5" />
+      </svg>
+    ),
+  },
+  {
+    type: "feature-big-features",
+    label: "Feature — Big Features",
+    category: "Features",
+    defaultProps: (): FeatureBigFeaturesBlockProps => ({
+      eyebrow: "Deep dive",
+      heading: "The features that set us apart",
+      subhead: "Large alternating rows that give each feature the spotlight.",
+      align: "center",
+      cardRadius: "2xl",
+      imageTreatment: "blended",
+      items: [
+        { icon: "MonitorSmartphone", title: "Works everywhere", description: "A seamless experience on desktop, tablet, and phone — no compromises." },
+        { icon: "Wand2", title: "Effortless to use", description: "Thoughtful design means your team gets value from day one, no training required." },
+        { icon: "LineChart", title: "Insights that guide you", description: "Clear, actionable data helps you make confident decisions faster." },
+      ],
+      ...sectionCtaDefaults(),
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="80" rx="6" fill="#F8FAFC" />
+        <rect x="14" y="16" width="44" height="22" rx="4" fill="#C7D2FE" />
+        <rect x="64" y="20" width="40" height="5" rx="2" fill="#94A3B8" />
+        <rect x="64" y="29" width="32" height="4" rx="2" fill="#CBD5E1" />
+        <rect x="62" y="44" width="44" height="22" rx="4" fill="#C7D2FE" />
+        <rect x="16" y="48" width="40" height="5" rx="2" fill="#94A3B8" />
+        <rect x="16" y="57" width="32" height="4" rx="2" fill="#CBD5E1" />
+      </svg>
+    ),
+  },
+  {
     type: "media-looping-showcase",
     label: "Media — Looping Showcase",
     category: "Showcase",
@@ -8863,6 +9144,15 @@ export function createBlock(type: "photo-strip"): Extract<PageBlock, { type: "ph
 export function createBlock(type: "bottom-cta"): Extract<PageBlock, { type: "bottom-cta" }>;
 export function createBlock(type: "video-section"): Extract<PageBlock, { type: "video-section" }>;
 export function createBlock(type: "media-feature-reel"): Extract<PageBlock, { type: "media-feature-reel" }>;
+export function createBlock(type: "value-pillars-icon-trio"): Extract<PageBlock, { type: "value-pillars-icon-trio" }>;
+export function createBlock(type: "value-pillars-outlined-cards"): Extract<PageBlock, { type: "value-pillars-outlined-cards" }>;
+export function createBlock(type: "value-pillars-color-block-cards"): Extract<PageBlock, { type: "value-pillars-color-block-cards" }>;
+export function createBlock(type: "value-pillars-divided-columns"): Extract<PageBlock, { type: "value-pillars-divided-columns" }>;
+export function createBlock(type: "value-pillars-headline-badge"): Extract<PageBlock, { type: "value-pillars-headline-badge" }>;
+export function createBlock(type: "value-pillars-card-columns"): Extract<PageBlock, { type: "value-pillars-card-columns" }>;
+export function createBlock(type: "feature-photo-cards"): Extract<PageBlock, { type: "feature-photo-cards" }>;
+export function createBlock(type: "feature-card-grid"): Extract<PageBlock, { type: "feature-card-grid" }>;
+export function createBlock(type: "feature-big-features"): Extract<PageBlock, { type: "feature-big-features" }>;
 export function createBlock(type: "media-looping-showcase"): Extract<PageBlock, { type: "media-looping-showcase" }>;
 export function createBlock(type: "media-thumbnail-grid"): Extract<PageBlock, { type: "media-thumbnail-grid" }>;
 export function createBlock(type: "media-video-split"): Extract<PageBlock, { type: "media-video-split" }>;
@@ -8987,6 +9277,15 @@ export function createBlock(type: BlockType): PageBlock {
     case "bottom-cta": return { id, type: "bottom-cta", props: props as BottomCtaBlockProps };
     case "video-section": return { id, type: "video-section", props: props as VideoSectionBlockProps };
     case "media-feature-reel": return { id, type: "media-feature-reel", props: props as MediaFeatureReelBlockProps };
+    case "value-pillars-icon-trio": return { id, type: "value-pillars-icon-trio", props: props as ValuePillarsIconTrioBlockProps };
+    case "value-pillars-outlined-cards": return { id, type: "value-pillars-outlined-cards", props: props as ValuePillarsOutlinedCardsBlockProps };
+    case "value-pillars-color-block-cards": return { id, type: "value-pillars-color-block-cards", props: props as ValuePillarsColorBlockCardsBlockProps };
+    case "value-pillars-divided-columns": return { id, type: "value-pillars-divided-columns", props: props as ValuePillarsDividedColumnsBlockProps };
+    case "value-pillars-headline-badge": return { id, type: "value-pillars-headline-badge", props: props as ValuePillarsHeadlineBadgeBlockProps };
+    case "value-pillars-card-columns": return { id, type: "value-pillars-card-columns", props: props as ValuePillarsCardColumnsBlockProps };
+    case "feature-photo-cards": return { id, type: "feature-photo-cards", props: props as FeaturePhotoCardsBlockProps };
+    case "feature-card-grid": return { id, type: "feature-card-grid", props: props as FeatureCardGridBlockProps };
+    case "feature-big-features": return { id, type: "feature-big-features", props: props as FeatureBigFeaturesBlockProps };
     case "media-looping-showcase": return { id, type: "media-looping-showcase", props: props as MediaLoopingShowcaseBlockProps };
     case "media-thumbnail-grid": return { id, type: "media-thumbnail-grid", props: props as MediaThumbnailGridBlockProps };
     case "media-video-split": return { id, type: "media-video-split", props: props as MediaVideoSplitBlockProps };

@@ -236,7 +236,7 @@ function BlockLibrary({ onAdd, customBlocks, visibleBlocks, prefs, onCustomize }
   // Core categories for the Blocks tab. "Hero" and "Showcase" sit right under
   // the header (Layout) section here. "Grid Pieces" still lives in the Segment
   // tab so the two tabs never duplicate the same block.
-  const defaultCoreOrder = ["Layout", "Hero", "Showcase", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"] as const;
+  const defaultCoreOrder = ["Layout", "Hero", "Showcase", "Features", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"] as const;
   // Any category that exists in the catalog but is neither a known core nor a
   // known non-core (SegmentLibrary) category is a tenant-created shelf — a
   // user moved a block into a new bucket via the Customize dialog. Surface
@@ -339,7 +339,7 @@ function BlockLibrary({ onAdd, customBlocks, visibleBlocks, prefs, onCustomize }
   );
 }
 
-const CORE_CATEGORIES = new Set(["Layout", "Hero", "Showcase", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"]);
+const CORE_CATEGORIES = new Set(["Layout", "Hero", "Showcase", "Features", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive"]);
 // Catalog category (set in superadmin) that marks a block as a whole-page
 // template. These render in the builder's Templates tab — never in the block
 // library shelf (Segment tab) or the Insert Block dialog — so a full-page
@@ -741,7 +741,7 @@ interface InsertBlockDialogProps {
 }
 
 function InsertBlockDialog({ open, onClose, onInsert, customBlocks, visibleBlocks, prefs, nestedTarget, initialSearch }: InsertBlockDialogProps) {
-  const defaultCategories = ["Layout", "Hero", "Showcase", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces", "DSO", "DSO Practices", "Events"] as const;
+  const defaultCategories = ["Layout", "Hero", "Showcase", "Features", "Content", "Social Proof", "CTA", "Lead Capture", "Engagement", "Interactive", "Grid Pieces", "DSO", "DSO Practices", "Events"] as const;
   // Append any extra categories that exist in the (prefs-applied) catalog but
   // aren't in the default list, then sort the whole thing per tenant prefs.
   // Full-page templates are intentionally excluded — they belong in the
