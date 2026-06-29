@@ -1944,6 +1944,24 @@ type AIImageSlot = {
  *  see the stat-bar guard in fillEmptyImages / sanitizeAIImageUrls. */
 const ITEM_PHOTO_BLOCK_TYPES = new Set(["benefits-grid", "features"]);
 
+/**
+ * Photo-led graduated "section" blocks (Task #1436) whose renderers show a real
+ * per-item PHOTO (with a Lucide-icon / accent-panel fallback). Unlike
+ * benefits-grid/features (icon-only unless `useItemPhotos`), these are
+ * photo-first by design, so their `items[].image` slots must use the same
+ * topical "lp-feature" purpose + page bias the other feature-photo blocks use —
+ * NOT the "product-detail" fallback, which (no page bias) starves them of
+ * relevant library photos. They are deliberately NOT added to
+ * ITEM_PHOTO_BLOCK_TYPES so they keep filling without a `useItemPhotos` opt-in.
+ */
+const FEATURE_PHOTO_ITEM_BLOCK_TYPES = new Set([
+  "value-pillars-color-block-cards",
+  "value-pillars-headline-badge",
+  "feature-photo-cards",
+  "feature-card-grid",
+  "feature-big-features",
+]);
+
 /** Numeric proof bars (trust-bar + its legacy `stats` alias) never carry a
  *  per-item photo in AI output. */
 export const STAT_BAR_BLOCK_TYPES = new Set(["trust-bar", "stats"]);
@@ -2225,7 +2243,10 @@ export function collectImageSlots(
   // benefits-grid (+ its features alias) carries an OPTIONAL per-item photo
   // (logo-style) → lp-feature; product-grid items are product shots →
   // product-detail. trust-bar / stats are numeric bars and never carry photos.
-  const itemsPurpose = ITEM_PHOTO_BLOCK_TYPES.has(blockType) ? "lp-feature" : "product-detail";
+  const itemsPurpose =
+    ITEM_PHOTO_BLOCK_TYPES.has(blockType) || FEATURE_PHOTO_ITEM_BLOCK_TYPES.has(blockType)
+      ? "lp-feature"
+      : "product-detail";
   if (!STAT_BAR_BLOCK_TYPES.has(blockType) && !ICON_ONLY_ITEM_BLOCK_TYPES.has(blockType)) {
     pushArrField(props.items, "image", itemsPurpose, it => `${it.title ?? it.label ?? ""} ${it.description ?? ""}`);
   }
@@ -3230,11 +3251,14 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       !ICON_ONLY_ITEM_BLOCK_TYPES.has(blockType) &&
       (!ITEM_PHOTO_BLOCK_TYPES.has(blockType) || props.useItemPhotos === true)
     ) {
-      const itemsPurpose = ITEM_PHOTO_BLOCK_TYPES.has(blockType) ? "lp-feature" : "product-detail";
-      // Feature item photos (benefits-grid w/ useItemPhotos) keep the page bias;
-      // product-detail item slots match on the item's OWN subject only so a
-      // generic on-vertical shot can't outscore the real subject. (See pick().)
-      const itemsBiasPage = ITEM_PHOTO_BLOCK_TYPES.has(blockType);
+      const isFeaturePhotoItems =
+        ITEM_PHOTO_BLOCK_TYPES.has(blockType) || FEATURE_PHOTO_ITEM_BLOCK_TYPES.has(blockType);
+      const itemsPurpose = isFeaturePhotoItems ? "lp-feature" : "product-detail";
+      // Feature item photos (benefits-grid w/ useItemPhotos, and the photo-led
+      // graduated section blocks) keep the page bias; product-detail item slots
+      // match on the item's OWN subject only so a generic on-vertical shot can't
+      // outscore the real subject. (See pick().)
+      const itemsBiasPage = isFeaturePhotoItems;
       props.items = (props.items as Record<string, unknown>[]).map((item) => {
         if ("image" in item && !item.image) {
           const itemContext = `${item.title ?? item.label ?? ""} ${item.description ?? ""}`;
@@ -5016,6 +5040,70 @@ export function fillDsoCaseStudyNeutralDefaults(block: {
   }
 }
 
+/**
+ * Neutral image (and, for big-features, CTA) backstop for the PHOTO-LED
+ * graduated section blocks (Task #1436): `feature-photo-cards`,
+ * `feature-card-grid`, `feature-big-features`. These blocks are designed around
+ * a real per-item PHOTO — but when the whole image-fill pipeline (topical
+ * library fill → AI image-gen → relaxed last-resort fill) leaves an item's
+ * `image` empty (a thin-library tenant whose AI image generation is turned
+ * off), `feature-big-features` collapses to a bare copy-only card. This
+ * last-resort pass guarantees those blocks still ship with photos in ANY tenant
+ * by seeding any STILL-empty item image from a small neutral, brand-agnostic
+ * stock set (the same photos the manual createBlock default ships). Images the
+ * pipeline already placed (library / AI / scraped) are kept untouched — only
+ * genuinely empty slots are filled.
+ *
+ * The two photo-CAPABLE value-pillars variants (color-block-cards,
+ * headline-badge) are intentionally excluded: their renderers degrade to a
+ * premium accent-tinted icon panel by design, so forcing stock photos there
+ * would change their intended character.
+ *
+ * `feature-big-features` additionally gets a guaranteed section CTA when the
+ * model emitted none — its renderer repeats the section CTA inside every large
+ * feature row, matching the manual default (which seeds one via
+ * sectionCtaDefaults). An AI- or author-provided CTA always wins.
+ */
+const SECTION_FEATURE_NEUTRAL_PHOTOS = [
+  "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80",
+];
+const PHOTO_LED_SECTION_BLOCK_TYPES = new Set([
+  "feature-photo-cards",
+  "feature-card-grid",
+  "feature-big-features",
+]);
+export function fillSectionFeatureNeutralDefaults(block: {
+  type?: string;
+  props?: Record<string, unknown>;
+}): void {
+  if (!block.type || !PHOTO_LED_SECTION_BLOCK_TYPES.has(block.type)) return;
+  if (!block.props || typeof block.props !== "object") return;
+  const p = block.props;
+  if (Array.isArray(p.items)) {
+    let photoCursor = 0;
+    p.items = (p.items as unknown[]).map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return item;
+      const it = item as Record<string, unknown>;
+      if (typeof it.image !== "string" || !it.image.trim()) {
+        const url =
+          SECTION_FEATURE_NEUTRAL_PHOTOS[photoCursor % SECTION_FEATURE_NEUTRAL_PHOTOS.length];
+        photoCursor += 1;
+        return { ...it, image: url };
+      }
+      return it;
+    });
+  }
+  // feature-big-features renders the section CTA inside EVERY large feature row
+  // (the manual default seeds one via sectionCtaDefaults). Guarantee a button so
+  // AI-generated pages match that look when the model emitted no CTA.
+  if (block.type === "feature-big-features") {
+    if (typeof p.ctaText !== "string" || !p.ctaText.trim()) p.ctaText = "Get started";
+    if (typeof p.ctaUrl !== "string" || !p.ctaUrl.trim()) p.ctaUrl = "#";
+  }
+}
+
 /** Always-on guard for every case-study-bearing block (`dso-success-stories`,
  *  `dso-case-study`, `case-studies`): rebuild them exclusively from the
  *  tenant's AI-approved case studies — ranked by relevance to the target
@@ -6387,7 +6475,7 @@ const GENERAL_EXTRA_CORE_BLOCKS: string[] = [
   `- "value-pillars-card-columns": Value pillars as a row of clean cards — an eyebrow, heading, and subhead above 3–4 cards, each with an accent icon, title, and description. Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 3–4 of {icon (Lucide icon NAME — NEVER an image URL), title (2–5 words), description (12–22 words)}).`,
   `- "feature-photo-cards": A photo-led feature section — cards each led by a large photo (brand-accent icon fallback) above a title and description — an eyebrow, heading, and subhead above 3–4 cards. Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 3–4 of {icon (Lucide icon NAME — NEVER an image URL), image ("" — server fills), title (3–6 words), description (14–24 words)}).`,
   `- "feature-card-grid": A responsive grid of feature cards — an eyebrow, heading, and subhead above 3–6 cards, each with a photo (accent icon fallback), title, and description. A clean, brand-colored alternative to "benefits-grid". Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 3–6 of {icon (Lucide icon NAME — NEVER an image URL), image ("" — server fills), title (2–5 words), description (12–22 words)}).`,
-  `- "feature-big-features": A spacious section of 2–4 large features, each pairing a large photo (big accent icon fallback) with a bold title and a longer description. Use for a few flagship capabilities. Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 2–4 of {icon (Lucide icon NAME — NEVER an image URL), image ("" — server fills), title (3–6 words), description (16–28 words)}).`,
+  `- "feature-big-features": A spacious section of 2–4 large features, each pairing a large photo (big accent icon fallback) with a bold title and a longer description. Use for a few flagship capabilities. Each feature row shows a primary CTA button, so ALWAYS include ctaText + ctaUrl. Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 2–4 of {icon (Lucide icon NAME — NEVER an image URL), image ("" — server fills), title (3–6 words), description (16–28 words)}), ctaText (2–4 words, action verb first), ctaUrl ("#").`,
   // Premium B2B section blocks — polished, conversion-oriented layouts. All colors
   // resolve from the brand palette automatically, so use them freely for any brand.
   `- "dandy-product-hero": Premium split hero — a solid brand-color left half with an eyebrow, headline, subheadline, and an inline email-capture pill, paired with a large product/app image on the right that bleeds off the corner. A strong single hero for product-led B2B brands. Props: eyebrow (2–4 words), headline (4–9 words), subheadline (15–28 words), emailPlaceholder ("Email address"), primaryCtaText (2–3 words, action verb first), primaryCtaUrl ("#"), disclaimer (6–14 words), variant ("split"|"card"|"gradient"), imageUrl ("" — server fills).`,
@@ -8805,6 +8893,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // fields get neutral/empty values).
       for (const b of mergedBlocks as Array<{ type?: string; props?: Record<string, unknown> }>) {
         fillDsoCaseStudyNeutralDefaults(b);
+        fillSectionFeatureNeutralDefaults(b);
       }
 
       // Workstream B — banned-phrase post-validator (template path).
@@ -10514,6 +10603,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // constants (AI values kept; only missing fields get neutral/empty values).
     for (const b of parsed.blocks as Array<{ type?: string; props?: Record<string, unknown> }>) {
       fillDsoCaseStudyNeutralDefaults(b);
+      fillSectionFeatureNeutralDefaults(b);
     }
 
     // Task #1168 — deterministic team-photo reconciliation. The AI is told to

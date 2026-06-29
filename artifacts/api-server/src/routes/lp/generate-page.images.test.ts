@@ -7,6 +7,7 @@ import {
   buildReferenceFillPool,
   collectImageSlots,
   restoreTemplateImages,
+  fillSectionFeatureNeutralDefaults,
   isLogoImageUrl,
   buildBrandLogoUrlSet,
   buildBlockSelectionDirective,
@@ -1603,9 +1604,9 @@ describe("graduated section blocks — photo-capable items fill, icon-only items
     "value-pillars-card-columns",
   ];
 
-  // The generic item branch fills these non-benefits item blocks with the
-  // "product-detail" purpose, so a tenant product-detail photo on the item's
-  // own subject fills the slot.
+  // These photo-led graduated section blocks fill their items[].image with the
+  // topical "lp-feature" purpose (+ page bias) — like the other feature-photo
+  // blocks — so a tenant feature/product photo on the item's own subject fills.
   const PD_LIB: MediaImage[] = [
     { url: "/objects/denture-pd-1", title: "Custom dentures closeup", tags: ["product-detail", "dentures"] },
     { url: "/objects/scanner-pd-1", title: "Intraoral scanner device", tags: ["product-detail", "scanner"] },
@@ -1639,7 +1640,7 @@ describe("graduated section blocks — photo-capable items fill, icon-only items
       const byField = Object.fromEntries(
         collectImageSlots(collectBlock(type) as any).map((s) => [s.field, s.purpose]),
       );
-      expect(byField.image, `${type} should expose an item image slot`).toBe("product-detail");
+      expect(byField.image, `${type} should expose an item image slot`).toBe("lp-feature");
     }
   });
 
@@ -1661,6 +1662,82 @@ describe("graduated section blocks — photo-capable items fill, icon-only items
     for (const type of ICON_ONLY) {
       const out = fillEmptyImages([fillBlock(type)], PD_LIB, PAGE_CTX) as any[];
       expect((out[0].props as any).items[0].image, `${type} should stay icon-only`).toBe("");
+    }
+  });
+});
+
+describe("fillSectionFeatureNeutralDefaults — photo-led neutral image + CTA backstop", () => {
+  const PHOTO_LED = ["feature-photo-cards", "feature-card-grid", "feature-big-features"];
+  const VALUE_PILLARS = ["value-pillars-color-block-cards", "value-pillars-headline-badge"];
+  const STOCK = /^https:\/\/images\.unsplash\.com\//;
+
+  it("fills STILL-empty item images for photo-led blocks with a neutral stock photo", () => {
+    for (const type of PHOTO_LED) {
+      const block = {
+        type,
+        props: {
+          heading: "What you get",
+          items: [
+            { icon: "Sparkles", title: "Fast", description: "Quick turnaround", image: "" },
+            { icon: "Wand2", title: "Simple", description: "Easy to use", image: "" },
+          ],
+        },
+      };
+      fillSectionFeatureNeutralDefaults(block);
+      for (const it of (block.props as any).items) {
+        expect(it.image, `${type} item should get a neutral photo`).toMatch(STOCK);
+      }
+    }
+  });
+
+  it("does NOT overwrite an item image the pipeline already placed", () => {
+    const block = {
+      type: "feature-big-features",
+      props: {
+        items: [
+          { title: "A", description: "x", image: "/objects/real-library-photo" },
+          { title: "B", description: "y", image: "" },
+        ],
+      },
+    };
+    fillSectionFeatureNeutralDefaults(block);
+    expect((block.props as any).items[0].image).toBe("/objects/real-library-photo");
+    expect((block.props as any).items[1].image).toMatch(STOCK);
+  });
+
+  it("guarantees a CTA for feature-big-features when the model emitted none", () => {
+    const block = {
+      type: "feature-big-features",
+      props: { items: [{ title: "A", description: "x", image: "" }] },
+    };
+    fillSectionFeatureNeutralDefaults(block);
+    expect((block.props as any).ctaText).toBe("Get started");
+    expect((block.props as any).ctaUrl).toBe("#");
+  });
+
+  it("keeps an AI/author-provided CTA on feature-big-features", () => {
+    const block = {
+      type: "feature-big-features",
+      props: { ctaText: "Book a demo", ctaUrl: "/demo", items: [{ title: "A", description: "x", image: "x" }] },
+    };
+    fillSectionFeatureNeutralDefaults(block);
+    expect((block.props as any).ctaText).toBe("Book a demo");
+    expect((block.props as any).ctaUrl).toBe("/demo");
+  });
+
+  it("does NOT seed a forced CTA on feature-photo-cards / feature-card-grid", () => {
+    for (const type of ["feature-photo-cards", "feature-card-grid"]) {
+      const block = { type, props: { items: [{ title: "A", description: "x", image: "" }] } };
+      fillSectionFeatureNeutralDefaults(block);
+      expect((block.props as any).ctaText, `${type} should not get a forced CTA`).toBeUndefined();
+    }
+  });
+
+  it("does NOT stock-fill the photo-capable value-pillars variants (they degrade to icon panels)", () => {
+    for (const type of VALUE_PILLARS) {
+      const block = { type, props: { items: [{ icon: "Sparkles", title: "A", description: "x", image: "" }] } };
+      fillSectionFeatureNeutralDefaults(block);
+      expect((block.props as any).items[0].image, `${type} should stay empty`).toBe("");
     }
   });
 });
