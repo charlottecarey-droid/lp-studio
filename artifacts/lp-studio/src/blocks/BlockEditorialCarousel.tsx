@@ -272,12 +272,129 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                 </>
               );
 
-              // ── Case-study text block (headline / sub / CTA) ────────────
-              const renderCaseStudyText = (variant: "overlay" | "card") => {
+              // ── Case-study text block (eyebrow / headline / sub / CTA) ───
+              const renderCaseStudyText = (
+                variant: "overlay" | "card",
+                opts?: { withEyebrow?: boolean; pinCtaBottom?: boolean },
+              ) => {
                 const isCard = variant === "card";
                 const onCard = isCard; // text sits on a solid card vs over an image
                 const headlineColor = onCard ? text : "#ffffff";
                 const subColor = onCard ? alpha(text, 0.75) : alpha("#ffffff", 0.85);
+                const eyebrowColor = onCard ? alpha(text, 0.55) : alpha("#ffffff", 0.7);
+
+                const eyebrowEl =
+                  opts?.withEyebrow && (slide.caption || isEditor) ? (
+                    <p
+                      style={{
+                        fontWeight: 300,
+                        fontSize: "0.7rem",
+                        letterSpacing: "0.3em",
+                        textTransform: "uppercase",
+                        color: eyebrowColor,
+                        margin: 0,
+                      }}
+                    >
+                      <InlineText
+                        as="span"
+                        value={slide.caption ?? ""}
+                        onUpdate={isEditor ? (v) => updateSlide(i, { caption: v }) : undefined}
+                      />
+                    </p>
+                  ) : null;
+
+                const headlineEl =
+                  slide.headline || isEditor ? (
+                    <h3
+                      style={{
+                        fontFamily: headlineFont,
+                        fontWeight: 400,
+                        fontSize: `${headlineSize}rem`,
+                        lineHeight: 1.1,
+                        letterSpacing: "-0.01em",
+                        color: headlineColor,
+                        margin: 0,
+                      }}
+                    >
+                      <InlineText
+                        as="span"
+                        value={slide.headline ?? ""}
+                        onUpdate={isEditor ? (v) => updateSlide(i, { headline: v }) : undefined}
+                        multiline
+                      />
+                    </h3>
+                  ) : null;
+
+                const subEl =
+                  slide.subheadline || isEditor ? (
+                    <p
+                      style={{
+                        fontWeight: 300,
+                        fontSize: `${subheadlineSize}rem`,
+                        lineHeight: 1.6,
+                        color: subColor,
+                        margin: 0,
+                      }}
+                    >
+                      <InlineText
+                        as="span"
+                        value={slide.subheadline ?? ""}
+                        onUpdate={isEditor ? (v) => updateSlide(i, { subheadline: v }) : undefined}
+                        multiline
+                      />
+                    </p>
+                  ) : null;
+
+                const ctaEl =
+                  slide.ctaText || isEditor ? (
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        marginTop: "0.5rem",
+                        paddingBottom: "0.25rem",
+                        width: "fit-content",
+                        fontSize: "0.8rem",
+                        fontWeight: 500,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        color: accent,
+                        borderBottom: `1px solid ${alpha(accent, 0.6)}`,
+                      }}
+                    >
+                      <InlineText
+                        as="span"
+                        value={slide.ctaText ?? ""}
+                        onUpdate={isEditor ? (v) => updateSlide(i, { ctaText: v }) : undefined}
+                      />
+                      <span aria-hidden="true">→</span>
+                    </span>
+                  ) : null;
+
+                if (opts?.pinCtaBottom) {
+                  // Top content grouped; the arrow link is pinned to the bottom
+                  // of the floating card via space-between.
+                  return (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        height: "100%",
+                        gap: "1.25rem",
+                      }}
+                    >
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                        {eyebrowEl}
+                        {headlineEl}
+                        {subEl}
+                      </div>
+                      {ctaEl}
+                    </div>
+                  );
+                }
+
                 return (
                   <div
                     style={{
@@ -287,69 +404,10 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                       maxWidth: "32rem",
                     }}
                   >
-                    {(slide.headline || isEditor) && (
-                      <h3
-                        style={{
-                          fontFamily: headlineFont,
-                          fontWeight: 400,
-                          fontSize: `${headlineSize}rem`,
-                          lineHeight: 1.1,
-                          letterSpacing: "-0.01em",
-                          color: headlineColor,
-                          margin: 0,
-                        }}
-                      >
-                        <InlineText
-                          as="span"
-                          value={slide.headline ?? ""}
-                          onUpdate={isEditor ? (v) => updateSlide(i, { headline: v }) : undefined}
-                          multiline
-                        />
-                      </h3>
-                    )}
-                    {(slide.subheadline || isEditor) && (
-                      <p
-                        style={{
-                          fontWeight: 300,
-                          fontSize: `${subheadlineSize}rem`,
-                          lineHeight: 1.6,
-                          color: subColor,
-                          margin: 0,
-                        }}
-                      >
-                        <InlineText
-                          as="span"
-                          value={slide.subheadline ?? ""}
-                          onUpdate={isEditor ? (v) => updateSlide(i, { subheadline: v }) : undefined}
-                          multiline
-                        />
-                      </p>
-                    )}
-                    {(slide.ctaText || isEditor) && (
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "0.5rem",
-                          marginTop: "0.5rem",
-                          paddingBottom: "0.25rem",
-                          width: "fit-content",
-                          fontSize: "0.8rem",
-                          fontWeight: 500,
-                          letterSpacing: "0.08em",
-                          textTransform: "uppercase",
-                          color: accent,
-                          borderBottom: `1px solid ${alpha(accent, 0.6)}`,
-                        }}
-                      >
-                        <InlineText
-                          as="span"
-                          value={slide.ctaText ?? ""}
-                          onUpdate={isEditor ? (v) => updateSlide(i, { ctaText: v }) : undefined}
-                        />
-                        <span aria-hidden="true">→</span>
-                      </span>
-                    )}
+                    {eyebrowEl}
+                    {headlineEl}
+                    {subEl}
+                    {ctaEl}
                   </div>
                 );
               };
@@ -380,6 +438,37 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                         {renderCaseStudyText("card")}
                       </div>
                     </div>
+                  );
+                } else if (layout === "overlay-card") {
+                  // Full-bleed image with a floating solid card on one side
+                  // (eyebrow / headline / sub + an arrow link pinned bottom).
+                  caseStudyContent = (
+                    <>
+                      {imageEl}
+                      <div
+                        className="absolute inset-0 flex items-stretch"
+                        style={{
+                          padding: "clamp(1rem, 3vw, 2.5rem)",
+                          pointerEvents: "none",
+                          zIndex: 2,
+                        }}
+                      >
+                        <div
+                          className="w-full md:w-[42%]"
+                          style={{
+                            backgroundColor: cardBg,
+                            padding: "clamp(1.5rem, 2.5vw, 2.25rem)",
+                            display: "flex",
+                            flexDirection: "column",
+                            borderRadius: radius,
+                            boxShadow: "0 24px 48px -24px rgba(0,0,0,0.45)",
+                            pointerEvents: "auto",
+                          }}
+                        >
+                          {renderCaseStudyText("card", { withEyebrow: true, pinCtaBottom: true })}
+                        </div>
+                      </div>
+                    </>
                   );
                 } else {
                   // Full-bleed image with text overlaid (with or without scrim).
@@ -487,6 +576,22 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                       animate={{ borderColor: hovered === i ? alpha(accent, 0.7) : alpha(accent, 0) }}
                       transition={{ duration: 0.4, delay: 0.1 }}
                     />
+
+                    {/* Dim non-active neighbours so the active floating card
+                        stands out (overlay-card layout only). */}
+                    {mode === "case-study" && layout === "overlay-card" && (
+                      <motion.div
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          backgroundColor: bg,
+                          pointerEvents: "none",
+                          zIndex: 4,
+                        }}
+                        animate={{ opacity: i === carouselIdx ? 0 : 0.5 }}
+                        transition={{ duration: 0.4, ease: "easeOut" }}
+                      />
+                    )}
                   </motion.div>
                 </div>
               );

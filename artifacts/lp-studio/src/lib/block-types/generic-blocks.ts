@@ -1553,8 +1553,12 @@ export interface EditorialCarouselBlockProps {
    *  - "overlay-scrim"  : full-bleed image with a dark gradient scrim
    *                       behind the text for legibility (default).
    *  - "split"          : image on one half, text on a solid card on the
-   *                       other half. Use when the image is too busy. */
-  layout?: "overlay" | "overlay-scrim" | "split";
+   *                       other half. Use when the image is too busy.
+   *  - "overlay-card"   : full-bleed image with a floating solid card on one
+   *                       side holding an eyebrow, headline, subheadline and a
+   *                       "learn more" arrow link pinned to the bottom;
+   *                       neighbouring slides dim so the active card stands out. */
+  layout?: "overlay" | "overlay-scrim" | "split" | "overlay-card";
   /** Per-slide headline font size in rem (case-study mode). */
   headlineSize?: number;
   /** Per-slide subheadline font size in rem (case-study mode). */

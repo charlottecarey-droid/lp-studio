@@ -139,6 +139,7 @@ export function EditorialCarouselPanel({ props, onChange }: Props) {
                   <SelectItem value="overlay" className="text-xs">Full-bleed image, text overlay</SelectItem>
                   <SelectItem value="overlay-scrim" className="text-xs">Full-bleed image, text overlay + readability scrim</SelectItem>
                   <SelectItem value="split" className="text-xs">Split — image one side, text card on the other</SelectItem>
+                  <SelectItem value="overlay-card" className="text-xs">Floating card over image</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -170,7 +171,7 @@ export function EditorialCarouselPanel({ props, onChange }: Props) {
                 />
               </div>
             </div>
-            {props.layout === "split" && (
+            {(props.layout === "split" || props.layout === "overlay-card") && (
               <div>
                 <ColorField
                   label="Text card background"
@@ -340,6 +341,14 @@ export function EditorialCarouselPanel({ props, onChange }: Props) {
               />
               {isCaseStudy ? (
                 <>
+                  {props.layout === "overlay-card" && (
+                    <Input
+                      value={slide.caption ?? ""}
+                      onChange={(e) => updateSlide(i, { caption: e.target.value })}
+                      placeholder="Eyebrow (small uppercase)"
+                      className="h-8 text-xs"
+                    />
+                  )}
                   <Input
                     value={slide.headline ?? ""}
                     onChange={(e) => updateSlide(i, { headline: e.target.value })}
