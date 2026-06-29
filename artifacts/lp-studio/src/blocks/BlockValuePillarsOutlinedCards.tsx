@@ -79,7 +79,7 @@ export function BlockValuePillarsOutlinedCards({
           eyebrow={props.eyebrow}
           heading={props.heading}
           subhead={props.subhead}
-          align={align}
+          align="center"
           theme={theme}
           brand={brand}
           isBuilder={isBuilder}
@@ -134,7 +134,7 @@ export function BlockValuePillarsOutlinedCards({
           props={props}
           brand={brand}
           theme={theme}
-          align={align}
+          align="center"
           isBuilder={isBuilder}
           onUpdate={update}
           pageId={pageId}

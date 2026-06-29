@@ -7014,6 +7014,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       heading: "The features that set us apart",
       subhead: "Large alternating rows that give each feature the spotlight.",
       align: "left",
+      backgroundStyle: "muted",
       cardRadius: "2xl",
       imageTreatment: "card",
       items: [

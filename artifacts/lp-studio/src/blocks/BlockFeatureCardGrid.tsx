@@ -76,7 +76,7 @@ export function BlockFeatureCardGrid({
           eyebrow={props.eyebrow}
           heading={props.heading}
           subhead={props.subhead}
-          align={align}
+          align="center"
           theme={theme}
           brand={brand}
           isBuilder={isBuilder}
@@ -132,7 +132,7 @@ export function BlockFeatureCardGrid({
           props={props}
           brand={brand}
           theme={theme}
-          align={align}
+          align="center"
           isBuilder={isBuilder}
           onUpdate={update}
           pageId={pageId}
