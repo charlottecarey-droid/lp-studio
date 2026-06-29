@@ -6775,7 +6775,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       heading: "Built to move your work forward",
       subhead: "A few clear reasons customers stick with us.",
       align: "center",
-      cardRadius: "2xl",
+      cardRadius: "none",
       items: [
         { icon: "Zap", title: "Fast to launch", description: "Get up and running in days, not months, with guided setup." },
         { icon: "ShieldCheck", title: "Secure by default", description: "Your data is protected with enterprise-grade safeguards." },
@@ -6804,7 +6804,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       heading: "Everything you need, nothing you don't",
       subhead: "Clean, outlined cards that keep the focus on your message.",
       align: "center",
-      cardRadius: "2xl",
+      cardRadius: "none",
       cardBorderWidth: 1,
       items: [
         { icon: "Gauge", title: "Real performance", description: "Page loads stay quick so visitors never wait around.", linkLabel: "Learn more" },
@@ -6834,7 +6834,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       heading: "Bold value, front and center",
       subhead: "Solid brand-colored cards that command attention.",
       align: "center",
-      cardRadius: "2xl",
+      cardRadius: "none",
       items: [
         { icon: "Rocket", title: "Launch faster", description: "Skip the setup headaches and ship sooner.", linkLabel: "Learn more", image: "https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=1200&q=80" },
         { icon: "TrendingUp", title: "Grow steadily", description: "Tools that scale right alongside your business.", linkLabel: "Learn more", image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80" },
@@ -6863,7 +6863,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       heading: "Three ways we make work easier",
       subhead: "Clean columns separated by simple dividers.",
       align: "center",
-      cardRadius: "2xl",
+      cardRadius: "none",
       dividerWidth: 1,
       items: [
         { icon: "Clock", title: "Save time", description: "Automate the busywork so your team can focus on what matters.", linkLabel: "Learn more" },
@@ -6895,7 +6895,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       heading: "Value you can see at a glance",
       subhead: "Each point leads with a clear, badged headline.",
       align: "center",
-      cardRadius: "xl",
+      cardRadius: "none",
       items: [
         { icon: "CheckCircle2", title: "Always reliable", description: "Count on consistent uptime and predictable performance.", image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80" },
         { icon: "Smile", title: "Easy to love", description: "A simple experience your whole team can pick up fast.", image: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1200&q=80" },
@@ -6924,7 +6924,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       heading: "Strong reasons, side by side",
       subhead: "Tall cards that give each point room to breathe.",
       align: "center",
-      cardRadius: "2xl",
+      cardRadius: "none",
       items: [
         { icon: "Layers", title: "All in one place", description: "Everything your team needs, without juggling tools.", linkLabel: "Learn more" },
         { icon: "Compass", title: "Easy to navigate", description: "Find what you need quickly with a clear layout.", linkLabel: "Learn more" },
@@ -6953,7 +6953,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       heading: "See what's possible",
       subhead: "Photo-led cards that bring each feature to life.",
       align: "center",
-      cardRadius: "2xl",
+      cardRadius: "none",
       items: [
         { icon: "Image", title: "Visual storytelling", description: "Lead with imagery that shows the value instantly.", linkLabel: "Learn more", image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80" },
         { icon: "PenTool", title: "Make it yours", description: "Adjust colors, copy, and layout to match your brand.", linkLabel: "Learn more", image: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1200&q=80" },
@@ -6982,7 +6982,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       heading: "A feature for every need",
       subhead: "A tidy grid of cards that scans in seconds.",
       align: "center",
-      cardRadius: "2xl",
+      cardRadius: "none",
       items: [
         { icon: "Settings", title: "Flexible setup", description: "Configure things your way without writing code.", image: "https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=1200&q=80" },
         { icon: "Bell", title: "Stay in the loop", description: "Timely alerts keep you on top of what's happening.", image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80" },
@@ -7015,7 +7015,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       subhead: "Large alternating rows that give each feature the spotlight.",
       align: "left",
       backgroundStyle: "muted",
-      cardRadius: "2xl",
+      cardRadius: "none",
       imageTreatment: "card",
       items: [
         { icon: "MonitorSmartphone", title: "Works everywhere", description: "A seamless experience on desktop, tablet, and phone — no compromises.", image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80" },

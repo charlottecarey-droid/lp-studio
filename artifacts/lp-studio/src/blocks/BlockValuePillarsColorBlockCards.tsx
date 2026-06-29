@@ -137,7 +137,7 @@ export function BlockValuePillarsColorBlockCards({
                         color={cardAccent}
                         tileClassName={cn(sz?.tile ?? "h-12 w-12", "shadow-sm")}
                         tileBg={chipBg}
-                        radiusClass="rounded-xl"
+                        radiusClass={radius}
                         iconClassName={sz?.icon ?? "h-6 w-6"}
                         imageClassName={sz?.image}
                         alt={item.title}

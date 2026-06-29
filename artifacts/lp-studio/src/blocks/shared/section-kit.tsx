@@ -71,7 +71,7 @@ const RADIUS_CLASS: Record<SectionRadius, string> = {
 };
 
 export const sectionRadiusClass = (r?: SectionRadius): string =>
-  RADIUS_CLASS[r ?? "2xl"];
+  RADIUS_CLASS[r ?? "none"];
 
 /* ------------------------------------------------------------- media size */
 

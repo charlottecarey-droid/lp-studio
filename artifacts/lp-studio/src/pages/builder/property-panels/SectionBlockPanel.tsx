@@ -369,7 +369,7 @@ export function SectionBlockPanel<T extends SectionBlockBase>({
         <div>
           <Label className="text-[11px] text-muted-foreground">Corner radius</Label>
           <Select
-            value={props.cardRadius ?? "2xl"}
+            value={props.cardRadius ?? "none"}
             onValueChange={(v) => update({ cardRadius: v as SectionRadius } as Partial<T>)}
           >
             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
