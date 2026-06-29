@@ -7402,19 +7402,29 @@ export function enrichSegmentContextFromBrand(
  * Returns [] when no authored outline applies (free AI block choice).
  *
  * The LEGACY `micrositeBlockList` is intentionally NOT honored on DSO paths
- * (`dsoFreeChoice`) — only an explicitly authored pageOutline (segment or brand)
- * is. See the long note inside buildSegmentSection for the rationale.
+ * (`dsoFreeChoice`), and is also skipped when `honorLegacyBlockList` is false
+ * (the AUTHORITATIVE reconcile path passes false so the microsite-only list can
+ * never force a landing page into the microsite lineup) — in both cases only an
+ * explicitly authored pageOutline (segment or brand) is honored. See the long
+ * note inside buildSegmentSection for the rationale.
  */
 export function resolveGenerationOutlineBlocks(input: {
   segmentPageOutline?: PageOutline | null;
   segmentLegacyBlockList?: ReadonlyArray<{ type?: string; schemaHint?: string }> | null;
   brandOutline?: PageOutline | null;
   dsoFreeChoice?: boolean;
+  /** When false, the LEGACY `segmentLegacyBlockList` is ignored entirely so it
+   *  never makes the outline authoritative. The AUTHORITATIVE reconcile path
+   *  passes false (the microsite-only block list must not collapse a landing
+   *  page into the microsite lineup); the soft PREFERRED BLOCK LIST hint leaves
+   *  it at the default so existing segment hints are preserved. Defaults true. */
+  honorLegacyBlockList?: boolean;
   approvedPool?: readonly string[];
 }): ResolvedOutlineBlock[] {
+  const honorLegacy = input.honorLegacyBlockList !== false;
   const segmentOutline = effectiveOutline({
     outline: input.segmentPageOutline ?? null,
-    legacyBlockList: input.dsoFreeChoice ? null : (input.segmentLegacyBlockList ?? null),
+    legacyBlockList: input.dsoFreeChoice || !honorLegacy ? null : (input.segmentLegacyBlockList ?? null),
   });
   const outline = outlineHasSteps(segmentOutline)
     ? segmentOutline
@@ -9265,13 +9275,15 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   logger.debug({ promptPath, segment: segmentContext?.name ?? "none", promptPreview: prompt.slice(0, 120).replace(/\n/g, " ") }, "[generate-page] generating with prompt");
 
   // Task #6 — brand-default outline ("recipe"), applied only when the segment
-  // has no outline of its own (resolved inside buildSegmentSection). On DSO
-  // paths the legacy microsite block list is NOT adapted into an outline
-  // (`dsoFreeChoice` — the model keeps free block choice); only an explicitly
-  // authored brand outline is passed through.
+  // has no outline of its own (resolved inside buildSegmentSection). The brand's
+  // legacy `defaultMicrositeBlockList` is the *microsite* vocabulary and is
+  // NEVER adapted into a landing-page outline on ANY path: doing so collapsed
+  // non-DSO tenant LPs (e.g. a tenant with a saved microsite block list but no
+  // authored page outline) into the microsite lineup after generation. Only an
+  // explicitly authored brand `defaultPageOutline` is honored here.
   const brandOutline = effectiveOutline({
     outline: brand.defaultPageOutline,
-    legacyBlockList: useDso || useDsoPractices ? null : brand.defaultMicrositeBlockList,
+    legacyBlockList: null,
   });
   const segmentSection = segmentContext && typeof segmentContext === "object"
     ? buildSegmentSection(segmentContext, {
@@ -9289,11 +9301,17 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // outline as a soft prompt hint — so tenant-chosen copy-only section blocks
   // (e.g. value-pillars-*/feature-*) reliably appear with their saved styling.
   // Governance-excluded types (disabled / human-only) never enter the outline.
+  // `honorLegacyBlockList: false` — ONLY an explicitly authored pageOutline
+  // makes the outline authoritative here; the legacy microsite block list (the
+  // microsite surface's vocabulary) must never collapse a landing page into the
+  // microsite lineup. It remains a soft PREFERRED BLOCK LIST hint inside
+  // buildSegmentSection, which calls this resolver at its default (true).
   const resolvedOutlineBlocks = resolveGenerationOutlineBlocks({
     segmentPageOutline: segmentContext?.pageOutline ?? null,
     segmentLegacyBlockList: segmentContext?.micrositeBlockList ?? null,
     brandOutline,
     dsoFreeChoice: useDso || useDsoPractices,
+    honorLegacyBlockList: false,
     approvedPool: [...segmentApprovedTypes],
   }).filter((b) => {
     const t = canonicalizeBlockType(b.type);

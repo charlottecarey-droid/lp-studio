@@ -45,12 +45,34 @@ from tenant defaults; off-outline blocks are dropped.
   governance system (`enforceAiModes`) only ever touches `props`. Synthesis
   matches that. Section blocks' real styling (colors/layout/theme) lives in
   `props`. Applying block_settings would be a new capability beyond governance.
-- **Legacy `micrositeBlockList` / `defaultMicrositeBlockList` activation is safe.**
-  On DSO paths (`dsoFreeChoice = useDso || useDsoPractices`) the resolver SKIPS the
-  legacy list (only an explicit `pageOutline` is honored). The only SEEDED legacy
-  lists belong to Dandy (which is DSO → excluded). For non-DSO tenants a legacy
-  list only exists if authored via the segment-editor UI — i.e. tenant-authored
-  structure, which is exactly what we want to enforce.
+- **Legacy `micrositeBlockList` / `defaultMicrositeBlockList` is NEVER authoritative
+  on the LP reconcile path** (corrected June 2026 after a real regression). The
+  earlier assumption — "the only seeded legacy lists belong to Dandy which is DSO,
+  so activation is safe" — was WRONG: Dandy has BOTH a DSO path AND a plain non-DSO
+  LP path, and its brand `defaultMicrositeBlockList` (a 7-block MICROSITE list, with
+  NO `defaultPageOutline`) made `outlineActive=true` on the non-DSO LP, so the
+  reconcile dropped every AI block not in the microsite list → pages built a few
+  blocks then HARD-REVERTED to a generic microsite "backup" layout.
+  - Fix: `resolveGenerationOutlineBlocks` takes `honorLegacyBlockList?: boolean`.
+    The AUTHORITATIVE call site (the one feeding `outlineActive` / the reconcile)
+    passes `honorLegacyBlockList: false`, and `brandOutline` is built with
+    `legacyBlockList: null`. So on the LP reconcile path ONLY an explicitly authored
+    `pageOutline` (segment or brand) is authoritative; a legacy block list can never
+    flip `outlineActive`.
+  - The legacy list is NOT dead on LPs: `buildSegmentSection` calls the resolver at
+    the DEFAULT (`honorLegacyBlockList` omitted = true), so a segment's
+    `micrositeBlockList` still appears as a SOFT prompt "PREFERRED BLOCK LIST" hint.
+  - DSO paths unchanged: `dsoFreeChoice` still nulls the legacy list regardless of
+    the new flag.
+  - Brand `defaultMicrositeBlockList` is now MICROSITE-only; a tenant wanting
+    authoritative LP structure must set `defaultPageOutline`.
+
+**Why (this scope decision):** a legacy microsite block list must never collapse a
+landing page into the microsite lineup; LP authority requires an explicit page
+outline. **How to apply:** any "non-DSO LP reverts to a generic/backup layout"
+report → check that the authoritative resolver call still passes
+`honorLegacyBlockList: false` and that no new call site reintroduces brand
+`defaultMicrositeBlockList` into LP `brandOutline`.
 
 **Why:** the request was "AI doesn't use the outline blocks at all even though
 they're in the outline." Root cause was outline = soft hint + catalog-only
