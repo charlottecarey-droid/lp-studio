@@ -309,24 +309,25 @@ export function SectionIconVisual({
 /* ----------------------------------------------------------- item media */
 
 /**
- * Render a per-item PHOTO for the image-led section blocks. When the item has a
- * usable image URL it fills the caller's frame (object-cover); otherwise it
- * degrades to a premium accent-tinted panel with the item's Lucide icon
- * centered — so AI-generated pages (which only ever emit icon names, never image
- * URLs) never show an empty / broken image box. The caller owns the aspect
- * frame + corner radius; this fills it (h-full w-full).
+ * Render a per-item visual into the caller's frame. The unified `value` holds
+ * EITHER an image URL OR a Lucide icon name (see `sectionItemVisualValue`). An
+ * image fills the frame (object-cover); an icon name degrades to a premium
+ * accent-tinted panel with the icon centered — so AI-generated pages (which only
+ * ever emit icon names, never image URLs) never show an empty / broken image
+ * box. The caller owns the aspect frame + corner radius; this fills it
+ * (h-full w-full).
  */
 export function SectionItemMedia({
-  image,
-  icon,
+  value,
   alt,
   accent,
   base,
   imgClassName,
   iconClassName = "h-10 w-10",
 }: {
-  image?: string;
-  icon?: string;
+  /** Unified per-item visual: an image URL renders large, a Lucide icon name
+   *  renders centered on a tinted panel. */
+  value?: string;
   alt?: string;
   /** Accent for the fallback icon + wash (contrast-safe hex). */
   accent: string;
@@ -336,10 +337,10 @@ export function SectionItemMedia({
   imgClassName?: string;
   iconClassName?: string;
 }) {
-  if (isImageIcon(image)) {
+  if (isImageIcon(value)) {
     return (
       <img
-        src={image}
+        src={value}
         alt={alt ?? ""}
         loading="lazy"
         className={cn("h-full w-full object-cover", imgClassName)}
@@ -353,14 +354,24 @@ export function SectionItemMedia({
         background: `linear-gradient(135deg, color-mix(in srgb, ${accent} 18%, ${base}), color-mix(in srgb, ${accent} 6%, ${base}))`,
       }}
     >
-      <IconOrImage value={icon} className={iconClassName} style={{ color: accent }} />
+      <IconOrImage value={value} className={iconClassName} style={{ color: accent }} />
     </div>
   );
 }
 
-/** True when the item carries a usable photo URL (vs. a Lucide icon name). */
-export const sectionItemHasImage = (item: { image?: string }): boolean =>
-  isImageIcon(item.image);
+/**
+ * The unified per-item visual value. The `icon` field is the source of truth: it
+ * holds EITHER a Lucide icon name OR (when an author picks a photo in the
+ * builder) an image URL. A legacy `image` URL is honored only when `icon` is not
+ * itself an image URL. AI output only ever emits icon names, so items render
+ * icon-first.
+ */
+export const sectionItemVisualValue = (item: { icon?: string; image?: string }): string | undefined =>
+  isImageIcon(item.icon) ? item.icon : isImageIcon(item.image) ? item.image : item.icon;
+
+/** True when the item's unified visual is a usable photo URL (vs. a Lucide icon name). */
+export const sectionItemHasImage = (item: { icon?: string; image?: string }): boolean =>
+  isImageIcon(sectionItemVisualValue(item));
 
 /* -------------------------------------------------------------- item text */
 

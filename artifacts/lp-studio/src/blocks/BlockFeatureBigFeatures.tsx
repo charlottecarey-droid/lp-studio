@@ -16,7 +16,7 @@ import {
   alignItemsClass,
   alignTextClass,
   sectionRadiusClass,
-  sectionItemHasImage,
+  sectionItemVisualValue,
   useSectionTheme,
   SectionHeader,
   SectionItemMedia,
@@ -61,7 +61,7 @@ export function BlockFeatureBigFeatures({
   const isBuilder = !!onFieldChange;
   const theme = useSectionTheme(props, brand);
   // Per-card copy alignment is author-editable; the section header is always centered.
-  const align = props.align ?? "left";
+  const align = props.align ?? "center";
   const items = props.items ?? [];
   const radius = sectionRadiusClass(props.cardRadius);
   const isCard = (props.imageTreatment ?? "card") === "card";
@@ -119,7 +119,7 @@ export function BlockFeatureBigFeatures({
         {items.length > 0 && (
           <div className="mt-12 flex flex-col gap-8 sm:mt-16">
             {items.map((item, i) => {
-              const hasImage = sectionItemHasImage(item);
+              const hasMedia = !!sectionItemVisualValue(item);
               // "alternate" (default) flips sides down the stack; "left"/"right"
               // pin the photo to the same side on every card.
               const imageSide = props.imageSide ?? "alternate";
@@ -133,7 +133,7 @@ export function BlockFeatureBigFeatures({
                     isCard ? "p-8 sm:p-12" : "",
                     alignItemsClass(align),
                     alignTextClass(align),
-                    hasImage && !imageRight ? "lg:order-2" : "",
+                    hasMedia && !imageRight ? "lg:order-2" : "",
                   )}
                 >
                   <SectionItemTitle
@@ -176,7 +176,7 @@ export function BlockFeatureBigFeatures({
                 </div>
               );
 
-              const mediaSide = hasImage ? (
+              const mediaSide = hasMedia ? (
                 <div
                   className={cn(
                     "relative min-h-[280px] w-full overflow-hidden",
@@ -185,8 +185,7 @@ export function BlockFeatureBigFeatures({
                   )}
                 >
                   <SectionItemMedia
-                    image={item.image}
-                    icon={item.icon}
+                    value={sectionItemVisualValue(item)}
                     accent={mediaAccent}
                     base={theme.surface.base}
                     alt={item.title}
@@ -202,7 +201,7 @@ export function BlockFeatureBigFeatures({
                     key={i}
                     className={cn(
                       "grid grid-cols-1 overflow-hidden",
-                      hasImage ? "lg:grid-cols-2" : "",
+                      hasMedia ? "lg:grid-cols-2" : "",
                       radius,
                     )}
                     style={{
@@ -221,7 +220,7 @@ export function BlockFeatureBigFeatures({
                   key={i}
                   className={cn(
                     "grid grid-cols-1 items-center",
-                    hasImage ? "gap-8 lg:grid-cols-2 lg:gap-16" : "",
+                    hasMedia ? "gap-8 lg:grid-cols-2 lg:gap-16" : "",
                   )}
                 >
                   {textSide}

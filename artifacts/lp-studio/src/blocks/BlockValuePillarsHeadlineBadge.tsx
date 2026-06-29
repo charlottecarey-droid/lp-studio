@@ -14,6 +14,7 @@ import {
   SectionIconVisual,
   SectionItemMedia,
   sectionItemHasImage,
+  sectionItemVisualValue,
   SectionItemTitle,
   SectionItemBody,
   SectionCtas,
@@ -116,8 +117,7 @@ export function BlockValuePillarsHeadlineBadge({
                   {hasImage && (
                     <div className="relative h-40 w-full overflow-hidden">
                       <SectionItemMedia
-                        image={item.image}
-                        icon={item.icon}
+                        value={sectionItemVisualValue(item)}
                         accent={theme.accent}
                         base={theme.surface.base}
                         alt={item.title}
@@ -133,16 +133,18 @@ export function BlockValuePillarsHeadlineBadge({
                       aria-hidden
                       className="pointer-events-none absolute inset-0 bg-black/10 mix-blend-overlay"
                     />
-                    <span className="relative z-10 inline-flex shrink-0">
-                      <SectionIconVisual
-                        value={item.icon}
-                        color={barInk}
-                        iconClassName="h-5 w-5"
-                        imageClassName="h-8 w-8"
-                        alt={item.title}
-                        withTile={false}
-                      />
-                    </span>
+                    {!hasImage && (
+                      <span className="relative z-10 inline-flex shrink-0">
+                        <SectionIconVisual
+                          value={item.icon}
+                          color={barInk}
+                          iconClassName="h-5 w-5"
+                          imageClassName="h-8 w-8"
+                          alt={item.title}
+                          withTile={false}
+                        />
+                      </span>
+                    )}
                     <SectionItemTitle
                       value={item.title}
                       onUpdate={isBuilder ? (v) => updateItem(i, { title: v }) : undefined}

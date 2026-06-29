@@ -11,6 +11,7 @@ import {
   useSectionTheme,
   SectionHeader,
   SectionItemMedia,
+  sectionItemVisualValue,
   SectionItemTitle,
   SectionItemBody,
   SectionItemLink,
@@ -90,8 +91,7 @@ export function BlockFeaturePhotoCards({
                   style={{ backgroundColor: frameTint }}
                 >
                   <SectionItemMedia
-                    image={item.image}
-                    icon={item.icon}
+                    value={sectionItemVisualValue(item)}
                     accent={theme.accent}
                     base={theme.surface.base}
                     alt={item.title}

@@ -16,6 +16,7 @@ import {
   SectionIconVisual,
   SectionItemMedia,
   sectionItemHasImage,
+  sectionItemVisualValue,
   SectionItemTitle,
   SectionItemBody,
   SectionItemLink,
@@ -115,8 +116,7 @@ export function BlockValuePillarsColorBlockCards({
                   {hasImage && (
                     <div className="aspect-[16/9] w-full overflow-hidden">
                       <SectionItemMedia
-                        image={item.image}
-                        icon={item.icon}
+                        value={sectionItemVisualValue(item)}
                         accent={cardAccent}
                         base={cardSurface}
                         alt={item.title}
@@ -131,18 +131,20 @@ export function BlockValuePillarsColorBlockCards({
                       alignTextClass(align),
                     )}
                   >
-                    <div className="mb-6">
-                      <SectionIconVisual
-                        value={item.icon}
-                        color={cardAccent}
-                        tileClassName={cn(sz?.tile ?? "h-12 w-12", "shadow-sm")}
-                        tileBg={chipBg}
-                        radiusClass={radius}
-                        iconClassName={sz?.icon ?? "h-6 w-6"}
-                        imageClassName={sz?.image}
-                        alt={item.title}
-                      />
-                    </div>
+                    {!hasImage && (
+                      <div className="mb-6">
+                        <SectionIconVisual
+                          value={item.icon}
+                          color={cardAccent}
+                          tileClassName={cn(sz?.tile ?? "h-12 w-12", "shadow-sm")}
+                          tileBg={chipBg}
+                          radiusClass={radius}
+                          iconClassName={sz?.icon ?? "h-6 w-6"}
+                          imageClassName={sz?.image}
+                          alt={item.title}
+                        />
+                      </div>
+                    )}
                     <SectionItemTitle
                       value={item.title}
                       onUpdate={isBuilder ? (v) => updateItem(i, { title: v }) : undefined}

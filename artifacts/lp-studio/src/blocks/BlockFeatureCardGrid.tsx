@@ -12,6 +12,7 @@ import {
   useSectionTheme,
   SectionHeader,
   SectionItemMedia,
+  sectionItemVisualValue,
   SectionItemTitle,
   SectionItemBody,
   SectionCtas,
@@ -106,8 +107,7 @@ export function BlockFeatureCardGrid({
                   style={{ backgroundColor: frameTint }}
                 >
                   <SectionItemMedia
-                    image={item.image}
-                    icon={item.icon}
+                    value={sectionItemVisualValue(item)}
                     accent={theme.accent}
                     base={theme.surface.base}
                     alt={item.title}
