@@ -1,12 +1,14 @@
 /**
- * Task #1411 — recipe-driven layout VARIETY is scoped to neutral-freeform ONLY.
+ * Recipe-driven layout VARIETY is scoped to the FREEFORM paths.
  *
- * The route only resolves a `micrositeRecipe` on the neutral-freeform path, and
- * buildSystemPrompt only consumes it in the `useFreeform && !hasOutlineFixedList`
- * branch. The DSO-freeform and segment-pool branches return BEFORE it, and the
- * template/outline paths never enter the freeform branch. These tests lock that
- * scoping so a future change can't leak the recipe suggestion into DSO,
- * segment-pool, template, or outline generations (which must stay unchanged).
+ * The route resolves a `micrositeRecipe` on the neutral-freeform path (the
+ * "microsite" recipe group) AND on the DSO-freeform path (the "dso" /
+ * "dso-practices" groups, the same ones the landing pages rotate).
+ * buildSystemPrompt consumes it in both the `useFreeform` branch and the
+ * `dsoFreeformMode` branch. The segment-pool, template, and outline paths never
+ * inject it. These tests lock that scoping so a future change can't (a) leak the
+ * recipe suggestion into segment-pool / template / outline generations, nor
+ * (b) silently DROP it from the DSO path.
  *
  * Positional buildSystemPrompt args (mirrors the route call + sibling tests):
  *   segment, brand, templateBlockTypes, accountSegment, useFreeform,
@@ -59,12 +61,17 @@ describe("buildSystemPrompt — microsite recipe injection scoping (Task #1411)"
     expect(prompt).not.toContain(FREESTYLE_MARKER);
   });
 
-  it("does NOT inject the recipe on the DSO-freeform path", () => {
+  it("injects the recipe's suggested flow on the DSO-freeform path", () => {
     const prompt = buildSystemPrompt(
       CORE, BRAND, undefined, null, /*useFreeform*/ false, undefined, /*dsoFreeformMode*/ "practices", [], false, undefined, undefined, new Set(), RECIPE,
     );
-    expect(prompt).not.toContain(`"${RECIPE.label}"`);
-    expect(prompt).not.toContain("STARTING SUGGESTION");
+    // DSO microsites now rotate the same DSO recipe groups as the landing pages,
+    // injected as an adaptable suggestion within the DSO hero-first /
+    // dso-final-cta-last rules.
+    expect(prompt).toContain(`"${RECIPE.label}"`);
+    expect(prompt).toContain("STARTING SUGGESTION");
+    // The neutral-freeform freestyle override stays scoped to neutral-freeform.
+    expect(prompt).not.toContain(FREESTYLE_MARKER);
   });
 
   it("does NOT inject the recipe on the fixed-list (template/curated) path", () => {

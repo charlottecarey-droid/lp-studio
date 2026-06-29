@@ -101,7 +101,7 @@ import { findBannedPhrases } from "../../lib/ai-prompts/banned-phrase-validator"
 import { critiqueAndRewriteBlocks } from "../../lib/ai-prompts/critique-pass";
 import { normalizeHeadingsToSentenceCase } from "../../lib/ai-prompts/sentence-case-normalizer";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
-import type { PageRecipe } from "../../lib/ai-prompts/page-recipes";
+import type { PageRecipe, RecipePromptPath } from "../../lib/ai-prompts/page-recipes";
 import { RECIPE_FREESTYLE_OVERRIDE_CLAUSE } from "../../lib/ai-prompts/page-recipes";
 import { loadEffectiveRecipesForPath } from "../../lib/ai-prompts/page-recipe-overrides";
 import { FREEFORM_ROLE_HINTS } from "../../lib/ai-prompts/microsite-block-vocab";
@@ -2160,21 +2160,24 @@ export function detectDsoVocabMode(
 }
 
 // Name-based DSO vocab detection — mirrors the landing-page path's detection
-// (segment name containing "practice" → DSO Practices, "dso" → DSO enterprise).
+// (generate-page.ts: a segment is a DSO audience ONLY when its name contains
+// "dso"; "dso" + "practice(s)" → DSO Practices, a bare "dso" → DSO enterprise).
 // This is a FALLBACK used only when the curated list doesn't disambiguate (e.g.
-// a DSO-named segment whose micrositeBlockList is empty or non-DSO), so a DSO
-// segment still composes from the DSO vocabulary instead of the neutral set.
-// The CALLER gates this to the Dandy tenant (the DSO product owner) so the
+// a DSO-named segment whose micrositeBlockList is empty or has been removed), so
+// a DSO segment still composes from the DSO vocabulary instead of the neutral
+// set. The CALLER gates this to the Dandy tenant (the DSO product owner) so the
 // DSO/dental vocabulary can NEVER leak onto a non-DSO tenant's microsite.
-// "practice" is checked first because a name can mention both ("DSO practices").
+// A bare "practice" substring must NOT qualify: a standalone non-DSO segment
+// like "Private Practice" stays neutral (and uses the regular recipes), exactly
+// as on the landing-page path — otherwise removing its curated list would wrongly
+// route it into the DSO practices vocabulary.
 export function detectDsoVocabModeFromName(
   name: string | undefined | null,
 ): DsoVocabMode | null {
   const n = (name ?? "").toLowerCase();
-  if (!n) return null;
+  if (!n.includes("dso")) return null;
   if (n.includes("practice")) return "practices";
-  if (n.includes("dso")) return "enterprise";
-  return null;
+  return "enterprise";
 }
 
 // Canonical block types that REQUIRE real, populated content to be worth
@@ -3094,12 +3097,23 @@ export function buildSystemPrompt(
     const heroLine = isPractices
       ? "- Open with EXACTLY ONE \"dso-practice-hero\" (first). You MAY precede it with a single \"dso-practice-nav\"."
       : "- Open with EXACTLY ONE hero (\"dso-heartland-hero\") first.";
+    // DSO recipe routing — when a DSO recipe resolved (from the superadmin
+    // "dso" / "dso-practices" groups, the same ones the landing pages rotate),
+    // offer its section flow + art-direction as an ADAPTABLE suggestion. The DSO
+    // recipe vocabulary is richer than this microsite DSO set, so the model is
+    // told to swap any unavailable suggested block for one of the AVAILABLE
+    // BLOCKS above; the post-generation clamp drops any straggler. The hero-first
+    // / dso-final-cta-last rules and explicit user requests still win.
+    const dsoRecipeLine = micrositeRecipe
+      ? `- Suggested flow for THIS page — "${micrositeRecipe.label}" (${micrositeRecipe.description}): ${micrositeRecipe.skeleton.join(" → ")}. ${micrositeRecipe.styleNotes} Treat this as a STARTING SUGGESTION to adapt, not a fixed template: where an entry offers alternatives ("a OR b") pick whichever best fits THIS account, swap any suggested block for a better-fitting one from the AVAILABLE BLOCKS above (some suggested blocks may not be available here — replace those), and vary it for this specific account — but ALWAYS keep exactly one hero first and "dso-final-cta" last. EXPLICIT USER REQUESTS OVERRIDE THIS SUGGESTION.`
+      : null;
     const dsoFreeformFooter = [
       "",
       "LAYOUT — YOU choose the sections (this page has NO fixed block list):",
       heroLine,
       `- Pick ${countRange} blocks TOTAL from the AVAILABLE BLOCKS that best tell THIS account's story, and END with \"dso-final-cta\" (add a \"footer\" after it only if you include one).`,
       "- Vary BOTH the selection AND the order across accounts — do NOT emit the same sequence every time. Choose based on THIS account: the brief's emphasis, account size/segment, the REFERENCE PAGE, and the EXAMPLES above.",
+      ...(dsoRecipeLine ? [dsoRecipeLine] : []),
       "- Include at least one proof/metrics section and at least one feature/benefit section where they fit. Skip sections that don't fit; NEVER pad with empty or stub blocks.",
       "- Use ONLY the exact block type strings listed above. NEVER invent block types, NEVER use business-case blocks, and NEVER mix in the other DSO product's blocks.",
       "",
@@ -3977,19 +3991,28 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // audience's TARGET SEGMENT directive onto a page that should read as core.
     const accountSegmentForPrompt = pickedSegment ? account.segment : null;
 
-    // Task #1411 — neutral-freeform microsites rotate a superadmin-configurable
-    // page RECIPE so the layout VARIES per account instead of converging on one
-    // fixed lineup. Deterministic: same tenant + account + segment → same recipe
-    // across runs (so a page reads like itself; regenerating is stable).
-    // loadEffectiveRecipesForPath already fails open to the code recipes (or []
-    // on a hard failure); an empty / throwing pool leaves micrositeRecipe null →
-    // the generic freeform flow. Gated on useFreeform (the neutral-freeform path)
-    // and never reached when an outline is active, so Dandy / DSO / template /
-    // outline / segment-pool paths are untouched.
+    // Task #1411 / DSO recipe routing — freeform microsites rotate a
+    // superadmin-configurable page RECIPE so the layout VARIES per account
+    // instead of converging on one fixed lineup. DSO audiences draw from the
+    // SAME DSO recipe groups the superadmin maker exposes for Dandy landing
+    // pages (enterprise → "dso", practices → "dso-practices"); every other
+    // freeform microsite uses the neutral "microsite" group. Deterministic: same
+    // tenant + account + segment → same recipe across runs (so a page reads like
+    // itself; regenerating is stable). loadEffectiveRecipesForPath fails open to
+    // the code recipes (or [] on a hard failure); an empty / throwing pool leaves
+    // micrositeRecipe null → the generic flow. Never reached when an outline is
+    // active or on the template / segment-pool paths, so those stay untouched.
     let micrositeRecipe: PageRecipe | null = null;
-    if (useFreeform && !outlineActive) {
+    const recipePath: RecipePromptPath | null = useDsoFreeform
+      ? dsoFreeformMode === "practices"
+        ? "dso-practices"
+        : "dso"
+      : useFreeform
+        ? "microsite"
+        : null;
+    if (recipePath && !outlineActive) {
       try {
-        const recipePool = await loadEffectiveRecipesForPath("microsite");
+        const recipePool = await loadEffectiveRecipesForPath(recipePath);
         if (recipePool.length > 0) {
           micrositeRecipe =
             recipePool[
@@ -3999,7 +4022,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         }
       } catch (err) {
         logger.warn(
-          { event: "microsite_recipe_load_failed", err: String(err), tenantId, accountId },
+          { event: "microsite_recipe_load_failed", err: String(err), tenantId, accountId, recipePath },
           "[generate-microsite] recipe load failed — falling back to the generic freeform flow",
         );
       }

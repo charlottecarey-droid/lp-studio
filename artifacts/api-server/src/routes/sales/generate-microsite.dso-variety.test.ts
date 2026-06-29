@@ -70,10 +70,11 @@ describe("detectDsoVocabMode", () => {
 
 describe("detectDsoVocabModeFromName", () => {
   // Name-based fallback (Dandy-gated by the caller) for when a DSO segment's
-  // curated list doesn't disambiguate. Mirrors the landing-page detection.
-  it("maps a 'practice' name to the practices vocabulary", () => {
+  // curated list doesn't disambiguate. Mirrors the landing-page detection: a
+  // segment is only a DSO audience when its name contains "dso".
+  it("maps a 'dso practice(s)' name to the practices vocabulary", () => {
     expect(detectDsoVocabModeFromName("DSO Practices")).toBe("practices");
-    expect(detectDsoVocabModeFromName("Practice owners")).toBe("practices");
+    expect(detectDsoVocabModeFromName("DSO Practices (Land & Expand)")).toBe("practices");
   });
 
   it("maps a 'dso' name (without 'practice') to the enterprise vocabulary", () => {
@@ -83,6 +84,14 @@ describe("detectDsoVocabModeFromName", () => {
 
   it("prefers practices when a name mentions both DSO and practice", () => {
     expect(detectDsoVocabModeFromName("DSO practice groups")).toBe("practices");
+  });
+
+  it("does NOT treat a bare 'practice' name (no 'dso') as a DSO audience", () => {
+    // Regression: "Private Practice" is a standalone NON-DSO segment that must
+    // use the regular recipes. A bare "practice" substring must never route it
+    // into the DSO practices vocabulary once its curated list is removed.
+    expect(detectDsoVocabModeFromName("Private Practice")).toBeNull();
+    expect(detectDsoVocabModeFromName("Practice owners")).toBeNull();
   });
 
   it("returns null for a non-DSO segment name", () => {
