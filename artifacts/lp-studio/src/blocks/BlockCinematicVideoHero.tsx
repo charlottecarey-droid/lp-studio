@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import { motion } from "framer-motion";
 import { Play, Pause, ChevronRight } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
-import { isValidHex, pickCtaButtonColors } from "@/lib/brand-config";
+import { isValidHex, pickCtaButtonColors, getHeadingLetterSpacingClass } from "@/lib/brand-config";
 import type { CinematicVideoHeroBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
@@ -494,14 +494,13 @@ export function BlockCinematicVideoHero({ props, brand, onCtaClick, onFieldChang
             as="h1"
             value={props.headline}
             onUpdate={field("headline")}
-            className="mb-6 text-glow"
+            className={`mb-6 text-glow ${getHeadingLetterSpacingClass(brand)}`}
             style={{
               fontFamily: headlineFamily,
               fontSize: lowerThird
                 ? "clamp(2.5rem, 5.5vw + 0.5rem, 5.25rem)"
                 : "clamp(2.75rem, 6.5vw + 0.5rem, 6.5rem)",
               lineHeight: 1.06,
-              letterSpacing: "0.015em",
             }}
           />
         </motion.div>
