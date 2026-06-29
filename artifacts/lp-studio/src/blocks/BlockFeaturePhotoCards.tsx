@@ -83,8 +83,9 @@ export function BlockFeaturePhotoCards({
         />
 
         {items.length > 0 && (
-          <div className="mx-auto mt-12 grid max-w-xl grid-cols-1 gap-6 pb-2 sm:mt-16 sm:max-w-none sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((item, i) => (
+          <div className="@container mt-12 sm:mt-16">
+            <div className="mx-auto grid max-w-xl grid-cols-1 gap-6 pb-2 @xl:max-w-none @xl:grid-cols-2 @4xl:grid-cols-3">
+              {items.map((item, i) => (
               <div key={i} className="group relative">
                 <div
                   className={cn("aspect-[3/4] w-full overflow-hidden", radius)}
@@ -130,7 +131,8 @@ export function BlockFeaturePhotoCards({
                   />
                 </div>
               </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
