@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { lpPagesTable } from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
+import { getTenantId } from "../../middleware/requireAuth";
 
 const router = Router();
 
@@ -13,6 +15,14 @@ const IMAGE_ARRAY_SPECS = [
   { field: "cases",    key: "image" },
   { field: "images",   key: "src" },
 ];
+
+// Scan only the tenant's most-recently-edited pages and hand back a bounded set
+// of distinct image URLs. Without these caps the picker would (a) leak every
+// other tenant's imagery on the shared DB and (b) ask the browser to decode
+// hundreds of full-resolution images at once, which crashes mobile Safari's
+// image decoder and renders the thumbnails as scrambled/garbled tiles.
+const MAX_PAGES_SCANNED = 40;
+const MAX_URLS_RETURNED = 40;
 
 function extractImageUrls(blocks: unknown[]): string[] {
   const urls: string[] = [];
@@ -33,14 +43,24 @@ function extractImageUrls(blocks: unknown[]): string[] {
   return urls;
 }
 
-router.get("/lp/in-use-images", async (_req, res): Promise<void> => {
+router.get("/lp/in-use-images", async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res);
+  if (tenantId === null) return;
   try {
-    const pages = await db.select({ blocks: lpPagesTable.blocks }).from(lpPagesTable);
+    const pages = await db
+      .select({ blocks: lpPagesTable.blocks })
+      .from(lpPagesTable)
+      .where(eq(lpPagesTable.tenantId, tenantId))
+      .orderBy(desc(lpPagesTable.updatedAt))
+      .limit(MAX_PAGES_SCANNED);
     const urlSet = new Set<string>();
-    for (const page of pages) {
+    outer: for (const page of pages) {
       if (!Array.isArray(page.blocks)) continue;
       for (const url of extractImageUrls(page.blocks)) {
-        if (url.startsWith("http")) urlSet.add(url);
+        if (url.startsWith("http")) {
+          urlSet.add(url);
+          if (urlSet.size >= MAX_URLS_RETURNED) break outer;
+        }
       }
     }
     res.json({ urls: [...urlSet] });

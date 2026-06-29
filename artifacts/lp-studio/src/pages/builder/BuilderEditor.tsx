@@ -141,6 +141,32 @@ function genBlockId(type: string) {
 
 const API_BASE = "/api";
 
+/** One thumbnail in the OG "images in use" picker. Decoded lazily/async so a
+ *  long list never exhausts a phone's image-decode memory (which renders the
+ *  tiles as scrambled garbage), and self-hides on load failure without
+ *  mutating the DOM out from under React. */
+function OgInUseThumb({ url, onPick }: { url: string; onPick: (url: string) => void }) {
+  const [broken, setBroken] = useState(false);
+  if (broken) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => onPick(url)}
+      className="aspect-video rounded overflow-hidden border border-transparent hover:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)] bg-muted"
+    >
+      <img
+        src={url}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        className="w-full h-full object-cover"
+        onError={() => setBroken(true)}
+      />
+    </button>
+  );
+}
+
 interface FetchedPage {
   id: number;
   title: string;
@@ -2637,11 +2663,21 @@ export default function BuilderEditor() {
     setCapturingOg(true);
     try {
       const { toBlob } = await import("html-to-image");
-      // Capture the canvas at current size
+      // Capture the canvas at current size.
       const blob = await toBlob(el, {
-        cacheBust: true,
+        // cacheBust appends ?t=… to every resource, forcing fresh cross-origin
+        // re-fetches that fail CORS (dropping the imagery); keep it off.
+        cacheBust: false,
         pixelRatio: 1,
         backgroundColor: "#ffffff",
+        // Inlining every @font-face — especially cross-origin Google Fonts — is
+        // what makes capture hang/freeze on large pages. Skip it and let text
+        // fall back to a system font in the share image.
+        skipFonts: true,
+        // A 1×1 transparent pixel for any image html-to-image still can't fetch,
+        // so one un-inlinable asset can't abort the whole capture.
+        imagePlaceholder:
+          "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
         filter: (node: HTMLElement) => {
           // Filter out drag handles / selection outlines that shouldn't appear in OG
           if (node.dataset?.noog === "true") return false;
@@ -3633,14 +3669,11 @@ export default function BuilderEditor() {
                       ) : (
                         <div className="grid grid-cols-3 gap-1 p-1.5 max-h-48 overflow-y-auto">
                           {inUseImages.map(url => (
-                            <button
+                            <OgInUseThumb
                               key={url}
-                              type="button"
-                              onClick={() => { setOgImage(url); setOgPickerOpen(false); setTimeout(handleSave, 100); }}
-                              className="aspect-video rounded overflow-hidden border border-transparent hover:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)] bg-muted"
-                            >
-                              <img src={url} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = "none"; }} />
-                            </button>
+                              url={url}
+                              onPick={u => { setOgImage(u); setOgPickerOpen(false); setTimeout(handleSave, 100); }}
+                            />
                           ))}
                         </div>
                       )}

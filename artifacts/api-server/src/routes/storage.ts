@@ -1357,6 +1357,12 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     // (e.g. an uploaded logo shows a broken-image icon in the preview), so
     // relax CORP to `cross-origin` for this public serve path only.
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    // The builder's "Capture Page" OG screenshot uses html-to-image, which
+    // fetches each in-page image and inlines its bytes onto a canvas. Without
+    // an explicit Access-Control-Allow-Origin the fetch is opaque and the
+    // image is silently dropped from the capture (headline on a blank
+    // background, no imagery). These are public assets, so allow any origin.
+    res.setHeader("Access-Control-Allow-Origin", "*");
 
     if (response.body) {
       const nodeStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
