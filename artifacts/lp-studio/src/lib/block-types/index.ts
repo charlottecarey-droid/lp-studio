@@ -141,6 +141,7 @@ export type {
   MediaFeatureReelFeature,
   SectionAlign,
   SectionRadius,
+  SectionMediaSize,
   SectionCtaVariant,
   SectionFeatureItem,
   SectionBlockBase,

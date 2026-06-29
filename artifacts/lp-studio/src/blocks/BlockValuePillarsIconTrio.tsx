@@ -9,6 +9,7 @@ import {
   alignItemsClass,
   alignTextClass,
   sectionRadiusClass,
+  sectionIconVisualSize,
   useSectionTheme,
   SectionHeader,
   SectionIconVisual,
@@ -47,6 +48,7 @@ export function BlockValuePillarsIconTrio({
   const align = props.align ?? "center";
   const items = props.items ?? [];
   const radius = sectionRadiusClass(props.cardRadius);
+  const sz = sectionIconVisualSize(props.mediaSize);
 
   const update = (patch: Partial<ValuePillarsIconTrioBlockProps>) =>
     onFieldChange?.({ ...props, ...patch });
@@ -87,9 +89,11 @@ export function BlockValuePillarsIconTrio({
                   <SectionIconVisual
                     value={item.icon}
                     color={theme.accent}
-                    tileClassName="h-16 w-16"
+                    tileClassName={sz?.tile ?? "h-16 w-16"}
                     tileBg={`color-mix(in srgb, ${theme.accent} 12%, ${theme.surface.base})`}
                     radiusClass={radius}
+                    iconClassName={sz?.icon ?? "h-8 w-8"}
+                    imageClassName={sz?.image}
                     alt={item.title}
                   />
                 </div>

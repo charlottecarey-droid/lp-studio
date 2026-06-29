@@ -256,6 +256,13 @@ export type SectionAlign = "left" | "center" | "right";
 /** Corner-radius scale for cards / icon tiles / images. Maps to rounded-*. */
 export type SectionRadius = "none" | "sm" | "md" | "lg" | "xl" | "2xl" | "3xl";
 
+/**
+ * Icon / image size for the icon-led section blocks (and the FeatureCardGrid
+ * column count). Unset keeps each block's built-in default; "sm"/"md"/"lg"
+ * scale the per-item visual up or down.
+ */
+export type SectionMediaSize = "sm" | "md" | "lg";
+
 /** Button render style for a section CTA: filled / outline / text link. */
 export type SectionCtaVariant = "primary" | "secondary" | "link";
 
@@ -281,6 +288,14 @@ export interface SectionFeatureItem {
   description?: string;
   /** Small secondary label shown under a feature's CTA (big-features). */
   note?: string;
+  /**
+   * Optional per-card "Learn more →" link label. Shown on the carded section
+   * blocks that carried a per-card link in their mockups (color-block-cards,
+   * outlined-cards, divided-columns, card-columns, photo-cards). Empty = no link.
+   */
+  linkLabel?: string;
+  /** Optional per-card link URL. When set the label renders as a real <a>. */
+  linkUrl?: string;
 }
 
 /**
@@ -309,6 +324,11 @@ export interface SectionBlockBase extends CtaModalConfig {
   accentColor?: string;
   /** Corner radius for cards / icon tiles / images. Defaults to "2xl". */
   cardRadius?: SectionRadius;
+  /**
+   * Icon / image size for the icon-led blocks (scales the per-item icon visual)
+   * and the FeatureCardGrid (column count). Unset keeps the block default.
+   */
+  mediaSize?: SectionMediaSize;
   items: SectionFeatureItem[];
 
   /** Primary CTA. Inherits the page CTA when left at its canonical defaults. */

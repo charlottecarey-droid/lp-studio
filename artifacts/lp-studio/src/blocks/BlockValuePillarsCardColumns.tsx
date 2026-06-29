@@ -9,11 +9,13 @@ import {
   alignItemsClass,
   alignTextClass,
   sectionRadiusClass,
+  sectionIconVisualSize,
   useSectionTheme,
   SectionHeader,
   SectionIconVisual,
   SectionItemTitle,
   SectionItemBody,
+  SectionItemLink,
   SectionCtas,
 } from "./shared/section-kit";
 
@@ -49,6 +51,7 @@ export function BlockValuePillarsCardColumns({
   const align = props.align ?? "center";
   const items = props.items ?? [];
   const radius = sectionRadiusClass(props.cardRadius);
+  const sz = sectionIconVisualSize(props.mediaSize);
 
   const hairline = theme.surface.isDark
     ? "rgba(255,255,255,0.10)"
@@ -88,20 +91,22 @@ export function BlockValuePillarsCardColumns({
               <div
                 key={i}
                 className={cn(
-                  "flex flex-col p-8 border transition-all duration-300 hover:-translate-y-1 hover:shadow-lg",
+                  "flex flex-col p-6 border transition-all duration-300 hover:-translate-y-1 hover:shadow-lg",
                   radius,
                   alignItemsClass(align),
                   alignTextClass(align),
                 )}
                 style={{ backgroundColor: theme.cardBg, borderColor: hairline }}
               >
-                <div className="mb-6">
+                <div className="mb-5">
                   <SectionIconVisual
                     value={item.icon}
                     color={theme.cardAccent}
-                    tileClassName="h-14 w-14"
+                    tileClassName={sz?.tile ?? "h-14 w-14"}
                     tileBg={`color-mix(in srgb, ${theme.cardAccent} 12%, ${theme.cardBg})`}
                     radiusClass={radius}
+                    iconClassName={sz?.icon ?? "h-8 w-8"}
+                    imageClassName={sz?.image}
                     alt={item.title}
                   />
                 </div>
@@ -115,6 +120,11 @@ export function BlockValuePillarsCardColumns({
                   onUpdate={isBuilder ? (v) => updateItem(i, { description: v }) : undefined}
                   color={theme.cardMuted}
                   className="mt-3"
+                />
+                <SectionItemLink
+                  label={item.linkLabel}
+                  url={item.linkUrl}
+                  color={theme.cardAccent}
                 />
               </div>
             ))}

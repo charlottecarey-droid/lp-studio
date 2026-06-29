@@ -4,11 +4,13 @@ import type {
   SectionFeatureItem,
 } from "@/lib/block-types";
 import { cn } from "@/lib/utils";
+import { isValidHex } from "@/lib/brand-config";
 import { BRAND_BODY_FONT } from "@/lib/brand-fonts";
 import {
   alignItemsClass,
   alignTextClass,
   sectionRadiusClass,
+  sectionIconVisualSize,
   useSectionTheme,
   SectionHeader,
   SectionIconVisual,
@@ -16,6 +18,7 @@ import {
   sectionItemHasImage,
   SectionItemTitle,
   SectionItemBody,
+  SectionItemLink,
   SectionCtas,
 } from "./shared/section-kit";
 
@@ -52,9 +55,21 @@ export function BlockValuePillarsColorBlockCards({
   const align = props.align ?? "center";
   const items = props.items ?? [];
   const radius = sectionRadiusClass(props.cardRadius);
+  const sz = sectionIconVisualSize(props.mediaSize);
 
-  // A subtle accent wash over the section base — derived, never a baked literal.
-  const cardTint = `color-mix(in srgb, ${theme.accent} 8%, ${theme.surface.base})`;
+  // Honor an explicit card color when the author sets one: resolve the card's
+  // ink / accent / icon-chip against it. Otherwise keep the signature accent
+  // wash over the section base (derived, never a baked literal).
+  const hasCardColor = isValidHex(props.cardBgColor ?? "");
+  const cardSurface = hasCardColor
+    ? theme.cardBg
+    : `color-mix(in srgb, ${theme.accent} 8%, ${theme.surface.base})`;
+  const cardTitleInk = hasCardColor ? theme.cardInk : theme.ink;
+  const cardBodyInk = hasCardColor ? theme.cardMuted : theme.muted;
+  const cardAccent = hasCardColor ? theme.cardAccent : theme.accent;
+  const chipBg = hasCardColor
+    ? `color-mix(in srgb, ${theme.cardAccent} 14%, ${theme.cardBg})`
+    : theme.surface.base;
 
   const update = (patch: Partial<ValuePillarsColorBlockCardsBlockProps>) =>
     onFieldChange?.({ ...props, ...patch });
@@ -95,15 +110,15 @@ export function BlockValuePillarsColorBlockCards({
                     "flex flex-col overflow-hidden shadow-sm transition-all duration-300 motion-safe:hover:-translate-y-1 hover:shadow-md",
                     radius,
                   )}
-                  style={{ backgroundColor: cardTint }}
+                  style={{ backgroundColor: cardSurface }}
                 >
                   {hasImage && (
                     <div className="aspect-[16/9] w-full overflow-hidden">
                       <SectionItemMedia
                         image={item.image}
                         icon={item.icon}
-                        accent={theme.accent}
-                        base={theme.surface.base}
+                        accent={cardAccent}
+                        base={cardSurface}
                         alt={item.title}
                         imgClassName="transition-transform duration-700 hover:scale-105"
                       />
@@ -119,26 +134,32 @@ export function BlockValuePillarsColorBlockCards({
                     <div className="mb-6">
                       <SectionIconVisual
                         value={item.icon}
-                        color={theme.accent}
-                        tileClassName="h-12 w-12 shadow-sm"
-                        tileBg={theme.surface.base}
+                        color={cardAccent}
+                        tileClassName={cn(sz?.tile ?? "h-12 w-12", "shadow-sm")}
+                        tileBg={chipBg}
                         radiusClass="rounded-xl"
-                        iconClassName="h-6 w-6"
+                        iconClassName={sz?.icon ?? "h-6 w-6"}
+                        imageClassName={sz?.image}
                         alt={item.title}
                       />
                     </div>
                     <SectionItemTitle
                       value={item.title}
                       onUpdate={isBuilder ? (v) => updateItem(i, { title: v }) : undefined}
-                      color={theme.ink}
+                      color={cardTitleInk}
                     />
                     <SectionItemBody
                       value={item.description}
                       onUpdate={
                         isBuilder ? (v) => updateItem(i, { description: v }) : undefined
                       }
-                      color={theme.muted}
+                      color={cardBodyInk}
                       className="mt-3 flex-1"
+                    />
+                    <SectionItemLink
+                      label={item.linkLabel}
+                      url={item.linkUrl}
+                      color={cardAccent}
                     />
                   </div>
                 </div>

@@ -13,6 +13,7 @@ import {
   SectionItemMedia,
   SectionItemTitle,
   SectionItemBody,
+  SectionItemLink,
   SectionCtas,
 } from "./shared/section-kit";
 
@@ -121,6 +122,11 @@ export function BlockFeaturePhotoCards({
                     }
                     color={theme.cardMuted}
                     className="mt-2"
+                  />
+                  <SectionItemLink
+                    label={item.linkLabel}
+                    url={item.linkUrl}
+                    color={theme.cardAccent}
                   />
                 </div>
               </div>

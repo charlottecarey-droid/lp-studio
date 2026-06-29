@@ -23,6 +23,7 @@ import { IconOrImage, isImageIcon } from "@/lib/icon-value";
 import type {
   SectionAlign,
   SectionRadius,
+  SectionMediaSize,
   SectionCtaVariant,
   SectionBlockBase,
 } from "@/lib/block-types";
@@ -71,6 +72,27 @@ const RADIUS_CLASS: Record<SectionRadius, string> = {
 
 export const sectionRadiusClass = (r?: SectionRadius): string =>
   RADIUS_CLASS[r ?? "2xl"];
+
+/* ------------------------------------------------------------- media size */
+
+const ICON_VISUAL_SIZE: Record<
+  SectionMediaSize,
+  { tile: string; icon: string; image: string }
+> = {
+  sm: { tile: "h-12 w-12", icon: "h-6 w-6", image: "h-16 w-16" },
+  md: { tile: "h-16 w-16", icon: "h-8 w-8", image: "h-24 w-24" },
+  lg: { tile: "h-20 w-20", icon: "h-10 w-10", image: "h-32 w-32" },
+};
+
+/**
+ * Resolve the per-item icon-visual sizing for the icon-led blocks. Returns the
+ * tile / icon / image classes for an explicit `mediaSize`, or `null` when unset
+ * so each block keeps its own built-in default sizing.
+ */
+export const sectionIconVisualSize = (
+  size?: SectionMediaSize,
+): { tile: string; icon: string; image: string } | null =>
+  size ? ICON_VISUAL_SIZE[size] : null;
 
 /* ------------------------------------------------------------------ theme */
 
@@ -404,6 +426,51 @@ export function SectionItemBody({
       style={{ color, fontFamily: BRAND_BODY_FONT }}
       multiline
     />
+  );
+}
+
+/* ------------------------------------------------------------- item link */
+
+/**
+ * Optional per-card "Learn more →" link. Rendered on the carded section blocks
+ * that carried a per-card link in their mockups. The label + URL are edited in
+ * the property panel (not inline), so this renders straight from props: nothing
+ * when the label is empty, a real <a> when a URL is set, otherwise a styled,
+ * non-navigating span. Color is passed in already contrast-resolved.
+ */
+export function SectionItemLink({
+  label,
+  url,
+  color,
+  className,
+}: {
+  label?: string;
+  url?: string;
+  color: string;
+  className?: string;
+}) {
+  if (!label || !label.trim()) return null;
+  const cls = cn(
+    "mt-5 inline-flex items-center gap-1.5 text-sm font-semibold transition-opacity hover:opacity-80",
+    className,
+  );
+  const inner = (
+    <>
+      <span>{label}</span>
+      <ArrowRight className="h-4 w-4" />
+    </>
+  );
+  if (url && url.trim()) {
+    return (
+      <a href={url} className={cls} style={{ color, fontFamily: BRAND_BODY_FONT }}>
+        {inner}
+      </a>
+    );
+  }
+  return (
+    <span className={cls} style={{ color, fontFamily: BRAND_BODY_FONT }}>
+      {inner}
+    </span>
   );
 }
 

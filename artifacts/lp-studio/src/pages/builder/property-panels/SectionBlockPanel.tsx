@@ -4,6 +4,7 @@ import type {
   SectionAlign,
   SectionRadius,
   SectionCtaVariant,
+  SectionMediaSize,
   FeatureBigFeaturesBlockProps,
 } from "@/lib/block-types";
 import { Button } from "@/components/ui/button";
@@ -72,6 +73,10 @@ interface SectionBlockPanelProps<T extends SectionBlockBase> {
   showDividers?: boolean;
   /** Show a per-item image picker (photo-led blocks). Icon-only blocks omit it. */
   showItemImages?: boolean;
+  /** Show per-item "Learn more" link fields (label + URL). */
+  showItemLinks?: boolean;
+  /** Show the "Icon / image size" control in the Style section. */
+  showMediaSize?: boolean;
 }
 
 /** Optional line (outline/divider) styling some section blocks expose. */
@@ -97,6 +102,8 @@ export function SectionBlockPanel<T extends SectionBlockBase>({
   showCardBorder,
   showDividers,
   showItemImages,
+  showItemLinks,
+  showMediaSize,
 }: SectionBlockPanelProps<T>) {
   const update = (patch: Partial<T>) => onChange({ ...props, ...patch });
   const line = props as unknown as SectionLineProps;
@@ -239,6 +246,28 @@ export function SectionBlockPanel<T extends SectionBlockBase>({
                 fieldLabel={`${itemNoun} description`}
               />
             </div>
+            {showItemLinks && (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-[11px] text-muted-foreground">Link label</Label>
+                  <Input
+                    value={item.linkLabel ?? ""}
+                    onChange={(e) => updateItem(i, { linkLabel: e.target.value })}
+                    className="h-8 text-xs"
+                    placeholder="Learn more"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[11px] text-muted-foreground">Link URL</Label>
+                  <Input
+                    value={item.linkUrl ?? ""}
+                    onChange={(e) => updateItem(i, { linkUrl: e.target.value })}
+                    className="h-8 text-xs"
+                    placeholder="#"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -344,6 +373,27 @@ export function SectionBlockPanel<T extends SectionBlockBase>({
             </SelectContent>
           </Select>
         </div>
+        {showMediaSize && (
+          <div>
+            <Label className="text-[11px] text-muted-foreground">Icon / image size</Label>
+            <Select
+              value={props.mediaSize ?? "default"}
+              onValueChange={(v) =>
+                update({
+                  mediaSize: v === "default" ? undefined : (v as SectionMediaSize),
+                } as Partial<T>)
+              }
+            >
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default" className="text-xs">Default</SelectItem>
+                <SelectItem value="sm" className="text-xs">Small</SelectItem>
+                <SelectItem value="md" className="text-xs">Medium</SelectItem>
+                <SelectItem value="lg" className="text-xs">Large</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         {showCardBorder && (
           <div className="grid grid-cols-2 gap-2">
             <ColorField label="Card outline" value={line.cardBorderColor ?? ""} onChange={(v) => update({ cardBorderColor: v } as unknown as Partial<T>)} />

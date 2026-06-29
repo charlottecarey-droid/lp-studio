@@ -10,11 +10,13 @@ import {
   alignItemsClass,
   alignTextClass,
   sectionRadiusClass,
+  sectionIconVisualSize,
   useSectionTheme,
   SectionHeader,
   SectionIconVisual,
   SectionItemTitle,
   SectionItemBody,
+  SectionItemLink,
   SectionCtas,
 } from "./shared/section-kit";
 
@@ -50,6 +52,7 @@ export function BlockValuePillarsOutlinedCards({
   const align = props.align ?? "center";
   const items = props.items ?? [];
   const radius = sectionRadiusClass(props.cardRadius);
+  const sz = sectionIconVisualSize(props.mediaSize);
 
   const update = (patch: Partial<ValuePillarsOutlinedCardsBlockProps>) =>
     onFieldChange?.({ ...props, ...patch });
@@ -108,7 +111,8 @@ export function BlockValuePillarsOutlinedCards({
                   <SectionIconVisual
                     value={item.icon}
                     color={theme.accent}
-                    iconClassName="h-9 w-9"
+                    iconClassName={sz?.icon ?? "h-9 w-9"}
+                    imageClassName={sz?.image}
                     radiusClass={radius}
                     alt={item.title}
                     withTile={false}
@@ -124,6 +128,11 @@ export function BlockValuePillarsOutlinedCards({
                   onUpdate={isBuilder ? (v) => updateItem(i, { description: v }) : undefined}
                   color={theme.muted}
                   className="mt-3 flex-1"
+                />
+                <SectionItemLink
+                  label={item.linkLabel}
+                  url={item.linkUrl}
+                  color={theme.accent}
                 />
               </div>
             ))}

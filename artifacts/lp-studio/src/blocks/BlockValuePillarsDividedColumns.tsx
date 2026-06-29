@@ -10,11 +10,13 @@ import {
   alignItemsClass,
   alignTextClass,
   sectionRadiusClass,
+  sectionIconVisualSize,
   useSectionTheme,
   SectionHeader,
   SectionIconVisual,
   SectionItemTitle,
   SectionItemBody,
+  SectionItemLink,
   SectionCtas,
 } from "./shared/section-kit";
 
@@ -57,6 +59,7 @@ export function BlockValuePillarsDividedColumns({
   const updateItem = (i: number, patch: Partial<SectionFeatureItem>) =>
     update({ items: items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)) });
 
+  const sz = sectionIconVisualSize(props.mediaSize);
   const dividerWidth = props.dividerWidth ?? 1;
   const dividerColor = isValidHex(props.dividerColor ?? "")
     ? (props.dividerColor as string)
@@ -124,9 +127,11 @@ export function BlockValuePillarsDividedColumns({
                   <SectionIconVisual
                     value={item.icon}
                     color={theme.accent}
-                    tileClassName="h-14 w-14 shadow-sm"
+                    tileClassName={cn(sz?.tile ?? "h-14 w-14", "shadow-sm")}
                     tileBg={`color-mix(in srgb, ${theme.accent} 12%, ${theme.surface.base})`}
                     radiusClass={radius}
+                    iconClassName={sz?.icon ?? "h-8 w-8"}
+                    imageClassName={sz?.image}
                     alt={item.title}
                   />
                 </div>
@@ -140,6 +145,11 @@ export function BlockValuePillarsDividedColumns({
                   onUpdate={isBuilder ? (v) => updateItem(i, { description: v }) : undefined}
                   color={theme.muted}
                   className="mt-3"
+                />
+                <SectionItemLink
+                  label={item.linkLabel}
+                  url={item.linkUrl}
+                  color={theme.accent}
                 />
 
                 {/* Horizontal divider between stacked rows (mobile). */}
