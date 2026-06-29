@@ -237,9 +237,11 @@ export const DSO_PRACTICES_RECIPES: PageRecipe[] = [
 // Without it every such microsite converged on the same fixed lineup. Each
 // skeleton draws ONLY from the shared neutral microsite vocabulary
 // (FREEFORM_MICROSITE_DISPLAY_TYPES in lib/ai-prompts/microsite-block-vocab.ts),
-// opens with a "hero" and closes with "bottom-cta", and satisfies the freeform
-// rules (≥1 proof/metrics + ≥1 features/benefits + a closing CTA). Nav/footer
-// are deliberately omitted — the generator's chrome rules govern those. The
+// opens with an immersive "full-bleed-hero OR hero", weaves in the premium
+// dso-stat-row / dso-ai-feature / dso-final-cta options, and closes with
+// "dso-final-cta OR bottom-cta" — while still satisfying the freeform rules
+// (≥1 proof/metrics + ≥1 features/benefits + a closing CTA). Nav/footer are
+// deliberately omitted — the generator's chrome rules govern those. The
 // recipe ↔ vocab drift test guards every type against the advertised set.
 export const MICROSITE_RECIPES: PageRecipe[] = [
   {
@@ -247,13 +249,13 @@ export const MICROSITE_RECIPES: PageRecipe[] = [
     label: "Proof-led",
     description: "a credibility-first page that leads with metrics, comparison, and customer proof",
     skeleton: [
-      "hero",
-      "trust-bar",
+      "full-bleed-hero OR hero",
+      "dso-stat-row OR trust-bar",
       "stat-callout OR stats",
       "comparison",
       "benefits-grid",
       "testimonial",
-      "bottom-cta",
+      "dso-final-cta OR bottom-cta",
     ],
     styleNotes:
       "Open with the account's situation, then stack evidence early: a quick credibility/metrics bar, one big highlighted number, a head-to-head old-way vs new-way comparison, the core benefits, and a real-sounding customer quote before the close. Analytical, confident tone; only ever use REAL numbers from the brief.",
@@ -263,12 +265,12 @@ export const MICROSITE_RECIPES: PageRecipe[] = [
     label: "Story-led",
     description: "a narrative page that walks the account from problem to transformation",
     skeleton: [
-      "hero",
+      "full-bleed-hero OR hero",
       "pas-section",
       "how-it-works",
       "testimonial",
       "stat-callout OR trust-bar",
-      "bottom-cta",
+      "dso-final-cta OR bottom-cta",
     ],
     styleNotes:
       "Tell one continuous story: name the problem and what it costs, agitate it briefly, then resolve with a clear numbered path to the outcome. Land on a human proof moment (the quote) and one supporting number before the single closing CTA. Favor depth over breadth — fewer, richer sections.",
@@ -278,28 +280,28 @@ export const MICROSITE_RECIPES: PageRecipe[] = [
     label: "Benefits-led",
     description: "a value-forward page that leads with what the account gains and how it works",
     skeleton: [
-      "hero",
+      "full-bleed-hero OR hero",
       "benefits-grid",
-      "how-it-works",
-      "trust-bar OR stats",
+      "dso-ai-feature OR how-it-works",
+      "dso-stat-row OR trust-bar OR stats",
       "testimonial",
-      "bottom-cta",
+      "dso-final-cta OR bottom-cta",
     ],
     styleNotes:
-      "Lead with the payoff: benefit/value cards up top, a simple how-it-works path, then credibility (a metrics bar or a stats row) and a peer quote. Keep copy benefit-dense and concrete; every section answers \"what's in it for them\".",
+      "Lead with the payoff: benefit/value cards up top, then a richer feature showcase or a simple how-it-works path, then credibility (a metrics bar or a stats row) and a peer quote. Keep copy benefit-dense and concrete; every section answers \"what's in it for them\".",
   },
   {
     id: "microsite-comparison-led",
     label: "Switch / comparison",
     description: "a displacement page that converts by contrasting the status quo with the new way",
     skeleton: [
-      "hero",
+      "full-bleed-hero OR hero",
       "pas-section OR rich-text",
       "comparison",
       "benefits-grid",
-      "stat-callout OR trust-bar",
+      "dso-stat-row OR stat-callout OR trust-bar",
       "testimonial",
-      "bottom-cta",
+      "dso-final-cta OR bottom-cta",
     ],
     styleNotes:
       "Built to dislodge an incumbent: frame the cost of the status quo, then make the old-way vs new-way comparison the centerpiece — both columns specific and substantive. Reinforce with the core benefits and one strong real number, then a peer quote and a clear switch CTA.",
@@ -309,15 +311,15 @@ export const MICROSITE_RECIPES: PageRecipe[] = [
     label: "Media-led",
     description: "a visual-first page where a demo or video carries the persuasion",
     skeleton: [
-      "hero",
+      "full-bleed-hero",
       "video-section",
-      "benefits-grid",
+      "dso-ai-feature OR benefits-grid",
       "trust-bar OR testimonial",
       "how-it-works",
-      "bottom-cta",
+      "dso-final-cta OR bottom-cta",
     ],
     styleNotes:
-      "Let the media do the work: open strong, bring the video/demo in early, then short benefit cards, quick credibility, and a simple how-it-works path. Keep text blocks tight and punchy with one clear closing CTA. Only include the video section when a real demo/video is available — otherwise swap it for another proof or benefits section.",
+      "Let the media do the work: open with an immersive full-screen hero, bring the video/demo in early, then a premium feature showcase or short benefit cards, quick credibility, and a simple how-it-works path. Keep text blocks tight and punchy with one clear closing CTA. Only include the video section when a real demo/video is available — otherwise swap it for another proof or benefits section.",
   },
 ];
 

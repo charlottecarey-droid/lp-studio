@@ -42,20 +42,32 @@ describe("recipe sets", () => {
     }
   });
 
-  it("MICROSITE recipes open with a hero, close with bottom-cta, omit nav/footer, and carry proof + benefits sections", () => {
+  it("MICROSITE recipes open with a hero, close with a CTA, omit nav/footer, and carry proof + benefits sections", () => {
+    // A hero is always the FIRST slot and a closing CTA the LAST slot, but each
+    // may be an OR of variants (e.g. "full-bleed-hero OR hero",
+    // "dso-final-cta OR bottom-cta"). Every alternative in those slots must stay
+    // within the hero / CTA families — the generator's nav/footer chrome rules
+    // own nav/footer, so the recipe must never name them.
+    const HERO_TYPES = ["hero", "full-bleed-hero"];
+    const CTA_TYPES = ["bottom-cta", "dso-final-cta"];
+    const altsOf = (entry: string) => entry.split(" OR ").map((s) => s.trim());
     for (const r of MICROSITE_RECIPES) {
-      // hero is always the FIRST slot (the generator's nav/footer chrome rules
-      // own those; the recipe must never name them).
-      expect(r.skeleton[0]).toBe("hero");
-      expect(r.skeleton[r.skeleton.length - 1]).toBe("bottom-cta");
+      expect(altsOf(r.skeleton[0]).every((t) => HERO_TYPES.includes(t))).toBe(true);
+      expect(
+        altsOf(r.skeleton[r.skeleton.length - 1]).every((t) => CTA_TYPES.includes(t)),
+      ).toBe(true);
       const types = recipeSkeletonBlockTypes(r);
       expect(types).not.toContain("nav-header");
       expect(types).not.toContain("footer");
       // ≥1 features/benefits section (freeform rule).
-      expect(types.some((t) => t === "benefits-grid" || t === "how-it-works")).toBe(true);
+      expect(
+        types.some((t) => ["benefits-grid", "how-it-works", "dso-ai-feature"].includes(t)),
+      ).toBe(true);
       // ≥1 proof/metrics section (freeform rule).
       expect(
-        types.some((t) => ["trust-bar", "stats", "stat-callout", "testimonial"].includes(t)),
+        types.some((t) =>
+          ["trust-bar", "stats", "stat-callout", "testimonial", "dso-stat-row"].includes(t),
+        ),
       ).toBe(true);
     }
   });

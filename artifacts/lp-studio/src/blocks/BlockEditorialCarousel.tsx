@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { BRAND_BODY_FONT } from "../lib/brand-fonts";
+import { BRAND_DISPLAY_STACK, BRAND_BODY_STACK } from "../lib/brand-fonts";
 import { motion } from "framer-motion";
 import useEmblaCarousel from "embla-carousel-react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -44,11 +44,9 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
   // properly-quoted family name + sensible system fallback. When the author
   // hasn't picked an override we fall back to the brand-token CSS variable.
   const headlineFont =
-    toFontFamilyValue(props.headlineFont, "display") ||
-    "var(--brand-font-display, 'Instrument Serif', 'EB Garamond', Georgia, serif)";
+    toFontFamilyValue(props.headlineFont, "display") || BRAND_DISPLAY_STACK;
   const bodyFont =
-    toFontFamilyValue(props.bodyFont, "sans") ||
-    `${BRAND_BODY_FONT}, 'Inter', sans-serif`;
+    toFontFamilyValue(props.bodyFont, "sans") || BRAND_BODY_STACK;
 
   // Load any catalog fonts the author selected. Without this the browser
   // would silently fall back to a system font and the override would appear
@@ -124,9 +122,9 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
           {(props.eyebrow || onFieldChange) && (
             <p
               style={{
-                fontWeight: 300,
+                fontWeight: 600,
                 fontSize: "0.7rem",
-                letterSpacing: "0.4em",
+                letterSpacing: "0.15em",
                 textTransform: "uppercase",
                 color: accent,
                 marginBottom: "1.25rem",
@@ -139,7 +137,7 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
             <h2
               style={{
                 fontFamily: headlineFont,
-                fontWeight: 400,
+                fontWeight: 600,
                 fontSize: "clamp(1.875rem, 5vw, 3rem)",
                 lineHeight: 1.1,
                 color: text,
@@ -153,7 +151,7 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
           {(props.subheadline || onFieldChange) && (
             <p
               style={{
-                fontWeight: 300,
+                fontWeight: 400,
                 fontSize: "0.95rem",
                 lineHeight: 1.7,
                 color: alpha(text, 0.65),
@@ -241,9 +239,9 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                     <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "1.25rem", zIndex: 2 }}>
                       <motion.p
                         style={{
-                          fontWeight: 300,
+                          fontWeight: 600,
                           fontSize: "0.7rem",
-                          letterSpacing: "0.2em",
+                          letterSpacing: "0.15em",
                           textTransform: "uppercase",
                           color: alpha(text, 0.85),
                           margin: 0,
@@ -287,9 +285,9 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                   opts?.withEyebrow && (slide.caption || isEditor) ? (
                     <p
                       style={{
-                        fontWeight: 300,
+                        fontWeight: 600,
                         fontSize: "0.7rem",
-                        letterSpacing: "0.3em",
+                        letterSpacing: "0.15em",
                         textTransform: "uppercase",
                         color: eyebrowColor,
                         margin: 0,
@@ -308,7 +306,7 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                     <h3
                       style={{
                         fontFamily: headlineFont,
-                        fontWeight: 400,
+                        fontWeight: 600,
                         fontSize: `${headlineSize}rem`,
                         lineHeight: 1.1,
                         letterSpacing: "-0.01em",
@@ -329,7 +327,7 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
                   slide.subheadline || isEditor ? (
                     <p
                       style={{
-                        fontWeight: 300,
+                        fontWeight: 400,
                         fontSize: `${subheadlineSize}rem`,
                         lineHeight: 1.6,
                         color: subColor,
