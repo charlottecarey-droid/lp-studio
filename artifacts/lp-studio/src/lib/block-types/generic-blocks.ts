@@ -4812,6 +4812,15 @@ export interface VideoBackgroundFinalCtaBlockProps extends CtaModalConfig {
   /** Poster/fallback image shown before the video loads. */
   posterUrl?: string;
   overlayOpacity?: number;
+  /** Solid color for the video dimming overlay. Defaults to the section's
+   *  dark slate (#0F172A) so existing pages are unchanged. */
+  overlayColor?: string;
+  /** Turns the flat overlay tint into a vertical gradient.
+   *  - "none" (default): flat solid tint (legacy behavior).
+   *  - "top": darkest at the top, fading to clear at the bottom.
+   *  - "bottom": darkest at the bottom, fading to clear at the top.
+   *  - "both": darkest at both edges, clearest through the middle. */
+  overlayGradient?: "none" | "top" | "bottom" | "both";
   ctaLabel?: string;
   ctaAction?: HeroCtaActionMode;
   ctaUrl?: string;
@@ -4821,6 +4830,19 @@ export interface VideoBackgroundFinalCtaBlockProps extends CtaModalConfig {
   bgColor?: string;
   textColor?: string;
   accentColor?: string;
+  /** Override for the CTA button background. Defaults to the accent color. */
+  ctaButtonColor?: string;
+  /** Override for the CTA button label color. Auto-derived for legibility when unset. */
+  ctaButtonTextColor?: string;
   headlineFont?: string;
   bodyFont?: string;
+  /** Edge gradient that fades the section into a solid color along the top,
+   *  bottom, or both edges so it blends into adjacent sections. "none"
+   *  (default) disables it. Mirrors the parallax image hero. */
+  edgeFade?: "none" | "top" | "bottom" | "both";
+  /** Solid color the edge fade resolves to — match the adjacent section's bg.
+   *  Defaults to a dark fallback (#0a0a0a). */
+  edgeFadeColor?: string;
+  /** Percent of section height each edge fade covers (0–60). Default 25. */
+  edgeFadeSize?: number;
 }
