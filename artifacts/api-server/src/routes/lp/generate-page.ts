@@ -47,6 +47,7 @@ import {
   outlineHasSteps,
   resolvePageOutline,
   type PageOutline,
+  type ResolvedOutlineBlock,
 } from "@workspace/lp-template-engine";
 import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-prompts/copy-principles";
 import { matchTemplateIntent } from "../../lib/ai-prompts/template-intent";
@@ -2920,6 +2921,53 @@ export function enforceAiModes(
 }
 
 /**
+ * Make an AUTHORED page outline AUTHORITATIVE on the landing-page path (parity
+ * with the microsite generator's reconcileBlocksToOutline). Walks the resolved
+ * outline IN ORDER, reusing the first AI-generated block of each type (keeping
+ * its AI copy / props / id) and synthesizing any omitted slot from the tenant's
+ * saved default props. AI blocks NOT in the outline are dropped.
+ *
+ * This ONLY shapes the content body — it always returns exactly the
+ * resolved-outline shape, so callers MUST gate on an outline being present
+ * (`outlineActive`). Chrome (nav/footer/final-CTA) is added separately by the
+ * idempotent guards downstream, since `resolvePageOutline` does not emit chrome.
+ */
+export function reconcileLandingPageBlocksToOutline(
+  blocks: unknown[],
+  resolved: ReadonlyArray<{ type: string }>,
+  defaultPropsByType: Map<string, Record<string, unknown>>,
+): unknown[] {
+  // Bucket the AI's blocks by canonical type; each outline slot consumes the
+  // first unused block of its type (preserving the model's authored copy).
+  const unusedByType = new Map<string, unknown[]>();
+  for (const b of blocks) {
+    if (!b || typeof b !== "object") continue;
+    const key = canonicalizeBlockType(String((b as { type?: unknown }).type ?? ""));
+    if (!key) continue;
+    const q = unusedByType.get(key);
+    if (q) q.push(b);
+    else unusedByType.set(key, [b]);
+  }
+  return resolved
+    .filter((r) => (r.type ?? "").trim())
+    .map((r, i) => {
+      const type = canonicalizeBlockType(r.type);
+      const queue = unusedByType.get(type);
+      const ai = queue && queue.length ? queue.shift() : undefined;
+      if (ai && typeof ai === "object") {
+        (ai as { type?: unknown }).type = type;
+        return ai;
+      }
+      const defaults = defaultPropsByType.get(type);
+      return {
+        id: `block-${type}-outline-${i}`,
+        type,
+        props: defaults ? cloneJson(defaults) : {},
+      };
+    });
+}
+
+/**
  * Load a tenant's block-governance rows and the per-type superadmin catalog
  * default props, returning everything the generator needs to (a) constrain /
  * expand the AI vocabulary and (b) enforce AI modes after generation.
@@ -2991,6 +3039,29 @@ async function loadBlockGovernanceContext(
     } catch (err) {
       logger.warn({ err: String(err) }, "[generate-page] block_catalog default_props fetch skipped");
     }
+  }
+  // Tenant per-block default styling (lp_block_defaults) takes PRECEDENCE over
+  // the superadmin industry catalog default_props above. These are the props a
+  // tenant saves in the builder ("set as default for this block"). Copy/locked
+  // governance restore and the authored-outline synthesis must reproduce THOSE
+  // saved props, not the catalog default — otherwise a tenant's saved styling is
+  // silently ignored. Tenant-scoped, fail-open, runs regardless of industry.
+  // (props only; block-level wrapper settings are not applied here.)
+  try {
+    const tdRows = await pool.query<{ block_type: string; props: unknown }>(
+      `SELECT block_type, props FROM lp_block_defaults WHERE tenant_id = $1`,
+      [tenantId],
+    );
+    for (const row of tdRows.rows) {
+      if (row.props && typeof row.props === "object" && !Array.isArray(row.props)) {
+        defaultPropsByType.set(
+          canonicalizeBlockType(String(row.block_type ?? "")),
+          row.props as Record<string, unknown>,
+        );
+      }
+    }
+  } catch (err) {
+    logger.warn({ err: String(err) }, "[generate-page] lp_block_defaults fetch skipped");
   }
   return { governanceByType, defaultPropsByType, governanceDisabledTypes, governanceNoAiTypes };
 }
@@ -7304,6 +7375,51 @@ export function enrichSegmentContextFromBrand(
   }
 }
 
+/**
+ * Resolve the AUTHORED generation outline for a request into an ordered list of
+ * concrete blocks, applying the segment→brand precedence used across the
+ * landing-page generator. SINGLE SOURCE of truth: both the PREFERRED BLOCK LIST
+ * advertised to the model (buildSegmentSection) and the post-generation outline
+ * reconcile read this, so the prompt hint and the enforcement can never drift.
+ * Returns [] when no authored outline applies (free AI block choice).
+ *
+ * The LEGACY `micrositeBlockList` is intentionally NOT honored on DSO paths
+ * (`dsoFreeChoice`) — only an explicitly authored pageOutline (segment or brand)
+ * is. See the long note inside buildSegmentSection for the rationale.
+ */
+export function resolveGenerationOutlineBlocks(input: {
+  segmentPageOutline?: PageOutline | null;
+  segmentLegacyBlockList?: ReadonlyArray<{ type?: string; schemaHint?: string }> | null;
+  brandOutline?: PageOutline | null;
+  dsoFreeChoice?: boolean;
+  approvedPool?: readonly string[];
+}): ResolvedOutlineBlock[] {
+  const segmentOutline = effectiveOutline({
+    outline: input.segmentPageOutline ?? null,
+    legacyBlockList: input.dsoFreeChoice ? null : (input.segmentLegacyBlockList ?? null),
+  });
+  const outline = outlineHasSteps(segmentOutline)
+    ? segmentOutline
+    : (input.brandOutline ?? null);
+  if (!outlineHasSteps(outline)) return [];
+  return resolvePageOutline(outline, {
+    pool: input.approvedPool ?? [],
+    rolesOf: (t) => resolveBlockTags(t),
+    canonicalize: (t) => canonicalizeBlockType(t),
+    // Cover EVERY role so an authored category outline renders in full even
+    // when the segment has no approved pool — otherwise it silently collapses
+    // to just hero/cta/footer.
+    roleDefaults: NEUTRAL_ROLE_DEFAULT_BLOCKS,
+  });
+}
+
+/** Render a resolved outline as the prompt's PREFERRED BLOCK LIST body. */
+function formatOutlineBlockList(resolved: ReadonlyArray<ResolvedOutlineBlock>): string {
+  return resolved
+    .map((b) => `- "${b.type}"${b.schemaHint ? ` — ${b.schemaHint}` : ""}`)
+    .join("\n");
+}
+
 export function buildSegmentSection(
   seg: SegmentContext,
   opts: { strict?: boolean; proofPoints?: ProofPoint[]; dsoFreeChoice?: boolean; approvedPool?: readonly string[]; brandOutline?: PageOutline | null } = {},
@@ -7423,31 +7539,18 @@ export function buildSegmentSection(
   // those paths the legacy list is skipped entirely and only an explicitly
   // authored outline (segment or brand) is honored. A segment with neither
   // falls through to the model's free block choice.
-  const segmentOutline = effectiveOutline({
-    outline: seg.pageOutline,
-    legacyBlockList: opts.dsoFreeChoice ? null : seg.micrositeBlockList,
+  const outlineResolved = resolveGenerationOutlineBlocks({
+    segmentPageOutline: seg.pageOutline ?? null,
+    segmentLegacyBlockList: seg.micrositeBlockList ?? null,
+    brandOutline: opts.brandOutline ?? null,
+    dsoFreeChoice: opts.dsoFreeChoice,
+    approvedPool: opts.approvedPool,
   });
-  const outline = outlineHasSteps(segmentOutline)
-    ? segmentOutline
-    : (opts.brandOutline ?? null);
-  if (outlineHasSteps(outline)) {
-    const resolved = resolvePageOutline(outline, {
-      pool: opts.approvedPool ?? [],
-      rolesOf: (t) => resolveBlockTags(t),
-      canonicalize: (t) => canonicalizeBlockType(t),
-      // Cover EVERY role so an authored category outline renders in full even
-      // when the segment has no approved pool — otherwise it silently collapses
-      // to just hero/cta/footer.
-      roleDefaults: NEUTRAL_ROLE_DEFAULT_BLOCKS,
-    });
-    const list = resolved
-      .map((b) => `- "${b.type}"${b.schemaHint ? ` — ${b.schemaHint}` : ""}`)
-      .join("\n");
-    if (list) {
-      parts.push(
-        `PREFERRED BLOCK LIST (this segment's chosen page structure — build the page primarily from these block types, in this order, choosing only from the AVAILABLE BLOCK TYPES advertised above):\n${list}`,
-      );
-    }
+  const list = formatOutlineBlockList(outlineResolved);
+  if (list) {
+    parts.push(
+      `PREFERRED BLOCK LIST (this segment's chosen page structure — build the page primarily from these block types, in this order, choosing only from the AVAILABLE BLOCK TYPES advertised above):\n${list}`,
+    );
   }
   return parts.join("\n");
 }
@@ -9162,6 +9265,24 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       })
     : "";
 
+  // Authored page outline → AUTHORITATIVE block sequence (parity with the
+  // microsite generator). When a segment or brand outline exists we PLACE
+  // exactly those blocks, in order, after generation rather than treating the
+  // outline as a soft prompt hint — so tenant-chosen copy-only section blocks
+  // (e.g. value-pillars-*/feature-*) reliably appear with their saved styling.
+  // Governance-excluded types (disabled / human-only) never enter the outline.
+  const resolvedOutlineBlocks = resolveGenerationOutlineBlocks({
+    segmentPageOutline: segmentContext?.pageOutline ?? null,
+    segmentLegacyBlockList: segmentContext?.micrositeBlockList ?? null,
+    brandOutline,
+    dsoFreeChoice: useDso || useDsoPractices,
+    approvedPool: [...segmentApprovedTypes],
+  }).filter((b) => {
+    const t = canonicalizeBlockType(b.type);
+    return !governanceNoAiTypes.has(t) && !governanceDisabledTypes.has(t);
+  });
+  const outlineActive = resolvedOutlineBlocks.length > 0;
+
   let userPromptParts: string[] = [];
   if (brandContext) userPromptParts.push(`BRAND CONTEXT:\n${brandContext}`);
   userPromptParts.push(
@@ -9175,6 +9296,16 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     userPromptParts.push(
       `AUDIENCE SEGMENT — IMPORTANT: You MUST tailor all copy, headlines, value props, personas, and CTAs specifically to this segment. Do NOT use generic messaging.\n${segmentSection}`
     );
+  } else if (outlineActive) {
+    // No audience segment, but an authored brand outline exists — the segment
+    // path advertises its own PREFERRED BLOCK LIST inside buildSegmentSection,
+    // so only the no-segment case needs to surface it here.
+    const list = formatOutlineBlockList(resolvedOutlineBlocks);
+    if (list) {
+      userPromptParts.push(
+        `PREFERRED BLOCK LIST (this page's chosen structure — build the page primarily from these block types, in this order, choosing only from the AVAILABLE BLOCK TYPES advertised above):\n${list}`,
+      );
+    }
   }
   if (caseStudiesSection) userPromptParts.push(caseStudiesSection);
   if (proofPointsSection) userPromptParts.push(proofPointsSection);
@@ -9476,6 +9607,23 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       return;
     }
 
+    // Authored outline is AUTHORITATIVE (parity with the microsite generator):
+    // when a segment/brand outline exists, PLACE exactly those blocks in order,
+    // reusing the model's copy where it produced a matching block and
+    // synthesizing any omitted slot (e.g. a copy-only value-pillars-*/feature-*
+    // section the model skipped) from the tenant's saved default props. Off-
+    // outline blocks the model invented are dropped. Runs before every other
+    // post-parse mutation so the rest of the pipeline (canonicalize, CTA wiring,
+    // enforceAiModes) operates on the final, ordered set. Chrome (nav/footer/
+    // final-CTA) is re-added by the idempotent guards downstream.
+    if (outlineActive && Array.isArray(parsed.blocks)) {
+      parsed.blocks = reconcileLandingPageBlocksToOutline(
+        parsed.blocks,
+        resolvedOutlineBlocks,
+        defaultPropsByType,
+      ) as typeof parsed.blocks;
+    }
+
     // Sanitize slug
     parsed.slug = parsed.slug
       .toLowerCase()
@@ -9721,7 +9869,10 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // present BEFORE the image-fill pass so an injected dso-ai-feature /
     // dso-insights-video gets an image. Scoped to the Dandy enterprise DSO path
     // (these blocks are only advertised + relevant there).
-    if (isDandyTenant && useDso) {
+    // Skipped when an authored outline is authoritative: the reconcile above
+    // already fixed the exact block set, so a prompt-driven DSO-block injection
+    // would re-add off-outline blocks the author deliberately omitted.
+    if (isDandyTenant && useDso && !outlineActive) {
       parsed.blocks = enforceRequestedDandyDsoBlocks(
         parsed.blocks as unknown[],
         prompt,
@@ -10279,7 +10430,12 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // features, footer), auto-injecting brand-aware defaults for any missing
     // role. Skipped for self-contained full-page blocks, which render their own
     // complete structure. Idempotent: a complete page is left unchanged.
-    if (!isSingleFullPage) {
+    // Skipped when an authored outline is authoritative — the author's chosen
+    // structure is final, so we must not inject roles they deliberately omitted.
+    // (Chrome — nav/footer/final-CTA — is still added by the idempotent guards
+    // below, since the outline resolver does not emit chrome and a public LP
+    // page must always carry it.)
+    if (!isSingleFullPage && !outlineActive) {
       enforceRequiredRoles(blocks, {
         dbTagsByType,
         brandName: brand.brandName,
