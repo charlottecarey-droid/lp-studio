@@ -5,6 +5,7 @@ import type {
   SectionRadius,
   SectionCtaVariant,
   SectionMediaSize,
+  SectionGridColumns,
   FeatureBigFeaturesBlockProps,
 } from "@/lib/block-types";
 import { Button } from "@/components/ui/button";
@@ -77,6 +78,8 @@ interface SectionBlockPanelProps<T extends SectionBlockBase> {
   showItemLinks?: boolean;
   /** Show the "Icon / image size" control in the Style section. */
   showMediaSize?: boolean;
+  /** Show the desktop "Columns" control (FeatureCardGrid). */
+  showColumns?: boolean;
 }
 
 /** Optional line (outline/divider) styling some section blocks expose. */
@@ -104,6 +107,7 @@ export function SectionBlockPanel<T extends SectionBlockBase>({
   showItemImages,
   showItemLinks,
   showMediaSize,
+  showColumns,
 }: SectionBlockPanelProps<T>) {
   const update = (patch: Partial<T>) => onChange({ ...props, ...patch });
   const line = props as unknown as SectionLineProps;
@@ -373,6 +377,24 @@ export function SectionBlockPanel<T extends SectionBlockBase>({
             </SelectContent>
           </Select>
         </div>
+        {showColumns && (
+          <div>
+            <Label className="text-[11px] text-muted-foreground">Columns (desktop)</Label>
+            <Select
+              value={String((props as { columns?: SectionGridColumns }).columns ?? 4)}
+              onValueChange={(v) =>
+                update({ columns: Number(v) as SectionGridColumns } as unknown as Partial<T>)
+              }
+            >
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="4" className="text-xs">4 columns</SelectItem>
+                <SelectItem value="3" className="text-xs">3 columns</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-[10px] text-muted-foreground">Tablet shows 2, mobile 1.</p>
+          </div>
+        )}
         {showMediaSize && (
           <div>
             <Label className="text-[11px] text-muted-foreground">Icon / image size</Label>

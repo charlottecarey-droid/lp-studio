@@ -142,6 +142,7 @@ export type {
   SectionAlign,
   SectionRadius,
   SectionMediaSize,
+  SectionGridColumns,
   SectionCtaVariant,
   SectionFeatureItem,
   SectionBlockBase,

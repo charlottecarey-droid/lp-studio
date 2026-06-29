@@ -257,11 +257,16 @@ export type SectionAlign = "left" | "center" | "right";
 export type SectionRadius = "none" | "sm" | "md" | "lg" | "xl" | "2xl" | "3xl";
 
 /**
- * Icon / image size for the icon-led section blocks (and the FeatureCardGrid
- * column count). Unset keeps each block's built-in default; "sm"/"md"/"lg"
- * scale the per-item visual up or down.
+ * Icon / image size for the icon-led section blocks. Unset keeps each block's
+ * built-in default; "sm"/"md"/"lg" scale the per-item visual up or down.
  */
 export type SectionMediaSize = "sm" | "md" | "lg";
+
+/**
+ * Desktop column count for the FeatureCardGrid. Tablet is always two-up and
+ * mobile one-up; this only picks the desktop (lg) columns. Unset = four-up.
+ */
+export type SectionGridColumns = 3 | 4;
 
 /** Button render style for a section CTA: filled / outline / text link. */
 export type SectionCtaVariant = "primary" | "secondary" | "link";
@@ -325,8 +330,8 @@ export interface SectionBlockBase extends CtaModalConfig {
   /** Corner radius for cards / icon tiles / images. Defaults to "2xl". */
   cardRadius?: SectionRadius;
   /**
-   * Icon / image size for the icon-led blocks (scales the per-item icon visual)
-   * and the FeatureCardGrid (column count). Unset keeps the block default.
+   * Icon / image size for the icon-led blocks (scales the per-item icon
+   * visual). Unset keeps the block default.
    */
   mediaSize?: SectionMediaSize;
   items: SectionFeatureItem[];
@@ -369,7 +374,14 @@ export interface ValuePillarsDividedColumnsBlockProps extends SectionBlockBase {
 export type ValuePillarsHeadlineBadgeBlockProps = SectionBlockBase;
 export type ValuePillarsCardColumnsBlockProps = SectionBlockBase;
 export type FeaturePhotoCardsBlockProps = SectionBlockBase;
-export type FeatureCardGridBlockProps = SectionBlockBase;
+
+export interface FeatureCardGridBlockProps extends SectionBlockBase {
+  /**
+   * Desktop column count (4 or 3). Tablet is always two-up and mobile one-up.
+   * Unset = four-up.
+   */
+  columns?: SectionGridColumns;
+}
 
 export interface FeatureBigFeaturesBlockProps extends SectionBlockBase {
   /** "blended" = screenshots blend into the section (no card chrome);

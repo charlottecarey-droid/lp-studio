@@ -33,11 +33,10 @@ interface Props {
  * sitting directly on the section below it (no card chrome). When an item has no
  * photo (the AI generator is icon-led and never emits image URLs) the image tile
  * degrades to a premium accent-tinted panel with the item's icon centered —
- * never an empty image box. Stays two-up on tablets; on desktop the "image size"
- * knob picks four-up (small) / three-up (default) / two-up (large) — bigger
- * images than the old four-up default. Every color, type style, alignment,
- * radius, and CTA decision flows through the shared `section-kit` toolkit so all
- * siblings read and edit identically.
+ * never an empty image box. One-up on mobile, two-up on tablets; on desktop the
+ * author-controlled "Columns" knob picks four-up (default) or three-up. Every
+ * color, type style, alignment, radius, and CTA decision flows through the
+ * shared `section-kit` toolkit so all siblings read and edit identically.
  */
 export function BlockFeatureCardGrid({
   props,
@@ -53,15 +52,9 @@ export function BlockFeatureCardGrid({
   const items = props.items ?? [];
   const radius = sectionRadiusClass(props.cardRadius);
 
-  // Column count follows the "image size" knob: Small keeps the dense four-up,
-  // Large drops to a roomy two-up, and the default (unset) / Medium is three-up
-  // — bigger images than the old four-up default.
-  const gridCols =
-    props.mediaSize === "sm"
-      ? "lg:grid-cols-4"
-      : props.mediaSize === "lg"
-        ? "lg:grid-cols-2"
-        : "lg:grid-cols-3";
+  // Desktop column count is author-controlled (default four-up). Tablet stays
+  // two-up and mobile one-up (set on the grid container below).
+  const gridCols = props.columns === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4";
 
   // Backstop tint behind the image tile — derived, no baked literal.
   const frameTint = `color-mix(in srgb, ${theme.ink} 8%, ${theme.surface.base})`;

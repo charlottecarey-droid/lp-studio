@@ -6953,7 +6953,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "feature-photo-cards":
         return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Feature" showItemImages showItemLinks />;
       case "feature-card-grid":
-        return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Feature" showItemImages showMediaSize />;
+        return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Feature" showItemImages showColumns />;
       case "feature-big-features":
         return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Feature" showImageTreatment showItemImages />;
       default: {
