@@ -133,6 +133,36 @@ describe("DSO content blocks exposed in BOTH the general landing-page and micros
   }
 });
 
+describe("premium DSO blocks (stat-row / ai-feature / final-cta) exposed in BOTH freeform and microsite", () => {
+  // Graduated to the GENERAL system prompt (GENERAL_EXTRA_PREMIUM_DSO_BLOCKS), so
+  // — like the DSO content blocks above — they flow into the freeform
+  // landing-page vocabulary AND, via the general ∪ extras union, the microsite
+  // vocabulary. This guards the locked requirement that the freeform recipe
+  // generator reach PARITY with the microsite generator for these three blocks.
+  const PREMIUM_DSO = ["dso-stat-row", "dso-ai-feature", "dso-final-cta"] as const;
+
+  for (const path of ["freeform", "microsite"] as const) {
+    it(`advertises the premium DSO blocks for the ${path} path`, () => {
+      const advertised = advertisedBlockTypesForPath(path);
+      for (const type of PREMIUM_DSO) {
+        expect(advertised.has(type), `${path} vocab is missing "${type}"`).toBe(true);
+      }
+    });
+
+    it(`shows the premium DSO blocks in the ${path} friendly menu`, () => {
+      const menuTypes = new Set(availableBlocksForPath(path).map((b) => b.type));
+      for (const type of PREMIUM_DSO) {
+        expect(menuTypes.has(type), `${path} menu is missing "${type}"`).toBe(true);
+      }
+    });
+
+    it(`accepts a ${path} skeleton built from the premium DSO blocks`, () => {
+      const res = validateSkeleton(path, ["hero", ...PREMIUM_DSO, "footer"]);
+      expect(res.ok).toBe(true);
+    });
+  }
+});
+
 describe("graduated value-pillars-* / feature-* section blocks are AI-selectable in BOTH LP and microsite recipes", () => {
   // These nine blocks are advertised in the GENERAL system prompt
   // (GENERAL_EXTRA_CORE_BLOCKS), so — like the DSO content blocks above — they

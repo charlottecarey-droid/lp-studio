@@ -425,6 +425,28 @@ describe("fillEmptyImages — benefits-grid per-card photos (useItemPhotos opt-i
     expect(products[0].imageUrl).toBeFalsy();
   });
 
+  it("dso-ai-feature scalar imageUrl fills from the library (no AI generation needed)", () => {
+    // The premium DSO spotlight is now offered on the freeform landing-page path
+    // (parity with microsites). Its visual must come straight from the tenant's
+    // library via the deterministic dso- imageUrl branch — NOT only via AI image
+    // generation — or the spotlight collapses when AI imagery is unavailable.
+    const featLib: MediaImage[] = [
+      { url: "/objects/feature-shot", title: "Product feature", tags: ["lp-feature", "product"] },
+    ];
+    let blocks: any[] = [
+      { type: "dso-ai-feature", props: {
+        eyebrow: "Built for speed",
+        headline: "One flagship capability",
+        body: "A short generic description of the brand's flagship capability that earns its place on the page.",
+        bullets: ["Faster turnarounds", "Fewer errors", "Happier customers"],
+        stats: [{ value: "96%", label: "Satisfaction" }],
+        imageUrl: "",
+      } },
+    ];
+    blocks = fillEmptyImages(blocks, featLib, PAGE_CTX) as any[];
+    expect(blocks[0].props.imageUrl).toBe("/objects/feature-shot");
+  });
+
   // ── product-detail slots ignore the page-vocabulary bias (Task #469 regression) ──
   // The May-2026 page-bias change appended the page's generic industry words
   // (e.g. "dental dentistry dentist clinic teeth") to EVERY slot's scoring

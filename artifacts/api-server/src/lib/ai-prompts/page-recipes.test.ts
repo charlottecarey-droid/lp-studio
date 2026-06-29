@@ -72,6 +72,16 @@ describe("recipe sets", () => {
     }
   });
 
+  it("FREEFORM recipes offer the premium DSO blocks (parity with microsites)", () => {
+    // dso-stat-row / dso-ai-feature / dso-final-cta were microsite-only; they must
+    // also appear in the built-in freeform recipe rotation so the landing-page
+    // generator can build them too.
+    const freeformTypes = new Set(FREEFORM_RECIPES.flatMap(recipeSkeletonBlockTypes));
+    for (const type of ["dso-stat-row", "dso-ai-feature", "dso-final-cta"]) {
+      expect(freeformTypes.has(type), `freeform recipes are missing "${type}"`).toBe(true);
+    }
+  });
+
   it("recipesForPath routes to the right set", () => {
     expect(recipesForPath("freeform")).toBe(FREEFORM_RECIPES);
     expect(recipesForPath("dso")).toBe(DSO_RECIPES);

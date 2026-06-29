@@ -88,11 +88,11 @@ export const FREEFORM_RECIPES: PageRecipe[] = [
     description: "a proof-first page that leads with numbers, comparisons, and case results",
     skeleton: [
       "hero OR spotlight-glow-hero",
-      "stat-counter-band OR trust-bar",
+      "stat-counter-band OR dso-stat-row OR trust-bar",
       "comparison OR features-comparison-checklist",
       "glass-bento-features OR benefits-stat-led",
       "case-study-card-grid",
-      "stat-backed-final-cta OR cta-stat-backed",
+      "stat-backed-final-cta OR dso-final-cta OR cta-stat-backed",
     ],
     styleNotes:
       "Lead with evidence: real metrics from the brief up top (the count-up band only with REAL numbers), a head-to-head comparison mid-page, named customer results before the close. Crisp, analytical tone; icons over photos.",
@@ -118,11 +118,11 @@ export const FREEFORM_RECIPES: PageRecipe[] = [
     description: "a focused direct-response page built to convert in one scroll",
     skeleton: [
       "hero OR dandy-hero-v7-s3",
-      "benefits-grid OR benefits-icon-grid",
+      "benefits-grid OR dso-ai-feature OR benefits-icon-grid",
       "testimonial-wall OR testimonial-grid",
       "how-it-works-horizontal-stepper OR how-it-works-numbered-bento",
       "glass-pricing-tiers OR comparison",
-      "aurora-cta-finale OR split-form-final-cta",
+      "aurora-cta-finale OR dso-final-cta OR split-form-final-cta",
     ],
     styleNotes:
       "Every section earns its scroll: benefit-dense copy, social proof early, a clear 3-step path, then the pricing/objection answer (use glass-pricing-tiers ONLY when the brief provides real prices — otherwise the comparison) and one unmissable closing CTA. No decorative detours; CTAs repeat the same single action.",

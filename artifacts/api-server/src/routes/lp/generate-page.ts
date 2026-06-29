@@ -6511,6 +6511,19 @@ const GENERAL_EXTRA_SHOWCASE_BLOCKS: string[] = [
   `- "aurora-cta-finale": The page's closing argument — a deep dark full-width CTA with slow-drifting aurora glows in brand tones, an oversized display headline, a large pill CTA pair, a short reassurance row, and a faint oversized brand watermark. Use as the LAST content block before the footer (a premium alternative to "bottom-cta"). Props: eyebrow (2–4 words), headline (4–9 words restating the page's core promise), subheadline (12–24 words removing the last objection), ctaText (2–4 words, action verb first), ctaUrl ("#"), ctaSecondaryText (2–4 words), ctaSecondaryUrl ("#"), reassurances (array of EXACTLY 2–3 of {icon (one of "CheckCircle2","Sparkles","Shield","Zap","CreditCard","Clock","Lock","Star","Globe","Heart"), text (2–5 words)}), watermarkText (the brand name, or "" to use it automatically), showWatermark (boolean, default true).`,
 ];
 
+// Premium DSO content blocks — graduated to the GENERAL landing-page vocabulary
+// so the freeform recipe generator can build them too (PARITY with the MICROSITE
+// generator, which already offers dso-stat-row / dso-ai-feature / dso-final-cta).
+// Kept brand-NEUTRAL, mirroring the neutral microsite schemas: no dental / "AI
+// scan" product framing and no Dandy-only background preset (use
+// "dark"/"black"/"gradient"). dso-ai-feature renders light copy, so its
+// background is forced dark by the shared FORCE_DARK_BLOCKS post-processor.
+const GENERAL_EXTRA_PREMIUM_DSO_BLOCKS: string[] = [
+  `- "dso-stat-row": Bold impact-metrics band — an eyebrow, an optional headline, and a horizontal row of 3–4 oversized stats (each a value, a label, and an optional one-line detail) that count up when scrolled into view. A premium alternative to a plain stats strip. Use REAL numbers from the brief — NEVER invent precise stats. Props: eyebrow (2–4 words), headline (5–12 words, or ""), items (array of EXACTLY 3–4 of {value (metric, e.g. "96%", "2×", "50+"), label (2–5 words), detail (6–12 words, or "")}), backgroundStyle ("dark"|"white"|"muted").`,
+  `- "dso-ai-feature": Premium feature / product spotlight — an eyebrow, headline, a short body, a checkmark bullet list, a row of supporting stats, and a large product/feature visual beside the copy. Use it to spotlight ONE flagship capability the brand actually offers — keep the copy GENERIC to the brand (NEVER dental or "AI scan" framing). This block renders LIGHT copy, so it MUST sit on a dark surface. Props: eyebrow (2–4 words), headline (5–12 words), body (15–28 words), bullets (array of EXACTLY 3–5 short benefit phrases, 4–9 words each), stats (array of EXACTLY 2–4 of {value (metric), label (2–5 words)}), imageUrl ("" — server fills the feature visual), ctaText (2–4 words, or ""), ctaUrl ("#"), ctaMode ("chilipiper"|"link"), backgroundStyle ("dark"|"black"|"gradient" — NEVER "white" or "light-gray").`,
+  `- "dso-final-cta": Premium closing CTA — a focused, high-contrast finale with an eyebrow, a bold headline restating the core promise, a subheadline that removes the last objection, and a primary + secondary button. Use as the LAST content block before the footer. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (12–24 words), primaryCtaText (2–4 words, action verb first), primaryCtaUrl ("#"), primaryCtaMode ("chilipiper"|"link"), secondaryCtaText (2–4 words, or ""), secondaryCtaUrl ("#"), backgroundStyle ("dark"|"gradient"|"muted").`,
+];
+
 // FULL-PAGE sales-narrative monographs — each renders an ENTIRE standalone page
 // (its own hero, body, and chrome). Like business-case-*, they are reached via
 // TEMPLATE INTENT (globalTemplates seeds + template-intent selector), not as
@@ -6713,6 +6726,7 @@ export function buildGeneralSystemPrompt(opts?: {
     }
     if (!injectedShowcase && para.startsWith(GENERAL_FOOTER_MARKER)) {
       out.push(...GENERAL_EXTRA_SHOWCASE_BLOCKS);
+      out.push(...GENERAL_EXTRA_PREMIUM_DSO_BLOCKS);
       if (opts?.includeContentSeries) out.push(GENERAL_CONTENT_SERIES_BLOCK);
       if (opts?.includeWebinarHub) out.push(GENERAL_WEBINAR_HUB_BLOCK);
       if (opts?.includeBlogSeries) out.push(GENERAL_BLOG_SERIES_BLOCK);

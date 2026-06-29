@@ -65,6 +65,18 @@ describe("page-recipe skeletons reference only advertised block types", () => {
     expect(vocab.has("logo-marquee")).toBe(false);
   });
 
+  it("GENERAL prompt advertises the premium DSO content blocks, brand-neutrally", () => {
+    const prompt = buildGeneralSystemPrompt();
+    const vocab = advertisedTypes(prompt);
+    for (const type of ["dso-stat-row", "dso-ai-feature", "dso-final-cta"]) {
+      expect(vocab.has(type), `GENERAL prompt is missing "${type}"`).toBe(true);
+    }
+    // The general bullets stay neutral: no Dandy-only background preset and no
+    // dental / "AI Scan Review" product framing leaks into the cross-tenant prompt.
+    expect(prompt).not.toContain("dandy-green");
+    expect(prompt).not.toContain("AI Scan Review");
+  });
+
   it("DSO recipes ⊆ DSO prompt vocabulary (non-Dandy, narrowest form)", () => {
     const vocab = advertisedTypes(buildDsoSystemPrompt({ isDandyTenant: false, brandName: "Acme Dental" }));
     for (const recipe of DSO_RECIPES) {
