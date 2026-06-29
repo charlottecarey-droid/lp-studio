@@ -7013,7 +7013,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       eyebrow: "Deep dive",
       heading: "The features that set us apart",
       subhead: "Large alternating rows that give each feature the spotlight.",
-      align: "left",
+      align: "center",
       backgroundStyle: "muted",
       cardRadius: "none",
       imageTreatment: "card",

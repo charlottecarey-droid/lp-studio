@@ -60,3 +60,12 @@ describe("NO_REVEAL — internally-sticky blocks", () => {
     expect(NO_REVEAL.has(type)).toBe(true);
   });
 });
+
+describe("NO_REVEAL — hover-interactive section blocks", () => {
+  // Card Grid owns per-card hover interactivity (hover lift + image scale). The
+  // reveal motion.div's persistent wrapper transform fights the card's own hover
+  // transform on published pages, so it must stay out of the reveal wrapper.
+  it("excludes the hover-interactive feature-card-grid from reveal wrapping", () => {
+    expect(NO_REVEAL.has("feature-card-grid")).toBe(true);
+  });
+});

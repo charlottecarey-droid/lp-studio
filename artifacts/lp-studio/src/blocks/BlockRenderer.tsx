@@ -488,6 +488,11 @@ export const NO_REVEAL = new Set<string>([
   // Horizontal scroll-snap stepper row: the reveal motion.div transform breaks
   // the horizontal scroll-snap container, so it owns its own scroll interactivity.
   "how-it-works-horizontal-stepper",
+  // Card Grid owns per-card hover interactivity (hover lift + image scale). The
+  // reveal motion.div sets a persistent transform on the wrapper, which fights
+  // the card's own hover transform on published pages. Excluding it keeps the
+  // hover interaction identical to the builder.
+  "feature-card-grid",
 ]);
 
 function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange: rawOnBlockChange, animationsEnabled = true, pageId, testId, variantId, sessionId, pageVars, pageCta, isBuilder, path = [], renderChild, renderEmptySlot, renderTailSlot }: Props) {
