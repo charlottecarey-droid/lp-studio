@@ -10,7 +10,7 @@ import {
   sectionRadiusClass,
   useSectionTheme,
   SectionHeader,
-  SectionIconVisual,
+  SectionItemMedia,
   SectionItemTitle,
   SectionItemBody,
   SectionCtas,
@@ -28,12 +28,12 @@ interface Props {
 /**
  * Feature — photo cards.
  *
- * Feature cards that lead with a photo/visual. Each card stacks a large,
- * radius-clipped visual (an image renders LARGE via `SectionIconVisual`, an
- * icon sits small inside a tinted tile) above a card body that carries the
- * title + description. Every color, type style, alignment, radius, and CTA
- * decision flows through the shared `section-kit` toolkit so this block reads
- * and edits identically to its graduated siblings.
+ * Tall photo cards (3:4) each with a floating caption card overlapping the
+ * bottom edge. When an item has no photo (the AI generator is icon-led and never
+ * emits image URLs) the photo frame degrades to a premium accent-tinted panel
+ * with the item's icon centered — never an empty image box. Every color, type
+ * style, alignment, radius, and CTA decision flows through the shared
+ * `section-kit` toolkit so all siblings read and edit identically.
  */
 export function BlockFeaturePhotoCards({
   props,
@@ -48,6 +48,9 @@ export function BlockFeaturePhotoCards({
   const align = props.align ?? "center";
   const items = props.items ?? [];
   const radius = sectionRadiusClass(props.cardRadius);
+
+  // Backstop tint behind the photo frame — derived, no baked literal.
+  const frameTint = `color-mix(in srgb, ${theme.ink} 8%, ${theme.surface.base})`;
 
   const update = (patch: Partial<FeaturePhotoCardsBlockProps>) =>
     onFieldChange?.({ ...props, ...patch });
@@ -78,38 +81,34 @@ export function BlockFeaturePhotoCards({
         />
 
         {items.length > 0 && (
-          <div className="mx-auto mt-12 grid max-w-xl grid-cols-1 gap-6 sm:mt-16 md:grid-cols-3 lg:max-w-none">
+          <div className="mx-auto mt-12 grid max-w-xl grid-cols-1 gap-6 pb-2 sm:mt-16 sm:max-w-none sm:grid-cols-2 lg:grid-cols-3">
             {items.map((item, i) => (
-              <div
-                key={i}
-                className={cn("group flex flex-col p-3", radius)}
-                style={{
-                  backgroundColor: theme.cardBg,
-                  boxShadow: "0 10px 30px -10px rgba(0,0,0,0.25)",
-                }}
-              >
+              <div key={i} className="group relative">
                 <div
-                  className={cn(
-                    "flex items-center justify-center overflow-hidden",
-                    radius,
-                  )}
-                  style={{
-                    aspectRatio: "3 / 4",
-                    backgroundColor: `color-mix(in srgb, ${theme.cardInk} 8%, ${theme.cardBg})`,
-                  }}
+                  className={cn("aspect-[3/4] w-full overflow-hidden", radius)}
+                  style={{ backgroundColor: frameTint }}
                 >
-                  <SectionIconVisual
-                    value={item.icon}
-                    color={theme.cardAccent}
-                    imageClassName="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    tileClassName="h-16 w-16"
-                    tileBg={`color-mix(in srgb, ${theme.cardAccent} 12%, ${theme.cardBg})`}
-                    radiusClass={radius}
+                  <SectionItemMedia
+                    image={item.image}
+                    icon={item.icon}
+                    accent={theme.accent}
+                    base={theme.surface.base}
                     alt={item.title}
+                    imgClassName="transition-transform duration-700 group-hover:scale-105"
+                    iconClassName="h-12 w-12"
                   />
                 </div>
-
-                <div className={cn("px-2 pb-1 pt-5", alignTextClass(align))}>
+                <div
+                  className={cn(
+                    "absolute bottom-4 left-4 right-10 p-5 sm:p-6",
+                    radius,
+                    alignTextClass(align),
+                  )}
+                  style={{
+                    backgroundColor: theme.cardBg,
+                    boxShadow: "0 16px 40px -16px rgba(0,0,0,0.35)",
+                  }}
+                >
                   <SectionItemTitle
                     value={item.title}
                     onUpdate={isBuilder ? (v) => updateItem(i, { title: v }) : undefined}
@@ -117,7 +116,9 @@ export function BlockFeaturePhotoCards({
                   />
                   <SectionItemBody
                     value={item.description}
-                    onUpdate={isBuilder ? (v) => updateItem(i, { description: v }) : undefined}
+                    onUpdate={
+                      isBuilder ? (v) => updateItem(i, { description: v }) : undefined
+                    }
                     color={theme.cardMuted}
                     className="mt-2"
                   />

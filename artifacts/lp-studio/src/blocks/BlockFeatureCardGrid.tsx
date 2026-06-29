@@ -11,7 +11,7 @@ import {
   sectionRadiusClass,
   useSectionTheme,
   SectionHeader,
-  SectionIconVisual,
+  SectionItemMedia,
   SectionItemTitle,
   SectionItemBody,
   SectionCtas,
@@ -27,13 +27,16 @@ interface Props {
 }
 
 /**
- * Feature card grid.
+ * Feature — card grid.
  *
- * A four-up grid of carded features under a shared header. Each card lifts on
- * hover with a brand-tinted hairline + shadow emphasis, and leads with an
- * icon-or-image visual sitting in a tinted tile. Like every graduated section
- * block, all color / type / alignment / radius / CTA decisions flow through the
- * shared `section-kit` toolkit so the family reads and edits identically.
+ * A dense four-up grid of compact features: a 4:3 image tile on top with the
+ * title + body sitting directly on the section below it (no card chrome). When
+ * an item has no photo (the AI generator is icon-led and never emits image URLs)
+ * the image tile degrades to a premium accent-tinted panel with the item's icon
+ * centered — never an empty image box. Stays two-up on tablets, four-up on
+ * desktop. Every color, type style, alignment, radius, and CTA decision flows
+ * through the shared `section-kit` toolkit so all siblings read and edit
+ * identically.
  */
 export function BlockFeatureCardGrid({
   props,
@@ -48,6 +51,9 @@ export function BlockFeatureCardGrid({
   const align = props.align ?? "center";
   const items = props.items ?? [];
   const radius = sectionRadiusClass(props.cardRadius);
+
+  // Backstop tint behind the image tile — derived, no baked literal.
+  const frameTint = `color-mix(in srgb, ${theme.ink} 8%, ${theme.surface.base})`;
 
   const update = (patch: Partial<FeatureCardGridBlockProps>) =>
     onFieldChange?.({ ...props, ...patch });
@@ -83,35 +89,38 @@ export function BlockFeatureCardGrid({
               <div
                 key={i}
                 className={cn(
-                  "flex flex-col p-6 transition-all duration-300 ease-out motion-safe:hover:-translate-y-0.5 hover:shadow-xl",
+                  "group flex flex-col transition-all duration-300 ease-out motion-safe:hover:-translate-y-2",
                   alignItemsClass(align),
                   alignTextClass(align),
-                  radius,
                 )}
-                style={{
-                  backgroundColor: theme.cardBg,
-                  border: `1px solid color-mix(in srgb, ${theme.cardAccent} 14%, transparent)`,
-                }}
               >
-                <div className="mb-5">
-                  <SectionIconVisual
-                    value={item.icon}
-                    color={theme.cardAccent}
-                    tileClassName="h-14 w-14"
-                    tileBg={`color-mix(in srgb, ${theme.cardAccent} 12%, ${theme.cardBg})`}
-                    radiusClass={radius}
+                <div
+                  className={cn(
+                    "mb-5 aspect-[4/3] w-full overflow-hidden transition-shadow duration-300 group-hover:shadow-xl",
+                    radius,
+                  )}
+                  style={{ backgroundColor: frameTint }}
+                >
+                  <SectionItemMedia
+                    image={item.image}
+                    icon={item.icon}
+                    accent={theme.accent}
+                    base={theme.surface.base}
                     alt={item.title}
+                    imgClassName="transition-transform duration-700 group-hover:scale-105"
                   />
                 </div>
                 <SectionItemTitle
                   value={item.title}
                   onUpdate={isBuilder ? (v) => updateItem(i, { title: v }) : undefined}
-                  color={theme.cardInk}
+                  color={theme.ink}
                 />
                 <SectionItemBody
                   value={item.description}
-                  onUpdate={isBuilder ? (v) => updateItem(i, { description: v }) : undefined}
-                  color={theme.cardMuted}
+                  onUpdate={
+                    isBuilder ? (v) => updateItem(i, { description: v }) : undefined
+                  }
+                  color={theme.muted}
                   className="mt-2"
                 />
               </div>

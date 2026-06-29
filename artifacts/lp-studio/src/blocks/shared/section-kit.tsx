@@ -284,6 +284,62 @@ export function SectionIconVisual({
   );
 }
 
+/* ----------------------------------------------------------- item media */
+
+/**
+ * Render a per-item PHOTO for the image-led section blocks. When the item has a
+ * usable image URL it fills the caller's frame (object-cover); otherwise it
+ * degrades to a premium accent-tinted panel with the item's Lucide icon
+ * centered — so AI-generated pages (which only ever emit icon names, never image
+ * URLs) never show an empty / broken image box. The caller owns the aspect
+ * frame + corner radius; this fills it (h-full w-full).
+ */
+export function SectionItemMedia({
+  image,
+  icon,
+  alt,
+  accent,
+  base,
+  imgClassName,
+  iconClassName = "h-10 w-10",
+}: {
+  image?: string;
+  icon?: string;
+  alt?: string;
+  /** Accent for the fallback icon + wash (contrast-safe hex). */
+  accent: string;
+  /** Surface the media sits on, used as the fallback color-mix base (hex). */
+  base: string;
+  /** Extra classes applied to the <img> only (e.g. hover transforms). */
+  imgClassName?: string;
+  iconClassName?: string;
+}) {
+  if (isImageIcon(image)) {
+    return (
+      <img
+        src={image}
+        alt={alt ?? ""}
+        loading="lazy"
+        className={cn("h-full w-full object-cover", imgClassName)}
+      />
+    );
+  }
+  return (
+    <div
+      className="flex h-full w-full items-center justify-center"
+      style={{
+        background: `linear-gradient(135deg, color-mix(in srgb, ${accent} 18%, ${base}), color-mix(in srgb, ${accent} 6%, ${base}))`,
+      }}
+    >
+      <IconOrImage value={icon} className={iconClassName} style={{ color: accent }} />
+    </div>
+  );
+}
+
+/** True when the item carries a usable photo URL (vs. a Lucide icon name). */
+export const sectionItemHasImage = (item: { image?: string }): boolean =>
+  isImageIcon(item.image);
+
 /* -------------------------------------------------------------- item text */
 
 /**
@@ -377,6 +433,7 @@ export function SectionCtas({
   source = "section",
   onCtaClick,
   className,
+  primaryOnly = false,
 }: {
   props: SectionBlockBase;
   brand: BrandConfig;
@@ -389,9 +446,11 @@ export function SectionCtas({
   source?: string;
   onCtaClick?: (url: string) => void;
   className?: string;
+  /** Render ONLY the primary button (used by the per-card big-features CTA). */
+  primaryOnly?: boolean;
 }) {
   const hasPrimary = !!(props.ctaText && props.ctaText.trim());
-  const hasSecondary = !!(props.ctaSecondaryText && props.ctaSecondaryText.trim());
+  const hasSecondary = !primaryOnly && !!(props.ctaSecondaryText && props.ctaSecondaryText.trim());
   if (!hasPrimary && !hasSecondary) return null;
 
   const field = (key: "ctaText" | "ctaSecondaryText") =>

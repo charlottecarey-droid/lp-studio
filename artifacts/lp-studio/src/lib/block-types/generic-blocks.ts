@@ -268,8 +268,19 @@ export type SectionCtaVariant = "primary" | "secondary" | "link";
 export interface SectionFeatureItem {
   /** Lucide icon name OR image URL (dual field). */
   icon?: string;
+  /**
+   * Optional PHOTO for the image-led section blocks (color-block-cards,
+   * headline-badge, photo-cards, card-grid, big-features). When present the
+   * block renders this photo; the `icon` still drives the Lucide glyph shown
+   * alongside it (e.g. the icon tile / colored badge). When absent the block
+   * degrades to a premium accent-tinted panel with the icon — so AI-generated
+   * pages (icon-led, never an image URL) never show an empty image box.
+   */
+  image?: string;
   title?: string;
   description?: string;
+  /** Small secondary label shown under a feature's CTA (big-features). */
+  note?: string;
 }
 
 /**
@@ -342,7 +353,7 @@ export type FeatureCardGridBlockProps = SectionBlockBase;
 
 export interface FeatureBigFeaturesBlockProps extends SectionBlockBase {
   /** "blended" = screenshots blend into the section (no card chrome);
-   *  "card" = each feature image sits in a bordered card. Default "blended". */
+   *  "card" = each feature sits in a contained, shadowed card. Default "card". */
   imageTreatment?: "blended" | "card";
 }
 

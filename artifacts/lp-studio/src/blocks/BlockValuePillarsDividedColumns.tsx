@@ -90,10 +90,10 @@ export function BlockValuePillarsDividedColumns({
         />
 
         {items.length > 0 && (
-          <div className="relative mt-12 grid grid-cols-1 sm:mt-16 md:grid-cols-3">
+          <div className="relative mt-12 grid grid-cols-1 sm:mt-16 lg:grid-cols-3">
             {/* Vertical dividers between columns (desktop). */}
             {showDivider && (
-              <div aria-hidden className="pointer-events-none absolute inset-0 hidden md:block">
+              <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:block">
                 {Array.from({ length: COLS - 1 }).map((_, k) =>
                   k + 1 < usedCols ? (
                     <div
@@ -115,7 +115,7 @@ export function BlockValuePillarsDividedColumns({
               <div
                 key={i}
                 className={cn(
-                  "relative flex flex-col p-6 md:px-10 md:py-4 lg:px-12",
+                  "relative flex flex-col p-6 lg:px-12 lg:py-8",
                   alignItemsClass(align),
                   alignTextClass(align),
                 )}
@@ -146,7 +146,7 @@ export function BlockValuePillarsDividedColumns({
                 {showDivider && i < items.length - 1 && (
                   <div
                     aria-hidden
-                    className="absolute inset-x-6 bottom-0 md:hidden"
+                    className="absolute inset-x-6 bottom-0 lg:hidden"
                     style={{
                       borderTopWidth: `${dividerWidth}px`,
                       borderColor: dividerColor,

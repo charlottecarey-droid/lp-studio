@@ -87,7 +87,7 @@ export function BlockValuePillarsOutlinedCards({
         />
 
         {items.length > 0 && (
-          <div className="mx-auto mt-12 grid max-w-xl grid-cols-1 gap-6 sm:mt-16 md:grid-cols-3 lg:max-w-none">
+          <div className="mx-auto mt-12 grid max-w-xl grid-cols-1 gap-6 sm:mt-16 sm:max-w-none sm:grid-cols-2 lg:grid-cols-3">
             {items.map((item, i) => (
               <div
                 key={i}

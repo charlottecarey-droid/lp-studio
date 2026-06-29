@@ -20,6 +20,7 @@ import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { IconPicker } from "@/components/IconPicker";
+import { ImagePicker } from "@/components/ImagePicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 import { SectionBackgroundControl } from "./SectionBackgroundControl";
@@ -69,6 +70,8 @@ interface SectionBlockPanelProps<T extends SectionBlockBase> {
   showCardBorder?: boolean;
   /** Show the divider color + width controls (Divided Columns). */
   showDividers?: boolean;
+  /** Show a per-item image picker (photo-led blocks). Icon-only blocks omit it. */
+  showItemImages?: boolean;
 }
 
 /** Optional line (outline/divider) styling some section blocks expose. */
@@ -93,6 +96,7 @@ export function SectionBlockPanel<T extends SectionBlockBase>({
   showImageTreatment,
   showCardBorder,
   showDividers,
+  showItemImages,
 }: SectionBlockPanelProps<T>) {
   const update = (patch: Partial<T>) => onChange({ ...props, ...patch });
   const line = props as unknown as SectionLineProps;
@@ -192,12 +196,25 @@ export function SectionBlockPanel<T extends SectionBlockBase>({
               </div>
             </div>
             <IconPicker
-              label="Icon or image"
+              label="Icon"
               value={item.icon ?? ""}
               onChange={(v) => updateItem(i, { icon: v })}
               aiHint={item.title || "Section icon"}
             />
-            <p className="text-[11px] text-muted-foreground">Pick a brand icon, or choose an image — images render larger than icons.</p>
+            {showItemImages ? (
+              <>
+                <ImagePicker
+                  label="Photo (optional)"
+                  value={item.image ?? ""}
+                  onChange={(v) => updateItem(i, { image: v })}
+                  aiHint={item.title || `${itemNoun} photo`}
+                  previewClassName="w-full h-20 object-cover"
+                />
+                <p className="text-[11px] text-muted-foreground">Add a photo to lead this {itemNoun.toLowerCase()}. With no photo, a polished icon panel shows instead.</p>
+              </>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">Pick a brand icon, or choose an image — images render larger than icons.</p>
+            )}
             <div>
               <Label className="text-[11px] text-muted-foreground">Title</Label>
               <AiTextField
