@@ -68,6 +68,8 @@ interface SectionBlockPanelProps<T extends SectionBlockBase> {
   itemNoun?: string;
   /** Show the BigFeatures "image treatment" control. */
   showImageTreatment?: boolean;
+  /** Show the BigFeatures "image side" (alternate / left / right) control. */
+  showImageSide?: boolean;
   /** Show the card-outline color + width controls (Outlined Cards). */
   showCardBorder?: boolean;
   /** Show the divider color + width controls (Divided Columns). */
@@ -102,6 +104,7 @@ export function SectionBlockPanel<T extends SectionBlockBase>({
   brandVoiceSet,
   itemNoun = "Item",
   showImageTreatment,
+  showImageSide,
   showCardBorder,
   showDividers,
   showItemImages,
@@ -465,6 +468,22 @@ export function SectionBlockPanel<T extends SectionBlockBase>({
               <SelectContent>
                 <SelectItem value="blended" className="text-xs">Blended</SelectItem>
                 <SelectItem value="card" className="text-xs">Card</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        {showImageSide && (
+          <div>
+            <Label className="text-[11px] text-muted-foreground">Image side</Label>
+            <Select
+              value={big.imageSide ?? "alternate"}
+              onValueChange={(v) => update({ imageSide: v as "alternate" | "left" | "right" } as unknown as Partial<T>)}
+            >
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="alternate" className="text-xs">Alternate (zig-zag)</SelectItem>
+                <SelectItem value="left" className="text-xs">Always left</SelectItem>
+                <SelectItem value="right" className="text-xs">Always right</SelectItem>
               </SelectContent>
             </Select>
           </div>

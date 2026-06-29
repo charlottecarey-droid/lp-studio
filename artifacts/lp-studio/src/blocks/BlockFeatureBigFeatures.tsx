@@ -120,7 +120,11 @@ export function BlockFeatureBigFeatures({
           <div className="mt-12 flex flex-col gap-8 sm:mt-16">
             {items.map((item, i) => {
               const hasImage = sectionItemHasImage(item);
-              const imageRight = i % 2 === 0;
+              // "alternate" (default) flips sides down the stack; "left"/"right"
+              // pin the photo to the same side on every card.
+              const imageSide = props.imageSide ?? "alternate";
+              const imageRight =
+                imageSide === "alternate" ? i % 2 === 0 : imageSide === "right";
 
               const textSide = (
                 <div

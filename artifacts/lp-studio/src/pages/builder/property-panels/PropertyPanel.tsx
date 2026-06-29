@@ -6955,7 +6955,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "feature-card-grid":
         return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Feature" showItemImages showColumns />;
       case "feature-big-features":
-        return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Feature" showImageTreatment showItemImages />;
+        return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Feature" showImageTreatment showImageSide showItemImages />;
       default: {
         const _exhaustive: never = block;
         void _exhaustive;

@@ -387,6 +387,14 @@ export interface FeatureBigFeaturesBlockProps extends SectionBlockBase {
   /** "blended" = screenshots blend into the section (no card chrome);
    *  "card" = each feature sits in a contained, shadowed card. Default "card". */
   imageTreatment?: "blended" | "card";
+  /**
+   * Which side the photo sits on within each big-feature row.
+   *  - "alternate" (default): sides flip down the stack (image right, then
+   *    left, then right …) — the historical zig-zag behavior.
+   *  - "left" / "right": the image is pinned to that side on EVERY card so the
+   *    layout reads consistently instead of alternating.
+   */
+  imageSide?: "alternate" | "left" | "right";
 }
 
 /**
