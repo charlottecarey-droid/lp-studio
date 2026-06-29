@@ -63,7 +63,7 @@ export function BlockValuePillarsColorBlockCards({
   const hasCardColor = isValidHex(props.cardBgColor ?? "");
   const cardSurface = hasCardColor
     ? theme.cardBg
-    : `color-mix(in srgb, ${theme.accent} 8%, ${theme.surface.base})`;
+    : `color-mix(in srgb, ${theme.accent} 18%, ${theme.surface.base})`;
   const cardTitleInk = hasCardColor ? theme.cardInk : theme.ink;
   const cardBodyInk = hasCardColor ? theme.cardMuted : theme.muted;
   const cardAccent = hasCardColor ? theme.cardAccent : theme.accent;

@@ -1581,6 +1581,90 @@ describe("icon-only item photos (benefits-grid / features)", () => {
   });
 });
 
+// Task #1436 follow-up: the graduated value-pillars-* / feature-* SECTION blocks
+// split into two families. Five are photo-capable (each item shows a real photo
+// with a Lucide-icon fallback), so their items[].image slots MUST be collected
+// and filled like any other photo block — otherwise AI pages built from them
+// render with empty cards ("white on white, no images"). The other four are
+// genuinely icon-led and stay in ICON_ONLY_ITEM_BLOCK_TYPES, so their per-item
+// `image` is never collected or filled.
+describe("graduated section blocks — photo-capable items fill, icon-only items don't", () => {
+  const IMAGE_CAPABLE = [
+    "value-pillars-color-block-cards",
+    "value-pillars-headline-badge",
+    "feature-photo-cards",
+    "feature-card-grid",
+    "feature-big-features",
+  ];
+  const ICON_ONLY = [
+    "value-pillars-icon-trio",
+    "value-pillars-outlined-cards",
+    "value-pillars-divided-columns",
+    "value-pillars-card-columns",
+  ];
+
+  // The generic item branch fills these non-benefits item blocks with the
+  // "product-detail" purpose, so a tenant product-detail photo on the item's
+  // own subject fills the slot.
+  const PD_LIB: MediaImage[] = [
+    { url: "/objects/denture-pd-1", title: "Custom dentures closeup", tags: ["product-detail", "dentures"] },
+    { url: "/objects/scanner-pd-1", title: "Intraoral scanner device", tags: ["product-detail", "scanner"] },
+  ];
+
+  // Non-empty image so the collect layer (which drops empty slots by default)
+  // enumerates it — proving membership, not fill.
+  const collectBlock = (type: string) => ({
+    type,
+    props: {
+      heading: "What you get",
+      items: [
+        { icon: "Sparkles", title: "Custom dentures", description: "Precision custom dentures", image: "/objects/denture-pd-1" },
+      ],
+    },
+  });
+
+  // Empty image so the fill loop has something to fill.
+  const fillBlock = (type: string) => ({
+    type,
+    props: {
+      heading: "What you get",
+      items: [
+        { icon: "Sparkles", title: "Custom dentures", description: "Precision custom dentures crafted for a natural comfortable fit", image: "" },
+      ],
+    },
+  });
+
+  it("collects an items[].image slot for each photo-capable block", () => {
+    for (const type of IMAGE_CAPABLE) {
+      const byField = Object.fromEntries(
+        collectImageSlots(collectBlock(type) as any).map((s) => [s.field, s.purpose]),
+      );
+      expect(byField.image, `${type} should expose an item image slot`).toBe("product-detail");
+    }
+  });
+
+  it("collects NO items[].image slot for each icon-only block", () => {
+    for (const type of ICON_ONLY) {
+      const fields = collectImageSlots(collectBlock(type) as any).map((s) => s.field);
+      expect(fields, `${type} should expose no item image slot`).not.toContain("image");
+    }
+  });
+
+  it("fills items[].image for the photo-capable blocks from the library", () => {
+    for (const type of IMAGE_CAPABLE) {
+      const out = fillEmptyImages([fillBlock(type)], PD_LIB, PAGE_CTX) as any[];
+      expect((out[0].props as any).items[0].image, `${type} should fill its item image`).toBeTruthy();
+    }
+  });
+
+  it("leaves items[].image empty for the icon-only blocks", () => {
+    for (const type of ICON_ONLY) {
+      const out = fillEmptyImages([fillBlock(type)], PD_LIB, PAGE_CTX) as any[];
+      expect((out[0].props as any).items[0].image, `${type} should stay icon-only`).toBe("");
+    }
+  });
+});
+
 describe("curated purpose-matched images fill content/strip slots", () => {
   // Restored (pre-late-May) behavior: a tenant's OWN curated library image that
   // is purpose-classified for feature slots fills the slot even when its content
