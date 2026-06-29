@@ -166,6 +166,37 @@ export function FullBleedHeroPanel({ blockType, props, onChange, brandVoiceSet, 
         />
       </div>
 
+      <div>
+        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">Button Color</Label>
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            value={props.ctaButtonColor || "#000000"}
+            onChange={e => set("ctaButtonColor", e.target.value)}
+            className="w-9 h-9 rounded border cursor-pointer shrink-0"
+          />
+          <Input
+            value={props.ctaButtonColor || ""}
+            onChange={e => set("ctaButtonColor", e.target.value)}
+            className="text-sm font-mono"
+            placeholder="Auto (brand color)"
+          />
+          {props.ctaButtonColor && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground shrink-0"
+              onClick={() => set("ctaButtonColor", undefined)}
+            >
+              Reset
+            </Button>
+          )}
+        </div>
+        <BrandSwatches className="mt-1.5" current={props.ctaButtonColor} onPick={hex => set("ctaButtonColor", hex)} />
+        <p className="text-[10px] text-muted-foreground mt-1">Leave empty to use your brand's button color. The label color adjusts automatically for contrast.</p>
+      </div>
+
       {/* Shared CTA action + modal suite (Phase 2). Button label + secondary CTA
           stay panel-owned. */}
       <CtaActionConfigSection

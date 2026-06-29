@@ -751,6 +751,10 @@ export interface FullBleedHeroBlockProps extends CtaModalConfig {
   chilipiperUrl?: string;
   secondaryCtaText?: string;
   secondaryCtaUrl?: string;
+  /** Override for the primary CTA button background (the filled header button
+   *  and the main hero button). Defaults to the brand-derived CTA color when
+   *  unset. The label color is auto-derived for legibility against the fill. */
+  ctaButtonColor?: string;
   backgroundType: "image" | "video";
   backgroundImageUrl: string;
   backgroundVideoUrl?: string;

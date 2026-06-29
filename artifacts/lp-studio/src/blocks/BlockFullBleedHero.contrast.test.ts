@@ -190,4 +190,25 @@ describe("BlockFullBleedHero CTA contrast", () => {
       expect(contrast(color, primary)).toBeGreaterThanOrEqual(TEXT_MIN);
     }
   });
+
+  it("honors a per-block button color override on both filled CTAs and keeps the label legible", () => {
+    const brand: BrandConfig = {
+      ...DEFAULT_BRAND,
+      ctaBackground: undefined,
+      ctaText: undefined,
+    };
+
+    // A bright custom fill the author picked in the panel; the label color must
+    // be auto-derived so it stays readable on that fill.
+    const override = "#ff5a1f";
+    const markup = render(brand, baseProps({ ctaButtonColor: override }));
+    const filled = filledButtons(extractStyles(markup));
+
+    // Both the primary CTA and the header CTA pick up the override.
+    expect(filled.length).toBeGreaterThanOrEqual(2);
+    for (const { backgroundColor, color } of filled) {
+      expect(backgroundColor.toLowerCase()).toBe(override);
+      expect(contrast(color, backgroundColor)).toBeGreaterThanOrEqual(TEXT_MIN);
+    }
+  });
 });
