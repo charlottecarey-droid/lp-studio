@@ -1745,7 +1745,7 @@ const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   "pas-section": "{ headline, body, bullets: string[] }",
   "stat-callout": "{ stat, description, footnote }",
   "rich-text": "{ content, maxWidth }",
-  "dso-heartland-hero": "{ eyebrow, headline, companyName, subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, stats: [{ value, label }] }",
+  "dso-heartland-hero": "{ eyebrow, headline, companyName (the TARGET account's company name — it is highlighted in the headline accent color and shown in the nav as 'logo × company'), subheadline, primaryCtaText, primaryCtaUrl, secondaryCtaText, secondaryCtaUrl, stats: [{ value, label }] }",
   "dso-stat-bar": "{ stats: [{ value, label }], backgroundStyle }",
   "dso-challenges": "{ eyebrow, headline, backgroundStyle, layout (\"4-col\"), challenges: [{ title, desc }] } — 4 pain points specific to this account",
   "dso-insights-dashboard": "{ eyebrow, headline, subheadline, practiceLabel, backgroundStyle, dashboardVariant (\"light\"|\"dark\") }",
@@ -4934,6 +4934,24 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         { err: caseErr, accountId, tenantId },
         "[generate-microsite] sentence-case normalizer skipped",
       );
+    }
+
+    // Hero co-brand slot — the dso-heartland-hero `companyName` is the TARGET
+    // company name: it is highlighted in the headline (accent color) and shown
+    // in the nav as "[logo] × company". A microsite is always account-scoped
+    // (the route 404s without an account), so deterministically set it to the
+    // attached account's company name regardless of what the AI or template
+    // emitted. This is the LAST block mutation before the snapshot so no earlier
+    // freeform, template, or critique pass can undo it. Falls back to "" (never
+    // the seller/brand) when the account has no resolvable name.
+    {
+      const targetCompanyName = deriveCompanyName(account);
+      normalizedBlocks = normalizedBlocks.map((b) => {
+        if (b.type !== "dso-heartland-hero") return b;
+        const props = { ...((b.props as Record<string, unknown> | undefined) ?? {}) };
+        props.companyName = targetCompanyName;
+        return { ...b, props };
+      });
     }
 
     emitter.blocksSnapshot(normalizedBlocks, "polish");

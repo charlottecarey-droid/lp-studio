@@ -3607,7 +3607,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label className="text-xs">Company name to highlight (in lime)</Label>
+                <Label className="text-xs">Company name to highlight (in your accent color)</Label>
                 <div className="flex items-center gap-1">
                   <CampaignVarInserter onInsert={(token) => onChange({ ...block, props: { ...p, companyName: p.companyName + token } })} />
                   <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, companyName: p.companyName + token } })} />

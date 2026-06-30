@@ -6411,7 +6411,7 @@ const GENERAL_EXTRA_CORE_BLOCKS: string[] = [
 // (footer) section, alongside the other showcase blocks.
 const GENERAL_EXTRA_SHOWCASE_BLOCKS: string[] = [
   `- "scroll-assembly": Cinematic scroll-driven assembly where text fragments, images, and shapes animate into place as the visitor scrolls — a bold, design-forward brand moment. Props: eyebrow (2–4 words), theme ("light"|"dark"), bgColor (hex or ""), decor ("minimal"|"orbs"|"grid"|"all"), grain (boolean), ctaText (2–5 words), ctaUrl ("#"), floatingImages (array of 0–4 image URLs — leave each ""), marqueeTags (array of 4–8 short label words), pieces (array of EXACTLY 4–8 of {kind ("text-display"|"text-headline"|"text-body"|"image"|"shape"), content (the text, or "" for image/shape), from ("left"|"right"|"top"|"bottom"|"scale"|"fade"), revealAt (number 0–1)}).`,
-  `- "dso-heartland-hero": Bold full-bleed hero with an integrated sticky nav and a stat bar — a strong, conversion-focused hero for B2B and enterprise brands. Renders its OWN nav, so never precede it with a "nav-header". Props: headline (5–12 words), companyName (the brand name), eyebrow (2–4 words), subheadline (15–28 words), primaryCtaText (2–5 words), primaryCtaUrl ("#"), secondaryCtaText (2–4 words), secondaryCtaUrl ("#"), backgroundStyle ("dark"|"black"|"gradient" — pick to match the brand), layout ("full-bleed"|"split"), backgroundImageUrl ("" — for full-bleed), heroImageUrl ("" — for split), heroImageSide ("left"|"right"), stats (array of EXACTLY 3–4 of {value (metric), label (2–5 words)}), navLinks (array of 3–5 of {label (1–2 words), href ("#")}).`,
+  `- "dso-heartland-hero": Bold full-bleed hero with an integrated sticky nav and a stat bar — a strong, conversion-focused hero for B2B and enterprise brands. Renders its OWN nav, so never precede it with a "nav-header". Props: headline (5–12 words), companyName ("" — ALWAYS leave blank; this co-brand slot is only filled on account-specific microsites), eyebrow (2–4 words), subheadline (15–28 words), primaryCtaText (2–5 words), primaryCtaUrl ("#"), secondaryCtaText (2–4 words), secondaryCtaUrl ("#"), backgroundStyle ("dark"|"black"|"gradient" — pick to match the brand), layout ("full-bleed"|"split"), backgroundImageUrl ("" — for full-bleed), heroImageUrl ("" — for split), heroImageSide ("left"|"right"), stats (array of EXACTLY 3–4 of {value (metric), label (2–5 words)}), navLinks (array of 3–5 of {label (1–2 words), href ("#")}).`,
   // ── June-2026 modern block wave (launch heroes / glass features / stats /
   // testimonial wall / glass pricing / aurora CTA finale). Image fields stay ""
   // for the server fill; testimonial-wall avatars/logos and launch-spotlight
@@ -6748,7 +6748,7 @@ export function buildDsoSystemPrompt(opts: { isDandyTenant: boolean; brandName: 
   return `${intro}
 
 AVAILABLE DSO BLOCK TYPES (use these exact type strings — these are the only types you may use):
-- "dso-heartland-hero": Hero with stat bar. Props: headline (string), companyName (string), eyebrow (string), subheadline (string), primaryCtaText (string), primaryCtaUrl ("#" — use Chili Piper URL if provided), primaryCtaMode ("chilipiper"|"link"), secondaryCtaText (string), secondaryCtaUrl ("#"), backgroundStyle ("dandy-green"|"dark"|"black"|"gradient" — default "dandy-green"), layout ("full-bleed"|"split" — use "split" when you have a clear hero image to showcase, otherwise "full-bleed"), backgroundImageUrl (string — for full-bleed layout: a wide landscape photo that overlays behind the hero), heroImageUrl (string — for split layout: a tall/portrait-friendly clinical or team photo; leave blank "" for full-bleed), heroImageSide ("left"|"right" — default "right"; flip to "left" for visual variety), stats (array of {value, label} — 3–4 stats like "350+ locations", "99.2% fit rate")
+- "dso-heartland-hero": Hero with stat bar. Props: headline (string), companyName ("" — ALWAYS leave blank; this co-brand slot is only filled on account-specific microsites), eyebrow (string), subheadline (string), primaryCtaText (string), primaryCtaUrl ("#" — use Chili Piper URL if provided), primaryCtaMode ("chilipiper"|"link"), secondaryCtaText (string), secondaryCtaUrl ("#"), backgroundStyle ("dandy-green"|"dark"|"black"|"gradient" — default "dandy-green"), layout ("full-bleed"|"split" — use "split" when you have a clear hero image to showcase, otherwise "full-bleed"), backgroundImageUrl (string — for full-bleed layout: a wide landscape photo that overlays behind the hero), heroImageUrl (string — for split layout: a tall/portrait-friendly clinical or team photo; leave blank "" for full-bleed), heroImageSide ("left"|"right" — default "right"; flip to "left" for visual variety), stats (array of {value, label} — 3–4 stats like "350+ locations", "99.2% fit rate")
 - "dso-scroll-story-hero": Split-screen hero with auto-advancing chapters. Props: eyebrow (string), ctaText (string), ctaUrl ("#" — use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"), imagePosition ("left"|"right"), backgroundStyle ("dandy-green"|"dark"|"black"|"gradient" — default "dandy-green"), chapters (array 2–4 of {headline, body, imageUrl})
 - "dso-problem": Dark pain-point panel with icon grid. Props: eyebrow (string), headline (string), body (string), panels (array of EXACTLY 4 of {icon, title, desc} — render as a 4-panel grid). Icon options: "alert-triangle","bar-chart","users","trending-down","clock","shield","microscope","layers","zap","target","dollar","network","activity","scale". imageUrls (string[] — MANDATORY, EXACTLY 2 image URLs from the IMAGE LIBRARY; ${dsoProblemImagery}. NEVER leave this empty — the block has two image slots that look broken when blank). backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER use "white" or "light-gray" for this block). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link")
 - "dso-ai-feature": AI feature showcase with stats + visual. Props: eyebrow (string), headline (string), body (string), bullets (string[], 3–5 bullets), stats (array of {value, label}), imageUrl (string), videoUrl (string, OPTIONAL — see rule 15 below). backgroundStyle ("dandy-green"|"black"|"dark"|"gradient" — NEVER use "white" or "light-gray" for this block). ctaText (string, optional), ctaUrl (string, use Chili Piper URL if provided), ctaMode ("chilipiper"|"link"). The visual area renders the videoUrl if set, otherwise the imageUrl, otherwise it collapses — so this block needs at least one of videoUrl or imageUrl to look right.
@@ -9731,13 +9731,22 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         const props = b.props as Record<string, unknown>;
         const btype = b.type as string;
 
-        // Subject-company name leak guard (task #863): a block's `companyName`
-        // names the SELLING brand. The AI tends to emit "Dandy" (prompt
-        // saturation) and sometimes leaves it blank. For non-Dandy tenants
-        // that is a leak, so normalize: replace an empty or literal-"Dandy"
-        // companyName with the resolved brand name (the tenant's own brandName,
-        // or "" when none is set). A real, prompt-derived name is left intact.
-        if ("companyName" in props) {
+        // Hero co-brand slot: the dso-heartland-hero `companyName` is the
+        // TARGET company name — highlighted in the headline (accent color) and
+        // shown in the nav as "[logo] × company". That only makes sense on an
+        // account-specific microsite, where the sales path fills it from the
+        // attached account. A landing page has no target account, so always
+        // blank it here (never fill it with the selling brand).
+        if (btype === "dso-heartland-hero" && "companyName" in props) {
+          props.companyName = "";
+        } else if ("companyName" in props) {
+          // Subject-company name leak guard (task #863): a non-hero block's
+          // `companyName` (e.g. dso-comparison's column header) names the
+          // SELLING brand. The AI tends to emit "Dandy" (prompt saturation) and
+          // sometimes leaves it blank. For non-Dandy tenants that is a leak, so
+          // normalize: replace an empty or literal-"Dandy" companyName with the
+          // resolved brand name (the tenant's own brandName, or "" when none is
+          // set). A real, prompt-derived name is left intact.
           const cn = typeof props.companyName === "string" ? props.companyName.trim() : "";
           if (cn === "" || cn.toLowerCase() === "dandy") {
             props.companyName = resolvedCompanyName;
@@ -10617,6 +10626,18 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // `copy` blocks keep AI copy but restore image fields to defaults.
     // Fail-open: a no-governance tenant is untouched.
     parsed.blocks = enforceAiModes(parsed.blocks, governanceByType, defaultPropsByType) as typeof parsed.blocks;
+
+    // Hero co-brand slot — FINAL guard. A landing page never has a target
+    // account, so the dso-heartland-hero `companyName` (highlighted in the
+    // headline accent + shown in the nav as "logo × company") must always be
+    // blank. Re-assert it here, after enforceAiModes: a `locked` hero is reset
+    // to the curated catalog default, which carries a "{company}" token and
+    // would otherwise reintroduce a value the earlier blanking pass cleared.
+    for (const block of parsed.blocks as Array<Record<string, unknown>>) {
+      if (block?.type !== "dso-heartland-hero") continue;
+      const bp = block.props;
+      if (bp && typeof bp === "object") (bp as Record<string, unknown>).companyName = "";
+    }
 
     emitter.stage("polish", "done", "Critiquing & polishing copy");
     emitter.blocksSnapshot(parsed.blocks, "polish");
