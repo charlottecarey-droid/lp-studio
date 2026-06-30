@@ -2085,7 +2085,12 @@ async function runMigrationsBody(): Promise<void> {
       // databases already past this marker. Conservative seed: only the
       // funnel-stage / framework templates declare anything; everything else
       // stays wildcard (NULL = ANY) so nothing breaks.
-      const SEED_MARKER = "global_templates_seed_v35";
+      // v36: replace the broken "Event Landing" flagship (a single event-page
+      // block stacked under 7 redundant sections) with a clean single-block
+      // "Event RSVP" flagship (global-flagship-event-rsvp). The legacy row is
+      // removed by the dedicated delete step below; this bump seeds the
+      // replacement.
+      const SEED_MARKER = "global_templates_seed_v36";
       if (!globalsConsolidated) {
         logger.warn("Skipping global_templates seed — consolidation did not complete this boot");
         return;
@@ -2172,6 +2177,52 @@ async function runMigrationsBody(): Promise<void> {
       }
     } catch (seedErr) {
       logger.error({ err: seedErr }, "global_templates seed failed (non-fatal)");
+    }
+    });
+
+    // Legacy "Event Landing" flagship removal (June 2026). The old
+    // global-flagship-event-landing template (a single event-page block stacked
+    // under 7 redundant sections) is replaced in the seed file by a clean
+    // single-block "Event RSVP" flagship (global-flagship-event-rsvp). The seed
+    // loop never deletes, so this marker-gated step removes the orphaned legacy
+    // global template row from already-seeded databases. User pages cloned from
+    // it carry their own slugs and are untouched. Best-effort + idempotent.
+    await runStep("legacy event-landing template removal", async () => {
+    try {
+      const EVENT_LANDING_DELETE_MARKER = "global_template_delete_event_landing_v1";
+      const marker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${EVENT_LANDING_DELETE_MARKER}`
+      );
+      if (marker.rows.length === 0) {
+        // Safety invariant: only retire the old template once its replacement is
+        // present, so a failed/skipped seed can never leave prod with NO event
+        // flagship. If the new row is missing this boot, skip without marking and
+        // retry on the next boot (after the seed step above has succeeded).
+        const replacement = await db.execute<{ "?column?": number }>(sql`
+          SELECT 1 FROM lp_pages
+          WHERE slug = 'global-flagship-event-rsvp'
+            AND is_global = true
+            AND is_template = true
+          LIMIT 1
+        `);
+        if (replacement.rows.length === 0) {
+          logger.warn("Skipping legacy event-landing removal — replacement global-flagship-event-rsvp not present yet");
+        } else {
+          const result = await db.execute<{ "?column?": number }>(sql`
+            DELETE FROM lp_pages
+            WHERE slug = 'global-flagship-event-landing'
+              AND is_global = true
+              AND is_template = true
+            RETURNING 1
+          `);
+          await db.execute(sql`
+            INSERT INTO _schema_migration_markers (key) VALUES (${EVENT_LANDING_DELETE_MARKER}) ON CONFLICT DO NOTHING
+          `);
+          logger.info({ deleted: result.rows.length }, "legacy global-flagship-event-landing template removed");
+        }
+      }
+    } catch (delErr) {
+      logger.error({ err: delErr }, "legacy event-landing template removal failed (non-fatal)");
     }
     });
 

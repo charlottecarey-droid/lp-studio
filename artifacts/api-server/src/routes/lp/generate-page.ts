@@ -12,6 +12,7 @@ import { aiHeavyLimiter, aiHeavyHourlyLimiter } from "../../lib/ai-rate-limit";
 import { requireAiGenerationQuota } from "../../middleware/requireAiGenerationQuota";
 import { maybeMultiPageScrapeRef, maybeScrapeRef, scrapeInspirationUrl, type InspirationScrapeResult, type MaybeScrapeResult } from "./firecrawl";
 import { mirrorReferenceImages } from "../../lib/brand-import/assets-uploader";
+import { luminance, hexToRgb } from "../../lib/brand-import/extractors/colors";
 import { isSocialCardDims, PROMO_GRAPHIC_TAG } from "../../lib/imageAutoTag";
 import { preprocessScreenshotDataUrl } from "./screenshot-preprocess";
 import type { ChatCompletionContentPart, ChatCompletionMessageParam } from "openai/resources/chat/completions";
@@ -888,6 +889,39 @@ export function applyWebinarHubBranding(
     if (webinarLogo) {
       props.logoUrl = webinarLogo;
     }
+  }
+}
+
+/** Bake a visible brand accent onto a generated "event-page" (a self-contained
+ *  full-page block — like content-series / storefront it carries its accent in a
+ *  nested `theme.primary`, so the generic top-level accentColor loop never
+ *  touches it). The event page is always a dark, premium surface, so a
+ *  near-black brand accent would vanish against the dark background and the
+ *  gold-on-dark section eyebrows / RSVP button. We only swap in the brand accent
+ *  when it is light enough to read on the dark theme; otherwise the template's
+ *  premium gold default is kept. The dark theme, fonts (EB Garamond) and layout
+ *  are intentionally left as the template default — only the accent follows the
+ *  brand. Mutates the blocks in place. */
+export function applyEventPageBranding(
+  blocks: Array<Record<string, unknown>>,
+  brand: { accentColor?: string; primaryColor?: string },
+): void {
+  const candidate = (brand.accentColor || brand.primaryColor || "").trim();
+  if (!candidate) return;
+  const rgb = hexToRgb(candidate);
+  // Keep the premium gold default when the brand accent is missing/invalid or
+  // too dark to read on the event page's dark background.
+  if (!rgb || luminance(rgb) < 0.1) return;
+  for (const block of blocks) {
+    if (block?.type !== "event-page") continue;
+    if (!block.props || typeof block.props !== "object") continue;
+    const props = block.props as Record<string, unknown>;
+    const theme =
+      props.theme && typeof props.theme === "object"
+        ? (props.theme as Record<string, unknown>)
+        : {};
+    theme.primary = candidate;
+    props.theme = theme;
   }
 }
 
@@ -8898,6 +8932,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         logger.warn({ err: String(err) }, "[generate-page] template AI-mode enforcement skipped");
       }
 
+      // Bake the brand accent onto a generated event-page — FINAL pass, AFTER
+      // enforceAiModes, so a `locked` event-page (which enforceAiModes resets to
+      // the curated catalog defaults) still ends up carrying the tenant accent.
+      // The dark premium look + EB Garamond fonts are kept; only the accent
+      // follows the brand (and only when it reads on the dark background).
+      applyEventPageBranding(mergedBlocks as Array<Record<string, unknown>>, brand);
+
       // Strip a redundant standalone nav when the template's first content block
       // is a self-nav hero (e.g. [nav-header, hero, …]) so template pages never
       // ship two stacked navbars. The freeform path does the same.
@@ -10626,6 +10667,12 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // `copy` blocks keep AI copy but restore image fields to defaults.
     // Fail-open: a no-governance tenant is untouched.
     parsed.blocks = enforceAiModes(parsed.blocks, governanceByType, defaultPropsByType) as typeof parsed.blocks;
+
+    // Bake the brand accent onto a generated event-page — FINAL pass, AFTER
+    // enforceAiModes (mirrors the template path): a `locked` event-page reset to
+    // the catalog defaults still ends up carrying the tenant accent. The dark
+    // premium look + EB Garamond fonts are kept; only the accent follows brand.
+    applyEventPageBranding(parsed.blocks as Array<Record<string, unknown>>, brand);
 
     // Hero co-brand slot — FINAL guard. A landing page never has a target
     // account, so the dso-heartland-hero `companyName` (highlighted in the

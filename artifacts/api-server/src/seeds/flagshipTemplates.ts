@@ -1016,20 +1016,20 @@ const localServices: GlobalTemplateSeed = {
 };
 
 // ──────────────────────────────────────────────────────────────────────────
-// 7. Event Landing
+// 7. Event RSVP
 // ──────────────────────────────────────────────────────────────────────────
-const eventLanding: GlobalTemplateSeed = {
-  slug: "global-flagship-event-landing",
-  title: "Event Landing",
-  templateLabel: "Event Landing",
+const eventRsvp: GlobalTemplateSeed = {
+  slug: "global-flagship-event-rsvp",
+  title: "Event RSVP",
+  templateLabel: "Event RSVP",
   templateDescription:
-    "A high-energy event landing page — bold hero with date, speaker grid, agenda highlights, and a pricing-style ticketing section.",
+    "A single-page event invite in a dark, premium style — hero with date, agenda, photo gallery, venue details, and a built-in RSVP form. Neutral content fills in with each brand's accent and images.",
   ogImage: "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=1200&q=80",
   industry: "events",
   premiumRank: 7,
   category: "event",
   keywords: ["event", "event landing", "conference", "summit", "meetup",
-    "RSVP", "agenda", "speakers", "event page", "registration"],
+    "RSVP", "agenda", "speakers", "event page", "registration", "gala", "ceremony"],
   isAllInOne: true,
   blocks: [
     {
@@ -1099,118 +1099,21 @@ const eventLanding: GlobalTemplateSeed = {
         ],
         rsvpSubmitText: "Notify me when tickets open",
         rsvpSuccessMessage: "Thanks — keep an eye on your inbox.",
-      },
-    },
-    {
-      id: id("trust-bar", 2),
-      type: "trust-bar",
-      props: {
-        items: [
-          { value: "3 days", label: "of talks + workshops" },
-          { value: "60+", label: "speakers" },
-          { value: "1,200", label: "attendees" },
-          { value: "4.8/5", label: "2025 attendee score" },
-        ],
-      },
-    },
-    {
-      id: id("speaker-grid", 3),
-      type: "speaker-grid",
-      props: {
-        eyebrow: "Featured speakers",
-        headline: "The lineup",
-        subheadline: "Operators, founders, and craftspeople sharing what's actually working.",
-        columns: 3,
-        bgColor: "#0A0A0B",
-        textColor: "#F5F5F7",
-        accentColor: "#7B5BFF",
-        speakers: [
-          { name: "Maya Chen", role: "Co-founder & CEO", company: "Latticework", photoUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&q=80", bio: "Building developer tools used by 30k+ teams.", socialLabel: "LinkedIn" },
-          { name: "Jordan Reyes", role: "Head of Design", company: "Northwind", photoUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&q=80", bio: "Previously at Stripe, Figma. Lover of small details.", socialLabel: "LinkedIn" },
-          { name: "Priya Shah", role: "VP Engineering", company: "Veridian", photoUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&q=80", bio: "Scaling teams from 5 to 500 without losing the magic.", socialLabel: "LinkedIn" },
-          { name: "Andre Okafor", role: "Founder", company: "Helix Robotics", photoUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&q=80", bio: "Building hands that learn." },
-          { name: "Sam Nakamura", role: "Head of Product", company: "Fieldnotes", photoUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600&q=80", bio: "Shipping software that respects attention." },
-          { name: "Ines Moreau", role: "Distinguished Engineer", company: "Atlas", photoUrl: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=600&q=80", bio: "Distributed systems, durably." },
-        ],
-      },
-    },
-    {
-      id: id("how-it-works", 4),
-      type: "how-it-works",
-      props: {
-        headline: "What three days look like",
-        steps: [
-          { title: "Day 1 — Workshops", description: "Hands-on sessions in small rooms with the speakers themselves." },
-          { title: "Day 2 — Main stage", description: "Single-track keynote day. The whole crowd, one conversation." },
-          { title: "Day 3 — Build day", description: "Open studio + dinner. Where the friendships actually start." },
-        ],
-      },
-    },
-    {
-      id: id("gradient-pricing", 5),
-      type: "gradient-pricing",
-      props: {
-        eyebrow: "Tickets",
-        headline: "Pick your pass.",
-        gradientFrom: "#1A1640",
-        gradientTo: "#0A0A0B",
-        accentColor: "#7B5BFF",
-        tiers: [
-          { name: "Day pass", price: "$299", features: ["One day of your choice", "All talks + lunch", "Community Slack"], ctaText: "Buy", ctaUrl: "#" },
-          { name: "Full conference", price: "$799", features: ["All three days", "Workshops + main stage + build day", "Speaker dinners", "After-party access"], ctaText: "Buy", ctaUrl: "#", featured: true, badge: "Best value" },
-          { name: "Team (5)", price: "$2,995", features: ["Five full passes", "Reserved seating", "Private Q&A with two speakers"], ctaText: "Contact us", ctaUrl: "#" },
-        ],
-      },
-    },
-    {
-      id: id("photo-strip", 6),
-      type: "photo-strip",
-      props: {
-        images: [
-          { src: "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=400&q=80", alt: "Sponsor / Northwind" },
-          { src: "https://images.unsplash.com/photo-1611162616305-c69b3fa7fbe0?w=400&q=80", alt: "Sponsor / Latticework" },
-          { src: "https://images.unsplash.com/photo-1611162618071-b39a2ec055fb?w=400&q=80", alt: "Sponsor / Veridian" },
-          { src: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&q=80", alt: "Sponsor / Helix" },
-          { src: "https://images.unsplash.com/photo-1611605698335-8b1569810432?w=400&q=80", alt: "Sponsor / Atlas" },
-          { src: "https://images.unsplash.com/photo-1611605698323-b1e99cfd37ea?w=400&q=80", alt: "Sponsor / Fieldnotes" },
-        ],
-      },
-    },
-    {
-      id: id("form", 7),
-      type: "form",
-      props: {
-        headline: "RSVP for early access",
-        subheadline: "Tickets release in waves. Drop your details and we'll email you the moment your tier opens.",
-        multiStep: false,
-        steps: [
-          {
-            title: "Your details",
-            fields: [
-              { id: "field-name",    type: "text",   label: "Full Name", placeholder: "Your name",          required: true },
-              { id: "field-email",   type: "email",  label: "Email",      placeholder: "you@example.com",    required: true },
-              { id: "field-company", type: "text",   label: "Company",    placeholder: "Where you work",     required: false },
-              { id: "field-pass",    type: "select", label: "Interested pass", placeholder: "Select…",       required: true, options: ["Day pass ($299)", "Full conference ($799)", "Team of 5 ($2,995)"] },
-            ],
-          },
-        ],
-        submitButtonText: "Reserve my spot",
-        successMessage: "You're on the list — watch your inbox for your early-access link.",
-        redirectUrl: "",
-        backgroundStyle: "white",
-      },
-    },
-    {
-      id: id("bottom-cta", 8),
-      type: "bottom-cta",
-      props: {
-        headline: "We'll save you a seat.",
-        subheadline: "Tickets go up after early bird ends Aug 1.",
-        ctaText: "Get tickets",
-        ctaUrl: "#tickets",
-        bgColor: "#0A0A0B",
-        textColor: "#F5F5F7",
-        accentColor: "#7B5BFF",
+        footerText: "© 2026 Forge / 2026. All rights reserved.",
+        theme: {
+          bg: "#0c0f12",
+          cardBg: "#141619",
+          fg: "#eeeae3",
+          headingColor: "#eeeae3",
+          primary: "#b59a6e",
+          muted: "#7a8088",
+          border: "#262a2f",
+          navBg: "#0c0f12",
+          navBgOpacity: 0.6,
+          navText: "#eeeae3",
+          displayFontFamily: "EB Garamond",
+          bodyFontFamily: "",
+        },
       },
     },
   ],
@@ -1831,7 +1734,7 @@ export const FLAGSHIP_TEMPLATE_SEEDS: GlobalTemplateSeed[] = [
   restaurant,
   creatorPortfolio,
   localServices,
-  eventLanding,
+  eventRsvp,
   productizedAgency,
   contentSeriesPodcast,
   blogSeriesEditorial,

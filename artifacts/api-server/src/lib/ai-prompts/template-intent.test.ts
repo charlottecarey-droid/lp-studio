@@ -58,12 +58,12 @@ describe("matchTemplateIntent — real seed library", () => {
     expect(m?.slug).toBe("global-flagship-restaurant");
   });
 
-  it("event prompt → event landing flagship", () => {
+  it("event prompt → event RSVP flagship", () => {
     const m = matchTemplateIntent(
       "a conference landing page with the agenda and speakers",
       seedCandidates,
     );
-    expect(m?.slug).toBe("global-flagship-event-landing");
+    expect(m?.slug).toBe("global-flagship-event-rsvp");
   });
 
   it("generic 'landing page for my company' → null (no false positive)", () => {
