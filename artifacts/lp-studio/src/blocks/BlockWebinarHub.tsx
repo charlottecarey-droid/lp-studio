@@ -192,7 +192,6 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
   const registrations = typeof p.registrations === "number" ? p.registrations : 0;
   const speakers = p.speakers ?? [];
   const agenda = p.agenda ?? [];
-  const emailSequence = p.emailSequence ?? [];
   const resources = p.resources ?? [];
   const faqs = p.faqs ?? [];
 
@@ -214,7 +213,6 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
     nav: p.showNav !== false,
     hero: p.showHero !== false,
     form: p.showForm !== false,
-    workflow: p.showWorkflow !== false,
     agenda: p.showAgenda !== false,
     video: p.showVideo !== false && status !== "upcoming",
     speakers: p.showSpeakers !== false,
@@ -570,34 +568,6 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
                 </div>
               </div>
               {show.form && registrationForm}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ---- Workflow / email sequence ---- */}
-      {show.workflow && emailSequence.length > 0 && (
-        <section style={{ padding: "8rem 1.5rem", background: C.paper }}>
-          <div style={{ maxWidth: "80rem", margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: "5rem" }} className="wh-two-col">
-            <div>
-              <MonoLabel opacity={1}>{p.workflowEyebrow || "The Lifecycle"}</MonoLabel>
-              <h2 style={{ fontFamily: displayFont, fontSize: "clamp(2rem, 4vw, 3rem)", lineHeight: 1.1, marginTop: "1rem", marginBottom: "2rem" }}>{p.workflowHeadline || "From registration to pipeline generation"}</h2>
-              {p.workflowDescription && <p style={{ color: "rgba(0,0,0,0.6)", fontSize: "1.125rem", lineHeight: 1.6, maxWidth: "28rem" }}>{p.workflowDescription}</p>}
-            </div>
-            <div style={{ position: "relative", paddingLeft: "3rem" }}>
-              <div style={{ position: "absolute", top: 0, bottom: 0, left: 23, width: 1, background: "#E6E1D6" }} />
-              <div style={{ display: "flex", flexDirection: "column", gap: "3rem", position: "relative", zIndex: 10 }}>
-                {emailSequence.map((step, i) => (
-                  <div key={i} style={{ position: "relative" }}>
-                    <div style={{ position: "absolute", left: -46, top: 4, width: 32, height: 32, borderRadius: "9999px", background: "#fff", border: "1px solid #E6E1D6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "10px", fontFamily: monoFont, fontWeight: 700 }}>0{i + 1}</div>
-                    <div>
-                      <span style={{ fontFamily: monoFont, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.15em", color: accent }}>{step.when}</span>
-                      <h4 style={{ fontSize: "1.125rem", fontWeight: 500, marginTop: 4, marginBottom: 8 }}>{step.label}</h4>
-                      {step.desc && <p style={{ color: "rgba(0,0,0,0.6)", fontSize: "0.875rem" }}>{step.desc}</p>}
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
         </section>
