@@ -8067,13 +8067,6 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         },
       ],
       formSubmitUrl: "",
-      workflowEyebrow: "What to expect",
-      workflowHeadline: "From registration to the recording",
-      workflowDescription: "Register once and we'll keep you in the loop — a confirmation right away, then the recording and materials after the session.",
-      emailSequence: [
-        { when: "On registration", label: "You're confirmed", desc: "A confirmation that your place is saved, with everything you need to attend." },
-        { when: "After the session", label: "Recording & materials", desc: "A follow-up with the recording and the resources from the session." },
-      ],
       agendaEyebrow: "Itinerary",
       agendaHeadline: "Session Agenda",
       agenda: [

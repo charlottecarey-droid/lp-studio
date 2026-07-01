@@ -15,7 +15,6 @@ import type {
   WebinarCtaAction,
   WebinarSpeaker,
   WebinarAgendaItem,
-  WebinarEmailStep,
   WebinarResource,
   WebinarFaq,
 } from "@/lib/block-types";
@@ -338,7 +337,6 @@ export function WebinarHubPanel({ props, onChange, pageId }: Props) {
   const navLinks = p.navLinks ?? [];
   const speakers = p.speakers ?? [];
   const agenda = p.agenda ?? [];
-  const emailSequence = p.emailSequence ?? [];
   const resources = p.resources ?? [];
   const faqs = p.faqs ?? [];
 
@@ -549,38 +547,14 @@ export function WebinarHubPanel({ props, onChange, pageId }: Props) {
         )}
       </div>
 
-      {/* ── EMAIL SEQUENCE ─────────────────────────────────────────────── */}
+      {/* ── FOLLOW-UP EMAIL ────────────────────────────────────────────── */}
       <div>
-        <SectionHeader label="Email sequence" open={!!open.workflow} onToggle={() => toggle("workflow")} />
+        <SectionHeader label="Follow-up email" open={!!open.workflow} onToggle={() => toggle("workflow")} />
         {open.workflow && (
           <div className="space-y-2 pt-2">
-            <Field label="Eyebrow"><Input value={p.workflowEyebrow ?? ""} onChange={e => set({ workflowEyebrow: e.target.value })} className="text-xs h-7" /></Field>
-            <Field label="Headline"><Input value={p.workflowHeadline ?? ""} onChange={e => set({ workflowHeadline: e.target.value })} className="text-xs h-7" /></Field>
-            <Field label="Description"><Textarea value={p.workflowDescription ?? ""} onChange={e => set({ workflowDescription: e.target.value })} className="text-xs min-h-[3rem]" /></Field>
-            <p className="text-[10px] text-muted-foreground">These steps are shown to visitors as the email journey they can expect. Set up the follow-up email that actually sends below.</p>
-            {emailSequence.map((step, i) => (
-              <div key={i} className="rounded border border-border p-2 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-muted-foreground">Step {i + 1}</span>
-                  <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => set({ emailSequence: moveItem(emailSequence, i, -1) })} className="text-muted-foreground hover:text-foreground"><ArrowUp className="w-3 h-3" /></button>
-                    <button type="button" onClick={() => set({ emailSequence: moveItem(emailSequence, i, 1) })} className="text-muted-foreground hover:text-foreground"><ArrowDown className="w-3 h-3" /></button>
-                    <button type="button" onClick={() => set({ emailSequence: emailSequence.filter((_, j) => j !== i) })} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
-                  </div>
-                </div>
-                <Input value={step.when ?? ""} onChange={e => set({ emailSequence: emailSequence.map((s, j) => (j === i ? { ...s, when: e.target.value } : s)) })} placeholder="When (e.g. 24 hours before)" className="text-[11px] h-6" />
-                <Input value={step.label ?? ""} onChange={e => set({ emailSequence: emailSequence.map((s, j) => (j === i ? { ...s, label: e.target.value } : s)) })} placeholder="Label" className="text-[11px] h-6" />
-                <Textarea value={step.desc ?? ""} onChange={e => set({ emailSequence: emailSequence.map((s, j) => (j === i ? { ...s, desc: e.target.value } : s)) })} placeholder="Description" className="text-[11px] min-h-[2.5rem]" />
-              </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" className="h-6 text-[11px] w-full" onClick={() => set({ emailSequence: [...emailSequence, { when: "", label: "New step", desc: "" } as WebinarEmailStep] })}>
-              <Plus className="w-3 h-3 mr-1" /> Add step
-            </Button>
-
-            {/* Live delivery — the visual sequence above is illustrative; these
-                controls actually fire on registration. Persist to the page's
-                form-notification config. */}
-            <div className="pt-2 mt-1 border-t border-border">
+            {/* The automatic follow-up email that fires on registration.
+                Persists to the page's form-notification config. */}
+            <div>
               {pageId == null ? (
                 <p className="text-[11px] text-muted-foreground">Save the page to configure the automatic follow-up email and campaign enrollment for registrations.</p>
               ) : (
