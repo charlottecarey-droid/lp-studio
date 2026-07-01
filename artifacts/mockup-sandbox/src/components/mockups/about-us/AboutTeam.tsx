@@ -79,7 +79,7 @@ export function AboutTeam() {
       />
       <section className="relative mx-auto max-w-6xl px-8 py-16 md:px-12 md:py-20">
         {/* Header */}
-        <div className="max-w-2xl">
+        <div className="mx-auto max-w-2xl text-center">
           <p
             className="text-[11px] font-semibold uppercase tracking-[0.22em]"
             style={{ color: "var(--about-brand)" }}

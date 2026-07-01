@@ -17,7 +17,7 @@ export function AboutSolo() {
       />
       <section className="relative mx-auto max-w-5xl px-8 py-16 md:px-12 md:py-20">
         <p
-          className="text-[11px] font-semibold uppercase tracking-[0.22em]"
+          className="text-center text-[11px] font-semibold uppercase tracking-[0.22em]"
           style={{ color: "var(--about-brand)" }}
         >
           About the founder
