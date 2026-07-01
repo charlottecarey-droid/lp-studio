@@ -35,6 +35,7 @@ import {
   type StripeLookupKey,
 } from "../lib/stripePlanMapping";
 import { logger } from "../lib/logger";
+import { canonicalTenantSignInUrl } from "../lib/tenantHosts";
 
 const router: IRouter = Router();
 
@@ -61,6 +62,8 @@ interface TenantBillingRow {
   trial_started_at: string | Date | null;
   trial_expires_at: string | Date | null;
   has_trialed_before: boolean | null;
+  domain: string | null;
+  slug: string | null;
 }
 
 const TENANT_COLUMNS = `
@@ -70,7 +73,8 @@ const TENANT_COLUMNS = `
   stripe_cancel_at_period_end, stripe_price_lookup_key,
   stripe_cadence, stripe_unit_amount, stripe_currency,
   stripe_payment_brand, stripe_payment_last4,
-  trial_started_at, trial_expires_at, has_trialed_before
+  trial_started_at, trial_expires_at, has_trialed_before,
+  domain, slug
 `;
 
 async function loadTenant(tenantId: number): Promise<TenantBillingRow | null> {
@@ -87,10 +91,23 @@ function isTenantAdmin(req: Request): boolean {
   return !!(u.isAdmin || u.permissions?.["settings"] || u.appUserRole === "superadmin");
 }
 
-function returnUrl(req: Request, path: string): string {
-  const proto = req.protocol;
-  const host = req.get("host");
-  return `${proto}://${host}${path}`;
+// Build a return URL for Stripe Checkout / Billing Portal on the tenant's OWN
+// workspace host. We must NOT trust `req.get("host")` here: in production the
+// tenant host (a custom domain or `<slug>.lpstudio.ai`) is fronted by a proxy
+// that rewrites the Host header to the raw origin deployment host
+// (e.g. `*.replit.app`), so a header-derived URL sends the operator to the
+// wrong place after they cancel or finish Checkout. Derive the host from the
+// authenticated tenant's identity instead — the same canonical host the rest
+// of the app (auth routing, invite emails) already uses.
+function returnUrl(
+  tenant: { domain: string | null; slug: string | null },
+  path: string,
+): string {
+  const base = canonicalTenantSignInUrl({
+    domain: tenant.domain,
+    slug: tenant.slug,
+  });
+  return `${base}${path}`;
 }
 
 // Delegates to `stripeClient.getPriceIdForLookupKey`, which honors the
@@ -344,8 +361,8 @@ router.post("/billing/checkout-session", async (req: Request, res: Response): Pr
         metadata: { tenantId: String(tenant.id) },
       },
       allow_promotion_codes: true,
-      success_url: returnUrl(req, "/settings/billing?status=success&session_id={CHECKOUT_SESSION_ID}"),
-      cancel_url: returnUrl(req, "/settings/billing?status=cancelled"),
+      success_url: returnUrl(tenant, "/settings/billing?status=success&session_id={CHECKOUT_SESSION_ID}"),
+      cancel_url: returnUrl(tenant, "/settings/billing?status=cancelled"),
     });
     res.json({ url: session.url });
   } catch (err) {
@@ -449,7 +466,7 @@ router.post("/billing/portal-session", async (req: Request, res: Response): Prom
   try {
     const session = await stripe.billingPortal.sessions.create({
       customer: tenant.stripe_customer_id,
-      return_url: returnUrl(req, "/settings/billing"),
+      return_url: returnUrl(tenant, "/settings/billing"),
     });
     res.json({ url: session.url });
   } catch (err) {
