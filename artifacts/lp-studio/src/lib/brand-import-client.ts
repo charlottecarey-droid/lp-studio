@@ -65,11 +65,12 @@ export async function streamBrandImportFromUrl(
     dimension: BrandImportDimensionName,
     result: BrandImportDimensionResult,
   ) => void,
+  opts?: { forceRefresh?: boolean },
 ): Promise<BrandImportResult> {
   const res = await fetch(`${BASE}/api/lp/brand-import/from-url-stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, forceRefresh: opts?.forceRefresh === true }),
   });
   if (!res.ok || !res.body) {
     const err = (await res.json().catch(() => ({}))) as { error?: string };
@@ -134,6 +135,43 @@ export async function streamBrandImportFromUrl(
     logoAlternates: Array.isArray(donePayload.proposed.logoAlternates)
       ? (donePayload.proposed.logoAlternates as BrandImportLogoAlternate[])
       : undefined,
+  };
+}
+
+export interface BrandImageScrapeResult {
+  /** Re-hosted (/api/storage) photo URLs added to the tenant's media library. */
+  referenceImageUrls: string[];
+  /** Count actually uploaded (<= candidates found). */
+  imagesAdded: number;
+  /** Homepage screenshot URL, if one was captured. */
+  screenshotUrl: string | null;
+  hasScreenshot: boolean;
+}
+
+/**
+ * Image-only brand refresh: scrapes `url` FRESH (bypassing the import cache) and
+ * pulls just the site's photography + homepage screenshot into the tenant's
+ * media library, returning the re-hosted URLs. Used by the "Find images" button
+ * in Brand Settings to recover images when a prior import found none. The server
+ * does NOT save these to the brand config — the caller merges them into the
+ * unsaved config for the user to review and save.
+ */
+export async function scrapeBrandImages(url: string): Promise<BrandImageScrapeResult> {
+  const res = await fetch(`${BASE}/api/lp/brand-import/images`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(err.error ?? "Could not find images");
+  }
+  const data = (await res.json()) as Partial<BrandImageScrapeResult>;
+  return {
+    referenceImageUrls: Array.isArray(data.referenceImageUrls) ? data.referenceImageUrls : [],
+    imagesAdded: typeof data.imagesAdded === "number" ? data.imagesAdded : 0,
+    screenshotUrl: typeof data.screenshotUrl === "string" ? data.screenshotUrl : null,
+    hasScreenshot: data.hasScreenshot === true,
   };
 }
 

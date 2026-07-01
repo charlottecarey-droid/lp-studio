@@ -29,3 +29,29 @@ site legitimately has no detectable colors but other dimensions are valid. If a
 future need arises to retry specifically on missing colors, use a short TTL gated
 on `colors.status === "failed"` rather than making colors mandatory for caching.
 Legitimately-partial results (some dims ok) are still cached intentionally.
+
+## Partial-success gap → image recovery must BYPASS the cache
+
+Because "at least one dimension succeeded" is the caching threshold, a run where
+colors/voice succeed but **photography + homepage screenshot fail** (common when a
+site blocks the scraper) is a legitimately-partial result and IS cached for the
+full TTL — correctly, per the rule above. Consequence: a plain re-import will
+"just auto-show everything already imported" and NEVER re-attempt the missing
+images until the row ages out.
+
+**Rule:** recovering missing images/screenshots must never go through the normal
+cached import path. Two supported ways to force a fresh scrape:
+- Pass `forceRefresh: true` end-to-end (the flag was plumbed backend long before
+  the frontend sent it — a manual "re-import" button MUST set it or it no-ops).
+- Use a dedicated image-only route that calls `buildEvidence` +
+  `extractPhotography` + `mirrorBrandAssets`/`mirrorHomepageScreenshot` directly
+  and never reads/writes the orchestrator cache.
+
+**Why:** the cache is doing its job; the empty photos are a real (cached) outcome,
+not a cache bug. The fix is an explicit fresh path, not loosening the guard.
+
+**How to apply:** an image-only fresh path should NOT write BrandConfig — merge
+results into the unsaved config client-side and let the user Save, so a failed
+scrape can't clobber good saved imagery. No guarantee of success: sites that block
+the scraper (procore.com hit this) may still return zero — the feature enables a
+retry, it doesn't defeat anti-scraping.

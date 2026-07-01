@@ -59,7 +59,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { ImagePicker } from "@/components/ImagePicker";
 import { MediaLibraryDrawer } from "@/components/MediaLibraryDrawer";
 import { useBrandConfig } from "@/context/BrandConfigContext";
-import { streamBrandImportFromUrl } from "@/lib/brand-import-client";
+import { streamBrandImportFromUrl, scrapeBrandImages } from "@/lib/brand-import-client";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -2572,6 +2572,7 @@ export default function BrandSettings() {
   const [colorImportFailed, setColorImportFailed] = useState(false);
   const [importApplied, setImportApplied] = useState(false);
   const [importSource, setImportSource] = useState<BrandImportSource | null>(null);
+  const [scrapingImages, setScrapingImages] = useState(false);
   // Streaming URL importer — per-dimension progress + selected logo override.
   const [importDimensions, setImportDimensions] = useState<Record<ImportDimensionName, ImportDimensionState>>({
     logos: { status: "pending", preview: "", errors: [] },
@@ -2943,6 +2944,57 @@ export default function BrandSettings() {
       };
       return { ...prev, photographyProfile: { ...cur, profile: { ...cur.profile, [key]: value } } };
     });
+  const handleScrapeImages = async () => {
+    const url = (config.websiteUrl ?? "").trim() || importSource?.url || "";
+    if (!url) {
+      toast({
+        title: "Add your website address first",
+        description: "Enter your site URL in the Logo & basics section (or run an import) so we know where to look.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setScrapingImages(true);
+    try {
+      const res = await scrapeBrandImages(url);
+      setConfig((prev) => {
+        const cur: ImportedPhotographyProfile = prev.photographyProfile ?? {
+          profile: { medium: "unknown", paletteTemperature: "unknown", lightness: "unknown", subject: "unknown", mood: "", summary: "" },
+          referenceImageUrls: [],
+        };
+        const existing = Array.isArray(cur.referenceImageUrls) ? cur.referenceImageUrls : [];
+        const merged = Array.from(new Set([...existing, ...res.referenceImageUrls]));
+        const next = { ...prev, photographyProfile: { ...cur, referenceImageUrls: merged } };
+        if (res.screenshotUrl && !(prev.homepageScreenshotUrl ?? "").trim()) {
+          next.homepageScreenshotUrl = res.screenshotUrl;
+        }
+        return next;
+      });
+      const bits: string[] = [];
+      if (res.imagesAdded > 0) bits.push(`${res.imagesAdded} image${res.imagesAdded === 1 ? "" : "s"}`);
+      if (res.hasScreenshot) bits.push("a homepage screenshot");
+      if (bits.length > 0) {
+        toast({
+          title: `Found ${bits.join(" and ")}`,
+          description: "Review them below, then click Save to keep them.",
+        });
+      } else {
+        toast({
+          title: "No new images found",
+          description: "We couldn't pull any usable photos from that site — it may block automated access.",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Couldn't find images",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setScrapingImages(false);
+    }
+  };
   const parseNumOrNull = (s: string): number | null => {
     const t = s.trim();
     if (!t) return null;
@@ -3221,7 +3273,7 @@ export default function BrandSettings() {
             errors: r.errors,
           },
         }));
-      });
+      }, { forceRefresh: true });
 
       const result: ImportResult = {
         proposed: imported.proposed,
@@ -4713,6 +4765,42 @@ export default function BrandSettings() {
                 A brief used for future AI image generation — describes what kind of imagery the brand
                 uses on its site.
               </p>
+              {(() => {
+                const scrapeUrl = (config.websiteUrl ?? "").trim() || importSource?.url || "";
+                let host = "";
+                try {
+                  host = scrapeUrl ? new URL(scrapeUrl.startsWith("http") ? scrapeUrl : `https://${scrapeUrl}`).host : "";
+                } catch {
+                  host = scrapeUrl;
+                }
+                const hasImages = normalizedPhotoRefImages.length > 0;
+                return (
+                  <div className="rounded-md border border-border/50 bg-muted/20 p-3 flex items-center justify-between gap-3 flex-wrap">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">
+                        {hasImages ? "Find more images from your site" : "No images imported yet"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {scrapeUrl ? (
+                          <>We&apos;ll scan <span className="font-mono">{host}</span> and add any usable photos to your library.</>
+                        ) : (
+                          "Add your website address in the Logo & basics section (or run an import) so we know where to look."
+                        )}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={hasImages ? "outline" : "default"}
+                      onClick={handleScrapeImages}
+                      disabled={scrapingImages || !scrapeUrl}
+                      className="gap-1.5 shrink-0"
+                    >
+                      {scrapingImages ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />}
+                      {scrapingImages ? "Searching…" : "Find images"}
+                    </Button>
+                  </div>
+                );
+              })()}
               {normalizedPhotoProfile ? (
                 <>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

@@ -1,7 +1,5 @@
 import { Router } from "express";
 import { pool } from "@workspace/db";
-import dns from "dns/promises";
-import net from "net";
 import sharp from "sharp";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
@@ -12,6 +10,7 @@ import {
   getOpenAIClient,
 } from "./brand-import";
 import { aiLightLimiter, aiLightHourlyLimiter } from "../../lib/ai-rate-limit";
+import { isSafePublicHost } from "../../lib/brand-import/net-guard";
 
 const router = Router();
 
@@ -28,46 +27,6 @@ function checkRate(key: string): boolean {
   if (b.count >= RATE_MAX) return false;
   b.count++;
   return true;
-}
-
-function isPrivateOrReservedIp(ip: string): boolean {
-  if (net.isIPv4(ip)) {
-    const parts = ip.split(".").map(Number);
-    if (parts.length !== 4 || parts.some((p) => isNaN(p))) return true;
-    const [a, b] = parts;
-    if (a === 10 || a === 127 || a === 0) return true;
-    if (a === 169 && b === 254) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 192 && b === 168) return true;
-    if (a === 100 && b >= 64 && b <= 127) return true;
-    if (a >= 224) return true;
-    return false;
-  }
-  if (net.isIPv6(ip)) {
-    const lower = ip.toLowerCase();
-    if (lower === "::" || lower === "::1") return true;
-    if (lower.startsWith("fe80:") || lower.startsWith("fe80::")) return true;
-    if (lower.startsWith("fc") || lower.startsWith("fd")) return true;
-    if (lower.startsWith("ff")) return true;
-    if (lower.startsWith("::ffff:")) {
-      const v4 = lower.slice(7);
-      if (net.isIPv4(v4)) return isPrivateOrReservedIp(v4);
-    }
-    return false;
-  }
-  return true;
-}
-
-async function isSafePublicHost(hostname: string): Promise<boolean> {
-  if (!hostname) return false;
-  if (hostname === "localhost") return false;
-  try {
-    const records = await dns.lookup(hostname, { all: true });
-    if (!records.length) return false;
-    return records.every((r) => !isPrivateOrReservedIp(r.address));
-  } catch {
-    return false;
-  }
 }
 
 interface FirecrawlScrape {
