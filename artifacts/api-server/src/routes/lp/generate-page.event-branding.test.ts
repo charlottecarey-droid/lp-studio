@@ -64,4 +64,45 @@ describe("applyEventPageBranding", () => {
     applyEventPageBranding(blocks, { accentColor: "#C7E738" });
     expect(themeOf(blocks[0]).primary).toBe("#000000");
   });
+
+  it("swaps the heading + body fonts for the brand fonts when unset", () => {
+    const blocks = [eventPageBlock({ primary: "#b59a6e" })];
+    applyEventPageBranding(blocks, { displayFont: "Playfair Display", bodyFont: "Roboto" });
+    expect(themeOf(blocks[0]).displayFontFamily).toBe("Playfair Display");
+    expect(themeOf(blocks[0]).bodyFontFamily).toBe("Roboto");
+  });
+
+  it("overwrites the template default fonts (EB Garamond / Inter) with brand fonts", () => {
+    const blocks = [eventPageBlock({ displayFontFamily: "EB Garamond", bodyFontFamily: "Inter" })];
+    applyEventPageBranding(blocks, { displayFont: "Lora", bodyFont: "Work Sans" });
+    expect(themeOf(blocks[0]).displayFontFamily).toBe("Lora");
+    expect(themeOf(blocks[0]).bodyFontFamily).toBe("Work Sans");
+  });
+
+  it("never overwrites an author's explicit (non-default) font choice", () => {
+    const blocks = [eventPageBlock({ displayFontFamily: "Cinzel", bodyFontFamily: "Nunito" })];
+    applyEventPageBranding(blocks, { displayFont: "Lora", bodyFont: "Work Sans" });
+    expect(themeOf(blocks[0]).displayFontFamily).toBe("Cinzel");
+    expect(themeOf(blocks[0]).bodyFontFamily).toBe("Nunito");
+  });
+
+  it("strips trailing weight/style words from the brand font name", () => {
+    const blocks = [eventPageBlock()];
+    applyEventPageBranding(blocks, { displayFont: "Playfair Display Bold" });
+    expect(themeOf(blocks[0]).displayFontFamily).toBe("Playfair Display");
+  });
+
+  it("injects fonts even when there is no usable brand accent", () => {
+    const blocks = [eventPageBlock({ primary: "#b59a6e" })];
+    applyEventPageBranding(blocks, { accentColor: "#0a0a0a", displayFont: "Lora" });
+    // accent too dark → gold kept, but the brand heading font still applies
+    expect(themeOf(blocks[0]).primary).toBe("#b59a6e");
+    expect(themeOf(blocks[0]).displayFontFamily).toBe("Lora");
+  });
+
+  it("no-ops fonts when the brand set none", () => {
+    const blocks = [eventPageBlock({ displayFontFamily: "EB Garamond" })];
+    applyEventPageBranding(blocks, { accentColor: "#C7E738" });
+    expect(themeOf(blocks[0]).displayFontFamily).toBe("EB Garamond");
+  });
 });

@@ -24,6 +24,7 @@ const THEME_DEFAULTS: Required<EventPageTheme> = {
   navBg: "#0c0f12",
   navBgOpacity: 0.6,
   navText: "#eeeae3",
+  heroOverlayOpacity: 0.85,
   displayFontFamily: "EB Garamond",
   bodyFontFamily: "Inter",
 };
@@ -289,6 +290,16 @@ export function EventPagePanel({ props: p, onChange, brandVoiceSet }: Props) {
           </Field>
           <Field label="Hero Image">
             <ImagePicker value={p.heroImageUrl} onChange={v => set({ heroImageUrl: v })} />
+          </Field>
+          <Field label={`Hero Overlay Strength (${Math.round(((theme.heroOverlayOpacity ?? THEME_DEFAULTS.heroOverlayOpacity) as number) * 100)}%)`} hint="Darkens the hero photo so text stays readable (defaults to 85%). The image fades further as visitors scroll.">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(((theme.heroOverlayOpacity ?? THEME_DEFAULTS.heroOverlayOpacity) as number) * 100)}
+              onChange={e => setTheme({ heroOverlayOpacity: Number(e.target.value) / 100 })}
+              className="w-full"
+            />
           </Field>
           <Field label="Hero Tagline">
             <AiTextField type="textarea" value={p.heroTagline} onChange={v => set({ heroTagline: v })} rows={3} fieldLabel="Hero Tagline" brandVoiceSet={brandVoiceSet}

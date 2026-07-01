@@ -899,19 +899,41 @@ export function applyWebinarHubBranding(
  *  near-black brand accent would vanish against the dark background and the
  *  gold-on-dark section eyebrows / RSVP button. We only swap in the brand accent
  *  when it is light enough to read on the dark theme; otherwise the template's
- *  premium gold default is kept. The dark theme, fonts (EB Garamond) and layout
- *  are intentionally left as the template default — only the accent follows the
- *  brand. Mutates the blocks in place. */
+ *  premium gold default is kept. Heading (display) and body fonts follow the
+ *  brand when it set one — but only overwriting the template default so an
+ *  author's explicit panel choice is preserved. The dark theme and layout are
+ *  intentionally left as the template default. Mutates the blocks in place. */
+/** Template defaults baked into the event-page block. Font injection only ever
+ *  overwrites one of these (or an absent value) so an author's explicit panel
+ *  font choice is never clobbered. Mirrors block-registry.tsx + EventPagePanel
+ *  THEME_DEFAULTS. */
+const EVENT_PAGE_DEFAULT_DISPLAY_FONT = "EB Garamond";
+const EVENT_PAGE_DEFAULT_BODY_FONT = "Inter";
+
 export function applyEventPageBranding(
   blocks: Array<Record<string, unknown>>,
-  brand: { accentColor?: string; primaryColor?: string },
+  brand: {
+    accentColor?: string;
+    primaryColor?: string;
+    displayFont?: string;
+    bodyFont?: string;
+  },
 ): void {
-  const candidate = (brand.accentColor || brand.primaryColor || "").trim();
-  if (!candidate) return;
-  const rgb = hexToRgb(candidate);
-  // Keep the premium gold default when the brand accent is missing/invalid or
-  // too dark to read on the event page's dark background.
-  if (!rgb || luminance(rgb) < 0.1) return;
+  // Accent: keep the premium gold default when the brand accent is
+  // missing/invalid or too dark to read on the event page's dark background.
+  const accentCandidate = (brand.accentColor || brand.primaryColor || "").trim();
+  const accentRgb = accentCandidate ? hexToRgb(accentCandidate) : null;
+  const accent = accentRgb && luminance(accentRgb) >= 0.1 ? accentCandidate : "";
+
+  // Fonts: swap the template's default heading/body font for the tenant's
+  // brand font when they set one. The renderer loads a Google-catalog family
+  // via useBlockFonts and falls back to the globally-available @font-face for
+  // self-hosted families, so injecting the cleaned family name is enough.
+  const brandDisplay = cleanFamilyName(brand.displayFont);
+  const brandBody = cleanFamilyName(brand.bodyFont);
+
+  if (!accent && !brandDisplay && !brandBody) return;
+
   for (const block of blocks) {
     if (block?.type !== "event-page") continue;
     if (!block.props || typeof block.props !== "object") continue;
@@ -920,9 +942,56 @@ export function applyEventPageBranding(
       props.theme && typeof props.theme === "object"
         ? (props.theme as Record<string, unknown>)
         : {};
-    theme.primary = candidate;
+    if (accent) theme.primary = accent;
+    // Only overwrite an absent value or the template default — never an
+    // author's explicit panel font choice.
+    if (brandDisplay) {
+      const cur = typeof theme.displayFontFamily === "string" ? theme.displayFontFamily.trim() : "";
+      if (!cur || cur === EVENT_PAGE_DEFAULT_DISPLAY_FONT) theme.displayFontFamily = brandDisplay;
+    }
+    if (brandBody) {
+      const cur = typeof theme.bodyFontFamily === "string" ? theme.bodyFontFamily.trim() : "";
+      if (!cur || cur === EVENT_PAGE_DEFAULT_BODY_FONT) theme.bodyFontFamily = brandBody;
+    }
     props.theme = theme;
   }
+}
+
+/**
+ * Post-governance event-page imagery safeguard. `enforceAiModes` runs as the
+ * FINAL governance pass and, for a `copy`/`locked` event-page, reverts its
+ * imagery to the curated catalog defaults — which for this block are the
+ * Dandy-specific `/event-assets/*` placeholder files. Those are neither library
+ * rows nor allowed serve paths, so they must never ship on a generated page.
+ * The normal (open-governance) generation already clears them via
+ * `sanitizeAIImageUrls` and refills from the library; re-run that SAME
+ * clear+refill here — scoped to event-page blocks ONLY — so a governed
+ * event-page matches the open-path behaviour without disturbing any other
+ * governed block's reverted imagery. Callers gate this to the paths where
+ * imagery replacement is expected (freeform always; template only when
+ * `replaceImagery === true`) so the "keep template imagery" opt-out is honored.
+ * Mutates `blocks` in place. `sanitizeAIImageUrls` shallow-copies each block and
+ * touches only image fields, so the accent/font theme applied by
+ * `applyEventPageBranding` just before is preserved.
+ */
+export function reapplyEventPageImagery(
+  blocks: Array<Record<string, unknown>>,
+  allImages: MediaImage[],
+  fillPool: MediaImage[],
+  pageContext: string,
+  brandLogoUrls?: ReadonlySet<string>,
+): void {
+  const idxs: number[] = [];
+  for (let i = 0; i < blocks.length; i++) {
+    if (blocks[i]?.type === "event-page") idxs.push(i);
+  }
+  if (idxs.length === 0) return;
+  let sub: unknown[] = idxs.map((i) => blocks[i]);
+  sub = sanitizeAIImageUrls(sub, allImages, brandLogoUrls);
+  sub = fillEmptyImages(sub, fillPool, pageContext, false, brandLogoUrls);
+  idxs.forEach((i, k) => {
+    blocks[i] = sub[k] as Record<string, unknown>;
+  });
 }
 
 /** Image-overlay heroes (`full-bleed-hero`, `parallax-image-hero`) render white
@@ -2287,6 +2356,12 @@ export function collectImageSlots(
   pushArrField(props.tabs, "imageUrl", tabsPurpose, it => `${it.title ?? ""} ${it.description ?? ""}`);
   pushArrField(props.cases, "image", "lp-feature", it => `${it.name ?? ""} ${it.author ?? ""}`);
   pushArrField(props.slides, "src", "lp-feature", it => `${it.caption ?? ""} ${it.headline ?? ""}`);
+  // event-page (self-contained full-page block) gallery photos[].src — supporting
+  // event imagery → lp-feature. The scalar heroImageUrl is collected above via
+  // pushScalar (lp-hero); the tenant logoUrl is excluded like every logo mark.
+  if (blockType === "event-page") {
+    pushArrField(props.photos, "src", "lp-feature", it => `${it.alt ?? ""} ${it.caption ?? ""}`);
+  }
   // NOTE: case-study-logo-results-row results[].logoUrl is intentionally NOT
   // collected — these are *customer/company logo* slots, not stock-photo slots.
   // For AI-invented placeholder companies we have no real logo, and auto-filling
@@ -3579,6 +3654,27 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
         return img;
       });
     }
+    // event-page (self-contained full-page block): fill the full-bleed hero photo
+    // (lp-hero) + the gallery photos[].src (lp-feature) from the library. The block
+    // ships with Dandy-specific /event-assets/* placeholder defaults; those are
+    // cleared upstream (sanitizeAIImageUrls on the freeform path; the replaceImagery
+    // clear loop on the template path) so the slots arrive empty and pick up brand
+    // imagery here. pick() returns "" when nothing suitable exists, leaving the
+    // renderer's built-in fallback.
+    if (blockType === "event-page") {
+      if (!props.heroImageUrl) {
+        props.heroImageUrl = pick(blockContext, images, usedIds, "lp-hero");
+      }
+      if (Array.isArray(props.photos)) {
+        props.photos = (props.photos as Record<string, unknown>[]).map((photo) => {
+          if (!photo.src) {
+            const ctx = `${photo.alt ?? ""} ${photo.caption ?? ""}`.trim();
+            return { ...photo, src: pick(ctx, images, usedIds, "lp-feature") };
+          }
+          return photo;
+        });
+      }
+    }
     // NOTE: case-study-card-grid cards[].imageUrl is intentionally NOT auto-filled.
     // These are customer/company *logo* slots rendered in a tiny icon / small logo
     // box — a library headshot/lifestyle photo dropped in reads as a broken "tiny
@@ -3730,6 +3826,25 @@ export async function aiFillEmptyImages(
             fieldLabel: `${blockType} ${arrKey} ${i + 1}`,
             blockContext: ctx,
             apply: (url) => { (arr[i] as Record<string, unknown>).image = url; },
+          });
+        }
+      });
+    }
+
+    // event-page (self-contained full-page block) gallery photos[].src — AI-
+    // generate any gallery photo still empty after the library pass. The scalar
+    // heroImageUrl is covered by SCALAR_FIELDS above.
+    if (blockType === "event-page" && Array.isArray(props.photos)) {
+      const arr = props.photos as Array<Record<string, unknown>>;
+      arr.forEach((photo, i) => {
+        if (typeof photo !== "object" || photo === null) return;
+        if (typeof photo.src !== "string" || !photo.src) {
+          const ctx = `${blockContext} ${photo.alt ?? ""} ${photo.caption ?? ""}`.trim();
+          slots.push({
+            aspectRatio: featureAR,
+            fieldLabel: `${blockType} photos ${i + 1}`,
+            blockContext: ctx,
+            apply: (url) => { (arr[i] as Record<string, unknown>).src = url; },
           });
         }
       });
@@ -4119,6 +4234,17 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
       props.images = (props.images as Record<string, unknown>[]).map(img => ({
         ...img,
         src: typeof img.src === "string" ? cleanUrl(img.src) : img.src,
+      }));
+    }
+
+    // event-page gallery photos[].src — clean any hallucinated/excluded host, and
+    // the Dandy /event-assets/* placeholder defaults (neither library rows nor
+    // allowed serve paths → cleared to ""), so fillEmptyImages can substitute a
+    // real library asset. heroImageUrl is cleaned by the scalar pass above.
+    if (blockType === "event-page" && Array.isArray(props.photos)) {
+      props.photos = (props.photos as Record<string, unknown>[]).map(photo => ({
+        ...photo,
+        src: typeof photo.src === "string" ? cleanUrl(photo.src) : photo.src,
       }));
     }
 
@@ -8758,6 +8884,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // uses, so slots are repopulated from the tenant media library (+
       // reference-URL imagery when provided). Stat bars stay numeric-only —
       // collectImageSlots already excludes trust-bar / stats item images.
+      // Hoisted so the post-governance event-page imagery safeguard (below,
+      // after enforceAiModes) can re-run the same clear+refill on a governed
+      // event-page whose imagery enforceAiModes reverted to catalog defaults.
+      let fillPool: MediaImage[] = [];
+      let pageImageContext = "";
       if (replaceImagery === true) {
         for (const block of mergedBlocks) {
           // Task #1134 — collectImageSlots excludes logo slots, so clearing here
@@ -8789,13 +8920,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         }
 
         const industryForImages = await getTenantIndustry(tenantId);
-        const pageImageContext = [
+        pageImageContext = [
           getIndustryImageKeywords(industryForImages).join(" "),
           prompt.trim(),
         ].join(" ").trim().slice(0, 240);
         // Rotate within each fill-pool bucket so the same on-topic asset doesn't
         // win the first eligible slot of every generation (Task #1287).
-        const fillPool: MediaImage[] = buildReferenceFillPool(
+        fillPool = buildReferenceFillPool(
           mediaCatalog.images,
           scrapedRefMedia,
           scrapedUrls,
@@ -8965,6 +9096,22 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // The dark premium look + EB Garamond fonts are kept; only the accent
       // follows the brand (and only when it reads on the dark background).
       applyEventPageBranding(mergedBlocks as Array<Record<string, unknown>>, brand);
+
+      // Post-governance imagery safeguard — FINAL pass, AFTER enforceAiModes. A
+      // `copy`/`locked` event-page has just had its imagery reverted to the
+      // curated catalog defaults (Dandy `/event-assets/*` placeholders); re-clear
+      // and refill from the library so a governed event-page never ships those.
+      // Only when the caller opted into imagery replacement — otherwise the
+      // "keep template imagery" path (replaceImagery=false) is preserved.
+      if (replaceImagery === true) {
+        reapplyEventPageImagery(
+          mergedBlocks as Array<Record<string, unknown>>,
+          mediaCatalog.allImages,
+          fillPool,
+          pageImageContext,
+          brandLogoUrls,
+        );
+      }
 
       // Strip a redundant standalone nav when the template's first content block
       // is a self-nav hero (e.g. [nav-header, hero, …]) so template pages never
@@ -10700,6 +10847,19 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // the catalog defaults still ends up carrying the tenant accent. The dark
     // premium look + EB Garamond fonts are kept; only the accent follows brand.
     applyEventPageBranding(parsed.blocks as Array<Record<string, unknown>>, brand);
+
+    // Post-governance imagery safeguard — FINAL pass, AFTER enforceAiModes. A
+    // `copy`/`locked` event-page has just had its imagery reverted to the curated
+    // catalog defaults (Dandy `/event-assets/*` placeholders); re-clear and refill
+    // from the library so a governed event-page never ships those. The freeform
+    // path always replaces imagery, so this runs unconditionally.
+    reapplyEventPageImagery(
+      parsed.blocks as Array<Record<string, unknown>>,
+      mediaCatalog.allImages,
+      fillPool,
+      pageImageContext,
+      brandLogoUrls,
+    );
 
     // Hero co-brand slot — FINAL guard. A landing page never has a target
     // account, so the dso-heartland-hero `companyName` (highlighted in the

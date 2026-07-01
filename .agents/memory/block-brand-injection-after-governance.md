@@ -27,3 +27,22 @@ injection is a tiny idempotent prop write, so running it last is safe.
 Related: the event-page injection keeps the dark premium look + EB Garamond and only
 swaps the accent, gated on `luminance(hexToRgb(color)) >= 0.1` so a near-black brand
 accent can't vanish on the dark background (keeps the gold default instead).
+
+**IMAGERY has the same trap, not just accent/fonts.** A per-block *imagery*
+guarantee (swap a self-contained full-page block's baked placeholder photos —
+e.g. event-page's Dandy `/event-assets/*` hero + gallery — for tenant/brand
+imagery) also breaks under governance, because the image-fill passes run BEFORE
+`enforceAiModes`, which then reverts image fields to the catalog placeholders.
+Fix = a post-governance reapply scoped to that block type only
+(`reapplyEventPageImagery`: re-run `sanitizeAIImageUrls` to clear non-servable
+placeholder URLs, then `fillEmptyImages` to refill from the library), called
+right after `applyEventPageBranding` on BOTH paths. `sanitizeAIImageUrls`
+shallow-copies props and touches only image fields, so run it AFTER the accent
+injection and the theme survives. Gate the template path on `replaceImagery ===
+true` so the "keep template imagery" opt-out is honored; freeform always
+replaces. **Governance revert is field-selective in copy mode:** `enforceAiModes`
+copy mode only reverts keys in `GOVERNANCE_IMAGE_FIELD_KEYS` — `src` (gallery
+`photos[].src`) IS governed so it snaps back to the placeholder, but
+`heroImageUrl` is NOT, so a copy-governed hero survives while its gallery
+reverts; `locked` mode resets the whole props object so everything reverts. The
+reapply covers both.

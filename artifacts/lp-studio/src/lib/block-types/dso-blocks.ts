@@ -1004,6 +1004,10 @@ export interface EventPageTheme {
   navBgOpacity?: number;
   /** Nav link / nav CTA text color */
   navText?: string;
+  /** Hero background-image scrim strength 0–1 (higher = darker overlay).
+   *  Default 0.85 reproduces the original gradient. The scroll-driven parallax
+   *  opacity still multiplies this as the hero scrolls out of view. */
+  heroOverlayOpacity?: number;
   /** Google Font family used for headings (display) */
   displayFontFamily?: string;
   /** Google Font family used for body / UI text */

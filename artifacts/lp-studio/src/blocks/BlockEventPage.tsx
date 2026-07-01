@@ -23,6 +23,7 @@ const DEFAULT_THEME: Required<Omit<EventPageTheme, "headingColor">> & { headingC
   navBg: "#0c0f12",
   navBgOpacity: 0.6,
   navText: "#eeeae3",
+  heroOverlayOpacity: 0.85,
   displayFontFamily: "EB Garamond",
   bodyFontFamily: "",
 };
@@ -93,7 +94,12 @@ export function resolveTheme(t: EventPageTheme | undefined): ResolvedTheme {
   // WCAG AA against that scrim (default gold eyebrow / off-white heading stay),
   // and only swaps in a light ink when the theme color would be illegible.
   const heroScrimBase = relativeLuminance(m.bg) < 0.4 ? m.bg : "#0b0b0f";
-  const overlay = `linear-gradient(180deg, ${rgba(heroScrimBase, 0.5)} 0%, ${rgba(heroScrimBase, 0.85)} 100%)`;
+  // Author-adjustable scrim strength (0–1). The default 0.85 reproduces the
+  // original 0.5→0.85 gradient exactly; the scroll-driven `heroOverlay` opacity
+  // still multiplies this as the hero parallaxes out of view.
+  const heroOverlayOpacity = Math.max(0, Math.min(1, m.heroOverlayOpacity ?? 0.85));
+  const overlayTop = heroOverlayOpacity * (0.5 / 0.85);
+  const overlay = `linear-gradient(180deg, ${rgba(heroScrimBase, overlayTop)} 0%, ${rgba(heroScrimBase, heroOverlayOpacity)} 100%)`;
   const heroHeading = pickContrastingColor(headingColor, heroScrimBase, ["#f5f3ef", "#ffffff"], 4.5);
   const heroEyebrow = pickContrastingColor(m.primary, heroScrimBase, ["#d8c9ae", "#ffffff"], 4.5);
   const heroTagline = pickContrastingColor(m.muted, heroScrimBase, ["#cfd3d8", "#ffffff"], 4.5);
