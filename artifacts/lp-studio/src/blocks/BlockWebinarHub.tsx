@@ -5,7 +5,8 @@ import {
 } from "lucide-react";
 import type { WebinarHubBlockProps, WebinarStatus, WebinarCtaAction } from "@/lib/block-types";
 import type { FormStep } from "@/lib/block-types";
-import type { BrandConfig } from "@/lib/brand-config";
+import { DEFAULT_BRAND, type BrandConfig } from "@/lib/brand-config";
+import { BrandLogo, brandHasLogo } from "@/components/BrandLogo";
 import { toFontFamilyValue } from "@/lib/font-catalog";
 import { useBlockFonts } from "@/lib/use-block-fonts";
 import { getImageBgSectionStyle } from "@/lib/bg-styles";
@@ -461,8 +462,14 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
         <nav style={{ position: isBuilder ? "relative" : "fixed", top: 0, left: 0, right: 0, zIndex: 50, background: "rgba(10,10,10,0.8)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
           <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 1.5rem", height: 80, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-              {p.logoUrl ? (
-                <img src={p.logoUrl} alt={brandName} style={{ height: 28, width: "auto", objectFit: "contain" }} />
+              {brandHasLogo(brand ?? DEFAULT_BRAND, p.logoUrl) ? (
+                <BrandLogo
+                  brand={brand ?? DEFAULT_BRAND}
+                  url={p.logoUrl}
+                  tone="onDark"
+                  alt={brandName}
+                  style={{ height: 28, width: "auto" }}
+                />
               ) : (
                 <>
                   <div style={{ width: 24, height: 24, borderRadius: 4, background: "#fff" }} />
@@ -847,7 +854,17 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
         <footer style={{ background: "#000", color: "#fff", padding: "5rem 1.5rem", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
           <div style={{ maxWidth: "80rem", margin: "0 auto", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "2rem" }}>
             <div>
-              <h2 style={{ fontFamily: displayFont, fontSize: "1.875rem", marginBottom: "1rem" }}>{brandName}</h2>
+              {brandHasLogo(brand ?? DEFAULT_BRAND, p.logoUrl) ? (
+                <BrandLogo
+                  brand={brand ?? DEFAULT_BRAND}
+                  url={p.logoUrl}
+                  tone="onDark"
+                  alt={brandName}
+                  style={{ height: 36, width: "auto", marginBottom: "1rem" }}
+                />
+              ) : (
+                <h2 style={{ fontFamily: displayFont, fontSize: "1.875rem", marginBottom: "1rem" }}>{brandName}</h2>
+              )}
               {p.footerTagline && <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.875rem" }}>{p.footerTagline}</p>}
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "1.5rem" }}>
