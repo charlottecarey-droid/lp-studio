@@ -28,6 +28,7 @@ import {
   extractWildcardSlug,
   validateSlug,
   isSlugRedirectReserved,
+  canonicalTenantSignInUrl,
 } from "../lib/tenantHosts";
 import {
   CloudflareError,
@@ -407,7 +408,7 @@ router.post("/superadmin/tenants/:id/members", requireSuperadmin, async (req, re
   try {
     const [userResult, tenantResult, roleResult] = await Promise.all([
       pool.query(`SELECT id FROM app_users WHERE LOWER(email) = $1`, [email]),
-      pool.query(`SELECT name, domain FROM tenants WHERE id = $1`, [tenantId]),
+      pool.query(`SELECT name, domain, slug FROM tenants WHERE id = $1`, [tenantId]),
       pool.query(`SELECT name FROM tenant_roles WHERE id = $1 AND tenant_id = $2`, [roleId, tenantId]),
     ]);
     if (!tenantResult.rows.length) { res.status(404).json({ error: "Tenant not found" }); return; }
@@ -417,6 +418,7 @@ router.post("/superadmin/tenants/:id/members", requireSuperadmin, async (req, re
     const acceptedAt = userId ? new Date() : null;
     const tenantName: string = tenantResult.rows[0].name ?? "the workspace";
     const tenantDomain: string | null = tenantResult.rows[0].domain ?? null;
+    const tenantSlug: string | null = tenantResult.rows[0].slug ?? null;
     const roleName: string = roleResult.rows[0].name ?? "Member";
 
     // Re-verify role↔tenant in the INSERT itself (closes any TOCTOU window).
@@ -437,9 +439,7 @@ router.post("/superadmin/tenants/:id/members", requireSuperadmin, async (req, re
     }
 
     if (sendInvite !== false) {
-      const signInUrl = tenantDomain
-        ? `https://${tenantDomain}`
-        : (process.env["APP_URL"] ?? "https://app.lpstudio.ai");
+      const signInUrl = canonicalTenantSignInUrl({ domain: tenantDomain, slug: tenantSlug });
       // Invite/seat-activation emails must ALWAYS be deliverable, so every
       // tenant sends from the verified LP Studio platform address (fromEmail
       // undefined → platformFromAddress in notifications.ts). The ONLY
@@ -1367,7 +1367,7 @@ router.post("/members", async (req, res): Promise<void> => {
   try {
     const [userResult, tenantResult, roleResult] = await Promise.all([
       pool.query(`SELECT id FROM app_users WHERE LOWER(email) = $1`, [email]),
-      pool.query(`SELECT name, domain FROM tenants WHERE id = $1`, [req.authUser!.tenantId]),
+      pool.query(`SELECT name, domain, slug FROM tenants WHERE id = $1`, [req.authUser!.tenantId]),
       pool.query(`SELECT name FROM tenant_roles WHERE id = $1 AND tenant_id = $2`, [roleId, req.authUser!.tenantId]),
     ]);
 
@@ -1375,6 +1375,7 @@ router.post("/members", async (req, res): Promise<void> => {
     const acceptedAt = userId ? new Date() : null;
     const tenantName: string = tenantResult.rows[0]?.name ?? "your workspace";
     const tenantDomain: string | null = tenantResult.rows[0]?.domain ?? null;
+    const tenantSlug: string | null = tenantResult.rows[0]?.slug ?? null;
     const roleName: string = roleResult.rows[0]?.name ?? "Member";
 
     const result = await pool.query(
@@ -1387,11 +1388,11 @@ router.post("/members", async (req, res): Promise<void> => {
       [req.authUser!.tenantId, userId, roleId, email, acceptedAt]
     );
 
-    // Derive the per-tenant sign-in link from the tenant's custom domain when
-    // available so each workspace gets its own branded sign-in URL.
-    const signInUrl = tenantDomain
-      ? `https://${tenantDomain}`
-      : (process.env["APP_URL"] ?? "https://app.lpstudio.ai");
+    // Send the invitee to their own workspace host — the tenant's custom domain
+    // if set, otherwise the managed <slug>.lpstudio.ai subdomain — so the link
+    // matches the host they'll be signed in on (never the generic app host,
+    // which would strand them on the wrong workspace after login).
+    const signInUrl = canonicalTenantSignInUrl({ domain: tenantDomain, slug: tenantSlug });
     // Invite/seat-activation emails must ALWAYS be deliverable, so every tenant
     // sends from the verified LP Studio platform address (fromEmail undefined →
     // platformFromAddress in notifications.ts). The ONLY exception is Dandy,
@@ -3254,18 +3255,22 @@ router.post("/invite-test", async (req, res): Promise<void> => {
     return;
   }
   try {
-    const tenantResult = await pool.query<{ name: string }>(
-      `SELECT name FROM tenants WHERE id = $1`,
+    const tenantResult = await pool.query<{ name: string; domain: string | null; slug: string | null }>(
+      `SELECT name, domain, slug FROM tenants WHERE id = $1`,
       [req.authUser!.tenantId],
     );
     const tenantName = tenantResult.rows[0]?.name ?? "Your Workspace";
+    const signInUrl = canonicalTenantSignInUrl({
+      domain: tenantResult.rows[0]?.domain ?? null,
+      slug: tenantResult.rows[0]?.slug ?? null,
+    });
     await sendInviteEmail({
       inviteeEmail: to,
       inviterName: req.authUser!.name,
       tenantName,
       roleName: "Member",
       isNewUser: true,
-      signInUrl: process.env["APP_URL"] ?? "https://app.lpstudio.ai",
+      signInUrl,
       tenantId: req.authUser!.tenantId,
     });
     res.json({ ok: true });

@@ -3,6 +3,8 @@ import {
   defaultPageSubdomain,
   isManagedLpStudioHost,
   validateDomain,
+  canonicalTenantHost,
+  canonicalTenantSignInUrl,
 } from "./tenantHosts.js";
 
 describe("defaultPageSubdomain", () => {
@@ -57,5 +59,39 @@ describe("validateDomain — managed lpstudio.ai handling", () => {
   it("allows empty (clears the field)", () => {
     const r = validateDomain("");
     expect(r).toEqual({ ok: true, normalized: "" });
+  });
+});
+
+describe("canonicalTenantHost", () => {
+  it("prefers the tenant's custom domain (lowercased)", () => {
+    expect(canonicalTenantHost({ domain: "Pages.Acme.com", slug: "acme" })).toBe(
+      "pages.acme.com",
+    );
+  });
+  it("falls back to the managed <slug>.lpstudio.ai subdomain", () => {
+    expect(canonicalTenantHost({ domain: null, slug: "Acme" })).toBe(
+      "acme.lpstudio.ai",
+    );
+  });
+  it("returns null when neither a domain nor a slug is known", () => {
+    expect(canonicalTenantHost({ domain: null, slug: null })).toBeNull();
+  });
+});
+
+describe("canonicalTenantSignInUrl", () => {
+  it("builds the managed workspace URL for a slug-only tenant", () => {
+    expect(canonicalTenantSignInUrl({ domain: null, slug: "acme" })).toBe(
+      "https://acme.lpstudio.ai",
+    );
+  });
+  it("uses the custom domain when present", () => {
+    expect(
+      canonicalTenantSignInUrl({ domain: "pages.acme.com", slug: "acme" }),
+    ).toBe("https://pages.acme.com");
+  });
+  it("uses the provided fallback when the tenant has no host", () => {
+    expect(
+      canonicalTenantSignInUrl({ domain: null, slug: null }, "https://app.lpstudio.ai"),
+    ).toBe("https://app.lpstudio.ai");
   });
 });

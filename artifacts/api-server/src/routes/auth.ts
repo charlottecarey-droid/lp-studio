@@ -5,7 +5,7 @@ import { pool, db, lpPageReviewsTable, lpPagesTable, tenantsTable, lpBrandSettin
 import { eq, and } from "drizzle-orm";
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
-import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, WILDCARD_BASE_HOSTS, isSlugRedirectReserved, invalidateTenantHostCache, defaultPageSubdomain } from "../lib/tenantHosts";
+import { findTenantByHost, extractWildcardSlug, isWildcardBaseHost, canonicalTenantHost as getCanonicalTenantHost, isSlugRedirectReserved, invalidateTenantHostCache, defaultPageSubdomain } from "../lib/tenantHosts";
 import { getRequestHost } from "../lib/requestHost";
 import {
   sendMagicLinkEmail,
@@ -49,12 +49,6 @@ import { getPlanFeaturesMap } from "../lib/planConfig";
 import { isRootSuperadminEmail } from "../lib/rootSuperadmin";
 
 /**
- * Pick the user-facing wildcard base host for building tenant login URLs
- * (e.g. "lpstudio.ai"). Prefers a base that does NOT start with "app." so
- * users see the cleaner `<slug>.lpstudio.ai` rather than
- * `<slug>.app.lpstudio.ai`. Falls back to the first configured base.
- */
-/**
  * Validate a post-login "next" destination. We accept only relative,
  * same-origin paths so an attacker can't piggy-back the auth flow into an
  * open redirect (e.g. `?next=https://evil.com`). Anything else collapses to
@@ -75,22 +69,9 @@ function sanitizeNextPath(value: unknown): string | null {
   return value;
 }
 
-function publicWildcardBaseHost(): string | null {
-  const preferred = WILDCARD_BASE_HOSTS.find(h => !h.startsWith("app."));
-  return preferred ?? WILDCARD_BASE_HOSTS[0] ?? null;
-}
-
-/**
- * Compute the canonical login host for a tenant. Prefers the tenant's
- * configured custom `domain` (e.g. meetdandy-lp.com); otherwise falls back
- * to `<slug>.<wildcardBaseHost>` (e.g. acme.lpstudio.ai).
- */
-function getCanonicalTenantHost(t: { domain: string | null; slug: string | null }): string | null {
-  if (t.domain) return t.domain.toLowerCase();
-  const base = publicWildcardBaseHost();
-  if (!base || !t.slug) return null;
-  return `${t.slug.toLowerCase()}.${base}`;
-}
+// The canonical tenant host + wildcard-base helpers now live in
+// ../lib/tenantHosts so the invite emails and this auth flow share ONE source
+// of truth (imported above, aliased as `getCanonicalTenantHost`).
 
 const router = Router();
 

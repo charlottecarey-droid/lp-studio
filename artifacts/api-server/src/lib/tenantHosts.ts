@@ -161,6 +161,46 @@ export function defaultPageSubdomain(slug: string): string {
   return `${slug.toLowerCase().trim()}-lp.${base}`;
 }
 
+/**
+ * The base host used for a tenant's MANAGED workspace/login subdomain — the
+ * first configured wildcard base that isn't the reserved `app.` host (e.g.
+ * `lpstudio.ai`, giving `acme.lpstudio.ai`). Falls back to the first base.
+ */
+export function publicWildcardBaseHost(): string | null {
+  const preferred = WILDCARD_BASE_HOSTS.find(h => !h.startsWith("app."));
+  return preferred ?? WILDCARD_BASE_HOSTS[0] ?? null;
+}
+
+/**
+ * Compute the canonical workspace/login host for a tenant. Prefers the
+ * tenant's configured custom `domain` (e.g. meetdandy-lp.com); otherwise falls
+ * back to the managed `<slug>.<wildcardBaseHost>` subdomain (e.g.
+ * acme.lpstudio.ai). Returns null when neither a domain nor a slug is known.
+ *
+ * Single source of truth shared by the auth flow (post-login routing) and the
+ * invite emails, so the URL a new member is emailed always matches the host
+ * they'll actually be signed in on.
+ */
+export function canonicalTenantHost(t: { domain: string | null; slug: string | null }): string | null {
+  if (t.domain) return t.domain.toLowerCase();
+  const base = publicWildcardBaseHost();
+  if (!base || !t.slug) return null;
+  return `${t.slug.toLowerCase()}.${base}`;
+}
+
+/**
+ * The canonical workspace sign-in URL (`https://<canonicalHost>`) for a tenant,
+ * used as the link in invite/seat-activation emails. Falls back to the generic
+ * app host only when the tenant has neither a custom domain nor a slug.
+ */
+export function canonicalTenantSignInUrl(
+  t: { domain: string | null; slug: string | null },
+  fallback: string = process.env["APP_URL"] ?? "https://app.lpstudio.ai",
+): string {
+  const host = canonicalTenantHost(t);
+  return host ? `https://${host}` : fallback;
+}
+
 /** True if `host` is one of our wildcard base hosts, or a subdomain of one. */
 export function isUnderWildcardBase(host: string): boolean {
   const lower = host.toLowerCase();
