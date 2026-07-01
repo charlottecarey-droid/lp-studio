@@ -718,7 +718,7 @@ function AccountListView() {
                   <Input
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    placeholder="e.g. Heartland Dental"
+                    placeholder="e.g. Acme Corp"
                     required
                   />
                 </div>
@@ -727,7 +727,7 @@ function AccountListView() {
                   <Input
                     value={newDomain}
                     onChange={(e) => setNewDomain(e.target.value)}
-                    placeholder="e.g. heartland.com"
+                    placeholder="e.g. example.com"
                   />
                 </div>
                 <div>
