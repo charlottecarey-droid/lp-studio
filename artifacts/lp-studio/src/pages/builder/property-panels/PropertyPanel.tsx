@@ -192,6 +192,7 @@ import { EditorialSplitHeroPanel } from "./EditorialSplitHeroPanel";
 import { ParallaxLayersHeroPanel } from "./ParallaxLayersHeroPanel";
 import { SpotlightGlowHeroPanel } from "./SpotlightGlowHeroPanel";
 import { LogoWallPanel } from "./LogoWallPanel";
+import { AboutTeamPanel } from "./AboutTeamPanel";
 import { LogoMarqueePanel } from "./LogoMarqueePanel";
 import { LaunchSpotlightHeroPanel } from "./LaunchSpotlightHeroPanel";
 import { BentoMosaicHeroPanel } from "./BentoMosaicHeroPanel";
@@ -1508,6 +1509,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "logo-wall":
         return (
           <LogoWallPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
+          />
+        );
+      case "about-team":
+        return (
+          <AboutTeamPanel
             props={block.props}
             onChange={props => onChange({ ...block, props })}
           />

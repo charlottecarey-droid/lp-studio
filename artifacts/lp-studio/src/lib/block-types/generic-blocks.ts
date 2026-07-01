@@ -3584,6 +3584,44 @@ export interface AvatarSocialProofBlockProps extends HeroBrandStyleConfig {
   testimonialAuthor?: string;
 }
 
+/** A single person on an About Us team block. People are authored inline on the
+ *  block (real photos uploaded by the tenant — never AI-filled). All fields
+ *  except name are optional so a solo founder or a small roster both read well. */
+export interface AboutTeamMember {
+  name: string;
+  role?: string;
+  /** Uploaded headshot URL. Empty renders an initials placeholder. */
+  photo?: string;
+  location?: string;
+  /** Short "focus area" line shown next to the location. */
+  focus?: string;
+  bio?: string;
+  linkedinUrl?: string;
+  email?: string;
+}
+
+/** About Us — Team. A standalone tenant landing-page block: an editorial
+ *  founder-style spotlight for the selected person plus a clickable roster of
+ *  the team. Colors, fonts and corner radius default to the tenant brand and
+ *  are overridable. People are authored inline (real photos only). */
+export interface AboutTeamBlockProps extends HeroBrandStyleConfig {
+  backgroundStyle?: BackgroundStyle;
+  /** Show the eyebrow/headline/subheadline header. Defaults on for 2+ people. */
+  showHeader?: boolean;
+  eyebrow?: string;
+  headline?: string;
+  subheadline?: string;
+  members: AboutTeamMember[];
+  /** Roster avatar diameter in px. Default 72. */
+  avatarSize?: number;
+  /** Roster avatar shape. Default "circle". */
+  avatarShape?: "circle" | "rounded" | "square";
+  /** Main portrait shape. Default "rounded". */
+  mainImageShape?: "circle" | "rounded" | "square";
+  /** Corner radius (px) used when a shape is "rounded". Default 24. */
+  cornerRadius?: number;
+}
+
 /* ------------------------------------------------------------------------- */
 /*  Benefits family (graduated from mockup-sandbox) — four section layouts:   */
 /*  alternating rows, bento grid, icon grid, and stat-led columns. Each       */

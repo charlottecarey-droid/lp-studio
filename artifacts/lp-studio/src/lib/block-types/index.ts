@@ -27,6 +27,8 @@ export type {
   RatingBadgesBlockProps,
   SocialProofAvatar,
   AvatarSocialProofBlockProps,
+  AboutTeamMember,
+  AboutTeamBlockProps,
 } from "./generic-blocks";
 
 // Common types and utilities

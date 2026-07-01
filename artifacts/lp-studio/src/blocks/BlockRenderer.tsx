@@ -135,6 +135,7 @@ import { BlockEditorialSplitHero } from "./BlockEditorialSplitHero";
 import { BlockParallaxLayersHero } from "./BlockParallaxLayersHero";
 import { BlockSpotlightGlowHero } from "./BlockSpotlightGlowHero";
 import { BlockLogoWall } from "./BlockLogoWall";
+import { BlockAboutTeam } from "./BlockAboutTeam";
 import { BlockLogoMarquee } from "./BlockLogoMarquee";
 import { BlockLaunchSpotlightHero } from "./BlockLaunchSpotlightHero";
 import { BlockBentoMosaicHero } from "./BlockBentoMosaicHero";
@@ -1395,6 +1396,17 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
       case "logo-wall":
         return (
           <BlockLogoWall
+            props={block.props}
+            brand={brand}
+            animationsEnabled={animationsEnabled}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
+          />
+        );
+      case "about-team":
+        return (
+          <BlockAboutTeam
             props={block.props}
             brand={brand}
             animationsEnabled={animationsEnabled}

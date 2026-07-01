@@ -50,6 +50,14 @@ args = "tc-api-server"
 task = "workflow.run"
 args = "fbh-contrast"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "typecheck-lp"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "typecheck-api"
+
 [[workflows.workflow]]
 name = "img-test"
 author = "agent"
@@ -123,6 +131,28 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd artifacts/lp-studio && npx vitest run src/blocks/BlockFullBleedHero.contrast.test.ts --reporter=dot --pool=forks --no-file-parallelism"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "typecheck-lp"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/lp-studio run typecheck"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "typecheck-api"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server run typecheck"
 
 [workflows.workflow.metadata]
 isValidation = true

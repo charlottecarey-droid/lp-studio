@@ -154,6 +154,7 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
   "event-page": HERO_LIKE,
   "event-landing-hero": HERO_LIKE,
   "dso-scroll-story-hero": SELF_STYLED,
+  "about-team": SELF_STYLED,
   "launch-spotlight-hero": HERO_LIKE,
   "bento-mosaic-hero": HERO_LIKE,
   "kinetic-type-hero": HERO_LIKE,

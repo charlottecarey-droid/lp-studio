@@ -153,6 +153,7 @@ import type {
   LogoMarqueeBlockProps,
   RatingBadgesBlockProps,
   AvatarSocialProofBlockProps,
+  AboutTeamBlockProps,
   LaunchSpotlightHeroBlockProps,
   BentoMosaicHeroBlockProps,
   KineticTypeHeroBlockProps,
@@ -398,6 +399,58 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
             <rect width="10" height="10" rx="2" fill="#94a3b8" opacity="0.5" />
             <rect x="14" y="2" width="18" height="6" rx="1.5" fill="#94a3b8" opacity="0.5" />
           </g>
+        )))}
+      </svg>
+    ),
+  },
+  {
+    type: "about-team",
+    label: "About Us — Team",
+    category: "Content" as BlockCategory,
+    defaultProps: (): AboutTeamBlockProps => ({
+      showHeader: true,
+      eyebrow: "Our team",
+      headline: "The people behind the work",
+      subheadline:
+        "A small, senior team that has shipped for brands you know. Choose a name to read more about who does what — and how they think.",
+      avatarSize: 72,
+      avatarShape: "circle",
+      mainImageShape: "rounded",
+      cornerRadius: 24,
+      members: [
+        {
+          name: "Elena Marsh",
+          role: "Founder & CEO",
+          location: "Chicago, IL",
+          focus: "Vision & product",
+          bio: "Elena sets product direction and still spends most of her week with customers, turning their hardest workflows into the features the whole team builds around.",
+        },
+        {
+          name: "Marcus Bell",
+          role: "Head of Engineering",
+          location: "Austin, TX",
+          focus: "Platform & reliability",
+          bio: "Marcus keeps the platform fast and dependable at scale, caring about the unglamorous work — clean data, quiet deploys, and pages that load before you notice.",
+        },
+        {
+          name: "Priya Nair",
+          role: "Head of Design",
+          location: "Toronto, ON",
+          focus: "Craft & brand systems",
+          bio: "Priya leads design across product and brand. She believes premium isn't decoration — it's clarity, rhythm, and restraint, from the first pixel to the last.",
+        },
+      ],
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#faf9f7" rx="4" />
+        <rect x="12" y="12" width="34" height="42" rx="5" fill="#e0e7ff" />
+        <rect x="54" y="16" width="42" height="5" rx="2" fill="#16151f" opacity="0.8" />
+        <rect x="54" y="26" width="26" height="4" rx="2" fill="#6366f1" />
+        <rect x="54" y="36" width="52" height="3" rx="1.5" fill="#94a3b8" opacity="0.6" />
+        <rect x="54" y="42" width="46" height="3" rx="1.5" fill="#94a3b8" opacity="0.5" />
+        {([0, 1, 2, 3].map(i => (
+          <circle key={i} cx={20 + i * 14} cy="63" r="4" fill="#c7d2fe" stroke="#faf9f7" strokeWidth="1.5" />
         )))}
       </svg>
     ),
@@ -9031,6 +9084,7 @@ export function createBlock(type: "editorial-split-hero"): Extract<PageBlock, { 
 export function createBlock(type: "parallax-layers-hero"): Extract<PageBlock, { type: "parallax-layers-hero" }>;
 export function createBlock(type: "spotlight-glow-hero"): Extract<PageBlock, { type: "spotlight-glow-hero" }>;
 export function createBlock(type: "logo-wall"): Extract<PageBlock, { type: "logo-wall" }>;
+export function createBlock(type: "about-team"): Extract<PageBlock, { type: "about-team" }>;
 export function createBlock(type: "logo-marquee"): Extract<PageBlock, { type: "logo-marquee" }>;
 export function createBlock(type: "launch-spotlight-hero"): Extract<PageBlock, { type: "launch-spotlight-hero" }>;
 export function createBlock(type: "bento-mosaic-hero"): Extract<PageBlock, { type: "bento-mosaic-hero" }>;
@@ -9379,6 +9433,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "parallax-layers-hero": return { id, type: "parallax-layers-hero", props: props as ParallaxLayersHeroBlockProps };
     case "spotlight-glow-hero": return { id, type: "spotlight-glow-hero", props: props as SpotlightGlowHeroBlockProps };
     case "logo-wall": return { id, type: "logo-wall", props: props as LogoWallBlockProps };
+    case "about-team": return { id, type: "about-team", props: props as AboutTeamBlockProps };
     case "logo-marquee": return { id, type: "logo-marquee", props: props as LogoMarqueeBlockProps };
     case "launch-spotlight-hero": return { id, type: "launch-spotlight-hero", props: props as LaunchSpotlightHeroBlockProps };
     case "bento-mosaic-hero": return { id, type: "bento-mosaic-hero", props: props as BentoMosaicHeroBlockProps };

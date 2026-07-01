@@ -247,6 +247,7 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
 
   // ── DSO Practices ───────────────────────────────────────────────────────────
   "dso-meet-team": ["content"],
+  "about-team": ["content"],
   "dso-paradigm-shift": ["comparison"],
   "dso-partnership-perks": ["features"],
   "dso-products-grid": ["features", "media"],

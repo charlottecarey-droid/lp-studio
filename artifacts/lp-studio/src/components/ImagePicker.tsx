@@ -21,6 +21,12 @@ interface ImagePickerProps {
    */
   aiHint?: string;
   /**
+   * Whether to expose the "Generate" AI-image control (still additionally
+   * gated on the workspace `aiImageGenOutsideBuilderEnabled` flag). Defaults
+   * to true. Pass false for real-photo-only fields (e.g. team headshots).
+   */
+  allowAiGenerate?: boolean;
+  /**
    * Tailwind classes for the preview <img>. Defaults to a short cropped band
    * (`w-full h-24 object-cover`). Pass a taller `object-contain` variant when
    * the full image must be visible (e.g. case-study cover images) rather than
@@ -45,7 +51,7 @@ export async function uploadImage(file: File): Promise<string> {
   return `/api/storage${url}`;
 }
 
-export function ImagePicker({ value, onChange, label, placeholder, className, aiHint, previewClassName = "w-full h-24 object-cover" }: ImagePickerProps) {
+export function ImagePicker({ value, onChange, label, placeholder, className, aiHint, allowAiGenerate = true, previewClassName = "w-full h-24 object-cover" }: ImagePickerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +62,7 @@ export function ImagePicker({ value, onChange, label, placeholder, className, ai
   // operator. The Tweak input is the user's freeform brief; when empty we
   // fall back to `aiHint` (caller context) → `label` → a generic phrase.
   const { user } = useAuth();
-  const aiEnabled = !!user?.aiImageGenOutsideBuilderEnabled;
+  const aiEnabled = allowAiGenerate && !!user?.aiImageGenOutsideBuilderEnabled;
   const [tweak, setTweak] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
 

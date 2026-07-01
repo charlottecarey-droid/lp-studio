@@ -139,6 +139,7 @@ import type {
   ParallaxLayersHeroBlockProps,
   SpotlightGlowHeroBlockProps,
   LogoWallBlockProps,
+  AboutTeamBlockProps,
   LogoMarqueeBlockProps,
   RatingBadgesBlockProps,
   AvatarSocialProofBlockProps,
@@ -420,6 +421,7 @@ export type BlockVariant =
   | { type: "parallax-layers-hero"; props: ParallaxLayersHeroBlockProps }
   | { type: "spotlight-glow-hero"; props: SpotlightGlowHeroBlockProps }
   | { type: "logo-wall"; props: LogoWallBlockProps }
+  | { type: "about-team"; props: AboutTeamBlockProps }
   | { type: "logo-marquee"; props: LogoMarqueeBlockProps }
   | { type: "rating-badges"; props: RatingBadgesBlockProps }
   | { type: "avatar-social-proof"; props: AvatarSocialProofBlockProps }
