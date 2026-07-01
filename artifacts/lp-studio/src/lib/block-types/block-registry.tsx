@@ -5824,6 +5824,8 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       ],
       featuredImageUrl: "",
       featuredImageAlt: "",
+      featuredIcon: "Sparkles",
+      featuredBgColor: "#F8FAFC",
       featuredTitle: "What's new",
       featuredText: "See the latest product updates and releases.",
       ctaLabel: "Get started",

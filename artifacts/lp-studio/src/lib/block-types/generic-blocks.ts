@@ -4276,6 +4276,10 @@ export interface MegaMenuNavBlockProps extends CtaModalConfig {
   /** Optional featured image inside the dropdown. */
   featuredImageUrl?: string;
   featuredImageAlt?: string;
+  /** Optional icon for the featured card — a Lucide icon name OR an image URL. */
+  featuredIcon?: string;
+  /** Optional background color for the featured card. Unset = transparent. */
+  featuredBgColor?: string;
   featuredTitle?: string;
   featuredText?: string;
   ctaLabel?: string;

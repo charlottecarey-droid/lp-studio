@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { ImagePicker } from "@/components/ImagePicker";
+import { IconPicker } from "@/components/IconPicker";
 import { suggestCopy } from "@/lib/copy-api";
 import { ColorField } from "./BlockSettingsPanel";
 import { LinkListEditor } from "./LinkListEditor";
@@ -71,6 +72,8 @@ export function MegaMenuNavPanel({ props, onChange }: Props) {
           values={{ featuredTitle: props.featuredTitle ?? "", featuredText: props.featuredText ?? "", ctaLabel: props.ctaLabel ?? "" }}
           onApply={(u) => onChange({ ...props, ...u })}
         />
+        <IconPicker label="Icon (or upload an image)" value={props.featuredIcon ?? ""} onChange={(v) => update({ featuredIcon: v })} aiHint="what's new icon" />
+        <ColorField label="Card background" value={props.featuredBgColor ?? "#FFFFFF"} onChange={(v) => update({ featuredBgColor: v })} />
         <ImagePicker label="Featured image" value={props.featuredImageUrl ?? ""} onChange={(v) => update({ featuredImageUrl: v })} aiHint="featured menu image" />
         <div>
           <Label className="text-[11px] text-muted-foreground">Image alt</Label>

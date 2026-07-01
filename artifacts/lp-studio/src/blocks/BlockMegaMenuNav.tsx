@@ -3,6 +3,7 @@ import { ChevronDown } from "lucide-react";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickContrastingColor } from "@/lib/brand-config";
 import { BrandLogo, brandHasLogo, brandLogoToneForText } from "@/components/BrandLogo";
+import { IconOrImage } from "@/lib/icon-value";
 import type { MegaMenuNavBlockProps } from "@/lib/block-types";
 import { CtaButton } from "@/components/CtaButton";
 import { pickCtaModalConfig } from "@/lib/cta-modal";
@@ -22,6 +23,11 @@ export function BlockMegaMenuNav({ props, brand }: Props) {
   const onAccent = pickContrastingColor(undefined, accent, ["#ffffff", "#0f172a"]);
   const muted = pickContrastingColor(undefined, bg, ["#64748b", "#94a3b8"]);
   const border = `${text}14`;
+  // Featured card can carry its own background — derive its ink from that
+  // surface so the title/text stay legible on any color the author picks.
+  const cardBg = props.featuredBgColor;
+  const cardText = cardBg ? pickContrastingColor(undefined, cardBg, ["#0f172a", "#ffffff"]) : text;
+  const cardMuted = cardBg ? pickContrastingColor(undefined, cardBg, ["#475569", "#cbd5e1"]) : muted;
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
   const logoText = props.logoText || brand.brandName || "Brand";
@@ -103,18 +109,26 @@ export function BlockMegaMenuNav({ props, brand }: Props) {
                 </ul>
               </div>
             ))}
-            {(props.featuredImageUrl || props.featuredTitle) && (
-              <div className="rounded-2xl border p-4" style={{ borderColor: border }}>
+            {(props.featuredImageUrl || props.featuredIcon || props.featuredTitle) && (
+              <div className="rounded-2xl border p-4" style={{ borderColor: border, backgroundColor: cardBg || undefined }}>
                 {props.featuredImageUrl && (
                   <img src={props.featuredImageUrl} alt={props.featuredImageAlt || ""} className="mb-3 h-28 w-full rounded-xl object-cover" />
                 )}
+                {props.featuredIcon && (
+                  <div
+                    className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: `${accent}26` }}
+                  >
+                    <IconOrImage value={props.featuredIcon} className="h-5 w-5" style={{ color: accent }} alt={props.featuredTitle || ""} />
+                  </div>
+                )}
                 {props.featuredTitle && (
-                  <p className="text-sm font-semibold" style={{ color: text, fontFamily: DISPLAY }}>
+                  <p className="text-sm font-semibold" style={{ color: cardText, fontFamily: DISPLAY }}>
                     {props.featuredTitle}
                   </p>
                 )}
                 {props.featuredText && (
-                  <p className="mt-1 text-xs leading-relaxed" style={{ color: muted }}>
+                  <p className="mt-1 text-xs leading-relaxed" style={{ color: cardMuted }}>
                     {props.featuredText}
                   </p>
                 )}
