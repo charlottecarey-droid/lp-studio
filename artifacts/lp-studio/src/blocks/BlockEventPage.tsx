@@ -704,13 +704,10 @@ export function BlockEventPage({ props: p, pageId, testId, variantId, sessionId 
                 viewport={{ once: true, margin: "-40px" }}
                 transition={{ duration: 0.8, delay: i * 0.15, ease: [0.25, 0.46, 0.45, 0.94] }}
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "200px 1fr",
-                  gap: "3rem",
                   padding: "3rem 0",
                   borderBottom: `1px solid rgba(38,42,47,0.5)`,
                 }}
-                className="group max-sm:grid-cols-1 max-sm:gap-4"
+                className="group grid grid-cols-[200px_1fr] gap-12 max-sm:grid-cols-1 max-sm:gap-4"
               >
                 <div>
                   <motion.p
