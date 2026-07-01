@@ -4311,6 +4311,8 @@ export interface MegaMenuNavBlockProps extends CtaModalConfig {
   featuredBgColor?: string;
   featuredTitle?: string;
   featuredText?: string;
+  /** Optional link for the featured card — set to make the whole card clickable. */
+  featuredUrl?: string;
   ctaLabel?: string;
   ctaAction?: HeroCtaActionMode;
   ctaUrl?: string;

@@ -109,31 +109,47 @@ export function BlockMegaMenuNav({ props, brand }: Props) {
                 </ul>
               </div>
             ))}
-            {(props.featuredImageUrl || props.featuredIcon || props.featuredTitle) && (
-              <div className="rounded-2xl border p-4" style={{ borderColor: border, backgroundColor: cardBg || undefined }}>
-                {props.featuredImageUrl && (
-                  <img src={props.featuredImageUrl} alt={props.featuredImageAlt || ""} className="mb-3 h-28 w-full rounded-xl object-cover" />
-                )}
-                {props.featuredIcon && (
-                  <div
-                    className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl"
-                    style={{ backgroundColor: `${accent}26` }}
-                  >
-                    <IconOrImage value={props.featuredIcon} className="h-5 w-5" style={{ color: accent }} alt={props.featuredTitle || ""} />
-                  </div>
-                )}
-                {props.featuredTitle && (
-                  <p className="text-sm font-semibold" style={{ color: cardText, fontFamily: DISPLAY }}>
-                    {props.featuredTitle}
-                  </p>
-                )}
-                {props.featuredText && (
-                  <p className="mt-1 text-xs leading-relaxed" style={{ color: cardMuted }}>
-                    {props.featuredText}
-                  </p>
-                )}
-              </div>
-            )}
+            {(props.featuredImageUrl || props.featuredIcon || props.featuredTitle) && (() => {
+              const cardInner = (
+                <>
+                  {props.featuredImageUrl && (
+                    <img src={props.featuredImageUrl} alt={props.featuredImageAlt || ""} className="mb-3 h-28 w-full rounded-xl object-cover" />
+                  )}
+                  {props.featuredIcon && (
+                    <div
+                      className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl"
+                      style={{ backgroundColor: `${accent}26` }}
+                    >
+                      <IconOrImage value={props.featuredIcon} className="h-5 w-5" style={{ color: accent }} alt={props.featuredTitle || ""} />
+                    </div>
+                  )}
+                  {props.featuredTitle && (
+                    <p className="text-sm font-semibold" style={{ color: cardText, fontFamily: DISPLAY }}>
+                      {props.featuredTitle}
+                    </p>
+                  )}
+                  {props.featuredText && (
+                    <p className="mt-1 text-xs leading-relaxed" style={{ color: cardMuted }}>
+                      {props.featuredText}
+                    </p>
+                  )}
+                </>
+              );
+              const cardStyle = { borderColor: border, backgroundColor: cardBg || undefined };
+              return props.featuredUrl ? (
+                <a
+                  href={props.featuredUrl}
+                  className="block cursor-pointer rounded-2xl border p-4 transition-shadow hover:shadow-md"
+                  style={cardStyle}
+                >
+                  {cardInner}
+                </a>
+              ) : (
+                <div className="rounded-2xl border p-4" style={cardStyle}>
+                  {cardInner}
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

@@ -87,6 +87,10 @@ export function MegaMenuNavPanel({ props, onChange }: Props) {
           <Label className="text-[11px] text-muted-foreground">Featured text</Label>
           <AiTextField value={props.featuredText ?? ""} onChange={(v) => update({ featuredText: v })} rows={2} className="text-xs" placeholder="Leave blank to hide" onSuggest={() => suggestCopy("mega-menu-nav", "featuredText", props.featuredText ?? "", { featuredTitle: props.featuredTitle ?? "" })} fieldLabel="Featured text" />
         </div>
+        <div>
+          <Label className="text-[11px] text-muted-foreground">Card link URL</Label>
+          <Input value={props.featuredUrl ?? ""} onChange={(e) => update({ featuredUrl: e.target.value })} className="h-8 text-xs" placeholder="Leave blank for no link" />
+        </div>
       </div>
 
       <div className="space-y-3">
