@@ -678,6 +678,36 @@ uri = "file://artifacts/mockup-sandbox/public/images/bigcard-field.png"
 type = "image"
 title = "generated_image"
 
+[[generated]]
+id = "HWvoAVO6O9fguEHX0yqjx"
+uri = "file://artifacts/mockup-sandbox/public/images/team-1.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "-u1PAt0ufVFxBlaXNc6vv"
+uri = "file://artifacts/mockup-sandbox/public/images/team-2.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "x8l6qCvDXqFBN1KZwmmlc"
+uri = "file://artifacts/mockup-sandbox/public/images/team-3.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "dnQ6-QchTdtpaNBtvPbDJ"
+uri = "file://artifacts/mockup-sandbox/public/images/team-4.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "zGtuhiHZLt3TTprWGRFTP"
+uri = "file://artifacts/mockup-sandbox/public/images/team-5.png"
+type = "image"
+title = "generated_image"
+
 [[outputs]]
 id = "2sUbM7UegFOFtU0kTdNUi"
 uri = "file://.local/cheatsheet.md"

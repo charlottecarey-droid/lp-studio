@@ -1,0 +1,46 @@
+/* About Us block — shared tokens.
+   Brand-aware: in the real block these map to the tenant's brand colors/fonts.
+   Here they default to the LP Studio indigo so the mockup reads on-brand. */
+:root {
+  --about-brand: #4f46e5;
+  --about-brand-ink: #3730a3;
+  --about-brand-soft: #eef2ff;
+  --about-paper: #faf9f7;
+  --about-card: #ffffff;
+  --about-ink: #16151f;
+  --about-muted: #6c6b78;
+  --about-line: rgba(20, 19, 34, 0.08);
+}
+
+.about-serif {
+  font-family: "Playfair Display", Georgia, serif;
+}
+.about-sans {
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.about-fade {
+  animation: aboutFade 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+@keyframes aboutFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.about-roster-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(20, 19, 34, 0.15) transparent;
+}
+.about-roster-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.about-roster-scroll::-webkit-scrollbar-thumb {
+  background: rgba(20, 19, 34, 0.15);
+  border-radius: 999px;
+}
