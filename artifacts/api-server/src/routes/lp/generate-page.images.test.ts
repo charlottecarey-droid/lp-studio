@@ -201,11 +201,6 @@ describe("validateAndDedupeAIImages", () => {
       "value-pillars-outlined-cards",
       "value-pillars-divided-columns",
       "value-pillars-card-columns",
-      "value-pillars-color-block-cards",
-      "value-pillars-headline-badge",
-      "feature-photo-cards",
-      "feature-card-grid",
-      "feature-big-features",
     ];
     for (const type of ICON_LED_BLOCKS) {
       let blocks: any[] = [
@@ -220,6 +215,32 @@ describe("validateAndDedupeAIImages", () => {
         // the Lucide icon name must survive — these blocks stay icon-led
         expect(item.icon).toBeTruthy();
       }
+    }
+  });
+
+  it("keeps a library per-item image (strips only a non-library one) for every photo-led Pillar/Feature block", () => {
+    const PHOTO_LED_BLOCKS = [
+      "value-pillars-color-block-cards",
+      "value-pillars-headline-badge",
+      "feature-photo-cards",
+      "feature-card-grid",
+      "feature-big-features",
+    ];
+    for (const type of PHOTO_LED_BLOCKS) {
+      let blocks: any[] = [
+        { type, props: { items: [
+          { icon: "Shield", title: "Secure by default", description: "x", image: "/objects/dental-feature-1" },
+          { icon: "Zap", title: "Fast onboarding", description: "y", image: "https://images.unsplash.com/photo-1" },
+        ] } },
+      ];
+      blocks = sanitizeAIImageUrls(blocks, LIB) as any[];
+      const items = blocks[0].props.items as Array<{ icon: string; image: string }>;
+      // a valid library/storage path survives sanitization…
+      expect(items[0].image, `${type} library item image should survive`).toBe("/objects/dental-feature-1");
+      // …a hallucinated off-library host is cleared so the fill pass can replace it…
+      expect(items[1].image, `${type} non-library item image should be cleared`).toBe("");
+      // …and the Lucide icon fallback is always preserved.
+      for (const item of items) expect(item.icon).toBeTruthy();
     }
   });
 
@@ -1631,23 +1652,19 @@ describe("icon-only item photos (benefits-grid / features)", () => {
   });
 });
 
-// Task #1436 follow-up: the graduated value-pillars-* / feature-* SECTION blocks
-// are ALL icon-led. None of them collect or fill a per-item `image` slot — the
-// AI generator only ever emits Lucide icon names, which the renderer draws on a
-// brand-accent panel. (An author can still attach a photo to an individual item
-// in the builder; that legacy `items[].image` is honored at render but is never
-// touched by the generator.)
-describe("graduated section blocks — all icon-led, never collect or fill item images", () => {
-  const ALL_SECTION_BLOCKS = [
+// The graduated value-pillars-* / feature-* SECTION blocks split into two
+// families. The FOUR icon-led ones (icon-trio / outlined-cards /
+// divided-columns / card-columns) never collect or fill a per-item `image`
+// slot — the AI generator only emits Lucide icon names, which the renderer
+// draws on a brand-accent panel. (An author can still attach a photo to an
+// individual item in the builder; that legacy `items[].image` is honored at
+// render but is never touched by the generator.)
+describe("graduated section blocks — icon-led four never collect or fill item images", () => {
+  const ICON_LED_SECTION_BLOCKS = [
     "value-pillars-icon-trio",
     "value-pillars-outlined-cards",
     "value-pillars-divided-columns",
     "value-pillars-card-columns",
-    "value-pillars-color-block-cards",
-    "value-pillars-headline-badge",
-    "feature-photo-cards",
-    "feature-card-grid",
-    "feature-big-features",
   ];
 
   // A library full of feature/product photos that WOULD fill an item image slot
@@ -1680,17 +1697,77 @@ describe("graduated section blocks — all icon-led, never collect or fill item 
     },
   });
 
-  it("collects NO items[].image slot for any graduated section block", () => {
-    for (const type of ALL_SECTION_BLOCKS) {
+  it("collects NO items[].image slot for any icon-led section block", () => {
+    for (const type of ICON_LED_SECTION_BLOCKS) {
       const fields = collectImageSlots(collectBlock(type) as any).map((s) => s.field);
       expect(fields, `${type} should expose no item image slot`).not.toContain("image");
     }
   });
 
-  it("leaves items[].image empty for every graduated section block", () => {
-    for (const type of ALL_SECTION_BLOCKS) {
+  it("leaves items[].image empty for every icon-led section block", () => {
+    for (const type of ICON_LED_SECTION_BLOCKS) {
       const out = fillEmptyImages([fillBlock(type)], PD_LIB, PAGE_CTX) as any[];
       expect((out[0].props as any).items[0].image, `${type} should stay icon-only`).toBe("");
+    }
+  });
+});
+
+// The FIVE photo-led graduated sections (color-block-cards / headline-badge /
+// feature-photo-cards / -card-grid / -big-features) DO collect + fill an
+// `items[].image` photo from the brand's FEATURE library, just like a
+// benefits-grid with useItemPhotos. The renderer shows the photo when present
+// and degrades to the item's Lucide icon when empty.
+describe("graduated section blocks — photo-led five collect + fill item images", () => {
+  const PHOTO_LED_SECTION_BLOCKS = [
+    "value-pillars-color-block-cards",
+    "value-pillars-headline-badge",
+    "feature-photo-cards",
+    "feature-card-grid",
+    "feature-big-features",
+  ];
+
+  // Feature-purpose photos so the lp-feature item slots fill in the strict pass.
+  const FEAT_LIB: MediaImage[] = [
+    { url: "/objects/feat-dentures", title: "Custom dentures closeup", tags: ["lp-feature", "dentures"] },
+    { url: "/objects/feat-scanner", title: "Intraoral scanner device", tags: ["lp-feature", "scanner"] },
+  ];
+
+  // Non-empty image so the collect layer enumerates the exposed item slot.
+  const collectBlock = (type: string) => ({
+    type,
+    props: {
+      heading: "What you get",
+      items: [
+        { icon: "Sparkles", title: "Custom dentures", description: "Precision custom dentures", image: "/objects/feat-dentures" },
+      ],
+    },
+  });
+
+  // Both an empty key and an omitted key must backfill from the library.
+  const fillBlock = (type: string) => ({
+    type,
+    props: {
+      heading: "What you get",
+      items: [
+        { icon: "Sparkles", title: "Custom dentures", description: "Precision custom dentures crafted for a natural comfortable fit", image: "" },
+        { icon: "Zap", title: "Digital scanning", description: "Fast accurate intraoral scanning for every case" }, // image key omitted
+      ],
+    },
+  });
+
+  it("collects an items[].image slot for every photo-led section block", () => {
+    for (const type of PHOTO_LED_SECTION_BLOCKS) {
+      const fields = collectImageSlots(collectBlock(type) as any).map((s) => s.field);
+      expect(fields, `${type} should expose an item image slot`).toContain("image");
+    }
+  });
+
+  it("fills items[].image from the feature library (empty AND omitted keys) for every photo-led section block", () => {
+    for (const type of PHOTO_LED_SECTION_BLOCKS) {
+      const out = fillEmptyImages([fillBlock(type)], FEAT_LIB, PAGE_CTX) as any[];
+      const items = (out[0].props as any).items as Array<{ image?: string }>;
+      expect(items[0].image, `${type} empty item image should fill`).toBeTruthy();
+      expect(items[1].image, `${type} omitted item image should fill`).toBeTruthy();
     }
   });
 });
