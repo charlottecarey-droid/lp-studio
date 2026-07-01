@@ -20,7 +20,7 @@ const TEAM: Member[] = [
     photo: "/__mockup/images/team-1.png",
     location: "Chicago, IL",
     focus: "Vision & product",
-    bio: "Elena started the company after a decade leading revenue teams, frustrated that great campaigns kept dying in messy handoffs. She sets product direction and spends most of her week with customers, turning their hardest workflows into the features the whole team builds around.",
+    bio: "Elena started the company after a decade leading revenue teams, frustrated that great campaigns kept dying in messy handoffs between marketing, sales, and design. She sets product direction and still spends most of her week with customers, turning their hardest workflows into the features the whole team builds around.",
   },
   {
     id: "marcus",
@@ -60,9 +60,18 @@ const TEAM: Member[] = [
   },
 ];
 
-export function AboutTeam() {
+const HEADLINE = "The people behind the work";
+const SUBHEADLINE =
+  "A small, senior team that has shipped for brands you know. Choose a name to read more about who does what — and how they think.";
+
+/* In the real block, `showHeader` is a toggle. It defaults on when there's a
+   team to introduce, and is most useful once there is more than one person. */
+export function AboutTeam({
+  showHeader = TEAM.length > 1,
+}: { showHeader?: boolean } = {}) {
   const [activeId, setActiveId] = useState(TEAM[0].id);
   const active = TEAM.find((m) => m.id === activeId) ?? TEAM[0];
+  const hasTeam = TEAM.length > 1;
 
   return (
     <div
@@ -77,175 +86,162 @@ export function AboutTeam() {
             "radial-gradient(60% 120% at 15% 0%, var(--about-brand-soft) 0%, transparent 70%)",
         }}
       />
-      <section className="relative mx-auto max-w-6xl px-8 py-16 md:px-12 md:py-20">
-        {/* Header */}
-        <div className="mx-auto max-w-2xl text-center">
-          <p
-            className="text-[11px] font-semibold uppercase tracking-[0.22em]"
-            style={{ color: "var(--about-brand)" }}
-          >
-            Our team
-          </p>
-          <h2 className="about-serif mt-4 text-4xl font-semibold leading-[1.08] md:text-5xl">
-            The people behind the work
-          </h2>
-          <p
-            className="mt-5 text-base leading-relaxed md:text-lg"
-            style={{ color: "var(--about-muted)" }}
-          >
-            A small, senior team that has shipped for brands you know. Choose a
-            name to read more about who does what — and how they think.
-          </p>
-        </div>
+      <section className="relative mx-auto max-w-5xl px-8 py-16 md:px-12 md:py-20">
+        {/* Optional header — best when introducing more than one person */}
+        {showHeader && (
+          <div className="mx-auto mb-12 max-w-2xl text-center">
+            <p
+              className="text-[11px] font-semibold uppercase tracking-[0.22em]"
+              style={{ color: "var(--about-brand)" }}
+            >
+              Our team
+            </p>
+            <h2 className="about-serif mt-4 text-4xl font-semibold leading-[1.08] md:text-5xl">
+              {HEADLINE}
+            </h2>
+            <p
+              className="mt-5 text-base leading-relaxed md:text-lg"
+              style={{ color: "var(--about-muted)" }}
+            >
+              {SUBHEADLINE}
+            </p>
+          </div>
+        )}
 
-        {/* Body: roster + detail */}
-        <div className="mt-12 grid gap-8 lg:grid-cols-[340px_minmax(0,1fr)] lg:gap-12">
-          {/* Roster */}
-          <div
-            className="about-roster-scroll flex max-h-[560px] flex-col gap-1 overflow-y-auto pr-1"
-            role="listbox"
-            aria-label="Team members"
-          >
-            {TEAM.map((m) => {
-              const selected = m.id === activeId;
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  role="option"
-                  aria-selected={selected}
-                  onClick={() => setActiveId(m.id)}
-                  className="group relative flex items-center gap-4 rounded-2xl p-3 text-left transition-all duration-200"
-                  style={{
-                    background: selected ? "var(--about-card)" : "transparent",
-                    boxShadow: selected
-                      ? "0 12px 30px -18px rgba(20,19,34,0.35)"
-                      : "none",
-                    outline: selected
-                      ? "1px solid var(--about-line)"
-                      : "1px solid transparent",
-                  }}
-                >
-                  <span
-                    aria-hidden
-                    className="absolute left-0 top-1/2 h-8 -translate-y-1/2 rounded-full transition-all duration-200"
-                    style={{
-                      width: selected ? 3 : 0,
-                      background: "var(--about-brand)",
-                    }}
-                  />
-                  <img
-                    src={m.photo}
-                    alt={m.name}
-                    className="h-[52px] w-[52px] flex-none rounded-full object-cover"
-                    style={{
-                      boxShadow: selected
-                        ? "0 0 0 2px var(--about-card), 0 0 0 4px var(--about-brand)"
-                        : "0 0 0 2px var(--about-card), 0 0 0 3px var(--about-line)",
-                    }}
-                  />
-                  <span className="min-w-0">
-                    <span className="block truncate font-medium leading-tight">
-                      {m.name}
-                    </span>
-                    <span
-                      className="mt-0.5 block truncate text-sm"
-                      style={{ color: "var(--about-muted)" }}
-                    >
-                      {m.role}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
+        {/* Active member — founder-style layout */}
+        <div
+          key={active.id}
+          className="about-fade grid gap-10 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)] md:gap-14"
+        >
+          <div className="relative">
+            <img
+              src={active.photo}
+              alt={active.name}
+              className="aspect-[3/4] w-full rounded-[24px] object-cover"
+              style={{ boxShadow: "0 40px 80px -50px rgba(20,19,34,0.6)" }}
+            />
+            <span
+              aria-hidden
+              className="absolute -bottom-4 -left-4 h-24 w-24 rounded-[24px]"
+              style={{
+                background: "var(--about-brand-soft)",
+                outline: "8px solid var(--about-paper)",
+                zIndex: -1,
+              }}
+            />
           </div>
 
-          {/* Detail */}
-          <div
-            className="rounded-[28px] p-6 sm:p-8"
-            style={{
-              background: "var(--about-card)",
-              boxShadow: "0 40px 80px -50px rgba(20,19,34,0.5)",
-              outline: "1px solid var(--about-line)",
-            }}
-          >
-            <div
-              key={active.id}
-              className="about-fade grid gap-8 sm:grid-cols-[220px_minmax(0,1fr)]"
+          <div className="flex flex-col">
+            <h3 className="about-serif text-4xl font-semibold leading-[1.08] md:text-5xl">
+              {active.name}
+            </h3>
+            <p
+              className="mt-2 text-lg font-medium"
+              style={{ color: "var(--about-brand)" }}
             >
-              <div className="relative">
-                <img
-                  src={active.photo}
-                  alt={active.name}
-                  className="aspect-[3/4] w-full rounded-2xl object-cover"
-                />
-                <span
-                  aria-hidden
-                  className="absolute -bottom-3 -right-3 h-16 w-16 rounded-2xl"
-                  style={{
-                    background: "var(--about-brand-soft)",
-                    outline: "6px solid var(--about-card)",
-                    zIndex: -1,
-                  }}
-                />
-              </div>
+              {active.role}
+            </p>
 
-              <div className="flex flex-col">
-                <p
-                  className="text-[11px] font-semibold uppercase tracking-[0.2em]"
-                  style={{ color: "var(--about-brand)" }}
-                >
-                  {active.role}
-                </p>
-                <h3 className="about-serif mt-2 text-3xl font-semibold leading-tight">
-                  {active.name}
-                </h3>
+            <div
+              className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm"
+              style={{ color: "var(--about-muted)" }}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin className="h-4 w-4" strokeWidth={1.75} />
+                {active.location}
+              </span>
+              <span
+                aria-hidden
+                className="h-1 w-1 rounded-full"
+                style={{ background: "var(--about-line)" }}
+              />
+              <span>{active.focus}</span>
+            </div>
 
-                <div
-                  className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm"
-                  style={{ color: "var(--about-muted)" }}
-                >
-                  <span className="inline-flex items-center gap-1.5">
-                    <MapPin className="h-4 w-4" strokeWidth={1.75} />
-                    {active.location}
-                  </span>
-                  <span
-                    aria-hidden
-                    className="h-1 w-1 rounded-full"
-                    style={{ background: "var(--about-line)" }}
-                  />
-                  <span>{active.focus}</span>
-                </div>
+            <p className="mt-6 text-[15px] leading-[1.8]">{active.bio}</p>
 
-                <p className="mt-5 text-[15px] leading-[1.75]">{active.bio}</p>
-
-                <div
-                  className="mt-auto flex items-center gap-2 pt-7"
-                  style={{ color: "var(--about-muted)" }}
-                >
-                  <a
-                    href="#"
-                    onClick={(e) => e.preventDefault()}
-                    aria-label={`${active.name} on LinkedIn`}
-                    className="flex h-9 w-9 items-center justify-center rounded-full transition-colors"
-                    style={{ outline: "1px solid var(--about-line)" }}
-                  >
-                    <Linkedin className="h-4 w-4" strokeWidth={1.75} />
-                  </a>
-                  <a
-                    href="#"
-                    onClick={(e) => e.preventDefault()}
-                    aria-label={`Email ${active.name}`}
-                    className="flex h-9 w-9 items-center justify-center rounded-full transition-colors"
-                    style={{ outline: "1px solid var(--about-line)" }}
-                  >
-                    <Mail className="h-4 w-4" strokeWidth={1.75} />
-                  </a>
-                </div>
-              </div>
+            <div
+              className="mt-8 flex items-center gap-2"
+              style={{ color: "var(--about-muted)" }}
+            >
+              <a
+                href="#"
+                onClick={(e) => e.preventDefault()}
+                aria-label={`${active.name} on LinkedIn`}
+                className="flex h-9 w-9 items-center justify-center rounded-full"
+                style={{ outline: "1px solid var(--about-line)" }}
+              >
+                <Linkedin className="h-4 w-4" strokeWidth={1.75} />
+              </a>
+              <a
+                href="#"
+                onClick={(e) => e.preventDefault()}
+                aria-label={`Email ${active.name}`}
+                className="flex h-9 w-9 items-center justify-center rounded-full"
+                style={{ outline: "1px solid var(--about-line)" }}
+              >
+                <Mail className="h-4 w-4" strokeWidth={1.75} />
+              </a>
             </div>
           </div>
         </div>
+
+        {/* Team roster — a row of people to choose from */}
+        {hasTeam && (
+          <div
+            className="mt-14 border-t pt-10"
+            style={{ borderColor: "var(--about-line)" }}
+          >
+            <div
+              className="flex flex-wrap justify-center gap-x-8 gap-y-6"
+              role="listbox"
+              aria-label="Team members"
+            >
+              {TEAM.map((m) => {
+                const selected = m.id === activeId;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    onClick={() => setActiveId(m.id)}
+                    className="group flex w-[120px] flex-col items-center gap-3 text-center transition-transform duration-200"
+                  >
+                    <img
+                      src={m.photo}
+                      alt={m.name}
+                      className="h-[72px] w-[72px] rounded-full object-cover transition-all duration-200 group-hover:-translate-y-0.5"
+                      style={{
+                        boxShadow: selected
+                          ? "0 0 0 2px var(--about-paper), 0 0 0 4px var(--about-brand)"
+                          : "0 0 0 2px var(--about-paper), 0 0 0 3px var(--about-line)",
+                      }}
+                    />
+                    <span className="leading-tight">
+                      <span
+                        className="block text-sm font-medium"
+                        style={{
+                          color: selected
+                            ? "var(--about-brand)"
+                            : "var(--about-ink)",
+                        }}
+                      >
+                        {m.name}
+                      </span>
+                      <span
+                        className="mt-0.5 block text-xs"
+                        style={{ color: "var(--about-muted)" }}
+                      >
+                        {m.role}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

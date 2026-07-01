@@ -71,19 +71,6 @@ export function AboutSolo() {
               <span>Vision &amp; product</span>
             </div>
 
-            <blockquote
-              className="about-serif mt-7 text-2xl italic leading-snug md:text-[26px]"
-              style={{ color: "var(--about-ink)" }}
-            >
-              <span
-                style={{ color: "var(--about-brand)" }}
-                className="mr-1 not-italic"
-              >
-                &ldquo;
-              </span>
-              We build the workspace we always wished we had.
-            </blockquote>
-
             <div
               className="mt-7 space-y-4 text-[15px] leading-[1.8]"
               style={{ color: "var(--about-ink)" }}
