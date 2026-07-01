@@ -60,6 +60,7 @@ import { OgCharCount, OgDimensionWarning, ShareCardPreview } from "@/components/
 import { AdCopyDialog } from "@/components/builder/AdCopyDialog";
 import { LP_TEMPLATES, getTemplatesForIndustry } from "@/lib/templates";
 import { isFullPageTemplate } from "@workspace/lp-template-engine";
+import { buildTemplateGroups, type TemplateGroupShape } from "@/lib/template-library";
 import { TiptapEditor } from "@/components/TiptapEditor";
 import { MediaLibraryDrawer } from "@/components/MediaLibraryDrawer";
 import { refreshBlockCopy } from "@/lib/copy-api";
@@ -533,7 +534,19 @@ function BlockThumbnail({ type }: { type: string }) {
   );
 }
 
-function TemplateLibrary({ onSelect, onSelectBlock, industry, fullPageBlocks }: { onSelect: (templateId: string) => void; onSelectBlock: (type: string) => void; industry?: string | null; fullPageBlocks: ResolvedBlockDef[] }) {
+// The subset of GET /api/lp/templates/enriched the builder tab reads. It
+// structurally satisfies TemplateGroupShape (id/featured/isGlobal/industry/
+// premiumRank/fullPage/slug) so buildTemplateGroups can bucket these into the
+// SAME ordered sections the marketplace uses (Featured → Your templates →
+// Platform Homepage → Full page → Block → Industry).
+interface EnrichedTemplate extends TemplateGroupShape {
+  id: number;
+  title: string;
+  templateLabel: string;
+  templateDescription: string;
+}
+
+function TemplateLibrary({ onSelect, onSelectBlock, onSelectDbTemplate, industry, fullPageBlocks, dbTemplates, homepageDefaultIds }: { onSelect: (templateId: string) => void; onSelectBlock: (type: string) => void; onSelectDbTemplate: (id: number) => void; industry?: string | null; fullPageBlocks: ResolvedBlockDef[]; dbTemplates: EnrichedTemplate[] | null; homepageDefaultIds: Set<number> | null }) {
   // Hide Dandy/dental built-in templates from non-dental tenants — every
   // shipped template currently contains hardcoded Dandy copy / dental
   // imagery. Dental tenants still see the full set.
@@ -552,17 +565,6 @@ function TemplateLibrary({ onSelect, onSelectBlock, industry, fullPageBlocks }: 
     fullPage.map(t => templateToBlocks(t.id)[0]?.type).filter(Boolean) as string[],
   );
   const catalogFullPage = fullPageBlocks.filter(b => !hardcodedFullPageTypes.has(b.type));
-  if (visible.length === 0 && catalogFullPage.length === 0) {
-    return (
-      <div className="p-4">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Templates</p>
-        <p className="text-xs text-muted-foreground mt-3 italic leading-relaxed">
-          No built-in templates for your industry yet. Use saved templates from
-          your team, or start from scratch and add blocks below.
-        </p>
-      </div>
-    );
-  }
   const renderTemplateButton = (t: (typeof visible)[number]) => (
     <button
       key={t.id}
@@ -593,6 +595,91 @@ function TemplateLibrary({ onSelect, onSelectBlock, industry, fullPageBlocks }: 
       </div>
     </button>
   );
+  const renderDbTemplateButton = (t: EnrichedTemplate) => (
+    <button
+      key={`db-${t.id}`}
+      onClick={() => onSelectDbTemplate(t.id)}
+      className="w-full text-left p-3 rounded-xl border border-border bg-background hover:border-primary/50 hover:bg-primary/5 transition-all"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-xs font-semibold text-foreground">{t.templateLabel || t.title}</p>
+          {t.templateDescription && (
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{t.templateDescription}</p>
+          )}
+        </div>
+        {t.featured && (
+          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">Featured</Badge>
+        )}
+      </div>
+    </button>
+  );
+  // The legacy hardcoded full-page built-ins + catalog full-page blocks are
+  // builder-only (the marketplace never lists them), so they're always appended
+  // to the "Full page templates" section — whether or not DB templates loaded.
+  const legacyFullPageSection = (label: string) =>
+    (fullPage.length > 0 || catalogFullPage.length > 0) ? (
+      <div className="space-y-3">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+        {fullPage.map(renderTemplateButton)}
+        {catalogFullPage.map(renderCatalogFullPageButton)}
+      </div>
+    ) : null;
+
+  // DB templates loaded: mirror the marketplace template library. Render the
+  // tenant's own Featured + owned templates FIRST via the shared grouping, then
+  // append the builder-only full-page built-ins into the "Full page templates"
+  // section. Legacy regular built-ins are dropped here to avoid duplicating the
+  // DB "Block templates" starters.
+  if (Array.isArray(dbTemplates) && dbTemplates.length > 0) {
+    const groups = buildTemplateGroups(dbTemplates, homepageDefaultIds);
+    const hasFullPageGroup = groups.some(g => g.key === "fullPage");
+    const hasLegacyFullPage = fullPage.length > 0 || catalogFullPage.length > 0;
+    // Section list in marketplace order. When the DB produced no "fullPage"
+    // group, splice a synthetic Full Page section into the SAME slot the group
+    // would occupy (before block/industry), so builder-only full-page built-ins
+    // don't drift to the very bottom of the tab.
+    type Section = { kind: "db"; group: (typeof groups)[number] } | { kind: "legacyFullPage" };
+    const sections: Section[] = groups.map(g => ({ kind: "db" as const, group: g }));
+    if (!hasFullPageGroup && hasLegacyFullPage) {
+      const idx = sections.findIndex(s => s.kind === "db" && (s.group.key === "block" || s.group.key === "industry"));
+      sections.splice(idx === -1 ? sections.length : idx, 0, { kind: "legacyFullPage" });
+    }
+    return (
+      <div className="p-4 space-y-5">
+        {sections.map(s =>
+          s.kind === "legacyFullPage" ? (
+            <div key="__legacy-fullpage" className="space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Full page templates</p>
+              {fullPage.map(renderTemplateButton)}
+              {catalogFullPage.map(renderCatalogFullPageButton)}
+            </div>
+          ) : (
+            <div key={s.group.key} className="space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{s.group.label}</p>
+              {s.group.items.map(renderDbTemplateButton)}
+              {s.group.key === "fullPage" && fullPage.map(renderTemplateButton)}
+              {s.group.key === "fullPage" && catalogFullPage.map(renderCatalogFullPageButton)}
+            </div>
+          )
+        )}
+      </div>
+    );
+  }
+
+  // Fallback (templates still loading, or none available to this workspace):
+  // the original hardcoded library — regular templates + full-page section.
+  if (visible.length === 0 && catalogFullPage.length === 0) {
+    return (
+      <div className="p-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Templates</p>
+        <p className="text-xs text-muted-foreground mt-3 italic leading-relaxed">
+          No built-in templates for your industry yet. Use saved templates from
+          your team, or start from scratch and add blocks below.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="p-4 space-y-5">
       {regular.length > 0 && (
@@ -601,13 +688,7 @@ function TemplateLibrary({ onSelect, onSelectBlock, industry, fullPageBlocks }: 
           {regular.map(renderTemplateButton)}
         </div>
       )}
-      {(fullPage.length > 0 || catalogFullPage.length > 0) && (
-        <div className="space-y-3">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Full Page Templates</p>
-          {fullPage.map(renderTemplateButton)}
-          {catalogFullPage.map(renderCatalogFullPageButton)}
-        </div>
-      )}
+      {legacyFullPageSection("Full Page Templates")}
     </div>
   );
 }
@@ -1502,6 +1583,36 @@ export default function BuilderEditor() {
   const { blocks: commentBlocks, addComment, resolveComment } = useComments(pageIdNum);
   const { reviews, createReview, deleteReview, deleteReviews } = useReviews(pageIdNum);
   const tenantIndustry = user?.tenantIndustry ?? null;
+
+  // Templates tab: the tenant's own (Featured + owned) + global templates, from
+  // the same enriched feed the marketplace uses, so the builder tab mirrors the
+  // template library ordering. null = still loading (the tab falls back to the
+  // hardcoded built-ins until this resolves). homepageDefaultIds powers the
+  // "Platform Homepage templates" section (empty/failed → section skipped).
+  const [dbTemplates, setDbTemplates] = useState<EnrichedTemplate[] | null>(null);
+  const [templateHomepageIds, setTemplateHomepageIds] = useState<Set<number> | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/lp/templates/enriched")
+      .then(r => (r.ok ? (r.json() as Promise<EnrichedTemplate[]>) : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then(data => { if (!cancelled) setDbTemplates(Array.isArray(data) ? data : []); })
+      .catch(() => { if (!cancelled) setDbTemplates([]); });
+    fetch("/api/lp/featured-templates", { cache: "no-store", credentials: "include" })
+      .then(r => (r.ok ? r.json() : { templates: [] }))
+      .then((data: { templates?: { id?: string }[] }) => {
+        if (cancelled) return;
+        const ids = new Set<number>();
+        for (const t of data.templates ?? []) {
+          const raw = typeof t.id === "string" ? t.id : "";
+          const num = Number(raw.startsWith("global:") ? raw.slice(7) : raw);
+          if (Number.isInteger(num) && num > 0) ids.add(num);
+        }
+        setTemplateHomepageIds(ids);
+      })
+      .catch(() => { if (!cancelled) setTemplateHomepageIds(new Set()); });
+    return () => { cancelled = true; };
+  }, []);
+
   const authDisplayName = user?.name || user?.email || "";
   const displayName = authDisplayName || getAuthorName() || "Builder User";
   const { viewers } = usePresence(pageIdNum, displayName);
@@ -1918,6 +2029,28 @@ export default function BuilderEditor() {
     const newBlocks = templateToBlocks(templateId);
     setBlocks(newBlocks);
     setSelectedBlockId(null);
+  };
+
+  // Seed the page from a DB template (tenant-owned or global) fetched by id.
+  // Mirrors the marketplace preview endpoint: pull the full block JSON, then
+  // load it into the canvas through the same normalizeTree path used when
+  // opening a saved page. Failures toast rather than silently no-op.
+  const applyDbTemplate = async (id: number) => {
+    try {
+      const res = await fetch(`/api/lp/templates/${id}/preview`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { blocks?: unknown };
+      const rawBlocks = Array.isArray(data.blocks) ? (data.blocks as PageBlock[]) : null;
+      if (!rawBlocks || rawBlocks.length === 0) throw new Error("This template has no content.");
+      setBlocks(normalizeTree(rawBlocks));
+      setSelectedBlockId(null);
+    } catch (err) {
+      toast({
+        title: "Couldn't load template",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Seed the page from a catalog full-page template: a single full-page block,
@@ -3320,6 +3453,8 @@ export default function BuilderEditor() {
               <TemplateLibrary
                 industry={tenantIndustry}
                 fullPageBlocks={fullPageCatalogBlocks}
+                dbTemplates={dbTemplates}
+                homepageDefaultIds={templateHomepageIds}
                 onSelect={templateId => {
                   if (blocks.length === 0 || confirm("Replace current blocks with this template?")) {
                     applyTemplate(templateId);
@@ -3329,6 +3464,12 @@ export default function BuilderEditor() {
                 onSelectBlock={type => {
                   if (blocks.length === 0 || confirm("Replace current blocks with this template?")) {
                     applyFullPageBlock(type);
+                    if (isMobile) setMobileLeftOpen(false);
+                  }
+                }}
+                onSelectDbTemplate={id => {
+                  if (blocks.length === 0 || confirm("Replace current blocks with this template?")) {
+                    void applyDbTemplate(id);
                     if (isMobile) setMobileLeftOpen(false);
                   }
                 }}

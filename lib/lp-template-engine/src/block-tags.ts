@@ -400,6 +400,8 @@ export const FULL_PAGE_BLOCK_TYPES: ReadonlySet<string> = new Set([
   "webinar-hub",
   "blog-series",
   "storefront",
+  "product-launch",
+  "story-hub",
   "event-noir",
   "event-luminous",
   "event-split",

@@ -1955,6 +1955,41 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
+    // product-launch + story-hub were promoted into FULL_PAGE_BLOCK_TYPES after
+    // the v1 re-shelf above already ran (and stamped its marker), so that step
+    // never touches their block_catalog rows. Re-shelf just these two under a
+    // fresh marker so DB-backed catalog grouping stays consistent with the
+    // registry. Marker-guarded (no-op on reboot); non-fatal (cosmetic grouping).
+    await runStep("block_catalog full-page re-shelf (product-launch, story-hub)", async () => {
+    try {
+      const marker = await db.execute<{ exists: number }>(
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'block_catalog_full_page_category_v2'`
+      );
+      if (marker.rows.length === 0) {
+        const newFullPageTypes = ["product-launch", "story-hub"];
+        const updated = await db.execute<{ block_type: string }>(sql`
+          UPDATE block_catalog
+             SET category = 'Full Page Templates'
+           WHERE block_type IN (${sql.join(
+             newFullPageTypes.map((t) => sql`${t}`),
+             sql`, `,
+           )})
+             AND category IS DISTINCT FROM 'Full Page Templates'
+          RETURNING block_type
+        `);
+        await db.execute(sql`
+          INSERT INTO _schema_migration_markers (key) VALUES ('block_catalog_full_page_category_v2') ON CONFLICT DO NOTHING
+        `);
+        logger.info(
+          { updated: updated.rows.length, types: newFullPageTypes.length },
+          "block_catalog full-page re-shelf (v2) applied"
+        );
+      }
+    } catch (reshelfErr) {
+      logger.error({ err: reshelfErr }, "block_catalog full-page re-shelf (v2) failed (non-fatal)");
+    }
+    });
+
     // Consolidate every global landing-page template under the dedicated
     // system tenant (slug `__system-templates`). Globals were historically
     // owned by whichever customer tenant created/promoted them (the seed used
