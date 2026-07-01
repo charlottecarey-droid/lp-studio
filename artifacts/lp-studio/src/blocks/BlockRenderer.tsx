@@ -106,6 +106,7 @@ import { BlockProductShowcase } from "./BlockProductShowcase";
 import { BlockNavHeader } from "./BlockNavHeader";
 import { BlockCtaButton } from "./BlockCtaButton";
 import { BlockFullBleedHero } from "./BlockFullBleedHero";
+import { BlockAiScanHero } from "./BlockAiScanHero";
 import { BlockParallaxImageHero } from "./BlockParallaxImageHero";
 import { BlockFooter } from "./BlockFooter";
 import { BlockForm } from "./BlockForm";
@@ -446,7 +447,7 @@ export const NO_REVEAL = new Set<string>([
   "scroll-assembly", "horizontal-showcase", "sticky-stack", "spatial-tour",
   "dso-scroll-story", "dso-scroll-story-hero",
   "dandy-switchback", "dso-paradigm-shift",
-  "hero", "full-bleed-hero", "parallax-image-hero", "dandy-hero-v7-s3", "dandy-product-hero",
+  "hero", "full-bleed-hero", "ai-scan-hero", "parallax-image-hero", "dandy-hero-v7-s3", "dandy-product-hero",
   "cinematic-video-hero", "aurora-gradient-hero", "editorial-split-hero", "parallax-layers-hero", "spotlight-glow-hero",
   // June-2026 modern wave: first-paint heroes with their own entrance
   // animations, plus sections that own internal staggered scroll-reveals /
@@ -909,6 +910,19 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
               : undefined}
             animationsEnabled={animationsEnabled}
             childrenSlot={childrenArr.length > 0 || isBuilder ? childrenSlot : null}
+          />
+        );
+      case "ai-scan-hero":
+        return (
+          <BlockAiScanHero
+            props={block.props}
+            brand={brand}
+            pageId={pageId}
+            variantId={variantId}
+            onCtaClick={onCtaClick ? () => onCtaClick(resolveCtaUrl(block.props)) : undefined}
+            onFieldChange={onBlockChange
+              ? (updated) => onBlockChange({ ...block, props: updated })
+              : undefined}
           />
         );
       case "parallax-image-hero":

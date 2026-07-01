@@ -49,6 +49,7 @@ import type {
   ProductShowcaseBlockProps,
   FooterBlockProps,
   FullBleedHeroBlockProps,
+  AiScanHeroBlockProps,
   ParallaxImageHeroBlockProps,
   RoiCalculatorBlockProps,
   DandyVersusBlockProps,
@@ -1257,6 +1258,39 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         <rect x="8" y="34" width="60" height="6" rx="1.5" fill="white" opacity="0.55" />
         <rect x="8" y="44" width="28" height="10" rx="5" fill="#C7E738" />
         <rect x="40" y="44" width="28" height="10" rx="5" fill="rgba(255,255,255,0.15)" />
+      </svg>
+    ),
+  },
+  {
+    type: "ai-scan-hero",
+    label: "AI Scan Review Hero",
+    category: "Layout",
+    defaultProps: (): AiScanHeroBlockProps => ({
+      eyebrow: "AI Scan Review",
+      headline: "Every scan, reviewed by AI before it ships.",
+      body: "Inline AI review catches issues in real time — so your team ships first-time-right work without the costly back-and-forth.",
+      headlineScale: 1,
+      imageUrl: "",
+      imageAlt: "",
+      backgroundVideoUrl: "",
+      ctaText: "Get started",
+      ctaUrl: "#",
+      ctaAction: "url",
+      ctaSecondaryText: "See how it works",
+      ctaSecondaryUrl: "#",
+      ctaSecondaryAction: "url",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#F2E9E1" rx="4" />
+        <circle cx="10" cy="12" r="2.5" fill="#E8590C" />
+        <rect x="16" y="10.5" width="26" height="3" rx="1.5" fill="#141210" opacity="0.5" />
+        <rect x="8" y="20" width="52" height="8" rx="2" fill="#141210" opacity="0.9" />
+        <rect x="8" y="31" width="44" height="8" rx="2" fill="#141210" opacity="0.9" />
+        <rect x="72" y="21" width="40" height="3" rx="1.5" fill="#141210" opacity="0.4" />
+        <rect x="72" y="27" width="34" height="3" rx="1.5" fill="#141210" opacity="0.4" />
+        <rect x="72" y="36" width="22" height="8" rx="4" fill="#E8590C" />
+        <rect x="0" y="52" width="120" height="18" fill="#141210" opacity="0.12" />
       </svg>
     ),
   },
@@ -9217,6 +9251,7 @@ export function createBlock(type: "product-showcase"): Extract<PageBlock, { type
 export function createBlock(type: "nav-header"): Extract<PageBlock, { type: "nav-header" }>;
 export function createBlock(type: "cta-button"): Extract<PageBlock, { type: "cta-button" }>;
 export function createBlock(type: "full-bleed-hero"): Extract<PageBlock, { type: "full-bleed-hero" }>;
+export function createBlock(type: "ai-scan-hero"): Extract<PageBlock, { type: "ai-scan-hero" }>;
 export function createBlock(type: "parallax-image-hero"): Extract<PageBlock, { type: "parallax-image-hero" }>;
 export function createBlock(type: "footer"): Extract<PageBlock, { type: "footer" }>;
 export function createBlock(type: "form"): Extract<PageBlock, { type: "form" }>;
@@ -9350,6 +9385,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "nav-header": return { id, type: "nav-header", props: props as NavHeaderBlockProps };
     case "cta-button": return { id, type: "cta-button", props: props as CtaButtonBlockProps };
     case "full-bleed-hero": return { id, type: "full-bleed-hero", props: props as FullBleedHeroBlockProps };
+    case "ai-scan-hero": return { id, type: "ai-scan-hero", props: props as AiScanHeroBlockProps };
     case "parallax-image-hero": return { id, type: "parallax-image-hero", props: props as ParallaxImageHeroBlockProps };
     case "footer": return { id, type: "footer", props: props as FooterBlockProps };
     case "form": return { id, type: "form", props: props as FormBlockProps };

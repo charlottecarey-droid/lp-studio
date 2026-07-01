@@ -138,6 +138,7 @@ const OVERRIDES: Record<string, BlockSettingsCapabilities> = {
 
   // Hero-ish ---------------------------------------------------------------
   "hero": HERO_LIKE,
+  "ai-scan-hero": HERO_LIKE,
   "full-bleed-hero": HERO_LIKE,
   "parallax-image-hero": HERO_LIKE,
   "magazine-hero": HERO_LIKE,

@@ -3358,6 +3358,35 @@ export interface HeroBrandStyleConfig {
   bodyFont?: string;
 }
 
+/** A polished, brand-aware hero built from the AI scan review panel: an
+ *  oversized headline on the left, body + CTAs on the right, and a full-bleed
+ *  image or looping muted-autoplay video flush to the bottom edge. The primary
+ *  and secondary CTAs carry the full standard action suite (link / Chili Piper /
+ *  form modal / form → Chili Piper / video modal) via HeroCtaConfig +
+ *  CtaModalConfig. Manual-insert only (not part of AI page generation). */
+export interface AiScanHeroBlockProps
+  extends CtaModalConfig,
+    HeroCtaConfig,
+    HeroBrandStyleConfig {
+  /** Small uppercase label above the headline (rendered with an accent dot). */
+  eyebrow?: string;
+  /** Main headline. Uses the brand display font unless headlineFont is set. */
+  headline: string;
+  /** Supporting paragraph shown on the right. Hidden when blank. */
+  body?: string;
+  /** Headline size multiplier over the responsive clamp (1 = default). */
+  headlineScale?: number;
+  /** Full-bleed image (fallback shown when no backgroundVideoUrl is set). */
+  imageUrl?: string;
+  imageAlt?: string;
+  /** Full-bleed hero media video — always looping, muted, autoplay. Takes
+   *  priority over imageUrl. Distinct from the CTA's video-modal `videoUrl`. */
+  backgroundVideoUrl?: string;
+  /** Optional background preset. A custom bgColor overrides it; both omitted =
+   *  a warm editorial default surface. */
+  backgroundStyle?: BackgroundStyle;
+}
+
 /** A floating glass info chip used by the aurora-gradient hero. */
 export interface AuroraHeroChip {
   /** lucide icon name (e.g. "Sparkles"). */

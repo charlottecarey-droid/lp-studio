@@ -154,6 +154,7 @@ import { ProductShowcasePanel } from "./ProductShowcasePanel";
 import { NavHeaderPanel } from "./NavHeaderPanel";
 import { CtaButtonPanel } from "./CtaButtonPanel";
 import { FullBleedHeroPanel } from "./FullBleedHeroPanel";
+import { AiScanHeroPanel } from "./AiScanHeroPanel";
 import { ParallaxImageHeroPanel } from "./ParallaxImageHeroPanel";
 import { FooterPanel } from "./FooterPanel";
 import { ModalFormSourcePanel } from "./ModalFormSourcePanel";
@@ -1793,6 +1794,14 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             onChange={props => onChange({ ...block, props })}
             brandVoiceSet={brandVoiceSet}
             onApplyCtaToAll={onApplyCtaToAll}
+            ctaSource={ctaSource}
+          />
+        );
+      case "ai-scan-hero":
+        return (
+          <AiScanHeroPanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
             ctaSource={ctaSource}
           />
         );

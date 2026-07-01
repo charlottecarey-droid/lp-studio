@@ -68,6 +68,7 @@ export type {
   ZigzagFeaturesBlockProps,
   ProductShowcaseBlockProps,
   FooterBlockProps,
+  AiScanHeroBlockProps,
   FullBleedHeroBlockProps,
   ParallaxImageHeroBlockProps,
   RoiCalculatorBlockProps,

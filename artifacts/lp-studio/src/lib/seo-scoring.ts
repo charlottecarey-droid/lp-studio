@@ -97,7 +97,7 @@ function hasAnyBlockType(blocks: PageBlock[], types: Set<string>): boolean {
 // capture the real vocabulary so structurally complete pages are graded fairly.
 
 export const HERO_TYPES = new Set([
-  "hero", "full-bleed-hero", "parallax-image-hero", "magazine-hero",
+  "hero", "ai-scan-hero", "full-bleed-hero", "parallax-image-hero", "magazine-hero",
   "cinematic-video-hero", "aurora-gradient-hero", "editorial-split-hero",
   "parallax-layers-hero", "spotlight-glow-hero",
   "one-pager-hero", "dandy-product-hero", "dandy-hero-v7-s3",

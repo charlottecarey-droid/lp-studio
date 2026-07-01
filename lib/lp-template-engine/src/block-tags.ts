@@ -93,6 +93,7 @@ export const DEFAULT_BLOCK_TAGS: Record<string, readonly BlockRoleTag[]> = {
   spacer: ["layout"],
   "nav-header": ["header"],
   footer: ["footer"],
+  "ai-scan-hero": ["hero"],
   "full-bleed-hero": ["hero"],
   "parallax-image-hero": ["hero"],
   "sticky-header": ["header"],
