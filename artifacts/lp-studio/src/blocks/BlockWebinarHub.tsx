@@ -172,8 +172,8 @@ function WebinarHubInner({ props: p, brand, pageId, variantId, testId, sessionId
   const liveAccent = (p.liveAccentColor && p.liveAccentColor.trim()) || LIVE_ACCENT_FALLBACK;
   const statusAccent = status === "live" ? liveAccent : accent;
 
-  const displayFont = toFontFamilyValue(brand?.displayFont, "display") ?? "'Playfair Display', Georgia, serif";
-  const bodyFont = toFontFamilyValue(brand?.bodyFont, "sans") ?? "'Plus Jakarta Sans', system-ui, sans-serif";
+  const displayFont = toFontFamilyValue(brand?.displayFont, "display") ?? "var(--brand-font-display, Georgia, serif)";
+  const bodyFont = toFontFamilyValue(brand?.bodyFont, "sans") ?? "var(--brand-font-body, system-ui, sans-serif)";
   const monoFont = "'DM Mono', ui-monospace, 'SFMono-Regular', monospace";
   useBlockFonts(displayFont, bodyFont, monoFont);
 
