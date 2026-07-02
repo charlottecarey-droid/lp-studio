@@ -1527,6 +1527,10 @@ export interface EditorialCarouselBlockProps {
   /** Optional subheadline body copy under the headline. */
   subheadline?: string;
   slides: EditorialCarouselSlide[];
+  /** Show the gradient fade painted over the bottom of each image-mode
+   *  slide (keeps captions readable). Default true; set false for clean,
+   *  un-tinted photos. Read as `!== false` so legacy rows stay ON. */
+  showScrim?: boolean;
   /** Section background. Defaults to the brand primary color. */
   bgColor?: string;
   /** Heading + caption color. Defaults to a warm cream so it reads on

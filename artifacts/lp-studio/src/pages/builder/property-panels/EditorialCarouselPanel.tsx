@@ -126,6 +126,21 @@ export function EditorialCarouselPanel({ props, onChange }: Props) {
             a headline, subheadline, optional CTA chip and a clickable slide.
           </p>
         </div>
+        {!isCaseStudy && (
+          <div>
+            <div className="flex items-center justify-between">
+              <Label className="text-[11px] text-muted-foreground">Gradient glow over photos</Label>
+              <Switch
+                checked={props.showScrim !== false}
+                onCheckedChange={(v) => update({ showScrim: v })}
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+              The soft fade at the bottom of each photo that helps captions
+              stay readable. Turn off for clean, un-tinted images.
+            </p>
+          </div>
+        )}
         {isCaseStudy && (
           <>
             <div>

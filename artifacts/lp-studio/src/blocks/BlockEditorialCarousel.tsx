@@ -57,6 +57,9 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
   const autoplay = props.autoplay !== false;
   const interval = Math.max(1500, props.autoplayInterval ?? 5000);
   const rounded = props.rounded ?? false;
+  // Default-ON legacy flag — must be read as `!== false` so existing pages
+  // (which have no stored value) keep the caption scrim.
+  const showScrim = props.showScrim !== false;
   const slides = props.slides ?? [];
   const mode = props.mode || "image";
   const layout = props.layout || "overlay-scrim";
@@ -226,15 +229,17 @@ export function BlockEditorialCarousel({ props, brand: _brand, onFieldChange }: 
               const imageModeContent = (
                 <>
                   {imageEl}
-                  {/* Bottom gradient scrim for caption legibility */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      background: `linear-gradient(to top, ${alpha(bg, 0.85)}, ${alpha(bg, 0.1)} 40%, transparent)`,
-                      pointerEvents: "none",
-                    }}
-                  />
+                  {/* Bottom gradient scrim for caption legibility (optional) */}
+                  {showScrim && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        background: `linear-gradient(to top, ${alpha(bg, 0.85)}, ${alpha(bg, 0.1)} 40%, transparent)`,
+                        pointerEvents: "none",
+                      }}
+                    />
+                  )}
                   {(slide.caption || isEditor) && (
                     <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "1.25rem", zIndex: 2 }}>
                       <motion.p
