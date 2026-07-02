@@ -159,6 +159,7 @@ import { deriveCompanyName, derivePracticeCount } from "../../lib/businessCaseVa
 import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../lib/tenantSettings";
 import { isDandyTenant } from "../../lib/planFeatures";
 import { logger } from "../../lib/logger";
+import { captureRouteError } from "../../lib/sentry";
 
 const router = Router();
 
@@ -198,11 +199,26 @@ async function fetchVideoCatalog(tenantId: number | null): Promise<{ videoUrls: 
   }
 }
 
+/** Hosts a template author (or the tenant's brand settings) legitimately
+ *  embeds videos from. A URL on these hosts is AUTHORED, not model-invented —
+ *  replacing it with a rotating library video ships the wrong video. */
+const AUTHORED_VIDEO_HOST_RE =
+  /(?:^|\.)(?:youtube\.com|youtu\.be|vimeo\.com|wistia\.(?:com|net)|loom\.com|fast\.wistia\.(?:com|net))$/i;
+
+function isAuthoredVideoHost(url: string): boolean {
+  try {
+    return AUTHORED_VIDEO_HOST_RE.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
 /** Replace invented / missing video URLs with real media library videos. */
 function fillEmptyVideos(blocks: unknown[], videoUrls: string[]): unknown[] {
   if (videoUrls.length === 0) return blocks;
   let vi = 0;
-  const isInvented = (url: string) => !!url && !url.startsWith("/api/storage/");
+  const isInvented = (url: string) =>
+    !!url && !url.startsWith("/api/storage/") && !isAuthoredVideoHost(url);
   return blocks.map((block) => {
     const b = { ...(block as Record<string, unknown>) };
     const props = { ...(b.props as Record<string, unknown>) };
@@ -1007,13 +1023,17 @@ export function enforceSectionBgRhythm(
 }
 
 function getOpenAIClient(): OpenAI | null {
+  // 120s cap (SDK default is 10 minutes): a hung proxy call must not pin the
+  // request past every gateway timeout. SDK built-in retries (maxRetries
+  // default 2, on 408/429/5xx/timeouts) still apply within each attempt.
+  const timeout = Number(process.env.GENERATE_OPENAI_TIMEOUT_MS) || 120_000;
   const integrationBase = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   const integrationKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   if (integrationBase && integrationKey) {
-    return new OpenAI({ apiKey: integrationKey, baseURL: integrationBase });
+    return new OpenAI({ apiKey: integrationKey, baseURL: integrationBase, timeout });
   }
   const directKey = process.env.OPENAI_API_KEY;
-  if (directKey) return new OpenAI({ apiKey: directKey });
+  if (directKey) return new OpenAI({ apiKey: directKey, timeout });
   return null;
 }
 
@@ -1026,9 +1046,9 @@ const GENERATION_MODEL = "gpt-4o";
 const GENERATION_MAX_TOKENS = 8192;
 
 /** Sampling temperature. Freeform paths compose their own lineup so they get a
- *  little more room; fixed/curated paths stay tight. Lowered from 0.85 / 0.7.
- *  Wired in at the model call in Phase 2 (defined now so the constants land
- *  together). */
+ *  little more room; fixed/curated paths stay tight. Lowered from 0.85 / 0.7 —
+ *  json_object mode + complex multi-block schemas at 0.85 raised the silent
+ *  fallback-to-template rate. */
 const GENERATION_TEMPERATURE_FREEFORM = 0.5;
 const GENERATION_TEMPERATURE_FIXED = 0.45;
 
@@ -1047,17 +1067,27 @@ function isBusinessCaseType(type: unknown): boolean {
 // Deep-merge preferring AI values but ALWAYS shape-preserving: the authored
 // base defines the complete, on-brand structure, and the renderer must never
 // see a missing field or a wrong-typed value. Rules:
-//   - Arrays: keep the AUTHORED length and merge AI items element-wise over the
-//     authored items; authored items past the AI array's length are preserved.
-//     An empty/absent or wrong-typed AI value keeps the authored array.
+//   - Arrays: merge AI items element-wise over the authored items; authored
+//     items past the AI array's length are preserved. AI items past the
+//     AUTHORED length are kept too (personalized cards beyond the template's
+//     placeholder count), each merged over the last authored item so they
+//     inherit the authored shape/styling fields. An empty/absent or
+//     wrong-typed AI value keeps the authored array.
 //   - Objects: merge AI keys over the authored object; a wrong-typed AI value
 //     (primitive/array) keeps the authored object.
-//   - Scalars: prefer the AI scalar; a blank string, null/undefined, or a
-//     wrong-typed (object/array) AI value keeps the authored scalar.
+//   - Scalars: prefer the AI scalar of the SAME type; a blank string,
+//     null/undefined, a cross-typed scalar (number over an authored string,
+//     etc.), or an object/array keeps the authored scalar.
 export function mergeAuthored(base: unknown, ai: unknown): unknown {
   if (Array.isArray(base)) {
     if (!Array.isArray(ai) || ai.length === 0) return base;
-    return base.map((item, i) => (i < ai.length ? mergeAuthored(item, ai[i]) : item));
+    if (ai.length <= base.length) {
+      return base.map((item, i) => (i < ai.length ? mergeAuthored(item, ai[i]) : item));
+    }
+    const shapeTemplate = base[base.length - 1];
+    return ai.map((item, i) =>
+      mergeAuthored(i < base.length ? base[i] : shapeTemplate, item),
+    );
   }
   if (base && typeof base === "object") {
     if (!ai || typeof ai !== "object" || Array.isArray(ai)) return base;
@@ -1069,7 +1099,12 @@ export function mergeAuthored(base: unknown, ai: unknown): unknown {
   }
   // base is a scalar (or null/undefined)
   if (typeof ai === "string") return ai.trim() === "" ? base : ai;
-  if (typeof ai === "number" || typeof ai === "boolean") return ai;
+  if (typeof ai === "number" || typeof ai === "boolean") {
+    // Same-type guard: a hallucinated cross-typed scalar (number over an
+    // authored string, boolean over a number) never clobbers authored props.
+    if (base === null || base === undefined || typeof base === typeof ai) return ai;
+    return base;
+  }
   return base;
 }
 
@@ -1093,8 +1128,14 @@ function substituteAccountVars(value: unknown, companyName: string, practiceCoun
   return value;
 }
 
-// Image-bearing prop names to restore from the template block at each position.
-const SCALAR_IMAGE_PROPS = ["imageUrl", "backgroundImageUrl", "heroImageUrl", "mediaUrl", "backgroundImage"] as const;
+// Image/video-bearing prop names to restore from the template block at each
+// position. Video props are included: an authored template video (hero
+// background, lab-tour walkthrough, poster) is an explicit author choice the
+// model routinely drops or blanks — same failure shape as images.
+const SCALAR_IMAGE_PROPS = [
+  "imageUrl", "backgroundImageUrl", "heroImageUrl", "mediaUrl", "backgroundImage",
+  "videoUrl", "backgroundVideoUrl", "heroVideoUrl", "posterImage", "posterUrl",
+] as const;
 // Array fields + the image key within each element
 const ARRAY_IMAGE_SPECS = [
   { field: "rows",     imgKey: "imageUrl" },
@@ -2932,7 +2973,13 @@ export function buildSystemPrompt(
 
   const copyPrinciples = getCopyPrinciplesSection({
     brandName,
-    matchedSegment: Boolean(matchedSegment),
+    // Gate the "VALIDATED FACTS ONLY" rule on the segment that actually built
+    // the TARGET SEGMENT section (P0-A: the rep-picked segment, with
+    // matchedSegment only as fallback) — not on the account row's own segment
+    // field. Gating on matchedSegment silently dropped the strongest
+    // anti-fabrication clause exactly when the rep picked a stats-bearing
+    // segment for an account whose row had no/different segment value.
+    matchedSegment: Boolean(segmentSection),
     forbiddenList,
   });
 
@@ -4185,7 +4232,9 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     const completion = await openai.chat.completions.create(
       {
         model: GENERATION_MODEL,
-        temperature: (useFreeform || useDsoFreeform || usePoolFreeform) ? 0.85 : 0.7,
+        temperature: (useFreeform || useDsoFreeform || usePoolFreeform)
+          ? GENERATION_TEMPERATURE_FREEFORM
+          : GENERATION_TEMPERATURE_FIXED,
         max_completion_tokens: GENERATION_MAX_TOKENS,
         response_format: { type: "json_object" },
         messages: [
@@ -4675,6 +4724,34 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // image instead of shipping empty/black (Task #1126), never clobbering a
     // successfully replaced library image.
     if (templateBlocks) {
+      // Realign the AI blocks to the authored template by TYPE before any
+      // positional zip (restoreTemplateImages + the merge below). Earlier
+      // passes (the enforceAiModes `noai` drop, the empty-block prune) can
+      // DELETE entries from normalizedBlocks; a raw index zip then lays block
+      // N's AI copy over template block N+1 — same-shaped neighbors get
+      // swapped copy, different-shaped ones silently lose their
+      // personalization. Queue the AI blocks per canonical type and hand each
+      // template slot the next AI block of ITS OWN type; a slot whose AI
+      // block was dropped (or that the model never emitted) gets an empty
+      // stand-in and merges as authored-only — unpersonalized, never
+      // misaligned.
+      {
+        const aiByType = new Map<string, AiBlock[]>();
+        for (const b of normalizedBlocks) {
+          const t = canonicalizeBlockType(String((b as { type?: unknown }).type ?? ""));
+          const q = aiByType.get(t);
+          if (q) q.push(b);
+          else aiByType.set(t, [b]);
+        }
+        normalizedBlocks = templateBlocks.map((tmpl) => {
+          const t = canonicalizeBlockType(String(tmpl.type ?? ""));
+          return (
+            aiByType.get(t)?.shift() ??
+            ({ id: tmpl.id, type: tmpl.type, props: {} } as AiBlock)
+          );
+        });
+      }
+
       normalizedBlocks = restoreTemplateImages(
         normalizedBlocks,
         templateBlocks,
@@ -5034,6 +5111,10 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       },
       "generate-microsite: generation failed",
     );
+    captureRouteError(err, "sales/generate-microsite", {
+      accountId: req.params.accountId,
+      tenantId: req.authUser?.tenantId ?? null,
+    });
     sendErrorJson(500, { error: "Failed to generate microsite" });
   }
 });

@@ -1364,6 +1364,21 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     // background, no imagery). These are public assets, so allow any origin.
     res.setHeader("Access-Control-Allow-Origin", "*");
 
+    // Stored-XSS hardening: mirrored brand assets include SVGs scraped from
+    // arbitrary external sites, and SVG is a script container. Served from the
+    // app origin, an SVG with an embedded <script> would execute with the
+    // viewer's session when opened directly. The CSP neutralizes script/net
+    // access while <img> embeds (which never execute SVG script) render
+    // unchanged. nosniff stops content-type shenanigans for everything else.
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    const contentType = String(response.headers.get("content-type") ?? "");
+    if (contentType.toLowerCase().includes("svg")) {
+      res.setHeader(
+        "Content-Security-Policy",
+        "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+      );
+    }
+
     if (response.body) {
       const nodeStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
       nodeStream.pipe(res);

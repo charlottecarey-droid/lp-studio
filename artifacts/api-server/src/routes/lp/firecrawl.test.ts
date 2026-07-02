@@ -16,6 +16,15 @@
  * URL, so no network or API key is required.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+
+// The reference scraper now SSRF-guards user-supplied hosts via a real DNS
+// lookup (isSafePublicHost); the fake `.example` hosts used here don't
+// resolve, so treat every host as public in these unit tests.
+vi.mock("../../lib/brand-import/net-guard", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../lib/brand-import/net-guard")>()),
+  isSafePublicHost: async () => true,
+}));
+
 import { clearInspirationScrapeCache, maybeMultiPageScrapeRef, scrapeInspirationUrl } from "./firecrawl";
 
 const ROOT = "https://smbclinic.example";

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { captureRouteError } from "../../lib/sentry";
 import { pool } from "@workspace/db";
 import sharp from "sharp";
 import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
@@ -263,6 +264,7 @@ router.post("/lp/brand-import/from-url", requireAuth, aiLightLimiter, aiLightHou
     });
     raw = completion.choices[0]?.message?.content?.trim() ?? "{}";
   } catch (err) {
+    captureRouteError(err, "lp/brand-import-from-url", { stage: "ai_extraction" });
     res.status(500).json({ error: `AI extraction failed: ${String(err)}` });
     return;
   }

@@ -96,10 +96,14 @@ export function computeImportPrefill(
     : undefined;
   const tagline = typeof tg === "string" ? tg.trim() : undefined;
 
-  // Prefer the top-ranked logo candidate; fall back to the flat logoUrl.
+  // Prefer proposed.logoUrl: it is the asset-mirrored, social-card-demoted
+  // pick from the server. logoAlternates keep their EXTERNAL urls (the mirror
+  // only rewrites logoUrl) and alternates[0] can be the demoted og:image
+  // social banner — they are a picker list, not a ranking to auto-apply.
   const pickedLogo =
-    imported.logoAlternates?.[0]?.url ??
-    (typeof p.logoUrl === "string" ? p.logoUrl : "");
+    (typeof p.logoUrl === "string" && p.logoUrl) ||
+    imported.logoAlternates?.[0]?.url ||
+    "";
 
   const gotPrimary = typeof p.primaryColor === "string" && isFullHex(p.primaryColor);
   const gotAccent = typeof p.accentColor === "string" && isFullHex(p.accentColor);

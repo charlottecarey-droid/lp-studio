@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { captureRouteError } from "../../lib/sentry";
 import { randomBytes } from "crypto";
 import OpenAI from "openai";
 import { aiLightLimiter, aiLightHourlyLimiter } from "../../lib/ai-rate-limit";
@@ -464,6 +465,7 @@ router.post("/lp/brand-import", aiLightLimiter, aiLightHourlyLimiter, async (req
 
     res.json({ proposed: sanitized, confidence, unparsed, config: sanitized });
   } catch (err) {
+    captureRouteError(err, "lp/brand-import");
     res.status(500).json({ error: String(err) });
   }
 });

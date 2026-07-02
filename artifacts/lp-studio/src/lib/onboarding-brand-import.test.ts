@@ -300,8 +300,9 @@ describe("computeImportPrefill — success prefill from an import result", () =>
 
     expect(prefill.brandName).toBe("Acme");
     expect(prefill.tagline).toBe("Real tagline");
-    // Top-ranked alternate wins over the flat logoUrl.
-    expect(prefill.logoUrl).toBe("/best-logo.svg");
+    // The flat logoUrl wins: it is the asset-mirrored, social-card-demoted
+    // server pick; alternates keep EXTERNAL urls and are only a picker list.
+    expect(prefill.logoUrl).toBe("/flat-logo.svg");
     expect(prefill.primaryColor).toBe("#abcdef");
     expect(prefill.accentColor).toBe("#123456");
     expect(prefill.colorImportFailed).toBe(false);
@@ -316,7 +317,7 @@ describe("computeImportPrefill — success prefill from an import result", () =>
     const prefill = computeImportPrefill(imported, "acme.com");
 
     expect("logoAlternates" in prefill.proposedForSave).toBe(false);
-    expect(prefill.proposedForSave.logoUrl).toBe("/best-logo.svg");
+    expect(prefill.proposedForSave.logoUrl).toBe("/flat-logo.svg");
     expect(prefill.proposedForSave.toneOfVoice).toBe("warm");
   });
 
@@ -349,6 +350,17 @@ describe("computeImportPrefill — success prefill from an import result", () =>
     const prefill = computeImportPrefill(imported, "acme.com");
     expect(prefill.logoUrl).toBe("/flat-logo.svg");
     expect(prefill.proposedForSave.logoUrl).toBe("/flat-logo.svg");
+  });
+
+  it("uses the top alternate only when the server produced no flat logoUrl", () => {
+    const imported = importResult({
+      proposed: { brandName: "Acme" },
+      logoAlternates: [
+        { url: "https://ext.example/logo.svg", source: "header", format: "svg", score: 9 },
+      ],
+    });
+    const prefill = computeImportPrefill(imported, "acme.com");
+    expect(prefill.logoUrl).toBe("https://ext.example/logo.svg");
   });
 
   it("flags colorImportFailed and leaves colors undefined when no usable colors come back", () => {

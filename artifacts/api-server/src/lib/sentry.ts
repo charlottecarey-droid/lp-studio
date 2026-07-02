@@ -118,4 +118,27 @@ function scrubPii(event: Sentry.ErrorEvent): Sentry.ErrorEvent {
   return event;
 }
 
+/**
+ * Capture an error from a route that handles its own response. The AI routes
+ * (generate-page, generate-microsite, brand-import*) try/catch and respond
+ * with their own 500/stream error, so the error never reaches
+ * `setupExpressErrorHandler` — without an explicit capture they are invisible
+ * to Sentry. Safe to call unconditionally: the SDK no-ops when uninitialized,
+ * and event-level PII scrubbing still applies via beforeSend.
+ */
+export function captureRouteError(
+  err: unknown,
+  route: string,
+  extra?: Record<string, unknown>,
+): void {
+  try {
+    Sentry.captureException(err instanceof Error ? err : new Error(String(err)), {
+      tags: { route },
+      extra,
+    });
+  } catch {
+    /* never let telemetry break the response path */
+  }
+}
+
 export { Sentry };

@@ -69,9 +69,12 @@ export function hasContentTagOverlap(
     if (!tagLower) continue;
     if (contextLower.includes(tagLower)) return true;
     for (const word of tagLower.split(/\s+/)) {
+      // Both sides must clear the >3-char bar: without the guard on the
+      // CONTEXT word, 1–2-char words ("a", "to", "of") "overlap" nearly every
+      // tag via `word.includes(w)`, so no image was ever flagged off-topic.
       if (
         word.length > 3 &&
-        contextWords.some((w) => w.includes(word) || word.includes(w))
+        contextWords.some((w) => w.length > 3 && (w.includes(word) || word.includes(w)))
       ) {
         return true;
       }

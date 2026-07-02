@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { captureRouteError } from "../../lib/sentry";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { aiLightLimiter, aiLightHourlyLimiter } from "../../lib/ai-rate-limit";
 import { runOrchestrator } from "../../lib/brand-import";
@@ -80,24 +81,37 @@ router.post(
 
     const write = (e: StreamEvent): void => {
       if (clientGone) return;
-      // Respect backpressure: if the write buffer is full, pause until drain
-      // so we don't accumulate unbounded memory on slow consumers.
-      const ok = res.write(JSON.stringify(e) + "\n");
-      if (!ok) {
-        // Best-effort: wait for drain or client disconnect; cap at 5s so a
-        // stalled consumer can't pin this request forever.
-        return;
-      }
+      // NOTE: res.write buffers on a slow consumer; the request scope bounds
+      // that memory. (An earlier comment claimed a drain-wait that was never
+      // implemented — removed rather than left as false documentation.)
+      res.write(JSON.stringify(e) + "\n");
     };
+
+    // Evidence build (scrape + screenshot + stylesheets) emits nothing until
+    // it completes — up to ~75s on slow sites, during which zero bytes hit
+    // the wire and LB idle-response timeouts (commonly 60s) kill the stream.
+    // Emit an immediate phase event and a keepalive every 10s until the
+    // orchestrator's first event.
+    write({ event: "phase", phase: "scraping" });
+    let firstOrchestratorEvent = false;
+    const keepalive = setInterval(() => {
+      if (!firstOrchestratorEvent) write({ event: "phase", phase: "scraping" });
+    }, 10_000);
 
     try {
       for await (const event of runOrchestrator(parsed.toString(), apiKey, { forceRefresh, tenantId })) {
+        if (!firstOrchestratorEvent) {
+          firstOrchestratorEvent = true;
+          clearInterval(keepalive);
+        }
         if (clientGone) break;
         write(event);
       }
     } catch (err) {
+      captureRouteError(err, "lp/brand-import-from-url-stream", { tenantId });
       write({ event: "error", error: String(err) });
     } finally {
+      clearInterval(keepalive);
       req.removeListener("close", onClose);
       res.removeListener("close", onClose);
       if (!clientGone) res.end();

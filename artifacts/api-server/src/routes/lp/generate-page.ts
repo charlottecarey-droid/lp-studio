@@ -5,6 +5,7 @@ import { aiGenerationLogTable, lpBrandSettingsTable, lpMediaTable, lpPagesTable,
 import { createHash } from "node:crypto";
 import { eq, desc, and, or, sql } from "drizzle-orm";
 import { logger } from "../../lib/logger";
+import { captureRouteError } from "../../lib/sentry";
 import { withDbRetry } from "../../lib/dbResilience";
 import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../lib/tenantSettings";
 import { generateAndStoreImage, loadBrandHints } from "./custom-blocks-generate";
@@ -76,7 +77,16 @@ function getOpenAIClient(): OpenAI {
   if (!baseURL || !apiKey) {
     throw new Error("AI integration not configured.");
   }
-  return new OpenAI({ baseURL, apiKey });
+  // Launch hardening (July 2026): the SDK default timeout is 10 MINUTES. A
+  // hung proxy call holds a generateOpenAISemaphore slot (of 8) that long —
+  // a handful of hangs stalls every generation on the instance. 120s bounds
+  // the worst case; the SDK's built-in retries (maxRetries default 2, on
+  // 408/429/5xx/timeouts) still apply within each attempt.
+  return new OpenAI({
+    baseURL,
+    apiKey,
+    timeout: Number(process.env["GENERATE_OPENAI_TIMEOUT_MS"]) || 120_000,
+  });
 }
 
 /** Generation model. Keep at gpt-4o unless a replacement is explicitly chosen
@@ -485,8 +495,11 @@ const STRICT_FACTS_INSTRUCTION =
   "write full, specific, substantive copy in the brand's voice; never leave a " +
   "section thin, vague, or generic just because it has no hard number to cite. " +
   "EXCEPTION — testimonial/quote card blocks (testimonial, testimonial-grid, " +
-  "testimonial-wall, quote-library, quote-carousel, single-quote): NEVER write " +
-  "placeholder text into a quote card; OMIT the card and emit fewer items instead.";
+  "testimonial-wall, quote-library, quote-carousel, single-quote, " +
+  "quote-with-image) and named-customer case-study blocks (case-study-card-grid, " +
+  "case-study-logo-results-row, case-study-metric-triptych, " +
+  "case-study-spotlight-feature, story-hub): NEVER write placeholder text into " +
+  "these; OMIT the card/block and emit fewer items (or a different block) instead.";
 
 // ── Brand typography & design-intensity helpers (Task #900) ───────────────
 
@@ -3267,8 +3280,12 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       props.imageUrl = pick(blockContext, images, usedIds, "lp-feature");
     }
 
-    // zigzag-features rows → feature images
-    if (Array.isArray(props.rows)) {
+    // zigzag-features rows → feature images. TYPE-GATED: other blocks carry a
+    // `rows` array with no image slot at all (dso-comparison rows are
+    // {need, dandy, traditional}; benefits-alternating-rows uses `image`, not
+    // `imageUrl`) — an ungated fill silently consumed 5–7 library images per
+    // such block into an invisible prop and skewed used-image dedupe.
+    if (blockType === "zigzag-features" && Array.isArray(props.rows)) {
       props.rows = (props.rows as Record<string, unknown>[]).map((row) => {
         if (!row.imageUrl) {
           const rowContext = `${row.tag ?? ""} ${row.headline ?? ""} ${row.body ?? ""}`;
@@ -3967,8 +3984,14 @@ export async function aiFillEmptyImages(
           tenantId,
         );
         if (result) slot.apply(result.url);
-      } catch {
-        /* best-effort — leave the slot empty so the editor renders normally */
+      } catch (err) {
+        // Best-effort — leave the slot empty so the editor renders normally,
+        // but LOG it: a silent catch here previously hid quota exhaustion and
+        // proxy outages ("why are all my images blank" with zero log lines).
+        logger.warn(
+          { err: String(err), tenantId, fieldLabel: slot.fieldLabel },
+          "[generate-page] ai image fill failed for slot (left empty)",
+        );
       }
     }),
   );
@@ -4167,13 +4190,13 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     if (Array.isArray(props.rows)) {
       props.rows = (props.rows as Record<string, unknown>[]).map(row => ({
         ...row,
-        imageUrl: typeof row.imageUrl === "string" ? cleanUrl(row.imageUrl) : row.imageUrl,
+        ...(typeof row.imageUrl === "string" ? { imageUrl: cleanUrl(row.imageUrl) } : {}),
       }));
     }
     if (Array.isArray(props.chapters)) {
       props.chapters = (props.chapters as Record<string, unknown>[]).map(ch => ({
         ...ch,
-        imageUrl: typeof ch.imageUrl === "string" ? cleanUrl(ch.imageUrl) : ch.imageUrl,
+        ...(typeof ch.imageUrl === "string" ? { imageUrl: cleanUrl(ch.imageUrl) } : {}),
       }));
     }
     // tiles: legacy tiles use `imageUrl`; bento-showcase image tiles
@@ -4181,7 +4204,7 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     if (Array.isArray(props.tiles)) {
       props.tiles = (props.tiles as Record<string, unknown>[]).map(tile => ({
         ...tile,
-        imageUrl: typeof tile.imageUrl === "string" ? cleanUrl(tile.imageUrl) : tile.imageUrl,
+        ...(typeof tile.imageUrl === "string" ? { imageUrl: cleanUrl(tile.imageUrl) } : {}),
         primary:
           tile.kind === "image" && typeof tile.primary === "string"
             ? cleanUrl(tile.primary)
@@ -4193,7 +4216,7 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     if (Array.isArray(props.cards)) {
       props.cards = (props.cards as Record<string, unknown>[]).map(card => ({
         ...card,
-        imageUrl: typeof card.imageUrl === "string" ? cleanUrl(card.imageUrl) : card.imageUrl,
+        ...(typeof card.imageUrl === "string" ? { imageUrl: cleanUrl(card.imageUrl) } : {}),
       }));
     }
 
@@ -4201,7 +4224,7 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     if (Array.isArray(props.panels)) {
       props.panels = (props.panels as Record<string, unknown>[]).map(panel => ({
         ...panel,
-        imageUrl: typeof panel.imageUrl === "string" ? cleanUrl(panel.imageUrl) : panel.imageUrl,
+        ...(typeof panel.imageUrl === "string" ? { imageUrl: cleanUrl(panel.imageUrl) } : {}),
       }));
     }
 
@@ -4209,8 +4232,8 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     if (Array.isArray(props.pairs)) {
       props.pairs = (props.pairs as Record<string, unknown>[]).map(pair => ({
         ...pair,
-        beforeSrc: typeof pair.beforeSrc === "string" ? cleanUrl(pair.beforeSrc) : pair.beforeSrc,
-        afterSrc: typeof pair.afterSrc === "string" ? cleanUrl(pair.afterSrc) : pair.afterSrc,
+        ...(typeof pair.beforeSrc === "string" ? { beforeSrc: cleanUrl(pair.beforeSrc) } : {}),
+        ...(typeof pair.afterSrc === "string" ? { afterSrc: cleanUrl(pair.afterSrc) } : {}),
       }));
     }
 
@@ -4218,7 +4241,7 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     if (Array.isArray(props.slides)) {
       props.slides = (props.slides as Record<string, unknown>[]).map(slide => ({
         ...slide,
-        src: typeof slide.src === "string" ? cleanUrl(slide.src) : slide.src,
+        ...(typeof slide.src === "string" ? { src: cleanUrl(slide.src) } : {}),
       }));
     }
 
@@ -4226,7 +4249,7 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     if (Array.isArray(props.results)) {
       props.results = (props.results as Record<string, unknown>[]).map(result => ({
         ...result,
-        logoUrl: typeof result.logoUrl === "string" ? cleanUrl(result.logoUrl) : result.logoUrl,
+        ...(typeof result.logoUrl === "string" ? { logoUrl: cleanUrl(result.logoUrl) } : {}),
       }));
     }
 
@@ -4237,7 +4260,7 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     if (Array.isArray(props.images)) {
       props.images = (props.images as Record<string, unknown>[]).map(img => ({
         ...img,
-        src: typeof img.src === "string" ? cleanUrl(img.src) : img.src,
+        ...(typeof img.src === "string" ? { src: cleanUrl(img.src) } : {}),
       }));
     }
 
@@ -4248,7 +4271,7 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     if (blockType === "event-page" && Array.isArray(props.photos)) {
       props.photos = (props.photos as Record<string, unknown>[]).map(photo => ({
         ...photo,
-        src: typeof photo.src === "string" ? cleanUrl(photo.src) : photo.src,
+        ...(typeof photo.src === "string" ? { src: cleanUrl(photo.src) } : {}),
       }));
     }
 
@@ -4276,19 +4299,22 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
       const isIconOnlyItemBlock = ICON_ONLY_ITEM_BLOCK_TYPES.has(blockType);
       props.items = (props.items as Record<string, unknown>[]).map(item => ({
         ...item,
-        image: isStatBar || isIconOnlyItemPhotos || isIconOnlyItemBlock
-          ? ""
-          : typeof item.image === "string" ? cleanUrl(item.image) : item.image,
+        // Icon-only / stat-bar blocks force image to "" even when the key was
+        // absent (deliberate: strips any URL the model copied in). Everything
+        // else only rewrites an EXISTING string — never adds `image: undefined`.
+        ...(isStatBar || isIconOnlyItemPhotos || isIconOnlyItemBlock
+          ? { image: "" }
+          : typeof item.image === "string" ? { image: cleanUrl(item.image) } : {}),
         // Dandy premium blocks (columns-v2/v3, switchback) carry the photo on a
         // distinct `imageUrl` key — clean it through the same allowlist so a
         // hallucinated / Unsplash host can't bypass sanitization.
-        imageUrl: typeof item.imageUrl === "string" ? cleanUrl(item.imageUrl) : item.imageUrl,
+        ...(typeof item.imageUrl === "string" ? { imageUrl: cleanUrl(item.imageUrl) } : {}),
       }));
     }
     if (Array.isArray(props.cases)) {
       props.cases = (props.cases as Record<string, unknown>[]).map(c => ({
         ...c,
-        image: typeof c.image === "string" ? cleanUrl(c.image) : c.image,
+        ...(typeof c.image === "string" ? { image: cleanUrl(c.image) } : {}),
       }));
     }
 
@@ -4298,7 +4324,7 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     if (blockType === "how-it-works-alternating" && Array.isArray(props.steps)) {
       props.steps = (props.steps as Record<string, unknown>[]).map(step => ({
         ...step,
-        image: typeof step.image === "string" ? cleanUrl(step.image) : step.image,
+        ...(typeof step.image === "string" ? { image: cleanUrl(step.image) } : {}),
       }));
     }
 
@@ -4309,19 +4335,19 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     if (blockType === "benefits-alternating-rows" && Array.isArray(props.rows)) {
       props.rows = (props.rows as Record<string, unknown>[]).map(row => ({
         ...row,
-        image: typeof row.image === "string" ? cleanUrl(row.image) : row.image,
+        ...(typeof row.image === "string" ? { image: cleanUrl(row.image) } : {}),
       }));
     }
     if (blockType === "features-tabbed-categories" && Array.isArray(props.categories)) {
       props.categories = (props.categories as Record<string, unknown>[]).map(cat => ({
         ...cat,
-        image: typeof cat.image === "string" ? cleanUrl(cat.image) : cat.image,
+        ...(typeof cat.image === "string" ? { image: cleanUrl(cat.image) } : {}),
       }));
     }
     if (blockType === "features-bento-showcase" && Array.isArray(props.tiles)) {
       props.tiles = (props.tiles as Record<string, unknown>[]).map(tile => ({
         ...tile,
-        image: typeof tile.image === "string" ? cleanUrl(tile.image) : tile.image,
+        ...(typeof tile.image === "string" ? { image: cleanUrl(tile.image) } : {}),
       }));
     }
     if (blockType === "features-spotlight-cards" && typeof props.spotlightImage === "string") {
@@ -4335,7 +4361,7 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     if (Array.isArray(props.tabs)) {
       props.tabs = (props.tabs as Record<string, unknown>[]).map(tab => ({
         ...tab,
-        imageUrl: typeof tab.imageUrl === "string" ? cleanUrl(tab.imageUrl) : tab.imageUrl,
+        ...(typeof tab.imageUrl === "string" ? { imageUrl: cleanUrl(tab.imageUrl) } : {}),
       }));
     }
 
@@ -4349,14 +4375,14 @@ export function sanitizeAIImageUrls(blocks: unknown[], allImages: MediaImage[], 
     if (blockType === "testimonial-wall" && Array.isArray(props.testimonials)) {
       props.testimonials = (props.testimonials as Record<string, unknown>[]).map(t => ({
         ...t,
-        avatarUrl: typeof t.avatarUrl === "string" ? cleanUrl(t.avatarUrl) : t.avatarUrl,
-        logoUrl: typeof t.logoUrl === "string" ? cleanUrl(t.logoUrl) : t.logoUrl,
+        ...(typeof t.avatarUrl === "string" ? { avatarUrl: cleanUrl(t.avatarUrl) } : {}),
+        ...(typeof t.logoUrl === "string" ? { logoUrl: cleanUrl(t.logoUrl) } : {}),
       }));
     }
     if (blockType === "launch-spotlight-hero" && Array.isArray(props.logos)) {
       props.logos = (props.logos as Record<string, unknown>[]).map(l => ({
         ...l,
-        imageUrl: typeof l.imageUrl === "string" ? cleanUrl(l.imageUrl) : l.imageUrl,
+        ...(typeof l.imageUrl === "string" ? { imageUrl: cleanUrl(l.imageUrl) } : {}),
       }));
     }
 
@@ -4737,6 +4763,7 @@ function buildApprovedStatSet(
   segmentContext: SegmentContext | undefined,
   proofPoints: ProofPoint[] = [],
   caseStudies: ApprovedCaseStudy[] = [],
+  userPrompt = "",
 ): Set<string> {
   const out = new Set<string>();
   const add = (raw: string | undefined) => {
@@ -4745,6 +4772,16 @@ function buildApprovedStatSet(
     if (!v) return;
     out.add(v);
   };
+  // The user's own prompt numbers are approved by definition — the block
+  // schemas instruct "use the user's EXACT numbers from the prompt", so a
+  // stat the user typed must never come back flagged as unapproved. Extract
+  // stat-shaped tokens (number + optional currency prefix / unit suffix,
+  // hyphenated or spaced: "99.1%", "$2.4M", "5-day", "24/7 support").
+  if (userPrompt.trim()) {
+    for (const m of userPrompt.matchAll(/[$€£]?\d[\d.,/]*(?:[-\s]?(?:%|\+|×|★|[a-z]+))?/gi)) {
+      add(m[0]);
+    }
+  }
   for (const p of brand.productLines ?? []) {
     for (const c of p.claims ?? []) {
       if (!isClaimApproved(c)) continue;
@@ -4813,6 +4850,10 @@ export function isApprovedStat(value: string, pool: Set<string>): boolean {
 
 const STAT_FIELD_KEYS = new Set([
   "value", "stat", "metric", "stat1Value", "stat2Value", "stat3Value",
+  // Named-customer proof blocks (case-study-card-grid, -logo-results-row,
+  // -metric-triptych, story-hub) carry their headline stats under these keys —
+  // without them the strict scan never sees those blocks' numbers.
+  "metricValue", "statValue", "number",
 ]);
 
 /** Task #254 — telemetry layer that flags any stat-like value the model
@@ -4829,7 +4870,7 @@ const STAT_FIELD_KEYS = new Set([
 // Note: word-boundary `\b` doesn't sit next to `%` or `+` (non-word chars), so
 // we use lookahead `(?![A-Za-z0-9])` for those suffixes; for word suffixes we
 // keep `\b` so we don't false-match inside larger words.
-const STAT_LIKE_RX = /\b\d+(?:[.,]\d+)?\s*(?:%(?![A-Za-z0-9])|\+(?![A-Za-z0-9])|(?:x|k|m)\b|(?:million|billion|customers?|patients?|practices?|locations?|users?|members?|reviews?|stars?|days?|hours?|minutes?|years?|months?|weeks?)\b)/i;
+const STAT_LIKE_RX = /\b\d+(?:[.,]\d+)?\s*(?:%(?![A-Za-z0-9])|\+(?![A-Za-z0-9])|[×★](?![A-Za-z0-9])|(?:x|k|m|b|hrs?|mins?)\b|(?:million|billion|customers?|patients?|practices?|locations?|users?|members?|reviews?|stars?|days?|hours?|minutes?|years?|months?|weeks?)\b)/i;
 
 export interface StrictStatMismatch {
   blockId?: string;
@@ -4930,13 +4971,13 @@ const TESTIMONIAL_ARRAY_BLOCKS: Record<string, string> = {
 };
 
 /** Single-quote blocks (no item array) — placeholder content drops the block. */
-const SINGLE_TESTIMONIAL_BLOCK_TYPES = new Set(["testimonial", "single-quote"]);
+const SINGLE_TESTIMONIAL_BLOCK_TYPES = new Set(["testimonial", "single-quote", "quote-with-image"]);
 
 /** Placeholder-pattern text: the strict-facts placeholder family ("Add a quote
  *  in brand settings", the model's extrapolated "Add a role in brand
  *  settings"), plus generic placeholder/lorem markers. Case-insensitive. */
 const PLACEHOLDER_TESTIMONIAL_TEXT_RE =
-  /\badd (?:a|an|your) (?:quote|role|name|title|company|author|testimonial|case stud\w*)\b|\bbrand settings\b|\bplaceholder\b|\blorem ipsum\b/i;
+  /\badd (?:a|an|your) (?:quote|role|name|title|company|author|testimonial|case stud\w*)\b|\bbrand settings\b|\breplace (?:this|with)\b|\bcustomer name\b|\bplaceholder\b|\blorem ipsum\b/i;
 
 /** True when a testimonial/quote item is placeholder-shaped: any text field
  *  matches the placeholder patterns, or it carries a quote with no real
@@ -5042,9 +5083,10 @@ const CASE_STUDY_BLOCK_TYPES = new Set(["dso-success-stories", "dso-case-study",
  *  built-in example stories instead of being wiped to placeholders — for
  *  `dso-success-stories` this means clearing `cases` so the renderer falls
  *  back to its shipped DEFAULT_CASES (reversal of the original Task #253
- *  always-placeholder behavior). In strict mode the single-story
- *  `dso-case-study` block still blanks long-form prose when empty so the AI
- *  cannot ship an invented story. */
+ *  always-placeholder behavior). In STRICT mode neither block may ship the
+ *  fictional fallbacks: `dso-success-stories` gets an explicit placeholder
+ *  card and the single-story `dso-case-study` blanks long-form prose when
+ *  empty so the AI cannot ship an invented story. */
 export function enforceApprovedCaseStudies(
   block: { type?: string; props?: Record<string, unknown> },
   pool: ApprovedCaseStudy[],
@@ -5057,8 +5099,18 @@ export function enforceApprovedCaseStudies(
 
   if (t === "dso-success-stories") {
     if (pool.length === 0) {
-      // No approved case studies — clear `cases` so BlockDsoSuccessStories
-      // renders its built-in example stories rather than placeholders.
+      if (isStrict) {
+        // Strict mode: the renderer's DEFAULT_CASES fallback is fictional
+        // demo stories — never ship those on a strict-facts page. An explicit
+        // placeholder card (Task #253 behavior) tells the owner what's
+        // missing instead.
+        props.cases = [
+          { name: CASE_STUDY_PLACEHOLDER, stat: "", label: "", quote: "", author: "", image: "" },
+        ];
+        return;
+      }
+      // Non-strict: clear `cases` so BlockDsoSuccessStories renders its
+      // built-in example stories rather than placeholders.
       props.cases = [];
       return;
     }
@@ -6167,6 +6219,12 @@ export function enforceRequiredRoles(
     // footer) are always in this set, so they are still backfilled. Omit it to
     // keep the legacy behavior (every missing role is backfilled).
     allowedTypes?: ReadonlySet<string>;
+    // Strict Facts Mode: the stats default fabricates numbers ("10,000+
+    // customers", "98% on-time") and the social-proof default fabricates a
+    // quote card — both are exactly what strict mode promises never to ship.
+    // When set, those two roles are simply not backfilled; a strict-mode page
+    // without stats is honest, one with invented stats is not.
+    strictFacts?: boolean;
   } = {},
 ): Array<Record<string, unknown>> {
   if (!Array.isArray(blocks) || blocks.length === 0) return blocks;
@@ -6205,6 +6263,8 @@ export function enforceRequiredRoles(
   // region in a stable, readable order.
   for (const role of ["features", "social-proof", "stats"] as const) {
     if (!missing.includes(role)) continue;
+    // Strict mode never fabricates stats or quote cards (see opts.strictFacts).
+    if (opts.strictFacts && (role === "social-proof" || role === "stats")) continue;
     const block = buildDefaultRoleBlock(role, ctx);
     if (!typeAllowed(block)) continue;
     const footerIdx = firstIndexWithRole("footer");
@@ -6427,13 +6487,13 @@ SHOWCASE BLOCKS (use these to give each page a distinct, premium feel — NOT ev
 
 - "gallery-split-feature": Editorial split section pairing a headline + copy + CTAs on one side with a large hero image and two smaller stacked images on the other — great for office/culture, footprint, and brand-story features. Props: eyebrow (2–4 words), headline (5–10 words), subheadline (18–36 words), imageUrl (""), images (array of EXACTLY 2 of {id (unique short string), src (""), caption (3–7 words), alt (4–8 words)}), ctaLabel (2–5 words, optional), ctaUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 
-- "case-study-card-grid": Social-proof grid of customer case-study cards, each with a logo/photo, an outcome quote, and a headline metric — great for proving results from named customers. Props: heading (5–10 words), subheading (12–24 words, optional), cards (array of EXACTLY 3 or 6 of {company (1–3 words customer name), imageUrl (""), imageAlt (3–6 words), result (12–24 words outcome/quote), metricValue (short stat e.g. "85%","2.5x","$12M"), metricLabel (3–7 words describing the metric), linkUrl ("#"), featured (optional — true on AT MOST one card; a featured card spans 2 of the 3 columns, so with one featured card use EXACTLY 5 cards and list the featured card FIRST)} — counts MUST fill complete 3-column rows: 3 or 6 plain cards, or 5 with one featured), ctaLabel (2–5 words, optional), ctaUrl ("#").
+- "case-study-card-grid": Social-proof grid of customer case-study cards, each with a logo/photo, an outcome quote, and a headline metric — great for proving results from named customers. Props: heading (5–10 words), subheading (12–24 words, optional), cards (array of EXACTLY 3 or 6 of {company (1–3 words customer name), imageUrl (""), imageAlt (3–6 words), result (12–24 words outcome/quote), metricValue (short stat e.g. "85%","2.5x","$12M"), metricLabel (3–7 words describing the metric), linkUrl ("#"), featured (optional — true on AT MOST one card; a featured card spans 2 of the 3 columns, so with one featured card use EXACTLY 5 cards and list the featured card FIRST)} — counts MUST fill complete 3-column rows: 3 or 6 plain cards, or 5 with one featured), ctaLabel (2–5 words, optional), ctaUrl ("#"). NAMED-CUSTOMER INTEGRITY: populate ONLY from case studies, customer quotes, or named results explicitly provided in this brief (APPROVED CASE STUDIES / approved customer quotes / the user's prompt). NEVER invent a customer name, quote, or metric — if the brief provides none, do NOT use this block; pick a non-customer-proof block instead.
 
-- "case-study-logo-results-row": Social-proof row of customer logos each paired with a headline result metric and a short outcome — a compact proof bar of named wins. Props: heading (5–10 words, optional), results (array of EXACTLY 3–5 of {company (1–3 words customer name), logoUrl (""), logoAlt (3–6 words), outcome (10–20 words), metricValue (short stat e.g. "99.99% uptime","3x faster")}), ctaLabel (2–5 words, optional), ctaUrl ("#").
+- "case-study-logo-results-row": Social-proof row of customer logos each paired with a headline result metric and a short outcome — a compact proof bar of named wins. Props: heading (5–10 words, optional), results (array of EXACTLY 3–5 of {company (1–3 words customer name), logoUrl (""), logoAlt (3–6 words), outcome (10–20 words), metricValue (short stat e.g. "99.99% uptime","3x faster")}), ctaLabel (2–5 words, optional), ctaUrl ("#"). NAMED-CUSTOMER INTEGRITY: populate ONLY from case studies, customer quotes, or named results explicitly provided in this brief (APPROVED CASE STUDIES / approved customer quotes / the user's prompt). NEVER invent a customer name, quote, or metric — if the brief provides none, do NOT use this block; pick a non-customer-proof block instead.
 
-- "case-study-metric-triptych": Centered, text-only proof band for ONE customer — three big headline metrics above a pull-quote with attribution. No images. Great for a punchy, stat-led single-customer endorsement. Props: company (1–3 words customer name), metrics (array of EXACTLY 3 of {value (short stat e.g. "10x","$2.4M","45%"), label (3–6 words describing the metric)}), quote (20–45 words customer pull-quote), author (2–3 words person name), role (2–5 words job title), ctaLabel (2–5 words, optional), ctaUrl ("#").
+- "case-study-metric-triptych": Centered, text-only proof band for ONE customer — three big headline metrics above a pull-quote with attribution. No images. Great for a punchy, stat-led single-customer endorsement. Props: company (1–3 words customer name), metrics (array of EXACTLY 3 of {value (short stat e.g. "10x","$2.4M","45%"), label (3–6 words describing the metric)}), quote (20–45 words customer pull-quote), author (2–3 words person name), role (2–5 words job title), ctaLabel (2–5 words, optional), ctaUrl ("#"). NAMED-CUSTOMER INTEGRITY: populate ONLY from case studies, customer quotes, or named results explicitly provided in this brief (APPROVED CASE STUDIES / approved customer quotes / the user's prompt). NEVER invent a customer name, quote, or metric — if the brief provides none, do NOT use this block; pick a non-customer-proof block instead.
 
-- "case-study-spotlight-feature": Featured single customer story in a two-column split — Challenge/Solution/Result narrative + a headline metric + CTA on one side, a large feature photo on the other. Great for an in-depth flagship win. Props: eyebrow (2–4 words, e.g. "Featured Case Study"), company (1–3 words customer name), headline (8–14 words story title), challenge (18–32 words), solution (18–32 words), result (18–32 words), metricValue (short stat e.g. "300%"), metricLabel (4–8 words), imageUrl (""), imageAlt (3–6 words), ctaLabel (2–5 words, optional), ctaUrl ("#").
+- "case-study-spotlight-feature": Featured single customer story in a two-column split — Challenge/Solution/Result narrative + a headline metric + CTA on one side, a large feature photo on the other. Great for an in-depth flagship win. Props: eyebrow (2–4 words, e.g. "Featured Case Study"), company (1–3 words customer name), headline (8–14 words story title), challenge (18–32 words), solution (18–32 words), result (18–32 words), metricValue (short stat e.g. "300%"), metricLabel (4–8 words), imageUrl (""), imageAlt (3–6 words), ctaLabel (2–5 words, optional), ctaUrl ("#"). NAMED-CUSTOMER INTEGRITY: populate ONLY from case studies, customer quotes, or named results explicitly provided in this brief (APPROVED CASE STUDIES / approved customer quotes / the user's prompt). NEVER invent a customer name, quote, or metric — if the brief provides none, do NOT use this block; pick a non-customer-proof block instead.
 
 - "media-feature-reel": A centered video showcase — a large poster image with a play button that opens the video in a lightbox, followed by a row of three icon feature captions and optional CTAs. Great for product demos and launch reels. Props: heading (5–10 words), videoUrl (ALWAYS "" — never invent a video URL; the user picks it), posterUrl (""), features (array of EXACTLY 3 of {icon (lucide name e.g. Sparkles/Zap/Shield/Layers/Rocket), title (2–4 words), desc (8–16 words)}), ctaLabel (2–5 words, optional), ctaUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 
@@ -6486,9 +6546,9 @@ SHOWCASE BLOCKS (use these to give each page a distinct, premium feel — NOT ev
 
 - "quote-library": Social proof "wall of love" — a masonry grid of many short testimonial cards. Best when you have lots of quotes. Include ONLY real quotes provided in the brand context — NEVER invent placeholder attributions like "Add a quote in brand settings"; if fewer real quotes exist than the ideal count, emit fewer items (or pick a smaller social-proof block). Props: eyebrow (2–4 words), headline (5–10 words), subheadline (12–24 words), testimonials (array of EXACTLY 6–9 of {id (unique short string), quote (15–35 words), author (full name), role (2–4 words), company (1–3 words), rating (integer 4–5), avatarInitials (2 letters)}), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 
-- "quote-with-image": Social proof as a single large quote paired with a customer portrait image and star rating — premium, editorial feel. Props: eyebrow (2–4 words), quote (30–60 words), author (full name), role (2–4 words), company (1–3 words), imageUrl (""), imageAlt (4–8 words), imageSide ("left"|"right"), rating (integer 0–5, default 5), showCta (boolean, default true), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "quote-with-image": Social proof as a single large quote paired with a customer portrait image and star rating — premium, editorial feel. Props: eyebrow (2–4 words), quote (30–60 words), author (full name), role (2–4 words), company (1–3 words), imageUrl (""), imageAlt (4–8 words), imageSide ("left"|"right"), rating (integer 0–5, default 5), showCta (boolean, default true), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#"). NAMED-CUSTOMER INTEGRITY: populate ONLY from case studies, customer quotes, or named results explicitly provided in this brief (APPROVED CASE STUDIES / approved customer quotes / the user's prompt). NEVER invent a customer name, quote, or metric — if the brief provides none, do NOT use this block; pick a non-customer-proof block instead.
 
-- "single-quote": Social proof as one cinematic, centered testimonial with a large quote mark and avatar initials — maximum focus on a single powerful customer quote. Props: quote (30–60 words), author (full name), role (2–4 words), company (1–3 words), avatarInitials (2 letters), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
+- "single-quote": Social proof as one cinematic, centered testimonial with a large quote mark and avatar initials — maximum focus on a single powerful customer quote. Props: quote (30–60 words), author (full name), role (2–4 words), company (1–3 words), avatarInitials (2 letters), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#"). NAMED-CUSTOMER INTEGRITY: populate ONLY from case studies, customer quotes, or named results explicitly provided in this brief (APPROVED CASE STUDIES / approved customer quotes / the user's prompt). NEVER invent a customer name, quote, or metric — if the brief provides none, do NOT use this block; pick a non-customer-proof block instead.
 
 - "testimonial-grid": Social proof as a responsive grid of testimonial cards (stars + quote + author), with a centered header — great for showcasing many quotes at once. Include ONLY real quotes provided in the brand context — NEVER invent placeholder attributions like "Add a quote in brand settings"; if fewer real quotes exist than the ideal count, emit fewer items (complete rows still preferred). Props: eyebrow (2–4 words), headline (5–10 words), subheadline (12–24 words), testimonials (array of EXACTLY 3 or EXACTLY 6 of {id (unique short string), quote (15–35 words), author (full name), role (2–4 words), company (1–3 words), rating (integer 4–5), avatarInitials (2 letters), featured (optional — true on AT MOST one card; a featured card spans 2 of the 3 columns, so with one featured card use EXACTLY 5 testimonials and list the featured one FIRST)} — counts MUST fill complete 3-column rows: 3 or 6 plain cards, or 5 with one featured — never 4 or 7), showCta (boolean, default true), ctaEyebrow (2–4 words), ctaHeading (4–8 words), ctaSubheading (12–24 words), ctaPrimaryLabel (2–4 words), ctaPrimaryUrl ("#"), ctaSecondaryLabel (2–4 words, optional), ctaSecondaryUrl ("#").
 
@@ -6562,7 +6622,7 @@ const GENERAL_EXTRA_CORE_BLOCKS: string[] = [
   `- "case-studies": Grid of customer / case-study cards with logos. Props: headline (5–12 words), subheadline (12–24 words), columns (2 or 3), backgroundStyle ("white"|"muted"|"dark"), items (array of EXACTLY 3–6 of {title (4–9 words naming the concrete result), categories (1–3 words category label), image ("" — server fills), logoUrl ("" — server fills), url ("#")}).`,
   `- "product-showcase": Card grid of products / services with imagery and badges. Props: headline (5–12 words), subheadline (12–24 words), columns (3 or 4), cards (array of EXACTLY 3–6 of {name (2–5 words), description (16–28 words with a specific use case — not a feature dump), badge (1–3 words, e.g. "New", "Most popular"), image ("" — server fills)}).`,
   `- "roi-calculator": Interactive ROI / savings calculator with live inputs and computed outputs. Props: headline (5–12 words), subheadline (12–24 words), resultsPanelLabel (2–4 words, e.g. "Your estimated savings"), disclaimer (8–16 words), ctaEnabled (boolean), ctaText (2–5 words), ctaUrl ("#"), inputFields (array of EXACTLY 2–4 of {id (slug), label (2–5 words), defaultValue (number), min (number), max (number), step (number), suffix (e.g. "cases/mo", "$"), inputType ("number"|"slider")}), outputFields (array of EXACTLY 1–3 of {id (slug), label (2–5 words), formula (arithmetic over input ids, e.g. "cases * 480 * 12"), format ("currency"|"number"|"percent"), decimals (number), highlight (boolean)}).`,
-  `- "story-hub": Customer-story hub with a featured story, filter chips, a story grid, and stats. Props: eyebrow (2–4 words), heroTitle (5–12 words), subhead (12–24 words), filters (array of 3–5 short category labels), featured ({tag (1–3 words), title (5–12 words), practice (name), location (city, state), imageUrl (""), href ("#")}), stories (array of EXACTLY 3–6 of {practice (name), location (city, state), headline (5–12 words), tag (1–3 words), imageUrl (""), href ("#")}), stats (array of EXACTLY 3–4 of {number (metric), label (2–5 words)}), ctaHeadline (5–12 words), ctaPrimaryText (2–5 words), ctaPrimaryUrl ("#").`,
+  `- "story-hub": Customer-story hub with a featured story, filter chips, a story grid, and stats. Props: eyebrow (2–4 words), heroTitle (5–12 words), subhead (12–24 words), filters (array of 3–5 short category labels), featured ({tag (1–3 words), title (5–12 words), practice (name), location (city, state), imageUrl (""), href ("#")}), stories (array of EXACTLY 3–6 of {practice (name), location (city, state), headline (5–12 words), tag (1–3 words), imageUrl (""), href ("#")}), stats (array of EXACTLY 3–4 of {number (metric), label (2–5 words)}), ctaHeadline (5–12 words), ctaPrimaryText (2–5 words), ctaPrimaryUrl ("#"). NAMED-CUSTOMER INTEGRITY: populate ONLY from case studies, customer quotes, or named results explicitly provided in this brief (APPROVED CASE STUDIES / approved customer quotes / the user's prompt). NEVER invent a customer name, quote, or metric — if the brief provides none, do NOT use this block; pick a non-customer-proof block instead.`,
   `- "resources": Grid of resource / blog / guide cards. Props: headline (5–12 words), subheadline (12–24 words), columns (3 or 4), backgroundStyle ("white"|"muted"|"dark"), items (array of EXACTLY 3–6 of {title (5–12 words), description (14–24 words), category (1–3 words, e.g. "Guide", "Webinar"), image (""), url ("#")}).`,
   `- "dso-bento-outcomes": Bento grid of outcomes — a mosaic of mixed tiles (big stats, a photo, a short feature, a pull quote) that together tell the result story. A premium alternative to a plain stats row. Props: eyebrow (2–4 words), headline (5–12 words), tiles (array of EXACTLY 4–6, each ONE of: {type:"stat", value (metric), label (2–5 words), description (6–14 words)} | {type:"photo", imageUrl ("" — server fills), caption (4–10 words)} | {type:"feature", headline (2–5 words), body (12–22 words)} | {type:"quote", quote (12–24 words), author (name, title)}). Use REAL numbers from the brief — never invent precise stats.`,
   `- "dso-activation-steps": Numbered getting-started / onboarding steps — EXACTLY 4 steps shown as a sequence, with an optional closing CTA. Ideal for a "how to get started" or activation flow. Props: eyebrow (2–4 words), headline (5–12 words), subheadline (12–24 words), steps (array of EXACTLY 4 of {step ("01"|"02"|"03"|"04"), title (2–6 words), desc (12–22 words)}), ctaText (2–4 words or ""), ctaUrl ("#"), backgroundStyle ("dark"|"white"|"muted").`,
@@ -7016,7 +7076,7 @@ export function buildDsoPracticesSystemPrompt(opts: { isDandyTenant: boolean; br
   const paradigmNewWayLabelHint = isDandyTenant ? `newWayLabel (string, e.g. "Dandy")` : `newWayLabel (string, e.g. "The New Way")`;
   const paradigmExample = isDandyTenant
     ? `EXAMPLE (mirror this verbosity exactly): oldWayLabel: "The Old Way", oldWayItems: ["Multiple disconnected lab vendors", "Inconsistent quality across locations", "Remake costs absorbed by the practice", "No visibility into case performance", "Expensive scanner CAPEX per operatory"], newWayLabel: "The Dandy Way", newWayItems: ["One unified lab partner across all locations", "AI Scan Review catches issues before they happen", "96% first-time fit rate — guaranteed", "Real-time dashboard across every practice", "Premium scanners included at $0 CAPEX"]`
-    : `EXAMPLE (mirror this verbosity exactly): oldWayLabel: "The Old Way", oldWayItems: ["Multiple disconnected lab vendors", "Inconsistent quality across locations", "Remake costs absorbed by the practice", "No visibility into case performance", "Expensive scanner CAPEX per operatory"], newWayLabel: "The New Way", newWayItems: ["One unified lab partner across all locations", "Automated quality checks catch issues before they happen", "96% first-time fit rate — guaranteed", "Real-time dashboard across every practice", "Premium scanners included at $0 CAPEX"]`;
+    : `EXAMPLE (mirror this verbosity exactly — but pull every specific claim from the brief, NEVER copy these example claims): oldWayLabel: "The Old Way", oldWayItems: ["Multiple disconnected vendors", "Inconsistent quality across locations", "Rework costs absorbed by the business", "No visibility into performance", "Expensive up-front equipment costs"], newWayLabel: "The New Way", newWayItems: ["One unified partner across all locations", "Automated quality checks catch issues before they happen", "Consistent, reliable results on every order", "Real-time dashboard across every location", "Premium equipment included at no up-front cost"]`;
 
   const rule7 = isDandyTenant
     ? `7. Use real Dandy product references: "AI Scan Review", "first-time fit rate", "same-day delivery", "on-site training", "dedicated rep", "Dandy scanner".`
@@ -7031,7 +7091,7 @@ export function buildDsoPracticesSystemPrompt(opts: { isDandyTenant: boolean; br
 These pages are shown to individual dental practices that are part of a DSO network — targeting practice owners, dentists, office managers, and clinical teams. Copy should be warm, specific, and ROI-focused at the practice level (chair-time savings, clinical quality, ease of onboarding, dedicated support). Avoid enterprise-level jargon (consolidation metrics, M&A, network KPIs).
 
 AVAILABLE DSO PRACTICES BLOCK TYPES (use these exact type strings — these are the only types you may use):
-- "dso-practice-nav": Sticky dark-green co-branded navbar. Props: dsoName (string — e.g. "Heartland Dental"), links (array of {label, anchor} — use anchor IDs matching blockSettings.anchorId on the relevant blocks, e.g. "#steps", "#products", "#perks", "#team"), ctaText (string — "Book a Demo"), ctaUrl (string — use Chili Piper URL if available), ctaMode ("chilipiper"|"link"). ALWAYS include this block first.
+- "dso-practice-nav": Sticky dark-green co-branded navbar. Props: dsoName (string — the DSO network's real name from the brief; leave "" if the brief names none), links (array of {label, anchor} — use anchor IDs matching blockSettings.anchorId on the relevant blocks, e.g. "#steps", "#products", "#perks", "#team"), ctaText (string — "Book a Demo"), ctaUrl (string — use Chili Piper URL if available), ctaMode ("chilipiper"|"link"). ALWAYS include this block first.
 - "dso-practice-hero": Full-width centered hero for practice landing pages. Props: ${heroEyebrowExample}, headline (string), subheadline (string), primaryCtaText (string), primaryCtaUrl (string), secondaryCtaText (string, optional), secondaryCtaUrl (string, optional), ${heroTrustExample}, backgroundStyle ("dark"|"white"|"muted")
 - "dso-paradigm-shift": CRITICAL old-way vs new-way comparison — this block MUST always have FULLY POPULATED bullet arrays. Props: eyebrow (string), headline (string), subheadline (string), oldWayLabel (string, e.g. "Traditional Lab"), oldWayItems (string[] — MANDATORY, EXACTLY 4–5 specific pain-point strings of 6–12 words each, NEVER empty, NEVER 1–3 word stubs), ${paradigmNewWayLabelHint}, newWayItems (string[] — MANDATORY, EXACTLY 4–5 specific benefit strings of 6–12 words each that directly counter each oldWayItem 1:1, NEVER empty, NEVER 1–3 word stubs), ctaText (string), ctaUrl (string), backgroundStyle ("dark"|"white"|"muted"). You MUST generate this block with real content tailored to the segment. ${paradigmExample}
 - "dso-stat-row": Bold impact metrics in a horizontal grid — 3–4 stats. Props: eyebrow (string), headline (string, optional), items (array of {value (e.g. "96%" or "2x" or "50+"), label (string), detail (string, optional)}), backgroundStyle ("dark"|"white"|"muted")
@@ -8995,7 +9055,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         // its facts are trusted for THIS generation: don't scan/flag the stats.
         // Color stripping is unrelated to facts and stays on in strict mode.
         if (!urlSourcedFacts) {
-          const pool = buildApprovedStatSet(brand, segmentContext, proofPoints, caseStudies);
+          const pool = buildApprovedStatSet(brand, segmentContext, proofPoints, caseStudies, prompt);
           strictMismatches = scanForUnapprovedStats(mergedBlocks, pool);
           if (strictMismatches.length > 0) {
             logStrictMismatches(strictMismatches, {
@@ -9083,6 +9143,14 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
             },
             "[generate-page] two-pass critique rewrote low-quality blocks",
           );
+          // The critique rewrite is a second model call AFTER the strict-facts
+          // scan — it can introduce brand-new unapproved numbers the earlier
+          // scan never saw. Re-scan the rewritten blocks so `strictMismatches`
+          // reflects what actually ships.
+          if (strict && !urlSourcedFacts) {
+            const pool = buildApprovedStatSet(brand, segmentContext, proofPoints, caseStudies, prompt);
+            strictMismatches = scanForUnapprovedStats(mergedBlocks, pool);
+          }
         }
       }
 
@@ -10025,11 +10093,18 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           const oldCandidates = asArr(props.oldWayItems) ?? asArr(props.oldWayBullets) ?? asArr(props.oldItems) ?? asArr(props.traditionalItems);
           const newCandidates = asArr(props.newWayItems) ?? asArr(props.newWayBullets) ?? asArr(props.newItems) ?? asArr(props.dandyItems);
 
-          // Segment-aware fallback content
+          // Segment-aware fallback content. The dental-specific numeric
+          // fallbacks ("96%+ fit rate", "2.3% remake rate", "5-day
+          // turnaround") are DANDY marketing claims — injecting them for any
+          // other tenant fabricates statistics on their page (and leaks a
+          // competitor's numbers). Non-Dandy tenants get industry-neutral,
+          // number-free contrasts instead.
           const segName = (segmentContext?.name ?? "").toLowerCase();
+          const isDandyForCopy =
+            isDandyTenant || resolvedCompanyName.toLowerCase() === "dandy";
           let fallbackOld: string[];
           let fallbackNew: string[];
-          if (segName.includes("practice") || useDsoPractices) {
+          if (isDandyForCopy && (segName.includes("practice") || useDsoPractices)) {
             fallbackOld = [
               "7–14 day turnaround on crowns and bridges",
               "Inconsistent fit rates require costly remakes",
@@ -10044,7 +10119,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
               "AI-powered shade matching for precise results",
               "Dedicated rep and on-site training from day one",
             ];
-          } else if (useDso) {
+          } else if (isDandyForCopy && useDso) {
             fallbackOld = [
               "Fragmented lab relationships across locations",
               "Inconsistent quality and turnaround network-wide",
@@ -10061,16 +10136,16 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
             ];
           } else {
             fallbackOld = [
-              "Long turnaround times delay patient treatment",
-              "Inconsistent fit rates lead to costly remakes",
-              "Opaque pricing makes budgeting difficult",
-              "No dedicated support when issues arise",
+              "Slow, unpredictable turnaround on every order",
+              "Inconsistent quality leads to costly rework",
+              "No visibility into status or history",
+              "Support is hard to reach when it matters",
             ];
             fallbackNew = [
-              "5-day average turnaround on restorations",
-              "96%+ first-time fit rate",
-              "Transparent per-unit pricing",
-              "Dedicated rep from day one",
+              "Faster, predictable turnaround",
+              "Consistent quality on every order",
+              "Real-time tracking from start to finish",
+              "A dedicated team from day one",
             ];
           }
 
@@ -10082,8 +10157,6 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           // Way" from prompt saturation. For non-Dandy tenants that is a leak —
           // rewrite it to the tenant's own brand ("The <Brand> Way") or a
           // neutral "The new way" when no brand name is set. Dandy keeps Dandy.
-          const isDandyForCopy =
-            isDandyTenant || resolvedCompanyName.toLowerCase() === "dandy";
           if (!isDandyForCopy && typeof props.newWayLabel === "string" && /dandy/i.test(props.newWayLabel)) {
             props.newWayLabel = resolvedCompanyName ? `The ${resolvedCompanyName} way` : "The new way";
           }
@@ -10708,6 +10781,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         dbTagsByType,
         brandName: brand.brandName,
         ctaUrl: cpUrl,
+        strictFacts: strict,
       });
     }
 
@@ -10745,7 +10819,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // generation's facts trusted: skip stat scanning/flagging. Color
       // stripping is fact-independent and stays on.
       if (!urlSourcedFacts) {
-        const pool = buildApprovedStatSet(brand, segmentContext, proofPoints, caseStudies);
+        const pool = buildApprovedStatSet(brand, segmentContext, proofPoints, caseStudies, prompt);
         strictMismatches = scanForUnapprovedStats(parsed.blocks, pool);
         if (strictMismatches.length > 0) {
           logStrictMismatches(strictMismatches, {
@@ -10840,6 +10914,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           },
           "[generate-page] two-pass critique rewrote low-quality blocks",
         );
+        // The critique rewrite runs AFTER the strict-facts scan — re-scan the
+        // rewritten blocks so a number the rewrite introduced can't ship
+        // unflagged (mirrors the template path).
+        if (strict && !urlSourcedFacts) {
+          const pool = buildApprovedStatSet(brand, segmentContext, proofPoints, caseStudies, prompt);
+          strictMismatches = scanForUnapprovedStats(parsed.blocks, pool);
+        }
       }
     }
 
@@ -11059,6 +11140,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       emitter.close();
       return;
     }
+    captureRouteError(err, "lp/generate-page", { tenantId, promptPath });
     sendErrorJson(500, { error: String(err) });
   }
 });

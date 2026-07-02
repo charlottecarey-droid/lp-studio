@@ -316,6 +316,12 @@ export type StreamEvent =
   | { event: "start"; sourceUrl: string; pagesScraped: string[]; hasScreenshot: boolean; sampledPalette: string[]; robots: RobotsVerdict }
   | { event: "dimension"; dimension: DimensionName; result: DimensionResult<unknown> }
   | { event: "done"; payload: OrchestratorPayload }
-  | { event: "error"; error: string };
+  | { event: "error"; error: string }
+  // Emitted by the stream route (not the orchestrator) while the evidence
+  // build runs — the phase before the first orchestrator event, which can
+  // take 40–75s on slow sites. Keeps bytes flowing so LB/proxy idle-response
+  // timeouts (commonly 60s) don't kill the connection, and gives the client
+  // something honest to show. Clients that don't know the event ignore it.
+  | { event: "phase"; phase: "scraping" };
 
 export const USER_AGENT = "LPStudio-BrandImport/1.0 (+https://lp-studio.replit.app)";

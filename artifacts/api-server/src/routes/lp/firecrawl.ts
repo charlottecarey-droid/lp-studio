@@ -17,6 +17,8 @@
 
 import * as cheerio from "cheerio";
 import { pickImagesFromDom } from "../../lib/brand-import/extractors/photography";
+import { isSafePublicHost } from "../../lib/brand-import/net-guard";
+import { fetchRobotsVerdict } from "../../lib/brand-import/robots";
 import { TtlCache } from "../../lib/ttlCache";
 import { makeSemaphore, envConcurrency } from "../../lib/semaphore";
 
@@ -181,6 +183,8 @@ export async function cachedFirecrawlScrape(
 export type ScrapeFailureReason =
   | "no_url"
   | "invalid_url"
+  /** Host resolves to a private/reserved address (or doesn't resolve) — SSRF guard. */
+  | "blocked_url"
   | "no_firecrawl_key"
   | "firecrawl_failed"
   | "empty_markdown";
@@ -218,6 +222,15 @@ function parseReferenceUrl(refUrl: string | undefined): URL | null {
   }
 }
 
+/** SSRF guard on user-supplied reference URLs — same rule as the brand-import
+ *  routes (`isSafePublicHost`): reject hosts that resolve to private/reserved
+ *  ranges. Firecrawl fetches from its own network, but the scrape's markdown,
+ *  screenshot and harvested image URLs all flow back into our pipeline, and
+ *  we must not act as a probe for internal names either. */
+async function guardReferenceHost(parsed: URL): Promise<boolean> {
+  return isSafePublicHost(parsed.hostname);
+}
+
 /** Scrape a single URL. Use when the user provided a deep link they want to
  *  reference as-is. */
 export async function maybeScrapeRef(
@@ -228,6 +241,7 @@ export async function maybeScrapeRef(
   if (!trimmed) return { scraped: null, failureReason: "no_url" };
   const parsed = parseReferenceUrl(trimmed);
   if (!parsed) return { scraped: null, failureReason: "invalid_url" };
+  if (!(await guardReferenceHost(parsed))) return { scraped: null, failureReason: "blocked_url" };
   const FIRECRAWL_KEY = process.env.FIRECRAWL_API_KEY;
   if (!FIRECRAWL_KEY) return { scraped: null, failureReason: "no_firecrawl_key" };
   const got = await cachedFirecrawlScrape(FIRECRAWL_KEY, parsed.toString(), tenantId);
@@ -317,6 +331,7 @@ export async function maybeMultiPageScrapeRef(
   if (!trimmed) return { scraped: null, failureReason: "no_url" };
   const parsed = parseReferenceUrl(trimmed);
   if (!parsed) return { scraped: null, failureReason: "invalid_url" };
+  if (!(await guardReferenceHost(parsed))) return { scraped: null, failureReason: "blocked_url" };
   const FIRECRAWL_KEY = process.env.FIRECRAWL_API_KEY;
   if (!FIRECRAWL_KEY) return { scraped: null, failureReason: "no_firecrawl_key" };
 
@@ -326,8 +341,20 @@ export async function maybeMultiPageScrapeRef(
   }
 
   const primaryUrl = parsed.toString();
+
+  // Robots gating for the fan-out: the user explicitly pasted the primary URL,
+  // but the companion paths (/about, /pricing, … and the image-only pass) are
+  // OUR idea — honor the site's robots.txt for them, same as the brand-import
+  // evidence builder does. Fail-open: an unreachable robots.txt allows all.
+  const robots = await fetchRobotsVerdict(primaryUrl, [
+    ...COMPANION_PATHS,
+    ...IMAGE_COMPANION_PATHS,
+  ]).catch(() => null);
+  const robotsAllows = (p: string) => robots?.allowed[p] !== false;
+
   const candidates: { url: string; primary: boolean }[] = [{ url: primaryUrl, primary: true }];
   for (const p of COMPANION_PATHS) {
+    if (!robotsAllows(p)) continue;
     const joined = safeJoinUrl(primaryUrl, p);
     if (joined && joined !== primaryUrl) candidates.push({ url: joined, primary: false });
   }
@@ -385,6 +412,7 @@ export async function maybeMultiPageScrapeRef(
     const seenCandidate = new Set(candidates.map((c) => c.url));
     const imageOnlyUrls: string[] = [];
     for (const p of IMAGE_COMPANION_PATHS) {
+      if (!robotsAllows(p)) continue;
       const joined = safeJoinUrl(primaryUrl, p);
       if (joined && !seenCandidate.has(joined)) {
         seenCandidate.add(joined);
@@ -479,6 +507,7 @@ export async function scrapeInspirationUrl(
 ): Promise<InspirationScrapeResult | null> {
   const parsed = parseReferenceUrl(refUrl);
   if (!parsed) return null;
+  if (!(await guardReferenceHost(parsed))) return null;
   const url = normalizeScrapeUrl(parsed.toString());
   const cacheKey = `${tenantId}::${url}`;
   const cached = inspirationScrapeCache.get(cacheKey);

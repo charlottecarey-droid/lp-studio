@@ -214,6 +214,9 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [colorImportFailed, setColorImportFailed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
+  // True once an import has been attempted this session; retries force-refresh
+  // the server cache (see handleImport).
+  const importAttemptedRef = useRef(false);
 
   const uploadLogo = useCallback(async (file: File) => {
     setUploadingLogo(true);
@@ -252,6 +255,11 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   async function handleImport() {
     const url = importUrl.trim();
     if (!url || importing) return;
+    // A retry after a failed/partial run must bypass the server's 24h cache —
+    // partial payloads (e.g. only logos succeeded during an AI-proxy blip) are
+    // cached and would otherwise replay the same failures all day.
+    const isRetry = importAttemptedRef.current;
+    importAttemptedRef.current = true;
     setImporting(true);
     setImportError("");
     setImportDims({
@@ -268,7 +276,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
     try {
       const imported = await streamBrandImportFromUrl(url, (dim, r) => {
         setImportDims((prev) => (prev ? { ...prev, [dim]: r.status } : prev));
-      });
+      }, { forceRefresh: isRetry });
 
       // Derive the prefill (reviewed-field seeds + the proposed map to persist)
       // from the raw import result. Setters fire only for fields the importer
@@ -307,6 +315,16 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       setImportError(
         err instanceof Error ? err.message : "Import failed. Check the URL and try again.",
       );
+      // Dimensions that never received a stream event would otherwise keep
+      // spinning next to the error message forever.
+      setImportDims((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev };
+        for (const key of Object.keys(next) as Array<keyof typeof next>) {
+          if (next[key] === "loading") next[key] = "failed";
+        }
+        return next;
+      });
     } finally {
       setImporting(false);
     }
