@@ -1,0 +1,35 @@
+{
+  "id": "strict-facts-small-pool",
+  "description": "Strict Facts ON with a deliberately small approved-stat pool — the model must not invent numbers beyond the two approved stats.",
+  "request": {
+    "prompt": "Landing page for NorthPeak Orthodontics' clear aligner program for adult patients. Make it proof-heavy and credible."
+  },
+  "brand": {
+    "plan": "growth",
+    "config": {
+      "brandName": "NorthPeak Orthodontics",
+      "companyDescription": "NorthPeak Orthodontics runs a clinician-supervised clear aligner program across four Colorado clinics.",
+      "aiStrictFactsMode": true,
+      "toneOfVoice": "Clinical warmth — evidence first, hype never.",
+      "targetAudience": "Adults 25-50 considering clear aligners",
+      "scrapedStats": [
+        { "value": "4 Colorado clinics", "label": "locations", "approvedForAi": true },
+        { "value": "9,000+ aligner cases", "label": "cases treated", "approvedForAi": true },
+        { "value": "98% satisfaction", "label": "unverified survey", "approvedForAi": false }
+      ],
+      "scrapedTestimonials": [
+        { "quote": "The monthly check-ins kept me on track — my teeth moved exactly on schedule.", "author": "Priya N.", "role": "Patient", "approvedForAi": true }
+      ],
+      "defaultCtaText": "Book a free consult",
+      "defaultCtaUrl": "https://northpeakortho.example.com/consult"
+    }
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Dandy", "Heartland", "Invisalign"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 4,
+    "maxBlocks": 30,
+    "allowedDegradationCodes": ["unapproved_stats_flagged", "placeholder_testimonials_stripped"],
+    "thresholds": { "fabricatedStat": 1, "placeholderLeak": 1 }
+  }
+}

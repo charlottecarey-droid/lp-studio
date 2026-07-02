@@ -1,0 +1,30 @@
+{
+  "id": "dso-practices",
+  "description": "Dental DSO practices path — multi-location practice keywords should route through the dental DSO writing path without leaking other dental brands.",
+  "request": {
+    "prompt": "Landing page for our dental support organization recruiting single-location practices ready to join a multi-location group. Focus on same-day supply savings, shared specialists, and keeping the practice's local name.",
+    "segmentContext": {
+      "id": "solo-practices",
+      "name": "Solo practice owners",
+      "description": "Independent dentists weighing the jump into a group"
+    }
+  },
+  "brand": {
+    "plan": "growth",
+    "config": {
+      "brandName": "Bluebird Dental Group",
+      "companyDescription": "Bluebird Dental Group unites neighborhood dental practices under shared operations while every office keeps its own name and team.",
+      "toneOfVoice": "Warm, local, reassuring.",
+      "targetAudience": "Independent dentists in the Southeast",
+      "defaultCtaText": "Talk to our practice team",
+      "defaultCtaUrl": "https://bluebirddental.example.com/talk"
+    }
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Dandy", "Heartland", "Summit Dental"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 5,
+    "maxBlocks": 30,
+    "thresholds": { "fabricatedStat": 0 }
+  }
+}

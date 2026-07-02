@@ -1,0 +1,32 @@
+{
+  "id": "b2b-microsite",
+  "description": "B2B microsite-style page — account-specific sales microsite tone for a named target account, with a segment context.",
+  "request": {
+    "prompt": "Build a one-page sales microsite pitching Relay Robotics' warehouse AMR fleet to the operations team at a national grocery distributor evaluating automation vendors this quarter. Speak to their pilot-to-rollout concerns and end with a CTA to schedule a site assessment.",
+    "segmentContext": {
+      "id": "grocery-distribution",
+      "name": "Grocery distribution ops",
+      "description": "VP Ops and DC managers at multi-site grocery distributors",
+      "valueProps": ["Deploy in one aisle before committing the whole DC", "No WMS rip-and-replace"],
+      "challenges": ["Labor shortages on night shifts", "Peak-season throughput"]
+    }
+  },
+  "brand": {
+    "plan": "scale",
+    "config": {
+      "brandName": "Relay Robotics",
+      "companyDescription": "Relay Robotics builds autonomous mobile robots that slot into existing warehouse workflows.",
+      "toneOfVoice": "Grounded, engineering-led, respectful of operators.",
+      "targetAudience": "Warehouse and DC operations leaders",
+      "defaultCtaText": "Schedule a site assessment",
+      "defaultCtaUrl": "https://relayrobotics.example.com/assessment"
+    }
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Dandy", "Heartland", "dental"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 5,
+    "maxBlocks": 30,
+    "thresholds": { "fabricatedStat": 0 }
+  }
+}

@@ -1,0 +1,2 @@
+# Per-run eval output — regenerate with `pnpm --filter @workspace/api-server eval:generation`.
+reports/

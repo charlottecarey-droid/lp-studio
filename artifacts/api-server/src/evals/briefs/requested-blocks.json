@@ -1,0 +1,25 @@
+{
+  "id": "requested-blocks",
+  "description": "Explicit requested-blocks prompt — the user demands pricing, FAQ and comparison sections; requested sections are mandatory.",
+  "request": {
+    "prompt": "Landing page for Kite Bookkeeping's fixed-price monthly bookkeeping plans. It MUST include: a pricing section with our three plans (Starter, Growth, Concierge), an FAQ section, and a comparison section contrasting us with hiring an in-house bookkeeper. CTA: pick a plan."
+  },
+  "brand": {
+    "plan": "growth",
+    "config": {
+      "brandName": "Kite Bookkeeping",
+      "companyDescription": "Kite Bookkeeping pairs small businesses with a dedicated bookkeeper on flat monthly plans.",
+      "toneOfVoice": "Clear, numerate, a little dry-witted.",
+      "targetAudience": "Owners of 1-20 person service businesses",
+      "defaultCtaText": "Pick a plan",
+      "defaultCtaUrl": "https://kitebooks.example.com/plans"
+    }
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Dandy", "Heartland", "dental"],
+    "requiredRoles": ["hero", "cta", "footer", "pricing", "faq", "comparison"],
+    "minBlocks": 7,
+    "maxBlocks": 30,
+    "thresholds": { "fabricatedStat": 0 }
+  }
+}

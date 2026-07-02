@@ -1,0 +1,28 @@
+{
+  "id": "generic-saas",
+  "description": "Generic horizontal SaaS (analytics) — the bread-and-butter freeform path with a mid-sized brand config.",
+  "request": {
+    "prompt": "Build a landing page for FlowMetric, a product analytics platform for mid-market SaaS teams. Highlight self-serve funnels, session replay, and a free 14-day trial. CTA: start free trial."
+  },
+  "brand": {
+    "plan": "growth",
+    "config": {
+      "brandName": "FlowMetric",
+      "companyDescription": "FlowMetric turns product event streams into answers for PMs who don't write SQL.",
+      "toneOfVoice": "Sharp, technical-but-friendly, zero fluff.",
+      "targetAudience": "Product managers and growth engineers at 50-500 person SaaS companies",
+      "avoidPhrases": ["actionable insights", "single source of truth"],
+      "primaryColor": "#4638e0",
+      "accentColor": "#19c37d",
+      "defaultCtaText": "Start free trial",
+      "defaultCtaUrl": "https://flowmetric.example.com/signup"
+    }
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Dandy", "Heartland", "dental", "dentist"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 5,
+    "maxBlocks": 30,
+    "thresholds": { "fabricatedStat": 0 }
+  }
+}

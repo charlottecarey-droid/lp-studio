@@ -1,0 +1,29 @@
+{
+  "id": "reference-url-unreachable",
+  "description": "Reference-URL path with an unreachable host — generation must degrade gracefully: no reference trust, a reference_scrape_failed degradation, and a complete page anyway.",
+  "request": {
+    "prompt": "Landing page for Quartz Legal's flat-fee trademark registration service for startups. CTA: start your filing.",
+    "referenceUrl": "https://eval-unreachable-host.invalid/"
+  },
+  "brand": {
+    "plan": "growth",
+    "config": {
+      "brandName": "Quartz Legal",
+      "companyDescription": "Quartz Legal offers flat-fee trademark search and registration handled by licensed attorneys.",
+      "toneOfVoice": "Plain-English legal — reassuring, never stuffy.",
+      "targetAudience": "Startup founders filing their first trademark",
+      "defaultCtaText": "Start your filing",
+      "defaultCtaUrl": "https://quartzlegal.example.com/start"
+    }
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Dandy", "Heartland", "dental"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 4,
+    "maxBlocks": 30,
+    "expectUsedReference": false,
+    "expectDegradationCodes": ["reference_scrape_failed"],
+    "allowedDegradationCodes": ["reference_scrape_failed"],
+    "thresholds": { "fabricatedStat": 0 }
+  }
+}

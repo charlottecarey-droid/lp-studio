@@ -1,0 +1,37 @@
+{
+  "id": "rich-brand-voice",
+  "description": "Rich brand — full voice profile, messaging pillars and avoid-phrases. The brand's own banned phrases must never appear (bannedPhrase threshold 1).",
+  "request": {
+    "prompt": "Landing page announcing Lantern Health's virtual-first primary care membership for self-insured employers. CTA: talk to our benefits team."
+  },
+  "brand": {
+    "plan": "scale",
+    "config": {
+      "brandName": "Lantern Health",
+      "companyDescription": "Lantern Health gives self-insured employers a virtual-first primary care benefit that employees actually use.",
+      "toneOfVoice": "Human, unhurried, quietly confident. Short sentences. No healthcare jargon.",
+      "positioningStatement": "For self-insured employers, Lantern is the primary-care benefit that lowers claims by catching problems early.",
+      "valuePropositions": ["Same-week appointments", "One app for care, referrals and records"],
+      "messagingPillars": [
+        { "label": "Care people use", "description": "Utilization is the metric that matters — design for it." },
+        { "label": "Upstream savings", "description": "Primary care that prevents downstream claims." }
+      ],
+      "toneKeywords": ["warm", "plainspoken", "steady"],
+      "avoidPhrases": ["healthcare reimagined", "patient journey", "care ecosystem"],
+      "terminologyPreferred": ["members", "care team"],
+      "terminologyAvoid": ["users", "consumers"],
+      "writingDos": ["Name the reader's actual worry before the product"],
+      "writingDonts": ["Never promise clinical outcomes"],
+      "voiceProfile": { "profile": { "tone": ["warm", "direct"], "summary": "Speaks like a trusted GP, not a benefits brochure." } },
+      "defaultCtaText": "Talk to our benefits team",
+      "defaultCtaUrl": "https://lanternhealth.example.com/employers"
+    }
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Dandy", "Heartland", "dental"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 5,
+    "maxBlocks": 30,
+    "thresholds": { "fabricatedStat": 0, "bannedPhrase": 1 }
+  }
+}

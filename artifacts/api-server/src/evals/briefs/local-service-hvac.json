@@ -1,0 +1,25 @@
+{
+  "id": "local-service-hvac",
+  "description": "Local service business (HVAC) — small brand config, service-area copy, phone-first CTA.",
+  "request": {
+    "prompt": "Landing page for Beacon Heating & Air, a family-owned HVAC company serving the Raleigh-Durham area. Emphasize 24/7 emergency service, upfront pricing, and NATE-certified technicians. CTA: call now or request a same-week appointment."
+  },
+  "brand": {
+    "plan": "starter",
+    "config": {
+      "brandName": "Beacon Heating & Air",
+      "companyDescription": "Family-owned HVAC service and installation across the Triangle since 1998.",
+      "toneOfVoice": "Neighborly, direct, trustworthy.",
+      "targetAudience": "Homeowners in Raleigh-Durham",
+      "defaultCtaText": "Request an appointment",
+      "defaultCtaUrl": "https://beaconhvac.example.com/schedule"
+    }
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Dandy", "Heartland", "dental", "SaaS"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 4,
+    "maxBlocks": 25,
+    "thresholds": { "fabricatedStat": 0 }
+  }
+}

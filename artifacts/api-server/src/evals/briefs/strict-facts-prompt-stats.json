@@ -1,0 +1,28 @@
+{
+  "id": "strict-facts-prompt-stats",
+  "description": "Strict Facts ON where the USER's prompt supplies the numbers — prompt-typed stats are approved by definition and must survive unflagged.",
+  "request": {
+    "prompt": "Page for Harbor Freight Logistics' same-day port drayage service. Use our real numbers: 93% on-time pickup, 45-minute average gate turnaround, and 12,000 containers moved in 2025. CTA: get a lane quote."
+  },
+  "brand": {
+    "plan": "growth",
+    "config": {
+      "brandName": "Harbor Freight Logistics",
+      "companyDescription": "Port drayage and transloading for importers moving freight through the Port of Oakland.",
+      "aiStrictFactsMode": true,
+      "toneOfVoice": "Operational, exact, no-nonsense.",
+      "targetAudience": "Freight managers at mid-size importers",
+      "defaultCtaText": "Get a lane quote",
+      "defaultCtaUrl": "https://harborfreightlogistics.example.com/quote"
+    }
+  },
+  "expectations": {
+    "allowedStats": ["93% on-time pickup", "45-minute average gate turnaround", "12,000 containers", "2025"],
+    "subjectLeakMarkers": ["Dandy", "Heartland", "dental"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 4,
+    "maxBlocks": 30,
+    "allowedDegradationCodes": ["unapproved_stats_flagged", "placeholder_testimonials_stripped"],
+    "thresholds": { "fabricatedStat": 1, "placeholderLeak": 1 }
+  }
+}

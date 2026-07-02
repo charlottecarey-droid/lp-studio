@@ -1,0 +1,36 @@
+{
+  "id": "template-rewrite",
+  "description": "Template-rewrite path — an explicit templateId whose layout must be preserved while copy is rewritten for a new audience (imagery kept).",
+  "request": {
+    "prompt": "Rewrite this page for Cascade Payroll's launch of contractor payments in Canada. Keep it concise and compliance-aware.",
+    "templateId": "$TEMPLATE",
+    "replaceImagery": false
+  },
+  "brand": {
+    "plan": "growth",
+    "config": {
+      "brandName": "Cascade Payroll",
+      "companyDescription": "Cascade Payroll runs payroll and contractor payments for distributed teams in the US and Canada.",
+      "toneOfVoice": "Precise, calm, compliance-literate.",
+      "targetAudience": "Heads of finance at 20-200 person companies",
+      "defaultCtaText": "See a demo",
+      "defaultCtaUrl": "https://cascadepayroll.example.com/demo"
+    },
+    "template": {
+      "title": "Payroll Launch Template",
+      "blocks": [
+        { "id": "tpl-hero", "type": "hero", "props": { "headline": "Payroll that keeps up", "subheadline": "Run payroll in minutes, not days", "imageUrl": "https://images.example.com/eval-template-hero.jpg", "ctaText": "See a demo", "ctaUrl": "#" } },
+        { "id": "tpl-pillars", "type": "value-pillars-icon-trio", "props": { "eyebrow": "Why Cascade", "heading": "Built for distributed teams", "subhead": "Everything payroll, in one place", "items": [ { "icon": "Zap", "title": "Fast runs", "description": "Approve a full payroll run before your coffee cools." }, { "icon": "ShieldCheck", "title": "Compliant", "description": "Filings handled in every state you hire in." }, { "icon": "Gauge", "title": "Transparent", "description": "Flat pricing with no per-run surprises." } ] } },
+        { "id": "tpl-cta", "type": "bottom-cta", "props": { "headline": "Ready to switch?", "ctaText": "See a demo", "ctaUrl": "#" } },
+        { "id": "tpl-footer", "type": "footer", "props": { "companyName": "Cascade Payroll" } }
+      ]
+    }
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Dandy", "Heartland", "dental"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 3,
+    "maxBlocks": 20,
+    "thresholds": { "fabricatedStat": 0 }
+  }
+}

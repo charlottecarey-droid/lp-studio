@@ -1,0 +1,25 @@
+{
+  "id": "event-page",
+  "description": "Event page — a dated summit with agenda/registration intent; event branding passes must not break structure or leak placeholders.",
+  "request": {
+    "prompt": "Event page for the Meridian CX Summit 2026, a one-day customer-experience leadership summit on October 8, 2026 at the Austin Convention Center. Include what attendees will learn, who should attend, and a register CTA. Early-bird pricing ends September 1, 2026."
+  },
+  "brand": {
+    "plan": "growth",
+    "config": {
+      "brandName": "Meridian CX",
+      "companyDescription": "Meridian CX runs practitioner-led customer experience conferences and workshops.",
+      "toneOfVoice": "Energetic but substantive — practitioners, not influencers.",
+      "targetAudience": "CX and support leaders at consumer brands",
+      "defaultCtaText": "Register now",
+      "defaultCtaUrl": "https://meridiancx.example.com/summit"
+    }
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Dandy", "Heartland", "dental"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 4,
+    "maxBlocks": 30,
+    "thresholds": { "fabricatedStat": 0 }
+  }
+}

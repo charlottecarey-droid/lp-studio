@@ -1,0 +1,443 @@
+/**
+ * Hermetic unit tests for the golden-brief eval scorers.
+ *
+ * Every scorer is a pure function over already-materialized generation output
+ * — no DB, no network, no OpenAI. This suite is the fast local check
+ * (`npx vitest run src/evals/`); the live runner is src/evals/run.ts.
+ */
+import { describe, it, expect } from "vitest";
+import {
+  DEFAULT_THRESHOLDS,
+  approvedStatPool,
+  bannedPhraseScore,
+  degradationScore,
+  emptyImageSlotScore,
+  fabricatedStatScore,
+  isApprovedStat,
+  placeholderLeakScore,
+  scoreGeneration,
+  structuralScore,
+  subjectLeakScore,
+} from "./scorers";
+import type { EvalBlock, GenerationResultLike } from "./types";
+
+function block(type: string, props: Record<string, unknown>, id = `${type}-1`): EvalBlock {
+  return { id, type, props };
+}
+
+/** A structurally-complete, squeaky-clean page used as the happy-path base. */
+function cleanPage(): EvalBlock[] {
+  return [
+    block("hero", {
+      headline: "Bookkeeping without the shoebox",
+      subheadline: "A dedicated bookkeeper closes your books every month",
+      imageUrl: "https://images.example.com/hero.jpg",
+      ctaText: "Pick a plan",
+      ctaUrl: "https://kite.example.com/plans",
+    }),
+    block("benefits-grid", {
+      heading: "Why owners switch",
+      items: [
+        { title: "Monthly close", description: "Books done by the 5th, every month." },
+        { title: "Flat pricing", description: "One invoice, no hourly meters." },
+      ],
+    }),
+    block("bottom-cta", { headline: "Ready when you are", ctaText: "Pick a plan", ctaUrl: "#" }),
+    block("footer", { companyName: "Kite Bookkeeping" }),
+  ];
+}
+
+// ── fabricatedStatScore ──────────────────────────────────────────────────────
+
+describe("fabricatedStatScore", () => {
+  it("returns 1 with no violations on a page without stat-like copy", () => {
+    const r = fabricatedStatScore(cleanPage(), []);
+    expect(r.score).toBe(1);
+    expect(r.violations).toEqual([]);
+  });
+
+  it("flags a stat-like value that is not in the allowed pool", () => {
+    const blocks = [
+      block("stat-callout", { stats: [{ value: "97%", label: "success rate" }] }),
+    ];
+    const r = fabricatedStatScore(blocks, []);
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0].scorer).toBe("fabricatedStat");
+    expect(r.violations[0].value).toBe("97%");
+    expect(r.violations[0].path).toContain("props.stats[0].value");
+    expect(r.score).toBe(0.75);
+  });
+
+  it("passes stats present in the allowed pool (case-insensitive substring, both ways)", () => {
+    const blocks = [
+      block("stat-callout", { stats: [{ value: "9,000+ aligner cases", label: "cases" }] }),
+      block("hero", { headline: "Over 9,000+ Aligner Cases treated", imageUrl: "x" }, "hero-2"),
+    ];
+    const r = fabricatedStatScore(blocks, ["9,000+ aligner cases"]);
+    expect(r.violations).toEqual([]);
+    expect(r.score).toBe(1);
+  });
+
+  it("flags prose containing an unapproved stat-shaped phrase outside stat fields", () => {
+    const blocks = [
+      block("hero", { headline: "Trusted by 12,000 customers worldwide" }),
+    ];
+    const r = fabricatedStatScore(blocks, []);
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0].value).toContain("12,000 customers");
+  });
+
+  it("skips numeric idioms shared with production (time/ratio shorthand)", () => {
+    const blocks = [
+      block("features", { items: [{ value: "24/7", label: "support hours" }] }),
+    ];
+    const r = fabricatedStatScore(blocks, []);
+    expect(r.violations).toEqual([]);
+  });
+
+  it("floors the score at 0 past four violations", () => {
+    const stats = ["91%", "92%", "93%", "94%", "95%"].map((v) => ({ value: v, label: "made up" }));
+    const r = fabricatedStatScore([block("stat-callout", { stats })], []);
+    expect(r.violations).toHaveLength(5);
+    expect(r.score).toBe(0);
+  });
+});
+
+describe("isApprovedStat", () => {
+  it("treats empty and non-numeric values as approved", () => {
+    expect(isApprovedStat("", new Set())).toBe(true);
+    expect(isApprovedStat("fast and friendly", new Set())).toBe(true);
+  });
+
+  it("substring-matches the pool in either direction", () => {
+    const pool = new Set(["94% clinician retention"]);
+    expect(isApprovedStat("94%", pool)).toBe(true);
+    expect(isApprovedStat("Retention of 94% clinician retention rate", pool)).toBe(true);
+    expect(isApprovedStat("81%", pool)).toBe(false);
+  });
+});
+
+describe("approvedStatPool", () => {
+  it("approves stat tokens typed in the user's prompt", () => {
+    const pool = approvedStatPool({}, "Use our real numbers: 93% on-time pickup and 12,000 containers moved.");
+    expect(isApprovedStat("93%", pool)).toBe(true);
+    expect(isApprovedStat("12,000 containers", pool)).toBe(true);
+    expect(isApprovedStat("77%", pool)).toBe(false);
+  });
+
+  it("collects approved product claims, segment stats and scraped stats; skips unapproved", () => {
+    const pool = approvedStatPool(
+      {
+        productLines: [
+          { claims: [{ text: "91% reported calmer skin in 2 weeks", approvedForAi: true }, { text: "99% invented", approvedForAi: false }, "3 essential ceramides"] },
+        ],
+        segments: [{ stats: [{ value: "120+ supported practices" }, { value: "13% secret", approvedForAi: false }] }],
+        scrapedStats: [{ value: "4 Colorado clinics", approvedForAi: true }, { value: "98% satisfaction", approvedForAi: false }],
+      },
+      "",
+      ["45-minute turnaround"],
+    );
+    expect(pool.has("91% reported calmer skin in 2 weeks")).toBe(true);
+    expect(pool.has("3 essential ceramides")).toBe(true);
+    expect(pool.has("120+ supported practices")).toBe(true);
+    expect(pool.has("4 colorado clinics")).toBe(true);
+    expect(pool.has("45-minute turnaround")).toBe(true);
+    expect(pool.has("99% invented")).toBe(false);
+    expect(pool.has("13% secret")).toBe(false);
+    expect(pool.has("98% satisfaction")).toBe(false);
+  });
+});
+
+// ── placeholderLeakScore ─────────────────────────────────────────────────────
+
+describe("placeholderLeakScore", () => {
+  it("returns 1 on clean copy", () => {
+    expect(placeholderLeakScore(cleanPage()).score).toBe(1);
+  });
+
+  it.each([
+    "Add a quote in brand settings",
+    "Replace with your own headline",
+    "lorem ipsum dolor sit amet",
+    "Customer Name",
+    "[Insert company name]",
+    "{{firstName}}, welcome back",
+    "This is placeholder text",
+  ])("flags %j", (text) => {
+    const r = placeholderLeakScore([block("testimonial", { quote: text })]);
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0].scorer).toBe("placeholderLeak");
+  });
+
+  it("flags placeholders nested inside item arrays with a precise path", () => {
+    const r = placeholderLeakScore([
+      block("testimonial-grid", {
+        testimonials: [
+          { quote: "Real happy customer words", author: "Dana R." },
+          { quote: "Add a quote in brand settings", author: "X" },
+        ],
+      }),
+    ]);
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0].path).toContain("testimonials[1].quote");
+  });
+
+  it("does not flag ordinary copy mentioning settings or names", () => {
+    const r = placeholderLeakScore([
+      block("features", { heading: "Change your notification settings anytime" }),
+    ]);
+    expect(r.violations).toEqual([]);
+  });
+});
+
+// ── emptyImageSlotScore ──────────────────────────────────────────────────────
+
+describe("emptyImageSlotScore", () => {
+  it("flags an empty image prop on a hero (image-led role)", () => {
+    const r = emptyImageSlotScore([block("hero", { headline: "Hi", imageUrl: "" })]);
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0].path).toBe("blocks[0].props.imageUrl");
+    expect(r.violations[0].detail).toContain("hero");
+  });
+
+  it("re-anchors paths at the block's real index", () => {
+    const r = emptyImageSlotScore([
+      block("footer", { companyName: "Acme" }),
+      block("hero", { headline: "Hi", imageUrl: "" }),
+    ]);
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0].path).toBe("blocks[1].props.imageUrl");
+  });
+
+  it("ignores empty image props on non-image-led blocks (icon-fallback cards)", () => {
+    const r = emptyImageSlotScore([
+      block("value-pillars-icon-trio", { items: [{ icon: "Zap", image: "", title: "Fast" }] }),
+    ]);
+    expect(r.violations).toEqual([]);
+  });
+
+  it("honors caller-supplied extra image-led types", () => {
+    const r = emptyImageSlotScore(
+      [block("value-pillars-headline-badge", { items: [{ image: "", title: "Fast" }] })],
+      new Set(["value-pillars-headline-badge"]),
+    );
+    expect(r.violations).toHaveLength(1);
+  });
+
+  it("passes filled image slots", () => {
+    const r = emptyImageSlotScore([block("hero", { imageUrl: "https://img.example.com/a.jpg" })]);
+    expect(r.score).toBe(1);
+  });
+});
+
+// ── bannedPhraseScore ────────────────────────────────────────────────────────
+
+describe("bannedPhraseScore", () => {
+  it("returns 1 on clean copy", () => {
+    expect(bannedPhraseScore(cleanPage()).score).toBe(1);
+  });
+
+  it("flags a global cliché", () => {
+    const r = bannedPhraseScore([block("hero", { headline: "The industry-leading platform" })]);
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0].value).toBe("industry-leading");
+    expect(r.violations[0].detail).toContain("global");
+  });
+
+  it("flags the brand's own avoid-phrases and attributes them to the brand", () => {
+    const r = bannedPhraseScore(
+      [block("hero", { headline: "Your smile journey starts here" })],
+      ["smile journey"],
+    );
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0].value).toBe("smile journey");
+    expect(r.violations[0].detail).toContain("brand");
+  });
+});
+
+// ── structuralScore ──────────────────────────────────────────────────────────
+
+describe("structuralScore", () => {
+  it("scores 1 on a complete page with unique ids and clean props", () => {
+    const r = structuralScore(cleanPage());
+    expect(r.score).toBe(1);
+    expect(r.violations).toEqual([]);
+  });
+
+  it("scores 0 with a clear violation when there are no blocks", () => {
+    expect(structuralScore([]).score).toBe(0);
+    expect(structuralScore(undefined).score).toBe(0);
+  });
+
+  it("flags a missing required role", () => {
+    const blocks = cleanPage().filter((b) => b.type !== "footer");
+    const r = structuralScore(blocks);
+    expect(r.violations.some((v) => v.detail?.includes('required role "footer"'))).toBe(true);
+  });
+
+  it("supports custom required roles (pricing/faq/comparison)", () => {
+    const r = structuralScore(cleanPage(), ["hero", "pricing"]);
+    expect(r.violations.some((v) => v.detail?.includes('required role "pricing"'))).toBe(true);
+    expect(r.violations.some((v) => v.detail?.includes('required role "hero"'))).toBe(false);
+  });
+
+  it("flags duplicate and missing block ids", () => {
+    const blocks = [
+      block("hero", { headline: "A" }, "dup"),
+      block("bottom-cta", { headline: "B" }, "dup"),
+      { type: "footer", props: { companyName: "Acme" } },
+    ];
+    const r = structuralScore(blocks as EvalBlock[]);
+    expect(r.violations.some((v) => v.detail?.includes("duplicate block id"))).toBe(true);
+    expect(r.violations.some((v) => v.detail === "missing block id")).toBe(true);
+  });
+
+  it("flags null prop values deep inside arrays and objects", () => {
+    const blocks = [
+      block("hero", { headline: "Hi", nested: { sub: null } }),
+      block("bottom-cta", { items: [{ title: "ok" }, null] }, "cta-1"),
+      block("footer", { companyName: "Acme" }, "f-1"),
+    ];
+    const r = structuralScore(blocks);
+    const nullHits = r.violations.filter((v) => v.detail === "null/undefined prop value");
+    expect(nullHits).toHaveLength(2);
+    expect(nullHits.map((v) => v.path)).toContain("blocks[0].props.nested.sub");
+    expect(nullHits.map((v) => v.path)).toContain("blocks[1].props.items[1]");
+  });
+
+  it("flags blocks whose props is not an object", () => {
+    const r = structuralScore([{ id: "x", type: "hero", props: "oops" } as EvalBlock, ...cleanPage()]);
+    expect(r.violations.some((v) => v.detail === "props is not an object")).toBe(true);
+  });
+});
+
+// ── subjectLeakScore ─────────────────────────────────────────────────────────
+
+describe("subjectLeakScore", () => {
+  it("returns 1 when no markers are configured", () => {
+    expect(subjectLeakScore(cleanPage(), []).score).toBe(1);
+  });
+
+  it("flags a marker in block copy, case-insensitively, on word boundaries", () => {
+    const blocks = [block("hero", { headline: "Why dentists choose dandy labs" })];
+    const r = subjectLeakScore(blocks, ["Dandy"]);
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0].value).toBe("Dandy");
+  });
+
+  it("does not flag partial-word matches", () => {
+    const blocks = [block("hero", { headline: "Dandelions bloom in spring" })];
+    expect(subjectLeakScore(blocks, ["Dandy"]).violations).toEqual([]);
+  });
+
+  it("scans the page title too", () => {
+    const r = subjectLeakScore([], ["Heartland"], "The Heartland playbook");
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0].path).toBe("title");
+  });
+});
+
+// ── degradationScore ─────────────────────────────────────────────────────────
+
+describe("degradationScore", () => {
+  it("returns 1 with no degradations or only info-severity entries", () => {
+    expect(degradationScore(undefined).score).toBe(1);
+    expect(
+      degradationScore([{ code: "default_role_injected", severity: "info", detail: "x" }]).score,
+    ).toBe(1);
+  });
+
+  it("penalizes warn-severity degradations", () => {
+    const r = degradationScore([
+      { code: "ai_image_generation_failed", severity: "warn", detail: "2 slots empty" },
+    ]);
+    expect(r.score).toBe(0.75);
+    expect(r.violations[0].value).toBe("ai_image_generation_failed");
+  });
+
+  it("does not penalize allow-listed warn codes", () => {
+    const r = degradationScore(
+      [{ code: "reference_scrape_failed", severity: "warn", detail: "host unreachable" }],
+      ["reference_scrape_failed"],
+    );
+    expect(r.score).toBe(1);
+  });
+});
+
+// ── scoreGeneration (aggregate) ──────────────────────────────────────────────
+
+describe("scoreGeneration", () => {
+  const cleanResult: GenerationResultLike = {
+    title: "Kite Bookkeeping",
+    slug: "kite-bookkeeping",
+    blocks: cleanPage(),
+    degradations: [],
+    usedReference: false,
+  };
+
+  it("passes a clean result with default thresholds", () => {
+    const report = scoreGeneration({ briefId: "unit-clean", result: cleanResult });
+    expect(report.passed).toBe(true);
+    expect(report.failures).toEqual([]);
+    expect(report.scores.structural).toBe(1);
+    expect(report.scores.placeholderLeak).toBe(1);
+    expect(Object.keys(report.scores).sort()).toEqual(Object.keys(DEFAULT_THRESHOLDS).sort());
+  });
+
+  it("fails when a scorer lands under its threshold and lists why", () => {
+    const dirty: GenerationResultLike = {
+      ...cleanResult,
+      blocks: [
+        ...cleanPage(),
+        block("testimonial", { quote: "Add a quote in brand settings", author: "X" }, "t-1"),
+      ],
+    };
+    const report = scoreGeneration({ briefId: "unit-dirty", result: dirty });
+    expect(report.passed).toBe(false);
+    expect(report.failures.some((f) => f.startsWith("placeholderLeak"))).toBe(true);
+    expect(report.violations.some((v) => v.scorer === "placeholderLeak")).toBe(true);
+  });
+
+  it("enforces block-count and usedReference expectations", () => {
+    const report = scoreGeneration({
+      briefId: "unit-exp",
+      result: { ...cleanResult, usedReference: true },
+      expectations: { minBlocks: 10, expectUsedReference: false },
+    });
+    expect(report.passed).toBe(false);
+    expect(report.failures.some((f) => f.includes("at least 10"))).toBe(true);
+    expect(report.failures.some((f) => f.includes("usedReference"))).toBe(true);
+  });
+
+  it("requires expected degradation codes to be present", () => {
+    const report = scoreGeneration({
+      briefId: "unit-deg",
+      result: cleanResult,
+      expectations: { expectDegradationCodes: ["reference_scrape_failed"] },
+    });
+    expect(report.passed).toBe(false);
+    expect(report.failures.some((f) => f.includes("reference_scrape_failed"))).toBe(true);
+  });
+
+  it("threads allowedStats + brandAvoidPhrases through to the scorers", () => {
+    const result: GenerationResultLike = {
+      ...cleanResult,
+      blocks: [
+        ...cleanPage(),
+        block("stat-callout", { stats: [{ value: "93% on-time", label: "pickup" }] }, "s-1"),
+        block("content", { body: "A smile journey for every patient" }, "c-1"),
+      ],
+    };
+    const report = scoreGeneration({
+      briefId: "unit-thread",
+      result,
+      allowedStats: ["93% on-time"],
+      brandAvoidPhrases: ["smile journey"],
+      expectations: { thresholds: { fabricatedStat: 1, bannedPhrase: 1 } },
+    });
+    expect(report.scores.fabricatedStat).toBe(1);
+    expect(report.scores.bannedPhrase).toBe(0.75);
+    expect(report.passed).toBe(false);
+    expect(report.failures.some((f) => f.startsWith("bannedPhrase"))).toBe(true);
+  });
+});

@@ -1,0 +1,18 @@
+{
+  "id": "minimal-brand",
+  "description": "Minimal brand — empty brand config (no brandName at all). The page must still be structurally complete and free of placeholder leakage.",
+  "request": {
+    "prompt": "Create a landing page for a weekend pottery workshop for beginners in Portland. Two sessions per day, small classes, all materials included. CTA: reserve a seat."
+  },
+  "brand": {
+    "plan": "starter",
+    "config": {}
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Dandy", "Heartland", "dental"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 4,
+    "maxBlocks": 25,
+    "thresholds": { "fabricatedStat": 0 }
+  }
+}

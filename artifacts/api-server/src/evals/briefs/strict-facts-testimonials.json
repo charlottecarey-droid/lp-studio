@@ -1,0 +1,34 @@
+{
+  "id": "strict-facts-testimonials",
+  "description": "Strict Facts ON with an approved testimonial pool — quote blocks must use ONLY the two real quotes; no invented attributions, no placeholder cards.",
+  "request": {
+    "prompt": "Proof-led landing page for Fernwood Staffing's healthcare travel-nurse placement service. Lean on our real reviews and keep every claim verifiable."
+  },
+  "brand": {
+    "plan": "growth",
+    "config": {
+      "brandName": "Fernwood Staffing",
+      "companyDescription": "Fernwood Staffing places travel nurses in credentialed contracts across the Pacific Northwest.",
+      "aiStrictFactsMode": true,
+      "toneOfVoice": "Respectful, direct, nurse-first.",
+      "targetAudience": "RNs considering travel contracts",
+      "scrapedStats": [
+        { "value": "1,400 placements", "label": "completed placements", "approvedForAi": true }
+      ],
+      "scrapedTestimonials": [
+        { "quote": "My recruiter answered on a Sunday and had my licensing sorted in a week.", "author": "Dana R.", "role": "ICU RN", "approvedForAi": true },
+        { "quote": "First agency that showed me the full pay breakdown before I signed.", "author": "Marcus T.", "role": "ER RN", "approvedForAi": true }
+      ],
+      "defaultCtaText": "See open contracts",
+      "defaultCtaUrl": "https://fernwoodstaffing.example.com/contracts"
+    }
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Dandy", "Heartland", "dental"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 4,
+    "maxBlocks": 30,
+    "allowedDegradationCodes": ["unapproved_stats_flagged", "placeholder_testimonials_stripped"],
+    "thresholds": { "fabricatedStat": 1, "placeholderLeak": 1 }
+  }
+}

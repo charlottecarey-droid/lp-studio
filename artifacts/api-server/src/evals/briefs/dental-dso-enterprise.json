@@ -1,0 +1,43 @@
+{
+  "id": "dental-dso-enterprise",
+  "description": "Enterprise dental DSO brand (rich config, non-strict) — flagship recruiting page for practice owners considering affiliation.",
+  "request": {
+    "prompt": "Create a landing page for Summit Dental Partners aimed at practice owners of 3+ location groups considering DSO affiliation. Emphasize clinical autonomy, centralized back-office support, and a clear path to equity. Primary CTA: book a confidential consultation."
+  },
+  "brand": {
+    "plan": "growth",
+    "config": {
+      "brandName": "Summit Dental Partners",
+      "companyDescription": "Summit Dental Partners is a clinician-led dental support organization partnering with growth-minded practices across the Mountain West.",
+      "toneOfVoice": "Confident, collegial, plain-spoken. Speaks dentist-to-dentist, never corporate.",
+      "targetAudience": "Owner-dentists of multi-location practices evaluating DSO affiliation",
+      "messagingPillars": [
+        { "label": "Clinical autonomy", "description": "Dentists keep full control of diagnosis and treatment planning." },
+        { "label": "Back-office lift", "description": "Centralized billing, credentialing, HR and procurement." },
+        { "label": "Equity path", "description": "Joint-venture ownership models with transparent economics." }
+      ],
+      "avoidPhrases": ["partner in excellence", "smile journey"],
+      "primaryColor": "#0e4d64",
+      "accentColor": "#e8a33d",
+      "defaultCtaText": "Book a confidential consultation",
+      "defaultCtaUrl": "https://summitdentalpartners.example.com/consult",
+      "segments": [
+        {
+          "id": "practice-owners",
+          "name": "Practice owners",
+          "stats": [
+            { "value": "120+ supported practices", "label": "practices in the network", "approvedForAi": true },
+            { "value": "94% clinician retention", "label": "clinician retention", "approvedForAi": true }
+          ]
+        }
+      ]
+    }
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Dandy", "Heartland", "Aspen Dental", "Pacific Dental"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 5,
+    "maxBlocks": 30,
+    "thresholds": { "fabricatedStat": 0 }
+  }
+}

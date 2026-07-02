@@ -1,0 +1,37 @@
+{
+  "id": "ecommerce-skincare",
+  "description": "E-commerce (DTC skincare) — product-led page, product lines with approved claims in the brand config.",
+  "request": {
+    "prompt": "Product landing page for Marlowe Botanicals' new Barrier Repair Serum. Lead with the clean-formulation story, include the product lineup, and drive to shop now."
+  },
+  "brand": {
+    "plan": "growth",
+    "config": {
+      "brandName": "Marlowe Botanicals",
+      "companyDescription": "Marlowe Botanicals makes small-batch, dermatologist-tested skincare from traceable botanical ingredients.",
+      "toneOfVoice": "Calm, sensorial, honest — never medical-sounding hype.",
+      "targetAudience": "Ingredient-conscious skincare shoppers 25-45",
+      "productLines": [
+        {
+          "name": "Barrier Repair Serum",
+          "description": "Ceramide-rich overnight serum for compromised skin barriers.",
+          "valueProps": ["Fragrance-free", "Dermatologist tested"],
+          "claims": [
+            { "text": "91% reported calmer skin in 2 weeks", "approvedForAi": true },
+            { "text": "Formulated with 3 essential ceramides", "approvedForAi": true }
+          ],
+          "keywords": ["serum", "barrier", "ceramide"]
+        }
+      ],
+      "defaultCtaText": "Shop now",
+      "defaultCtaUrl": "https://marlowebotanicals.example.com/shop"
+    }
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Dandy", "Heartland", "dental"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 5,
+    "maxBlocks": 30,
+    "thresholds": { "fabricatedStat": 0 }
+  }
+}
