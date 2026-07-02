@@ -1,0 +1,58 @@
+# CI gate (July 2026): typecheck + hermetic tests on every push/PR to the
+# deploy branches. DB-dependent integration suites self-skip when Postgres is
+# unreachable (see api-server test-utils), so this run is hermetic by design —
+# the full integration matrix still runs in the Replit environment.
+#
+# mockup-sandbox is excluded from the typecheck until its `@/blocks/*` path
+# mapping is fixed (pre-existing breakage; tracked separately).
+name: ci
+
+on:
+  push:
+    branches: [staging, master]
+  pull_request:
+    branches: [staging, master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck libs
+        run: pnpm run typecheck:libs
+
+      - name: Typecheck api-server
+        working-directory: artifacts/api-server
+        run: npx tsc -p tsconfig.json --noEmit
+
+      - name: Typecheck lp-studio
+        working-directory: artifacts/lp-studio
+        run: npx tsc -p tsconfig.json --noEmit
+
+      - name: Test api-server (hermetic — DB suites self-skip)
+        working-directory: artifacts/api-server
+        env:
+          DATABASE_URL: postgres://ci:ci@127.0.0.1:5432/ci_unreachable
+        run: npx vitest run src/
+
+      - name: Test lp-studio
+        working-directory: artifacts/lp-studio
+        run: npx vitest run src/
