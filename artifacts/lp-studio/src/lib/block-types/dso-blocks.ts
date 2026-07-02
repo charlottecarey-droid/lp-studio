@@ -743,6 +743,8 @@ export interface DsoFaqBlockProps {
   headline?: string;
   subheadline?: string;
   items: DsoFaqItem[];
+  /** Size of the question rows and their +/× toggles. Default "md". */
+  itemSize?: "sm" | "md" | "lg";
   ctaText?: string;
   ctaUrl?: string;
   ctaMode?: CtaMode;

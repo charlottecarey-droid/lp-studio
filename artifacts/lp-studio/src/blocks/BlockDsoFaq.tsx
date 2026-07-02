@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { DsoFaqBlockProps } from "@/lib/block-types";
 import { getBgStyle, resolveSectionSurface } from "@/lib/bg-styles";
 import type { BrandConfig } from "@/lib/brand-config";
@@ -23,8 +23,15 @@ import { BRAND_BODY_FONT, BRAND_DISPLAY_STACK } from "../lib/brand-fonts";
 const BODY = BRAND_BODY_FONT;
 const DISPLAY = BRAND_DISPLAY_STACK;
 
+const ITEM_SIZES = {
+  sm: { q: "1rem", icon: 16, padY: "1rem", gap: "0.875rem" },
+  md: { q: "1.25rem", icon: 20, padY: "1.375rem", gap: "1rem" },
+  lg: { q: "1.5rem", icon: 24, padY: "1.625rem", gap: "1.125rem" },
+} as const;
+
 export function BlockDsoFaq({ props, brand, onFieldChange }: Props) {
-  const { eyebrow, headline, subheadline, items = [], ctaText, ctaUrl, ctaMode = "link", ctaVariant = "secondary", backgroundStyle = "white" } = props;
+  const { eyebrow, headline, subheadline, items = [], itemSize = "md", ctaText, ctaUrl, ctaMode = "link", ctaVariant = "secondary", backgroundStyle = "white" } = props;
+  const SZ = ITEM_SIZES[itemSize] ?? ITEM_SIZES.md;
   const field = (key: keyof DsoFaqBlockProps) =>
     onFieldChange ? (v: string) => onFieldChange({ ...props, [key]: v as DsoFaqBlockProps[typeof key] }) : undefined;
   const updateItem = onFieldChange
@@ -43,9 +50,8 @@ export function BlockDsoFaq({ props, brand, onFieldChange }: Props) {
   const subC      = dark ? "rgba(255,255,255,0.55)" : "#6b7280";
   const qC        = dark ? "#fff" : BRAND;
   const aC        = dark ? "rgba(255,255,255,0.65)" : "#4b5563";
-  const rowBg     = dark ? "rgba(255,255,255,0.04)" : "#fff";
-  const rowBor    = dark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e5e7eb";
-  const chevC     = dark ? LIME : BRAND;
+  const divider   = dark ? "1px solid rgba(255,255,255,0.12)" : "1px solid #e2e5ea";
+  const toggleC   = dark ? LIME : BRAND;
 
   return (
     <section style={sectionBg} className="py-24 md:py-32">
@@ -74,46 +80,44 @@ export function BlockDsoFaq({ props, brand, onFieldChange }: Props) {
           )}
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: ctaText ? "3rem" : 0 }}>
+        <div style={{ marginBottom: ctaText ? "3rem" : 0 }}>
           {items.map((item, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: i * 0.06 }}
-              style={{
-                background: rowBg,
-                border: rowBor,
-                borderRadius: "0.875rem",
-                overflow: "hidden",
-              }}
+              transition={{ delay: i * 0.05 }}
+              style={{ borderBottom: divider, ...(i === 0 ? { borderTop: divider } : {}) }}
             >
               <button
                 onClick={() => setOpen(open === i ? null : i)}
                 style={{
                   width: "100%",
                   display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "1.25rem 1.5rem",
+                  alignItems: "flex-start",
+                  padding: `${SZ.padY} 0.25rem`,
                   background: "none",
                   border: "none",
                   cursor: "pointer",
                   textAlign: "left",
-                  gap: "1rem",
+                  gap: SZ.gap,
                 }}
               >
-                <span style={{ fontSize: "1rem", fontWeight: 600, color: qC, lineHeight: 1.4, flex: 1, fontFamily: BODY }}>
+                <motion.span
+                  animate={{ rotate: open === i ? 45 : 0 }}
+                  transition={{ duration: 0.22 }}
+                  style={{ flexShrink: 0, display: "inline-flex", marginTop: `calc(${SZ.q} * 0.7 - ${SZ.icon}px / 2)` }}
+                >
+                  <Plus style={{ width: SZ.icon, height: SZ.icon, color: toggleC }} strokeWidth={2.25} />
+                </motion.span>
+                <span style={{ fontSize: SZ.q, fontWeight: 600, color: qC, lineHeight: 1.4, flex: 1, fontFamily: DISPLAY, letterSpacing: "-0.01em" }}>
                   <InlineText
                     as="span"
                     value={item.question}
                     onUpdate={updateItem ? (v) => updateItem(i, { question: v }) : undefined}
-                  style={{ fontFamily: BODY }}/>
+                  style={{ fontFamily: DISPLAY }}/>
                 </span>
-                <motion.span animate={{ rotate: open === i ? 180 : 0 }} transition={{ duration: 0.22 }} style={{ flexShrink: 0, fontFamily: BODY }}>
-                  <ChevronDown style={{ width: 18, height: 18, color: chevC }} />
-                </motion.span>
               </button>
 
               <AnimatePresence initial={false}>
@@ -125,7 +129,7 @@ export function BlockDsoFaq({ props, brand, onFieldChange }: Props) {
                     transition={{ duration: 0.25, ease: "easeInOut" }}
                     style={{ overflow: "hidden" }}
                   >
-                    <p style={{ padding: "0 1.5rem 1.25rem", fontSize: "0.9375rem", color: aC, lineHeight: 1.75, fontFamily: BODY }}>
+                    <p style={{ padding: `0 0.25rem ${SZ.padY} calc(${SZ.icon}px + ${SZ.gap} + 0.25rem)`, fontSize: "0.9375rem", color: aC, lineHeight: 1.75, fontFamily: BODY, maxWidth: "62ch" }}>
                       <InlineText
                         as="span"
                         value={item.answer}
