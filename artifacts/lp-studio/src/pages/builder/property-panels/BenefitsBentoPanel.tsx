@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AiTextField } from "@/components/AiTextField";
 import { BlockRefreshButton } from "@/components/BlockRefreshButton";
 import { IconPicker } from "@/components/IconPicker";
@@ -26,6 +27,7 @@ interface Props {
 
 export function BenefitsBentoPanel({ props, onChange }: Props) {
   const update = (patch: Partial<BenefitsBentoBlockProps>) => onChange({ ...props, ...patch });
+  const isGrid = (props.variant ?? "bento") === "grid";
   const tiles = props.tiles ?? [];
   const updateTile = (i: number, patch: Partial<BenefitsBentoTile>) =>
     update({ tiles: tiles.map((t, idx) => (idx === i ? { ...t, ...patch } : t)) });
@@ -35,6 +37,24 @@ export function BenefitsBentoPanel({ props, onChange }: Props) {
 
   return (
     <div className="space-y-5">
+      <div className="space-y-3">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Layout</div>
+        <div>
+          <Select value={props.variant ?? "bento"} onValueChange={(v) => update({ variant: v as BenefitsBentoBlockProps["variant"] })}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="bento" className="text-xs">Bento showcase (large hero tile)</SelectItem>
+              <SelectItem value="grid" className="text-xs">Uniform grid (equal squares)</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
+            Uniform grid lays tiles in equal hairline-divided columns (4 across
+            on desktop) and lets each tile be a feature, a big stat, or a
+            highlight. 8 tiles make a clean 4×2 grid.
+          </p>
+        </div>
+      </div>
+
       <div className="space-y-3">
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Content</div>
         <BlockRefreshButton
@@ -72,13 +92,32 @@ export function BenefitsBentoPanel({ props, onChange }: Props) {
                 <Button size="icon" variant="ghost" onClick={() => removeTile(i)}><Trash2 className="h-3 w-3" /></Button>
               </div>
             </div>
-            <IconPicker label="Icon" value={tile.icon} onChange={(v) => updateTile(i, { icon: v })} aiHint="Feature icon" />
+            {isGrid && (
+              <div>
+                <Label className="text-[11px] text-muted-foreground">Tile style</Label>
+                <Select value={tile.kind ?? "feature"} onValueChange={(v) => updateTile(i, { kind: v as BenefitsBentoTile["kind"] })}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="feature" className="text-xs">Feature (icon + text)</SelectItem>
+                    <SelectItem value="stat" className="text-xs">Big stat</SelectItem>
+                    <SelectItem value="highlight" className="text-xs">Highlight (tinted statement)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {(!isGrid || (tile.kind ?? "feature") === "feature") && (
+              <IconPicker label="Icon" value={tile.icon} onChange={(v) => updateTile(i, { icon: v })} aiHint="Feature icon" />
+            )}
             <div>
-              <Label className="text-[11px] text-muted-foreground">Title</Label>
+              <Label className="text-[11px] text-muted-foreground">
+                {isGrid && tile.kind === "stat" ? "Stat value (e.g. 99.9%)" : isGrid && tile.kind === "highlight" ? "Statement" : "Title"}
+              </Label>
               <Input value={tile.title} onChange={(e) => updateTile(i, { title: e.target.value })} className="h-8 text-xs" />
             </div>
             <div>
-              <Label className="text-[11px] text-muted-foreground">Description</Label>
+              <Label className="text-[11px] text-muted-foreground">
+                {isGrid && tile.kind === "stat" ? "Stat label" : isGrid && tile.kind === "highlight" ? "Supporting line (optional)" : "Description"}
+              </Label>
               <Input value={tile.description} onChange={(e) => updateTile(i, { description: e.target.value })} className="h-8 text-xs" />
             </div>
           </div>

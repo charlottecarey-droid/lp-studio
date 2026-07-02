@@ -3842,6 +3842,11 @@ export interface BenefitsBentoTile {
   icon: string;
   title: string;
   description: string;
+  /** Tile style, used by the uniform-grid variant only. `feature` (default)
+   *  = icon + title + description; `stat` = big number (title) + label
+   *  (description); `highlight` = accent-tinted statement tile (title =
+   *  statement, description = optional supporting line, no icon). */
+  kind?: "feature" | "stat" | "highlight";
 }
 
 /** Benefits — Bento Grid: asymmetric 5-tile bento (large hero tile + small
@@ -3850,6 +3855,10 @@ export interface BenefitsBentoBlockProps extends BenefitsCtaConfig {
   eyebrow?: string;
   headline: string;
   subheadline?: string;
+  /** Layout variant. `bento` (default) = asymmetric showcase with a 2×2 hero
+   *  tile; `grid` = uniform hairline-divided columns (Procore-style) where
+   *  each tile can be a feature, big stat, or highlight (see tile `kind`). */
+  variant?: "bento" | "grid";
   tiles: BenefitsBentoTile[];
   bgColor?: string;
   textColor?: string;

@@ -42,6 +42,7 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
   const isBuilder = !!onFieldChange;
   const still = isBuilder || reduced;
 
+  const isGrid = (props.variant ?? "bento") === "grid";
   const surface = resolveSectionSurface(props, "#FAFAFA", brand);
   const dark = surface.isDark;
   const ink = resolveSectionInk(props, surface);
@@ -139,7 +140,91 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
           )}
         </div>
 
-        {/* ── Tinted bento grid. ── */}
+        {/* ── Tiles: uniform hairline grid variant, or the tinted bento. ── */}
+        {isGrid ? (
+          /* Uniform grid (Procore-style): shared 1px hairlines, flat cells.
+           * Each cell draws its own top+left hairline; the container closes
+           * the right+bottom outer edge, so lines stay single-weight at any
+           * column count and read over gradient section backgrounds. */
+          <div
+            className="grid grid-cols-1 @xl:grid-cols-2 @4xl:grid-cols-4"
+            style={{ boxShadow: `inset -1px 0 0 ${ring}, inset 0 -1px 0 ${ring}` }}
+          >
+            {props.tiles.map((tile, i) => {
+              const kind = tile.kind ?? "feature";
+              return (
+                <motion.div
+                  key={i}
+                  className="relative flex min-h-[190px] flex-col p-6 sm:p-7"
+                  style={{
+                    boxShadow: `inset 1px 0 0 ${ring}, inset 0 1px 0 ${ring}`,
+                    backgroundColor:
+                      kind === "highlight"
+                        ? `color-mix(in srgb, ${accentRaw} ${dark ? 14 : 9}%, transparent)`
+                        : undefined,
+                  }}
+                  initial={still ? false : { opacity: 0, y: 16 }}
+                  whileInView={still ? undefined : { opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={still ? undefined : { duration: 0.5, delay: Math.min(i * 0.06, 0.36), ease: [0.16, 1, 0.3, 1] }}
+                >
+                  {kind === "feature" && (
+                    <div
+                      className="relative mb-5 flex h-10 w-10 items-center justify-center rounded-xl"
+                      style={{
+                        background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`,
+                        color: accent,
+                        boxShadow: `inset 0 0 0 1px ${accent}1f`,
+                      }}
+                      aria-hidden="true"
+                    >
+                      <IconOrImage value={tile.icon} fallback={Layers} className="h-5 w-5" />
+                    </div>
+                  )}
+                  {kind === "stat" ? (
+                    <>
+                      <InlineText
+                        as="div"
+                        value={tile.title}
+                        onUpdate={onFieldChange ? (v) => updateTile(i, { title: v }) : undefined}
+                        className="font-bold tracking-tight"
+                        style={{ fontFamily: DISPLAY, fontSize: "clamp(2.1rem, 3.4cqw, 2.9rem)", lineHeight: 1.05 }} />
+                      <InlineText
+                        as="p"
+                        value={tile.description}
+                        onUpdate={onFieldChange ? (v) => updateTile(i, { description: v }) : undefined}
+                        className="mt-2.5 text-sm leading-relaxed"
+                        style={{ color: muted }}
+                        multiline />
+                    </>
+                  ) : (
+                    <>
+                      <InlineText
+                        as="h3"
+                        value={tile.title}
+                        onUpdate={onFieldChange ? (v) => updateTile(i, { title: v }) : undefined}
+                        className={cn(
+                          "font-semibold leading-snug tracking-tight",
+                          kind === "highlight" ? "text-lg sm:text-xl" : "text-base",
+                        )}
+                        style={{ fontFamily: DISPLAY }}
+                        multiline={kind === "highlight"} />
+                      {(tile.description || onFieldChange) && (
+                        <InlineText
+                          as="p"
+                          value={tile.description}
+                          onUpdate={onFieldChange ? (v) => updateTile(i, { description: v }) : undefined}
+                          className={cn("leading-relaxed", kind === "highlight" ? "mt-3 text-sm" : "mt-2 text-sm")}
+                          style={{ color: muted }}
+                          multiline />
+                      )}
+                    </>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+        ) : (
         <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-3 @4xl:gap-5">
           {props.tiles.map((tile, i) => {
             const isHero = i === 0;
@@ -198,6 +283,7 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
             );
           })}
         </div>
+        )}
 
         {/* ── Trailing CTA band. ── */}
         {showCta && (
