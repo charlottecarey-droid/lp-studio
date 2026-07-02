@@ -24,3 +24,8 @@ than the old `lg:` 1024px viewport bp — acceptable, and better in the builder.
 
 Sibling section blocks (BlockFeatureCardGrid, BlockValuePillars*, etc.) still use
 viewport breakpoints — same latent issue; convert only when a user reports it.
+
+Converted so far: BlockFeaturePhotoCards, BlockBenefitsBento (header split + bento
+grid + tile spans; header stacks below `@4xl` ≈896px container). The same conversion
+also fixes header rows that use a viewport-keyed side-by-side split (headline left /
+subheadline right) refusing to stack in narrow previews.
