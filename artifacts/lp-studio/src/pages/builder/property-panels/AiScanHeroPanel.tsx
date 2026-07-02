@@ -110,7 +110,7 @@ export function AiScanHeroPanel({ props, onChange, ctaSource }: Props) {
             value={props.backgroundVideoUrl ?? ""}
             onChange={(v) => update({ backgroundVideoUrl: v || undefined })}
           />
-          <p className="text-[10px] text-muted-foreground mt-1">Plays silently on a loop. Leave empty to show the image with a play badge.</p>
+          <p className="text-[10px] text-muted-foreground mt-1">Plays silently on a loop. Leave empty to show the image instead.</p>
         </div>
       </div>
 

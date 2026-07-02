@@ -17,7 +17,7 @@ import { OUTLINED_CARDS_SHOWCASE_DEFAULTS } from "@/lib/block-types";
 const baseProps: ValuePillarsOutlinedCardsBlockProps = {
   eyebrow: "Why us",
   heading: "Built for the whole team",
-  subheading: "One platform from bid to close-out.",
+  subhead: "One platform from bid to close-out.",
   items: [
     { icon: "Rocket", title: "Start faster", description: "Templates for every job." },
     { icon: "Shield", title: "Reduce risk", description: "Approvals built in." },

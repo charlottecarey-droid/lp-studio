@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useRef, useState, useCallback } from "react";
-import { ArrowRight, Play } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import type { AiScanHeroBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { pickCtaButtonColors, contrastTextColor } from "@/lib/brand-config";
@@ -18,6 +18,12 @@ const DARK_INK = "#141210";
 /** Fallback accent when the brand has no accent var — a confident orange that
  *  matches the reference eyebrow dot + primary button. */
 const ACCENT_FALLBACK = "#E8590C";
+
+/** Default media-band photo so the hero never renders without media. Reuses the
+ *  AI-review visual already established elsewhere in the app (known-good URL);
+ *  authors and the AI image-fill pipeline replace it via imageUrl. */
+const DEFAULT_IMAGE_URL =
+  "https://images.unsplash.com/photo-1559757175-0eb30cd8c063?q=80&w=1600&h=900&fit=crop";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -338,9 +344,9 @@ export function BlockAiScanHero({
 
       {/* ── Full-bleed media, flush to the bottom edge ──
         A hero, not a section: the media touches the bottom with no trailing
-        padding. Renders only when a real backgroundVideoUrl OR imageUrl is set. */}
-      {(backgroundVideoUrl || imageUrl) && (
-        <motion.div
+        padding. Always renders — a video when backgroundVideoUrl is set, the
+        author/AI-picked photo via imageUrl, or the built-in default photo. */}
+      <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -366,44 +372,22 @@ export function BlockAiScanHero({
               />
             ) : (
               <img
-                src={imageUrl}
+                src={imageUrl || DEFAULT_IMAGE_URL}
                 alt={props.imageAlt || ""}
                 style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
               />
             )}
           </div>
-          {backgroundVideoUrl ? (
+          {/* The mute toggle only appears over a playing video — a static image
+            gets NO play affordance (a play button that plays nothing is a lie). */}
+          {backgroundVideoUrl && (
             <MuteToggleButton
               muted={videoMuted}
               onClick={toggleVideoMute}
               className="absolute bottom-5 right-5 z-10"
             />
-          ) : (
-            <div
-              aria-hidden
-              style={{
-                position: "absolute",
-                bottom: "1.5rem",
-                right: "1.5rem",
-                width: 66,
-                height: 66,
-                borderRadius: "50%",
-                background: "rgba(255,255,255,0.94)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 10px 34px rgba(0,0,0,0.28)",
-                pointerEvents: "none",
-              }}
-            >
-              <Play
-                style={{ width: 24, height: 24, color: DARK_INK, marginLeft: 3 }}
-                fill={DARK_INK}
-              />
-            </div>
           )}
-        </motion.div>
-      )}
+      </motion.div>
     </section>
   );
 }
