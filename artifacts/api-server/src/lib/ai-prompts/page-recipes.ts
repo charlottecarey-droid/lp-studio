@@ -56,7 +56,7 @@ export const FREEFORM_RECIPES: PageRecipe[] = [
     label: "Editorial",
     description: "a premium magazine-style page that persuades with story and typography",
     skeleton: [
-      "kinetic-type-hero OR magazine-hero",
+      "kinetic-type-hero OR magazine-hero OR ai-scan-hero",
       "bold-statement",
       "editorial-carousel",
       "split-media-row OR zigzag-features",
@@ -72,7 +72,7 @@ export const FREEFORM_RECIPES: PageRecipe[] = [
     label: "Showcase-heavy",
     description: "a visual-first page where imagery and motion do the persuading",
     skeleton: [
-      "launch-spotlight-hero OR bento-mosaic-hero",
+      "launch-spotlight-hero OR bento-mosaic-hero OR ai-scan-hero",
       "sticky-stack OR horizontal-showcase",
       "feature-tabs-showcase OR gallery-masonry",
       "media-feature-reel OR media-looping-showcase",
@@ -280,7 +280,7 @@ export const MICROSITE_RECIPES: PageRecipe[] = [
     label: "Benefits-led",
     description: "a value-forward page that leads with what the account gains and how it works",
     skeleton: [
-      "full-bleed-hero OR hero",
+      "full-bleed-hero OR hero OR ai-scan-hero",
       "benefits-grid",
       "dso-ai-feature OR how-it-works",
       "dso-stat-row OR trust-bar OR stats",
@@ -311,7 +311,7 @@ export const MICROSITE_RECIPES: PageRecipe[] = [
     label: "Media-led",
     description: "a visual-first page where a demo or video carries the persuasion",
     skeleton: [
-      "full-bleed-hero",
+      "full-bleed-hero OR ai-scan-hero",
       "video-section",
       "dso-ai-feature OR benefits-grid",
       "trust-bar OR testimonial",

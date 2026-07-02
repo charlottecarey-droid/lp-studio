@@ -614,21 +614,27 @@ const MICROSITE_SELF_NAV_HERO_TYPES: ReadonlySet<string> = new Set([
   "dso-practice-hero",
 ]);
 
-/** Hero block types that are DARK BY DESIGN — the premium DSO hero system always
- *  paints a dark/brand, image-backed hero, so the white-hero upgrade pass must
- *  never touch them. The neutral `hero` is deliberately NOT here: it can be
- *  emitted as a plain white text-only hero, which the upgrade pass fixes. Kept
- *  SEPARATE from MICROSITE_SELF_NAV_HERO_TYPES (which now includes the neutral
- *  `hero` for nav de-duplication) so the two concerns never re-couple. */
+/** Hero block types that are STRONG BY DESIGN — the white-hero upgrade pass must
+ *  never touch them: the premium DSO hero system always paints a dark/brand,
+ *  image-backed hero, and `ai-scan-hero` always renders a full-width media band
+ *  over a deliberate warm editorial surface (its prop rewrites — heroType /
+ *  layout / dark bg — don't apply to it). The neutral `hero` is deliberately NOT
+ *  here: it can be emitted as a plain white text-only hero, which the upgrade
+ *  pass fixes. Kept SEPARATE from MICROSITE_SELF_NAV_HERO_TYPES (which now
+ *  includes the neutral `hero` for nav de-duplication) so the two concerns
+ *  never re-couple. */
 const MICROSITE_DARK_BY_DESIGN_HERO_TYPES: ReadonlySet<string> = new Set([
   "dso-heartland-hero",
   "dso-practice-hero",
+  "ai-scan-hero",
 ]);
 
 /** Every hero block type a free-form microsite can open with (used to find the
- *  first content hero for anchor-link derivation + the hero-upgrade pass). */
+ *  first content hero for anchor-link derivation + the hero-upgrade pass, and
+ *  to keep the section-bg rhythm pass off the hero's own surface). */
 const MICROSITE_HERO_BLOCK_TYPES: ReadonlySet<string> = new Set([
   "full-bleed-hero",
+  "ai-scan-hero",
   ...MICROSITE_SELF_NAV_HERO_TYPES,
 ]);
 

@@ -48,7 +48,7 @@ describe("recipe sets", () => {
     // "dso-final-cta OR bottom-cta"). Every alternative in those slots must stay
     // within the hero / CTA families — the generator's nav/footer chrome rules
     // own nav/footer, so the recipe must never name them.
-    const HERO_TYPES = ["hero", "full-bleed-hero"];
+    const HERO_TYPES = ["hero", "full-bleed-hero", "ai-scan-hero"];
     const CTA_TYPES = ["bottom-cta", "dso-final-cta"];
     const altsOf = (entry: string) => entry.split(" OR ").map((s) => s.trim());
     for (const r of MICROSITE_RECIPES) {
