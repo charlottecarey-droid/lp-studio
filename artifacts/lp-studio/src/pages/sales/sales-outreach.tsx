@@ -334,8 +334,8 @@ function SingleSendTab() {
   // Sender & delivery fields — defaults come from brand settings so non-Dandy
   // tenants (e.g. Max Car Wash) don't see "Dandy" / meetdandy.com prefilled.
   const [senderName, setSenderName] = useState(brand.brandName || "");
-  const [senderEmail, setSenderEmail] = useState("");
-  const [replyTo, setReplyTo] = useState("");
+  const [senderEmail, setSenderEmail] = useState(brand.salesConsole?.senderLocalPart || "");
+  const [replyTo, setReplyTo] = useState(brand.salesConsole?.replyTo || "");
   const [previewText, setPreviewText] = useState("");
 
   // Styled chrome options
@@ -449,9 +449,11 @@ function SingleSendTab() {
       const payload = {
         contactId: Number(selectedContactId),
         subject,
-        senderName: senderName.trim() || brand.brandName || "",
-        senderEmail: senderEmail.trim() || "partnerships",
-        replyTo: replyTo.trim(),
+        // Blank fields are omitted so the server falls back to the tenant's
+        // Brand Settings → Sales Console values (never a hardcoded local part).
+        senderName: senderName.trim() || brand.brandName || undefined,
+        senderEmail: senderEmail.trim() || undefined,
+        replyTo: replyTo.trim() || undefined,
         ...(emailFormat === "styled" ? { bodyHtml: body } : { bodyText: body }),
       };
       const res = await fetch(`${API_BASE}/sales/send-email`, {
@@ -529,7 +531,7 @@ function SingleSendTab() {
               <Input
                 value={senderEmail}
                 onChange={e => setSenderEmail(e.target.value)}
-                placeholder="partnerships"
+                placeholder={brand.salesConsole?.senderLocalPart || "sender"}
                 className="text-sm rounded-r-none border-r-0"
               />
               <span className="flex items-center h-10 px-3 rounded-r-md border border-input bg-muted text-xs text-muted-foreground whitespace-nowrap">
@@ -681,7 +683,7 @@ function SingleSendTab() {
           <h3 className="text-sm font-semibold text-foreground mb-4">Preview</h3>
           <div className="rounded-lg border border-border bg-white p-6 mb-4 overflow-auto max-h-[500px]">
             <div className="text-xs text-muted-foreground mb-3 space-y-0.5">
-              <p>From: {senderName || brand.brandName || "(sender)"} &lt;{senderEmail || "partnerships"}{senderSuffix}&gt;</p>
+              <p>From: {senderName || brand.brandName || "(sender)"} &lt;{senderEmail || brand.salesConsole?.senderLocalPart || "(set in Brand Settings)"}{senderSuffix}&gt;</p>
               <p>Reply-To: {replyTo || "(none set)"}</p>
               <p>To: {selectedContact ? `${selectedContact.firstName} ${selectedContact.lastName} <${selectedContact.email}>` : "—"}</p>
               {previewText && <p className="italic">Preview: {previewText}</p>}

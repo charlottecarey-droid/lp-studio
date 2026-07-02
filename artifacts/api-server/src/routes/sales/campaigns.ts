@@ -752,8 +752,10 @@ router.post("/campaigns/:id/send", requirePermission("sales_campaigns"), async (
         replyTo: (campaign.metadata as any)?.replyTo ?? null,
       },
     });
+    // Empty/whitespace metadata counts as absent (matches resolveTenantSender's
+    // clean() semantics) so a blanked editor field falls back to brand config.
     const senderName =
-      (campaign.metadata as any)?.senderName ?? brandCtx.senderName ?? brandCtx.brandName ?? "";
+      String((campaign.metadata as any)?.senderName ?? "").trim() || brandCtx.senderName || brandCtx.brandName || "";
     const campaignPreviewText = ((campaign.metadata as any)?.previewText ?? "") as string;
 
     let sent = 0, failed = 0;
@@ -1010,7 +1012,7 @@ router.post("/campaigns/:id/preview", requirePermission("sales_campaigns"), asyn
 
     const host = await getTenantOutboundOrigin(tenantId, req);
     const previewBrandCtx = await getSalesBrandContext(tenantId);
-    const senderName = (campaign.metadata as any)?.senderName ?? previewBrandCtx.senderName ?? "Sender";
+    const senderName = String((campaign.metadata as any)?.senderName ?? "").trim() || previewBrandCtx.senderName || "Sender";
 
     // Build vars — real values if we have a contact, otherwise clearly-labelled samples
     let companyName = "";
@@ -1447,7 +1449,7 @@ router.post("/send-email", async (req, res): Promise<void> => {
       ctx: singleBrandCtx,
       overrides: { senderName: senderName ?? null, senderLocalPart: senderEmail ?? null, replyTo: replyTo ?? null },
     });
-    const fromName = senderName ?? singleBrandCtx.senderName ?? singleBrandCtx.brandName ?? "";
+    const fromName = String(senderName ?? "").trim() || singleBrandCtx.senderName || singleBrandCtx.brandName || "";
 
     // Fetch account name for {{company}}
     let companyName = "";
@@ -1588,7 +1590,7 @@ router.post("/send-test-email", async (req, res): Promise<void> => {
       ctx: testBrandCtx,
       overrides: { senderName: senderName ?? null, senderLocalPart: senderEmail ?? null, replyTo: replyTo ?? null },
     });
-    const fromName = senderName ?? testBrandCtx.senderName ?? testBrandCtx.brandName ?? "";
+    const fromName = String(senderName ?? "").trim() || testBrandCtx.senderName || testBrandCtx.brandName || "";
 
     const host = await getTenantOutboundOrigin(tenantId, req);
 

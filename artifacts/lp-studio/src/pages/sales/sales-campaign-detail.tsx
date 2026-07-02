@@ -254,7 +254,9 @@ export default function SalesCampaignDetail() {
   const sendingDomain = brand.salesConsole?.sendingDomain?.trim() || "";
   const senderSuffix = sendingDomain ? `@${sendingDomain}` : "@(set sending domain in Brand Settings)";
   const [senderName, setSenderName] = useState(brand.brandName || "");
-  const [senderEmail, setSenderEmail] = useState("partnerships");
+  // Empty means "use the tenant's Brand Settings → Sales Console value" —
+  // the server falls back to it, so never seed a hardcoded local part here.
+  const [senderEmail, setSenderEmail] = useState(brand.salesConsole?.senderLocalPart || "");
   const [replyTo, setReplyTo] = useState("");
   const [previewText, setPreviewText] = useState("");
   const [savingSender, setSavingSender] = useState(false);
@@ -281,7 +283,7 @@ export default function SalesCampaignDetail() {
       setEditAccountId(data.accountId ? String(data.accountId) : "");
       const meta = (data.metadata ?? {}) as Record<string, unknown>;
       setSenderName((meta.senderName as string) ?? "");
-      setSenderEmail((meta.senderEmail as string) ?? "partnerships");
+      setSenderEmail((meta.senderEmail as string) ?? "");
       setReplyTo((meta.replyTo as string) ?? "");
       setPreviewText((meta.previewText as string) ?? "");
       if (data.scheduledAt) {
@@ -448,7 +450,9 @@ export default function SalesCampaignDetail() {
       const updatedMeta = {
         ...(campaign.metadata ?? {}),
         senderName: senderName.trim() || brand.brandName || "",
-        senderEmail: senderEmail.trim() || "partnerships",
+        // Empty stays empty — the send path falls back to the tenant's
+        // Brand Settings sender local part, never a hardcoded one.
+        senderEmail: senderEmail.trim(),
         replyTo: replyTo.trim(),
         previewText: previewText.trim(),
       };
@@ -526,7 +530,7 @@ export default function SalesCampaignDetail() {
       const updatedMeta = {
         ...(campaign.metadata ?? {}),
         senderName: senderName.trim() || brand.brandName || "",
-        senderEmail: senderEmail.trim() || "partnerships",
+        senderEmail: senderEmail.trim(),
         replyTo: replyTo.trim(),
         previewText: previewText.trim(),
       };
@@ -1226,13 +1230,13 @@ export default function SalesCampaignDetail() {
                   <Input
                     value={senderEmail}
                     onChange={e => setSenderEmail(e.target.value)}
-                    placeholder="partnerships"
+                    placeholder={brand.salesConsole?.senderLocalPart || "sender"}
                     className="border-0 rounded-none focus-visible:ring-0"
                   />
                   <span className="px-3 text-sm text-muted-foreground bg-muted border-l border-input whitespace-nowrap">{senderSuffix}</span>
                 </div>
               ) : (
-                <p className="text-sm text-foreground">{senderEmail || "partnerships"}{senderSuffix}</p>
+                <p className="text-sm text-foreground">{senderEmail || brand.salesConsole?.senderLocalPart || "(not set)"}{senderSuffix}</p>
               )}
             </div>
             <div>
