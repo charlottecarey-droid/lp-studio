@@ -32,14 +32,6 @@ args = "tc-lp-studio"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "tc-api"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "tc-lp"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "copy-test"
 
 [[workflows.workflow.tasks]]
@@ -49,14 +41,6 @@ args = "tc-api-server"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "fbh-contrast"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "typecheck-lp"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "typecheck-api"
 
 [[workflows.workflow]]
 name = "img-test"
@@ -71,28 +55,6 @@ isValidation = true
 
 [[workflows.workflow]]
 name = "tc-lp-studio"
-author = "agent"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/lp-studio run typecheck"
-
-[[workflows.workflow]]
-name = "tc-api"
-author = "agent"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/api-server run typecheck"
-
-[[workflows.workflow]]
-name = "tc-lp"
 author = "agent"
 
 [workflows.workflow.metadata]
@@ -131,28 +93,6 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd artifacts/lp-studio && npx vitest run src/blocks/BlockFullBleedHero.contrast.test.ts --reporter=dot --pool=forks --no-file-parallelism"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "typecheck-lp"
-author = "agent"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/lp-studio run typecheck"
-
-[[workflows.workflow]]
-name = "typecheck-api"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/api-server run typecheck"
 
 [workflows.workflow.metadata]
 isValidation = true
