@@ -4852,14 +4852,45 @@ function buildApprovedStatSet(
   return out;
 }
 
+/** Canonicalize a stat string so trivial reformatting of the SAME number
+ *  still matches the approved pool: "12,000" == "12k" == "12000",
+ *  "45-minute" == "45 min" == "45 minutes". Without this, the model
+ *  restating the user's own number in a different shape gets flagged —
+ *  the dominant source of review-UI noise in the first eval runs. */
+export function canonicalizeStatForm(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/[-\u2013\u2014]/g, " ")
+    // expand k/m/b scale suffixes to digits ("12k" -> "12000")
+    .replace(/(\d[\d,.]*)\s*([kmb])\b/g, (_, num: string, suf: string) => {
+      const n = parseFloat(num.replace(/,/g, ""));
+      if (!isFinite(n)) return num;
+      const mult = suf === "k" ? 1e3 : suf === "m" ? 1e6 : 1e9;
+      return String(Math.round(n * mult));
+    })
+    // strip thousands separators ("12,000" -> "12000")
+    .replace(/(\d),(?=\d{3}\b)/g, "$1")
+    // a trailing "+" glued to a number adds no factual specificity
+    .replace(/(\d)\+/g, "$1")
+    // unify common duration units
+    .replace(/\bminutes?\b/g, "min")
+    .replace(/\bhours?\b/g, "hr")
+    .replace(/\bseconds?\b/g, "sec")
+    .replace(/\s+/g, " ");
+}
+
 export function isApprovedStat(value: string, pool: Set<string>): boolean {
   const v = value.trim().toLowerCase();
   if (!v) return true;
   if (!/\d/.test(v)) return true; // not a numeric stat — leave alone
   if (pool.has(v)) return true;
+  const vc = canonicalizeStatForm(v);
   for (const approved of pool) {
     if (!approved) continue;
     if (v.includes(approved) || approved.includes(v)) return true;
+    const ac = canonicalizeStatForm(approved);
+    if (ac && vc && (vc.includes(ac) || ac.includes(vc))) return true;
   }
   return false;
 }
@@ -4926,6 +4957,10 @@ function scanForUnapprovedStats(
           if (isNonStatIdiom(v, siblingLabelText(siblings))) continue;
           const isStatField = STAT_FIELD_KEYS.has(k);
           const looksLikeStat = STAT_LIKE_RX.test(v);
+          // Bare 1-2 digit values with no unit on a stat-shaped KEY are
+          // sequence ordinals (how-it-works steps[].number "01"), not
+          // factual claims — flagging them fills the review UI with junk.
+          if (isStatField && !looksLikeStat && /^0?\d{1,2}$/.test(v)) continue;
           if ((isStatField || looksLikeStat) && !isApprovedStat(v, pool)) {
             out.push({ blockId, blockType, fieldPath: childPath, value: v });
           }

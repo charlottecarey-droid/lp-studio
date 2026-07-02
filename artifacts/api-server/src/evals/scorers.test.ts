@@ -50,6 +50,21 @@ function cleanPage(): EvalBlock[] {
 // ── fabricatedStatScore ──────────────────────────────────────────────────────
 
 describe("fabricatedStatScore", () => {
+  it("skips bare step ordinals on stat-shaped keys (steps[].number)", () => {
+    const blocks = [
+      { id: "b1", type: "how-it-works", props: { steps: [{ number: "01", title: "Apply" }, { number: "02", title: "Match" }] } },
+    ];
+    expect(fabricatedStatScore(blocks, []).violations).toHaveLength(0);
+  });
+
+  it("matches trivial reformattings of an approved number (12k == 12,000; 45-minute == 45 min)", () => {
+    const pool = ["12,000 containers moved in 2025", "45-minute average gate turnaround"];
+    const blocks = [
+      { id: "b1", type: "trust-bar", props: { items: [{ value: "12k+", label: "containers" }, { value: "45 min", label: "gate turnaround" }] } },
+    ];
+    expect(fabricatedStatScore(blocks, pool).violations).toHaveLength(0);
+  });
+
   it("does not penalize an unapproved stat the server flagged for review (flag-and-review contract)", () => {
     const blocks = [
       { id: "b1", type: "trust-bar", props: { items: [{ value: "87%", label: "satisfaction" }] } },

@@ -115,15 +115,41 @@ function normalizeStat(raw: unknown): string {
   return String(raw ?? "").trim().toLowerCase();
 }
 
-/** Mirror of generate-page's isApprovedStat: substring match either way. */
+/** Mirror of generate-page's canonicalizeStatForm: trivial reformattings of
+ *  the SAME number ("12,000" == "12k", "45-minute" == "45 min") match. */
+function canonicalizeStatForm(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/[-\u2013\u2014]/g, " ")
+    .replace(/(\d[\d,.]*)\s*([kmb])\b/g, (_, num: string, suf: string) => {
+      const n = parseFloat(num.replace(/,/g, ""));
+      if (!isFinite(n)) return num;
+      const mult = suf === "k" ? 1e3 : suf === "m" ? 1e6 : 1e9;
+      return String(Math.round(n * mult));
+    })
+    .replace(/(\d),(?=\d{3}\b)/g, "$1")
+    // a trailing "+" glued to a number adds no factual specificity
+    .replace(/(\d)\+/g, "$1")
+    .replace(/\bminutes?\b/g, "min")
+    .replace(/\bhours?\b/g, "hr")
+    .replace(/\bseconds?\b/g, "sec")
+    .replace(/\s+/g, " ");
+}
+
+/** Mirror of generate-page's isApprovedStat: substring match either way,
+ *  with canonicalized-form fallback. */
 export function isApprovedStat(value: string, pool: ReadonlySet<string>): boolean {
   const v = normalizeStat(value);
   if (!v) return true;
   if (!/\d/.test(v)) return true; // not a numeric stat — leave alone
   if (pool.has(v)) return true;
+  const vc = canonicalizeStatForm(v);
   for (const approved of pool) {
     if (!approved) continue;
     if (v.includes(approved) || approved.includes(v)) return true;
+    const ac = canonicalizeStatForm(approved);
+    if (ac && vc && (vc.includes(ac) || ac.includes(vc))) return true;
   }
   return false;
 }
@@ -214,6 +240,9 @@ export function fabricatedStatScore(
     if (isNonStatIdiom(leaf.value, siblingLabelText(leaf.siblings))) continue;
     const isStatField = STAT_FIELD_KEYS.has(leaf.key);
     const looksLikeStat = STAT_LIKE_RX.test(leaf.value);
+    // Mirror the production ordinal guard: bare 1-2 digit sequence numbers
+    // (steps[].number "01") are not factual claims.
+    if (isStatField && !looksLikeStat && /^0?\d{1,2}$/.test(leaf.value.trim())) continue;
     if (!(isStatField || looksLikeStat) || isApprovedStat(leaf.value, pool)) continue;
     if (isApprovedStat(leaf.value, flagged)) continue;
     violations.push({
