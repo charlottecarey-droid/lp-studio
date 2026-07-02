@@ -106,7 +106,7 @@ export default function ThankYouPage() {
 
       {/* Footer */}
       <footer className="w-full px-6 py-6 text-center text-xs" style={{ color: `${brand.textColor || "#1a1a1a"}66` }}>
-        &copy; {new Date().getFullYear()} {brand.copyrightName || "Dandy"}. All rights reserved.
+        &copy; {new Date().getFullYear()}{(brand.copyrightName || brand.brandName) ? ` ${brand.copyrightName || brand.brandName}` : ""}. All rights reserved.
       </footer>
     </div>
   );

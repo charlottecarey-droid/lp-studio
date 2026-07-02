@@ -246,23 +246,26 @@ const DANDY_LABELS: Record<BackgroundStyle, string> = {
   "gradient":     "Black → Dandy green gradient",
 };
 
-/** True when the brand should keep Dandy's stock labels.
- *  Dandy or empty (no brand configured) → preserve historical labels. */
+/** True when the brand should keep Dandy's stock labels — the Dandy tenant
+ *  only. An EMPTY brandName no longer preserves them: a fresh tenant that
+ *  hasn't finished brand setup must never see another company's name in the
+ *  background dropdown. */
 function isDandyBrand(brand?: BgOptionsBrand): boolean {
   const name = (brand?.brandName ?? "").trim().toLowerCase();
-  return name === "" || name === "dandy";
+  return name === "dandy";
 }
 
 /** Auto-derived default labels for a non-Dandy brand. The two presets that
  *  reference Dandy by name ("dandy-green", "gradient") get rewritten to use
- *  the tenant's own brand name; everything else keeps the neutral label. */
+ *  the tenant's own brand name (or a neutral label when no brandName is set);
+ *  everything else keeps the neutral label. */
 function autoLabels(brand: BgOptionsBrand): Record<BackgroundStyle, string> {
   if (isDandyBrand(brand)) return { ...DANDY_LABELS };
-  const name = (brand.brandName ?? "").trim() || "Brand";
+  const name = (brand.brandName ?? "").trim();
   return {
     ...DANDY_LABELS,
-    "dandy-green": `${name} brand color`,
-    "gradient":    `${name} gradient`,
+    "dandy-green": name ? `${name} brand color` : "Brand color",
+    "gradient":    name ? `${name} gradient` : "Brand gradient",
   };
 }
 

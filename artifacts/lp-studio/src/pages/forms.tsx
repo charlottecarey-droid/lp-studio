@@ -733,10 +733,10 @@ function FormEditor({ form, onSaved, onDelete }: { form: GlobalForm; onSaved: (f
                       // "no email mapping" warning above and let a broken
                       // form pass the test.
                       const samples: Record<string, string> = {
-                        email: "test+lp-studio@meetdandy.com",
+                        email: "test@example.com",
                         firstName: "Test",
                         lastName: "Submission",
-                        company: "Inside Dandy",
+                        company: "Sample Co.",
                         phone: "+15555550123",
                       };
                       const prefill: Record<string, string> = {};

@@ -55,7 +55,7 @@ export function FormStylingPanel({
   onChange,
   placeholderLayer,
   helpText,
-  presetLabel = "Inside Dandy / AVP",
+  presetLabel = "Event page preset",
   presetValues,
   extraPresets,
   showPreview = false,

@@ -150,10 +150,10 @@ const pdfToImageBlob = async (
 const BUILTIN_TEMPLATES = [
   { id: "roi", label: "ROI One-Pager", description: "Financial ROI summary" },
   { id: "pilot", label: "90-Day Pilot", description: "Pilot program overview" },
-  { id: "comparison", label: "Dandy Evolution", description: "Before/after comparison" },
+  { id: "comparison", label: "Evolution", description: "Before/after comparison" },
   { id: "new-partner", label: "Partner Practices", description: "Partner onboarding" },
   { id: "partner2", label: "Partner 2", description: "Alternative partner template" },
-  { id: "agreement-summary", label: "Agreement Summary", description: "Summary of Dandy Agreement terms", backgroundUrl: agreementSummaryPreviewUrl },
+  { id: "agreement-summary", label: "Agreement Summary", description: "Summary of agreement terms", backgroundUrl: agreementSummaryPreviewUrl },
 ] as const;
 
 type BuiltinId = typeof BUILTIN_TEMPLATES[number]["id"];

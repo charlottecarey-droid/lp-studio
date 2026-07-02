@@ -29,8 +29,8 @@ function DandyNotFound() {
         textAlign: "center",
       }}
     >
-      <svg width="96" height="32" viewBox="0 0 96 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: "2.5rem" }} aria-label="Dandy">
-        <text x="0" y="26" fontFamily={FONT} fontWeight="700" fontSize="28" fill={FG} letterSpacing="-1">dandy</text>
+      <svg width="150" height="32" viewBox="0 0 150 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: "2.5rem" }} aria-label="LP Studio">
+        <text x="0" y="26" fontFamily={FONT} fontWeight="700" fontSize="28" fill={FG} letterSpacing="-1">LP Studio</text>
       </svg>
 
       <div
