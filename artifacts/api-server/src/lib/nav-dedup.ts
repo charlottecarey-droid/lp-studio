@@ -3,8 +3,21 @@
 // migration boot path and the seed loop can import it without pulling in the
 // heavy generate-page route module.
 
-// Block types that ARE a standalone navbar.
-export const NAV_TYPES = new Set(["nav-header", "dso-practice-nav"]);
+// Block types that ARE a standalone navbar. This is the single source the
+// landing-page generator uses BOTH to decide "does the page already have a nav?"
+// (so it never injects a second one on top of a recipe/AI-supplied nav) AND to
+// strip a redundant leading nav before a self-nav hero. It MUST list every
+// standalone navbar block — including the "Navbar — …" variants
+// (centered-logo / mega-menu / minimal / transparent-overlay); omitting one
+// makes the chrome pass fail to recognize it and stack a duplicate nav-header.
+export const NAV_TYPES = new Set([
+  "nav-header",
+  "dso-practice-nav",
+  "centered-logo-nav",
+  "mega-menu-nav",
+  "minimal-nav",
+  "transparent-overlay-nav",
+]);
 
 // Hero / full-page block types that render their OWN sticky navbar internally,
 // so a standalone nav block must never be stacked on top of them. The

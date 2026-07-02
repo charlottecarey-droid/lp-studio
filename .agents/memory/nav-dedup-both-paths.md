@@ -31,3 +31,15 @@ its own nav, call the strip there and add the hero type to `SELF_NAV_TYPES`
 `seeds/globalTemplates.intent.test.ts` ("never ship a double navbar"). Fixing the
 code/seed only affects NEW generations and freshly-seeded rows; already-published
 tenant pages keep the bad lineup baked into their saved blocks.
+
+**`NAV_TYPES` must list EVERY standalone navbar block.** The LP generate-page
+chrome pass uses `NAV_TYPES` for two things: `stripRedundantLeadingNav` AND the
+"does the page already have a nav?" check (`hasNav` — skips injecting a
+`nav-header` when true). If a standalone navbar block type is missing from
+`NAV_TYPES`, a recipe/AI page that includes it is not recognized as having a nav,
+so the pass stacks a SECOND `nav-header` on top. The "Navbar — …" variants
+(`centered-logo-nav`, `mega-menu-nav`, `minimal-nav`, `transparent-overlay-nav`)
+were the classic footgun — they were only recognized on the microsite path
+(`MICROSITE_NAV_PRESENT_TYPES`) and had to be added to the shared `NAV_TYPES`
+too. Any NEW standalone navbar block type must be added to `NAV_TYPES` (single
+source), not just the prompt vocab.
