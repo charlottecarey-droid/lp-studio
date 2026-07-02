@@ -164,9 +164,19 @@ export function BlockAiScanHero({
       }}
       className="pt-16 md:pt-24"
     >
+      {/* Custom sidePadding lifts the 1280px cap so the slider genuinely
+        controls width edge-to-edge; unset keeps the legacy centered layout. */}
       <div
-        style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem" }}
-        className="md:px-10"
+        style={
+          typeof props.sidePadding === "number" && props.sidePadding >= 0
+            ? { margin: "0 auto", padding: `0 ${props.sidePadding}px` }
+            : { maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem" }
+        }
+        className={
+          typeof props.sidePadding === "number" && props.sidePadding >= 0
+            ? undefined
+            : "md:px-10"
+        }
       >
         <div className="grid md:grid-cols-[1.5fr_1fr] gap-x-12 gap-y-8 items-end">
           {/* ── Left: eyebrow + huge headline ── */}

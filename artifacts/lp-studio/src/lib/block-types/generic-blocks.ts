@@ -3431,6 +3431,11 @@ export interface AiScanHeroBlockProps
   body?: string;
   /** Headline size multiplier over the responsive clamp (1 = default). */
   headlineScale?: number;
+  /** Horizontal distance of the text area from the page edges, in px. When
+   *  set, the standard 1280px width cap is lifted so the text area stretches
+   *  to the full page width minus this padding (lower = wider). Unset keeps
+   *  the standard centered layout (max 1280px, 24px side padding). */
+  sidePadding?: number;
   /** Full-bleed image (fallback shown when no backgroundVideoUrl is set). */
   imageUrl?: string;
   imageAlt?: string;

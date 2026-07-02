@@ -186,6 +186,34 @@ export function AiScanHeroPanel({ props, onChange, ctaSource }: Props) {
             className="w-full"
           />
         </div>
+        <div>
+          <div className="flex items-center justify-between">
+            <Label className="text-[11px] text-muted-foreground">
+              Side padding ({props.sidePadding ?? 24}px{props.sidePadding === undefined ? " default" : ""})
+            </Label>
+            {props.sidePadding !== undefined && (
+              <button
+                type="button"
+                onClick={() => update({ sidePadding: undefined })}
+                className="text-[10px] text-muted-foreground underline hover:text-foreground"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={120}
+            step={4}
+            value={props.sidePadding ?? 24}
+            onChange={(e) => update({ sidePadding: Number(e.target.value) })}
+            className="w-full"
+          />
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Lower = wider text area (a custom value also removes the standard width cap). The photo stays full width.
+          </p>
+        </div>
         <div className="grid grid-cols-3 gap-2">
           <ColorField
             label="Background"
