@@ -501,6 +501,20 @@ const STRICT_FACTS_INSTRUCTION =
   "case-study-spotlight-feature, story-hub): NEVER write placeholder text into " +
   "these; OMIT the card/block and emit fewer items (or a different block) instead.";
 
+/** Quality ledger (July 2026) — one entry per silent fallback/degradation
+ *  taken during a generation. Returned on the receipt + result body so the
+ *  builder can show WHAT fell back instead of shipping it invisibly, and
+ *  logged so fallback rates are observable in aggregate. The fail-open
+ *  philosophy is unchanged — this only makes it loud. */
+export interface GenerationDegradation {
+  /** Stable machine code (e.g. "reference_scrape_failed") for dashboards. */
+  code: string;
+  severity: "info" | "warn";
+  /** Human-readable one-liner shown in the builder receipt. */
+  detail: string;
+}
+
+
 // ── Brand typography & design-intensity helpers (Task #900) ───────────────
 
 /** Trailing weight / style tokens stripped from a raw font-family string so
@@ -3738,6 +3752,7 @@ export async function aiFillEmptyImages(
   tenantId: number,
   brand: BrandConfig,
   userPrompt?: string,
+  opts?: { onFailure?: (fieldLabel: string) => void },
 ): Promise<Array<Record<string, unknown>>> {
   const MAX_GENS = 12;
   // Build a small business summary out of brand product lines so the image
@@ -3992,6 +4007,7 @@ export async function aiFillEmptyImages(
           { err: String(err), tenantId, fieldLabel: slot.fieldLabel },
           "[generate-page] ai image fill failed for slot (left empty)",
         );
+        opts?.onFailure?.(slot.fieldLabel);
       }
     }),
   );
@@ -6225,6 +6241,8 @@ export function enforceRequiredRoles(
     // When set, those two roles are simply not backfilled; a strict-mode page
     // without stats is honest, one with invented stats is not.
     strictFacts?: boolean;
+    /** Quality-ledger hook: called once per default block injected. */
+    onInject?: (role: string, blockType: string) => void;
   } = {},
 ): Array<Record<string, unknown>> {
   if (!Array.isArray(blocks) || blocks.length === 0) return blocks;
@@ -6271,6 +6289,7 @@ export function enforceRequiredRoles(
     const ctaIdx = firstIndexWithRole("cta");
     const anchor = footerIdx !== -1 ? footerIdx : ctaIdx !== -1 ? ctaIdx : blocks.length;
     blocks.splice(anchor, 0, block!);
+    opts.onInject?.(role, String(block!.type ?? ""));
   }
 
   // Closing CTA before any footer.
@@ -8225,6 +8244,9 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   // pastes a homepage; single-page for deep links) and uploaded screenshot
   // preprocess both run in parallel with the media/proof-point reads so we
   // don't add latency to the happy path.
+  // Quality ledger for this request — see GenerationDegradation.
+  const degradations: GenerationDegradation[] = [];
+
   const scrapePromise: Promise<MaybeScrapeResult> = tenantId != null && scrapeUrls.length > 0
     ? gatherReferences(scrapeUrls, tenantId)
     : Promise.resolve({ scraped: null, failureReason: "no_url" } as MaybeScrapeResult);
@@ -8282,6 +8304,24 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
   const scrapedUrls: string[] = scrapeResult.scraped
     ? [scrapeResult.scraped.url, ...(scrapeResult.scraped.additionalUrls ?? [])]
     : [];
+
+  if (scrapeResult.failureReason && scrapeResult.failureReason !== "no_url") {
+    degradations.push({
+      code: "reference_scrape_failed",
+      severity: "warn",
+      detail: `We couldn't read the reference URL (${scrapeResult.failureReason.replace(/_/g, " ")}) — the page was generated without it.`,
+    });
+  }
+  {
+    const failedInspiration = inspirationScrapes.filter((r) => r === null).length;
+    if (failedInspiration > 0) {
+      degradations.push({
+        code: "inspiration_scrape_failed",
+        severity: "info",
+        detail: `${failedInspiration} inspiration site(s) couldn't be read and didn't inform this page.`,
+      });
+    }
+  }
 
   // Streaming: which per-request reference URLs did NOT scrape (and why).
   {
@@ -9152,6 +9192,21 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
             strictMismatches = scanForUnapprovedStats(mergedBlocks, pool);
           }
         }
+        const unresolved = critique.annotations.filter((a) => !a.resolved).length;
+        if (unresolved > 0) {
+          degradations.push({
+            code: "critique_unresolved",
+            severity: "info",
+            detail: `${unresolved} section(s) still contain flagged phrasing after the copy-polish pass.`,
+          });
+        }
+        if (!critique.critiqued && bannedPhraseHits.length > 0) {
+          degradations.push({
+            code: "critique_skipped",
+            severity: "warn",
+            detail: "The copy-polish pass didn't run even though phrasing was flagged — review the flagged sections manually.",
+          });
+        }
       }
 
       // Task #4 — enforce tenant AI modes as the FINAL pass on the template
@@ -9197,6 +9252,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       emitter.stage("polish", "done", "Critiquing & polishing copy");
       emitter.blocksSnapshot(mergedBlocks, "polish");
       emitter.stage("finalize", "start", "Finalizing the page");
+      if (strictMismatches.length > 0) {
+        degradations.push({
+          code: "unapproved_stats_flagged",
+          severity: "warn",
+          detail: `${strictMismatches.length} stat(s) on the page aren't in your approved facts — review them before publishing.`,
+        });
+      }
       emitter.receipt({
         recipeId: null,
         intentMatchedTemplate,
@@ -9210,6 +9272,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         imageFitFlagCount: 0,
         critiqueCount: critiqueAnnotations.length,
         usedScreenshot: !!visionImage,
+        degradations,
       });
       emitter.stage("finalize", "done", "Finalizing the page");
 
@@ -9223,6 +9286,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         // Null for explicit template picks.
         intentMatchedTemplate,
         strictMismatches,
+        degradations,
         // Task #1138 — raw candidate facts (stats + claims + quotes). The
         // client persists these as pending flags via the page's /fact-flags/sync
         // endpoint once the page row exists.
@@ -10451,12 +10515,21 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // Those off-topic curated/scraped/starter images instead fill ONLY in the
       // final last-resort pass BELOW, after AI generation has had its chance —
       // matching the documented intent in findBestImage. (Task #1287)
+      let aiImageFailures = 0;
       parsed.blocks = await aiFillEmptyImages(
         parsed.blocks as Array<Record<string, unknown>>,
         tenantId!,
         brand,
         prompt,
+        { onFailure: () => { aiImageFailures++; } },
       );
+      if (aiImageFailures > 0) {
+        degradations.push({
+          code: "ai_image_generation_failed",
+          severity: "warn",
+          detail: `${aiImageFailures} image slot(s) couldn't be AI-generated and were left empty — pick images manually or retry.`,
+        });
+      }
     }
     // Last-resort fill: off-topic scraped reference harvests (and any
     // purpose-mismatched curated image the relaxed curated pass left) for slots
@@ -10764,6 +10837,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         );
         blocks.length = 0;
         blocks.push(...(scrub.blocks as Array<Record<string, unknown>>));
+        degradations.push({
+          code: "placeholder_testimonials_stripped",
+          severity: "warn",
+          detail: `${scrub.events.length} placeholder quote(s) the model emitted were removed — add real quotes in Brand Settings to fill these slots.`,
+        });
       }
     }
 
@@ -10782,6 +10860,11 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         brandName: brand.brandName,
         ctaUrl: cpUrl,
         strictFacts: strict,
+        onInject: (role, blockType) => degradations.push({
+          code: "default_role_injected",
+          severity: "info",
+          detail: `The model omitted a ${role} section, so a generic ${blockType} was added — its copy is a template, not personalized.`,
+        }),
       });
     }
 
@@ -10922,6 +11005,21 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           strictMismatches = scanForUnapprovedStats(parsed.blocks, pool);
         }
       }
+      const unresolved = critique.annotations.filter((a) => !a.resolved).length;
+      if (unresolved > 0) {
+        degradations.push({
+          code: "critique_unresolved",
+          severity: "info",
+          detail: `${unresolved} section(s) still contain flagged phrasing after the copy-polish pass.`,
+        });
+      }
+      if (!critique.critiqued && bannedPhraseHits.length > 0) {
+        degradations.push({
+          code: "critique_skipped",
+          severity: "warn",
+          detail: "The copy-polish pass didn't run even though phrasing was flagged — review the flagged sections manually.",
+        });
+      }
     }
 
     // Task #4 — enforce tenant AI modes as the FINAL pass, AFTER every
@@ -11030,6 +11128,13 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       finalSequenceHash = null;
     }
 
+    if (strictMismatches.length > 0) {
+      degradations.push({
+        code: "unapproved_stats_flagged",
+        severity: "warn",
+        detail: `${strictMismatches.length} stat(s) on the page aren't in your approved facts — review them before publishing.`,
+      });
+    }
     emitter.receipt({
       recipeId: chosenRecipe?.id ?? null,
       // June 2026 — "Shuffle layout" (additive): the applied, validated recipe
@@ -11047,6 +11152,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       imageFitFlagCount: imageFitFlags.length,
       critiqueCount: critiqueAnnotations.length,
       usedScreenshot: !!visionImage,
+      degradations,
     });
     emitter.stage("finalize", "done", "Finalizing the page");
 
@@ -11069,6 +11175,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       // separate from the fact flags in detectedFacts).
       imageFitFlags,
       strictMismatches,
+      degradations,
       // Task #1138 — raw candidate facts persisted as pending flags by the
       // client via /fact-flags/sync after the page row is created.
       detectedFacts: detectFacts(parsed.blocks, resolvedBrandName),

@@ -160,6 +160,7 @@ import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../l
 import { isDandyTenant } from "../../lib/planFeatures";
 import { logger } from "../../lib/logger";
 import { captureRouteError } from "../../lib/sentry";
+import type { GenerationDegradation } from "../lp/generate-page";
 
 const router = Router();
 
@@ -649,6 +650,11 @@ const MICROSITE_DARK_BY_DESIGN_HERO_TYPES: ReadonlySet<string> = new Set([
  *  first content hero for anchor-link derivation + the hero-upgrade pass, and
  *  to keep the section-bg rhythm pass off the hero's own surface). */
 const MICROSITE_HERO_BLOCK_TYPES: ReadonlySet<string> = new Set([
+  // The neutral "hero" must stay in this set: it is still advertised to the
+  // model with backgroundStyle "white"|"light-gray", and the white-hero
+  // upgrade pass keys off this set (dropping it made plain-white text-only
+  // heroes escape the upgrade — regression from the full-bleed-hero swap).
+  "hero",
   "full-bleed-hero",
   "ai-scan-hero",
   ...MICROSITE_SELF_NAV_HERO_TYPES,
@@ -1967,7 +1973,7 @@ export function buildFreeformBlockGuide(
 // page is never malformed even when the tenant did not approve them explicitly:
 // a hero (opens the page), a closing CTA, and a footer (closes the page).
 // enforceRequiredRoles still backfills any missing required role afterwards.
-const SEGMENT_POOL_STRUCTURAL_TYPES = ["hero", "bottom-cta", "footer"] as const;
+const SEGMENT_POOL_STRUCTURAL_TYPES = ["hero", "full-bleed-hero", "bottom-cta", "footer"] as const;
 
 /** Build the segment-pool "AVAILABLE BLOCKS" guide: the structural essentials
  *  plus every approved block in the pool, each with its role hint and schema.
@@ -4249,6 +4255,10 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     if (emitter.aborted) { emitter.close(); return; }
 
     const raw = completion.choices?.[0]?.message?.content ?? "{}";
+    // Quality ledger — every silent fallback taken below is recorded here and
+    // returned on the result body so the rep sees WHAT degraded (see
+    // GenerationDegradation in generate-page.ts).
+    const degradations: GenerationDegradation[] = [];
     let parsed: { title?: string; slug?: string; blocks?: unknown[] };
     try {
       parsed = JSON.parse(raw);
@@ -4264,9 +4274,16 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       // net below produce NEUTRAL rather than 500. Only the curated-block-list
       // path (no template, not freeform) keeps the hard error.
       if (!templateBlocks && !useFreeform && !useDsoFreeform && !usePoolFreeform) {
-        sendErrorJson(500, { error: "AI returned invalid JSON", raw });
+        sendErrorJson(500, { error: "AI returned invalid JSON" });
         return;
       }
+      degradations.push({
+        code: "model_output_unparseable",
+        severity: "warn",
+        detail: templateBlocks
+          ? "The AI response couldn't be read — the page uses the template's authored copy without personalization."
+          : "The AI response couldn't be read — the page fell back to the standard layout without personalization.",
+      });
       parsed = {};
     }
 
@@ -4276,6 +4293,13 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       // page rather than a 500 or a missing section.
       if (!Array.isArray(parsed.blocks) || parsed.blocks.length === 0) {
         parsed.blocks = templateBlocks as unknown[];
+        if (degradations.every((d) => d.code !== "model_output_unparseable")) {
+          degradations.push({
+            code: "template_fallback",
+            severity: "warn",
+            detail: "The AI returned no usable sections — the page uses the template's authored copy without personalization.",
+          });
+        }
       }
       if (!parsed.title || typeof parsed.title !== "string") {
         parsed.title = account.displayName ?? account.name;
@@ -4743,13 +4767,20 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
           if (q) q.push(b);
           else aiByType.set(t, [b]);
         }
+        let authoredOnlySlots = 0;
         normalizedBlocks = templateBlocks.map((tmpl) => {
           const t = canonicalizeBlockType(String(tmpl.type ?? ""));
-          return (
-            aiByType.get(t)?.shift() ??
-            ({ id: tmpl.id, type: tmpl.type, props: {} } as AiBlock)
-          );
+          const ai = aiByType.get(t)?.shift();
+          if (!ai) authoredOnlySlots++;
+          return ai ?? ({ id: tmpl.id, type: tmpl.type, props: {} } as AiBlock);
         });
+        if (authoredOnlySlots > 0) {
+          degradations.push({
+            code: "sections_not_personalized",
+            severity: "info",
+            detail: `${authoredOnlySlots} section(s) kept the template's authored copy — the AI produced no matching content for them.`,
+          });
+        }
       }
 
       normalizedBlocks = restoreTemplateImages(
@@ -5093,7 +5124,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     }
 
     emitter.stage("finalize", "done", "Finalizing the page");
-    sendResultJson({ page, blocks: normalizedBlocks });
+    sendResultJson({ page, blocks: normalizedBlocks, degradations });
   } catch (err) {
     // Surface the real cause + stack in a structured origin log line so a
     // genuine failure is diagnosable (the previous console.error often never

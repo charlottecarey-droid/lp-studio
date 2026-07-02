@@ -81,6 +81,9 @@ export interface GenerationReceipt {
   scrapedUrls: string[];
   usedReference: boolean;
   referenceFailureReason: string | null;
+  /** Quality ledger — silent fallbacks taken during this generation (July
+   *  2026). Optional: older server builds omit it. */
+  degradations?: { code: string; severity: "info" | "warn"; detail: string }[];
   inspirationReferences: { url: string; fromCache: boolean }[];
   imageFitFlagCount: number;
   critiqueCount: number;

@@ -536,6 +536,17 @@ export function GenerationLiveView({
                   <span>Used your screenshot for layout cues</span>
                 </li>
               )}
+              {/* Quality ledger — anything that silently fell back during
+                  generation. warn = act before publishing; info = FYI. */}
+              {(receipt.degradations ?? []).map((d, i) => (
+                <li
+                  key={`${d.code}-${i}`}
+                  className={`flex items-start gap-2 ${d.severity === "warn" ? "text-amber-600" : "text-foreground/60"}`}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                  <span>{d.detail}</span>
+                </li>
+              ))}
             </ul>
 
             <div className="pt-1 space-y-2">
