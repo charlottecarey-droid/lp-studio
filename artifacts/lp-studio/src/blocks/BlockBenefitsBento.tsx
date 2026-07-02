@@ -8,6 +8,7 @@ import { resolveSectionInk } from "@/lib/section-ink";
 import { InlineText } from "@/components/InlineText";
 import { CtaButton } from "@/components/CtaButton";
 import { BRAND_BODY_STACK, BRAND_DISPLAY_STACK } from "@/lib/brand-fonts";
+import { SectionDecor } from "@/lib/premium-toolkit";
 import { cn } from "@/lib/utils";
 import { motion, useReducedMotion } from "framer-motion";
 
@@ -31,8 +32,8 @@ interface Props {
 
 /** Layout span per tile index: tile 0 = large hero (2×2), tile 4 = wide. */
 function spanFor(index: number): string {
-  if (index === 0) return "md:col-span-2 md:row-span-2";
-  if (index === 4) return "md:col-span-2";
+  if (index === 0) return "@3xl:col-span-2 @3xl:row-span-2";
+  if (index === 4) return "@3xl:col-span-2";
   return "";
 }
 
@@ -88,7 +89,7 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
 
   return (
     <section
-      className="bbento-section relative w-full overflow-hidden px-6 py-24 sm:py-28 lg:px-10"
+      className="bbento-section @container relative w-full overflow-hidden px-6 py-24 sm:py-28 lg:px-10"
       style={{ background: surface.background, color: text, fontFamily: BODY }}
     >
       <style>{`
@@ -103,17 +104,21 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
           .bbento-card, .bbento-card:hover { transition: none; transform: none; }
         }
       `}</style>
+      <SectionDecor accent={accentRaw} isDark={dark} disabled={isBuilder} />
       <div className="relative z-10 mx-auto max-w-[1200px]">
-        {/* ── Split header: headline left, subheadline right. ── */}
-        <div className="mb-12 lg:mb-16 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,400px)] lg:items-end lg:gap-12">
+        {/* ── Split header: headline left, subheadline right (container-tracked). ── */}
+        <div className="mb-12 @4xl:mb-16 @4xl:grid @4xl:grid-cols-[minmax(0,1fr)_minmax(0,400px)] @4xl:items-end @4xl:gap-12">
           <div>
             {(props.eyebrow || onFieldChange) && (
-              <InlineText
-                as="p"
-                value={props.eyebrow ?? ""}
-                onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined}
-                className="mb-4 text-[11px] font-semibold uppercase tracking-[0.26em]"
-                style={{ color: eyebrowColor }} />
+              <div className="mb-4 flex items-center gap-3">
+                <span aria-hidden="true" className="h-px w-8 shrink-0" style={{ backgroundColor: accent }} />
+                <InlineText
+                  as="p"
+                  value={props.eyebrow ?? ""}
+                  onUpdate={onFieldChange ? (v) => update("eyebrow", v) : undefined}
+                  className="text-[11px] font-semibold uppercase tracking-[0.26em]"
+                  style={{ color: eyebrowColor }} />
+              </div>
             )}
             <InlineText
               as="h2"
@@ -128,14 +133,14 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
               as="p"
               value={props.subheadline ?? ""}
               onUpdate={onFieldChange ? (v) => update("subheadline", v) : undefined}
-              className="mt-4 max-w-xl text-base leading-relaxed lg:mt-0 lg:pb-1.5 lg:text-lg"
+              className="mt-4 max-w-xl text-base leading-relaxed @4xl:mt-0 @4xl:pb-1.5 @4xl:text-lg"
               style={{ color: muted }}
               multiline />
           )}
         </div>
 
         {/* ── Tinted bento grid. ── */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:gap-5">
+        <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-3 @4xl:gap-5">
           {props.tiles.map((tile, i) => {
             const isHero = i === 0;
             const isWide = i === 4;
@@ -144,7 +149,7 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
                 key={i}
                 className={cn(
                   "bbento-card relative flex flex-col overflow-hidden rounded-[1.75rem]",
-                  isHero ? "p-7 sm:p-9 md:justify-end" : isWide ? "p-7 sm:p-8" : "p-6 sm:p-7",
+                  isHero ? "p-7 sm:p-9 @3xl:justify-end" : isWide ? "p-7 sm:p-8" : "p-6 sm:p-7",
                   spanFor(i),
                 )}
                 style={{ backgroundColor: tintFor(i), boxShadow: `inset 0 0 0 1px ${ring}` }}
@@ -153,14 +158,24 @@ export function BlockBenefitsBento({ props, brand, onFieldChange }: Props) {
                 viewport={{ once: true, amount: 0.2 }}
                 transition={still ? undefined : { duration: 0.55, delay: Math.min(i * 0.07, 0.4), ease: [0.16, 1, 0.3, 1] }}
               >
+                {(isHero || isWide) && (
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full"
+                    style={{
+                      background: `radial-gradient(circle, color-mix(in srgb, ${accentRaw} ${isHero ? 20 : 12}%, transparent) 0%, transparent 68%)`,
+                    }}
+                  />
+                )}
                 <div
                   className={cn(
-                    "mb-5 flex items-center justify-center rounded-2xl",
+                    "relative mb-5 flex items-center justify-center rounded-2xl",
                     isHero ? "h-12 w-12 sm:h-14 sm:w-14" : "h-11 w-11",
                   )}
                   style={{
-                    backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)`,
+                    background: `linear-gradient(135deg, ${accent}26, ${accent}0d)`,
                     color: accent,
+                    boxShadow: `inset 0 0 0 1px ${accent}1f`,
                   }}
                   aria-hidden="true"
                 >
