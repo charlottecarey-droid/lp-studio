@@ -6959,7 +6959,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
       case "value-pillars-icon-trio":
         return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Pillar" showMediaSize />;
       case "value-pillars-outlined-cards":
-        return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Pillar" showCardBorder showItemLinks showMediaSize />;
+        return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Pillar" showCardBorder showItemLinks showMediaSize showShowcase />;
       case "value-pillars-color-block-cards":
         return <SectionBlockPanel blockType={block.type} props={block.props} onChange={updated => onChange({ ...block, props: updated })} brandVoiceSet={brandVoiceSet} itemNoun="Pillar" showItemLinks showMediaSize />;
       case "value-pillars-divided-columns":

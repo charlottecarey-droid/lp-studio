@@ -360,7 +360,58 @@ export interface ValuePillarsOutlinedCardsBlockProps extends SectionBlockBase {
   cardBorderColor?: string;
   /** Card outline width in px (0 = no outline). Defaults to 1. */
   cardBorderWidth?: number;
+  /**
+   * Layout variant. "cards" (default, legacy) = just the outlined pillar
+   * cards. "showcase" adds a row of TWO large outlined feature cards below
+   * the pillars — a big-image feature card and a customer-story card
+   * (Procore-style). Optional so legacy pages and AI output stay unchanged.
+   */
+  variant?: "cards" | "showcase";
+  /** Showcase feature card — eyebrow (e.g. "Integrations"). */
+  showcaseFeatureEyebrow?: string;
+  /** Showcase feature card — title. */
+  showcaseFeatureTitle?: string;
+  /** Showcase feature card — body copy. */
+  showcaseFeatureBody?: string;
+  /** Showcase feature card — large image URL. Empty = accent-tinted placeholder panel. */
+  showcaseFeatureImage?: string;
+  /** Showcase story card — eyebrow (e.g. "Customer story"). */
+  showcaseStoryEyebrow?: string;
+  /** Showcase story card — the big pull-quote line. */
+  showcaseStoryQuote?: string;
+  /** Showcase story card — supporting line under the quote. */
+  showcaseStoryBody?: string;
+  /** Showcase story card — photo URL. Empty = accent-tinted placeholder panel. */
+  showcaseStoryImage?: string;
+  /** Showcase story card — attribution name. */
+  showcaseStoryName?: string;
+  /** Showcase story card — attribution role/title. */
+  showcaseStoryRole?: string;
+  /** Showcase story card — attribution company. */
+  showcaseStoryCompany?: string;
 }
+
+/**
+ * Default copy for the outlined-cards "showcase" variant.
+ * ONE source of truth shared by the renderer (`??` fallbacks) and the property
+ * panel (seeds these into unset fields when the author switches the layout on,
+ * so canvas and panel agree and edits persist). Brand-neutral placeholders per
+ * convention — never a real company or person.
+ */
+export const OUTLINED_CARDS_SHOWCASE_DEFAULTS = {
+  showcaseFeatureEyebrow: "Integrations",
+  showcaseFeatureTitle: "Connect the tools you already use",
+  showcaseFeatureBody:
+    "Bring your software solutions together into one central hub. With customized workflows you can access your tech stack, keeping everyone on the same page.",
+  showcaseStoryEyebrow: "Customer story",
+  showcaseStoryQuote:
+    "\u201CThey're not a vendor to us, not just software. They're partners.\u201D",
+  showcaseStoryBody:
+    "See how one growing team streamlined their operations with smart integrations.",
+  showcaseStoryName: "Jordan Avery",
+  showcaseStoryRole: "VP of Operations",
+  showcaseStoryCompany: "Acme Builders",
+} satisfies Partial<ValuePillarsOutlinedCardsBlockProps>;
 
 export type ValuePillarsColorBlockCardsBlockProps = SectionBlockBase;
 

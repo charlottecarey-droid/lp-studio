@@ -373,7 +373,7 @@ export type {
 } from "./generic-blocks";
 
 // Graduated section-block CTA defaults (value export, used by block-registry).
-export { sectionCtaDefaults } from "./generic-blocks";
+export { sectionCtaDefaults, OUTLINED_CARDS_SHOWCASE_DEFAULTS } from "./generic-blocks";
 
 // DSO block types
 export type {

@@ -7,7 +7,9 @@ import type {
   SectionMediaSize,
   SectionGridColumns,
   FeatureBigFeaturesBlockProps,
+  ValuePillarsOutlinedCardsBlockProps,
 } from "@/lib/block-types";
+import { OUTLINED_CARDS_SHOWCASE_DEFAULTS } from "@/lib/block-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -80,6 +82,8 @@ interface SectionBlockPanelProps<T extends SectionBlockBase> {
   showMediaSize?: boolean;
   /** Show the desktop "Columns" control (FeatureCardGrid). */
   showColumns?: boolean;
+  /** Show the "showcase" layout variant controls (Outlined Cards). */
+  showShowcase?: boolean;
 }
 
 /** Optional line (outline/divider) styling some section blocks expose. */
@@ -108,6 +112,7 @@ export function SectionBlockPanel<T extends SectionBlockBase>({
   showItemLinks,
   showMediaSize,
   showColumns,
+  showShowcase,
 }: SectionBlockPanelProps<T>) {
   const update = (patch: Partial<T>) => onChange({ ...props, ...patch });
   const line = props as unknown as SectionLineProps;
@@ -124,6 +129,27 @@ export function SectionBlockPanel<T extends SectionBlockBase>({
     } as Partial<T>);
 
   const big = props as unknown as FeatureBigFeaturesBlockProps;
+
+  const oc = props as unknown as ValuePillarsOutlinedCardsBlockProps;
+  const showcaseOn = showShowcase && oc.variant === "showcase";
+  const setVariant = (v: "cards" | "showcase") => {
+    if (v !== "showcase") {
+      update({ variant: "cards" } as unknown as Partial<T>);
+      return;
+    }
+    // Seed defaults into unset fields so the panel and canvas agree and the
+    // author edits real values (one source of truth in block-types).
+    const seed: Record<string, unknown> = { variant: "showcase" };
+    for (const [key, val] of Object.entries(OUTLINED_CARDS_SHOWCASE_DEFAULTS)) {
+      const cur = (props as Record<string, unknown>)[key];
+      if (cur === undefined || cur === "") {
+        seed[key] = val;
+      }
+    }
+    update(seed as unknown as Partial<T>);
+  };
+  const updateShowcase = (patch: Partial<ValuePillarsOutlinedCardsBlockProps>) =>
+    update(patch as unknown as Partial<T>);
 
   return (
     <div className="space-y-5">
@@ -188,6 +214,24 @@ export function SectionBlockPanel<T extends SectionBlockBase>({
             </SelectContent>
           </Select>
         </div>
+        {showShowcase && (
+          <div>
+            <Label className="text-[11px] text-muted-foreground">Layout</Label>
+            <Select
+              value={oc.variant ?? "cards"}
+              onValueChange={(v) => setVariant(v as "cards" | "showcase")}
+            >
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cards" className="text-xs">Pillar cards only</SelectItem>
+                <SelectItem value="showcase" className="text-xs">Pillars + feature cards</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Feature cards add a large image feature and a customer story below the pillars.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Items */}
@@ -262,6 +306,124 @@ export function SectionBlockPanel<T extends SectionBlockBase>({
           </div>
         ))}
       </div>
+
+      {/* Feature cards (showcase variant) */}
+      {showcaseOn && (
+        <div className="space-y-3">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Feature cards</div>
+
+          <div className="border rounded-md p-3 space-y-2">
+            <span className="text-xs font-medium">Image feature card</span>
+            <IconPicker
+              label="Image"
+              value={oc.showcaseFeatureImage ?? ""}
+              onChange={(v) => updateShowcase({ showcaseFeatureImage: v })}
+              aiHint="Large feature image"
+            />
+            <p className="text-[11px] text-muted-foreground">Shows a placeholder panel until you pick an image.</p>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Eyebrow</Label>
+              <Input
+                value={oc.showcaseFeatureEyebrow ?? ""}
+                onChange={(e) => updateShowcase({ showcaseFeatureEyebrow: e.target.value })}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Title</Label>
+              <AiTextField
+                type="input"
+                value={oc.showcaseFeatureTitle ?? ""}
+                onChange={(v) => updateShowcase({ showcaseFeatureTitle: v })}
+                className="h-8 text-xs"
+                brandVoiceSet={brandVoiceSet}
+                onSuggest={() => suggestCopy(blockType, "title", oc.showcaseFeatureTitle ?? "", { heading: props.heading ?? "" })}
+                fieldLabel="Feature card title"
+              />
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Description</Label>
+              <AiTextField
+                value={oc.showcaseFeatureBody ?? ""}
+                onChange={(v) => updateShowcase({ showcaseFeatureBody: v })}
+                rows={2}
+                className="text-xs"
+                brandVoiceSet={brandVoiceSet}
+                onSuggest={() => suggestCopy(blockType, "description", oc.showcaseFeatureBody ?? "", { title: oc.showcaseFeatureTitle ?? "" })}
+                fieldLabel="Feature card description"
+              />
+            </div>
+          </div>
+
+          <div className="border rounded-md p-3 space-y-2">
+            <span className="text-xs font-medium">Customer story card</span>
+            <IconPicker
+              label="Photo"
+              value={oc.showcaseStoryImage ?? ""}
+              onChange={(v) => updateShowcase({ showcaseStoryImage: v })}
+              aiHint="Customer portrait photo"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-[11px] text-muted-foreground">Name</Label>
+                <Input
+                  value={oc.showcaseStoryName ?? ""}
+                  onChange={(e) => updateShowcase({ showcaseStoryName: e.target.value })}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-[11px] text-muted-foreground">Role</Label>
+                <Input
+                  value={oc.showcaseStoryRole ?? ""}
+                  onChange={(e) => updateShowcase({ showcaseStoryRole: e.target.value })}
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Company</Label>
+              <Input
+                value={oc.showcaseStoryCompany ?? ""}
+                onChange={(e) => updateShowcase({ showcaseStoryCompany: e.target.value })}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Eyebrow</Label>
+              <Input
+                value={oc.showcaseStoryEyebrow ?? ""}
+                onChange={(e) => updateShowcase({ showcaseStoryEyebrow: e.target.value })}
+                className="h-8 text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Quote</Label>
+              <AiTextField
+                value={oc.showcaseStoryQuote ?? ""}
+                onChange={(v) => updateShowcase({ showcaseStoryQuote: v })}
+                rows={3}
+                className="text-xs"
+                brandVoiceSet={brandVoiceSet}
+                onSuggest={() => suggestCopy(blockType, "quote", oc.showcaseStoryQuote ?? "", { heading: props.heading ?? "" })}
+                fieldLabel="Customer quote"
+              />
+            </div>
+            <div>
+              <Label className="text-[11px] text-muted-foreground">Supporting line</Label>
+              <AiTextField
+                value={oc.showcaseStoryBody ?? ""}
+                onChange={(v) => updateShowcase({ showcaseStoryBody: v })}
+                rows={2}
+                className="text-xs"
+                brandVoiceSet={brandVoiceSet}
+                onSuggest={() => suggestCopy(blockType, "description", oc.showcaseStoryBody ?? "", { title: oc.showcaseStoryQuote ?? "" })}
+                fieldLabel="Story supporting line"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Call to action */}
       <div className="space-y-3">
