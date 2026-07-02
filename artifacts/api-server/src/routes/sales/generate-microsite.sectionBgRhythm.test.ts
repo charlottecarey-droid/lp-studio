@@ -342,9 +342,13 @@ describe("microsite section background — structural self-section guard", () =>
 const typeOf = (b: Block): string => b.type as string;
 
 describe("Task #37 — navbar is always present (prepended if missing)", () => {
+  // Re-pinned after b305e938d (#1415): the neutral `hero` bakes its OWN navbar,
+  // so it now counts as nav-present (SELF_NAV_TYPES in lib/nav-dedup.ts) and a
+  // page opening with it must NOT get a second nav prepended. `ai-scan-hero`
+  // does NOT bake a nav, so it is the navbar-less opener for this case.
   it("prepends a nav-header with CTA + anchor links when the model emits no nav", () => {
     const blocks: Block[] = [
-      { type: "hero", props: { headline: "Welcome", backgroundStyle: "dark" } },
+      { type: "ai-scan-hero", props: { headline: "Welcome", backgroundStyle: "dark" } },
       { type: "benefits-grid", props: { headline: "Why us", backgroundStyle: "white" } },
       { type: "trust-bar", props: { headline: "Proof", items: [{ value: "10x", label: "faster" }] } },
       { type: "bottom-cta", props: { headline: "Ready?", backgroundStyle: "dark" } },
@@ -374,13 +378,27 @@ describe("Task #37 — navbar is always present (prepended if missing)", () => {
   });
 
   it("does NOT prepend a second nav when one already exists", () => {
+    // Re-pinned after b305e938d (#1415): a nav-header directly before the
+    // self-nav neutral `hero` is now STRIPPED (two stacked navbars), so pair the
+    // existing nav with a block that has no baked-in nav instead.
+    const blocks: Block[] = [
+      { type: "nav-header", props: { logoText: "Acme", navLinks: [] } },
+      { type: "benefits-grid", props: { headline: "Why us", backgroundStyle: "white" } },
+    ];
+    const out = ensureMicrositeNavbar(blocks, { brandName: "Acme" });
+    expect(out.filter(b => typeOf(b) === "nav-header")).toHaveLength(1);
+    expect(out).toHaveLength(2);
+  });
+
+  it("strips a nav-header stacked directly before a self-nav neutral `hero`", () => {
+    // The #1415 behavior itself: the hero bakes its own nav, so the standalone
+    // nav on top of it is redundant and must be dropped (exactly one navbar).
     const blocks: Block[] = [
       { type: "nav-header", props: { logoText: "Acme", navLinks: [] } },
       { type: "hero", props: { headline: "Welcome", backgroundStyle: "dark" } },
     ];
     const out = ensureMicrositeNavbar(blocks, { brandName: "Acme" });
-    expect(out.filter(b => typeOf(b) === "nav-header")).toHaveLength(1);
-    expect(out).toHaveLength(2);
+    expect(out.map(typeOf)).toEqual(["hero"]);
   });
 
   it("does NOT prepend a nav before a self-nav hero (it bakes its own nav)", () => {
@@ -405,15 +423,19 @@ describe("Task #37 — navbar is always present (prepended if missing)", () => {
 });
 
 describe("Task #37 — hero is dark/image, never plain-white text-only", () => {
+  // Re-pinned after 66f04e520: the microsite hero-upgrade pass now targets the
+  // hero types in MICROSITE_HERO_BLOCK_TYPES (full-bleed-hero is the neutral
+  // opener). See generate-microsite.navDedup.test.ts for the known gap around
+  // the legacy neutral `hero` type.
   it("upgrades a plain-white text-only hero to a dark/brand + image hero", () => {
     const blocks: Block[] = [
       { type: "nav-header", props: { navLinks: [] } },
-      { type: "hero", props: { headline: "Hello", backgroundStyle: "white", imageUrl: "" } },
+      { type: "full-bleed-hero", props: { headline: "Hello", backgroundStyle: "white", imageUrl: "" } },
       { type: "footer", props: {} },
     ];
     let info: { upgraded: boolean; setBg?: string } | null = null;
     const out = upgradeMicrositeHero(blocks, { hasHeroImage: true }, (i) => { info = i; });
-    const hero = out.find(b => typeOf(b) === "hero")!;
+    const hero = out.find(b => typeOf(b) === "full-bleed-hero")!;
     const p = hero.props as Block;
     expect(info!.upgraded).toBe(true);
     expect(DARK_BRAND).toContain(p.backgroundStyle);
@@ -526,8 +548,11 @@ describe("Task #37 — full free-form enforcement chain holds end-to-end", () =>
     // video-section / dandy-columns-v3) — the rhythm pass can only restyle
     // blocks whose renderer honors backgroundStyle; blocks with a fixed surface
     // (benefits-grid/how-it-works) are intentionally left alone.
+    // Re-pinned after b305e938d (#1415) + 66f04e520: the opener is the neutral
+    // "full-bleed-hero", which BAKES ITS OWN navbar — so "navbar always present"
+    // is satisfied by the hero itself and no standalone nav-header is prepended.
     const raw: Block[] = normalize([
-      { type: "hero", props: { headline: "Plain", backgroundStyle: "white", imageUrl: "" } },
+      { type: "full-bleed-hero", props: { headline: "Plain", backgroundStyle: "white", imageUrl: "" } },
       { type: "dandy-columns-v3", props: { headline: "A", backgroundStyle: "white" } },
       { type: "testimonial", props: { quote: "Great", author: "Dr. Lee", backgroundStyle: "white" } },
       { type: "video-section", props: { headline: "Watch", backgroundStyle: "white" } },
@@ -538,10 +563,12 @@ describe("Task #37 — full free-form enforcement chain holds end-to-end", () =>
     out = upgradeMicrositeHero(out, { hasHeroImage: true });
     out = enforceSectionBgRhythm(out);
 
-    // (1) Navbar present and first.
-    expect(typeOf(out[0])).toBe("nav-header");
+    // (1) Navbar present and first: the self-nav hero opens the page and no
+    //     second standalone nav is stacked on top of it.
+    expect(typeOf(out[0])).toBe("full-bleed-hero");
+    expect(out.some(b => typeOf(b) === "nav-header")).toBe(false);
     // (2) The hero is dark/brand (not plain white) and image-capable.
-    const hero = out.find(b => typeOf(b) === "hero")!;
+    const hero = out.find(b => typeOf(b) === "full-bleed-hero")!;
     expect(DARK_BRAND).toContain((hero.props as Block).backgroundStyle);
     expect((hero.props as Block).heroType).toBe("static-image");
     // (3) No two consecutive white BODY sections; ≥1 dark body anchor.

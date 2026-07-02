@@ -19,6 +19,7 @@
  * against the shared Postgres pool. Each run tears down its seeded rows.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -171,7 +172,8 @@ afterAll(async () => {
   }
 });
 
-describe("generate-page — Rewrite copy with AI (sourcePageId, non-template)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("generate-page — Rewrite copy with AI (sourcePageId, non-template)", () => {
   it("rewrites copy on an existing non-template page while preserving block structure", async () => {
     const { tenantId, sid } = await seedTenant();
     const sourcePageId = await seedSourcePage(tenantId);

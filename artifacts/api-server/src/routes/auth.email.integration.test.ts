@@ -23,6 +23,7 @@
  * live Cloudflare round-trip.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomBytes } from "node:crypto";
@@ -81,7 +82,8 @@ afterAll(async () => {
     .catch(() => {});
 });
 
-describe("POST /api/auth/email/register — no account enumeration", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /api/auth/email/register — no account enumeration", () => {
   it("returns the same generic success for a new and an existing email, and never duplicates the account", async () => {
     mockTurnstile.ok = true;
 
@@ -113,7 +115,8 @@ describe("POST /api/auth/email/register — no account enumeration", () => {
   });
 });
 
-describe("POST /api/auth/email/register — bot protection", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /api/auth/email/register — bot protection", () => {
   it("rejects with 400 and creates no account when the Turnstile check fails", async () => {
     mockTurnstile.ok = false;
     try {
@@ -136,7 +139,8 @@ describe("POST /api/auth/email/register — bot protection", () => {
   });
 });
 
-describe("rate limiting", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("rate limiting", () => {
   it("returns 429 once the password-auth limiter budget is exceeded (6th request)", async () => {
     // The password-auth limiter (max 5 / 15min) is untouched until here, so the
     // first 5 bad-credential logins are rejected on their own merits (401) and

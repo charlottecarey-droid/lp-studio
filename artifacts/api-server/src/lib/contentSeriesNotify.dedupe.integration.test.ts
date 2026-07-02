@@ -30,6 +30,7 @@
  * the box and we can count exactly how many sends were attempted.
  */
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -195,7 +196,8 @@ const EPISODE = (key: string, title: string): import("./contentSeriesNotify").Su
   ctaText: "Watch",
 });
 
-describe("content-series notify — at-most-once dedupe (Task #812)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("content-series notify — at-most-once dedupe (Task #812)", () => {
   it("never sends the same episode to a subscriber twice across repeated notify calls", async () => {
     const { tenantId, pageId } = await seedTenantAndPage();
     await seedSubscriber(tenantId, pageId, "alice@gmail.com");
@@ -273,7 +275,8 @@ describe("content-series notify — at-most-once dedupe (Task #812)", () => {
   });
 });
 
-describe("content-series notify — opt-out / unsubscribe filtering (Task #812)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("content-series notify — opt-out / unsubscribe filtering (Task #812)", () => {
   it("skips unsubscribed leads and never counts test leads as subscribers", async () => {
     const { tenantId, pageId } = await seedTenantAndPage();
     await seedSubscriber(tenantId, pageId, "dave@gmail.com");
@@ -332,7 +335,8 @@ describe("content-series notify — opt-out / unsubscribe filtering (Task #812)"
   });
 });
 
-describe("content-series notify — first-publish baseline (Task #812)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("content-series notify — first-publish baseline (Task #812)", () => {
   it("records the initial backlog as seen WITHOUT sending, then auto-sends only new episodes", async () => {
     const initialBlocks = contentSeriesBlocks({
       seriesTitle: "Auto Series",

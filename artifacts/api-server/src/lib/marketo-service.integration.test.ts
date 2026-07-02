@@ -26,6 +26,7 @@ process.env.MARKETO_FAKE_MODE = "1";
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
+import { dbAvailable } from "../test-utils/dbAvailable";
 const {
   pool,
   db,
@@ -104,7 +105,8 @@ afterAll(async () => {
   await pool.end().catch(() => undefined);
 });
 
-describe("logEmailActivity — idempotent per local event", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("logEmailActivity — idempotent per local event", () => {
   it("pushes once then suppresses an identical retry", async () => {
     const localEventId = `email-${Math.random().toString(36).slice(2)}`;
 
@@ -131,7 +133,8 @@ describe("logEmailActivity — idempotent per local event", () => {
   });
 });
 
-describe("logMicrositeView — idempotent per local event", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("logMicrositeView — idempotent per local event", () => {
   it("pushes once then suppresses an identical retry", async () => {
     const localEventId = `view-${Math.random().toString(36).slice(2)}`;
 
@@ -157,7 +160,8 @@ describe("logMicrositeView — idempotent per local event", () => {
   });
 });
 
-describe("pushEngagementScore — idempotent per local event", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("pushEngagementScore — idempotent per local event", () => {
   it("pushes once then suppresses an identical retry", async () => {
     const localEventId = `score-${Math.random().toString(36).slice(2)}`;
 
@@ -198,7 +202,8 @@ describe("pushEngagementScore — idempotent per local event", () => {
   });
 });
 
-describe("push-back fails closed on a missing connection", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("push-back fails closed on a missing connection", () => {
   it("returns pushed:false and writes no ledger row for a bogus connection id", async () => {
     const localEventId = `email-missing-${Math.random().toString(36).slice(2)}`;
     const res = await marketoService.logEmailActivity(999_000_001, tenantId, {
@@ -212,7 +217,8 @@ describe("push-back fails closed on a missing connection", () => {
   });
 });
 
-describe("getActiveConnection — tenant scoped", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("getActiveConnection — tenant scoped", () => {
   it("returns the row for the owning tenant and null for any other", async () => {
     const mine = await marketoService.getActiveConnection(tenantId);
     expect(mine?.id).toBe(connectionId);
@@ -223,7 +229,8 @@ describe("getActiveConnection — tenant scoped", () => {
   });
 });
 
-describe("importLeads — paginated bulk import with SF-key matching", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("importLeads — paginated bulk import with SF-key matching", () => {
   it("walks every page, applies match rules, tallies counts, and completes the sync log", async () => {
     const importTenantId = await seedTenant();
     const importConnId = await seedConnection(importTenantId, { importUnlinkedLeads: false });

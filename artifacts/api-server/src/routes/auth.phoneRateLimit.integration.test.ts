@@ -22,6 +22,7 @@
  * verify-code uses a mocked check that never triggers a real network call.
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomBytes } from "node:crypto";
@@ -110,7 +111,8 @@ afterAll(async () => {
   }
 });
 
-describe("POST /api/auth/phone/send-code — rate limiting", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /api/auth/phone/send-code — rate limiting", () => {
   it("returns 429 once the send-code limiter budget is exceeded (6th request)", async () => {
     // phoneSendLimiter: max 5 / 15min. Twilio is left unconfigured so each
     // request that clears the limiter short-circuits to 503 BEFORE any lookup
@@ -139,7 +141,8 @@ describe("POST /api/auth/phone/send-code — rate limiting", () => {
   });
 });
 
-describe("POST /api/auth/phone/verify-code — rate limiting", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /api/auth/phone/verify-code — rate limiting", () => {
   it("returns 429 once the verify-code limiter budget is exceeded (11th request)", async () => {
     // phoneVerifyLimiter: max 10 / 15min. Twilio is configured but the mocked
     // check always rejects, so each request that clears the limiter is a 400

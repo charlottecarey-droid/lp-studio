@@ -26,6 +26,7 @@
  * real tenant seed is the only faithful way to exercise the gate + read/write.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -220,7 +221,8 @@ afterAll(async () => {
   _clearResendDomainStatusCache();
 });
 
-describe("custom email-domain wizard — register → records", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("custom email-domain wizard — register → records", () => {
   it("creates the Resend domain, returns DNS records, and persists the config", async () => {
     resendStatus = "pending";
     const res = await injectAs(ENT_SID, {
@@ -248,7 +250,8 @@ describe("custom email-domain wizard — register → records", () => {
   });
 });
 
-describe("custom email-domain wizard — fail closed until verified", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("custom email-domain wizard — fail closed until verified", () => {
   it("resolveTenantSender stays on the shared default while the domain is pending", async () => {
     resendStatus = "pending";
     _clearResendDomainStatusCache();
@@ -263,7 +266,8 @@ describe("custom email-domain wizard — fail closed until verified", () => {
   });
 });
 
-describe("custom email-domain wizard — verification status (poll by id)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("custom email-domain wizard — verification status (poll by id)", () => {
   it("flips to verified/active once Resend reports verified", async () => {
     resendStatus = "verified";
     const res = await injectAs(ENT_SID, { method: "POST", url: "/lp/email-domain/verify" });
@@ -297,7 +301,8 @@ describe("custom email-domain wizard — verification status (poll by id)", () =
   });
 });
 
-describe("custom email-domain wizard — remove path", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("custom email-domain wizard — remove path", () => {
   it("deletes the Resend domain, clears the config, and reverts to the shared default", async () => {
     const res = await injectAs(ENT_SID, { method: "DELETE", url: "/lp/email-domain" });
 
@@ -324,7 +329,8 @@ describe("custom email-domain wizard — remove path", () => {
   });
 });
 
-describe("custom email-domain wizard — reuse already-registered domain", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("custom email-domain wizard — reuse already-registered domain", () => {
   const REUSE_DOMAIN = `reuse-${SUFFIX}.example.com`;
 
   it("reuses the existing Resend domain instead of erroring, and persists its id", async () => {
@@ -388,7 +394,8 @@ describe("custom email-domain wizard — reuse already-registered domain", () =>
   });
 });
 
-describe("custom email-domain wizard — Enterprise gating", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("custom email-domain wizard — Enterprise gating", () => {
   it("returns 402 for a non-Enterprise tenant on every verb", async () => {
     const get = await injectAs(FREE_SID, { method: "GET", url: "/lp/email-domain" });
     expect(get.status).toBe(402);

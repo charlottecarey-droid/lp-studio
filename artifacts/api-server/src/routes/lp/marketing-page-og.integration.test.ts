@@ -26,6 +26,7 @@
  * the shared DB.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -143,7 +144,8 @@ afterAll(async () => {
   if (tenantId) await pool.query(`DELETE FROM tenants WHERE id = $1`, [tenantId]).catch(() => {});
 });
 
-describe("GET /api/lp/page-og/:key (public)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("GET /api/lp/page-og/:key (public)", () => {
   it("returns the empty=fallback shape for an unset key", async () => {
     const res = await injectSid({ method: "GET", url: `/api/lp/page-og/${PAGE_KEY}` });
     expect(res.status).toBe(200);
@@ -167,7 +169,8 @@ describe("GET /api/lp/page-og/:key (public)", () => {
   });
 });
 
-describe("admin GET/PUT /api/admin/lp/page-og/:key (superadmin gated)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("admin GET/PUT /api/admin/lp/page-og/:key (superadmin gated)", () => {
   it("401s an anonymous PUT", async () => {
     const res = await inject(app, {
       method: "PUT",

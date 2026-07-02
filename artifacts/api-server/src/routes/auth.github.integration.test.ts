@@ -23,6 +23,7 @@
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
+import { dbAvailable } from "../test-utils/dbAvailable";
 
 const { inject } = await import("../test-utils/injectRequest");
 const authRouter = (await import("./auth")).default;
@@ -90,7 +91,10 @@ describe("GET /api/auth/github — initiation", () => {
     expect((res.json as { error?: string }).error).toMatch(/not configured/i);
   });
 
-  it("302-redirects to GitHub's authorize endpoint with the right params when configured", async () => {
+  // The initiation handler persists the single-use state nonce in oauth_states
+  // (real Postgres) before redirecting, so this branch needs a reachable DB —
+  // the config/unconfigured branches above stay pure env-in/response-out.
+  it.skipIf(!dbAvailable)("302-redirects to GitHub's authorize endpoint with the right params when configured", async () => {
     configureGithub();
     const res = await inject(app, { method: "GET", url: "/api/auth/github" });
     expect(res.status).toBe(302);

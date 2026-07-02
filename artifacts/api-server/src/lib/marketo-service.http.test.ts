@@ -27,6 +27,7 @@ delete process.env.MARKETO_FAKE_MODE; // ensure FAKE_MODE resolves to false on i
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
+import { dbAvailable } from "../test-utils/dbAvailable";
 const {
   pool,
   db,
@@ -186,7 +187,8 @@ afterAll(async () => {
   await pool.end().catch(() => undefined);
 });
 
-describe("importLeads — real HTTP layer (mocked fetch)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("importLeads — real HTTP layer (mocked fetch)", () => {
   it("walks every page via nextPageToken and acquires the token once", async () => {
     const tenantId = await seedTenant();
     const connId = await seedConnection(tenantId, { importUnlinkedLeads: false });

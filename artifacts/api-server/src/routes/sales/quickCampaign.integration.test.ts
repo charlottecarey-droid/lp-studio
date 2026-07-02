@@ -20,6 +20,7 @@
  * seeds + tears down its own growth tenants, sessions, and sales rows.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -104,7 +105,8 @@ afterAll(async () => {
   }
 });
 
-describe("Quick Campaigns wizard backend (task #800)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Quick Campaigns wizard backend (task #800)", () => {
   it("creates a template + draft campaign and lists the template (no 42703)", async () => {
     const { sid } = await seedTenant();
 

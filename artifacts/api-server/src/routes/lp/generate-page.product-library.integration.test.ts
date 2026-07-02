@@ -13,6 +13,7 @@
  * directly against the real Postgres pool (no AI, no HTTP).
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import { pool } from "@workspace/db";
 import {
   enforceProductLibraryBlocks,
@@ -56,7 +57,8 @@ afterAll(async () => {
   }
 });
 
-describe("enforceProductLibraryBlocks", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("enforceProductLibraryBlocks", () => {
   let tenantId: number;
 
   beforeAll(async () => {

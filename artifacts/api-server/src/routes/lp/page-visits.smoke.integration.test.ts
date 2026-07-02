@@ -14,6 +14,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import express, { type Express } from "express";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
 
@@ -148,7 +149,7 @@ afterAll(async () => {
   }
 });
 
-describe("Page-visits analytics smoke", () => {
+describe.skipIf(!dbAvailable)("Page-visits analytics smoke", () => {
   it("returns both anonymous and personalized visits with correct identity", async () => {
     const { tenantId, sid } = await seedTenant();
     const pageId = await seedPage(tenantId);

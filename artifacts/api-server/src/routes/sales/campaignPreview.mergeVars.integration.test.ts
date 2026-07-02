@@ -29,6 +29,7 @@
  * session, account, contact, campaign and template rows.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -118,7 +119,8 @@ function authed(sid: string, method: string, url: string, body?: unknown) {
   });
 }
 
-describe("Sales campaign preview-time merge variables (task #829)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Sales campaign preview-time merge variables (task #829)", () => {
   it("renders the seeded recipient's real firstName/lastName/company/title and blanks unknown tokens", async () => {
     const { tenantId, sid } = await seedTenant();
 

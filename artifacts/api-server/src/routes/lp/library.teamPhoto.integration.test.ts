@@ -16,6 +16,7 @@
  *       team section.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -104,7 +105,8 @@ afterAll(async () => {
   await cleanup();
 });
 
-describe("Task #1206 — team headshots reserved from AI reuse", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Task #1206 — team headshots reserved from AI reuse", () => {
   it("(a) auto-tags the headshot media row on team_member create, preserving existing tags", async () => {
     const res = await inject(app, {
       method: "POST",

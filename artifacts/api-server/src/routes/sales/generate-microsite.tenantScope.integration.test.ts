@@ -16,6 +16,7 @@
  * no OpenAI and no HTTP — just the data-access boundary.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import { pool } from "@workspace/db";
 import { fetchMediaCatalog } from "../lp/generate-page";
 
@@ -96,7 +97,8 @@ afterAll(async () => {
   await cleanup();
 });
 
-describe("fetchMediaCatalog — read scope (drawer parity)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("fetchMediaCatalog — read scope (drawer parity)", () => {
   it("returns the requesting tenant's own images but not an unrelated tenant's", async () => {
     const { allImages } = await fetchMediaCatalog(tenantA);
     const urls = allImages.map(i => i.url);

@@ -22,6 +22,7 @@
  * it never touches prod Neon — dev's `NEON_DATABASE_URL` points at production.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -107,7 +108,8 @@ async function newContact(
   return c.rows[0].id;
 }
 
-describe("deriveDomainFromEmail (pure)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("deriveDomainFromEmail (pure)", () => {
   it("returns the domain for a corporate address", () => {
     expect(attr.deriveDomainFromEmail("john@acmedental.com")).toBe("acmedental.com");
     expect(attr.deriveDomainFromEmail("  John@AcmeDental.com ")).toBe("acmedental.com");
@@ -125,7 +127,8 @@ describe("deriveDomainFromEmail (pure)", () => {
   });
 });
 
-describe("resolveSignalLinkage — email→domain enrichment", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("resolveSignalLinkage — email→domain enrichment", () => {
   it("matches an account by domain DERIVED from a corporate email (no explicit domain)", async () => {
     const tenantId = await newTenant("email-domain");
     const accountId = await newAccount(tenantId, "Acme Dental", "acmedental.com");
@@ -151,7 +154,8 @@ describe("resolveSignalLinkage — email→domain enrichment", () => {
   });
 });
 
-describe("resolveSignalLinkage — tenant-derived alias map (contact email domain)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("resolveSignalLinkage — tenant-derived alias map (contact email domain)", () => {
   it("matches an account whose domain field is blank via its contacts' email domain", async () => {
     const tenantId = await newTenant("alias-blank");
     const accountId = await newAccount(tenantId, "Bright Smiles", null); // no domain set
@@ -189,7 +193,8 @@ describe("resolveSignalLinkage — tenant-derived alias map (contact email domai
   });
 });
 
-describe("resolveSignalLinkage — tenant isolation of enrichment", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("resolveSignalLinkage — tenant isolation of enrichment", () => {
   it("never resolves an account via a domain that only exists in another tenant", async () => {
     const tenantA = await newTenant("iso-a");
     const tenantB = await newTenant("iso-b");

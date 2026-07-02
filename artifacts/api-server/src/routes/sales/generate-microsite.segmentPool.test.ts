@@ -104,8 +104,9 @@ describe("segmentPoolAllowedSet", () => {
 
   it("does not duplicate a structural type passed in the pool", () => {
     const set = segmentPoolAllowedSet(["hero", "footer"]);
-    // 3 structural essentials only, no growth from the overlapping pool.
-    expect(set.size).toBe(3);
+    // 4 structural essentials only (hero, full-bleed-hero, bottom-cta,
+    // footer), no growth from the overlapping pool.
+    expect(set.size).toBe(4);
   });
 });
 
@@ -182,15 +183,24 @@ describe("enforceRequiredRoles — pool-aware backfill (task #5)", () => {
 // last-resort layout must stay strictly pool-contained (never the generic
 // NEUTRAL list, which would leak off-pool blocks).
 describe("segmentPoolFallbackBlockList (task #5)", () => {
+  // 66f04e520 switched the fallback's opening hero from the neutral "hero" to
+  // "full-bleed-hero" (matching NEUTRAL_MICROSITE_BLOCK_LIST) — the expectations
+  // below are re-pinned to that opener.
   it("frames the approved pool body with structural essentials", () => {
     const list = segmentPoolFallbackBlockList(["pricing-table", "faq-accordion"]);
-    expect(list[0]).toBe(canonicalizeBlockType("hero"));
+    expect(list[0]).toBe(canonicalizeBlockType("full-bleed-hero"));
     expect(list[list.length - 2]).toBe(canonicalizeBlockType("bottom-cta"));
     expect(list[list.length - 1]).toBe(canonicalizeBlockType("footer"));
     expect(list).toContain(canonicalizeBlockType("pricing-table"));
     expect(list).toContain(canonicalizeBlockType("faq-accordion"));
   });
 
+  // segmentPoolFallbackBlockList's opener to "full-bleed-hero" but left
+  // SEGMENT_POOL_STRUCTURAL_TYPES (which feeds segmentPoolAllowedSet) at "hero",
+  // so the fallback list now emits a block outside its own allow-set — the
+  // route's pool validation can drop the fallback page's hero. Fix belongs in
+  // generate-microsite.ts (align SEGMENT_POOL_STRUCTURAL_TYPES / the allow-set
+  // with the "full-bleed-hero" opener), which is owned by another workstream.
   it("stays within the pool allow-set and never leaks off-pool blocks", () => {
     const pool = ["pricing-table", "faq-accordion"];
     const allowed = segmentPoolAllowedSet(pool);
@@ -205,7 +215,7 @@ describe("segmentPoolFallbackBlockList (task #5)", () => {
   it("with an empty pool, returns just the structural essentials (no dupes)", () => {
     const list = segmentPoolFallbackBlockList([]);
     expect(list).toEqual([
-      canonicalizeBlockType("hero"),
+      canonicalizeBlockType("full-bleed-hero"),
       canonicalizeBlockType("bottom-cta"),
       canonicalizeBlockType("footer"),
     ]);
@@ -213,7 +223,10 @@ describe("segmentPoolFallbackBlockList (task #5)", () => {
 
   it("dedupes and drops pool entries that collide with structural essentials", () => {
     const list = segmentPoolFallbackBlockList(["hero", "pricing-table", "pricing-table", "footer"]);
-    expect(list.filter((t) => t === canonicalizeBlockType("hero")).length).toBe(1);
+    // Exactly ONE opening hero: the pool's "hero" collides with the structural
+    // hero slot and is dropped; the opener is the structural "full-bleed-hero".
+    const heroFamily = new Set([canonicalizeBlockType("hero"), canonicalizeBlockType("full-bleed-hero")]);
+    expect(list.filter((t) => heroFamily.has(t)).length).toBe(1);
     expect(list.filter((t) => t === canonicalizeBlockType("footer")).length).toBe(1);
     expect(list.filter((t) => t === canonicalizeBlockType("pricing-table")).length).toBe(1);
   });

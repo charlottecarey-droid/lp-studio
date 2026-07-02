@@ -34,6 +34,7 @@
  * to exercise the visibility rules.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -171,7 +172,8 @@ afterAll(async () => {
   await pool.query(`DELETE FROM tenants WHERE id = ANY($1::int[])`, [[ownerTenantId, callerTenantId]]).catch(() => {});
 });
 
-describe("GET /lp/global-templates/:id/preview — public preview endpoint", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("GET /lp/global-templates/:id/preview — public preview endpoint", () => {
   it("returns the blocks for an is_global + is_template row, without any auth", async () => {
     const res = await inject(publicApp, {
       method: "GET",
@@ -219,7 +221,8 @@ describe("GET /lp/global-templates/:id/preview — public preview endpoint", () 
   });
 });
 
-describe("POST /lp/pages/:pageId/clone — featured global-template handoff", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /lp/pages/:pageId/clone — featured global-template handoff", () => {
   it("clones a global template owned by ANOTHER tenant into the caller's tenant", async () => {
     const res = await injectAsCaller({
       method: "POST",

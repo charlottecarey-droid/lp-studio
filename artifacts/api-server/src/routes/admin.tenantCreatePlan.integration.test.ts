@@ -14,6 +14,7 @@
  * up beyond the seeded superadmin session.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -70,7 +71,8 @@ function createTenant(body: unknown) {
   });
 }
 
-describe("POST /tenants — canonical plan gate", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /tenants — canonical plan gate", () => {
   it("rejects the legacy 'trial' alias with 400", async () => {
     const res = await createTenant({
       name: "IT Plan Gate Tenant",

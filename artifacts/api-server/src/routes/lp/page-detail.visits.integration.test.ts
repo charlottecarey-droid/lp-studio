@@ -26,6 +26,7 @@
  * growth tenants, sessions, pages, and visit rows.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -194,7 +195,8 @@ afterAll(async () => {
   }
 });
 
-describe("GET /lp/analytics/pages/:pageId/visits", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("GET /lp/analytics/pages/:pageId/visits", () => {
   it("returns both anonymous and personalized visits (happy path), newest first, with conversion flag", async () => {
     const { tenantId, sid } = await seedTenant();
     const pageId = await seedPage(tenantId);
@@ -359,7 +361,8 @@ interface SummaryBody {
   };
 }
 
-describe("GET /lp/analytics/pages/:pageId/summary — de-anonymized known visitors (Task #919)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("GET /lp/analytics/pages/:pageId/summary — de-anonymized known visitors (Task #919)", () => {
   it("classifies a lead-resolved session as a known visitor and dedupes sessions sharing one identity", async () => {
     const { tenantId, sid } = await seedTenant();
     const pageId = await seedPage(tenantId);

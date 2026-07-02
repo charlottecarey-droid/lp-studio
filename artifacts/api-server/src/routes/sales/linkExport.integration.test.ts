@@ -17,6 +17,7 @@
  * seeds + tears down its own growth tenants, sessions, and sales rows.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -182,7 +183,8 @@ afterAll(async () => {
   }
 });
 
-describe("Personalized link export flow", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Personalized link export flow", () => {
   it("builds a personalized link per active+emailed contact and skips contacts with no email", async () => {
     const { tenantId, sid } = await seedTenant();
     const pageId = await seedPage(tenantId, "published");

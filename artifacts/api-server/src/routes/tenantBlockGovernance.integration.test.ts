@@ -16,6 +16,7 @@
  *      caller with none of those permissions is rejected with 403.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -106,7 +107,8 @@ afterAll(async () => {
   await cleanup();
 });
 
-describe("tenant block-governance round-trip", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("tenant block-governance round-trip", () => {
   it("GET on a virgin tenant returns an empty entry list (fail-open)", async () => {
     const res = await injectSid({ method: "GET", url: "/api/tenant/block-governance", sid: EDITOR_SID });
     expect(res.status).toBe(200);

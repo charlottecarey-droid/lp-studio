@@ -17,6 +17,7 @@
  * run against the shared DB. Config persistence runs against the real Postgres.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import { randomUUID } from "node:crypto";
 import { pool } from "@workspace/db";
 import { runBrandedSubdomainReconcile, startBrandedSubdomainReconcilePoller } from "./brandedSubdomainReconcilePoller";
@@ -154,7 +155,8 @@ afterAll(async () => {
   await pool.query(`DELETE FROM tenants WHERE id = $1`, [tenantId]).catch(() => {});
 });
 
-describe("branded subdomain reconcile poller", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("branded subdomain reconcile poller", () => {
   it("does not start outside production (gated)", () => {
     expect(process.env.NODE_ENV).not.toBe("production");
     expect(startBrandedSubdomainReconcilePoller()).toBeNull();

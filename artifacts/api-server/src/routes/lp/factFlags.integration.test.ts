@@ -19,6 +19,7 @@
  *   - Everything is tenant-scoped (fail-closed 403 with no tenant).
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -162,7 +163,8 @@ afterAll(async () => {
 interface SyncResponse { flags: { id: number; factKind: string; triageState: string }[]; pendingCount: number; created: number }
 interface ListResponse { flags: { id: number; factKind: string; triageState: string }[]; pendingCount: number; total: number }
 
-describe("Strict Facts review flow endpoints (#1138)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Strict Facts review flow endpoints (#1138)", () => {
   it("sync detects stat/claim/quote facts and persists pending flags", async () => {
     const pageId = await seedPage(tenantId, "draft");
     const res = await injectAs(SID, { method: "POST", url: `/lp/pages/${pageId}/fact-flags/sync` });

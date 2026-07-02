@@ -26,6 +26,7 @@
  * (scope='platform') templates, so the Phase-1 byte-identical guard is unaffected.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -127,7 +128,8 @@ afterAll(async () => {
   await cleanup();
 });
 
-describe("tenant email-template editor API", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("tenant email-template editor API", () => {
   it("denies a same-tenant non-admin with 403 on every route", async () => {
     const routes: Array<{ method: string; url: string }> = [
       { method: "GET", url: "/api/tenant/notification-templates" },

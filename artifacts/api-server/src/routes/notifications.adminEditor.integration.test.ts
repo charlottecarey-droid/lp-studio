@@ -22,6 +22,7 @@
  * in afterAll so this test does not mutate live lifecycle-email content.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -147,7 +148,8 @@ afterAll(async () => {
   await restoreTemplate();
 });
 
-describe("superadmin email-template editor API", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("superadmin email-template editor API", () => {
   it("denies a non-superadmin session with 403 on every editor route", async () => {
     const routes: Array<{ method: string; url: string }> = [
       { method: "GET", url: "/api/admin/notification-templates" },
@@ -282,7 +284,8 @@ describe("superadmin email-template editor API", () => {
 // must be editable through the SAME PATCH route the editor uses. A prior bug
 // hard-gated PATCH on the code registry, returning 404 for these keys and making
 // freshly created templates unsaveable.
-describe("superadmin blank-slate (DB-only) template editing", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("superadmin blank-slate (DB-only) template editing", () => {
   const DB_ONLY_KEY = `it_blank_${Date.now()}`;
 
   afterAll(async () => {

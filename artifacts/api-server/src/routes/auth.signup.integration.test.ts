@@ -16,6 +16,7 @@
  *   window — the stored plan is only the post-expiry floor.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomBytes } from "node:crypto";
@@ -68,7 +69,8 @@ afterAll(async () => {
   invalidateTenantHostCache();
 });
 
-describe("POST /api/auth/signup", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /api/auth/signup", () => {
   it("stores plan='free' with a populated 14-day trial window", async () => {
     const res = await inject(app, {
       method: "POST",

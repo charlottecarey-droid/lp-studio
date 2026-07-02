@@ -22,6 +22,7 @@
 process.env.MARKETO_FAKE_MODE = "1";
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -133,7 +134,8 @@ afterAll(async () => {
   await pool.end().catch(() => undefined);
 });
 
-describe("Marketo credentials: test-connection & connect (tenantNone)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Marketo credentials: test-connection & connect (tenantNone)", () => {
   it("GET /connection 404s before any connection exists", async () => {
     const res = await authed(tenantNone.sid, "GET", "/sales/marketo/connection");
     expect(res.status).toBe(404);
@@ -217,7 +219,8 @@ describe("Marketo credentials: test-connection & connect (tenantNone)", () => {
   });
 });
 
-describe("Marketo field-mapping CRUD (tenantA)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Marketo field-mapping CRUD (tenantA)", () => {
   let mappingId = 0;
 
   it("POST creates a mapping with valid fields", async () => {
@@ -294,7 +297,8 @@ describe("Marketo field-mapping CRUD (tenantA)", () => {
   });
 });
 
-describe("Marketo sync & discovery (tenantA)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Marketo sync & discovery (tenantA)", () => {
   it("POST /sync starts a background full sync", async () => {
     const res = await authed(tenantA.sid, "POST", "/sales/marketo/sync");
     expect(res.status).toBe(200);
@@ -346,7 +350,8 @@ describe("Marketo sync & discovery (tenantA)", () => {
   });
 });
 
-describe("Marketo tenant scoping (tenantA vs tenantB)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Marketo tenant scoping (tenantA vs tenantB)", () => {
   it("tenant B's connection status is its own row, not tenant A's", async () => {
     const res = await authed(tenantB.sid, "GET", "/sales/marketo/connection");
     expect(res.status).toBe(200);

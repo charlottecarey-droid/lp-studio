@@ -31,6 +31,7 @@
  * that.
  */
 import { describe, it, expect, vi, beforeAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import { db, lpPagesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getActiveHostsForTenant } from "./tenantHosts";
@@ -101,7 +102,8 @@ async function findCandidate(): Promise<Candidate | null> {
   return null;
 }
 
-describe("triggerPublishedRender — per-host write loop (task #364)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("triggerPublishedRender — per-host write loop (task #364)", () => {
   let candidate: Candidate;
 
   beforeAll(async () => {

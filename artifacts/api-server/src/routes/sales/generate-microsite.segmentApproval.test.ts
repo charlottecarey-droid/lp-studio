@@ -7,12 +7,13 @@ import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
 //   • The microsite FREEFORM base now equals the landing-page (general) block
 //     set + a few microsite-only extras, so general nav variants — and the
 //     premium dso-* blocks the general prompt advertises (e.g. dso-heartland-hero)
-//     — ARE in it. So pick a DSO block the general prompt does NOT advertise:
-//     `dso-final-cta` is gated out of the freeform vocab, so it is a clean
-//     stand-in for an approved extra.
+//     — ARE in it. So pick a DSO block the general prompt does NOT advertise.
+//     `dso-final-cta` joined the base vocab in 00cde020a ("Update microsite
+//     generation to use DSOs' specific content and recipes"), so the stand-in is
+//     now `dso-stat-bar`, which remains gated out of the freeform vocab.
 //   • The DSO base is the dso-* vocabulary, so a general block (`mega-menu-nav`)
 //     is the clean stand-in there.
-const FREEFORM_EXTRA = "dso-final-cta";
+const FREEFORM_EXTRA = "dso-stat-bar";
 const EXTRA = "mega-menu-nav";
 
 function bulletTypes(guide: string): string[] {

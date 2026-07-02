@@ -35,6 +35,9 @@ vi.mock("./notificationPreferences", () => ({
 
 // Mock the shell accessor so the email path does not issue an extra pool.query
 // (these tests assert exact query call counts). renderEmail itself is pure.
+// getPlatformPhysicalAddress joined the module in 4d63bcd2a (footer mailing
+// address) and is awaited alongside getEmailShell by resolveEmailShellForEmail,
+// so it must be mocked too or every email send throws before reaching Resend.
 vi.mock("./emailShell", () => ({
   getEmailShell: async () => ({
     shellHtml: "<html><body>{{headline}}{{body}}{{logoHtml}}{{footerHtml}}</body></html>",
@@ -42,6 +45,7 @@ vi.mock("./emailShell", () => ({
     headerBg: "#003A30",
     footerHtml: "footer",
   }),
+  getPlatformPhysicalAddress: async () => "",
 }));
 
 import { dispatchNotification } from "./notificationDispatcher";

@@ -24,6 +24,7 @@
  * 200/201 layout upsert, etc.), so the gate-specific assertion is "not 403".
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -126,13 +127,15 @@ afterAll(async () => {
   await cleanup();
 });
 
-describe("Dandy-only built-in gate is retired", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Dandy-only built-in gate is retired", () => {
   it("no built-in id is gated (the list is empty)", () => {
     expect(DANDY_GATED_BUILTIN_IDS).toHaveLength(0);
   });
 });
 
-describe("save gate — POST /sales/one-pager-templates", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("save gate — POST /sales/one-pager-templates", () => {
   for (const builtinId of FORMERLY_GATED_BUILTIN_IDS) {
     it(`allows formerly-gated built-in "${builtinId}" for a non-Dandy tenant`, async () => {
       const res = await injectSid({
@@ -146,7 +149,8 @@ describe("save gate — POST /sales/one-pager-templates", () => {
   }
 });
 
-describe("save gate — PATCH /sales/one-pager-templates/:id", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("save gate — PATCH /sales/one-pager-templates/:id", () => {
   for (const builtinId of FORMERLY_GATED_BUILTIN_IDS) {
     it(`does not gate formerly-gated built-in "${builtinId}" on update for a non-Dandy tenant`, async () => {
       const res = await injectSid({
@@ -160,7 +164,8 @@ describe("save gate — PATCH /sales/one-pager-templates/:id", () => {
   }
 });
 
-describe("publish gate — POST /sales/web-one-pager", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("publish gate — POST /sales/web-one-pager", () => {
   for (const builtinId of FORMERLY_GATED_BUILTIN_IDS) {
     it(`does not gate formerly-gated built-in "${builtinId}" via builtinId for a non-Dandy tenant`, async () => {
       const res = await injectSid({
@@ -182,7 +187,8 @@ describe("publish gate — POST /sales/web-one-pager", () => {
   }
 });
 
-describe("editor layout gate — PUT /sales/layout-defaults/:key", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("editor layout gate — PUT /sales/layout-defaults/:key", () => {
   for (const builtinId of FORMERLY_GATED_BUILTIN_IDS) {
     it(`allows upsert of formerly-gated layout key for "${builtinId}" from a non-Dandy tenant`, async () => {
       const res = await injectSid({
@@ -198,7 +204,8 @@ describe("editor layout gate — PUT /sales/layout-defaults/:key", () => {
   }
 });
 
-describe("editor layout gate — DELETE /sales/layout-defaults/:key", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("editor layout gate — DELETE /sales/layout-defaults/:key", () => {
   for (const builtinId of FORMERLY_GATED_BUILTIN_IDS) {
     it(`allows delete of formerly-gated layout key for "${builtinId}" from a non-Dandy tenant`, async () => {
       const res = await injectSid({

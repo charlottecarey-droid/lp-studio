@@ -26,6 +26,7 @@
  * CREATE — which is exactly why we push the schema rather than run migrations.)
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -229,7 +230,8 @@ async function columnValue<T = unknown>(table: string, column: string, id: numbe
   return (r.rows[0] as unknown as { v: T }).v;
 }
 
-describe("sales/SFDC deletion cleanup — FK ON DELETE behavior (regression for #781/#786/#797)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("sales/SFDC deletion cleanup — FK ON DELETE behavior (regression for #781/#786/#797)", () => {
   describe("FK ON DELETE actions are declared correctly (confdeltype)", () => {
     it("contact children: sends CASCADE, inbound + converted-lead SET NULL", async () => {
       expect(await fkDeleteAction("sales_email_sends", "contact_id")).toBe("c");

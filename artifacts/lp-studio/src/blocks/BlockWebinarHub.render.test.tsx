@@ -164,7 +164,9 @@ describe("BlockWebinarHub render", () => {
     };
     const { container } = render(<BlockWebinarHub props={props} />);
     // The "Related materials" sidebar appears with the one linked resource.
-    const sidebar = screen.getByText("Related materials").closest("div")!;
+    // (The heading sits in its own header wrapper <div>, so pin the sidebar
+    // COLUMN — the `.wh-video-side` ancestor that also holds the resource list.)
+    const sidebar = screen.getByText("Related materials").closest(".wh-video-side") as HTMLElement;
     expect(within(sidebar).getByText(/Slide deck/)).toBeTruthy();
     expect(within(sidebar).queryByText(/Unlinked note/)).toBeNull();
     // Play → Vimeo embed iframe.

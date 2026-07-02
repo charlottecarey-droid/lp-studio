@@ -24,6 +24,7 @@
  * inject() harness + the real Postgres pool.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -241,7 +242,8 @@ afterAll(async () => {
   }
 });
 
-describe("generate-page — scrape gating", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("generate-page — scrape gating", () => {
   it("inspiration-only: runs the scrape-only path, never the full scrape pipeline, and NEVER mirrors", async () => {
     const { tenantId, sid } = await seedTenant();
     const { templateId } = await seedTemplate(tenantId);

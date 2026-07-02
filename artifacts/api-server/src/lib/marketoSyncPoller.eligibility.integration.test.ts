@@ -32,6 +32,7 @@
 delete process.env.MARKETO_FAKE_MODE; // ensure FAKE_MODE resolves to false on import
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -207,7 +208,8 @@ async function latestSyncStatus(connectionId: number): Promise<string | null> {
   return r.rows[0]?.status ?? null;
 }
 
-describe("scheduled Marketo sync poller — tenant eligibility filter (hermetic PG)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("scheduled Marketo sync poller — tenant eligibility filter (hermetic PG)", () => {
   it("imports only connected + sync-enabled connections under an active tenant", async () => {
     // ── Eligible: active tenant, connected, sync enabled. ──
     const eligibleTenant = await seedTenant("active");
@@ -280,7 +282,8 @@ describe("scheduled Marketo sync poller — tenant eligibility filter (hermetic 
   }, 60_000);
 });
 
-describe("scheduled Marketo sync poller — in-process overlap guard (hermetic PG)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("scheduled Marketo sync poller — in-process overlap guard (hermetic PG)", () => {
   it("coalesces two overlapping runMarketoSyncPoll calls into a single sweep", async () => {
     const tenantId = await seedTenant("active");
     const connId = await seedConnection(tenantId);
@@ -352,7 +355,8 @@ describe("scheduled Marketo sync poller — in-process overlap guard (hermetic P
   }, 60_000);
 });
 
-describe("scheduled Marketo sync poller — per-tenant failure isolation (hermetic PG)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("scheduled Marketo sync poller — per-tenant failure isolation (hermetic PG)", () => {
   it("keeps importing later tenants after one tenant's import fails", async () => {
     // Two eligible tenants. The first tenant's import blows up (Marketo returns
     // a 500 for its list); the second tenant's import succeeds. A failure on one

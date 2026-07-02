@@ -25,6 +25,7 @@
  *   - all reconcile with GET /lp/leads/summary and GET /lp/leads/all
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -236,7 +237,8 @@ interface ResultsBody { totalLeads: number; variants: VariantResult[] }
 interface SummaryRow { id: number; leadCount: number }
 interface AllLeadsBody { total: number }
 
-describe("analytics endpoints exclude test/junk leads by default (regression for #826)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("analytics endpoints exclude test/junk leads by default (regression for #826)", () => {
   it("GET /lp/analytics/overview totalLeads excludes junk by default, includes with ?includeTest=1", async () => {
     const def = await get("/lp/analytics/overview");
     expect(def.status).toBe(200);

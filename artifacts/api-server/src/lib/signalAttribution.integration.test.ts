@@ -24,6 +24,7 @@
  * schema — is created by hand so the backfill's one-shot gate works.
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -123,7 +124,8 @@ async function newContact(
 
 // ── resolveSignalLinkage ─────────────────────────────────────────────────────
 
-describe("resolveSignalLinkage — contact resolution", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("resolveSignalLinkage — contact resolution", () => {
   it("matches a contact by case-insensitive email and derives its account", async () => {
     const tenantId = await newTenant("email");
     const accountId = await newAccount(tenantId, { name: "Acme Inc" });
@@ -167,7 +169,8 @@ describe("resolveSignalLinkage — contact resolution", () => {
   });
 });
 
-describe("resolveSignalLinkage — account resolution", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("resolveSignalLinkage — account resolution", () => {
   it("falls back to company domain when no contact matches", async () => {
     const tenantId = await newTenant("domain");
     const accountId = await newAccount(tenantId, { name: "Initech", domain: "initech.com" });
@@ -190,7 +193,8 @@ describe("resolveSignalLinkage — account resolution", () => {
   });
 });
 
-describe("resolveSignalLinkage — fail-closed & tenant scoping", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("resolveSignalLinkage — fail-closed & tenant scoping", () => {
   it("returns no linkage for a null/undefined tenant (never a global lookup)", async () => {
     const tenantId = await newTenant("global");
     const accountId = await newAccount(tenantId, { name: "Leaky", domain: "leaky.com" });
@@ -250,7 +254,8 @@ describe("resolveSignalLinkage — fail-closed & tenant scoping", () => {
   });
 });
 
-describe("resolveSignalLinkage — ambiguous matches (LIMIT 1, not fail-closed)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("resolveSignalLinkage — ambiguous matches (LIMIT 1, not fail-closed)", () => {
   // The runtime matcher uses `.limit(1)`, so — UNLIKE the v2 backfill, which
   // skips ambiguous rows via `HAVING count(*) = 1` — it deterministically
   // returns ONE of the colliding rows rather than failing closed. These tests
@@ -299,7 +304,8 @@ describe("resolveSignalLinkage — ambiguous matches (LIMIT 1, not fail-closed)"
 const SQL_LINKEDIN_CANON =
   "regexp_replace(regexp_replace(regexp_replace(regexp_replace(lower($1), '^https?://', ''), '^www\\.', ''), '[?#].*$', ''), '/+$', '')";
 
-describe("LinkedIn canonicalizer — JS and SQL agree", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("LinkedIn canonicalizer — JS and SQL agree", () => {
   const urls = [
     "https://www.linkedin.com/in/jane-doe",
     "http://www.linkedin.com/in/jane-doe/",
@@ -361,7 +367,8 @@ async function signalRow(id: number): Promise<{ account_id: number | null; conta
   return r.rows[0];
 }
 
-describe("runSignalAttributionBackfillV2", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("runSignalAttributionBackfillV2", () => {
   // Each test owns its data; clear the one-shot marker so the pass actually runs.
   beforeEach(async () => {
     await pgMod.pool.query(`DELETE FROM _schema_migration_markers WHERE key = 'sales_signal_attribution_backfill_v2'`);

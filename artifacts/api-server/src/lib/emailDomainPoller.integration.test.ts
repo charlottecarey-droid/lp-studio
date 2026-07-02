@@ -15,6 +15,7 @@
  *   6. claimEmailDomainNotification is atomic — only one of N racers wins.
  */
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import { pool } from "@workspace/db";
 import type { ResendDomainWriteResult } from "./resendDomainStatus";
 
@@ -159,7 +160,8 @@ beforeEach(async () => {
 });
 
 // ── Tests ───────────────────────────────────────────────────────────
-describe("emailDomainPoller — exactly-once delivery (task #783)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("emailDomainPoller — exactly-once delivery (task #783)", () => {
   it("verified email fires exactly once even when N pollers race", async () => {
     await setDomainConfig({ domainId: FIXTURE_DOMAIN_ID });
     getByIdMock.mockResolvedValue(domainResult("verified"));

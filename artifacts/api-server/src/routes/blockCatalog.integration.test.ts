@@ -26,6 +26,7 @@
  *      industry's override.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -121,7 +122,8 @@ async function rowCount(industry: string): Promise<number> {
   return r.rows[0].n;
 }
 
-describe("PUT /api/admin/block-catalog (saved defaults stick)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("PUT /api/admin/block-catalog (saved defaults stick)", () => {
   it("creates an override row keyed by (block_type, industry)", async () => {
     const res = await putRow(SUPER_SID, {
       block_type: SENTINEL_BLOCK,
@@ -179,7 +181,8 @@ describe("PUT /api/admin/block-catalog (saved defaults stick)", () => {
   });
 });
 
-describe("PUT /api/admin/block-catalog (ai_enabled round-trip)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("PUT /api/admin/block-catalog (ai_enabled round-trip)", () => {
   it("persists ai_enabled=false and round-trips it on GET", async () => {
     const res = await putRow(SUPER_SID, {
       block_type: SENTINEL_BLOCK,
@@ -250,7 +253,8 @@ describe("PUT /api/admin/block-catalog (ai_enabled round-trip)", () => {
   });
 });
 
-describe("PUT /api/admin/block-catalog/batch (bulk upsert)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("PUT /api/admin/block-catalog/batch (bulk upsert)", () => {
   const BATCH_BLOCK_A = `${SENTINEL_BLOCK}_batch_a`;
   const BATCH_BLOCK_B = `${SENTINEL_BLOCK}_batch_b`;
 
@@ -354,7 +358,8 @@ describe("PUT /api/admin/block-catalog/batch (bulk upsert)", () => {
   });
 });
 
-describe("GET /api/block-catalog (tenant inherits the override)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("GET /api/block-catalog (tenant inherits the override)", () => {
   it("returns the override for a tenant of that industry and does not leak another industry's row", async () => {
     const res = await injectSid({ method: "GET", url: "/api/block-catalog", sid: TENANT_SID });
     expect(res.status).toBe(200);

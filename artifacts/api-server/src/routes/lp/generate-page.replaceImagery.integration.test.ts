@@ -19,6 +19,7 @@
  * the ai_generation_log rows the route writes.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -269,7 +270,8 @@ afterAll(async () => {
   }
 });
 
-describe("generate-page — Replace imagery toggle (real library)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("generate-page — Replace imagery toggle (real library)", () => {
   it("replaceImagery OFF preserves the template's original images while rewriting copy", async () => {
     const { tenantId, sid } = await seedTenant();
     await seedLibrary(tenantId);

@@ -13,6 +13,7 @@
  * down its own tenant + admin session row.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -110,7 +111,8 @@ afterAll(async () => {
   }
 });
 
-describe("POST /billing/downgrade-to-free", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /billing/downgrade-to-free", () => {
   it("401s without a session", async () => {
     const res = await inject(app, { method: "POST", url: "/billing/downgrade-to-free" });
     expect(res.status).toBe(401);

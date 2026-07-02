@@ -23,6 +23,7 @@
  * inject() (the vitest worker pool here can't bind a listening port).
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -251,7 +252,8 @@ afterAll(async () => {
   await cleanup();
 });
 
-describe("resolveBroadcastRecipients — group expansion", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("resolveBroadcastRecipients — group expansion", () => {
   it("all_admins → exactly the current admins", async () => {
     await setConfig("comment", { groups: ["all_admins"] });
     const got = await resolveBroadcastRecipients(tenantId, "comment");
@@ -301,7 +303,8 @@ describe("resolveBroadcastRecipients — group expansion", () => {
   });
 });
 
-describe("resolveBroadcastRecipients — union + dedupe", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("resolveBroadcastRecipients — union + dedupe", () => {
   it("unions a group with explicit member ids and extra emails", async () => {
     await setConfig("comment", {
       memberUserIds: [memberCId],
@@ -328,7 +331,8 @@ describe("resolveBroadcastRecipients — union + dedupe", () => {
   });
 });
 
-describe("resolveBroadcastRecipients — account/billing semantics", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("resolveBroadcastRecipients — account/billing semantics", () => {
   it("page_author is a no-op on an account/billing alert (resolves to nobody, fails open to admins)", async () => {
     // page_author is not applicable to payment_failed; with no other recipients
     // the configured-but-empty account/billing row FAILS OPEN to all admins.
@@ -358,7 +362,8 @@ describe("resolveBroadcastRecipients — account/billing semantics", () => {
   });
 });
 
-describe("resolveBroadcastRecipients — unconfigured legacy defaults", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("resolveBroadcastRecipients — unconfigured legacy defaults", () => {
   it("unconfigured collaboration alert → every member (legacy default)", async () => {
     await clearConfig("comment");
     const got = await resolveBroadcastRecipients(tenantId, "comment");
@@ -372,7 +377,8 @@ describe("resolveBroadcastRecipients — unconfigured legacy defaults", () => {
   });
 });
 
-describe("resolveBroadcastRecipients — cross-tenant isolation (Task #660)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("resolveBroadcastRecipients — cross-tenant isolation (Task #660)", () => {
   // Every group + page_author lookup is tenant-scoped. Tenant B is a live second
   // workspace with its own admins/members/page; tenant A's resolved audience must
   // never include any of B's recipients and vice-versa. A future query change
@@ -484,7 +490,8 @@ describe("resolveBroadcastRecipients — cross-tenant isolation (Task #660)", ()
   });
 });
 
-describe("PUT /broadcast-recipients/:alertType — group token validation", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("PUT /broadcast-recipients/:alertType — group token validation", () => {
   it("rejects an unknown group token with 400", async () => {
     const res = await injectAdmin({
       method: "PUT",

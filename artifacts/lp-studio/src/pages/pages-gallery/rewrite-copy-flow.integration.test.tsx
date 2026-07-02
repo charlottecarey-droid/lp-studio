@@ -216,8 +216,13 @@ describe("Rewrite copy with AI — frontend one-click flow", () => {
     // 2) The modal opens locked to the source page (rewriteSource banner).
     expect(await screen.findByText(/Rewriting: Existing Page/i)).toBeTruthy();
 
+    // 2b) Task #1346 added a rewrite-mode choice defaulting to "Update this
+    //     page" (overwrite in place). This flow covers the save-as-NEW-page
+    //     branch, so pick "Create a new copy" explicitly.
+    fireEvent.click(screen.getByText("Create a new copy"));
+
     // 3) Trigger generation.
-    fireEvent.click(screen.getByText("Generate Page"));
+    fireEvent.click(screen.getByText("Generate page"));
 
     // 4) The body handed to the streaming canvas carries sourcePageId and NO
     //    templateId — the exact contract the server's rewrite branch consumes.

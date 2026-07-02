@@ -15,6 +15,7 @@
  *   - account → contacts → signals restore order keeps cascade FKs satisfiable
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import { pool, db, salesAccountsTable, salesContactsTable, salesSignalsTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { restoreRows } from "./restoreRows";
@@ -52,7 +53,8 @@ afterAll(async () => {
   await cleanup();
 });
 
-describe("restoreRows — undo delete", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("restoreRows — undo delete", () => {
   it("restores an account with its contacts and signals, preserving ids and timestamps", async () => {
     // Seed an account + child contact + child signal.
     const [acct] = await db.insert(salesAccountsTable).values({

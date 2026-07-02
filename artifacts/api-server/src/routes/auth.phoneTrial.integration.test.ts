@@ -25,6 +25,7 @@
  *      when Twilio is unconfigured.
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomBytes } from "node:crypto";
@@ -150,7 +151,9 @@ describe("GET /api/auth/phone/config", () => {
   });
 });
 
-describe("POST /api/auth/signup — trial phone gate", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+// The pure GET /config suite above stays ungated (env-in/response-out, no DB).
+describe.skipIf(!dbAvailable)("POST /api/auth/signup — trial phone gate", () => {
   it("grants the 14-day trial with no token when Twilio is unconfigured", async () => {
     twilio.configured = false;
     const { sid } = await seedTenantlessUser("unconfigured");
@@ -323,7 +326,8 @@ describe("POST /api/auth/signup — trial phone gate", () => {
   });
 });
 
-describe("POST /api/auth/phone/send-code", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /api/auth/phone/send-code", () => {
   it("returns 503 when Twilio is unconfigured", async () => {
     twilio.configured = false;
     const { sid } = await seedTenantlessUser("sendcode503");
@@ -376,7 +380,8 @@ describe("POST /api/auth/phone/send-code", () => {
   });
 });
 
-describe("POST /api/auth/phone/verify-code", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /api/auth/phone/verify-code", () => {
   it("mints a token and reports alreadyTrialed=false for a fresh number", async () => {
     twilio.configured = true;
     twilio.check.mockResolvedValue({ approved: true });

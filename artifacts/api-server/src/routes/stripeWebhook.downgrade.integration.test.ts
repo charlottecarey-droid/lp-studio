@@ -21,6 +21,7 @@
  * tenant rows.
  */
 import { describe, it, expect, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import { pool } from "@workspace/db";
 import {
   getTenantPlan,
@@ -72,7 +73,8 @@ afterAll(async () => {
   }
 });
 
-describe("Stripe downgrade-to-free closes the trial window (CLOSE_TRIAL_ON_FREE_SQL)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Stripe downgrade-to-free closes the trial window (CLOSE_TRIAL_ON_FREE_SQL)", () => {
   it("leak precondition: an open trial lifts a stored free floor to growth", async () => {
     const tenantId = await seedTenant({ plan: "free", trialOffsetMs: 7 * 86_400_000 });
     // Before any downgrade write the open window lifts the effective plan, so

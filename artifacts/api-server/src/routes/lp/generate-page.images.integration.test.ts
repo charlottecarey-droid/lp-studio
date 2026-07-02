@@ -21,6 +21,7 @@
  * tears down its own growth tenant, session, and lp_media rows.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -200,7 +201,8 @@ afterAll(async () => {
   }
 });
 
-describe("POST /lp/generate-page — image dedup across hero/feature/product slots", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /lp/generate-page — image dedup across hero/feature/product slots", () => {
   it("places a distinct image identity in every slot when the model over-assigns one scraped photo", async () => {
     const { tenantId, sid } = await seedTenant();
     await seedMedia(tenantId, [...SCANNER_VARIANTS, ...DISTINCT_IMAGES]);

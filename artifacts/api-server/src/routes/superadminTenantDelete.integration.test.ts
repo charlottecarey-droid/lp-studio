@@ -25,6 +25,7 @@
  * it BEFORE the first import of `@workspace/db`.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -230,7 +231,8 @@ async function tenantExists(tenantId: number): Promise<boolean> {
   return r.rows.length > 0;
 }
 
-describe("superadmin tenant deletion — Salesforce cleanup (regression for #837)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("superadmin tenant deletion — Salesforce cleanup (regression for #837)", () => {
   it("DELETE /superadmin/tenants/:id succeeds for a tenant with synced SFDC leads + opps + campaigns", async () => {
     await seedSuperadminSession();
     const g = await seedTenant("with-sfdc");

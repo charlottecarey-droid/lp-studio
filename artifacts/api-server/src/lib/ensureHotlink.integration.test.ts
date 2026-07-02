@@ -17,6 +17,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 
+import { dbAvailable } from "../test-utils/dbAvailable";
 // Queue of buffers the stubbed randomBytes will return (in order); when empty it
 // falls through to the real implementation. Hoisted so the vi.mock factory (which
 // is itself hoisted above imports) can close over it safely.
@@ -92,7 +93,8 @@ afterAll(async () => {
   }
 });
 
-describe("ensureHotlinkForContact token-collision retry (Fix 6)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("ensureHotlinkForContact token-collision retry (Fix 6)", () => {
   it("retries with a fresh token when the first candidate collides (23505)", async () => {
     const tenantId = await seedTenant();
     const pageId = await seedPage(tenantId);

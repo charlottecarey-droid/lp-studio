@@ -16,6 +16,7 @@
  * page's blocks back and assert the baked-in blockSettings.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { pool } from "@workspace/db";
@@ -67,7 +68,8 @@ afterAll(async () => {
   await cleanup();
 });
 
-describe("web One Pager default spacing/type settings", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("web One Pager default spacing/type settings", () => {
   it("bakes the expected blockSettings onto the hero and each content block", async () => {
     const res = await inject(app, {
       method: "POST",

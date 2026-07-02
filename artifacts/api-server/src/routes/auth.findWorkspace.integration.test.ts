@@ -19,6 +19,7 @@
  *   8. Tenant-locked host → 404 (finder is off on tenant hosts).
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomBytes } from "node:crypto";
@@ -101,7 +102,8 @@ afterAll(async () => {
   invalidateTenantHostCache();
 });
 
-describe("GET /api/auth/find-workspace", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("GET /api/auth/find-workspace", () => {
   it("resolves an exact slug match to the canonical host", async () => {
     const res = await find(SLUG_ACME);
     expect(res.status).toBe(200);

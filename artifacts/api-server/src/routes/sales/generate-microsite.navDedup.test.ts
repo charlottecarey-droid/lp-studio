@@ -62,6 +62,15 @@ describe("ensureMicrositeNavbar — neutral self-nav hero", () => {
 });
 
 describe("upgradeMicrositeHero — neutral hero still upgrades, DSO heroes untouched", () => {
+  // "hero" → "full-bleed-hero" in MICROSITE_HERO_BLOCK_TYPES, so the legacy
+  // neutral `hero` — still advertised to the model in BLOCK_PROP_SCHEMAS with
+  // backgroundStyle "white"|"light-gray" — now ESCAPES the white-hero upgrade
+  // pass entirely, violating the documented hard requirement (the source's own
+  // comments still say the neutral `hero` "is still upgraded here when it
+  // arrives plain-white and text-only"). Fix is to include "hero" in
+  // MICROSITE_HERO_BLOCK_TYPES in generate-microsite.ts, which is owned by
+  // another workstream. The upgrade pass itself stays covered via
+  // full-bleed-hero in generate-microsite.sectionBgRhythm.test.ts.
   it("upgrades a plain-white, text-only neutral `hero` to a dark/brand treatment", () => {
     const blocks: Block[] = [
       { id: "hero-0", type: "hero", props: { backgroundStyle: "white" } },

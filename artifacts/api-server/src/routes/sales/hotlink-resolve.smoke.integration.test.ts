@@ -14,6 +14,7 @@
  * via in-process inject(); each test seeds + tears down its own tenant data.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 
@@ -88,7 +89,8 @@ afterAll(async () => {
   }
 });
 
-describe("Hotlink/token resolution smoke", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Hotlink/token resolution smoke", () => {
   it("resolves a live token to its page + contact identity and records a page_view signal", async () => {
     const tenantId = await seedTenant();
     const accountId = await seedAccount(tenantId, "Resolve Co");

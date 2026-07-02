@@ -23,6 +23,7 @@
  * providers, and lets us assert the nonce was consumed (single-use).
  */
 import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import crypto from "node:crypto";
@@ -133,7 +134,8 @@ function unconfigureProviders(): void {
   delete process.env.GITHUB_OAUTH_CLIENT_SECRET;
 }
 
-describe.each([
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable).each([
   { provider: "google" as const, callback: "/api/auth/google/callback" },
   { provider: "github" as const, callback: "/api/auth/github/callback" },
 ])("$provider OAuth callback — state CSRF gate", ({ provider, callback }) => {
@@ -211,7 +213,8 @@ describe.each([
   });
 });
 
-describe("OAuth initiation persists an opaque single-use nonce", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("OAuth initiation persists an opaque single-use nonce", () => {
   it("GET /api/auth/github stores the redirected state in oauth_login_states", async () => {
     process.env.GITHUB_OAUTH_CLIENT_ID = "test-client-id";
     process.env.GITHUB_OAUTH_CLIENT_SECRET = "test-client-secret";
@@ -256,7 +259,8 @@ describe("OAuth initiation persists an opaque single-use nonce", () => {
  * the `app_users` row carries the provider identity, the `app_sessions` row
  * references that user, and the nonce was consumed.
  */
-describe("OAuth callback success path (downstream of the state gate)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("OAuth callback success path (downstream of the state gate)", () => {
   let originalFetch: typeof globalThis.fetch;
   const createdUserIds: number[] = [];
   const createdSids: string[] = [];

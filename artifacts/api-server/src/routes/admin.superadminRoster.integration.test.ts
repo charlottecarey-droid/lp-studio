@@ -15,6 +15,7 @@
  * admin@lpstudio.ai seed row. All seeded rows/sessions are cleaned up.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -110,7 +111,8 @@ function asNonRoot(method: string, url: string, body?: unknown) {
   return inject(app, { method: method as any, url, headers: { cookie: `${SESSION_COOKIE}=${NONROOT_SID}` }, body });
 }
 
-describe("superadmin roster — root gate", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("superadmin roster — root gate", () => {
   it("lets root list superadmins and flags the root row", async () => {
     const res = await asRoot("GET", "/superadmin/admins");
     expect(res.status).toBe(200);
@@ -133,7 +135,8 @@ describe("superadmin roster — root gate", () => {
   });
 });
 
-describe("superadmin roster — grant", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("superadmin roster — grant", () => {
   it("404s when granting an email with no account", async () => {
     const res = await asRoot("POST", "/superadmin/admins", { email: `ghost-${RUN}@example.com` });
     expect(res.status).toBe(404);
@@ -152,7 +155,8 @@ describe("superadmin roster — grant", () => {
   });
 });
 
-describe("superadmin roster — revoke", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("superadmin roster — revoke", () => {
   it("refuses to remove the root account (403)", async () => {
     const res = await asRoot("DELETE", `/superadmin/admins/${rootId}`);
     expect(res.status).toBe(403);

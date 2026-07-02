@@ -29,6 +29,7 @@
  * to exercise the visibility + per-tenant rules.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -176,7 +177,8 @@ afterAll(async () => {
   await pool.query(`DELETE FROM tenants WHERE id = ANY($1::int[])`, [[callerTenantId, otherTenantId]]).catch(() => {});
 });
 
-describe("PUT /lp/templates/:id/featured — star toggle", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("PUT /lp/templates/:id/featured — star toggle", () => {
   it("features and un-features a tenant-owned template, idempotently", async () => {
     // Star it.
     const on = await injectAs(CALLER_SID, {
@@ -271,7 +273,8 @@ describe("PUT /lp/templates/:id/featured — star toggle", () => {
   });
 });
 
-describe("GET /lp/templates/enriched — per-tenant featured flag", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("GET /lp/templates/enriched — per-tenant featured flag", () => {
   it("defaults featured:false, flips to true only for the starred template, and stays per-tenant", async () => {
     // Baseline: nothing starred → all visible templates report featured:false.
     const before = await featuredMap(CALLER_SID);

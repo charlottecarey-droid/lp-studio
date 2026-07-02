@@ -35,6 +35,7 @@
  * and the draft-page insert. Each test seeds + tears down its own tenant.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -347,7 +348,8 @@ afterAll(async () => {
   }
 });
 
-describe("Microsite generation — Replace imagery from a reference URL", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Microsite generation — Replace imagery from a reference URL", () => {
   it("fills the feature slots with reference-scraped photos", async () => {
     const { tenantId, sid } = await seedTenant();
     // NO library seeded — the reference mirror is the only on-topic feature source.

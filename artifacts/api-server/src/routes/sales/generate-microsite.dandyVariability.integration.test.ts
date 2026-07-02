@@ -22,6 +22,7 @@
  * and the env is repointed BEFORE the first `@workspace/db` import.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -265,7 +266,8 @@ interface GenResponse {
   blocks: Array<{ type: string; props: Record<string, unknown> }>;
 }
 
-describe("generate-microsite — Dandy supporting-section variability (route wiring)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("generate-microsite — Dandy supporting-section variability (route wiring)", () => {
   it("applies the per-account supporting-background variation for a Dandy, non-template page", async () => {
     const accountName = `Heartland Dental ${Math.floor(Math.random() * 1e6)}`;
     const accountId = await seedAccount(dandyTenantId, accountName);

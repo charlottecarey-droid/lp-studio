@@ -15,6 +15,7 @@
  * worker pool never fires app.listen's callback.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -160,7 +161,8 @@ interface StatusResponse {
   instanceUrl: string | null;
 }
 
-describe("GET /lp/integrations/salesforce (status reflects sfdc_connections)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("GET /lp/integrations/salesforce (status reflects sfdc_connections)", () => {
   it("reports not connected when the tenant has no connection row", async () => {
     await clearConnections();
     const res = await injectAs(SID, { method: "GET", url: "/lp/integrations/salesforce" });
@@ -210,7 +212,8 @@ describe("GET /lp/integrations/salesforce (status reflects sfdc_connections)", (
   });
 });
 
-describe("GET /lp/integrations/salesforce/auth-url", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("GET /lp/integrations/salesforce/auth-url", () => {
   it("returns a Salesforce OAuth URL carrying a verifiable signed state bound to the tenant", async () => {
     const res = await injectAs(SID, { method: "GET", url: "/lp/integrations/salesforce/auth-url" });
     expect(res.status).toBe(200);
@@ -234,7 +237,8 @@ describe("GET /lp/integrations/salesforce/auth-url", () => {
   });
 });
 
-describe("POST /lp/integrations/salesforce/disconnect", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /lp/integrations/salesforce/disconnect", () => {
   it("marks the connection disconnected and clears its tokens", async () => {
     await clearConnections();
     const connId = await seedConnection({ status: "connected" });

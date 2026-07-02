@@ -17,6 +17,7 @@
  *      WITHOUT firing the second Chromium attempt.
  */
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import { db, lpPagesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
@@ -82,7 +83,8 @@ async function seedFixture(): Promise<SeededPage> {
   return { pageId: inserted.id, tenantId, slug };
 }
 
-describe("triggerPublishedRender — page deleted before worker (task #389)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("triggerPublishedRender — page deleted before worker (task #389)", () => {
   let fixture: SeededPage;
 
   beforeAll(async () => {

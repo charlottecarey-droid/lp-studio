@@ -23,6 +23,7 @@
  *     omit the "Brand & DSO name:" subtitle line when subtitleShow=false.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -143,7 +144,8 @@ function buildSavedConfig(overrides: {
   };
 }
 
-describe("partner one-pager editor — layout-defaults persistence round-trip", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("partner one-pager editor — layout-defaults persistence round-trip", () => {
   it("persists a custom testimonials heading + subtitle controls across save/reload", async () => {
     const config = buildSavedConfig({
       partnerTestimonialsHeading: "Hear from our happy partners:",
@@ -235,7 +237,8 @@ const DEFAULT_HEADING_PHRASE = /doctors are saying/i;
 // both words but never adjacent), so it isolates the subtitle line.
 const SUBTITLE_LINE = /Dandy & Acme Group/;
 
-describe("partner one-pager generator — testimonials heading + subtitle controls", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("partner one-pager generator — testimonials heading + subtitle controls", () => {
   it("renders a custom testimonials heading", async () => {
     const saved = buildSavedConfig({
       partnerTestimonialsHeading: "Hear from our happy partners:",

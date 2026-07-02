@@ -20,6 +20,7 @@
  * against the shared Postgres pool. Each test tears down its seeded rows.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -167,7 +168,8 @@ afterAll(async () => {
   }
 });
 
-describe("generate-page — dso-case-study section position (template merge)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("generate-page — dso-case-study section position (template merge)", () => {
   it("preserves model-set `position`, defaults invalid values, and drops other invented keys", async () => {
     const { tenantId, sid } = await seedTenant();
     const templateId = await seedTemplate(tenantId);

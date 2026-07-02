@@ -16,6 +16,7 @@
  * All seeded rows/sessions are cleaned up.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID, createHash } from "node:crypto";
@@ -139,7 +140,8 @@ function asRep(method: string, url: string, body?: unknown) {
   return inject(app, { method: method as any, url, headers: { cookie: `${SESSION_COOKIE}=${REP_SID}` }, body });
 }
 
-describe("trial-phones — list", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("trial-phones — list", () => {
   it("lets a superadmin list gated phones joined to their tenant", async () => {
     const res = await asSuper("GET", "/superadmin/trial-phones");
     expect(res.status).toBe(200);
@@ -158,7 +160,8 @@ describe("trial-phones — list", () => {
   });
 });
 
-describe("trial-phones — lookup", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("trial-phones — lookup", () => {
   it("reports a number that has trialed, joined to its tenant, and matches the seeded hash", async () => {
     const res = await asSuper("POST", "/superadmin/trial-phones/lookup", { phone: RAW_LOOKUP });
     expect(res.status).toBe(200);
@@ -244,7 +247,8 @@ describe("trial-phones — lookup", () => {
   });
 });
 
-describe("trial-phones — release", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("trial-phones — release", () => {
   it("rejects a malformed hash with 400 (no DB hit)", async () => {
     const res = await asSuper("DELETE", "/superadmin/trial-phones/not-a-valid-hash");
     expect(res.status).toBe(400);
@@ -289,7 +293,8 @@ describe("trial-phones — release", () => {
   });
 });
 
-describe("trial-phones — release history", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("trial-phones — release history", () => {
   it("lets a superadmin read the recent-release history including the just-released row", async () => {
     const res = await asSuper("GET", "/superadmin/trial-phones/release-log");
     expect(res.status).toBe(200);
@@ -361,7 +366,8 @@ describe("trial-phones — release history", () => {
   });
 });
 
-describe("trial-phones — lookup history", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("trial-phones — lookup history", () => {
   it("lets a superadmin read the recent-lookup history including an audited lookup", async () => {
     const res = await asSuper("GET", "/superadmin/trial-phones/lookup-log");
     expect(res.status).toBe(200);

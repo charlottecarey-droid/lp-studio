@@ -27,6 +27,7 @@
  * Auth, plan lookup, and config persistence run against the REAL Postgres pool.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -257,7 +258,8 @@ afterAll(async () => {
   _clearResendDomainStatusCache();
 });
 
-describe("branded email subdomain — derive + provision", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("branded email subdomain — derive + provision", () => {
   it("GET derives the subdomain before provisioning", async () => {
     const res = await injectAs(GROWTH_SID, { method: "GET", url: "/lp/branded-email-subdomain" });
     expect(res.status).toBe(200);
@@ -291,7 +293,8 @@ describe("branded email subdomain — derive + provision", () => {
   });
 });
 
-describe("branded email subdomain — fail closed until verified", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("branded email subdomain — fail closed until verified", () => {
   it("resolveTenantSender stays on the shared default while pending", async () => {
     resendStatus = "pending";
     _clearResendDomainStatusCache();
@@ -303,7 +306,8 @@ describe("branded email subdomain — fail closed until verified", () => {
   });
 });
 
-describe("branded email subdomain — verification (poll by id)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("branded email subdomain — verification (poll by id)", () => {
   it("POST /verify flips to verified/active once Resend reports verified", async () => {
     resendStatus = "verified";
     const res = await injectAs(GROWTH_SID, { method: "POST", url: "/lp/branded-email-subdomain/verify" });
@@ -326,7 +330,8 @@ describe("branded email subdomain — verification (poll by id)", () => {
   });
 });
 
-describe("branded email subdomain — DNS drift reconcile", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("branded email subdomain — DNS drift reconcile", () => {
   it("no-ops (zero repairs) when every required record is already live", async () => {
     // After provision the two records are present in Cloudflare; reconcile
     // should find them all in-sync and create nothing.
@@ -502,7 +507,8 @@ describe("branded email subdomain — DNS drift reconcile", () => {
   });
 });
 
-describe("branded email subdomain — remove path", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("branded email subdomain — remove path", () => {
   it("deletes the Resend domain + CF records, clears config, reverts to shared default", async () => {
     const res = await injectAs(GROWTH_SID, { method: "DELETE", url: "/lp/branded-email-subdomain" });
     expect(res.status).toBe(200);
@@ -527,7 +533,8 @@ describe("branded email subdomain — remove path", () => {
   });
 });
 
-describe("branded email subdomain — plan gating", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("branded email subdomain — plan gating", () => {
   it("returns 402 for a free tenant on every verb", async () => {
     const get = await injectAs(FREE_SID, { method: "GET", url: "/lp/branded-email-subdomain" });
     expect(get.status).toBe(402);

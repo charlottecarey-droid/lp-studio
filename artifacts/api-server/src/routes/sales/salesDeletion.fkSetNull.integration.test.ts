@@ -47,6 +47,7 @@
  *     - the parent account (and its account-scoped children) is untouched
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -370,7 +371,8 @@ async function assertContactDeleted(g: SeededGraph): Promise<void> {
   expect(await colValue("sales_email_campaigns", "account_id", g.campaignId)).toBe(g.accountId);
 }
 
-describe("sales account deletion — child FKs (regression for #781/#796)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("sales account deletion — child FKs (regression for #781/#796)", () => {
   it("DELETE /accounts/:id succeeds; owned children cascade, historical rows survive nulled", async () => {
     const g = await seedFullGraph("acct-single");
 
@@ -412,7 +414,8 @@ describe("sales account deletion — child FKs (regression for #781/#796)", () =
   });
 });
 
-describe("sales contact deletion — child FKs (regression for #786/#796)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("sales contact deletion — child FKs (regression for #786/#796)", () => {
   it("DELETE /contacts/:id succeeds; owned children cascade, historical rows survive nulled", async () => {
     const g = await seedFullGraph("contact-single");
 

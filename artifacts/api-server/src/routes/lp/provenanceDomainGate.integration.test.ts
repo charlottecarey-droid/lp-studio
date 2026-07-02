@@ -23,6 +23,7 @@
  *     visited on its shared subdomain (proves host-gating, not tenant-gating).
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomBytes } from "node:crypto";
@@ -138,7 +139,8 @@ afterAll(async () => {
   await cleanup();
 });
 
-describe("live path — GET /lp/page/:slug (gated on visitor host)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("live path — GET /lp/page/:slug (gated on visitor host)", () => {
   it("shows the footer for a microsite on the default shared host", async () => {
     const res = await livePage(PAGE_A_MICROSITE, `${SLUG_A}.${BASE}`);
     expect(res.status).toBe(200);
@@ -164,7 +166,8 @@ describe("live path — GET /lp/page/:slug (gated on visitor host)", () => {
   });
 });
 
-describe("preview/prerender path — GET /lp/preview/:slug (gated on canonical published host)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("preview/prerender path — GET /lp/preview/:slug (gated on canonical published host)", () => {
   it("shows the footer when the tenant has no custom domain (canonical = shared subdomain)", async () => {
     const res = await previewPage(PAGE_A_MICROSITE, tokenA);
     expect(res.status).toBe(200);

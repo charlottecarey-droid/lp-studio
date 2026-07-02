@@ -27,6 +27,7 @@
  * stub is the outbound Resend HTTP call so no real email leaves the box.
  */
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { existsSync } from "node:fs";
@@ -224,7 +225,8 @@ async function seedSubscriber(
   );
 }
 
-describe("content-series notify-status route — tenant isolation (Task #818)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("content-series notify-status route — tenant isolation (Task #818)", () => {
   it("reports correct counts for the caller's own page", async () => {
     const { tenantId, pageId, sid } = await seedTenantWithSession(
       contentSeriesBlocks({ seriesTitle: "My Series", episodes: [{ slug: "ep-1", title: "Episode One" }] }),
@@ -284,7 +286,8 @@ describe("content-series notify-status route — tenant isolation (Task #818)", 
   });
 });
 
-describe("content-series notify route — tenant isolation (Task #818)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("content-series notify route — tenant isolation (Task #818)", () => {
   it("sends to the caller's own subscribers and returns the result", async () => {
     const { tenantId, pageId, sid } = await seedTenantWithSession(
       contentSeriesBlocks({ seriesTitle: "My Series", episodes: [{ slug: "ep-1", title: "Episode One" }] }),
@@ -352,7 +355,8 @@ describe("content-series notify route — tenant isolation (Task #818)", () => {
   });
 });
 
-describe("content-series unsubscribe route — public signed-token opt-out (Task #818)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("content-series unsubscribe route — public signed-token opt-out (Task #818)", () => {
   it("records the opt-out for a valid signed token", async () => {
     const { tenantId, pageId } = await seedTenantWithSession();
     await seedSubscriber(tenantId, pageId, "leaver@gmail.com");

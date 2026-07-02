@@ -17,6 +17,7 @@
  * All rows created here are torn down in afterAll.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -137,7 +138,8 @@ afterAll(async () => {
   await cleanup();
 });
 
-describe("POST /lp/media/suggest", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /lp/media/suggest", () => {
   it("401s without a session", async () => {
     const res = await injectSid({ method: "POST", url: "/api/lp/media/suggest", body: { query: "Crowns" } });
     expect(res.status).toBe(401);

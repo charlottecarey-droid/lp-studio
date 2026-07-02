@@ -17,6 +17,7 @@
  *     ("sync everything").
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import { randomUUID } from "node:crypto";
 import { pool, type SfdcSyncFilters } from "@workspace/db";
 import { sfdcService } from "./sfdc-service";
@@ -76,7 +77,8 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("SFDC sync methods apply persisted filters to their SOQL", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("SFDC sync methods apply persisted filters to their SOQL", () => {
   it("syncAccounts splices the account WHERE clause", async () => {
     await setFilters({ accounts: { types: ["Enterprise", "SMB"], industries: ["Healthcare"] } });
     const soql = await captureSoql(() => sfdcService.syncAccounts(connId, tenantId));

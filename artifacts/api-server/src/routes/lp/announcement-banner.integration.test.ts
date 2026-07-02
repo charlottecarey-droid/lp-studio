@@ -25,6 +25,7 @@
  * it was found.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -118,7 +119,8 @@ afterAll(async () => {
   if (tenantId) await pool.query(`DELETE FROM tenants WHERE id = $1`, [tenantId]).catch(() => {});
 });
 
-describe("GET /api/lp/announcement-banner (public)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("GET /api/lp/announcement-banner (public)", () => {
   it("does not require auth (no cookie still 200) and returns the public shape", async () => {
     const res = await inject(app, { method: "GET", url: `/api/lp/announcement-banner` });
     expect(res.status).toBe(200);
@@ -129,7 +131,8 @@ describe("GET /api/lp/announcement-banner (public)", () => {
   });
 });
 
-describe("admin GET/PUT /api/admin/lp/announcement-banner (superadmin gated)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("admin GET/PUT /api/admin/lp/announcement-banner (superadmin gated)", () => {
   it("401s an anonymous PUT", async () => {
     const res = await inject(app, {
       method: "PUT",

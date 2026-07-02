@@ -17,6 +17,7 @@
  *      lp_pages.trusted_fact_forms is suppressed (the url-sourced trust path).
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -148,7 +149,8 @@ interface ProofPointRow {
 }
 interface SyncResponse { flags: { id: number; factKind: string }[]; pendingCount: number; created: number }
 
-describe("Strict Facts — proof-point quotes + trusted fact forms", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Strict Facts — proof-point quotes + trusted fact forms", () => {
   it("POST persists a quote proof point with attribution; GET round-trips; PUT preserves attribution", async () => {
     const created = await injectAs({
       method: "POST",

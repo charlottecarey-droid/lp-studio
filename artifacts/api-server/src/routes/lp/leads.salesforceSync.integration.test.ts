@@ -18,6 +18,7 @@
  * we never touch prod and the page/lead inserts + field-mapping query are real.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -131,7 +132,8 @@ afterAll(async () => {
   epg?.stop();
 });
 
-describe("form-lead Salesforce write-back", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("form-lead Salesforce write-back", () => {
   it("creates a Lead through the active OAuth connection on submit", async () => {
     const pageId = await seedPage();
     await seedNotification(pageId, { enabled: true });

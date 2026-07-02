@@ -22,6 +22,7 @@
  * up.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -105,7 +106,8 @@ function shareLibrary(targetId: number | string, body: unknown) {
   });
 }
 
-describe("POST /superadmin/tenants/:id/share-library — reciprocal linking", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /superadmin/tenants/:id/share-library — reciprocal linking", () => {
   it("links A→B reciprocally on both rows", async () => {
     const res = await shareLibrary(tenantA, { siblingTenantId: tenantB });
     expect(res.status).toBe(200);
@@ -138,7 +140,8 @@ describe("POST /superadmin/tenants/:id/share-library — reciprocal linking", ()
   });
 });
 
-describe("POST /superadmin/tenants/:id/share-library — rejections", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /superadmin/tenants/:id/share-library — rejections", () => {
   it("rejects self-linking with 400", async () => {
     const res = await shareLibrary(tenantA, { siblingTenantId: tenantA });
     expect(res.status).toBe(400);

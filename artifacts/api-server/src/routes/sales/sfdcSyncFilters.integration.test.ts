@@ -20,6 +20,7 @@
  * All rows created here are torn down in afterAll.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -130,7 +131,8 @@ afterAll(async () => {
   await pool.query(`DELETE FROM tenants WHERE id = ANY($1)`, [[tenantA, tenantB]]).catch(() => {});
 });
 
-describe("SFDC sync-filters API", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("SFDC sync-filters API", () => {
   it("returns 401 when unauthenticated on both routes", async () => {
     const get = await injectSid({ method: "GET", url: "/api/sales/sfdc/sync-filters" });
     expect(get.status).toBe(401);

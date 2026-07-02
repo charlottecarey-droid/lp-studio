@@ -13,6 +13,7 @@
  * settings, account, and any generated pages.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -250,7 +251,8 @@ afterAll(async () => {
   // 10s default hook timeout.
 }, 120_000);
 
-describe("Microsite generation smoke", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Microsite generation smoke", () => {
   it("creates a draft sales page for the tenant with non-empty blocks referencing the account", async () => {
     const { tenantId, sid } = await seedTenant();
     const accountName = `Acme Robotics ${Math.floor(Math.random() * 1e6)}`;
@@ -356,7 +358,8 @@ describe("Microsite generation smoke", () => {
  * order), deliberately omitting formId / backgroundImage / form config, exactly
  * as the real model does. The route's mergeAuthored backstop must restore them.
  */
-describe("Microsite generation from a multi-block template", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Microsite generation from a multi-block template", () => {
   for (const replaceImagery of [false, true] as const) {
     it(`preserves the embedded form, hero image, and content sections (replaceImagery=${replaceImagery})`, async () => {
       const { tenantId, sid } = await seedTenant();
@@ -488,7 +491,8 @@ function assertHeroIntact(blocks: Array<{ type: string; props: Record<string, un
   expect((p.eventDetailsBullets as unknown[]).length).toBe(3);
 }
 
-describe("Microsite generation survives malformed / partial AI output", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Microsite generation survives malformed / partial AI output", () => {
   it("restores a block the AI omitted from the template layout", async () => {
     const { tenantId, sid } = await seedTenant();
     const accountName = `Cascade Dental ${Math.floor(Math.random() * 1e6)}`;
@@ -661,7 +665,8 @@ function assertNeutralLayout(blocks: Array<{ type: string; props: Record<string,
   expect(blocks[0].type).toBe("hero");
 }
 
-describe("Freeform microsite generation survives malformed / partial AI output", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Freeform microsite generation survives malformed / partial AI output", () => {
   it("falls back to the NEUTRAL layout when the AI returns invalid JSON", async () => {
     const { tenantId, sid } = await seedTenant();
     const accountName = `Freeform Harbor ${Math.floor(Math.random() * 1e6)}`;

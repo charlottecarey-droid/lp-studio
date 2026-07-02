@@ -27,6 +27,7 @@
  *   - All three endpoints fail closed (403) on a session with no tenant.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -208,7 +209,8 @@ interface AllLeadsResponse {
   total: number;
 }
 
-describe("lp/leads cross-tenant isolation (regression for #803)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("lp/leads cross-tenant isolation (regression for #803)", () => {
   it("GET /lp/leads/all returns only the caller's tenant's leads (default excludes test)", async () => {
     const res = await injectAs(SID_A, { method: "GET", url: "/lp/leads/all" });
     expect(res.status).toBe(200);

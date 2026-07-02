@@ -18,6 +18,7 @@
  *      retries.
  */
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import { pool } from "@workspace/db";
 import type { CustomHostname } from "./cloudflare";
 
@@ -146,7 +147,8 @@ beforeEach(() => {
 });
 
 // ── Tests ───────────────────────────────────────────────────────────
-describe("customDomainPoller — exactly-once delivery (task #415)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("customDomainPoller — exactly-once delivery (task #415)", () => {
   it("active email fires exactly once even when N pollers race", async () => {
     await resetTenantState({ attachedAt: new Date() });
     getCustomHostnameMock.mockResolvedValue(activeHostname());

@@ -40,6 +40,7 @@
  * platform address.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -184,7 +185,8 @@ afterAll(async () => {
   await pool.query(`DELETE FROM email_template_edit_log WHERE editor_email = $1`, [SUPER_EMAIL]).catch(() => {});
 });
 
-describe("platform mailing address in platform emails", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("platform mailing address in platform emails", () => {
   it("bakes the saved address into every renderSystemEmail (auth/invite) footer", async () => {
     await setPlatformAddress(ADDRESS);
     // The saved address resolves through getPlatformPhysicalAddress.

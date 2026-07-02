@@ -13,6 +13,7 @@
  * read the created page's blocks back and assert the baked-in props.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { pool } from "@workspace/db";
@@ -64,7 +65,8 @@ afterAll(async () => {
   await cleanup();
 });
 
-describe("web One Pager — Partner Practices template", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("web One Pager — Partner Practices template", () => {
   it("emits the partner block layout (hero + benefits + stats + CTA) for template=new-partner", async () => {
     const res = await inject(app, {
       method: "POST",

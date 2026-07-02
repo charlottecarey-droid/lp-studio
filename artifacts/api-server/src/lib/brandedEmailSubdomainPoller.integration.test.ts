@@ -17,6 +17,7 @@
  *   6. shouldRetireBrandedSubdomain staleness math (pure unit).
  */
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import { pool } from "@workspace/db";
 import type { ResendDomainWriteResult } from "./resendDomainStatus";
 
@@ -134,7 +135,8 @@ beforeEach(async () => {
 });
 
 // ── Tests ───────────────────────────────────────────────────────────
-describe("brandedEmailSubdomainPoller — retirement sweep (task #787)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("brandedEmailSubdomainPoller — retirement sweep (task #787)", () => {
   it("a verified subdomain is not retired and its active flag is persisted", async () => {
     await setConfig({ domainId: FIXTURE_DOMAIN_ID, provisionedAt: new Date(Date.now() - 100 * HOUR_MS).toISOString(), active: false });
     getByIdMock.mockResolvedValue(domainResult("verified"));
@@ -202,7 +204,8 @@ describe("brandedEmailSubdomainPoller — retirement sweep (task #787)", () => {
   });
 });
 
-describe("shouldRetireBrandedSubdomain — staleness math", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("shouldRetireBrandedSubdomain — staleness math", () => {
   const now = new Date("2026-06-02T00:00:00Z");
   it("retires unverified past threshold", () => {
     expect(shouldRetireBrandedSubdomain({

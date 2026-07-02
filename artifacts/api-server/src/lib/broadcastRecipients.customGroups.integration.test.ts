@@ -16,6 +16,7 @@
  *      referencing alert config so no dangling reference is left behind.
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import { pool } from "@workspace/db";
 import {
   resolveBroadcastRecipients,
@@ -131,7 +132,8 @@ beforeEach(async () => {
   await pool.query(`DELETE FROM broadcast_recipient_groups WHERE tenant_id = $1`, [tenantId]);
 });
 
-describe("custom recipient groups (Task #629)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("custom recipient groups (Task #629)", () => {
   it("resolves a custom group to its members' current emails + extra emails on any alert", async () => {
     const groupId = await createGroup("Ops", [memberUserId], ["outsider@example.com"]);
     // Custom groups apply to every alert type — use an account/billing one.

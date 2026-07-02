@@ -21,6 +21,7 @@
  * All rows created here are torn down in afterAll.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -113,7 +114,8 @@ afterAll(async () => {
   if (tenantId) await pool.query(`DELETE FROM tenants WHERE id = $1`, [tenantId]).catch(() => {});
 });
 
-describe("personal email-preference center API", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("personal email-preference center API", () => {
   it("returns 401 when no session cookie is present", async () => {
     const res = await injectSid({ method: "GET", url: "/api/notifications/preferences" });
     expect(res.status).toBe(401);

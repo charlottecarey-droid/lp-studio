@@ -13,6 +13,7 @@
  *     double-encrypting it (no `v1:v1:` corruption) — the masked-resave flow.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -101,7 +102,8 @@ afterAll(async () => {
   }
 });
 
-describe("integration credential encryption (Marketo)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("integration credential encryption (Marketo)", () => {
   it("persists the clientSecret encrypted at rest and reads it back masked", async () => {
     const { tenantId, sid } = await seedTenant();
     const secret = "super-secret-marketo-client-secret-xyz789";

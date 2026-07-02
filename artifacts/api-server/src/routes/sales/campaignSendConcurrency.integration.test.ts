@@ -20,6 +20,7 @@
  * seeds + tears down its own rows and stubs Resend dispatch.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { dbAvailable } from "../../test-utils/dbAvailable";
 import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
@@ -163,7 +164,8 @@ async function seedCampaign(sid: string, contactIds: number[]): Promise<number> 
   return (campRes.json as { id: number }).id;
 }
 
-describe("Campaign send idempotency + concurrency (Fix 1)", () => {
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("Campaign send idempotency + concurrency (Fix 1)", () => {
   it("does not re-send to contacts already sent to (idempotency, second send 400)", async () => {
     const { tenantId, sid } = await seedTenant();
     const accountId = await seedAccount(tenantId);
