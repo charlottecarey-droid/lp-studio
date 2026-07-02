@@ -15,11 +15,20 @@ function buildCorpusFromHtml($: cheerio.CheerioAPI, sourceLabel: string, opts: {
   const clean = (s: string): string => s.replace(/\s+/g, " ").trim();
   const skipSel = "header, nav, footer, [class*='nav' i], [class*='footer' i], [class*='cookie' i], [class*='banner' i], [class*='blog' i], [class*='post' i], article time";
 
-  // hero h1 / h2 / subhead
+  // hero h1 + section headings. One h2 alone starves the profile — take up
+  // to 4 distinct section headings (still skipping nav/footer chrome).
   const h1 = clean($("h1").first().text());
   if (h1) out.push({ source: `${sourceLabel}:h1`, text: h1 });
-  const h2 = clean($("h2").first().text());
-  if (h2 && h2 !== h1) out.push({ source: `${sourceLabel}:h2`, text: h2 });
+  let hCount = 0;
+  $("h2, h3").each((_: number, el: CheerioNode) => {
+    if (hCount >= 4) return;
+    const $el = $(el);
+    if ($el.closest(skipSel).length) return;
+    const t = clean($el.text());
+    if (!t || t === h1 || t.length < 8 || t.length > 140) return;
+    out.push({ source: `${sourceLabel}:h${hCount + 2}`, text: t });
+    hCount++;
+  });
 
   // first N <p> blocks in main/sections (skip nav/footer/blog)
   let count = 0;
@@ -31,6 +40,19 @@ function buildCorpusFromHtml($: cheerio.CheerioAPI, sourceLabel: string, opts: {
     if (t.length < 40) return;
     out.push({ source: `${sourceLabel}:p${count + 1}`, text: t });
     count++;
+  });
+
+  // "Why us" / value-prop / about sections — the most voice-dense copy on
+  // most marketing sites. Best-effort selector; capped at 2 paragraphs.
+  let whyCount = 0;
+  $("[class*='why' i] p, [id*='why' i] p, [class*='value' i] p, [class*='about' i] p").each((_: number, el: CheerioNode) => {
+    if (whyCount >= 2) return;
+    const $el = $(el);
+    if ($el.closest(skipSel).length) return;
+    const t = clean($el.text());
+    if (t.length < 40 || t.length > 500) return;
+    out.push({ source: `${sourceLabel}:why${whyCount + 1}`, text: t });
+    whyCount++;
   });
 
   // primary CTA text
@@ -174,7 +196,7 @@ export async function extractVoice(
   // Build initial corpus from home + about + one product/feature page
   let corpus: CorpusEntry[] = [];
   if (evidence.$home) {
-    corpus.push(...buildCorpusFromHtml(evidence.$home, "home", { firstParagraphs: 2 }));
+    corpus.push(...buildCorpusFromHtml(evidence.$home, "home", { firstParagraphs: 4 }));
   }
   for (const page of evidence.pages.slice(1)) {
     if (page.rawHtml) {
@@ -182,12 +204,12 @@ export async function extractVoice(
         const cheerioMod = await import("cheerio");
         const $$ = cheerioMod.load(page.rawHtml);
         const label = new URL(page.url).pathname.replace(/\//g, "") || "page";
-        corpus.push(...buildCorpusFromHtml($$, label, { firstParagraphs: 2 }));
+        corpus.push(...buildCorpusFromHtml($$, label, { firstParagraphs: 4 }));
       } catch { /* fall back to markdown below */ }
     }
     if (!page.rawHtml && page.markdown) {
       const label = new URL(page.url).pathname.replace(/\//g, "") || "page";
-      corpus.push(...corpusFromMarkdown(page.markdown, label, 2));
+      corpus.push(...corpusFromMarkdown(page.markdown, label, 4));
     }
   }
   // If we couldn't build any HTML corpus, fall back to home markdown
