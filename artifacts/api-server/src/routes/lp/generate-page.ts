@@ -9855,6 +9855,24 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         const intro = line.slice(m[0].length).replace(/^\s*/, "").split(/(?<=\.)\s/)[0] ?? "";
         catalogLines.push(`- ${m[1]}: ${intro.slice(0, 110)}`);
       }
+      // Layout diversity (first A/B finding): without a structural signal the
+      // planner converged on the same hero/lineup for nearly every brief —
+      // regressing the variety the seeded recipe rotation exists to protect.
+      // Feed THIS generation's rotated recipe skeleton as the base structure,
+      // and (when no recipe resolved) a seed-picked preferred hero as a
+      // deterministic tie-breaker, mirroring the recipe system's philosophy:
+      // structure varies per input, not per retry.
+      const recipeSection = chosenRecipe
+        ? `\n\nLAYOUT RECIPE (this page's rotated archetype — base the lineup on its skeleton, resolving each "a OR b" choice for this request, and swap a slot only when the request clearly needs a different section): ${chosenRecipe.label} — ${chosenRecipe.description}\nSkeleton: ${chosenRecipe.skeleton.join(" → ")}\nStyle: ${chosenRecipe.styleNotes}`
+        : "";
+      let preferredHeroLine = "";
+      if (!chosenRecipe) {
+        const heroPool = advertised.filter((t) => resolveBlockTags(t, dbTagsByType.get(t)).includes("hero"));
+        if (heroPool.length > 1) {
+          const preferredHero = heroPool[lpHashSeed(`${tenantId}::${prompt.trim()}::two-pass-hero`) % heroPool.length];
+          preferredHeroLine = `\n\nPREFERRED HERO for this page: "${preferredHero}" — use it unless the request clearly calls for a different hero. Do NOT default to the same hero type for every page.`;
+        }
+      }
       const planMessages: ChatCompletionMessageParam[] = [
         {
           role: "system",
@@ -9863,13 +9881,14 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
             "Return ONLY a JSON object: { \"blocks\": string[], \"intents\": { [blockType]: string } }. " +
             "Rules: 6-12 blocks; open with a nav/header block, then exactly one hero; include at least one social-proof or stats section unless the request forbids it; " +
             "end with a closing CTA then a footer. Every entry MUST be one of the available block types, in final page order. " +
+            "Vary structure to fit the request — two different requests should not share the same lineup. " +
             "For each chosen block give a ONE-LINE intent (what this specific section should say for THIS request). Do not write page copy.",
         },
         {
           role: "user",
           content:
             `BRAND: ${resolvedBrandName || "(unnamed)"}${brand.companyDescription ? ` — ${String(brand.companyDescription).slice(0, 200)}` : ""}\n\n` +
-            `USER REQUEST: ${prompt.trim().slice(0, 1500)}\n\n` +
+            `USER REQUEST: ${prompt.trim().slice(0, 1500)}${recipeSection}${preferredHeroLine}\n\n` +
             `AVAILABLE BLOCKS:\n${catalogLines.join("\n")}`,
         },
       ];
