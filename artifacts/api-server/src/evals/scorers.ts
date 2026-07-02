@@ -192,11 +192,21 @@ export function approvedStatPool(
 export function fabricatedStatScore(
   blocks: EvalBlock[] | undefined,
   allowedStats: Iterable<string>,
+  flaggedValues: Iterable<string> = [],
 ): ScorerResult {
   const pool = new Set<string>();
   for (const s of allowedStats) {
     const v = normalizeStat(s);
     if (v) pool.add(v);
+  }
+  // Strict Facts is deliberately flag-and-review, NOT block: an unapproved
+  // stat the server FLAGGED (strictMismatches) is the product working as
+  // designed — the review UI surfaces it. Only an unapproved stat the
+  // scanner MISSED counts as a fabrication escape here.
+  const flagged = new Set<string>();
+  for (const f of flaggedValues) {
+    const v = normalizeStat(f);
+    if (v) flagged.add(v);
   }
   const violations: EvalViolation[] = [];
   for (const leaf of walkStringLeaves(blocks)) {
@@ -204,14 +214,14 @@ export function fabricatedStatScore(
     if (isNonStatIdiom(leaf.value, siblingLabelText(leaf.siblings))) continue;
     const isStatField = STAT_FIELD_KEYS.has(leaf.key);
     const looksLikeStat = STAT_LIKE_RX.test(leaf.value);
-    if ((isStatField || looksLikeStat) && !isApprovedStat(leaf.value, pool)) {
-      violations.push({
-        scorer: "fabricatedStat",
-        path: leaf.path,
-        value: leaf.value,
-        detail: `stat-like value not in the approved pool (block type "${leaf.blockType}")`,
-      });
-    }
+    if (!(isStatField || looksLikeStat) || isApprovedStat(leaf.value, pool)) continue;
+    if (isApprovedStat(leaf.value, flagged)) continue;
+    violations.push({
+      scorer: "fabricatedStat",
+      path: leaf.path,
+      value: leaf.value,
+      detail: `stat-like value neither approved nor flagged for review (block type "${leaf.blockType}")`,
+    });
   }
   return { score: penaltyScore(violations), violations };
 }
@@ -318,6 +328,18 @@ const DEFAULT_REQUIRED_ROLES = ["hero", "cta", "footer"] as const;
  * `props` bag, and no null values anywhere in props (undefined can't survive
  * JSON; null renders as a hole).
  */
+/** Mirror of generate-page.ts SELF_CONTAINED_FULL_PAGE_TYPES (bake nav AND
+ *  footer — a one-block page of these is complete) — flagged as a mirror, not
+ *  imported, because the route module has side effects. */
+const FULL_PAGE_ALL_ROLES_TYPES = new Set([
+  "content-series", "webinar-hub", "blog-series", "storefront",
+  "event-noir", "event-luminous", "event-split",
+  "case-metrics", "case-editorial", "case-modular",
+]);
+/** Self-chrome blocks that bake their own hero + nav + CTA surfaces but NOT a
+ *  footer (production still injects one): event-page, business-case-*. */
+const SELF_HERO_CTA_TYPES = new Set(["event-page"]);
+
 export function structuralScore(
   blocks: EvalBlock[] | undefined,
   requiredRoles: readonly string[] = DEFAULT_REQUIRED_ROLES,
@@ -343,6 +365,12 @@ export function structuralScore(
       violations.push({ scorer: "structural", path: `${path}.type`, value: String(block.type), detail: "missing block type" });
     } else {
       for (const tag of resolveBlockTags(type)) covered.add(tag);
+      if (FULL_PAGE_ALL_ROLES_TYPES.has(type)) {
+        for (const r of requiredRoles) covered.add(r);
+      } else if (SELF_HERO_CTA_TYPES.has(type) || type.startsWith("business-case")) {
+        covered.add("hero");
+        covered.add("cta");
+      }
     }
     const id = typeof block.id === "string" ? block.id.trim() : "";
     if (!id) {
@@ -477,7 +505,11 @@ export function scoreGeneration(input: ScoreGenerationInput): EvalReport {
   const blocks = Array.isArray(result.blocks) ? result.blocks : [];
 
   const results: Record<ScorerName, ScorerResult> = {
-    fabricatedStat: fabricatedStatScore(blocks, input.allowedStats ?? exp.allowedStats ?? []),
+    fabricatedStat: fabricatedStatScore(
+      blocks,
+      input.allowedStats ?? exp.allowedStats ?? [],
+      (result.strictMismatches ?? []).map((m) => m.value),
+    ),
     placeholderLeak: placeholderLeakScore(blocks),
     emptyImageSlot: emptyImageSlotScore(blocks, new Set(exp.imageLedTypes ?? [])),
     bannedPhrase: bannedPhraseScore(blocks, input.brandAvoidPhrases ?? []),

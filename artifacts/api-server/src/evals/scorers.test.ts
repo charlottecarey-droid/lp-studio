@@ -50,6 +50,16 @@ function cleanPage(): EvalBlock[] {
 // ── fabricatedStatScore ──────────────────────────────────────────────────────
 
 describe("fabricatedStatScore", () => {
+  it("does not penalize an unapproved stat the server flagged for review (flag-and-review contract)", () => {
+    const blocks = [
+      { id: "b1", type: "trust-bar", props: { items: [{ value: "87%", label: "satisfaction" }] } },
+    ];
+    // Unapproved AND unflagged -> violation.
+    expect(fabricatedStatScore(blocks, []).violations).toHaveLength(1);
+    // Unapproved but FLAGGED (strictMismatches echo) -> product working as designed.
+    expect(fabricatedStatScore(blocks, [], ["87%"]).violations).toHaveLength(0);
+  });
+
   it("returns 1 with no violations on a page without stat-like copy", () => {
     const r = fabricatedStatScore(cleanPage(), []);
     expect(r.score).toBe(1);
@@ -258,6 +268,26 @@ describe("bannedPhraseScore", () => {
 // ── structuralScore ──────────────────────────────────────────────────────────
 
 describe("structuralScore", () => {
+  it("treats a single self-contained full-page block as covering every required role", () => {
+    const blocks = [{ id: "b1", type: "event-noir", props: { headline: "x" } }];
+    const r = structuralScore(blocks, ["hero", "cta", "footer"]);
+    expect(r.violations).toHaveLength(0);
+    expect(r.score).toBe(1);
+  });
+
+  it("event-page covers hero+cta itself but still needs the injected footer", () => {
+    const noFooter = structuralScore([{ id: "b1", type: "event-page", props: { title: "x" } }], ["hero", "cta", "footer"]);
+    expect(noFooter.violations.some((v) => v.value === "footer")).toBe(true);
+    const withFooter = structuralScore(
+      [
+        { id: "b1", type: "event-page", props: { title: "x" } },
+        { id: "b2", type: "footer", props: {} },
+      ],
+      ["hero", "cta", "footer"],
+    );
+    expect(withFooter.score).toBe(1);
+  });
+
   it("scores 1 on a complete page with unique ids and clean props", () => {
     const r = structuralScore(cleanPage());
     expect(r.score).toBe(1);
