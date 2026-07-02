@@ -41,7 +41,7 @@ export function DsoPracticeNavPanel({ props, onChange }: Props) {
         <Input
           value={props.dsoName ?? ""}
           onChange={e => onChange({ ...props, dsoName: e.target.value })}
-          placeholder="e.g. Heartland Dental"
+          placeholder="e.g. Acme Dental Group"
         />
         <p className="text-xs text-muted-foreground">Appears as "{"{DSO Name}"} × Dandy" in the navbar. Leave blank for Dandy logo only.</p>
       </div>

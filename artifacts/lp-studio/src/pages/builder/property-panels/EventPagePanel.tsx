@@ -253,7 +253,7 @@ export function EventPagePanel({ props: p, onChange, brandVoiceSet }: Props) {
             <AiTextField type="input" value={p.eventName} onChange={v => set({ eventName: v })} fieldLabel="Event Name" brandVoiceSet={brandVoiceSet}
               onSuggest={() => suggestCopy("event-page", "eventName", p.eventName, {})} />
           </Field>
-          <Field label="Event Subtitle" hint="Shown below the title (e.g. 'Executive Lab Experience')">
+          <Field label="Event Subtitle" hint="Shown below the title (e.g. 'Executive Experience')">
             <AiTextField type="input" value={p.eventSubtitle} onChange={v => set({ eventSubtitle: v })} fieldLabel="Event Subtitle" brandVoiceSet={brandVoiceSet}
               onSuggest={() => suggestCopy("event-page", "eventSubtitle", p.eventSubtitle, {})} />
           </Field>
@@ -448,7 +448,7 @@ export function EventPagePanel({ props: p, onChange, brandVoiceSet }: Props) {
             <AiTextField type="textarea" value={p.rsvpSubtitle} onChange={v => set({ rsvpSubtitle: v })} rows={3} fieldLabel="RSVP Subtitle" brandVoiceSet={brandVoiceSet}
               onSuggest={() => suggestCopy("event-page", "rsvpSubtitle", p.rsvpSubtitle, {})} />
           </Field>
-          <Field label="Submit URL" hint="Where form data is sent. Leave blank to use the built-in Dandy lead system.">
+          <Field label="Submit URL" hint="Where form data is sent. Leave blank to use the built-in lead system.">
             <Input value={p.formSubmitUrl ?? ""} onChange={e => set({ formSubmitUrl: e.target.value || undefined })} className="text-xs h-7 font-mono" placeholder="https://…  (leave blank for default)" />
           </Field>
           <div className="space-y-3 pt-1">

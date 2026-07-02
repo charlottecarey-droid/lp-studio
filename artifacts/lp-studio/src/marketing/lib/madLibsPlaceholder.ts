@@ -54,7 +54,7 @@ const seriousSubjects = [
   "the Smilist's 16-location rollout",
   "Bright Smile DSO's pilot",
   "Mercer Veterinary's Q4 growth plan",
-  "Heartland Dental's renewal cycle",
+  "Northwind Dental's renewal cycle",
   "a 200-clinic urgent care network",
   "specialty pediatric practices",
 

@@ -161,7 +161,7 @@ export default function SalesWebOnePager() {
               <label className="block text-xs font-medium text-muted-foreground mb-1">Partner / Prospect Name <span className="text-red-500">*</span></label>
               <input
                 className={inputCls}
-                placeholder="e.g. DCA, Heartland Dental"
+                placeholder="e.g. Acme Dental Group"
                 value={dsoName}
                 onChange={(e) => setDsoName(e.target.value)}
               />

@@ -623,7 +623,7 @@ function EventLandingHeroPanel({ props, onChange }: EventLandingHeroPanelProps) 
                     <SelectItem value="light-gray">Light gray</SelectItem>
                     <SelectItem value="muted">Muted (cream)</SelectItem>
                     <SelectItem value="dark">Dark (brand)</SelectItem>
-                    <SelectItem value="dandy-green">Dandy green</SelectItem>
+                    <SelectItem value="dandy-green">Brand color</SelectItem>
                     <SelectItem value="black">Black</SelectItem>
                   </SelectContent>
                 </Select>
@@ -2201,7 +2201,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Quote Attribution</Label>
-              <Input value={p.quoteAttribution ?? ""} onChange={e => onChange({ ...block, props: { ...p, quoteAttribution: e.target.value } })} placeholder="Dr. Eller, Clinical Leader" className="h-8 text-xs" />
+              <Input value={p.quoteAttribution ?? ""} onChange={e => onChange({ ...block, props: { ...p, quoteAttribution: e.target.value } })} placeholder="Jordan Lee, VP Operations" className="h-8 text-xs" />
             </div>
 
             {/* CTA */}
@@ -2478,7 +2478,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     </div>
                     <div>
                       <Label className="text-[11px] text-slate-400">DSO Name</Label>
-                      <Input value={c.name} onChange={e => updateCase(i, { name: e.target.value })} placeholder="Acme Dental Group" className="h-8 text-xs mt-1" />
+                      <Input value={c.name} onChange={e => updateCase(i, { name: e.target.value })} placeholder="Acme Group" className="h-8 text-xs mt-1" />
                     </div>
                     <div>
                       <Label className="text-[11px] text-slate-400">Card Image (optional)</Label>
@@ -2500,7 +2500,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     </div>
                     <div>
                       <Label className="text-[11px] text-slate-400">Attribution</Label>
-                      <Input value={c.author} onChange={e => updateCase(i, { author: e.target.value })} placeholder="VP Clinical Operations" className="h-8 text-xs mt-1" />
+                      <Input value={c.author} onChange={e => updateCase(i, { author: e.target.value })} placeholder="VP Operations" className="h-8 text-xs mt-1" />
                     </div>
                     <div className="border-t border-slate-200 pt-2 mt-1 space-y-2">
                       <label className="flex items-start gap-2 text-xs cursor-pointer select-none">
@@ -3009,7 +3009,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   <DtrTokenInserter onInsert={(token) => onChange({ ...block, props: { ...p, companyName: p.companyName + token } })} />
                 </div>
               </div>
-              <Input value={p.companyName} onChange={e => onChange({ ...block, props: { ...p, companyName: e.target.value } })} placeholder="Your DSO" />
+              <Input value={p.companyName} onChange={e => onChange({ ...block, props: { ...p, companyName: e.target.value } })} placeholder="Partner company" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">CTA text</Label>
@@ -3072,7 +3072,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <div className="border-t pt-3 space-y-3">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Table Text Colors</Label>
               <ColorField
-                label="Dandy column header"
+                label="Brand column header"
                 value={p.headerDandyColor}
                 onChange={v => onChange({ ...block, props: { ...p, headerDandyColor: v } })}
               />
@@ -3082,12 +3082,12 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 onChange={v => onChange({ ...block, props: { ...p, tableNeedColor: v } })}
               />
               <ColorField
-                label="Dandy answer column"
+                label="Brand answer column"
                 value={p.tableDandyColor}
                 onChange={v => onChange({ ...block, props: { ...p, tableDandyColor: v } })}
               />
               <ColorField
-                label="Traditional lab column"
+                label="Comparison column"
                 value={p.tableTraditionalColor}
                 onChange={v => onChange({ ...block, props: { ...p, tableTraditionalColor: v } })}
               />
@@ -3110,14 +3110,14 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                     </div>
                     <div>
                       <Label className="text-[11px] text-slate-400">Need / Requirement</Label>
-                      <Input value={row.need} onChange={e => updateRow(i, { need: e.target.value })} placeholder="Scan quality standard" className="h-8 text-xs mt-1" />
+                      <Input value={row.need} onChange={e => updateRow(i, { need: e.target.value })} placeholder="Quality standard" className="h-8 text-xs mt-1" />
                     </div>
                     <div>
-                      <Label className="text-[11px] text-slate-400">Dandy (your value)</Label>
-                      <Input value={row.dandy} onChange={e => updateRow(i, { dandy: e.target.value })} placeholder="AI quality control on every case" className="h-8 text-xs mt-1" />
+                      <Label className="text-[11px] text-slate-400">Your brand (your value)</Label>
+                      <Input value={row.dandy} onChange={e => updateRow(i, { dandy: e.target.value })} placeholder="Automated quality control on every order" className="h-8 text-xs mt-1" />
                     </div>
                     <div>
-                      <Label className="text-[11px] text-slate-400">Traditional lab</Label>
+                      <Label className="text-[11px] text-slate-400">The old way</Label>
                       <Input value={row.traditional} onChange={e => updateRow(i, { traditional: e.target.value })} placeholder="Manual inspection, inconsistent" className="h-8 text-xs mt-1" />
                     </div>
                   </div>
@@ -3636,13 +3636,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Label className="text-xs">Partner / co-brand logo (optional)</Label>
               <ImagePicker value={p.companyLogoUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, companyLogoUrl: v } })} />
               <p className="text-[11px] text-muted-foreground leading-snug">
-                Shown in the nav as <span className="font-medium">Dandy × [logo]</span>. Replaces the company name text. Dark logos are auto-inverted to white for the dark hero background.
+                Shown in the nav as <span className="font-medium">[your brand] × [logo]</span>. Replaces the company name text. Dark logos are auto-inverted to white for the dark hero background.
               </p>
               {p.companyLogoUrl && (
                 <Input
                   value={p.companyLogoAlt ?? ""}
                   onChange={e => onChange({ ...block, props: { ...p, companyLogoAlt: e.target.value } })}
-                  placeholder="Logo alt text (e.g. 'Heartland Dental')"
+                  placeholder="Logo alt text (e.g. 'Acme Group')"
                   className="h-8 text-xs"
                 />
               )}
@@ -3896,7 +3896,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Copy</Label>
               <div className="space-y-1.5">
                 <Label className="text-xs">Eyebrow</Label>
-                <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="Crown & Bridge" className="h-8 text-xs" />
+                <Input value={p.eyebrow ?? ""} onChange={e => onChange({ ...block, props: { ...p, eyebrow: e.target.value } })} placeholder="Featured products" className="h-8 text-xs" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Headline (use \n for line break)</Label>
@@ -4123,7 +4123,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 onClick={() => onChange({ ...block, props: {
                   ...p,
                   imageUrl: "/images/dandy-crown-bridge-spin.webp",
-                  imageAlt: p.imageAlt || "Dandy crown",
+                  imageAlt: p.imageAlt || "Dental crown",
                   imageBleed: false,
                   imageAnchor: "center",
                   imageScale: 1,
@@ -4133,7 +4133,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                 } })}
                 className="w-full py-2 text-xs font-medium rounded-md border border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary"
               >
-                ↻ Use the Dandy spinning crown
+                ↻ Use the built-in spinning crown
               </button>
               <p className="text-[11px] text-muted-foreground -mt-1">Loads the crown image, centers it, and turns on the spin animation in one click.</p>
               <div className="flex items-center justify-between pt-1">
@@ -5301,7 +5301,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                         </div>
                         <div>
                           <Label className="text-[11px] text-slate-400">Author</Label>
-                          <Input value={tile.author} onChange={e => updateTile(i, { author: e.target.value })} placeholder="VP of Ops, Smile Brands" className="h-7 text-xs mt-0.5" />
+                          <Input value={tile.author} onChange={e => updateTile(i, { author: e.target.value })} placeholder="VP of Ops, Helio Brands" className="h-7 text-xs mt-0.5" />
                         </div>
                       </>
                     )}
@@ -5398,7 +5398,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Input Placeholder</Label>
-              <Input value={p.inputPlaceholder ?? ""} onChange={e => onChange({ ...block, props: { ...p, inputPlaceholder: e.target.value } })} placeholder="yourname@dsogroup.com" />
+              <Input value={p.inputPlaceholder ?? ""} onChange={e => onChange({ ...block, props: { ...p, inputPlaceholder: e.target.value } })} placeholder="yourname@company.com" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">CTA Label</Label>
@@ -5968,7 +5968,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             <DsoRefreshRow fields={["eyebrow", "headline", "subheadline", "primaryCtaText", "secondaryCtaText", "trustLine"]} values={{ eyebrow: p.eyebrow ?? "", headline: p.headline ?? "", subheadline: p.subheadline ?? "", primaryCtaText: p.primaryCtaText ?? "", secondaryCtaText: p.secondaryCtaText ?? "", trustLine: p.trustLine ?? "" }} />
             <div className="space-y-1.5">
               <Label className="text-xs">Eyebrow (co-brand)</Label>
-              <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} placeholder="Heartland Dental × Acme" fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
+              <AiTextField type="input" value={p.eyebrow ?? ""} onChange={v => onChange({ ...block, props: { ...p, eyebrow: v } })} placeholder="[DSO network] × [your brand]" fieldLabel="Eyebrow" brandVoiceSet={brandVoiceSet} onSuggest={() => suggestCopy(block.type, "eyebrow", p.eyebrow ?? "", { headline: p.headline ?? "" })} />
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">

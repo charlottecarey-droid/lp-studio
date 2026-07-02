@@ -1650,9 +1650,9 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       headline: "DSOs that switched and never looked back.",
       backgroundStyle: "dandy-green",
       cases: [
-        { name: "APEX Dental Partners", stat: "12.5%", label: "annualized revenue potential increase", quote: "Dandy values education, technology, and people. That's what makes them a great partner and not just another lab.", author: "Dr. Layla Lohmann, Founder", image: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=800&h=480&fit=crop" },
-        { name: "Smile Brands", stat: "2–3 min", label: "saved per crown appointment", quote: "The efficiency gains were immediate. Our doctors noticed the difference from the very first case.", author: "VP of Clinical Operations", image: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=800&h=480&fit=crop" },
-        { name: "Tend", stat: "40%", label: "faster lab turnaround", quote: "Speed matters when you're growing fast. Dandy keeps pace with our expansion without sacrificing quality.", author: "Head of Operations", image: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=800&h=480&fit=crop" },
+        { name: "Northwind Group", stat: "12.5%", label: "annualized revenue potential increase", quote: "They value education, technology, and people. That's what makes them a great partner and not just another vendor.", author: "Maya Chen, Founder", image: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=800&h=480&fit=crop" },
+        { name: "Helio Brands", stat: "2–3 min", label: "saved per crown appointment", quote: "The efficiency gains were immediate. Our doctors noticed the difference from the very first case.", author: "VP of Clinical Operations", image: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?q=80&w=800&h=480&fit=crop" },
+        { name: "Brightline", stat: "40%", label: "faster lab turnaround", quote: "Speed matters when you're growing fast. They keep pace with our expansion without sacrificing quality.", author: "Head of Operations", image: "https://images.unsplash.com/photo-1588776814546-daab30f310ce?q=80&w=800&h=480&fit=crop" },
       ],
     }),
     thumbnail: () => (
@@ -1879,7 +1879,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-heartland-hero" as const,
-    label: "DSO Heartland Hero",
+    label: "DSO Co-Brand Hero",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoHeartlandHeroBlockProps => ({
       headline: "Built for {company}.",
@@ -2575,7 +2575,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       headline: "Practices that switched and never looked back.",
       subheadline: "Hear from DSO leaders across the country who've made Dandy their lab partner.",
       testimonials: [
-        { quote: "Dandy values education, technology, and people. That's what makes them a great partner and not just another lab.", author: "Dr. Layla Lohmann", location: "Founder, APEX Dental Partners" },
+        { quote: "They value education, technology, and people. That's what makes them a great partner and not just another lab.", author: "Dr. Maya Chen", location: "Founder, Northwind Dental Partners" },
         { quote: "Reduced crown appointments by 2–3 minutes per case. That adds up to hours of saved chair time per month — and our remake headaches are gone.", author: "Clinical Director", location: "Open & Affordable Dental" },
         { quote: "The training you guys give is incredible. The onboarding has been incredible. The whole experience has been incredible.", author: "Dr. Trey Mueller", location: "Chief Clinical Officer, Dental Care Alliance" },
       ],
@@ -2639,9 +2639,9 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     label: "DSO Practice Hero",
     category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoPracticeHeroBlockProps => ({
-      eyebrow: "Heartland Dental × Dandy",
+      eyebrow: "{{company_name}} partnership",
       headline: "Your practice. Elevated by Dandy.",
-      subheadline: "As a Heartland partner, your practice gets dedicated support, premium scanners at no cost, and a lab that backs every case with a first-time fit guarantee.",
+      subheadline: "As a network partner, your practice gets dedicated support, premium scanners at no cost, and a lab that backs every case with a first-time fit guarantee.",
       primaryCtaText: "Start your first case",
       primaryCtaUrl: "https://meetdandy.chilipiper.com/round-robin/enterprise--discovery-call",
       secondaryCtaText: "See how it works",
@@ -2972,7 +2972,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dandy-versus" as const,
-    label: "Dandy: 2 Column Comparison",
+    label: "Premium: 2 Column Comparison",
     category: "Content" as BlockCategory,
     defaultProps: (): DandyVersusBlockProps => ({
       eyebrow: "WHY DANDY",
@@ -3007,7 +3007,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dandy-columns-v2" as const,
-    label: "Dandy: Columns Variant 2",
+    label: "Premium: Columns Variant 2",
     category: "Content" as BlockCategory,
     defaultProps: (): DandyColumnsV2BlockProps => ({
       eyebrow: "GET STARTED",
@@ -3036,7 +3036,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dandy-columns-v3" as const,
-    label: "Dandy: Columns Variant 3",
+    label: "Premium: Columns Variant 3",
     category: "Content" as BlockCategory,
     defaultProps: (): DandyColumnsV3BlockProps => ({
       eyebrow: "GETTING STARTED",
@@ -3065,7 +3065,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dandy-vertical-tabs" as const,
-    label: "Dandy: Vertical Tabs",
+    label: "Premium: Vertical Tabs",
     category: "Content" as BlockCategory,
     defaultProps: (): DandyVerticalTabsBlockProps => ({
       headline: "Vertical Tabs",
@@ -3093,7 +3093,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dandy-switchback" as const,
-    label: "Dandy: Switchback",
+    label: "Premium: Switchback",
     category: "Content" as BlockCategory,
     defaultProps: (): DandySwitchbackBlockProps => ({
       eyebrow: "WHY DANDY",
@@ -3125,7 +3125,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dandy-site-header" as const,
-    label: "Dandy: Site Header",
+    label: "Premium: Site Header",
     category: "Layout" as BlockCategory,
     defaultProps: (): DandySiteHeaderBlockProps => ({
       logoUrl: "",
@@ -3156,7 +3156,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dandy-site-footer" as const,
-    label: "Dandy: Site Footer",
+    label: "Premium: Site Footer",
     category: "Layout" as BlockCategory,
     defaultProps: (): DandySiteFooterBlockProps => ({
       logoUrl: "",
@@ -3187,7 +3187,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dandy-video-testimonials" as const,
-    label: "Dandy: Video Testimonials",
+    label: "Premium: Video Testimonials",
     category: "Social Proof" as BlockCategory,
     defaultProps: (): DandyVideoTestimonialsBlockProps => ({
       eyebrow: "OUR CUSTOMERS",
@@ -3221,7 +3221,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dandy-side-image-v6" as const,
-    label: "Dandy: Side Image Variation 6",
+    label: "Premium: Side Image Variation 6",
     category: "Content" as BlockCategory,
     defaultProps: (): DandySideImageV6BlockProps => ({
       eyebrow: "WHY DANDY",
@@ -3257,7 +3257,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dandy-hero-v7-s3" as const,
-    label: "Dandy: Hero 7 — Inline Form",
+    label: "Premium: Hero 7 — Inline Form",
     category: "Hero" as BlockCategory,
     defaultProps: (): DandyHeroV7S3BlockProps => ({
       eyebrow: "FREE INTRAORAL SCANNER",
@@ -3292,7 +3292,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dandy-form-right-alt" as const,
-    label: "Dandy: Form — Right Align Alt",
+    label: "Premium: Form — Right Align Alt",
     category: "Lead Capture" as BlockCategory,
     defaultProps: (): DandyFormRightAltBlockProps => ({
       eyebrow: "GET STARTED TODAY",
@@ -3328,7 +3328,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dandy-conversion-panel-1" as const,
-    label: "Dandy: Conversion Panel 1",
+    label: "Premium: Conversion Panel 1",
     category: "CTA" as BlockCategory,
     defaultProps: (): DandyConversionPanel1BlockProps => ({
       eyebrow: "READY TO GO DIGITAL?",
@@ -3361,7 +3361,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dandy-cta-block" as const,
-    label: "Dandy: CTA Block",
+    label: "Premium: CTA Block",
     category: "CTA" as BlockCategory,
     defaultProps: (): DandyCtaBlockProps => ({
       eyebrow: "GET STARTED",
@@ -3540,7 +3540,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "event-landing-hero" as const,
-    label: "Dandy Events Page",
+    label: "Premium Events Page",
     category: "Events" as BlockCategory,
     defaultProps: (): EventLandingHeroBlockProps => ({
       backgroundImage:
@@ -3942,7 +3942,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       },
       proofSecondary: [
         { quote: "Our remake rate dropped from 6% to under 2% across the entire network in the first quarter.", name: "Michael Chang", title: "COO, Pacific Coast DSO (28 practices)" },
-        { quote: "The enterprise dashboard finally gave us the visibility we needed to standardize care.", name: "Amanda Reyes", title: "VP Operations, Heartland Dental Partners" },
+        { quote: "The enterprise dashboard finally gave us the visibility we needed to standardize care.", name: "Amanda Reyes", title: "VP Operations, Evergreen Dental Partners" },
       ],
       planEyebrow: "07",
       planHeading: "The Plan",
@@ -4055,7 +4055,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         title: "Chief Clinical Officer, Summit Smile Group (42 offices)",
       },
       proofSecondary: [
-        { quote: "Rolling out Dandy across 80 locations took less time than a single traditional hardware procurement cycle. The training is phenomenal.", name: "Marcus Thorne", title: "VP Operations, Heartland Dental Partners" },
+        { quote: "Rolling out across 80 locations took less time than a single traditional hardware procurement cycle. The training is phenomenal.", name: "Marcus Thorne", title: "VP Operations, Evergreen Dental Partners" },
         { quote: "The real-time data visibility into lab spend and remake rates across all our clinics has been a game-changer for our finance team.", name: "Elena Rostova", title: "CFO, Pacific Coast DSO" },
       ],
       planEyebrow: "",
@@ -4803,7 +4803,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "id-hero" as const,
-    label: "Inside Dandy · Hero",
+    label: "Event Series · Hero",
     category: "Showcase" as BlockCategory,
     defaultProps: (): IdHeroBlockProps => ({
       eyebrow: "Inside Dandy · 2026",
@@ -4837,7 +4837,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "id-marquee" as const,
-    label: "Inside Dandy · Marquee",
+    label: "Event Series · Marquee",
     category: "Showcase" as BlockCategory,
     defaultProps: (): IdMarqueeBlockProps => ({
       items: [
@@ -4862,7 +4862,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "id-intro" as const,
-    label: "Inside Dandy · Intro",
+    label: "Event Series · Intro",
     category: "Showcase" as BlockCategory,
     defaultProps: (): IdIntroBlockProps => ({
       eyebrow: "A new category",
@@ -4882,7 +4882,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "id-cinema-pillars" as const,
-    label: "Inside Dandy · Cinema Pillars",
+    label: "Event Series · Cinema Pillars",
     category: "Showcase" as BlockCategory,
     defaultProps: (): IdCinemaPillarsBlockProps => ({
       pillars: [
@@ -4907,7 +4907,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "id-parallax-showcase" as const,
-    label: "Inside Dandy · Parallax Showcase",
+    label: "Event Series · Parallax Showcase",
     category: "Showcase" as BlockCategory,
     defaultProps: (): IdParallaxShowcaseBlockProps => ({
       eyebrow: "Inside the lab",
@@ -4931,7 +4931,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "id-system-flow" as const,
-    label: "Inside Dandy · System Flow",
+    label: "Event Series · System Flow",
     category: "Showcase" as BlockCategory,
     defaultProps: (): IdSystemFlowBlockProps => ({
       eyebrow: "SECTION 01 · THE SYSTEM",
@@ -4967,7 +4967,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "id-form" as const,
-    label: "Inside Dandy · Form",
+    label: "Event Series · Form",
     category: "Showcase" as BlockCategory,
     defaultProps: (): IdFormBlockProps => ({
       eyebrow: "GET IN TOUCH",
@@ -5018,7 +5018,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "id-stats" as const,
-    label: "Inside Dandy · Stats",
+    label: "Event Series · Stats",
     category: "Showcase" as BlockCategory,
     defaultProps: (): IdStatsBlockProps => ({
       stats: [
@@ -5044,7 +5044,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "id-invitation" as const,
-    label: "Inside Dandy · Invitation",
+    label: "Event Series · Invitation",
     category: "Showcase" as BlockCategory,
     defaultProps: (): IdInvitationBlockProps => ({
       eyebrow: "The invitation",
@@ -5072,7 +5072,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "id-grid" as const,
-    label: "Inside Dandy · Numbered Grid",
+    label: "Event Series · Numbered Grid",
     category: "Showcase" as BlockCategory,
     defaultProps: (): IdGridBlockProps => ({
       eyebrow: "Step inside",
@@ -5104,7 +5104,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "id-spotlight" as const,
-    label: "Inside Dandy · Spotlight (Video Feature)",
+    label: "Event Series · Spotlight (Video Feature)",
     category: "Showcase" as BlockCategory,
     defaultProps: (): IdSpotlightBlockProps => ({
       eyebrow: "",
@@ -5145,7 +5145,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "id-reservation-pass" as const,
-    label: "Inside Dandy · Reservation Pass (Final CTA)",
+    label: "Event Series · Reservation Pass (Final CTA)",
     category: "Showcase" as BlockCategory,
     defaultProps: (): IdReservationPassBlockProps => ({
       ordinal: "№ 001",

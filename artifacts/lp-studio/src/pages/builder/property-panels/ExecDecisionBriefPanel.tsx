@@ -404,7 +404,7 @@ export function ExecDecisionBriefPanel({ props, onChange }: Props) {
               <ImagePicker
                 value={props.mastheadImageUrl ?? ""}
                 onChange={(v) => set("mastheadImageUrl", v)}
-                aiHint="Crisp boardroom / clinical photo — neutral, on-brand"
+                aiHint="Crisp boardroom photo — neutral, on-brand"
               />
             </Field>
             <Field label="Masthead image alt text">

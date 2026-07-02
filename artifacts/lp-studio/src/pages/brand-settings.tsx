@@ -2273,7 +2273,7 @@ function SalesConsoleSettings({
                   addDomain();
                 }
               }}
-              placeholder="e.g. dentaleconomics.com"
+              placeholder="e.g. industry-journal.com"
             />
             <Button type="button" variant="outline" size="sm" onClick={addDomain}>
               <Plus className="w-3.5 h-3.5 mr-1" /> Add
@@ -5400,7 +5400,7 @@ export default function BrandSettings() {
                 <Users className="w-4 h-4 text-primary" />
                 <div>
                   <h2 className="font-display font-semibold text-lg">Additional Segments</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Your core audience (e.g. dentists) is already defined above. Add supplemental segments — like DSOs or group practices — with their own unique angle, products, personas, and proof points. AI uses these to personalize copy per audience.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Your core audience is already defined above. Add supplemental segments — like enterprise groups or a secondary vertical — with their own unique angle, products, personas, and proof points. AI uses these to personalize copy per audience.</p>
                 </div>
               </div>
               <Button

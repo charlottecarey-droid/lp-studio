@@ -1109,7 +1109,7 @@ async function handleSendTestEmail(req: Request, res: Response, body: any) {
 
   const sampleVars: Record<string, string> = {
     "{{first_name}}": "Sarah", "{{last_name}}": "Johnson",
-    "{{company}}": "Heartland Dental", "{{email}}": to,
+    "{{company}}": "Sample Dental Group", "{{email}}": to,
     "{{sender_name}}": sender_name ?? DEFAULT_SENDER_NAME,
   };
 

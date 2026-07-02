@@ -119,9 +119,9 @@ function dandyBlocks(): PageBlock[] {
       type: "testimonial",
       props: {
         quote: "Dandy values education, technology, and people. That's what makes them a great partner and not just another lab.",
-        author: "Dr. Layla Lohmann",
+        author: "Dr. Maya Chen",
         role: "Founder",
-        practiceName: "APEX Dental Partners",
+        practiceName: "Northwind Dental Partners",
       },
     },
     {
@@ -751,9 +751,9 @@ function solutionsBlocks(): PageBlock[] {
       type: "testimonial",
       props: {
         quote: "12.5% annualized revenue potential increase. Dandy values education, technology, and people. That's what makes them a great partner and not just another lab.",
-        author: "Dr. Layla Lohmann",
+        author: "Dr. Maya Chen",
         role: "Founder",
-        practiceName: "APEX Dental Partners",
+        practiceName: "Northwind Dental Partners",
       },
     },
     {
@@ -885,7 +885,7 @@ function executiveBlocks(): PageBlock[] {
       props: {
         stat: "12.5%",
         description: "Annualized revenue potential increase for DSO partners who fully adopt the Dandy digital workflow.",
-        footnote: "Based on APEX Dental Partners case study data.",
+        footnote: "Based on Northwind Dental Partners case study data.",
         countUpEnabled: false,
       },
     },
@@ -894,9 +894,9 @@ function executiveBlocks(): PageBlock[] {
       type: "testimonial",
       props: {
         quote: "Dandy values education, technology, and people. That's what makes them a great partner and not just another lab.",
-        author: "Dr. Layla Lohmann",
+        author: "Dr. Maya Chen",
         role: "Founder",
-        practiceName: "APEX Dental Partners",
+        practiceName: "Northwind Dental Partners",
       },
     },
     {
@@ -944,7 +944,7 @@ function businessCasePremiumBlocks(): PageBlock[] {
 export const MICROSITE_TEMPLATES: MicrositeTemplate[] = [
   {
     id: "microsite-dandy",
-    name: "Dandy",
+    name: "Modern Light",
     description: "Light-mode enterprise sales microsite. Modern, data-forward layout for mid-market DSO prospects.",
     skinKey: "dandy",
     badge: "Reference",
@@ -954,7 +954,7 @@ export const MICROSITE_TEMPLATES: MicrositeTemplate[] = [
   },
   {
     id: "microsite-heartland",
-    name: "Heartland",
+    name: "Enterprise Dark",
     description: "Dark-mode enterprise skin for large regional DSOs. Emphasizes network-wide scale and operational control.",
     skinKey: "heartland",
     accentColor: "#8db63c",
@@ -973,7 +973,7 @@ export const MICROSITE_TEMPLATES: MicrositeTemplate[] = [
   {
     id: "microsite-expansion",
     name: "Expansion",
-    description: "Partnership onboarding skin for existing DSO customers expanding their Dandy footprint.",
+    description: "Partnership onboarding skin for existing DSO customers expanding their footprint.",
     skinKey: "expansion",
     accentColor: "#2ecc71",
     bgColor: "#111a14",

@@ -272,7 +272,7 @@ export function StoryHubPanel({ props, onChange }: Props) {
                 className="text-xs h-8"
               />
             </Field>
-            <Field label="Practice">
+            <Field label="Company / practice">
               <Input
                 value={props.featured.practice}
                 onChange={(e) => set("featured", { ...props.featured, practice: e.target.value })}
@@ -340,7 +340,7 @@ export function StoryHubPanel({ props, onChange }: Props) {
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-                <Field label="Practice">
+                <Field label="Company / practice">
                   <Input value={story.practice} onChange={(e) => setStory(i, { practice: e.target.value })} className="text-xs h-8" />
                 </Field>
                 <Field label="Location">

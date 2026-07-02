@@ -23,7 +23,7 @@ import {
 } from "./sales-one-pager";
 import { TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "./one-pager-custom-utils";
 import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, resolveOnePagerColors, type BrandConfig } from "@/lib/brand-config";
-import { scrubBrand, isDandyGatedBuiltin, type BrandContext } from "@workspace/one-pager-types";
+import { isDandyGatedBuiltin, type BrandContext } from "@workspace/one-pager-types";
 import { AgreementNumbersEditor } from "./agreement-numbers-editor";
 
 // ── API helpers (mirrors sales-one-pager.tsx) ──────────────────────
@@ -319,8 +319,6 @@ export default function SalesOnePagerEditor() {
     accentColor: (onePagerColors.accentColor || "").trim(),
   };
   const oneAssets = resolveOnePagerAssets(brand);
-  // Helper to scrub Dandy literals out of UI strings shown to non-Dandy tenants.
-  const s = (t: string) => scrubBrand(t, brandContext);
 
   const [editorTemplate, setEditorTemplate] = useState<EditorTemplate>("pilot");
   const [audience, setAudience] = useState<Audience>("executive");
@@ -1041,7 +1039,7 @@ export default function SalesOnePagerEditor() {
   }
 
   const currentContent = audienceContent[audience];
-  const templateLabels: Record<EditorTemplate, string> = { pilot: "90-Day Pilot", comparison: s("Dandy Evolution"), partner: "Partner Practices", roi: "ROI Brief", "agreement-summary": "Agreement Summary" };
+  const templateLabels: Record<EditorTemplate, string> = { pilot: "90-Day Pilot", comparison: "Evolution", partner: "Partner Practices", roi: "ROI Brief", "agreement-summary": "Agreement Summary" };
 
   return (
     <SalesLayout>
@@ -1124,7 +1122,7 @@ export default function SalesOnePagerEditor() {
                   </label>
                   <input type="text" value={dsoName} maxLength={25}
                     onChange={e => setDsoName(e.target.value.slice(0, 25))}
-                    placeholder="e.g. Heartland Dental"
+                    placeholder="e.g. Acme Group"
                     className={inputCls} />
                 </div>
                 {editorTemplate === "roi" ? (
@@ -1208,7 +1206,7 @@ export default function SalesOnePagerEditor() {
                   <EditorSection title="Body & Layout" icon={<Type className="w-4 h-4 text-muted-foreground" />} open={openSections.body} onToggle={() => toggle("body")}>
                     <div>
                       <label className="text-xs font-medium text-muted-foreground">Middle Headline</label>
-                      <textarea value={bodyCfg.headlineText} rows={2} onChange={e => setBodyCfg(p => ({ ...p, headlineText: e.target.value }))} className={`mt-1 ${textareaCls}`} placeholder="Experience the world's most advanced dental lab..." />
+                      <textarea value={bodyCfg.headlineText} rows={2} onChange={e => setBodyCfg(p => ({ ...p, headlineText: e.target.value }))} className={`mt-1 ${textareaCls}`} placeholder="Experience the industry's most advanced platform..." />
                     </div>
                     <SliderRow label="Headline Font Size" value={bodyCfg.headlineFontSize} min={10} max={24} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, headlineFontSize: v }))} />
                     <SliderRow label="Intro Text Size" value={bodyCfg.introFontSize} min={7} max={14} step={0.5} unit="pt" onChange={v => setBodyCfg(p => ({ ...p, introFontSize: v }))} />
@@ -1373,7 +1371,7 @@ export default function SalesOnePagerEditor() {
                     <div className="flex items-center justify-between pt-1">
                       <div>
                         <span className="text-[11px] font-medium text-muted-foreground">Show "Brand &amp; DSO" subtitle</span>
-                        <p className="text-[10px] text-muted-foreground/70">The "Dandy &amp; [DSO name]:" line under the logos.</p>
+                        <p className="text-[10px] text-muted-foreground/70">The "[Your brand] &amp; [DSO name]:" line under the logos.</p>
                       </div>
                       <Switch
                         checked={headerCfg.subtitleShow !== false}
@@ -1598,7 +1596,7 @@ export default function SalesOnePagerEditor() {
                       Lower this to wrap the headline and subheadline sooner so they don't overlap the scanner image.
                     </p>
                     <SliderRow
-                      label="Dandy Logo Size"
+                      label="Brand Logo Size"
                       value={agreementLogoWidth}
                       min={30} max={200} step={1} unit="pt"
                       onChange={v => setAgreementLogoWidth(v)}
@@ -1754,7 +1752,7 @@ export default function SalesOnePagerEditor() {
                     <div className="pt-2 border-t border-border space-y-2">
                       <label className="text-[11px] font-medium text-muted-foreground">Footer Link</label>
                       <p className="text-[11px] text-muted-foreground">
-                        Make a phrase inside the footer text clickable (e.g. "Dandy Practice Agreement"). The phrase must appear verbatim in the footer text above.
+                        Make a phrase inside the footer text clickable (e.g. "Practice Agreement"). The phrase must appear verbatim in the footer text above.
                       </p>
                       <input
                         type="text"

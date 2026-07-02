@@ -3316,7 +3316,7 @@ export default function BuilderEditor() {
                 className="mt-1.5"
                 value={templateLabel}
                 onChange={e => setTemplateLabel(e.target.value)}
-                placeholder="e.g. DSO Heartland Skin"
+                placeholder="e.g. DSO Dark Enterprise Skin"
                 autoFocus
               />
             </div>

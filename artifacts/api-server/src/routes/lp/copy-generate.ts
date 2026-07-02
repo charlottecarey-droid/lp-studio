@@ -518,7 +518,7 @@ router.post("/lp/copy-generate", aiLightLimiter, aiLightHourlyLimiter, async (re
 - feature tile: { "type": "feature", "headline": "...", "body": "..." }
   headline ≤ 6 words, body ≤ 20 words
 - quote tile: { "type": "quote", "quote": "...", "author": "..." }
-  quote ≤ 20 words, author = role + org (e.g. "COO, Heartland Dental")
+  quote ≤ 20 words, author = role + org (e.g. "COO, Example Group" — use a REAL org from the brief, never a made-up customer)
 
 Generate exactly ${requestedTypes.length} tiles in this order: ${requestedTypes.join(", ")}.
 Use specific Dandy DSO metrics and product names. Return ONLY a JSON object { "tiles": [...] } — no markdown.`;

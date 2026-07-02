@@ -2722,7 +2722,7 @@ const BUSINESS_CASE_SPLIT_PROPS = {
   },
   proofSecondary: [
     { quote: "Our remake rate dropped from 6% to under 2% across the entire network in the first quarter.", name: "Michael Chang", title: "COO, Pacific Coast DSO (28 practices)" },
-    { quote: "The enterprise dashboard finally gave us the visibility we needed to standardize care.", name: "Amanda Reyes", title: "VP Operations, Heartland Dental Partners" },
+    { quote: "The enterprise dashboard finally gave us the visibility we needed to standardize care.", name: "Amanda Reyes", title: "VP Operations, Evergreen Dental Partners" },
   ],
   planEyebrow: "07",
   planHeading: "The Plan",
@@ -2814,7 +2814,7 @@ const BUSINESS_CASE_CENTERED_PROPS = {
     title: "Chief Clinical Officer, Summit Smile Group (42 offices)",
   },
   proofSecondary: [
-    { quote: "Rolling out Dandy across 80 locations took less time than a single traditional hardware procurement cycle. The training is phenomenal.", name: "Marcus Thorne", title: "VP Operations, Heartland Dental Partners" },
+    { quote: "Rolling out across 80 locations took less time than a single traditional hardware procurement cycle. The training is phenomenal.", name: "Marcus Thorne", title: "VP Operations, Evergreen Dental Partners" },
     { quote: "The real-time data visibility into lab spend and remake rates across all our clinics has been a game-changer for our finance team.", name: "Elena Rostova", title: "CFO, Pacific Coast DSO" },
   ],
   planEyebrow: "",

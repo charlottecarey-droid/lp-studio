@@ -274,7 +274,7 @@ function LibraryItemCard({ item, type, onToggleDefault, onDelete, onUpdate, drag
       <div className="border rounded-lg p-4 space-y-3 bg-card">
         <div>
           <Label className="text-[11px] text-slate-500 mb-1 block">Library name (internal label)</Label>
-          <Input value={name} onChange={e => setName(e.target.value)} className="text-xs h-7" placeholder="e.g. Crown & Bridge" />
+          <Input value={name} onChange={e => setName(e.target.value)} className="text-xs h-7" placeholder="e.g. Flagship product line" />
         </div>
         <ContentForm type={type} value={content} onChange={setContent} />
         {/* Task #253 — Approved for AI gate on case_study only */}
@@ -394,7 +394,7 @@ function AddItemForm({ type, onCreate }: {
     <div className="border-2 border-dashed border-border rounded-lg p-4 space-y-3 bg-background">
       <div>
         <Label className="text-[11px] text-slate-500 mb-1 block">Library name (internal label)</Label>
-        <Input value={name} onChange={e => setName(e.target.value)} className="text-xs h-7" placeholder="e.g. Crown & Bridge" />
+        <Input value={name} onChange={e => setName(e.target.value)} className="text-xs h-7" placeholder="e.g. Flagship product line" />
       </div>
       <ContentForm type={type} value={content} onChange={setContent} />
       {/* Task #253 — Approved-for-AI toggle on the create form (case_study only) */}

@@ -1062,7 +1062,7 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorPro
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                               <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                               <SelectContent>
-                                <SelectItem value="dandy-video">Dandy Video Player</SelectItem>
+                                <SelectItem value="dandy-video">Video Player</SelectItem>
                                 <SelectItem value="static-image">Static Image</SelectItem>
                                 <SelectItem value="none">Text Only</SelectItem>
                               </SelectContent>
@@ -1110,7 +1110,7 @@ function VariantEditor({ testId, testSlug, variant, onDelete }: VariantEditorPro
                         <FormField control={form.control} name="config.socialProofText" render={({ field }) => (
                           <FormItem>
                             <FormLabel>Social Proof Text</FormLabel>
-                            <FormControl><Input {...field} placeholder="Trusted by 2,000+ dental offices" /></FormControl>
+                            <FormControl><Input {...field} placeholder="Trusted by 2,000+ businesses" /></FormControl>
                           </FormItem>
                         )} />
                       )}

@@ -28,7 +28,7 @@ const DEFAULT_CASES = [
     stat: "12.5%",
     label: "annualized revenue lift",
     quote: "They value education, technology, and people. That's what makes them a great partner.",
-    author: "Layla Lohmann, Founder",
+    author: "Maya Chen, Founder",
     image: "",
   },
   {
@@ -40,7 +40,7 @@ const DEFAULT_CASES = [
     image: "",
   },
   {
-    name: "Tend",
+    name: "Brightline",
     stat: "40%",
     label: "faster turnaround",
     quote: "Speed matters when you're growing fast. They keep pace without sacrificing quality.",

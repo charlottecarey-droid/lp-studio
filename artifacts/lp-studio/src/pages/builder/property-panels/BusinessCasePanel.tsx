@@ -498,7 +498,7 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
                 <ImagePicker
                   value={splitProps.heroImageUrl}
                   onChange={(v) => set("heroImageUrl" as keyof P, v as P[keyof P])}
-                  aiHint="Editorial hero portrait — dental professional"
+                  aiHint="Editorial hero portrait — professional"
                 />
               </Field>
             )}
@@ -552,7 +552,7 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="fill">Fill column (close crop)</SelectItem>
-                    <SelectItem value="fill-natural">Full-bleed, natural size (Heartland-style)</SelectItem>
+                    <SelectItem value="fill-natural">Full-bleed, natural size</SelectItem>
                     <SelectItem value="fit-wide">Zoomed out (small frame)</SelectItem>
                     <SelectItem value="fit">Show full image (no crop)</SelectItem>
                   </SelectContent>
@@ -779,7 +779,7 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
                     <Field label="Old way">
                       <Textarea value={r.oldWay} onChange={(e) => setShiftRow(i, { oldWay: e.target.value })} className="text-xs min-h-14" />
                     </Field>
-                    <Field label="With Dandy">
+                    <Field label="With your brand">
                       <Textarea value={r.withDandy} onChange={(e) => setShiftRow(i, { withDandy: e.target.value })} className="text-xs min-h-14" />
                     </Field>
                   </div>
@@ -927,7 +927,7 @@ export function BusinessCasePanel<P extends AnyProps>({ props, onChange, variant
                 <ImagePicker
                   value={premiumProps.proofImageUrl ?? ""}
                   onChange={(v) => set("proofImageUrl" as keyof P, v as P[keyof P])}
-                  aiHint="Portrait or scene photo — clinician at the chair"
+                  aiHint="Portrait or scene photo — professional at work"
                 />
               </Field>
             )}

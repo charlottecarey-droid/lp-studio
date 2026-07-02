@@ -63,7 +63,7 @@ export function SaveTemplateDialog({
               className="mt-1.5"
               value={label}
               onChange={e => setLabel(e.target.value)}
-              placeholder="e.g. DSO Heartland Skin"
+              placeholder="e.g. DSO Dark Enterprise Skin"
               autoFocus
             />
           </div>
