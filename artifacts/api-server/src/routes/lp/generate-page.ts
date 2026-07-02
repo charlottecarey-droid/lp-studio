@@ -9798,6 +9798,101 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         : "Generate a complete landing page for this request. Use the brand context to inform tone, audience, and messaging. Use real image URLs from the image library where relevant."
   );
 
+  // ── Two-pass shortlist → render (July 2026, flag-gated) ────────────────
+  // GENERATION_TWO_PASS=1, GENERAL path only: a small low-temperature
+  // planning call picks the section lineup FIRST; the render call then gets
+  // a system prompt whose block catalog is pruned to just the chosen blocks
+  // plus an authoritative SECTION PLAN. Focused prompt, fewer contradictory
+  // rules for the model to arbitrate, smaller completion. Fail-open: any
+  // planning failure records a ledger entry and falls back to the classic
+  // single-pass prompt unchanged. A/B this against the committed eval
+  // baselines (eval:generation) before considering a default flip.
+  let twoPassPlan: string[] | null = null;
+  if (process.env.GENERATION_TWO_PASS === "1" && promptPath === "GENERAL" && openai) {
+    try {
+      const advertised: string[] = [];
+      const catalogLines: string[] = [];
+      for (const line of systemPrompt.split("\n")) {
+        const m = line.match(GENERAL_BLOCK_TYPE_RE);
+        if (!m) continue;
+        advertised.push(m[1]);
+        // One compact line per block for the planner: type + clipped intro.
+        const intro = line.slice(m[0].length).replace(/^\s*/, "").split(/(?<=\.)\s/)[0] ?? "";
+        catalogLines.push(`- ${m[1]}: ${intro.slice(0, 110)}`);
+      }
+      const planMessages: ChatCompletionMessageParam[] = [
+        {
+          role: "system",
+          content:
+            "You are a landing-page information architect. Choose the best SECTION LINEUP for the request below from the available blocks. " +
+            "Return ONLY a JSON object: { \"blocks\": string[], \"intents\": { [blockType]: string } }. " +
+            "Rules: 6-12 blocks; open with a nav/header block, then exactly one hero; include at least one social-proof or stats section unless the request forbids it; " +
+            "end with a closing CTA then a footer. Every entry MUST be one of the available block types, in final page order. " +
+            "For each chosen block give a ONE-LINE intent (what this specific section should say for THIS request). Do not write page copy.",
+        },
+        {
+          role: "user",
+          content:
+            `BRAND: ${resolvedBrandName || "(unnamed)"}${brand.companyDescription ? ` — ${String(brand.companyDescription).slice(0, 200)}` : ""}\n\n` +
+            `USER REQUEST: ${prompt.trim().slice(0, 1500)}\n\n` +
+            `AVAILABLE BLOCKS:\n${catalogLines.join("\n")}`,
+        },
+      ];
+      const planCompletion = await generateOpenAISemaphore.run(() =>
+        openai!.chat.completions.create({
+          model: GENERATION_MODEL,
+          temperature: 0.3,
+          max_completion_tokens: 700,
+          response_format: { type: "json_object" },
+          messages: planMessages,
+        }),
+      );
+      const plan = JSON.parse(planCompletion.choices?.[0]?.message?.content ?? "{}") as {
+        blocks?: unknown;
+        intents?: Record<string, unknown>;
+      };
+      const advertisedSet = new Set(advertised);
+      const seenPlanTypes = new Set<string>();
+      const lineup = (Array.isArray(plan.blocks) ? plan.blocks : [])
+        .map((t) => canonicalizeBlockType(String(t)))
+        .filter((t) => advertisedSet.has(t))
+        .filter((t) => (seenPlanTypes.has(t) ? false : (seenPlanTypes.add(t), true)));
+      const plannedRoles = new Set<string>();
+      for (const t of lineup) for (const tag of resolveBlockTags(t, dbTagsByType.get(t))) plannedRoles.add(tag);
+      const rolesOk = (["hero", "cta", "footer"] as const).every((r) => plannedRoles.has(r));
+      if (lineup.length < 5 || lineup.length > 14 || !rolesOk) {
+        throw new Error(`plan rejected: ${lineup.length} valid blocks, rolesOk=${rolesOk}`);
+      }
+      const keep = new Set(lineup);
+      systemPrompt = stripAiDisabledBlockLines(systemPrompt, new Set(advertised.filter((t) => !keep.has(t))));
+      const intents = plan.intents && typeof plan.intents === "object" ? plan.intents : {};
+      const intentLines = Object.entries(intents)
+        .filter(([t]) => keep.has(canonicalizeBlockType(t)))
+        .map(([t, i]) => `- ${t}: ${String(i).slice(0, 140)}`)
+        .join("\n");
+      userPromptParts.push(
+        `SECTION PLAN (authoritative — a planning pass already chose this lineup): build the page with EXACTLY this block sequence, in order: ${lineup.map((t) => `"${t}"`).join(" → ")}.` +
+          (intentLines ? `\nSection intents:\n${intentLines}` : "") +
+          `\nEXPLICIT REQUESTS still outrank this plan: if the USER REQUEST names a section the plan lacks, add it where it fits.`,
+      );
+      twoPassPlan = lineup;
+      logger.info(
+        { event: "ai_two_pass_plan", tenantId, lineup },
+        "[generate-page] two-pass shortlist accepted; catalog pruned for render pass",
+      );
+    } catch (err) {
+      logger.warn(
+        { err: String(err), tenantId, event: "ai_two_pass_plan_failed" },
+        "[generate-page] two-pass shortlist failed — single-pass fallback",
+      );
+      degradations.push({
+        code: "two_pass_plan_failed",
+        severity: "info",
+        detail: "The section-planning pass failed — the page was generated in a single pass instead.",
+      });
+    }
+  }
+
   const userPrompt = userPromptParts.join("\n\n");
 
   if (captureOnly) {
@@ -11153,6 +11248,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       critiqueCount: critiqueAnnotations.length,
       usedScreenshot: !!visionImage,
       degradations,
+      twoPassPlan,
     });
     emitter.stage("finalize", "done", "Finalizing the page");
 
@@ -11176,6 +11272,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
       imageFitFlags,
       strictMismatches,
       degradations,
+      twoPassPlan,
       // Task #1138 — raw candidate facts persisted as pending flags by the
       // client via /fact-flags/sync after the page row is created.
       detectedFacts: detectFacts(parsed.blocks, resolvedBrandName),
