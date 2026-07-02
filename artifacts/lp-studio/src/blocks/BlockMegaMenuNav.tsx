@@ -92,60 +92,68 @@ export function BlockMegaMenuNav({ props, brand }: Props) {
 
       {open && (props.menuGroups ?? []).length > 0 && (
         <div className="absolute inset-x-0 top-full z-40 border-t shadow-xl" style={{ backgroundColor: bg, borderColor: border }}>
-          <div className="container mx-auto grid grid-cols-1 gap-8 px-6 py-8 md:grid-cols-4">
-            {(props.menuGroups ?? []).map((g, gi) => (
-              <div key={gi}>
-                <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em]" style={{ color: accent }}>
-                  {g.title}
-                </p>
-                <ul className="space-y-2">
-                  {(g.links ?? []).map((l, li) => (
-                    <li key={li}>
-                      <a href={l.url || "#"} className="text-sm opacity-80 transition-opacity hover:opacity-100" style={{ color: text }}>
-                        {l.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+          <div className="container mx-auto flex flex-col gap-8 px-6 py-8 md:flex-row md:items-start">
+            <div className="grid flex-1 grid-cols-2 gap-x-8 gap-y-8 sm:grid-cols-3 md:grid-cols-[repeat(auto-fit,minmax(140px,1fr))]">
+              {(props.menuGroups ?? []).map((g, gi) => (
+                <div key={gi}>
+                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em]" style={{ color: accent }}>
+                    {g.title}
+                  </p>
+                  <ul className="space-y-2">
+                    {(g.links ?? []).map((l, li) => (
+                      <li key={li}>
+                        <a href={l.url || "#"} className="text-sm opacity-80 transition-opacity hover:opacity-100" style={{ color: text }}>
+                          {l.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
             {(props.featuredImageUrl || props.featuredIcon || props.featuredTitle) && (() => {
               const cardInner = (
                 <>
-                  {props.featuredImageUrl && (
-                    <img src={props.featuredImageUrl} alt={props.featuredImageAlt || ""} className="mb-3 h-28 w-full rounded-xl object-cover" />
-                  )}
-                  {props.featuredIcon && (
+                  {props.featuredImageUrl ? (
+                    <img
+                      src={props.featuredImageUrl}
+                      alt={props.featuredImageAlt || ""}
+                      className="h-16 w-16 shrink-0 rounded-lg object-cover"
+                    />
+                  ) : props.featuredIcon ? (
                     <div
-                      className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl"
+                      className="inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-lg"
                       style={{ backgroundColor: `${accent}26` }}
                     >
-                      <IconOrImage value={props.featuredIcon} className="h-5 w-5" style={{ color: accent }} alt={props.featuredTitle || ""} />
+                      <IconOrImage value={props.featuredIcon} className="h-6 w-6" style={{ color: accent }} alt={props.featuredTitle || ""} />
                     </div>
-                  )}
-                  {props.featuredTitle && (
-                    <p className="text-sm font-semibold" style={{ color: cardText, fontFamily: DISPLAY }}>
-                      {props.featuredTitle}
-                    </p>
-                  )}
-                  {props.featuredText && (
-                    <p className="mt-1 text-xs leading-relaxed" style={{ color: cardMuted }}>
-                      {props.featuredText}
-                    </p>
-                  )}
+                  ) : null}
+                  <div className="min-w-0">
+                    {props.featuredTitle && (
+                      <p className="text-sm font-semibold" style={{ color: cardText, fontFamily: DISPLAY }}>
+                        {props.featuredTitle}
+                      </p>
+                    )}
+                    {props.featuredText && (
+                      <p className="mt-1 text-xs leading-relaxed" style={{ color: cardMuted }}>
+                        {props.featuredText}
+                      </p>
+                    )}
+                  </div>
                 </>
               );
+              const cardClass = "flex items-start gap-3 rounded-2xl border p-4 md:w-72 lg:w-80 shrink-0";
               const cardStyle = { borderColor: border, backgroundColor: cardBg || undefined };
               return props.featuredUrl ? (
                 <a
                   href={props.featuredUrl}
-                  className="block cursor-pointer rounded-2xl border p-4 transition-shadow hover:shadow-md"
+                  className={`${cardClass} cursor-pointer transition-shadow hover:shadow-md`}
                   style={cardStyle}
                 >
                   {cardInner}
                 </a>
               ) : (
-                <div className="rounded-2xl border p-4" style={cardStyle}>
+                <div className={cardClass} style={cardStyle}>
                   {cardInner}
                 </div>
               );
