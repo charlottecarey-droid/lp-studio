@@ -4,9 +4,10 @@
     "fabricatedStat": 1,
     "placeholderLeak": 1,
     "emptyImageSlot": 1,
-    "bannedPhrase": 1,
+    "bannedPhrase": 0.75,
     "structural": 0.75,
     "subjectLeak": 1,
-    "degradation": 1
+    "degradation": 1,
+    "lineupDiversity": 1
   }
 }

@@ -1,9 +1,9 @@
 {
-  "briefId": "rich-brand-voice",
+  "briefId": "microsite-lineup-diversity",
   "scores": {
     "fabricatedStat": 0,
     "placeholderLeak": 1,
-    "emptyImageSlot": 1,
+    "emptyImageSlot": 0.75,
     "bannedPhrase": 1,
     "structural": 1,
     "subjectLeak": 1,
