@@ -87,6 +87,10 @@ const UNSAFE_TEMPLATE_PATTERNS: Array<{ re: RegExp; code: string; msg: string }>
   { re: /\son[a-z]+\s*=/i, code: "unsafe.inline_handler", msg: "inline event handlers (on*) are not allowed" },
   { re: /javascript\s*:/i, code: "unsafe.javascript_url", msg: "javascript: URLs are not allowed" },
   { re: /<\s*link\b[^>]*\bhref\s*=\s*["']?https?:/i, code: "unsafe.external_link", msg: "external <link> stylesheets are not allowed" },
+  // Same class as external <link>: an @import inside the inline <style> loads
+  // an external stylesheet. (The FE render sanitizer also strips it — see
+  // sanitizeBlockTemplateHtml — but reject it here so the author sees why.)
+  { re: /@import\b/i, code: "unsafe.css_import", msg: "@import is not allowed — write the CSS inline in <style>" },
   { re: /<\s*script\b[^>]*\bsrc\s*=/i, code: "unsafe.external_script", msg: "external <script src> is not allowed" },
 ];
 

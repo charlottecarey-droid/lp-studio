@@ -13,6 +13,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { buildBrandPaletteSection, visualBrandHints, buildSystemPrompt, buildComposeSystemPrompt } from "./custom-blocks-generate";
+import { validateRawSchemaBlock } from "./custom-blocks-validator";
 
 describe("visualBrandHints — config key mapping", () => {
   it("reads the real BrandConfig keys (pageBackground / displayFont) and the CTA/card colors", () => {
@@ -124,5 +125,31 @@ describe("block-maker prompt doctrines", () => {
       expect(prompt).toContain("No <script>");
       expect(prompt).toContain("no external <link>/<script src>");
     }
+  });
+});
+
+// ── Template safety: @import rejection ───────────────────────────────────────
+
+describe("validator rejects @import (external-stylesheet loophole)", () => {
+  it("flags @import inside the template's <style>", () => {
+    const { issues } = validateRawSchemaBlock({
+      name: "X",
+      description: "",
+      schema: [{ id: "headline", label: "Headline", type: "text" }],
+      template: `<div class="blk-x"><style>@import url("https://evil.example/x.css");.blk-x{color:#111}</style>{{headline}}</div>`,
+      sample: { headline: "A concrete on-topic headline here" },
+    });
+    expect(issues.some((i) => i.code === "unsafe.css_import")).toBe(true);
+  });
+
+  it("plain inline CSS still passes", () => {
+    const { issues } = validateRawSchemaBlock({
+      name: "X",
+      description: "",
+      schema: [{ id: "headline", label: "Headline", type: "text" }],
+      template: `<div class="blk-x"><style>.blk-x{color:#111}</style>{{headline}}</div>`,
+      sample: { headline: "A concrete on-topic headline here" },
+    });
+    expect(issues.some((i) => i.code === "unsafe.css_import")).toBe(false);
   });
 });

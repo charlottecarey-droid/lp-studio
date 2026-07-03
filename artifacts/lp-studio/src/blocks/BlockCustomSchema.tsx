@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import type { CustomSchemaBlockProps, SchemaFieldDef, SchemaFieldValue } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { useCustomBlock } from "@/lib/custom-blocks-context";
-import { sanitizeHtml } from "@/lib/sanitize";
+import { sanitizeBlockTemplateHtml } from "@/lib/sanitize";
 import {
   parseTemplate,
   renderAst,
@@ -71,7 +71,7 @@ export function BlockCustomSchema({ props }: Props) {
     const { ast } = parseTemplate(template);
     // Defence-in-depth: sanitise even though the validator already gates
     // template writes. See file header for the two-layer rationale.
-    return sanitizeHtml(renderAst(ast, merged));
+    return sanitizeBlockTemplateHtml(renderAst(ast, merged));
   }, [schema, template, props.values, sharedValues]);
 
   if (!template.trim()) {

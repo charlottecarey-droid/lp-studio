@@ -24,6 +24,39 @@ export function sanitizeHtml(dirty: string): string {
 }
 
 /**
+ * Sanitizer for SCHEMA-DRIVEN custom-block templates (SchemaPreviewFrame +
+ * BlockCustomSchema) — same rails as {@link sanitizeHtml} EXCEPT `<style>` is
+ * allowed. Custom-block templates are "plain HTML + inline <style> only" by
+ * contract: the server validator (custom-blocks-validator.ts) enforces no
+ * script/iframe/handlers and the generator scopes every selector under the
+ * block's unique root class. The general-purpose sanitizeHtml FORBIDs <style>
+ * (correct for rich text / pasted content) — running block templates through
+ * it stripped ALL of their CSS at render, which is why every custom block
+ * rendered unstyled from the May 2026 hardening until this fix (July 2026).
+ *
+ * DOMPurify does not inspect CSS text, so the one loophole `<style>` opens is
+ * closed here directly: `@import` (an external-stylesheet load, same class as
+ * the already-blocked external <link href>) is stripped from style contents.
+ */
+export function sanitizeBlockTemplateHtml(dirty: string): string {
+  const clean = DOMPurify.sanitize(dirty, {
+    ADD_TAGS: ["style", "video", "source"],
+    ADD_ATTR: [
+      "target", "rel",
+      "autoplay", "muted", "loop", "playsinline", "poster", "preload",
+      "controls", "controlslist", "disablepictureinpicture",
+    ],
+    FORBID_TAGS: ["script", "iframe", "object", "embed"],
+    FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover"],
+  });
+  return clean.replace(
+    /(<style[^>]*>)([\s\S]*?)(<\/style>)/gi,
+    (_m, open, css, close) =>
+      open + css.replace(/@import[^;]*(;|$)/gi, "") + close,
+  );
+}
+
+/**
  * Escape HTML entities and linkify bare URLs in plain text, mirroring the
  * server send path (`escapeAndLinkifyPlainText` in the campaigns route). Used
  * so plain-format email templates (content stored in `bodyText`) preview the
