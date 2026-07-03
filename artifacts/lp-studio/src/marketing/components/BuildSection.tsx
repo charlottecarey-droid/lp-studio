@@ -74,6 +74,9 @@ type Preset = {
   /** Demo-page nav CTA label. Defaults to "Book" (the original presets'
    *  bookings vibe); product presets override it. */
   navCta?: string;
+  /** Optional hero photograph — when set, the hero visual card renders it
+   *  under the badge/live-signal overlays instead of the gradient fill. */
+  heroImage?: string;
   accent: AccentKey;
   layout: HeroLayout;
 };
@@ -111,6 +114,7 @@ const PRESETS: Preset[] = [
     ctaSub: "Import your site — fonts, colors, and voice load in one scan.",
     ctaButton: "Import my brand \u2192",
     navCta: "Get started",
+    heroImage: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=70",
     accent: "indigo",
     layout: "centered",
   },
@@ -1958,6 +1962,18 @@ function HeroBody({
       className={`overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-soft/40 via-indigo/20 to-coral/20 ring-1 ring-black/[0.04] ${height}`}
     >
       <div className="relative h-full w-full">
+        {preset.heroImage && (
+          <>
+            <img
+              src={preset.heroImage}
+              alt=""
+              loading="lazy"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            {/* Bottom scrim keeps the live-signal card legible on any photo. */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
+          </>
+        )}
         <div className="absolute right-3 top-3 rounded-full bg-white/80 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-foreground/60 backdrop-blur">
           {preset.badge}
         </div>
@@ -1995,7 +2011,7 @@ function HeroBody({
           <span className="rounded-full bg-ink px-4 py-2 text-[11px] font-medium text-white">{preset.primaryCta}</span>
           <span className="rounded-full border border-black/[0.1] px-4 py-2 text-[11px] font-medium text-foreground/70">{preset.ghostCta}</span>
         </motion.div>
-        <div className="mt-7">{visual("h-[140px] @[640px]:h-[180px]")}</div>
+        <div className="mt-7">{visual("h-[170px] @[640px]:h-[230px]")}</div>
       </div>
     );
   }
