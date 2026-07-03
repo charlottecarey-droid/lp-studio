@@ -126,9 +126,6 @@ describe("page-recipe skeletons reference only advertised block types", () => {
 // it relies on: every dso/dso-practices recipe slot type is either already in
 // the DSO prompt vocabulary or describable from the GENERAL library, so the
 // injection can always advertise it with a real schema.
-import { buildGeneralSystemPrompt, buildDsoSystemPrompt, buildDsoPracticesSystemPrompt } from "./generate-page";
-import { DSO_RECIPES, DSO_PRACTICES_RECIPES } from "../../lib/ai-prompts/page-recipes";
-
 describe("recipe-selector expansion — every DSO recipe block is advertisable", () => {
   const general = buildGeneralSystemPrompt({
     includeContentSeries: true,

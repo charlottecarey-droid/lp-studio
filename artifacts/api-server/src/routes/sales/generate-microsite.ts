@@ -1783,7 +1783,21 @@ const SECTION_BG_SEED_DEFAULTS: Record<string, string> = {
   "video-section": "white",
 };
 
-const BLOCK_PROP_SCHEMAS: Record<string, string> = {
+export const BLOCK_PROP_SCHEMAS: Record<string, string> = {
+  // ── Blocks referenced by the recipe pools (July 2026) — distilled from
+  // the landing-page prompt bullets so recipes can offer them on microsites.
+  "full-bleed-hero": "{ headline (5-12 words), subheadline (15-28 words), ctaText (2-5 words), ctaUrl (\"#\"), backgroundType (\"image\" — ALWAYS unless a REAL brand video URL exists), backgroundImageUrl (\"\"), overlayOpacity (number 40-65), minHeight (\"full\"|\"large\"|\"medium\"), contentAlignment (\"left\"|\"center\"|\"right\"), navLinks ([]), showSocialProof (boolean), socialProofText (10-18 words) } — renders its OWN nav; never precede it with a nav block",
+  "ai-scan-hero": "{ eyebrow (2-4 words), headline (5-12 words), body (18-34 words, concrete mechanism + outcome), ctaText (2-5 words), ctaUrl (\"#\"), ctaSecondaryText (2-4 words), ctaSecondaryUrl (\"#\"), imageUrl (\"\" — the server fills a hero-grade photo), imageAlt (6-12 words), backgroundVideoUrl (\"\" — ONLY a REAL provided video URL, NEVER invented) } — does NOT render its own nav",
+  "dso-stat-showcase": "{ eyebrow, headline, stats: [{ value, label, description }] — EXACTLY 6 (the grid looks broken with fewer), backgroundStyle (\"dark\"|\"black\"|\"gradient\" — NEVER white/light) }",
+  "dso-network-map": "{ eyebrow, headline, body, ctaText, ctaUrl (\"#\" — use Chili Piper URL if provided), ctaMode (\"chilipiper\"|\"link\") }",
+  "dso-particle-mesh": "{ eyebrow, headline, body, stat1Value, stat1Label, stat2Value, stat2Label, stat3Value, stat3Label, imageUrl (\"\"), imagePosition (\"left\"|\"right\") }",
+  "dso-bento-outcomes": "{ eyebrow (2-4 words), headline (5-12 words), tiles: [EXACTLY 4-6, each ONE of {type:\"stat\", value, label (2-5 words), description (6-14 words)} | {type:\"photo\", imageUrl (\"\"), caption} | {type:\"feature\", icon (lucide name), title, description} | {type:\"quote\", quote, attribution}] }",
+  "dso-cta-capture": "{ eyebrow, headline, body, inputLabel, inputPlaceholder, ctaLabel, trust1, trust2, trust3, imageUrl (\"\"), imagePosition (\"left\"|\"right\") }",
+  "dso-problem": "{ eyebrow, headline, body, panels: [EXACTLY 4 of { icon (\"alert-triangle\"|\"bar-chart\"|\"users\"|\"trending-down\"|\"clock\"|\"shield\"|\"microscope\"|\"layers\"|\"zap\"|\"target\"|\"dollar\"|\"network\"|\"activity\"|\"scale\"), title, desc }], imageUrls ([] — the system fills 2 library photos), backgroundStyle (\"dark\"|\"black\"|\"gradient\" — NEVER white/light), ctaText, ctaUrl (\"#\" — use Chili Piper URL if provided), ctaMode (\"chilipiper\"|\"link\") }",
+  "dso-promises": "{ eyebrow, headline, subheadline, promises: [{ icon (\"ban\"|\"rotate\"|\"shieldCheck\"|\"trending\"|\"award\"|\"zap\"|\"clock\"|\"heart\"), title, desc }], backgroundStyle (\"dark\"|\"white\"|\"muted\") }",
+  "dso-meet-team": "{ eyebrow (2-4 words), headline (5-12 words), subheadline (12-24 words), ctaText (2-4 words), ctaUrl (\"#\"), members ([] — REAL PEOPLE ONLY: microsites carry no team roster in this brief, so leave the array EMPTY and NEVER invent a person's name, role, email, or photo; the section renders neutral placeholder cards), backgroundStyle (\"dark\"|\"white\"|\"muted\") }",
+  "dso-products-grid": "{ eyebrow, headline, subheadline, products: [{ name, detail, price, icon, imageKey (\"posterior-crowns\"|\"anterior-crowns\"|\"dentures\"|\"implants\"|\"guided-surgery\"|\"aligners\"|\"guards\"|\"sleep\") }], backgroundStyle (\"white\"|\"muted\"|\"dark\") }",
+  "dso-testimonials": "{ eyebrow, headline, subheadline, testimonials: [{ quote, author, location }] — ONLY real quotes provided in the brand context; NEVER invent placeholder attributions; if fewer real quotes exist, emit fewer items (or omit the block), backgroundStyle (\"dark\"|\"white\"|\"muted\") }",
   "hero": "{ headline, subheadline, ctaText, ctaUrl, backgroundStyle (\"dark\"|\"white\"|\"light-gray\") }",
   "trust-bar": "{ items: [{ value, label }] } — 3–4 key NUMERIC proof stats; values + labels ONLY, NEVER an image (a stat label above a photo or screenshot reads as broken)",
   "benefits-grid": "{ headline, columns (3), items: [{ icon (lucide name), title, description, image (OPTIONAL — leave \"\" to add a brand photo when the benefit is concrete/showable (product, place, person, result) or the brand is visual/consumer/lifestyle; omit for a clean icon card when the benefit is abstract (security, support, pricing) or the brand is clean B2B/SaaS — keep it all-or-none across items) }] } — 6 benefits",
@@ -2162,6 +2176,16 @@ const DSO_GENERAL_SUPPORTING_TYPES = [
 // Short role / use-case hint per DSO block so the model understands each
 // section's job and can pick the ones that fit THIS account.
 const DSO_ROLE_HINTS: Record<string, string> = {
+  "dso-stat-showcase": "stats — premium 6-tile metrics grid",
+  "dso-network-map": "feature — animated network/geography visualization",
+  "dso-particle-mesh": "stats — particle-canvas section with three stats",
+  "dso-bento-outcomes": "social proof — bento mosaic of outcome tiles",
+  "dso-cta-capture": "cta — premium email/contact capture",
+  "dso-problem": "problem — dark pain-point panel with icon grid",
+  "dso-promises": "benefits — promise/guarantee cards",
+  "dso-meet-team": "team — member cards with booking buttons (real people only)",
+  "dso-products-grid": "product — product card grid",
+  "dso-testimonials": "social proof — 3-column testimonial strip (real quotes only)",
   "dso-heartland-hero": "hero — opens the page; exactly ONE, always first",
   "dso-stat-bar": "stats — network-wide metrics bar",
   "dso-challenges": "problem — the operational pain points this account feels at scale",

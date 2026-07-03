@@ -16,8 +16,10 @@
  *   outlineBlockList, selectedPersona, excludeTypes, micrositeRecipe
  */
 import { describe, it, expect } from "vitest";
-import { buildSystemPrompt, type BrandAudienceSegment } from "./generate-microsite";
-import { MICROSITE_RECIPES } from "../../lib/ai-prompts/page-recipes";
+import { buildSystemPrompt, type BrandAudienceSegment,
+  BLOCK_PROP_SCHEMAS,
+} from "./generate-microsite";
+import { MICROSITE_RECIPES, DSO_RECIPES, DSO_PRACTICES_RECIPES } from "../../lib/ai-prompts/page-recipes";
 
 const CORE: BrandAudienceSegment = { id: "core", name: "Core" };
 const BRAND = { brandName: "Acme", segments: [] as BrandAudienceSegment[] };
@@ -129,5 +131,29 @@ describe("buildSystemPrompt — recipe-selector vocabulary expansion (DSO paths)
       ["zigzag-features"],
     );
     expect(prompt).not.toContain('"zigzag-features"');
+  });
+});
+
+// July 2026 — every block referenced by the BUILT-IN recipe pools must have a
+// real microsite prop schema, or the vocabulary expansion silently skips it
+// (the "recipe-referenced types without a microsite schema skipped" log from
+// the first full eval run named ten such gaps; this pins them closed).
+describe("built-in recipe pools are fully schema-covered on microsites", () => {
+  it.each([
+    ["dso", DSO_RECIPES],
+    ["dso-practices", DSO_PRACTICES_RECIPES],
+    ["microsite", MICROSITE_RECIPES],
+  ])("%s pool", (_path, recipes) => {
+    for (const recipe of recipes) {
+      for (const slot of recipe.skeleton) {
+        for (const opt of slot.split(/\s+OR\s+/)) {
+          const t = opt.trim();
+          expect(
+            BLOCK_PROP_SCHEMAS[t],
+            `${recipe.id}: "${t}" has no microsite prop schema — it would be silently skipped`,
+          ).toBeTruthy();
+        }
+      }
+    }
   });
 });
