@@ -1,5 +1,5 @@
 import { motion, useScroll, useTransform, useMotionValueEvent, MotionValue } from "framer-motion";
-import Logo from "./Logo";
+import lpLockup from "@assets/lp-lockup-horizontal-navy-depth-2048_1781934486001.png";
 import { useEffect, useRef, useState, createContext, useContext, type ReactNode, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 
 // Lovable BuildSection ported verbatim from scroll-saga-lp. Only three
@@ -857,9 +857,13 @@ export function BuildSection() {
   // when the visitor scrolls back — then the fully-typed headline becomes
   // the inline-editable element.
   const [typedChars, setTypedChars] = useState(0);
+  // The ghost cursor "clicks Publish" near the end of the pin — the toolbar
+  // button flips to "Published \u2713" with a live-URL toast.
+  const [published, setPublished] = useState(false);
   useMotionValueEvent(p, "change", (v) => {
-    const t = Math.max(0, Math.min(1, (v - 0.14) / (0.3 - 0.14)));
+    const t = Math.max(0, Math.min(1, (v - 0.14) / (0.42 - 0.14)));
     setTypedChars(Math.round(t * (headline1.length + headline2.length)));
+    setPublished(v >= 0.93);
   });
 
   const stage2 = useSegment(p, 0.07, 0.14, reveal);
@@ -957,7 +961,9 @@ export function BuildSection() {
             >
               <CaptionTicker index={captionIndex} captions={CAPTIONS} />
             </motion.div>
+            <GhostCursor p={p} />
             <BuilderShell
+              published={published}
               leftPanelX={leftPanelX}
               leftPanelOpacity={leftPanelOpacity}
               rightPanelX={rightPanelX}
@@ -1033,7 +1039,7 @@ export function BuildSection() {
                       className="flex items-center justify-between border-b border-black/[0.04] px-5 py-3.5 @[640px]:px-8 @[640px]:py-4"
                     >
                       {preset.id === "lpstudio" ? (
-                        <Logo variant="wordmark" height={18} />
+                        <img src={lpLockup} alt="LP Studio" style={{ height: 16, width: "auto", display: "block" }} />
                       ) : (
                         <div className="flex items-center gap-2">
                           <div className="h-5 w-5 rounded-md bg-indigo" />
@@ -1247,7 +1253,7 @@ export function BuildSection() {
                       <div className="grid grid-cols-2 gap-6 @[520px]:grid-cols-5">
                         <div className="col-span-2 @[520px]:col-span-1">
                           {preset.id === "lpstudio" ? (
-                            <Logo variant="wordmark" height={15} />
+                            <img src={lpLockup} alt="LP Studio" style={{ height: 13, width: "auto", display: "block" }} />
                           ) : (
                             <div className="flex items-center gap-1.5">
                               <div className="h-4 w-4 rounded bg-indigo" />
@@ -1304,7 +1310,127 @@ export function BuildSection() {
   );
 }
 
+
+// ── Ghost cursor ─────────────────────────────────────────────────────────────
+// Ported from AssembleSceneV2 (the cursor Charlotte missed): an arrow pointer
+// that tours the assembling page — clicks the hero CTA, clicks a feature
+// card — then rides up into the studio chrome and clicks Publish (the
+// toolbar button flips to "Published ✓" at the same beat, see `published`).
+// Runs off the SAME pinned scroll progress, in its own component with a
+// local-state subscription so per-frame updates never re-render the whole
+// scrollytelling. Percent-positioned against the stage card, so no
+// measurement is needed at any width.
+
+const CURSOR_PATH: { at: number; x: number; y: number }[] = [
+  { at: 0.30, x: 0.63, y: 0.68 },
+  { at: 0.40, x: 0.468, y: 0.50 },
+  { at: 0.48, x: 0.472, y: 0.505 },
+  { at: 0.58, x: 0.245, y: 0.63 },
+  { at: 0.66, x: 0.25, y: 0.635 },
+  { at: 0.80, x: 0.72, y: 0.32 },
+  { at: 0.895, x: 0.947, y: 0.038 },
+  { at: 0.985, x: 0.947, y: 0.038 },
+];
+/** [start, end] windows for the click pulse — hero CTA, feature card, Publish. */
+const CURSOR_CLICKS: [number, number][] = [
+  [0.415, 0.465],
+  [0.60, 0.65],
+  [0.90, 0.95],
+];
+
+function GhostCursor({ p }: { p: MotionValue<number> }) {
+  const [st, setSt] = useState({ x: 0.63, y: 0.68, visible: 0, clicking: 0 });
+  useMotionValueEvent(p, "change", (v) => {
+    // Fade in after the hero has typed, out just before the pin releases.
+    const visible =
+      v < 0.3 || v > 0.985 ? 0 : Math.min(1, (v - 0.3) / 0.04, (0.985 - v) / 0.03);
+    if (visible === 0) {
+      setSt((s0) => (s0.visible === 0 ? s0 : { ...s0, visible: 0 }));
+      return;
+    }
+    let x = CURSOR_PATH[0].x;
+    let y = CURSOR_PATH[0].y;
+    for (let i = 0; i < CURSOR_PATH.length - 1; i++) {
+      const a = CURSOR_PATH[i];
+      const b = CURSOR_PATH[i + 1];
+      if (v >= a.at && v <= b.at) {
+        const t = (v - a.at) / (b.at - a.at);
+        // easeInOut so each hop reads as a deliberate mouse move.
+        const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        x = a.x + (b.x - a.x) * e;
+        y = a.y + (b.y - a.y) * e;
+        break;
+      }
+      if (v > b.at) {
+        x = b.x;
+        y = b.y;
+      }
+    }
+    let clicking = 0;
+    for (const [cs, ce] of CURSOR_CLICKS) {
+      if (v >= cs && v <= ce) clicking = (v - cs) / (ce - cs);
+    }
+    setSt({ x, y, visible, clicking });
+  });
+
+  if (st.visible === 0) return null;
+  return (
+    <div className="pointer-events-none absolute inset-0 z-40" aria-hidden>
+      <div
+        style={{
+          position: "absolute",
+          left: `${st.x * 100}%`,
+          top: `${st.y * 100}%`,
+          opacity: st.visible,
+        }}
+      >
+        {st.clicking > 0 && (
+          <>
+            <div
+              style={{
+                position: "absolute",
+                left: 6,
+                top: 6,
+                width: 28,
+                height: 28,
+                borderRadius: 999,
+                background: "rgba(75,71,229,0.18)",
+                transform: `translate(-50%, -50%) scale(${0.6 + st.clicking * 1.8})`,
+                opacity: (1 - st.clicking) * 0.9,
+                filter: "blur(2px)",
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                left: 6,
+                top: 6,
+                width: 8,
+                height: 8,
+                borderRadius: 999,
+                border: "2px solid var(--indigo, #3C38B8)",
+                transform: `translate(-50%, -50%) scale(${1 + st.clicking * 4})`,
+                opacity: 1 - st.clicking,
+              }}
+            />
+          </>
+        )}
+        <svg width="22" height="24" viewBox="0 0 20 22" fill="none" style={{ filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.25))" }}>
+          <path
+            d="M2 2 L2 16 L6 12.5 L8.5 18.5 L11 17.5 L8.5 11.5 L14 11 Z"
+            fill="#25214D"
+            stroke="#FFFFFF"
+            strokeWidth="1.4"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 function BuilderShell({
+  published,
   leftPanelX,
   leftPanelOpacity,
   rightPanelX,
@@ -1356,6 +1482,8 @@ function BuilderShell({
   recentLayers: LayerKey[];
   recentEdits: string[];
   edited: boolean;
+  /** Scroll-driven publish moment — flips the toolbar button + toast. */
+  published: boolean;
 }) {
 
   const bgOpacity = useTransform(builderP, [0, 0.5, 1], [0, 0.5, 1]);
@@ -1428,7 +1556,7 @@ function BuilderShell({
         className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between rounded-t-3xl border-b border-black/[0.06] bg-white/80 px-5 py-2.5 backdrop-blur-xl"
       >
         <div className="flex items-center gap-3">
-          <Logo variant="wordmark" height={16} />
+          <img src={lpLockup} alt="LP Studio" style={{ height: 15, width: "auto", display: "block" }} />
           <span className="hidden h-3 w-px bg-black/10 sm:block" />
           <div className="hidden max-w-[44vw] items-center gap-0.5 overflow-x-auto sm:flex">
             {PRESETS.map((pr) => {
@@ -1465,7 +1593,17 @@ function BuilderShell({
         </div>
         <div className="flex items-center gap-2">
           <span className="hidden rounded-md border border-black/[0.08] px-2.5 py-1 font-mono-display text-[10px] text-foreground/70 sm:inline">Preview</span>
-          <span className="rounded-md bg-indigo px-3 py-1 font-display text-[11px] font-medium text-white" style={{ backgroundColor: ACCENTS[accent].color }}>Publish</span>
+          <span
+            className="relative rounded-md px-3 py-1 font-display text-[11px] font-medium text-white transition-colors duration-300"
+            style={{ backgroundColor: published ? "oklch(0.62 0.11 155)" : ACCENTS[accent].color }}
+          >
+            {published ? "Published \u2713" : "Publish"}
+            {published && (
+              <span className="absolute right-0 top-[130%] whitespace-nowrap rounded-lg bg-ink px-2.5 py-1.5 font-mono-display text-[9px] tracking-tight text-white shadow-[0_16px_40px_-16px_rgba(0,0,0,0.5)]">
+                Live · {preset.domain}/skip-the-brief
+              </span>
+            )}
+          </span>
         </div>
       </motion.div>
 
