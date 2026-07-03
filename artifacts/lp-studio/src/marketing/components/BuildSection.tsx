@@ -89,24 +89,27 @@ const PRESETS: Preset[] = [
     domain: "lpstudio.ai",
     category: "AI Revenue Workspace",
     nav: ["For Marketing", "For Sales", "Templates", "Pricing"],
-    headline1: "Describe a page.",
-    headline2: "Watch it build.",
+    // Deliberately does NOT repeat the homepage hero ("Describe a page. /
+    // Watch it build." lives right above this section) — the demo page goes
+    // a level deeper and teaches what's inside the app.
+    headline1: "Pages, microsites,",
+    headline2: "and proof they work.",
     subhead:
-      "Type a prompt, paste a URL, or drop a screenshot — and get a real, on-brand landing page in under a minute.",
-    primaryCta: "Generate a page",
-    ghostCta: "See templates",
+      "Generate campaign pages, per-account microsites, and A/B variants from one prompt — brand-locked, measured, and live in minutes.",
+    primaryCta: "Start free",
+    ghostCta: "Book a demo",
     badge: "\u2726 AI-native",
-    nextLabel: "Median time to page",
-    nextValue: "47 seconds \u00b7 on brand",
+    nextLabel: "Live signal",
+    nextValue: "Acme opened your microsite \u00b7 2m ago",
     features: [
-      { t: "On-brand", d: "Your kit, every block" },
-      { t: "Per-account", d: "Microsites that sell" },
-      { t: "Measured", d: "Know who's reading" },
+      { t: "Brand-locked", d: "Your kit on every block" },
+      { t: "A/B built in", d: "Variants + smart traffic" },
+      { t: "Live signals", d: "See who's reading, when" },
     ],
     logos: ["Smilist", "Northwind", "Field Co.", "Verdant", "Atlas", "Ember"],
-    ctaTitle: "Your next page is a sentence away.",
-    ctaSub: "Free to start \u00b7 no credit card \u00b7 live in minutes.",
-    ctaButton: "Get started \u2192",
+    ctaTitle: "Ready to see your brand in it?",
+    ctaSub: "Import your site — fonts, colors, and voice load in one scan.",
+    ctaButton: "Import my brand \u2192",
     navCta: "Get started",
     accent: "indigo",
     layout: "splitRight",
@@ -374,12 +377,12 @@ const EXTRAS: Record<string, Partial<Extras>> = {
   // lpstudio: pricing / faq / footer intentionally fall through to
   // DEFAULT_EXTRAS — the defaults are already our own SaaS story.
   lpstudio: {
-    eyebrow: "The AI revenue workspace",
+    eyebrow: "Pages \u00b7 Microsites \u00b7 A/B tests \u00b7 Analytics",
     stats: [
+      { v: "60+", l: "Designed blocks, brand-locked" },
+      { v: "1:1", l: "Microsites per target account" },
+      { v: "A/B", l: "Variants with smart traffic" },
       { v: "47s", l: "Median time to first page" },
-      { v: "100%", l: "On-brand, every block" },
-      { v: "+38%", l: "Avg conversion lift" },
-      { v: "1", l: "Canvas for sales + marketing" },
     ],
     testimonial: {
       quote: "I typed two sentences and got the page our agency quoted three weeks for. We shipped the campaign that afternoon.",
