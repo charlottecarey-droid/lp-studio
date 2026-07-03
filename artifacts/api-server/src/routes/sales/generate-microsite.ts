@@ -343,6 +343,10 @@ function injectBrandIntoBlocks(blocks: unknown[], brand: Record<string, unknown>
         props.ctaUrl = overrideUrl;
         props.ctaMode = isChilipiperOverride ? "chilipiper" : "link";
       }
+      // Alias families with a URL but no mode key (they render plain links) —
+      // kept in sync with CTA_URL_KEYS in lp-studio/src/lib/cta/ctaConfig.ts.
+      if ("ctaPrimaryUrl" in props) props.ctaPrimaryUrl = overrideUrl;
+      if ("heroPrimaryCtaUrl" in props) props.heroPrimaryCtaUrl = overrideUrl;
       if ("secondaryCtaUrl" in props) {
         props.secondaryCtaUrl = overrideUrl;
       }
@@ -364,6 +368,12 @@ function injectBrandIntoBlocks(blocks: unknown[], brand: Record<string, unknown>
         }
         if ("ctaUrl" in props && (!props.ctaUrl || props.ctaUrl === "#")) {
           props.ctaUrl = brandDefaultCtaUrl;
+        }
+        if ("ctaPrimaryUrl" in props && (!props.ctaPrimaryUrl || props.ctaPrimaryUrl === "#")) {
+          props.ctaPrimaryUrl = brandDefaultCtaUrl;
+        }
+        if ("heroPrimaryCtaUrl" in props && (!props.heroPrimaryCtaUrl || props.heroPrimaryCtaUrl === "#")) {
+          props.heroPrimaryCtaUrl = brandDefaultCtaUrl;
         }
         if ("secondaryCtaUrl" in props && (!props.secondaryCtaUrl || props.secondaryCtaUrl === "#")) {
           props.secondaryCtaUrl = brandDefaultCtaUrl;

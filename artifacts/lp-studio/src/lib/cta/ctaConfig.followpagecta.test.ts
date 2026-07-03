@@ -126,3 +126,60 @@ describe("restorePrimaryCtaProps — prevents baking the page CTA", () => {
     expect(restored).toEqual(original);
   });
 });
+
+// ── July 2026 coverage fix: the alias families follow the Page CTA too ──────
+
+describe("alias-family coverage (July 2026 fix)", () => {
+  const urlPageCta: CtaConfig = { label: "Get started", action: "url", url: "/signup" };
+
+  it("BenefitsCtaConfig family (ctaPrimaryLabel/ctaPrimaryUrl) follows the page CTA", () => {
+    const props = { ctaPrimaryLabel: "Old", ctaPrimaryUrl: "/old", ctaHeading: "Why us" };
+    expect(blockHasPrimaryCta(props)).toBe(true);
+    const out = applyPageCtaToBlockProps("benefits-alternating-rows", props, urlPageCta);
+    expect(out.ctaPrimaryLabel).toBe("Get started");
+    expect(out.ctaPrimaryUrl).toBe("/signup");
+    expect(out.ctaHeading).toBe("Why us");
+    // The canonical keys are NOT polluted onto the alias block.
+    expect(out.ctaText).toBeUndefined();
+    expect(out.ctaUrl).toBeUndefined();
+  });
+
+  it("BusinessCase family (heroPrimaryCtaText/heroPrimaryCtaUrl) follows, secondary twin untouched", () => {
+    const props = {
+      heroPrimaryCtaText: "Old", heroPrimaryCtaUrl: "/old",
+      heroSecondaryCtaText: "Tour", heroSecondaryCtaUrl: "/tour",
+    };
+    const out = applyPageCtaToBlockProps("business-case-centered", props, urlPageCta);
+    expect(out.heroPrimaryCtaText).toBe("Get started");
+    expect(out.heroPrimaryCtaUrl).toBe("/signup");
+    expect(out.heroSecondaryCtaText).toBe("Tour");
+    expect(out.heroSecondaryCtaUrl).toBe("/tour");
+  });
+
+  it("id-* dual-CTA family: cta1 follows (incl. action + chilipiper), cta2 never touched", () => {
+    const props = {
+      cta1Text: "Old", cta1Url: "/old", cta1Action: "url", cta1ChilipiperUrl: "",
+      cta2Text: "Directions", cta2Url: "/map", cta2Action: "url",
+    };
+    const out = applyPageCtaToBlockProps("id-hero", props, PAGE_CTA);
+    expect(out.cta1Text).toBe("Book a demo");
+    expect(out.cta1Action).toBe("chilipiper");
+    expect(out.cta1ChilipiperUrl).toBe("https://acme.chilipiper.com/router/page");
+    expect(out.cta2Text).toBe("Directions");
+    expect(out.cta2Url).toBe("/map");
+    expect(out.cta2Action).toBe("url");
+  });
+
+  it("secondary alias keys are excluded from PRIMARY_CTA_KEYS", () => {
+    for (const k of ["ctaSecondaryLabel", "heroSecondaryCtaText", "heroSecondaryCtaUrl", "cta2Text", "cta2Url", "cta2Action"]) {
+      expect(PRIMARY_CTA_KEYS).not.toContain(k);
+    }
+  });
+
+  it("restore round-trips the alias families to byte-identical", () => {
+    const original = { ctaPrimaryLabel: "Mine", ctaPrimaryUrl: "/x", ctaSecondaryLabel: "Sec" };
+    const rendered = applyPageCtaToBlockProps("benefits-bento", original, PAGE_CTA);
+    const restored = restorePrimaryCtaProps(rendered, original);
+    expect(restored).toEqual(original);
+  });
+});

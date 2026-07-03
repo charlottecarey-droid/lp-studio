@@ -112,27 +112,47 @@ export interface CtaConfig extends CtaModalConfig {
 
 /* ───────────────────────── canonical legacy key lists ─────────────────────── */
 
-/** Every legacy label alias, in read priority order. */
-export const CTA_LABEL_KEYS = ["ctaText", "ctaLabel", "primaryCtaText"] as const;
+/** Every legacy label alias, in read priority order. The canonical trio comes
+ *  first; the tail covers the block families that named their primary CTA
+ *  differently and therefore never followed the Page CTA (July 2026 coverage
+ *  fix): `ctaPrimaryLabel` (the BenefitsCtaConfig family — benefits / features
+ *  / how-it-works / quotes section CTAs, ~22 blocks), `heroPrimaryCtaText`
+ *  (the BusinessCase family), and `cta1Text` (the id-hero / id-invitation
+ *  dual-CTA family, whose cta2* twin is deliberately treated as secondary and
+ *  never touched). */
+export const CTA_LABEL_KEYS = [
+  "ctaText",
+  "ctaLabel",
+  "primaryCtaText",
+  "ctaPrimaryLabel",
+  "heroPrimaryCtaText",
+  "cta1Text",
+] as const;
 
-/** Legacy action-mode aliases, in read priority order. */
-export const CTA_ACTION_KEYS = ["ctaAction", "ctaMode", "primaryCtaMode"] as const;
+/** Legacy action-mode aliases, in read priority order. `cta1Action` already
+ *  uses the renderer vocabulary (the id-* blocks normalize it in-block); the
+ *  ctaPrimary and heroPrimaryCta families have no action key — they render
+ *  plain links, so only their label/url follow the Page CTA. */
+export const CTA_ACTION_KEYS = ["ctaAction", "ctaMode", "primaryCtaMode", "cta1Action"] as const;
 
-/** Per-action destination keys (renderer-level). */
-export const CTA_URL_KEYS = ["ctaUrl"] as const;
-export const CTA_CHILIPIPER_KEYS = ["chilipiperUrl"] as const;
-export const CTA_VIDEO_URL_KEYS = ["videoUrl"] as const;
+/** Per-action destination keys (renderer-level), in read priority order. */
+export const CTA_URL_KEYS = ["ctaUrl", "ctaPrimaryUrl", "heroPrimaryCtaUrl", "cta1Url"] as const;
+export const CTA_CHILIPIPER_KEYS = ["chilipiperUrl", "cta1ChilipiperUrl"] as const;
+export const CTA_VIDEO_URL_KEYS = ["videoUrl", "cta1VideoUrl"] as const;
 export const CTA_VIDEO_POSTER_KEYS = ["videoPosterUrl"] as const;
 
 /** Per-block button-style overrides. */
 export const CTA_STYLE_KEYS = ["ctaButtonColor", "ctaButtonTextColor"] as const;
 
-/** Secondary-CTA keys (HeroCtaConfig). */
-export const CTA_SECONDARY_LABEL_KEYS = ["ctaSecondaryText"] as const;
-export const CTA_SECONDARY_ACTION_KEYS = ["ctaSecondaryAction"] as const;
-export const CTA_SECONDARY_URL_KEYS = ["ctaSecondaryUrl"] as const;
-export const CTA_SECONDARY_CHILIPIPER_KEYS = ["secondaryChilipiperUrl"] as const;
-export const CTA_SECONDARY_VIDEO_KEYS = ["secondaryVideoUrl"] as const;
+/** Secondary-CTA keys (HeroCtaConfig + the July 2026 alias families). Kept in
+ *  sync with the primary lists above: every family's "second button" naming
+ *  must live HERE so it stays out of PRIMARY_CTA_KEYS and the Page CTA can
+ *  never touch it. */
+export const CTA_SECONDARY_LABEL_KEYS = ["ctaSecondaryText", "ctaSecondaryLabel", "heroSecondaryCtaText", "cta2Text"] as const;
+export const CTA_SECONDARY_ACTION_KEYS = ["ctaSecondaryAction", "cta2Action"] as const;
+export const CTA_SECONDARY_URL_KEYS = ["ctaSecondaryUrl", "heroSecondaryCtaUrl", "cta2Url"] as const;
+export const CTA_SECONDARY_CHILIPIPER_KEYS = ["secondaryChilipiperUrl", "cta2ChilipiperUrl"] as const;
+export const CTA_SECONDARY_VIDEO_KEYS = ["secondaryVideoUrl", "cta2VideoUrl"] as const;
 
 /** Inline email-capture variant keys (HeroCtaConfig). */
 export const CTA_EMAIL_CAPTURE_KEYS = [
@@ -268,14 +288,20 @@ export function legacyBlockPropsToCtaConfig(_blockType: string, props: unknown):
   if (has(p, "ctaButtonColor")) cfg.buttonColor = p.ctaButtonColor as string | undefined;
   if (has(p, "ctaButtonTextColor")) cfg.buttonTextColor = p.ctaButtonTextColor as string | undefined;
 
-  // Secondary CTA — only build the object if the block declares any of its keys.
+  // Secondary CTA — only build the object if the block declares any of its keys
+  // (alias-aware, same readFirst rule as the primary fields).
   const sec: NonNullable<CtaConfig["secondary"]> = {};
   let hasSecondary = false;
-  if (has(p, "ctaSecondaryText")) { sec.label = p.ctaSecondaryText as string | undefined; hasSecondary = true; }
-  if (has(p, "ctaSecondaryAction")) { sec.action = p.ctaSecondaryAction as CtaActionMode | undefined; hasSecondary = true; }
-  if (has(p, "ctaSecondaryUrl")) { sec.url = p.ctaSecondaryUrl as string | undefined; hasSecondary = true; }
-  if (has(p, "secondaryChilipiperUrl")) { sec.chilipiper = p.secondaryChilipiperUrl as string | undefined; hasSecondary = true; }
-  if (has(p, "secondaryVideoUrl")) { sec.videoUrl = p.secondaryVideoUrl as string | undefined; hasSecondary = true; }
+  const sLabel = readFirst(p, CTA_SECONDARY_LABEL_KEYS);
+  if (sLabel) { sec.label = sLabel.value as string | undefined; hasSecondary = true; }
+  const sAction = readFirst(p, CTA_SECONDARY_ACTION_KEYS);
+  if (sAction) { sec.action = sAction.value as CtaActionMode | undefined; hasSecondary = true; }
+  const sUrl = readFirst(p, CTA_SECONDARY_URL_KEYS);
+  if (sUrl) { sec.url = sUrl.value as string | undefined; hasSecondary = true; }
+  const sChili = readFirst(p, CTA_SECONDARY_CHILIPIPER_KEYS);
+  if (sChili) { sec.chilipiper = sChili.value as string | undefined; hasSecondary = true; }
+  const sVideo = readFirst(p, CTA_SECONDARY_VIDEO_KEYS);
+  if (sVideo) { sec.videoUrl = sVideo.value as string | undefined; hasSecondary = true; }
   if (hasSecondary) cfg.secondary = sec;
 
   // Inline email-capture variant.
@@ -313,9 +339,21 @@ export function ctaConfigToBlockProps(_blockType: string, cfg: CtaConfig, target
     const target = readFirst(base, CTA_ACTION_KEYS);
     if (target) next[target.key] = cfg.action;
   }
-  if (cfg.url !== undefined && has(base, "ctaUrl")) next.ctaUrl = cfg.url;
-  if (cfg.chilipiper !== undefined && has(base, "chilipiperUrl")) next.chilipiperUrl = cfg.chilipiper;
-  if (cfg.videoUrl !== undefined && has(base, "videoUrl")) next.videoUrl = cfg.videoUrl;
+  // Destinations → the target's alias (same presence rule as label/action; the
+  // hardcoded `ctaUrl`-only check was why the ctaPrimaryUrl/heroPrimaryCtaUrl
+  // families never received the Page CTA's destination).
+  if (cfg.url !== undefined) {
+    const target = readFirst(base, CTA_URL_KEYS);
+    if (target) next[target.key] = cfg.url;
+  }
+  if (cfg.chilipiper !== undefined) {
+    const target = readFirst(base, CTA_CHILIPIPER_KEYS);
+    if (target) next[target.key] = cfg.chilipiper;
+  }
+  if (cfg.videoUrl !== undefined) {
+    const target = readFirst(base, CTA_VIDEO_URL_KEYS);
+    if (target) next[target.key] = cfg.videoUrl;
+  }
   if (cfg.videoPosterUrl !== undefined && has(base, "videoPosterUrl")) next.videoPosterUrl = cfg.videoPosterUrl;
 
   if (cfg.buttonColor !== undefined && has(base, "ctaButtonColor")) next.ctaButtonColor = cfg.buttonColor;
@@ -323,11 +361,16 @@ export function ctaConfigToBlockProps(_blockType: string, cfg: CtaConfig, target
 
   if (cfg.secondary) {
     const s = cfg.secondary;
-    if (s.label !== undefined && has(base, "ctaSecondaryText")) next.ctaSecondaryText = s.label;
-    if (s.action !== undefined && has(base, "ctaSecondaryAction")) next.ctaSecondaryAction = s.action;
-    if (s.url !== undefined && has(base, "ctaSecondaryUrl")) next.ctaSecondaryUrl = s.url;
-    if (s.chilipiper !== undefined && has(base, "secondaryChilipiperUrl")) next.secondaryChilipiperUrl = s.chilipiper;
-    if (s.videoUrl !== undefined && has(base, "secondaryVideoUrl")) next.secondaryVideoUrl = s.videoUrl;
+    const w = (value: unknown, keys: readonly string[]): void => {
+      if (value === undefined) return;
+      const target = readFirst(base, keys);
+      if (target) next[target.key] = value;
+    };
+    w(s.label, CTA_SECONDARY_LABEL_KEYS);
+    w(s.action, CTA_SECONDARY_ACTION_KEYS);
+    w(s.url, CTA_SECONDARY_URL_KEYS);
+    w(s.chilipiper, CTA_SECONDARY_CHILIPIPER_KEYS);
+    w(s.videoUrl, CTA_SECONDARY_VIDEO_KEYS);
   }
 
   for (const k of CTA_EMAIL_CAPTURE_KEYS) {

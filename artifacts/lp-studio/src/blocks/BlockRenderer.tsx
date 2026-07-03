@@ -66,7 +66,8 @@ import { BlockValueRenewalReview } from "./BlockValueRenewalReview";
 import { BlockEventLandingHero } from "./BlockEventLandingHero";
 import { BlockSpatialTour } from "./BlockSpatialTour";
 import type { BrandConfig } from "@/lib/brand-config";
-import { brandDefaultCtaConfig, ctaConfigHasValue, blockHasPrimaryCta, applyPageCtaToBlockProps, restorePrimaryCtaProps, type CtaConfig } from "@/lib/cta/ctaConfig";
+import { brandDefaultCtaConfig, ctaConfigHasValue, blockHasPrimaryCta, restorePrimaryCtaProps, type CtaConfig } from "@/lib/cta/ctaConfig";
+import { applyPageCtaToBlock } from "@/lib/cta/pageCtaApply";
 import { BlockHero } from "./BlockHero";
 import { BlockTrustBar } from "./BlockTrustBar";
 import { BlockPasSection } from "./BlockPasSection";
@@ -572,7 +573,7 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
     ctaConfigHasValue(pageCta) &&
     blockHasPrimaryCta(baseBlock.props);
   const block: typeof rawBlock = followsPageCta
-    ? ({ ...baseBlock, props: applyPageCtaToBlockProps(baseBlock.type, baseBlock.props, pageCta) } as typeof rawBlock)
+    ? ({ ...baseBlock, props: applyPageCtaToBlock(baseBlock.type, baseBlock.props, pageCta) } as typeof rawBlock)
     : baseBlock;
 
   // Persist guard: while following, the block component's edit callbacks rebuild
