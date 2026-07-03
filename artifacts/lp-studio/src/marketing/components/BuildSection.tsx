@@ -120,7 +120,6 @@ const PRESETS: Preset[] = [
     ctaButton: "Import my brand \u2192",
     navCta: "Get started",
     heroImage: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=70",
-    pageBg: "var(--cream)",
     accent: "indigo",
     layout: "centered",
   },
@@ -1055,12 +1054,12 @@ export function BuildSection() {
                   <FocusBlock blockKey="stats" focusKey={focusKey} pulseTick={pulseTick} style={orderStyle(preset.layout, "stats")}>
                     <motion.div
                       style={stage6}
-                      className="mx-5 mt-7 grid grid-cols-2 gap-px overflow-hidden rounded-2xl bg-black/[0.06] @[520px]:grid-cols-4 @[640px]:mx-10"
+                      className="mx-5 mt-12 grid grid-cols-2 border-y border-black/[0.07] @[520px]:grid-cols-4 @[640px]:mx-10"
                     >
                       {extras.stats.map((s) => (
-                        <div key={s.l} className="bg-white p-4">
-                          <div className="font-display text-[20px] font-[600] tracking-[-0.02em] text-[oklch(0.1_0.01_270)] @[640px]:text-[24px]">{s.v}</div>
-                          <div className="mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground/70">{s.l}</div>
+                        <div key={s.l} className="px-3 py-6 text-center">
+                          <div className="font-display text-[24px] font-[620] tracking-[-0.03em] text-[oklch(0.1_0.01_270)] @[640px]:text-[28px]">{s.v}</div>
+                          <div className="mt-1 font-mono-display text-[8.5px] uppercase tracking-[0.16em] text-muted-foreground/65">{s.l}</div>
                         </div>
                       ))}
                     </motion.div>
@@ -1070,13 +1069,17 @@ export function BuildSection() {
                   <FocusBlock blockKey="features" focusKey={focusKey} pulseTick={pulseTick} style={orderStyle(preset.layout, "features")}>
                     <motion.div
                       style={stage6}
-                      className="grid grid-cols-1 gap-3 px-5 pt-7 @[520px]:grid-cols-3 @[640px]:px-10 @[640px]:pt-8"
+                      className="grid grid-cols-1 gap-4 px-5 pt-12 @[520px]:grid-cols-3 @[640px]:px-10"
                     >
                       {preset.features.map((f) => (
-                        <div key={f.t} className="rounded-xl border border-black/[0.05] bg-[oklch(0.985_0.002_280)] p-4">
-                          <div className="h-1.5 w-6 rounded-full bg-indigo" />
-                          <div className="mt-3 font-display text-[13px] font-semibold tracking-tight">{f.t}</div>
-                          <div className="mt-0.5 text-[11px] text-muted-foreground">{f.d}</div>
+                        <div key={f.t} className="rounded-2xl bg-white p-5 text-left shadow-[0_1px_2px_rgba(2,6,23,0.05),0_10px_28px_-16px_rgba(2,6,23,0.12)] ring-1 ring-black/[0.06]">
+                          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo/[0.09] text-indigo">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.2 2.2m8.4 8.4 2.2 2.2m0-12.8-2.2 2.2M7.8 16.2l-2.2 2.2" />
+                            </svg>
+                          </span>
+                          <div className="mt-3.5 font-display text-[13.5px] font-semibold tracking-tight">{f.t}</div>
+                          <div className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">{f.d}</div>
                         </div>
                       ))}
                     </motion.div>
@@ -1086,7 +1089,7 @@ export function BuildSection() {
                   <FocusBlock blockKey="testimonial" focusKey={focusKey} pulseTick={pulseTick} style={orderStyle(preset.layout, "testimonial")}>
                     <motion.div
                       style={stage7}
-                      className="mx-5 mt-8 overflow-hidden rounded-2xl bg-[oklch(0.13_0.012_270)] p-6 text-white @[640px]:mx-10 @[640px]:p-8"
+                      className="mx-5 mt-12 overflow-hidden rounded-3xl bg-[oklch(0.13_0.012_270)] p-7 text-white @[640px]:mx-10 @[640px]:p-9"
                     >
                       <div className="font-mono-display text-[10px] uppercase tracking-[0.22em] text-white/50">★★★★★ · Verified</div>
                       <blockquote className="mt-3 font-display text-[15px] font-[500] leading-snug tracking-[-0.015em] text-balance text-white/95 @[640px]:text-[18px]">
@@ -1106,13 +1109,18 @@ export function BuildSection() {
                   <FocusBlock blockKey="logos" focusKey={focusKey} pulseTick={pulseTick} style={orderStyle(preset.layout, "logos")}>
                     <motion.div
                       style={stage7}
-                      className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-black/[0.05] px-5 py-4 opacity-70 @[640px]:justify-between @[640px]:px-10"
+                      className="mt-10 px-5 @[640px]:px-10"
                     >
-                      {preset.logos.map((l) => (
-                        <span key={l} className="font-display text-[11px] font-semibold tracking-tight text-foreground/40">
-                          {l}
-                        </span>
-                      ))}
+                      <div className="text-center font-mono-display text-[8.5px] uppercase tracking-[0.24em] text-muted-foreground/55">
+                        Trusted by teams at
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-7 gap-y-2">
+                        {preset.logos.map((l) => (
+                          <span key={l} className="font-display text-[12px] font-semibold tracking-tight text-foreground/35">
+                            {l}
+                          </span>
+                        ))}
+                      </div>
                     </motion.div>
                   </FocusBlock>
 
@@ -1120,7 +1128,7 @@ export function BuildSection() {
                   <FocusBlock blockKey="pricing" focusKey={focusKey} pulseTick={pulseTick} style={orderStyle(preset.layout, "pricing")}>
                     <motion.div
                       style={stage8}
-                      className="px-5 pt-8 @[640px]:px-10"
+                      className="px-5 pt-14 @[640px]:px-10"
                     >
                       <div className="text-center">
                         <div className="font-mono-display text-[10px] uppercase tracking-[0.22em] text-muted-foreground/60">Pricing</div>
@@ -1170,7 +1178,7 @@ export function BuildSection() {
 
                   {/* FAQ */}
                   <FocusBlock blockKey="faq" focusKey={focusKey} pulseTick={pulseTick} style={orderStyle(preset.layout, "faq")}>
-                    <motion.div style={stage8} className="px-5 pt-10 @[640px]:px-10">
+                    <motion.div style={stage8} className="px-5 pt-14 @[640px]:px-10">
                       <div className="grid gap-6 @[640px]:grid-cols-12">
                         <div className="@[640px]:col-span-4">
                           <div className="font-mono-display text-[10px] uppercase tracking-[0.22em] text-muted-foreground/60">FAQ</div>
@@ -1202,11 +1210,11 @@ export function BuildSection() {
                   <FocusBlock blockKey="cta" focusKey={focusKey} pulseTick={pulseTick} style={orderStyle(preset.layout, "cta")}>
                     <motion.div
                       style={stage8}
-                      className="mx-5 mt-10 overflow-hidden rounded-2xl bg-gradient-to-br from-indigo to-[color-mix(in_oklab,var(--indigo,oklch(0.55_0.24_275))_70%,black)] p-6 text-white @[640px]:mx-10 @[640px]:p-8"
+                      className="mx-5 mt-14 overflow-hidden rounded-3xl bg-gradient-to-br from-indigo to-[color-mix(in_oklab,var(--indigo,#3C38B8)_70%,black)] p-7 text-white @[640px]:mx-10 @[640px]:p-9"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-4">
                         <div>
-                          <div className="font-display text-[18px] font-[560] tracking-[-0.02em] @[640px]:text-[22px]">{preset.ctaTitle}</div>
+                          <div className="font-display text-[20px] font-[600] tracking-[-0.025em] @[640px]:text-[26px]">{preset.ctaTitle}</div>
                           <div className="mt-1 text-[12px] text-white/70">{preset.ctaSub}</div>
                         </div>
                         <span className="rounded-full bg-white px-5 py-2 text-[12px] font-medium text-[oklch(0.13_0.012_270)]">{preset.ctaButton}</span>
@@ -1218,7 +1226,7 @@ export function BuildSection() {
                   <FocusBlock blockKey="footer" focusKey={focusKey} pulseTick={pulseTick} style={orderStyle(preset.layout, "footer")}>
                     <motion.div
                       style={stage8}
-                      className="mt-8 border-t border-black/[0.06] bg-[oklch(0.985_0.002_280)] px-5 py-6 @[640px]:px-10"
+                      className="mt-12 border-t border-black/[0.06] bg-[oklch(0.985_0.002_280)] px-5 py-8 @[640px]:px-10"
                     >
                       <div className="grid grid-cols-2 gap-6 @[520px]:grid-cols-5">
                         <div className="col-span-2 @[520px]:col-span-1">
@@ -1942,7 +1950,7 @@ function HeroBody({
   const Headline = (
     <motion.h3
       style={stage3}
-      className="font-display text-[26px] font-[560] leading-[1.0] tracking-[-0.035em] text-[oklch(0.1_0.01_270)] @[520px]:text-[32px] @[700px]:text-[44px]"
+      className="font-display text-[28px] font-[600] leading-[0.98] tracking-[-0.04em] text-[oklch(0.1_0.01_270)] @[520px]:text-[38px] @[700px]:text-[52px]"
     >
       <Editable value={headline1} onChange={setHeadline1} ariaLabel="Edit headline line 1" />
       <br />
@@ -1966,7 +1974,7 @@ function HeroBody({
   const visual = (height: string) => (
     <motion.div
       style={stage5}
-      className={`overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-soft/40 via-indigo/20 to-coral/20 ring-1 ring-black/[0.04] ${height}`}
+      className={`overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-soft/40 via-indigo/20 to-coral/20 shadow-[0_32px_80px_-32px_rgba(15,23,42,0.35)] ring-1 ring-black/[0.05] ${height}`}
     >
       <div className="relative h-full w-full">
         {preset.heroImage && (
@@ -1981,12 +1989,18 @@ function HeroBody({
             <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
           </>
         )}
-        <div className="absolute right-3 top-3 rounded-full bg-white/80 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-foreground/60 backdrop-blur">
+        <div className="absolute right-3.5 top-3.5 rounded-full bg-white/85 px-2.5 py-1 font-mono-display text-[9px] font-semibold uppercase tracking-[0.14em] text-foreground/65 shadow-sm ring-1 ring-black/[0.05] backdrop-blur-md">
           {preset.badge}
         </div>
-        <div className="absolute bottom-3 left-3 right-3 rounded-xl bg-white/90 p-2.5 backdrop-blur">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground/70">{preset.nextLabel}</div>
-          <div className="mt-0.5 font-display text-[13px] font-semibold">{preset.nextValue}</div>
+        <div className="absolute bottom-3.5 left-3.5 flex items-center gap-3 rounded-2xl bg-white/85 py-2.5 pl-3 pr-4 text-left shadow-[0_12px_32px_-12px_rgba(15,23,42,0.35)] ring-1 ring-black/[0.05] backdrop-blur-md">
+          <span className="relative flex h-2 w-2 shrink-0">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo/50" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo" />
+          </span>
+          <span>
+            <span className="block font-mono-display text-[8.5px] uppercase tracking-[0.16em] text-muted-foreground/70">{preset.nextLabel}</span>
+            <span className="mt-0.5 block font-display text-[12.5px] font-semibold tracking-tight">{preset.nextValue}</span>
+          </span>
         </div>
       </div>
     </motion.div>
@@ -2008,17 +2022,24 @@ function HeroBody({
 
   if (layout === "centered") {
     return (
-      <div className="px-5 pt-8 text-center @[640px]:px-10 @[640px]:pt-12">
-        <div className="flex justify-center">{Eyebrow}</div>
-        <div className="mx-auto mt-4 max-w-2xl">{Headline}</div>
-        <motion.p style={stage4} className="mx-auto mt-4 max-w-md text-[12px] leading-relaxed text-muted-foreground @[640px]:text-[13px]">
-          {preset.subhead}
-        </motion.p>
-        <motion.div style={stage4} className="mt-5 flex flex-wrap items-center justify-center gap-2 @[640px]:mt-6 @[640px]:gap-3">
-          <span className="rounded-full bg-ink px-4 py-2 text-[11px] font-medium text-white">{preset.primaryCta}</span>
-          <span className="rounded-full border border-black/[0.1] px-4 py-2 text-[11px] font-medium text-foreground/70">{preset.ghostCta}</span>
-        </motion.div>
-        <div className="mt-7">{visual("h-[170px] @[640px]:h-[230px]")}</div>
+      <div className="relative px-5 pt-11 text-center @[640px]:px-10 @[640px]:pt-14">
+        {/* Soft top wash — good pages set the hero on a breath of color. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[320px] bg-[radial-gradient(60%_100%_at_50%_0%,color-mix(in_oklab,var(--indigo,#3C38B8)_7%,transparent),transparent_70%)]"
+        />
+        <div className="relative">
+          <div className="flex justify-center">{Eyebrow}</div>
+          <div className="mx-auto mt-5 max-w-2xl">{Headline}</div>
+          <motion.p style={stage4} className="mx-auto mt-4 max-w-[440px] text-[12.5px] leading-relaxed text-muted-foreground @[640px]:text-[14px]">
+            {preset.subhead}
+          </motion.p>
+          <motion.div style={stage4} className="mt-6 flex flex-wrap items-center justify-center gap-2.5 @[640px]:mt-7 @[640px]:gap-3">
+            <span className="rounded-full bg-indigo px-5 py-2.5 text-[11.5px] font-semibold text-white shadow-[0_14px_36px_-12px_var(--indigo,#3C38B8)]">{preset.primaryCta}</span>
+            <span className="rounded-full border border-black/[0.1] bg-white px-5 py-2.5 text-[11.5px] font-medium text-foreground/70">{preset.ghostCta}</span>
+          </motion.div>
+          <div className="mt-9">{visual("h-[230px] @[640px]:h-[300px]")}</div>
+        </div>
       </div>
     );
   }
