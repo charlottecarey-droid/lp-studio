@@ -71,11 +71,46 @@ type Preset = {
   ctaTitle: string;
   ctaSub: string;
   ctaButton: string;
+  /** Demo-page nav CTA label. Defaults to "Book" (the original presets'
+   *  bookings vibe); product presets override it. */
+  navCta?: string;
   accent: AccentKey;
   layout: HeroLayout;
 };
 
 const PRESETS: Preset[] = [
+  // Default preset is LP Studio ITSELF — the demo assembles our own landing
+  // page (self-referential product copy people read while they watch). The
+  // other presets stay in the toolbar switcher to show brand range; their
+  // names double as the "customers" in this preset's logo row.
+  {
+    id: "lpstudio",
+    brand: "LP Studio",
+    domain: "lpstudio.ai",
+    category: "AI Revenue Workspace",
+    nav: ["For Marketing", "For Sales", "Templates", "Pricing"],
+    headline1: "Describe a page.",
+    headline2: "Watch it build.",
+    subhead:
+      "Type a prompt, paste a URL, or drop a screenshot — and get a real, on-brand landing page in under a minute.",
+    primaryCta: "Generate a page",
+    ghostCta: "See templates",
+    badge: "\u2726 AI-native",
+    nextLabel: "Median time to page",
+    nextValue: "47 seconds \u00b7 on brand",
+    features: [
+      { t: "On-brand", d: "Your kit, every block" },
+      { t: "Per-account", d: "Microsites that sell" },
+      { t: "Measured", d: "Know who's reading" },
+    ],
+    logos: ["Smilist", "Northwind", "Field Co.", "Verdant", "Atlas", "Ember"],
+    ctaTitle: "Your next page is a sentence away.",
+    ctaSub: "Free to start \u00b7 no credit card \u00b7 live in minutes.",
+    ctaButton: "Get started \u2192",
+    navCta: "Get started",
+    accent: "indigo",
+    layout: "splitRight",
+  },
   {
     id: "smilist",
     brand: "Smilist",
@@ -336,6 +371,22 @@ const DEFAULT_EXTRAS: Extras = {
 };
 
 const EXTRAS: Record<string, Partial<Extras>> = {
+  // lpstudio: pricing / faq / footer intentionally fall through to
+  // DEFAULT_EXTRAS — the defaults are already our own SaaS story.
+  lpstudio: {
+    eyebrow: "The AI revenue workspace",
+    stats: [
+      { v: "47s", l: "Median time to first page" },
+      { v: "100%", l: "On-brand, every block" },
+      { v: "+38%", l: "Avg conversion lift" },
+      { v: "1", l: "Canvas for sales + marketing" },
+    ],
+    testimonial: {
+      quote: "I typed two sentences and got the page our agency quoted three weeks for. We shipped the campaign that afternoon.",
+      author: "Maya Chen",
+      role: "VP Marketing \u00b7 Series B SaaS",
+    },
+  },
   smilist: {
     eyebrow: "Now in NYC, Boston & LA",
     stats: [
@@ -652,12 +703,13 @@ const LAYERS: { t: string; key: LayerKey; lvl: number; target: LayerKey }[] = [
   { t: "Footer", key: "footer", lvl: 1, target: "footer" },
 ];
 
-// Canvas width per device. Desktop fills the studio card minus the 200px +
-// 240px sidebars and a gutter (--studio-w is set on the stage card), so the
-// wrapped builder sits TIGHT around the page. Below lg the sidebars hide and
-// the auto-switch effect flips the device to Tablet/Mobile anyway.
+// Canvas width per device. Desktop fills the EXACT slot between the 200px +
+// 240px sidebars (--studio-w is set on the stage card) with a 12px inset each
+// side, so the wrapped page sits flush against the panels — no dead work-area
+// gutter. Below lg the sidebars hide and the auto-switch effect flips the
+// device to Tablet/Mobile anyway.
 const DEVICE_WIDTH: Record<Device, string> = {
-  Desktop: "min(calc(var(--studio-w, 100vw) - 500px), 1100px)",
+  Desktop: "calc(var(--studio-w, 100vw) - 464px)",
   Tablet: "min(780px, 86vw)",
   Mobile: "min(390px, 84vw)",
 };
@@ -806,9 +858,12 @@ export function BuildSection() {
   const statusY = useTransform(builderP, [0, 1], [40, 0]);
   const statusOpacity = useTransform(builderP, [0, 0.4, 1], [0, 1, 1]);
 
-  const baseScale = useTransform(p, [0, 0.5, 0.74, 0.94], [0.96, 1, 1, 0.82]);
+  // No end-of-wrap shrink (was 0.82): the frame is sized to the exact panel
+  // slot, so any residual scale would reopen the gap between page and panels.
+  const baseScale = useTransform(p, [0, 0.5], [0.96, 1]);
   const frameRotate = useTransform(p, [0, 0.74, 1], [0.4, 0, 0]);
   const frameY = useTransform(builderP, [0, 1], [0, 8]);
+  const frameX = useTransform(builderP, [0, 1], [0, -20]);
 
   const captionIndex = useTransform(p, (v): number => {
     if (v < 0.14) return 0;
@@ -921,6 +976,7 @@ export function BuildSection() {
                 scale: baseScale,
                 rotate: frameRotate,
                 y: frameY,
+                x: frameX,
                 width: DEVICE_WIDTH[device],
               }}
               transition={{ width: { type: "spring", stiffness: 140, damping: 22 } }}
@@ -950,7 +1006,7 @@ export function BuildSection() {
                 <div
                   ref={canvasRef}
                   onPointerDown={() => setCanvasActive(true)}
-                  className={`@container relative flex h-[calc(100vh-240px)] flex-col ${canvasActive ? "overflow-y-auto" : "overflow-y-hidden"} overflow-x-hidden bg-white scroll-smooth pb-[420px]`}
+                  className={`@container relative flex h-[calc(100vh-360px)] flex-col ${canvasActive ? "overflow-y-auto" : "overflow-y-hidden"} overflow-x-hidden bg-white scroll-smooth pb-[420px]`}
                 >
                   {/* Nav */}
                   <FocusBlock blockKey="nav" focusKey={focusKey} pulseTick={pulseTick} style={orderStyle(preset.layout, "nav")}>
@@ -967,7 +1023,7 @@ export function BuildSection() {
                           <span key={n}>{n}</span>
                         ))}
                       </div>
-                      <div className="rounded-full bg-ink px-3 py-1.5 text-[11px] font-medium text-white">Book</div>
+                      <div className="rounded-full bg-ink px-3 py-1.5 text-[11px] font-medium text-white">{preset.navCta ?? "Book"}</div>
                     </motion.div>
                   </FocusBlock>
 
