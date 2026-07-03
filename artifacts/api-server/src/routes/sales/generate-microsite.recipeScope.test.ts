@@ -16,9 +16,7 @@
  *   outlineBlockList, selectedPersona, excludeTypes, micrositeRecipe
  */
 import { describe, it, expect } from "vitest";
-import { buildSystemPrompt, type BrandAudienceSegment,
-  BLOCK_PROP_SCHEMAS,
-} from "./generate-microsite";
+import { buildSystemPrompt, type BrandAudienceSegment, BLOCK_PROP_SCHEMAS, micrositeSchemaFor } from "./generate-microsite";
 import { MICROSITE_RECIPES, DSO_RECIPES, DSO_PRACTICES_RECIPES } from "../../lib/ai-prompts/page-recipes";
 
 const CORE: BrandAudienceSegment = { id: "core", name: "Core" };
@@ -155,5 +153,37 @@ describe("built-in recipe pools are fully schema-covered on microsites", () => {
         }
       }
     }
+  });
+});
+
+// July 2026 — derived-schema fallback: any block the microsite map doesn't
+// curate inherits its prop contract from the landing-page GENERAL library
+// (the single authoritative source). "Any block referenced in a recipe
+// works" is complete without maintaining two copies of every schema.
+describe("micrositeSchemaFor — derived fallback from the GENERAL library", () => {
+  it("curated entries win", () => {
+    expect(micrositeSchemaFor("dso-meet-team")).toContain("REAL PEOPLE ONLY");
+  });
+
+  it("landing-only blocks resolve a real derived schema (not the generic fallback)", () => {
+    for (const t of ["glass-pricing-tiers", "zigzag-features", "quote-with-image", "single-quote"]) {
+      const schema = micrositeSchemaFor(t);
+      expect(schema, `${t} should derive from the GENERAL library`).toBeTruthy();
+      expect(schema).toContain("Props");
+    }
+  });
+
+  it("unknown types stay undefined (still skipped + logged)", () => {
+    expect(micrositeSchemaFor("definitely-not-a-block")).toBeUndefined();
+  });
+
+  it("a landing-only block passes the recipe-extra gate end to end", () => {
+    const prompt = buildSystemPrompt(
+      CORE, BRAND, undefined, null, /*useFreeform*/ false, undefined, "enterprise",
+      [], false, undefined, undefined, new Set(), null,
+      ["glass-pricing-tiers"],
+    );
+    expect(prompt).toContain('"glass-pricing-tiers"');
+    expect(prompt).not.toContain('"glass-pricing-tiers" (section): { ...fields }');
   });
 });

@@ -1783,6 +1783,38 @@ const SECTION_BG_SEED_DEFAULTS: Record<string, string> = {
   "video-section": "white",
 };
 
+// Lazily-built cache of schemas DERIVED from the landing-page GENERAL
+// library (the single authoritative prose bullet per enabled block). The
+// curated map below stays as overrides where the microsite context genuinely
+// differs (dso-meet-team's no-roster rule, dso-testimonials); everything else
+// — including blocks added in the future — inherits automatically. This is
+// what makes "any block referenced in a recipe works" complete without
+// maintaining two copies of every contract.
+let derivedGeneralSchemas: Map<string, string> | null = null;
+export function micrositeSchemaFor(type: string): string | undefined {
+  const curated = BLOCK_PROP_SCHEMAS[type];
+  if (curated) return curated;
+  if (derivedGeneralSchemas === null) {
+    derivedGeneralSchemas = new Map();
+    try {
+      const library = buildGeneralSystemPrompt({
+        includeContentSeries: true,
+        includeWebinarHub: true,
+        includeBlogSeries: true,
+        includeStorefront: true,
+      });
+      const allTypes = [...library.matchAll(/^- "([a-z0-9-]+)":/gm)].map((m) => m[1]);
+      for (const bullet of extractGeneralBlockBullets(library, allTypes)) {
+        const m = bullet.match(/^- "([a-z0-9-]+)": ([\s\S]*)$/);
+        if (m) derivedGeneralSchemas.set(m[1], m[2].trim());
+      }
+    } catch {
+      // Fail-open: derivation is an enhancement; the curated map still works.
+    }
+  }
+  return derivedGeneralSchemas.get(type);
+}
+
 export const BLOCK_PROP_SCHEMAS: Record<string, string> = {
   // ── Blocks referenced by the recipe pools (July 2026) — distilled from
   // the landing-page prompt bullets so recipes can offer them on microsites.
@@ -1966,7 +1998,7 @@ export function buildFreeformBlockGuide(
   // rich-text / footer): advertise with their role hint + registry schema.
   for (const t of base) {
     if (vocab.generalTypes.has(t)) continue;
-    lines.push(`- "${t}" (${FREEFORM_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`);
+    lines.push(`- "${t}" (${FREEFORM_ROLE_HINTS[t] ?? "section"}): ${micrositeSchemaFor(t) ?? "{ ...fields }"}`);
   }
   // Segment-approval expansion — append superadmin-approved blocks for this
   // segment that aren't already in the freeform vocab, deduped by canonical
@@ -1998,7 +2030,7 @@ export function buildSegmentPoolBlockGuide(
 ): string {
   const structural = excludeDisplayTypes(SEGMENT_POOL_STRUCTURAL_TYPES, exclude);
   const lines = structural.map(
-    (t) => `- "${t}" (${FREEFORM_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`,
+    (t) => `- "${t}" (${FREEFORM_ROLE_HINTS[t] ?? "section"}): ${micrositeSchemaFor(t) ?? "{ ...fields }"}`,
   );
   appendApprovedBlockGuideLines(lines, structural, excludeDisplayTypes(poolTypes as readonly string[], exclude));
   return lines.join("\n");
@@ -2121,7 +2153,7 @@ function appendApprovedBlockGuideLines(
     if (!t || shown.has(t)) continue;
     shown.add(t);
     const hint = DSO_ROLE_HINTS[t] ?? FREEFORM_ROLE_HINTS[t] ?? "section";
-    lines.push(`- "${t}" (${hint}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`);
+    lines.push(`- "${t}" (${hint}): ${micrositeSchemaFor(t) ?? "{ ...fields }"}`);
   }
 }
 
@@ -2412,7 +2444,7 @@ export function buildDsoFreeformBlockGuide(
 ): string {
   const base = excludeDisplayTypes(dsoVocabTypes(mode), exclude);
   const lines = base
-    .map((t) => `- "${t}" (${DSO_ROLE_HINTS[t] ?? "section"}): ${BLOCK_PROP_SCHEMAS[t] ?? "{ ...fields }"}`);
+    .map((t) => `- "${t}" (${DSO_ROLE_HINTS[t] ?? "section"}): ${micrositeSchemaFor(t) ?? "{ ...fields }"}`);
   // Segment-approval expansion — append superadmin-approved blocks for this
   // segment that aren't already in the DSO vocab, deduped by canonical type.
   // Unioned ON TOP of the DSO set (occasional non-DSO blocks are OK).
@@ -4177,8 +4209,8 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
               ? dsoAllowedSet(dsoFreeformMode)
               : new Set(FREEFORM_MICROSITE_DISPLAY_TYPES.map((t) => canonicalizeBlockType(t)));
           const candidates = [...referenced].filter((t) => !base.has(t) && !excludeTypes.has(t));
-          recipeExtraTypes = candidates.filter((t) => BLOCK_PROP_SCHEMAS[t]);
-          const skipped = candidates.filter((t) => !BLOCK_PROP_SCHEMAS[t]);
+          recipeExtraTypes = candidates.filter((t) => micrositeSchemaFor(t));
+          const skipped = candidates.filter((t) => !micrositeSchemaFor(t));
           if (skipped.length > 0) {
             logger.info(
               { skipped, recipePath, tenantId, accountId },
