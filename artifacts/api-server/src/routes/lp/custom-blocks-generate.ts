@@ -70,6 +70,9 @@ interface BrandHints {
   accentColor?: string;
   textColor?: string;
   backgroundColor?: string;
+  ctaBackground?: string;
+  ctaText?: string;
+  cardBackground?: string;
   headingFont?: string;
   bodyFont?: string;
   /** Brand display name — surfaced into image prompts so the model knows
@@ -203,16 +206,8 @@ function buildUserPrompt(opts: {
   parts.push(`USER PROMPT:\n${opts.prompt.slice(0, 2000)}`);
   if (opts.brand) {
     const b = opts.brand;
-    const lines: string[] = [];
-    if (b.primaryColor) lines.push(`primary: ${b.primaryColor}`);
-    if (b.accentColor) lines.push(`accent: ${b.accentColor}`);
-    if (b.textColor) lines.push(`text: ${b.textColor}`);
-    if (b.backgroundColor) lines.push(`background: ${b.backgroundColor}`);
-    if (b.headingFont) lines.push(`heading font: ${b.headingFont}`);
-    if (b.bodyFont) lines.push(`body font: ${b.bodyFont}`);
-    if (lines.length > 0) {
-      parts.push(`BRAND PALETTE — emit literal hex values matching these in any color fields and in inline <style> defaults. Use these font-families when emitting text styles.\n${lines.join("\n")}`);
-    }
+    const palette = buildBrandPaletteSection(b);
+    if (palette) parts.push(palette);
     // Task #253 — surface the approved fact pool. In strict mode, append
     // the non-invention instruction.
     if (b.approvedClaims?.length) {
@@ -808,16 +803,8 @@ function buildComposeUserPrompt(opts: {
   }
   if (opts.brand) {
     const b = opts.brand;
-    const lines: string[] = [];
-    if (b.primaryColor) lines.push(`primary: ${b.primaryColor}`);
-    if (b.accentColor) lines.push(`accent: ${b.accentColor}`);
-    if (b.textColor) lines.push(`text: ${b.textColor}`);
-    if (b.backgroundColor) lines.push(`background: ${b.backgroundColor}`);
-    if (b.headingFont) lines.push(`heading font: ${b.headingFont}`);
-    if (b.bodyFont) lines.push(`body font: ${b.bodyFont}`);
-    if (lines.length > 0) {
-      parts.push(`BRAND PALETTE — emit literal hex values matching these in any color fields and in inline <style> defaults. Use these font-families for text styles.\n${lines.join("\n")}`);
-    }
+    const palette = buildBrandPaletteSection(b);
+    if (palette) parts.push(palette);
     // Task #253 — same approved-fact wiring as the single-block prompt:
     // surface approved claims/stats and append the strict instruction when
     // `aiStrictFactsMode` is on so composed sections honor the lock.
@@ -877,6 +864,72 @@ router.post("/lp/custom-blocks/validate", requireAuth, (req, res): void => {
     valid: errors.length === 0,
   });
 });
+
+
+
+/** Visual brand hints from a raw lp_brand_settings config row. Pure —
+ *  exported for the key-mapping test: the stored BrandConfig names are
+ *  pageBackground/displayFont, and the old backgroundColor/headingFont reads
+ *  matched nothing, so the block maker silently generated without the
+ *  brand's page background or heading font (July 2026 fix; legacy keys kept
+ *  as fallbacks). */
+export function visualBrandHints(cfg: Record<string, unknown>): Pick<BrandHints,
+  "primaryColor" | "accentColor" | "textColor" | "backgroundColor" |
+  "ctaBackground" | "ctaText" | "cardBackground" | "headingFont" | "bodyFont"
+> {
+  return {
+    primaryColor: isHexLike(cfg.primaryColor) ? cfg.primaryColor.trim() : undefined,
+    accentColor: isHexLike(cfg.accentColor) ? cfg.accentColor.trim() : undefined,
+    textColor: isHexLike(cfg.textColor) ? cfg.textColor.trim() : undefined,
+    backgroundColor: isHexLike(cfg.pageBackground) ? cfg.pageBackground.trim()
+      : isHexLike(cfg.backgroundColor) ? cfg.backgroundColor.trim() : undefined,
+    ctaBackground: isHexLike(cfg.ctaBackground) ? cfg.ctaBackground.trim() : undefined,
+    ctaText: isHexLike(cfg.ctaText) ? cfg.ctaText.trim() : undefined,
+    cardBackground: isHexLike(cfg.cardBackground) ? cfg.cardBackground.trim() : undefined,
+    headingFont: typeof cfg.displayFont === "string" && cfg.displayFont.trim() ? cfg.displayFont
+      : typeof cfg.headingFont === "string" ? cfg.headingFont : undefined,
+    bodyFont: typeof cfg.bodyFont === "string" ? cfg.bodyFont : undefined,
+  };
+}
+
+/** The `--brand-*` CSS custom properties every rendered landing page defines
+ *  at its root (getBrandStyleVars in lp-studio/src/lib/brand-config.ts), in
+ *  hint-field order. Generated templates reference these WITH the tenant's
+ *  current hex as the fallback — `var(--brand-primary, #112233)` — so the
+ *  block re-skins itself wherever the variables exist (published pages, the
+ *  builder canvas, any future tenant after a rebrand) and renders exactly
+ *  today's brand everywhere they don't (palette thumbnails, exports). */
+const BRAND_VAR_BY_HINT: ReadonlyArray<[keyof BrandHints, string, string]> = [
+  ["primaryColor", "--brand-primary", "primary"],
+  ["accentColor", "--brand-accent", "accent"],
+  ["textColor", "--brand-text", "text"],
+  ["backgroundColor", "--brand-page-bg", "page background"],
+  ["cardBackground", "--brand-card-bg", "card background"],
+  ["ctaBackground", "--brand-cta-bg", "CTA button fill"],
+  ["ctaText", "--brand-cta-text", "CTA button label"],
+];
+
+/** Shared BRAND PALETTE prompt section (single-block + compose prompts — one
+ *  builder so the two can never drift). Exported for its unit test. */
+export function buildBrandPaletteSection(b: BrandHints): string {
+  const colorLines = BRAND_VAR_BY_HINT
+    .filter(([key]) => typeof b[key] === "string" && (b[key] as string).trim() !== "")
+    .map(([key, cssVar, label]) => `${label}: var(${cssVar}, ${(b[key] as string).trim()})`);
+  const fontLines: string[] = [];
+  if (b.headingFont) fontLines.push(`heading font: ${b.headingFont}`);
+  if (b.bodyFont) fontLines.push(`body font: ${b.bodyFont}`);
+  if (colorLines.length === 0 && fontLines.length === 0) return "";
+  const parts: string[] = [];
+  if (colorLines.length > 0) {
+    parts.push(
+      `BRAND PALETTE — in the template's inline <style>, write brand colors EXACTLY as the var() expressions below (CSS variable + this brand's hex fallback). On rendered pages the variable resolves to the tenant's live brand, so the block re-skins itself if the brand ever changes; elsewhere the fallback preserves this exact look. Do NOT strip the fallback and do NOT put var() expressions in color FIELD values — schema/sample color fields stay literal hex (they are user-editable overrides).\n${colorLines.join("\n")}`,
+    );
+  }
+  if (fontLines.length > 0) {
+    parts.push(`Use these font-families when emitting text styles (literal family names, not variables):\n${fontLines.join("\n")}`);
+  }
+  return parts.join("\n");
+}
 
 export async function loadBrandHints(tenantId: number): Promise<BrandHints | null> {
   try {
@@ -951,12 +1004,7 @@ export async function loadBrandHints(tenantId: number): Promise<BrandHints | nul
       : undefined;
 
     return {
-      primaryColor: isHexLike(cfg.primaryColor) ? cfg.primaryColor.trim() : undefined,
-      accentColor: isHexLike(cfg.accentColor) ? cfg.accentColor.trim() : undefined,
-      textColor: isHexLike(cfg.textColor) ? cfg.textColor.trim() : undefined,
-      backgroundColor: isHexLike(cfg.backgroundColor) ? cfg.backgroundColor.trim() : undefined,
-      headingFont: typeof cfg.headingFont === "string" ? cfg.headingFont : undefined,
-      bodyFont: typeof cfg.bodyFont === "string" ? cfg.bodyFont : undefined,
+      ...visualBrandHints(cfg),
       brandName: brandName || undefined,
       businessSummary,
       aiStrictFactsMode: strict,
