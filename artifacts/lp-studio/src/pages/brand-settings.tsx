@@ -1220,7 +1220,7 @@ const FIELD_LABELS: Record<string, string> = {
   buttonPaddingX: "Horiz. Padding", buttonPaddingY: "Vert. Padding",
   buttonFontWeight: "Button Weight", buttonTextCase: "Button Case",
   buttonLetterSpacing: "Button Spacing", secondaryButtonStyle: "Secondary Button",
-  cardRadius: "Card Corners", cardShadow: "Card Shadow",
+  cardRadius: "Card Corners", cardShadow: "Card Shadow", layoutDensity: "Layout Density",
   brandName: "Brand Name", taglines: "Taglines", messagingPillars: "Messaging Pillars",
   toneOfVoice: "Tone of Voice", toneKeywords: "Tone Keywords",
   avoidPhrases: "Avoid Phrases", targetAudience: "Target Audience",

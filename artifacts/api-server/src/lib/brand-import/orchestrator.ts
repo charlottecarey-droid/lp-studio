@@ -166,6 +166,20 @@ export function bucketCardRadius(px: number): "square" | "slight" | "rounded" | 
   return px <= 2 ? "square" : px <= 11 ? "slight" : px <= 19 ? "rounded" : "soft";
 }
 
+/** Layout-density read from the extracted voice tone. Kept in LOCKSTEP with
+ *  inferDesignIntensity (routes/lp/generate-page.ts): its editorial-dense row
+ *  implies tight packing (compact gaps), its airy-minimal row implies open
+ *  spacing (spacious gaps) — same keyword regexes, same precedence. Returns
+ *  null for every other read; "regular" is never proposed because it is the
+ *  renderer's no-op default (getBrandSurfaceCss emits nothing for it). The
+ *  tokens test pins the lockstep. */
+export function densityFromTone(signals: string[]): "compact" | "spacious" | null {
+  const haystack = signals.join(" ").toLowerCase();
+  if (/\b(luxur|premium|editorial|sophisticat|elegant|refined|upscale)/.test(haystack)) return "compact";
+  if (/\b(clean|minimal|airy|calm|simple|understated|serene)/.test(haystack)) return "spacious";
+  return null;
+}
+
 /** Coarse shadow-depth read from a raw box-shadow declaration. Shared by the
  *  buttonShadow and cardShadow proposals so the two can't drift. The
  *  zero-offset check is anchored (`^0 0 0…`): the old inline heuristic's bare
@@ -333,6 +347,11 @@ export function flattenForProposed(results: OrchestratorPayload["results"]): {
       : "";
     const instructions = `Write in a ${formalityLabel} voice. Prefer ${sentenceLabel}. Use ${registerLabel}.${sigBlock}${forbiddenBlock}`.trim();
     put("copyInstructions", instructions, conf);
+    // Layout-density proposal (brand-fidelity, July 2026): airy/minimal tone
+    // reads spacious, luxury/editorial reads compact — see densityFromTone.
+    // Confidence capped at medium: it's an inference on the voice inference.
+    const density = densityFromTone([...p.tone, p.summary]);
+    if (density) put("layoutDensity", density, conf === "high" ? "medium" : conf);
   }
 
   if (results.content.status !== "failed" && results.content.data) {

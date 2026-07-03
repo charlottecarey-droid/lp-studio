@@ -16,9 +16,11 @@ import {
   bucketButtonPaddingY,
   bucketCardRadius,
   bucketShadow,
+  densityFromTone,
   flattenForProposed,
 } from "./orchestrator";
-import type { OrchestratorPayload, ButtonsData, DimensionResult } from "./types";
+import { inferDesignIntensity } from "../../routes/lp/generate-page";
+import type { OrchestratorPayload, ButtonsData, DimensionResult, VoiceData } from "./types";
 
 describe("cssLengthToPx", () => {
   it("parses px, rem/em (16px base), and bare numbers", () => {
@@ -172,5 +174,84 @@ describe("flattenForProposed — measured values reach the renderer's tokens", (
     );
     expect(proposed).not.toHaveProperty("cardRadius");
     expect(proposed).not.toHaveProperty("cardShadow");
+  });
+});
+
+// ── layoutDensity proposal from voice tone ───────────────────────────────────
+
+describe("densityFromTone", () => {
+  it("maps airy/minimal tone to spacious and luxury/editorial to compact", () => {
+    expect(densityFromTone(["minimal", "calm"])).toBe("spacious");
+    expect(densityFromTone(["premium", "refined"])).toBe("compact");
+    expect(densityFromTone(["bold", "playful"])).toBeNull();
+    expect(densityFromTone([])).toBeNull();
+  });
+
+  it("stays in lockstep with inferDesignIntensity's axis rows", () => {
+    // Same keywords, same precedence: whatever reads editorial-dense must
+    // read compact; airy-minimal must read spacious; everything else null.
+    const cases = [
+      ["luxury", "editorial"], ["sophisticated"], ["clean", "simple"],
+      ["airy"], ["serene"], ["energetic"], ["premium", "minimal"], ["quirky"],
+    ];
+    for (const tone of cases) {
+      const intensity = inferDesignIntensity({ toneKeywords: tone });
+      const density = densityFromTone(tone);
+      if (intensity === "editorial-dense") expect(density).toBe("compact");
+      else if (intensity === "airy-minimal") expect(density).toBe("spacious");
+      else expect(density).toBeNull();
+    }
+  });
+});
+
+describe("flattenForProposed — layoutDensity from the voice dimension", () => {
+  const voice = (tone: string[]): DimensionResult<VoiceData> =>
+    ({
+      status: "ok",
+      confidence: "high",
+      errors: [],
+      data: {
+        profile: {
+          tone,
+          formality: 3,
+          sentenceLengthAvg: "medium",
+          vocabularyRegister: "industry",
+          signaturePhrases: [],
+          forbiddenPhrases: [],
+          summary: "A brand voice.",
+        },
+        selfCheckScore: null,
+        selfCheckSourceSentence: null,
+        selfCheckRewrite: null,
+      } as unknown as VoiceData,
+    }) as DimensionResult<VoiceData>;
+
+  function resultsWithVoice(tone: string[]): OrchestratorPayload["results"] {
+    return {
+      logos: failed(),
+      colors: failed(),
+      typography: failed(),
+      buttons: failed(),
+      photography: failed(),
+      voice: voice(tone),
+      content: failed(),
+      structure: failed(),
+    } as unknown as OrchestratorPayload["results"];
+  }
+
+  it("proposes spacious for an airy voice, capped at medium confidence", () => {
+    const { proposed, confidence } = flattenForProposed(resultsWithVoice(["minimal", "calm"]));
+    expect(proposed["layoutDensity"]).toBe("spacious");
+    expect(confidence["layoutDensity"]).toBe("medium");
+  });
+
+  it("proposes compact for a luxury/editorial voice", () => {
+    const { proposed } = flattenForProposed(resultsWithVoice(["premium", "sophisticated"]));
+    expect(proposed["layoutDensity"]).toBe("compact");
+  });
+
+  it("proposes nothing for a neutral or energetic voice", () => {
+    expect(flattenForProposed(resultsWithVoice(["bold", "energetic"])).proposed).not.toHaveProperty("layoutDensity");
+    expect(flattenForProposed(resultsWithVoice([])).proposed).not.toHaveProperty("layoutDensity");
   });
 });
