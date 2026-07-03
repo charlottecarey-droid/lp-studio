@@ -3,7 +3,7 @@ import AnnouncementBanner from "../components/AnnouncementBanner";
 import { normalizeBannerBg } from "@/lib/banner-color";
 import HeroScene from "../components/HeroScene";
 import PromptCard from "../components/PromptCard";
-import AssembleSceneV2 from "../components/AssembleSceneV2";
+import { BuildSection } from "../components/BuildSection";
 import UseCases from "../components/UseCases";
 import FeatureRow from "../components/FeatureRow";
 import CreatePageOverlay from "../components/CreatePageOverlay";
@@ -112,7 +112,7 @@ function resolveHomepageOg(raw: Partial<HomepageOgConfig> | null | undefined): H
 // Homepage at the apex /. Order is intentional:
 //
 //   1   HeroScene + PromptCard — v3 editorial hero + Mad Libs prompt card
-//   2   AssembleSceneV2        — scroll-driven page-assembles demo
+//   2   BuildSection           — pinned scroll-saga page-assembles demo
 //   3   UseCases               — 4 concrete page types (ABM · A/B variants ·
 //                                 brand-locked blocks · success page)
 //   4   WhatsInside            — "What's inside" zigzag: Brand →
@@ -208,9 +208,12 @@ export default function Home() {
         <HeroScene />
         <PromptCard />
 
-        {/* 2 — Watch a page assemble: scroll-driven demo using the OG shell
-            with LP Studio preset content. */}
-        <AssembleSceneV2 />
+        {/* 2 — Watch a page assemble: the Lovable scroll-saga pinned
+            scrollytelling (BuildSection) — page assembles inside a browser
+            frame, then the frame gets wrapped by the builder UI with live
+            layers / accent / inline-edit interactions. Replaces
+            AssembleSceneV2 (kept on disk for reference). */}
+        <BuildSection />
 
         {/* 3 — Use cases: 4 concrete page types with mini live-page
             previews (ABM hero · A/B variants · brand-locked blocks ·

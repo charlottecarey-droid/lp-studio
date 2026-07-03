@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "lp-studio-fe",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@workspace/lp-studio",
+        "dev"
+      ],
+      "port": 5173
+    }
+  ]
+}
