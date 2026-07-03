@@ -1,7 +1,7 @@
 // HeroScene — editorial hero, restyled July 2026 toward the scroll-saga
-// look: single soft indigo halo, scroll-saga display scale (tight tracking,
-// 0.95 leading), SOLID indigo accent line (the old indigo→coral gradient
-// read off-palette). CTAs live below the PromptCard in the next section so
+// look: single soft indigo halo + scroll-saga display scale (tight tracking,
+// 0.95 leading). The indigo→coral gradient on the accent line is a keeper
+// (Charlotte's call). CTAs live below the PromptCard in the next section so
 // they sit closer to the "try it" interaction; the HeroShowcase visual
 // follows the prompt card.
 
@@ -78,8 +78,8 @@ export default function HeroScene() {
             maxWidth: 1040,
             color: "var(--navy)",
             // Scroll-saga type scale: bigger, tighter, denser — the single
-            // fastest premium cue. Solid indigo on the accent line (the old
-            // indigo→coral gradient read off-palette).
+            // fastest premium cue. The indigo→coral gradient on the accent
+            // line stays — Charlotte likes the rainbow.
             letterSpacing: "-0.045em",
             lineHeight: 0.95,
             fontWeight: 600,
@@ -88,7 +88,7 @@ export default function HeroScene() {
         >
           Describe a page.
           <br />
-          <span style={{ color: "var(--indigo)" }}>Watch it build.</span>
+          <span className="hero-gradient-text">Watch it build.</span>
         </h1>
 
         {/* Subhead */}

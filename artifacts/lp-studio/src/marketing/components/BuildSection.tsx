@@ -39,7 +39,9 @@ type BlockTx = { scale: number; dx: number; dy: number };
 
 type AccentKey = "indigo" | "coral" | "sage" | "gold" | "ink" | "violet" | "teal" | "crimson" | "neon";
 const ACCENTS: Record<AccentKey, { color: string; soft: string; label: string }> = {
-  indigo: { color: "oklch(0.55 0.24 275)", soft: "oklch(0.82 0.09 275)", label: "Indigo" },
+  // Matches the marketing site's real indigo (marketing.css --indigo), so
+  // the LP Studio demo page is in OUR palette, not a generic violet.
+  indigo: { color: "#3C38B8", soft: "rgba(75, 71, 229, 0.28)", label: "Indigo" },
   coral: { color: "oklch(0.72 0.17 28)", soft: "oklch(0.86 0.09 28)", label: "Coral" },
   sage: { color: "oklch(0.62 0.11 155)", soft: "oklch(0.85 0.07 155)", label: "Sage" },
   gold: { color: "oklch(0.74 0.15 85)", soft: "oklch(0.88 0.09 85)", label: "Gold" },
@@ -77,6 +79,9 @@ type Preset = {
   /** Optional hero photograph — when set, the hero visual card renders it
    *  under the badge/live-signal overlays instead of the gradient fill. */
   heroImage?: string;
+  /** Optional demo-page canvas background (defaults to white). The LP Studio
+   *  preset uses the site's cream so the demo page matches OUR brand. */
+  pageBg?: string;
   accent: AccentKey;
   layout: HeroLayout;
 };
@@ -115,6 +120,7 @@ const PRESETS: Preset[] = [
     ctaButton: "Import my brand \u2192",
     navCta: "Get started",
     heroImage: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=70",
+    pageBg: "var(--cream)",
     accent: "indigo",
     layout: "centered",
   },
@@ -1007,7 +1013,8 @@ export function BuildSection() {
                 <div
                   ref={canvasRef}
                   onPointerDown={() => setCanvasActive(true)}
-                  className={`@container relative flex h-[calc(100vh-300px)] flex-col ${canvasActive ? "overflow-y-auto" : "overflow-y-hidden"} overflow-x-hidden bg-white scroll-smooth pb-[420px]`}
+                  className={`@container relative flex h-[calc(100vh-300px)] flex-col ${canvasActive ? "overflow-y-auto" : "overflow-y-hidden"} overflow-x-hidden scroll-smooth pb-[420px]`}
+                  style={{ background: preset.pageBg ?? "#ffffff" }}
                 >
                   {/* Nav */}
                   <FocusBlock blockKey="nav" focusKey={focusKey} pulseTick={pulseTick} style={orderStyle(preset.layout, "nav")}>
