@@ -4078,6 +4078,12 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     }
     for (const [type, entry] of governanceByType) {
       if (entry.aiMode === "noai") excludeTypes.add(canonicalizeBlockType(type));
+      // Tenant-DEACTIVATED blocks constrain the AI vocabulary too (parity with
+      // the landing-page path's governanceDisabledTypes; the block-governance
+      // contract says "minus governance-disabled types"). Previously only
+      // `noai` was honored here, so a deactivated block could still be
+      // generated onto a microsite.
+      if (entry.enabled === false) excludeTypes.add(canonicalizeBlockType(type));
     }
 
     // HARD outline authority (this task) — when a segment / brand page outline
@@ -4152,7 +4158,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
             }
           }
           const dsoBase = dsoAllowedSet(dsoFreeformMode);
-          const candidates = [...referenced].filter((t) => !dsoBase.has(t));
+          const candidates = [...referenced].filter((t) => !dsoBase.has(t) && !excludeTypes.has(t));
           recipeExtraTypes = candidates.filter((t) => BLOCK_PROP_SCHEMAS[t]);
           const skipped = candidates.filter((t) => !BLOCK_PROP_SCHEMAS[t]);
           if (skipped.length > 0) {
@@ -4527,7 +4533,9 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       const allowed = segmentApprovedTypes.length || recipeExtraTypes.length
         ? new Set<string>([...dsoBase, ...segmentApprovedTypes, ...recipeExtraTypes])
         : dsoBase;
-      const filtered = normalizedBlocks.filter((b) => allowed.has(String(b.type ?? "")));
+      const filtered = normalizedBlocks.filter(
+        (b) => allowed.has(String(b.type ?? "")) && !excludeTypes.has(String(b.type ?? "")),
+      );
       if (filtered.length > 0) {
         normalizedBlocks = filtered;
       } else {
