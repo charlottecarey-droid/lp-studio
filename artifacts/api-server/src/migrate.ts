@@ -2739,6 +2739,27 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
+    // July 2026 — signal-attribution backfill v3: the v2/live name tier used
+    // EXACT equality, which never matched decorated CRM account names
+    // ("Heartland Dental-HQ", "TAG - The Aspen Group (Aspen Dental)-HQ"), so
+    // rb2b visitor signals (companyName + linkedin only) stopped linking
+    // entirely. v3 re-runs just the name tier with the normalized, tiered,
+    // fail-closed matcher the live resolver now uses. Marker-gated, non-fatal.
+    await runStep("sales signal attribution backfill v3 (normalized names)", async () => {
+    try {
+      const { runSignalAttributionBackfillV3 } = await import("./lib/signalAttribution");
+      const result = await runSignalAttributionBackfillV3();
+      if (!result.skipped) {
+        logger.info(
+          { accountByNormalizedName: result.accountByNormalizedName },
+          "sales signal attribution backfill v3 applied",
+        );
+      }
+    } catch (backfillErr) {
+      logger.error({ err: backfillErr }, "sales signal attribution backfill v3 failed (non-fatal)");
+    }
+    });
+
     // Task #641 — seed the root superadmin platform-operator accounts. These are
     // the bootstrap accounts (admin@lpstudio.ai + charlotte.carey@meetdandy.com
     // built-in, plus any configured via ROOT_SUPERADMIN_EMAIL) that own the

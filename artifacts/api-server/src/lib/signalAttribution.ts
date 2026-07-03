@@ -126,6 +126,75 @@ export interface SignalLinkage {
  * domain legitimately appears in multiple tenants' CRMs, so a global lookup
  * would leak attribution across tenants — never add one.
  */
+/**
+ * Canonical company-name form for account matching (July 2026). The Task
+ * #1381 rewrite made the name tier EXACT (case-insensitive equality) — but
+ * CRM-imported accounts carry decoration the wire identity never has
+ * ("Heartland Dental-HQ", "TAG - The Aspen Group (Aspen Dental)-HQ"), so the
+ * only tier rb2b visitor signals could use (companyName + linkedin, no
+ * email/domain) stopped matching entirely. Normalization strips the
+ * decoration; ambiguity gates below keep it fail-closed.
+ */
+export function normalizeCompanyName(raw: string | null | undefined): string {
+  if (!raw) return "";
+  return raw
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    // punctuation → space (keeps parenthetical words as words: "(aspen dental)")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    // trailing dedupe/location decoration: "-HQ", "- HQ", "(HQ)" all reduce
+    // to a trailing "hq" token after punctuation stripping
+    .replace(/\s+hq$/, "")
+    // trailing corporate suffixes (never a distinguishing word)
+    .replace(/\s+(llc|inc|incorporated|corp|corporation|ltd|pllc|pc|co)$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Tiered, fail-closed account match by company name. Tiers, each accepted
+ * ONLY when it selects exactly one account (ambiguity at any tier = no match,
+ * never a guess):
+ *   1. normalized exact equality        ("Heartland Dental" = "Heartland Dental-HQ")
+ *   2. account-name prefix              ("The Smilist" → "The Smilist Dental-HQ")
+ *   3. word-boundary containment        ("Aspen Dental" inside
+ *      "TAG - The Aspen Group (Aspen Dental)-HQ"), signal name ≥ 4 chars
+ */
+export function matchAccountByName(
+  companyName: string,
+  accounts: ReadonlyArray<{ id: number; name: string | null }>,
+): number | null {
+  const target = normalizeCompanyName(companyName);
+  if (!target) return null;
+  const norm = accounts
+    .map((a) => ({ id: a.id, n: normalizeCompanyName(a.name) }))
+    .filter((a) => a.n.length > 0);
+
+  const uniqueId = (ids: number[]): number | null => {
+    const distinct = [...new Set(ids)];
+    return distinct.length === 1 ? distinct[0] : null;
+  };
+
+  const exact = norm.filter((a) => a.n === target).map((a) => a.id);
+  if (exact.length > 0) return uniqueId(exact);
+
+  const prefix = norm.filter((a) => a.n.startsWith(`${target} `)).map((a) => a.id);
+  if (prefix.length > 0) return uniqueId(prefix);
+
+  if (target.length >= 4) {
+    const contained = norm
+      .filter((a) => ` ${a.n} `.includes(` ${target} `))
+      .map((a) => a.id);
+    if (contained.length > 0) return uniqueId(contained);
+  }
+  return null;
+}
+
+/** Per-tenant account cap for the in-memory name matcher — sales consoles
+ *  hold hundreds of accounts, not millions; the cap is a safety rail. */
+const NAME_MATCH_ACCOUNT_CAP = 5000;
+
 export async function resolveSignalLinkage(
   tenantId: number | null | undefined,
   identity: SignalIdentity,
@@ -199,15 +268,14 @@ export async function resolveSignalLinkage(
     if (rows.length === 1) accountId = rows[0].accountId;
   }
   if (accountId == null && companyName) {
-    const [row] = await db
-      .select({ id: salesAccountsTable.id })
+    // Normalized, tiered, fail-closed name match (see matchAccountByName).
+    // Tenant account lists are small; one indexed read + in-memory tiers.
+    const rows = await db
+      .select({ id: salesAccountsTable.id, name: salesAccountsTable.name })
       .from(salesAccountsTable)
-      .where(and(
-        eq(salesAccountsTable.tenantId, tenantId),
-        ilike(salesAccountsTable.name, companyName),
-      ))
-      .limit(1);
-    if (row) accountId = row.id;
+      .where(eq(salesAccountsTable.tenantId, tenantId))
+      .limit(NAME_MATCH_ACCOUNT_CAP);
+    accountId = matchAccountByName(companyName, rows);
   }
 
   return { contactId, accountId };
@@ -380,6 +448,64 @@ export async function runSignalAttributionBackfillV2(): Promise<SignalAttributio
  * title or email subject) so the activity feed never shows a bare placeholder
  * like "outreach".
  */
+const SIGNAL_ATTR_MARKER_V3 = "signal_attribution_backfill_v3_name_norm";
+
+export interface SignalAttributionBackfillV3Result {
+  skipped: boolean;
+  /** Signals whose account_id was filled by the normalized name matcher. */
+  accountByNormalizedName: number;
+}
+
+/**
+ * Backfill v3 (July 2026): re-run ONLY the name tier with the normalized,
+ * tiered matcher over account-less signals that carry a companyName. Exists
+ * because the v2/live exact-equality name tier never matched decorated CRM
+ * account names ("Heartland Dental-HQ"), leaving months of rb2b signals
+ * unlinked. Same guarantees as v2: tenant-scoped, fail-closed (ambiguous
+ * names stay unlinked), idempotent via a one-shot marker, non-fatal.
+ */
+export async function runSignalAttributionBackfillV3(): Promise<SignalAttributionBackfillV3Result> {
+  const marker = await db.execute(
+    sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${SIGNAL_ATTR_MARKER_V3}`,
+  );
+  if ((marker.rows ?? []).length > 0) {
+    return { skipped: true, accountByNormalizedName: 0 };
+  }
+
+  const signals = await db.execute(sql`
+    SELECT s.id, s.tenant_id AS "tenantId", s.metadata->>'companyName' AS "companyName"
+    FROM sales_signals s
+    WHERE s.account_id IS NULL
+      AND s.tenant_id IS NOT NULL
+      AND COALESCE(s.metadata->>'companyName', '') <> ''
+  `);
+
+  // One account list per tenant, matched in memory (tenant account lists are
+  // small; see NAME_MATCH_ACCOUNT_CAP).
+  const accountsByTenant = new Map<number, Array<{ id: number; name: string | null }>>();
+  let accountByNormalizedName = 0;
+  for (const row of (signals.rows ?? []) as Array<{ id: number; tenantId: number; companyName: string }>) {
+    let accounts = accountsByTenant.get(row.tenantId);
+    if (!accounts) {
+      const res = await db.execute(sql`
+        SELECT id, name FROM sales_accounts WHERE tenant_id = ${row.tenantId} LIMIT ${NAME_MATCH_ACCOUNT_CAP}
+      `);
+      accounts = (res.rows ?? []) as Array<{ id: number; name: string | null }>;
+      accountsByTenant.set(row.tenantId, accounts);
+    }
+    const accountId = matchAccountByName(row.companyName, accounts);
+    if (accountId != null) {
+      await db.execute(sql`UPDATE sales_signals SET account_id = ${accountId} WHERE id = ${row.id}`);
+      accountByNormalizedName++;
+    }
+  }
+
+  await db.execute(
+    sql`INSERT INTO _schema_migration_markers (key) VALUES (${SIGNAL_ATTR_MARKER_V3}) ON CONFLICT DO NOTHING`,
+  );
+  return { skipped: false, accountByNormalizedName };
+}
+
 export function readableSignalSource(type: string): string {
   const map: Record<string, string> = {
     email_open: "Opened email",
