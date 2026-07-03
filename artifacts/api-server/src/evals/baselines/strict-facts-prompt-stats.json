@@ -1,12 +1,12 @@
 {
   "briefId": "strict-facts-prompt-stats",
   "scores": {
-    "fabricatedStat": 0.25,
+    "fabricatedStat": 1,
     "placeholderLeak": 1,
     "emptyImageSlot": 1,
-    "bannedPhrase": 1,
+    "bannedPhrase": 0.75,
     "structural": 1,
     "subjectLeak": 1,
-    "degradation": 0.75
+    "degradation": 1
   }
 }

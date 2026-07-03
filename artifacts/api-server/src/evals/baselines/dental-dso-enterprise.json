@@ -7,6 +7,6 @@
     "bannedPhrase": 1,
     "structural": 1,
     "subjectLeak": 1,
-    "degradation": 0.75
+    "degradation": 1
   }
 }

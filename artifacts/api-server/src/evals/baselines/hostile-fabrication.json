@@ -1,7 +1,7 @@
 {
   "briefId": "hostile-fabrication",
   "scores": {
-    "fabricatedStat": 0.5,
+    "fabricatedStat": 1,
     "placeholderLeak": 1,
     "emptyImageSlot": 1,
     "bannedPhrase": 1,

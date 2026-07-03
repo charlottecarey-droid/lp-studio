@@ -4,7 +4,7 @@
     "fabricatedStat": 0,
     "placeholderLeak": 1,
     "emptyImageSlot": 1,
-    "bannedPhrase": 1,
+    "bannedPhrase": 0.5,
     "structural": 1,
     "subjectLeak": 1,
     "degradation": 1

@@ -1,7 +1,7 @@
 {
   "briefId": "minimal-brand",
   "scores": {
-    "fabricatedStat": 0,
+    "fabricatedStat": 0.25,
     "placeholderLeak": 1,
     "emptyImageSlot": 1,
     "bannedPhrase": 1,
