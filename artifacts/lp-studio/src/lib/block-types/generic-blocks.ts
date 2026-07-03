@@ -313,6 +313,15 @@ export interface SectionBlockBase extends CtaModalConfig {
   eyebrow?: string;
   heading?: string;
   subhead?: string;
+  /** AI-emitted aliases. Generation frequently writes the library-wide
+   *  `headline`/`subheadline` names despite this family's schema saying
+   *  `heading`/`subhead` (July 2026: ~5 of 8 recent feature-photo-cards rows
+   *  in prod carried headline with heading empty, rendering a header with no
+   *  title). Components read these as render-time fallbacks, so affected
+   *  pages — including ones already saved — heal on render. Inline edits
+   *  still write `heading`/`subhead`, which win once non-empty. */
+  headline?: string;
+  subheadline?: string;
   /** Content alignment. Defaults to "center". */
   align?: SectionAlign;
   /** Background preset (white / light / muted / dark / brand / gradient). */

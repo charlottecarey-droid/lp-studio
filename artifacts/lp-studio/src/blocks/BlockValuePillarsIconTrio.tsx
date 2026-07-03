@@ -69,8 +69,8 @@ export function BlockValuePillarsIconTrio({
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <SectionHeader
           eyebrow={props.eyebrow}
-          heading={props.heading}
-          subhead={props.subhead}
+          heading={props.heading || props.headline}
+          subhead={props.subhead || props.subheadline}
           align="center"
           theme={theme}
           brand={brand}
