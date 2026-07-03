@@ -869,15 +869,19 @@ export function BuildSection() {
   const frameX = useTransform(builderP, [0, 1], [0, -20]);
 
   const captionIndex = useTransform(p, (v): number => {
-    if (v < 0.14) return 0;
-    if (v < 0.32) return 1;
-    if (v < 0.52) return 2;
-    if (v < 0.68) return 3;
-    if (v < 0.86) return 4;
-    return 5;
+    if (v < 0.08) return 0;
+    if (v < 0.2) return 1;
+    if (v < 0.36) return 2;
+    if (v < 0.54) return 3;
+    if (v < 0.7) return 4;
+    if (v < 0.86) return 5;
+    return 6;
   });
 
   const CAPTIONS = [
+    // The first caption reads as the PROMPT that produced this page — the
+    // connective tissue between the hero's prompt card and the assembly.
+    { k: "Prompt", v: `\u201cA landing page for ${preset.brand}.\u201d` },
     { k: "Frame", v: "Empty canvas." },
     { k: "Compose", v: "Brand voice and layout in." },
     { k: "Populate", v: "Sections, visuals, proof." },

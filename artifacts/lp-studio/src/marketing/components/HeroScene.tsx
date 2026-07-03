@@ -1,8 +1,9 @@
-// HeroScene — the editorial hero from the first design-mockup (v3). Cream
-// paper-grain background, eyebrow pill, big DM Sans display headline with an
-// indigo→coral gradient on the accent line, supporting subhead only. CTAs
-// live below the PromptCard in the next section so they sit closer to the
-// "try it" interaction.
+// HeroScene — editorial hero, restyled July 2026 toward the scroll-saga
+// look: single soft indigo halo, scroll-saga display scale (tight tracking,
+// 0.95 leading), SOLID indigo accent line (the old indigo→coral gradient
+// read off-palette). CTAs live below the PromptCard in the next section so
+// they sit closer to the "try it" interaction; the HeroShowcase visual
+// follows the prompt card.
 
 export default function HeroScene() {
   return (
@@ -28,21 +29,8 @@ export default function HeroScene() {
           height: 800,
           transform: "translateX(-50%)",
           background:
-            "radial-gradient(ellipse at center, color-mix(in srgb, var(--indigo) 12%, transparent) 0%, transparent 60%)",
-          filter: "blur(8px)",
-        }}
-      />
-      <div
-        aria-hidden
-        className="absolute pointer-events-none"
-        style={{
-          top: "10%",
-          right: "-10%",
-          width: 600,
-          height: 600,
-          background:
-            "radial-gradient(circle, color-mix(in srgb, var(--coral) 10%, transparent) 0%, transparent 65%)",
-          filter: "blur(10px)",
+            "radial-gradient(ellipse at center, color-mix(in srgb, var(--indigo) 14%, transparent) 0%, transparent 62%)",
+          filter: "blur(24px)",
         }}
       />
 
@@ -87,21 +75,20 @@ export default function HeroScene() {
           className="text-display-xl animate-fade-up font-display"
           style={{
             margin: "0 auto",
-            maxWidth: 980,
+            maxWidth: 1040,
             color: "var(--navy)",
-            letterSpacing: "-0.02em",
-            // Raise only the clamp floor to 48px so the headline reads big and
-            // premium on phones (was 42px). Keeping the 7.2vw term means the
-            // floor applies below ~666px viewport; tablet/desktop scaling is
-            // unchanged (still 7.2vw, capping at 96px).
-            fontSize: "clamp(48px, 7.2vw, 96px)",
+            // Scroll-saga type scale: bigger, tighter, denser — the single
+            // fastest premium cue. Solid indigo on the accent line (the old
+            // indigo→coral gradient read off-palette).
+            letterSpacing: "-0.045em",
+            lineHeight: 0.95,
+            fontWeight: 600,
+            fontSize: "clamp(52px, 8.3vw, 104px)",
           }}
         >
           Describe a page.
           <br />
-          <span className="hero-gradient-text">
-            Watch it build.
-          </span>
+          <span style={{ color: "var(--indigo)" }}>Watch it build.</span>
         </h1>
 
         {/* Subhead */}

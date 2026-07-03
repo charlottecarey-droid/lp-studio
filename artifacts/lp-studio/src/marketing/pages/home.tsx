@@ -3,6 +3,7 @@ import AnnouncementBanner from "../components/AnnouncementBanner";
 import { normalizeBannerBg } from "@/lib/banner-color";
 import HeroScene from "../components/HeroScene";
 import PromptCard from "../components/PromptCard";
+import HeroShowcase from "../components/HeroShowcase";
 import { BuildSection } from "../components/BuildSection";
 import UseCases from "../components/UseCases";
 import FeatureRow from "../components/FeatureRow";
@@ -207,6 +208,10 @@ export default function Home() {
         {/* 1 — v3 editorial hero + Mad Libs prompt card */}
         <HeroScene />
         <PromptCard />
+        {/* Hero visual — a finished page in a browser frame ("here's the
+            result"), handing off to the scrollytelling right below ("here's
+            how fast it happens"). */}
+        <HeroShowcase />
 
         {/* 2 — Watch a page assemble: the Lovable scroll-saga pinned
             scrollytelling (BuildSection) — page assembles inside a browser
