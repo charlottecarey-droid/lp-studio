@@ -9803,10 +9803,29 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
   // prompt does not already list, lift their canonical descriptions out of the
   // GENERAL library and advertise them as ADDITIONAL allowed blocks. Best-effort.
   let injectedSegmentBlocks: string[] = [];
-  if ((useDso || useDsoPractices) && segmentApprovedTypes.size > 0) {
+  // July 2026 — recipe-selector expansion (parity with the microsite DSO
+  // paths): block types referenced anywhere in this path's effective recipe
+  // pool are advertised like segment-approved extras, so a recipe authored in
+  // the recipe maker can use blocks beyond the fixed DSO vocabulary and the
+  // model can actually fill them. Governance (aiDisabledTypes) already
+  // filtered the pool's source prompts; describability gates below.
+  const recipeReferencedTypes = new Set<string>();
+  if (useDso || useDsoPractices) {
+    for (const r of recipePool) {
+      for (const slot of r.skeleton) {
+        for (const opt of slot.split(/\s+OR\s+/)) {
+          const t = canonicalizeBlockType(opt.trim());
+          if (t && !aiDisabledTypes.has(t)) recipeReferencedTypes.add(t);
+        }
+      }
+    }
+  }
+  if ((useDso || useDsoPractices) && (segmentApprovedTypes.size > 0 || recipeReferencedTypes.size > 0)) {
     try {
       const alreadyAdvertised = new Set(extractPromptBlockTypes(systemPrompt));
-      const extraTypes = [...segmentApprovedTypes].filter((t) => !alreadyAdvertised.has(t));
+      const extraTypes = [...new Set([...segmentApprovedTypes, ...recipeReferencedTypes])].filter(
+        (t) => !alreadyAdvertised.has(t),
+      );
       if (extraTypes.length > 0) {
         const generalLibrary = buildGeneralSystemPrompt({
           includeContentSeries: true,

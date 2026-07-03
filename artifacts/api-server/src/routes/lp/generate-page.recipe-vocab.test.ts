@@ -119,3 +119,42 @@ describe("page-recipe skeletons reference only advertised block types", () => {
     expect(buildDsoPracticesSystemPrompt({ isDandyTenant: true, brandName: "Dandy" })).toMatch(markerRe);
   });
 });
+
+// July 2026 — recipe-selector expansion parity: the landing DSO paths inject
+// recipe-referenced extra blocks as ADDITIONAL APPROVED BLOCKS. The wiring is
+// route-level (recipePool -> injection union); this pins the building blocks
+// it relies on: every dso/dso-practices recipe slot type is either already in
+// the DSO prompt vocabulary or describable from the GENERAL library, so the
+// injection can always advertise it with a real schema.
+import { buildGeneralSystemPrompt, buildDsoSystemPrompt, buildDsoPracticesSystemPrompt } from "./generate-page";
+import { DSO_RECIPES, DSO_PRACTICES_RECIPES } from "../../lib/ai-prompts/page-recipes";
+
+describe("recipe-selector expansion — every DSO recipe block is advertisable", () => {
+  const general = buildGeneralSystemPrompt({
+    includeContentSeries: true,
+    includeWebinarHub: true,
+    includeBlogSeries: true,
+    includeStorefront: true,
+  });
+  const advertised = (prompt: string): Set<string> =>
+    new Set([...prompt.matchAll(/^- "([a-z0-9-]+)":/gm)].map((m) => m[1]));
+
+  it.each([
+    ["dso", DSO_RECIPES, buildDsoSystemPrompt({ isDandyTenant: true, brandName: "Dandy" })],
+    ["dso-practices", DSO_PRACTICES_RECIPES, buildDsoPracticesSystemPrompt({ isDandyTenant: true, brandName: "Dandy" })],
+  ])("%s recipes are fully coverable by path vocab + GENERAL library", (_path, recipes, dsoPrompt) => {
+    const dsoTypes = advertised(dsoPrompt);
+    const generalTypes = advertised(general);
+    for (const recipe of recipes) {
+      for (const slot of recipe.skeleton) {
+        for (const opt of slot.split(/\s+OR\s+/)) {
+          const t = opt.trim();
+          expect(
+            dsoTypes.has(t) || generalTypes.has(t),
+            `${recipe.id}: "${t}" is neither in the ${_path} vocab nor describable from the GENERAL library`,
+          ).toBe(true);
+        }
+      }
+    }
+  });
+});

@@ -104,7 +104,7 @@ import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
 import type { PageRecipe, RecipePromptPath } from "../../lib/ai-prompts/page-recipes";
 import { RECIPE_FREESTYLE_OVERRIDE_CLAUSE } from "../../lib/ai-prompts/page-recipes";
 import { loadEffectiveRecipesForPath } from "../../lib/ai-prompts/page-recipe-overrides";
-import { FREEFORM_ROLE_HINTS } from "../../lib/ai-prompts/microsite-block-vocab";
+import { FREEFORM_ROLE_HINTS, FREEFORM_MICROSITE_DISPLAY_TYPES } from "../../lib/ai-prompts/microsite-block-vocab";
 // Microsites now offer the SAME block set as a landing page (the general prompt)
 // plus a few microsite-only extras. The vocabulary is derived from a single
 // shared source so the recipe menu, the AI guide, and the runtime allow-set can
@@ -3286,7 +3286,7 @@ export function buildSystemPrompt(
       audienceSection,
       "",
       "AVAILABLE BLOCKS (choose from these — you decide which and in what order):",
-      buildFreeformBlockGuide(segmentApprovedTypes, excludeTypes),
+      buildFreeformBlockGuide([...new Set([...segmentApprovedTypes, ...recipeExtraTypes])], excludeTypes),
       freeformFooter,
     ].join("\n");
   }
@@ -4136,7 +4136,7 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
             `${tenantId}::${accountId}::${segment.id ?? "core"}`,
           );
         }
-        if (useDsoFreeform && dsoFreeformMode && recipePool.length > 0) {
+        if ((useDsoFreeform || useFreeform) && recipePool.length > 0) {
           const referenced = new Set<string>();
           for (const r of recipePool) {
             for (const slot of r.skeleton) {
@@ -4146,8 +4146,13 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
               }
             }
           }
-          const dsoBase = dsoAllowedSet(dsoFreeformMode);
-          const candidates = [...referenced].filter((t) => !dsoBase.has(t) && !excludeTypes.has(t));
+          // Base = what the path already advertises: the DSO vocab on the DSO
+          // paths, the neutral freeform display set on neutral-freeform.
+          const base: ReadonlySet<string> =
+            useDsoFreeform && dsoFreeformMode
+              ? dsoAllowedSet(dsoFreeformMode)
+              : new Set(FREEFORM_MICROSITE_DISPLAY_TYPES.map((t) => canonicalizeBlockType(t)));
+          const candidates = [...referenced].filter((t) => !base.has(t) && !excludeTypes.has(t));
           recipeExtraTypes = candidates.filter((t) => BLOCK_PROP_SCHEMAS[t]);
           const skipped = candidates.filter((t) => !BLOCK_PROP_SCHEMAS[t]);
           if (skipped.length > 0) {

@@ -113,6 +113,15 @@ describe("buildSystemPrompt — recipe-selector vocabulary expansion (DSO paths)
     expect(prompt).not.toContain('"zigzag-features"');
   });
 
+  it("advertises recipe-referenced extras on the NEUTRAL freeform path too", () => {
+    const prompt = buildSystemPrompt(
+      CORE, BRAND, undefined, null, /*useFreeform*/ true, undefined, null,
+      [], false, undefined, undefined, new Set(), null,
+      /*recipeExtraTypes*/ ["dso-stat-row"],
+    );
+    expect(prompt).toContain('"dso-stat-row"');
+  });
+
   it("governance excludeTypes still strips a recipe-referenced extra", () => {
     const prompt = buildSystemPrompt(
       CORE, BRAND, undefined, null, false, undefined, "enterprise",

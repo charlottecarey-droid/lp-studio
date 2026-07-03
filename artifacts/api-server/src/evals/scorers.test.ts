@@ -358,7 +358,7 @@ describe("structuralScore", () => {
       ...cleanPage(),
     ];
     const r = structuralScore(blocks);
-    expect(r.violations.filter((v) => v.detail.includes("null"))).toHaveLength(0);
+    expect(r.violations.filter((v) => (v.detail ?? "").includes("null"))).toHaveLength(0);
   });
 
   it("flags blocks whose props is not an object", () => {
