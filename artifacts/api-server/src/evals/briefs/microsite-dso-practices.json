@@ -1,0 +1,55 @@
+{
+  "id": "microsite-dso-practices",
+  "description": "DSO practices microsite — the seeded segment's micrositeBlockList is the curated dso-* PRACTICES lineup, so list-based detection selects the practices vocabulary (never mixed with the enterprise set on one page). Same Dandy-copy leak guard as the enterprise brief.",
+  "kind": "microsite",
+  "request": { "segmentId": "dso-practices" },
+  "account": {
+    "name": "Maple Grove Dental Care",
+    "domain": "maplegrovedentalcare.example.com",
+    "segment": "DSO Practice",
+    "numLocations": 4
+  },
+  "brand": {
+    "plan": "scale",
+    "config": {
+      "brandName": "Crestline Dental Lab",
+      "companyDescription": "Crestline Dental Lab is a digital dental lab partnering with multi-location dental groups nationwide.",
+      "toneOfVoice": "Warm, practical, clinician-to-clinician.",
+      "targetAudience": "Practice managers and lead dentists inside supported groups",
+      "defaultCtaText": "Activate your practice",
+      "defaultCtaUrl": "https://crestlinelab.example.com/activate"
+    },
+    "segments": [
+      {
+        "id": "dso-practices",
+        "name": "DSO Practices",
+        "description": "Practice-level staff at supported group locations",
+        "valueProps": [
+          "Same-day digital case submission from every operatory",
+          "One lab contact for the whole practice"
+        ],
+        "stats": [
+          { "value": "4.9/5 practice satisfaction", "label": "practice satisfaction", "approvedForAi": true },
+          { "value": "2-day average turnaround", "label": "turnaround", "approvedForAi": true }
+        ],
+        "micrositeBlockList": [
+          { "type": "dso-practice-nav" },
+          { "type": "dso-practice-hero" },
+          { "type": "dso-stat-row" },
+          { "type": "dso-partnership-perks" },
+          { "type": "dso-split-feature" },
+          { "type": "dso-faq" },
+          { "type": "dso-activation-steps" },
+          { "type": "dso-final-cta" }
+        ]
+      }
+    ]
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Heartland Dental", "meetdandy"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 4,
+    "maxBlocks": 30,
+    "thresholds": { "fabricatedStat": 0 }
+  }
+}

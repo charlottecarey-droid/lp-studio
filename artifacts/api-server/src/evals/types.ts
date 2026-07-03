@@ -69,6 +69,7 @@ export const SCORER_NAMES = [
   "structural",
   "subjectLeak",
   "degradation",
+  "lineupDiversity",
 ] as const;
 
 export type ScorerName = (typeof SCORER_NAMES)[number];
@@ -108,6 +109,9 @@ export interface BriefExpectations {
   /** Extra block types treated as image-led by emptyImageSlotScore, on top of
    *  the hero/media role-tag default. */
   imageLedTypes?: string[];
+  /** Block types that must NOT appear in the result (e.g. types a governance
+   *  seed set to ai_mode "noai"). Any occurrence fails the brief. */
+  forbiddenBlockTypes?: string[];
   /** Minimum acceptable score per scorer; overrides DEFAULT_THRESHOLDS. */
   thresholds?: Partial<Record<ScorerName, number>>;
 }
@@ -118,6 +122,11 @@ export interface BriefBrand {
   plan?: string;
   /** lp_brand_settings.config JSON, verbatim (BrandConfig shape). */
   config: Record<string, unknown>;
+  /** Audience segments (BrandAudienceSegment[] shape from
+   *  routes/sales/generate-microsite.ts). Convenience for microsite briefs:
+   *  merged into `config.segments` at seed time (wins over config.segments).
+   *  Page briefs may keep embedding segments directly in `config`. */
+  segments?: Array<Record<string, unknown>>;
   /** Template page seeded when request.templateId === "$TEMPLATE". */
   template?: { title: string; blocks: EvalBlock[] };
 }
@@ -136,10 +145,65 @@ export interface BriefRequest {
   [key: string]: unknown;
 }
 
+/** POST /sales/accounts/:accountId/generate-microsite body (subset the eval
+ *  briefs exercise — see generateMicrositeHandler's body parsing). All fields
+ *  optional: an empty body drives the freeform "microsite" recipe path. */
+export interface MicrositeBriefRequest {
+  prompt?: string;
+  /** Resolved against the seeded brand's segments (id, falling back to name).
+   *  An unknown id fails closed with a 400 in the route, so the runner
+   *  validates it against the brief's segment seed before generating. */
+  segmentId?: string;
+  personaId?: string;
+  objective?: string;
+  templateId?: number;
+  replaceImagery?: boolean;
+  referenceUrl?: string;
+  referenceUrls?: string[];
+  [key: string]: unknown;
+}
+
+/** The sales_accounts row the runner seeds for a microsite brief. */
+export interface BriefAccount {
+  name: string;
+  domain?: string;
+  /** sales_accounts.segment, e.g. "DSO" | "DSO Practice" | "Independent". */
+  segment?: string;
+  numLocations?: number;
+}
+
+/** Lineup-diversity probe: seed N name-variant accounts, generate once per
+ *  account, and score distinct skeleton signatures / N (lineupDiversity). */
+export interface DiversityProbe {
+  /** Number of accounts to seed + generate for (2..8). */
+  accounts: number;
+}
+
+/** One tenant_block_governance row the runner seeds (tenant-scoped). */
+export interface BriefGovernanceRule {
+  blockType: string;
+  /** 'open' | 'copy' | 'locked' | 'noai' — defaults to 'open'. */
+  aiMode?: "open" | "copy" | "locked" | "noai";
+  /** NULL = inherit (available); false = tenant-disabled. */
+  enabled?: boolean;
+  /** Brand-segment ids this block is approved for. */
+  segments?: string[];
+}
+
 export interface GoldenBrief {
   id: string;
   description: string;
-  request: BriefRequest;
+  /** "page" (default) → POST /lp/generate-page through the express stack;
+   *  "microsite" → generateMicrositeHandler invoked directly. */
+  kind?: "page" | "microsite";
+  request: BriefRequest | MicrositeBriefRequest;
   brand: BriefBrand;
+  /** Required when kind === "microsite": the sales account to pitch. */
+  account?: BriefAccount;
+  /** Optional (microsite only): generate for N account variants and score
+   *  lineup diversity. */
+  diversityProbe?: DiversityProbe;
+  /** Optional tenant_block_governance seed rows. */
+  governance?: BriefGovernanceRule[];
   expectations: BriefExpectations;
 }

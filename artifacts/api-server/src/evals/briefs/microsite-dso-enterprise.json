@@ -1,0 +1,54 @@
+{
+  "id": "microsite-dso-enterprise",
+  "description": "DSO enterprise microsite — the seeded segment's micrositeBlockList is the curated dso-* enterprise lineup, so LIST-BASED DSO detection fires and the page composes from the DSO enterprise vocabulary. Markers guard against Dandy-authored copy (Heartland Dental case-study prose, meetdandy links) bleeding onto this non-Dandy tenant; bare 'Dandy'/'Heartland' are deliberately NOT markers because dso-heartland-hero is a block NAME, not copy, and the target account itself is unbranded.",
+  "kind": "microsite",
+  "request": { "segmentId": "dso-enterprise" },
+  "account": {
+    "name": "Evergreen Dental Alliance",
+    "domain": "evergreendentalalliance.example.com",
+    "segment": "DSO",
+    "numLocations": 85
+  },
+  "brand": {
+    "plan": "scale",
+    "config": {
+      "brandName": "Crestline Dental Lab",
+      "companyDescription": "Crestline Dental Lab is a digital dental lab partnering with multi-location dental groups nationwide.",
+      "toneOfVoice": "Executive, evidence-led, calm.",
+      "targetAudience": "Clinical and procurement leadership at enterprise DSOs",
+      "defaultCtaText": "Book a pilot consult",
+      "defaultCtaUrl": "https://crestlinelab.example.com/pilot"
+    },
+    "segments": [
+      {
+        "id": "dso-enterprise",
+        "name": "DSO Enterprise",
+        "description": "Clinical + procurement leadership at 50+ location dental groups",
+        "valueProps": [
+          "One digital lab standard across every location",
+          "Fleet-level remake and turnaround analytics"
+        ],
+        "stats": [
+          { "value": "97.2% on-time delivery", "label": "on-time delivery", "approvedForAi": true },
+          { "value": "38% fewer remakes", "label": "remake reduction", "approvedForAi": true }
+        ],
+        "micrositeBlockList": [
+          { "type": "dso-heartland-hero" },
+          { "type": "dso-stat-bar" },
+          { "type": "dso-challenges" },
+          { "type": "dso-insights-dashboard" },
+          { "type": "dso-success-stories" },
+          { "type": "dso-pilot-steps" },
+          { "type": "dso-final-cta" }
+        ]
+      }
+    ]
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Heartland Dental", "meetdandy"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 4,
+    "maxBlocks": 30,
+    "thresholds": { "fabricatedStat": 0 }
+  }
+}

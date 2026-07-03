@@ -1,7 +1,7 @@
 /**
- * Golden-brief eval runner for /lp/generate-page — run me on an environment
- * with a real database and the AI proxy configured (i.e. Replit), NOT in CI
- * unit-test lanes:
+ * Golden-brief eval runner for /lp/generate-page AND the sales microsite
+ * generator — run me on an environment with a real database and the AI proxy
+ * configured (i.e. Replit), NOT in CI unit-test lanes:
  *
  *   pnpm --filter @workspace/api-server eval:generation
  *   pnpm --filter @workspace/api-server eval:generation -- --brief=generic-saas
@@ -10,10 +10,19 @@
  * For each brief in src/evals/briefs/*.json the runner:
  *   1. seeds a throwaway tenant carrying the brief's brand config (and, for
  *      the template-rewrite brief, a seeded template page),
- *   2. POSTs the brief's request through the real express stack via the
- *      in-process inject() harness (same pattern as the route tests — the
- *      full middleware chain, quota gate and rate limiters run; only TCP is
- *      bypassed),
+ *   2. PAGE briefs (default): POSTs the brief's request through the real
+ *      express stack via the in-process inject() harness (same pattern as the
+ *      route tests — the full middleware chain, quota gate and rate limiters
+ *      run; only TCP is bypassed),
+ *   2b. MICROSITE briefs (kind: "microsite"): additionally seeds the brief's
+ *      sales_accounts row (plus a minimal sales_briefings row so the route's
+ *      slow inline account research is skipped) and invokes
+ *      generateMicrositeHandler DIRECTLY with a minimal req/res shim —
+ *      non-streaming (no query.stream), auth/limiters bypassed on purpose.
+ *      A brief with `diversityProbe: { accounts: N }` seeds N name-variant
+ *      accounts, generates once per account, and scores lineupDiversity =
+ *      distinct skeleton signatures / N (chrome nav/footer excluded); the
+ *      other scorers run over the FIRST generation.
  *   3. scores the JSON result with the pure scorers in scorers.ts,
  *   4. optionally (EVAL_LLM_JUDGE=1) attaches a soft LLM copy-quality verdict,
  *   5. cleans the tenant back out.
@@ -32,8 +41,17 @@ import { readdirSync, readFileSync, mkdirSync, writeFileSync, existsSync } from 
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
-import { approvedStatPool, scoreGeneration } from "./scorers";
-import type { EvalReport, GenerationResultLike, GoldenBrief, ScorerName } from "./types";
+import { approvedStatPool, lineupDiversityScore, lineupSignature, scoreGeneration, type LineupPage } from "./scorers";
+import type {
+  BriefAccount,
+  EvalBlock,
+  EvalDegradation,
+  EvalReport,
+  GenerationResultLike,
+  GoldenBrief,
+  MicrositeBriefRequest,
+  ScorerName,
+} from "./types";
 import type { JudgeVerdict } from "./judge";
 
 const EVALS_DIR = dirname(fileURLToPath(import.meta.url));
@@ -58,6 +76,8 @@ interface BriefRunRecord {
     degradations: unknown[];
     strictMismatches: unknown[];
     referenceFailureReason: string | null;
+    /** Diversity probes only: per-account skeleton signatures, in seed order. */
+    lineupSignatures?: Array<{ account: string; signature: string }>;
   };
   judge?: JudgeVerdict | { error: string };
 }
@@ -147,6 +167,165 @@ function diffAgainstBaseline(report: EvalReport): string[] {
   return regressions;
 }
 
+// ── Microsite invocation (direct handler + req/res shim) ────────────────────
+
+/** generateMicrositeHandler's shape, kept structural so the runner does not
+ *  need express's Request/Response generics at the call site. */
+type MicrositeHandler = (req: never, res: never) => Promise<void>;
+
+interface ShimResponse {
+  status: number;
+  body: unknown;
+}
+
+/**
+ * Invoke the microsite handler directly (bypassing auth middleware + rate
+ * limiters — the runner already established the tenant), with a minimal
+ * req/res shim. `query` stays empty so wantsGenerationStream() is false and
+ * the handler answers via res.json — the non-streaming path.
+ */
+function invokeMicrositeHandler(
+  handler: MicrositeHandler,
+  input: { accountId: number; tenantId: number; briefId: string; body: Record<string, unknown> },
+): Promise<ShimResponse> {
+  return new Promise<ShimResponse>((resolve, reject) => {
+    let statusCode = 200;
+    let settled = false;
+    const finish = (value: ShimResponse): void => {
+      if (!settled) {
+        settled = true;
+        resolve(value);
+      }
+    };
+    const req: Record<string, unknown> = {
+      params: { accountId: String(input.accountId) },
+      body: input.body,
+      query: {},
+      headers: {},
+      authUser: {
+        userId: 998900000 + Math.floor(Math.random() * 100000),
+        email: `eval-${input.briefId}@example.com`,
+        name: `Eval ${input.briefId}`,
+        avatarUrl: null,
+        tenantId: input.tenantId,
+        role: "admin",
+        permissions: {},
+        isAdmin: true,
+        appUserRole: null,
+      },
+      header: () => undefined,
+      on: () => req,
+    };
+    const res: Record<string, unknown> = {
+      headersSent: false,
+      status: (code: number) => {
+        statusCode = code;
+        return res;
+      },
+      json: (payload: unknown) => {
+        finish({ status: statusCode, body: payload });
+        return res;
+      },
+      setHeader: () => res,
+      write: () => true,
+      end: () => {
+        finish({ status: statusCode, body: null });
+        return res;
+      },
+      flushHeaders: () => undefined,
+      on: () => res,
+    };
+    handler(req as never, res as never)
+      // A resolved handler that never answered (should not happen on the
+      // non-streaming path) surfaces as a null body the caller rejects.
+      .then(() => finish({ status: statusCode, body: null }))
+      .catch(reject);
+  });
+}
+
+/** Deterministic account-name variants for the diversity probe. */
+const ACCOUNT_VARIANT_SUFFIXES = ["", " North", " South", " East", " West", " Summit", " Lakeside", " Ridge"] as const;
+const MAX_PROBE_ACCOUNTS = ACCOUNT_VARIANT_SUFFIXES.length;
+
+function variantAccountName(base: string, index: number): string {
+  return `${base}${ACCOUNT_VARIANT_SUFFIXES[index] ?? ` ${index + 1}`}`;
+}
+
+/** Minimal sales_briefings.briefing_data seed. Pre-seeding a briefing makes
+ *  the handler skip its slow (30-90s) inline account research, keeping eval
+ *  runs fast and deterministic. */
+function briefingOverview(account: BriefAccount, name: string): string {
+  return [
+    `${name} is a prospective customer account.`,
+    account.segment ? `Segment: ${account.segment}.` : "",
+    typeof account.numLocations === "number" ? `They operate ${account.numLocations} locations.` : "",
+    account.domain ? `Website: ${account.domain}.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+interface ValidatedMicrositeBrief {
+  account: BriefAccount;
+  request: MicrositeBriefRequest;
+  /** brand.config with brand.segments merged in (segments win). */
+  config: Record<string, unknown>;
+  probeCount: number;
+}
+
+/** Fail fast — with a message naming exactly what's missing — before touching
+ *  the DB, so a half-seeded microsite brief can never start a paid generation. */
+function validateMicrositeBrief(brief: GoldenBrief): ValidatedMicrositeBrief {
+  const account = brief.account;
+  if (!account || typeof account.name !== "string" || !account.name.trim()) {
+    throw new Error(
+      `microsite brief "${brief.id}" is missing account.name — every microsite brief must describe the sales_accounts row to seed ({ name, domain?, segment?, numLocations? })`,
+    );
+  }
+  const request = (brief.request ?? {}) as MicrositeBriefRequest;
+  const config: Record<string, unknown> = { ...(brief.brand?.config ?? {}) };
+  if (Array.isArray(brief.brand?.segments)) config["segments"] = brief.brand.segments;
+  const segmentId = typeof request.segmentId === "string" ? request.segmentId.trim() : "";
+  if (segmentId) {
+    const segments = Array.isArray(config["segments"]) ? (config["segments"] as unknown[]) : [];
+    const matched = segments.some((s) => {
+      if (!s || typeof s !== "object") return false;
+      const rec = s as Record<string, unknown>;
+      // Same id derivation the route uses: id, falling back to name.
+      const sid = (typeof rec["id"] === "string" ? rec["id"] : "").trim() || (typeof rec["name"] === "string" ? rec["name"] : "").trim();
+      return sid === segmentId;
+    });
+    if (!matched) {
+      throw new Error(
+        `microsite brief "${brief.id}" requests segmentId "${segmentId}" but seeds no matching segment — add it to brand.segments (or brand.config.segments); the route fails closed (400) on unknown segment ids`,
+      );
+    }
+  }
+  const probeCount = brief.diversityProbe ? brief.diversityProbe.accounts : 1;
+  if (brief.diversityProbe && (!Number.isInteger(probeCount) || probeCount < 2 || probeCount > MAX_PROBE_ACCOUNTS)) {
+    throw new Error(
+      `microsite brief "${brief.id}" has diversityProbe.accounts=${String(probeCount)} — must be an integer between 2 and ${MAX_PROBE_ACCOUNTS}`,
+    );
+  }
+  return { account, request, config, probeCount };
+}
+
+/** Map the handler's { page, blocks, degradations } body onto the shared
+ *  GenerationResultLike surface the scorers consume. */
+function micrositeResultLike(body: unknown): GenerationResultLike {
+  const raw = (body ?? {}) as {
+    page?: { title?: unknown; slug?: unknown };
+    blocks?: unknown;
+    degradations?: unknown;
+  };
+  return {
+    title: typeof raw.page?.title === "string" ? raw.page.title : undefined,
+    slug: typeof raw.page?.slug === "string" ? raw.page.slug : undefined,
+    blocks: Array.isArray(raw.blocks) ? (raw.blocks as EvalBlock[]) : [],
+    degradations: Array.isArray(raw.degradations) ? (raw.degradations as EvalDegradation[]) : [],
+  };
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -157,7 +336,7 @@ async function main(): Promise<void> {
 
   // DB / route imports happen after the env preflight so a misconfigured
   // environment fails with the message above, not a module-load stack trace.
-  const [{ pool }, expressMod, cookieParserMod, authMod, injectMod, generateMod, judgeMod] =
+  const [{ pool }, expressMod, cookieParserMod, authMod, injectMod, generateMod, micrositeMod, judgeMod] =
     await Promise.all([
       import("@workspace/db"),
       import("express"),
@@ -165,8 +344,10 @@ async function main(): Promise<void> {
       import("../middleware/requireAuth"),
       import("../test-utils/injectRequest"),
       import("../routes/lp/generate-page"),
+      import("../routes/sales/generate-microsite"),
       import("./judge"),
     ]);
+  const micrositeHandler = micrositeMod.generateMicrositeHandler as unknown as MicrositeHandler;
   const express = expressMod.default;
   const cookieParser = cookieParserMod.default;
   const { SESSION_COOKIE, requireAuth } = authMod;
@@ -208,9 +389,15 @@ async function main(): Promise<void> {
       }
       for (const id of createdTenantIds) {
         await pool.query(`DELETE FROM ai_generation_log WHERE tenant_id = $1`, [id]).catch(() => {});
+        await pool.query(`DELETE FROM lp_page_fact_flags WHERE tenant_id = $1`, [id]).catch(() => {});
         await pool.query(`DELETE FROM lp_pages WHERE tenant_id = $1`, [id]).catch(() => {});
         await pool.query(`DELETE FROM lp_media WHERE tenant_id = $1`, [id]).catch(() => {});
         await pool.query(`DELETE FROM lp_brand_settings WHERE tenant_id = $1`, [id]).catch(() => {});
+        // Microsite seeds (briefings reference accounts — delete them first).
+        await pool.query(`DELETE FROM sales_briefings WHERE tenant_id = $1`, [id]).catch(() => {});
+        await pool.query(`DELETE FROM sales_signals WHERE tenant_id = $1`, [id]).catch(() => {});
+        await pool.query(`DELETE FROM sales_accounts WHERE tenant_id = $1`, [id]).catch(() => {});
+        await pool.query(`DELETE FROM tenant_block_governance WHERE tenant_id = $1`, [id]).catch(() => {});
       }
       for (const sid of createdSids) {
         await pool.query(`DELETE FROM app_sessions WHERE sid = $1`, [sid]).catch(() => {});
@@ -221,6 +408,10 @@ async function main(): Promise<void> {
     };
 
     try {
+      // 0. Microsite briefs: fail fast (clear message) on missing seed data
+      //    BEFORE anything touches the DB or the AI proxy.
+      const micro = (brief.kind ?? "page") === "microsite" ? validateMicrositeBrief(brief) : null;
+
       // 1. Seed the tenant + brand.
       const slug = `eval-gen-${brief.id}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`.slice(0, 120);
       const tenantRow = await pool.query<{ id: number }>(
@@ -231,8 +422,149 @@ async function main(): Promise<void> {
       createdTenantIds.push(tenantId);
       await pool.query(
         `INSERT INTO lp_brand_settings (tenant_id, config) VALUES ($1, $2::jsonb)`,
-        [tenantId, JSON.stringify(brief.brand.config ?? {})],
+        [tenantId, JSON.stringify(micro ? micro.config : (brief.brand.config ?? {}))],
       );
+
+      // 1b. Seed tenant_block_governance rows when the brief carries any.
+      for (const rule of brief.governance ?? []) {
+        await pool.query(
+          `INSERT INTO tenant_block_governance (tenant_id, block_type, enabled, ai_mode, segments)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [tenantId, rule.blockType, rule.enabled ?? null, rule.aiMode ?? "open", rule.segments ?? []],
+        );
+      }
+
+      // ── Microsite path: seed account(s) + invoke the handler directly ──────
+      if (micro) {
+        const pages: Array<{ label: string; result: GenerationResultLike }> = [];
+        let probeFailure: string | null = null;
+
+        for (let i = 0; i < micro.probeCount; i++) {
+          const accountName = variantAccountName(micro.account.name.trim(), i);
+          const accountRow = await pool.query<{ id: number }>(
+            `INSERT INTO sales_accounts (tenant_id, name, domain, segment, num_locations, status)
+             VALUES ($1, $2, $3, $4, $5, 'active') RETURNING id`,
+            [tenantId, accountName, micro.account.domain ?? null, micro.account.segment ?? null, micro.account.numLocations ?? null],
+          );
+          const accountId = accountRow.rows[0].id;
+          // Pre-seed the account briefing so the route's slow inline account
+          // research (30-90s of external calls) is skipped.
+          await pool.query(
+            `INSERT INTO sales_briefings (tenant_id, account_id, briefing_data, status)
+             VALUES ($1, $2, $3::jsonb, 'complete')`,
+            [tenantId, accountId, JSON.stringify({ overview: briefingOverview(micro.account, accountName) })],
+          );
+
+          const invocation = invokeMicrositeHandler(micrositeHandler, {
+            accountId,
+            tenantId,
+            briefId: brief.id,
+            body: { ...micro.request },
+          });
+          const shimRes = await Promise.race([
+            invocation,
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), GENERATION_TIMEOUT_MS).unref()),
+          ]);
+          if (shimRes === null) {
+            timedOut = true;
+            probeFailure = `microsite generation for account "${accountName}" timed out after ${GENERATION_TIMEOUT_MS}ms`;
+            break;
+          }
+          if (shimRes.status !== 200 || shimRes.body == null) {
+            probeFailure = `microsite generation for account "${accountName}" failed: HTTP ${shimRes.status}: ${JSON.stringify(shimRes.body).slice(0, 300)}`;
+            break;
+          }
+          pages.push({ label: accountName, result: micrositeResultLike(shimRes.body) });
+        }
+
+        if (probeFailure !== null) {
+          records.push({
+            briefId: brief.id,
+            description: brief.description,
+            report: {
+              briefId: brief.id,
+              scores: emptyScores(),
+              violations: [],
+              passed: false,
+              failures: [probeFailure],
+            },
+            regressions: [],
+            meta: emptyMeta(Date.now() - startedAt),
+          });
+          console.log(`  ✗ ${probeFailure}`);
+          continue;
+        }
+
+        // Score: content scorers over the FIRST generation, lineup diversity
+        // across every generation (a single-page brief trivially scores 1).
+        const primary = pages[0].result;
+        const diversity = lineupDiversityScore(
+          pages.map((p): LineupPage => ({ label: p.label, blocks: p.result.blocks })),
+        );
+        const promptText = typeof brief.request.prompt === "string" ? brief.request.prompt : "";
+        const allowedStats = approvedStatPool(micro.config, promptText, brief.expectations.allowedStats ?? []);
+        const avoidPhrases = Array.isArray(micro.config["avoidPhrases"])
+          ? (micro.config["avoidPhrases"] as unknown[]).filter((p): p is string => typeof p === "string")
+          : [];
+        const report = scoreGeneration({
+          briefId: brief.id,
+          result: primary,
+          expectations: brief.expectations,
+          allowedStats,
+          brandAvoidPhrases: avoidPhrases,
+          lineupDiversity: diversity,
+        });
+        const regressions = diffAgainstBaseline(report);
+
+        const record: BriefRunRecord = {
+          briefId: brief.id,
+          description: brief.description,
+          report,
+          regressions,
+          meta: {
+            httpStatus: 200,
+            durationMs: Date.now() - startedAt,
+            title: typeof primary.title === "string" ? primary.title : null,
+            slug: typeof primary.slug === "string" ? primary.slug : null,
+            blockTypes: (Array.isArray(primary.blocks) ? primary.blocks : []).map((b) =>
+              typeof b?.type === "string" ? b.type : "?",
+            ),
+            degradations: Array.isArray(primary.degradations) ? primary.degradations : [],
+            strictMismatches: [],
+            referenceFailureReason: null,
+            ...(micro.probeCount > 1
+              ? {
+                  lineupSignatures: pages.map((p) => ({
+                    account: p.label,
+                    signature: lineupSignature(p.result.blocks),
+                  })),
+                }
+              : {}),
+          },
+        };
+
+        if (useJudge) {
+          try {
+            record.judge = await judgeMod.judgeGeneration({
+              briefId: brief.id,
+              briefDescription: brief.description,
+              prompt: promptText || brief.description,
+              result: primary,
+            });
+          } catch (err) {
+            record.judge = { error: String(err) };
+          }
+        }
+
+        records.push(record);
+        const scoreLine = (Object.entries(report.scores) as Array<[string, number]>)
+          .map(([n, s]) => `${n}=${s}`)
+          .join(" ");
+        console.log(`  ${report.passed && regressions.length === 0 ? "✓" : "✗"} ${scoreLine} (${record.meta.durationMs}ms)`);
+        for (const f of report.failures) console.log(`    - ${f}`);
+        for (const r of regressions) console.log(`    - REGRESSION ${r}`);
+        continue;
+      }
 
       // 2. Seed the template page when the brief asks for one.
       const request: Record<string, unknown> = { ...brief.request };
@@ -318,7 +650,8 @@ async function main(): Promise<void> {
       // 5. Score.
       const result = (res.json ?? {}) as GenerationResultLike;
       const config = brief.brand.config ?? {};
-      const allowedStats = approvedStatPool(config, brief.request.prompt, brief.expectations.allowedStats ?? []);
+      const promptText = typeof brief.request.prompt === "string" ? brief.request.prompt : "";
+      const allowedStats = approvedStatPool(config, promptText, brief.expectations.allowedStats ?? []);
       const avoidPhrases = Array.isArray(config["avoidPhrases"])
         ? (config["avoidPhrases"] as unknown[]).filter((p): p is string => typeof p === "string")
         : [];
@@ -357,7 +690,7 @@ async function main(): Promise<void> {
           record.judge = await judgeMod.judgeGeneration({
             briefId: brief.id,
             briefDescription: brief.description,
-            prompt: brief.request.prompt,
+            prompt: promptText,
             result,
           });
         } catch (err) {
@@ -437,6 +770,7 @@ function emptyScores(): Record<ScorerName, number> {
     structural: 0,
     subjectLeak: 0,
     degradation: 0,
+    lineupDiversity: 0,
   };
 }
 

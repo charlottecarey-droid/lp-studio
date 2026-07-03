@@ -14,6 +14,8 @@ import {
   emptyImageSlotScore,
   fabricatedStatScore,
   isApprovedStat,
+  lineupDiversityScore,
+  lineupSignature,
   placeholderLeakScore,
   scoreGeneration,
   structuralScore,
@@ -409,6 +411,96 @@ describe("degradationScore", () => {
   });
 });
 
+// ── lineupSignature / lineupDiversityScore (microsite diversity probe) ──────
+
+describe("lineupSignature", () => {
+  it("joins ordered body block types, excluding nav/footer chrome", () => {
+    const blocks = [
+      block("nav-header", {}),
+      block("hero", { headline: "Hi" }),
+      block("benefits-grid", {}),
+      block("bottom-cta", {}),
+      block("footer", { companyName: "Acme" }),
+    ];
+    expect(lineupSignature(blocks)).toBe("hero > benefits-grid > bottom-cta");
+  });
+
+  it("excludes microsite DSO chrome (dso-practice-nav is a header block)", () => {
+    const blocks = [
+      block("dso-practice-nav", {}),
+      block("dso-practice-hero", {}),
+      block("dso-stat-row", {}),
+      block("dso-final-cta", {}),
+    ];
+    expect(lineupSignature(blocks)).toBe("dso-practice-hero > dso-stat-row > dso-final-cta");
+  });
+
+  it("is order-sensitive (a reordered lineup is a different skeleton)", () => {
+    const a = [block("hero", {}), block("comparison", {}), block("bottom-cta", {})];
+    const b = [block("hero", {}), block("bottom-cta", {}), block("comparison", {})];
+    expect(lineupSignature(a)).not.toBe(lineupSignature(b));
+  });
+
+  it("returns \"\" for undefined/empty input and skips untyped blocks", () => {
+    expect(lineupSignature(undefined)).toBe("");
+    expect(lineupSignature([])).toBe("");
+    expect(lineupSignature([{ props: {} } as never, block("hero", {})])).toBe("hero");
+  });
+});
+
+describe("lineupDiversityScore", () => {
+  const lineup = (...types: string[]) => types.map((t, i) => block(t, {}, `${t}-${i}`));
+
+  it("scores 1 with no violations when every page has a distinct skeleton", () => {
+    const r = lineupDiversityScore([
+      { label: "Acme North", blocks: lineup("hero", "benefits-grid", "bottom-cta") },
+      { label: "Acme South", blocks: lineup("hero", "comparison", "bottom-cta") },
+      { label: "Acme East", blocks: lineup("hero", "how-it-works", "testimonial", "bottom-cta") },
+    ]);
+    expect(r.score).toBe(1);
+    expect(r.violations).toEqual([]);
+  });
+
+  it("scores a constant 1 for zero or one page (nothing to compare)", () => {
+    expect(lineupDiversityScore([]).score).toBe(1);
+    expect(lineupDiversityScore([{ label: "Solo", blocks: lineup("hero") }]).score).toBe(1);
+  });
+
+  it("scores distinct/N and lists each duplicated signature with its accounts", () => {
+    const shared = ["hero", "benefits-grid", "bottom-cta"];
+    const r = lineupDiversityScore([
+      { label: "Acme North", blocks: lineup(...shared) },
+      { label: "Acme South", blocks: lineup(...shared) },
+      { label: "Acme East", blocks: lineup("hero", "comparison", "bottom-cta") },
+      { label: "Acme West", blocks: lineup("hero", "testimonial", "bottom-cta") },
+    ]);
+    expect(r.score).toBe(0.75); // 3 distinct / 4 pages
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0].scorer).toBe("lineupDiversity");
+    expect(r.violations[0].path).toContain("Acme North");
+    expect(r.violations[0].path).toContain("Acme South");
+    expect(r.violations[0].value).toBe("hero > benefits-grid > bottom-cta");
+  });
+
+  it("treats chrome-only differences as duplicates (the same-skeleton bug class)", () => {
+    const r = lineupDiversityScore([
+      { label: "A", blocks: [block("nav-header", {}), ...lineup("hero", "benefits-grid", "bottom-cta")] },
+      { label: "B", blocks: [...lineup("hero", "benefits-grid", "bottom-cta"), block("footer", {})] },
+    ]);
+    expect(r.score).toBe(0.5);
+    expect(r.violations).toHaveLength(1);
+  });
+
+  it("floors at 1/N when every page shares one skeleton", () => {
+    const shared = ["hero", "trust-bar", "bottom-cta"];
+    const pages = ["A", "B", "C", "D"].map((label) => ({ label, blocks: lineup(...shared) }));
+    const r = lineupDiversityScore(pages);
+    expect(r.score).toBe(0.25);
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0].detail).toContain("4 of 4");
+  });
+});
+
 // ── scoreGeneration (aggregate) ──────────────────────────────────────────────
 
 describe("scoreGeneration", () => {
@@ -462,6 +554,40 @@ describe("scoreGeneration", () => {
     });
     expect(report.passed).toBe(false);
     expect(report.failures.some((f) => f.includes("reference_scrape_failed"))).toBe(true);
+  });
+
+  it("defaults lineupDiversity to a clean 1 when no diversity input is given", () => {
+    const report = scoreGeneration({ briefId: "unit-no-probe", result: cleanResult });
+    expect(report.scores.lineupDiversity).toBe(1);
+    expect(report.passed).toBe(true);
+  });
+
+  it("threads a precomputed lineupDiversity result and fails under its threshold", () => {
+    const diversity = lineupDiversityScore([
+      { label: "A", blocks: cleanPage() },
+      { label: "B", blocks: cleanPage() },
+      { label: "C", blocks: cleanPage() },
+      { label: "D", blocks: cleanPage() },
+    ]);
+    const report = scoreGeneration({
+      briefId: "unit-probe",
+      result: cleanResult,
+      lineupDiversity: diversity,
+    });
+    expect(report.scores.lineupDiversity).toBe(0.25);
+    expect(report.passed).toBe(false);
+    expect(report.failures.some((f) => f.startsWith("lineupDiversity"))).toBe(true);
+    expect(report.violations.some((v) => v.scorer === "lineupDiversity")).toBe(true);
+  });
+
+  it("fails when a forbidden block type appears (governance noai probe)", () => {
+    const report = scoreGeneration({
+      briefId: "unit-forbidden",
+      result: cleanResult,
+      expectations: { forbiddenBlockTypes: ["benefits-grid"] },
+    });
+    expect(report.passed).toBe(false);
+    expect(report.failures.some((f) => f.includes('forbidden block type "benefits-grid"'))).toBe(true);
   });
 
   it("threads allowedStats + brandAvoidPhrases through to the scorers", () => {

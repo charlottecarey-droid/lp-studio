@@ -1,0 +1,31 @@
+{
+  "id": "microsite-lineup-diversity",
+  "description": "Lineup-diversity probe (this week's bug class: every account getting the same microsite skeleton). Seeds 4 name-variant accounts on one neutral B2B tenant, generates once per account, and requires at least half the skeleton signatures (ordered block types, nav/footer chrome excluded) to be distinct.",
+  "kind": "microsite",
+  "request": {},
+  "account": {
+    "name": "Bluewater Provisions",
+    "domain": "bluewaterprovisions.example.com",
+    "segment": "Independent",
+    "numLocations": 9
+  },
+  "diversityProbe": { "accounts": 4 },
+  "brand": {
+    "plan": "scale",
+    "config": {
+      "brandName": "Loadstar Systems",
+      "companyDescription": "Loadstar Systems builds route-planning and dock-scheduling software for regional food and beverage distributors.",
+      "toneOfVoice": "Plain-spoken, operations-minded, zero hype.",
+      "targetAudience": "Operations leaders at regional distributors",
+      "defaultCtaText": "Book a walkthrough",
+      "defaultCtaUrl": "https://loadstar.example.com/walkthrough"
+    }
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Dandy", "Heartland", "dental"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 5,
+    "maxBlocks": 30,
+    "thresholds": { "fabricatedStat": 0, "lineupDiversity": 0.5 }
+  }
+}

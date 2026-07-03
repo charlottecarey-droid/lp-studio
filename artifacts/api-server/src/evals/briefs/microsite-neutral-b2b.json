@@ -1,0 +1,30 @@
+{
+  "id": "microsite-neutral-b2b",
+  "description": "Neutral B2B sales microsite, no segment selected — the route falls back to the synthetic CORE segment and the freeform 'microsite' recipe pool. Must stay free of DSO/dental vocabulary for this non-dental tenant.",
+  "kind": "microsite",
+  "request": {},
+  "account": {
+    "name": "Harborview Grocers",
+    "domain": "harborviewgrocers.example.com",
+    "segment": "Independent",
+    "numLocations": 12
+  },
+  "brand": {
+    "plan": "scale",
+    "config": {
+      "brandName": "Loadstar Systems",
+      "companyDescription": "Loadstar Systems builds route-planning and dock-scheduling software for regional food and beverage distributors.",
+      "toneOfVoice": "Plain-spoken, operations-minded, zero hype.",
+      "targetAudience": "Operations leaders at regional distributors",
+      "defaultCtaText": "Book a walkthrough",
+      "defaultCtaUrl": "https://loadstar.example.com/walkthrough"
+    }
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Dandy", "Heartland", "dental"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "minBlocks": 5,
+    "maxBlocks": 30,
+    "thresholds": { "fabricatedStat": 0 }
+  }
+}

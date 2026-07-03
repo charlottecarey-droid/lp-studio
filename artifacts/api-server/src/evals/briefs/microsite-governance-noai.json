@@ -1,0 +1,35 @@
+{
+  "id": "microsite-governance-noai",
+  "description": "Governance probe — tenant_block_governance marks 'testimonial' and 'comparison' as No-AI (human-only), so the freeform vocabulary must exclude them and neither may appear on the generated microsite. Note: a total model failure that substitutes the NEUTRAL fallback layout would surface these blocks and fail this brief — that is a genuine governance leak worth failing on.",
+  "kind": "microsite",
+  "request": {},
+  "account": {
+    "name": "Stonebridge Outfitters",
+    "domain": "stonebridgeoutfitters.example.com",
+    "segment": "Independent",
+    "numLocations": 6
+  },
+  "governance": [
+    { "blockType": "testimonial", "aiMode": "noai" },
+    { "blockType": "comparison", "aiMode": "noai" }
+  ],
+  "brand": {
+    "plan": "scale",
+    "config": {
+      "brandName": "Loadstar Systems",
+      "companyDescription": "Loadstar Systems builds route-planning and dock-scheduling software for regional food and beverage distributors.",
+      "toneOfVoice": "Plain-spoken, operations-minded, zero hype.",
+      "targetAudience": "Operations leaders at regional distributors",
+      "defaultCtaText": "Book a walkthrough",
+      "defaultCtaUrl": "https://loadstar.example.com/walkthrough"
+    }
+  },
+  "expectations": {
+    "subjectLeakMarkers": ["Dandy", "Heartland", "dental"],
+    "requiredRoles": ["hero", "cta", "footer"],
+    "forbiddenBlockTypes": ["testimonial", "comparison"],
+    "minBlocks": 5,
+    "maxBlocks": 30,
+    "thresholds": { "fabricatedStat": 0 }
+  }
+}

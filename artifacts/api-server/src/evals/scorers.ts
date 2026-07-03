@@ -50,6 +50,11 @@ export const DEFAULT_THRESHOLDS: Record<ScorerName, number> = {
   structural: 0.75,
   subjectLeak: 1,
   degradation: 0.5,
+  // Diversity-probe briefs only: at least half of the probe's generations
+  // must have distinct skeletons. Single-generation briefs always score 1
+  // (the scorer is a constant 1 when there is nothing to compare), so this
+  // threshold is inert for them.
+  lineupDiversity: 0.5,
 };
 
 // ── Shared block walking ─────────────────────────────────────────────────────
@@ -514,6 +519,67 @@ export function degradationScore(
   return { score: penaltyScore(violations), violations };
 }
 
+// ── 8. Lineup diversity (microsite diversity probe) ─────────────────────────
+
+/** Chrome block = header/nav or footer per the shared block-tags taxonomy —
+ *  injected deterministically by the route (ensureMicrositeNavbar, required-
+ *  role backfill), so it carries no signal about layout variety. */
+function isChromeBlockType(type: string): boolean {
+  const tags = resolveBlockTags(type);
+  return tags.includes("header") || tags.includes("footer");
+}
+
+/**
+ * A page's skeleton signature: its ordered block types, EXCLUDING nav/footer
+ * chrome. Two microsites with the same signature are structurally identical
+ * lineups — the "every account gets the same page" bug class this week's
+ * diversity probe pins.
+ */
+export function lineupSignature(blocks: EvalBlock[] | undefined): string {
+  if (!Array.isArray(blocks)) return "";
+  return blocks
+    .map((b) => (b && typeof b === "object" && typeof b.type === "string" ? b.type : ""))
+    .filter((t) => t !== "" && !isChromeBlockType(t))
+    .join(" > ");
+}
+
+/** One generation in a diversity probe: a label (the seeded account name) and
+ *  the blocks it produced. */
+export interface LineupPage {
+  label: string;
+  blocks: EvalBlock[] | undefined;
+}
+
+/**
+ * Diversity across N generations: score = distinctSignatures / N (1.0 = every
+ * page structurally different). Each signature shared by 2+ pages is one
+ * violation listing the offending accounts. With 0 or 1 pages there is nothing
+ * to compare, so the score is a constant 1 — the same value non-probe briefs
+ * carry, keeping reports/baselines total across brief kinds.
+ */
+export function lineupDiversityScore(pages: readonly LineupPage[]): ScorerResult {
+  if (pages.length <= 1) return { score: 1, violations: [] };
+  const bySignature = new Map<string, string[]>();
+  for (const page of pages) {
+    const sig = lineupSignature(page.blocks);
+    const labels = bySignature.get(sig);
+    if (labels) labels.push(page.label);
+    else bySignature.set(sig, [page.label]);
+  }
+  const score = Number((bySignature.size / pages.length).toFixed(4));
+  const violations: EvalViolation[] = [];
+  for (const [sig, labels] of bySignature) {
+    if (labels.length < 2) continue;
+    violations.push({
+      scorer: "lineupDiversity",
+      path: labels.join(", "),
+      value: sig || "(empty skeleton)",
+      detail: `${labels.length} of ${pages.length} generations share this skeleton signature`,
+    });
+  }
+  return { score, violations };
+}
+
 // ── Aggregate ────────────────────────────────────────────────────────────────
 
 export interface ScoreGenerationInput {
@@ -524,6 +590,10 @@ export interface ScoreGenerationInput {
   brandAvoidPhrases?: string[];
   /** Fully-resolved approved-stat pool (see approvedStatPool). */
   allowedStats?: Iterable<string>;
+  /** Precomputed lineup-diversity result (diversity-probe briefs: the runner
+   *  computes it across all N generations via lineupDiversityScore). Absent →
+   *  a constant clean 1, so single-generation briefs always pass. */
+  lineupDiversity?: ScorerResult;
 }
 
 /** Runs every scorer over one generation result and folds in the brief's
@@ -545,6 +615,7 @@ export function scoreGeneration(input: ScoreGenerationInput): EvalReport {
     structural: structuralScore(blocks, exp.requiredRoles ?? DEFAULT_REQUIRED_ROLES),
     subjectLeak: subjectLeakScore(blocks, exp.subjectLeakMarkers ?? [], typeof result.title === "string" ? result.title : ""),
     degradation: degradationScore(result.degradations, exp.allowedDegradationCodes ?? []),
+    lineupDiversity: input.lineupDiversity ?? { score: 1, violations: [] },
   };
 
   const scores = Object.fromEntries(
@@ -564,6 +635,10 @@ export function scoreGeneration(input: ScoreGenerationInput): EvalReport {
   }
   if (typeof exp.maxBlocks === "number" && blocks.length > exp.maxBlocks) {
     failures.push(`page has ${blocks.length} blocks, expected at most ${exp.maxBlocks}`);
+  }
+  for (const forbidden of exp.forbiddenBlockTypes ?? []) {
+    const idx = blocks.findIndex((b) => b && typeof b === "object" && b.type === forbidden);
+    if (idx >= 0) failures.push(`forbidden block type "${forbidden}" present at blocks[${idx}]`);
   }
   if (typeof exp.expectUsedReference === "boolean" && result.usedReference !== exp.expectUsedReference) {
     failures.push(`usedReference is ${String(result.usedReference)}, expected ${String(exp.expectUsedReference)}`);
