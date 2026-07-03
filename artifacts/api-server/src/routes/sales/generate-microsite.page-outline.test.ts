@@ -77,9 +77,11 @@ function runOutline(input: {
   const source = resolveMicrositeBlockSource({
     hasTemplate: false,
     dsoFreeformMode,
-    hasSegmentOutline: outlineHasSteps(segmentOutline),
+    hasSegmentOutline: outlineHasSteps(normalizePageOutline(segment.pageOutline)),
     hasSegmentPool: pool.length > 0,
-    hasBrandOutline: outlineHasSteps(brandOutline),
+    hasBrandOutline: outlineHasSteps(normalizePageOutline(brand.defaultPageOutline)),
+    hasSegmentLegacyOutline: outlineHasSteps(segmentOutline),
+    hasBrandLegacyOutline: outlineHasSteps(brandOutline),
   });
 
   const activeOutline =
@@ -211,6 +213,46 @@ describe("generate-microsite — page outline drives output order (Task #14)", (
     });
     expect(source).toBe("segment-outline");
     expect(orderedTypes).toEqual(["hero", "testimonial", "footer"]);
+  });
+
+  // July 2026 precedence revision: a legacy micrositeBlockList must NOT freeze
+  // the lineup when a recipe-driven path applies — that re-created the exact
+  // "every Dandy microsite is identical" convergence dso-freeform was built to
+  // escape. Explicit outlines still beat everything but templates.
+  it("legacy list LOSES to dso-freeform (recipes drive Dandy microsites again)", () => {
+    const { source } = runOutline({
+      segment: {
+        ...SEGMENT,
+        micrositeBlockList: [{ type: "hero" }, { type: "testimonial" }, { type: "footer" }],
+      },
+      brand: { brandName: "Acme" },
+      dsoFreeformMode: "enterprise",
+    });
+    expect(source).toBe("dso-freeform");
+  });
+
+  it("legacy list LOSES to the segment pool", () => {
+    const { source } = runOutline({
+      segment: {
+        ...SEGMENT,
+        micrositeBlockList: [{ type: "hero" }, { type: "testimonial" }, { type: "footer" }],
+      },
+      brand: { brandName: "Acme" },
+      pool: ["benefits-grid", "testimonial"],
+    });
+    expect(source).toBe("segment-pool");
+  });
+
+  it("an EXPLICIT segment pageOutline still beats dso-freeform", () => {
+    const { source } = runOutline({
+      segment: {
+        ...SEGMENT,
+        pageOutline: { steps: [{ kind: "block", type: "hero" }, { kind: "block", type: "footer" }] },
+      },
+      brand: { brandName: "Acme" },
+      dsoFreeformMode: "enterprise",
+    });
+    expect(source).toBe("segment-outline");
   });
 
   it("degrades gracefully: a category with no neutral default and empty pool is dropped; covered roles fall back", () => {
