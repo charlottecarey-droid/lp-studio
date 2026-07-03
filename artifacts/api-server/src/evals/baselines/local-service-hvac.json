@@ -1,12 +1,12 @@
 {
   "briefId": "local-service-hvac",
   "scores": {
-    "fabricatedStat": 0.5,
+    "fabricatedStat": 0.75,
     "placeholderLeak": 1,
     "emptyImageSlot": 1,
     "bannedPhrase": 1,
     "structural": 1,
     "subjectLeak": 1,
-    "degradation": 0.75
+    "degradation": 1
   }
 }

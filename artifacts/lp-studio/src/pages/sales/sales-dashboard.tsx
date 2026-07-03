@@ -895,8 +895,8 @@ export default function SalesDashboard() {
                           href={`/sales/accounts/${acct.id}`}
                           className="group flex items-center gap-3 px-4 py-3.5 hover:bg-muted/30 transition-colors"
                         >
-                          {/* Heat badge — fixed width so column stays aligned */}
-                          <div className="w-[58px] shrink-0 flex">
+                          {/* Heat badge — fixed width (fits the longest "Warming Up" label) so column stays aligned */}
+                          <div className="w-[96px] shrink-0 flex">
                             {heatCfg ? (
                               <Badge variant="outline" className={`text-[10px] font-semibold flex items-center gap-1 px-2 py-0.5 rounded-md ${heatCfg.className}`}>
                                 {heatCfg.icon}{heatCfg.label}
