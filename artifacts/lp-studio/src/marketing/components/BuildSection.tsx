@@ -652,13 +652,12 @@ const LAYERS: { t: string; key: LayerKey; lvl: number; target: LayerKey }[] = [
   { t: "Footer", key: "footer", lvl: 1, target: "footer" },
 ];
 
-// Canvas width per device. Desktop subtracts the 200px + 240px sidebar widths
-// + breathing room, but only above the lg breakpoint where the sidebars are
-// actually rendered — below lg the sidebars hide so we let Desktop fill the
-// viewport (though by then the auto-switch effect will have flipped device
-// to Tablet or Mobile anyway).
+// Canvas width per device. Desktop fills the studio card minus the 200px +
+// 240px sidebars and a gutter (--studio-w is set on the stage card), so the
+// wrapped builder sits TIGHT around the page. Below lg the sidebars hide and
+// the auto-switch effect flips the device to Tablet/Mobile anyway.
 const DEVICE_WIDTH: Record<Device, string> = {
-  Desktop: "min(calc(100vw - 80px), max(calc(100vw - 480px), 720px))",
+  Desktop: "min(calc(var(--studio-w, 100vw) - 500px), 1100px)",
   Tablet: "min(780px, 86vw)",
   Mobile: "min(390px, 84vw)",
 };
@@ -875,8 +874,17 @@ export function BuildSection() {
             </div>
           </div>
 
-          {/* Stage */}
-          <div className="relative flex-1">
+          {/* Stage — a CONTAINED studio card, not full bleed (July 2026,
+              parity with the scroll-saga original's contained feel): the
+              chrome (toolbar / panels / status bar) positions absolutely
+              against THIS box, so bounding + centering it makes the builder
+              wrap hug the demo page with the cream section visible around
+              it. --studio-w drives the Desktop canvas width so the panels
+              sit tight against the page (canvas = card − panels − gutter). */}
+          <div
+            className="relative mx-auto mb-5 w-[min(1320px,calc(100vw-48px))] flex-1"
+            style={{ ["--studio-w" as string]: "min(1320px, calc(100vw - 48px))" } as CSSProperties}
+          >
             <BuilderShell
               leftPanelX={leftPanelX}
               leftPanelOpacity={leftPanelOpacity}
@@ -1319,13 +1327,13 @@ function BuilderShell({
       {/* Studio backdrop tint */}
       <motion.div
         style={{ opacity: bgOpacity }}
-        className="absolute inset-0 bg-[oklch(0.97_0.004_280)]"
+        className="absolute inset-0 rounded-3xl bg-[oklch(0.97_0.004_280)] ring-1 ring-black/[0.07] shadow-[0_48px_140px_-48px_rgba(15,23,42,0.28)]"
       />
 
       {/* Top toolbar */}
       <motion.div
         style={{ y: toolbarY, opacity: toolbarOpacity, pointerEvents }}
-        className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between border-b border-black/[0.06] bg-white/80 px-5 py-2.5 backdrop-blur-xl"
+        className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between rounded-t-3xl border-b border-black/[0.06] bg-white/80 px-5 py-2.5 backdrop-blur-xl"
       >
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
@@ -1546,7 +1554,7 @@ function BuilderShell({
       {/* Bottom status bar */}
       <motion.div
         style={{ y: statusY, opacity: statusOpacity, pointerEvents }}
-        className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between border-t border-black/[0.06] bg-white/80 px-5 py-2 backdrop-blur-xl"
+        className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between rounded-b-3xl border-t border-black/[0.06] bg-white/80 px-5 py-2 backdrop-blur-xl"
       >
         <div className="flex items-center gap-3 font-mono-display text-[10px] text-muted-foreground">
           <span className="flex items-center gap-1.5">
