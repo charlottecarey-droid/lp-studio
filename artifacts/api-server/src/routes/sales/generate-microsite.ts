@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request as ExpressRequest, type Response as ExpressResponse } from "express";
 import { eq, desc, and, or } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
 import { salesAccountsTable, salesBriefingsTable, salesContactsTable, salesContactBriefingsTable, lpPagesTable, lpBrandSettingsTable, lpMediaTable, sfdcOpportunitiesTable } from "@workspace/db";
@@ -3495,7 +3495,12 @@ router.post("/microsite/recommend", requireAuth, recommendLimiter, async (req, r
 /**
  * POST /sales/accounts/:accountId/generate-microsite
  */
-router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLimiter, async (req, res): Promise<void> => {
+/** The microsite generation handler, exported so the eval harness (and the
+ *  async job runner, when microsites ride it) can invoke it directly with a
+ *  captured req/res shim — bypassing auth/limiter middleware the caller
+ *  already enforced. Reads req.params.accountId, req.body, req.query.stream,
+ *  req.authUser and req.on("close"). */
+export const generateMicrositeHandler = async (req: ExpressRequest, res: ExpressResponse): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const accountId = Number(req.params.accountId);
   // `segmentId` is the current field. `audience` is a one-release legacy alias
@@ -5231,6 +5236,8 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     });
     sendErrorJson(500, { error: "Failed to generate microsite" });
   }
-});
+};
+
+router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLimiter, generateMicrositeHandler);
 
 export default router;
