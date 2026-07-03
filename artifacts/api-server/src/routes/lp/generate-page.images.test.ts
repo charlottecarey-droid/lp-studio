@@ -14,6 +14,7 @@ import {
   deBrandFooterColors,
   applyBrandProductContentImages,
   isExcludedFromGenerationPool,
+  isTextBearingImage,
   type MediaImage,
 } from "./generate-page";
 
@@ -2519,5 +2520,58 @@ describe("dso-bento-outcomes photo tiles — brand-neutral fill context", () => 
     // fix, the appended "dental clinical" keyword would have boosted the dental
     // image even on a non-dental page.
     expect(blocks[0].props.tiles[0].imageUrl).toBe("/objects/retail-feature");
+  });
+});
+
+// ── Text-bearing backgrounds (July 2026 "two headlines" fix) ─────────────────
+// A background image carrying its own baked-in copy (promo screenshot / og
+// card) under the block's real headline reads as broken. The model picks
+// backgrounds by topical fit, so the tenant's most on-topic promo screenshot
+// won hero backgrounds constantly (the Dandy microsite failure).
+describe("fillEmptyImages — text-bearing background scrub + text-free refill", () => {
+  const PROMO: MediaImage = {
+    url: "/objects/promo-ui-shot",
+    title: "Homepage video section screenshot",
+    tags: ["promo-graphic", "lp-feature", "dentures", "3D model", "virtual review"],
+  };
+
+  it("clears a model-picked promo-graphic backgroundImage and refills from a text-free pool", () => {
+    const blocks = [
+      { type: "event-landing-hero", props: { headline: "Denture care event", backgroundImage: "/objects/promo-ui-shot" } },
+    ];
+    const out = fillEmptyImages(blocks, [PROMO, ...LIB], PAGE_CTX) as any[];
+    expect(out[0].props.backgroundImage).not.toBe("/objects/promo-ui-shot");
+    expect(out[0].props.backgroundImage).toBeTruthy();
+  });
+
+  it("replaces a model-picked promo-graphic backgroundImageUrl with a text-free hero photo", () => {
+    const blocks = [
+      { type: "full-bleed-hero", props: { headline: "Affordable dentures", backgroundImageUrl: "/objects/promo-ui-shot" } },
+    ];
+    const out = fillEmptyImages(blocks, [PROMO, ...LIB], PAGE_CTX) as any[];
+    expect(out[0].props.backgroundImageUrl).not.toBe("/objects/promo-ui-shot");
+    expect(["/objects/denture-hero-1", "/objects/denture-hero-2"]).toContain(out[0].props.backgroundImageUrl);
+  });
+
+  it("never refills a background slot with a promo-graphic even when it is the strongest topical match", () => {
+    const blocks = [
+      { type: "dso-challenges", props: { headline: "3D model virtual review challenges", backgroundImage: "" } },
+    ];
+    const out = fillEmptyImages(blocks, [PROMO, ...LIB], PAGE_CTX) as any[];
+    expect(out[0].props.backgroundImage).not.toBe("/objects/promo-ui-shot");
+  });
+
+  it("leaves a legitimate photographic background pick alone", () => {
+    const blocks = [
+      { type: "event-landing-hero", props: { headline: "Denture care event", backgroundImage: "/objects/denture-hero-1" } },
+    ];
+    const out = fillEmptyImages(blocks, [PROMO, ...LIB], PAGE_CTX) as any[];
+    expect(out[0].props.backgroundImage).toBe("/objects/denture-hero-1");
+  });
+
+  it("isTextBearingImage flags promo-graphic and og-image tags only", () => {
+    expect(isTextBearingImage(PROMO)).toBe(true);
+    expect(isTextBearingImage({ tags: ["og-image", "dentures"] })).toBe(true);
+    expect(isTextBearingImage({ tags: ["lp-hero", "dentures"] })).toBe(false);
   });
 });

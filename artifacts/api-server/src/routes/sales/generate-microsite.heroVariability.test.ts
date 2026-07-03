@@ -226,3 +226,32 @@ describe("resolveRecipeSkeletonSlots", () => {
     expect(heroes.size).toBeGreaterThan(1);
   });
 });
+
+describe("applyDandyHeroVariability — gradient treatment owns the background", () => {
+  it("clears a model-picked backgroundImageUrl on the gradient full-bleed treatment", () => {
+    // No image/video assets → the candidate pool is only the gradient
+    // "full-bleed", forcing the else branch. The model's topical pick (in
+    // prod: a text-baked promo screenshot) must not survive under it.
+    const blocks = heroBlocks();
+    (blocks[0].props as Block).backgroundImageUrl = "/objects/promo-shot";
+    const out = applyDandyHeroVariability(blocks, [], [], "acct-x:Company X");
+    expect(layoutOf(out)).toBe("full-bleed");
+    expect((heroOf(out).props as Block).backgroundImageUrl).toBe("");
+  });
+
+  it("the image-backed full-bleed treatment still sets its own background from the hero pool", () => {
+    // Sweep seeds until the full-bleed-image-bg treatment appears; its
+    // background must come from the (lp-hero-filtered) pool, never linger
+    // from the model.
+    for (let i = 0; i < 200; i++) {
+      const blocks = heroBlocks();
+      (blocks[0].props as Block).backgroundImageUrl = "/objects/promo-shot";
+      const out = applyDandyHeroVariability(blocks, IMAGES, [], `acct-${i}:Company ${i}`);
+      const bg = (heroOf(out).props as Block).backgroundImageUrl;
+      expect(bg).not.toBe("/objects/promo-shot");
+      if (layoutOf(out) === "full-bleed" && bg) {
+        expect(IMAGES).toContain(bg);
+      }
+    }
+  });
+});

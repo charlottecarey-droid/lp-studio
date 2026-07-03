@@ -473,6 +473,14 @@ export function applyDandyHeroVariability(
   const hero = { ...blocks[heroIdx] };
   const props = { ...((hero.props ?? {}) as Record<string, unknown>) };
 
+  // The treatment owns the hero background. Drop any model-picked
+  // backgroundImageUrl up front (its topical picks were reliably text-baked
+  // promo screenshots — the "two headlines" failure); the image-backed
+  // treatment below re-sets it from the lp-hero-filtered pool. Only clears a
+  // SET value — an absent key stays absent (no prop pollution). The video
+  // slot is left alone — the b-roll default is a designed treatment.
+  if (props.backgroundImageUrl) props.backgroundImageUrl = "";
+
   if (treatment === "split") {
     props.layout = "split";
     props.heroImageUrl = heroImageUrls[seed % heroImageUrls.length];
@@ -498,7 +506,8 @@ export function applyDandyHeroVariability(
     props.backgroundVideoUrl = videoUrls[seed % videoUrls.length];
     props.overlayOpacity = FULLBLEED_BG_OVERLAY_OPACITY;
   } else {
-    // full-bleed: keep the polished gradient default — no forced background asset.
+    // full-bleed: the polished gradient default — no background asset
+    // (backgroundImageUrl already cleared above).
     props.layout = "full-bleed";
   }
 

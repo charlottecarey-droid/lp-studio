@@ -1555,6 +1555,20 @@ function getImagePurpose(img: MediaImage): string {
   return "";
 }
 
+/** True when the auto-tagger marked this image as carrying baked-in text — a
+ *  promo graphic (UI screenshot, banner, ad creative) or an og/social card.
+ *  These stay ELIGIBLE for card/feature slots (a tenant's product screenshots
+ *  are their primary marketing imagery) but must never sit BEHIND copy: a
+ *  background with its own baked-in headline under the block's real headline
+ *  is the "two headlines" failure. Exported for the microsite generator + the
+ *  fill tests. */
+export function isTextBearingImage(img: Pick<MediaImage, "tags">): boolean {
+  return img.tags.some((t) => {
+    const x = String(t).toLowerCase();
+    return x === "promo-graphic" || x === "og-image";
+  });
+}
+
 /** Fetch all images from the media library, separated by purpose for AI context.
  *
  * Tenant isolation: when a tenantId is supplied, images readable by that
@@ -1627,11 +1641,17 @@ export async function fetchMediaCatalog(
       i => !i.tags.some(t => typeof t === "string" && t.toLowerCase() === "scraped"),
     );
 
-    // Separate into purpose buckets
-    const heroImages = catalogImages.filter(i => getImagePurpose(i) === "lp-hero");
-    const featureImages = catalogImages.filter(i => getImagePurpose(i) === "lp-feature");
-    const detailImages = catalogImages.filter(i => getImagePurpose(i) === "product-detail");
-    const unclassified = catalogImages.filter(i => getImagePurpose(i) === "");
+    // Separate into purpose buckets. Text-bearing images (promo graphics /
+    // og cards — see isTextBearingImage) get their OWN fenced section instead
+    // of hiding inside hero/feature buckets: listed under "HERO & LIFESTYLE"
+    // the model kept picking the most on-topic promo screenshot as a hero
+    // backgroundImageUrl, baking a second headline behind the real one.
+    const cleanCatalog = catalogImages.filter(i => !isTextBearingImage(i));
+    const textHeavyImages = catalogImages.filter(isTextBearingImage);
+    const heroImages = cleanCatalog.filter(i => getImagePurpose(i) === "lp-hero");
+    const featureImages = cleanCatalog.filter(i => getImagePurpose(i) === "lp-feature");
+    const detailImages = cleanCatalog.filter(i => getImagePurpose(i) === "product-detail");
+    const unclassified = cleanCatalog.filter(i => getImagePurpose(i) === "");
 
     const buildSection = (imgs: MediaImage[], label: string): string => {
       const tagGroups = new Map<string, MediaImage[]>();
@@ -1660,10 +1680,15 @@ export async function fetchMediaCatalog(
     const featureSection = buildSection(featureImages, "FEATURE IMAGES — use these for zigzag-features rows and photo-strip");
     const detailSection = buildSection(detailImages, "PRODUCT DETAIL — use ONLY for product-grid items, never for hero");
     const unclassifiedSection = buildSection(unclassified, "OTHER — unclassified images, use judiciously");
+    const textHeavySection = buildSection(
+      textHeavyImages,
+      "TEXT-HEAVY GRAPHICS — screenshots/banners/cards with baked-in text: OK inside feature or product CARDS, NEVER as hero imagery or any backgroundImage/backgroundImageUrl (their baked-in text clashes with the block's real copy)",
+    );
     if (heroSection) sections.push(heroSection);
     if (featureSection) sections.push(featureSection);
     if (detailSection) sections.push(detailSection);
     if (unclassifiedSection) sections.push(unclassifiedSection);
+    if (textHeavySection) sections.push(textHeavySection);
 
     const catalogText = sections.length > 0
       ? `\nIMAGE LIBRARY — Pick URLs from the correct section for each block type:\n${sections.join("\n\n")}\n`
@@ -3229,6 +3254,17 @@ async function loadBlockGovernanceContext(
 export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageContext = "", relaxed = false, logoUrls?: ReadonlySet<string>): unknown[] {
   if (images.length === 0) return blocks;
   const usedIds = new Set<string>();
+
+  // ── Background scrub (July 2026, "two headlines" fix) ─────────────────────
+  // Model-picked image URLs are validated for EXISTENCE (must come from the
+  // library) but not for SUITABILITY: for background slots the model chooses
+  // by topical fit and reliably lands on the tenant's text-baked promo
+  // screenshots. Clear those picks here — `backgroundImage` refills below
+  // from a text-free pool; `backgroundImageUrl` blocks fall back to their
+  // designed no-image treatment (gradient/scrim), which always beats copy
+  // rendered over a graphic with its own baked-in copy.
+  const textBearingUrls = new Set(images.filter(isTextBearingImage).map(i => i.url));
+
   // Bias every selection toward the page's industry/topic so a block with a
   // generic headline still prefers on-topic imagery. When `relaxed` is set the
   // score gate relaxes to a non-negative FLOOR so any still-empty slot grabs the
@@ -3280,6 +3316,19 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
     const headline = (props.headline as string) ?? "";
     const subheadline = (props.subheadline as string) ?? "";
     const blockContext = `${blockType} ${headline} ${subheadline}`;
+
+    // Background scrub (July 2026, "two headlines" fix). Model-picked image
+    // URLs are validated for EXISTENCE (must come from the library) but not
+    // SUITABILITY: for background slots the model chooses by topical fit and
+    // reliably lands on the tenant's text-baked promo screenshots. Clear
+    // those picks — the background fills below re-select from a text-free
+    // pool, and blocks without a fill branch fall back to their designed
+    // no-image treatment (gradient/scrim), which always beats copy rendered
+    // over a graphic carrying its own baked-in copy.
+    for (const key of ["backgroundImage", "backgroundImageUrl"] as const) {
+      const v = props[key];
+      if (typeof v === "string" && v && textBearingUrls.has(v)) props[key] = "";
+    }
 
     // ── Standard LP blocks ──────────────────────────────────────────────
 
@@ -3479,7 +3528,9 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
         }
       } else {
         if (!props.backgroundImageUrl) {
-          props.backgroundImageUrl = pick(blockContext, images, usedIds, "lp-hero");
+          // Background sits BEHIND the copy — text-bearing images excluded
+          // (same rule as the backgroundImage fill above).
+          props.backgroundImageUrl = pick(blockContext, images.filter(i => !isTextBearingImage(i)), usedIds, "lp-hero");
         }
       }
     }
@@ -3499,8 +3550,13 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
     // pick() returns "" when no suitable library image exists, leaving the
     // plain background intact.
     if ("backgroundImage" in props && !props.backgroundImage) {
-      const bgPurpose = blockType === "event-landing-hero" ? "lp-hero" : "lp-feature";
-      props.backgroundImage = pick(blockContext, images, usedIds, bgPurpose);
+      // Hero-family blocks sit copy directly on this photo → hero-purpose
+      // imagery; dso section backgrounds keep the feature purpose. Either way
+      // the pool excludes text-bearing images (promo graphics / og cards):
+      // a background with its own baked-in headline is the "two headlines"
+      // failure this fill must never reintroduce.
+      const bgPurpose = /(^|-)hero($|-)/.test(blockType) ? "lp-hero" : "lp-feature";
+      props.backgroundImage = pick(blockContext, images.filter(i => !isTextBearingImage(i)), usedIds, bgPurpose);
     }
 
     // DSO blocks with a single imageUrl (ai-feature, particle-mesh, flow-canvas, cta-capture)
