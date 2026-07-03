@@ -44,8 +44,22 @@ describe("enforceRequiredRoles — fills missing roles", () => {
 
     const after = coveredRoles(blocks);
     for (const role of REQUIRED_PAGE_ROLES) {
+      // social-proof has no dedicated backfill anymore (its only default was
+      // a placeholder quote card) — but the dual-role trust-bar injected for
+      // the stats role legitimately covers it, so full coverage still holds.
       expect(after.has(role)).toBe(true);
     }
+  });
+
+  it("never injects the placeholder social-proof quote card (any mode)", () => {
+    const blocks: Array<Record<string, unknown>> = [
+      { id: "h", type: "hero", props: { headline: "Hi" } },
+    ];
+    enforceRequiredRoles(blocks, { brandName: "Acme", ctaUrl: "https://acme.test/book" });
+    const serialized = JSON.stringify(blocks);
+    expect(serialized).not.toContain("Replace with a real customer quote");
+    expect(serialized).not.toContain("Customer name");
+    expect(blocks.some((b) => b.type === "testimonial")).toBe(false);
   });
 
   it("keeps the existing hero and appends a footer last", () => {

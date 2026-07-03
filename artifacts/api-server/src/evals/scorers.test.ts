@@ -346,10 +346,19 @@ describe("structuralScore", () => {
       block("footer", { companyName: "Acme" }, "f-1"),
     ];
     const r = structuralScore(blocks);
-    const nullHits = r.violations.filter((v) => v.detail === "null/undefined prop value");
+    const nullHits = r.violations.filter((v) => v.detail === "null prop value");
     expect(nullHits).toHaveLength(2);
     expect(nullHits.map((v) => v.path)).toContain("blocks[0].props.nested.sub");
     expect(nullHits.map((v) => v.path)).toContain("blocks[1].props.items[1]");
+  });
+
+  it("ignores undefined prop values — res.json drops them before any client sees them", () => {
+    const blocks = [
+      block("hero", { headline: "Hi", accentColor: undefined, tiles: [{ kind: "image", primary: undefined }] }),
+      ...cleanPage(),
+    ];
+    const r = structuralScore(blocks);
+    expect(r.violations.filter((v) => v.detail.includes("null"))).toHaveLength(0);
   });
 
   it("flags blocks whose props is not an object", () => {

@@ -6273,10 +6273,9 @@ export function enforceRequiredRoles(
     // keep the legacy behavior (every missing role is backfilled).
     allowedTypes?: ReadonlySet<string>;
     // Strict Facts Mode: the stats default fabricates numbers ("10,000+
-    // customers", "98% on-time") and the social-proof default fabricates a
-    // quote card — both are exactly what strict mode promises never to ship.
-    // When set, those two roles are simply not backfilled; a strict-mode page
-    // without stats is honest, one with invented stats is not.
+    // customers", "98% on-time") — exactly what strict mode promises never to
+    // ship — so the stats role is not backfilled when set. (The social-proof
+    // role is never backfilled in ANY mode; see the body-roles loop.)
     strictFacts?: boolean;
     /** Quality-ledger hook: called once per default block injected. */
     onInject?: (role: string, blockType: string) => void;
@@ -6314,12 +6313,16 @@ export function enforceRequiredRoles(
     return -1;
   };
 
-  // Body roles (features, social-proof, stats) go before the closing CTA/footer
-  // region in a stable, readable order.
-  for (const role of ["features", "social-proof", "stats"] as const) {
+  // Body roles (features, stats) go before the closing CTA/footer region in a
+  // stable, readable order. The social-proof role is deliberately NEVER
+  // backfilled (July 2026): its only possible default is a placeholder quote
+  // card ("Replace with a real customer quote…" — "Customer name"), which the
+  // eval harness proved ships verbatim to visitors. A page without a
+  // testimonial section is honest; a fake attributed quote is not.
+  for (const role of ["features", "stats"] as const) {
     if (!missing.includes(role)) continue;
-    // Strict mode never fabricates stats or quote cards (see opts.strictFacts).
-    if (opts.strictFacts && (role === "social-proof" || role === "stats")) continue;
+    // Strict mode never fabricates stats (see opts.strictFacts).
+    if (opts.strictFacts && role === "stats") continue;
     const block = buildDefaultRoleBlock(role, ctx);
     if (!typeAllowed(block)) continue;
     const footerIdx = firstIndexWithRole("footer");

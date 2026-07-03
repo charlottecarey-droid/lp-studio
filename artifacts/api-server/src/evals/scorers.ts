@@ -434,8 +434,12 @@ export function structuralScore(
         : Object.entries(node as Record<string, unknown>);
       for (const [k, v] of entries) {
         const childPath = k.startsWith("[") ? `${p}${k}` : `${p}.${k}`;
-        if (v === null || v === undefined) {
-          violations.push({ scorer: "structural", path: childPath, value: String(v), detail: "null/undefined prop value" });
+        if (v === null) {
+          // null SURVIVES JSON serialization and reaches the renderer;
+          // undefined is dropped by res.json / JSON.stringify, so the client
+          // never sees it — flagging it was an eval-shim artifact (first full
+          // matrix run: bento tiles[].primary, hero accentColor).
+          violations.push({ scorer: "structural", path: childPath, value: String(v), detail: "null prop value" });
         } else if (typeof v === "object") {
           stack.push({ node: v, p: childPath, depth: depth + 1 });
         }
@@ -499,11 +503,17 @@ export function subjectLeakScore(
  * the brief's allow-list costs score; info entries are free. Codes the brief
  * REQUIRES (expectDegradationCodes) are checked in the aggregate, not here.
  */
+/** Ledger codes the degradation scorer always tolerates: copy-polish signals
+ *  (critique skipped/unresolved) are already measured by the bannedPhrase
+ *  scorer over the FINAL page — penalizing them here double-counted the same
+ *  finding (the recurring one-warn 0.25 dips across early runs). */
+const ALWAYS_ALLOWED_DEGRADATION_CODES = ["critique_skipped", "critique_unresolved"] as const;
+
 export function degradationScore(
   degradations: EvalDegradation[] | undefined,
   allowedCodes: readonly string[] = [],
 ): ScorerResult {
-  const allowed = new Set(allowedCodes);
+  const allowed = new Set([...ALWAYS_ALLOWED_DEGRADATION_CODES, ...allowedCodes]);
   const violations: EvalViolation[] = [];
   for (const d of Array.isArray(degradations) ? degradations : []) {
     if (!d || typeof d !== "object") continue;
