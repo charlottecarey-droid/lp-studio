@@ -1312,119 +1312,158 @@ export function BuildSection() {
 
 
 // ── Ghost cursor ─────────────────────────────────────────────────────────────
-// Ported from AssembleSceneV2 (the cursor Charlotte missed): an arrow pointer
-// that tours the assembling page — clicks the hero CTA, clicks a feature
-// card — then rides up into the studio chrome and clicks Publish (the
-// toolbar button flips to "Published ✓" at the same beat, see `published`).
-// Runs off the SAME pinned scroll progress, in its own component with a
-// local-state subscription so per-frame updates never re-render the whole
-// scrollytelling. Percent-positioned against the stage card, so no
-// measurement is needed at any width.
+// Ported from AssembleSceneV2, re-choreographed July 2026: the pointer enters
+// FIRST and focus-clicks the headline (like placing a text cursor) — THEN the
+// headline types under it. After the hero settles it clicks the primary CTA,
+// then rides up into the studio chrome and clicks Publish (the toolbar flips
+// to "Published \u2713" on the same beat). Targets are MEASURED from the live
+// DOM each frame via [data-cursor] anchors — never guessed percentages — so
+// clicks land exactly on the elements at any width, canvas scroll, or frame
+// transform. Isolated component: per-frame updates re-render only itself.
 
-const CURSOR_PATH: { at: number; x: number; y: number }[] = [
-  { at: 0.30, x: 0.63, y: 0.68 },
-  { at: 0.40, x: 0.468, y: 0.50 },
-  { at: 0.48, x: 0.472, y: 0.505 },
-  { at: 0.58, x: 0.245, y: 0.63 },
-  { at: 0.66, x: 0.25, y: 0.635 },
-  { at: 0.80, x: 0.72, y: 0.32 },
-  { at: 0.895, x: 0.947, y: 0.038 },
-  { at: 0.985, x: 0.947, y: 0.038 },
+const CURSOR_STOPS: { at: number; target: string }[] = [
+  { at: 0.055, target: "headline" }, // fade in, gliding toward the headline
+  { at: 0.115, target: "headline" }, // arrive -> focus click, typing begins
+  { at: 0.46, target: "headline" },  // parked while the headline types out
+  { at: 0.56, target: "cta" },       // glide to the primary CTA
+  { at: 0.63, target: "cta" },       // dwell through the click
+  { at: 0.9, target: "publish" },    // up into the chrome
+  { at: 0.985, target: "publish" },
 ];
-/** [start, end] windows for the click pulse — hero CTA, feature card, Publish. */
+/** [start, end] click-pulse windows: headline focus, CTA, Publish. */
 const CURSOR_CLICKS: [number, number][] = [
-  [0.415, 0.465],
-  [0.60, 0.65],
-  [0.90, 0.95],
+  [0.118, 0.155],
+  [0.575, 0.625],
+  [0.9, 0.95],
 ];
 
 function GhostCursor({ p }: { p: MotionValue<number> }) {
-  const [st, setSt] = useState({ x: 0.63, y: 0.68, visible: 0, clicking: 0 });
-  useMotionValueEvent(p, "change", (v) => {
-    // Fade in after the hero has typed, out just before the pin releases.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [st, setSt] = useState({ x: 0.5, y: 0.4, visible: 0, clicking: 0 });
+
+  // One extra re-measure a couple of frames after each scroll event: a jump
+  // scroll (anchor link, programmatic) fires a single event while transforms
+  // are still settling, which would freeze the cursor mid-glide. Continuous
+  // scrolling re-measures every event anyway.
+  const settleRaf = useRef(0);
+  const compute = (v: number) => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
     const visible =
-      v < 0.3 || v > 0.985 ? 0 : Math.min(1, (v - 0.3) / 0.04, (0.985 - v) / 0.03);
+      v < 0.05 || v > 0.985 ? 0 : Math.min(1, (v - 0.05) / 0.03, (0.985 - v) / 0.03);
     if (visible === 0) {
       setSt((s0) => (s0.visible === 0 ? s0 : { ...s0, visible: 0 }));
       return;
     }
-    let x = CURSOR_PATH[0].x;
-    let y = CURSOR_PATH[0].y;
-    for (let i = 0; i < CURSOR_PATH.length - 1; i++) {
-      const a = CURSOR_PATH[i];
-      const b = CURSOR_PATH[i + 1];
+    const stage = wrap.getBoundingClientRect();
+    // Anchor centers as stage fractions, measured live (tracks canvas scroll
+    // and every frame transform). Missing anchors (other preset layouts)
+    // resolve to null and the cursor holds its previous position.
+    const anchorPos = (name: string): { x: number; y: number } | null => {
+      const el = wrap.parentElement?.querySelector<HTMLElement>(`[data-cursor="${name}"]`);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) return null;
+      return {
+        x: (r.left + r.width / 2 - stage.left) / stage.width,
+        y: (r.top + r.height / 2 - stage.top) / stage.height,
+      };
+    };
+
+    let x = st.x;
+    let y = st.y;
+    for (let i = 0; i < CURSOR_STOPS.length - 1; i++) {
+      const a = CURSOR_STOPS[i];
+      const b = CURSOR_STOPS[i + 1];
       if (v >= a.at && v <= b.at) {
-        const t = (v - a.at) / (b.at - a.at);
-        // easeInOut so each hop reads as a deliberate mouse move.
-        const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-        x = a.x + (b.x - a.x) * e;
-        y = a.y + (b.y - a.y) * e;
+        const pa = anchorPos(a.target);
+        const pb = anchorPos(b.target);
+        if (pa && pb) {
+          const t = (v - a.at) / (b.at - a.at);
+          const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+          x = pa.x + (pb.x - pa.x) * e;
+          y = pa.y + (pb.y - pa.y) * e;
+        } else if (pb) {
+          x = pb.x;
+          y = pb.y;
+        }
         break;
       }
       if (v > b.at) {
-        x = b.x;
-        y = b.y;
+        const pb = anchorPos(b.target);
+        if (pb) {
+          x = pb.x;
+          y = pb.y;
+        }
       }
     }
     let clicking = 0;
     for (const [cs, ce] of CURSOR_CLICKS) {
       if (v >= cs && v <= ce) clicking = (v - cs) / (ce - cs);
     }
-    setSt({ x, y, visible, clicking });
+    setSt({ x, y: Math.max(0.005, y), visible, clicking });
+  };
+  useMotionValueEvent(p, "change", (v) => {
+    compute(v);
+    cancelAnimationFrame(settleRaf.current);
+    settleRaf.current = requestAnimationFrame(() =>
+      requestAnimationFrame(() => compute(p.get())),
+    );
   });
 
-  if (st.visible === 0) return null;
   return (
-    <div className="pointer-events-none absolute inset-0 z-40" aria-hidden>
-      <div
-        style={{
-          position: "absolute",
-          left: `${st.x * 100}%`,
-          top: `${st.y * 100}%`,
-          opacity: st.visible,
-        }}
-      >
-        {st.clicking > 0 && (
-          <>
-            <div
-              style={{
-                position: "absolute",
-                left: 6,
-                top: 6,
-                width: 28,
-                height: 28,
-                borderRadius: 999,
-                background: "rgba(75,71,229,0.18)",
-                transform: `translate(-50%, -50%) scale(${0.6 + st.clicking * 1.8})`,
-                opacity: (1 - st.clicking) * 0.9,
-                filter: "blur(2px)",
-              }}
+    <div ref={wrapRef} className="pointer-events-none absolute inset-0 z-40" aria-hidden>
+      {st.visible > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            left: `${st.x * 100}%`,
+            top: `${st.y * 100}%`,
+            opacity: st.visible,
+          }}
+        >
+          {st.clicking > 0 && (
+            <>
+              <div
+                style={{
+                  position: "absolute",
+                  left: 6,
+                  top: 6,
+                  width: 28,
+                  height: 28,
+                  borderRadius: 999,
+                  background: "rgba(75,71,229,0.18)",
+                  transform: `translate(-50%, -50%) scale(${0.6 + st.clicking * 1.8})`,
+                  opacity: (1 - st.clicking) * 0.9,
+                  filter: "blur(2px)",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  left: 6,
+                  top: 6,
+                  width: 8,
+                  height: 8,
+                  borderRadius: 999,
+                  border: "2px solid var(--indigo, #3C38B8)",
+                  transform: `translate(-50%, -50%) scale(${1 + st.clicking * 4})`,
+                  opacity: 1 - st.clicking,
+                }}
+              />
+            </>
+          )}
+          <svg width="22" height="24" viewBox="0 0 20 22" fill="none" style={{ filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.25))" }}>
+            <path
+              d="M2 2 L2 16 L6 12.5 L8.5 18.5 L11 17.5 L8.5 11.5 L14 11 Z"
+              fill="#25214D"
+              stroke="#FFFFFF"
+              strokeWidth="1.4"
+              strokeLinejoin="round"
             />
-            <div
-              style={{
-                position: "absolute",
-                left: 6,
-                top: 6,
-                width: 8,
-                height: 8,
-                borderRadius: 999,
-                border: "2px solid var(--indigo, #3C38B8)",
-                transform: `translate(-50%, -50%) scale(${1 + st.clicking * 4})`,
-                opacity: 1 - st.clicking,
-              }}
-            />
-          </>
-        )}
-        <svg width="22" height="24" viewBox="0 0 20 22" fill="none" style={{ filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.25))" }}>
-          <path
-            d="M2 2 L2 16 L6 12.5 L8.5 18.5 L11 17.5 L8.5 11.5 L14 11 Z"
-            fill="#25214D"
-            stroke="#FFFFFF"
-            strokeWidth="1.4"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </div>
+          </svg>
+        </div>
+      )}
     </div>
   );
 }
@@ -1594,6 +1633,7 @@ function BuilderShell({
         <div className="flex items-center gap-2">
           <span className="hidden rounded-md border border-black/[0.08] px-2.5 py-1 font-mono-display text-[10px] text-foreground/70 sm:inline">Preview</span>
           <span
+            data-cursor="publish"
             className="relative rounded-md px-3 py-1 font-display text-[11px] font-medium text-white transition-colors duration-300"
             style={{ backgroundColor: published ? "oklch(0.62 0.11 155)" : ACCENTS[accent].color }}
           >
@@ -2119,6 +2159,7 @@ function HeroBody({
   const Headline = (
     <motion.h3
       style={stage3}
+      data-cursor="headline"
       className="font-display text-[28px] font-[600] leading-[0.98] tracking-[-0.04em] text-[oklch(0.1_0.01_270)] @[520px]:text-[38px] @[700px]:text-[52px]"
     >
       {typingDone ? (
@@ -2216,7 +2257,7 @@ function HeroBody({
             {preset.subhead}
           </motion.p>
           <motion.div style={stage4} className="mt-6 flex flex-wrap items-center justify-center gap-2.5 @[640px]:mt-7 @[640px]:gap-3">
-            <span className="rounded-full bg-indigo px-5 py-2.5 text-[11.5px] font-semibold text-white shadow-[0_14px_36px_-12px_var(--indigo,#3C38B8)]">{preset.primaryCta}</span>
+            <span data-cursor="cta" className="rounded-full bg-indigo px-5 py-2.5 text-[11.5px] font-semibold text-white shadow-[0_14px_36px_-12px_var(--indigo,#3C38B8)]">{preset.primaryCta}</span>
             <span className="rounded-full border border-black/[0.1] bg-white px-5 py-2.5 text-[11.5px] font-medium text-foreground/70">{preset.ghostCta}</span>
           </motion.div>
           <div className="mt-9">{visual("h-[230px] @[640px]:h-[300px]")}</div>
