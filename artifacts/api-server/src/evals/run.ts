@@ -348,6 +348,17 @@ async function main(): Promise<void> {
       import("./judge"),
     ]);
   const micrositeHandler = micrositeMod.generateMicrositeHandler as unknown as MicrositeHandler;
+  // Brand design-direction inputs for the brandFidelity scorer — the SAME
+  // resolution the generators use (inferDesignIntensity + the
+  // ctaBackground > accent > primary injection chain), so the scorer verifies
+  // the pipeline against its own contract rather than a parallel one.
+  const inferDesignIntensity = generateMod.inferDesignIntensity as (b: Record<string, unknown>) => string;
+  const brandFidelityInput = (config: Record<string, unknown>) => ({
+    designIntensity: inferDesignIntensity(config),
+    brandCtaColor: [config["ctaBackground"], config["accentColor"], config["primaryColor"]].find(
+      (c): c is string => typeof c === "string" && c.trim() !== "",
+    ),
+  });
   const express = expressMod.default;
   const cookieParser = cookieParserMod.default;
   const { SESSION_COOKIE, requireAuth } = authMod;
@@ -513,6 +524,7 @@ async function main(): Promise<void> {
           allowedStats,
           brandAvoidPhrases: avoidPhrases,
           lineupDiversity: diversity,
+          brandFidelity: brandFidelityInput(micro.config),
         });
         const regressions = diffAgainstBaseline(report);
 
@@ -661,6 +673,7 @@ async function main(): Promise<void> {
         expectations: brief.expectations,
         allowedStats,
         brandAvoidPhrases: avoidPhrases,
+        brandFidelity: brandFidelityInput(config),
       });
       const regressions = diffAgainstBaseline(report);
 
@@ -771,6 +784,7 @@ function emptyScores(): Record<ScorerName, number> {
     subjectLeak: 0,
     degradation: 0,
     lineupDiversity: 0,
+    brandFidelity: 0,
   };
 }
 

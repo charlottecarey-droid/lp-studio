@@ -55,6 +55,10 @@ export const DEFAULT_THRESHOLDS: Record<ScorerName, number> = {
   // (the scorer is a constant 1 when there is nothing to compare), so this
   // threshold is inert for them.
   lineupDiversity: 0.5,
+  // Brand design-direction adherence (CTA hex, intensity background rhythm,
+  // no text-bearing backgrounds). One finding tolerated — rhythm reads on a
+  // heavily-shuffled lineup can be legitimately borderline.
+  brandFidelity: 0.75,
 };
 
 // ── Shared block walking ─────────────────────────────────────────────────────
@@ -592,6 +596,133 @@ export function lineupDiversityScore(pages: readonly LineupPage[]): ScorerResult
 
 // ── Aggregate ────────────────────────────────────────────────────────────────
 
+
+// ── 9. Brand fidelity (July 2026) ────────────────────────────────────────────
+
+/** Dark-leaning background presets (the design-intensity post-pass vocabulary). */
+const DARKISH_BG = new Set(["dark", "black", "gradient", "dandy-green"]);
+/** Accent-leaning presets the energetic post-pass injects. */
+const ACCENT_BG = new Set(["dandy-green", "gradient"]);
+
+export interface BrandFidelityInput {
+  /** The brand's resolved design-intensity axis (inferDesignIntensity). */
+  designIntensity?: string;
+  /** The hex every ctaColor prop must carry (ctaBackground > accent > primary
+   *  fallback chain — the same value the generators inject). */
+  brandCtaColor?: string;
+  /** Library URLs the auto-tagger marked text-bearing (promo-graphic /
+   *  og-image). Backgrounds must never use one — the "two headlines" rule. */
+  textBearingImageUrls?: readonly string[];
+}
+
+/**
+ * brandFidelityScore — does the generated page LOOK like it followed the
+ * brand's design direction? Verifies the outcomes the generation pipeline is
+ * supposed to guarantee, so a silent regression in any of those passes
+ * surfaces as an eval finding instead of an eyeball diff:
+ *
+ *  1. CTA COLOR — every non-empty `ctaColor` prop equals the brand's CTA hex
+ *     (the injectBrandCtaColor post-pass contract).
+ *  2. DESIGN-INTENSITY RHYTHM — the applyDesignIntensityBackgrounds contract,
+ *     re-checked from the output: editorial-dense pages open with >= 2
+ *     dark-leaning sections in the first 5 (non-chrome) blocks; airy-minimal
+ *     pages have at most 1 there (one dark-required block is tolerated);
+ *     energetic-visual pages carry >= 1 accent section in the first 3.
+ *     "balanced" (or unknown) checks nothing.
+ *  3. NO TEXT-BEARING BACKGROUNDS — no backgroundImage/backgroundImageUrl
+ *     resolves to a library image the auto-tagger marked promo-graphic /
+ *     og-image (the "two headlines" rule; see isTextBearingImage in
+ *     generate-page.ts).
+ */
+export function brandFidelityScore(
+  blocks: EvalBlock[] | undefined,
+  input: BrandFidelityInput = {},
+): ScorerResult {
+  const violations: EvalViolation[] = [];
+  const list = Array.isArray(blocks) ? blocks : [];
+
+  // 1. CTA color coherence.
+  const wantCta = (input.brandCtaColor ?? "").trim().toLowerCase();
+  if (wantCta) {
+    list.forEach((b, i) => {
+      const props = (b && typeof b === "object" ? (b.props as Record<string, unknown>) : undefined) ?? {};
+      const v = props["ctaColor"];
+      if (typeof v === "string" && v.trim() && v.trim().toLowerCase() !== wantCta) {
+        violations.push({
+          scorer: "brandFidelity",
+          path: `blocks[${i}].props.ctaColor`,
+          value: v,
+          detail: `expected the brand CTA color ${input.brandCtaColor}`,
+        });
+      }
+    });
+  }
+
+  // 2. Design-intensity background rhythm.
+  const intensity = input.designIntensity ?? "";
+  if (intensity === "editorial-dense" || intensity === "airy-minimal" || intensity === "energetic-visual") {
+    const content = list.filter(
+      (b) => b && typeof b === "object" && typeof b.type === "string" && !isChromeBlockType(b.type),
+    );
+    const bgOf = (b: EvalBlock): string => {
+      const props = (b.props as Record<string, unknown>) ?? {};
+      return typeof props["backgroundStyle"] === "string" ? (props["backgroundStyle"] as string) : "";
+    };
+    if (intensity === "editorial-dense") {
+      const darks = content.slice(0, 5).filter((b) => DARKISH_BG.has(bgOf(b))).length;
+      if (darks < 2) {
+        violations.push({
+          scorer: "brandFidelity",
+          path: "blocks[0..4].props.backgroundStyle",
+          value: String(darks),
+          detail: "editorial-dense brand: expected >= 2 dark-leaning sections in the first 5 blocks",
+        });
+      }
+    } else if (intensity === "airy-minimal") {
+      const darks = content.slice(0, 5).filter((b) => DARKISH_BG.has(bgOf(b))).length;
+      if (darks > 1) {
+        violations.push({
+          scorer: "brandFidelity",
+          path: "blocks[0..4].props.backgroundStyle",
+          value: String(darks),
+          detail: "airy-minimal brand: expected at most 1 dark-leaning section in the first 5 blocks",
+        });
+      }
+    } else {
+      const accents = content.slice(0, 3).filter((b) => ACCENT_BG.has(bgOf(b))).length;
+      if (accents < 1) {
+        violations.push({
+          scorer: "brandFidelity",
+          path: "blocks[0..2].props.backgroundStyle",
+          value: String(accents),
+          detail: "energetic-visual brand: expected >= 1 accent section in the first 3 blocks",
+        });
+      }
+    }
+  }
+
+  // 3. Text-bearing backgrounds.
+  const banned = new Set((input.textBearingImageUrls ?? []).filter(Boolean));
+  if (banned.size > 0) {
+    list.forEach((b, i) => {
+      const props = (b && typeof b === "object" ? (b.props as Record<string, unknown>) : undefined) ?? {};
+      for (const key of ["backgroundImage", "backgroundImageUrl"]) {
+        const v = props[key];
+        if (typeof v === "string" && banned.has(v)) {
+          violations.push({
+            scorer: "brandFidelity",
+            path: `blocks[${i}].props.${key}`,
+            value: v,
+            detail: "text-bearing image (promo-graphic/og) used as a background behind copy",
+          });
+        }
+      }
+    });
+  }
+
+  return { score: penaltyScore(violations), violations };
+}
+
 export interface ScoreGenerationInput {
   briefId: string;
   result: GenerationResultLike;
@@ -604,6 +735,9 @@ export interface ScoreGenerationInput {
    *  computes it across all N generations via lineupDiversityScore). Absent →
    *  a constant clean 1, so single-generation briefs always pass. */
   lineupDiversity?: ScorerResult;
+  /** Brand design-direction inputs for the brandFidelity scorer. Absent →
+   *  every check it gates on is skipped (constant clean 1). */
+  brandFidelity?: BrandFidelityInput;
 }
 
 /** Runs every scorer over one generation result and folds in the brief's
@@ -626,6 +760,7 @@ export function scoreGeneration(input: ScoreGenerationInput): EvalReport {
     subjectLeak: subjectLeakScore(blocks, exp.subjectLeakMarkers ?? [], typeof result.title === "string" ? result.title : ""),
     degradation: degradationScore(result.degradations, exp.allowedDegradationCodes ?? []),
     lineupDiversity: input.lineupDiversity ?? { score: 1, violations: [] },
+    brandFidelity: brandFidelityScore(blocks, input.brandFidelity ?? {}),
   };
 
   const scores = Object.fromEntries(

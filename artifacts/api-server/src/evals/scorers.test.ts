@@ -17,6 +17,7 @@ import {
   lineupDiversityScore,
   lineupSignature,
   placeholderLeakScore,
+  brandFidelityScore,
   scoreGeneration,
   structuralScore,
   subjectLeakScore,
@@ -619,5 +620,98 @@ describe("scoreGeneration", () => {
     expect(report.scores.bannedPhrase).toBe(0.75);
     expect(report.passed).toBe(false);
     expect(report.failures.some((f) => f.startsWith("bannedPhrase"))).toBe(true);
+  });
+});
+
+// ── brandFidelity ────────────────────────────────────────────────────────────
+
+describe("brandFidelityScore", () => {
+  let bgSeq = 0;
+  const bg = (style: string, type = "features"): EvalBlock =>
+    block(type, { backgroundStyle: style }, `${type}-${style}-${bgSeq++}`);
+
+  it("is a constant clean 1 with no inputs (every check gates on its input)", () => {
+    const r = brandFidelityScore([block("hero", { ctaColor: "#ff0000" })], {});
+    expect(r.score).toBe(1);
+    expect(r.violations).toEqual([]);
+  });
+
+  it("flags ctaColor props that deviate from the brand CTA hex (case-insensitive)", () => {
+    const r = brandFidelityScore(
+      [
+        block("hero", { ctaColor: "#FF0000" }),
+        block("bottom-cta", { ctaColor: "#00ff00" }, "cta-2"),
+        block("features", { ctaColor: "" }, "f-3"), // empty = unset, never flagged
+      ],
+      { brandCtaColor: "#ff0000" },
+    );
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0].path).toBe("blocks[1].props.ctaColor");
+  });
+
+  it("editorial-dense: needs >= 2 dark-leaning sections in the first 5 blocks", () => {
+    const dark = [bg("dark"), bg("white"), bg("black"), bg("white"), bg("muted")];
+    expect(brandFidelityScore(dark, { designIntensity: "editorial-dense" }).violations).toEqual([]);
+    const light = [bg("white"), bg("light-gray"), bg("white"), bg("muted"), bg("white")];
+    const r = brandFidelityScore(light, { designIntensity: "editorial-dense" });
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0].detail).toContain("editorial-dense");
+  });
+
+  it("airy-minimal: tolerates one dark-required section, flags more", () => {
+    const one = [bg("white"), bg("dark"), bg("white"), bg("white"), bg("white")];
+    expect(brandFidelityScore(one, { designIntensity: "airy-minimal" }).violations).toEqual([]);
+    const two = [bg("black"), bg("dark"), bg("white"), bg("white"), bg("white")];
+    expect(brandFidelityScore(two, { designIntensity: "airy-minimal" }).violations).toHaveLength(1);
+  });
+
+  it("energetic-visual: needs an accent section in the first 3 blocks", () => {
+    const accent = [bg("white"), bg("dandy-green"), bg("white")];
+    expect(brandFidelityScore(accent, { designIntensity: "energetic-visual" }).violations).toEqual([]);
+    const plain = [bg("white"), bg("muted"), bg("white")];
+    expect(brandFidelityScore(plain, { designIntensity: "energetic-visual" }).violations).toHaveLength(1);
+  });
+
+  it("balanced (or unknown) intensity checks no rhythm at all", () => {
+    const light = [bg("white"), bg("white"), bg("white"), bg("white"), bg("white")];
+    expect(brandFidelityScore(light, { designIntensity: "balanced" }).violations).toEqual([]);
+    expect(brandFidelityScore(light, { designIntensity: "" }).violations).toEqual([]);
+  });
+
+  it("chrome blocks (nav/footer) are excluded from the rhythm window", () => {
+    // Two dark sections sit at positions 5-6 of the raw array but inside the
+    // first-5 window once nav-header/footer are excluded.
+    const blocks = [
+      bg("white", "nav-header"),
+      bg("white"),
+      bg("dark"),
+      bg("white"),
+      bg("black"),
+      bg("white", "footer"),
+    ];
+    expect(brandFidelityScore(blocks, { designIntensity: "editorial-dense" }).violations).toEqual([]);
+  });
+
+  it("flags text-bearing images used as backgrounds", () => {
+    const r = brandFidelityScore(
+      [
+        block("event-landing-hero", { backgroundImage: "/objects/promo-shot" }),
+        block("full-bleed-hero", { backgroundImageUrl: "/objects/clean-photo" }, "h-2"),
+      ],
+      { textBearingImageUrls: ["/objects/promo-shot"] },
+    );
+    expect(r.violations).toHaveLength(1);
+    expect(r.violations[0].path).toBe("blocks[0].props.backgroundImage");
+    expect(r.violations[0].detail).toContain("text-bearing");
+  });
+
+  it("scoreGeneration includes brandFidelity and defaults clean when no input is given", () => {
+    const result: GenerationResultLike = {
+      title: "T", slug: "t",
+      blocks: [block("hero", { headline: "H" }), block("bottom-cta", { headline: "C" }, "c-1"), block("footer", {}, "f-1")],
+    };
+    const report = scoreGeneration({ briefId: "b", result });
+    expect(report.scores.brandFidelity).toBe(1);
+    expect(DEFAULT_THRESHOLDS.brandFidelity).toBe(0.75);
   });
 });

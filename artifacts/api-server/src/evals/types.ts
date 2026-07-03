@@ -70,6 +70,7 @@ export const SCORER_NAMES = [
   "subjectLeak",
   "degradation",
   "lineupDiversity",
+  "brandFidelity",
 ] as const;
 
 export type ScorerName = (typeof SCORER_NAMES)[number];
