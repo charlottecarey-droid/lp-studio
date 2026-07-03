@@ -1,0 +1,53 @@
+~/workspace$ git pull origin staging
+remote: Enumerating objects: 17, done.
+remote: Counting objects: 100% (17/17), done.
+remote: Compressing objects: 100% (2/2), done.
+remote: Total 9 (delta 7), reused 9 (delta 7), pack-reused 0 (from 0)
+Unpacking objects: 100% (9/9), 2.90 KiB | 3.00 KiB/s, done.
+From https://github.com/charlottecarey-droid/lp-studio
+ * branch                staging    -> FETCH_HEAD
+   efa78cd30..734c534ad  staging    -> origin/staging
+Updating efa78cd30..734c534ad
+Fast-forward
+ artifacts/api-server/src/routes/sales/generate-microsite.page-outline.test.ts | 46 ++++++++++++++++++++++++++++++++++++++++++++--
+ artifacts/api-server/src/routes/sales/generate-microsite.ts                   | 65 ++++++++++++++++++++++++++++++++++++++++++++---------------------
+ 2 files changed, 88 insertions(+), 23 deletions(-)
+~/workspace$ git pull origin master
+From https://github.com/charlottecarey-droid/lp-studio
+ * branch                master     -> FETCH_HEAD
+Already up to date.
+~/workspace$ git pull origin staging
+remote: Enumerating objects: 29, done.
+remote: Counting objects: 100% (29/29), done.
+remote: Compressing objects: 100% (2/2), done.
+remote: Total 15 (delta 13), reused 15 (delta 13), pack-reused 0 (from 0)
+Unpacking objects: 100% (15/15), 7.75 KiB | 9.00 KiB/s, done.
+From https://github.com/charlottecarey-droid/lp-studio
+ * branch                staging    -> FETCH_HEAD
+   734c534ad..b9ed72a52  staging    -> origin/staging
+hint: You have divergent branches and need to specify how to reconcile them.
+hint: You can do so by running one of the following commands sometime before
+hint: your next pull:
+hint:
+hint:   git config pull.rebase false  # merge
+hint:   git config pull.rebase true   # rebase
+hint:   git config pull.ff only       # fast-forward only
+hint:
+hint: You can replace "git config" with "git config --global" to set a default
+hint: preference for all repositories. You can also pass --rebase, --no-rebase,
+hint: or --ff-only on the command line to override the configured default per
+hint: invocation.
+fatal: Need to specify how to reconcile divergent branches.
+~/workspace$ git pull --rebase origin staging
+git push origin staging
+From https://github.com/charlottecarey-droid/lp-studio
+ * branch                staging    -> FETCH_HEAD
+Successfully rebased and updated refs/heads/staging.
+To https://github.com/charlottecarey-droid/lp-studio.git
+ ! [rejected]            staging -> staging (non-fast-forward)
+error: failed to push some refs to 'https://github.com/charlottecarey-droid/lp-studio.git'
+hint: Updates were rejected because the tip of your current branch is behind
+hint: its remote counterpart. If you want to integrate the remote changes,
+hint: use 'git pull' before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+~/workspace$ 
