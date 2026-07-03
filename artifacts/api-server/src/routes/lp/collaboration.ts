@@ -11,6 +11,7 @@ import {
 import { z } from "zod";
 import crypto from "crypto";
 import { restoreRows } from "../../lib/restoreRows";
+import { isForeignKeyViolation } from "../../lib/dbErrors";
 import { renderTenantEmail } from "../../lib/tenantEmailRender";
 import { buildCommentCtaBlock, buildReviewCommentBlock } from "../../lib/tenantEmailAssets";
 import { resolveBroadcastRecipients } from "../../lib/broadcastRecipients";
@@ -488,9 +489,10 @@ router.post("/lp/pages/:pageId/presence", async (req, res): Promise<void> => {
         target: [lpPagePresenceTable.pageId, lpPagePresenceTable.viewerId],
         set: { displayName: parsed.data.displayName, lastSeen: now },
       });
-  } catch (err: any) {
+  } catch (err) {
     // Page was deleted while the builder tab was still open — FK violation.
-    if (err?.message?.includes("foreign key constraint")) {
+    // Match the SQLSTATE via the cause chain; the top-level message omits it.
+    if (isForeignKeyViolation(err)) {
       res.status(404).json({ error: "Page not found" });
       return;
     }

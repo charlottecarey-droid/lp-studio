@@ -8,7 +8,7 @@
  * slug collision would throw instead of retrying.
  */
 import { describe, expect, it } from "vitest";
-import { isUniqueViolation } from "./dbErrors";
+import { isUniqueViolation, isForeignKeyViolation } from "./dbErrors";
 
 /** Minimal stand-in for drizzle's DrizzleQueryError: a wrapper Error whose
  *  `.cause` carries the original pg error (which holds the SQLSTATE `.code`). */
@@ -54,5 +54,30 @@ describe("isUniqueViolation", () => {
     const e = new FakeDrizzleQueryError("self", null);
     e.cause = e;
     expect(isUniqueViolation(e)).toBe(false);
+  });
+});
+
+describe("isForeignKeyViolation", () => {
+  it("detects a bare pg foreign-key-violation error (code at top level)", () => {
+    expect(isForeignKeyViolation({ code: "23503" })).toBe(true);
+  });
+
+  it("detects 23503 carried on `.cause` (drizzle-wrapped error)", () => {
+    const wrapped = new FakeDrizzleQueryError(
+      "Failed query: insert into \"lp_page_presence\" ...",
+      { code: "23503" },
+    );
+    expect(isForeignKeyViolation(wrapped)).toBe(true);
+  });
+
+  it("returns false for a unique-violation code", () => {
+    const wrapped = new FakeDrizzleQueryError("Failed query: ...", { code: "23505" });
+    expect(isForeignKeyViolation(wrapped)).toBe(false);
+  });
+
+  it("is null/undefined/non-object safe", () => {
+    expect(isForeignKeyViolation(null)).toBe(false);
+    expect(isForeignKeyViolation(undefined)).toBe(false);
+    expect(isForeignKeyViolation("23503")).toBe(false);
   });
 });
