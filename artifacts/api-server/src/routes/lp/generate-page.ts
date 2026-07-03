@@ -5234,9 +5234,16 @@ export function enforceApprovedCaseStudies(
 
   if (t === "case-studies") {
     // Generic logo/title grid (CaseStudyItem: image, logoUrl, title,
-    // categories, url). Keep built-in/generated examples when empty.
-    if (pool.length === 0) return;
-    props.items = pool.slice(0, 6).map((src) => ({
+    // categories, url). MAX 3 cards (July 2026): a 4th/5th card orphans the
+    // grid row and reads broken. Keep built-in/generated examples when empty,
+    // clamped to the same cap.
+    if (pool.length === 0) {
+      if (Array.isArray(props.items) && props.items.length > 3) {
+        props.items = (props.items as unknown[]).slice(0, 3);
+      }
+      return;
+    }
+    props.items = pool.slice(0, 3).map((src) => ({
       image: src.image || "",
       logoUrl: src.logoUrl || "",
       title: src.title,
@@ -6678,7 +6685,7 @@ RULES:
 const GENERAL_EXTRA_CORE_BLOCKS: string[] = [
   `- "nav-header": Standalone sticky top navigation bar. Use as the FIRST block ONLY before heroes that do NOT render their own nav ("magazine-hero", "parallax-image-hero"). Props: logoText (brand name, 1–3 words), logoUrl ("" — server fills from brand library), navLinks (array of EXACTLY 3–5 of {label (1–2 words), url ("#")}), cta1 ({label (2–3 words), url ("#")} — secondary/ghost button), cta2 ({label (2–4 words, action verb first), url ("#")} — primary button), backgroundColor (hex or ""), textColor (hex or "").`,
   `- "footer": Standalone page footer. Use as the LAST block on every page. Props: copyrightText (e.g. "© 2026 Acme, Inc. All rights reserved."), accentColor (hex or ""), backgroundColor (hex or ""), showSocialLinks (boolean), linkedinUrl/instagramUrl/facebookUrl (strings or ""), columns (array of EXACTLY 2–4 of {title (1–3 words, e.g. "Product", "Company"), links (array of 2–5 of {label (1–3 words), url ("#")})}).`,
-  `- "case-studies": Grid of customer / case-study cards with logos. Props: headline (5–12 words), subheadline (12–24 words), columns (2 or 3), backgroundStyle ("white"|"muted"|"dark"), items (array of EXACTLY 3–6 of {title (4–9 words naming the concrete result), categories (1–3 words category label), image ("" — server fills), logoUrl ("" — server fills), url ("#")}).`,
+  `- "case-studies": Grid of customer / case-study cards with logos. Props: headline (5–12 words), subheadline (12–24 words), columns (2 or 3), backgroundStyle ("white"|"muted"|"dark"), items (array of EXACTLY 3 of {title (4–9 words naming the concrete result), categories (1–3 words category label), image ("" — server fills), logoUrl ("" — server fills), url ("#")}) — EXACTLY 3, never more: a 4th/5th card orphans the grid row.`,
   `- "product-showcase": Card grid of products / services with imagery and badges. Props: headline (5–12 words), subheadline (12–24 words), columns (3 or 4), cards (array of EXACTLY 3–6 of {name (2–5 words), description (16–28 words with a specific use case — not a feature dump), badge (1–3 words, e.g. "New", "Most popular"), image ("" — server fills)}).`,
   `- "roi-calculator": Interactive ROI / savings calculator with live inputs and computed outputs. Props: headline (5–12 words), subheadline (12–24 words), resultsPanelLabel (2–4 words, e.g. "Your estimated savings"), disclaimer (8–16 words), ctaEnabled (boolean), ctaText (2–5 words), ctaUrl ("#"), inputFields (array of EXACTLY 2–4 of {id (slug), label (2–5 words), defaultValue (number), min (number), max (number), step (number), suffix (e.g. "cases/mo", "$"), inputType ("number"|"slider")}), outputFields (array of EXACTLY 1–3 of {id (slug), label (2–5 words), formula (arithmetic over input ids, e.g. "cases * 480 * 12"), format ("currency"|"number"|"percent"), decimals (number), highlight (boolean)}).`,
   `- "story-hub": Customer-story hub with a featured story, filter chips, a story grid, and stats. Props: eyebrow (2–4 words), heroTitle (5–12 words), subhead (12–24 words), filters (array of 3–5 short category labels), featured ({tag (1–3 words), title (5–12 words), practice (name), location (city, state), imageUrl (""), href ("#")}), stories (array of EXACTLY 3–6 of {practice (name), location (city, state), headline (5–12 words), tag (1–3 words), imageUrl (""), href ("#")}), stats (array of EXACTLY 3–4 of {number (metric), label (2–5 words)}), ctaHeadline (5–12 words), ctaPrimaryText (2–5 words), ctaPrimaryUrl ("#"). NAMED-CUSTOMER INTEGRITY: populate ONLY from case studies, customer quotes, or named results explicitly provided in this brief (APPROVED CASE STUDIES / approved customer quotes / the user's prompt). NEVER invent a customer name, quote, or metric — if the brief provides none, do NOT use this block; pick a non-customer-proof block instead.`,
@@ -11219,7 +11226,7 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
         degradations.push({
           code: "critique_skipped",
           severity: "warn",
-          detail: "The copy-polish pass didn't run even though phrasing was flagged — review the flagged sections manually.",
+          detail: `The copy-polish pass didn't complete — review these flagged phrases manually: ${[...new Set(bannedPhraseHits.map((h) => h.phrase))].slice(0, 3).join(", ")}.`,
         });
       }
     }

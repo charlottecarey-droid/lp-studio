@@ -83,8 +83,9 @@ interface CritiqueOptions {
   /**
    * Optional concurrency wrapper for the model call (e.g. a shared
    * semaphore's `run`, June 2026 launch hardening). Defaults to invoking the
-   * call directly. Note `timeoutMs` covers queue wait too: under heavy load
-   * the pass aborts fail-open rather than waiting indefinitely for a slot.
+   * call directly. `timeoutMs` budgets the MODEL CALL only — it starts after
+   * the slot is acquired, so queue wait under load can no longer starve the
+   * pass into a silent skip.
    */
   limit?: <T>(fn: () => Promise<T>) => Promise<T>;
 }
@@ -349,24 +350,33 @@ export async function critiqueAndRewriteBlocks(
       .join("\n");
 
     let rewritten: { blocks?: Array<{ id?: unknown; props?: unknown }> };
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const completion = await limit(() =>
-        openai.chat.completions.create(
-          {
-            model: "gpt-4o",
-            temperature: 0.7,
-            max_completion_tokens: 4096,
-            response_format: { type: "json_object" },
-            messages: [
-              { role: "system", content: CRITIQUE_SYSTEM_PROMPT },
-              { role: "user", content: userPrompt },
-            ],
-          },
-          { signal: controller.signal },
-        ),
-      );
+      // The timeout budget starts AFTER the semaphore slot is acquired
+      // (July 2026): previously the timer started before `limit`, so on a
+      // busy instance the whole budget was consumed by QUEUE WAIT and the
+      // pass aborted before its model call even began — the dominant cause
+      // of "the copy-polish pass didn't run" ledger warnings. Queue wait is
+      // now unbounded but harmless: the batch holds no slot while waiting,
+      // and generation never blocks on the critique (it's the last pass).
+      const completion = await limit(() => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        return openai.chat.completions
+          .create(
+            {
+              model: "gpt-4o",
+              temperature: 0.7,
+              max_completion_tokens: 4096,
+              response_format: { type: "json_object" },
+              messages: [
+                { role: "system", content: CRITIQUE_SYSTEM_PROMPT },
+                { role: "user", content: userPrompt },
+              ],
+            },
+            { signal: controller.signal },
+          )
+          .finally(() => clearTimeout(timer));
+      });
       const raw = completion.choices[0]?.message?.content?.trim() ?? "";
       if (!raw) return { annotations: [], didRewrite: false };
       const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
@@ -375,8 +385,6 @@ export async function critiqueAndRewriteBlocks(
       // Timeout, abort, network error, or invalid JSON — this batch ships
       // unchanged; sibling batches are unaffected.
       return { annotations: [], didRewrite: false };
-    } finally {
-      clearTimeout(timer);
     }
 
     if (!rewritten || !Array.isArray(rewritten.blocks)) {
