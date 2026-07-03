@@ -90,3 +90,35 @@ describe("buildSystemPrompt — microsite recipe injection scoping (Task #1411)"
     expect(prompt).not.toContain("STARTING SUGGESTION");
   });
 });
+
+// July 2026 — recipe-selector vocabulary expansion: block types referenced by
+// the path's recipe pool (beyond the fixed dso-* vocabulary) must be offered
+// to the model on the DSO paths, with their real prop schemas, so recipes
+// authored in the recipe maker can use them.
+describe("buildSystemPrompt — recipe-selector vocabulary expansion (DSO paths)", () => {
+  it("advertises recipe-referenced extra blocks on the DSO enterprise path", () => {
+    const prompt = buildSystemPrompt(
+      CORE, BRAND, undefined, null, /*useFreeform*/ false, undefined, /*dsoFreeformMode*/ "enterprise",
+      /*segmentApprovedTypes*/ [], false, undefined, undefined, new Set(), null,
+      /*recipeExtraTypes*/ ["zigzag-features"],
+    );
+    expect(prompt).toContain('"zigzag-features"');
+  });
+
+  it("does not advertise extras it wasn't given", () => {
+    const prompt = buildSystemPrompt(
+      CORE, BRAND, undefined, null, false, undefined, "enterprise",
+      [], false, undefined, undefined, new Set(), null,
+    );
+    expect(prompt).not.toContain('"zigzag-features"');
+  });
+
+  it("governance excludeTypes still strips a recipe-referenced extra", () => {
+    const prompt = buildSystemPrompt(
+      CORE, BRAND, undefined, null, false, undefined, "enterprise",
+      [], false, undefined, undefined, new Set(["zigzag-features"]), null,
+      ["zigzag-features"],
+    );
+    expect(prompt).not.toContain('"zigzag-features"');
+  });
+});

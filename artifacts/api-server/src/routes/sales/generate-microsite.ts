@@ -2889,6 +2889,12 @@ export function buildSystemPrompt(
   // microsites VARY their layout per account. Null on every other path and
   // whenever no recipe resolves (then the generic freeform flow is used).
   micrositeRecipe: PageRecipe | null = null,
+  // July 2026 — recipe-selector expansion: canonical block types referenced by
+  // ANY recipe in this path's effective pool (superadmin recipe maker). The
+  // DSO paths union these into their vocabulary so a recipe can offer blocks
+  // beyond the fixed dso-* set (an alternative hero, a neutral section) and
+  // the model can actually fill them. Governance excludeTypes still applies.
+  recipeExtraTypes: string[] = [],
 ): string {
   const tone            = brand.toneOfVoice as string | undefined;
   const pillars         = brand.messagingPillars as Array<{ label: string; description: string }> | undefined;
@@ -3223,7 +3229,7 @@ export function buildSystemPrompt(
       audienceSection,
       "",
       "AVAILABLE BLOCKS (choose from these — you decide which and in what order):",
-      buildDsoFreeformBlockGuide(dsoFreeformMode, segmentApprovedTypes, excludeTypes),
+      buildDsoFreeformBlockGuide(dsoFreeformMode, [...new Set([...segmentApprovedTypes, ...recipeExtraTypes])], excludeTypes),
       dsoFreeformFooter,
     ].join("\n");
   }
@@ -4107,6 +4113,11 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     // micrositeRecipe null → the generic flow. Never reached when an outline is
     // active or on the template / segment-pool paths, so those stay untouched.
     let micrositeRecipe: PageRecipe | null = null;
+    // Recipe-selector expansion (July 2026): block types referenced across the
+    // path's WHOLE effective recipe pool, beyond the DSO vocabulary. Only types
+    // with a real microsite prop schema qualify (the model needs the schema and
+    // the normalizer needs the shape); the rest are logged and skipped.
+    let recipeExtraTypes: string[] = [];
     const recipePath: RecipePromptPath | null = useDsoFreeform
       ? dsoFreeformMode === "practices"
         ? "dso-practices"
@@ -4130,6 +4141,27 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
             `${tenantId}::${accountId}::${segment.id ?? "core"}`,
           );
         }
+        if (useDsoFreeform && dsoFreeformMode && recipePool.length > 0) {
+          const referenced = new Set<string>();
+          for (const r of recipePool) {
+            for (const slot of r.skeleton) {
+              for (const opt of slot.split(/\s+OR\s+/)) {
+                const t = canonicalizeBlockType(opt.trim());
+                if (t) referenced.add(t);
+              }
+            }
+          }
+          const dsoBase = dsoAllowedSet(dsoFreeformMode);
+          const candidates = [...referenced].filter((t) => !dsoBase.has(t));
+          recipeExtraTypes = candidates.filter((t) => BLOCK_PROP_SCHEMAS[t]);
+          const skipped = candidates.filter((t) => !BLOCK_PROP_SCHEMAS[t]);
+          if (skipped.length > 0) {
+            logger.info(
+              { skipped, recipePath, tenantId, accountId },
+              "[generate-microsite] recipe-referenced types without a microsite schema skipped",
+            );
+          }
+        }
       } catch (err) {
         logger.warn(
           { event: "microsite_recipe_load_failed", err: String(err), tenantId, accountId, recipePath },
@@ -4137,7 +4169,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         );
       }
     }
-    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, accountSegmentForPrompt, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes, usePoolFreeform, authoritativeOutlineBlockList, selectedPersona, excludeTypes, micrositeRecipe);
+    const systemPrompt = buildSystemPrompt(segment, brand, templateBlockTypes, accountSegmentForPrompt, useFreeform, templateBlocks, dsoFreeformMode, segmentApprovedTypes, usePoolFreeform, authoritativeOutlineBlockList, selectedPersona, excludeTypes, micrositeRecipe, recipeExtraTypes);
 
     // Task #976 — REFERENCE PAGE (voice) + VISUAL REFERENCE (style) sections,
     // appended to the user prompt exactly like /lp/generate-page. The brand's
@@ -4492,8 +4524,8 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       // Segment-approval expansion — allow superadmin-approved blocks for this
       // segment IN ADDITION to the DSO vocab (union, not a clamp).
       const dsoBase = dsoAllowedSet(dsoFreeformMode);
-      const allowed = segmentApprovedTypes.length
-        ? new Set<string>([...dsoBase, ...segmentApprovedTypes])
+      const allowed = segmentApprovedTypes.length || recipeExtraTypes.length
+        ? new Set<string>([...dsoBase, ...segmentApprovedTypes, ...recipeExtraTypes])
         : dsoBase;
       const filtered = normalizedBlocks.filter((b) => allowed.has(String(b.type ?? "")));
       if (filtered.length > 0) {
