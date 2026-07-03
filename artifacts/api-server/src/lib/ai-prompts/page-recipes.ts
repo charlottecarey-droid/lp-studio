@@ -466,6 +466,38 @@ export function recipeSkeletonBlockTypes(recipe: PageRecipe): string[] {
  * (single-recipe pool) the full pool is used. Selection never fails because
  * of an exclusion.
  */
+/** FNV-1a hash for deterministic slot resolution (local mirror of the route
+ *  seeds' hash family — this module stays dependency-free). */
+function recipeSlotSeed(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/**
+ * Resolve each recipe-skeleton slot's "a OR b" alternatives DETERMINISTICALLY
+ * from the generation seed instead of letting the model choose (July 2026).
+ * Left to the model, alternatives collapse to one favorite via prompt
+ * saturation — verified on microsites where every account drew the same hero
+ * despite recipe rotation working underneath, and the landing-page path
+ * relied on the same model-side resolution. Same seed → same choices
+ * (regeneration stays stable); different seeds genuinely rotate the
+ * alternatives. Structure from the seed, judgment from the model.
+ */
+export function resolveRecipeSkeletonSlots(recipe: PageRecipe, seedKey: string): PageRecipe {
+  return {
+    ...recipe,
+    skeleton: recipe.skeleton.map((slot, i) => {
+      const options = slot.split(/\s+OR\s+/).map((o) => o.trim()).filter(Boolean);
+      if (options.length <= 1) return slot;
+      return options[recipeSlotSeed(`recipe-slot::${seedKey}::${i}`) % options.length];
+    }),
+  };
+}
+
 export function pickRecipe(
   recipes: ReadonlyArray<PageRecipe>,
   recentRecipeIds: ReadonlyArray<string>,
@@ -517,7 +549,7 @@ export function buildRecipeDirective(recipe: PageRecipe): string {
     `RECIPE FOR THIS GENERATION — "${recipe.label}" (${recipe.description}).`,
     `Suggested flow: ${recipe.skeleton.join(" → ")}.`,
     `Style notes: ${recipe.styleNotes}`,
-    "Adapt this recipe to the brief — it is a starting suggestion, NOT a mandatory template. Where an entry offers alternatives (\"a OR b\"), pick whichever fits the brand; swap any suggested block for a better-fitting one from the available block types, and keep the standard nav/footer and hero rules. EXPLICIT USER REQUESTS ALWAYS OVERRIDE THIS RECIPE: never drop or skip a block, section, feature, or topic the USER REQUEST explicitly asks for.",
+    "Adapt this recipe to the brief — it is a starting suggestion, NOT a mandatory template. Swap any suggested block for a better-fitting one from the available block types, and keep the standard nav/footer and hero rules. EXPLICIT USER REQUESTS ALWAYS OVERRIDE THIS RECIPE: never drop or skip a block, section, feature, or topic the USER REQUEST explicitly asks for.",
     RECIPE_FREESTYLE_OVERRIDE_CLAUSE,
   ].join("\n");
 }
@@ -547,7 +579,7 @@ export function injectRecipeIntoBlockSelection(
   const replacement =
     `RECIPE FOR THIS GENERATION — "${recipe.label}" (${recipe.description}): ` +
     `${recipe.skeleton.join(" → ")}. ${recipe.styleNotes} ` +
-    `Adapt this recipe — it is a suggestion, NOT a mandatory template (each "OR" offers alternatives), and explicit user requests always override it. ` +
+    `Adapt this recipe — it is a suggestion, NOT a mandatory template, and explicit user requests always override it. ` +
     RECIPE_FREESTYLE_OVERRIDE_CLAUSE;
   return { prompt: systemPrompt.replace(LOOSE_FLOW_SENTENCE_RE, replacement), injected: true };
 }

@@ -2030,27 +2030,11 @@ export function segmentPoolFallbackBlockList(poolTypes: string[]): string[] {
   ];
 }
 
-/**
- * Resolve each recipe-skeleton slot's "a OR b" alternatives DETERMINISTICALLY
- * from the account seed instead of letting the model choose (July 2026).
- * Left to the model, alternatives collapse to one favorite — prompt
- * saturation made "spotlight-glow-hero OR aurora-gradient-hero OR
- * dso-heartland-hero" resolve to the heartland hero on essentially every
- * account, so every microsite OPENED identically even while the recipe
- * rotation worked underneath. Same account → same choices (regeneration
- * stays stable); different accounts genuinely rotate the alternatives.
- * Structure from the seed, judgment from the model.
- */
-export function resolveRecipeSkeletonSlots(recipe: PageRecipe, seedKey: string): PageRecipe {
-  return {
-    ...recipe,
-    skeleton: recipe.skeleton.map((slot, i) => {
-      const options = slot.split(/\s+OR\s+/).map((o) => o.trim()).filter(Boolean);
-      if (options.length <= 1) return slot;
-      return options[hashSeed(`microsite-slot::${seedKey}::${i}`) % options.length];
-    }),
-  };
-}
+// Shared implementation lives in page-recipes.ts (July 2026) — both the
+// microsite and landing-page paths resolve skeleton OR-slots from their
+// generation seed. Re-exported here for the existing tests + callers.
+import { resolveRecipeSkeletonSlots } from "../../lib/ai-prompts/page-recipes";
+export { resolveRecipeSkeletonSlots };
 
 // The documented block-source precedence for a microsite (task #5 + task #6,
 // revised July 2026). A pure decision so it is unit-testable in isolation and

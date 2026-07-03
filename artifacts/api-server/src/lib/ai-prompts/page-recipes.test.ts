@@ -24,6 +24,7 @@ import {
   SEQUENCE_STRUCTURAL_TYPES,
   type PageRecipe,
   type RecipeOverride,
+  resolveRecipeSkeletonSlots,
 } from "./page-recipes";
 
 describe("recipe sets", () => {
@@ -436,5 +437,29 @@ describe("mergeRecipeOverrides — superadmin wording overrides", () => {
       ov({ recipeId: "freeform-custom-ee", skeleton: ["hero", "cta"], isCustom: true }),
     ]);
     expect(out.map((r) => r.id)).toEqual(["r1", "r2"]);
+  });
+});
+
+// July 2026 — seeded OR-slot resolution (shared by landing pages + microsites).
+describe("resolveRecipeSkeletonSlots", () => {
+  it("resolves every OR slot in the real freeform recipe pool", () => {
+    for (const recipe of FREEFORM_RECIPES) {
+      const resolved = resolveRecipeSkeletonSlots(recipe, "tenant::some prompt::GENERAL");
+      for (const slot of resolved.skeleton) expect(slot).not.toContain(" OR ");
+      expect(resolved.skeleton).toHaveLength(recipe.skeleton.length);
+      expect(resolved.id).toBe(recipe.id);
+    }
+  });
+
+  it("is stable per seed and rotates across seeds", () => {
+    const withOr = FREEFORM_RECIPES.find((r) => r.skeleton.some((s) => s.includes(" OR ")));
+    expect(withOr).toBeDefined();
+    const a = resolveRecipeSkeletonSlots(withOr!, "t::prompt-a::GENERAL");
+    expect(resolveRecipeSkeletonSlots(withOr!, "t::prompt-a::GENERAL").skeleton).toEqual(a.skeleton);
+    const variants = new Set(
+      Array.from({ length: 40 }, (_, i) =>
+        JSON.stringify(resolveRecipeSkeletonSlots(withOr!, `t::prompt-${i}::GENERAL`).skeleton)),
+    );
+    expect(variants.size).toBeGreaterThan(1);
   });
 });

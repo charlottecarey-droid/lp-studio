@@ -22,6 +22,7 @@ import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-
 import { applySafePhraseSwaps } from "../../lib/ai-prompts/banned-phrase-validator";
 import {
   pickRecipe,
+  resolveRecipeSkeletonSlots,
   buildRecipeDirective,
   injectRecipeIntoBlockSelection,
   blockSequenceHash,
@@ -9532,9 +9533,14 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       "[generate-page] excludeRecipeIds covers the entire recipe pool — falling back to the pool minus the first excluded id",
     );
   }
-  // Deterministic recipe choice: same segment + intent → same recipe, so a
-  // "kind" of page looks like itself across runs. "Shuffle layout" still works
-  // (excluded ids drop out, the next deterministic candidate is chosen).
+  // Deterministic recipe choice, seeded per INPUT (July 2026): tenant + the
+  // user's prompt + path/segment/intent. Same request regenerates the same
+  // recipe (a page reads like itself across runs); DIFFERENT requests rotate
+  // the pool. The previous seed omitted tenant + prompt, so every generic
+  // no-segment request collapsed onto ONE recipe and layout variety survived
+  // only via the model's OR-slot choices — which themselves collapse (see
+  // resolveRecipeSkeletonSlots). "Shuffle layout" still works (excluded ids
+  // drop out, the modulo lands elsewhere).
   const recipeCandidates =
     excludedRecipeIds.length > 0
       ? recipePool.filter((r) => !excludedRecipeIds.includes(r.id))
@@ -9550,14 +9556,17 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
           const minusFirst = recipePool.filter((r) => r.id !== excludedRecipeIds[0]);
           return minusFirst.length > 0 ? minusFirst : recipePool;
         })();
-  const chosenRecipe: PageRecipe | null =
+  const recipeSeedKey = `${tenantId}::${prompt.trim()}::${promptPath}::${segmentContext?.name ?? ""}::${intentMatchedTemplate?.slug ?? ""}`;
+  const pickedRecipe: PageRecipe | null =
     recipeChoicePool.length > 0
-      ? recipeChoicePool[
-          lpHashSeed(
-            `${promptPath}::${segmentContext?.name ?? ""}::${intentMatchedTemplate?.slug ?? ""}`,
-          ) % recipeChoicePool.length
-        ]
+      ? recipeChoicePool[lpHashSeed(recipeSeedKey) % recipeChoicePool.length]
       : null;
+  // Resolve each skeleton slot's "a OR b" alternatives with the same seed —
+  // the model otherwise collapses alternatives onto one favorite (the
+  // microsite hero-monotony bug, same mechanism here).
+  const chosenRecipe: PageRecipe | null = pickedRecipe
+    ? resolveRecipeSkeletonSlots(pickedRecipe, recipeSeedKey)
+    : null;
   void recentRecipeIds; // kept for history logging; no longer drives selection
 
   // Fetch the per-industry block_catalog once: `tags` drives the role-tag guide
