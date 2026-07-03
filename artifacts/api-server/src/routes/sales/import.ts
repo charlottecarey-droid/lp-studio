@@ -3,6 +3,7 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { eq } from "drizzle-orm";
 import { db, pool } from "@workspace/db";
+import { cleanAccountDisplayName } from "@workspace/lead-utils";
 import { salesAccountsTable, salesContactsTable } from "@workspace/db";
 
 const router = Router();
@@ -165,6 +166,13 @@ router.post("/import/contacts", importLimiter, async (req, res): Promise<void> =
           tenantId,
           salesforceId: isSfdc ? key : null,
           name,
+        // Auto-derive the clean display name when the raw CRM name carries
+        // decoration ("-HQ", corporate suffixes); NULL when already clean so
+        // the UI's displayName ?? name fallback stays meaningful.
+        displayName: (() => {
+          const cleaned = cleanAccountDisplayName(name);
+          return cleaned && cleaned !== (name ?? "").trim() ? cleaned : null;
+        })(),
           status: "prospect",
           ...(rep.accountDomain ? { domain: rep.accountDomain } : {}),
           ...(rep.accountSegment ? { segment: rep.accountSegment } : {}),

@@ -7,10 +7,17 @@
  * live at view time.
  */
 
+import { cleanAccountDisplayName } from "@workspace/lead-utils";
+
 export function deriveCompanyName(
   account: { displayName?: string | null; name?: string | null } | null | undefined,
 ): string {
-  return (account?.displayName ?? account?.name ?? "").trim();
+  // Clean display form: an explicit displayName is used as-is (a human set
+  // it); the raw CRM name is stripped of "-HQ"-style decoration + corporate
+  // suffixes so generated copy never reads "…for Heartland Dental-HQ".
+  const explicit = (account?.displayName ?? "").trim();
+  if (explicit) return explicit;
+  return cleanAccountDisplayName(account?.name);
 }
 
 export function derivePracticeCount(

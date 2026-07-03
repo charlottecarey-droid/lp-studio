@@ -117,3 +117,27 @@ export function isTestLead(fields: LeadFields): boolean {
   }
   return false;
 }
+
+/**
+ * Clean display form of a CRM account name (July 2026). Imported account
+ * names carry dedupe/location decoration the UI and generated pages should
+ * never show: "Heartland Dental-HQ", "Bridge Dental Group- HQ",
+ * "TAG - The Aspen Group (Aspen Dental)-HQ", "Acme Dental, LLC". Strips
+ * trailing "HQ"-style decoration (with any separator/bracket) and trailing
+ * corporate suffixes, preserving the original casing of what remains. Falls
+ * back to the trimmed input when stripping would leave nothing. This is the
+ * DISPLAY form — matching uses its own lowercased normalization
+ * (signalAttribution.normalizeCompanyName), deliberately separate.
+ */
+export function cleanAccountDisplayName(raw: string | null | undefined): string {
+  const original = (raw ?? "").trim();
+  if (!original) return "";
+  let out = original;
+  // Trailing "HQ" decoration: "-HQ", "- HQ", "–HQ", "(HQ)", "[HQ]", " HQ"
+  out = out.replace(/[\s\-–—]*[([]?\s*HQ\s*[)\]]?$/i, "").trim();
+  // Trailing corporate suffixes, with optional preceding comma/period
+  out = out.replace(/[\s,]*\b(LLC|L\.L\.C\.|Inc\.?|Incorporated|Corp\.?|Corporation|Ltd\.?|PLLC|P\.C\.)$/i, "").trim();
+  // Leftover trailing separators from the stripping above
+  out = out.replace(/[\s\-–—,]+$/, "").trim();
+  return out.length >= 2 ? out : original;
+}

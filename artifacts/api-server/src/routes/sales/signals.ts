@@ -1,6 +1,6 @@
 import { getTenantId } from "../../middleware/requireAuth";
 import { Router, type Response } from "express";
-import { eq, desc, and, gte, count, inArray } from "drizzle-orm";
+import { eq, desc, and, gte, count, inArray, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   salesSignalsTable,
@@ -84,7 +84,8 @@ router.get("/signals", async (req, res): Promise<void> => {
           source: salesSignalsTable.source,
           metadata: salesSignalsTable.metadata,
           createdAt: salesSignalsTable.createdAt,
-          accountName: salesAccountsTable.name,
+          // Clean display form for the feed (falls back to raw name).
+          accountName: sql<string>`COALESCE(${salesAccountsTable.displayName}, ${salesAccountsTable.name})`,
           contactFirstName: salesContactsTable.firstName,
           contactLastName: salesContactsTable.lastName,
           contactEmail: salesContactsTable.email,

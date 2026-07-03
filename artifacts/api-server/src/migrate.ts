@@ -2760,6 +2760,44 @@ async function runMigrationsBody(): Promise<void> {
     }
     });
 
+    // July 2026 — clean account display names. CRM-imported names carry
+    // dedupe decoration ("Heartland Dental-HQ") that leaked into the console
+    // UI and generated pages. display_name is the documented clean-display
+    // field but was never populated; backfill it wherever stripping actually
+    // changes the name. Human-set display names are untouched (display_name
+    // IS NULL filter). Marker-gated, idempotent, non-fatal; new accounts
+    // derive it at creation (accounts/import/contacts routes).
+    await runStep("account display-name backfill (strip -HQ decorations)", async () => {
+    try {
+      const markerKey = "account_display_name_backfill_v1";
+      const marker = await pool.query(
+        "SELECT 1 FROM _schema_migration_markers WHERE key = $1",
+        [markerKey],
+      );
+      if (marker.rows.length === 0) {
+        const { cleanAccountDisplayName } = await import("@workspace/lead-utils");
+        const accounts = await pool.query(
+          "SELECT id, name FROM sales_accounts WHERE display_name IS NULL AND name IS NOT NULL",
+        );
+        let updated = 0;
+        for (const row of accounts.rows as Array<{ id: number; name: string }>) {
+          const cleaned = cleanAccountDisplayName(row.name);
+          if (cleaned && cleaned !== row.name.trim()) {
+            await pool.query("UPDATE sales_accounts SET display_name = $1 WHERE id = $2", [cleaned, row.id]);
+            updated++;
+          }
+        }
+        await pool.query(
+          "INSERT INTO _schema_migration_markers (key) VALUES ($1) ON CONFLICT DO NOTHING",
+          [markerKey],
+        );
+        if (updated > 0) logger.info({ updated }, "account display-name backfill applied");
+      }
+    } catch (backfillErr) {
+      logger.error({ err: backfillErr }, "account display-name backfill failed (non-fatal)");
+    }
+    });
+
     // Task #641 — seed the root superadmin platform-operator accounts. These are
     // the bootstrap accounts (admin@lpstudio.ai + charlotte.carey@meetdandy.com
     // built-in, plus any configured via ROOT_SUPERADMIN_EMAIL) that own the

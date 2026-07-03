@@ -3,6 +3,7 @@ import { Router } from "express";
 import { randomBytes } from "crypto";
 import { eq, desc, and, or, isNotNull, sql, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
+import { cleanAccountDisplayName } from "@workspace/lead-utils";
 import {
   salesAccountsTable,
   salesContactsTable,
@@ -221,6 +222,13 @@ router.post("/accounts", async (req, res): Promise<void> => {
         tenantId,
         salesforceId: salesforceId ?? null,
         name,
+        // Auto-derive the clean display name when the raw CRM name carries
+        // decoration ("-HQ", corporate suffixes); NULL when already clean so
+        // the UI's displayName ?? name fallback stays meaningful.
+        displayName: (() => {
+          const cleaned = cleanAccountDisplayName(name);
+          return cleaned && cleaned !== (name ?? "").trim() ? cleaned : null;
+        })(),
         domain: domain ?? null,
         industry: industry ?? null,
         segment: segment ?? null,

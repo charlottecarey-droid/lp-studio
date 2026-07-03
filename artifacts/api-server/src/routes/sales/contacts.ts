@@ -2,6 +2,7 @@ import { getTenantId } from "../../middleware/requireAuth";
 import { Router } from "express";
 import { eq, desc, and, ilike, count, sql, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
+import { cleanAccountDisplayName } from "@workspace/lead-utils";
 import { salesContactsTable, salesAccountsTable } from "@workspace/db";
 import { restoreRows } from "../../lib/restoreRows";
 
@@ -312,6 +313,13 @@ router.post("/contacts/import", async (req, res): Promise<void> => {
               .values({
                 tenantId,
                 name: row.accountName.trim(),
+        // Auto-derive the clean display name when the raw CRM name carries
+        // decoration ("-HQ", corporate suffixes); NULL when already clean so
+        // the UI's displayName ?? name fallback stays meaningful.
+        displayName: (() => {
+          const cleaned = cleanAccountDisplayName(row.accountName);
+          return cleaned && cleaned !== (row.accountName ?? "").trim() ? cleaned : null;
+        })(),
                 domain: row.accountDomain?.trim() || null,
                 segment: row.accountSegment?.trim() || null,
                 industry: row.accountIndustry?.trim() || null,

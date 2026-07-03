@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isTestLead, looksLikeGibberishName, leadName, leadEmail } from "./index";
+import { isTestLead, looksLikeGibberishName, leadName, leadEmail, cleanAccountDisplayName } from "./index";
 
 test("isTestLead flags throwaway email domains and local parts", () => {
   assert.equal(isTestLead({ email: "someone@example.com" }), true);
@@ -39,4 +39,26 @@ test("leadName / leadEmail normalize variant field keys", () => {
   assert.equal(leadName({ name: "Grace Hopper" }), "Grace Hopper");
   assert.equal(leadName({ phone: "555" }), null);
   assert.equal(leadEmail({ "Email Address": "ada@calc.io" }), "ada@calc.io");
+});
+
+test("cleanAccountDisplayName strips HQ decorations in every observed production shape", () => {
+  assert.equal(cleanAccountDisplayName("Heartland Dental-HQ"), "Heartland Dental");
+  assert.equal(cleanAccountDisplayName("Bridge Dental Group- HQ"), "Bridge Dental Group");
+  assert.equal(cleanAccountDisplayName("Dental Care Alliance-HQ"), "Dental Care Alliance");
+  assert.equal(cleanAccountDisplayName("The Smilist Dental-HQ"), "The Smilist Dental");
+  assert.equal(cleanAccountDisplayName("TAG - The Aspen Group (Aspen Dental)-HQ"), "TAG - The Aspen Group (Aspen Dental)");
+  assert.equal(cleanAccountDisplayName("Acme Dental (HQ)"), "Acme Dental");
+});
+
+test("cleanAccountDisplayName strips trailing corporate suffixes but keeps casing", () => {
+  assert.equal(cleanAccountDisplayName("Btydental Group Llc"), "Btydental Group");
+  assert.equal(cleanAccountDisplayName("Acme Dental, Inc."), "Acme Dental");
+  assert.equal(cleanAccountDisplayName("Northwind Corp"), "Northwind");
+});
+
+test("cleanAccountDisplayName leaves clean names untouched and never returns empty", () => {
+  assert.equal(cleanAccountDisplayName("Heartland Dental"), "Heartland Dental");
+  assert.equal(cleanAccountDisplayName("HQ"), "HQ");
+  assert.equal(cleanAccountDisplayName("  "), "");
+  assert.equal(cleanAccountDisplayName(null), "");
 });

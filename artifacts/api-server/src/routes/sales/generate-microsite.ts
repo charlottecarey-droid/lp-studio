@@ -3349,7 +3349,7 @@ router.post("/microsite/recommend", requireAuth, recommendLimiter, async (req, r
             .limit(5);
           const openOpp = opps.find((o) => o.isClosed !== true);
           accountContext = {
-            name: account.displayName ?? account.name,
+            name: deriveCompanyName(account),
             hasOpenOpportunity: Boolean(openOpp),
             opportunityStage: openOpp?.stageName ?? null,
             isCustomer: account.status === "active",
@@ -4135,14 +4135,14 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       : "";
 
     const contextParts: string[] = [];
-    contextParts.push(`ACCOUNT: ${account.displayName ?? account.name}`);
+    contextParts.push(`ACCOUNT: ${deriveCompanyName(account)}`);
     if (account.domain) contextParts.push(`Domain: ${account.domain}`);
     if (account.segment) contextParts.push(`Segment: ${account.segment}`);
     if (account.industry) contextParts.push(`Industry: ${account.industry}`);
     contextParts.push(`MICROSITE AUDIENCE: ${segment.name?.trim() || segment.id || ""}`);
 
     if (briefingData) {
-      contextParts.push(`\nACCOUNT-SPECIFIC RESEARCH — this is the spine of the page. Shape the hero, primary value prop, pain framing, and CTA around these REAL facts about ${account.displayName ?? account.name}. Do not paste any of it verbatim, and do not invent facts beyond what is given here.`);
+      contextParts.push(`\nACCOUNT-SPECIFIC RESEARCH — this is the spine of the page. Shape the hero, primary value prop, pain framing, and CTA around these REAL facts about ${deriveCompanyName(account)}. Do not paste any of it verbatim, and do not invent facts beyond what is given here.`);
       if (briefingData.overview) contextParts.push(`\nACCOUNT OVERVIEW:\n${briefingData.overview}`);
       if (briefingData.tier) contextParts.push(`Tier: ${briefingData.tier}`);
 
@@ -4241,7 +4241,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     if (userPrompt) contextParts.push(`\nADDITIONAL INSTRUCTIONS:\n${userPrompt}`);
     if (referenceSection) contextParts.push(`\n${referenceSection}`);
     if (visionSection) contextParts.push(`\n${visionSection}`);
-    contextParts.push(`\nGenerate a personalised microsite for ${account.displayName ?? account.name} targeting the ${segment.name?.trim() || "specified"} audience. Make every block specific to their business.`);
+    contextParts.push(`\nGenerate a personalised microsite for ${deriveCompanyName(account)} targeting the ${segment.name?.trim() || "specified"} audience. Make every block specific to their business.`);
 
     // Multimodal user message when a reference screenshot is available so the
     // model can read the visual style directly; otherwise plain text.
@@ -4325,10 +4325,10 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
         }
       }
       if (!parsed.title || typeof parsed.title !== "string") {
-        parsed.title = account.displayName ?? account.name;
+        parsed.title = deriveCompanyName(account);
       }
       if (!parsed.slug || typeof parsed.slug !== "string") {
-        parsed.slug = account.displayName ?? account.name;
+        parsed.slug = deriveCompanyName(account);
       }
     } else if (useFreeform || useDsoFreeform || usePoolFreeform) {
       // Task #1153 — freeform (and DSO-freeform) has no authored template to
@@ -4338,10 +4338,10 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
       // all-unknown), the safety net below substitutes the NEUTRAL layout
       // (freeform) or the curated DSO list (DSO-freeform).
       if (!parsed.title || typeof parsed.title !== "string") {
-        parsed.title = account.displayName ?? account.name;
+        parsed.title = deriveCompanyName(account);
       }
       if (!parsed.slug || typeof parsed.slug !== "string") {
-        parsed.slug = account.displayName ?? account.name;
+        parsed.slug = deriveCompanyName(account);
       }
       if (!Array.isArray(parsed.blocks)) {
         parsed.blocks = [];
