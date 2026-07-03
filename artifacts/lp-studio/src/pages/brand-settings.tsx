@@ -34,6 +34,7 @@ import {
 import type {
   BrandConfig, ButtonRadius, ButtonShadow, ButtonPaddingX, ButtonPaddingY,
   ButtonFontWeight, ButtonTextCase, ButtonLetterSpacing, SectionPadding,
+  CardRadius, CardShadow, LayoutDensity,
   HeadingWeight, HeadingLetterSpacing, BodyTextSize, HeadlineSize,
   EyebrowStyle, SecondaryButtonStyle, MessagingPillar, ProductLine,
   AudienceSegment, SegmentPersona, SegmentChallenge, SegmentStat, SegmentComparisonRow,
@@ -1219,6 +1220,7 @@ const FIELD_LABELS: Record<string, string> = {
   buttonPaddingX: "Horiz. Padding", buttonPaddingY: "Vert. Padding",
   buttonFontWeight: "Button Weight", buttonTextCase: "Button Case",
   buttonLetterSpacing: "Button Spacing", secondaryButtonStyle: "Secondary Button",
+  cardRadius: "Card Corners", cardShadow: "Card Shadow",
   brandName: "Brand Name", taglines: "Taglines", messagingPillars: "Messaging Pillars",
   toneOfVoice: "Tone of Voice", toneKeywords: "Tone Keywords",
   avoidPhrases: "Avoid Phrases", targetAudience: "Target Audience",
@@ -5026,6 +5028,50 @@ export default function BrandSettings() {
                   <p className="text-[10px] font-medium text-center py-1.5 text-muted-foreground capitalize">{p}</p>
                 </div>
               ))}
+            </div>
+
+            {/* Cards & layout density (brand-fidelity, July 2026). Optional
+                tokens: the "default" choice of each picker emits no override
+                CSS, so untouched brands render pixel-identically. Applied
+                page-wide by getBrandSurfaceCss's Tailwind-utility remap; the
+                URL importer proposes them from the source site's measured
+                card CSS. */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <SelectField
+                label="Card Corners"
+                value={config.cardRadius ?? "rounded"}
+                onChange={(v) => update("cardRadius", v as CardRadius)}
+                hint="Corner rounding for cards and panels across every page."
+                options={[
+                  { value: "square", label: "Square (sharp)" },
+                  { value: "slight", label: "Slightly rounded" },
+                  { value: "rounded", label: "Rounded (default)" },
+                  { value: "soft", label: "Soft (extra round)" },
+                ]}
+              />
+              <SelectField
+                label="Card Shadow"
+                value={config.cardShadow ?? "md"}
+                onChange={(v) => update("cardShadow", v as CardShadow)}
+                hint="Shadow depth for cards and panels."
+                options={[
+                  { value: "none", label: "Flat (no shadows)" },
+                  { value: "sm", label: "Subtle" },
+                  { value: "md", label: "Medium (default)" },
+                  { value: "lg", label: "Dramatic" },
+                ]}
+              />
+              <SelectField
+                label="Layout Density"
+                value={config.layoutDensity ?? "regular"}
+                onChange={(v) => update("layoutDensity", v as LayoutDensity)}
+                hint="How tightly grids and columns pack together."
+                options={[
+                  { value: "compact", label: "Compact (tight)" },
+                  { value: "regular", label: "Regular (default)" },
+                  { value: "spacious", label: "Spacious (open)" },
+                ]}
+              />
             </div>
           </Card>
 

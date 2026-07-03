@@ -137,11 +137,53 @@ export function payloadHasUsableResults(payload: OrchestratorPayload): boolean {
   return Object.values(results).some((r) => !!r && r.status !== "failed");
 }
 
+// ── Measured-value → BrandConfig-token buckets (brand-fidelity, July 2026) ──
+// The extractors measure raw CSS (padding px, surface radius px, box-shadow)
+// but the rendering side consumes coarse tokens. These pure bucket mappers are
+// exported for their unit tests; thresholds sit between the Tailwind stops the
+// tokens resolve to (px-4/5/8 = 16/20/32px, py-2/3/4 = 8/12/16px, card radius
+// 0/8/16/24px) so a measurement lands on its nearest rendered value.
+
+/** "24px" / "1.5rem" / "12" → px number, or null when unparseable. */
+export function cssLengthToPx(v: string | null | undefined): number | null {
+  if (!v) return null;
+  const m = v.trim().match(/^(\d*\.?\d+)\s*(px|rem|em)?$/i);
+  if (!m) return null;
+  const n = parseFloat(m[1]);
+  if (!Number.isFinite(n)) return null;
+  return /rem|em/i.test(m[2] ?? "") ? n * 16 : n;
+}
+
+export function bucketButtonPaddingX(px: number): "compact" | "regular" | "spacious" {
+  return px <= 18 ? "compact" : px <= 26 ? "regular" : "spacious";
+}
+
+export function bucketButtonPaddingY(px: number): "compact" | "regular" | "spacious" {
+  return px <= 10 ? "compact" : px <= 14 ? "regular" : "spacious";
+}
+
+export function bucketCardRadius(px: number): "square" | "slight" | "rounded" | "soft" {
+  return px <= 2 ? "square" : px <= 11 ? "slight" : px <= 19 ? "rounded" : "soft";
+}
+
+/** Coarse shadow-depth read from a raw box-shadow declaration. Shared by the
+ *  buttonShadow and cardShadow proposals so the two can't drift. The
+ *  zero-offset check is anchored (`^0 0 0…`): the old inline heuristic's bare
+ *  /0\s*0\s*0/ also matched the "000" inside dark hex colors (#0002), mapping
+ *  real shadows to "none". */
+export function bucketShadow(boxShadow: string): "none" | "sm" | "md" | "lg" {
+  if (/none/.test(boxShadow)) return "none";
+  if (/^\s*0(px)?\s+0(px)?\s+0(px)?(\s|,|$)/.test(boxShadow)) return "none";
+  if (/\d+px/.test(boxShadow)) return boxShadow.length > 60 ? "lg" : boxShadow.length > 30 ? "md" : "sm";
+  return "sm";
+}
+
 // Map per-dimension results onto the existing BrandConfig flat-field shape so
 // the existing brand-settings review UI can pick them up as `proposed[field]`
 // + `confidence[field]`. Anything that doesn't map to an existing field is
-// surfaced via the new typed sub-objects on the payload.
-function flattenForProposed(results: OrchestratorPayload["results"]): {
+// surfaced via the new typed sub-objects on the payload. Exported for the
+// token-mapping unit tests (orchestrator.tokens.test.ts).
+export function flattenForProposed(results: OrchestratorPayload["results"]): {
   proposed: Record<string, unknown>;
   confidence: Record<string, Confidence>;
 } {
@@ -222,12 +264,15 @@ function flattenForProposed(results: OrchestratorPayload["results"]): {
     };
     put("buttonRadius", radiusMap[b.category] ?? "rounded", conf);
     if (b.boxShadow) {
-      const shadow = /none/.test(b.boxShadow) ? "none"
-        : /0\s*0\s*0/.test(b.boxShadow) ? "none"
-        : /\d+px/.test(b.boxShadow) ? (b.boxShadow.length > 60 ? "lg" : b.boxShadow.length > 30 ? "md" : "sm")
-        : "sm";
-      put("buttonShadow", shadow, conf);
+      put("buttonShadow", bucketShadow(b.boxShadow), conf);
     }
+    // Measured button padding → the coarse tokens getButtonClasses consumes.
+    // Previously the raw px only reached buttonStyleRaw (the "we observed"
+    // panel) and the tokens stayed at defaults until hand-tuned.
+    const padX = cssLengthToPx(b.paddingX);
+    if (padX !== null) put("buttonPaddingX", bucketButtonPaddingX(padX), conf);
+    const padY = cssLengthToPx(b.paddingY);
+    if (padY !== null) put("buttonPaddingY", bucketButtonPaddingY(padY), conf);
     if (b.fontWeight !== null) {
       const wMap: [number, "normal" | "medium" | "semibold" | "bold"][] = [[450, "normal"], [550, "medium"], [650, "semibold"], [1000, "bold"]];
       const matched = wMap.find(([thr]) => b.fontWeight! < thr)?.[1] ?? "semibold";
@@ -243,6 +288,20 @@ function flattenForProposed(results: OrchestratorPayload["results"]): {
     else if (b.category === "ghost") put("secondaryButtonStyle", "ghost", conf);
     put("buttonStyleRaw", b, conf);
     if (results.buttons.data.surface) put("surfaceStyle", results.buttons.data.surface, conf);
+    // Card tokens (brand-fidelity, July 2026): the measured surface radius /
+    // shadow become the coarse cardRadius / cardShadow tokens the rendering
+    // side's `.lp-card` rule consumes (getBrandSurfaceCss). Falls back to the
+    // design-token radius scale (harvested from CSS vars by the colors
+    // extractor) when no card rule was measured directly. Proposed — the
+    // tenant accepts them in the import review; nothing applies silently.
+    const surface = results.buttons.data.surface;
+    let cardRadiusPx = surface?.radiusPx ?? null;
+    if (cardRadiusPx === null) {
+      const scale = (proposed["designTokens"] as { radiusScale?: { lg?: string; md?: string } } | undefined)?.radiusScale;
+      cardRadiusPx = cssLengthToPx(scale?.lg) ?? cssLengthToPx(scale?.md);
+    }
+    if (cardRadiusPx !== null) put("cardRadius", bucketCardRadius(cardRadiusPx), conf);
+    if (surface?.boxShadow) put("cardShadow", bucketShadow(surface.boxShadow), conf);
   }
 
   if (results.photography.status !== "failed" && results.photography.data) {

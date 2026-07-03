@@ -25,6 +25,16 @@ export type DesignIntensity =
   | "energetic-visual"
   | "balanced";
 export type SectionPadding = "compact" | "comfortable" | "spacious";
+/** Card/surface corner rounding applied page-wide by remapping the Tailwind
+ *  radius utilities blocks use (see getBrandSurfaceCss). Unset (or "rounded",
+ *  the library's own scale) → each block keeps its designed radius. */
+export type CardRadius = "square" | "slight" | "rounded" | "soft";
+/** Card/surface shadow depth applied page-wide via the same utility remap. */
+export type CardShadow = "none" | "sm" | "md" | "lg";
+/** Intra-section layout density: proportionally rescales the Tailwind gap
+ *  utilities page-wide (tight vs spaced brands). Unset/"regular" → blocks
+ *  keep their designed gaps. */
+export type LayoutDensity = "compact" | "regular" | "spacious";
 export type HeadingWeight = "semibold" | "bold" | "extrabold" | "black";
 export type HeadingLetterSpacing = "tight" | "normal" | "wide";
 export type BodyTextSize = "sm" | "md" | "lg";
@@ -249,6 +259,19 @@ export interface BrandConfig {
   buttonLetterSpacing: ButtonLetterSpacing;
   secondaryButtonStyle: SecondaryButtonStyle;
   sectionPadding: SectionPadding;
+  /** Brand-wide card corner rounding. Optional (brand-fidelity, July 2026):
+   *  unset preserves every block's own designed radius; when set, an injected
+   *  stylesheet (getBrandSurfaceCss) remaps the Tailwind radius utilities
+   *  page-wide. Proposed by the URL importer from the measured surfaceStyle /
+   *  designTokens radius. */
+  cardRadius?: CardRadius;
+  /** Brand-wide card shadow depth — same mechanism + provenance as
+   *  `cardRadius`. */
+  cardShadow?: CardShadow;
+  /** Tight-vs-spaced layout axis: proportionally rescales the Tailwind gap
+   *  utilities page-wide. Optional; "regular" (or unset) emits nothing so
+   *  existing pages are pixel-identical. */
+  layoutDensity?: LayoutDensity;
   displayFont: string;
   bodyFont: string;
   /** Optional override URL for the display font's stylesheet (advanced
@@ -1189,6 +1212,9 @@ export function getButtonClasses(
     BUTTON_CASE[brand.buttonTextCase],
     BUTTON_SPACING[brand.buttonLetterSpacing],
     "text-sm transition-all",
+    // Excludes this element from the card-radius/shadow utility remap
+    // (getBrandSurfaceCss) — buttons follow their own brand tokens above.
+    "lp-btn",
     // Stable hook so the imported "Primary button CSS" (buttonStyleRaw) can be
     // applied page-wide via a single injected stylesheet (see getBrandButtonCss).
     // Only primary CTAs get this class — pass { imported: false } for
@@ -1408,6 +1434,91 @@ export function getBrandButtonCss(brand: BrandConfig): string {
   return `.lp-brand-btn{${decls.join(";")}}`;
 }
 
+/** Remapped border-radius per CardRadius token, keyed by the Tailwind radius
+ *  utility being overridden. Only the card-scale utilities (lg→3xl) are
+ *  remapped; `rounded-full` (avatars, pills) and the micro radii (sm/md) are
+ *  deliberately untouched. "rounded" matches the library's own values, so it
+ *  emits nothing — a measured ~16px brand is a designed no-op. */
+const CARD_RADIUS_REMAP: Record<Exclude<CardRadius, "rounded">, Record<string, string>> = {
+  square: { "rounded-lg": "0px", "rounded-xl": "0px", "rounded-2xl": "0px", "rounded-3xl": "0px" },
+  slight: { "rounded-lg": "0.25rem", "rounded-xl": "0.375rem", "rounded-2xl": "0.5rem", "rounded-3xl": "0.75rem" },
+  soft: { "rounded-lg": "0.75rem", "rounded-xl": "1.125rem", "rounded-2xl": "1.5rem", "rounded-3xl": "2.25rem" },
+};
+
+/** Shadow-ladder remap per CardShadow token. "md" ≈ the library's designed
+ *  midpoint, so it emits nothing; the other tokens slide every shadow utility
+ *  one rung down/up (or off). Arbitrary `shadow-[…]` values aren't caught —
+ *  signature hero-image shadows intentionally keep their drama. */
+const SHADOW_LADDER: Record<Exclude<CardShadow, "md">, Record<string, string>> = {
+  none: { shadow: "none", "shadow-sm": "none", "shadow-md": "none", "shadow-lg": "none", "shadow-xl": "none" },
+  sm: {
+    "shadow-md": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+    "shadow-lg": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+    "shadow-xl": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+  },
+  lg: {
+    "shadow-sm": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+    "shadow-md": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+    "shadow-lg": "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+    "shadow-xl": "0 25px 50px -12px rgb(0 0 0 / 0.25)",
+  },
+};
+
+/** Gap remap (rem) per density tier, keyed by Tailwind gap utility. The
+ *  "regular" tier equals Tailwind's own values and emits nothing. Micro gaps
+ *  (gap-1..3, icon/text rows) are left alone. */
+const DENSITY_GAP_REMAP: Record<Exclude<LayoutDensity, "regular">, Record<string, string>> = {
+  compact: {
+    "gap-4": "0.625rem", "gap-6": "0.9375rem", "gap-8": "1.25rem",
+    "gap-10": "1.5625rem", "gap-12": "1.875rem", "gap-16": "2.5rem",
+  },
+  spacious: {
+    "gap-4": "1.375rem", "gap-6": "2.0625rem", "gap-8": "2.75rem",
+    "gap-10": "3.4375rem", "gap-12": "4.125rem", "gap-16": "5.5rem",
+  },
+};
+
+/**
+ * Stylesheet form of the brand's card/layout tokens (brand-fidelity, July
+ * 2026). Rather than tagging ~230 block components, this overrides the
+ * Tailwind utilities the blocks already use — `[data-lp-page] .rounded-2xl
+ * { … !important }` — so every block (and every future block) complies with
+ * zero per-block wiring. Sizes are remapped proportionally, preserving each
+ * block's internal hierarchy. Returns "" when no token is set: pages are
+ * pixel-identical until a token exists. Inject once per rendered landing page
+ * alongside getBrandButtonCss (the surface-style parity test pins the sites).
+ *
+ * Selectors are scoped to `[data-lp-page]` (a <style> tag applies
+ * document-wide no matter where it's mounted) and radius/shadow overrides
+ * exclude `.lp-btn` — buttons follow their own buttonRadius/buttonShadow
+ * tokens, not the card scale.
+ *
+ * Deliberately reads ONLY the explicit `cardRadius` / `cardShadow` /
+ * `layoutDensity` tokens, never the stored raw `surfaceStyle` measurement:
+ * existing imported tenants must not change appearance on deploy. The URL
+ * importer PROPOSES these tokens from its measurements; they apply only when
+ * the tenant accepts them in the import review (or sets them by hand).
+ */
+export function getBrandSurfaceCss(brand: BrandConfig): string {
+  const rules: string[] = [];
+  const remap = (map: Record<string, string>, prop: string, excludeButtons: boolean): void => {
+    for (const [util, value] of Object.entries(map)) {
+      const not = excludeButtons ? ":not(.lp-btn)" : "";
+      rules.push(`[data-lp-page] .${util}${not}{${prop}:${value} !important}`);
+    }
+  };
+  if (brand.cardRadius && brand.cardRadius !== "rounded") {
+    remap(CARD_RADIUS_REMAP[brand.cardRadius], "border-radius", true);
+  }
+  if (brand.cardShadow && brand.cardShadow !== "md") {
+    remap(SHADOW_LADDER[brand.cardShadow], "box-shadow", true);
+  }
+  if (brand.layoutDensity && brand.layoutDensity !== "regular") {
+    remap(DENSITY_GAP_REMAP[brand.layoutDensity], "gap", false);
+  }
+  return rules.join("");
+}
+
 export function getSecondaryButtonClasses(brand: BrandConfig): string {
   const base = [
     BUTTON_RADIUS[brand.buttonRadius],
@@ -1417,6 +1528,8 @@ export function getSecondaryButtonClasses(brand: BrandConfig): string {
     BUTTON_CASE[brand.buttonTextCase],
     BUTTON_SPACING[brand.buttonLetterSpacing],
     "text-sm transition-all",
+    // Same card-remap exclusion as getButtonClasses (see lp-btn note there).
+    "lp-btn",
   ].filter(Boolean).join(" ");
 
   const style = brand.secondaryButtonStyle ?? "outline";

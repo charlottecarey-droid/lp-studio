@@ -26,7 +26,7 @@ import type { ExtendedVariantConfig, BuilderPageResponse } from "@/lib/page-type
 import { isBuilderPageResponse } from "@/lib/page-types";
 import { useHeatmapTracker } from "@/hooks/use-heatmap-tracker";
 import { BrandLogo } from "@/components/BrandLogo";
-import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, getBrandStyleVars, getBrandButtonCss, resolveOnePagerColors, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
+import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, getBrandStyleVars, getBrandButtonCss, getBrandSurfaceCss, resolveOnePagerColors, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
 import { CustomBlocksProvider, customBlockRowToSource, type CustomBlockSource } from "@/lib/custom-blocks-context";
 import { useAuth } from "@/context/AuthContext";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
@@ -918,6 +918,7 @@ export default function LandingPageViewer() {
           .animate-marquee:hover { animation-play-state: paused; }
         `}</style>
         {getBrandButtonCss(renderBrand) && <style>{getBrandButtonCss(renderBrand)}</style>}
+        {getBrandSurfaceCss(renderBrand) && <style>{getBrandSurfaceCss(renderBrand)}</style>}
         {!smoothScroll && <style>{`html { scroll-behavior: auto !important; }`}</style>}
         {scopedCss && <style>{scopedCss}</style>}
         {isPreviewRoute && (
@@ -1043,6 +1044,7 @@ export default function LandingPageViewer() {
           .animate-marquee:hover { animation-play-state: paused; }
         `}</style>
         {getBrandButtonCss(renderBrand) && <style>{getBrandButtonCss(renderBrand)}</style>}
+        {getBrandSurfaceCss(renderBrand) && <style>{getBrandSurfaceCss(renderBrand)}</style>}
         {!linkedSmoothScroll && <style>{`html { scroll-behavior: auto !important; }`}</style>}
         {linkedPageScopedCss && <style>{linkedPageScopedCss}</style>}
         {isPreviewMode && (
@@ -1162,6 +1164,7 @@ export default function LandingPageViewer() {
         }
       `}</style>
       {getBrandButtonCss(brand) && <style>{getBrandButtonCss(brand)}</style>}
+      {getBrandSurfaceCss(brand) && <style>{getBrandSurfaceCss(brand)}</style>}
 
       {/* Above-fold wrapper — 80vh so the video peeks below */}
       <div className="min-h-[80vh] flex flex-col">
