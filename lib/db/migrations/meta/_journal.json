@@ -778,6 +778,13 @@
       "when": 1756400000000,
       "tag": "0110_neutralize_dso_campaign_defaults",
       "breakpoints": false
+    },
+    {
+      "idx": 111,
+      "version": "7",
+      "when": 1756500000000,
+      "tag": "0111_lp_generation_jobs",
+      "breakpoints": false
     }
   ]
 }
