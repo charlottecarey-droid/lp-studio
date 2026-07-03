@@ -1,4 +1,4 @@
-import { motion, useScroll, useTransform, MotionValue } from "framer-motion";
+import { motion, useScroll, useTransform, useMotionValueEvent, MotionValue } from "framer-motion";
 import Logo from "./Logo";
 import { useEffect, useRef, useState, createContext, useContext, type ReactNode, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 
@@ -852,6 +852,16 @@ export function BuildSection() {
   const reveal = useTransform(p, [0.66, 0.78], [0, 1]);
 
   const stage1 = useSegment(p, 0.02, 0.08, reveal);
+  // Scrubbed headline typing (parity with the old AssembleScene): characters
+  // reveal with scroll across the stage-3 window — typing forward, untyping
+  // when the visitor scrolls back — then the fully-typed headline becomes
+  // the inline-editable element.
+  const [typedChars, setTypedChars] = useState(0);
+  useMotionValueEvent(p, "change", (v) => {
+    const t = Math.max(0, Math.min(1, (v - 0.14) / (0.3 - 0.14)));
+    setTypedChars(Math.round(t * (headline1.length + headline2.length)));
+  });
+
   const stage2 = useSegment(p, 0.07, 0.14, reveal);
   const stage3 = useSegment(p, 0.14, 0.24, reveal);
   const stage4 = useSegment(p, 0.22, 0.32, reveal);
@@ -1049,6 +1059,7 @@ export function BuildSection() {
                       setHeadline1={setHeadline1}
                       headline2={headline2}
                       setHeadline2={setHeadline2}
+                      typedChars={typedChars}
                       stage3={stage3}
                       stage4={stage4}
                       stage5={stage5}
@@ -1928,6 +1939,7 @@ function HeroBody({
   setHeadline1,
   headline2,
   setHeadline2,
+  typedChars,
   stage3,
   stage4,
   stage5,
@@ -1939,6 +1951,8 @@ function HeroBody({
   setHeadline1: (v: string) => void;
   headline2: string;
   setHeadline2: (v: string) => void;
+  /** Scroll-scrubbed character count for the typing reveal; >= total = done. */
+  typedChars: number;
   stage3: { opacity: MotionValue<number>; y: MotionValue<number> };
   stage4: { opacity: MotionValue<number>; y: MotionValue<number> };
   stage5: { opacity: MotionValue<number>; y: MotionValue<number> };
@@ -1953,14 +1967,37 @@ function HeroBody({
       {extras.eyebrow}
     </motion.div>
   );
+  const typingDone = typedChars >= headline1.length + headline2.length;
+  const h1Typed = headline1.slice(0, Math.min(typedChars, headline1.length));
+  const h2Typed = headline2.slice(0, Math.max(0, typedChars - headline1.length));
+  const Caret = (
+    <motion.span
+      animate={{ opacity: [1, 0, 1] }}
+      transition={{ duration: 0.85, repeat: Infinity }}
+      className="ml-1 inline-block h-[0.72em] w-[3px] translate-y-[0.08em] rounded-sm bg-indigo"
+      aria-hidden
+    />
+  );
   const Headline = (
     <motion.h3
       style={stage3}
       className="font-display text-[28px] font-[600] leading-[0.98] tracking-[-0.04em] text-[oklch(0.1_0.01_270)] @[520px]:text-[38px] @[700px]:text-[52px]"
     >
-      <Editable value={headline1} onChange={setHeadline1} ariaLabel="Edit headline line 1" />
-      <br />
-      <Editable value={headline2} onChange={setHeadline2} ariaLabel="Edit headline line 2" className="text-indigo" />
+      {typingDone ? (
+        <>
+          <Editable value={headline1} onChange={setHeadline1} ariaLabel="Edit headline line 1" />
+          <br />
+          <Editable value={headline2} onChange={setHeadline2} ariaLabel="Edit headline line 2" className="text-indigo" />
+        </>
+      ) : (
+        <>
+          <span>{h1Typed}</span>
+          {typedChars <= headline1.length && Caret}
+          <br />
+          <span className="text-indigo">{h2Typed}</span>
+          {typedChars > headline1.length && Caret}
+        </>
+      )}
     </motion.h3>
   );
   const Sub = (
