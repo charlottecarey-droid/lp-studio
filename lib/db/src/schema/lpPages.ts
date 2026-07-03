@@ -34,6 +34,16 @@ export const lpPagesTable = pgTable("lp_pages", {
   // (they stay NULL) and the renderer only consults it when a block has no
   // CTA of its own, so published pages keep rendering exactly as today.
   ctaDefault: jsonb("cta_default"),
+  // NULLABLE: NULL = the page renders with the tenant's BrandConfig untouched.
+  // When set, holds a whitelisted Partial<BrandConfig> of VISUAL tokens
+  // ("Match style from URL", brand-fidelity July 2026) that the viewer/builder
+  // merge over the brand at render time — colors, fonts, button styling, card
+  // radius/shadow, layout density. Written only by the page-style-from-url
+  // route (which extracts them via the brand-import orchestrator) and cleared
+  // by its DELETE; sanitized again at render by
+  // artifacts/lp-studio/src/lib/page-style-overrides.ts, so a stale or
+  // hand-edited value can restyle a page but never change content or CTAs.
+  styleOverrides: jsonb("style_overrides"),
   accountId: integer("account_id"),           // internal FK (may be null after re-sync)
   sfdcAccountId: text("sfdc_account_id"),     // stable SFDC Account ID (e.g. 001xxx)
   mode: text("mode").notNull().default("marketing"),  // "marketing" | "sales"

@@ -1,0 +1,11 @@
+-- July 2026 — brand fidelity: "Match style from URL".
+-- Page-level visual style overrides. ADDITIVE, NULLABLE, FAIL-OPEN:
+--   style_overrides — jsonb holding a whitelisted Partial<BrandConfig> of
+--                     visual tokens (colors, fonts, button styling, card
+--                     radius/shadow, layout density) extracted from a
+--                     reference URL by the brand-import orchestrator. NULL =
+--                     the page renders with the tenant BrandConfig untouched,
+--                     so existing pages and published renders are unchanged.
+--                     The FE merge gate (page-style-overrides.ts) re-validates
+--                     every key/value at render time.
+ALTER TABLE lp_pages ADD COLUMN IF NOT EXISTS style_overrides jsonb;

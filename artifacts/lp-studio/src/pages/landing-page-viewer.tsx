@@ -27,6 +27,7 @@ import { isBuilderPageResponse } from "@/lib/page-types";
 import { useHeatmapTracker } from "@/hooks/use-heatmap-tracker";
 import { BrandLogo } from "@/components/BrandLogo";
 import { fetchBrandConfig, DEFAULT_BRAND, getButtonClasses, getBrandStyleVars, getBrandButtonCss, getBrandSurfaceCss, resolveOnePagerColors, SECTION_PY, type BrandConfig } from "@/lib/brand-config";
+import { mergePageStyleOverrides } from "@/lib/page-style-overrides";
 import { CustomBlocksProvider, customBlockRowToSource, type CustomBlockSource } from "@/lib/custom-blocks-context";
 import { useAuth } from "@/context/AuthContext";
 import { BrandFontLoader } from "@/components/BrandFontLoader";
@@ -903,12 +904,15 @@ export default function LandingPageViewer() {
     // layer and any block reading the brand prop directly. Landing pages are
     // untouched (renderBrand === brand).
     const isOnePagerPage = isOnePagerLayout(blocks);
-    const renderBrand = isOnePagerPage ? resolveOnePagerColors(brand) : brand;
+    // "Match style from URL" — page-level visual overrides merge over the
+    // brand BEFORE the one-pager color resolve, so both paths inherit them.
+    const pageBrand = mergePageStyleOverrides(brand, builderPage.styleOverrides ?? null);
+    const renderBrand = isOnePagerPage ? resolveOnePagerColors(pageBrand) : pageBrand;
 
     return (
       <LinkedFormStyleProvider value={readLinkedFormStyle(pageVars)}>
       <div className="min-h-screen w-full font-sans" data-lp-page style={{ ...getBrandStyleVars(renderBrand), scrollBehavior: smoothScroll ? undefined : "auto" }}>
-        <BrandFontLoader brand={brand} />
+        <BrandFontLoader brand={pageBrand} />
         <style>{`
           @keyframes marquee {
             from { transform: translateX(0); }
@@ -986,7 +990,7 @@ export default function LandingPageViewer() {
 
   // If the assigned variant has a linked builder page, render it as blocks.
   // `linkedPage` is typed in the generated Variant schema as LinkedPage | null | undefined.
-  const assignedVariantWithPage = config.assignedVariant as typeof config.assignedVariant & { linkedPage?: (LinkedPage & { ctaDefault?: import("@/lib/cta/ctaConfig").CtaConfig | null }) | null };
+  const assignedVariantWithPage = config.assignedVariant as typeof config.assignedVariant & { linkedPage?: (LinkedPage & { ctaDefault?: import("@/lib/cta/ctaConfig").CtaConfig | null; styleOverrides?: Record<string, unknown> | null }) | null };
   if (assignedVariantWithPage.linkedPage !== undefined && assignedVariantWithPage.linkedPage !== null) {
     const linkedPage = assignedVariantWithPage.linkedPage;
     const rawLinkedBlocks = (linkedPage?.blocks ?? []) as import("@/lib/block-types").PageBlock[];
@@ -1029,12 +1033,13 @@ export default function LandingPageViewer() {
     };
 
     const isOnePagerPage = isOnePagerLayout(blocks);
-    const renderBrand = isOnePagerPage ? resolveOnePagerColors(brand) : brand;
+    const pageBrand = mergePageStyleOverrides(brand, linkedPage?.styleOverrides ?? null);
+    const renderBrand = isOnePagerPage ? resolveOnePagerColors(pageBrand) : pageBrand;
 
     return (
       <LinkedFormStyleProvider value={readLinkedFormStyle(pageVars)}>
       <div className="min-h-screen w-full font-sans" data-lp-page style={{ ...getBrandStyleVars(renderBrand), scrollBehavior: linkedSmoothScroll ? undefined : "auto" }}>
-        <BrandFontLoader brand={brand} />
+        <BrandFontLoader brand={pageBrand} />
         <style>{`
           @keyframes marquee {
             from { transform: translateX(0); }

@@ -68,6 +68,8 @@ import { COPY_FIELDS } from "@/lib/copy-fields";
 import { propagateCtaToAll, countCtaTargets, blockHasCta } from "@/lib/cta-propagation";
 import type { CtaConfig } from "@/lib/cta/ctaConfig";
 import { PageCtaSection } from "@/pages/builder/property-panels/PageCtaSection";
+import { PageStyleSection } from "@/pages/builder/property-panels/PageStyleSection";
+import { mergePageStyleOverrides } from "@/lib/page-style-overrides";
 import { useToast } from "@/hooks/use-toast";
 import { SaveToLibraryDialog } from "@/components/SaveToLibraryDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -195,6 +197,8 @@ interface FetchedPage {
   templateDescription?: string | null;
   audienceType?: string | null;
   segmentId?: string | null;
+  /** "Match style from URL" — page-level visual token overrides (or null). */
+  styleOverrides?: Record<string, unknown> | null;
 }
 
 async function fetchPage(id: string): Promise<FetchedPage> {
@@ -1241,6 +1245,11 @@ export default function BuilderEditor() {
   // CtaConfig). null = no page-level CTA — every block falls straight through to
   // its own CTA / the tenant default, exactly as before this feature existed.
   const [pageCta, setPageCta] = useState<CtaConfig | null>(null);
+  // "Match style from URL" (brand-fidelity, July 2026). Page-level visual
+  // token overrides (lp_pages.style_overrides) merged over the brand for THIS
+  // page's canvas + published render. Written/cleared by its own route (the
+  // page PUT never carries it), so handleSave can't clobber it.
+  const [pageStyleOverrides, setPageStyleOverrides] = useState<Record<string, unknown> | null>(null);
   const [suggestedSlug, setSuggestedSlug] = useState<string | null>(null);
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
   // Task #1085 — true when this page is a global template (owned by the neutral
@@ -1319,7 +1328,10 @@ export default function BuilderEditor() {
   // The brand actually fed to the canvas renderer. `previewBrand` is only ever
   // non-null while a superadmin has an active preview selection; saves keep
   // using the real `brand`, so the persisted page stays brand-neutral.
-  const effectiveBrand = (showBrandPreview && previewBrand) ? previewBrand : brand;
+  const effectiveBrand = useMemo(
+    () => mergePageStyleOverrides((showBrandPreview && previewBrand) ? previewBrand : brand, pageStyleOverrides),
+    [showBrandPreview, previewBrand, brand, pageStyleOverrides],
+  );
   // Lazy-load the tenant list the first time the control is eligible to show.
   useEffect(() => {
     if (!showBrandPreview || previewTenants.length > 0) return;
@@ -1692,6 +1704,7 @@ export default function BuilderEditor() {
         setAllowFollowing(p.allowFollowing ?? null);
         setPageVariables(p.pageVariables ?? {});
         setPageCta((p.ctaDefault ?? null) as CtaConfig | null);
+        setPageStyleOverrides((p.styleOverrides ?? null) as Record<string, unknown> | null);
         setBrand(b);
         setBlockDefaults(defaults);
         setCustomBlocks(customs);
@@ -3647,6 +3660,17 @@ export default function BuilderEditor() {
                   <PageCtaSection
                     value={pageCta}
                     onChange={(next) => { setPageCta(next); setTimeout(handleSave, 150); }}
+                  />
+                </div>
+
+                {/* Match style from URL (brand-fidelity, July 2026). Persists
+                    via its own route — not part of the page PUT payload. */}
+                <div className="border-t border-border pt-3">
+                  <PageStyleSection
+                    pageId={pageIdNum}
+                    value={pageStyleOverrides}
+                    onApplied={(overrides) => setPageStyleOverrides(overrides)}
+                    onCleared={() => setPageStyleOverrides(null)}
                   />
                 </div>
 

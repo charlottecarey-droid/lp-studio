@@ -42,6 +42,14 @@ export interface BuilderPageResponse {
    * to their own CTA / the tenant default exactly as before this feature.
    */
   ctaDefault?: CtaConfig | null;
+  /**
+   * "Match style from URL" (brand-fidelity, July 2026). Page-level visual
+   * token overrides (lp_pages.style_overrides jsonb) — a whitelisted
+   * Partial<BrandConfig> merged over the tenant brand at render time via
+   * mergePageStyleOverrides. null/absent = the page renders with the brand
+   * untouched.
+   */
+  styleOverrides?: Record<string, unknown> | null;
 }
 
 export function isBuilderPageResponse(value: unknown): value is BuilderPageResponse {
