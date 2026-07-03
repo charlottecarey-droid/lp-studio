@@ -5,6 +5,11 @@ import { aiGenerationLogTable, lpBrandSettingsTable, lpMediaTable, lpPagesTable,
 import { createHash } from "node:crypto";
 import { eq, desc, and, or, sql } from "drizzle-orm";
 import { logger } from "../../lib/logger";
+import {
+  fetchCustomBlockVocab,
+  buildCustomBlocksPromptSection,
+  normalizeCustomSchemaBlocks,
+} from "./custom-blocks-vocab";
 import { captureRouteError } from "../../lib/sentry";
 import { withDbRetry } from "../../lib/dbResilience";
 import { getAiImageGenOutsideBuilderEnabled, getAiImageGenStatus } from "../../lib/tenantSettings";
@@ -9915,6 +9920,21 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
       logger.warn({ err: String(err) }, "[generate-page] segment-approved block injection skipped");
     }
   }
+  // Tenant custom blocks (July 2026) — the block-maker's schema blocks join
+  // the vocabulary as placeable {type:"custom-schema"} sections, GENERAL
+  // freeform path only: the template path locks structure (copy-only rewrite)
+  // and the DSO paths use curated vocabularies. Best-effort — a fetch failure
+  // just means the built-in library alone. Whatever the model emits is
+  // hardened post-parse by normalizeCustomSchemaBlocks (unresolved ids drop
+  // with a warn degradation; values are coerced to the block's schema).
+  if (!useDso && !useDsoPractices && tenantId !== null) {
+    try {
+      const customVocabSection = buildCustomBlocksPromptSection(await fetchCustomBlockVocab(tenantId));
+      if (customVocabSection) userPromptParts.push(customVocabSection);
+    } catch (err) {
+      logger.warn({ err: String(err) }, "[generate-page] custom-block vocab skipped");
+    }
+  }
   // When segment-approved extras were injected, the page is no longer limited to
   // the DSO vocabulary alone — name the approved extras so the closing directive
   // does not contradict the ADDITIONAL APPROVED BLOCKS section above.
@@ -10523,6 +10543,17 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
 
       return b;
     });
+
+    // Tenant custom blocks: resolve + harden {type:"custom-schema"} placements
+    // (see custom-blocks-vocab.ts — unresolved ids drop with a degradation,
+    // values coerce to the schema with the master sample backfilling gaps, and
+    // the master's schema/template are snapshotted so the page survives a
+    // later deletion).
+    parsed.blocks = (await normalizeCustomSchemaBlocks(
+      parsed.blocks as unknown[],
+      tenantId,
+      degradations,
+    )) as typeof parsed.blocks;
 
     // Deterministic safety net: when the user explicitly asks for a named Dandy
     // product surface (Dandy Insights / AI Scan Review) the model is told it is
