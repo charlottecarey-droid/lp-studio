@@ -127,7 +127,39 @@ function isHexLike(s: unknown): s is string {
 
 // ── Prompt assembly ───────────────────────────────────────────────────────
 
-function buildSystemPrompt(): string {
+// ── Shared prompt doctrines (single-block + compose — one source, no drift) ─
+
+const ART_DIRECTION_SECTION = `ART DIRECTION (the visual bar — a block must read as a designed section from a premium marketing site, not an HTML demo; copy density and visual craft TOGETHER determine output quality):
+- SPACING: sections breathe. Vertical padding clamp(48px, 8vw, 96px); one consistent gap scale (12/16/24/32/48px) — never a random mix. Content sits in a centered max-width container (1100–1200px); running text measures <= 65ch. Cramped 8–16px section padding is a FAILURE.
+- TYPE HIERARCHY: exactly ONE display headline — font-size clamp(28px, 4.5vw, 44px), weight 700–800, line-height 1.1, letter-spacing -0.02em. Supporting text 16–18px, line-height 1.6, in a muted ink (rgba/soft slate — never pure #000). Optional eyebrow: 11–13px, uppercase, letter-spacing 0.08–0.12em, weight 600, accent color. Three font sizes maximum in one block.
+- FONTS: font-family: inherit by default — the page already loads the brand's fonts at its root. Only set an explicit family when the BRAND PALETTE names one.
+- COLOR DISCIPLINE: neutrals plus the accent doing ONE job (eyebrow, icon chips, or CTA — pick one focal use). Section backgrounds are the page background or a barely-there tint (accent at 4–6% alpha); never a saturated full-bleed fill unless the user asks. Text over an image or dark surface always sits on a gradient scrim (e.g. linear-gradient(180deg, rgba(2,6,23,0), rgba(2,6,23,0.72))) with light ink.
+- CARDS & SURFACES: border-radius 14–18px; 1px border in low-alpha ink (rgba(15,23,42,0.08)); soft layered shadow (0 1px 2px rgba(2,6,23,0.06), 0 8px 24px rgba(2,6,23,0.08)). Interactive cards get a hover: translateY(-2px), slightly deeper shadow, border-color shift — transition 150–200ms ease. Flat gray boxes and heavy drop-shadows are both FAILURES.
+- IMAGERY: every image lives in a fixed-ratio box — aspect-ratio: 3/2, 4/3, or 16/9 with object-fit: cover and the card radius. Raw image dimensions must never dictate layout.
+- ICONS: inline SVG only (24px, stroke-width 1.75–2, stroke currentColor, fill none) inside a 40–48px rounded chip tinted with the accent at 8–12% alpha. NEVER emoji, NEVER icon-font glyphs.
+- CTAS: padding 12–14px 22–28px, weight 600, radius consistent with the block's cards (or a pill), visible :hover (darken ~8% or lift). Secondary CTA is ghost/outline, never a second filled color.
+- RESPONSIVE (required, not optional): card grids use grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); display type uses clamp(); multi-column layouts collapse cleanly by the 720px breakpoint; no fixed pixel widths on containers.
+ANTI-PATTERNS (any ONE of these reads as broken): centering every text element by default; pure #000 on #fff; default-blue unstyled links; a border around every element; two competing accent colors; unstyled list bullets in nav/feature lists; interactive cards with no hover state; type that does not scale down on mobile.
+SELF-CHECK before returning (fix, then output): Would this pass as a section on a top-tier SaaS marketing site? Is the headline hierarchy obvious at a glance? Is spacing generous and even? Is exactly one accent doing one job? Does the grid collapse on mobile?`;
+
+const DENSITY_DOCTRINE_SECTION = `DENSITY DOCTRINE (copy density is the other half of output quality — a beautifully styled block with stub copy still looks broken):
+You produce blocks that look finished, not bare-bones demos. Every value in "sample" must be specific, on-topic, and within the word range stated below. Generic words ("Feature", "Benefit", "Title", "Description here", "Lorem ipsum"), single-word values, and platitudes ("industry-leading", "world-class", "cutting-edge", "synergy", "unlock value", "streamline workflows") are FAILURES — the resulting block looks broken to the user.
+
+SAMPLE RULES (enforced — bare values fail validation):
+- Every "text" field: 4–10 words, concrete and on-topic. NEVER a single word. NEVER a generic noun like "Feature" or "Benefit".
+- Every "longText" field: 25–60 words, with a concrete mechanism or outcome — what something does, why it matters, who it's for.
+- Every "list" field: provide EXACTLY 4–6 row objects unless the user's prompt explicitly asks for fewer. Every subfield in every row must be filled per its own type rules above (so list-of-text fields are still 4–10 words each, not 1-word stubs). One-row or two-row lists render as visually broken UI.
+- For "number" use a real-looking number (e.g. 96, 10000, 4.8 — not 0 or 1).
+- For "color" use hex matching the BRAND PALETTE if provided.
+- For "select" pick one of the declared "options".
+- For "boolean" use true/false based on what would render best.
+
+EXAMPLE OF GOOD vs BAD SAMPLE VALUES (the gap between these is exactly the gap between a finished block and a stub):
+GOOD: { "headline": "Replace your scanner, lab, and aligner workflow with one platform", "subheadline": "From digital impression to delivered crown, every step your practice already does — unified, monitored, and 5 days faster on average.", "features": [{ "title": "AI scan review on every case", "body": "Every scan is auto-checked for prep depth, margin clarity, and undercuts before it reaches the lab — so issues get caught at chairside, not delivery day." }, { "title": "Network-wide case dashboard", "body": "Real-time visibility into status, turnaround, and per-clinician quality across every location. One report for your COO instead of fourteen." }] }
+BAD: { "headline": "Welcome", "subheadline": "Learn more about our service.", "features": [{ "title": "Feature", "body": "This is a great feature." }, { "title": "Another feature", "body": "Also great." }] }`;
+
+/** Exported for the prompt-quality tests. */
+export function buildSystemPrompt(): string {
   return `You design a single reusable landing-page block. Output strict JSON only with this shape:
 
 {
@@ -172,21 +204,9 @@ TEMPLATE RULES:
 - Keep the layout responsive — use flexbox/grid + relative units. Add a @media (max-width: 720px) breakpoint when the block has multiple columns.
 - Use placeholder/library images (e.g. https://images.unsplash.com/...) for any "image" sample value. Do not generate base64.
 
-DENSITY DOCTRINE (read first — this is the single biggest determinant of output quality):
-You produce blocks that look finished, not bare-bones demos. Every value in "sample" must be specific, on-topic, and within the word range stated below. Generic words ("Feature", "Benefit", "Title", "Description here", "Lorem ipsum"), single-word values, and platitudes ("industry-leading", "world-class", "cutting-edge", "synergy", "unlock value", "streamline workflows") are FAILURES — the resulting block looks broken to the user.
+${ART_DIRECTION_SECTION}
 
-SAMPLE RULES (enforced — bare values fail validation):
-- Every "text" field: 4–10 words, concrete and on-topic. NEVER a single word. NEVER a generic noun like "Feature" or "Benefit".
-- Every "longText" field: 25–60 words, with a concrete mechanism or outcome — what something does, why it matters, who it's for.
-- Every "list" field: provide EXACTLY 4–6 row objects unless the user's prompt explicitly asks for fewer. Every subfield in every row must be filled per its own type rules above (so list-of-text fields are still 4–10 words each, not 1-word stubs). One-row or two-row lists render as visually broken UI.
-- For "number" use a real-looking number (e.g. 96, 10000, 4.8 — not 0 or 1).
-- For "color" use hex matching the BRAND PALETTE if provided.
-- For "select" pick one of the declared "options".
-- For "boolean" use true/false based on what would render best.
-
-EXAMPLE OF GOOD vs BAD SAMPLE VALUES (the gap between these is exactly the gap between a finished block and a stub):
-GOOD: { "headline": "Replace your scanner, lab, and aligner workflow with one platform", "subheadline": "From digital impression to delivered crown, every step your practice already does — unified, monitored, and 5 days faster on average.", "features": [{ "title": "AI scan review on every case", "body": "Every scan is auto-checked for prep depth, margin clarity, and undercuts before it reaches the lab — so issues get caught at chairside, not delivery day." }, { "title": "Network-wide case dashboard", "body": "Real-time visibility into status, turnaround, and per-clinician quality across every location. One report for your COO instead of fourteen." }] }
-BAD: { "headline": "Welcome", "subheadline": "Learn more about our service.", "features": [{ "title": "Feature", "body": "This is a great feature." }, { "title": "Another feature", "body": "Also great." }] }
+${DENSITY_DOCTRINE_SECTION}
 
 SAMPLE RULES (mechanics):
 - Provide a realistic value for every schema field id so the block renders nicely without further input.
@@ -736,7 +756,8 @@ interface ComposeBody {
   targetCount?: number;
 }
 
-function buildComposeSystemPrompt(): string {
+/** Exported for the prompt-quality tests. */
+export function buildComposeSystemPrompt(): string {
   return `You design a SECTION made of 2 to 5 reusable landing-page blocks that flow naturally top-to-bottom (e.g. "hero + 3 trust logos + a 3-up benefits grid").
 
 Output strict JSON only with this shape:
@@ -784,8 +805,12 @@ PER-BLOCK TEMPLATE RULES (apply to every block.template):
 - Keep layouts responsive — flexbox/grid + relative units. Add a @media (max-width: 720px) breakpoint when a block has multiple columns.
 - Use placeholder/library images (e.g. https://images.unsplash.com/...) for any "image" sample value. Do not generate base64.
 
+${ART_DIRECTION_SECTION}
+
+${DENSITY_DOCTRINE_SECTION}
+
 PER-BLOCK SAMPLE RULES:
-- Provide a realistic value for every schema field id so the block renders nicely without further input.
+- Provide a realistic value for every schema field id so the block renders nicely without further input (the DENSITY DOCTRINE above applies to every block's sample).
 - For "boolean" use true/false. For "number" use a number. For "color" use hex. For "select" pick one of "options".`;
 }
 
