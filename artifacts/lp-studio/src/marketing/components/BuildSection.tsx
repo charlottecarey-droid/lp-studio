@@ -1,4 +1,5 @@
 import { motion, useScroll, useTransform, MotionValue } from "framer-motion";
+import Logo from "./Logo";
 import { useEffect, useRef, useState, createContext, useContext, type ReactNode, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 
 // Lovable BuildSection ported verbatim from scroll-saga-lp. Only three
@@ -1021,10 +1022,14 @@ export function BuildSection() {
                       style={stage2}
                       className="flex items-center justify-between border-b border-black/[0.04] px-5 py-3.5 @[640px]:px-8 @[640px]:py-4"
                     >
-                      <div className="flex items-center gap-2">
-                        <div className="h-5 w-5 rounded-md bg-indigo" />
-                        <span className="font-display text-[13px] font-semibold tracking-tight">{preset.brand}</span>
-                      </div>
+                      {preset.id === "lpstudio" ? (
+                        <Logo variant="wordmark" height={18} />
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className="h-5 w-5 rounded-md bg-indigo" />
+                          <span className="font-display text-[13px] font-semibold tracking-tight">{preset.brand}</span>
+                        </div>
+                      )}
                       <div className="hidden items-center gap-6 text-[11px] text-foreground/60 @[640px]:flex">
                         {preset.nav.map((n) => (
                           <span key={n}>{n}</span>
@@ -1230,10 +1235,14 @@ export function BuildSection() {
                     >
                       <div className="grid grid-cols-2 gap-6 @[520px]:grid-cols-5">
                         <div className="col-span-2 @[520px]:col-span-1">
-                          <div className="flex items-center gap-1.5">
-                            <div className="h-4 w-4 rounded bg-indigo" />
-                            <span className="font-display text-[12px] font-semibold tracking-tight">{preset.brand}</span>
-                          </div>
+                          {preset.id === "lpstudio" ? (
+                            <Logo variant="wordmark" height={15} />
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <div className="h-4 w-4 rounded bg-indigo" />
+                              <span className="font-display text-[12px] font-semibold tracking-tight">{preset.brand}</span>
+                            </div>
+                          )}
                           <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">© 2026 {preset.brand}. All rights reserved.</p>
                         </div>
                         {extras.footer.map((col) => (
@@ -1408,10 +1417,7 @@ function BuilderShell({
         className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between rounded-t-3xl border-b border-black/[0.06] bg-white/80 px-5 py-2.5 backdrop-blur-xl"
       >
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <div className="h-5 w-5 rounded-md bg-ink" />
-            <span className="font-display text-[12px] font-semibold tracking-tight">LP Studio</span>
-          </div>
+          <Logo variant="wordmark" height={16} />
           <span className="hidden h-3 w-px bg-black/10 sm:block" />
           <div className="hidden max-w-[44vw] items-center gap-0.5 overflow-x-auto sm:flex">
             {PRESETS.map((pr) => {
