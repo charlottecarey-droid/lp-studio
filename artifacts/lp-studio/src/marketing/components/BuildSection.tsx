@@ -112,7 +112,7 @@ const PRESETS: Preset[] = [
     ctaButton: "Import my brand \u2192",
     navCta: "Get started",
     accent: "indigo",
-    layout: "splitRight",
+    layout: "centered",
   },
   {
     id: "smilist",
@@ -912,26 +912,6 @@ export function BuildSection() {
     <section id="build" ref={ref} className="relative bg-background">
       <div className="relative h-[650vh]">
         <div className="sticky top-0 flex h-screen flex-col overflow-hidden">
-          {/* Section intro */}
-          <div className="mx-auto w-full max-w-7xl px-8 pt-20">
-            <div className="flex items-end justify-between gap-8">
-              <div>
-                <span className="font-mono-display text-[11px] uppercase tracking-[0.24em] text-muted-foreground/70">
-                  / how it builds
-                </span>
-                <h2 className="mt-3 font-display text-[clamp(2.25rem,5vw,4rem)] font-[560] leading-[0.98] tracking-[-0.04em] text-balance text-[oklch(0.1_0.01_270)]">
-                  Watch a page assemble.
-                </h2>
-              </div>
-              <motion.div
-                className="hidden min-w-[260px] flex-col gap-1 text-right md:flex"
-                style={{ opacity: useTransform(p, [0, 0.1], [0, 1]) }}
-              >
-                <CaptionTicker index={captionIndex} captions={CAPTIONS} />
-              </motion.div>
-            </div>
-          </div>
-
           {/* Stage — a CONTAINED studio card, not full bleed (July 2026,
               parity with the scroll-saga original's contained feel): the
               chrome (toolbar / panels / status bar) positions absolutely
@@ -940,9 +920,19 @@ export function BuildSection() {
               it. --studio-w drives the Desktop canvas width so the panels
               sit tight against the page (canvas = card − panels − gutter). */}
           <div
-            className="relative mx-auto mb-5 w-[min(1320px,calc(100vw-48px))] flex-1"
+            className="relative mx-auto mb-5 mt-16 w-[min(1320px,calc(100vw-48px))] flex-1"
             style={{ ["--studio-w" as string]: "min(1320px, calc(100vw - 48px))" } as CSSProperties}
           >
+            {/* Stage captions — the intro headline is gone (the section
+                starts assembling straight off the hero), so the ticker
+                floats at the stage's top-right and hands off to the studio
+                toolbar as the wrap begins. */}
+            <motion.div
+              className="pointer-events-none absolute right-2 top-0 z-30 hidden min-w-[260px] flex-col gap-1 text-right md:flex"
+              style={{ opacity: useTransform(p, [0, 0.06, 0.7, 0.78], [0, 1, 1, 0]) }}
+            >
+              <CaptionTicker index={captionIndex} captions={CAPTIONS} />
+            </motion.div>
             <BuilderShell
               leftPanelX={leftPanelX}
               leftPanelOpacity={leftPanelOpacity}
@@ -1009,7 +999,7 @@ export function BuildSection() {
                 <div
                   ref={canvasRef}
                   onPointerDown={() => setCanvasActive(true)}
-                  className={`@container relative flex h-[calc(100vh-360px)] flex-col ${canvasActive ? "overflow-y-auto" : "overflow-y-hidden"} overflow-x-hidden bg-white scroll-smooth pb-[420px]`}
+                  className={`@container relative flex h-[calc(100vh-300px)] flex-col ${canvasActive ? "overflow-y-auto" : "overflow-y-hidden"} overflow-x-hidden bg-white scroll-smooth pb-[420px]`}
                 >
                   {/* Nav */}
                   <FocusBlock blockKey="nav" focusKey={focusKey} pulseTick={pulseTick} style={orderStyle(preset.layout, "nav")}>
