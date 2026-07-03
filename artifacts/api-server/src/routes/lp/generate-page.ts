@@ -19,6 +19,7 @@ import { preprocessScreenshotDataUrl } from "./screenshot-preprocess";
 import type { ChatCompletionContentPart, ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { findBannedPhrases, type BannedPhraseHit } from "../../lib/ai-prompts/banned-phrase-validator";
 import { critiqueAndRewriteBlocks, type CritiqueAnnotation } from "../../lib/ai-prompts/critique-pass";
+import { applySafePhraseSwaps } from "../../lib/ai-prompts/banned-phrase-validator";
 import {
   pickRecipe,
   buildRecipeDirective,
@@ -9170,11 +9171,18 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         fillDsoCaseStudyNeutralDefaults(b);
       }
 
-      // Workstream B — banned-phrase post-validator (template path).
-      const bannedPhraseHits = findBannedPhrases(
-        mergedBlocks,
-        [...new Set([...getCoreForbiddenPhrases(), ...(brand.avoidPhrases ?? [])])],
-      );
+      // Workstream B — banned-phrase post-validator (template path). Safe
+      // deterministic swaps run FIRST (instant, meaning-preserving) so the
+      // critique model call only has to fix what has no drop-in replacement.
+      const templateScanPhrases = [...new Set([...getCoreForbiddenPhrases(), ...(brand.avoidPhrases ?? [])])];
+      const templateSwaps = applySafePhraseSwaps(mergedBlocks);
+      if (templateSwaps.swaps > 0) {
+        logger.info(
+          { event: "ai_safe_phrase_swaps", tenantId, promptPath: "TEMPLATE", slug, swaps: templateSwaps.swaps, phrases: templateSwaps.phrases },
+          "[generate-page] deterministic cliche swaps applied",
+        );
+      }
+      const bannedPhraseHits = findBannedPhrases(mergedBlocks, templateScanPhrases);
       if (bannedPhraseHits.length > 0) {
         logger.warn(
           {
@@ -9203,6 +9211,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
           bannedPhraseHits,
           brand,
           openai,
+          scanPhrases: templateScanPhrases,
           limit: (fn) => generateOpenAISemaphore.run(fn),
         });
         critiqueAnnotations = critique.annotations;
@@ -11101,10 +11110,17 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     // Workstream B — banned-phrase post-validator. Non-destructive: flag
     // clichés + brand-forbidden phrases that leaked past the prompt so the
     // editor (and Workstream C's critique pass) can target the worst blocks.
-    const bannedPhraseHits = findBannedPhrases(
-      parsed.blocks,
-      [...new Set([...getCoreForbiddenPhrases(), ...(brand.avoidPhrases ?? [])])],
-    );
+    const freeformScanPhrases = [...new Set([...getCoreForbiddenPhrases(), ...(brand.avoidPhrases ?? [])])];
+    // Safe deterministic swaps FIRST — instant fixes for offenders with a
+    // meaning-preserving drop-in, so the critique call only handles the rest.
+    const freeformSwaps = applySafePhraseSwaps(parsed.blocks);
+    if (freeformSwaps.swaps > 0) {
+      logger.info(
+        { event: "ai_safe_phrase_swaps", tenantId, promptPath, slug: parsed.slug, swaps: freeformSwaps.swaps, phrases: freeformSwaps.phrases },
+        "[generate-page] deterministic cliche swaps applied",
+      );
+    }
+    const bannedPhraseHits = findBannedPhrases(parsed.blocks, freeformScanPhrases);
     if (bannedPhraseHits.length > 0) {
       logger.warn(
         {
@@ -11131,6 +11147,7 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
         bannedPhraseHits,
         brand,
         openai,
+        scanPhrases: freeformScanPhrases,
         limit: (fn) => generateOpenAISemaphore.run(fn),
       });
       critiqueAnnotations = critique.annotations;

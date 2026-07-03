@@ -97,7 +97,7 @@ import { getCopyPrinciplesSection, getCoreForbiddenPhrases } from "../../lib/ai-
 // sentence-case + no-buzzword copy, but gpt-4o ignores instructions, so we run
 // the same post-generation validator + critique rewrite the page path runs,
 // plus a deterministic sentence-case normalizer that fixes Title Case for sure.
-import { findBannedPhrases } from "../../lib/ai-prompts/banned-phrase-validator";
+import { findBannedPhrases, applySafePhraseSwaps } from "../../lib/ai-prompts/banned-phrase-validator";
 import { critiqueAndRewriteBlocks } from "../../lib/ai-prompts/critique-pass";
 import { normalizeHeadingsToSentenceCase } from "../../lib/ai-prompts/sentence-case-normalizer";
 import { canonicalizeBlockType } from "../../lib/ai-prompts/block-aliases";
@@ -4996,13 +4996,20 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
     //    the brand voice and is a no-op when there are zero hits (corrective
     //    only — no tighten-anyway pass).
     try {
-      const bannedPhraseHits = findBannedPhrases(
-        normalizedBlocks as unknown[],
-        [...new Set([
-          ...getCoreForbiddenPhrases(),
-          ...((brand.avoidPhrases as string[] | undefined) ?? []),
-        ])],
-      );
+      const micrositeScanPhrases = [...new Set([
+        ...getCoreForbiddenPhrases(),
+        ...((brand.avoidPhrases as string[] | undefined) ?? []),
+      ])];
+      // Safe deterministic swaps FIRST (instant, meaning-preserving) so the
+      // critique model call only fixes what has no drop-in replacement.
+      const micrositeSwaps = applySafePhraseSwaps(normalizedBlocks as unknown[]);
+      if (micrositeSwaps.swaps > 0) {
+        logger.info(
+          { event: "ai_safe_phrase_swaps", tenantId, promptPath: "MICROSITE", accountId, swaps: micrositeSwaps.swaps, phrases: micrositeSwaps.phrases },
+          "[generate-microsite] deterministic cliche swaps applied",
+        );
+      }
+      const bannedPhraseHits = findBannedPhrases(normalizedBlocks as unknown[], micrositeScanPhrases);
       if (bannedPhraseHits.length > 0) {
         logger.warn(
           {
@@ -5026,6 +5033,7 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
           copyExamples: brand.copyExamples as string[] | undefined,
           messagingPillars: brand.messagingPillars as { label: string; description: string }[] | undefined,
         },
+        scanPhrases: micrositeScanPhrases,
         openai,
       });
       if (critique.critiqued) {

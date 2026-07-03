@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { findBannedPhrases, rankBlocksByHits, GLOBAL_CLICHES } from "./banned-phrase-validator";
+import { applySafePhraseSwaps, findBannedPhrases, rankBlocksByHits, GLOBAL_CLICHES } from "./banned-phrase-validator";
 
 describe("findBannedPhrases", () => {
   it("returns no hits for clean copy", () => {
@@ -94,5 +94,76 @@ describe("rankBlocksByHits", () => {
       { blockId: "a", count: 2 },
       { blockId: "b", count: 1 },
     ]);
+  });
+});
+
+
+describe("applySafePhraseSwaps", () => {
+  it("swaps safe offenders in place with case preservation and reports them", () => {
+    const blocks = [
+      {
+        id: "b1",
+        type: "hero",
+        props: {
+          headline: "Seamless onboarding for growing teams",
+          subheadline: "Discover how we streamline your intake and optimize scheduling.",
+        },
+      },
+    ];
+    const result = applySafePhraseSwaps(blocks);
+    expect(result.swaps).toBeGreaterThanOrEqual(4);
+    const props = blocks[0].props as Record<string, string>;
+    expect(props.headline).toBe("Smooth onboarding for growing teams");
+    expect(props.subheadline).toBe("See how we simplify your intake and improve scheduling.");
+    expect(result.phrases).toEqual(expect.arrayContaining(["seamless", "discover", "streamline", "optimize"]));
+  });
+
+  it("never touches urls, non-copy keys, or url-shaped values", () => {
+    const blocks = [
+      {
+        id: "b1",
+        type: "hero",
+        props: {
+          ctaUrl: "https://acme.com/discover",
+          imageUrl: "/assets/seamless-hero.png",
+          backgroundStyle: "discover", // enum-ish key guarded by key filter? style matches SKIP_KEY_RE
+          items: [{ href: "#discover", label: "Discover pricing" }],
+        },
+      },
+    ];
+    const result = applySafePhraseSwaps(blocks);
+    const props = blocks[0].props as Record<string, unknown>;
+    expect(props.ctaUrl).toBe("https://acme.com/discover");
+    expect(props.imageUrl).toBe("/assets/seamless-hero.png");
+    expect((props.items as Array<Record<string, string>>)[0].href).toBe("#discover");
+    expect((props.items as Array<Record<string, string>>)[0].label).toBe("See pricing");
+    expect(result.swaps).toBe(1);
+  });
+
+  it("no replacement is itself a banned phrase (swaps converge)", () => {
+    const blocks = [
+      {
+        id: "b1",
+        type: "hero",
+        props: {
+          copy: "Industry-leading, best-in-class, game-changing, revolutionary, cutting-edge platform to empower your team, maximize output, supercharge growth with actionable insights — a true game-changer that will revolutionize work with ease.",
+        },
+      },
+    ];
+    applySafePhraseSwaps(blocks);
+    const residual = findBannedPhrases(blocks, [
+      "seamless", "seamlessly", "discover", "streamline", "optimize", "comprehensive",
+      "robust", "empower", "maximize", "effortlessly", "with ease", "innovative", "solution",
+    ]);
+    expect(residual).toEqual([]);
+  });
+
+  it("word boundaries: does not rewrite inside larger words", () => {
+    const blocks = [
+      { id: "b1", type: "hero", props: { copy: "Rediscover our robustness standards" } },
+    ];
+    const result = applySafePhraseSwaps(blocks);
+    expect((blocks[0].props as Record<string, string>).copy).toBe("Rediscover our robustness standards");
+    expect(result.swaps).toBe(0);
   });
 });

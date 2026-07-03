@@ -71,8 +71,13 @@ interface CritiqueOptions {
   bannedPhraseHits: BannedPhraseHit[];
   brand: CritiqueBrandVoice;
   openai: OpenAI | null;
-  /** Max blocks to rewrite in one pass. */
+  /** Max blocks per LLM call (batch size). See CRITIQUE_TOTAL_BLOCK_CAP for
+   *  the across-batches budget. */
   maxBlocks?: number;
+  /** The FULL phrase list the caller scanned with (core forbidden + brand
+   *  avoidPhrases). Used for the residual re-scan so `resolved` reflects the
+   *  same rules that produced the hits; defaults to brand.avoidPhrases. */
+  scanPhrases?: string[];
   /** Hard timeout for the critique LLM call. */
   timeoutMs?: number;
   /**
@@ -85,6 +90,13 @@ interface CritiqueOptions {
 }
 
 const DEFAULT_MAX_BLOCKS = 2;
+/** Total hit-block budget across ALL batches (July 2026 widening). The old
+ *  behavior fixed only the worst DEFAULT_MAX_BLOCKS blocks per page, so hits
+ *  in every other block shipped untouched — the eval harness measured
+ *  bannedPhrase as the weakest quality dimension because of it. Batches of
+ *  DEFAULT_MAX_BLOCKS keep each call small (the 4096-token output budget
+ *  truncates on big multi-block payloads); the cap bounds cost/latency. */
+const DEFAULT_TOTAL_BLOCK_CAP = 6;
 // The corrective rewrite is a real gpt-4o JSON call that runs behind the shared
 // generation semaphore, so this budget must cover both queue-wait and the
 // model round-trip. The original 3s was far too tight: the pass almost always
@@ -230,7 +242,7 @@ function buildVoiceContext(brand: CritiqueBrandVoice): string {
 }
 
 const CRITIQUE_SYSTEM_PROMPT = [
-  "You are a senior B2B copy editor. You are handed 1–2 landing-page content blocks whose copy leans on clichés or banned phrases.",
+  "You are a senior B2B copy editor. You are handed landing-page content blocks whose copy leans on clichés or banned phrases.",
   "Rewrite the human-readable text so it is specific, concrete, vivid, and on-brand — replace vague hype with substance.",
   "HARD RULES:",
   "- Return ONLY valid JSON, no markdown fences, no commentary.",
@@ -259,7 +271,9 @@ export async function critiqueAndRewriteBlocks(
     maxBlocks = DEFAULT_MAX_BLOCKS,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     limit = (fn) => fn(),
+    scanPhrases,
   } = opts;
+  const residualPhrases = scanPhrases ?? brand.avoidPhrases ?? [];
 
   const empty: CritiqueResult = { blocks, annotations: [], critiqued: false };
 
@@ -278,15 +292,17 @@ export async function critiqueAndRewriteBlocks(
   const tightenFallbackEnabled = process.env.CRITIQUE_PASS_TIGHTEN_FALLBACK === "1";
   if (hits.length === 0 && !tightenFallbackEnabled) return empty;
 
-  // Pick the worst blocks (by banned-phrase hit count) that still exist in the
-  // output. With zero hits (opt-in fallback mode only), target the
-  // copy-heaviest blocks instead.
+  // Pick EVERY block with hits (ranked worst-first, capped) that still exists
+  // in the output — the old worst-1-2-only selection shipped the rest of the
+  // page's hits untouched. With zero hits (opt-in fallback mode only), target
+  // the copy-heaviest blocks instead.
+  const totalCap = Number(process.env.CRITIQUE_TOTAL_BLOCK_CAP) || DEFAULT_TOTAL_BLOCK_CAP;
   const targetIds: string[] = [];
   if (hits.length > 0) {
     const ranked = rankBlocksByHits(hits);
     for (const { blockId: id } of ranked) {
       if (blocks.some((b) => blockId(b) === id)) targetIds.push(id);
-      if (targetIds.length >= maxBlocks) break;
+      if (targetIds.length >= totalCap) break;
     }
   } else {
     targetIds.push(...pickCopyHeaviestBlockIds(blocks, maxBlocks));
@@ -306,80 +322,104 @@ export async function critiqueAndRewriteBlocks(
   }
 
   const voiceContext = buildVoiceContext(brand);
-  const bannedList = [
-    ...new Set(hits.filter((h) => targetIds.includes(h.blockId)).map((h) => h.phrase)),
-  ];
-  const userPrompt = [
-    voiceContext ? `BRAND VOICE:\n${voiceContext}\n` : "",
-    bannedList.length > 0
-      ? `Banned/cliché phrases that MUST be removed (and not replaced with close variants): ${bannedList.join(", ")}. Rewrite ONLY what is needed to remove them — preserve each field's length, specificity, and every concrete detail (value props, numbers, names, proof points).`
-      : "No specific banned phrases were detected. Replace only vague hype, filler, and generic claims with specific, concrete, on-brand substance. Keep anything already specific UNCHANGED, preserve each field's length (do not shorten), and never drop value props, numbers, or proof points.",
-    "",
-    "Rewrite the copy in these blocks:",
-    JSON.stringify({ blocks: targets.map((b) => ({ id: b.id, type: b.type, props: b.props })) }),
-  ]
-    .filter(Boolean)
-    .join("\n");
 
-  let rewritten: { blocks?: Array<{ id?: unknown; props?: unknown }> };
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const completion = await limit(() =>
-      openai.chat.completions.create(
-        {
-          model: "gpt-4o",
-          temperature: 0.7,
-          max_completion_tokens: 4096,
-          response_format: { type: "json_object" },
-          messages: [
-            { role: "system", content: CRITIQUE_SYSTEM_PROMPT },
-            { role: "user", content: userPrompt },
-          ],
-        },
-        { signal: controller.signal },
-      ),
-    );
-    const raw = completion.choices[0]?.message?.content?.trim() ?? "";
-    if (!raw) return empty;
-    const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-    rewritten = JSON.parse(cleaned);
-  } catch {
-    // Timeout, abort, network error, or invalid JSON — ship the original page.
-    return empty;
-  } finally {
-    clearTimeout(timer);
-  }
+  // One LLM call per batch of `maxBlocks` targets, batches run concurrently
+  // (each acquires `limit` separately so the shared semaphore paces them).
+  // Small batches keep each call's payload inside the 4096-token output
+  // budget — a whole-page single call truncated on content-heavy blocks.
+  // Each batch is independently fail-open: one bad batch never blocks the
+  // others' fixes from merging.
+  const runBatch = async (
+    batchTargets: Record<string, unknown>[],
+  ): Promise<{ annotations: CritiqueAnnotation[]; didRewrite: boolean }> => {
+    const batchIds = batchTargets.map((b) => b.id as string);
+    const bannedList = [
+      ...new Set(hits.filter((h) => batchIds.includes(h.blockId)).map((h) => h.phrase)),
+    ];
+    const userPrompt = [
+      voiceContext ? `BRAND VOICE:\n${voiceContext}\n` : "",
+      bannedList.length > 0
+        ? `Banned/cliché phrases that MUST be removed (and not replaced with close variants): ${bannedList.join(", ")}. Rewrite ONLY what is needed to remove them — preserve each field's length, specificity, and every concrete detail (value props, numbers, names, proof points).`
+        : "No specific banned phrases were detected. Replace only vague hype, filler, and generic claims with specific, concrete, on-brand substance. Keep anything already specific UNCHANGED, preserve each field's length (do not shorten), and never drop value props, numbers, or proof points.",
+      "",
+      "Rewrite the copy in these blocks:",
+      JSON.stringify({ blocks: batchTargets.map((b) => ({ id: b.id, type: b.type, props: b.props })) }),
+    ]
+      .filter(Boolean)
+      .join("\n");
 
-  if (!rewritten || !Array.isArray(rewritten.blocks)) return empty;
-
-  const rewrittenById = new Map<string, unknown>();
-  for (const rb of rewritten.blocks) {
-    if (isPlainObject(rb) && typeof rb.id === "string") {
-      rewrittenById.set(rb.id, rb.props);
+    let rewritten: { blocks?: Array<{ id?: unknown; props?: unknown }> };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const completion = await limit(() =>
+        openai.chat.completions.create(
+          {
+            model: "gpt-4o",
+            temperature: 0.7,
+            max_completion_tokens: 4096,
+            response_format: { type: "json_object" },
+            messages: [
+              { role: "system", content: CRITIQUE_SYSTEM_PROMPT },
+              { role: "user", content: userPrompt },
+            ],
+          },
+          { signal: controller.signal },
+        ),
+      );
+      const raw = completion.choices[0]?.message?.content?.trim() ?? "";
+      if (!raw) return { annotations: [], didRewrite: false };
+      const cleaned = raw.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      rewritten = JSON.parse(cleaned);
+    } catch {
+      // Timeout, abort, network error, or invalid JSON — this batch ships
+      // unchanged; sibling batches are unaffected.
+      return { annotations: [], didRewrite: false };
+    } finally {
+      clearTimeout(timer);
     }
+
+    if (!rewritten || !Array.isArray(rewritten.blocks)) {
+      return { annotations: [], didRewrite: false };
+    }
+
+    const rewrittenById = new Map<string, unknown>();
+    for (const rb of rewritten.blocks) {
+      if (isPlainObject(rb) && typeof rb.id === "string") {
+        rewrittenById.set(rb.id, rb.props);
+      }
+    }
+
+    const annotations: CritiqueAnnotation[] = [];
+    let didRewrite = false;
+    for (const target of batchTargets) {
+      const id = target.id as string;
+      if (!rewrittenById.has(id)) continue;
+      const mergedProps = mergeStringLeaves(target.props, rewrittenById.get(id));
+      target.props = mergedProps;
+      didRewrite = true;
+
+      // Re-scan the merged block so the annotation reports whether the rewrite
+      // actually cleared the phrases (vs. the model leaving some behind). Uses
+      // the caller's FULL scan list so `resolved` matches the rules that
+      // produced the hits.
+      const residual = findBannedPhrases([target], residualPhrases);
+      annotations.push({
+        blockId: id,
+        blockType: blockType(target),
+        removedPhrases: [...(phrasesByBlock.get(id) ?? [])],
+        resolved: residual.length === 0,
+      });
+    }
+    return { annotations, didRewrite };
+  };
+
+  const batches: Record<string, unknown>[][] = [];
+  for (let i = 0; i < targets.length; i += Math.max(1, maxBlocks)) {
+    batches.push(targets.slice(i, i + Math.max(1, maxBlocks)));
   }
-
-  const annotations: CritiqueAnnotation[] = [];
-  let didRewrite = false;
-  for (const target of targets) {
-    const id = target.id as string;
-    if (!rewrittenById.has(id)) continue;
-    const mergedProps = mergeStringLeaves(target.props, rewrittenById.get(id));
-    target.props = mergedProps;
-    didRewrite = true;
-
-    // Re-scan the merged block so the annotation reports whether the rewrite
-    // actually cleared the phrases (vs. the model leaving some behind).
-    const residual = findBannedPhrases([target], brand.avoidPhrases ?? []);
-    annotations.push({
-      blockId: id,
-      blockType: blockType(target),
-      removedPhrases: [...(phrasesByBlock.get(id) ?? [])],
-      resolved: residual.length === 0,
-    });
-  }
-
-  if (!didRewrite) return empty;
+  const results = await Promise.all(batches.map(runBatch));
+  const annotations = results.flatMap((r) => r.annotations);
+  if (!results.some((r) => r.didRewrite)) return empty;
   return { blocks, annotations, critiqued: true };
 }
