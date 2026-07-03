@@ -30,6 +30,10 @@ registerGenerationJobHandler("page", generatePageHandler);
 
 const router = Router();
 
+// Deliberately page-only: microsite jobs submit through the sales router
+// (routes/sales/generate-microsite.ts) so the salesConsole plan gate and the
+// microsite limiter apply — accepting kind:"microsite" HERE would bypass both.
+// The GET status/stream endpoints below serve every kind (tenant-scoped reads).
 const KINDS: ReadonlySet<string> = new Set(["page"]);
 
 router.post(

@@ -398,14 +398,21 @@ export async function streamGenerationViaJob<
   body: TBody,
   handlers: GenerationStreamHandlers,
   signal?: AbortSignal,
+  opts?: {
+    /** Job submit endpoint. Defaults to the marketing-page submit, which
+     *  wraps the body as {kind:"page", request}. When set (the sales
+     *  microsite path posts to its account-scoped submit route, which owns
+     *  the kind), the body is POSTed unchanged — identical to the sync body. */
+    submitEndpoint?: string;
+  },
 ): Promise<TResult> {
   const fail = (message: string, kind: GenerationStreamErrorKind, status?: number) =>
     new GenerationStreamError(message, { kind, status, receivedStage: false });
 
-  const submitRes = await fetch("/api/lp/generation-jobs", {
+  const submitRes = await fetch(opts?.submitEndpoint ?? "/api/lp/generation-jobs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ kind: "page", request: body }),
+    body: JSON.stringify(opts?.submitEndpoint ? body : { kind: "page", request: body }),
     signal,
   }).catch((err) => {
     if (isAbortError(err) || signal?.aborted) throw fail("Generation cancelled", "aborted");

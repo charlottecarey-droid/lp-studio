@@ -31,7 +31,7 @@ import { db, lpGenerationJobsTable, type LpGenerationJob } from "@workspace/db";
 import { logger } from "./logger";
 import { captureRouteError } from "./sentry";
 
-export type GenerationJobKind = "page";
+export type GenerationJobKind = "page" | "microsite";
 export type GenerationJobStatus = "queued" | "running" | "succeeded" | "failed";
 
 export interface GenerationJobEvent {
@@ -62,13 +62,15 @@ interface LiveJob {
 /** Process-local registry of in-flight jobs (buffer + live subscribers). */
 const liveJobs = new Map<string, LiveJob>();
 
-type PageHandler = (req: Request, res: Response) => Promise<void>;
+type GenerationHandler = (req: Request, res: Response) => Promise<void>;
 
 /** The generators the queue can run. Registered at route-mount time to avoid
  *  a module cycle (generate-page imports libs that import this module's
- *  neighbors). */
-const handlers = new Map<GenerationJobKind, PageHandler>();
-export function registerGenerationJobHandler(kind: GenerationJobKind, handler: PageHandler): void {
+ *  neighbors). Submit endpoints live where their middleware lives: "page" on
+ *  routes/lp/generation-jobs.ts, "microsite" on the sales router behind the
+ *  salesConsole plan gate (routes/sales/generate-microsite.ts). */
+const handlers = new Map<GenerationJobKind, GenerationHandler>();
+export function registerGenerationJobHandler(kind: GenerationJobKind, handler: GenerationHandler): void {
   handlers.set(kind, handler);
 }
 
@@ -237,11 +239,19 @@ export function startGenerationJob(id: string, tenantId: number, kind: Generatio
     };
 
     // Captured req/res shim — exactly the surface the handler + SSE emitter
-    // consume (see generatePageHandler's export note).
+    // consume (see generatePageHandler's export note). The page handler reads
+    // everything from req.body; the microsite handler additionally reads
+    // req.params.accountId (its sync route is account-scoped), so the sales
+    // submit route stores accountId inside the request row and the shim
+    // surfaces it back as a route param here.
+    const params: Record<string, string> =
+      kind === "microsite"
+        ? { accountId: String((request as { accountId?: unknown }).accountId ?? "") }
+        : {};
     const req = {
       body: { ...request },
       query: { stream: "1" },
-      params: {},
+      params,
       headers: {},
       authUser: { tenantId },
       on: () => req, // never fires "close": the job outlives any client

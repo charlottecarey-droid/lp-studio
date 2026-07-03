@@ -110,6 +110,22 @@ describe("startGenerationJob + subscribeToGenerationJob", () => {
     expect(JSON.parse(err.data).message).toContain("unexpected");
   });
 
+  it("microsite jobs surface request.accountId as req.params.accountId", async () => {
+    registerGenerationJobHandler("microsite", async (req: Request, res: Response) => {
+      // The sync microsite route is account-scoped (/accounts/:accountId/…),
+      // so the runner shim must rebuild the route param from the job request.
+      expect(req.params.accountId).toBe("42");
+      expect((req.body as { prompt?: string }).prompt).toBe("hi");
+      res.write('event: result\ndata: {"page":{"id":1},"blocks":[]}\n\n');
+      res.end();
+    });
+    const seen: GenerationJobEvent[] = [];
+    startGenerationJob("job-ms-1", 7, "microsite", { accountId: 42, prompt: "hi" });
+    subscribeToGenerationJob("job-ms-1", (e) => seen.push(e));
+    const result = await waitForEvent(seen, "result");
+    expect(JSON.parse(result.data).page.id).toBe(1);
+  });
+
   it("unknown kind fails cleanly", async () => {
     const seen: GenerationJobEvent[] = [];
     startGenerationJob("job-5", 7, "page", { prompt: "x" }); // nothing registered

@@ -48,6 +48,12 @@ import {
   purgeExpiredTestSessionsBySid,
 } from "../../test-utils/tenantCleanup";
 import salesRouter from "./index";
+// Shared job status endpoint (GET /lp/generation-jobs/:id) — the async
+// microsite submit test polls it, exactly as the FE does behind
+// VITE_GENERATION_JOBS=1. Importing this also registers the "page" handler;
+// the "microsite" handler registers when the sales router imports
+// generate-microsite.ts.
+import generationJobsRouter from "../lp/generation-jobs";
 
 // Slug + session-sid prefix and the exact name every tenant/session this suite
 // seeds shares, so a crashed run (or an older run whose teardown predated the
@@ -75,14 +81,15 @@ function adminSession(tenantId: number): { sid: string; sess: string } {
   return { sid: `it-ms-smoke-${randomUUID()}`, sess: JSON.stringify(user) };
 }
 
-/** Seed a growth tenant + admin session + a brand row carrying one segment. */
-async function seedTenant(): Promise<{ tenantId: number; sid: string }> {
+/** Seed a tenant + admin session + a brand row carrying one segment. Growth
+ *  (salesConsole plan) by default; "starter" exercises the plan gate. */
+async function seedTenant(plan: "growth" | "starter" = "growth"): Promise<{ tenantId: number; sid: string }> {
   const slug = `it-ms-smoke-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
   const r = await pool.query<{ id: number }>(
     `INSERT INTO tenants (name, slug, status, plan)
-     VALUES ('IT Microsite Tenant', $1, 'active', 'growth')
+     VALUES ('IT Microsite Tenant', $1, 'active', $2)
      RETURNING id`,
-    [slug],
+    [slug, plan],
   );
   const tenantId = r.rows[0].id;
   createdTenantIds.push(tenantId);
@@ -220,6 +227,8 @@ beforeAll(async () => {
   app.use(express.json());
   app.use(requireAuth);
   app.use("/sales", salesRouter);
+  // Router paths already carry the /lp prefix (mirrors the real mount).
+  app.use(generationJobsRouter);
   // Generous timeout: the first run after this fix lands cascade-deletes the
   // backlog of orphaned it-ms-smoke tenants from older (pre-fix) runs, which is
   // heavy against the shared DB. Steady-state runs purge ~nothing and finish fast.
@@ -772,5 +781,104 @@ describe.skipIf(!dbAvailable)("Freeform microsite generation survives malformed 
     expect(body.blocks.some(b => b.type === "totally-made-up-block")).toBe(false);
     expect(body.blocks.some(b => b.type === "another-fabricated-section")).toBe(false);
     expect(body.blocks.some(b => b.type === "dso-success-stories")).toBe(false);
+  });
+});
+
+// ── Async job path (July 2026) ───────────────────────────────────────────────
+// The queue variant of the generate route: POST …/generate-microsite/jobs
+// (202 + jobId) then the shared GET /lp/generation-jobs/:id until terminal —
+// exactly the FE flow behind VITE_GENERATION_JOBS=1. Same real-DB smoke goal
+// as above: catch "the job path is broken end-to-end", not AI quality.
+describe.skipIf(!dbAvailable)("Microsite generation async jobs", () => {
+  /** Poll the shared status endpoint until the job leaves queued/running. */
+  async function waitForJobTerminal(
+    sid: string,
+    jobId: string,
+    timeoutMs = 30_000,
+  ): Promise<{ status: string; result: unknown; error: string | null }> {
+    const start = Date.now();
+    for (;;) {
+      const res = await authed(sid, "GET", `/lp/generation-jobs/${jobId}`);
+      expect(res.status).toBe(200);
+      const job = res.json as { status: string; result: unknown; error: string | null };
+      if (job.status === "succeeded" || job.status === "failed") return job;
+      if (Date.now() - start > timeoutMs) {
+        throw new Error(`job ${jobId} still "${job.status}" after ${timeoutMs}ms`);
+      }
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  }
+
+  it("submits a job, runs it through the queue, and lands the same draft page the sync route builds", async () => {
+    const { tenantId, sid } = await seedTenant();
+    const accountName = `Queue Robotics ${Math.floor(Math.random() * 1e6)}`;
+    const accountId = await seedAccount(tenantId, accountName);
+
+    aiState.response = {
+      title: `${accountName} — Why Switch`,
+      slug: "why-switch-job",
+      blocks: [
+        { type: "hero", props: { headline: `Built for ${accountName}`, subheadline: "Tailored to you" } },
+        { type: "benefits-grid", props: { items: [{ icon: "Zap", title: "Fast", description: "Quick wins" }] } },
+        { type: "bottom-cta", props: { headline: "Ready?", ctaText: "Book a demo" } },
+      ],
+    };
+
+    const submit = await authed(sid, "POST", `/sales/accounts/${accountId}/generate-microsite/jobs`, {
+      segmentId: "general",
+    });
+    expect(submit.status).toBe(202);
+    const { jobId } = submit.json as { jobId: string };
+    expect(jobId).toBeTruthy();
+
+    const job = await waitForJobTerminal(sid, jobId);
+    expect(job.error).toBeNull();
+    expect(job.status).toBe("succeeded");
+
+    // The terminal result is the sync route's response body, and the page row
+    // it references is persisted + tenant-scoped exactly like the sync path's.
+    const result = job.result as { page: { id: number } };
+    expect(result.page.id).toBeGreaterThan(0);
+    const dbRow = await pool.query<{ tenant_id: number; account_id: number; status: string }>(
+      `SELECT tenant_id, account_id, status FROM lp_pages WHERE id = $1`,
+      [result.page.id],
+    );
+    expect(dbRow.rows[0].tenant_id).toBe(tenantId);
+    expect(dbRow.rows[0].account_id).toBe(accountId);
+    expect(dbRow.rows[0].status).toBe("draft");
+  }, 60_000);
+
+  it("404s a cross-tenant submit before creating a job, and hides jobs across tenants", async () => {
+    const a = await seedTenant();
+    const b = await seedTenant();
+    const accountId = await seedAccount(a.tenantId, `Tenant A Corp ${Math.floor(Math.random() * 1e6)}`);
+
+    // Tenant B cannot submit against tenant A's account…
+    const submit = await authed(b.sid, "POST", `/sales/accounts/${accountId}/generate-microsite/jobs`, {});
+    expect(submit.status).toBe(404);
+    const jobs = await pool.query<{ n: string }>(
+      `SELECT count(*) AS n FROM lp_generation_jobs WHERE tenant_id = $1`,
+      [b.tenantId],
+    );
+    expect(Number(jobs.rows[0].n)).toBe(0);
+
+    // …and cannot read tenant A's job rows through the status endpoint.
+    aiState.response = { title: "T", slug: "t", blocks: [{ type: "hero", props: { headline: "H" } }] };
+    const ok = await authed(a.sid, "POST", `/sales/accounts/${accountId}/generate-microsite/jobs`, {
+      segmentId: "general",
+    });
+    expect(ok.status).toBe(202);
+    const { jobId } = ok.json as { jobId: string };
+    const crossRead = await authed(b.sid, "GET", `/lp/generation-jobs/${jobId}`);
+    expect(crossRead.status).toBe(404);
+    // Let tenant A's job settle so teardown doesn't race a running generation.
+    await waitForJobTerminal(a.sid, jobId);
+  }, 60_000);
+
+  it("plan-gates the job submit exactly like the sync route (402 on starter)", async () => {
+    const { tenantId, sid } = await seedTenant("starter");
+    const accountId = await seedAccount(tenantId, `Starter Co ${Math.floor(Math.random() * 1e6)}`);
+    const res = await authed(sid, "POST", `/sales/accounts/${accountId}/generate-microsite/jobs`, {});
+    expect(res.status).toBe(402);
   });
 });

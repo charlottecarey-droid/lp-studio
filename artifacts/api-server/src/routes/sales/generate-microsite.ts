@@ -20,6 +20,14 @@ import {
   NOOP_GENERATION_EMITTER,
   type GenerationEmitter,
 } from "../../lib/generationEmitter";
+// Async job queue shared with /lp/generation-jobs — the microsite submit
+// route lives on THIS router so the salesConsole plan gate + micrositeLimiter
+// apply; see the route registration at the bottom of the file.
+import {
+  createGenerationJob,
+  startGenerationJob,
+  registerGenerationJobHandler,
+} from "../../lib/generationJobs";
 // Image pipeline shared with the marketing generator so the sales path stays
 // at parity: tenant-scoped media fetch, untagged-image surfacing, broad
 // empty-slot backfill, and AI/Unsplash fallback gated per tenant.
@@ -5300,5 +5308,52 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
 };
 
 router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLimiter, generateMicrositeHandler);
+
+// ── Async job submit (July 2026 reliability workstream) ─────────────────────
+// The microsite variant of POST /lp/generation-jobs. It lives HERE — not on
+// the generic lp endpoint — so it sits behind the exact middleware the sync
+// route runs: the salesConsole plan gate (router-level, see routes/sales/
+// index.ts) plus the same micrositeLimiter. Status/stream re-attach reuse the
+// shared tenant-scoped GET /lp/generation-jobs/:id[/stream] endpoints.
+registerGenerationJobHandler("microsite", generateMicrositeHandler);
+
+router.post(
+  "/accounts/:accountId/generate-microsite/jobs",
+  requireAuth,
+  micrositeLimiter,
+  async (req: ExpressRequest, res: ExpressResponse): Promise<void> => {
+    const tenantId = getTenantId(req, res);
+    if (tenantId === null) return;
+    const accountId = Number(req.params.accountId);
+    if (!Number.isInteger(accountId) || accountId <= 0) {
+      res.status(400).json({ error: "invalid account id" });
+      return;
+    }
+    const body = req.body;
+    if (body !== undefined && (typeof body !== "object" || body === null || Array.isArray(body))) {
+      res.status(400).json({ error: "request body must be a JSON object" });
+      return;
+    }
+    // Same pre-spend account check the sync handler leads with, so a bad
+    // submit fails here as a 404 instead of as a failed job.
+    const [account] = await db.select({ id: salesAccountsTable.id }).from(salesAccountsTable)
+      .where(and(eq(salesAccountsTable.id, accountId), eq(salesAccountsTable.tenantId, tenantId)));
+    if (!account) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+    // The job row carries the sync body plus accountId (a route param on the
+    // sync endpoint); the runner shim surfaces it back as req.params.accountId.
+    const request = { ...(body ?? {}), accountId } as Record<string, unknown>;
+    try {
+      const id = await createGenerationJob({ tenantId, kind: "microsite", request });
+      startGenerationJob(id, tenantId, "microsite", request);
+      res.status(202).json({ jobId: id });
+    } catch (err) {
+      logger.error({ err: String(err), tenantId, accountId }, "[generate-microsite/jobs] submit failed");
+      res.status(500).json({ error: "failed to create generation job" });
+    }
+  },
+);
 
 export default router;

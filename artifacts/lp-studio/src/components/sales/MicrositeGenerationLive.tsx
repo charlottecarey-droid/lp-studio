@@ -3,7 +3,10 @@
  * sales microsite generator (June 2026). It reuses the exact stage rail +
  * scaled live preview canvas the marketing builder shows (see
  * components/generation/*), streaming
- * `POST /api/sales/accounts/:id/generate-microsite?stream=1`.
+ * `POST /api/sales/accounts/:id/generate-microsite?stream=1` — or, behind
+ * VITE_GENERATION_JOBS=1, submitting an async job to
+ * `POST /api/sales/accounts/:id/generate-microsite/jobs` and attaching to the
+ * shared job stream (survives connection drops; July 2026).
  *
  * Differences from the marketing GenerationLiveView: the microsite generator
  * builds the page server-side in one shot (no per-block streaming and no copy
@@ -26,8 +29,11 @@ import {
 } from "@/lib/brand-config";
 import {
   streamGeneration,
+  streamGenerationViaJob,
   GenerationStreamError,
   type GenerationStageId,
+  type GenerationStageEvent,
+  type GenerationBlocksEvent,
 } from "@/lib/generationStream";
 import {
   DEFAULT_STAGE_DEFS,
@@ -179,34 +185,48 @@ export function MicrositeGenerationLive({
 
     void (async () => {
       try {
-        const streamed = await streamGeneration<Record<string, unknown>, MicrositeResult>(
-          body,
-          {
-            onStage: (e) => {
-              if (cancelled) return;
-              setStageState((prev) => ({
-                ...prev,
-                [e.id]: e.status === "start" ? "active" : "done",
-              }));
-              setStageLabels((prev) => ({ ...prev, [e.id]: e.label }));
-              if (e.id === "references" && e.status === "done" && e.meta) {
-                setRefsMeta({
-                  scraped: Array.isArray(e.meta.scraped) ? e.meta.scraped : [],
-                  failed: Array.isArray(e.meta.failed) ? e.meta.failed : [],
-                  fromInspiration: Array.isArray(e.meta.fromInspiration)
-                    ? e.meta.fromInspiration
-                    : [],
-                });
-              }
-            },
-            onBlocks: (e) => {
-              if (cancelled) return;
-              setEntries(toEntries(e.blocks)); // full replacement, reconciled by key+hash
-            },
+        const streamHandlers = {
+          onStage: (e: GenerationStageEvent) => {
+            if (cancelled) return;
+            setStageState((prev) => ({
+              ...prev,
+              [e.id]: e.status === "start" ? "active" : "done",
+            }));
+            setStageLabels((prev) => ({ ...prev, [e.id]: e.label }));
+            if (e.id === "references" && e.status === "done" && e.meta) {
+              setRefsMeta({
+                scraped: Array.isArray(e.meta.scraped) ? e.meta.scraped : [],
+                failed: Array.isArray(e.meta.failed) ? e.meta.failed : [],
+                fromInspiration: Array.isArray(e.meta.fromInspiration)
+                  ? e.meta.fromInspiration
+                  : [],
+              });
+            }
           },
-          ac.signal,
-          { endpoint },
-        );
+          onBlocks: (e: GenerationBlocksEvent) => {
+            if (cancelled) return;
+            setEntries(toEntries(e.blocks)); // full replacement, reconciled by key+hash
+          },
+        };
+        // July 2026: async job mode (dark behind VITE_GENERATION_JOBS=1) —
+        // submits through the account-scoped sales job endpoint (plan gate +
+        // limiter parity with the sync route, same body), then attaches to
+        // the shared job stream: the generation survives connection drops
+        // and re-attaches once instead of losing paid work.
+        const streamed =
+          import.meta.env.VITE_GENERATION_JOBS === "1"
+            ? await streamGenerationViaJob<Record<string, unknown>, MicrositeResult>(
+                body,
+                streamHandlers,
+                ac.signal,
+                { submitEndpoint: `/api/sales/accounts/${accountId}/generate-microsite/jobs` },
+              )
+            : await streamGeneration<Record<string, unknown>, MicrositeResult>(
+                body,
+                streamHandlers,
+                ac.signal,
+                { endpoint },
+              );
         if (cancelled) return;
         setEntries(toEntries(streamed.blocks));
         setPhase("ready");
