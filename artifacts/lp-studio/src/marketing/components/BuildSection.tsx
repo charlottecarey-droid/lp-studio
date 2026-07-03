@@ -101,10 +101,10 @@ const PRESETS: Preset[] = [
     // Deliberately does NOT repeat the homepage hero ("Describe a page. /
     // Watch it build." lives right above this section) — the demo page goes
     // a level deeper and teaches what's inside the app.
-    headline1: "Pages, microsites,",
-    headline2: "and proof they work.",
+    headline1: "Skip the brief.",
+    headline2: "Ship the page.",
     subhead:
-      "Generate campaign pages, per-account microsites, and A/B variants from one prompt — brand-locked, measured, and live in minutes.",
+      "Personalized, on-brand landing pages — live in minutes, measured from the first visit.",
     primaryCta: "Start free",
     ghostCta: "Book a demo",
     badge: "\u2726 AI-native",
@@ -1013,7 +1013,7 @@ export function BuildSection() {
                 <div
                   ref={canvasRef}
                   onPointerDown={() => setCanvasActive(true)}
-                  className={`@container relative flex h-[calc(100vh-300px)] flex-col ${canvasActive ? "overflow-y-auto" : "overflow-y-hidden"} overflow-x-hidden scroll-smooth pb-[420px]`}
+                  className={`@container relative flex h-[calc(100vh-300px)] flex-col ${canvasActive ? "overflow-y-auto" : "overflow-y-hidden"} overflow-x-hidden scroll-smooth`}
                   style={{ background: preset.pageBg ?? "#ffffff" }}
                 >
                   {/* Nav */}
