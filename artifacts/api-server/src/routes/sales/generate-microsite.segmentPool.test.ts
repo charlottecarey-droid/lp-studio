@@ -167,12 +167,16 @@ describe("enforceRequiredRoles — pool-aware backfill (task #5)", () => {
     expect(types).not.toContain("trust-bar");
   });
 
-  it("with no allow-set, keeps the legacy behavior (backfills every role)", () => {
+  it("with no allow-set, backfills every role except the placeholder quote card", () => {
     const blocks: Array<Record<string, unknown>> = [{ type: "hero", props: {} }];
     enforceRequiredRoles(blocks, { brandName: "Acme" });
     const types = blocks.map((b) => String(b.type));
     expect(types).toContain("benefits-grid");
-    expect(types).toContain("testimonial");
+    // July 2026: the social-proof default was a placeholder quote card
+    // ("Replace with a real customer quote…") that the eval harness proved
+    // ships verbatim to visitors — never injected anymore. The dual-role
+    // trust-bar still covers the social-proof role.
+    expect(types).not.toContain("testimonial");
     expect(types).toContain("trust-bar");
     expect(types).toContain("bottom-cta");
     expect(types).toContain("footer");
