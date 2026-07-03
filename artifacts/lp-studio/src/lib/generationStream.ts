@@ -274,6 +274,8 @@ export async function streamGeneration<
      *  generator; the sales microsite path passes its own account endpoint.
      *  Must already include `?stream=1`. */
     endpoint?: string;
+    /** "GET" for job re-attach streams (no body); defaults to POST. */
+    method?: "POST" | "GET";
   },
 ): Promise<TResult> {
   const endpoint = opts?.endpoint ?? `/api/lp/generate-page?stream=1`;
@@ -284,12 +286,12 @@ export async function streamGeneration<
   let res: Response;
   try {
     res = await fetch(endpoint, {
-      method: "POST",
+      method: opts?.method ?? "POST",
       headers: {
-        "Content-Type": "application/json",
+        ...(opts?.method === "GET" ? {} : { "Content-Type": "application/json" }),
         Accept: "text/event-stream",
       },
-      body: JSON.stringify(body),
+      ...(opts?.method === "GET" ? {} : { body: JSON.stringify(body) }),
       signal,
     });
   } catch (err) {
@@ -380,3 +382,60 @@ export async function streamGeneration<
   if (result !== null) return result;
   throw fail("The generation stream ended unexpectedly", "transport");
 }
+
+/**
+ * Async-job variant of streamGeneration (July 2026 reliability workstream,
+ * dark behind VITE_GENERATION_JOBS=1): submits the generation as a job, then
+ * attaches to its SSE stream. Because the JOB keeps running server-side when
+ * the connection drops, a mid-generation transport failure re-attaches once
+ * (with full buffered replay) instead of losing paid work — the property the
+ * direct POST stream cannot have.
+ */
+export async function streamGenerationViaJob<
+  TBody = GenerationRequestBody,
+  TResult = GenerationResult,
+>(
+  body: TBody,
+  handlers: GenerationStreamHandlers,
+  signal?: AbortSignal,
+): Promise<TResult> {
+  const fail = (message: string, kind: GenerationStreamErrorKind, status?: number) =>
+    new GenerationStreamError(message, { kind, status, receivedStage: false });
+
+  const submitRes = await fetch("/api/lp/generation-jobs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ kind: "page", request: body }),
+    signal,
+  }).catch((err) => {
+    if (isAbortError(err) || signal?.aborted) throw fail("Generation cancelled", "aborted");
+    throw fail(err instanceof Error ? err.message : "Could not reach the server", "transport");
+  });
+  if (!submitRes.ok) {
+    const errBody = (await submitRes.json().catch(() => null)) as { error?: string } | null;
+    throw fail(errBody?.error ?? `Generation failed (${submitRes.status})`, "http", submitRes.status);
+  }
+  const { jobId } = (await submitRes.json()) as { jobId: string };
+
+  const attach = (): Promise<TResult> =>
+    streamGeneration<Record<string, never>, TResult>(
+      {},
+      handlers,
+      signal,
+      { endpoint: `/api/lp/generation-jobs/${jobId}/stream`, method: "GET" },
+    );
+
+  try {
+    return await attach();
+  } catch (err) {
+    // The job survives a dropped connection — re-attach once. Server errors
+    // and user aborts are terminal; only transport failures retry. The replay
+    // re-fires earlier events; the live-view handlers are snapshot-driven
+    // (blocksSnapshot replaces, stages are idempotent), so replay is safe.
+    if (err instanceof GenerationStreamError && err.kind === "transport" && !signal?.aborted) {
+      return await attach();
+    }
+    throw err;
+  }
+}
+

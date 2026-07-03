@@ -55,6 +55,7 @@ import {
 } from "@/lib/brand-config";
 import {
   streamGeneration,
+  streamGenerationViaJob,
   GenerationStreamError,
   type GenerationRequestBody,
   type GenerationResult,
@@ -248,7 +249,11 @@ export function GenerationLiveView({
 
     void (async () => {
       try {
-        const streamed = await streamGeneration(
+        // July 2026: async job mode (dark behind VITE_GENERATION_JOBS=1) —
+        // the generation survives connection drops and re-attaches once.
+        const streamFn =
+          import.meta.env.VITE_GENERATION_JOBS === "1" ? streamGenerationViaJob : streamGeneration;
+        const streamed = await streamFn(
           effectiveBody,
           {
             onStage: (e) => {

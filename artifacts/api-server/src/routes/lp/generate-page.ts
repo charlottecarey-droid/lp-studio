@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import OpenAI from "openai";
 import { db, pool } from "@workspace/db";
 import { aiGenerationLogTable, lpBrandSettingsTable, lpMediaTable, lpPagesTable, tenantsTable } from "@workspace/db";
@@ -8113,7 +8113,12 @@ function logAiGeneration(row: {
   });
 }
 
-router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiHeavyHourlyLimiter, async (req, res): Promise<void> => {
+/** The generation handler, exported so the async job runner
+ *  (lib/generationJobs.ts) can invoke it directly with a captured req/res
+ *  shim — bypassing auth/quota/limiter middleware, which the job SUBMIT
+ *  endpoint already ran. Reads req.body, req.query.stream, req.authUser and
+ *  req.on("close"); writes only via the emitter / res.json. */
+export const generatePageHandler = async (req: Request, res: Response): Promise<void> => {
   const { prompt, segmentContext, templateId, sourcePageId, replaceImagery, referenceUrl, referenceUrls: referenceUrlsRaw, screenshotDataUrl, excludeRecipeIds: excludeRecipeIdsRaw, _captureOnly } = req.body as {
     prompt?: string;
     segmentContext?: SegmentContext;
@@ -11418,6 +11423,8 @@ router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiH
     captureRouteError(err, "lp/generate-page", { tenantId, promptPath });
     sendErrorJson(500, { error: String(err) });
   }
-});
+};
+
+router.post("/lp/generate-page", requireAiGenerationQuota(), aiHeavyLimiter, aiHeavyHourlyLimiter, generatePageHandler);
 
 export default router;

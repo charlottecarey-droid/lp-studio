@@ -112,3 +112,4 @@ export * from "./generatorPresets";
 // Superadmin WORDING overrides for AI page-generation recipes (label /
 // description / style notes + on/off). Recipe skeletons stay code-defined.
 export * from "./pageRecipeOverrides";
+export * from "./lpGenerationJobs";
