@@ -2030,6 +2030,28 @@ export function segmentPoolFallbackBlockList(poolTypes: string[]): string[] {
   ];
 }
 
+/**
+ * Resolve each recipe-skeleton slot's "a OR b" alternatives DETERMINISTICALLY
+ * from the account seed instead of letting the model choose (July 2026).
+ * Left to the model, alternatives collapse to one favorite — prompt
+ * saturation made "spotlight-glow-hero OR aurora-gradient-hero OR
+ * dso-heartland-hero" resolve to the heartland hero on essentially every
+ * account, so every microsite OPENED identically even while the recipe
+ * rotation worked underneath. Same account → same choices (regeneration
+ * stays stable); different accounts genuinely rotate the alternatives.
+ * Structure from the seed, judgment from the model.
+ */
+export function resolveRecipeSkeletonSlots(recipe: PageRecipe, seedKey: string): PageRecipe {
+  return {
+    ...recipe,
+    skeleton: recipe.skeleton.map((slot, i) => {
+      const options = slot.split(/\s+OR\s+/).map((o) => o.trim()).filter(Boolean);
+      if (options.length <= 1) return slot;
+      return options[hashSeed(`microsite-slot::${seedKey}::${i}`) % options.length];
+    }),
+  };
+}
+
 // The documented block-source precedence for a microsite (task #5 + task #6,
 // revised July 2026). A pure decision so it is unit-testable in isolation and
 // the route + tests can never drift. Highest priority first:
@@ -3177,7 +3199,7 @@ export function buildSystemPrompt(
     // BLOCKS above; the post-generation clamp drops any straggler. The hero-first
     // / dso-final-cta-last rules and explicit user requests still win.
     const dsoRecipeLine = micrositeRecipe
-      ? `- Suggested flow for THIS page — "${micrositeRecipe.label}" (${micrositeRecipe.description}): ${micrositeRecipe.skeleton.join(" → ")}. ${micrositeRecipe.styleNotes} Treat this as a STARTING SUGGESTION to adapt, not a fixed template: where an entry offers alternatives ("a OR b") pick whichever best fits THIS account, swap any suggested block for a better-fitting one from the AVAILABLE BLOCKS above (some suggested blocks may not be available here — replace those), and vary it for this specific account — but ALWAYS keep exactly one hero first and "dso-final-cta" last. EXPLICIT USER REQUESTS OVERRIDE THIS SUGGESTION.`
+      ? `- Suggested flow for THIS page — "${micrositeRecipe.label}" (${micrositeRecipe.description}): ${micrositeRecipe.skeleton.join(" → ")}. ${micrositeRecipe.styleNotes} Treat this as a STARTING SUGGESTION to adapt, not a fixed template: swap any suggested block for a better-fitting one from the AVAILABLE BLOCKS above (some suggested blocks may not be available here — replace those), and vary it for this specific account — but ALWAYS keep exactly one hero first and "dso-final-cta" last. EXPLICIT USER REQUESTS OVERRIDE THIS SUGGESTION.`
       : null;
     const dsoFreeformFooter = [
       "",
@@ -3250,7 +3272,7 @@ export function buildSystemPrompt(
     // The hero-first / footer-last / vary-the-selection / required-sections
     // rules around it stay intact, and explicit user requests still win.
     const narrativeFlowLine = micrositeRecipe
-      ? `- Suggested flow for THIS page — "${micrositeRecipe.label}" (${micrositeRecipe.description}): ${micrositeRecipe.skeleton.join(" → ")} → footer. ${micrositeRecipe.styleNotes} Treat this as a STARTING SUGGESTION to adapt, not a fixed template: where an entry offers alternatives ("a OR b") pick whichever best fits the brand, swap any suggested block for a better-fitting one from the AVAILABLE BLOCKS, and vary it for this specific account — but ALWAYS keep exactly one hero first and the footer last. EXPLICIT USER REQUESTS OVERRIDE THIS SUGGESTION.`
+      ? `- Suggested flow for THIS page — "${micrositeRecipe.label}" (${micrositeRecipe.description}): ${micrositeRecipe.skeleton.join(" → ")} → footer. ${micrositeRecipe.styleNotes} Treat this as a STARTING SUGGESTION to adapt, not a fixed template: swap any suggested block for a better-fitting one from the AVAILABLE BLOCKS, and vary it for this specific account — but ALWAYS keep exactly one hero first and the footer last. EXPLICIT USER REQUESTS OVERRIDE THIS SUGGESTION.`
       : "- Sequence sections as a logical narrative: hook → problem/value → proof → how-it-works/benefits → comparison → closing CTA → footer. Skip sections that don't fit; never pad.";
     const freeformFooter = [
       "",
@@ -4101,6 +4123,12 @@ router.post("/accounts/:accountId/generate-microsite", requireAuth, micrositeLim
               hashSeed(`microsite::${tenantId}::${accountId}::${segment.id ?? "core"}`) %
                 recipePool.length
             ] ?? null;
+        }
+        if (micrositeRecipe) {
+          micrositeRecipe = resolveRecipeSkeletonSlots(
+            micrositeRecipe,
+            `${tenantId}::${accountId}::${segment.id ?? "core"}`,
+          );
         }
       } catch (err) {
         logger.warn(

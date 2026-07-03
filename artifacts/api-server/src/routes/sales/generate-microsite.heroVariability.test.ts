@@ -21,7 +21,9 @@
  *      untouched (other segments use different hero blocks).
  */
 import { describe, expect, it } from "vitest";
-import { applyDandyHeroVariability, type HeroLayout } from "./generate-microsite";
+import { applyDandyHeroVariability, type HeroLayout,
+  resolveRecipeSkeletonSlots,
+} from "./generate-microsite";
 
 type Block = Record<string, unknown>;
 
@@ -183,5 +185,44 @@ describe("applyDandyHeroVariability — no-op cases", () => {
     ];
     const out = applyDandyHeroVariability(blocks, IMAGES, VIDEOS, "x:Co");
     expect(out).toEqual(blocks);
+  });
+});
+
+
+// July 2026 — seeded OR-slot resolution: alternatives must rotate ACROSS
+// account seeds (not collapse to the model's favorite) while staying stable
+// for the SAME seed (regeneration consistency).
+describe("resolveRecipeSkeletonSlots", () => {
+  const recipe = {
+    id: "r",
+    label: "R",
+    description: "d",
+    styleNotes: "s",
+    skeleton: [
+      "spotlight-glow-hero OR aurora-gradient-hero OR dso-heartland-hero",
+      "icon-row",
+      "testimonial-grid OR testimonial",
+    ],
+  };
+
+  it("resolves every OR slot to a single option and leaves plain slots alone", () => {
+    const resolved = resolveRecipeSkeletonSlots(recipe, "t::1::core");
+    expect(resolved.skeleton).toHaveLength(3);
+    expect(resolved.skeleton[1]).toBe("icon-row");
+    for (const slot of resolved.skeleton) expect(slot).not.toContain(" OR ");
+    expect(["spotlight-glow-hero", "aurora-gradient-hero", "dso-heartland-hero"]).toContain(resolved.skeleton[0]);
+  });
+
+  it("is stable for the same seed and varies across seeds", () => {
+    const a1 = resolveRecipeSkeletonSlots(recipe, "t::acct-a::core");
+    const a2 = resolveRecipeSkeletonSlots(recipe, "t::acct-a::core");
+    expect(a1.skeleton).toEqual(a2.skeleton);
+    const heroes = new Set(
+      Array.from({ length: 40 }, (_, i) =>
+        resolveRecipeSkeletonSlots(recipe, `t::acct-${i}::core`).skeleton[0]),
+    );
+    // 40 seeds over 3 options must hit more than one option — the whole bug
+    // was every account getting the same hero.
+    expect(heroes.size).toBeGreaterThan(1);
   });
 });
