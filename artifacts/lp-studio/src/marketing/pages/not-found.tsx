@@ -10,7 +10,7 @@ export default function NotFound() {
           fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
           fontSize: "clamp(96px, 14vw, 168px)",
           lineHeight: 1,
-          fontWeight: 500,
+          fontWeight: 600,
           letterSpacing: "-0.04em",
           color: "var(--ink)",
         }}
@@ -22,7 +22,7 @@ export default function NotFound() {
         style={{
           color: "var(--ink)",
           fontSize: 24,
-          fontWeight: 500,
+          fontWeight: 600,
           letterSpacing: "-0.02em",
         }}
       >

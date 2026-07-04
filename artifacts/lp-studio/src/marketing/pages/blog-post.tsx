@@ -142,7 +142,7 @@ export default function BlogPost() {
                 color: "var(--ink)",
                 fontSize: "clamp(32px, 4.6vw, 50px)",
                 lineHeight: 1.06,
-                fontWeight: 500,
+                fontWeight: 600,
                 letterSpacing: "-0.026em",
                 marginBottom: 16,
               }}
@@ -207,7 +207,7 @@ export default function BlogPost() {
                   color: "var(--ink)",
                   fontSize: 26,
                   lineHeight: 1.15,
-                  fontWeight: 500,
+                  fontWeight: 600,
                   letterSpacing: "-0.02em",
                   marginBottom: 10,
                 }}

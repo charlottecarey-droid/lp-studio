@@ -85,7 +85,7 @@ export default function IntegrationsDocs() {
               color: "var(--ink)",
               fontSize: "clamp(40px, 5.5vw, 64px)",
               lineHeight: 1.02,
-              fontWeight: 500,
+              fontWeight: 600,
               letterSpacing: "-0.028em",
               marginBottom: 16,
             }}
@@ -385,7 +385,7 @@ function Section({
           style={{
             color: "var(--ink)",
             fontSize: 24,
-            fontWeight: 500,
+            fontWeight: 600,
             letterSpacing: "-0.02em",
             lineHeight: 1.2,
           }}
@@ -412,7 +412,7 @@ function SubSection({ title, children }: { title: string; children: React.ReactN
         style={{
           color: "var(--ink)",
           fontSize: 16,
-          fontWeight: 500,
+          fontWeight: 600,
           letterSpacing: "-0.012em",
           lineHeight: 1.25,
         }}

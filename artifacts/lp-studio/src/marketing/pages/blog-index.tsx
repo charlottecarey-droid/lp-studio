@@ -67,7 +67,7 @@ export default function BlogIndex() {
               color: "var(--ink)",
               fontSize: "clamp(40px, 5.5vw, 64px)",
               lineHeight: 1.02,
-              fontWeight: 500,
+              fontWeight: 600,
               letterSpacing: "-0.028em",
               marginBottom: 16,
             }}
@@ -182,7 +182,7 @@ function PostCard({ post }: { post: BlogCard }) {
             color: "var(--ink)",
             fontSize: 20,
             lineHeight: 1.2,
-            fontWeight: 500,
+            fontWeight: 600,
             letterSpacing: "-0.015em",
             marginBottom: 8,
           }}

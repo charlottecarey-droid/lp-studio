@@ -33,7 +33,7 @@ export default function Privacy() {
               color: "var(--ink)",
               fontSize: "clamp(40px, 5.5vw, 64px)",
               lineHeight: 1.02,
-              fontWeight: 500,
+              fontWeight: 600,
               letterSpacing: "-0.028em",
               marginBottom: 12,
             }}
@@ -127,7 +127,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         style={{
           color: "var(--ink)",
           fontSize: 20,
-          fontWeight: 500,
+          fontWeight: 600,
           letterSpacing: "-0.015em",
           lineHeight: 1.25,
         }}
