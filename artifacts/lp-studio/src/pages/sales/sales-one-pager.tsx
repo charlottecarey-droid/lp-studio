@@ -31,6 +31,7 @@ import {
 } from "@workspace/one-pager-types/generators";
 import { isDandyGatedBuiltin } from "@workspace/one-pager-types";
 import { ImagePicker } from "@/components/ImagePicker";
+import { getLpPageUrl } from "@/lib/utils";
 
 // =============================================
 // LAYOUT DEFAULTS (API with localStorage fallback)
@@ -874,7 +875,11 @@ const SalesOnePager = () => {
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       const data = await res.json();
-      const url = `${window.location.origin}/lp-studio/lp/${data.slug}`;
+      // Published pages resolve per-tenant BY HOSTNAME — a link on the admin
+      // origin 404s (and the old /lp-studio/ base-path prefix is long gone), so
+      // build against the tenant's canonical host like the rest of the app.
+      const tenantHost = (user as { tenantHost?: string | null } | null)?.tenantHost;
+      const url = getLpPageUrl(data.slug, null, tenantHost);
       setViewCount(null);
       setLinkResult({ url, slug: data.slug, pageId: data.pageId });
     } catch (e) {

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { getLpPageUrl } from "@/lib/utils";
 import { Loader2, Copy, Check, ExternalLink, Globe, ChevronDown, ChevronUp, Plus, Trash2, Eye, RefreshCw } from "lucide-react";
 
 const API_BASE = "/api";
@@ -126,7 +127,7 @@ export default function SalesWebOnePager() {
   };
 
   const publicUrl = result
-    ? `${window.location.origin}/lp-studio/lp/${result.slug}`
+    ? getLpPageUrl(result.slug, null, (user as { tenantHost?: string | null } | null)?.tenantHost)
     : null;
 
   const copyLink = () => {
