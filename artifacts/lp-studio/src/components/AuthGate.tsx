@@ -3,7 +3,8 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import dandyLogo from "@/assets/dandy-logo.svg";
-import lpstudioLogo from "@assets/IMG_0208_1779034101365.png";
+import lpLockupNavy from "@assets/lp-lockup-horizontal-navy-depth-2048_1781934486001.png";
+import lpLockupCream from "@assets/lp-lockup-horizontal-cream_1781930852666.svg";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -142,9 +143,8 @@ function BrandBackdrop({ children }: { children: ReactNode }) {
  */
 function LpStudioWordmark() {
   return (
-    <div className="flex items-center justify-center gap-2.5">
-      <img src={lpstudioLogo} alt="" className="h-10 w-10 rounded-xl shadow-sm ring-1 ring-black/5" />
-      <span className="text-xl font-semibold tracking-tight text-foreground">LP Studio</span>
+    <div className="flex items-center justify-center">
+      <img src={lpLockupNavy} alt="LP Studio" className="h-9 w-auto" />
     </div>
   );
 }
@@ -546,9 +546,8 @@ function OpenSignInScreen() {
           }}
         />
 
-        <div className="relative z-10 flex items-center gap-3">
-          <img src={lpstudioLogo} alt="" className="h-11 w-11 rounded-xl shadow-lg ring-1 ring-white/20" />
-          <span className="text-lg font-semibold tracking-tight">LP Studio</span>
+        <div className="relative z-10 flex items-center">
+          <img src={lpLockupCream} alt="LP Studio" className="h-9 w-auto" />
         </div>
 
         <div className="relative z-10 max-w-md">
@@ -590,7 +589,7 @@ function OpenSignInScreen() {
         />
         <div className="relative z-10 w-full max-w-md space-y-7">
           {/* Mobile logo (the branded panel is hidden < lg) */}
-          <img src={lpstudioLogo} alt="LP Studio" className="mx-auto h-12 w-12 rounded-xl shadow-sm lg:hidden" />
+          <img src={lpLockupNavy} alt="LP Studio" className="mx-auto h-10 w-auto lg:hidden" />
 
           {/* Sign in / Sign up toggle */}
           <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
