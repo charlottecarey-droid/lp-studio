@@ -532,7 +532,7 @@ function OpenSignInScreen() {
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-background">
       {/* ── Left: branded LP Studio panel (desktop only) ───────────────── */}
-      <div className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-gradient-to-br from-[hsl(258_70%_24%)] via-[hsl(262_60%_30%)] to-[hsl(14_70%_42%)] px-12 py-14 text-white">
+      <div className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-gradient-to-br from-[hsl(242_55%_22%)] via-[hsl(244_50%_29%)] to-[hsl(14_70%_42%)] px-12 py-14 text-white">
         {/* Decorative blurred blobs + faint grid, purely visual */}
         <div aria-hidden className="pointer-events-none absolute -top-32 -left-24 h-[420px] w-[420px] rounded-full bg-white/10 blur-3xl" />
         <div aria-hidden className="pointer-events-none absolute -bottom-40 -right-24 h-[460px] w-[460px] rounded-full bg-[hsl(14_88%_64%/0.35)] blur-3xl" />
