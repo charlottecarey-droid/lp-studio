@@ -1,5 +1,5 @@
 /**
- * Integration test for the (now-retired) Dandy-only built-in one-pager gate.
+ * Integration test that the formerly Dandy-gated built-ins STAY un-gated.
  *
  * The built-in templates "comparison" (Evolution) and "agreement-summary" used
  * to be reserved for the two protected Dandy workspaces (dandy / dandy-smb)
@@ -8,10 +8,12 @@
  * copy via scrubBrandDeep, neutral/tenant header image via resolveOnePagerAssets)
  * and are now available to EVERY tenant.
  *
- * This test guards that un-gating: the server must NO LONGER reject a non-Dandy
- * tenant that saves, publishes, or authors layout state for these built-ins.
- * The gating mechanism is kept in place but dormant (DANDY_GATED_BUILTIN_IDS is
- * empty), so a future re-gate is a one-line change.
+ * The gate mechanism itself is live again: "roi" was re-gated in July 2026
+ * because its unit economics and named case studies are irreducibly Dandy (see
+ * DANDY_GATED_BUILTIN_IDS in one-pager-types/constants.ts; onePagerRebrand.test.ts
+ * pins roi's membership). This file guards the other direction: the server must
+ * NOT reject a non-Dandy tenant that saves, publishes, or authors layout state
+ * for the two formerly gated built-ins.
  *
  * All routes are exercised in-process (no TCP socket) via the inject() helper,
  * against the REAL Postgres pool so `isDandyTenant` runs its real slug lookup:
@@ -102,7 +104,7 @@ beforeAll(async () => {
 
   // Session member of the non-Dandy tenant WITH template-edit permission, so
   // the save route's requireAnyPermission gate passes and execution reaches the
-  // (now-dormant) Dandy-gate check — the thing under test.
+  // Dandy-gate check — the thing under test.
   await seedSession(SID, {
     userId: 999100001,
     tenantId,
@@ -128,9 +130,11 @@ afterAll(async () => {
 });
 
 // Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
-describe.skipIf(!dbAvailable)("Dandy-only built-in gate is retired", () => {
-  it("no built-in id is gated (the list is empty)", () => {
-    expect(DANDY_GATED_BUILTIN_IDS).toHaveLength(0);
+describe.skipIf(!dbAvailable)("formerly gated built-ins stay un-gated", () => {
+  it("comparison and agreement-summary are not in the gated list", () => {
+    for (const id of FORMERLY_GATED_BUILTIN_IDS) {
+      expect(DANDY_GATED_BUILTIN_IDS).not.toContain(id);
+    }
   });
 });
 
