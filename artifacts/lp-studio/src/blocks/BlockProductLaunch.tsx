@@ -64,6 +64,23 @@ function usePrefersDark(): boolean {
   return dark;
 }
 
+function useIsMobile(breakpoint = 768): boolean {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia
+      ? window.matchMedia(`(max-width: ${breakpoint - 1}px)`).matches
+      : false,
+  );
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    setIsMobile(mq.matches);
+    const fn = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener?.("change", fn);
+    return () => mq.removeEventListener?.("change", fn);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 // ── decorative primitives ───────────────────────────────────────────────
 
 function CornerNotch({ color, position, size = 24 }: { color: string; position: "tl" | "tr" | "bl" | "br"; size?: number }) {
@@ -157,6 +174,11 @@ export function BlockProductLaunch({ props }: Props) {
 
   const [activeChapter, setActiveChapter] = useState<string>(props.navChapters[0]?.id ?? "");
   const progress = useScrollProgress();
+  const isMobile = useIsMobile();
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    if (!isMobile) setMenuOpen(false);
+  }, [isMobile]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -218,7 +240,7 @@ export function BlockProductLaunch({ props }: Props) {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            padding: "12px 24px",
+            padding: isMobile ? "12px 16px" : "12px 24px",
             fontSize: "12px",
             fontWeight: 600,
             gap: "12px",
@@ -260,37 +282,40 @@ export function BlockProductLaunch({ props }: Props) {
             >
               {props.productName}
             </div>
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-                padding: "2px 8px",
-                borderRadius: 999,
-                background: `color-mix(in srgb, ${theme.accent} 14%, transparent)`,
-                border: `1px solid color-mix(in srgb, ${theme.accent} 28%, transparent)`,
-                color: theme.accent,
-                fontSize: 10,
-                letterSpacing: "0.22em",
-                textTransform: "uppercase",
-                fontWeight: 700,
-              }}
-            >
+            {!isMobile && (
               <span
                 style={{
-                  width: 5,
-                  height: 5,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "2px 8px",
                   borderRadius: 999,
-                  background: theme.accent,
-                  boxShadow: `0 0 6px ${theme.accent}`,
-                  animation: "lppl-pulse-dot 1.8s ease-in-out infinite",
+                  background: `color-mix(in srgb, ${theme.accent} 14%, transparent)`,
+                  border: `1px solid color-mix(in srgb, ${theme.accent} 28%, transparent)`,
+                  color: theme.accent,
+                  fontSize: 10,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  fontWeight: 700,
                 }}
-              />
-              Now shipping
-            </span>
+              >
+                <span
+                  style={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: 999,
+                    background: theme.accent,
+                    boxShadow: `0 0 6px ${theme.accent}`,
+                    animation: "lppl-pulse-dot 1.8s ease-in-out infinite",
+                  }}
+                />
+                Now shipping
+              </span>
+            )}
           </div>
 
-          {/* Chapter nav */}
+          {/* Chapter nav — desktop */}
+          {!isMobile && (
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
             {props.navChapters.map((c) => {
               const active = activeChapter === c.id;
@@ -364,7 +389,114 @@ export function BlockProductLaunch({ props }: Props) {
               </a>
             )}
           </div>
+          )}
+
+          {/* Chapter nav — mobile hamburger */}
+          {isMobile && (
+            <button
+              type="button"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((o) => !o)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                background: menuOpen ? `color-mix(in srgb, ${theme.fg} 8%, transparent)` : "transparent",
+                border: `1px solid ${theme.border}`,
+                color: theme.fg,
+                cursor: "pointer",
+                flexShrink: 0,
+                padding: 0,
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                {menuOpen ? (
+                  <>
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </>
+                ) : (
+                  <>
+                    <path d="M4 7h16" />
+                    <path d="M4 12h16" />
+                    <path d="M4 17h16" />
+                  </>
+                )}
+              </svg>
+            </button>
+          )}
         </div>
+
+        {/* Mobile chapter menu */}
+        {isMobile && menuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              padding: "8px 16px 16px",
+              borderTop: `1px solid ${theme.border}`,
+              background: navBg,
+            }}
+          >
+            {props.navChapters.map((c) => {
+              const active = activeChapter === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => {
+                    scrollTo(c.id);
+                    setMenuOpen(false);
+                  }}
+                  style={{
+                    textAlign: "left",
+                    background: active ? `color-mix(in srgb, ${theme.fg} 6%, transparent)` : "transparent",
+                    border: "none",
+                    padding: "12px 12px",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    color: active ? theme.fg : theme.muted,
+                    textTransform: "uppercase",
+                    fontSize: "12px",
+                    letterSpacing: "0.14em",
+                    fontWeight: 700,
+                    width: "100%",
+                  }}
+                >
+                  {c.label}
+                </button>
+              );
+            })}
+            {props.navCtaText && (
+              <a
+                href={props.navCtaUrl || "#"}
+                onClick={() => setMenuOpen(false)}
+                style={{
+                  marginTop: 6,
+                  textAlign: "center",
+                  background: theme.accent,
+                  color: onAccent,
+                  padding: "12px 14px",
+                  borderRadius: 999,
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  letterSpacing: "0.04em",
+                  boxShadow: `0 4px 12px -3px color-mix(in srgb, ${theme.accent} 45%, transparent), inset 0 1px 0 rgba(255,255,255,0.3)`,
+                }}
+              >
+                {props.navCtaText}
+              </a>
+            )}
+          </motion.div>
+        )}
         {/* Scroll progress */}
         <div style={{ height: 2, background: "transparent", position: "relative" }}>
           <div
