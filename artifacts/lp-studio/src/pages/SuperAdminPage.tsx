@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +43,10 @@ import SuperAdminTrialPhones from "./SuperAdminTrialPhones";
 import SuperAdminBlog from "./SuperAdminBlog";
 import SuperAdminGeneratorPresets from "./SuperAdminGeneratorPresets";
 import SuperAdminRecipes from "./SuperAdminRecipes";
+// Lazy: the one-pager editor drags in jsPDF + font/QR tooling — keep it out of
+// the superadmin chunk until the tab is opened. scope="global" makes it edit
+// the tenant_id-NULL rows every tenant inherits (see LayoutEditorScope).
+const GlobalOnePagerEditor = lazy(() => import("./sales/sales-one-pager-editor"));
 import { useAuth } from "@/context/AuthContext";
 import { normalizePlan, type Plan } from "@/lib/plan-features";
 
@@ -1261,11 +1265,12 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [domainHelp, setDomainHelp] = useState<DomainHelp | null>(null);
-  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "featured-templates" | "generator-presets" | "page-recipes" | "homepage-og" | "announcement" | "asset-health" | "plans" | "notifications" | "trial-phones" | "blog" | "superadmins">(() => {
+  const [tab, setTab] = useState<"tenants" | "catalog" | "templates" | "featured-templates" | "generator-presets" | "page-recipes" | "one-pagers" | "homepage-og" | "announcement" | "asset-health" | "plans" | "notifications" | "trial-phones" | "blog" | "superadmins">(() => {
     if (typeof window !== "undefined") {
       if (window.location.hash === "#catalog") return "catalog";
       if (window.location.hash === "#generator-presets") return "generator-presets";
       if (window.location.hash === "#page-recipes") return "page-recipes";
+      if (window.location.hash === "#one-pagers") return "one-pagers";
       if (window.location.hash === "#templates") return "templates";
       if (window.location.hash === "#featured-templates") return "featured-templates";
       if (window.location.hash === "#homepage-og") return "homepage-og";
@@ -1370,6 +1375,7 @@ export default function SuperAdminPage() {
     { key: "featured-templates", label: "Homepage Featured", icon: LayoutTemplate },
     { key: "generator-presets", label: "Generator Presets", icon: Wand2 },
     { key: "page-recipes", label: "Page Recipes", icon: ChefHat },
+    { key: "one-pagers", label: "One-Pagers", icon: FileText },
     { key: "homepage-og", label: "Share Cards", icon: Share2 },
     { key: "announcement", label: "Announcement", icon: Megaphone },
     { key: "asset-health", label: "Asset Health", icon: Activity },
@@ -1443,6 +1449,10 @@ export default function SuperAdminPage() {
           <SuperAdminGeneratorPresets />
         ) : tab === "page-recipes" ? (
           <SuperAdminRecipes />
+        ) : tab === "one-pagers" ? (
+          <Suspense fallback={<div className="flex items-center gap-2 text-sm text-muted-foreground py-12 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Loading editor…</div>}>
+            <GlobalOnePagerEditor scope="global" />
+          </Suspense>
         ) : tab === "homepage-og" ? (
           <div className="flex flex-col gap-6">
             <SuperAdminMarketingShareCard heading="Homepage share card" />

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, or, isNull, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { lpPagesTable, lpPageVisitsTable, salesLayoutDefaultsTable } from "@workspace/db";
 import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
@@ -247,21 +247,27 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
     let blocks: Array<{ id: string; type: string; blockSettings: Record<string, string>; props: Record<string, unknown> }>;
 
     if (isPartner) {
-      // Pull the tenant's saved Partner template layout (copy + boldHeading) so
-      // the web page mirrors what the rep configured for the PDF. Best-effort:
-      // a missing/unreadable row just leaves the brand-aware defaults in place.
+      // Pull the saved Partner template layout (copy + boldHeading) so the web
+      // page mirrors what the rep configured for the PDF. Resolution order
+      // matches GET /sales/layout-defaults/:key — tenant row → global row
+      // (tenant_id NULL, superadmin-managed) → brand-aware defaults. Partner is
+      // not a Dandy-gated built-in, so the global fallback needs no gate here.
+      // Best-effort: a missing/unreadable row just leaves the defaults in place.
       let savedPartner: Record<string, unknown> | null = null;
       try {
-        const [row] = await db
-          .select({ config: salesLayoutDefaultsTable.config })
+        const rows = await db
+          .select({ tenantId: salesLayoutDefaultsTable.tenantId, config: salesLayoutDefaultsTable.config })
           .from(salesLayoutDefaultsTable)
           .where(
             and(
-              eq(salesLayoutDefaultsTable.tenantId, tenantId),
+              or(
+                eq(salesLayoutDefaultsTable.tenantId, tenantId),
+                isNull(salesLayoutDefaultsTable.tenantId),
+              ),
               eq(salesLayoutDefaultsTable.templateKey, "dandy_partner_template_layout"),
             ),
-          )
-          .limit(1);
+          );
+        const row = rows.find((r) => r.tenantId !== null) ?? rows.find((r) => r.tenantId === null);
         if (row?.config && typeof row.config === "object") {
           savedPartner = row.config as Record<string, unknown>;
         }

@@ -795,6 +795,118 @@ router.patch("/superadmin/plan-config/:tier", requireSuperadmin, async (req, res
   }
 });
 
+// ─── Global one-pager layout defaults (July 2026) ────────────────────────────
+// Superadmin-managed GLOBAL rows in sales_layout_defaults (tenant_id NULL).
+// Every tenant inherits a global row for a key unless it has its own row
+// (whole-row precedence — see /sales/layout-defaults). Dandy-gated keys are
+// stored like any other; the tenant-facing read routes refuse to serve them
+// to non-Dandy tenants.
+
+const ONE_PAGER_LAYOUT_KEY_RE = /^[a-z0-9_.:-]{1,200}$/i;
+
+// GET /api/admin/superadmin/one-pager-layouts — every global row as a
+// key → config map, plus per-key counts of tenants that carry their own
+// override row (those tenants won't see global edits for that key).
+router.get("/superadmin/one-pager-layouts", requireSuperadmin, async (_req, res): Promise<void> => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT template_key, config FROM sales_layout_defaults WHERE tenant_id IS NULL`,
+    );
+    const { rows: overrideRows } = await pool.query(
+      `SELECT template_key, COUNT(*)::int AS tenants
+         FROM sales_layout_defaults WHERE tenant_id IS NOT NULL GROUP BY template_key`,
+    );
+    const layouts: Record<string, unknown> = {};
+    for (const r of rows) layouts[r.template_key] = r.config;
+    const tenantOverrides: Record<string, number> = {};
+    for (const r of overrideRows) tenantOverrides[r.template_key] = r.tenants;
+    res.json({ layouts, tenantOverrides });
+  } catch (err) {
+    console.error("[superadmin] GET /one-pager-layouts error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// GET /api/admin/superadmin/one-pager-layouts/:key — one global config or
+// null. Mirrors the tenant-facing GET /sales/layout-defaults/:key response
+// shape so the one-pager editor can consume either endpoint unchanged.
+router.get("/superadmin/one-pager-layouts/:key", requireSuperadmin, async (req, res): Promise<void> => {
+  try {
+    const key = String(req.params.key);
+    const { rows } = await pool.query(
+      `SELECT config FROM sales_layout_defaults WHERE tenant_id IS NULL AND template_key = $1`,
+      [key],
+    );
+    res.json(rows[0]?.config ?? null);
+  } catch (err) {
+    console.error("[superadmin] GET /one-pager-layouts/:key error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// PUT /api/admin/superadmin/one-pager-layouts/:key — upsert the global row.
+// Body: { config } (plain object). The ON CONFLICT target is the partial
+// unique index on (template_key) WHERE tenant_id IS NULL.
+router.put("/superadmin/one-pager-layouts/:key", requireSuperadmin, async (req, res): Promise<void> => {
+  try {
+    const key = String(req.params.key);
+    if (!ONE_PAGER_LAYOUT_KEY_RE.test(key)) {
+      res.status(400).json({ error: "Invalid layout key" });
+      return;
+    }
+    const { config } = req.body ?? {};
+    if (config === null || typeof config !== "object" || Array.isArray(config)) {
+      res.status(400).json({ error: "config must be an object" });
+      return;
+    }
+    const { rows } = await pool.query(
+      `INSERT INTO sales_layout_defaults (tenant_id, template_key, config)
+       VALUES (NULL, $1, $2)
+       ON CONFLICT (template_key) WHERE tenant_id IS NULL
+       DO UPDATE SET config = EXCLUDED.config, updated_at = now()
+       RETURNING config`,
+      [key, JSON.stringify(config)],
+    );
+    await writeAuditLog({
+      action: "one-pager-global-layout.saved",
+      targetType: "sales_layout_defaults",
+      targetKey: key,
+      actorUserId: req.authUser?.userId ?? null,
+      actorEmail: req.authUser?.email ?? null,
+      metadata: { key },
+    });
+    res.json(rows[0]?.config ?? config);
+  } catch (err) {
+    console.error("[superadmin] PUT /one-pager-layouts/:key error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// DELETE /api/admin/superadmin/one-pager-layouts/:key — remove the global row
+// (tenants fall back to the hardcoded generator defaults; their own rows are
+// untouched).
+router.delete("/superadmin/one-pager-layouts/:key", requireSuperadmin, async (req, res): Promise<void> => {
+  try {
+    const key = String(req.params.key);
+    await pool.query(
+      `DELETE FROM sales_layout_defaults WHERE tenant_id IS NULL AND template_key = $1`,
+      [key],
+    );
+    await writeAuditLog({
+      action: "one-pager-global-layout.deleted",
+      targetType: "sales_layout_defaults",
+      targetKey: key,
+      actorUserId: req.authUser?.userId ?? null,
+      actorEmail: req.authUser?.email ?? null,
+      metadata: { key },
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[superadmin] DELETE /one-pager-layouts/:key error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // POST /api/admin/superadmin/tenants/:id/verify-domain — perform a real-world
 // DNS + HTTPS probe to confirm the configured domain points at this deployment
 // and resolves to the expected tenant. Body: { kind: "app" | "microsite" }.

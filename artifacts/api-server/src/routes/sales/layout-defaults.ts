@@ -1,6 +1,6 @@
 import { getTenantId, requirePermission } from "../../middleware/requireAuth";
 import { Router } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, isNull } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesLayoutDefaultsTable } from "@workspace/db";
 import { isDandyTenant } from "../../lib/planFeatures";
@@ -9,24 +9,43 @@ import { isDandyGatedLayoutKey } from "@workspace/one-pager-types/constants";
 const router = Router();
 
 // ─── GET /sales/layout-defaults/:key ─────────────────────────
-// Fetch a single layout default by template key
+// Fetch a single layout default by template key. Resolution order:
+// tenant row → global row (tenant_id NULL, superadmin-managed) → null.
+// A tenant row fully overrides the global row (whole-row precedence).
 router.get("/layout-defaults/:key", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
-    const [row] = await db
+    const key = String(req.params.key);
+    const rows = await db
       .select()
       .from(salesLayoutDefaultsTable)
       .where(
         and(
-          eq(salesLayoutDefaultsTable.tenantId, tenantId),
-          eq(salesLayoutDefaultsTable.templateKey, String(req.params.key)),
+          or(
+            eq(salesLayoutDefaultsTable.tenantId, tenantId),
+            isNull(salesLayoutDefaultsTable.tenantId),
+          ),
+          eq(salesLayoutDefaultsTable.templateKey, key),
         )
       );
-    if (!row) {
+    const tenantRow = rows.find((r) => r.tenantId !== null);
+    if (tenantRow) {
+      res.json(tenantRow.config);
+      return;
+    }
+    const globalRow = rows.find((r) => r.tenantId === null);
+    if (!globalRow) {
       res.json(null);
       return;
     }
-    res.json(row.config);
+    // Dandy-gated built-in layouts must never leak to non-Dandy tenants via
+    // the global fallback (their tenant rows are already blocked at write
+    // time below).
+    if (isDandyGatedLayoutKey(key) && !(await isDandyTenant(tenantId))) {
+      res.json(null);
+      return;
+    }
+    res.json(globalRow.config);
   } catch (err) {
     console.error("GET /layout-defaults/:key error:", err);
     res.status(500).json({ error: "Failed to load layout default" });
@@ -34,18 +53,32 @@ router.get("/layout-defaults/:key", async (req, res): Promise<void> => {
 });
 
 // ─── GET /sales/layout-defaults ──────────────────────────────
-// List all layout defaults for the tenant
+// List all layout defaults for the tenant, with global rows (tenant_id NULL)
+// as the base layer and the tenant's own rows overriding per key.
 router.get("/layout-defaults", async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const rows = await db
       .select()
       .from(salesLayoutDefaultsTable)
-      .where(eq(salesLayoutDefaultsTable.tenantId, tenantId));
-    // Return as key → config map for easy client consumption
+      .where(
+        or(
+          eq(salesLayoutDefaultsTable.tenantId, tenantId),
+          isNull(salesLayoutDefaultsTable.tenantId),
+        )
+      );
+    // Return as key → config map for easy client consumption.
+    // Global layer first; gated keys only reach Dandy tenants.
     const result: Record<string, unknown> = {};
-    for (const row of rows) {
+    const globalRows = rows.filter((r) => r.tenantId === null);
+    const gatedGlobal = globalRows.some((r) => isDandyGatedLayoutKey(r.templateKey));
+    const dandy = gatedGlobal ? await isDandyTenant(tenantId) : false;
+    for (const row of globalRows) {
+      if (isDandyGatedLayoutKey(row.templateKey) && !dandy) continue;
       result[row.templateKey] = row.config;
+    }
+    for (const row of rows) {
+      if (row.tenantId !== null) result[row.templateKey] = row.config;
     }
     res.json(result);
   } catch (err) {

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown, Upload, X, FileDown, Loader2, RotateCcw,
@@ -40,39 +40,52 @@ import { AgreementNumbersEditor } from "./agreement-numbers-editor";
 // ── API helpers (mirrors sales-one-pager.tsx) ──────────────────────
 const API_BASE = "/api";
 
-async function loadLayoutDefault(key: string): Promise<Record<string, any> | null> {
+/** Which layer of sales_layout_defaults this editor instance reads/writes:
+ *  "tenant" (default) — the tenant's own rows via /sales/layout-defaults;
+ *  "global" — the superadmin-managed tenant_id-NULL rows every tenant inherits,
+ *  via /admin/superadmin/one-pager-layouts (both endpoints share one response
+ *  shape, so the editor logic is identical either way). */
+export type LayoutEditorScope = "tenant" | "global";
+
+function layoutDefaultUrl(key: string, scope: LayoutEditorScope): string {
+  return scope === "global"
+    ? `${API_BASE}/admin/superadmin/one-pager-layouts/${encodeURIComponent(key)}`
+    : `${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`;
+}
+
+async function loadLayoutDefaultScoped(key: string, scope: LayoutEditorScope): Promise<Record<string, any> | null> {
   // The API is the source of truth — sales reps must always see the freshest
   // template-editor saves, never a stale browser/HTTP cache or stale data left
   // in localStorage from a previous tenant or session. See sales-one-pager.tsx
   // for the full rationale; keep these two implementations in sync.
+  // Global scope never touches localStorage: the tenant cache keys must not be
+  // polluted with global values (the rep page reads them as an offline fallback).
   try {
-    const res = await fetch(
-      `${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`,
-      { cache: "no-store", credentials: "include" },
-    );
+    const res = await fetch(layoutDefaultUrl(key, scope), { cache: "no-store", credentials: "include" });
     if (res.ok) {
       const data = await res.json();
       if (data && typeof data === "object") {
-        try { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(data)); } catch {}
+        if (scope === "tenant") { try { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(data)); } catch {} }
         return data as Record<string, any>;
       }
-      try { localStorage.removeItem(`lp_studio_${key}`); } catch {}
+      if (scope === "tenant") { try { localStorage.removeItem(`lp_studio_${key}`); } catch {} }
       return null;
     }
     return null;
   } catch {
+    if (scope !== "tenant") return null;
     try { const raw = localStorage.getItem(`lp_studio_${key}`); return raw ? JSON.parse(raw) : null; } catch { return null; }
   }
 }
 
-async function saveLayoutDefault(key: string, config: Record<string, any>): Promise<void> {
-  try { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(config)); } catch {}
+async function saveLayoutDefaultScoped(key: string, config: Record<string, any>, scope: LayoutEditorScope): Promise<void> {
+  if (scope === "tenant") { try { localStorage.setItem(`lp_studio_${key}`, JSON.stringify(config)); } catch {} }
   // The API is the source of truth. Do NOT swallow errors here: a failed PUT
   // (expired session, CSRF token failure, server error) must propagate so the
   // caller (handleSave) can surface "Save failed" instead of falsely reporting
   // success while the change never persists. localStorage above is only a local
   // cache; persisting it is best-effort and never a substitute for the server.
-  const res = await fetch(`${API_BASE}/sales/layout-defaults/${encodeURIComponent(key)}`, {
+  const res = await fetch(layoutDefaultUrl(key, scope), {
     method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config }),
   });
   if (!res.ok) {
@@ -292,9 +305,34 @@ const textareaCls = `${inputCls} resize-none`;
 // ════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════════════
-export default function SalesOnePagerEditor() {
+function PassthroughShell({ children }: { children: ReactNode }) {
+  return <>{children}</>;
+}
+
+export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: LayoutEditorScope } = {}) {
   const { hasPerm } = useAuth();
-  const isAdmin = hasPerm("sales_campaigns");
+  const isGlobalScope = scope === "global";
+  // Global scope is mounted inside /superadmin (server routes enforce
+  // requireSuperadmin); the tenant permission check doesn't apply there.
+  const isAdmin = isGlobalScope || hasPerm("sales_campaigns");
+
+  // Scope-bound wrappers shadow the module-level helpers so every existing
+  // call site below reads/writes the right layer without modification.
+  const loadLayoutDefault = useCallback(
+    (key: string) => loadLayoutDefaultScoped(key, scope), [scope]);
+  const saveLayoutDefault = useCallback(
+    (key: string, config: Record<string, any>) => saveLayoutDefaultScoped(key, config, scope), [scope]);
+
+  // Global scope: per-key counts of tenants whose own saved rows override the
+  // global defaults (those tenants won't see global edits for that key).
+  const [tenantOverrideCounts, setTenantOverrideCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!isGlobalScope) return;
+    fetch(`${API_BASE}/admin/superadmin/one-pager-layouts`, { cache: "no-store", credentials: "include" })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d?.tenantOverrides) setTenantOverrideCounts(d.tenantOverrides as Record<string, number>); })
+      .catch(() => {});
+  }, [isGlobalScope]);
 
   // Task #342 — fetch tenant brand so the editor previews/downloads scrub
   // Dandy-only copy for non-Dandy tenants (mirrors sales-one-pager.tsx).
@@ -798,6 +836,10 @@ export default function SalesOnePagerEditor() {
   const [templateVisibility, setTemplateVisibility] = useState<Record<string, boolean>>({});
   const [deletedBuiltins, setDeletedBuiltins] = useState<Record<string, boolean>>({});
   useEffect(() => {
+    // Global scope always shows every built-in tab: visibility/deletion prefs
+    // are tenant-level presentation state, not something the global defaults
+    // editor should inherit or edit.
+    if (isGlobalScope) return;
     (async () => {
       const [vis, del] = await Promise.all([
         loadLayoutDefault(TEMPLATE_VISIBILITY_KEY),
@@ -806,7 +848,7 @@ export default function SalesOnePagerEditor() {
       if (vis) setTemplateVisibility(vis as Record<string, boolean>);
       if (del) setDeletedBuiltins(del as Record<string, boolean>);
     })();
-  }, []);
+  }, [isGlobalScope, loadLayoutDefault]);
 
   // Map editor tab id → templates-gallery key (the editor uses "partner" as
   // shorthand for the "new-partner" built-in; everything else matches 1:1).
@@ -1010,7 +1052,9 @@ export default function SalesOnePagerEditor() {
       }
       setSavedIndicator(true);
       setTimeout(() => setSavedIndicator(false), 2500);
-      toast({ title: "Template saved!", description: "All sales reps will now see these defaults when generating one-pagers." });
+      toast(isGlobalScope
+        ? { title: "Global defaults saved!", description: "Every tenant without its own saved layout for this template now inherits these defaults." }
+        : { title: "Template saved!", description: "All sales reps will now see these defaults when generating one-pagers." });
     } catch (err) {
       toast({
         title: "Save failed",
@@ -1165,9 +1209,15 @@ export default function SalesOnePagerEditor() {
   const updateComparisonStat = (i: number, field: "value" | "label", value: string) =>
     setComparisonStats((p: typeof defaultComparisonStats) => p.map((s: typeof defaultComparisonStats[0], j: number) => j === i ? { ...s, [field]: value } : s));
 
+  // Global scope renders inside the /superadmin chrome; SalesLayout is the
+  // tenant Sales Console shell and must not double-wrap it. PassthroughShell
+  // is module-level so the component identity is stable across renders (an
+  // inline arrow here would remount the whole editor subtree every render).
+  const Shell = isGlobalScope ? PassthroughShell : SalesLayout;
+
   if (!isAdmin) {
     return (
-      <SalesLayout>
+      <Shell>
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <h2 className="text-xl font-semibold text-foreground mb-2">Access Restricted</h2>
@@ -1175,28 +1225,52 @@ export default function SalesOnePagerEditor() {
             <Link href="/sales/one-pager"><button className="text-sm text-primary hover:underline">← Back to One-Pager Generator</button></Link>
           </div>
         </div>
-      </SalesLayout>
+      </Shell>
     );
   }
 
   const currentContent = audienceContent[audience];
 
+  // Global scope: how many tenant workspaces carry their own rows for the
+  // active template (they keep their overrides and won't see global edits).
+  const overrideKeysFor: Record<EditorTemplate, string[]> = {
+    pilot: ["dandy_pilot_template_layout", "dandy_pilot_executive_layout", "dandy_pilot_clinical_layout", "dandy_pilot_practicemgr_layout"],
+    comparison: ["dandy_comparison_template_layout"],
+    partner: ["dandy_partner_template_layout"],
+    roi: ["dandy_roi_template_layout"],
+    "agreement-summary": ["dandy_agreement_summary_template_layout"],
+  };
+  const activeOverrideCount = isGlobalScope
+    ? Math.max(0, ...overrideKeysFor[editorTemplate].map(k => tenantOverrideCounts[k] ?? 0))
+    : 0;
+
   return (
-    <SalesLayout>
+    <Shell>
       <div className="py-8 bg-background min-h-screen">
         <div className="max-w-[1600px] mx-auto px-4 md:px-6">
 
           {/* Header */}
           <div className="text-center mb-6">
-            <Link href="/sales/one-pager">
-              <button className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3">
-                <ArrowLeft className="w-4 h-4" /> Back to One-Pager Generator
-              </button>
-            </Link>
-            <h1 className="text-2xl font-semibold text-foreground tracking-tight">Template Editor</h1>
+            {!isGlobalScope && (
+              <Link href="/sales/one-pager">
+                <button className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3">
+                  <ArrowLeft className="w-4 h-4" /> Back to One-Pager Generator
+                </button>
+              </Link>
+            )}
+            <h1 className="text-2xl font-semibold text-foreground tracking-tight">
+              {isGlobalScope ? "Global One-Pager Defaults" : "Template Editor"}
+            </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Customize every section — changes preview live. Save to update defaults for all sales reps.
+              {isGlobalScope
+                ? "These defaults apply to every tenant that hasn't saved its own layout for a template. Tenants with their own saves keep them."
+                : "Customize every section — changes preview live. Save to update defaults for all sales reps."}
             </p>
+            {isGlobalScope && activeOverrideCount > 0 && (
+              <p className="text-xs text-amber-600 mt-2">
+                {activeOverrideCount} tenant workspace{activeOverrideCount === 1 ? " has" : "s have"} saved their own layout for this template — they won't see these global edits.
+              </p>
+            )}
           </div>
 
           {/* Template selector */}
@@ -1305,8 +1379,10 @@ export default function SalesOnePagerEditor() {
               {/* Section panels */}
               <div className="space-y-3">
 
-                {/* ═══ COLORS (all templates; hidden for Dandy — its palette is fixed) ═══ */}
-                {!isDandy && (
+                {/* ═══ COLORS (all templates; hidden for Dandy — its palette is fixed —
+                    and in global scope, where saving would write the OPERATOR's own
+                    tenant brand settings, not a global value) ═══ */}
+                {!isGlobalScope && !isDandy && (
                   <EditorSection title="Colors" icon={<Palette className="w-4 h-4 text-muted-foreground" />} open={openSections.colors} onToggle={() => toggle("colors")}>
                     <p className="text-[11px] text-muted-foreground -mt-1 mb-3">
                       Bands, accents, and stat highlights across <span className="font-medium text-foreground">all</span> one-pager
@@ -2108,6 +2184,6 @@ export default function SalesOnePagerEditor() {
           </div>
         </div>
       </div>
-    </SalesLayout>
+    </Shell>
   );
 }
