@@ -3514,7 +3514,7 @@ export default function BrandSettings() {
               <Sparkles className="w-4 h-4" />
               Import from Guidelines
             </Button>
-            <Button onClick={handleSave} disabled={saving || hasHexErrors} className="gap-2 px-6">
+            <Button variant="brand" onClick={handleSave} disabled={saving || hasHexErrors} className="gap-2 px-6">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save Changes
             </Button>
@@ -5560,7 +5560,7 @@ export default function BrandSettings() {
             <div className="sticky bottom-4 flex justify-end">
           <div className="bg-background/90 backdrop-blur-md border border-border rounded-2xl px-6 py-3 shadow-lg flex items-center gap-4">
             <p className="text-sm text-muted-foreground">Changes apply to all active landing pages immediately after saving.</p>
-            <Button onClick={handleSave} disabled={saving || hasHexErrors} className="gap-2">
+            <Button variant="brand" onClick={handleSave} disabled={saving || hasHexErrors} className="gap-2">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save Changes
             </Button>
@@ -5573,7 +5573,7 @@ export default function BrandSettings() {
             <div className="sticky bottom-4 flex justify-end">
               <div className="bg-background/90 backdrop-blur-md border border-border rounded-2xl px-6 py-3 shadow-lg flex items-center gap-4">
                 <p className="text-sm text-muted-foreground">Sales Console settings apply to outbound campaigns, AI drafts and visit alerts.</p>
-                <Button onClick={handleSave} disabled={saving} className="gap-2">
+                <Button variant="brand" onClick={handleSave} disabled={saving} className="gap-2">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   Save Changes
                 </Button>

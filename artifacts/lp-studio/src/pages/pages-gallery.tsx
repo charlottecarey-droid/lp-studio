@@ -721,7 +721,7 @@ export default function PagesGallery() {
               <BookOpen className="w-3.5 h-3.5" />
               Brief
             </Button>
-            <Button size="lg" className="rounded-xl font-semibold px-6 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all hover:-translate-y-0.5 shrink-0" onClick={() => setShowCreateModal(true)}>
+            <Button size="lg" variant="brand" className="rounded-xl font-semibold px-6 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all hover:-translate-y-0.5 shrink-0" onClick={() => setShowCreateModal(true)}>
               <Plus className="w-4 h-4 mr-2" />
               New Page
             </Button>
