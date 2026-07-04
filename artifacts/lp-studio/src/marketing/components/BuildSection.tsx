@@ -120,7 +120,7 @@ const PRESETS: Preset[] = [
     ctaSub: "Import your site — fonts, colors, and voice load in one scan.",
     ctaButton: "Import my brand \u2192",
     navCta: "Get started",
-    heroImage: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=70",
+    heroImage: "https://lpstudio.ai/api/storage/objects/uploads/b7e2ebd3-4bd9-4d41-a03e-73235e54bd3d",
     accent: "indigo",
     layout: "centered",
   },
@@ -860,6 +860,8 @@ export function BuildSection() {
   // The ghost cursor "clicks Publish" near the end of the pin — the toolbar
   // button flips to "Published \u2713" with a live-URL toast.
   const [published, setPublished] = useState(false);
+  const [ctaPressed, setCtaPressed] = useState(false);
+  const [pubPressed, setPubPressed] = useState(false);
   useMotionValueEvent(p, "change", (v) => {
     // Two typing passes with a beat between: the cursor clicks line 1, "Skip
     // the brief." types; small pause; the cursor clicks the line below and
@@ -868,6 +870,9 @@ export function BuildSection() {
     const t2 = Math.max(0, Math.min(1, (v - 0.32) / (0.46 - 0.32)));
     setTypedChars(Math.round(t1 * headline1.length) + Math.round(t2 * headline2.length));
     setPublished(v >= 0.93);
+    // Button press feedback while the ghost cursor's click pulse lands.
+    setCtaPressed(v >= 0.578 && v <= 0.615);
+    setPubPressed(v >= 0.902 && v <= 0.94);
   });
 
   const stage2 = useSegment(p, 0.07, 0.14, reveal);
@@ -968,6 +973,7 @@ export function BuildSection() {
             <GhostCursor p={p} />
             <BuilderShell
               published={published}
+              publishPressed={pubPressed}
               leftPanelX={leftPanelX}
               leftPanelOpacity={leftPanelOpacity}
               rightPanelX={rightPanelX}
@@ -1070,6 +1076,7 @@ export function BuildSection() {
                       headline2={headline2}
                       setHeadline2={setHeadline2}
                       typedChars={typedChars}
+                      ctaPressed={ctaPressed}
                       stage3={stage3}
                       stage4={stage4}
                       stage5={stage5}
@@ -1480,6 +1487,7 @@ function GhostCursor({ p }: { p: MotionValue<number> }) {
 
 function BuilderShell({
   published,
+  publishPressed,
   leftPanelX,
   leftPanelOpacity,
   rightPanelX,
@@ -1533,6 +1541,8 @@ function BuilderShell({
   edited: boolean;
   /** Scroll-driven publish moment — flips the toolbar button + toast. */
   published: boolean;
+  /** True while the ghost cursor's click lands on Publish. */
+  publishPressed: boolean;
 }) {
 
   const bgOpacity = useTransform(builderP, [0, 0.5, 1], [0, 0.5, 1]);
@@ -1644,8 +1654,12 @@ function BuilderShell({
           <span className="hidden rounded-md border border-black/[0.08] px-2.5 py-1 font-mono-display text-[10px] text-foreground/70 sm:inline">Preview</span>
           <span
             data-cursor="publish"
-            className="relative rounded-md px-3 py-1 font-display text-[11px] font-medium text-white transition-colors duration-300"
-            style={{ backgroundColor: published ? "oklch(0.62 0.11 155)" : ACCENTS[accent].color }}
+            className="relative rounded-md px-3 py-1 font-display text-[11px] font-medium text-white transition-[background-color,transform,filter] duration-300"
+            style={{
+              backgroundColor: published ? "oklch(0.62 0.11 155)" : ACCENTS[accent].color,
+              transform: publishPressed ? "scale(0.92)" : "scale(1)",
+              filter: publishPressed ? "brightness(0.88)" : "none",
+            }}
           >
             {published ? "Published \u2713" : "Publish"}
             {published && (
@@ -2128,6 +2142,7 @@ function HeroBody({
   headline2,
   setHeadline2,
   typedChars,
+  ctaPressed,
   stage3,
   stage4,
   stage5,
@@ -2141,6 +2156,8 @@ function HeroBody({
   setHeadline2: (v: string) => void;
   /** Scroll-scrubbed character count for the typing reveal; >= total = done. */
   typedChars: number;
+  /** True while the ghost cursor's click lands on the primary CTA. */
+  ctaPressed: boolean;
   stage3: { opacity: MotionValue<number>; y: MotionValue<number> };
   stage4: { opacity: MotionValue<number>; y: MotionValue<number> };
   stage5: { opacity: MotionValue<number>; y: MotionValue<number> };
@@ -2272,7 +2289,15 @@ function HeroBody({
             {preset.subhead}
           </motion.p>
           <motion.div style={stage4} className="mt-6 flex flex-wrap items-center justify-center gap-2.5 @[640px]:mt-7 @[640px]:gap-3">
-            <span data-cursor="cta" className="rounded-full bg-indigo px-5 py-2.5 text-[11.5px] font-semibold text-white shadow-[0_14px_36px_-12px_var(--indigo,#3C38B8)]">{preset.primaryCta}</span>
+            <span
+              data-cursor="cta"
+              className="rounded-full bg-indigo px-5 py-2.5 text-[11.5px] font-semibold text-white shadow-[0_14px_36px_-12px_var(--indigo,#3C38B8)]"
+              style={{
+                transform: ctaPressed ? "scale(0.93)" : "scale(1)",
+                filter: ctaPressed ? "brightness(0.88)" : "none",
+                transition: "transform 130ms ease, filter 130ms ease",
+              }}
+            >{preset.primaryCta}</span>
             <span className="rounded-full border border-black/[0.1] bg-white px-5 py-2.5 text-[11.5px] font-medium text-foreground/70">{preset.ghostCta}</span>
           </motion.div>
           <div className="mt-9">{visual("h-[230px] @[640px]:h-[300px]")}</div>
