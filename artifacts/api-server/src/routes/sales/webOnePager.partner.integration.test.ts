@@ -3,10 +3,13 @@
  *
  * POST /web-one-pager must branch on `template` so the Partner templates
  * ("new-partner" / "partner2") emit a partner block layout (hero + benefits +
- * stats + CTA) instead of the 90-Day Pilot layout. The partner hero must carry
- * the tenant's saved Partner layout copy and the `boldHeading` toggle, and the
- * defaults must be brand-neutral (never a literal "Dandy") for tenants without
- * brand config.
+ * CTA, plus a stat showcase only when there are stats to show) instead of the
+ * 90-Day Pilot layout. The partner hero must carry the tenant's saved Partner
+ * layout copy and the `boldHeading` toggle, and the defaults must be
+ * brand-neutral (never a literal "Dandy") for tenants without brand config.
+ * The default 88/83/67% stats are Dandy survey results, so a non-Dandy tenant
+ * with no saved partnerStats gets NO dso-stat-showcase block at all — the
+ * block appears only once the tenant saves its own numbers.
  *
  * The route is monolithic (brand context + layout-default read + DB insert), so
  * we exercise it in-process via inject() against the REAL Postgres pool, then
@@ -67,7 +70,7 @@ afterAll(async () => {
 
 // Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
 describe.skipIf(!dbAvailable)("web One Pager — Partner Practices template", () => {
-  it("emits the partner block layout (hero + benefits + stats + CTA) for template=new-partner", async () => {
+  it("emits the partner block layout without a stat block (no saved stats) for template=new-partner", async () => {
     const res = await inject(app, {
       method: "POST",
       url: "/web-one-pager",
@@ -80,10 +83,11 @@ describe.skipIf(!dbAvailable)("web One Pager — Partner Practices template", ()
 
     const blocks = await fetchBlocks(pageId as number);
     const types = blocks.map(b => b.type);
+    // No dso-stat-showcase: the default stats are Dandy survey numbers, so a
+    // non-Dandy tenant without saved partnerStats must not publish them.
     expect(types).toEqual([
       "one-pager-hero",
       "benefits-grid",
-      "dso-stat-showcase",
       "bottom-cta",
     ]);
 
@@ -99,15 +103,9 @@ describe.skipIf(!dbAvailable)("web One Pager — Partner Practices template", ()
     }
     // Defaults bold; no saved layout yet → boldHeading true.
     expect(hero?.props?.boldHeading).toBe(true);
-
-    // Stats block carries value+label pairs (partner stats have no short label,
-    // so the descriptive sentence lands in `label`).
-    const stats = blocks.find(b => b.type === "dso-stat-showcase");
-    expect(Array.isArray(stats?.props?.stats)).toBe(true);
-    expect((stats?.props?.stats as unknown[]).length).toBeGreaterThan(0);
   });
 
-  it("partner2 alias also emits the partner layout", async () => {
+  it("partner2 alias also emits the partner layout (still no stat block without saved stats)", async () => {
     const res = await inject(app, {
       method: "POST",
       url: "/web-one-pager",
@@ -117,7 +115,8 @@ describe.skipIf(!dbAvailable)("web One Pager — Partner Practices template", ()
     const pageId = (res.json as { pageId?: number }).pageId as number;
     const types = (await fetchBlocks(pageId)).map(b => b.type);
     expect(types).toContain("one-pager-hero");
-    expect(types).toContain("dso-stat-showcase");
+    expect(types).toContain("benefits-grid");
+    expect(types).not.toContain("dso-stat-showcase");
     expect(types).not.toContain("dso-pilot-steps");
   });
 
