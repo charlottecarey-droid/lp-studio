@@ -300,8 +300,14 @@ export default function Dashboard() {
         {/* ── Header ──────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-medium text-muted-foreground/60 mb-1">{today}</p>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">{getGreeting()}</h1>
+            <p
+              className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/60 mb-1.5"
+              style={{ fontFamily: "var(--app-font-mono)" }}
+            >{today}</p>
+            <h1
+              className="text-3xl font-[620] tracking-[-0.03em] text-foreground"
+              style={{ fontFamily: "var(--app-font-display)" }}
+            >{getGreeting()}</h1>
             <p className="text-muted-foreground mt-1 text-sm">
               {pagesLoading
                 ? "Loading your workspace…"
@@ -311,7 +317,7 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="shrink-0">
-            <NewLauncher size="sm" className="rounded-md font-medium text-[13px]" />
+            <NewLauncher size="sm" className="rounded-lg font-medium text-[13px] shadow-[0_10px_24px_-12px_hsl(var(--primary))]" />
           </div>
         </div>
 
@@ -319,12 +325,15 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {statTiles.map((stat) => (
             <Link href={stat.href} key={stat.label}>
-              <div className="bg-card border border-border rounded-lg px-5 py-4 cursor-pointer transition-colors hover:bg-muted/50">
+              <div className="bg-card rounded-2xl px-5 py-5 cursor-pointer ring-1 ring-black/[0.05] shadow-[0_1px_2px_rgba(2,6,23,0.04),0_10px_28px_-18px_rgba(2,6,23,0.12)] transition-all hover:-translate-y-0.5 hover:shadow-[0_2px_3px_rgba(2,6,23,0.05),0_16px_36px_-18px_rgba(2,6,23,0.16)]">
                 {stat.value === null ? (
                   <Skeleton className="h-8 w-12 mb-1" />
                 ) : (
                   <div className="flex items-baseline gap-2">
-                    <p className="text-2xl font-semibold tracking-tight text-foreground tabular-nums">
+                    <p
+                      className="text-[26px] font-[620] tracking-[-0.02em] text-foreground tabular-nums"
+                      style={{ fontFamily: "var(--app-font-display)" }}
+                    >
                       {stat.value.toLocaleString()}
                     </p>
                     {typeof stat.trend === "number" && stat.trend !== 0 && Number.isFinite(stat.trend) && (
@@ -335,8 +344,11 @@ export default function Dashboard() {
                     )}
                   </div>
                 )}
-                <p className="text-xs text-muted-foreground font-medium mt-0.5 flex items-center gap-1.5">
-                  <span className="text-primary/70">{stat.icon}</span>
+                <p
+                  className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70 font-medium mt-1.5 flex items-center gap-1.5"
+                  style={{ fontFamily: "var(--app-font-mono)" }}
+                >
+                  <span className="text-primary/70 normal-case">{stat.icon}</span>
                   {stat.label}
                 </p>
               </div>
