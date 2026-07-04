@@ -81,7 +81,7 @@ interface PartnerContent {
  * — a tenant's saved Partner template layout (dandy_partner_template_layout)
  * overrides each field in buildPartnerBlocks.
  */
-function buildPartnerContent(brand: SalesBrandContext): PartnerContent {
+function buildPartnerContent(brand: SalesBrandContext, isDandy: boolean): PartnerContent {
   const name = brand.brandName || "";
   const possessive = name ? `${name}'s` : "our";
   return {
@@ -89,19 +89,25 @@ function buildPartnerContent(brand: SalesBrandContext): PartnerContent {
       ? `Unlock the power of a smarter partnership with ${name}`
       : "Unlock the power of a smarter partnership",
     intro: name
-      ? `As {dso}'s newest preferred partner, ${name} is here to help your practice thrive — delivering smarter, faster, and more predictable outcomes while elevating both patient care and your bottom line.`
-      : `As {dso}'s newest preferred partner, we're here to help your practice thrive — delivering smarter, faster, and more predictable outcomes while elevating both patient care and your bottom line.`,
+      ? `As {dso}'s newest preferred partner, ${name} is here to help your organization thrive — delivering smarter, faster, and more predictable outcomes while elevating your customer experience and your bottom line.`
+      : `As {dso}'s newest preferred partner, we're here to help your organization thrive — delivering smarter, faster, and more predictable outcomes while elevating your customer experience and your bottom line.`,
     features: [
       { title: "Increase predictability", desc: "Get real-time expert guidance for confident, accurate outcomes every time." },
       { title: "Digitize every workflow", desc: "Adopt seamless digital workflows that save time and reduce friction across your teams." },
       { title: "Access state-of-the-art quality", desc: "Deliver high-quality results with digital precision, premium materials, and unmatched consistency." },
       { title: "Unlock partnership perks and preferred pricing", desc: "Contact the team below to access a tailored proposal with approved pricing." },
     ],
-    stats: [
-      { value: "88%", desc: `say ${possessive} real-time support makes case management easier.` },
-      { value: "83%", desc: `say they have saved time using ${possessive} portal to manage their work.` },
-      { value: "67%", desc: `say ${possessive} technology gives them a competitive edge.` },
-    ],
+    // The 88/83/67% figures are DANDY survey results. They must never be
+    // published attributed to another brand — non-Dandy tenants get no
+    // default stats (the stat block is omitted downstream until the tenant
+    // saves real numbers in the Partner template editor).
+    stats: isDandy
+      ? [
+          { value: "88%", desc: `say ${possessive} real-time support makes case management easier.` },
+          { value: "83%", desc: `say they have saved time using ${possessive} portal to manage their work.` },
+          { value: "67%", desc: `say ${possessive} technology gives them a competitive edge.` },
+        ]
+      : [],
     boldHeading: true,
   };
 }
@@ -215,8 +221,10 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
     }
 
     // Gate the Dandy-only built-ins: reject explicit requests to publish them
-    // from non-Dandy tenants (mirrors the picker gate in the client).
-    if ((isDandyGatedBuiltin(builtinId) || isDandyGatedBuiltin(template)) && !(await isDandyTenant(tenantId))) {
+    // from non-Dandy tenants (mirrors the picker gate in the client). The flag
+    // is reused below to decide whether Dandy's default survey stats may render.
+    const dandyTenant = await isDandyTenant(tenantId);
+    if ((isDandyGatedBuiltin(builtinId) || isDandyGatedBuiltin(template)) && !dandyTenant) {
       res.status(403).json({ error: "This built-in template is not available for your workspace." });
       return;
     }
@@ -261,7 +269,7 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
         console.warn("[web-one-pager] failed to load partner layout default", e);
       }
 
-      const partner = applyPartnerLayout(buildPartnerContent(brandCtx), savedPartner);
+      const partner = applyPartnerLayout(buildPartnerContent(brandCtx, dandyTenant), savedPartner);
       // Replace the {dso} placeholder (used in the Partner intro) with the
       // prospect name, matching the PDF generator's substitution.
       const partnerIntro = partner.intro.replace(/\{dso\}/g, dsoName);
@@ -300,17 +308,22 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
             })),
           },
         },
-        {
-          id: `dso-stat-showcase-${makeId()}`,
-          type: "dso-stat-showcase",
-          blockSettings: CONTENT_SETTINGS,
-          props: {
-            eyebrow: "By the Numbers",
-            headline: "Results that speak for themselves.",
-            backgroundStyle: "dark",
-            stats: partner.stats.map((s) => ({ value: s.value, label: s.desc })),
-          },
-        },
+        // Stat showcase only when there are stats to show — non-Dandy tenants
+        // with no saved partner stats get no block instead of a page section
+        // publishing Dandy's survey numbers under their own brand.
+        ...(partner.stats.length > 0
+          ? [{
+              id: `dso-stat-showcase-${makeId()}`,
+              type: "dso-stat-showcase",
+              blockSettings: CONTENT_SETTINGS as unknown as Record<string, string>,
+              props: {
+                eyebrow: "By the Numbers",
+                headline: "Results that speak for themselves.",
+                backgroundStyle: "dark",
+                stats: partner.stats.map((s) => ({ value: s.value, label: s.desc })),
+              } as Record<string, unknown>,
+            }]
+          : []),
         {
           id: `bottom-cta-${makeId()}`,
           type: "bottom-cta",
