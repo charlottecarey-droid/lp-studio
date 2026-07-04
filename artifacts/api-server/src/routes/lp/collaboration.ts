@@ -15,7 +15,7 @@ import { isForeignKeyViolation } from "../../lib/dbErrors";
 import { renderTenantEmail } from "../../lib/tenantEmailRender";
 import { buildCommentCtaBlock, buildReviewCommentBlock } from "../../lib/tenantEmailAssets";
 import { resolveBroadcastRecipients } from "../../lib/broadcastRecipients";
-import { platformFromAddress, platformReplyTo } from "../../lib/platformSender";
+import { resolveTenantSenderSafe } from "../../lib/tenantSender";
 
 const router = Router();
 
@@ -54,16 +54,25 @@ function originOf(url?: string): string {
   }
 }
 
-async function sendCollaborationEmail(to: string[], subject: string, html: string): Promise<void> {
+async function sendCollaborationEmail(
+  tenantId: number,
+  to: string[],
+  subject: string,
+  html: string,
+): Promise<void> {
   const apiKey = process.env["RESEND_API_KEY"];
   if (!apiKey || to.length === 0) return;
   try {
+    // Comment/review emails render in the tenant's branded shell, so they send
+    // from the tenant's resolved sender too — never the platform envelope
+    // (whose env override pointed at Dandy's domain in prod).
+    const sender = await resolveTenantSenderSafe(tenantId, "notifications");
     await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: platformFromAddress(),
-        reply_to: platformReplyTo(),
+        from: sender.from,
+        ...(sender.replyTo ? { reply_to: sender.replyTo } : {}),
         to,
         subject,
         html,
@@ -136,7 +145,7 @@ async function notifyNewComment(pageId: number, authorName: string, message: str
 </div>
 </body></html>`;
     }
-    await sendCollaborationEmail(to, subject, html);
+    await sendCollaborationEmail(page.tenantId, to, subject, html);
   } catch (err) {
     console.error("notifyNewComment failed", err);
   }
@@ -209,7 +218,7 @@ async function notifyReviewDecision(pageId: number, reviewerName: string, status
 </div>
 </body></html>`;
     }
-    await sendCollaborationEmail(to, subject, html);
+    await sendCollaborationEmail(page.tenantId, to, subject, html);
   } catch (err) {
     console.error("notifyReviewDecision failed", err);
   }

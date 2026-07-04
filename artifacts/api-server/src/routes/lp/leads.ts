@@ -24,7 +24,7 @@ import { hubspotService } from "../../lib/hubspot-service";
 import { slackService } from "../../lib/slack-service";
 import { renderTenantEmail } from "../../lib/tenantEmailRender";
 import { escapeHtml } from "../../lib/emailRender";
-import { platformFromAddress, platformReplyTo } from "../../lib/platformSender";
+import { resolveTenantSenderSafe } from "../../lib/tenantSender";
 
 const router = Router();
 
@@ -169,13 +169,18 @@ async function sendFollowUpEmailToSubmitter(opts: {
     console.error("[lead", leadId, "] follow-up tenant render failed — using legacy fallback", err);
   }
 
-  const followUpReplyTo = platformReplyTo();
+  // Follow-ups go to the LEAD (external recipient) — they must carry the
+  // tenant's own resolved sender, not the platform envelope (whose env
+  // override pointed at Dandy's domain in prod and stamped every tenant's
+  // follow-ups with it). Reply-to resolves to the tenant's configured
+  // reply-to, falling back to the workspace owner.
+  const sender = await resolveTenantSenderSafe(tenantId, "sales");
   const body: Record<string, unknown> = {
-    from: platformFromAddress(),
+    from: sender.from,
     to: [submitterEmail],
     subject: finalSubject,
   };
-  if (followUpReplyTo) body.reply_to = followUpReplyTo;
+  if (sender.replyTo) body.reply_to = sender.replyTo;
   if (finalHtml) body.html = finalHtml;
   if (finalText) body.text = finalText;
 

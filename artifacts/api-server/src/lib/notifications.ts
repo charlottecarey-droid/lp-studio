@@ -9,6 +9,7 @@ import {
 } from "./tenantEmailShell";
 import { buildLeadFieldsTable, buildLeadVariantNote } from "./tenantEmailAssets";
 import { platformFromAddress, platformReplyTo } from "./platformSender";
+import { resolveTenantSenderSafe } from "./tenantSender";
 
 /**
  * Plain-text token substitution for email SUBJECTS (no HTML escaping). Mirrors
@@ -908,6 +909,11 @@ export async function sendEmailNotification(
 </html>`;
   }
 
+  // Send from the TENANT's resolved sender (verified custom domain → branded
+  // subdomain → shared mail.lpstudio.ai), never the platform envelope: the
+  // RESEND_FROM_EMAIL env behind platformFromAddress() pointed at Dandy's
+  // domain in prod, which stamped every other tenant's lead alerts with it.
+  const sender = await resolveTenantSenderSafe(tenantId, "notifications");
   try {
     await retryFetch("https://api.resend.com/emails", {
       method: "POST",
@@ -916,8 +922,8 @@ export async function sendEmailNotification(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: platformFromAddress(),
-        reply_to: platformReplyTo(),
+        from: sender.from,
+        ...(sender.replyTo ? { reply_to: sender.replyTo } : {}),
         to: recipients,
         subject,
         html,

@@ -31,6 +31,7 @@ import { pool } from "@workspace/db";
 import { getSalesBrandContext, type SalesBrandContext } from "./salesBrandContext";
 import { getResendDomainStatus } from "./resendDomainStatus";
 import { logger } from "./logger";
+import { PLATFORM_FROM_FALLBACK, platformReplyTo } from "./platformSender";
 
 /**
  * The shared, already-verified sending domain every tenant can send under
@@ -282,4 +283,33 @@ export async function resolveTenantSender(
     ownerEmail,
     ...(overrides ? { overrides } : {}),
   });
+}
+
+/**
+ * `resolveTenantSender` that can never throw — for tenant-scoped send paths
+ * (lead alerts, form follow-ups, collaboration emails) that previously used the
+ * platform envelope and must keep sending even if sender resolution errors.
+ *
+ * The error fallback is deliberately the CODE-DEFAULT platform identity
+ * (`LP Studio <team@mail.lpstudio.ai>`), NOT `platformFromAddress()`: the env
+ * override behind that helper can point at one specific tenant's domain (it was
+ * Dandy's in prod), and a resolver failure on tenant B must never make tenant
+ * B's mail wear tenant A's from-address.
+ */
+export async function resolveTenantSenderSafe(
+  tenantId: number,
+  kind: SenderKind,
+): Promise<ResolvedSender> {
+  try {
+    return await resolveTenantSender(tenantId, kind);
+  } catch (err) {
+    logger.error({ err, tenantId, kind }, "resolveTenantSender failed — using neutral platform fallback");
+    const replyTo = platformReplyTo();
+    return {
+      from: PLATFORM_FROM_FALLBACK,
+      ...(replyTo ? { replyTo } : {}),
+      domain: SHARED_SENDING_DOMAIN,
+      usingCustomDomain: false,
+    };
+  }
 }
