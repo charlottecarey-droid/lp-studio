@@ -1,9 +1,10 @@
 import { motion, useScroll, useTransform, useMotionValueEvent, MotionValue } from "framer-motion";
 import lpLockup from "@assets/lp-lockup-horizontal-navy-depth-2048_1781934486001.png";
-// Charlotte's wide workspace illustration (2032\u00d7774 \u2248 the hero visual's
-// 2.6:1 crop — near-zero cropping, retina-sharp; JPEG q75, 249KB vs the
+// Charlotte's wide workspace illustration, generic variant (1774\u00d7887; the
+// hero visual's 2.6:1 cover-crop trims a little desk foreground and keeps
+// the monitor + chips intact, 2.2\u00d7 retina headroom; JPEG q75 vs the
 // original 1.5MB PNG). Bundled so the homepage never fetches prod storage.
-import demoHeroWide from "@assets/lp-demo-hero-workspace-wide-2032.jpg";
+import demoHeroWide from "@assets/lp-demo-hero-workspace-wide-1774.jpg";
 import { useEffect, useRef, useState, createContext, useContext, type ReactNode, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 
 // Lovable BuildSection ported verbatim from scroll-saga-lp. Only three
