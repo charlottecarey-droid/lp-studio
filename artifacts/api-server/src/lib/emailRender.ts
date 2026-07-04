@@ -81,19 +81,32 @@ export interface RenderEmailInput {
  * Render a complete email document.
  *
  * Pipeline (order matters for safety):
- *   1. Interpolate the body with `vars` (escaped) → resolved body HTML.
- *   2. If not wrapping, return the resolved body verbatim (full custom HTML).
- *   3. Inject the raw slots (logo, footer, body) into the shell.
- *   4. Interpolate remaining shell vars (`headline`, `headerBg`) escaped.
+ *   1. Replace raw-slot tokens in the body with opaque sentinels. This must
+ *      happen BEFORE the vars interpolation: `interpolateHtml` blanks every
+ *      token it doesn't know, so an unprotected `{{fieldsTable}}` would be
+ *      wiped to "" and the raw slot would never land (the "empty tenant
+ *      email body" regression).
+ *   2. Interpolate the body with `vars` (escaped).
+ *   3. Swap the sentinels for the raw slot HTML. Substituting after the
+ *      interpolation keeps both original safety properties: the raw HTML is
+ *      never re-interpolated/escaped, and a `{{slot}}` token arriving inside
+ *      an escaped var VALUE stays literal text instead of pulling in raw HTML.
+ *   4. If not wrapping, return the resolved body verbatim (full custom HTML).
+ *   5. Inject the raw slots (logo, footer, body) into the shell.
+ *   6. Interpolate remaining shell vars (`headline`, `headerBg`) escaped.
  */
 export function renderEmail(input: RenderEmailInput): string {
-  let body = interpolateHtml(input.bodyHtml, input.vars);
-  if (input.rawSlots) {
-    // Injected last so the raw HTML is never re-interpolated/escaped, and so a
-    // `{{token}}` that survived inside an escaped value can't pull from `vars`.
-    for (const [slot, value] of Object.entries(input.rawSlots)) {
-      body = injectRawSlot(body, slot, value);
-    }
+  const slots = Object.entries(input.rawSlots ?? {});
+  // NUL-delimited sentinels can't be produced by escapeHtml'd var values or
+  // survive any sane template author's copy, so they never collide with text.
+  const sentinelFor = (i: number) => `\u0000LP_RAW_SLOT_${i}\u0000`;
+  let body = input.bodyHtml;
+  for (let i = 0; i < slots.length; i++) {
+    body = injectRawSlot(body, slots[i][0], sentinelFor(i));
+  }
+  body = interpolateHtml(body, input.vars);
+  for (let i = 0; i < slots.length; i++) {
+    body = body.split(sentinelFor(i)).join(slots[i][1]);
   }
   if (!input.wrapInShell) return body;
 

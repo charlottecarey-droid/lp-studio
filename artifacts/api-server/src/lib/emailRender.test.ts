@@ -154,3 +154,66 @@ describe("renderEmail — branded master shell", () => {
     expect(v["subject"]).toBe("Explicit subject");
   });
 });
+
+describe("renderEmail — raw slots (July 2026 empty-body regression)", () => {
+  // The original pipeline interpolated the body BEFORE injecting rawSlots, and
+  // interpolateHtml blanks every token it doesn't know — so `{{fieldsTable}}`,
+  // `{{content}}`, `{{ctaBlock}}` etc. were wiped to "" and every tenant email
+  // that carried its payload in a raw slot went out with an empty body card.
+  const shell = DEFAULT_EMAIL_SHELL;
+
+  it("injects raw slot HTML instead of blanking the token", () => {
+    const html = renderEmail({
+      shell,
+      bodyHtml: `<p>{{recipientName}}</p>{{fieldsTable}}<div>{{variantNote}}</div>`,
+      wrapInShell: true,
+      vars: baseVars({ headline: "New lead" }),
+      rawSlots: {
+        fieldsTable: `<table><tr><td>Email</td><td>a@b.com</td></tr></table>`,
+        variantNote: `<em>Variant B</em>`,
+      },
+    });
+    expect(html).toContain("<table><tr><td>Email</td><td>a@b.com</td></tr></table>");
+    expect(html).toContain("<em>Variant B</em>");
+    expect(html).toContain("Jordan");
+    expect(html).not.toMatch(/\{\{\s*fieldsTable\s*\}\}/);
+    expect(html).not.toContain("LP_RAW_SLOT_");
+  });
+
+  it("raw slot HTML is never re-interpolated or escaped", () => {
+    const html = renderEmail({
+      shell,
+      bodyHtml: `{{content}}`,
+      wrapInShell: false,
+      vars: { recipientName: "Jordan" },
+      rawSlots: { content: `<a href="https://x.test?a=1&b=2">{{recipientName}} & you</a>` },
+    });
+    // Verbatim: the {{recipientName}} inside the RAW value stays literal, and
+    // the & is not double-escaped.
+    expect(html).toBe(`<a href="https://x.test?a=1&b=2">{{recipientName}} & you</a>`);
+  });
+
+  it("a slot token arriving inside an escaped var VALUE stays literal text", () => {
+    const html = renderEmail({
+      shell,
+      bodyHtml: `<p>{{message}}</p>{{ctaBlock}}`,
+      wrapInShell: false,
+      vars: { message: "try typing {{ctaBlock}} here" },
+      rawSlots: { ctaBlock: `<a href="/x">View</a>` },
+    });
+    // The injected CTA appears exactly once — the attacker-controlled var value
+    // must not become a second injection point.
+    expect(html.split(`<a href="/x">View</a>`).length - 1).toBe(1);
+    expect(html).toContain("try typing {{ctaBlock}} here");
+  });
+
+  it("without rawSlots the pipeline is unchanged (unknown tokens blank)", () => {
+    const html = renderEmail({
+      shell,
+      bodyHtml: `<p>{{recipientName}}</p><span>{{notAVar}}</span>`,
+      wrapInShell: false,
+      vars: { recipientName: "Jordan" },
+    });
+    expect(html).toBe(`<p>Jordan</p><span></span>`);
+  });
+});
