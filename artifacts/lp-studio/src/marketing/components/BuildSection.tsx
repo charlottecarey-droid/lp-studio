@@ -861,8 +861,12 @@ export function BuildSection() {
   // button flips to "Published \u2713" with a live-URL toast.
   const [published, setPublished] = useState(false);
   useMotionValueEvent(p, "change", (v) => {
-    const t = Math.max(0, Math.min(1, (v - 0.14) / (0.42 - 0.14)));
-    setTypedChars(Math.round(t * (headline1.length + headline2.length)));
+    // Two typing passes with a beat between: the cursor clicks line 1, "Skip
+    // the brief." types; small pause; the cursor clicks the line below and
+    // "Ship the page." types. Windows sit just after each click pulse.
+    const t1 = Math.max(0, Math.min(1, (v - 0.13) / (0.26 - 0.13)));
+    const t2 = Math.max(0, Math.min(1, (v - 0.32) / (0.46 - 0.32)));
+    setTypedChars(Math.round(t1 * headline1.length) + Math.round(t2 * headline2.length));
     setPublished(v >= 0.93);
   });
 
@@ -1322,21 +1326,23 @@ export function BuildSection() {
 // transform. Isolated component: per-frame updates re-render only itself.
 
 const CURSOR_STOPS: { at: number; target: string }[] = [
-  { at: 0.055, target: "headline" }, // fade in, gliding toward the headline
-  { at: 0.104, target: "headline" }, // arrive -> rapid focus double-click
-  { at: 0.46, target: "headline" },  // parked while the headline types out
-  { at: 0.56, target: "cta" },       // glide to the primary CTA
-  { at: 0.63, target: "cta" },       // dwell through the click
-  { at: 0.9, target: "publish" },    // up into the chrome
+  { at: 0.055, target: "headline1" }, // fade in, gliding toward line 1
+  { at: 0.104, target: "headline1" }, // arrive -> click, "Skip the brief." types
+  { at: 0.27, target: "headline1" },  // parked while line 1 types; small pause
+  { at: 0.305, target: "headline2" }, // drop to the line below -> click
+  { at: 0.46, target: "headline2" },  // parked while "Ship the page." types
+  { at: 0.56, target: "cta" },        // glide to the primary CTA
+  { at: 0.63, target: "cta" },        // dwell through the click
+  { at: 0.9, target: "publish" },     // up into the chrome
   { at: 0.985, target: "publish" },
 ];
-/** [start, end] click-pulse windows. The first two are a RAPID double-click
- *  on the headline right before typing begins (deciding where the text area
- *  is — Charlotte's beat); then the CTA click; then Publish. Narrow windows
- *  = fast pulses relative to scroll. */
+/** [start, end] click-pulse windows: a fast click on line 1 right before
+ *  "Skip the brief." types, a fast click on line 2 after the pause (each
+ *  reads as the cursor picking its text area), then the CTA, then Publish.
+ *  Narrow windows = fast pulses relative to scroll. */
 const CURSOR_CLICKS: [number, number][] = [
   [0.106, 0.119],
-  [0.123, 0.136],
+  [0.306, 0.319],
   [0.575, 0.625],
   [0.9, 0.95],
 ];
@@ -2163,22 +2169,27 @@ function HeroBody({
   const Headline = (
     <motion.h3
       style={stage3}
-      data-cursor="headline"
       className="font-display text-[28px] font-[600] leading-[0.98] tracking-[-0.04em] text-[oklch(0.1_0.01_270)] @[520px]:text-[38px] @[700px]:text-[52px]"
     >
       {typingDone ? (
         <>
-          <Editable value={headline1} onChange={setHeadline1} ariaLabel="Edit headline line 1" />
-          <br />
-          <Editable value={headline2} onChange={setHeadline2} ariaLabel="Edit headline line 2" className="text-indigo" />
+          <span data-cursor="headline1" className="block min-h-[1em]">
+            <Editable value={headline1} onChange={setHeadline1} ariaLabel="Edit headline line 1" />
+          </span>
+          <span data-cursor="headline2" className="block min-h-[1em] text-indigo">
+            <Editable value={headline2} onChange={setHeadline2} ariaLabel="Edit headline line 2" />
+          </span>
         </>
       ) : (
         <>
-          <span>{h1Typed}</span>
-          {typedChars <= headline1.length && Caret}
-          <br />
-          <span className="text-indigo">{h2Typed}</span>
-          {typedChars > headline1.length && Caret}
+          <span data-cursor="headline1" className="block min-h-[1em]">
+            {h1Typed}
+            {typedChars <= headline1.length && Caret}
+          </span>
+          <span data-cursor="headline2" className="block min-h-[1em] text-indigo">
+            {h2Typed}
+            {typedChars > headline1.length && Caret}
+          </span>
         </>
       )}
     </motion.h3>
