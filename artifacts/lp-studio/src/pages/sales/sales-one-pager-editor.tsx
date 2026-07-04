@@ -21,7 +21,7 @@ import {
   type AgreementSection,
   type AgreementContact,
 } from "./sales-one-pager";
-import { TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "./one-pager-custom-utils";
+import { TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY, visibleBuiltinOnePagers, builtinOnePagerLabel } from "./one-pager-custom-utils";
 import { fetchBrandConfig, saveBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, resolveOnePagerColors, resolveBrandPdfFonts, type BrandConfig } from "@/lib/brand-config";
 import { analyzePaletteContrast, type BrandPdfFonts } from "@workspace/one-pager-types/generators";
 import {
@@ -1180,7 +1180,6 @@ export default function SalesOnePagerEditor() {
   }
 
   const currentContent = audienceContent[audience];
-  const templateLabels: Record<EditorTemplate, string> = { pilot: "90-Day Pilot", comparison: "Evolution", partner: "Partner Practices", roi: "ROI Brief", "agreement-summary": "Agreement Summary" };
 
   return (
     <SalesLayout>
@@ -1203,14 +1202,19 @@ export default function SalesOnePagerEditor() {
           {/* Template selector */}
           <div className="flex items-center justify-center gap-2 mb-3 flex-wrap">
             <div className="inline-flex rounded-full border border-border overflow-hidden">
-              {(["pilot", "comparison", "partner", "roi", "agreement-summary"] as EditorTemplate[])
-                .filter(isTemplateVisible)
-                .map(t => (
-                <button key={t} onClick={() => setEditorTemplate(t)}
-                  className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${editorTemplate === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}>
-                  {templateLabels[t]}
-                </button>
-              ))}
+              {/* Tabs render from the shared registry (visibleBuiltinOnePagers)
+                  — the SAME list, order, visibility rule, and labels the rep
+                  generate page uses — so the two pickers stay in lockstep. The
+                  editor's internal id for new-partner is the legacy "partner". */}
+              {visibleBuiltinOnePagers({ isDandy, templateVisibility, deletedBuiltins }).map(b => {
+                const t: EditorTemplate = b.id === "new-partner" ? "partner" : b.id;
+                return (
+                  <button key={t} onClick={() => setEditorTemplate(t)}
+                    className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${editorTemplate === t ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}>
+                    {builtinOnePagerLabel(b, isDandy)}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

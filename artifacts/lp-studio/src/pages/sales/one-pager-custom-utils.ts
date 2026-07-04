@@ -1,5 +1,6 @@
 export type { OverlayField, CustomTemplate } from "@workspace/one-pager-types";
 export { TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "@workspace/one-pager-types";
+import { isDandyGatedBuiltin } from "@workspace/one-pager-types";
 export { svgToPng, hexToRgb, loadImg, generateCustomTemplatePdf } from "@workspace/one-pager-types/pdf";
 export type { CustomTemplatePdfBrandOpts } from "@workspace/one-pager-types/pdf";
 import type { OverlayField, CustomTemplate } from "@workspace/one-pager-types";
@@ -9,6 +10,66 @@ import { resolveOnePagerColors } from "@/lib/brand-config";
 import dandyLogoWhiteUrl from "@/assets/dandy-logo-white.svg?url";
 
 const API_BASE = "/api";
+
+// ── Built-in one-pagers: single source of truth ────────────────────────
+// The rep generate page (sales-one-pager.tsx), the marketing template editor
+// (sales-one-pager-editor.tsx), and the templates gallery
+// (sales-one-pager-templates.tsx) MUST show the same set of built-ins in the
+// same order. They used to hand-maintain three separate lists, which drifted:
+// a phantom "partner2" (a pure duplicate of new-partner) lived only on the rep
+// page + gallery, and template order/labels diverged. Derive all three from
+// this list via `visibleBuiltinOnePagers` so they can never drift again.
+//
+// `id` doubles as the templateVisibility / deletedBuiltins storage key. The
+// editor's internal tab id for new-partner is the legacy "partner"; it maps at
+// its call site (id === "new-partner" ? "partner" : id).
+export type BuiltinOnePagerId =
+  | "pilot"
+  | "comparison"
+  | "new-partner"
+  | "roi"
+  | "agreement-summary";
+
+export interface BuiltinOnePager {
+  id: BuiltinOnePagerId;
+  /** Label shown to Dandy tenants (keeps Dandy's established wording). */
+  labelDandy: string;
+  /** Label shown to every other tenant (neutral, non-dental). */
+  labelNeutral: string;
+  /** Gallery card blurb. */
+  description: string;
+}
+
+export const BUILTIN_ONE_PAGERS: readonly BuiltinOnePager[] = [
+  { id: "pilot",             labelDandy: "90-Day Pilot",      labelNeutral: "90-Day Pilot",      description: "Pilot program overview" },
+  { id: "comparison",        labelDandy: "Dandy Evolution",   labelNeutral: "Before / After",    description: "Before / after comparison" },
+  { id: "new-partner",       labelDandy: "Partner Practices", labelNeutral: "New Partner",       description: "Partner onboarding" },
+  { id: "roi",               labelDandy: "ROI One-Pager",     labelNeutral: "ROI One-Pager",     description: "Financial ROI summary" },
+  { id: "agreement-summary", labelDandy: "Agreement Summary", labelNeutral: "Agreement Summary", description: "Summary of agreement terms" },
+] as const;
+
+/** Label for a built-in, honoring the tenant's Dandy-vs-neutral wording. */
+export function builtinOnePagerLabel(b: BuiltinOnePager, isDandy: boolean): string {
+  return isDandy ? b.labelDandy : b.labelNeutral;
+}
+
+/**
+ * The built-ins a tenant can currently see, in canonical order — the ONE
+ * predicate every picker uses. Applies the Dandy gate (roi is Dandy-only) plus
+ * the gallery's per-tenant hide (`templateVisibility[id] === false`) and delete
+ * (`deletedBuiltins[id]`) flags.
+ */
+export function visibleBuiltinOnePagers(opts: {
+  isDandy: boolean;
+  templateVisibility: Record<string, boolean>;
+  deletedBuiltins: Record<string, boolean>;
+}): BuiltinOnePager[] {
+  const { isDandy, templateVisibility, deletedBuiltins } = opts;
+  return BUILTIN_ONE_PAGERS.filter((b) => {
+    if (!isDandy && isDandyGatedBuiltin(b.id)) return false;
+    return !deletedBuiltins[b.id] && templateVisibility[b.id] !== false;
+  });
+}
 
 // ── Per-one-pager brand color override ─────────────────────────────────
 // Sales reps can override the tenant's Brand Settings colors for a single

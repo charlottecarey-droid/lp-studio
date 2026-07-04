@@ -152,7 +152,6 @@ const BUILTIN_TEMPLATES = [
   { id: "pilot", label: "90-Day Pilot", description: "Pilot program overview" },
   { id: "comparison", label: "Evolution", description: "Before/after comparison" },
   { id: "new-partner", label: "Partner Practices", description: "Partner onboarding" },
-  { id: "partner2", label: "Partner 2", description: "Alternative partner template" },
   { id: "agreement-summary", label: "Agreement Summary", description: "Summary of agreement terms", backgroundUrl: agreementSummaryPreviewUrl },
 ] as const;
 

@@ -9,7 +9,7 @@ import { SalesLayout } from "@/components/layout/sales-layout";
 import { useAuth } from "@/context/AuthContext";
 import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, resolveOnePagerColors, resolveBrandPdfFonts, type BrandConfig, type OnePagerAssets } from "@/lib/brand-config";
 import type { CustomTemplate } from "./one-pager-custom-utils";
-import { fetchCustomTemplates, generateCustomTemplatePdf, buildCustomTemplateBrandOpts, apiLoadLayoutDefault, TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY, ONE_PAGER_PRIMARY_OVERRIDE_KEY, ONE_PAGER_ACCENT_OVERRIDE_KEY, loadRememberedColorOverride, saveRememberedColorOverride, clearRememberedColorOverride } from "./one-pager-custom-utils";
+import { fetchCustomTemplates, generateCustomTemplatePdf, buildCustomTemplateBrandOpts, apiLoadLayoutDefault, TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY, ONE_PAGER_PRIMARY_OVERRIDE_KEY, ONE_PAGER_ACCENT_OVERRIDE_KEY, loadRememberedColorOverride, saveRememberedColorOverride, clearRememberedColorOverride, visibleBuiltinOnePagers, builtinOnePagerLabel } from "./one-pager-custom-utils";
 import {
   generatePilotOnePager as sharedGeneratePilotOnePager,
   generateComparisonOnePager as sharedGenerateComparisonOnePager,
@@ -486,7 +486,7 @@ export type { AgreementSummaryContent, AgreementSection, AgreementContact };
 // COMPONENT
 // =============================================
 
-type Template = "roi" | "pilot" | "comparison" | "new-partner" | "partner2" | "agreement-summary";
+type Template = "roi" | "pilot" | "comparison" | "new-partner" | "agreement-summary";
 
 const SalesOnePager = () => {
   const [location] = useLocation();
@@ -560,7 +560,7 @@ const SalesOnePager = () => {
   // Templates whose web one-pager layout the server route can build. Keep in
   // sync with the `isPartner`/pilot branches in api-server web-one-pager.ts.
   const supportsWebLink =
-    template === "pilot" || template === "new-partner" || template === "partner2";
+    template === "pilot" || template === "new-partner";
   const [phoneNumber, setPhoneNumber] = useState("");
   const [teamContacts, setTeamContacts] = useState<TeamContact[]>([
     { name: "", title: "", contactInfo: "" },
@@ -595,7 +595,7 @@ const SalesOnePager = () => {
     const keyForTemplate = (): string | null => {
       if (template === "pilot") return "dandy_pilot_template_layout";
       if (template === "comparison") return "dandy_comparison_template_layout";
-      if (template === "new-partner" || template === "partner2") return "dandy_partner_template_layout";
+      if (template === "new-partner") return "dandy_partner_template_layout";
       return null;
     };
     const key = keyForTemplate();
@@ -1018,9 +1018,6 @@ const SalesOnePager = () => {
       } else if (template === "new-partner") {
         doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", teamContacts, phoneNumber, customLinkText, customLinkUrl, undefined, prospectLogoScale, effectiveBrandContext, oneAssets);
         doc.save(`${brandSlug}_x_${dsoName.trim().replace(/\s+/g, "_")}_New_Partner.pdf`);
-      } else if (template === "partner2") {
-        doc = await generateNewPartnerOnePager(dsoName.trim(), prospectLogoData, prospectLogoDims, customLinkUrl || brandQrFallback || "", teamContacts, phoneNumber, customLinkText, customLinkUrl, undefined, prospectLogoScale, effectiveBrandContext, oneAssets);
-        doc.save(`${brandSlug}_x_${dsoName.trim().replace(/\s+/g, "_")}_Partner2.pdf`);
       } else if (template === "agreement-summary") {
         // Use the rep-edited content (which was seeded from defaults +
         // admin-saved layout on mount), so any number/price/text edits made
@@ -1110,54 +1107,18 @@ const SalesOnePager = () => {
 
           <div className={`flex flex-wrap items-center justify-center gap-3 mb-8 transition-opacity duration-150 ${visibilityLoaded ? "opacity-100" : "opacity-0"}`}>
             <div className="inline-flex rounded-full border border-border overflow-hidden flex-wrap">
-              {(isDandy || !isDandyGatedBuiltin("roi")) && !deletedBuiltins["roi"] && templateVisibility["roi"] !== false && (
+              {/* Built-ins render from the shared registry (visibleBuiltinOnePagers)
+                  — the SAME list, order, and visibility rule the template editor
+                  uses — so the two pickers can never drift. */}
+              {visibleBuiltinOnePagers({ isDandy, templateVisibility, deletedBuiltins }).map(b => (
                 <button
-                  onClick={() => { setTemplate("roi"); setSelectedCustomId(null); }}
-                  className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${template === "roi" && selectedCustomId === null ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}
+                  key={b.id}
+                  onClick={() => { setTemplate(b.id); setSelectedCustomId(null); }}
+                  className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${template === b.id && selectedCustomId === null ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}
                 >
-                  ROI One-Pager
+                  {builtinOnePagerLabel(b, isDandy)}
                 </button>
-              )}
-              {!deletedBuiltins["new-partner"] && templateVisibility["new-partner"] !== false && (
-                <button
-                  onClick={() => { setTemplate("new-partner"); setSelectedCustomId(null); }}
-                  className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${template === "new-partner" && selectedCustomId === null ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}
-                >
-                  {isDandy ? "Partner Practices" : "New Partner"}
-                </button>
-              )}
-              {!deletedBuiltins["partner2"] && templateVisibility["partner2"] !== false && (
-                <button
-                  onClick={() => { setTemplate("partner2"); setSelectedCustomId(null); }}
-                  className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${template === "partner2" && selectedCustomId === null ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}
-                >
-                  Partner 2
-                </button>
-              )}
-              {(isDandy || !isDandyGatedBuiltin("comparison")) && !deletedBuiltins["comparison"] && templateVisibility["comparison"] !== false && (
-                <button
-                  onClick={() => { setTemplate("comparison"); setSelectedCustomId(null); }}
-                  className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${template === "comparison" && selectedCustomId === null ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}
-                >
-                  {isDandy ? "Dandy Evolution" : "Before / After"}
-                </button>
-              )}
-              {!deletedBuiltins["pilot"] && templateVisibility["pilot"] !== false && (
-                <button
-                  onClick={() => { setTemplate("pilot"); setSelectedCustomId(null); }}
-                  className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${template === "pilot" && selectedCustomId === null ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}
-                >
-                  90-Day Pilot
-                </button>
-              )}
-              {(isDandy || !isDandyGatedBuiltin("agreement-summary")) && !deletedBuiltins["agreement-summary"] && templateVisibility["agreement-summary"] !== false && (
-                <button
-                  onClick={() => { setTemplate("agreement-summary"); setSelectedCustomId(null); }}
-                  className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${template === "agreement-summary" && selectedCustomId === null ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}
-                >
-                  Agreement Summary
-                </button>
-              )}
+              ))}
               {customTemplates.filter(t => templateVisibility[`custom:${t.id}`] !== false).map(ct => (
                 <button
                   key={ct.id}
@@ -1337,7 +1298,7 @@ const SalesOnePager = () => {
                 </div>
               )}
 
-              {(template === "new-partner" || template === "partner2") && (
+              {template === "new-partner" && (
                 <div>
                   <label className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-1.5 block">QR Code URL</label>
                   <input
@@ -1610,7 +1571,7 @@ const SalesOnePager = () => {
               );
             })()}
 
-            {(template === "pilot" || template === "comparison" || template === "new-partner" || template === "partner2") && (
+            {(template === "pilot" || template === "comparison" || template === "new-partner") && (
               <div>
                 <label className="text-[11px] font-semibold text-foreground uppercase tracking-wider mb-1.5 block">Prospect Logo (optional)</label>
                 <div className="flex items-center gap-3">
