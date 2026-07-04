@@ -21,6 +21,13 @@ import {
   generateROIOnePager,
   defaultAudienceContent,
   defaultAgreementSummaryContent,
+  neutralAudienceContent,
+  neutralAgreementSummaryContent,
+  neutralComparisonRows,
+  neutralComparisonStats,
+  neutralPartnerFeatures,
+  neutralPartnerStats,
+  NEUTRAL_PILOT_HEADLINE,
   type BrandContext,
 } from "@workspace/one-pager-types/generators";
 import { generateCustomTemplatePdf, type CustomTemplatePdfBrandOpts } from "@workspace/one-pager-types/pdf";
@@ -43,6 +50,37 @@ const FORBIDDEN: ReadonlyArray<{ label: string; pattern: RegExp }> = [
   { label: '"dental lab" phrase', pattern: /\bdental\s+lab\b/i },
   { label: "meetdandy.com domain", pattern: /meetdandy\.com/i },
 ];
+
+// Dental CONCEPTS (July 2026): scrubBrand swaps brand tokens but a "2-Appointment
+// Dentures" feature card is still dentistry with the tokens swapped. The neutral
+// default content sets — what a non-Dandy tenant renders before any editing —
+// must not read as dental at all.
+const DENTAL_CONCEPTS: ReadonlyArray<{ label: string; pattern: RegExp }> = [
+  { label: "dental/dentistry", pattern: /\bdent(al|ist|ure)/i },
+  { label: "clinician/clinical", pattern: /\bclinic/i },
+  { label: "patient", pattern: /\bpatients?\b/i },
+  { label: "chair (chairside/chair time)", pattern: /\bchair/i },
+  { label: "restorative/prosthetic", pattern: /\b(restorativ|prosthet)/i },
+  { label: "crown/implant", pattern: /\b(crowns?|implants?)\b/i },
+  { label: "scanner (Dandy hardware)", pattern: /\bscanner\b/i },
+  { label: "case acceptance / remake (dental-lab metrics)", pattern: /\b(case acceptance|remakes?)\b/i },
+  { label: "practice(s) (dental practice framing)", pattern: /\bpractices?\b/i },
+];
+
+function assertNoDentalConcepts(label: string, text: string): void {
+  const hits: string[] = [];
+  for (const { label: pl, pattern } of DENTAL_CONCEPTS) {
+    const m = text.match(pattern);
+    if (m) hits.push(`  • ${pl} → ${JSON.stringify(m[0])}`);
+  }
+  if (hits.length > 0) {
+    throw new Error(
+      `Dental concept leaked into ${label} for a non-Dandy tenant:\n${hits.join("\n")}\n\n` +
+        `Neutral default content must be industry-agnostic — fix the neutral* ` +
+        `constant (or the generator's neutral fallback) in one-pager-types/generators.ts.`,
+    );
+  }
+}
 
 async function extractPdfText(bytes: Uint8Array): Promise<string> {
   // pdfjs-dist v5 ships a legacy build that runs cleanly in Node without
@@ -138,7 +176,7 @@ describe("Shared one-pager generators — no Dandy/DSO/dental-lab leaks for non-
     assertNoLeaks("Pilot (practice-manager)", text);
   }, 30_000);
 
-  it("Comparison one-pager PDF (defaults) contains no leaks", async () => {
+  it("Comparison one-pager PDF (defaults) picks the NEUTRAL rows/stats — no Dandy tokens, no dental concepts", async () => {
     const doc = await generateComparisonOnePager(
       "Royal Group",
       [],
@@ -151,9 +189,13 @@ describe("Shared one-pager generators — no Dandy/DSO/dental-lab leaks for non-
     );
     const text = await extractPdfText(await pdfBytes(doc));
     assertNoLeaks("Comparison", text);
+    // With no saved layout, a non-Dandy brand must fall back to the neutral
+    // rows/stats (July 2026) — never the scrubbed-but-still-dental Dandy set
+    // ("case acceptance", "remake rate", diagnostic-scan survey numbers).
+    assertNoDentalConcepts("Comparison (neutral defaults)", text);
   }, 30_000);
 
-  it("New Partner one-pager PDF (defaults) contains no leaks", async () => {
+  it("New Partner one-pager PDF (defaults) picks the NEUTRAL content — no Dandy tokens, no dental concepts", async () => {
     const doc = await generateNewPartnerOnePager(
       "Royal Group",
       null,
@@ -164,8 +206,68 @@ describe("Shared one-pager generators — no Dandy/DSO/dental-lab leaks for non-
     );
     const text = await extractPdfText(await pdfBytes(doc));
     assertNoLeaks("New Partner", text);
+    assertNoDentalConcepts("New Partner (neutral defaults)", text);
   }, 30_000);
 
+  it("Pilot one-pager PDF with the neutral audience content has no dental concepts (all audiences)", async () => {
+    for (const audience of ["executive", "clinical", "practice-manager"] as const) {
+      const doc = await generatePilotOnePager(
+        "Royal Group",
+        audience,
+        [],
+        "",
+        null,
+        { w: 0, h: 0 },
+        neutralAudienceContent[audience],
+        undefined,
+        undefined,
+        { brand: ROYAL_BRAND },
+      );
+      const text = await extractPdfText(await pdfBytes(doc));
+      assertNoLeaks(`Pilot neutral (${audience})`, text);
+      assertNoDentalConcepts(`Pilot neutral (${audience})`, text);
+    }
+  }, 60_000);
+
+  it("Agreement Summary PDF with the neutral content has no dental concepts", async () => {
+    const doc = await generateAgreementSummaryOnePager(neutralAgreementSummaryContent, {
+      brand: { ...ROYAL_BRAND, agreementName: "Royal Agreement" },
+    });
+    const text = await extractPdfText(await pdfBytes(doc));
+    assertNoLeaks("Agreement Summary (neutral)", text);
+    assertNoDentalConcepts("Agreement Summary (neutral)", text);
+  }, 30_000);
+});
+
+// String-level guard on every neutral export — faster signal than the PDF
+// round-trip and covers content the generators may not render on every path.
+describe("Neutral default content sets are industry-agnostic", () => {
+  it("contains no Dandy tokens or dental concepts in any neutral export", () => {
+    // Leaf VALUES only — record keys like "practice-manager" are internal
+    // audience ids (never rendered), not copy.
+    const leafStrings = (v: unknown): string[] =>
+      typeof v === "string" ? [v]
+      : Array.isArray(v) ? v.flatMap(leafStrings)
+      : v && typeof v === "object" ? Object.values(v).flatMap(leafStrings)
+      : [];
+    const corpus = leafStrings([
+      neutralAudienceContent,
+      neutralAgreementSummaryContent,
+      neutralComparisonRows,
+      neutralComparisonStats,
+      neutralPartnerFeatures,
+      neutralPartnerStats,
+      NEUTRAL_PILOT_HEADLINE,
+    ]).join(" \n ");
+    assertNoLeaks("neutral content exports", corpus);
+    assertNoDentalConcepts("neutral content exports", corpus);
+  });
+});
+
+// ROI is Dandy-gated as a TEMPLATE (July 2026: its metrics are Dandy unit
+// economics), but the generator itself must still scrub brand tokens if it is
+// ever invoked with a non-Dandy context (e.g. stale client, saved layouts).
+describe("ROI generator (Dandy-gated template) still scrubs brand tokens", () => {
   it("ROI one-pager PDF (defaults) contains no leaks", async () => {
     const doc = await generateROIOnePager("Royal Group", 50, { brand: ROYAL_BRAND });
     const text = await extractPdfText(await pdfBytes(doc));

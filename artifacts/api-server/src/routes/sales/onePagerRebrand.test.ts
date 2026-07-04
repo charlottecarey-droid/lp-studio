@@ -119,9 +119,9 @@ describe("non-Dandy one-pager rebranding — Agreement Summary (now un-gated bui
   });
 });
 
-describe("non-Dandy one-pager rebranding — ROI (non-gated built-in)", () => {
-  it("is NOT a gated built-in (a non-Dandy tenant can generate it)", () => {
-    expect(DANDY_GATED_BUILTIN_IDS).not.toContain("roi");
+describe("non-Dandy one-pager rebranding — ROI (Dandy-gated built-in, July 2026)", () => {
+  it("IS a gated built-in — its metrics are Dandy unit economics and its proof pillars are real dental case studies, so scrubbing alone can't neutralize it", () => {
+    expect(DANDY_GATED_BUILTIN_IDS).toContain("roi");
   });
 
   it("renders a PDF whose searchable copy is Dandy-free and carries the brand", async () => {

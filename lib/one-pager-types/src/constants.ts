@@ -10,18 +10,22 @@ export const DELETED_BUILTINS_KEY = "deleted_builtin_templates";
  * copy scrubbing alone, and so are hidden from the template picker for
  * non-Dandy tenants and rejected on the server publish/save paths.
  *
- * This list is now EMPTY: the former entries ("comparison" / "Evolution" and
- * "agreement-summary") were rewritten to be brand-agnostic — they derive their
- * palette from the tenant's one-pager colors (resolvePalette), route all copy
- * through scrubBrandDeep, and render a neutral/tenant header image instead of
- * the bundled Dandy scanner (resolveOnePagerAssets). Both are now available to
- * every tenant alongside the other built-ins.
+ * The former entries ("comparison" / "Evolution" and "agreement-summary")
+ * were rewritten to be brand-agnostic — they derive their palette from the
+ * tenant's one-pager colors (resolvePalette), route all copy through
+ * scrubBrandDeep, and render a neutral/tenant header image instead of the
+ * bundled Dandy scanner (resolveOnePagerAssets). Both are available to every
+ * tenant alongside the other built-ins.
  *
- * The gating mechanism (the helpers below + the server-route checks) is kept
- * intact but dormant so a future template can be gated again by re-adding its
- * id here, without re-threading every call site.
+ * "roi" (July 2026): gated because it is Dandy UNIT ECONOMICS, not just copy —
+ * its headline metrics are computed from Dandy per-practice constants
+ * (appointments/chair-hours/revenue per location) and its proof pillars are
+ * real dental case studies with named customers and quotes. Scrubbing names
+ * would leave fabricated numbers attributed to another brand; there is no
+ * honest neutral default. Non-dental brands get the other four built-ins +
+ * custom templates.
  */
-export const DANDY_GATED_BUILTIN_IDS = [] as const satisfies readonly string[];
+export const DANDY_GATED_BUILTIN_IDS = ["roi"] as const satisfies readonly string[];
 export type DandyGatedBuiltinId = (typeof DANDY_GATED_BUILTIN_IDS)[number];
 
 /** True when the given built-in id is gated to Dandy-only tenants. */

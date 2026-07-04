@@ -362,7 +362,26 @@ export function analyzePaletteContrast(b?: BrandContext): PaletteContrastReport 
 
 function drawBrandLogo(doc: jsPDF, x: number, y: number, logoPng: string | null, w = 80, h = 28, wordmark = "dandy") {
   if (logoPng) {
-    try { doc.addImage(logoPng, "PNG", x, y, w, h); return; } catch { }
+    try {
+      // Fit the logo INSIDE the w×h box preserving its aspect ratio (contain),
+      // left-aligned and vertically centered. The old fixed-box addImage
+      // stretched every logo that wasn't ~80:28 — square-ish tenant logos
+      // rendered visibly squashed. Dandy keeps the legacy exact-box draw (its
+      // bundled wordmark was authored for it) so Dandy output is unchanged.
+      let dw = w, dh = h;
+      if (wordmark !== "dandy") {
+        try {
+          const props = doc.getImageProperties(logoPng);
+          if (props && props.width > 0 && props.height > 0) {
+            const r = Math.min(w / props.width, h / props.height);
+            dw = props.width * r;
+            dh = props.height * r;
+          }
+        } catch { /* unknown dimensions → legacy full-box draw */ }
+      }
+      doc.addImage(logoPng, "PNG", x, y + (h - dh) / 2, dw, dh);
+      return;
+    } catch { }
   }
   doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
@@ -968,6 +987,120 @@ export const defaultAudienceContent: Record<Audience, AudienceContent> = {
   },
 };
 
+/**
+ * True when the caller supplied a real non-Dandy brand. This is the SAME
+ * condition scrubBrand keys off (resolved productName !== "Dandy"), so legacy
+ * callers that pass no brand keep the original Dandy defaults byte-identical,
+ * and any tenant that flows a brand context through gets the neutral ones.
+ */
+export function isNeutralBrandContext(b?: BrandContext): boolean {
+  return resolveBrand(b).productName !== "Dandy";
+}
+
+// ── Neutral (industry-agnostic) default content ────────────────────────
+// The Dandy defaults above are DENTAL — "patient still in the chair",
+// "2-Appointment Dentures", CPD credits — and scrubBrand only swaps brand
+// TOKENS, not concepts. Every generator (and the one-pager editor) picks
+// these neutral sets instead when the brand context is non-Dandy, so a new
+// tenant's first render is generic B2B copy they can customize, never
+// another company's industry. Stats deliberately carry NO invented numbers:
+// placeholder rows tell the admin exactly where to put their own proof.
+
+export const neutralAudienceContent: Record<Audience, AudienceContent> = {
+  executive: {
+    subtitle: "Achieve quality, consistency, and control at scale.",
+    introText: "What to expect during this pilot: Over the next 90 days, we'll partner with your organization to onboard your teams, support adoption, and make sure the rollout runs smoothly at every location.",
+    features: [
+      { icon: "👥", title: "Onboarding and training", description: "No downtime needed. We handle setup, then get your teams up to speed fast with guided onboarding." },
+      { icon: "💬", title: "Real-time collaboration", description: "Your teams connect directly with our specialists in real time — questions answered while the work is happening." },
+      { icon: "🤖", title: "Built-in quality checks", description: "Every deliverable is reviewed against your standards automatically, reducing rework and surprises." },
+      { icon: "📊", title: "Pilot-level insights", description: "Aggregate reporting on utilization, adoption, and quality signals across every participating location." },
+      { icon: "📋", title: "Simple day-to-day management", description: "Track, manage, and review active work in one portal, with streamlined invoicing built in." },
+      { icon: "💰", title: "Exclusive pricing for your organization", description: "Contact the team below to access a product guide with approved pricing." },
+    ],
+  },
+  clinical: {
+    subtitle: "Give your hands-on teams smarter tools and seamless workflows.",
+    features: [
+      { icon: "💬", title: "Expert collaboration", description: "Your team can reach our specialists in seconds, or collaborate on complex work virtually." },
+      { icon: "🤖", title: "Built-in quality checks", description: "Automatic review of every submission catches issues early, reducing rework and turnaround surprises." },
+      { icon: "⚡", title: "Streamlined workflows", description: "Purpose-built digital workflows save your team time and create a better experience for the people they serve." },
+      { icon: "👥", title: "Onboarding and training", description: "No downtime needed. Get up to speed fast with guided onboarding and unlimited ongoing education." },
+    ],
+  },
+  "practice-manager": {
+    subtitle: "Reduce operational friction and administrative burden.",
+    checklist: [
+      "Attend an in-person or virtual onboarding session",
+      "Use the portal to track, manage, and review active work",
+      "Review pilot insights for an overview of performance",
+      "Check in with your teams to gather high-level feedback",
+    ],
+    features: [
+      { icon: "💰", title: "Invoicing made easy", description: "Our dashboard makes invoicing a simple and efficient process." },
+      { icon: "📊", title: "Insights at a glance", description: "Gain visibility into delivery dates, communication, and payments in one place." },
+      { icon: "💬", title: "Real-time communication", description: "Our specialists handle day-to-day communication, fielding questions and resolving issues fast." },
+      { icon: "👥", title: "Onboarding and training", description: "No downtime needed. We handle setup, then get your teams up to speed fast with guided onboarding." },
+    ],
+  },
+};
+
+export const NEUTRAL_PILOT_HEADLINE =
+  "See what a 90-day pilot can do for your organization. No long-term commitment needed.";
+
+export const neutralComparisonRows = [
+  { capability: "Quality & Consistency", then: "Greater variability across work", now: "Standardized quality control on every deliverable" },
+  { capability: "Speed to Launch", then: "Slow, manual ramp-up", now: "Guided onboarding gets teams productive in days" },
+  { capability: "Workflow & Coordination", then: "Manual coordination and back-and-forth", now: "Real-time support and one place to manage active work" },
+  { capability: "Predictability", then: "Less predictable timelines", now: "Consistent turnaround windows you can plan around" },
+  { capability: "Integration", then: "Disconnected tools and file handoffs", now: "Fully integrated digital workflow, end to end" },
+  { capability: "Support Structure", then: "General support model", now: "Dedicated account support with proactive visibility" },
+] as const;
+
+export const neutralComparisonStats = [
+  { value: "—", label: "Add a customer stat in the one-pager editor" },
+  { value: "—", label: "Add a customer stat in the one-pager editor" },
+  { value: "—", label: "Add a customer stat in the one-pager editor" },
+];
+
+export const neutralPartnerFeatures = [
+  { title: "Increase predictability", desc: "Get real-time expert guidance while the work is happening, for confident, accurate outcomes." },
+  { title: "Digitize every workflow", desc: "Purpose-built tools replace manual handoffs across your whole operation." },
+  { title: "Access state-of-the-art quality", desc: "Deliver consistent, high-quality results with digital precision and premium materials." },
+  { title: "Get your new partnership perks and preferred pricing", desc: "" },
+];
+
+export const neutralPartnerStats = [
+  { value: "—", desc: "Add a customer stat in the one-pager editor." },
+  { value: "—", desc: "Add a customer stat in the one-pager editor." },
+  { value: "—", desc: "Add a customer stat in the one-pager editor." },
+];
+
+/**
+ * Neutral Agreement Summary starting content for non-Dandy tenants — the
+ * Dandy default above bakes Dandy's real commercial terms ($2,000 minimum,
+ * $499 activation…), which must never be a stranger's starting point. Bodies
+ * are deliberately instructional: the admin replaces them in the editor.
+ */
+export const neutralAgreementSummaryContent: AgreementSummaryContent = {
+  ...defaultAgreementSummaryContent,
+  headline: "Summary of Agreement",
+  subheadline: "A simple, transparent summary of how our partnership works.",
+  sections: [
+    { label: "What's Included", body: "Describe what the partnership includes — software, hardware, services, and support." },
+    { label: "Pricing", body: "Summarize your pricing model: minimums, tiers, or usage — and the billing cadence." },
+    { label: "Getting Started", body: "Describe any setup or activation steps and what they cover." },
+    { label: "Cancellation", body: "Explain how cancellation works and what happens to any equipment or data." },
+    { label: "Billing", body: "Describe when invoices go out, accepted payment methods, and any fees." },
+    { label: "Training", body: "Summarize the training you provide and who on the customer's team it covers." },
+    { label: "Warranty", body: "State your warranty or service-level commitments." },
+    { label: "Terms", body: "Note anything else the customer should know, and where to find the full agreement." },
+  ],
+  footer: "For the full terms, please see your agreement.",
+  footerLinkText: "",
+  footerLinkUrl: "",
+};
+
 // ── Footer height slider ───────────────────────────────────────────────
 // The sales one-pager editor's "Footer Height" control saves
 // `footerCfg.height` (default FOOTER_HEIGHT_DEFAULT). Each template has its own
@@ -1136,7 +1269,9 @@ export const generatePilotOnePager = async (
   doc.setFontSize((bCfg.headlineFontSize as number | undefined) ?? 16);
   doc.setTextColor(...textDark);
   const headlineText = ((bCfg.headlineText as string | undefined) ?? "").trim()
-    || "Experience the world's most advanced dental lab for 90 days. No long-term commitment needed.";
+    || (isNeutralBrandContext(opts?.brand)
+      ? NEUTRAL_PILOT_HEADLINE
+      : "Experience the world's most advanced dental lab for 90 days. No long-term commitment needed.");
   const headlineLines = doc.splitTextToSize(
     scrubBrand(headlineText, opts?.brand),
     contentW
@@ -1230,23 +1365,33 @@ export const generatePilotOnePager = async (
     }
     y += rows * rowH + 4;
     if (audience === "clinical") {
-      const quoteShow = (bCfg.quoteShow as boolean | undefined) !== false;
+      // The built-in fallback quote is a real Dandy customer's dental
+      // testimonial (crowns, removables, Dr. Tania Arthur attribution) \u2014 it
+      // must never render for a non-Dandy brand. Neutral tenants only get a
+      // quote when the editor saved one, and never the Dandy attribution.
+      const savedQuote = ((bCfg.quoteText as string | undefined) ?? "").trim();
+      const pilotNeutral = isNeutralBrandContext(opts?.brand);
+      const quoteShow =
+        (bCfg.quoteShow as boolean | undefined) !== false &&
+        (savedQuote.length > 0 || !pilotNeutral);
       if (quoteShow) {
         y -= 20;
         drawSep(doc, margin, y, contentW, lineColor);
         y += 30;
         doc.setFont("helvetica", "bold"); doc.setFontSize(36); doc.setTextColor(...pal.accentOnDark);
         doc.text("\u201C", margin, y + 7);
-        const quoteText = (bCfg.quoteText as string | undefined) ?? `I've used ${b.labName} for the last two years for crowns, implant crowns, and removables, and their work is consistently excellent. The quality is outstanding and their customer service is even better. I wouldn't change this lab for any other.`;
+        const quoteText = savedQuote || `I've used ${b.labName} for the last two years for crowns, implant crowns, and removables, and their work is consistently excellent. The quality is outstanding and their customer service is even better. I wouldn't change this lab for any other.`;
         const quoteFontSize = (bCfg.quoteFontSize as number | undefined) ?? 9.5;
         doc.setFont("helvetica", "italic"); doc.setFontSize(quoteFontSize); doc.setTextColor(...textDark);
         const quoteLines = doc.splitTextToSize(quoteText, contentW - 30);
         doc.text(quoteLines, margin + 18, y);
         y += quoteLines.length * 13 + 8;
-        doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...textDark);
-        doc.text("Dr. Tania Arthur", margin + 18, y);
-        doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...textMuted);
-        doc.text("Dentist, Oasis Modern Dentistry, TX US", margin + 18, y + 12);
+        if (!pilotNeutral) {
+          doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(...textDark);
+          doc.text("Dr. Tania Arthur", margin + 18, y);
+          doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...textMuted);
+          doc.text("Dentist, Oasis Modern Dentistry, TX US", margin + 18, y + 12);
+        }
         y += 30;
       }
     }
@@ -1260,7 +1405,12 @@ export const generatePilotOnePager = async (
     doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize((tCfg.headingFontSize as number | undefined) ?? 13); doc.setTextColor(...textDark);
     doc.text("Your dedicated team", w / 2, y, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted);
-    doc.text("Meet your contacts for training, clinical support, and pilot check-ins.", w / 2, y + 15, { align: "center" });
+    doc.text(
+      isNeutralBrandContext(opts?.brand)
+        ? "Meet your contacts for training, support, and pilot check-ins."
+        : "Meet your contacts for training, clinical support, and pilot check-ins.",
+      w / 2, y + 15, { align: "center" },
+    );
     y += 44;
     const contactColW = contentW / Math.max(filteredContacts.length, 1);
     let maxContactBottom = y;
@@ -1375,15 +1525,18 @@ export const generateComparisonOnePager = async (
   const bCfg = opts?.layoutOverrides?.bodyCfg ?? {};
   const tCfg = opts?.layoutOverrides?.teamCfg ?? {};
   const fCfg = opts?.layoutOverrides?.footerCfg ?? {};
+  // Dental Dandy stats must never be a non-Dandy tenant's default rows/stats —
+  // scrubBrand swaps brand tokens, not dental concepts or survey numbers.
+  const neutral = isNeutralBrandContext(opts?.brand);
   const rawRows = (opts?.layoutOverrides?.comparisonRows?.length
     ? opts.layoutOverrides.comparisonRows
-    : defaultComparisonRows) as Array<{ capability: string; then: string; now: string }>;
+    : (neutral ? neutralComparisonRows : defaultComparisonRows)) as Array<{ capability: string; then: string; now: string }>;
   const activeRows = scrubBrandDeep(rawRows, opts?.brand);
   const b = resolveBrand(opts?.brand);
   const pal = resolvePalette(opts?.brand);
   const rawStats = (opts?.layoutOverrides?.stats?.length
     ? opts.layoutOverrides.stats
-    : defaultComparisonStats) as Array<{ value: string; label: string }>;
+    : (neutral ? neutralComparisonStats : defaultComparisonStats)) as Array<{ value: string; label: string }>;
   const stats = scrubBrandDeep(rawStats, opts?.brand);
 
   const logoPng = opts?.logoPng ?? null;
@@ -1441,7 +1594,12 @@ export const generateComparisonOnePager = async (
   doc.text("Stronger Systems.", margin + headingOffsetX, 90);
   doc.text("Better Outcomes.", margin + headingOffsetX, 90 + titleLineH);
   doc.setFont("helvetica", "normal"); doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 9.5); doc.setTextColor(...pal.onPrimaryMuted2);
-  const subLines = doc.splitTextToSize(`See how ${b.productName} has matured to deliver more consistent clinical performance across practices.`, splitX - margin - 20);
+  const subLines = doc.splitTextToSize(
+    neutral
+      ? `See how ${b.productName} has matured to deliver more consistent performance across teams.`
+      : `See how ${b.productName} has matured to deliver more consistent clinical performance across practices.`,
+    splitX - margin - 20,
+  );
   doc.text(subLines, margin, 90 + titleLineH * 2 + 8 + ((hCfg.subtitleOffsetY as number | undefined) ?? 0));
 
   let y = headerH + ((bCfg.compTableAboveSpacing as number | undefined) ?? 20);
@@ -1504,7 +1662,12 @@ export const generateComparisonOnePager = async (
     doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize((tCfg.headingFontSize as number | undefined) ?? 13); doc.setTextColor(...textDark);
     doc.text("Your dedicated team", w / 2, y, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted);
-    doc.text("Meet your contacts for training, clinical support, and check-ins.", w / 2, y + 15, { align: "center" });
+    doc.text(
+      isNeutralBrandContext(opts?.brand)
+        ? "Meet your contacts for training, support, and check-ins."
+        : "Meet your contacts for training, clinical support, and check-ins.",
+      w / 2, y + 15, { align: "center" },
+    );
     y += 39;
     const contactColW = contentW / Math.max(filteredContacts.length, 1);
     let maxContactBottom = y;
@@ -1631,11 +1794,19 @@ export const generateNewPartnerOnePager = async (
   const rawContent = opts?.content ?? {};
   // Scrub any Dandy literals out of caller-supplied content before use.
   const content = scrubBrandDeep(rawContent, opts?.brand);
-  const headline = content.headline ?? scrubBrand(`Unlock the Power of Digital Dentistry with ${b.productName}`, opts?.brand);
-  const introRaw = content.intro ?? scrubBrand(`As ${dsoName}'s newest preferred lab partner, ${b.productName} is here to help your practice thrive with the most advanced digital lab in the industry. Together, we're delivering smarter, faster, and more predictable outcomes—while elevating patient care and your bottom line.`, opts?.brand);
+  // Non-Dandy tenants start from the neutral partner set — the Dandy defaults
+  // are dental ("Digital Dentistry", prosthetics, chair-side guidance) and
+  // carry Dandy survey numbers that must never be attributed to another brand.
+  const partnerNeutral = isNeutralBrandContext(opts?.brand);
+  const headline = content.headline ?? (partnerNeutral
+    ? `Unlock the power of a smarter partnership with ${b.productName}`
+    : `Unlock the Power of Digital Dentistry with ${b.productName}`);
+  const introRaw = content.intro ?? (partnerNeutral
+    ? `As ${dsoName}'s newest preferred partner, ${b.productName} is here to help your organization thrive — delivering smarter, faster, and more predictable outcomes while elevating your customer experience and your bottom line.`
+    : scrubBrand(`As ${dsoName}'s newest preferred lab partner, ${b.productName} is here to help your practice thrive with the most advanced digital lab in the industry. Together, we're delivering smarter, faster, and more predictable outcomes—while elevating patient care and your bottom line.`, opts?.brand));
   const intro = introRaw.replace(/\{dso\}/g, dsoName).replace(/\{dsoName\}/g, dsoName);
-  const features = content.features ?? scrubBrandDeep(defaultPartnerFeatures, opts?.brand);
-  const stats = content.stats ?? scrubBrandDeep(defaultPartnerStats, opts?.brand);
+  const features = content.features ?? (partnerNeutral ? neutralPartnerFeatures : scrubBrandDeep(defaultPartnerFeatures, opts?.brand));
+  const stats = content.stats ?? (partnerNeutral ? neutralPartnerStats : scrubBrandDeep(defaultPartnerStats, opts?.brand));
   const footerLink = content.footerLink ?? (fCfg.link as string | undefined) ?? b.footerUrl;
   const savedQrUrl = (hCfg as Record<string, unknown>).partnerQrUrl as string | undefined ?? qrUrl;
 
@@ -1710,7 +1881,12 @@ export const generateNewPartnerOnePager = async (
   const titleWeight: "normal" | "bold" =
     (hCfg as Record<string, unknown>).boldHeading === false ? "normal" : "bold";
   doc.setFont(headerTitleFont, headerTitleStyle(titleWeight)); doc.setFontSize(titleFontSz); doc.setTextColor(...white);
-  const titleLines = doc.splitTextToSize("The Winning Combo for Predictable, Precise Dentistry", splitX - margin - 16);
+  const titleLines = doc.splitTextToSize(
+    partnerNeutral
+      ? "The Winning Combo for Predictable, Precise Results"
+      : "The Winning Combo for Predictable, Precise Dentistry",
+    splitX - margin - 16,
+  );
   doc.text(titleLines, margin + headingOffsetX, 65 + subtitleOffY + subtitleFontSize + 14);
 
   let y = headerH + 40;
@@ -1777,7 +1953,9 @@ export const generateNewPartnerOnePager = async (
   }
   y += 2 * (cardH + cardGap) + 28 + sectionExtra;
 
-  const testimonialsHeading = content.testimonialsHeading ?? scrubBrand(`See what ${b.productName} doctors are saying:`, opts?.brand);
+  const testimonialsHeading = content.testimonialsHeading ?? (partnerNeutral
+    ? `See what ${b.productName} customers are saying:`
+    : `See what ${b.productName} doctors are saying:`);
   doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize(16); doc.setTextColor(...pal.primaryOnLight);
   doc.text(testimonialsHeading, margin + offsetX, y);
   y += 28;
@@ -1813,7 +1991,12 @@ export const generateNewPartnerOnePager = async (
     doc.setFont(headingFont, headingStyle("bold")); doc.setFontSize((tCfg.headingFontSize as number | undefined) ?? 13); doc.setTextColor(...textDark);
     doc.text("Your dedicated team", w / 2, y, { align: "center" });
     doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...textMuted);
-    doc.text("Meet your contacts for training, clinical support, and check-ins.", w / 2, y + 15, { align: "center" });
+    doc.text(
+      isNeutralBrandContext(opts?.brand)
+        ? "Meet your contacts for training, support, and check-ins."
+        : "Meet your contacts for training, clinical support, and check-ins.",
+      w / 2, y + 15, { align: "center" },
+    );
     y += 39;
     const contactColW = contentW / Math.max(filteredContacts.length, 1);
     let maxContactBottom = y;
