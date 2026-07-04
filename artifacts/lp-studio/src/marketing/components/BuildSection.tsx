@@ -1,5 +1,9 @@
 import { motion, useScroll, useTransform, useMotionValueEvent, MotionValue } from "framer-motion";
 import lpLockup from "@assets/lp-lockup-horizontal-navy-depth-2048_1781934486001.png";
+// Charlotte's wide workspace illustration (2032\u00d7774 \u2248 the hero visual's
+// 2.6:1 crop — near-zero cropping, retina-sharp; JPEG q75, 249KB vs the
+// original 1.5MB PNG). Bundled so the homepage never fetches prod storage.
+import demoHeroWide from "@assets/lp-demo-hero-workspace-wide-2032.jpg";
 import { useEffect, useRef, useState, createContext, useContext, type ReactNode, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 
 // Lovable BuildSection ported verbatim from scroll-saga-lp. Only three
@@ -120,7 +124,7 @@ const PRESETS: Preset[] = [
     ctaSub: "Import your site — fonts, colors, and voice load in one scan.",
     ctaButton: "Import my brand \u2192",
     navCta: "Get started",
-    heroImage: "https://lpstudio.ai/api/storage/objects/uploads/b7e2ebd3-4bd9-4d41-a03e-73235e54bd3d",
+    heroImage: demoHeroWide,
     accent: "indigo",
     layout: "centered",
   },
