@@ -1617,7 +1617,7 @@ function BuilderShell({
       {/* Top toolbar */}
       <motion.div
         style={{ y: toolbarY, opacity: toolbarOpacity, pointerEvents }}
-        className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between rounded-t-3xl border-b border-black/[0.06] bg-white/80 px-5 py-2.5 backdrop-blur-xl"
+        className="absolute left-0 right-0 top-0 z-30 flex items-center justify-between rounded-t-3xl border-b border-black/[0.06] bg-white/80 px-5 py-2.5 backdrop-blur-xl"
       >
         <div className="flex items-center gap-3">
           <img src={lpLockup} alt="LP Studio" style={{ height: 15, width: "auto", display: "block" }} />
