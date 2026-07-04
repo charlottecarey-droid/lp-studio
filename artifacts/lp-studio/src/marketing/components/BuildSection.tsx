@@ -1323,16 +1323,20 @@ export function BuildSection() {
 
 const CURSOR_STOPS: { at: number; target: string }[] = [
   { at: 0.055, target: "headline" }, // fade in, gliding toward the headline
-  { at: 0.115, target: "headline" }, // arrive -> focus click, typing begins
+  { at: 0.104, target: "headline" }, // arrive -> rapid focus double-click
   { at: 0.46, target: "headline" },  // parked while the headline types out
   { at: 0.56, target: "cta" },       // glide to the primary CTA
   { at: 0.63, target: "cta" },       // dwell through the click
   { at: 0.9, target: "publish" },    // up into the chrome
   { at: 0.985, target: "publish" },
 ];
-/** [start, end] click-pulse windows: headline focus, CTA, Publish. */
+/** [start, end] click-pulse windows. The first two are a RAPID double-click
+ *  on the headline right before typing begins (deciding where the text area
+ *  is — Charlotte's beat); then the CTA click; then Publish. Narrow windows
+ *  = fast pulses relative to scroll. */
 const CURSOR_CLICKS: [number, number][] = [
-  [0.118, 0.155],
+  [0.106, 0.119],
+  [0.123, 0.136],
   [0.575, 0.625],
   [0.9, 0.95],
 ];
