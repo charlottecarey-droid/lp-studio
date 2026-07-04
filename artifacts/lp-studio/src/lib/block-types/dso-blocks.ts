@@ -955,7 +955,11 @@ export interface OnePagerHeroBlockProps {
   sideImageUrl?: string;
   phone?: string;
   accentColor?: string;
-  panelVariant?: "solid" | "diagonal" | "mesh";
+  /** Base color of the left panel (the colored hero band). Defaults to the
+   *  brand primary color. Also drives the right-side placeholder gradient and
+   *  auto-selects readable (dark/light) text so any color stays legible. */
+  panelColor?: string;
+  panelVariant?: "solid" | "diagonal" | "mesh" | "flat";
   /** When false, the main heading renders in a normal (400) weight instead of
    *  the default bold (700). Defaults to bold so existing pages are unchanged. */
   boldHeading?: boolean;

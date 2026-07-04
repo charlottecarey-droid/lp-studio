@@ -21,10 +21,12 @@ const PANEL_VARIANTS: { value: NonNullable<OnePagerHeroBlockProps["panelVariant"
   { value: "solid", label: "Radial" },
   { value: "diagonal", label: "Diagonal" },
   { value: "mesh", label: "Mesh" },
+  { value: "flat", label: "Flat" },
 ];
 
 export function OnePagerHeroPanel({ blockType, props, onChange, brandVoiceSet }: Props) {
   const accent = props.accentColor ?? LIME;
+  const panelColor = props.panelColor ?? "";
 
   return (
     <div className="space-y-4">
@@ -55,7 +57,7 @@ export function OnePagerHeroPanel({ blockType, props, onChange, brandVoiceSet }:
           })}
         />
         <p className="text-[11px] text-muted-foreground mt-1">
-          Large text shown in the green panel. Defaults to the partner name.
+          Large text shown in the colored panel. Defaults to the partner name.
         </p>
       </div>
 
@@ -130,7 +132,7 @@ export function OnePagerHeroPanel({ blockType, props, onChange, brandVoiceSet }:
           onSuggest={() => suggestCopy(blockType, "phone", props.phone ?? "", {})}
         />
         <p className="text-[11px] text-muted-foreground mt-1">
-          Shown at the bottom of the green panel. Leave blank to hide.
+          Shown at the bottom of the colored panel. Leave blank to hide.
         </p>
       </div>
 
@@ -153,6 +155,31 @@ export function OnePagerHeroPanel({ blockType, props, onChange, brandVoiceSet }:
         <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Panel Style</p>
 
         <div className="space-y-1.5">
+          <Label className="text-xs">Block color</Label>
+          <div className="flex items-center gap-2">
+            <div
+              className="w-8 h-8 rounded border border-border cursor-pointer shrink-0 overflow-hidden"
+              style={{ backgroundColor: panelColor || "#003B2D" }}
+            >
+              <input
+                type="color"
+                value={panelColor || "#003B2D"}
+                onChange={e => onChange({ ...props, panelColor: e.target.value })}
+                className="opacity-0 w-full h-full cursor-pointer"
+              />
+            </div>
+            <Input
+              value={panelColor}
+              onChange={e => onChange({ ...props, panelColor: e.target.value || undefined })}
+              className="h-7 text-xs font-mono flex-1"
+              placeholder="Brand default"
+            />
+          </div>
+          <BrandSwatches className="mt-1.5" current={props.panelColor} onPick={hex => onChange({ ...props, panelColor: hex })} />
+          <p className="text-[11px] text-muted-foreground">Base color of the panel. Leave blank to use your brand color. Text auto-switches to stay readable on light colors.</p>
+        </div>
+
+        <div className="space-y-1.5">
           <Label className="text-xs">Gradient</Label>
           <div className="flex gap-2">
             {PANEL_VARIANTS.map(({ value, label }) => (
@@ -169,6 +196,7 @@ export function OnePagerHeroPanel({ blockType, props, onChange, brandVoiceSet }:
               </button>
             ))}
           </div>
+          <p className="text-[11px] text-muted-foreground">Pick “Flat” to turn the gradient off and use a solid block color.</p>
         </div>
 
         <div className="space-y-1.5">

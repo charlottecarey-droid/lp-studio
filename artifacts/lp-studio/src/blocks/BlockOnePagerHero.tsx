@@ -1,5 +1,5 @@
 import type { OnePagerHeroBlockProps } from "@/lib/block-types";
-import { resolveOnePagerAssets, type BrandConfig } from "@/lib/brand-config";
+import { resolveOnePagerAssets, contrastTextColor, isValidHex, pickContrastingColor, type BrandConfig } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
 import { BrandLogo } from "@/components/BrandLogo";
 
@@ -77,6 +77,8 @@ function getPanelBackground(variant: string, primary: string, accent: string): s
   const darker = shade(primary, -0.55);
   const darkest = shade(primary, -0.82);
   switch (variant) {
+    case "flat":
+      return primary;
     case "mesh":
       return [
         `radial-gradient(ellipse 90% 70% at 10% 10%, ${rgba(lighter, 0.85)} 0%, transparent 60%)`,
@@ -109,9 +111,19 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
 
 export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
   const { partnerName, headline, subtitle, tagline, sideImageUrl, phone } = props;
-  const primary = brand?.primaryColor || "#003B2D";
+  const primary = props.panelColor || brand?.primaryColor || "#003B2D";
   const accent = props.accentColor ?? brand?.accentColor ?? LIME;
   const panelVariant = props.panelVariant ?? "solid";
+  // Auto-pick readable ink from the resolved panel color so a light block
+  // color (or a brand whose primary reads light) doesn't leave white text
+  // invisible — this is the "dark gradient doesn't work for all brands" fix.
+  const panelInk = contrastTextColor(isValidHex(primary) ? primary : "#003B2D");
+  const isDarkPanel = panelInk === "#ffffff";
+  const inkRgb = isDarkPanel ? "255, 255, 255" : "0, 0, 0";
+  // Keep the eyebrow legible on any panel color: honor the chosen accent, but
+  // fall back to the readable ink when the accent has too little contrast
+  // (e.g. a light accent on a light block color).
+  const eyebrowColor = pickContrastingColor(accent, isValidHex(primary) ? primary : "#003B2D", [panelInk], 3);
   const headingWeight = props.boldHeading === false ? 400 : 700;
   const displayHeadline = headline ?? partnerName;
   const logoUrl = resolveOnePagerAssets(brand).logoUrl;
@@ -139,42 +151,48 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
             overflow: "hidden",
           }}
         >
-          {/* Decorative orb — top right corner */}
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              top: "-60px",
-              right: "-60px",
-              width: 220,
-              height: 220,
-              borderRadius: "50%",
-              background: `radial-gradient(circle, ${rgba(shade(primary, 0.25), 0.35)} 0%, transparent 70%)`,
-              filter: "blur(32px)",
-              pointerEvents: "none",
-            }}
-          />
-          {/* Decorative orb — bottom left */}
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              bottom: "-40px",
-              left: "-40px",
-              width: 160,
-              height: 160,
-              borderRadius: "50%",
-              background: `radial-gradient(circle, ${rgba(shade(primary, -0.45), 0.4)} 0%, transparent 70%)`,
-              filter: "blur(24px)",
-              pointerEvents: "none",
-            }}
-          />
+          {/* Decorative orbs — hidden on the flat variant so "turn off the
+              gradient" yields a genuinely solid panel. */}
+          {panelVariant !== "flat" && (
+            <>
+              {/* Decorative orb — top right corner */}
+              <div
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  top: "-60px",
+                  right: "-60px",
+                  width: 220,
+                  height: 220,
+                  borderRadius: "50%",
+                  background: `radial-gradient(circle, ${rgba(shade(primary, 0.25), 0.35)} 0%, transparent 70%)`,
+                  filter: "blur(32px)",
+                  pointerEvents: "none",
+                }}
+              />
+              {/* Decorative orb — bottom left */}
+              <div
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  bottom: "-40px",
+                  left: "-40px",
+                  width: 160,
+                  height: 160,
+                  borderRadius: "50%",
+                  background: `radial-gradient(circle, ${rgba(shade(primary, -0.45), 0.4)} 0%, transparent 70%)`,
+                  filter: "blur(24px)",
+                  pointerEvents: "none",
+                }}
+              />
+            </>
+          )}
 
           {/* Logo — prefer the resolved one-pager logo image; fall back to a
               styled brand-name wordmark only when no logo asset exists. */}
           <div style={{ marginBottom: "2.5rem", position: "relative", zIndex: 1 }}>
             {logoUrl ? (
-              <BrandLogo brand={brand} url={logoUrl} tone="onPrimary" alt={brand?.brandName || "Logo"} className="h-7 w-auto" />
+              <BrandLogo brand={brand} url={logoUrl} tone={isDarkPanel ? "onDark" : "onLight"} autoContrast alt={brand?.brandName || "Logo"} className="h-7 w-auto" />
             ) : brand?.brandName ? (
               <span
                 style={{
@@ -182,7 +200,7 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
                   fontWeight: 700,
                   fontSize: "1.25rem",
                   letterSpacing: "-0.01em",
-                  color: "#fff",
+                  color: panelInk,
                 }}
               >
                 {brand.brandName}
@@ -211,7 +229,7 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
                   fontWeight: 600,
                   letterSpacing: "0.15em",
                   textTransform: "uppercase" as const,
-                  color: accent,
+                  color: eyebrowColor,
                   marginBottom: "1.25rem",
                   fontFamily: BODY,
                 }}
@@ -222,13 +240,13 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
               style={{
                 fontFamily: DISPLAY,
                 fontWeight: headingWeight,
-                color: "#fff",
+                color: panelInk,
                 lineHeight: 1.1,
                 letterSpacing: "-0.02em",
                 margin: 0,
               }}
             >
-              <InlineText as="span" value={displayHeadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ color: "#fff", fontFamily: DISPLAY, fontWeight: headingWeight }} />
+              <InlineText as="span" value={displayHeadline} onUpdate={onFieldChange ? (v) => onFieldChange({ ...props, headline: v }) : undefined} style={{ color: panelInk, fontFamily: DISPLAY, fontWeight: headingWeight }} />
             </h1>
 
             {subtitle !== undefined && (
@@ -239,7 +257,7 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
                 style={{
                   marginTop: "1.5rem",
                   fontSize: "1rem",
-                  color: "rgba(255,255,255,0.68)",
+                  color: `rgba(${inkRgb}, 0.68)`,
                   lineHeight: 1.7,
                   maxWidth: 400,
                   fontFamily: BODY,
@@ -258,7 +276,7 @@ export function BlockOnePagerHero({ props, brand, onFieldChange }: Props) {
               style={{
                 marginTop: "2.5rem",
                 fontSize: "0.875rem",
-                color: "rgba(255,255,255,0.45)",
+                color: `rgba(${inkRgb}, 0.45)`,
                 fontFamily: BODY,
                 position: "relative",
                 zIndex: 1,
