@@ -12,7 +12,7 @@ import { useAuth } from "@/context/AuthContext";
 
 interface NewLauncherProps {
   size?: "sm" | "default";
-  variant?: "default" | "outline";
+  variant?: "default" | "brand" | "outline";
   className?: string;
 }
 

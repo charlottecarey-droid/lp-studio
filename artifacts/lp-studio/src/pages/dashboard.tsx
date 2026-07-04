@@ -317,7 +317,7 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="shrink-0">
-            <NewLauncher size="sm" className="rounded-lg font-medium text-[13px] shadow-[0_10px_24px_-12px_hsl(var(--primary))]" />
+            <NewLauncher size="sm" variant="brand" className="rounded-lg font-medium text-[13px] shadow-[0_10px_24px_-12px_hsl(var(--primary))]" />
           </div>
         </div>
 
