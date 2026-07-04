@@ -619,7 +619,13 @@ export const generateAgreementSummaryOnePager = async (
   const logoPng = opts?.logoPng ?? null;
   const scannerPng = opts?.scannerPng ?? null;
 
-  const hasBagoss = ensureBagoss(doc);
+  // Heading face resolution, matching the other generators: a registered
+  // brand heading font (registerBrandFonts overrides the "Bagoss" face) wins;
+  // otherwise ONLY Dandy gets the bundled Bagoss. Everyone else falls back to
+  // helvetica bold — the old unconditional ensureBagoss() rendered Dandy's
+  // display font on every tenant's Agreement Summary headings.
+  const hasBrandHeading = !!(doc.getFontList?.() ?? {})["Bagoss"];
+  const hasBagoss = hasBrandHeading || (opts?.brand?.isDandy === true && ensureBagoss(doc));
   const headingFont = hasBagoss ? "Bagoss" : "helvetica";
   const headingStyle = hasBagoss ? "normal" : "bold";
   const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));

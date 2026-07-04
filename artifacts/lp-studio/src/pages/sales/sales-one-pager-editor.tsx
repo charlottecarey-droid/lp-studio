@@ -22,7 +22,8 @@ import {
   type AgreementContact,
 } from "./sales-one-pager";
 import { TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "./one-pager-custom-utils";
-import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, resolveOnePagerColors, type BrandConfig } from "@/lib/brand-config";
+import { fetchBrandConfig, saveBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, resolveOnePagerColors, resolveBrandPdfFonts, type BrandConfig } from "@/lib/brand-config";
+import { analyzePaletteContrast, type BrandPdfFonts } from "@workspace/one-pager-types/generators";
 import {
   isDandyGatedBuiltin,
   neutralAudienceContent,
@@ -318,23 +319,71 @@ export default function SalesOnePagerEditor() {
   const brandLabel = (brand.brandName || "").trim();
   // Resolve one-pager color overrides so the editor preview matches the
   // generated PDF and the web one-pager. Falls back to base brand colors.
+  // The Colors section below edits a LIVE draft over these; saving persists
+  // to Brand Settings (salesConsole.onePagerPrimaryColor/AccentColor) so the
+  // rep page and web one-pager pick up the same values.
   const onePagerColors = resolveOnePagerColors(brand);
-  const brandContext: BrandContext | undefined = isDandy ? undefined : {
+  const [colorDraft, setColorDraft] = useState<{ primary?: string; accent?: string }>({});
+  const effPrimaryColor = (colorDraft.primary ?? onePagerColors.primaryColor ?? "").trim();
+  const effAccentColor = (colorDraft.accent ?? onePagerColors.accentColor ?? "").trim();
+  const colorsDirty = colorDraft.primary !== undefined || colorDraft.accent !== undefined;
+
+  // Resolve the tenant's exact brand fonts (best-effort, non-Dandy only) so
+  // editor previews and downloads embed them — matching the rep page. Without
+  // this thread, headings rendered in the built-in faces even when the brand
+  // has a resolvable display font.
+  const [brandFonts, setBrandFonts] = useState<BrandPdfFonts | undefined>(undefined);
+  useEffect(() => {
+    if (!brandReady || isDandy) return;
+    let cancelled = false;
+    resolveBrandPdfFonts(brand).then(f => { if (!cancelled) setBrandFonts(f); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brandReady, isDandy, brand.displayFont, brand.bodyFont]);
+
+  // Dandy passes { isDandy: true } (not undefined) so the generators can gate
+  // the bundled Bagoss header face to Dandy only — mirrors the rep page.
+  const brandContext: BrandContext | undefined = isDandy ? { isDandy: true } : {
     wordmark: brandLabel.toLowerCase(),
-    productName: brandLabel || "Our Lab",
+    productName: brandLabel || "Our team",
     industryLabel: "Group",
-    labName: brandLabel || "Our Lab",
+    labName: brandLabel || "Our team",
     footerUrl: (brand.defaultCtaUrl && brand.defaultCtaUrl !== "#")
       ? brand.defaultCtaUrl.replace(/^https?:\/\//, "")
       : "",
     qrFallbackUrl: brandQrFallback || "",
-    agreementName: `${brandLabel || "Partner"} Practice Agreement`,
+    agreementName: `${brandLabel || "Partner"} Agreement`,
     agreementUrl: brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "",
     // Thread one-pager colors so the editor preview matches the rep's generated PDF.
-    primaryColor: (onePagerColors.primaryColor || "").trim(),
-    accentColor: (onePagerColors.accentColor || "").trim(),
+    primaryColor: effPrimaryColor,
+    accentColor: effAccentColor,
+    ...(brandFonts ? { fonts: brandFonts } : {}),
   };
   const oneAssets = resolveOnePagerAssets(brand);
+
+  // Persist the color draft to Brand Settings. Re-fetches the freshest config
+  // first so this narrow edit never clobbers concurrent Brand Settings changes
+  // beyond the two one-pager color fields.
+  const [savingColors, setSavingColors] = useState(false);
+  const handleSaveColors = async () => {
+    setSavingColors(true);
+    try {
+      const fresh = await fetchBrandConfig();
+      const salesConsole = {
+        ...(fresh.salesConsole ?? {}),
+        onePagerPrimaryColor: effPrimaryColor,
+        onePagerAccentColor: effAccentColor,
+      };
+      await saveBrandConfig({ ...fresh, salesConsole });
+      setBrand(prev => ({ ...prev, salesConsole: { ...(prev.salesConsole ?? {}), onePagerPrimaryColor: effPrimaryColor, onePagerAccentColor: effAccentColor } }));
+      setColorDraft({});
+      toast({ title: "Colors saved", description: "One-pager colors apply to every template, the generator page, and web one-pagers." });
+    } catch {
+      toast({ title: "Couldn't save colors", description: "Your session may have expired — try again.", variant: "destructive" });
+    } finally {
+      setSavingColors(false);
+    }
+  };
 
   // Brand-appropriate BASE content: Dandy keeps its original dental defaults;
   // every other tenant starts from the shared neutral set (scrubBrand swaps
@@ -537,7 +586,7 @@ export default function SalesOnePagerEditor() {
 
   // Collapsible sections
   const [openSections, setOpenSections] = useState({
-    header: true, body: false, content: true, team: false, footer: false, table: true, stats: false,
+    header: true, body: false, content: true, team: false, footer: false, table: true, stats: false, colors: false,
   });
   const toggle = (k: keyof typeof openSections) => setOpenSections(p => ({ ...p, [k]: !p[k] }));
 
@@ -870,7 +919,7 @@ export default function SalesOnePagerEditor() {
     // brand config resolves (brandContext is derived from them); otherwise a
     // tenant's first render shows unbranded/Dandy-default output until an unrelated
     // edit retriggers this effect.
-    brand, isDandy,
+    brand, isDandy, brandFonts, effPrimaryColor, effAccentColor,
     previewVisible, editorTemplate, audience, dsoName, numPractices,
     headerCfg, bodyCfg, teamCfg, footerCfg, audienceContent,
     comparisonRows, comparisonStats, partnerHeadline, partnerTestimonialsHeading, partnerIntro,
@@ -1251,6 +1300,63 @@ export default function SalesOnePagerEditor() {
 
               {/* Section panels */}
               <div className="space-y-3">
+
+                {/* ═══ COLORS (all templates; hidden for Dandy — its palette is fixed) ═══ */}
+                {!isDandy && (
+                  <EditorSection title="Colors" icon={<Palette className="w-4 h-4 text-muted-foreground" />} open={openSections.colors} onToggle={() => toggle("colors")}>
+                    <p className="text-[11px] text-muted-foreground -mt-1 mb-3">
+                      Bands, accents, and stat highlights across <span className="font-medium text-foreground">all</span> one-pager
+                      templates (PDF + web). Saved to Brand Settings → One-pager defaults.
+                    </p>
+                    {([
+                      { key: "primary" as const, label: "Primary (dark bands)", value: effPrimaryColor, brandFallback: (brand.primaryColor ?? "").trim() },
+                      { key: "accent" as const, label: "Accent (highlights)", value: effAccentColor, brandFallback: (brand.accentColor ?? "").trim() },
+                    ]).map(({ key, label, value, brandFallback }) => (
+                      <div key={key} className="flex items-center gap-2 mb-2.5">
+                        <span className="text-[11px] font-medium text-muted-foreground w-36 shrink-0">{label}</span>
+                        <input
+                          type="color"
+                          value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : "#888888"}
+                          onChange={e => setColorDraft(p => ({ ...p, [key]: e.target.value }))}
+                          className="h-8 w-10 shrink-0 cursor-pointer rounded border border-border bg-background p-0.5"
+                          aria-label={`${label} color picker`}
+                        />
+                        <input
+                          type="text"
+                          value={value}
+                          placeholder={brandFallback || "#0F3D2E"}
+                          onChange={e => setColorDraft(p => ({ ...p, [key]: e.target.value }))}
+                          className="h-8 w-28 rounded-md border border-border bg-background px-2 text-xs font-mono"
+                        />
+                        <button
+                          onClick={() => setColorDraft(p => ({ ...p, [key]: brandFallback }))}
+                          className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+                          title="Reset to the base brand color"
+                        >
+                          Use brand color
+                        </button>
+                      </div>
+                    ))}
+                    {(() => {
+                      const report = analyzePaletteContrast({ primaryColor: effPrimaryColor, accentColor: effAccentColor });
+                      const notes = [
+                        report.primaryDarkened ? "the primary is light, so PDF text derived from it will be auto-darkened for readability" : null,
+                        report.accentFallbackWhite ? "the accent has very low contrast on the primary band and will render as white" : report.accentLightened ? "the accent will be auto-lightened to stay readable on the primary band" : null,
+                      ].filter(Boolean);
+                      return notes.length > 0 ? (
+                        <p className="text-[11px] text-amber-600 mb-2">Heads up: {notes.join("; ")}.</p>
+                      ) : null;
+                    })()}
+                    <button
+                      onClick={handleSaveColors}
+                      disabled={savingColors || !colorsDirty}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                    >
+                      {savingColors ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                      Save colors
+                    </button>
+                  </EditorSection>
+                )}
 
                 {/* ═══ PILOT ═══ */}
                 {editorTemplate === "pilot" && (<>

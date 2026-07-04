@@ -99,10 +99,12 @@ const CASES: OnePagerCase[] = [
   {
     name: "Agreement Summary",
     render: (h) => generateAgreementSummaryOnePager({ ...defaultAgreementSummaryContent, ...h }),
-    // Headline + wordmark render in the embedded Bagoss face → glyph-encoded,
-    // so `text` reads back as "" but the Td position is still recoverable.
-    title: { x: 48, y: 662, text: "" },
-    logo: { x: 48, y: 732.16, text: "" },
+    // July 2026: the bundled Bagoss face is gated to callers passing
+    // brand.isDandy (matching the other four generators — real Dandy surfaces
+    // all pass it). A brand-less render like this one now uses helvetica, so
+    // the headline glyphs read back as text; the Td anchors are unchanged.
+    title: { x: 48, y: 662, text: "Summary of" },
+    logo: { x: 48, y: 732.16, text: "dandy" },
   },
   {
     name: "Pilot",
