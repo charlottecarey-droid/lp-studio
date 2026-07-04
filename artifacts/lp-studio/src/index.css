@@ -85,7 +85,10 @@
      OWN brand config (displayFont="Bagoss Standard" → getBrandStyleVars), so
      hardcoding Bagoss here would force every fontless tenant onto Dandy's
      heading face. */
-  --brand-font-display: var(--app-font-display);
+  /* Published-page fallback for tenants with no display font configured.
+     Deliberately DECOUPLED from --app-font-display (July 2026): app-chrome
+     font changes must never restyle customer pages. */
+  --brand-font-display: 'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   --brand-font-body: var(--app-font-sans);
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -118,9 +121,9 @@
   --popover-foreground: 262 21% 12%;
   --popover-border: 36 25% 89%;
 
-  /* Primary — confident indigo-violet (Linear/Vercel territory). Reads
-     premium without leaning lavender or feminine. */
-  --primary: 258 70% 54%;
+  /* Primary — the marketing site's deep indigo (#3C38B8), so the app and
+     lpstudio.ai read as one product. (Was a lighter indigo-violet.) */
+  --primary: 242 53% 47%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 36 25% 94%;
@@ -137,7 +140,7 @@
 
   --border: 36 25% 89%;
   --input: 36 25% 89%;
-  --ring: 258 70% 54%;
+  --ring: 242 53% 47%;
 
   /* Accent warm — coral spark, paired with violet primary. Used for the
      "live" pulse, positive deltas, and other small "alive" moments so
@@ -153,11 +156,11 @@
   --sidebar: 36 33% 97%;
   --sidebar-foreground: 262 8% 35%;
   --sidebar-border: 36 25% 89%;
-  --sidebar-primary: 258 70% 54%;
+  --sidebar-primary: 242 53% 47%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 258 60% 96%;
   --sidebar-accent-foreground: 258 70% 30%;
-  --sidebar-ring: 258 70% 54%;
+  --sidebar-ring: 242 53% 47%;
 
   /* Chart palette — muted, modern */
   --chart-1: 0 0% 15%;
@@ -167,9 +170,9 @@
   --chart-5: 0 72% 51%;
 
   --app-font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --app-font-display: 'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  --app-font-display: 'DM Sans', 'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   --app-font-mono: 'JetBrains Mono', ui-monospace, monospace;
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 
   --shadow-2xs: 0px 1px 2px 0px rgba(0,0,0, 0.03);
   --shadow-xs:  0px 1px 2px 0px rgba(0,0,0, 0.04);
@@ -208,7 +211,7 @@
   --popover-foreground: 0 0% 93%;
   --popover-border: 0 0% 15%;
 
-  --primary: 258 75% 65%;
+  --primary: 242 65% 66%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 0 0% 13%;
@@ -225,16 +228,16 @@
 
   --border: 0 0% 15%;
   --input: 0 0% 15%;
-  --ring: 258 75% 65%;
+  --ring: 242 65% 66%;
 
   --sidebar: 0 0% 4%;
   --sidebar-foreground: 0 0% 88%;
   --sidebar-border: 0 0% 12%;
-  --sidebar-primary: 258 75% 65%;
+  --sidebar-primary: 242 65% 66%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 258 40% 18%;
   --sidebar-accent-foreground: 258 80% 90%;
-  --sidebar-ring: 258 75% 65%;
+  --sidebar-ring: 242 65% 66%;
 
   --chart-1: 0 0% 80%;
   --chart-2: 262 60% 65%;
