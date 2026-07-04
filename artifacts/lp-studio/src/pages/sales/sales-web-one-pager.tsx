@@ -36,7 +36,9 @@ export default function SalesWebOnePager() {
   const [audience, setAudience] = useState<Audience>("executive");
   const [sideImageUrl, setSideImageUrl] = useState("");
   const [phone, setPhone] = useState("");
-  const [ctaUrl, setCtaUrl] = useState("https://meetdandy.com/dso");
+  // Empty default: the server resolves the CTA from the tenant's brand config
+  // (chilipiper → defaultCtaUrl) — never a hardcoded meetdandy.com URL.
+  const [ctaUrl, setCtaUrl] = useState("");
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [showTeam, setShowTeam] = useState(false);
   const [generating, setGenerating] = useState(false);

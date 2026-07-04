@@ -17,6 +17,7 @@ import {
   generateROIOnePager as sharedGenerateROIOnePager,
   generateAgreementSummaryOnePager as sharedGenerateAgreementSummaryOnePager,
   defaultAudienceContent as sharedDefaultAudienceContent,
+  neutralAudienceContent as sharedNeutralAudienceContent,
   defaultAgreementSummaryContent as sharedDefaultAgreementSummaryContent,
   type Audience,
   type TeamContact,
@@ -132,12 +133,26 @@ const loadImageAsBase64 = (src: string, format: "image/jpeg" | "image/png" = "im
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
+      // SVGs without width/height attributes report 0×0 in some browsers —
+      // a 0×0 canvas makes toDataURL throw, the catch() nulls the logo, and
+      // the PDF silently falls back to the text wordmark ("my logo doesn't
+      // render"). Rasterize dimension-less SVGs at a print-safe size, and
+      // upscale small SVGs (vector → free detail) so PDF logos stay crisp.
+      const isSvg = /\.svg(\?|#|$)/i.test(src) || src.startsWith("data:image/svg");
+      let w = img.naturalWidth || img.width;
+      let h = img.naturalHeight || img.height;
+      if (!w || !h) { w = 800; h = 320; }
+      const scale = isSvg ? Math.max(1, Math.min(8, 800 / w)) : 1;
       const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
+      canvas.width = Math.round(w * scale);
+      canvas.height = Math.round(h * scale);
       const ctx = canvas.getContext("2d");
-      ctx?.drawImage(img, 0, 0);
-      resolve(canvas.toDataURL(format));
+      ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+      try {
+        resolve(canvas.toDataURL(format));
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error("canvas export failed"));
+      }
     };
     img.onerror = reject;
     img.src = src;
@@ -479,7 +494,13 @@ const SalesOnePager = () => {
   // Task #342 — fetch tenant brand so the page (and downstream filenames)
   // scrub Dandy-only copy for non-Dandy tenants.
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
-  useEffect(() => { fetchBrandConfig().then(setBrand).catch(() => {}); }, []);
+  // brandReady gates content seeding: the base copy set (Dandy dental vs
+  // neutral) can only be picked once we know which tenant this is. On fetch
+  // failure the flag still flips (fail NEUTRAL — never dental for a stranger).
+  const [brandReady, setBrandReady] = useState(false);
+  useEffect(() => {
+    fetchBrandConfig().then(setBrand).catch(() => {}).finally(() => setBrandReady(true));
+  }, []);
   // Detect Dandy via the server-authoritative `isDandy` flag (resolved from the
   // immutable tenant slug), NOT the editable `brandName` — so a non-Dandy admin
   // renaming their brand to "Dandy" can't unlock the gated built-ins in the
@@ -507,14 +528,14 @@ const SalesOnePager = () => {
   const onePagerColors = resolveOnePagerColors(brand);
   const brandContext: BrandContext | undefined = isDandy ? undefined : {
     wordmark: brandLabel.toLowerCase(),
-    productName: brandLabel || "Our Lab",
+    productName: brandLabel || "Our team",
     industryLabel: "Group",
-    labName: brandLabel || "Our Lab",
+    labName: brandLabel || "Our team",
     footerUrl: (brand.defaultCtaUrl && brand.defaultCtaUrl !== "#")
       ? brand.defaultCtaUrl.replace(/^https?:\/\//, "")
       : "",
     qrFallbackUrl: brandQrFallback || "",
-    agreementName: `${brandLabel || "Partner"} Practice Agreement`,
+    agreementName: `${brandLabel || "Partner"} Agreement`,
     agreementUrl: brand.defaultCtaUrl && brand.defaultCtaUrl !== "#" ? brand.defaultCtaUrl : "",
     // Thread the tenant's one-pager colors so the shared generators derive their
     // dark bands / accents from these instead of Dandy's green/lime. Dandy
@@ -529,6 +550,13 @@ const SalesOnePager = () => {
   const [generating, setGenerating] = useState(false);
   const [template, setTemplate] = useState<Template>("roi");
   const [audience, setAudience] = useState<Audience>("executive");
+  // The default template ("roi") is Dandy-gated — once the brand resolves
+  // non-Dandy, bounce off any gated selection to the first available built-in
+  // so the page never renders a template the tenant can't generate.
+  useEffect(() => {
+    if (!brandReady || isDandy) return;
+    setTemplate(t => (isDandyGatedBuiltin(t) ? "new-partner" : t));
+  }, [brandReady, isDandy]);
   // Templates whose web one-pager layout the server route can build. Keep in
   // sync with the `isPartner`/pilot branches in api-server web-one-pager.ts.
   const supportsWebLink =
@@ -724,23 +752,32 @@ const SalesOnePager = () => {
         .catch(() => { });
     }
     loadCustomTemplates();
-    // Seed editedContent from saved template-editor audienceContent so custom
-    // subtitles, intro text, and feature copy from the editor flow into generated PDFs.
-    loadLayoutDefault("dandy_pilot_template_layout").then(saved => {
-      if (saved?.audienceContent && typeof saved.audienceContent === "object") {
-        setEditedContent(prev => {
-          const updated = { ...prev };
+  }, [loadCustomTemplates]);
+
+  // Seed editedContent once the brand resolves: the BASE copy set is
+  // brand-dependent (Dandy keeps its dental defaults; every other tenant gets
+  // the neutral set — scrubBrand swaps brand tokens, not dental concepts), and
+  // saved template-editor audienceContent merges on top so admin-customized
+  // subtitles, intro text, and feature copy still flow into generated PDFs.
+  useEffect(() => {
+    if (!brandReady) return;
+    const base: Record<Audience, LPAudienceContent> = JSON.parse(
+      JSON.stringify(isDandy ? sharedDefaultAudienceContent : sharedNeutralAudienceContent),
+    );
+    loadLayoutDefault("dandy_pilot_template_layout")
+      .then(saved => {
+        if (saved?.audienceContent && typeof saved.audienceContent === "object") {
           for (const aud of ["executive", "clinical", "practice-manager"] as Audience[]) {
             const savedAud = (saved.audienceContent as Record<string, unknown>)[aud];
             if (savedAud && typeof savedAud === "object") {
-              updated[aud] = { ...prev[aud], ...savedAud as object };
+              base[aud] = { ...base[aud], ...savedAud as object };
             }
           }
-          return updated;
-        });
-      }
-    }).catch(() => {});
-  }, [loadCustomTemplates]);
+        }
+        setEditedContent(base);
+      })
+      .catch(() => setEditedContent(base));
+  }, [brandReady, isDandy]);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1073,7 +1110,7 @@ const SalesOnePager = () => {
 
           <div className={`flex flex-wrap items-center justify-center gap-3 mb-8 transition-opacity duration-150 ${visibilityLoaded ? "opacity-100" : "opacity-0"}`}>
             <div className="inline-flex rounded-full border border-border overflow-hidden flex-wrap">
-              {!deletedBuiltins["roi"] && templateVisibility["roi"] !== false && (
+              {(isDandy || !isDandyGatedBuiltin("roi")) && !deletedBuiltins["roi"] && templateVisibility["roi"] !== false && (
                 <button
                   onClick={() => { setTemplate("roi"); setSelectedCustomId(null); }}
                   className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${template === "roi" && selectedCustomId === null ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}
@@ -1086,7 +1123,7 @@ const SalesOnePager = () => {
                   onClick={() => { setTemplate("new-partner"); setSelectedCustomId(null); }}
                   className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${template === "new-partner" && selectedCustomId === null ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}
                 >
-                  Partner Practices
+                  {isDandy ? "Partner Practices" : "New Partner"}
                 </button>
               )}
               {!deletedBuiltins["partner2"] && templateVisibility["partner2"] !== false && (
@@ -1140,7 +1177,9 @@ const SalesOnePager = () => {
                     onClick={() => setAudience(a)}
                     className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${audience === a ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}
                   >
-                    {a === "practice-manager" ? "Practice Mgr" : a.charAt(0).toUpperCase() + a.slice(1)}
+                    {isDandy
+                      ? (a === "practice-manager" ? "Practice Mgr" : a.charAt(0).toUpperCase() + a.slice(1))
+                      : (a === "practice-manager" ? "Operations" : a === "clinical" ? "Team" : "Executive")}
                   </button>
                 ))}
               </div>

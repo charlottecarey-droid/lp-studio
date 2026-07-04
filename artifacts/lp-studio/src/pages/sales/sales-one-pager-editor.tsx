@@ -23,7 +23,17 @@ import {
 } from "./sales-one-pager";
 import { TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY } from "./one-pager-custom-utils";
 import { fetchBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, resolveOnePagerColors, type BrandConfig } from "@/lib/brand-config";
-import { isDandyGatedBuiltin, type BrandContext } from "@workspace/one-pager-types";
+import {
+  isDandyGatedBuiltin,
+  neutralAudienceContent,
+  NEUTRAL_PILOT_HEADLINE,
+  neutralComparisonRows,
+  neutralComparisonStats,
+  neutralPartnerFeatures,
+  neutralPartnerStats,
+  neutralAgreementSummaryContent,
+  type BrandContext,
+} from "@workspace/one-pager-types";
 import { AgreementNumbersEditor } from "./agreement-numbers-editor";
 
 // ── API helpers (mirrors sales-one-pager.tsx) ──────────────────────
@@ -288,7 +298,13 @@ export default function SalesOnePagerEditor() {
   // Task #342 — fetch tenant brand so the editor previews/downloads scrub
   // Dandy-only copy for non-Dandy tenants (mirrors sales-one-pager.tsx).
   const [brand, setBrand] = useState<BrandConfig>(DEFAULT_BRAND);
-  useEffect(() => { fetchBrandConfig().then(setBrand).catch(() => {}); }, []);
+  // brandReady gates the initial content load: the base copy set (Dandy dental
+  // vs neutral) is only known once the brand resolves. Fetch failure still
+  // flips the flag — DEFAULT_BRAND is non-Dandy, so the editor fails NEUTRAL.
+  const [brandReady, setBrandReady] = useState(false);
+  useEffect(() => {
+    fetchBrandConfig().then(setBrand).catch(() => {}).finally(() => setBrandReady(true));
+  }, []);
   // Detect Dandy via the server-authoritative `isDandy` flag (resolved from the
   // immutable tenant slug), NOT the editable `brandName` — so a non-Dandy
   // tenant can never unlock the Dandy-only built-in templates by renaming.
@@ -319,6 +335,42 @@ export default function SalesOnePagerEditor() {
     accentColor: (onePagerColors.accentColor || "").trim(),
   };
   const oneAssets = resolveOnePagerAssets(brand);
+
+  // Brand-appropriate BASE content: Dandy keeps its original dental defaults;
+  // every other tenant starts from the shared neutral set (scrubBrand swaps
+  // brand tokens, not dental concepts like "dentures" or "chair time"). The
+  // customer quote defaults OFF for non-Dandy — a placeholder quote in a real
+  // PDF is worse than none; admins enable it and write their own.
+  const brandName = brandLabel || "us";
+  const contentDefaults = isDandy
+    ? {
+        audienceContent: defaultAudienceContent,
+        bodyConfig: defaultBodyConfig,
+        footerConfig: defaultFooterConfig,
+        comparisonRows: defaultComparisonRows,
+        comparisonStats: defaultComparisonStats,
+        partnerHeadline: defaultPartnerHeadline,
+        partnerTestimonialsHeading: defaultPartnerTestimonialsHeading,
+        partnerIntro: defaultPartnerIntro,
+        partnerFeatures: defaultPartnerFeatures,
+        partnerStats: defaultPartnerStats,
+        agreement: defaultAgreementSummaryContent,
+      }
+    : {
+        audienceContent: neutralAudienceContent,
+        bodyConfig: { ...defaultBodyConfig, headlineText: NEUTRAL_PILOT_HEADLINE, quoteShow: false, quoteText: "" },
+        footerConfig: { ...defaultFooterConfig, link: brandContext?.footerUrl || "" },
+        comparisonRows: neutralComparisonRows,
+        comparisonStats: neutralComparisonStats,
+        partnerHeadline: `Unlock the power of a smarter partnership with ${brandName}`,
+        partnerTestimonialsHeading: `See what ${brandName} customers are saying:`,
+        partnerIntro: `As {dso}'s newest preferred partner, ${brandName} is here to help your organization thrive — delivering smarter, faster, and more predictable outcomes while elevating your customer experience and your bottom line.`,
+        partnerFeatures: neutralPartnerFeatures,
+        partnerStats: neutralPartnerStats,
+        agreement: neutralAgreementSummaryContent,
+      };
+  const contentDefaultsRef = useRef(contentDefaults);
+  contentDefaultsRef.current = contentDefaults;
 
   const [editorTemplate, setEditorTemplate] = useState<EditorTemplate>("pilot");
   const [audience, setAudience] = useState<Audience>("executive");
@@ -493,6 +545,9 @@ export default function SalesOnePagerEditor() {
 
   // ── Load saved defaults on mount + template switch ────────────────
   const loadDefaults = useCallback(async (tmpl: EditorTemplate) => {
+    // Brand-appropriate base copy (Dandy dental vs neutral) — read through a
+    // ref so this callback doesn't have to re-create on every brand render.
+    const base = contentDefaultsRef.current;
     if (tmpl === "pilot") {
       const audienceKeyMap: Record<Audience, string> = {
         executive: "dandy_pilot_executive_layout",
@@ -503,14 +558,19 @@ export default function SalesOnePagerEditor() {
       const shared = await loadLayoutDefault("dandy_pilot_template_layout");
       const sharedData = shared ?? {};
       if (sharedData.teamCfg) setTeamCfg(p => ({ ...p, ...sharedData.teamCfg }));
-      if (sharedData.footerCfg) setFooterCfg(p => ({ ...p, ...sharedData.footerCfg }));
-      if (sharedData.audienceContent) setAudienceContent((p: typeof defaultAudienceContent) => ({ ...p, ...sharedData.audienceContent }));
+      // Content states seed from the brand base, then saved data merges over —
+      // never leave the module-scope Dandy useState() seeds in place.
+      setFooterCfg({ ...base.footerConfig, ...(sharedData.footerCfg ?? {}) });
+      setAudienceContent({
+        ...JSON.parse(JSON.stringify(base.audienceContent)),
+        ...(sharedData.audienceContent ?? {}),
+      });
       // Legacy: bodyCfg in shared key → seed all three audiences
       if (sharedData.bodyCfg) {
         setAudienceBodyCfgs({
-          executive: { ...defaultBodyConfig, ...sharedData.bodyCfg },
-          clinical: { ...defaultBodyConfig, ...sharedData.bodyCfg },
-          "practice-manager": { ...defaultBodyConfig, ...sharedData.bodyCfg },
+          executive: { ...base.bodyConfig, ...sharedData.bodyCfg },
+          clinical: { ...base.bodyConfig, ...sharedData.bodyCfg },
+          "practice-manager": { ...base.bodyConfig, ...sharedData.bodyCfg },
         });
       }
 
@@ -523,9 +583,9 @@ export default function SalesOnePagerEditor() {
         "practice-manager": { ...defaultHeaderConfig, ...sharedHeaderBase },
       };
       const newBodyCfgs: Record<Audience, BodyConfig> = {
-        executive: { ...defaultBodyConfig },
-        clinical: { ...defaultBodyConfig },
-        "practice-manager": { ...defaultBodyConfig },
+        executive: { ...base.bodyConfig },
+        clinical: { ...base.bodyConfig },
+        "practice-manager": { ...base.bodyConfig },
       };
       for (const aud of (["executive", "clinical", "practice-manager"] as Audience[])) {
         const saved = await loadLayoutDefault(audienceKeyMap[aud]);
@@ -536,7 +596,7 @@ export default function SalesOnePagerEditor() {
           newHeaderCfgs[aud] = { ...newHeaderCfgs[aud], headerImage: legacyImages[aud] };
         }
         if (saved?.bodyCfg) {
-          newBodyCfgs[aud] = { ...defaultBodyConfig, ...saved.bodyCfg };
+          newBodyCfgs[aud] = { ...base.bodyConfig, ...saved.bodyCfg };
         }
       }
       setAudienceHeaderCfgs(newHeaderCfgs);
@@ -561,34 +621,36 @@ export default function SalesOnePagerEditor() {
     }
 
     if (tmpl === "agreement-summary") {
-      // Reset to defaults first so switching tabs always starts clean
-      setAgreementHeadline(defaultAgreementSummaryContent.headline);
-      setAgreementSubheadline(defaultAgreementSummaryContent.subheadline);
-      setAgreementFooter(defaultAgreementSummaryContent.footer);
-      setAgreementSections(JSON.parse(JSON.stringify(defaultAgreementSummaryContent.sections)));
-      setAgreementHeadlineFontSize(defaultAgreementSummaryContent.headlineFontSize ?? 46);
-      setAgreementSubheadlineFontSize(defaultAgreementSummaryContent.subheadlineFontSize ?? 13);
-      setAgreementSectionLabelFontSize(defaultAgreementSummaryContent.sectionLabelFontSize ?? 15);
-      setAgreementSectionBodyFontSize(defaultAgreementSummaryContent.sectionBodyFontSize ?? 9.5);
-      setAgreementFooterFontSize(defaultAgreementSummaryContent.footerFontSize ?? 11);
-      setAgreementFooterContacts(JSON.parse(JSON.stringify(defaultAgreementSummaryContent.footerContacts ?? [])));
-      setAgreementHeaderHeight(defaultAgreementSummaryContent.headerHeight ?? 290);
-      setAgreementFooterHeight(defaultAgreementSummaryContent.footerHeight ?? 56);
-      setAgreementHeadlineOffsetX(defaultAgreementSummaryContent.headlineOffsetX ?? 0);
-      setAgreementHeadlineOffsetY(defaultAgreementSummaryContent.headlineOffsetY ?? 0);
-      setAgreementSubheadlineOffsetX(defaultAgreementSummaryContent.subheadlineOffsetX ?? 0);
-      setAgreementSubheadlineOffsetY(defaultAgreementSummaryContent.subheadlineOffsetY ?? 0);
-      setAgreementSectionsOffsetY(defaultAgreementSummaryContent.sectionsOffsetY ?? 0);
-      setAgreementSectionRowGap(defaultAgreementSummaryContent.sectionRowGap ?? 16);
-      setAgreementHeadlineMaxWidthPct(defaultAgreementSummaryContent.headlineMaxWidthPct ?? 58);
-      setAgreementLogoWidth(defaultAgreementSummaryContent.logoWidth ?? 78);
-      setAgreementHeadingOffsetX(defaultAgreementSummaryContent.headingOffsetX ?? 0);
-      setAgreementLogoGroupOffsetX(defaultAgreementSummaryContent.logoGroupOffsetX ?? 0);
-      setAgreementLogoGroupOffsetY(defaultAgreementSummaryContent.logoGroupOffsetY ?? 0);
-      setAgreementShowDividers(defaultAgreementSummaryContent.showSectionDividers !== false);
-      setAgreementFooterLinkText(defaultAgreementSummaryContent.footerLinkText ?? "");
-      setAgreementFooterLinkUrl(defaultAgreementSummaryContent.footerLinkUrl ?? "");
-      setAgreementHeaderImage(defaultAgreementSummaryContent.headerImage ?? null);
+      // Reset to the brand-appropriate defaults first so switching tabs always
+      // starts clean (Dandy: its real terms; everyone else: neutral prompts).
+      const agr = base.agreement;
+      setAgreementHeadline(agr.headline);
+      setAgreementSubheadline(agr.subheadline);
+      setAgreementFooter(agr.footer);
+      setAgreementSections(JSON.parse(JSON.stringify(agr.sections)));
+      setAgreementHeadlineFontSize(agr.headlineFontSize ?? 46);
+      setAgreementSubheadlineFontSize(agr.subheadlineFontSize ?? 13);
+      setAgreementSectionLabelFontSize(agr.sectionLabelFontSize ?? 15);
+      setAgreementSectionBodyFontSize(agr.sectionBodyFontSize ?? 9.5);
+      setAgreementFooterFontSize(agr.footerFontSize ?? 11);
+      setAgreementFooterContacts(JSON.parse(JSON.stringify(agr.footerContacts ?? [])));
+      setAgreementHeaderHeight(agr.headerHeight ?? 290);
+      setAgreementFooterHeight(agr.footerHeight ?? 56);
+      setAgreementHeadlineOffsetX(agr.headlineOffsetX ?? 0);
+      setAgreementHeadlineOffsetY(agr.headlineOffsetY ?? 0);
+      setAgreementSubheadlineOffsetX(agr.subheadlineOffsetX ?? 0);
+      setAgreementSubheadlineOffsetY(agr.subheadlineOffsetY ?? 0);
+      setAgreementSectionsOffsetY(agr.sectionsOffsetY ?? 0);
+      setAgreementSectionRowGap(agr.sectionRowGap ?? 16);
+      setAgreementHeadlineMaxWidthPct(agr.headlineMaxWidthPct ?? 58);
+      setAgreementLogoWidth(agr.logoWidth ?? 78);
+      setAgreementHeadingOffsetX(agr.headingOffsetX ?? 0);
+      setAgreementLogoGroupOffsetX(agr.logoGroupOffsetX ?? 0);
+      setAgreementLogoGroupOffsetY(agr.logoGroupOffsetY ?? 0);
+      setAgreementShowDividers(agr.showSectionDividers !== false);
+      setAgreementFooterLinkText(agr.footerLinkText ?? "");
+      setAgreementFooterLinkUrl(agr.footerLinkUrl ?? "");
+      setAgreementHeaderImage(agr.headerImage ?? null);
       const saved = await loadLayoutDefault("dandy_agreement_summary_template_layout");
       if (saved) {
         if (typeof saved.headline === "string") setAgreementHeadline(saved.headline);
@@ -631,6 +693,26 @@ export default function SalesOnePagerEditor() {
     };
     const key = keyMap[tmpl];
     if (!key) return;
+
+    // Seed content states from the brand base FIRST — the useState() seeds are
+    // the module-scope Dandy defaults, which must never survive for a
+    // non-Dandy tenant even when nothing is saved yet.
+    if (tmpl === "comparison") {
+      setComparisonRows(JSON.parse(JSON.stringify(base.comparisonRows)));
+      setComparisonStats(JSON.parse(JSON.stringify(base.comparisonStats)));
+      setSharedBodyCfg({ ...base.bodyConfig });
+      setFooterCfg({ ...base.footerConfig });
+    }
+    if (tmpl === "partner") {
+      setPartnerHeadline(base.partnerHeadline);
+      setPartnerTestimonialsHeading(base.partnerTestimonialsHeading);
+      setPartnerIntro(base.partnerIntro);
+      setPartnerFeatures(JSON.parse(JSON.stringify(base.partnerFeatures)));
+      setPartnerStats(JSON.parse(JSON.stringify(base.partnerStats)));
+      setSharedBodyCfg({ ...base.bodyConfig });
+      setFooterCfg({ ...base.footerConfig });
+    }
+
     const saved = await loadLayoutDefault(key);
     if (!saved) return;
 
@@ -653,7 +735,13 @@ export default function SalesOnePagerEditor() {
     }
   }, [audience]);
 
-  useEffect(() => { loadDefaults(editorTemplate); }, [editorTemplate]);
+  // Waits for the brand to resolve so loadDefaults seeds the right base copy —
+  // and re-runs if the flag flips after the first template render.
+  useEffect(() => {
+    if (!brandReady) return;
+    loadDefaults(editorTemplate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorTemplate, brandReady]);
 
   // Load built-in template visibility / deletions so this editor mirrors what
   // sales reps actually see on the generator page. Toggling a built-in off in
@@ -886,42 +974,46 @@ export default function SalesOnePagerEditor() {
   };
 
   // ── Reset to defaults ─────────────────────────────────────────────
+  // Resets to the BRAND-appropriate defaults (Dandy: original copy; everyone
+  // else: neutral) so a non-Dandy admin's "Reset" never resurrects dental copy.
   const handleReset = () => {
+    const base = contentDefaultsRef.current;
     setHeaderCfg({ ...defaultHeaderConfig });
-    setBodyCfg({ ...defaultBodyConfig });
+    setBodyCfg({ ...base.bodyConfig });
     setTeamCfg({ ...defaultTeamConfig });
-    setFooterCfg({ ...defaultFooterConfig });
-    if (editorTemplate === "pilot") setAudienceContent(JSON.parse(JSON.stringify(defaultAudienceContent)));
-    if (editorTemplate === "comparison") { setComparisonRows(JSON.parse(JSON.stringify(defaultComparisonRows))); setComparisonStats(JSON.parse(JSON.stringify(defaultComparisonStats))); }
-    if (editorTemplate === "partner") { setPartnerHeadline(defaultPartnerHeadline); setPartnerTestimonialsHeading(defaultPartnerTestimonialsHeading); setPartnerIntro(defaultPartnerIntro); setPartnerFeatures(JSON.parse(JSON.stringify(defaultPartnerFeatures))); setPartnerStats(JSON.parse(JSON.stringify(defaultPartnerStats))); }
+    setFooterCfg({ ...base.footerConfig });
+    if (editorTemplate === "pilot") setAudienceContent(JSON.parse(JSON.stringify(base.audienceContent)));
+    if (editorTemplate === "comparison") { setComparisonRows(JSON.parse(JSON.stringify(base.comparisonRows))); setComparisonStats(JSON.parse(JSON.stringify(base.comparisonStats))); }
+    if (editorTemplate === "partner") { setPartnerHeadline(base.partnerHeadline); setPartnerTestimonialsHeading(base.partnerTestimonialsHeading); setPartnerIntro(base.partnerIntro); setPartnerFeatures(JSON.parse(JSON.stringify(base.partnerFeatures))); setPartnerStats(JSON.parse(JSON.stringify(base.partnerStats))); }
     if (editorTemplate === "agreement-summary") {
-      setAgreementHeadline(defaultAgreementSummaryContent.headline);
-      setAgreementSubheadline(defaultAgreementSummaryContent.subheadline);
-      setAgreementFooter(defaultAgreementSummaryContent.footer);
-      setAgreementSections(JSON.parse(JSON.stringify(defaultAgreementSummaryContent.sections)));
-      setAgreementHeadlineFontSize(defaultAgreementSummaryContent.headlineFontSize ?? 46);
-      setAgreementSubheadlineFontSize(defaultAgreementSummaryContent.subheadlineFontSize ?? 13);
-      setAgreementSectionLabelFontSize(defaultAgreementSummaryContent.sectionLabelFontSize ?? 15);
-      setAgreementSectionBodyFontSize(defaultAgreementSummaryContent.sectionBodyFontSize ?? 9.5);
-      setAgreementFooterFontSize(defaultAgreementSummaryContent.footerFontSize ?? 11);
-      setAgreementFooterContacts(JSON.parse(JSON.stringify(defaultAgreementSummaryContent.footerContacts ?? [])));
-      setAgreementHeaderHeight(defaultAgreementSummaryContent.headerHeight ?? 290);
-      setAgreementFooterHeight(defaultAgreementSummaryContent.footerHeight ?? 56);
-      setAgreementHeadlineOffsetX(defaultAgreementSummaryContent.headlineOffsetX ?? 0);
-      setAgreementHeadlineOffsetY(defaultAgreementSummaryContent.headlineOffsetY ?? 0);
-      setAgreementSubheadlineOffsetX(defaultAgreementSummaryContent.subheadlineOffsetX ?? 0);
-      setAgreementSubheadlineOffsetY(defaultAgreementSummaryContent.subheadlineOffsetY ?? 0);
-      setAgreementSectionsOffsetY(defaultAgreementSummaryContent.sectionsOffsetY ?? 0);
-      setAgreementSectionRowGap(defaultAgreementSummaryContent.sectionRowGap ?? 16);
-      setAgreementHeadlineMaxWidthPct(defaultAgreementSummaryContent.headlineMaxWidthPct ?? 58);
-      setAgreementLogoWidth(defaultAgreementSummaryContent.logoWidth ?? 78);
-      setAgreementHeadingOffsetX(defaultAgreementSummaryContent.headingOffsetX ?? 0);
-      setAgreementLogoGroupOffsetX(defaultAgreementSummaryContent.logoGroupOffsetX ?? 0);
-      setAgreementLogoGroupOffsetY(defaultAgreementSummaryContent.logoGroupOffsetY ?? 0);
-      setAgreementShowDividers(defaultAgreementSummaryContent.showSectionDividers !== false);
-      setAgreementFooterLinkText(defaultAgreementSummaryContent.footerLinkText ?? "");
-      setAgreementFooterLinkUrl(defaultAgreementSummaryContent.footerLinkUrl ?? "");
-      setAgreementHeaderImage(defaultAgreementSummaryContent.headerImage ?? null);
+      const agr = base.agreement;
+      setAgreementHeadline(agr.headline);
+      setAgreementSubheadline(agr.subheadline);
+      setAgreementFooter(agr.footer);
+      setAgreementSections(JSON.parse(JSON.stringify(agr.sections)));
+      setAgreementHeadlineFontSize(agr.headlineFontSize ?? 46);
+      setAgreementSubheadlineFontSize(agr.subheadlineFontSize ?? 13);
+      setAgreementSectionLabelFontSize(agr.sectionLabelFontSize ?? 15);
+      setAgreementSectionBodyFontSize(agr.sectionBodyFontSize ?? 9.5);
+      setAgreementFooterFontSize(agr.footerFontSize ?? 11);
+      setAgreementFooterContacts(JSON.parse(JSON.stringify(agr.footerContacts ?? [])));
+      setAgreementHeaderHeight(agr.headerHeight ?? 290);
+      setAgreementFooterHeight(agr.footerHeight ?? 56);
+      setAgreementHeadlineOffsetX(agr.headlineOffsetX ?? 0);
+      setAgreementHeadlineOffsetY(agr.headlineOffsetY ?? 0);
+      setAgreementSubheadlineOffsetX(agr.subheadlineOffsetX ?? 0);
+      setAgreementSubheadlineOffsetY(agr.subheadlineOffsetY ?? 0);
+      setAgreementSectionsOffsetY(agr.sectionsOffsetY ?? 0);
+      setAgreementSectionRowGap(agr.sectionRowGap ?? 16);
+      setAgreementHeadlineMaxWidthPct(agr.headlineMaxWidthPct ?? 58);
+      setAgreementLogoWidth(agr.logoWidth ?? 78);
+      setAgreementHeadingOffsetX(agr.headingOffsetX ?? 0);
+      setAgreementLogoGroupOffsetX(agr.logoGroupOffsetX ?? 0);
+      setAgreementLogoGroupOffsetY(agr.logoGroupOffsetY ?? 0);
+      setAgreementShowDividers(agr.showSectionDividers !== false);
+      setAgreementFooterLinkText(agr.footerLinkText ?? "");
+      setAgreementFooterLinkUrl(agr.footerLinkUrl ?? "");
+      setAgreementHeaderImage(agr.headerImage ?? null);
     }
   };
 
@@ -1081,7 +1173,9 @@ export default function SalesOnePagerEditor() {
                   {(["executive", "clinical", "practice-manager"] as Audience[]).map(a => (
                     <button key={a} onClick={() => switchAudience(a)}
                       className={`px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all ${audience === a ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}>
-                      {a === "practice-manager" ? "Practice Mgr" : a.charAt(0).toUpperCase() + a.slice(1)}
+                      {isDandy
+                        ? (a === "practice-manager" ? "Practice Mgr" : a.charAt(0).toUpperCase() + a.slice(1))
+                        : (a === "practice-manager" ? "Operations" : a === "clinical" ? "Team" : "Executive")}
                     </button>
                   ))}
                 </div>
