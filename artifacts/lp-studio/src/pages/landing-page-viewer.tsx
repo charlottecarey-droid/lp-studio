@@ -479,6 +479,21 @@ export default function LandingPageViewer() {
   );
   const hasPageVars = Object.keys(pageVars).length > 0;
 
+  // Programmatic-page variable DEFAULTS: the Programmatic Pages screen saves
+  // bare keys into lp_pages.pageVariables (e.g. { company: "Acme" }). Those
+  // feed the DTR token pass so {{company}} renders its default whenever the
+  // URL doesn't override it. Internal keys (__linkedFormStyle) and literal
+  // {{key}} entries (personalized-link vars, handled by deepApplyVars below)
+  // are excluded. URL query params always win over saved defaults.
+  const dtrVars = useMemo<Record<string, string>>(() => {
+    const defaults: Record<string, string> = {};
+    for (const [k, v] of Object.entries(pageVars)) {
+      if (k.startsWith("__") || k.startsWith("{{")) continue;
+      defaults[k.toLowerCase()] = v;
+    }
+    return { ...defaults, ...dtrParams };
+  }, [pageVars, dtrParams]);
+
   // RB2B visitor identification — resolves async after page load on partners.meetdandy.com
   const [accountNameRB2B, setAccountNameRB2B] = useState("");
   useEffect(() => {
@@ -504,14 +519,21 @@ export default function LandingPageViewer() {
     return undefined;
   }, []);
 
-  // Merge URL-based vars + Apollo + RB2B into one substitution map.
-  // Keys use the {{varName}} literal format consumed by deepApplyVars.
+  // Merge personalized-link vars + Apollo + RB2B into one substitution map.
+  // Keys use the {{varName}} literal format consumed by deepApplyVars — bare
+  // keys (programmatic variable defaults) are excluded here: they go through
+  // the token-aware DTR pass above instead. Spreading them into this literal
+  // substring pass would corrupt prose (a `company` key would rewrite the
+  // word "company" anywhere in the copy) without ever matching {{company}}.
   const enrichedVars = useMemo<Record<string, string>>(() => {
     const apolloName = isBuilderPageResponse(config)
       ? ((config as BuilderPageResponse).accountNameApollo ?? "")
       : "";
+    const literalVars = Object.fromEntries(
+      Object.entries(pageVars).filter(([k]) => k.startsWith("{{")),
+    );
     return {
-      ...pageVars,
+      ...literalVars,
       "{{accountNameApollo}}": apolloName,
       "{{accountNameRB2B}}": accountNameRB2B,
     };
@@ -943,9 +965,11 @@ export default function LandingPageViewer() {
         )}
         <OnePagerFrame active={isOnePagerPage} bg={isOnePagerPage ? renderBrand.pageBackground : undefined}>
         {blocks.map((block, i) => {
-          const dtrBlock = Object.keys(dtrParams).length > 0
-            ? { ...block, props: applyDtr(block.props, dtrParams) }
-            : block;
+          // Always run the token pass (not just when the URL has params):
+          // saved page-variable defaults and inline {{token|fallbacks}} must
+          // render, and unresolved tokens must strip rather than show raw
+          // {{code}} to a visitor.
+          const dtrBlock = { ...block, props: applyDtr(block.props, dtrVars) };
           return (
             <BlockErrorBoundary key={block.id ?? i}>
               <ScrollReveal
@@ -1075,9 +1099,8 @@ export default function LandingPageViewer() {
           ? (
             <OnePagerFrame active={isOnePagerPage} bg={isOnePagerPage ? renderBrand.pageBackground : undefined}>
             {blocks.map((block, i) => {
-              const dtrBlock = Object.keys(dtrParams).length > 0
-                ? { ...block, props: applyDtr(block.props, dtrParams) }
-                : block;
+              // Always-on token pass — see the builder-page render above.
+              const dtrBlock = { ...block, props: applyDtr(block.props, dtrVars) };
               return (
                 <BlockErrorBoundary key={block.id ?? i}>
                   <ScrollReveal
@@ -1118,7 +1141,7 @@ export default function LandingPageViewer() {
   }
 
   const variantConf = config.assignedVariant.config as unknown as ExtendedVariantConfig;
-  const dtrConf = applyDtr(variantConf, dtrParams);
+  const dtrConf = applyDtr(variantConf, dtrVars);
   const LIME = brand.accentColor;
   const FOREST = brand.primaryColor;
   const ctaColor = dtrConf.ctaColor || LIME;

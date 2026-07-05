@@ -64,6 +64,10 @@ export interface OverlayField {
 
 export interface CustomTemplate {
   id?: number;
+  /** null = a GLOBAL template (superadmin-authored, read-only for tenants —
+   *  duplicate it to edit); a number = owned by that tenant. Absent on
+   *  unsaved drafts. */
+  tenantId?: number | null;
   name: string;
   background_url: string;
   orientation: string;

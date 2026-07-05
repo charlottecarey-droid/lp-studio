@@ -43,10 +43,38 @@ import SuperAdminTrialPhones from "./SuperAdminTrialPhones";
 import SuperAdminBlog from "./SuperAdminBlog";
 import SuperAdminGeneratorPresets from "./SuperAdminGeneratorPresets";
 import SuperAdminRecipes from "./SuperAdminRecipes";
-// Lazy: the one-pager editor drags in jsPDF + font/QR tooling — keep it out of
-// the superadmin chunk until the tab is opened. scope="global" makes it edit
-// the tenant_id-NULL rows every tenant inherits (see LayoutEditorScope).
+// Lazy: the one-pager editor + templates gallery drag in jsPDF/pdfjs + font/QR
+// tooling — keep them out of the superadmin chunk until the tab is opened.
+// scope="global" makes both edit the tenant_id-NULL rows every tenant inherits.
 const GlobalOnePagerEditor = lazy(() => import("./sales/sales-one-pager-editor"));
+const GlobalOnePagerTemplates = lazy(() => import("./sales/sales-one-pager-templates"));
+
+// One-Pagers tab — two global surfaces: the BUILT-IN layout defaults editor
+// (spacing/copy of the five built-in one-pagers) and the GLOBAL custom
+// template gallery (drag-and-drop templates every tenant sees read-only).
+function OnePagersAdminSection() {
+  const [sub, setSub] = useState<"defaults" | "templates">("defaults");
+  return (
+    <div className="space-y-4">
+      <div className="inline-flex rounded-lg border p-0.5 gap-0.5">
+        {([["defaults", "Built-in Defaults"], ["templates", "Global Templates"]] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setSub(key)}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              sub === key ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <Suspense fallback={<div className="flex items-center gap-2 text-sm text-muted-foreground py-12 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Loading editor…</div>}>
+        {sub === "defaults" ? <GlobalOnePagerEditor scope="global" /> : <GlobalOnePagerTemplates scope="global" />}
+      </Suspense>
+    </div>
+  );
+}
 import { useAuth } from "@/context/AuthContext";
 import { normalizePlan, type Plan } from "@/lib/plan-features";
 
@@ -1450,9 +1478,7 @@ export default function SuperAdminPage() {
         ) : tab === "page-recipes" ? (
           <SuperAdminRecipes />
         ) : tab === "one-pagers" ? (
-          <Suspense fallback={<div className="flex items-center gap-2 text-sm text-muted-foreground py-12 justify-center"><Loader2 className="w-4 h-4 animate-spin" /> Loading editor…</div>}>
-            <GlobalOnePagerEditor scope="global" />
-          </Suspense>
+          <OnePagersAdminSection />
         ) : tab === "homepage-og" ? (
           <div className="flex flex-col gap-6">
             <SuperAdminMarketingShareCard heading="Homepage share card" />

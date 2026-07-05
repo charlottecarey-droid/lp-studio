@@ -39,6 +39,8 @@ import {
 } from "../lib/cloudflare";
 import { hashPhone, normalizeE164Input } from "../lib/phoneVerification";
 import { invalidateDomainContextForTenant } from "./auth";
+import multer from "multer";
+import { ObjectStorageService } from "../lib/objectStorage";
 import dns from "dns/promises";
 import https from "https";
 import net from "net";
@@ -904,6 +906,158 @@ router.delete("/superadmin/one-pager-layouts/:key", requireSuperadmin, async (re
   } catch (err) {
     console.error("[superadmin] DELETE /one-pager-layouts/:key error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ─── Global custom one-pager templates (July 2026) ──────────────────────────
+// Superadmin-authored GLOBAL rows in sales_one_pager_templates (tenant_id
+// NULL). Every tenant sees active global templates read-only in its gallery
+// (GET /sales/one-pager-templates) and duplicates them into its own workspace
+// to edit; the tenant mutation routes scope to their own tenant_id and can
+// never touch a global row. These routes are the only write path for globals.
+
+const onePagerTemplateUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024 } });
+const onePagerTemplateStorage = new ObjectStorageService();
+
+/** Row shape aliased to match the drizzle/tenant-route response, so the shared
+ *  client mapping (fetchCustomTemplates) consumes either endpoint unchanged. */
+const ONE_PAGER_TEMPLATE_COLS = `
+  id, tenant_id AS "tenantId", name, background_url AS "backgroundUrl",
+  orientation, fields, header_height AS "headerHeight",
+  header_image_url AS "headerImageUrl", is_deleted AS "isDeleted",
+  created_at AS "createdAt", updated_at AS "updatedAt"`;
+
+// GET /api/admin/superadmin/one-pager-templates — every global template,
+// including soft-deleted ones (tenants never see those; superadmins can
+// restore them via PATCH { isDeleted: false }).
+router.get("/superadmin/one-pager-templates", requireSuperadmin, async (_req, res): Promise<void> => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT ${ONE_PAGER_TEMPLATE_COLS} FROM sales_one_pager_templates
+        WHERE tenant_id IS NULL ORDER BY created_at DESC`,
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error("[superadmin] GET /one-pager-templates error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/admin/superadmin/one-pager-templates — create a global template.
+router.post("/superadmin/one-pager-templates", requireSuperadmin, async (req, res): Promise<void> => {
+  try {
+    const { name, background_url, orientation, fields, headerHeight, headerImageUrl } = req.body ?? {};
+    if (!name || typeof name !== "string" || !name.trim()) {
+      res.status(400).json({ error: "name is required" });
+      return;
+    }
+    const { rows } = await pool.query(
+      `INSERT INTO sales_one_pager_templates
+         (tenant_id, name, background_url, orientation, fields, header_height, header_image_url, is_deleted)
+       VALUES (NULL, $1, $2, $3, $4::jsonb, $5, $6, false)
+       RETURNING ${ONE_PAGER_TEMPLATE_COLS}`,
+      [
+        name.trim(),
+        typeof background_url === "string" ? background_url : "",
+        orientation === "landscape" ? "landscape" : "portrait",
+        JSON.stringify(Array.isArray(fields) ? fields : []),
+        Number.isFinite(Number(headerHeight)) ? Number(headerHeight) : 30,
+        typeof headerImageUrl === "string" && headerImageUrl ? headerImageUrl : null,
+      ],
+    );
+    await writeAuditLog({
+      action: "one-pager-global-template.created",
+      targetType: "sales_one_pager_templates",
+      targetKey: rows[0]?.id,
+      actorUserId: req.authUser?.userId ?? null,
+      actorEmail: req.authUser?.email ?? null,
+      metadata: { name: name.trim() },
+    });
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error("[superadmin] POST /one-pager-templates error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// PATCH /api/admin/superadmin/one-pager-templates/:id — update a global
+// template (tenant rows are untouchable from here: WHERE tenant_id IS NULL).
+router.patch("/superadmin/one-pager-templates/:id", requireSuperadmin, async (req, res): Promise<void> => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) { res.status(400).json({ error: "Invalid id" }); return; }
+    const body = req.body ?? {};
+    const sets: string[] = [];
+    const vals: unknown[] = [];
+    const add = (sqlFrag: string, v: unknown) => { vals.push(v); sets.push(`${sqlFrag} = $${vals.length}`); };
+    if (body.name !== undefined) add("name", String(body.name).trim());
+    if (body.background_url !== undefined) add("background_url", body.background_url);
+    if (body.orientation !== undefined) add("orientation", body.orientation === "landscape" ? "landscape" : "portrait");
+    if (body.fields !== undefined) { vals.push(JSON.stringify(Array.isArray(body.fields) ? body.fields : [])); sets.push(`fields = $${vals.length}::jsonb`); }
+    if (body.headerHeight !== undefined) add("header_height", Number(body.headerHeight) || 30);
+    if (body.headerImageUrl !== undefined) add("header_image_url", body.headerImageUrl || null);
+    if (body.isDeleted !== undefined) add("is_deleted", !!body.isDeleted);
+    if (!sets.length) { res.status(400).json({ error: "No fields to update" }); return; }
+    sets.push("updated_at = now()");
+    vals.push(id);
+    const { rows } = await pool.query(
+      `UPDATE sales_one_pager_templates SET ${sets.join(", ")}
+        WHERE tenant_id IS NULL AND id = $${vals.length}
+        RETURNING ${ONE_PAGER_TEMPLATE_COLS}`,
+      vals,
+    );
+    if (!rows.length) { res.status(404).json({ error: "Template not found" }); return; }
+    await writeAuditLog({
+      action: "one-pager-global-template.updated",
+      targetType: "sales_one_pager_templates",
+      targetKey: id,
+      actorUserId: req.authUser?.userId ?? null,
+      actorEmail: req.authUser?.email ?? null,
+      metadata: { fields: Object.keys(body) },
+    });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("[superadmin] PATCH /one-pager-templates/:id error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// DELETE /api/admin/superadmin/one-pager-templates/:id — hard delete a global
+// template. Tenant duplicates are independent rows and survive.
+router.delete("/superadmin/one-pager-templates/:id", requireSuperadmin, async (req, res): Promise<void> => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) { res.status(400).json({ error: "Invalid id" }); return; }
+    const { rowCount } = await pool.query(
+      `DELETE FROM sales_one_pager_templates WHERE tenant_id IS NULL AND id = $1`,
+      [id],
+    );
+    if (!rowCount) { res.status(404).json({ error: "Template not found" }); return; }
+    await writeAuditLog({
+      action: "one-pager-global-template.deleted",
+      targetType: "sales_one_pager_templates",
+      targetKey: id,
+      actorUserId: req.authUser?.userId ?? null,
+      actorEmail: req.authUser?.email ?? null,
+      metadata: {},
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[superadmin] DELETE /one-pager-templates/:id error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/admin/superadmin/one-pager-templates/upload-bg — background image
+// upload for global templates (mirrors the tenant route's storage handling).
+router.post("/superadmin/one-pager-templates/upload-bg", requireSuperadmin, onePagerTemplateUpload.single("file"), async (req, res): Promise<void> => {
+  try {
+    if (!req.file) { res.status(400).json({ error: "No file provided" }); return; }
+    const storagePath = await onePagerTemplateStorage.uploadObjectEntity(req.file.buffer, req.file.mimetype);
+    res.json({ url: `/api/storage${storagePath}` });
+  } catch (err) {
+    console.error("[superadmin] POST /one-pager-templates/upload-bg error:", err);
+    res.status(500).json({ error: "Upload failed" });
   }
 });
 

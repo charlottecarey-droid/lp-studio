@@ -144,17 +144,21 @@ export default function ProgrammaticPages() {
   }
 
   // ─── Load pages ──────────────────────────────────────────────────
-  useEffect(() => {
-    fetch(`${API_BASE}/lp/programmatic/pages`)
+  // Re-runnable so variable saves refresh the list (variable counts here,
+  // and the bulk tab reads freshly-declared variables from dtr-rules).
+  const loadPages = useCallback(() => {
+    return fetch(`${API_BASE}/lp/programmatic/pages`)
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data: PageSummary[]) => {
         const list = Array.isArray(data) ? data : [];
         setPages(list);
-        if (list.length > 0 && !selectedPageId) setSelectedPageId(list[0].id);
+        if (list.length > 0) setSelectedPageId(prev => prev ?? list[0].id);
       })
       .catch(() => setPages([]))
       .finally(() => setLoadingPages(false));
   }, []);
+
+  useEffect(() => { loadPages(); }, [loadPages]);
 
   // ─── Load DTR rules when page changes ────────────────────────────
   const loadRules = useCallback((pageId: number) => {
@@ -201,6 +205,7 @@ export default function ProgrammaticPages() {
       });
       if (r.ok) {
         loadRules(selectedPageId);
+        loadPages(); // keep variable counts + bulk-tab columns fresh
         setNewVarName("");
         setNewVarDefault("");
         setShowAddVar(false);
@@ -225,7 +230,10 @@ export default function ProgrammaticPages() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ variables: vars }),
     });
-    if (r.ok) loadRules(selectedPageId);
+    if (r.ok) {
+      loadRules(selectedPageId);
+      loadPages(); // keep variable counts + bulk-tab columns fresh
+    }
   };
 
   // ─── Bulk generate ───────────────────────────────────────────────
@@ -269,10 +277,27 @@ export default function ProgrammaticPages() {
     setBulkRows(updated);
   };
 
-  // Get template variable names for bulk gen column headers
-  const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
-  const templatePage = pages.find(p => p.id === selectedTemplateId);
-  const templateVarNames = templatePage ? Object.keys(templatePage.variables) : [];
+  // Template variable names for bulk-gen column headers. Fetched from
+  // dtr-rules (not the mount-time pages list, which goes stale after variable
+  // saves) so the columns cover BOTH declared variables and {{tokens}}
+  // detected in the template's blocks — a template whose copy uses
+  // {{company}} gets a company column even if nobody declared it.
+  const [templateVarNames, setTemplateVarNames] = useState<string[]>([]);
+  useEffect(() => {
+    if (!selectedTemplateId) { setTemplateVarNames([]); return; }
+    let cancelled = false;
+    fetch(`${API_BASE}/lp/programmatic/dtr-rules/${selectedTemplateId}`)
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((data: DTRRulesResponse) => {
+        if (cancelled) return;
+        const names = (data.rules ?? [])
+          .map(r => r.variable)
+          .filter(v => !v.startsWith("__"));
+        setTemplateVarNames([...new Set(names)]);
+      })
+      .catch(() => { if (!cancelled) setTemplateVarNames([]); });
+    return () => { cancelled = true; };
+  }, [selectedTemplateId]);
 
   // ─── Helpers ─────────────────────────────────────────────────────
   const getSourceBadge = (source: string) => {
@@ -524,6 +549,18 @@ export default function ProgrammaticPages() {
                         {csvError && (
                           <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2">
                             <AlertCircle className="w-4 h-4 shrink-0" /> {csvError}
+                          </div>
+                        )}
+
+                        {templateVarNames.length === 0 && (
+                          <div className="flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
+                            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <span>
+                              This template has no variables, so every generated page will have identical content
+                              (only the slug changes). Add {"{{tokens}}"} like {"{{company}}"} to the template's copy
+                              in the builder, or declare variables in the DTR Variables tab — each one becomes a
+                              per-page column here.
+                            </span>
                           </div>
                         )}
 

@@ -57,6 +57,19 @@ beforeAll(async () => {
   );
   tenantId = t.rows[0].id;
 
+  // Pin a TENANT-scoped layout row with only a layout knob and NO content
+  // (no partnerStats / partnerHeadline). A tenant row fully overrides any
+  // GLOBAL row (tenant_id NULL, superadmin-managed) for the same key, which
+  // keeps this suite hermetic on a shared database where real global rows —
+  // or another suite's temporary ones — may exist with different knobs.
+  // The contract under test is unchanged: no saved STATS → no stat block.
+  await pool.query(
+    `INSERT INTO sales_layout_defaults (tenant_id, template_key, config)
+     VALUES ($1, 'dandy_partner_template_layout', $2::jsonb)
+     ON CONFLICT (tenant_id, template_key) DO UPDATE SET config = EXCLUDED.config`,
+    [tenantId, JSON.stringify({ headerCfg: { boldHeading: true } })],
+  );
+
   app = express();
   app.use(cookieParser());
   app.use(express.json());
@@ -101,7 +114,7 @@ describe.skipIf(!dbAvailable)("web One Pager — Partner Practices template", ()
     for (const block of blocks) {
       expect(JSON.stringify(block.props ?? {})).not.toContain("Dandy");
     }
-    // Defaults bold; no saved layout yet → boldHeading true.
+    // boldHeading true from the pinned tenant layout row (see beforeAll).
     expect(hero?.props?.boldHeading).toBe(true);
   });
 

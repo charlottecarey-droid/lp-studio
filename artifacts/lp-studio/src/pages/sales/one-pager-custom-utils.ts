@@ -224,21 +224,40 @@ export async function apiSaveLayoutDefault(key: string, config: Record<string, u
   } catch {}
 }
 
-export async function fetchCustomTemplates(): Promise<CustomTemplate[]> {
-  const res = await fetch(`${API_BASE}/sales/one-pager-templates`, { credentials: "include" });
-  if (!res.ok) throw new Error("Failed to load templates");
-  const data = await res.json();
-  return (data as Record<string, unknown>[]).map(t => ({
+/** Which layer of sales_one_pager_templates the CRUD helpers target:
+ *  "tenant" (default) — the tenant's own templates via /sales/one-pager-templates
+ *  (list responses also include read-only GLOBAL rows, tenantId === null);
+ *  "global" — the superadmin-authored tenant_id-NULL rows every tenant sees,
+ *  via /admin/superadmin/one-pager-templates. Both endpoints share one row
+ *  shape, so callers are scope-agnostic. */
+export type TemplateScope = "tenant" | "global";
+
+export function customTemplatesBase(scope: TemplateScope): string {
+  return scope === "global"
+    ? `${API_BASE}/admin/superadmin/one-pager-templates`
+    : `${API_BASE}/sales/one-pager-templates`;
+}
+
+function mapTemplateRow(t: Record<string, unknown>): CustomTemplate {
+  return {
     ...(t as object),
+    tenantId: (t.tenantId as number | null | undefined) ?? (t.tenant_id as number | null | undefined) ?? null,
     background_url: (t.backgroundUrl as string) ?? (t.background_url as string) ?? "",
     headerHeight: (t.headerHeight as number) ?? (t.header_height as number) ?? 30,
     headerImageUrl: (t.headerImageUrl as string | undefined) ?? (t.header_image_url as string | undefined),
     isDeleted: (t.isDeleted as boolean) ?? (t.is_deleted as boolean) ?? false,
     fields: Array.isArray(t.fields) ? (t.fields as OverlayField[]) : [],
-  } as CustomTemplate));
+  } as CustomTemplate;
 }
 
-export async function saveCustomTemplate(tpl: CustomTemplate): Promise<CustomTemplate> {
+export async function fetchCustomTemplates(scope: TemplateScope = "tenant"): Promise<CustomTemplate[]> {
+  const res = await fetch(customTemplatesBase(scope), { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to load templates");
+  const data = await res.json();
+  return (data as Record<string, unknown>[]).map(mapTemplateRow);
+}
+
+export async function saveCustomTemplate(tpl: CustomTemplate, scope: TemplateScope = "tenant"): Promise<CustomTemplate> {
   const payload = {
     name: tpl.name,
     background_url: tpl.background_url,
@@ -248,23 +267,15 @@ export async function saveCustomTemplate(tpl: CustomTemplate): Promise<CustomTem
     headerImageUrl: tpl.headerImageUrl ?? null,
     isDeleted: tpl.isDeleted ?? false,
   };
-  const url = tpl.id
-    ? `${API_BASE}/sales/one-pager-templates/${tpl.id}`
-    : `${API_BASE}/sales/one-pager-templates`;
+  const url = tpl.id ? `${customTemplatesBase(scope)}/${tpl.id}` : customTemplatesBase(scope);
   const method = tpl.id ? "PATCH" : "POST";
   const res = await fetch(url, { method, credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
   if (!res.ok) throw new Error("Save failed");
   const d = await res.json() as Record<string, unknown>;
-  return {
-    ...(d as object),
-    background_url: (d.backgroundUrl as string) ?? (d.background_url as string) ?? "",
-    headerHeight: (d.headerHeight as number) ?? (d.header_height as number) ?? 30,
-    headerImageUrl: (d.headerImageUrl as string | undefined) ?? (d.header_image_url as string | undefined),
-    fields: Array.isArray(d.fields) ? (d.fields as OverlayField[]) : [],
-  } as CustomTemplate;
+  return mapTemplateRow(d);
 }
 
-export async function deleteCustomTemplate(id: number): Promise<void> {
-  const res = await fetch(`${API_BASE}/sales/one-pager-templates/${id}`, { method: "DELETE", credentials: "include" });
+export async function deleteCustomTemplate(id: number, scope: TemplateScope = "tenant"): Promise<void> {
+  const res = await fetch(`${customTemplatesBase(scope)}/${id}`, { method: "DELETE", credentials: "include" });
   if (!res.ok) throw new Error("Delete failed");
 }

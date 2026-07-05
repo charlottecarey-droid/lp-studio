@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, createContext, useContext, type ReactNode } from "react";
 import agreementSummaryPreviewUrl from "@/assets/agreement-summary-preview.png";
 import { AgreementNumbersEditor } from "./agreement-numbers-editor";
 import {
@@ -39,12 +39,22 @@ import {
   deleteCustomTemplate,
   generateCustomTemplatePdf,
   buildCustomTemplateBrandOpts,
+  customTemplatesBase,
   type CustomTemplatePdfBrandOpts,
+  type TemplateScope,
 } from "./one-pager-custom-utils";
 
 export type { OverlayField, CustomTemplate };
 
 const API_BASE = "/api";
+
+/** Scope of this gallery/editor instance — "tenant" (Sales Console page,
+ *  default) or "global" (mounted inside /superadmin to author the templates
+ *  every tenant inherits). Context so the deeply nested TemplateEditor upload
+ *  handlers hit the matching upload-bg endpoint without prop-drilling. */
+const TemplateScopeContext = createContext<TemplateScope>("tenant");
+
+const uploadBgUrl = (scope: TemplateScope) => `${customTemplatesBase(scope)}/upload-bg`;
 
 // ── Preset starter backgrounds ────────────────────────────────────────
 const PRESET_BACKGROUNDS = [
@@ -510,16 +520,24 @@ function VisibilityToggle({ on, onChange }: { on: boolean; onChange: () => void 
 // ════════════════════════════════════════════════════════════════════
 // TEMPLATE CARD
 // ════════════════════════════════════════════════════════════════════
-function TemplateCard({ tpl, isBuiltin, visible, onToggleVisibility, onEdit, onClone, onDelete, onRestore, onGeneratePdf, cloning }: {
+function TemplateCard({ tpl, isBuiltin, visible, onToggleVisibility, onEdit, onClone, onDelete, onRestore, onGeneratePdf, cloning, badge, cloneLabel }: {
   tpl: { id: string; label: string; description?: string; backgroundUrl?: string; fieldCount?: number; isDeleted?: boolean };
   isBuiltin: boolean; visible: boolean;
-  onToggleVisibility: () => void;
+  /** Omitted → no visibility toggle (e.g. the superadmin global gallery,
+   *  where show/hide is a tenant-level preference that doesn't apply). */
+  onToggleVisibility?: () => void;
   onEdit?: () => void;
   onClone: () => void;
-  onDelete: () => void;
+  /** Omitted → no delete item (e.g. a read-only global template card). */
+  onDelete?: () => void;
   onRestore?: () => void;
   onGeneratePdf?: () => void;
   cloning?: boolean;
+  /** Small chip over the thumbnail, e.g. "Global" on superadmin-authored
+   *  templates in a tenant's gallery. */
+  badge?: string;
+  /** Clone menu-item label override (default "Clone"). */
+  cloneLabel?: string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const deleted = tpl.isDeleted;
@@ -550,6 +568,11 @@ function TemplateCard({ tpl, isBuiltin, visible, onToggleVisibility, onEdit, onC
             <span className="text-[10px] opacity-50">No preview</span>
           </div>
         )}
+        {badge && (
+          <span className="absolute top-2 left-2 rounded-full bg-primary/90 text-primary-foreground text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 shadow">
+            {badge}
+          </span>
+        )}
         {!visible && !deleted && (
           <div className="absolute inset-0 bg-background/50 flex items-center justify-center">
             <EyeOff className="w-6 h-6 text-muted-foreground opacity-60" />
@@ -572,7 +595,7 @@ function TemplateCard({ tpl, isBuiltin, visible, onToggleVisibility, onEdit, onC
 
         {!deleted ? (
           <div className="flex items-center gap-1.5 shrink-0">
-            <VisibilityToggle on={visible} onChange={onToggleVisibility} />
+            {onToggleVisibility && <VisibilityToggle on={visible} onChange={onToggleVisibility} />}
             <div className="relative">
               <button
                 onClick={() => setMenuOpen(v => !v)}
@@ -588,17 +611,21 @@ function TemplateCard({ tpl, isBuiltin, visible, onToggleVisibility, onEdit, onC
                     </button>
                   )}
                   <button onClick={() => { onClone(); setMenuOpen(false); }} disabled={cloning} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-muted transition-colors disabled:opacity-50">
-                    {cloning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground" />} Clone
+                    {cloning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground" />} {cloneLabel ?? "Clone"}
                   </button>
                   {onGeneratePdf && (
                     <button onClick={() => { onGeneratePdf(); setMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-muted transition-colors">
                       <FileDown className="w-3.5 h-3.5 text-muted-foreground" /> Generate PDF
                     </button>
                   )}
-                  <div className="my-1 border-t border-border" />
-                  <button onClick={() => { onDelete(); setMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-destructive hover:bg-destructive/5 transition-colors">
-                    <Trash2 className="w-3.5 h-3.5" /> {isBuiltin ? "Remove" : "Delete"}
-                  </button>
+                  {onDelete && (
+                    <>
+                      <div className="my-1 border-t border-border" />
+                      <button onClick={() => { onDelete(); setMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-destructive hover:bg-destructive/5 transition-colors">
+                        <Trash2 className="w-3.5 h-3.5" /> {isBuiltin ? "Remove" : "Delete"}
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -965,6 +992,9 @@ function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext, b
    *  the tenant BrandConfig so the preview never hardcodes Dandy assets. */
   brandOpts: CustomTemplatePdfBrandOpts;
 }) {
+  // "tenant" (Sales Console) vs "global" (superadmin) — routes uploads/saves
+  // to the matching endpoint set.
+  const scope = useContext(TemplateScopeContext);
   // Field palette defaults follow the tenant CTA URL (never meetdandy.com).
   const FIELD_TYPES = buildFieldTypes(ctaDefault);
   // Render-only scrub of legacy stored field labels (e.g. "Dandy Logo" →
@@ -1175,7 +1205,7 @@ function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext, b
     // template, break thumbnails, and hide the actual server problem).
     try {
       const formData = new FormData(); formData.append("file", uploadFile);
-      const res = await fetch(`${API_BASE}/sales/one-pager-templates/upload-bg`, { method: "POST", body: formData });
+      const res = await fetch(uploadBgUrl(scope), { method: "POST", body: formData });
       if (!res.ok) {
         let detail = `${res.status} ${res.statusText}`;
         try {
@@ -1221,7 +1251,7 @@ function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext, b
       let imgUrl: string;
       try {
         const formData = new FormData(); formData.append("file", file);
-        const res = await fetch(`${API_BASE}/sales/one-pager-templates/upload-bg`, { method: "POST", body: formData });
+        const res = await fetch(uploadBgUrl(scope), { method: "POST", body: formData });
         if (!res.ok) throw new Error("Upload failed");
         const { url } = await res.json();
         imgUrl = url;
@@ -1256,7 +1286,7 @@ function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext, b
       let imgUrl: string;
       try {
         const formData = new FormData(); formData.append("file", file);
-        const res = await fetch(`${API_BASE}/sales/one-pager-templates/upload-bg`, { method: "POST", body: formData });
+        const res = await fetch(uploadBgUrl(scope), { method: "POST", body: formData });
         if (!res.ok) throw new Error("Upload failed");
         const { url } = await res.json();
         imgUrl = url;
@@ -1951,7 +1981,7 @@ function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext, b
                       setLogoImgUploading(true);
                       try {
                         const fd = new FormData(); fd.append("file", file);
-                        const res = await fetch(`${API_BASE}/sales/one-pager-templates/upload-bg`, { method: "POST", body: fd });
+                        const res = await fetch(uploadBgUrl(scope), { method: "POST", body: fd });
                         if (!res.ok) {
                           let detail = `${res.status} ${res.statusText}`;
                           try { const body = await res.text(); if (body) detail = body.slice(0, 240); } catch { /* */ }
@@ -2046,9 +2076,19 @@ function TemplateEditor({ initial, onSave, onCancel, ctaDefault, brandContext, b
 // ════════════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ════════════════════════════════════════════════════════════════════
-export default function SalesOnePagerTemplates() {
+function PassthroughShell({ children }: { children: ReactNode }) {
+  return <>{children}</>;
+}
+
+export default function SalesOnePagerTemplates({ scope = "tenant" }: { scope?: TemplateScope } = {}) {
   const { user, hasPerm } = useAuth();
-  const isAdmin = user?.isAdmin || hasPerm("sales_campaigns") || hasPerm("one_pager_templates");
+  const isGlobalScope = scope === "global";
+  // Global scope is mounted inside /superadmin (server routes enforce
+  // requireSuperadmin); tenant permission checks don't apply there. It also
+  // renders inside the superadmin chrome, so the Sales Console shell is
+  // bypassed (PassthroughShell is module-level for stable identity).
+  const isAdmin = isGlobalScope || user?.isAdmin || hasPerm("sales_campaigns") || hasPerm("one_pager_templates");
+  const Shell = isGlobalScope ? PassthroughShell : SalesLayout;
 
   const [templates, setTemplates] = useState<CustomTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2110,10 +2150,13 @@ export default function SalesOnePagerTemplates() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      // Visibility/deleted-builtin prefs are tenant-level presentation state —
+      // the superadmin global gallery has no built-ins section and no
+      // per-tenant toggles, so it skips those reads entirely.
       const [tpls, vis, del] = await Promise.all([
-        fetchCustomTemplates(),
-        apiLoadLayoutDefault(TEMPLATE_VISIBILITY_KEY),
-        apiLoadLayoutDefault(DELETED_BUILTINS_KEY),
+        fetchCustomTemplates(scope),
+        isGlobalScope ? Promise.resolve(null) : apiLoadLayoutDefault(TEMPLATE_VISIBILITY_KEY),
+        isGlobalScope ? Promise.resolve(null) : apiLoadLayoutDefault(DELETED_BUILTINS_KEY),
       ]);
       setTemplates(tpls);
       if (vis) setVisibility(p => ({ ...p, ...(vis as Record<string, boolean>) }));
@@ -2123,7 +2166,7 @@ export default function SalesOnePagerTemplates() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [scope, isGlobalScope]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -2134,7 +2177,7 @@ export default function SalesOnePagerTemplates() {
   // a broken/blank page on first navigation.
   if (user && !isAdmin) {
     return (
-      <SalesLayout>
+      <Shell>
         <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
           <AlertCircle className="w-10 h-10 text-muted-foreground" />
           <div>
@@ -2142,7 +2185,7 @@ export default function SalesOnePagerTemplates() {
             <p className="text-sm text-muted-foreground">You need admin or sales manager permissions to manage templates.</p>
           </div>
         </div>
-      </SalesLayout>
+      </Shell>
     );
   }
 
@@ -2232,20 +2275,26 @@ export default function SalesOnePagerTemplates() {
     setEditing({
       ...tpl,
       id: undefined,
-      name: `${tpl.name} (Copy)`,
+      // A duplicate is always owned by whoever saves it (the tenant on the
+      // Sales Console page, global in the superadmin gallery) — this is the
+      // "save a copy to my workspace" path for global templates.
+      tenantId: undefined,
+      name: tpl.tenantId === null && !isGlobalScope ? tpl.name : `${tpl.name} (Copy)`,
       fields: tpl.fields.map(f => ({ ...f, id: crypto.randomUUID() })),
     });
   };
 
   const handleSave = async (tpl: CustomTemplate) => {
-    const saved = await saveCustomTemplate(tpl);
-    toast({ title: tpl.id ? "Template updated" : "Template saved", description: "Sales reps can now use this template." });
+    const saved = await saveCustomTemplate(tpl, scope);
+    toast(isGlobalScope
+      ? { title: tpl.id ? "Global template updated" : "Global template saved", description: "Every tenant workspace now sees this template." }
+      : { title: tpl.id ? "Template updated" : "Template saved", description: "Sales reps can now use this template." });
     setEditing(null);
     await load();
   };
 
   const handleDelete = async (id: number) => {
-    await deleteCustomTemplate(id);
+    await deleteCustomTemplate(id, scope);
     setConfirmDelete(null);
     toast({ title: "Template deleted" });
     await load();
@@ -2253,14 +2302,14 @@ export default function SalesOnePagerTemplates() {
 
   const handleSoftDeleteCustom = async (tpl: CustomTemplate) => {
     if (!tpl.id) return;
-    await saveCustomTemplate({ ...tpl, isDeleted: true });
+    await saveCustomTemplate({ ...tpl, isDeleted: true }, scope);
     toast({ title: "Template removed" });
     await load();
   };
 
   const handleRestoreCustom = async (tpl: CustomTemplate) => {
     if (!tpl.id) return;
-    await saveCustomTemplate({ ...tpl, isDeleted: false });
+    await saveCustomTemplate({ ...tpl, isDeleted: false }, scope);
     toast({ title: "Template restored" });
     await load();
   };
@@ -2269,10 +2318,13 @@ export default function SalesOnePagerTemplates() {
   // the picker for non-Dandy tenants — both the active list and the
   // "removed" list, so they can't be surfaced or restored either.
   const builtinVisibleForTenant = (id: string) => previewIsDandy || !isDandyGatedBuiltin(id);
-  const filteredBuiltins = typeFilter !== "custom" ? BUILTIN_TEMPLATES.filter(bt =>
+  // Global scope shows ONLY global custom templates: built-ins are configured
+  // per tenant (visibility prefs), and cloning one here would rasterize the
+  // OPERATOR's brand into a background published to every tenant.
+  const filteredBuiltins = !isGlobalScope && typeFilter !== "custom" ? BUILTIN_TEMPLATES.filter(bt =>
     !deletedBuiltins[bt.id] && builtinVisibleForTenant(bt.id) && bt.label.toLowerCase().includes(search.toLowerCase())
   ) : [];
-  const deletedBuiltinsList = BUILTIN_TEMPLATES.filter(bt => deletedBuiltins[bt.id] && builtinVisibleForTenant(bt.id));
+  const deletedBuiltinsList = isGlobalScope ? [] : BUILTIN_TEMPLATES.filter(bt => deletedBuiltins[bt.id] && builtinVisibleForTenant(bt.id));
   const activeTemplates = typeFilter !== "builtin"
     ? templates
         .filter(t => !t.isDeleted && t.name.toLowerCase().includes(search.toLowerCase()))
@@ -2291,7 +2343,8 @@ export default function SalesOnePagerTemplates() {
 
   if (editing !== null) {
     return (
-      <SalesLayout>
+      <TemplateScopeContext.Provider value={scope}>
+      <Shell>
         <div className="h-[calc(100vh-8rem)]">
           <TemplateEditor
             initial={editing.id || editing.background_url ? editing : undefined}
@@ -2302,18 +2355,24 @@ export default function SalesOnePagerTemplates() {
             brandOpts={previewBrandOpts}
           />
         </div>
-      </SalesLayout>
+      </Shell>
+      </TemplateScopeContext.Provider>
     );
   }
 
   return (
-    <SalesLayout>
+    <TemplateScopeContext.Provider value={scope}>
+    <Shell>
       <div className="space-y-6">
         {/* Page header */}
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold text-foreground">One-Pager Templates</h1>
-            <p className="text-sm text-muted-foreground mt-1">Manage which templates sales reps see in the one-pager generator. Toggle visibility, clone built-ins, and create custom templates.</p>
+            <h1 className="text-xl font-semibold text-foreground">{isGlobalScope ? "Global One-Pager Templates" : "One-Pager Templates"}</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isGlobalScope
+                ? "Templates authored here appear read-only in every tenant's gallery — tenants duplicate one into their workspace to customize it."
+                : "Manage which templates sales reps see in the one-pager generator. Toggle visibility, clone built-ins, and create custom templates."}
+            </p>
           </div>
           {isAdmin && (
             <button onClick={() => setEditing({ name: "", background_url: "", orientation: "portrait", fields: [], headerHeight: 30 })}
@@ -2330,21 +2389,24 @@ export default function SalesOnePagerTemplates() {
             <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search templates…"
               className="w-64 rounded-lg border border-border bg-background pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30" />
           </div>
-          <div className="inline-flex rounded-full border border-border overflow-hidden">
-            {(["all", "builtin", "custom"] as const).map(f => (
-              <button key={f} onClick={() => setTypeFilter(f)}
-                className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all ${typeFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}>
-                {f === "all" ? "All" : f === "builtin" ? "Built-in" : "Custom"}
-              </button>
-            ))}
-          </div>
+          {!isGlobalScope && (
+            <div className="inline-flex rounded-full border border-border overflow-hidden">
+              {(["all", "builtin", "custom"] as const).map(f => (
+                <button key={f} onClick={() => setTypeFilter(f)}
+                  className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-all ${typeFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground bg-background"}`}>
+                  {f === "all" ? "All" : f === "builtin" ? "Built-in" : "Custom"}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
         ) : (
           <>
-            {/* Built-in templates */}
+            {/* Built-in templates (tenant scope only — see filteredBuiltins) */}
+            {!isGlobalScope && (
             <div className="space-y-3">
               <h2 className="text-sm font-semibold text-foreground">Built-in Templates</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -2371,10 +2433,11 @@ export default function SalesOnePagerTemplates() {
                 )}
               </div>
             </div>
+            )}
 
             {/* Custom templates */}
             <div className="space-y-3">
-              <h2 className="text-sm font-semibold text-foreground">Custom Templates
+              <h2 className="text-sm font-semibold text-foreground">{isGlobalScope ? "Global Templates" : "Custom Templates"}
                 <span className="ml-2 text-xs text-muted-foreground font-normal">({activeTemplates.length})</span>
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -2388,7 +2451,15 @@ export default function SalesOnePagerTemplates() {
                     <span className="text-xs font-medium">New Template</span>
                   </button>
                 )}
-                {activeTemplates.map(tpl => (
+                {activeTemplates.map(tpl => {
+                  // A GLOBAL row (tenantId null) in the TENANT gallery is
+                  // read-only: no edit/delete (the server would 404 anyway),
+                  // and Clone becomes the "save a copy to my workspace" path.
+                  // In the superadmin (global-scope) gallery every row is a
+                  // global row and fully editable; visibility toggles are
+                  // tenant prefs and don't render there.
+                  const readOnlyGlobal = !isGlobalScope && tpl.tenantId === null;
+                  return (
                   <TemplateCard
                     key={tpl.id}
                     tpl={{
@@ -2399,14 +2470,17 @@ export default function SalesOnePagerTemplates() {
                     }}
                     isBuiltin={false}
                     visible={visibility[`custom:${tpl.id}`] !== false}
-                    onToggleVisibility={() => toggleVisibility(`custom:${tpl.id}`)}
-                    onEdit={isAdmin ? () => setEditing(tpl) : undefined}
+                    onToggleVisibility={isGlobalScope ? undefined : () => toggleVisibility(`custom:${tpl.id}`)}
+                    onEdit={isAdmin && !readOnlyGlobal ? () => setEditing(tpl) : undefined}
                     onClone={() => cloneCustom(tpl)}
-                    onDelete={() => isAdmin ? handleSoftDeleteCustom(tpl) : undefined}
+                    onDelete={isAdmin && !readOnlyGlobal ? () => handleSoftDeleteCustom(tpl) : undefined}
                     onGeneratePdf={() => setPdfDialog({ tpl })}
                     cloning={false}
+                    badge={readOnlyGlobal ? "Global" : undefined}
+                    cloneLabel={readOnlyGlobal ? "Save a copy" : undefined}
                   />
-                ))}
+                  );
+                })}
                 {activeTemplates.length === 0 && !isAdmin && (
                   <p className="col-span-full text-sm text-muted-foreground py-4">No custom templates yet. Ask an admin to create one.</p>
                 )}
@@ -2486,6 +2560,7 @@ export default function SalesOnePagerTemplates() {
           onClose={() => setPdfDialog(null)}
         />
       )}
-    </SalesLayout>
+    </Shell>
+    </TemplateScopeContext.Provider>
   );
 }

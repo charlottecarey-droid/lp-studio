@@ -336,10 +336,15 @@ describe.skipIf(!dbAvailable)("superadmin CRUD — /admin/superadmin/one-pager-l
 });
 
 // Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
-describe.skipIf(!dbAvailable)("POST /sales/web-one-pager — partner layout global fallback", () => {
-  it("uses the global partner layout when the tenant has no row", async () => {
-    const headline = `Global fallback headline ${RUN}`;
-    await upsertGlobalRow(KEY_PARTNER, { partnerHeadline: headline });
+describe.skipIf(!dbAvailable)("POST /sales/web-one-pager — partner layout global fallback is LAYOUT-ONLY", () => {
+  it("applies global LAYOUT (boldHeading) but strips global CONTENT (headline, stats)", async () => {
+    // A global row authored under the operator's brand: its copy/stats must
+    // NOT publish under this tenant's brand — only the layout toggle flows.
+    await upsertGlobalRow(KEY_PARTNER, {
+      partnerHeadline: `Operator headline ${RUN}`,
+      partnerStats: [{ value: "88%", desc: "operator survey stat" }],
+      headerCfg: { boldHeading: false },
+    });
     // Ensure the tenant genuinely has no partner row of its own.
     await pool.query(
       `DELETE FROM sales_layout_defaults WHERE tenant_id = $1 AND template_key = $2`,
@@ -361,10 +366,15 @@ describe.skipIf(!dbAvailable)("POST /sales/web-one-pager — partner layout glob
     );
     expect(rows).toHaveLength(1);
     const hero = rows[0].blocks.find((b) => b.type === "one-pager-hero");
-    expect(hero?.props?.headline).toBe(headline);
+    // Global layout knob flows…
+    expect(hero?.props?.boldHeading).toBe(false);
+    // …global content does not: brand-aware default headline, and the
+    // operator's survey stats never re-create the stat block.
+    expect(hero?.props?.headline).not.toBe(`Operator headline ${RUN}`);
+    expect(rows[0].blocks.map((b) => b.type)).not.toContain("dso-stat-showcase");
   });
 
-  it("a tenant row still beats the global partner layout", async () => {
+  it("a tenant row still beats the global partner layout, content included", async () => {
     const tenantHeadline = `Tenant headline ${RUN}`;
     await pool.query(
       `INSERT INTO sales_layout_defaults (tenant_id, template_key, config)

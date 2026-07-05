@@ -5,6 +5,7 @@ import { db } from "@workspace/db";
 import { salesLayoutDefaultsTable } from "@workspace/db";
 import { isDandyTenant } from "../../lib/planFeatures";
 import { isDandyGatedLayoutKey } from "@workspace/one-pager-types/constants";
+import { stripContentFromGlobalLayoutConfig } from "../../lib/onePagerGlobalLayout";
 
 const router = Router();
 
@@ -45,7 +46,11 @@ router.get("/layout-defaults/:key", async (req, res): Promise<void> => {
       res.json(null);
       return;
     }
-    res.json(globalRow.config);
+    // Global rows serve LAYOUT ONLY: content fields were authored under the
+    // operator's brand and must not republish under the tenant's (see
+    // lib/onePagerGlobalLayout.ts). Generators fall back to brand-aware
+    // content defaults for the stripped keys.
+    res.json(stripContentFromGlobalLayoutConfig(globalRow.config));
   } catch (err) {
     console.error("GET /layout-defaults/:key error:", err);
     res.status(500).json({ error: "Failed to load layout default" });
@@ -75,7 +80,8 @@ router.get("/layout-defaults", async (req, res): Promise<void> => {
     const dandy = gatedGlobal ? await isDandyTenant(tenantId) : false;
     for (const row of globalRows) {
       if (isDandyGatedLayoutKey(row.templateKey) && !dandy) continue;
-      result[row.templateKey] = row.config;
+      // Layout-only — see lib/onePagerGlobalLayout.ts.
+      result[row.templateKey] = stripContentFromGlobalLayoutConfig(row.config);
     }
     for (const row of rows) {
       if (row.tenantId !== null) result[row.templateKey] = row.config;

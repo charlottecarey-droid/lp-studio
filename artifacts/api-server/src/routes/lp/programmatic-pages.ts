@@ -89,8 +89,11 @@ router.get("/lp/programmatic/dtr-rules/:pageId", async (req, res): Promise<void>
     // Build rules list combining declared variables + detected tokens
     const rules: Array<{ variable: string; defaultValue: string; source: string; inBlocks: boolean }> = [];
 
-    // Add declared page variables
+    // Add declared page variables. Internal keys (e.g. __linkedFormStyle,
+    // persisted by the editor into the same jsonb) are NOT user variables —
+    // they stay out of the rules list and are preserved separately on PUT.
     for (const [key, val] of Object.entries(vars)) {
+      if (key.startsWith("__")) continue;
       rules.push({ variable: key, defaultValue: val, source: "page_variable", inBlocks: tokensInBlocks.has(key.toLowerCase()) });
       tokensInBlocks.delete(key.toLowerCase());
     }
@@ -131,9 +134,29 @@ router.put("/lp/programmatic/dtr-rules/:pageId", async (req, res): Promise<void>
       return;
     }
 
+    // The client rebuilds the variables map from the VISIBLE rules list, which
+    // excludes internal `__` keys (e.g. __linkedFormStyle written by the
+    // editor). Merge those back from the existing row so saving a programmatic
+    // variable never silently wipes editor state stored in the same jsonb.
+    const [existing] = await db
+      .select({ pageVariables: lpPagesTable.pageVariables })
+      .from(lpPagesTable)
+      .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, pageId)));
+    if (!existing) {
+      res.status(404).json({ error: "Page not found" });
+      return;
+    }
+    const existingVars = (existing.pageVariables && typeof existing.pageVariables === "object" && !Array.isArray(existing.pageVariables))
+      ? existing.pageVariables as Record<string, string>
+      : {};
+    const internalVars = Object.fromEntries(
+      Object.entries(existingVars).filter(([k]) => k.startsWith("__")),
+    );
+    const nextVars = { ...internalVars, ...variables };
+
     const [updated] = await db
       .update(lpPagesTable)
-      .set({ pageVariables: variables })
+      .set({ pageVariables: nextVars })
       .where(and(eq(lpPagesTable.tenantId, tenantId), eq(lpPagesTable.id, pageId)))
       .returning({ id: lpPagesTable.id, pageVariables: lpPagesTable.pageVariables });
 

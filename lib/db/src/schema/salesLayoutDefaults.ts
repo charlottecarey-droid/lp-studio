@@ -10,7 +10,10 @@ import { z } from "zod/v4";
  *
  * GLOBAL vs TENANT (mirrors the generator_presets model):
  *   • tenant_id NULL → a GLOBAL default (superadmin-managed) every tenant
- *     inherits when it has no row of its own for that key.
+ *     inherits when it has no row of its own for that key. Tenant-facing
+ *     reads serve global rows LAYOUT-ONLY — content keys (copy/stats/images)
+ *     are stripped so operator-branded content never republishes under a
+ *     tenant's brand (api-server lib/onePagerGlobalLayout.ts).
  *   • tenant_id set  → that tenant's own value; it fully overrides the global
  *     row for the same key (whole-row precedence, no field-level merge).
  * Dandy-gated keys (isDandyGatedLayoutKey) never fall back to a global row for

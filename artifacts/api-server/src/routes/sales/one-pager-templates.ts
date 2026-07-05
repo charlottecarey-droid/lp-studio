@@ -1,6 +1,6 @@
 import { getTenantId, requirePermission, requireAnyPermission, requireAuth } from "../../middleware/requireAuth";
 import { Router } from "express";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, or, isNull } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { salesOnePagerTemplatesTable } from "@workspace/db";
 import { isDandyTenant } from "../../lib/planFeatures";
@@ -17,25 +17,33 @@ const objectStorage = new ObjectStorageService();
 const router = Router();
 
 // ─── GET /sales/one-pager-templates ──────────────────────────
-// List templates for the tenant.
+// List templates for the tenant, plus GLOBAL templates (tenant_id NULL,
+// superadmin-authored — read-only for tenants; the tenant mutation routes
+// below scope to eq(tenantId) and can never touch them).
 // Sales reps (any authenticated user) get only active (non-deleted) templates.
-// Admins with sales_campaigns also see soft-deleted templates for management.
+// Admins with sales_campaigns also see the tenant's own soft-deleted templates
+// for management; soft-deleted GLOBAL templates stay hidden from everyone
+// (superadmins manage those via /api/admin/superadmin/one-pager-templates).
 router.get("/one-pager-templates", requireAuth, async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const isAdmin = req.authUser?.isAdmin || req.authUser?.permissions?.["sales_campaigns"] || false;
 
-    const conditions = isAdmin
-      ? [eq(salesOnePagerTemplatesTable.tenantId, tenantId)]
-      : [
+    const ownRows = isAdmin
+      ? eq(salesOnePagerTemplatesTable.tenantId, tenantId)
+      : and(
           eq(salesOnePagerTemplatesTable.tenantId, tenantId),
           eq(salesOnePagerTemplatesTable.isDeleted, false),
-        ];
+        );
+    const globalRows = and(
+      isNull(salesOnePagerTemplatesTable.tenantId),
+      eq(salesOnePagerTemplatesTable.isDeleted, false),
+    );
 
     const templates = await db
       .select()
       .from(salesOnePagerTemplatesTable)
-      .where(and(...conditions))
+      .where(or(ownRows, globalRows))
       .orderBy(desc(salesOnePagerTemplatesTable.createdAt));
     res.json(templates);
   } catch (err) {
@@ -45,28 +53,32 @@ router.get("/one-pager-templates", requireAuth, async (req, res): Promise<void> 
 });
 
 // ─── GET /sales/one-pager-templates/:id ──────────────────────
-// Any authenticated user can fetch a single active (non-deleted) template.
-// Admins can also fetch soft-deleted templates.
+// Any authenticated user can fetch a single active (non-deleted) template —
+// their tenant's own or a global one. Admins can also fetch their tenant's
+// soft-deleted templates (but never a soft-deleted global).
 router.get("/one-pager-templates/:id", requireAuth, async (req, res): Promise<void> => {
   try {
     const tenantId = getTenantId(req, res); if (tenantId === null) return;
     const isAdmin = req.authUser?.isAdmin || req.authUser?.permissions?.["sales_campaigns"] || false;
 
-    const conditions = isAdmin
-      ? [
+    const ownRow = isAdmin
+      ? eq(salesOnePagerTemplatesTable.tenantId, tenantId)
+      : and(
           eq(salesOnePagerTemplatesTable.tenantId, tenantId),
-          eq(salesOnePagerTemplatesTable.id, Number(req.params.id)),
-        ]
-      : [
-          eq(salesOnePagerTemplatesTable.tenantId, tenantId),
-          eq(salesOnePagerTemplatesTable.id, Number(req.params.id)),
           eq(salesOnePagerTemplatesTable.isDeleted, false),
-        ];
+        );
+    const globalRow = and(
+      isNull(salesOnePagerTemplatesTable.tenantId),
+      eq(salesOnePagerTemplatesTable.isDeleted, false),
+    );
 
     const [tpl] = await db
       .select()
       .from(salesOnePagerTemplatesTable)
-      .where(and(...conditions));
+      .where(and(
+        eq(salesOnePagerTemplatesTable.id, Number(req.params.id)),
+        or(ownRow, globalRow),
+      ));
     if (!tpl) { res.status(404).json({ error: "Template not found" }); return; }
     res.json(tpl);
   } catch (err) {

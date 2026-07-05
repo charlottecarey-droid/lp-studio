@@ -41,9 +41,15 @@ export function replaceDtrTokens(text: string, params: Record<string, string>): 
   });
 }
 
-/** Deep-walk an object/array and replace DTR tokens in all string values */
+/** Deep-walk an object/array and replace DTR tokens in all string values.
+ *
+ * NOTE: no empty-params early return — even with zero params a token must
+ * resolve to its inline fallback ({{company|your practice}}) or strip to ""
+ * rather than render raw {{code}} to a visitor. Page-variable DEFAULTS from
+ * the Programmatic Pages screen are merged into `params` by the viewer, with
+ * URL query params taking precedence. */
 export function applyDtr<T>(value: T, params: Record<string, string>): T {
-  if (!params || Object.keys(params).length === 0) return value;
+  if (!params) return value;
   if (typeof value === "string") return replaceDtrTokens(value, params) as T;
   if (Array.isArray(value)) return value.map(item => applyDtr(item, params)) as T;
   if (value && typeof value === "object") {

@@ -6,6 +6,7 @@ import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBra
 import { isDandyTenant } from "../../lib/planFeatures";
 import { detectAndWriteFlagsForPage } from "../../lib/factFlags";
 import { isDandyGatedBuiltin } from "@workspace/one-pager-types/constants";
+import { stripContentFromGlobalLayoutConfig } from "../../lib/onePagerGlobalLayout";
 
 const router = Router();
 
@@ -251,7 +252,11 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
       // page mirrors what the rep configured for the PDF. Resolution order
       // matches GET /sales/layout-defaults/:key — tenant row → global row
       // (tenant_id NULL, superadmin-managed) → brand-aware defaults. Partner is
-      // not a Dandy-gated built-in, so the global fallback needs no gate here.
+      // not a Dandy-gated built-in, so the global fallback needs no brand gate,
+      // BUT a global row serves LAYOUT ONLY (stripContentFromGlobalLayoutConfig):
+      // its copy/stats were authored under the operator's brand and must not
+      // publish under this tenant's — in particular global partnerStats must
+      // never re-create the stat block for a tenant that saved no stats itself.
       // Best-effort: a missing/unreadable row just leaves the defaults in place.
       let savedPartner: Record<string, unknown> | null = null;
       try {
@@ -267,9 +272,11 @@ router.post("/web-one-pager", async (req, res): Promise<void> => {
               eq(salesLayoutDefaultsTable.templateKey, "dandy_partner_template_layout"),
             ),
           );
-        const row = rows.find((r) => r.tenantId !== null) ?? rows.find((r) => r.tenantId === null);
-        if (row?.config && typeof row.config === "object") {
-          savedPartner = row.config as Record<string, unknown>;
+        const tenantRow = rows.find((r) => r.tenantId !== null);
+        const globalRow = rows.find((r) => r.tenantId === null);
+        const resolved = tenantRow?.config ?? stripContentFromGlobalLayoutConfig(globalRow?.config ?? null);
+        if (resolved && typeof resolved === "object") {
+          savedPartner = resolved as Record<string, unknown>;
         }
       } catch (e) {
         console.warn("[web-one-pager] failed to load partner layout default", e);

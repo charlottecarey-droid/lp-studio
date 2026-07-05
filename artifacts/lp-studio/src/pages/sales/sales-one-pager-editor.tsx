@@ -342,12 +342,19 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
   // flips the flag — DEFAULT_BRAND is non-Dandy, so the editor fails NEUTRAL.
   const [brandReady, setBrandReady] = useState(false);
   useEffect(() => {
+    // GLOBAL scope stays on the neutral DEFAULT_BRAND: global defaults
+    // represent every tenant's baseline, so previews/saves must never seed
+    // the OPERATOR's brand (Dandy copy, stats, or imagery) into them. The
+    // server additionally strips content keys from global rows on tenant
+    // reads (lib/onePagerGlobalLayout.ts) — this keeps the preview honest.
+    if (isGlobalScope) { setBrandReady(true); return; }
     fetchBrandConfig().then(setBrand).catch(() => {}).finally(() => setBrandReady(true));
-  }, []);
+  }, [isGlobalScope]);
   // Detect Dandy via the server-authoritative `isDandy` flag (resolved from the
   // immutable tenant slug), NOT the editable `brandName` — so a non-Dandy
   // tenant can never unlock the Dandy-only built-in templates by renaming.
-  const isDandy = brand.isDandy === true;
+  // Never Dandy in global scope (neutral baseline).
+  const isDandy = !isGlobalScope && brand.isDandy === true;
   const brandSlug = (brand.brandName || "report")
     .replace(/\s+/g, "_")
     .replace(/[^A-Za-z0-9_-]+/g, "") || "report";
@@ -1263,7 +1270,7 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               {isGlobalScope
-                ? "These defaults apply to every tenant that hasn't saved its own layout for a template. Tenants with their own saves keep them."
+                ? "These defaults apply to every tenant that hasn't saved its own layout for a template. LAYOUT controls (spacing, sizes, offsets, toggles) distribute globally — copy, stats, and images stay tenant-branded and are never distributed."
                 : "Customize every section — changes preview live. Save to update defaults for all sales reps."}
             </p>
             {isGlobalScope && activeOverrideCount > 0 && (
