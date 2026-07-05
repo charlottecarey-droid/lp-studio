@@ -133,7 +133,7 @@ function OptimizeBetaMenu({ location }: { location: string }) {
                 <SidebarMenuButton className="font-medium">
                   <Sparkles className="w-4 h-4" />
                   <span className="flex-1">Labs</span>
-                  <span className="ml-auto mr-1 text-[9px] font-semibold uppercase tracking-wider text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded">
+                  <span className="ml-auto mr-1 text-[9px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded">
                     Beta
                   </span>
                   <ChevronRight
@@ -481,10 +481,8 @@ function TrialStatusBar() {
 
   const dayLabel = days === 1 ? "day" : "days";
   const palette =
-    tone === "expired"
-      ? "border-amber-300 bg-amber-50 text-amber-900"
-      : tone === "urgent"
-      ? "border-amber-300 bg-amber-50 text-amber-900"
+    tone === "expired" || tone === "urgent"
+      ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-200"
       : "border-primary/30 bg-primary/5 text-foreground";
 
   let message: string;

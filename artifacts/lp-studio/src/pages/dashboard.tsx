@@ -325,7 +325,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {statTiles.map((stat) => (
             <Link href={stat.href} key={stat.label}>
-              <div className="bg-card rounded-2xl px-5 py-5 cursor-pointer ring-1 ring-black/[0.05] shadow-[0_1px_2px_rgba(2,6,23,0.04),0_10px_28px_-18px_rgba(2,6,23,0.12)] transition-all hover:-translate-y-0.5 hover:shadow-[0_2px_3px_rgba(2,6,23,0.05),0_16px_36px_-18px_rgba(2,6,23,0.16)]">
+              <div className="bg-card rounded-2xl px-5 py-5 cursor-pointer ring-1 ring-foreground/[0.06] shadow-[0_1px_2px_rgba(2,6,23,0.04),0_10px_28px_-18px_rgba(2,6,23,0.12)] transition-all hover:-translate-y-0.5 hover:shadow-[0_2px_3px_rgba(2,6,23,0.05),0_16px_36px_-18px_rgba(2,6,23,0.16)]">
                 {stat.value === null ? (
                   <Skeleton className="h-8 w-12 mb-1" />
                 ) : (
@@ -337,7 +337,7 @@ export default function Dashboard() {
                       {stat.value.toLocaleString()}
                     </p>
                     {typeof stat.trend === "number" && stat.trend !== 0 && Number.isFinite(stat.trend) && (
-                      <span className={`text-[11px] font-medium tabular-nums flex items-center gap-0.5 ${stat.trend > 0 ? "text-[hsl(var(--accent-warm-strong))]" : "text-rose-600"}`}>
+                      <span className={`text-[11px] font-medium tabular-nums flex items-center gap-0.5 ${stat.trend > 0 ? "text-[hsl(var(--accent-warm-strong))]" : "text-rose-600 dark:text-rose-400"}`}>
                         {stat.trend > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                         {Math.abs(Math.round(stat.trend))}%
                       </span>
@@ -394,7 +394,7 @@ export default function Dashboard() {
                 },
               ].map((item) => (
                 <Link href={item.href} key={item.step}>
-                  <Card className={`group h-full flex flex-col gap-4 p-5 rounded-lg border cursor-pointer transition-colors hover:bg-muted/30 ${item.primary ? "border-foreground/10" : "border-border bg-card"}`}>
+                  <Card className={`group h-full flex flex-col gap-4 p-5 rounded-2xl border-0 bg-card ring-1 cursor-pointer transition-all shadow-[0_1px_2px_rgba(2,6,23,0.04),0_10px_28px_-18px_rgba(2,6,23,0.12)] hover:-translate-y-0.5 hover:shadow-[0_2px_3px_rgba(2,6,23,0.05),0_16px_36px_-18px_rgba(2,6,23,0.16)] ${item.primary ? "ring-foreground/[0.12]" : "ring-foreground/[0.06]"}`}>
                     <div className="flex items-start justify-between">
                       <div className={`w-8 h-8 rounded-md flex items-center justify-center ${item.primary ? "bg-foreground text-background" : "bg-muted text-muted-foreground group-hover:text-foreground transition-colors"}`}>
                         {item.icon}
@@ -440,7 +440,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <Card className="border border-border rounded-lg overflow-hidden divide-y divide-border">
+                <Card className="border-0 rounded-2xl ring-1 ring-foreground/[0.06] shadow-[0_1px_2px_rgba(2,6,23,0.04),0_10px_28px_-18px_rgba(2,6,23,0.12)] overflow-hidden divide-y divide-border">
                   {recentWorkLoading ? (
                     <div className="p-4 flex flex-col gap-3">
                       {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-14 rounded-lg" />)}
@@ -539,7 +539,7 @@ export default function Dashboard() {
                       </span>
                     </Link>
                   </div>
-                  <Card className="border border-border rounded-lg overflow-hidden divide-y divide-border">
+                  <Card className="border-0 rounded-2xl ring-1 ring-foreground/[0.06] shadow-[0_1px_2px_rgba(2,6,23,0.04),0_10px_28px_-18px_rgba(2,6,23,0.12)] overflow-hidden divide-y divide-border">
                     {topPagesLoading ? (
                       <div className="p-4 flex flex-col gap-3">
                         {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 rounded-md" />)}
@@ -586,7 +586,7 @@ export default function Dashboard() {
                         </span>
                       </Link>
                     </div>
-                    <Card className="border border-border rounded-lg overflow-hidden divide-y divide-border">
+                    <Card className="border-0 rounded-2xl ring-1 ring-foreground/[0.06] shadow-[0_1px_2px_rgba(2,6,23,0.04),0_10px_28px_-18px_rgba(2,6,23,0.12)] overflow-hidden divide-y divide-border">
                       {realLeads.map(({ lead, name }) => (
                         <Link href="/leads" key={lead.id}>
                           <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors cursor-pointer group">
@@ -611,7 +611,7 @@ export default function Dashboard() {
 
             {/* ── Contextual Prompt ────────────────────────────── */}
             {prompt && (
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-5 py-3.5 bg-card border border-border rounded-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-5 py-3.5 bg-card rounded-2xl ring-1 ring-foreground/[0.06] shadow-[0_1px_2px_rgba(2,6,23,0.04),0_10px_28px_-18px_rgba(2,6,23,0.12)]">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div className="w-8 h-8 rounded-lg bg-muted/60 flex items-center justify-center flex-shrink-0">
                     {draftCount > 0 ? (

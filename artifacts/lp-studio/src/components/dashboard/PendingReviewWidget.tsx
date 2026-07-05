@@ -95,14 +95,14 @@ export function PendingReviewWidget() {
           <Clock className="w-3 h-3" />
           Pending Review
           {!loading && (
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-amber-500/10 text-amber-700 border-amber-200">
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-amber-500/10 text-amber-700 border-amber-200 dark:text-amber-300 dark:border-amber-800/40">
               {items.length}
             </Badge>
           )}
         </h2>
       </div>
 
-      <Card className="border border-border rounded-lg overflow-hidden divide-y divide-border">
+      <Card className="border-0 rounded-2xl ring-1 ring-foreground/[0.06] shadow-[0_1px_2px_rgba(2,6,23,0.04),0_10px_28px_-18px_rgba(2,6,23,0.12)] overflow-hidden divide-y divide-border">
         {loading ? (
           <div className="p-4 flex flex-col gap-3">
             {[1, 2].map((i) => (
@@ -154,7 +154,7 @@ export function PendingReviewWidget() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="flex-1 sm:flex-initial gap-1.5 text-xs text-red-600 border-red-200 hover:bg-red-50"
+                    className="flex-1 sm:flex-initial gap-1.5 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-900 dark:hover:bg-red-950/30"
                     disabled={isActing}
                     onClick={() => reject(item.id)}
                     data-testid={`pending-review-reject-${item.id}`}
