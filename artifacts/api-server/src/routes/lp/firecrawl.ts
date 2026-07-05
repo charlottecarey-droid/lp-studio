@@ -48,6 +48,34 @@ async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Pro
   try { return await fetch(url, { ...init, signal: ctrl.signal }); } finally { clearTimeout(timer); }
 }
 
+// ── Transient-failure retry (reliability / cost control) ─────────────────
+// Firecrawl occasionally returns 429 (rate limited) or 5xx (briefly
+// overloaded); a bounded retry rescues most of those "occasional import
+// failed" cases. Only these transient statuses are retried — a 4xx
+// (404/400/403) is deterministic, so retrying just wastes a semaphore slot.
+// Retries sleep INSIDE the held firecrawlSemaphore slot so a 429 (Firecrawl
+// asking us to slow down globally) actually throttles our concurrency rather
+// than freeing the slot for another call to hammer the same endpoint.
+const FIRECRAWL_MAX_RETRIES = 2;
+
+function isRetriableStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+/** Backoff before the next retry (0-based attempt): ~1s then ~3s with ±50%
+ *  full jitter, honoring a 429 `Retry-After` (seconds) capped at 10s so a
+ *  single scrape can never blow the ~120s upstream request budget. */
+function firecrawlRetryDelayMs(attempt: number, res: Response): number {
+  const retryAfter = res.status === 429 ? Number(res.headers.get("retry-after")) : NaN;
+  if (Number.isFinite(retryAfter) && retryAfter > 0) return Math.min(retryAfter * 1000, 10_000);
+  const base = attempt === 0 ? 1000 : 3000;
+  return Math.round(base * (0.5 + Math.random()));
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export interface RawScrapeResult {
   markdown: string;
   screenshotUrl?: string;
@@ -67,38 +95,54 @@ export async function firecrawlScrape(
 ): Promise<RawScrapeResult | null> {
   const withScreenshot = opts?.withScreenshot ?? true;
   try {
-    // The whole HTTP exchange (request + body download) holds one
-    // firecrawlSemaphore slot; JSON/DOM post-processing happens after release.
+    const requestBody = JSON.stringify({
+      url,
+      // May 2026 audit follow-up:
+      //   • screenshot@fullPage instead of viewport so the model sees
+      //     below-the-fold sections.
+      //   • onlyMainContent: false so nav/footer/CTA bars (which users
+      //     most often want to clone) come through.
+      //   • waitFor 4000 ms instead of 1500 — JS-heavy marketing pages
+      //     animate hero copy in on scroll.
+      // `html` is requested alongside markdown/screenshot so we can
+      // extract the page's real content images (task #747) using the
+      // same Cheerio heuristics Brand Import uses — markdown alone loses
+      // lazy-load attrs, srcset, and CSS background images.
+      formats: withScreenshot
+        ? ["markdown", "screenshot@fullPage", "html"]
+        : ["markdown", "html"],
+      onlyMainContent: false,
+      waitFor: 4000,
+    });
+    // The whole HTTP exchange (request + body download + any transient-failure
+    // retries) holds one firecrawlSemaphore slot; JSON/DOM post-processing
+    // happens after release.
     const data = await firecrawlSemaphore.run(async () => {
-      const res = await fetchWithTimeout(
-        "https://api.firecrawl.dev/v1/scrape",
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            url,
-            // May 2026 audit follow-up:
-            //   • screenshot@fullPage instead of viewport so the model sees
-            //     below-the-fold sections.
-            //   • onlyMainContent: false so nav/footer/CTA bars (which users
-            //     most often want to clone) come through.
-            //   • waitFor 4000 ms instead of 1500 — JS-heavy marketing pages
-            //     animate hero copy in on scroll.
-            // `html` is requested alongside markdown/screenshot so we can
-            // extract the page's real content images (task #747) using the
-            // same Cheerio heuristics Brand Import uses — markdown alone loses
-            // lazy-load attrs, srcset, and CSS background images.
-            formats: withScreenshot
-              ? ["markdown", "screenshot@fullPage", "html"]
-              : ["markdown", "html"],
-            onlyMainContent: false,
-            waitFor: 4000,
-          }),
-        },
-        30000,
-      );
-      if (!res.ok) return null;
-      return (await res.json()) as { data?: { markdown?: string; screenshot?: string; html?: string } };
+      for (let attempt = 0; ; attempt++) {
+        const res = await fetchWithTimeout(
+          "https://api.firecrawl.dev/v1/scrape",
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+            body: requestBody,
+          },
+          30000,
+        );
+        if (res.ok) {
+          return (await res.json()) as { data?: { markdown?: string; screenshot?: string; html?: string } };
+        }
+        // Retry only transient upstream failures (429 + 5xx); a 4xx
+        // (404/400/403) is deterministic so retrying just wastes the slot.
+        if (!isRetriableStatus(res.status) || attempt >= FIRECRAWL_MAX_RETRIES) {
+          if (isRetriableStatus(res.status)) {
+            console.warn(
+              `[firecrawl] scrape failed after ${attempt + 1} attempt(s): HTTP ${res.status} ${url}`,
+            );
+          }
+          return null;
+        }
+        await sleep(firecrawlRetryDelayMs(attempt, res));
+      }
     });
     if (!data) return null;
     const raw = (data?.data?.markdown ?? "").trim();
@@ -148,6 +192,55 @@ export function normalizeScrapeUrl(u: string): string {
   } catch { return u; }
 }
 
+// ── Per-tenant daily scrape budget (cost control) ────────────────────────
+// Firecrawl is billed per scrape, so a single heavy or abusive tenant could
+// otherwise burn the whole day's scrape budget. Cap the number of REAL
+// (cache-miss) Firecrawl calls per tenant per UTC day; cache hits are free
+// and never counted. In-memory + per-instance — matching the sibling scrape
+// cache and lib/ai-rate-limit's MemoryStore — so on autoscale the effective
+// cap scales with instance count. That's acceptable: this is defense-in-depth
+// on top of the per-tenant hourly generation cap, not a billing-accurate
+// ledger.
+const scrapeBudget = new Map<string, number>();
+
+// Read live (not cached at module load) so the cap can be tuned via env
+// without a redeploy — a numeric env read is negligible next to a scrape.
+function firecrawlTenantDailyCap(): number {
+  return envConcurrency("FIRECRAWL_TENANT_DAILY_CAP", 300);
+}
+
+function utcDay(now = Date.now()): string {
+  return new Date(now).toISOString().slice(0, 10);
+}
+
+/** True when the tenant has already spent its full daily Firecrawl budget.
+ *  Checked at the scrape entry points so a cap-exceeded scrape surfaces as a
+ *  clean "rate_limited" failureReason instead of an indistinct null. */
+export function isTenantScrapeBudgetExhausted(tenantId: number): boolean {
+  return (scrapeBudget.get(`${tenantId}::${utcDay()}`) ?? 0) >= firecrawlTenantDailyCap();
+}
+
+/** Consume one unit of the tenant's daily budget for a REAL scrape (cache
+ *  miss). Returns false when the budget is already spent, in which case the
+ *  caller must skip the network call. Opportunistically prunes previous-day
+ *  keys so the map can't grow unbounded on a long-lived instance. */
+function consumeScrapeBudget(tenantId: number): boolean {
+  const key = `${tenantId}::${utcDay()}`;
+  const used = scrapeBudget.get(key) ?? 0;
+  if (used >= firecrawlTenantDailyCap()) return false;
+  scrapeBudget.set(key, used + 1);
+  const suffix = `::${utcDay()}`;
+  for (const k of scrapeBudget.keys()) {
+    if (!k.endsWith(suffix)) scrapeBudget.delete(k);
+  }
+  return true;
+}
+
+/** Test-only: reset the in-memory daily scrape budget between cases. */
+export function resetScrapeBudget(): void {
+  scrapeBudget.clear();
+}
+
 export async function cachedFirecrawlScrape(
   apiKey: string,
   rawUrl: string,
@@ -167,6 +260,10 @@ export async function cachedFirecrawlScrape(
     scrapeCache.set(key, hit);
     return hit.value;
   }
+  // Cache hits above are free; a real (cache-miss) scrape consumes one unit of
+  // the tenant's daily budget. When it's spent, skip the network call entirely
+  // and let the caller surface a clean "rate_limited" failure.
+  if (!consumeScrapeBudget(tenantId)) return null;
   const fresh = await firecrawlScrape(apiKey, url, opts);
   if (!fresh) return null;
   scrapeCache.set(key, { at: now, value: fresh });
@@ -187,6 +284,8 @@ export type ScrapeFailureReason =
   | "blocked_url"
   | "no_firecrawl_key"
   | "firecrawl_failed"
+  /** Tenant spent its per-day scrape budget (cost control) — try again tomorrow. */
+  | "rate_limited"
   | "empty_markdown";
 
 export interface MaybeScrapeResult {
@@ -245,7 +344,12 @@ export async function maybeScrapeRef(
   const FIRECRAWL_KEY = process.env.FIRECRAWL_API_KEY;
   if (!FIRECRAWL_KEY) return { scraped: null, failureReason: "no_firecrawl_key" };
   const got = await cachedFirecrawlScrape(FIRECRAWL_KEY, parsed.toString(), tenantId);
-  if (!got) return { scraped: null, failureReason: "firecrawl_failed" };
+  if (!got) {
+    return {
+      scraped: null,
+      failureReason: isTenantScrapeBudgetExhausted(tenantId) ? "rate_limited" : "firecrawl_failed",
+    };
+  }
   if (!got.markdown) {
     return { scraped: null, screenshotUrl: got.screenshotUrl, failureReason: "empty_markdown" };
   }
@@ -373,7 +477,10 @@ export async function maybeMultiPageScrapeRef(
   );
 
   if (successful.length === 0) {
-    return { scraped: null, failureReason: "firecrawl_failed" };
+    return {
+      scraped: null,
+      failureReason: isTenantScrapeBudgetExhausted(tenantId) ? "rate_limited" : "firecrawl_failed",
+    };
   }
 
   // Primary screenshot wins; if absent (rare — primary failed mid-flight)

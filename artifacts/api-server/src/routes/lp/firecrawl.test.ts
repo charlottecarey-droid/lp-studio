@@ -25,7 +25,15 @@ vi.mock("../../lib/brand-import/net-guard", async (importOriginal) => ({
   isSafePublicHost: async () => true,
 }));
 
-import { clearInspirationScrapeCache, maybeMultiPageScrapeRef, scrapeInspirationUrl } from "./firecrawl";
+import {
+  clearInspirationScrapeCache,
+  firecrawlScrape,
+  isTenantScrapeBudgetExhausted,
+  maybeMultiPageScrapeRef,
+  maybeScrapeRef,
+  resetScrapeBudget,
+  scrapeInspirationUrl,
+} from "./firecrawl";
 
 const ROOT = "https://smbclinic.example";
 
@@ -211,5 +219,157 @@ describe("scrapeInspirationUrl — cached scrape-only inspiration path", () => {
     delete process.env.FIRECRAWL_API_KEY;
     expect(await scrapeInspirationUrl(ROOT, 92026003)).toBeNull();
     expect(fetchStub).not.toHaveBeenCalled();
+  });
+});
+
+// ── Transient-failure retry (June 2026 launch hardening) ────────────────────
+// Contract under test (firecrawlScrape, the single choke point every scrape
+// path flows through):
+//   1. A transient 429 is retried (honoring Retry-After) and the subsequent
+//      success is returned — "import failed" blips self-heal.
+//   2. A deterministic 4xx (404/400) is NEVER retried — one call, then null.
+//   3. A persistent 5xx is retried up to the cap then gives up with null,
+//      so a down upstream can't hang the request past its budget.
+function firecrawlErrorResponse(status: number, headers?: Record<string, string>) {
+  return {
+    ok: false,
+    status,
+    headers: new Headers(headers ?? {}),
+    json: async () => ({}),
+  } as unknown as Response;
+}
+
+describe("firecrawlScrape — transient-failure retry", () => {
+  const realFetch = globalThis.fetch;
+  const hadKey = process.env.FIRECRAWL_API_KEY;
+
+  beforeEach(() => {
+    process.env.FIRECRAWL_API_KEY = "test-key";
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    globalThis.fetch = realFetch;
+    if (hadKey === undefined) delete process.env.FIRECRAWL_API_KEY;
+    else process.env.FIRECRAWL_API_KEY = hadKey;
+    vi.restoreAllMocks();
+  });
+
+  it("retries a 429 (honoring Retry-After) then returns the successful scrape", async () => {
+    let calls = 0;
+    const fetchStub = vi.fn(async () => {
+      calls += 1;
+      if (calls === 1) return firecrawlErrorResponse(429, { "retry-after": "1" });
+      return firecrawlResponse("Homepage copy", htmlWithImage("home"));
+    });
+    globalThis.fetch = fetchStub as unknown as typeof fetch;
+
+    const p = firecrawlScrape("test-key", `${ROOT}/`);
+    await vi.runAllTimersAsync();
+    const res = await p;
+
+    expect(res).not.toBeNull();
+    expect(res!.markdown).toContain("Homepage copy");
+    expect(fetchStub).toHaveBeenCalledTimes(2);
+  });
+
+  it("does NOT retry a deterministic 4xx (404) — one call, then null", async () => {
+    const fetchStub = vi.fn(async () => firecrawlErrorResponse(404));
+    globalThis.fetch = fetchStub as unknown as typeof fetch;
+
+    const p = firecrawlScrape("test-key", `${ROOT}/`);
+    await vi.runAllTimersAsync();
+    const res = await p;
+
+    expect(res).toBeNull();
+    expect(fetchStub).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a persistent 500 up to the cap (3 attempts total) then gives up with null", async () => {
+    const fetchStub = vi.fn(async () => firecrawlErrorResponse(500));
+    globalThis.fetch = fetchStub as unknown as typeof fetch;
+
+    const p = firecrawlScrape("test-key", `${ROOT}/`);
+    await vi.runAllTimersAsync();
+    const res = await p;
+
+    expect(res).toBeNull();
+    // 1 initial attempt + FIRECRAWL_MAX_RETRIES (2).
+    expect(fetchStub).toHaveBeenCalledTimes(3);
+  });
+});
+
+// ── Per-tenant daily scrape cap (June 2026 launch hardening) ────────────────
+// Contract under test:
+//   1. REAL (cache-miss) scrapes consume the tenant's daily budget; cache hits
+//      are free and never counted.
+//   2. Once the budget is spent, further real scrapes short-circuit to a clean
+//      "rate_limited" failureReason WITHOUT issuing a network call.
+//   3. The budget is scoped per tenant.
+// The cap is read live from FIRECRAWL_TENANT_DAILY_CAP, so these tests just set
+// a low cap in the env and reset the in-memory budget between cases.
+describe("per-tenant daily scrape cap", () => {
+  const realFetch = globalThis.fetch;
+  const hadKey = process.env.FIRECRAWL_API_KEY;
+  const hadCap = process.env.FIRECRAWL_TENANT_DAILY_CAP;
+
+  beforeEach(() => {
+    process.env.FIRECRAWL_API_KEY = "test-key";
+    process.env.FIRECRAWL_TENANT_DAILY_CAP = "2";
+    resetScrapeBudget();
+  });
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+    if (hadKey === undefined) delete process.env.FIRECRAWL_API_KEY;
+    else process.env.FIRECRAWL_API_KEY = hadKey;
+    if (hadCap === undefined) delete process.env.FIRECRAWL_TENANT_DAILY_CAP;
+    else process.env.FIRECRAWL_TENANT_DAILY_CAP = hadCap;
+    resetScrapeBudget();
+    vi.restoreAllMocks();
+  });
+
+  it("caps real scrapes, keeps cache hits free, and surfaces rate_limited over budget", async () => {
+    const fetchStub = makeFetchStub({
+      "/": { md: "Home copy", imgId: "home" },
+      "/pricing": { md: "Pricing copy", imgId: "pricing" },
+      "/about": { md: "About copy", imgId: "about" },
+    });
+    globalThis.fetch = fetchStub as unknown as typeof fetch;
+    const T = 93030001;
+
+    // 1st real scrape → consumes 1 of 2 units.
+    const a1 = await maybeScrapeRef(`${ROOT}/`, T);
+    expect(a1.scraped).not.toBeNull();
+    // Same URL again → served from cache; must NOT consume budget or re-fetch.
+    const a2 = await maybeScrapeRef(`${ROOT}/`, T);
+    expect(a2.scraped).not.toBeNull();
+    expect(fetchStub).toHaveBeenCalledTimes(1);
+
+    // 2nd distinct real scrape → consumes the last unit.
+    const b = await maybeScrapeRef(`${ROOT}/pricing`, T);
+    expect(b.scraped).not.toBeNull();
+    expect(fetchStub).toHaveBeenCalledTimes(2);
+    expect(isTenantScrapeBudgetExhausted(T)).toBe(true);
+
+    // 3rd distinct real scrape → over budget → rate_limited, no network call.
+    const c = await maybeScrapeRef(`${ROOT}/about`, T);
+    expect(c.scraped).toBeNull();
+    expect(c.failureReason).toBe("rate_limited");
+    expect(fetchStub).toHaveBeenCalledTimes(2);
+  });
+
+  it("scopes the budget per tenant", async () => {
+    const fetchStub = makeFetchStub({
+      "/": { md: "Home", imgId: "home" },
+      "/pricing": { md: "Pricing", imgId: "pricing" },
+    });
+    globalThis.fetch = fetchStub as unknown as typeof fetch;
+
+    // Exhaust tenant A's 2-unit budget.
+    await maybeScrapeRef(`${ROOT}/`, 93030010);
+    await maybeScrapeRef(`${ROOT}/pricing`, 93030010);
+    expect(isTenantScrapeBudgetExhausted(93030010)).toBe(true);
+    // A different tenant is unaffected.
+    expect(isTenantScrapeBudgetExhausted(93030011)).toBe(false);
   });
 });
