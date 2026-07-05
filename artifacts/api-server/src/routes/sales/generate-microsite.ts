@@ -3373,7 +3373,7 @@ export function buildSystemPrompt(
     const freeformFooter = [
       "",
       "LAYOUT — YOU choose the sections (this page has NO fixed block list):",
-      "- Open with EXACTLY ONE \"hero\" block (first) and END with a \"footer\" block.",
+      "- Open with EXACTLY ONE hero-type block (first) and END with a \"footer\" block. When the suggested flow below names a specific hero, use THAT hero type as your opening block — do NOT fall back to the plain \"hero\" block in its place.",
       "- Between them, pick 5–9 sections from the AVAILABLE BLOCKS that best tell THIS account's story. Vary the selection and order across accounts — do NOT emit the same flat sequence every time.",
       "- For a sales or marketing microsite, include at least one proof/metrics section (trust-bar, stats, stat-callout, or testimonial), at least one features/benefits section (benefits-grid or how-it-works), and a closing CTA (bottom-cta) immediately before the footer. This is REQUIRED for a sales page but does NOT apply when the freestyle rule below takes over for a non-sales page (about-us, FAQ, contact, etc.) — then pick sections only for the real subject.",
       narrativeFlowLine,

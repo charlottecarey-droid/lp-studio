@@ -53,7 +53,7 @@ export const FREEFORM_MICROSITE_DISPLAY_TYPES = [
  * job (mirrors the shared block-role-tag vocabulary used by enforceRequiredRoles).
  */
 export const FREEFORM_ROLE_HINTS: Record<string, string> = {
-  "hero": "hero — opens the page; exactly ONE, always first",
+  "hero": "hero — neutral opening hero; use only when the suggested flow doesn't name a more specific hero",
   "trust-bar": "social proof + stats — quick credibility/metrics bar",
   "benefits-grid": "features — benefit/value cards",
   "testimonial": "social proof — a real-sounding customer quote",
