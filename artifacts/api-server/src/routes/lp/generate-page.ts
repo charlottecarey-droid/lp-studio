@@ -9199,6 +9199,18 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
         mergedBlocks = sanitizeAIImageUrls(mergedBlocks, mediaCatalog.allImages, brandLogoUrls) as typeof mergedBlocks;
         mergedBlocks = validateAndDedupeAIImages(mergedBlocks, fillPool, pageImageContext, brandLogoUrls) as typeof mergedBlocks;
         mergedBlocks = fillEmptyImages(mergedBlocks, fillPool, pageImageContext, false, brandLogoUrls) as typeof mergedBlocks;
+        // Last-resort relaxed pass — parity with the freeform path (the
+        // fillEmptyImages(..., true) call after AI generation there). The strict
+        // pass above places only the tenant's OWN curated assets + the CURRENT
+        // reference's scrapes; generic shared STARTER seeds and stale scrapes are
+        // DEFERRED in findBestImage (deferred && !relaxed) and never fill without
+        // a relaxed pass. Without this, a template "Replace imagery" page whose
+        // tenant has no own hero image shipped an EMPTY hero even when an on-topic
+        // shared starter hero existed — while the SAME tenant's freeform page
+        // filled it (the freeform path already runs this relaxed pass). "Empty
+        // beats wrong" still holds: the relaxed hero/product relevance floor keeps
+        // rejecting OFF-topic starters, so only a topically-matching starter fills.
+        mergedBlocks = fillEmptyImages(mergedBlocks, fillPool, pageImageContext, true, brandLogoUrls) as typeof mergedBlocks;
       } else {
         // Task #1290 — "Replace imagery" OFF (default): GUARANTEE the same image
         // stays in the same slot. The copy merge keeps url-named / `src` image

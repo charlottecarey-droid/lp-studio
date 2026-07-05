@@ -194,7 +194,21 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
         </div>
       )}
       {/* Video, screenshot, or placeholder */}
-      <div style={{ position: "relative", lineHeight: 0 }}>
+      <div
+        style={{
+          position: "relative",
+          lineHeight: 0,
+          // Neutral backing so a capped (letterboxed) product screenshot reads
+          // as intentional. Only applies behind a still image — video fills the
+          // frame (object-fit: cover) and the placeholder has its own surface.
+          background:
+            imageUrl && !videoUrl
+              ? dark
+                ? "#0d1f18"
+                : "rgb(var(--brand-primary-rgb, 15 23 42) / 0.04)"
+              : undefined,
+        }}
+      >
         {videoUrl ? (
           isNativeVideoUrl(videoUrl) ? (
             <div style={{ position: "relative" }}>
@@ -224,10 +238,14 @@ export function BlockDsoSoftwareShowcase({ props, brand, onFieldChange }: Props)
             </div>
           )
         ) : imageUrl ? (
+          // Product UI screenshots vary wildly in size/aspect. Cap the height so
+          // a large or tall image can't blow up the section, and use `contain`
+          // (not `cover`) so the whole UI stays visible — never cropped — at a
+          // normal, consistent size. Wide images under the cap render naturally.
           <img
             src={imageUrl}
             alt="Software showcase"
-            style={{ width: "100%", display: "block", objectFit: "cover" }}
+            style={{ width: "100%", maxHeight: 620, display: "block", objectFit: "contain", margin: "0 auto" }}
           />
         ) : (
           <div
