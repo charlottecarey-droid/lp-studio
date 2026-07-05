@@ -1141,6 +1141,24 @@ export function mergeAuthored(base: unknown, ai: unknown): unknown {
   return base;
 }
 
+// Collect every string value nested anywhere in an authored template's props.
+// The sentence-case normalizer treats these as protected: a heading that still
+// exactly equals its authored value (restored by mergeAuthored, or authored-only
+// because the AI omitted the block) has human-chosen casing, not model output.
+function collectAuthoredStrings(node: unknown, into: Set<string>): void {
+  if (typeof node === "string") {
+    if (node.trim().length > 0) into.add(node);
+    return;
+  }
+  if (Array.isArray(node)) {
+    for (const item of node) collectAuthoredStrings(item, into);
+    return;
+  }
+  if (node && typeof node === "object") {
+    for (const v of Object.values(node as Record<string, unknown>)) collectAuthoredStrings(v, into);
+  }
+}
+
 // Replace {{company_name}} / {{practice_count}} everywhere (safety net for any
 // field the AI left as the authored placeholder), then collapse double spaces.
 function substituteAccountVars(value: unknown, companyName: string, practiceCount: string): unknown {
@@ -4564,6 +4582,10 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
     // never leak into a non-Dandy freeform page even if the model ignores the
     // prompt). If filtering leaves nothing usable, fall back to the static
     // NEUTRAL layout (the last-resort safety net) rather than ship a blank page.
+    // When that NEUTRAL substitution happens, the page is a deliberate static
+    // layout (not model output) — remembered here so the empty-block prune
+    // below doesn't gut the safety net (see the prune gate).
+    let neutralFallbackLayout = false;
     if (usePoolFreeform) {
       // Segment-pool safety (task #5) — clamp output to the approved pool ∪ the
       // structural essentials (hero/cta/footer). Anything outside the pool the
@@ -4607,6 +4629,7 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
         normalizedBlocks = NEUTRAL_MICROSITE_BLOCK_LIST.map((entry, i) =>
           normalizeBlock({ type: entry.type, props: {} } as AiBlock, i, fallbackBrand),
         );
+        neutralFallbackLayout = true;
       }
     } else if (useDsoFreeform && dsoFreeformMode) {
       // DSO block-variety regression — DSO-freeform safety: drop any block whose
@@ -4726,7 +4749,14 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
     // remove an authored slot — never a stray empty section — and removing a
     // configured slot would break the outline's hard ordering. Leave the page
     // exactly as the outline + reconcile produced it.
-    if (!outlineActive) {
+    // NEUTRAL fallback authority — same reasoning when the static NEUTRAL
+    // layout was substituted (freeform output had no usable blocks): every
+    // block is a deliberate slot of the last-resort safety net, not model
+    // output, and its content-bearing blocks (trust-bar, testimonial) start
+    // empty by construction. Pruning them would gut the "complete, on-brand
+    // last-resort" contract and ship a thinner page than the safety net
+    // promises (pinned by the freeform smoke tests).
+    if (!outlineActive && !neutralFallbackLayout) {
       const before = normalizedBlocks.length;
       normalizedBlocks = pruneEmptyContentBlocks(
         normalizedBlocks as Array<{ type?: string; props?: Record<string, unknown> }>,
@@ -4926,6 +4956,10 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
     // any slot the fill couldn't satisfy falls back to the template's original
     // image instead of shipping empty/black (Task #1126), never clobbering a
     // successfully replaced library image.
+    // Authored template strings (filled below when a template is in play) —
+    // handed to the sentence-case normalizer so deliberately-cased authored
+    // copy is never rewritten. Empty (and thus a no-op) on non-template paths.
+    const authoredTemplateStrings = new Set<string>();
     if (templateBlocks) {
       // Realign the AI blocks to the authored template by TYPE before any
       // positional zip (restoreTemplateImages + the merge below). Earlier
@@ -4975,6 +5009,18 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
       // renders real account data. A template with no placeholders is unaffected.
       const companyName = deriveCompanyName(account);
       const practiceCount = derivePracticeCount(briefingData, account);
+
+      // Protect authored copy from the sentence-case normalizer below: any
+      // heading still exactly matching its authored value (raw, or with the
+      // account placeholders substituted) was deliberately cased by a human,
+      // e.g. an "Event Details" section heading — never rewrite it.
+      for (const tmpl of templateBlocks) {
+        collectAuthoredStrings(tmpl.props, authoredTemplateStrings);
+        collectAuthoredStrings(
+          substituteAccountVars(tmpl.props, companyName, practiceCount),
+          authoredTemplateStrings,
+        );
+      }
 
       // Compound business-case templates are a single rich monograph block.
       // Rather than trust the AI to emit every nested field, merge its copy
@@ -5223,6 +5269,9 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
           account.displayName ?? account.name,
           ...(((brand.productLines as BrandProductLine[] | undefined) ?? []).map(p => p?.name)),
         ],
+        // Authored template copy keeps its human-chosen casing (e.g. an
+        // "Event Details" heading restored by the mergeAuthored backstop).
+        preserveValues: authoredTemplateStrings,
       });
       if (changed > 0) {
         logger.info(

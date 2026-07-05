@@ -219,10 +219,15 @@ function normalizeHeadingString(input: string, phrases: ProtectedPhrase[]): stri
   return restorePhrases(out.join(""), restores);
 }
 
-function walk(node: unknown, phrases: ProtectedPhrase[], inPersonCard: boolean): number {
+function walk(
+  node: unknown,
+  phrases: ProtectedPhrase[],
+  inPersonCard: boolean,
+  preserveValues: ReadonlySet<string> | undefined,
+): number {
   let changed = 0;
   if (Array.isArray(node)) {
-    for (const item of node) changed += walk(item, phrases, inPersonCard);
+    for (const item of node) changed += walk(item, phrases, inPersonCard, preserveValues);
     return changed;
   }
   if (!isPlainObject(node)) return 0;
@@ -232,6 +237,10 @@ function walk(node: unknown, phrases: ProtectedPhrase[], inPersonCard: boolean):
     if (typeof value === "string") {
       if (!isHeadingKey(key)) continue;
       if (personCard && PERSON_FIELD_KEYS.has(key.toLowerCase())) continue;
+      // A string that exactly matches an authored/preserved value is a
+      // deliberate human choice (e.g. a template's "Event Details" heading
+      // restored by the merge backstop) — its casing is not model output.
+      if (preserveValues?.has(value)) continue;
       const next = normalizeHeadingString(value, phrases);
       if (next !== value) {
         node[key] = next;
@@ -239,7 +248,7 @@ function walk(node: unknown, phrases: ProtectedPhrase[], inPersonCard: boolean):
       }
       continue;
     }
-    changed += walk(value, phrases, personCard);
+    changed += walk(value, phrases, personCard, preserveValues);
   }
   return changed;
 }
@@ -248,6 +257,9 @@ export interface SentenceCaseOptions {
   /** Proper nouns to protect as whole phrases (brand name, product names,
    *  account name). Case-insensitive; their canonical casing is restored. */
   properNouns?: (string | null | undefined)[];
+  /** Exact string values never rewritten — authored copy (template props) whose
+   *  casing is a deliberate human choice rather than model output. */
+  preserveValues?: ReadonlySet<string>;
 }
 
 /**
@@ -268,7 +280,7 @@ export function normalizeHeadingsToSentenceCase(
     let changed = 0;
     for (const block of blocks) {
       if (!isPlainObject(block)) continue;
-      changed += walk(block.props, phrases, false);
+      changed += walk(block.props, phrases, false, opts.preserveValues);
     }
     return { blocks, changed };
   } catch {

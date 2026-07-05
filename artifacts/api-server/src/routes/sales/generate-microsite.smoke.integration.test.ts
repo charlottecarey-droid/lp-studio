@@ -257,8 +257,10 @@ afterAll(async () => {
   }
   // Generous timeout: each cascade delete runs catalog discovery + per-table
   // deletes against the shared DB, so clearing this run's tenants exceeds the
-  // 10s default hook timeout.
-}, 120_000);
+  // 10s default hook timeout — and from a laptop (WAN latency to Neon, vs
+  // Replit's same-region link) even 120s can fall short for a full run's
+  // ~15 tenants.
+}, 300_000);
 
 // Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
 describe.skipIf(!dbAvailable)("Microsite generation smoke", { timeout: 180_000 }, () => {
@@ -645,13 +647,15 @@ describe.skipIf(!dbAvailable)("Microsite generation survives malformed / partial
  * the freeform branch (useFreeform === true).
  *
  * The canonical NEUTRAL block list (see NEUTRAL_MICROSITE_BLOCK_LIST in the
- * route): hero, trust-bar, benefits-grid, testimonial, how-it-works,
- * comparison, bottom-cta. After it is substituted, enforceRequiredRoles may
- * append further role blocks (e.g. a footer), so we assert the NEUTRAL types
- * are a SUBSET of the produced layout rather than an exact match.
+ * route): full-bleed-hero (deliberately swapped in for the plain hero in June
+ * 2026 — it renders its own nav), trust-bar, benefits-grid, testimonial,
+ * how-it-works, comparison, bottom-cta. After it is substituted,
+ * enforceRequiredRoles may append further role blocks (e.g. a footer), so we
+ * assert the NEUTRAL types are a SUBSET of the produced layout rather than an
+ * exact match.
  */
 const NEUTRAL_TYPES = [
-  "hero",
+  "full-bleed-hero",
   "trust-bar",
   "benefits-grid",
   "testimonial",
@@ -671,7 +675,7 @@ function assertNeutralLayout(blocks: Array<{ type: string; props: Record<string,
   for (const t of NEUTRAL_TYPES) {
     expect(types.has(t)).toBe(true);
   }
-  expect(blocks[0].type).toBe("hero");
+  expect(blocks[0].type).toBe("full-bleed-hero");
 }
 
 // Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
