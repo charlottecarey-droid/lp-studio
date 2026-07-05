@@ -1,0 +1,44 @@
+I'd like to audit the current image selection pipeline because I think there's a regression and a couple of architectural improvements we should consider.
+
+### What's working
+
+Overall, the image replacement logic has gotten much better. The AI does a good job of replacing the generic starter images with the tenant's actual brand images in most cases. We've spent a lot of time improving image selection, and it's generally producing much higher-quality pages than it used to.
+
+### Current regression
+
+There appears to be a new bug affecting the **hero image**.
+
+When a page is generated:
+
+* Starter images are placed into every image slot.
+* The replacement process correctly swaps almost all of them with tenant images.
+* **The hero image is often the only image that never gets replaced**, leaving the original starter image on the finished page.
+
+This seems like a regression because the replacement pipeline is otherwise working as expected.
+
+The hero is the single most important visual on the page, so it should have the highest confidence requirement. We should never ship a page where everything else has been personalized but the hero is still using a generic starter image.
+
+### Another observation
+
+The starter image library also appears to have a strong bias toward dentistry/medical imagery. Even when the replacement process succeeds, this makes intermediate generations feel low quality, and when replacement fails (especially in the hero), the result is very noticeable.
+
+If a starter image must be used, it should either:
+
+* match the tenant's industry, or
+* be intentionally industry-agnostic.
+
+It should not consistently default to medical or dental imagery across unrelated businesses.
+
+### Architectural question
+
+Do we actually need to place starter images before replacement?
+
+Since the replacement pipeline is already capable of finding and inserting tenant images, would it be better to skip the initial starter-image pass entirely?
+
+Instead, the generation flow could be:
+
+1. Attempt to populate every image slot directly with tenant/brand images.
+2. Only if no suitable tenant image exists, choose an appropriate fallback.
+3. Apply stricter rules for heroes so they never ship with a generic starter image.
+
+This would eliminate the dependency on replacing placeholders later, reduce the impact of bugs like the current hero regression, and improve overall page quality.
