@@ -3723,8 +3723,15 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
         // Coalesced: the Generate Microsite modal fires a background prewarm
         // on open, so by the time the rep clicks Generate this usually either
         // finds the row above or JOINS the in-flight prewarm here instead of
-        // starting a second 30–90s research run.
-        const generated = await generateAndPersistAccountBriefingCoalesced({ tenantId, accountId });
+        // starting a second 30–90s research run. onProgress narrates the
+        // sub-steps ("Scanning acme.com …") as repeated research-stage
+        // `start` events — the live rail replaces the active label on each,
+        // and a joiner gets the in-flight run's current label replayed.
+        const generated = await generateAndPersistAccountBriefingCoalesced({
+          tenantId,
+          accountId,
+          onProgress: (label) => emitter.stage("research", "start", label),
+        });
         briefing = generated.briefing;
       } catch (err) {
         console.warn(

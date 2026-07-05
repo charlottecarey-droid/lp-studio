@@ -335,30 +335,71 @@ async function synthesizeBriefing(
  * duplicate research. The map only ever holds in-flight work — entries clear
  * in finally, success or failure.
  */
-const inFlightBriefings = new Map<string, ReturnType<typeof generateAndPersistAccountBriefing>>();
+interface InFlightBriefing {
+  run: ReturnType<typeof generateAndPersistAccountBriefing>;
+  /** Progress listeners from every caller sharing this run (the leader plus
+   *  any joiners). Fan-out is best-effort: a throwing listener is dropped
+   *  from the notification, never the run. */
+  subscribers: Set<BriefingProgressListener>;
+  /** Last label notified — replayed to a joiner on subscribe so a microsite
+   *  generation that JOINS an in-flight prewarm shows the current sub-step
+   *  immediately instead of a stale "Researching the account". */
+  lastLabel: string | null;
+}
+
+const inFlightBriefings = new Map<string, InFlightBriefing>();
+
+/** Sub-step narration for the 30–90s research run ("Scanning acme.com …").
+ *  Wired into the microsite SSE rail as repeated research-stage `start`
+ *  events — the live rail replaces the active stage's label on each one. */
+export type BriefingProgressListener = (label: string) => void;
 
 export function generateAndPersistAccountBriefingCoalesced(args: {
   tenantId: number;
   accountId: number;
+  onProgress?: BriefingProgressListener;
 }): ReturnType<typeof generateAndPersistAccountBriefing> {
   const key = `${args.tenantId}:${args.accountId}`;
   const existing = inFlightBriefings.get(key);
-  if (existing) return existing;
-  const run = generateAndPersistAccountBriefing(args).finally(() => {
+  if (existing) {
+    if (args.onProgress) {
+      existing.subscribers.add(args.onProgress);
+      if (existing.lastLabel !== null) {
+        try { args.onProgress(existing.lastLabel); } catch { /* listener's problem */ }
+      }
+    }
+    return existing.run;
+  }
+  const entry: InFlightBriefing = {
+    run: undefined as unknown as InFlightBriefing["run"],
+    subscribers: new Set(args.onProgress ? [args.onProgress] : []),
+    lastLabel: null,
+  };
+  const notify: BriefingProgressListener = (label) => {
+    entry.lastLabel = label;
+    for (const listener of entry.subscribers) {
+      try { listener(label); } catch { /* never let a listener kill research */ }
+    }
+  };
+  entry.run = generateAndPersistAccountBriefing({ ...args, onProgress: notify }).finally(() => {
     inFlightBriefings.delete(key);
   });
-  inFlightBriefings.set(key, run);
-  return run;
+  inFlightBriefings.set(key, entry);
+  return entry.run;
 }
 
 export async function generateAndPersistAccountBriefing(args: {
   tenantId: number;
   accountId: number;
+  onProgress?: BriefingProgressListener;
 }): Promise<{
   briefing: typeof salesBriefingsTable.$inferSelect;
   account: typeof salesAccountsTable.$inferSelect;
 }> {
   const { tenantId, accountId } = args;
+  const progress: BriefingProgressListener = (label) => {
+    try { args.onProgress?.(label); } catch { /* narration only — never throw */ }
+  };
 
   const [account] = await db.select().from(salesAccountsTable)
     .where(and(eq(salesAccountsTable.id, accountId), eq(salesAccountsTable.tenantId, tenantId)));
@@ -383,6 +424,11 @@ export async function generateAndPersistAccountBriefing(args: {
   // Best-effort enrichment: failures here must not kill the request.
   // perplexityResearch and scrapeWebsite already swallow their own errors,
   // but Promise.all would reject if either ever escapes — so guard it.
+  progress(
+    scrapeUrl && account.domain
+      ? `Scanning ${account.domain} · researching recent news`
+      : `Researching ${account.name} around the web`,
+  );
   const [research, website] = await Promise.all([
     perplexityResearch(accountCtx).catch((err) => {
       console.warn("[briefings] perplexity wrapper threw:", err);
@@ -397,6 +443,7 @@ export async function generateAndPersistAccountBriefing(args: {
   ]);
 
   // Seller identity (the tenant) for the briefing's direction framing.
+  progress(`Writing the ${account.name} brief`);
   const brandCtx = await getSalesBrandContext(tenantId);
 
   const briefingData = await synthesizeBriefing(
