@@ -487,7 +487,7 @@ function CompareMatrix() {
 function HeadToHead() {
   const { ref, inView } = useInView(0.06);
   return (
-    <section className="px-6" style={{ padding: "56px 30px" }}>
+    <section className="px-6 py-20 md:py-28">
       <div
         ref={ref}
         className="max-w-[1180px] mx-auto"
@@ -690,7 +690,7 @@ function Migration() {
     },
   ];
   return (
-    <section className="px-6" style={{ padding: "56px 30px" }}>
+    <section className="px-6 py-20 md:py-28">
       <div
         ref={ref}
         className="max-w-[1180px] mx-auto"
@@ -731,13 +731,7 @@ function Migration() {
               — your pages export to clean HTML whenever you want.
             </p>
           </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 16,
-            }}
-          >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {steps.map((s, i) => (
               <div
                 key={s.t}

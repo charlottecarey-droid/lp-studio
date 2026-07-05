@@ -27,11 +27,9 @@ export default function CampaignsScene() {
   return (
     <section
       id="campaigns"
-      className="px-6"
+      className="px-6 py-28 md:py-36"
       style={{
         background: "var(--cream)",
-        paddingTop: 96,
-        paddingBottom: 96,
         borderTop: "1px solid var(--hairline)",
         position: "relative",
         overflow: "hidden",
