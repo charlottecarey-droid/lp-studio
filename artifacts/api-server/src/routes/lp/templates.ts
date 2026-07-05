@@ -19,6 +19,21 @@ import { isFullPageTemplate, getMicrositeTemplateCompatibility } from "@workspac
 
 const router = Router();
 
+// Lightweight SQL projections so the template LIST endpoints never ship the
+// full (often multi-MB) blocks JSONB just to derive a count + type list. The
+// gallery + Template settings screen only need how MANY blocks a template has,
+// the list of block TYPES, and (from the first type) whether it's a full-page
+// template — none of which require the block props. Computing these in SQL
+// keeps each row's payload tiny.
+//   - blockCountSql: total array length (0 for a non-array/legacy value).
+//   - blockTypesSql: one entry PER block — its `type` as text (null when a
+//     block has no type) — with array ORDER preserved so blocks[0] stays
+//     blocks[0] for isFullPageTemplate.
+const blockCountSql = sql<number>`CASE WHEN jsonb_typeof(${lpPagesTable.blocks}) = 'array' THEN jsonb_array_length(${lpPagesTable.blocks}) ELSE 0 END`;
+const blockTypesSql = sql<
+  Array<string | null>
+>`CASE WHEN jsonb_typeof(${lpPagesTable.blocks}) = 'array' THEN COALESCE((SELECT jsonb_agg(elem->>'type' ORDER BY ord) FROM jsonb_array_elements(${lpPagesTable.blocks}) WITH ORDINALITY AS arr(elem, ord)), '[]'::jsonb) ELSE '[]'::jsonb END`;
+
 /**
  * Placeholder/scaffold template names that should never surface in the gallery
  * (task #736 cleanup). These are blank-fill stubs like "_____ One Pager" left
@@ -69,7 +84,26 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
     if (tenantId === null) return;
 
     const templates = await db
-      .select()
+      .select({
+        id: lpPagesTable.id,
+        title: lpPagesTable.title,
+        slug: lpPagesTable.slug,
+        templateLabel: lpPagesTable.templateLabel,
+        templateDescription: lpPagesTable.templateDescription,
+        status: lpPagesTable.status,
+        mode: lpPagesTable.mode,
+        ogImage: lpPagesTable.ogImage,
+        thumbnailUrl: lpPagesTable.thumbnailUrl,
+        thumbnailCapturedAt: lpPagesTable.thumbnailCapturedAt,
+        isGlobal: lpPagesTable.isGlobal,
+        industry: lpPagesTable.industry,
+        createdAt: lpPagesTable.createdAt,
+        updatedAt: lpPagesTable.updatedAt,
+        // Count + type list derived in SQL (see blockCountSql/blockTypesSql) so
+        // the heavy block props never travel to the gallery.
+        blockCount: blockCountSql,
+        blockTypesRaw: blockTypesSql,
+      })
       .from(lpPagesTable)
       .where(
         and(
@@ -112,13 +146,17 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
       // Drop placeholder/scaffold templates so the gallery shows no junk cards.
       .filter((t) => !isPlaceholderTemplateLabel(t.templateLabel || t.title))
       .map((t) => {
-      const blocks = Array.isArray(t.blocks) ? t.blocks : [];
+      // Block types come pre-projected from SQL (one entry per block, its
+      // `type` as text or null) so the full blocks JSONB never left Postgres.
+      const rawTypes = Array.isArray(t.blockTypesRaw) ? t.blockTypesRaw : [];
+      // Position-preserving, type-only view for the helpers below.
+      const blocksForType = rawTypes.map((type) => ({
+        type: typeof type === "string" ? type : undefined,
+      }));
       // Expose the block-type list so the UI can audience-gate templates
       // (e.g. hide leadership-only templates from practice-targeted pages).
       // Unknown-shape entries are skipped rather than coerced.
-      const blockTypes = blocks
-        .map((b) => (b && typeof b === "object" ? (b as { type?: unknown }).type : null))
-        .filter((t): t is string => typeof t === "string");
+      const blockTypes = rawTypes.filter((t): t is string => typeof t === "string");
       // Marketplace ordering rank — for seeded global templates we look up the
       // value from the seed file (no DB column needed). Tenant-owned templates
       // get rank 0 so they always appear above the global library when sorted
@@ -131,13 +169,11 @@ router.get("/lp/templates/enriched", async (req, res): Promise<void> => {
         slug: t.slug,
         templateLabel: t.templateLabel || t.title,
         templateDescription: t.templateDescription || "",
-        blockCount: blocks.length,
+        blockCount: Number(t.blockCount) || 0,
         blockTypes,
         // True when this is a standalone full-page template (its first block
         // renders an entire page). Drives the marketplace "Full Page" category.
-        fullPage: isFullPageTemplate(
-          blocks as ReadonlyArray<{ type?: unknown }>,
-        ),
+        fullPage: isFullPageTemplate(blocksForType),
         status: t.status,
         mode: t.mode,
         ogImage: t.ogImage || "",
@@ -369,7 +405,20 @@ router.get("/lp/templates/manage", requirePermission("settings"), async (req, re
     //      so the shared row is never mutated and edits never leak across tenants.
     const [owned, globals, overrideRows] = await Promise.all([
       db
-        .select()
+        .select({
+          id: lpPagesTable.id,
+          title: lpPagesTable.title,
+          templateLabel: lpPagesTable.templateLabel,
+          templateDescription: lpPagesTable.templateDescription,
+          micrositeEnabled: lpPagesTable.micrositeEnabled,
+          funnelStage: lpPagesTable.funnelStage,
+          eligibleSegments: lpPagesTable.eligibleSegments,
+          eligiblePersonas: lpPagesTable.eligiblePersonas,
+          eligibleFunnelStages: lpPagesTable.eligibleFunnelStages,
+          updatedAt: lpPagesTable.updatedAt,
+          blockCount: blockCountSql,
+          blockTypesRaw: blockTypesSql,
+        })
         .from(lpPagesTable)
         .where(
           and(
@@ -379,7 +428,16 @@ router.get("/lp/templates/manage", requirePermission("settings"), async (req, re
           ),
         ),
       db
-        .select()
+        .select({
+          id: lpPagesTable.id,
+          title: lpPagesTable.title,
+          templateLabel: lpPagesTable.templateLabel,
+          templateDescription: lpPagesTable.templateDescription,
+          funnelStage: lpPagesTable.funnelStage,
+          updatedAt: lpPagesTable.updatedAt,
+          blockCount: blockCountSql,
+          blockTypesRaw: blockTypesSql,
+        })
         .from(lpPagesTable)
         .where(
           and(
@@ -404,10 +462,10 @@ router.get("/lp/templates/manage", requirePermission("settings"), async (req, re
     const ownedOut = owned
       .filter((t) => !isPlaceholderTemplateLabel(t.templateLabel || t.title))
       .map((t) => {
-        const blocks = Array.isArray(t.blocks) ? t.blocks : [];
-        const { compatible, reason } = getMicrositeTemplateCompatibility(
-          blocks as ReadonlyArray<{ type?: unknown }>,
+        const blocksForType = (Array.isArray(t.blockTypesRaw) ? t.blockTypesRaw : []).map(
+          (type) => ({ type: typeof type === "string" ? type : undefined }),
         );
+        const { compatible, reason } = getMicrositeTemplateCompatibility(blocksForType);
         const effectiveEnabled =
           typeof t.micrositeEnabled === "boolean" ? t.micrositeEnabled : compatible;
         return {
@@ -416,7 +474,7 @@ router.get("/lp/templates/manage", requirePermission("settings"), async (req, re
           isGlobal: false,
           templateLabel: t.templateLabel || t.title,
           templateDescription: t.templateDescription || "",
-          blockCount: blocks.length,
+          blockCount: Number(t.blockCount) || 0,
           // Computed compatibility (the auto default).
           compatible,
           compatibilityReason: reason,
@@ -446,10 +504,10 @@ router.get("/lp/templates/manage", requirePermission("settings"), async (req, re
     const globalOut = globals
       .filter((t) => !isPlaceholderTemplateLabel(t.templateLabel || t.title))
       .map((t) => {
-        const blocks = Array.isArray(t.blocks) ? t.blocks : [];
-        const { compatible, reason } = getMicrositeTemplateCompatibility(
-          blocks as ReadonlyArray<{ type?: unknown }>,
+        const blocksForType = (Array.isArray(t.blockTypesRaw) ? t.blockTypesRaw : []).map(
+          (type) => ({ type: typeof type === "string" ? type : undefined }),
         );
+        const { compatible, reason } = getMicrositeTemplateCompatibility(blocksForType);
         const ov = overrideByTemplateId.get(t.id);
         const rawEnabled = typeof ov?.enabled === "boolean" ? ov.enabled : null;
         const effectiveEnabled = rawEnabled ?? compatible;
@@ -461,7 +519,7 @@ router.get("/lp/templates/manage", requirePermission("settings"), async (req, re
           isGlobal: true,
           templateLabel: ov?.label || t.templateLabel || t.title,
           templateDescription: t.templateDescription || "",
-          blockCount: blocks.length,
+          blockCount: Number(t.blockCount) || 0,
           compatible,
           compatibilityReason: reason,
           micrositeEnabled: rawEnabled,
