@@ -238,8 +238,15 @@ export function BlockLaunchSpotlightHero({
 
   // ── Resolved content (confident generic-SaaS defaults) ───────
   const chipText = props.chipText ?? "Now live on Product Hunt";
-  const headline = props.headline || "The fastest way to ship beautiful products";
-  const highlightWord = props.highlightWord ?? "beautiful";
+  const rawHeadline = props.headline || "The fastest way to ship beautiful products";
+  // The model sometimes injects <highlight>…</highlight> markup INTO the headline
+  // instead of (or on top of) the separate highlightWord prop — which leaks the
+  // literal tags into the rendered hero. Strip the tags everywhere the headline
+  // is used (published render + inline editor) and, when the prop wasn't set,
+  // adopt the wrapped phrase as the highlight target.
+  const highlightTagMatch = rawHeadline.match(/<highlight>([\s\S]*?)<\/highlight>/i);
+  const headline = rawHeadline.replace(/<\/?highlight>/gi, "");
+  const highlightWord = props.highlightWord ?? (highlightTagMatch ? highlightTagMatch[1].trim() : "beautiful");
   const subheadline =
     props.subheadline ??
     "One platform to design, build, and launch — without the handoffs. Join the teams who refuse to ship slow.";

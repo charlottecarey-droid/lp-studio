@@ -393,6 +393,46 @@ describe("dandy premium blocks — items[]/tabs[] imageUrl wiring", () => {
   });
 });
 
+// ── dso-problem imageUrls[] two-slot fill ───────────────────────────────────
+// The block has two MANDATORY image slots (imageUrls[0]/[1]) whose renderer
+// defaults are "" by design. The AI often leaves them blank (or emits a URL
+// sanitizeAIImageUrls then clears), and there was no server-side fill branch —
+// so the block shipped imageless. fillEmptyImages must fill both slots.
+describe("fillEmptyImages — dso-problem imageUrls[] two-slot fill", () => {
+  it("fills both slots when imageUrls is ['', '']", () => {
+    let blocks: any[] = [
+      { type: "dso-problem", props: { headline: "Consolidation shouldn't mean compromise", imageUrls: ["", ""] } },
+    ];
+    blocks = fillEmptyImages(blocks, LIB, PAGE_CTX) as any[];
+    const urls = blocks[0].props.imageUrls as string[];
+    expect(urls[0]).toBeTruthy();
+    expect(urls[1]).toBeTruthy();
+    expect(urls[0]).not.toBe(urls[1]);
+  });
+
+  it("pads to two slots and fills when imageUrls is omitted entirely", () => {
+    let blocks: any[] = [
+      { type: "dso-problem", props: { headline: "Fragmented tools slow your team" } },
+    ];
+    blocks = fillEmptyImages(blocks, LIB, PAGE_CTX) as any[];
+    const urls = blocks[0].props.imageUrls as string[];
+    expect(urls).toHaveLength(2);
+    expect(urls[0]).toBeTruthy();
+    expect(urls[1]).toBeTruthy();
+  });
+
+  it("keeps a kept library URL and only fills the empty sibling slot", () => {
+    let blocks: any[] = [
+      { type: "dso-problem", props: { headline: "The problem", imageUrls: ["/objects/dental-feature-1", ""] } },
+    ];
+    blocks = fillEmptyImages(blocks, LIB, PAGE_CTX) as any[];
+    const urls = blocks[0].props.imageUrls as string[];
+    expect(urls[0]).toBe("/objects/dental-feature-1");
+    expect(urls[1]).toBeTruthy();
+    expect(urls[1]).not.toBe("/objects/dental-feature-1");
+  });
+});
+
 // ── benefits-grid per-card photos are opt-in (useItemPhotos) ────────────────
 // benefits-grid / features are ICON-ONLY by default. Their per-item `image`
 // slots are only back-filled when the model opts the whole block in with

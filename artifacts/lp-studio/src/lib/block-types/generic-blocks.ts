@@ -1832,6 +1832,13 @@ export interface CtaSplitImageBlockProps {
   eyebrow?: string;
   heading: string;
   subheading?: string;
+  /** AI-emitted aliases. Generation frequently writes the library-wide
+   *  `headline`/`subheadline` names instead of this block's `heading`/
+   *  `subheading`, leaving the headline blank (the renderer showed an empty
+   *  `h2`). Components read these as render-time fallbacks; inline edits still
+   *  write `heading`/`subheading`, which win once non-empty. */
+  headline?: string;
+  subheadline?: string;
   /** The large feature image shown beside the copy. */
   imageUrl?: string;
   imageAlt?: string;

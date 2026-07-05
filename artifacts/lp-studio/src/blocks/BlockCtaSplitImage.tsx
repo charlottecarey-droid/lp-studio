@@ -24,6 +24,12 @@ export function BlockCtaSplitImage({ props, brand, onFieldChange }: Props) {
   const DISPLAY = props.headlineFont || BRAND_DISPLAY_FONT;
   const BODY = props.bodyFont || BRAND_BODY_FONT;
 
+  // The AI generator sometimes writes the library-wide `headline`/`subheadline`
+  // names instead of this block's `heading`/`subheading`, which left the h2
+  // blank. Read both, preferring the canonical names.
+  const heading = props.heading || props.headline;
+  const subheading = props.subheading || props.subheadline;
+
   const update = <K extends keyof CtaSplitImageBlockProps>(key: K, value: CtaSplitImageBlockProps[K]) =>
     onFieldChange?.({ ...props, [key]: value });
 
@@ -42,17 +48,19 @@ export function BlockCtaSplitImage({ props, brand, onFieldChange }: Props) {
             style={{ color: accent }}
           />
         )}
-        <InlineText
-          as="h2"
-          value={props.heading}
-          onUpdate={onFieldChange ? (v: string) => update("heading", v) : undefined}
-          className="text-balance font-extrabold leading-[1.06] tracking-tight"
-          style={{ color: text, fontFamily: DISPLAY, fontSize: "clamp(1.875rem, 3.6vw, 3rem)" }}
-        />
-        {(props.subheading || onFieldChange) && (
+        {(heading || onFieldChange) && (
+          <InlineText
+            as="h2"
+            value={heading ?? ""}
+            onUpdate={onFieldChange ? (v: string) => update("heading", v) : undefined}
+            className="text-balance font-extrabold leading-[1.06] tracking-tight"
+            style={{ color: text, fontFamily: DISPLAY, fontSize: "clamp(1.875rem, 3.6vw, 3rem)" }}
+          />
+        )}
+        {(subheading || onFieldChange) && (
           <InlineText
             as="p"
-            value={props.subheading ?? ""}
+            value={subheading ?? ""}
             onUpdate={onFieldChange ? (v: string) => update("subheading", v) : undefined}
             className="mt-5 max-w-prose text-base leading-relaxed sm:text-lg"
             style={{ color: muted }}
@@ -98,7 +106,7 @@ export function BlockCtaSplitImage({ props, brand, onFieldChange }: Props) {
         <div className="aspect-[4/3] w-full lg:aspect-auto lg:h-full lg:min-h-[28rem]">
           <InlineImage
             src={props.imageUrl ?? ""}
-            alt={props.imageAlt || props.heading || "Feature image"}
+            alt={props.imageAlt || heading || "Feature image"}
             onUpdate={onFieldChange ? (src: string) => update("imageUrl", src) : undefined}
             className="h-full w-full object-cover"
             wrapperClassName="block h-full w-full"

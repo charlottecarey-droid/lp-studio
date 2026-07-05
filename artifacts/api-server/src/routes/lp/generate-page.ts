@@ -3619,6 +3619,22 @@ export function fillEmptyImages(blocks: unknown[], images: MediaImage[], pageCon
       });
     }
 
+    // DSO problem: two side-panel images (imageUrls[0], imageUrls[1]). The AI
+    // schema marks these MANDATORY, but the model routinely leaves them blank —
+    // or emits a URL that sanitizeAIImageUrls then clears — and there was no
+    // server-side fill branch, so the block shipped with two empty slots (the
+    // renderer's DEFAULT_IMG_A/B are "" by design, to avoid a dental-stock leak
+    // into generic tenants). Fill both slots from the brand library here. The
+    // context stays brand-neutral (block copy + page bias): dso-problem is
+    // exposed to every tenant's generation, not just dental/DSO.
+    if (blockType === "dso-problem") {
+      const urls = Array.isArray(props.imageUrls)
+        ? (props.imageUrls as unknown[]).map((u) => (typeof u === "string" ? u : ""))
+        : [];
+      while (urls.length < 2) urls.push("");
+      props.imageUrls = urls.map((u) => u || pick(blockContext, images, usedIds, "lp-feature"));
+    }
+
     // ── New generic SHOWCASE blocks (May 2026) ──────────────────────────
     // full-bleed-hero: background photo (video is never auto-filled)
     if (blockType === "full-bleed-hero" && !props.backgroundImageUrl) {
@@ -6770,7 +6786,7 @@ const GENERAL_EXTRA_CORE_BLOCKS: string[] = [
   `- "value-pillars-headline-badge": Value pillars where each item pairs a photo band with a bold title and a description — an eyebrow, heading, and subhead above 3–4 items. Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 3–4 of {image ("" — leave blank; the server fills it with a brand photo), icon (Lucide icon NAME — NEVER an image URL — shown when no photo matches), title (2–5 words), description (12–22 words)}).`,
   `- "value-pillars-card-columns": Value pillars as a row of clean cards — an eyebrow, heading, and subhead above 3–4 cards, each with an accent icon, title, and description. Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 3–4 of {icon (Lucide icon NAME — NEVER an image URL), title (2–5 words), description (12–22 words)}).`,
   `- "feature-photo-cards": A clean feature section — cards each led by a large photo above a title and description — an eyebrow, heading, and subhead above 3–4 cards. Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 3–4 of {image ("" — leave blank; the server fills it with a brand photo), icon (Lucide icon NAME — NEVER an image URL — shown when no photo matches), title (3–6 words), description (14–24 words)}).`,
-  `- "feature-card-grid": A responsive grid of feature cards — an eyebrow, heading, and subhead above 3–6 cards, each with a photo, title, and description. A clean, brand-colored alternative to "benefits-grid". Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 3–6 of {image ("" — leave blank; the server fills it with a brand photo), icon (Lucide icon NAME — NEVER an image URL — shown when no photo matches), title (2–5 words), description (12–22 words)}).`,
+  `- "feature-card-grid": A responsive grid of feature cards — an eyebrow, heading, and subhead above EXACTLY 4 cards (the block is four-up by default — four cards fill one clean row), each with a photo, title, and description. A clean, brand-colored alternative to "benefits-grid". Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 4 of {image ("" — leave blank; the server fills it with a brand photo), icon (Lucide icon NAME — NEVER an image URL — shown when no photo matches), title (2–5 words), description (12–22 words)}).`,
   `- "feature-big-features": A spacious section of 2–4 large features, each pairing a large photo with a bold title and a longer description. Use for a few flagship capabilities. Each feature row shows a primary CTA button, so ALWAYS include ctaText + ctaUrl. Props: eyebrow (2–4 words), heading (5–12 words), subhead (12–24 words), items (array of EXACTLY 2–4 of {image ("" — leave blank; the server fills it with a brand photo), icon (Lucide icon NAME — NEVER an image URL — shown when no photo matches), title (3–6 words), description (16–28 words)}), ctaText (2–4 words, action verb first), ctaUrl ("#").`,
   // Premium B2B section blocks — polished, conversion-oriented layouts. All colors
   // resolve from the brand palette automatically, so use them freely for any brand.
