@@ -1,0 +1,44 @@
+#1443 - AI Generation Quality Improvements
+
+## What & Why
+
+The AI generation pipeline is in a good place overall, but another QA pass uncovered a few regressions and quality issues across both landing pages and sales microsites.
+
+### Image pipeline
+
+The image replacement pipeline successfully replaces starter images with tenant imagery in most cases. The primary regression is the hero, which is often the only image that retains its starter placeholder while the rest of the page is personalized.
+
+Planning confirmed the cause: the hero validation pass clears scraped and product-detail images but not generic starter images, allowing starter heroes to survive while other slots are upgraded.
+
+The starter library is also heavily biased toward medical/dental imagery, causing unrelated businesses to receive off-brand fallback images.
+
+Longer term, the image pipeline should populate slots directly with tenant imagery first and only use placeholders when no suitable image exists.
+
+### Microsites
+
+A few microsite-specific issues also remain:
+
+* **Watch It Build** doesn't stream generation like landing pages. It stays on "Designing your page with AI..." for over a minute before rendering the completed microsite all at once. It should stream progressively like page generation.
+* **CTA blocks** frequently generate copy like "Join (target company) and sign up for (tenant)." For example, a microsite targeting Salesforce might say, "Join Salesforce and sign up for LP Studio." The rest of the page correctly understands the tenant and target company, so this appears to be a CTA-specific prompt or template issue rather than a broader context problem. Audit the CTA generation to remove this generic "Join {target company}" pattern and generate calls to action that naturally promote the tenant's offering.
+* **Hero recipes** are sometimes overridden by the generic **Hero** block, even though that block isn't present in any recipe. Recipes should be treated as the source of truth, and the selected hero should be preserved throughout generation.
+
+## Done looks like
+
+* Hero images never ship with starter images when suitable tenant imagery exists.
+* Heroes use their intended empty/fallback state when no suitable tenant image exists.
+* Fallback imagery is industry-specific or intentionally neutral—not disproportionately medical/dental.
+* Image slots are filled directly with tenant imagery whenever possible.
+* Microsites stream generation progressively.
+* CTA blocks generate natural, tenant-focused calls to action and no longer default to "Join {target company}" phrasing.
+* Recipe-selected hero blocks are preserved throughout generation.
+* Existing image-quality guarantees remain unchanged.
+
+## Steps
+
+1. Fix the hero regression by treating starter images in hero slots the same as scraped/product-detail images and never allowing a starter hero to ship.
+2. Rebalance fallback selection so it matches the tenant's industry or uses neutral imagery.
+3. Refactor the pipeline to populate tenant images first and only use placeholders as a last resort (if safe to ship; otherwise split into a follow-up).
+4. Fix microsite streaming, the CTA block prompt/template, and recipe hero overrides.
+5. Add regression tests covering hero replacement, fallback selection, CTA generation, recipe fidelity, and microsite streaming.
+
+## Relevant files
