@@ -38,6 +38,11 @@ import {
   fillEmptyImages,
   isScrapedImage,
   isStarterImage,
+  // Photo-led per-item card blocks (benefits-grid/features). fillEmptyImages
+  // treats these as icon-only unless the block opted in via useItemPhotos —
+  // the template+replaceImagery path derives that opt-in from the authored
+  // template photos (see the pre-restore fill below).
+  ITEM_PHOTO_BLOCK_TYPES,
   // Reference-image fill helper shared with the marketing generator: order the
   // pool curated → current-reference scraped → other-host scraped, and rotate
   // within each bucket per generation so the same on-topic asset doesn't win the
@@ -4994,6 +4999,44 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
             detail: `${authoredOnlySlots} section(s) kept the template's authored copy — the AI produced no matching content for them.`,
           });
         }
+      }
+
+      // Task #1116 replace-imagery regression (July 2026): the "opt-in card
+      // photos" gate (useItemPhotos, June 2026) made benefits-grid/features
+      // icon-only by default, which on this path starved the very item slots
+      // the caller asked to replace — the restore backstop below then
+      // reinstated the template photos verbatim, turning the toggle into a
+      // no-op for feature cards. A template block whose authored items carry
+      // photos is photo-led by design, so propagate that opt-in to the
+      // realigned AI block (blocks are template-index-aligned here) and give
+      // the library/reference pool first claim on every still-empty slot
+      // BEFORE the restore. Strict fill only: generic starters and stale
+      // scrapes must not beat the template's own authored imagery — the
+      // restore stays the designed last resort (Task #1126).
+      if (replaceImagery === true) {
+        normalizedBlocks.forEach((b, i) => {
+          const tmplItems = (templateBlocks[i]?.props as Record<string, unknown> | undefined)?.items;
+          if (
+            ITEM_PHOTO_BLOCK_TYPES.has(canonicalizeBlockType(String(b.type ?? ""))) &&
+            Array.isArray(tmplItems) &&
+            tmplItems.some(
+              (it) =>
+                !!it &&
+                typeof it === "object" &&
+                typeof (it as Record<string, unknown>).image === "string" &&
+                ((it as Record<string, unknown>).image as string).trim() !== "",
+            )
+          ) {
+            (b.props as Record<string, unknown>).useItemPhotos = true;
+          }
+        });
+        normalizedBlocks = fillEmptyImages(
+          normalizedBlocks,
+          imageFillPool,
+          pageImageContext,
+          false,
+          brandLogoUrls,
+        ) as AiBlock[];
       }
 
       normalizedBlocks = restoreTemplateImages(

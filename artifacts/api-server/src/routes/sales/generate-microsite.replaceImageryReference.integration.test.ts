@@ -61,11 +61,18 @@ const refFx = vi.hoisted(() => {
       "https://ms-ref.example.com/img/b.jpg",
       "https://ms-ref.example.com/img/c.jpg",
     ],
-    // Library rows the mirror step "uploads" for those candidates.
+    // Library rows the mirror step "uploads" for those candidates. Purpose
+    // tags mirror the REAL mirrorReferenceImages contract (June 2026
+    // source-page hero rule): only the FIRST harvested candidate — the source
+    // page's hero region — earns "lp-hero"; every later photo is downgraded
+    // to "lp-feature". The generator hard-gates scraped images out of hero
+    // slots unless they carry lp-hero, so a fixture without purpose tags can
+    // never fill the hero and would silently exercise the template backstop
+    // instead of the reference swap this suite exists to prove.
     MIRRORED: [
-      { url: "/objects/ms-ref-1", title: "Orthozenith dental clinic exterior", host: "ms-ref.example.com" },
-      { url: "/objects/ms-ref-2", title: "Orthozenith dental treatment chair", host: "ms-ref.example.com" },
-      { url: "/objects/ms-ref-3", title: "Orthozenith dental scanner closeup", host: "ms-ref.example.com" },
+      { url: "/objects/ms-ref-1", title: "Orthozenith dental clinic exterior", host: "ms-ref.example.com", purpose: "lp-hero" },
+      { url: "/objects/ms-ref-2", title: "Orthozenith dental treatment chair", host: "ms-ref.example.com", purpose: "lp-feature" },
+      { url: "/objects/ms-ref-3", title: "Orthozenith dental scanner closeup", host: "ms-ref.example.com", purpose: "lp-feature" },
     ],
   };
 });
@@ -115,7 +122,7 @@ vi.mock("../../lib/brand-import/assets-uploader", async (importActual) => {
       images: refFx.MIRRORED.map((m) => ({
         url: m.url,
         title: m.title,
-        tags: ["page-reference", "scraped", `refhost:${m.host}`, `refsrc:${m.url}`, "orthozenith", "dental"],
+        tags: ["page-reference", "scraped", m.purpose, `refhost:${m.host}`, `refsrc:${m.url}`, "orthozenith", "dental"],
         width: 1600,
         height: 1067,
       })),

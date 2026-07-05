@@ -22,7 +22,6 @@
  * and the env is repointed BEFORE the first `@workspace/db` import.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
-import { dbAvailable } from "../../test-utils/dbAvailable";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -30,7 +29,16 @@ import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomUUID } from "node:crypto";
 import { inject, type InjectResponse } from "../../test-utils/injectRequest";
-import { startEphemeralPg, type EphemeralPg } from "../../test-utils/ephemeralPg";
+import { startEphemeralPg, pgBinariesAvailable, type EphemeralPg } from "../../test-utils/ephemeralPg";
+
+// This suite is HERMETIC — it builds its own throwaway cluster from the local
+// Postgres 16 binaries and never touches the shared Neon pool, so the Neon
+// TCP probe (`dbAvailable`) is the WRONG gate: on a laptop with reachable
+// Neon but no local Postgres install it passes, and the beforeAll then dies
+// with `initdb ENOENT`. Gate on the binaries themselves instead. Probed once
+// here (module scope) because the top-level beforeAll runs even when the
+// describe is skipped.
+const localPg = pgBinariesAvailable();
 
 // Deterministic AI response, mutated per test. vi.hoisted lets the (hoisted)
 // vi.mock factory read it. The mock applies to the route module's
@@ -211,6 +219,9 @@ function lightBgs(blocks: Array<{ props?: Record<string, unknown> }>): string[] 
 }
 
 beforeAll(async () => {
+  // A skipped describe does NOT skip this file-level hook — bail out before
+  // shelling out to the (absent) local Postgres binaries.
+  if (!localPg) return;
   process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || "test-key-not-used";
 
   // 1. Stand up the throwaway cluster and repoint the db env BEFORE any
@@ -266,8 +277,9 @@ interface GenResponse {
   blocks: Array<{ type: string; props: Record<string, unknown> }>;
 }
 
-// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
-describe.skipIf(!dbAvailable)("generate-microsite — Dandy supporting-section variability (route wiring)", () => {
+// Hermetic: needs the LOCAL Postgres binaries (initdb/pg_ctl), not the Neon
+// pool — skipped when they aren't installed (see pgBinariesAvailable above).
+describe.skipIf(!localPg)("generate-microsite — Dandy supporting-section variability (route wiring)", () => {
   it("applies the per-account supporting-background variation for a Dandy, non-template page", async () => {
     const accountName = `Heartland Dental ${Math.floor(Math.random() * 1e6)}`;
     const accountId = await seedAccount(dandyTenantId, accountName);

@@ -2104,7 +2104,7 @@ type AIImageSlot = {
  *  sitting above a brand photo or homepage screenshot reads as broken, and the
  *  library has no iconic/logo purpose to pull from. AI stat bars stay numeric;
  *  see the stat-bar guard in fillEmptyImages / sanitizeAIImageUrls. */
-const ITEM_PHOTO_BLOCK_TYPES = new Set(["benefits-grid", "features"]);
+export const ITEM_PHOTO_BLOCK_TYPES = new Set(["benefits-grid", "features"]);
 
 /** Numeric proof bars (trust-bar + its legacy `stats` alias) never carry a
  *  per-item photo in AI output. */
@@ -9134,6 +9134,32 @@ export const generatePageHandler = async (req: Request, res: Response): Promise<
             slot.set("");
           }
         }
+
+        // Replace-imagery + photo-led cards (July 2026): benefits-grid/features
+        // are icon-only unless the block carries useItemPhotos, so the fill
+        // below would skip the per-item photo slots just cleared and the block
+        // would silently ship as icon cards. A template whose authored items
+        // carry photos is photo-led by design — propagate that opt-in from the
+        // authored template block (mergedBlocks is tplBlocks-index-aligned).
+        mergedBlocks.forEach((block, i) => {
+          const b = block as Record<string, unknown>;
+          const tmplItems = ((tplBlocks[i] as Record<string, unknown> | undefined)?.props as
+            | Record<string, unknown>
+            | undefined)?.items;
+          if (
+            ITEM_PHOTO_BLOCK_TYPES.has(String(b.type ?? "")) &&
+            Array.isArray(tmplItems) &&
+            tmplItems.some(
+              (it) =>
+                !!it &&
+                typeof it === "object" &&
+                typeof (it as Record<string, unknown>).image === "string" &&
+                ((it as Record<string, unknown>).image as string).trim() !== "",
+            )
+          ) {
+            (b.props as Record<string, unknown>).useItemPhotos = true;
+          }
+        });
 
         // Best-effort: mirror the reference site's imagery into the fill pool
         // (only when a reference URL was successfully scraped), matching the

@@ -25,6 +25,34 @@ export interface EphemeralPg {
   stop: () => void;
 }
 
+let binariesProbe: boolean | null = null;
+
+/**
+ * Whether the LOCAL Postgres binaries this module shells out to exist on PATH.
+ * The `dbAvailable` gate probes the NEON host — irrelevant here, since these
+ * suites build their own cluster — so on a laptop with reachable Neon but no
+ * local Postgres install, an ephemeral suite passes that gate and then dies in
+ * `beforeAll` with `initdb ENOENT`. Gate ephemeral suites on THIS instead:
+ *
+ *   const localPg = pgBinariesAvailable();
+ *   describe.skipIf(!localPg)("my ephemeral suite", () => { ... });
+ *
+ * and early-return from any top-level `beforeAll` when it is false (a skipped
+ * describe does not skip file-level hooks). Cached per worker.
+ */
+export function pgBinariesAvailable(): boolean {
+  if (binariesProbe === null) {
+    const r = spawnSync("initdb", ["--version"], { encoding: "utf8" });
+    binariesProbe = r.status === 0;
+    if (!binariesProbe) {
+      console.warn(
+        "[db-tests] local Postgres binaries (initdb) not found — skipping ephemeral-Postgres suites",
+      );
+    }
+  }
+  return binariesProbe;
+}
+
 /**
  * Create + start a throwaway Postgres cluster. Throws (with the captured
  * stderr) if `initdb` or `pg_ctl start` fails, so a misconfigured environment
