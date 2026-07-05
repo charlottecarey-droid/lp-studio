@@ -76,6 +76,7 @@ import { getRequestHost } from "../lib/requestHost";
 import {
   checkSenderDomain,
   getAllowedSenderDomains,
+  getPlatformSenderHealth,
   type SenderDomainCheck,
 } from "../lib/resendDomainStatus";
 
@@ -577,6 +578,23 @@ router.get("/admin/sending-domains", requireSuperadmin, async (_req, res): Promi
     res.json({ domains, available });
   } catch (err) {
     console.error("[notifications] admin sending-domains error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * GET /api/admin/platform-email-health — is the platform email sender healthy?
+ * Reports whether the provider API key is present and the platform sending
+ * domain (the from-address every system email uses — signup confirmations,
+ * password resets, invites) is verified. A broken sender otherwise fails
+ * silently; the superadmin UI renders this as a banner so it's caught fast.
+ */
+router.get("/admin/platform-email-health", requireSuperadmin, async (_req, res): Promise<void> => {
+  try {
+    const health = await getPlatformSenderHealth();
+    res.json(health);
+  } catch (err) {
+    console.error("[notifications] admin platform-email-health error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

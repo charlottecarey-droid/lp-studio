@@ -64,6 +64,116 @@ async function apiFetch(path: string, opts?: RequestInit) {
   return res.json();
 }
 
+// ---------------------------------------------------------------------------
+// Platform email sender health banner
+//
+// Every system email (signup confirmation, password reset, invites) is sent
+// from one platform address. If the provider key is missing or that sending
+// domain isn't verified, every send is rejected — silently. This banner surfaces
+// that state so a broken sender is caught quickly instead of failing invisibly.
+// ---------------------------------------------------------------------------
+
+interface PlatformEmailHealth {
+  apiKeyConfigured: boolean;
+  senderAddress: string;
+  senderDomain: string | null;
+  domainStatus: string;
+  healthy: boolean;
+  checkedAt: number;
+}
+
+function SenderHealthBanner() {
+  const [health, setHealth] = useState<PlatformEmailHealth | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setFailed(false);
+    try {
+      const d = (await apiFetch("/api/admin/platform-email-health")) as PlatformEmailHealth;
+      setHealth(d);
+    } catch {
+      setFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (loading && !health) {
+    return (
+      <div className="mb-4 flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking platform email sender…
+      </div>
+    );
+  }
+
+  // Endpoint itself errored — don't imply the sender is broken.
+  if (failed || !health) return null;
+
+  if (health.healthy) {
+    return (
+      <div className="mb-4 flex items-center justify-between gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-700">
+        <span className="flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4" />
+          Platform email sender healthy — sending from{" "}
+          <code className="font-mono">{health.senderAddress}</code>.
+        </span>
+        <button
+          type="button"
+          onClick={() => void load()}
+          className="shrink-0 underline underline-offset-2 opacity-70 hover:opacity-100"
+        >
+          Recheck
+        </button>
+      </div>
+    );
+  }
+
+  const reason = !health.apiKeyConfigured
+    ? "The email provider API key is missing."
+    : health.domainStatus === "not_found"
+      ? "The sending domain isn't registered in the email provider account."
+      : health.domainStatus === "api_unavailable"
+        ? "Couldn't reach the email provider to confirm the sending domain."
+        : `The sending domain isn't verified (status: ${health.domainStatus}).`;
+
+  // "api_unavailable" (with a key present) means "couldn't verify" rather than
+  // "definitely broken" — warn softer (amber) than a hard failure (red).
+  const soft = health.apiKeyConfigured && health.domainStatus === "api_unavailable";
+  const cls = soft
+    ? "border-amber-500/40 bg-amber-500/5 text-amber-700"
+    : "border-destructive/40 bg-destructive/5 text-destructive";
+
+  return (
+    <div className={`mb-4 flex items-start justify-between gap-3 rounded-md border px-3 py-2 text-xs ${cls}`}>
+      <span className="flex items-start gap-2">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>
+          <span className="font-medium">
+            {soft
+              ? "Couldn't confirm the platform email sender."
+              : "Platform email sender is not healthy — system emails may not be delivered."}
+          </span>{" "}
+          {reason} Sending from{" "}
+          <code className="font-mono">{health.senderAddress}</code>.
+        </span>
+      </span>
+      <button
+        type="button"
+        onClick={() => void load()}
+        className="shrink-0 underline underline-offset-2 opacity-80 hover:opacity-100"
+      >
+        Recheck
+      </button>
+    </div>
+  );
+}
+
 type Channel = "email" | "in_app";
 type BodyMode = "wysiwyg" | "html";
 
@@ -2287,6 +2397,7 @@ export default function SuperAdminNotifications() {
 
   return (
     <div className="py-4">
+      <SenderHealthBanner />
       <div className="mb-4 flex gap-1 border-b">
         {(["templates", "workflows"] as const).map((t) => (
           <button

@@ -2038,6 +2038,39 @@ const PASSWORD_RESET_EXPIRY_LABEL = "30 minutes";
 // Identical response for every email-sending request so the presence/absence of
 // an account is never revealed.
 const GENERIC_INBOX_MSG = "If that email address has an account, we've sent it a link. Please check your inbox.";
+// Registration success message. Used for BOTH the brand-new account and the
+// re-send (unverified existing account) branches so a successful register is
+// byte-identical regardless of whether the address already existed.
+const CONFIRM_INBOX_MSG = "Check your inbox to confirm your email address.";
+// Shown only when a send genuinely fails, so the person gets an honest error
+// and can retry (re-submitting the form re-sends) instead of a false success.
+const SEND_FAILED_MSG =
+  "We couldn't send the confirmation email right now. Please try again in a moment.";
+
+/**
+ * Mint a fresh email-verification token for `userId` and send the confirmation
+ * email. Returns whether the email provider accepted the message, so callers can
+ * surface an honest error on failure instead of a false "check your inbox."
+ */
+async function sendVerificationEmailForUser(
+  req: Request,
+  userId: number,
+  recipientEmail: string,
+): Promise<boolean> {
+  await invalidateUserTokens(userId, "email_verify");
+  const raw = await mintEmailToken({
+    userId,
+    purpose: "email_verify",
+    ttlMs: EMAIL_VERIFY_TTL_MS,
+    targetHost: getRequestHost(req) || null,
+  });
+  const verifyUrl = `${buildHostBaseUrl(req)}/api/auth/email/verify?token=${encodeURIComponent(raw)}`;
+  return sendEmailVerificationEmail({
+    recipientEmail,
+    verifyUrl,
+    expiryLabel: EMAIL_VERIFY_EXPIRY_LABEL,
+  });
+}
 
 function normalizeEmail(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -2277,18 +2310,43 @@ router.post("/auth/email/register", emailSendLimiter, async (req, res): Promise<
     );
 
     if (insert.rows.length > 0) {
+      // Brand-new account — send the confirmation. Act on the result so a
+      // rejected/skipped send returns an honest error instead of "check inbox."
       const userId = insert.rows[0].id as number;
-      await invalidateUserTokens(userId, "email_verify");
-      const raw = await mintEmailToken({
-        userId,
-        purpose: "email_verify",
-        ttlMs: EMAIL_VERIFY_TTL_MS,
-        targetHost: getRequestHost(req) || null,
-      });
-      const verifyUrl = `${buildHostBaseUrl(req)}/api/auth/email/verify?token=${encodeURIComponent(raw)}`;
-      await sendEmailVerificationEmail({ recipientEmail: email, verifyUrl, expiryLabel: EMAIL_VERIFY_EXPIRY_LABEL });
+      const sent = await sendVerificationEmailForUser(req, userId, email);
+      if (!sent) {
+        console.error("[auth] register: confirmation email send failed", { email });
+        res.status(502).json({ error: SEND_FAILED_MSG, retry: true });
+        return;
+      }
+    } else {
+      // The address already exists (ON CONFLICT DO NOTHING). If it's an
+      // unverified password account — including a prior attempt that created the
+      // row but never got an email — transparently re-send the confirmation so a
+      // repeat signup isn't a silent no-op. We deliberately do NOT touch the
+      // stored password/name here: overwriting would let a later registration
+      // hijack an in-progress signup, while leaving it exposes the mirror case
+      // where the address was pre-registered by someone else. Neither choice is
+      // fully safe on its own — the complete fix is to stop auto-logging-in on
+      // verify (or bind the password to the token), tracked as separate
+      // pre-verification hardening. Verified or social-login (no password)
+      // accounts fall through to the generic success below with no send,
+      // preserving anti-enumeration.
+      const existing = await pool.query(
+        `SELECT id, email_verified, password_hash FROM app_users WHERE email = $1`,
+        [email]
+      );
+      const row = existing.rows[0];
+      if (row && !row.email_verified && row.password_hash) {
+        const sent = await sendVerificationEmailForUser(req, row.id as number, email);
+        if (!sent) {
+          console.error("[auth] register: confirmation re-send failed", { email });
+          res.status(502).json({ error: SEND_FAILED_MSG, retry: true });
+          return;
+        }
+      }
     }
-    res.json({ ok: true, message: "Check your inbox to confirm your email address." });
+    res.json({ ok: true, message: CONFIRM_INBOX_MSG });
   } catch (err) {
     console.error("[auth] email register error:", err);
     res.status(500).json({ error: "Server error" });
@@ -2345,15 +2403,14 @@ router.post("/auth/email/resend-verification", emailSendLimiter, async (req, res
       );
       const row = userRes.rows[0];
       if (row && !row.email_verified && row.password_hash) {
-        await invalidateUserTokens(row.id, "email_verify");
-        const raw = await mintEmailToken({
-          userId: row.id,
-          purpose: "email_verify",
-          ttlMs: EMAIL_VERIFY_TTL_MS,
-          targetHost: getRequestHost(req) || null,
-        });
-        const verifyUrl = `${buildHostBaseUrl(req)}/api/auth/email/verify?token=${encodeURIComponent(raw)}`;
-        await sendEmailVerificationEmail({ recipientEmail: email, verifyUrl, expiryLabel: EMAIL_VERIFY_EXPIRY_LABEL });
+        // Act on the send result — a failed re-send returns an honest error and
+        // a retry path rather than the generic "check your inbox."
+        const sent = await sendVerificationEmailForUser(req, row.id as number, email);
+        if (!sent) {
+          console.error("[auth] resend: confirmation email send failed", { email });
+          res.status(502).json({ error: SEND_FAILED_MSG, retry: true });
+          return;
+        }
       }
     }
     res.json({ ok: true, message: GENERIC_INBOX_MSG });

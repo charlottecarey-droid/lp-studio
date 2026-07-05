@@ -28,7 +28,12 @@ import express, { type Express } from "express";
 import cookieParser from "cookie-parser";
 import { randomBytes } from "node:crypto";
 
-const { mockTurnstile } = vi.hoisted(() => ({ mockTurnstile: { ok: true } }));
+const { mockTurnstile, mockSend } = vi.hoisted(() => ({
+  mockTurnstile: { ok: true },
+  // Controls the verification-email send result so tests can exercise the
+  // honest-failure path (register/resend act on this boolean).
+  mockSend: { ok: true },
+}));
 
 vi.mock("../lib/turnstile", async (importActual) => {
   const actual = await importActual<typeof import("../lib/turnstile")>();
@@ -44,7 +49,8 @@ vi.mock("../lib/notifications", async (importActual) => {
     ...actual,
     sendMagicLinkEmail: vi.fn(async () => {}),
     sendPasswordResetEmail: vi.fn(async () => {}),
-    sendEmailVerificationEmail: vi.fn(async () => {}),
+    // Returns the send-success boolean the register/resend routes now act on.
+    sendEmailVerificationEmail: vi.fn(async () => mockSend.ok),
   };
 });
 
@@ -60,17 +66,26 @@ vi.mock("../lib/authEmailTokens", async (importActual) => {
 const { pool } = await import("@workspace/db");
 const { inject } = await import("../test-utils/injectRequest");
 const authRouter = (await import("./auth")).default;
+const { sendEmailVerificationEmail } = await import("../lib/notifications");
+const sentVerification = vi.mocked(sendEmailVerificationEmail);
 
 const RAND = randomBytes(4).toString("hex");
 const NEW_EMAIL = `it-authmail-new-${RAND}@example.test`;
 const DUP_EMAIL = `it-authmail-dup-${RAND}@example.test`;
 const BLOCKED_EMAIL = `it-authmail-blocked-${RAND}@example.test`;
+const REVERIFY_EMAIL = `it-authmail-reverify-${RAND}@example.test`;
+const SENDFAIL_EMAIL = `it-authmail-sendfail-${RAND}@example.test`;
+const RESEND_EMAIL = `it-authmail-resend-${RAND}@example.test`;
 const PASSWORD = "Sup3rSecret!";
 
 let app: Express;
 
 beforeAll(() => {
   app = express();
+  // Honor X-Forwarded-For so the rate-limit tests below can give each case its
+  // own limiter bucket (the email-send limiter is a per-IP module singleton
+  // shared across this file). Value 1 (not `true`) is the safe trust setting.
+  app.set("trust proxy", 1);
   app.use(cookieParser());
   app.use(express.json());
   app.use("/api", authRouter);
@@ -78,7 +93,9 @@ beforeAll(() => {
 
 afterAll(async () => {
   await pool
-    .query(`DELETE FROM app_users WHERE email = ANY($1)`, [[NEW_EMAIL, DUP_EMAIL, BLOCKED_EMAIL]])
+    .query(`DELETE FROM app_users WHERE email = ANY($1)`, [
+      [NEW_EMAIL, DUP_EMAIL, BLOCKED_EMAIL, REVERIFY_EMAIL, SENDFAIL_EMAIL, RESEND_EMAIL],
+    ])
     .catch(() => {});
 });
 
@@ -135,6 +152,114 @@ describe.skipIf(!dbAvailable)("POST /api/auth/email/register — bot protection"
       expect(rows.rows[0]!.count).toBe("0");
     } finally {
       mockTurnstile.ok = true;
+    }
+  });
+});
+
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /api/auth/email/register — repeat signup re-sends", () => {
+  it("re-sends the confirmation when the address already has an unverified account", async () => {
+    mockTurnstile.ok = true;
+    mockSend.ok = true;
+    // Own limiter bucket (see trust-proxy note above) so this case is isolated.
+    const xff = "203.0.113.10";
+    sentVerification.mockClear();
+
+    const first = await inject(app, {
+      method: "POST",
+      url: "/api/auth/email/register",
+      headers: { "x-forwarded-for": xff },
+      body: { email: REVERIFY_EMAIL, password: PASSWORD, name: "Re One", turnstileToken: "x" },
+    });
+    expect(first.status).toBe(200);
+    expect((first.json as { ok?: boolean }).ok).toBe(true);
+    expect(sentVerification).toHaveBeenCalledTimes(1);
+
+    // Same unverified address again — the confirmation must be re-sent, not
+    // silently dropped (the original "email never arrives" complaint).
+    const second = await inject(app, {
+      method: "POST",
+      url: "/api/auth/email/register",
+      headers: { "x-forwarded-for": xff },
+      body: { email: REVERIFY_EMAIL, password: "An0therPass!", name: "Re Two", turnstileToken: "x" },
+    });
+    expect(second.status).toBe(200);
+    // Byte-identical to the first response — no signal the address existed.
+    expect(second.json).toEqual(first.json);
+    expect(sentVerification).toHaveBeenCalledTimes(2);
+
+    // Still exactly one account (the repeat never overwrote or duplicated it).
+    const rows = await pool.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM app_users WHERE email = $1`,
+      [REVERIFY_EMAIL],
+    );
+    expect(rows.rows[0]!.count).toBe("1");
+  });
+});
+
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /api/auth/email/register — honest send failure", () => {
+  it("returns a 502 error (never a false success) when the confirmation send fails", async () => {
+    mockTurnstile.ok = true;
+    const xff = "203.0.113.20";
+    try {
+      // The provider send fails — the user must be told, not shown a fake
+      // "check your inbox" for a message that will never arrive.
+      mockSend.ok = false;
+      const failed = await inject(app, {
+        method: "POST",
+        url: "/api/auth/email/register",
+        headers: { "x-forwarded-for": xff },
+        body: { email: SENDFAIL_EMAIL, password: PASSWORD, name: "Send Fail", turnstileToken: "x" },
+      });
+      expect(failed.status).toBe(502);
+      expect((failed.json as { error?: string }).error).toBeTruthy();
+      expect((failed.json as { retry?: boolean }).retry).toBe(true);
+
+      // The account row was still created, so a retry once the sender recovers
+      // re-sends the confirmation (rather than silently doing nothing).
+      mockSend.ok = true;
+      const retry = await inject(app, {
+        method: "POST",
+        url: "/api/auth/email/register",
+        headers: { "x-forwarded-for": xff },
+        body: { email: SENDFAIL_EMAIL, password: PASSWORD, name: "Send Fail", turnstileToken: "x" },
+      });
+      expect(retry.status).toBe(200);
+      expect((retry.json as { ok?: boolean }).ok).toBe(true);
+    } finally {
+      mockSend.ok = true;
+    }
+  });
+});
+
+// Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
+describe.skipIf(!dbAvailable)("POST /api/auth/email/resend-verification — honest send failure", () => {
+  it("returns a 502 error when re-sending the confirmation fails", async () => {
+    mockTurnstile.ok = true;
+    const xff = "203.0.113.30";
+    // Seed an unverified password account to resend for.
+    mockSend.ok = true;
+    const seeded = await inject(app, {
+      method: "POST",
+      url: "/api/auth/email/register",
+      headers: { "x-forwarded-for": xff },
+      body: { email: RESEND_EMAIL, password: PASSWORD, name: "Resend", turnstileToken: "x" },
+    });
+    expect(seeded.status).toBe(200);
+
+    try {
+      mockSend.ok = false;
+      const res = await inject(app, {
+        method: "POST",
+        url: "/api/auth/email/resend-verification",
+        headers: { "x-forwarded-for": xff },
+        body: { email: RESEND_EMAIL, turnstileToken: "x" },
+      });
+      expect(res.status).toBe(502);
+      expect((res.json as { error?: string }).error).toBeTruthy();
+    } finally {
+      mockSend.ok = true;
     }
   });
 });

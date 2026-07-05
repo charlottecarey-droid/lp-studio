@@ -268,6 +268,52 @@ export async function checkSenderDomain(rawFrom: string): Promise<SenderDomainCh
   return { allowed: domains.includes(domain), domain, available, allowedDomains: domains };
 }
 
+// Synthetic cache slot for the platform sender's domain status. Never a real
+// tenant id (those are positive), so it can't collide with per-tenant entries.
+const PLATFORM_SENDER_CACHE_ID = -1;
+
+/** Health of the platform email sender (the from-address every system email uses). */
+export interface PlatformSenderHealth {
+  /** Whether RESEND_API_KEY is present in this process. */
+  apiKeyConfigured: boolean;
+  /** The full platform from-address, e.g. "LP Studio <team@mail.lpstudio.ai>". */
+  senderAddress: string;
+  /** The sending domain extracted from the address, or null when unparseable. */
+  senderDomain: string | null;
+  /** Verification state of the sending domain in the provider account. */
+  domainStatus: ResendDomainVerificationState;
+  /** true only when the key is present AND the sending domain is verified. */
+  healthy: boolean;
+  /** Unix ms when this was computed. */
+  checkedAt: number;
+}
+
+/**
+ * Report whether the platform email sender is healthy: the provider API key is
+ * present and the platform sending domain (from `platformFromAddress()`) is
+ * verified in the provider account. A broken sender otherwise fails silently —
+ * every system email (signup confirmation, password reset, invites) is rejected
+ * with no user-visible signal. Surfaced to superadmins so it's caught quickly.
+ */
+export async function getPlatformSenderHealth(
+  opts: { force?: boolean } = {},
+): Promise<PlatformSenderHealth> {
+  const senderAddress = platformFromAddress();
+  const senderDomain = extractAddressDomain(senderAddress);
+  const apiKeyConfigured = !!process.env["RESEND_API_KEY"];
+  const domainStatus: ResendDomainVerificationState = senderDomain
+    ? (await getResendDomainStatus(PLATFORM_SENDER_CACHE_ID, senderDomain, opts)).status
+    : "not_configured";
+  return {
+    apiKeyConfigured,
+    senderAddress,
+    senderDomain,
+    domainStatus,
+    healthy: apiKeyConfigured && domainStatus === "verified",
+    checkedAt: Date.now(),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Resend Domains write API (create / get-by-id / delete)
 //
