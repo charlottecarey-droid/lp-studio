@@ -996,13 +996,23 @@ function highlightCss(css: string): string {
 function LinkedFormStylePanel({
   variables,
   onChange,
+  brand,
 }: {
   variables: Record<string, string>;
   onChange: (next: Record<string, string>) => void;
+  brand: BrandConfig;
 }) {
   const [open, setOpen] = useState(false);
   const current = readLinkedFormStyle(variables);
   const hasAny = current !== null;
+
+  // <input type="color"> needs a concrete #rrggbb before the user picks, so
+  // the untouched swatches suggest the TENANT's own brand colors (these were
+  // previously hardcoded to Dandy's green/lime for every workspace). Neutral
+  // fallbacks cover brands whose colors aren't 6-digit hex.
+  const asHex = (v: string | undefined, fb: string) => (/^#[0-9a-fA-F]{6}$/.test(v ?? "") ? (v as string) : fb);
+  const brandPrimaryHex = asHex(brand.primaryColor, "#0f172a");
+  const brandAccentHex = asHex(brand.accentColor, "#4f46e5");
 
   const update = (patch: Partial<LinkedFormStyle>) => {
     const next: LinkedFormStyle = { ...(current ?? {}), ...patch };
@@ -1071,9 +1081,9 @@ function LinkedFormStylePanel({
           </p>
           <Row label="Card background" value={current?.cardBg} onValue={v => update({ cardBg: v })} fallback="#ffffff" />
           <Row label="Text" value={current?.text} onValue={v => update({ text: v })} fallback="#0f172a" />
-          <Row label="Input border" value={current?.border} onValue={v => update({ border: v })} fallback="#003a30" />
-          <Row label="Button background" value={current?.button} onValue={v => update({ button: v })} fallback="#c7e738" />
-          <Row label="Button text" value={current?.buttonText} onValue={v => update({ buttonText: v })} fallback="#003a30" />
+          <Row label="Input border" value={current?.border} onValue={v => update({ border: v })} fallback={brandPrimaryHex} />
+          <Row label="Button background" value={current?.button} onValue={v => update({ button: v })} fallback={brandAccentHex} />
+          <Row label="Button text" value={current?.buttonText} onValue={v => update({ buttonText: v })} fallback={brandPrimaryHex} />
           {hasAny && (
             <button
               type="button"
@@ -3969,6 +3979,7 @@ export default function BuilderEditor() {
           <LinkedFormStylePanel
             variables={pageVariables}
             onChange={vars => { setPageVariables(vars); setTimeout(handleSave, 50); }}
+            brand={brand}
           />
           <VariablesPanel
             blocks={blocks}

@@ -131,6 +131,15 @@ export function EmailCaptureModal({
 
   const primary = primaryColor ?? "var(--brand-primary, #003a30)";
   const accent = accentColor ?? "var(--brand-accent, #c7e738)";
+  // Dark-theme surfaces derive from the tenant brand instead of hardcoding
+  // Dandy's lime/ink (#C7E738/#061714), which used to leak Dandy's palette
+  // onto ANY tenant's dark cinematic page. For Dandy the derivation lands on
+  // the legacy values: its accent IS the lime, and
+  // color-mix(#003a30 40%, black) ≈ the old #061714 ink.
+  const darkInk = `color-mix(in srgb, ${primary} 40%, black)`;
+  const darkGlowAccent = `color-mix(in srgb, ${accent} 10%, transparent)`;
+  const darkGlowPrimary = `color-mix(in srgb, ${primary} 55%, transparent)`;
+  const darkButtonShadow = `0 12px 32px -12px color-mix(in srgb, ${accent} 45%, transparent)`;
 
   const [data, setData] = useState({
     firstName: "",
@@ -205,12 +214,12 @@ export function EmailCaptureModal({
   // global form dropped into a dark cinematic block (e.g. the reservation
   // pass) doesn't pop a white card on top of the dark surface.
   const linkedDarkDefaults = {
-    cardBg: "#061714",
+    cardBg: darkInk,
     text: "#ffffff",
-    border: "#C7E738",
-    button: "#C7E738",
-    buttonText: "#061714",
-  } as const;
+    border: accent,
+    button: accent,
+    buttonText: darkInk,
+  };
   const effectiveLinkedStyle = isDark
     ? {
         cardBg: linkedStyle?.cardBg ?? linkedDarkDefaults.cardBg,
@@ -446,7 +455,7 @@ export function EmailCaptureModal({
             isDark
               ? {
                   background:
-                    "radial-gradient(120% 80% at 0% 0%, rgba(199,231,56,0.10), transparent 55%), radial-gradient(120% 80% at 100% 100%, rgba(10,74,62,0.55), transparent 60%), #061714",
+                    `radial-gradient(120% 80% at 0% 0%, ${darkGlowAccent}, transparent 55%), radial-gradient(120% 80% at 100% 100%, ${darkGlowPrimary}, transparent 60%), ${darkInk}`,
                 }
               : undefined
           }
@@ -467,9 +476,9 @@ export function EmailCaptureModal({
               <div className="py-6 text-center">
                 <div
                   className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
-                  style={{ backgroundColor: isDark ? "#C7E738" : accent }}
+                  style={{ backgroundColor: accent }}
                 >
-                  <Check className="w-7 h-7" style={{ color: isDark ? "#061714" : primary }} />
+                  <Check className="w-7 h-7" style={{ color: isDark ? darkInk : primary }} />
                 </div>
                 <p
                   className="text-lg font-bold mb-2"
@@ -488,8 +497,12 @@ export function EmailCaptureModal({
                   }
                   style={{
                     color: isDark ? "#ffffff" : primary,
+                    // Tenant display font (published pages set
+                    // --brand-font-display via getBrandStyleVars); Dandy's
+                    // resolves to Bagoss, other brands get their own face
+                    // instead of Dandy's proprietary font.
                     fontFamily: isDark
-                      ? '"Bagoss Standard", Georgia, serif'
+                      ? "var(--brand-font-display, Georgia, serif)"
                       : undefined,
                   }}
                 >
@@ -519,7 +532,7 @@ export function EmailCaptureModal({
                             placeholder="Jane"
                             className={inputCls}
                             style={{ borderColor: undefined }}
-                            onFocus={(e) => (e.currentTarget.style.borderColor = isDark ? "#C7E738" : primary)}
+                            onFocus={(e) => (e.currentTarget.style.borderColor = isDark ? accent : primary)}
                             onBlur={(e) => (e.currentTarget.style.borderColor = "")}
                             required
                             disabled={state === "loading"}
@@ -535,7 +548,7 @@ export function EmailCaptureModal({
                             onChange={(e) => setData({ ...data, lastName: e.target.value })}
                             placeholder="Smith"
                             className={inputCls}
-                            onFocus={(e) => (e.currentTarget.style.borderColor = isDark ? "#C7E738" : primary)}
+                            onFocus={(e) => (e.currentTarget.style.borderColor = isDark ? accent : primary)}
                             onBlur={(e) => (e.currentTarget.style.borderColor = "")}
                             required
                             disabled={state === "loading"}
@@ -550,9 +563,9 @@ export function EmailCaptureModal({
                       type="email"
                       value={data.email}
                       onChange={(e) => setData({ ...data, email: e.target.value })}
-                      placeholder="jane@yourpractice.com"
+                      placeholder="jane@company.com"
                       className={inputCls}
-                      onFocus={(e) => (e.currentTarget.style.borderColor = isDark ? "#C7E738" : primary)}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = isDark ? accent : primary)}
                       onBlur={(e) => (e.currentTarget.style.borderColor = "")}
                       required
                       disabled={state === "loading"}
@@ -567,7 +580,7 @@ export function EmailCaptureModal({
                         onChange={(e) => setData({ ...data, phone: e.target.value })}
                         placeholder="(555) 000-0000"
                         className={inputCls}
-                        onFocus={(e) => (e.currentTarget.style.borderColor = isDark ? "#C7E738" : primary)}
+                        onFocus={(e) => (e.currentTarget.style.borderColor = isDark ? accent : primary)}
                         onBlur={(e) => (e.currentTarget.style.borderColor = "")}
                         disabled={state === "loading"}
                       />
@@ -580,9 +593,9 @@ export function EmailCaptureModal({
                         type="text"
                         value={data.company}
                         onChange={(e) => setData({ ...data, company: e.target.value })}
-                        placeholder="Acme Dental"
+                        placeholder="Acme Inc"
                         className={inputCls}
-                        onFocus={(e) => (e.currentTarget.style.borderColor = isDark ? "#C7E738" : primary)}
+                        onFocus={(e) => (e.currentTarget.style.borderColor = isDark ? accent : primary)}
                         onBlur={(e) => (e.currentTarget.style.borderColor = "")}
                         disabled={state === "loading"}
                       />
@@ -595,9 +608,9 @@ export function EmailCaptureModal({
                     style={
                       isDark
                         ? {
-                            backgroundColor: "#C7E738",
-                            color: "#061714",
-                            boxShadow: "0 12px 32px -12px rgba(199,231,56,0.45)",
+                            backgroundColor: accent,
+                            color: darkInk,
+                            boxShadow: darkButtonShadow,
                           }
                         : { backgroundColor: accent, color: primary }
                     }

@@ -100,23 +100,25 @@ function useGithubEnabled(): boolean {
 }
 
 /**
- * Branded backdrop for the unauthenticated screens. A soft violet→coral
+ * Branded backdrop for the unauthenticated screens. A soft indigo→coral
  * gradient with two blurred decorative blobs and a faint grid sits behind
  * the white sign-in card, so the page reads as "LP Studio" instead of a
- * raw Tailwind shell. The gradient uses the same violet (--primary, hsl
- * 258 70% 54%) and coral (--accent) tokens defined in `index.css`.
+ * raw Tailwind shell. Colors read the LIVE tokens (--primary indigo,
+ * --accent-warm coral, --background cream) from `index.css` — previously
+ * these were hardcoded to the pre-July-2026 violet palette, so the auth
+ * screens lagged every app-palette change.
  */
 function BrandBackdrop({ children }: { children: ReactNode }) {
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#f5f3ff] via-white to-[#fff5f1] px-4 py-10">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[hsl(var(--primary)/0.06)] via-background to-[hsl(var(--accent-warm)/0.08)] px-4 py-10">
       {/* Decorative blurred shapes — purely visual, hidden from a11y tree */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -top-40 -left-40 w-[480px] h-[480px] rounded-full bg-[hsl(258_70%_54%/0.18)] blur-3xl"
+        className="pointer-events-none absolute -top-40 -left-40 w-[480px] h-[480px] rounded-full bg-[hsl(var(--primary)/0.18)] blur-3xl"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute -bottom-40 -right-40 w-[520px] h-[520px] rounded-full bg-[hsl(14_88%_64%/0.18)] blur-3xl"
+        className="pointer-events-none absolute -bottom-40 -right-40 w-[520px] h-[520px] rounded-full bg-[hsl(var(--accent-warm)/0.18)] blur-3xl"
       />
       {/* Subtle grid overlay for texture */}
       <div
@@ -535,7 +537,7 @@ function OpenSignInScreen() {
       <div className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-gradient-to-br from-[hsl(242_55%_22%)] via-[hsl(244_50%_29%)] to-[hsl(14_70%_42%)] px-12 py-14 text-white">
         {/* Decorative blurred blobs + faint grid, purely visual */}
         <div aria-hidden className="pointer-events-none absolute -top-32 -left-24 h-[420px] w-[420px] rounded-full bg-white/10 blur-3xl" />
-        <div aria-hidden className="pointer-events-none absolute -bottom-40 -right-24 h-[460px] w-[460px] rounded-full bg-[hsl(14_88%_64%/0.35)] blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-40 -right-24 h-[460px] w-[460px] rounded-full bg-[hsl(var(--accent-warm)/0.35)] blur-3xl" />
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-[0.06]"
@@ -585,7 +587,7 @@ function OpenSignInScreen() {
         {/* Soft tinted backdrop on mobile so the page never reads as a bare card */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#f5f3ff] via-white to-[#fff5f1] lg:hidden"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[hsl(var(--primary)/0.06)] via-background to-[hsl(var(--accent-warm)/0.08)] lg:hidden"
         />
         <div className="relative z-10 w-full max-w-md space-y-7">
           {/* Mobile logo (the branded panel is hidden < lg) */}

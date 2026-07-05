@@ -129,8 +129,8 @@ export default function FinalCta() {
             color: "var(--dark-mute)",
           }}
         >
-          Skip the marketing queue. Every page on-brand, every time — for
-          one-team GTM.
+          No design queue, no hand-offs. Every page on-brand, every time —
+          for one-team GTM.
         </p>
 
         {/* CTAs */}
