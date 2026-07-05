@@ -1,0 +1,16 @@
+Phase 2 is done — and along the way I caught and fixed a live brand-leak in the Phase 1 feature you already deployed. That's the headline item.
+
+The important discovery
+You deployed Phase 1 earlier today and saved global defaults from the superadmin editor — which previewed and seeded with Dandy's brand. Those global rows (they're in the prod DB now) carried Dandy copy, the 88/83/67% survey stats, and Dandy imagery, and my fallback would have served all of it to every tenant — exactly the leak the de-dental pass closed. The chip sessions' re-pinned partner test caught it against a fresh DB branch.
+
+The fix establishes a clean contract: global rows distribute LAYOUT only (spacing, sizes, offsets, toggles — what you originally asked for). Every tenant-facing read now strips content keys from global rows via onePagerGlobalLayout.ts, so copy/stats/images always stay tenant-branded, and the global editor now previews with the neutral brand instead of Dandy. Your existing Dandy-flavored global rows in prod become inert on deploy (stripped at read time) — no data surgery needed, though they'll display their old content in the global editor until you re-save them. Global content distribution now has its proper home instead: Phase 2's global templates.
+
+Phase 2: global custom templates
+sales_one_pager_templates supports global rows (migration 0114); superadmin CRUD + background upload at /api/admin/superadmin/one-pager-templates. Tenant mutation routes can never touch a global row (verified: PATCH/DELETE → 404).
+The /superadmin One-Pagers tab now has two sub-tabs: "Built-in Defaults" (Phase 1 editor) and "Global Templates" — the full drag-and-drop template builder, authoring templates every tenant sees.
+In tenant galleries and the rep picker, global templates appear with a "Global" badge, read-only, with a "Save a copy" action that duplicates one into the tenant's workspace for editing. Tenants can still hide them per-workspace.
+Verification
+Both apps typecheck, production build passes, full lp-studio suite green (763), and the sales-route suite against a fresh Neon branch shows zero new failures vs baseline — and 3 baseline failures fixed (the re-pinned chip tests now pass; I made the partner test hermetic against shared global-row state). New coverage: 9 template-CRUD integration tests, 4 strip-filter unit tests, and the fallback suite re-pinned to layout-only.
+
+Ready to commit
+The tree holds two logical changesets, both verified: (1) the programmatic-pages fix from earlier, (2) Phase 2 + the layout-only leak fix. I'd deploy #2 soon — until it ships, the deployed Phase-1 fallback serves those Dandy-authored global rows to tenants un-stripped. Say the word and I'll make both commits and push.
