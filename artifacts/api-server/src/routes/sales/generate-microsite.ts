@@ -11,7 +11,7 @@ import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBra
 // Account-briefing generation shared with the briefings route. Used to research
 // an account inline (fail-open) when it has no briefing yet, so the microsite
 // prompt has real account facts to anchor the page on.
-import { generateAndPersistAccountBriefing } from "../../lib/briefing-service";
+import { generateAndPersistAccountBriefingCoalesced } from "../../lib/briefing-service";
 // Live SSE generation channel shared with /lp/generate-page so the sales
 // microsite generator can stream the same "watch your page build" experience.
 import {
@@ -3720,7 +3720,11 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
     if (!briefing) {
       emitter.stage("research", "start", "Researching the account");
       try {
-        const generated = await generateAndPersistAccountBriefing({ tenantId, accountId });
+        // Coalesced: the Generate Microsite modal fires a background prewarm
+        // on open, so by the time the rep clicks Generate this usually either
+        // finds the row above or JOINS the in-flight prewarm here instead of
+        // starting a second 30–90s research run.
+        const generated = await generateAndPersistAccountBriefingCoalesced({ tenantId, accountId });
         briefing = generated.briefing;
       } catch (err) {
         console.warn(

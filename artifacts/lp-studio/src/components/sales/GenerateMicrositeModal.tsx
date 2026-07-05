@@ -193,6 +193,22 @@ export function GenerateMicrositeModal({
     return window.location.origin;
   }
 
+  // Prewarm the account briefing the moment an account is in play: the
+  // microsite generator needs a brief and researches one INLINE (30–90s of
+  // "Researching the account") when none exists. Kicking research off in the
+  // background here means that by the time the rep has picked a template and
+  // clicked Generate, the brief is usually already on file and generation
+  // starts fast. Fire-and-forget: the server dedupes concurrent runs, repeat
+  // calls for a briefed account are a cheap "exists" no-op, and failures are
+  // silent because generation fails open without a brief anyway.
+  useEffect(() => {
+    if (!open || contactsAccountId == null) return;
+    fetch(`${API_BASE}/sales/accounts/${contactsAccountId}/briefing/prewarm`, {
+      method: "POST",
+      credentials: "include",
+    }).catch(() => {/* speculative — never surface */});
+  }, [open, contactsAccountId]);
+
   useEffect(() => {
     if (!open) return;
     Promise.all([

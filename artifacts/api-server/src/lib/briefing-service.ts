@@ -326,6 +326,31 @@ async function synthesizeBriefing(
  * AccountNotFoundError. Slack notification is intentionally NOT fired here so the
  * inline microsite path never double-notifies; the route fires it after calling.
  */
+/**
+ * Coalesce concurrent briefing generations per (tenant, account): the research
+ * + synthesis step costs 30–90s and real money, and it can now be triggered
+ * from three places at once (the prewarm fired when the microsite modal opens,
+ * the explicit "Generate briefing" button, and the inline fallback inside
+ * generate-microsite). Joiners share the leader's promise instead of running
+ * duplicate research. The map only ever holds in-flight work — entries clear
+ * in finally, success or failure.
+ */
+const inFlightBriefings = new Map<string, ReturnType<typeof generateAndPersistAccountBriefing>>();
+
+export function generateAndPersistAccountBriefingCoalesced(args: {
+  tenantId: number;
+  accountId: number;
+}): ReturnType<typeof generateAndPersistAccountBriefing> {
+  const key = `${args.tenantId}:${args.accountId}`;
+  const existing = inFlightBriefings.get(key);
+  if (existing) return existing;
+  const run = generateAndPersistAccountBriefing(args).finally(() => {
+    inFlightBriefings.delete(key);
+  });
+  inFlightBriefings.set(key, run);
+  return run;
+}
+
 export async function generateAndPersistAccountBriefing(args: {
   tenantId: number;
   accountId: number;

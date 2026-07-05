@@ -5,11 +5,50 @@ import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import { aiErrorMessage } from "../../lib/ai-utils";
 import { slackService } from "../../lib/slack-service";
 import {
-  generateAndPersistAccountBriefing,
+  generateAndPersistAccountBriefingCoalesced,
   AccountNotFoundError,
 } from "../../lib/briefing-service";
 
 const router = Router();
+
+// ─── POST /sales/accounts/:accountId/briefing/prewarm ────────
+// Speculative warm-up fired when the Generate Microsite modal opens: if the
+// account has no briefing yet, start the 30–90s research in the BACKGROUND
+// and return immediately, so by the time the rep clicks Generate the brief is
+// (usually) on file and generate-microsite skips its slow inline research
+// step. Concurrent triggers coalesce onto one run (briefing-service map).
+// Silent by design: no Slack notify (that stays on the explicit POST route)
+// and failures only log — the microsite path fails open without a brief.
+router.post("/accounts/:accountId/briefing/prewarm", requireAuth, async (req, res): Promise<void> => {
+  const tenantId = getTenantId(req, res); if (tenantId === null) return;
+  const accountId = Number(req.params.accountId);
+  if (isNaN(accountId) || accountId <= 0) {
+    res.status(400).json({ error: "Invalid accountId" });
+    return;
+  }
+  try {
+    const [existing] = await db.select({ id: salesBriefingsTable.id }).from(salesBriefingsTable)
+      .where(and(
+        eq(salesBriefingsTable.tenantId, tenantId),
+        eq(salesBriefingsTable.accountId, accountId),
+      ))
+      .limit(1);
+    if (existing) {
+      res.json({ status: "exists" });
+      return;
+    }
+    generateAndPersistAccountBriefingCoalesced({ tenantId, accountId }).catch((err) => {
+      console.warn(
+        "[briefings] prewarm generation failed (microsite path will fall back to inline research):",
+        err instanceof Error ? err.message : err,
+      );
+    });
+    res.status(202).json({ status: "started" });
+  } catch (err) {
+    console.error("POST briefing/prewarm error:", err);
+    res.status(500).json({ error: "Failed to prewarm briefing" });
+  }
+});
 
 // ─── Routes ─────────────────────────────────────────────────
 
@@ -44,7 +83,10 @@ router.post("/accounts/:accountId/briefing", requireAuth, async (req, res): Prom
     return;
   }
   try {
-    const { briefing, account } = await generateAndPersistAccountBriefing({ tenantId, accountId });
+    // Coalesced: if a prewarm (or the microsite inline path) is already
+    // researching this account, join that run instead of paying for research
+    // twice. A refresh with nothing in flight still regenerates as before.
+    const { briefing, account } = await generateAndPersistAccountBriefingCoalesced({ tenantId, accountId });
 
     // Slack notifier (outbound-only): post a Block Kit "AI Briefing ready"
     // message to the tenant's configured channel (fire-and-forget, gated on the
