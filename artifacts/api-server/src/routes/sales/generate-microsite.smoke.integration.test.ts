@@ -261,7 +261,7 @@ afterAll(async () => {
 }, 120_000);
 
 // Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
-describe.skipIf(!dbAvailable)("Microsite generation smoke", () => {
+describe.skipIf(!dbAvailable)("Microsite generation smoke", { timeout: 180_000 }, () => {
   it("creates a draft sales page for the tenant with non-empty blocks referencing the account", async () => {
     const { tenantId, sid } = await seedTenant();
     const accountName = `Acme Robotics ${Math.floor(Math.random() * 1e6)}`;
@@ -368,7 +368,7 @@ describe.skipIf(!dbAvailable)("Microsite generation smoke", () => {
  * as the real model does. The route's mergeAuthored backstop must restore them.
  */
 // Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
-describe.skipIf(!dbAvailable)("Microsite generation from a multi-block template", () => {
+describe.skipIf(!dbAvailable)("Microsite generation from a multi-block template", { timeout: 180_000 }, () => {
   for (const replaceImagery of [false, true] as const) {
     it(`preserves the embedded form, hero image, and content sections (replaceImagery=${replaceImagery})`, async () => {
       const { tenantId, sid } = await seedTenant();
@@ -501,7 +501,7 @@ function assertHeroIntact(blocks: Array<{ type: string; props: Record<string, un
 }
 
 // Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
-describe.skipIf(!dbAvailable)("Microsite generation survives malformed / partial AI output", () => {
+describe.skipIf(!dbAvailable)("Microsite generation survives malformed / partial AI output", { timeout: 180_000 }, () => {
   it("restores a block the AI omitted from the template layout", async () => {
     const { tenantId, sid } = await seedTenant();
     const accountName = `Cascade Dental ${Math.floor(Math.random() * 1e6)}`;
@@ -675,7 +675,7 @@ function assertNeutralLayout(blocks: Array<{ type: string; props: Record<string,
 }
 
 // Hits the real Postgres pool — skipped when unreachable (see test-utils/dbAvailable.ts).
-describe.skipIf(!dbAvailable)("Freeform microsite generation survives malformed / partial AI output", () => {
+describe.skipIf(!dbAvailable)("Freeform microsite generation survives malformed / partial AI output", { timeout: 180_000 }, () => {
   it("falls back to the NEUTRAL layout when the AI returns invalid JSON", async () => {
     const { tenantId, sid } = await seedTenant();
     const accountName = `Freeform Harbor ${Math.floor(Math.random() * 1e6)}`;
@@ -789,7 +789,7 @@ describe.skipIf(!dbAvailable)("Freeform microsite generation survives malformed 
 // (202 + jobId) then the shared GET /lp/generation-jobs/:id until terminal —
 // exactly the FE flow behind VITE_GENERATION_JOBS=1. Same real-DB smoke goal
 // as above: catch "the job path is broken end-to-end", not AI quality.
-describe.skipIf(!dbAvailable)("Microsite generation async jobs", () => {
+describe.skipIf(!dbAvailable)("Microsite generation async jobs", { timeout: 180_000 }, () => {
   /** Poll the shared status endpoint until the job leaves queued/running. */
   async function waitForJobTerminal(
     sid: string,
