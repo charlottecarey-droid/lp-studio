@@ -116,7 +116,7 @@ export default function ForMarketing() {
           title="Templates for the motions you actually run."
           body={
             <>
-              Demand-gen landers, event RSVPs, product launches, webinars,
+              Demand-gen, event RSVPs, product launches, webinars,
               gated guides — start from a category-tuned template and let
               your brand inherit on clone. Browse them live, then iterate in
               the builder.
