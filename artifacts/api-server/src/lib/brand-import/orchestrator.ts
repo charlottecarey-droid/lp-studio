@@ -506,6 +506,12 @@ export async function* runOrchestrator(
   const logosPromise = launchWithBudget(0, "logos", () => extractLogos(evidence));
   const logoColorHint: Promise<string | null> = logosPromise
     .then((r) => {
+      // Only a HIGH-confidence logo may steer the brand colors. The colors
+      // extractor treats the hint as authoritative (it overrides a clashing
+      // primary), so a shaky pick — og social card, favicon, or an unvouched
+      // document-wide "logo" match that is often a CUSTOMER's logo — would
+      // repaint the tenant's palette with someone else's brand color.
+      if (r.confidence !== "high") return null;
       const url = r.data?.defaultLogoUrl;
       return typeof url === "string" && url ? extractLogoDominantColor(url) : null;
     })

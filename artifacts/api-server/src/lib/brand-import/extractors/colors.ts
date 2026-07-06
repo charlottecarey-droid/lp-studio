@@ -259,8 +259,13 @@ export async function extractColors(
   const candidateNote = cssVars.length
     ? `\n\nCSS custom properties on the live site (highest confidence — these are the brand's *named* tokens):\n${cssVars.slice(0, 30).map((v) => `  ${v.name}: ${v.value}`).join("\n")}`
     : "";
+  const paletteFrequency = evidence.sampledPaletteFrequency ?? [];
   const paletteNote = palette.length
-    ? `\n\nPixel-sampled palette from the homepage screenshot (most → least frequent): ${palette.join(", ")}.`
+    ? `\n\nPixel-sampled palette from the homepage screenshot, most SATURATED first (this ordering favors vivid colors, so its leaders can come from photos or promotional imagery rather than the brand UI): ${palette.join(", ")}.${
+      paletteFrequency.length
+        ? `\nThe same sample ordered by page-area frequency (backgrounds and large surfaces first): ${paletteFrequency.join(", ")}.`
+        : ""
+    }\nChoose primary/accent from colors visible in UI chrome on the screenshot — buttons, links, nav, headings — never from photograph content.`
     : "";
   const logoNote = logoColor
     ? `\n\nThe brand LOGO's dominant color is ${logoColor} — after named CSS tokens this is the strongest brand signal. "primary" should usually match or harmonize with the logo color; a promotional/seasonal campaign color that clashes with the logo hue belongs in "accent", NOT "primary" (promo-heavy homepages flood the pixel palette with campaign colors). If the pixel-sampled palette conflicts with the logo color, report confidence "low" for primary.`

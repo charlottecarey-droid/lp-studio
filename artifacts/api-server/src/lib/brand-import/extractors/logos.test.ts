@@ -34,9 +34,9 @@ vi.mock("node:child_process", async () => {
   };
 });
 
-function evidenceFor(html: string): Evidence {
+function evidenceFor(html: string, homeUrl = "https://example.com/"): Evidence {
   return {
-    homeUrl: "https://example.com/",
+    homeUrl,
     pages: [],
     stylesheets: [],
     $home: cheerio.load(html),
@@ -123,6 +123,77 @@ describe("extractLogos og:image handling (s0-6 Bug 2)", () => {
 
     expect(result.data?.defaultLogoUrl).toBe("https://example.com/square-mark.png");
     expect(result.confidence).toBe("low");
+  });
+});
+
+describe("extractLogos customer-logo hijack (July 2026)", () => {
+  it("excludes customer-wall logos inside social-proof containers entirely", async () => {
+    const result = await extractLogos(evidenceFor(`
+      <html><head></head><body>
+        <header><a href="/"><img src="/assets/site-logo.png" alt="Example"></a></header>
+        <section class="customers">
+          <img src="/logos/globex.svg" alt="Globex logo" width="200" height="80">
+          <img src="/logos/initech.svg" alt="Initech logo" width="200" height="80">
+        </section>
+      </body></html>
+    `));
+
+    expect(result.data?.defaultLogoUrl).toBe("https://example.com/assets/site-logo.png");
+    expect(result.confidence).toBe("high");
+    const urls = result.data?.alternates.map((c) => c.url) ?? [];
+    expect(urls).not.toContain("https://example.com/logos/globex.svg");
+    expect(urls).not.toContain("https://example.com/logos/initech.svg");
+  });
+
+  it("a catch-all customer logo with declared dimensions no longer outranks a real header logo", async () => {
+    // Pre-fix scores: globex (svg-alt 60 + svg 30 + area 40 = 130) beat the
+    // header png without declared dimensions (100 + 20 = 120).
+    const result = await extractLogos(evidenceFor(`
+      <html><head></head><body>
+        <header><img src="/header/mark.png" alt="Example logo"></header>
+        <div><img src="/logos/globex.svg" alt="Globex logo" width="400" height="160"></div>
+      </body></html>
+    `));
+
+    expect(result.data?.defaultLogoUrl).toBe("https://example.com/header/mark.png");
+    expect(result.confidence).toBe("high");
+  });
+
+  it("a catch-all logo wrapped in a homepage link is vouched: wins with HIGH confidence", async () => {
+    const result = await extractLogos(evidenceFor(`
+      <html><head></head><body>
+        <div class="masthead"><a href="/"><img src="/static/logo.svg" alt="logo"></a></div>
+      </body></html>
+    `));
+
+    expect(result.data?.defaultLogoUrl).toBe("https://example.com/static/logo.svg");
+    expect(result.confidence).toBe("high");
+  });
+
+  it("a catch-all logo whose filename carries the domain token is vouched", async () => {
+    const result = await extractLogos(evidenceFor(`
+      <html><head></head><body>
+        <div><img src="/img/acme-logo.svg" alt="logo"></div>
+      </body></html>
+    `, "https://acme.com/"));
+
+    expect(result.data?.defaultLogoUrl).toBe("https://acme.com/img/acme-logo.svg");
+    expect(result.confidence).toBe("high");
+  });
+
+  it("an unvouched catch-all default degrades to LOW confidence and flags the risk", async () => {
+    // No header, no homepage link, no domain affinity — statistically this
+    // shape is someone else's logo, so it must not pre-check in the review UI
+    // (and the orchestrator must not feed it to the colors extractor).
+    const result = await extractLogos(evidenceFor(`
+      <html><head></head><body>
+        <div><img src="/media/some-logo.png" alt="Partner logo"></div>
+      </body></html>
+    `));
+
+    expect(result.data?.defaultLogoUrl).toBe("https://example.com/media/some-logo.png");
+    expect(result.confidence).toBe("low");
+    expect(result.errors.join(" ")).toMatch(/brand-affinity/);
   });
 });
 

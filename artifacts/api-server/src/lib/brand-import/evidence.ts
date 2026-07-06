@@ -328,7 +328,18 @@ export async function buildScreenshotPreviewDataUrl(dataUrl: string | null): Pro
   }
 }
 
-async function samplePaletteFromBuffer(buf: Buffer): Promise<string[]> {
+/**
+ * Sample the screenshot's palette. Returns TWO orderings of the same kept
+ * buckets: `bySalience` (saturation × chroma first — floats brand-accent
+ * candidates to the front, but its leaders can be photo/promo artifacts) and
+ * `byFrequency` (page-area order — backgrounds and large surfaces first).
+ * Both are threaded to the colors extractor so its LLM prompt can describe
+ * each list honestly instead of presenting the salience ranking as
+ * "most frequent" (which taught the model to treat a red shirt in a hero
+ * photo as the dominant page color).
+ */
+async function samplePaletteFromBuffer(buf: Buffer): Promise<{ bySalience: string[]; byFrequency: string[] }> {
+  const empty = { bySalience: [], byFrequency: [] };
   try {
     const { data, info } = await sharp(buf)
       .resize(200, null, { fit: "inside", withoutEnlargement: true })
@@ -364,7 +375,7 @@ async function samplePaletteFromBuffer(buf: Buffer): Promise<string[]> {
       satOf(rgb) * (Math.max(...rgb) - Math.min(...rgb));
 
     // Keep the most-frequent distinct buckets (the original window), then
-    // re-rank them by salience so the brand accent leads the returned list.
+    // re-rank a copy by salience so the brand accent leads that list.
     const kept: { hex: string; salience: number }[] = [];
     const seen = new Set<string>();
     for (const [key] of sorted) {
@@ -375,13 +386,17 @@ async function samplePaletteFromBuffer(buf: Buffer): Promise<string[]> {
       kept.push({ hex, salience: salienceOf(rgb) });
       if (kept.length >= 12) break;
     }
-    kept.sort((a, b) => b.salience - a.salience);
-    const out = kept.map((k) => k.hex);
+    const byFrequency = kept.map((k) => k.hex);
+    const out = [...kept].sort((a, b) => b.salience - a.salience).map((k) => k.hex);
 
     // Hard floor: if a strongly-saturated color (saturation > 0.55) exists
     // among the most-frequent buckets, surface it to the front even when it is
-    // comparatively infrequent and fell outside the kept window.
-    for (const [key] of sorted.slice(0, 48)) {
+    // comparatively infrequent and fell outside the kept window. Scans only
+    // the top 24 buckets (was 48): the deeper tail is where single-photo
+    // artifacts (a red shirt, one product shot) live, and promoting those
+    // hijacked primary on photo-heavy pages. Real brand accents (CTAs, links,
+    // nav highlights) repeat across the page and sit higher in the histogram.
+    for (const [key] of sorted.slice(0, 24)) {
       const rgb = keyToRgb(key);
       if (satOf(rgb) <= 0.55) continue;
       const hex = toHex(rgb);
@@ -391,9 +406,9 @@ async function samplePaletteFromBuffer(buf: Buffer): Promise<string[]> {
       out.unshift(hex);
       break;
     }
-    return out;
+    return { bySalience: out, byFrequency };
   } catch {
-    return [];
+    return empty;
   }
 }
 
@@ -896,7 +911,11 @@ export async function buildEvidence(
 
   const screenshotUrl = pages.find((p) => p.screenshotUrl)?.screenshotUrl ?? null;
   const screenshotFetch = screenshotUrl ? await fetchScreenshotBuffer(screenshotUrl) : null;
-  let sampledPalette = screenshotFetch ? await samplePaletteFromBuffer(screenshotFetch.buf) : [];
+  const sampled = screenshotFetch
+    ? await samplePaletteFromBuffer(screenshotFetch.buf)
+    : { bySalience: [] as string[], byFrequency: [] as string[] };
+  let sampledPalette = sampled.bySalience;
+  let sampledPaletteFrequency = sampled.byFrequency;
   // Inline as data: URL — OpenAI's fetcher gets blocked/throttled by some
   // firecrawl screenshot hosts; passing the bytes directly avoids that.
   const screenshotDataUrl = screenshotFetch
@@ -912,7 +931,11 @@ export async function buildEvidence(
   // palette with this lower-quality signal.
   if (!sampledPalette.length && !cssVarPaletteHints.length && $home) {
     const harvested = harvestCssColorHints($home, stylesheets);
-    if (harvested.length) sampledPalette = harvested;
+    if (harvested.length) {
+      sampledPalette = harvested;
+      // The CSS harvest is genuinely frequency-ordered (declaration counts).
+      sampledPaletteFrequency = harvested;
+    }
   }
 
   logger.info(
@@ -943,6 +966,7 @@ export async function buildEvidence(
     screenshotUrl,
     screenshotDataUrl,
     sampledPalette,
+    sampledPaletteFrequency,
     cssVarPaletteHints,
     darkCssVarHints,
     errors,

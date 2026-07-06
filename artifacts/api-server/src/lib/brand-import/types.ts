@@ -73,6 +73,12 @@ export interface Evidence {
    *  some firecrawl-hosted screenshot URLs throttle or 403 the fetcher. */
   screenshotDataUrl: string | null;
   sampledPalette: string[];
+  /** The same sampled buckets as `sampledPalette` but in page-area frequency
+   *  order (backgrounds/large surfaces first). `sampledPalette` is re-ranked
+   *  by salience so vivid brand-accent candidates lead; the colors extractor
+   *  presents BOTH orderings honestly to the LLM. Optional so existing test
+   *  fixtures / cached shapes without it stay valid. */
+  sampledPaletteFrequency?: string[];
   cssVarPaletteHints: { name: string; value: string }[];
   /** Color custom properties (+ a few literal bg/text declarations) harvested
    *  from dark-theme scopes in the fetched CSS — `@media (prefers-color-scheme:

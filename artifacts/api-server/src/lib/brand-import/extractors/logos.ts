@@ -137,6 +137,40 @@ function parseDim(v: string | undefined): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+// Containers whose contents are SOCIAL PROOF, not the brand's own mark:
+// customer/partner logo walls, press strips, integration grids, testimonial
+// carousels. Any img matched inside one of these must never become a logo
+// candidate — "Trusted by" walls are exactly `<img alt="Acme logo"
+// src="/logos/acme.svg">`, which the document-wide catch-all otherwise
+// collects and (via its SVG + declared-dimensions bonuses) promotes over the
+// real header mark. Segment-bounded so Bootstrap's `navbar-brand` (the site's
+// OWN logo container) and `header-logo` never match; plural `brands`/`logos`
+// and the compound logo-cloud/grid/wall forms are wall markers.
+const SOCIAL_PROOF_RE = /(?:^|[\s_-])(?:clients?|customers?|partners?|sponsors?|integrations?|testimonials?|press|awards?|featured|trusted|brands|logos|logo-?(?:cloud|grid|wall|strip|bar|list|row)|marquee|carousel|ticker)(?=$|[\s_-])/i;
+
+// Hostname labels too generic to identify the brand (shop.acme.com must
+// yield "acme", not "shop").
+const DOMAIN_STOP_LABELS = new Set([
+  "www", "com", "net", "org", "gov", "edu", "shop", "store", "app", "web",
+  "site", "online", "group", "global", "get", "the", "and",
+]);
+
+/** Per-candidate provenance the scorer/confidence logic needs but that must
+ *  not leak into the persisted LogoCandidate shape. Tracked in a side map
+ *  keyed by candidate URL (first push wins, mirroring push()'s dedup). */
+interface CandidateMeta {
+  /** alt/src/class mentions a token of the imported site's domain. */
+  affinity: boolean;
+  /** The img sits inside an <a> that links to the site's homepage — the
+   *  single strongest "this is the brand mark" signal. */
+  linksHome: boolean;
+  /** Candidate ONLY came from the document-wide "anything with 'logo' in
+   *  alt/class/src" catch-all, not from a header/footer container. */
+  catchAllOnly: boolean;
+  /** Candidate is an external ref inside a header inline <svg>. */
+  headerSvg: boolean;
+}
+
 export async function extractLogos(evidence: Evidence): Promise<DimensionResult<LogosData>> {
   const errors: string[] = [];
   const $ = evidence.$home;
@@ -147,10 +181,17 @@ export async function extractLogos(evidence: Evidence): Promise<DimensionResult<
   const base = evidence.homeUrl;
   const candidates: LogoCandidate[] = [];
   const seen = new Set<string>();
+  const meta = new Map<string, CandidateMeta>();
   const push = (c: LogoCandidate): void => {
     if (seen.has(c.url)) return;
     seen.add(c.url);
     candidates.push(c);
+  };
+  // First push wins for meta too — a header find must not have its
+  // provenance overwritten by the same URL resurfacing in the catch-all.
+  const pushWithMeta = (c: LogoCandidate, m: CandidateMeta): void => {
+    if (!seen.has(c.url)) meta.set(c.url, m);
+    push(c);
   };
   const abs = (u: string | undefined): string | null => {
     if (!u) return null;
@@ -158,6 +199,40 @@ export async function extractLogos(evidence: Evidence): Promise<DimensionResult<
       return new URL(u, base).toString();
     } catch {
       return null;
+    }
+  };
+
+  // ── Brand-affinity signals (July 2026 customer-logo hijack fix) ─────────
+  let homeOrigin = "";
+  try { homeOrigin = new URL(base).origin; } catch { /* noop */ }
+  const domainTokens = ((): string[] => {
+    try {
+      return new URL(base).hostname.toLowerCase().split(".")
+        .filter((l) => l.length >= 3 && !DOMAIN_STOP_LABELS.has(l));
+    } catch {
+      return [];
+    }
+  })();
+  const hasDomainAffinity = (haystack: string): boolean => {
+    const lower = haystack.toLowerCase();
+    return domainTokens.some((t) => lower.includes(t));
+  };
+  const inSocialProof = (el: CheerioNode): boolean => {
+    let cur = $(el).parent();
+    for (let depth = 0; depth < 10 && cur.length > 0; depth++, cur = cur.parent()) {
+      const hay = `${cur.attr("class") ?? ""} ${cur.attr("id") ?? ""} ${cur.attr("aria-label") ?? ""}`;
+      if (SOCIAL_PROOF_RE.test(hay)) return true;
+    }
+    return false;
+  };
+  const linksToHome = (el: CheerioNode): boolean => {
+    const href = $(el).closest("a[href]").attr("href");
+    if (!href) return false;
+    try {
+      const u = new URL(href, base);
+      return u.origin === homeOrigin && (u.pathname === "/" || u.pathname === "");
+    } catch {
+      return false;
     }
   };
 
@@ -210,17 +285,20 @@ export async function extractLogos(evidence: Evidence): Promise<DimensionResult<
       const looksLogo = /logo|wordmark|brand|mark/.test(haystack);
       const url = abs(srcRaw);
       if (!url || !looksLogo) return;
+      // A "trusted by" wall living inside the header/footer region is still
+      // social proof, not the brand mark.
+      if (inSocialProof(el)) return;
       const w = parseDim($el.attr("width"));
       const h = parseDim($el.attr("height"));
       const area = w && h ? w * h : null;
-      push({
+      pushWithMeta({
         url,
         source: src,
         format: inferFormat(url),
         estimatedArea: area,
         transparent: null,
         score: 0,
-      });
+      }, { affinity: hasDomainAffinity(haystack), linksHome: linksToHome(el), catchAllOnly: false, headerSvg: false });
     });
     // Inline SVGs (we can't easily extract them, but if there's a <use href> or
     // <image href> pointing at an external file, use that)
@@ -231,27 +309,37 @@ export async function extractLogos(evidence: Evidence): Promise<DimensionResult<
       const parent = $(el).closest("[class],[id]");
       const haystack = `${parent.attr("class") ?? ""} ${parent.attr("id") ?? ""}`.toLowerCase();
       if (!/logo|wordmark|brand|mark/.test(haystack)) return;
-      push({ url, source: src === "header" ? "svg-alt" : src, format: inferFormat(url), estimatedArea: null, transparent: true, score: 0 });
+      if (inSocialProof(el)) return;
+      pushWithMeta(
+        { url, source: src === "header" ? "svg-alt" : src, format: inferFormat(url), estimatedArea: null, transparent: true, score: 0 },
+        { affinity: hasDomainAffinity(`${haystack} ${url}`), linksHome: linksToHome(el), catchAllOnly: false, headerSvg: src === "header" },
+      );
     });
   };
   inspect($(containerSelector).first(), "header");
   inspect($(footerSelector).first(), "footer");
 
-  // 3. Any IMG with class/alt explicitly containing "logo" anywhere in the doc
+  // 3. Any IMG with class/alt explicitly containing "logo" anywhere in the doc.
+  // This catch-all is what used to hoover up customer-logo walls (alt "Acme
+  // logo", src /logos/acme.svg): candidates inside social-proof containers are
+  // skipped outright, and the rest carry catchAllOnly meta so the scorer can
+  // demote them unless a brand-affinity signal vouches for them.
   $('img[alt*="logo" i], img[class*="logo" i], img[src*="logo" i]').each((_, el) => {
     const $el = $(el);
     const url = abs($el.attr("src") ?? $el.attr("data-src"));
     if (!url) return;
+    if (inSocialProof(el)) return;
+    const haystack = `${$el.attr("alt") ?? ""} ${$el.attr("src") ?? $el.attr("data-src") ?? ""} ${$el.attr("class") ?? ""}`;
     const w = parseDim($el.attr("width"));
     const h = parseDim($el.attr("height"));
-    push({
+    pushWithMeta({
       url,
       source: "svg-alt",
       format: inferFormat(url),
       estimatedArea: w && h ? w * h : null,
       transparent: null,
       score: 0,
-    });
+    }, { affinity: hasDomainAffinity(haystack), linksHome: linksToHome(el), catchAllOnly: true, headerSvg: false });
   });
 
   // Score: header strongly preferred; SVG bonus; favicons get a small score
@@ -286,6 +374,16 @@ export async function extractLogos(evidence: Evidence): Promise<DimensionResult<
     // penalize them instead; the low-confidence demotion at the bottom is
     // the safety net against social cards persisting as the default logo.
     if (c.source === "og" && c.estimatedArea === null) c.score -= 10;
+    // Brand-affinity bonuses: the mark that carries the site's own domain
+    // token, and above all the one wrapped in a link back to the homepage,
+    // should beat look-alikes from elsewhere on the page.
+    const m = meta.get(c.url);
+    if (m?.affinity) c.score += 25;
+    if (m?.linksHome) c.score += 30;
+    // A catch-all find with NO brand tie is the customer-logo shape: demote
+    // it below any real header find (its SVG + declared-dimensions bonuses
+    // used to push it past headers). It stays a visible alternate.
+    if (m?.catchAllOnly && !m.affinity && !m.linksHome) c.score -= 30;
   }
   candidates.sort((a, b) => b.score - a.score);
 
@@ -296,10 +394,21 @@ export async function extractLogos(evidence: Evidence): Promise<DimensionResult<
   // cheerio sees a path soup and we fall back to favicon. Spawning an
   // out-of-process Chromium lets us serialize the rendered SVG into a
   // data URL and surface it as the brand logo.
-  const topIsBrandLogo = candidates[0] &&
-    (candidates[0].source === "header" ||
-      candidates[0].source === "footer" ||
-      candidates[0].source === "svg-alt");
+  // An svg-alt candidate only counts as a brand logo when a provenance signal
+  // vouches for it (header inline-SVG ref, domain affinity, or a homepage
+  // link). An unvouched catch-all match must NOT suppress the fallback — that
+  // was how a customer-wall logo both won the default AND prevented the real
+  // inline-SVG wordmark from ever being rendered.
+  const isBrandGrade = (c: LogoCandidate | undefined): boolean => {
+    if (!c) return false;
+    if (c.source === "header" || c.source === "footer") return true;
+    if (c.source === "svg-alt") {
+      const m = meta.get(c.url);
+      return !!m && (m.headerSvg || m.affinity || m.linksHome);
+    }
+    return false;
+  };
+  const topIsBrandLogo = isBrandGrade(candidates[0]);
   if (!topIsBrandLogo) {
     const fallback = await runPlaywrightLogoFallback(base);
     if (fallback.ok) {
@@ -344,8 +453,22 @@ export async function extractLogos(evidence: Evidence): Promise<DimensionResult<
     : candidates[0];
   const status: DimensionResult<LogosData>["status"] =
     def.source === "favicon" && candidates.length === 1 ? "partial" : "ok";
+  // svg-alt is only "high" when vouched (header inline-SVG ref, domain
+  // affinity, or homepage link). An unvouched catch-all default is "low":
+  // it is statistically often someone ELSE's logo, flattenForProposed only
+  // pre-checks high/medium fields, and the orchestrator gates the
+  // logo-dominant color hint on "high" — so a shaky pick can neither
+  // auto-apply nor repaint the brand palette.
+  const defMeta = meta.get(def.url);
+  const svgAltVouched = def.source === "svg-alt"
+    && !!defMeta && (defMeta.headerSvg || defMeta.affinity || defMeta.linksHome);
+  if (def.source === "svg-alt" && !svgAltVouched) {
+    errors.push(
+      "default logo came from a document-wide 'logo' match with no brand-affinity signal (possible customer/partner logo) — needs human confirmation",
+    );
+  }
   const confidence =
-    def.source === "header" || def.source === "svg-alt" || def.source === "header-svg-rendered"
+    def.source === "header" || def.source === "header-svg-rendered" || svgAltVouched
       ? "high"
       : def.source === "footer"
       ? "medium"
