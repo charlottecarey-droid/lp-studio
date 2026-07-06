@@ -120,19 +120,24 @@ const PRESETS: Preset[] = [
       { t: "A/B built in", d: "Variants + smart traffic" },
       { t: "Live signals", d: "See who's reading, when" },
     ],
-    logos: ["Smilist", "Northwind", "Field Co.", "Verdant", "Atlas", "Ember"],
+    // All fictional demo-universe brands (they double as the preset switcher).
+    // Never put a real company here — "Smilist" collided with a real DSO and
+    // had to be renamed to Pearlmont; vet any new name the same way.
+    logos: ["Pearlmont", "Northwind", "Field Co.", "Verdant", "Atlas", "Ember"],
     ctaTitle: "Ready to see your brand in it?",
     ctaSub: "Import your site — fonts, colors, and voice load in one scan.",
     ctaButton: "Import my brand \u2192",
-    navCta: "Get started",
+    navCta: "Start free",
     heroImage: demoHeroWide,
     accent: "indigo",
     layout: "centered",
   },
   {
+    // Internal id stays "smilist" (invisible plumbing); the DISPLAY brand is
+    // the fictional Pearlmont — the old display name was a real DSO's.
     id: "smilist",
-    brand: "Smilist",
-    domain: "smilist.com",
+    brand: "Pearlmont",
+    domain: "pearlmont.com",
     category: "Dental · Local",
     nav: ["Locations", "Services", "Patients", "About"],
     headline1: "Modern dentistry,",
@@ -149,7 +154,7 @@ const PRESETS: Preset[] = [
       { t: "Transparent", d: "Prices upfront" },
       { t: "Personal", d: "Your team, every time" },
     ],
-    logos: ["Vogue", "Forbes", "TIME", "WSJ", "Wired", "Bloomberg"],
+    logos: ["The Ledger", "City Post", "Health Weekly", "Metro Mag", "Daybreak", "The Standard"],
     ctaTitle: "Ready when you are.",
     ctaSub: "Book in 60 seconds · no insurance call needed.",
     ctaButton: "Get started →",
@@ -176,7 +181,7 @@ const PRESETS: Preset[] = [
       { t: "Intent score", d: "Hot leads, first" },
       { t: "One inbox", d: "Email, LinkedIn, SMS" },
     ],
-    logos: ["Stripe", "Notion", "Linear", "Vercel", "Ramp", "Loom"],
+    logos: ["Brightwave", "Cobalt Systems", "Meridian", "Helio", "Northstar", "Pinnacle Cloud"],
     ctaTitle: "Close more, type less.",
     ctaSub: "14-day trial · no credit card required.",
     ctaButton: "Try Northwind →",
@@ -203,7 +208,7 @@ const PRESETS: Preset[] = [
       { t: "Repaired free", d: "Forever, no questions" },
       { t: "Carbon-neutral", d: "Every order, always" },
     ],
-    logos: ["GQ", "Outside", "Monocle", "Esquire", "Hypebeast", "Cool Hunting"],
+    logos: ["Trailhead", "Fieldcraft", "The Carryall", "Northbound", "Slow Goods", "Kit & Compass"],
     ctaTitle: "Built once. Worn for decades.",
     ctaSub: "Free returns · free repairs · always.",
     ctaButton: "Shop new arrivals →",
@@ -230,7 +235,7 @@ const PRESETS: Preset[] = [
       { t: "No-diet plan", d: "Real food, real life" },
       { t: "Habit OS", d: "Tracks itself for you" },
     ],
-    logos: ["NYT", "Goop", "Well+Good", "Vogue", "Self", "mindbodygreen"],
+    logos: ["Glow Weekly", "The Wellness Edit", "Root & Rise", "Daily Ritual", "Calm Quarterly", "Softline"],
     ctaTitle: "Start with one habit.",
     ctaSub: "First week free · cancel anytime.",
     ctaButton: "Build my plan →",
@@ -257,7 +262,7 @@ const PRESETS: Preset[] = [
       { t: "Artist-curated", d: "No paid placement" },
       { t: "Members first", d: "Tickets 48h early" },
     ],
-    logos: ["Resident Advisor", "Mixmag", "Boiler Room", "DJ Mag", "XLR8R", "Crack"],
+    logos: ["Nightshift", "Lowline", "Repeater", "Basswire", "The Setlist", "After Hours"],
     ctaTitle: "The night is already moving.",
     ctaSub: "Doors open 11pm · members skip the line.",
     ctaButton: "Reserve tonight →",
@@ -284,7 +289,7 @@ const PRESETS: Preset[] = [
       { t: "Virtual cards", d: "Issue in seconds" },
       { t: "Treasury API", d: "Sweep, pay, reconcile" },
     ],
-    logos: ["TechCrunch", "Fortune", "Bloomberg", "The Information", "Pitchbook", "a16z"],
+    logos: ["Signal Desk", "Founders Wire", "The Runway", "Seedbed", "Capital Notes", "The Raise"],
     ctaTitle: "Your runway, working harder.",
     ctaSub: "Open in 8 minutes · no minimums.",
     ctaButton: "Get Atlas →",
@@ -311,7 +316,7 @@ const PRESETS: Preset[] = [
       { t: "Wine pairing", d: "Sommelier-led journey" },
       { t: "Chef's counter", d: "Six seats, every service" },
     ],
-    logos: ["NYT", "Eater", "Bon Appétit", "Food & Wine", "Michelin", "The Infatuation"],
+    logos: ["The Fork", "Table Talk", "Plated", "City Bites", "The Pass", "Supper Club"],
     ctaTitle: "The fire is already lit.",
     ctaSub: "Booked 6 weeks out · join the waitlist.",
     ctaButton: "Reserve →",
@@ -338,7 +343,7 @@ const PRESETS: Preset[] = [
       { t: "Stat engine", d: "Frame-by-frame replays" },
       { t: "Direct payouts", d: "Win at 3am, paid by 4am" },
     ],
-    logos: ["ESPN", "Dexerto", "HLTV", "Liquipedia", "The Loadout", "Polygon"],
+    logos: ["Scrimwire", "Framewatch", "Respawn Report", "The Pixel", "Clutch Daily", "Sideline"],
     ctaTitle: "Queue is open.",
     ctaSub: "Free to enter · top 1% gets paid.",
     ctaButton: "Drop in →",
@@ -369,10 +374,14 @@ const DEFAULT_EXTRAS: Extras = {
     author: "Alex Reyes",
     role: "Head of Growth",
   },
+  // The demo page renders LP Studio's OWN pricing section, so these tiers
+  // must mirror the REAL /pricing tiers (names + prices). They used to say
+  // Growth $49 while the real Growth is $199 — a visitor skimming the demo
+  // anchored on the wrong number.
   pricing: [
-    { name: "Starter", price: "$0", per: "/mo", blurb: "For small teams getting started.", features: ["3 seats", "Core blocks", "Community support"], cta: "Start free" },
-    { name: "Growth", price: "$49", per: "/mo", blurb: "Most teams pick this.", features: ["10 seats", "Brand kit", "A/B testing", "Priority support"], cta: "Start trial", highlight: true },
-    { name: "Scale", price: "Custom", per: "", blurb: "For teams shipping at scale.", features: ["Unlimited seats", "SSO + SCIM", "Dedicated CSM"], cta: "Talk to sales" },
+    { name: "Starter", price: "$49", per: "/mo", blurb: "For small teams getting started.", features: ["3 seats", "Visual builder", "A/B testing"], cta: "Start free trial" },
+    { name: "Growth", price: "$199", per: "/mo", blurb: "Most teams pick this.", features: ["10 seats", "Sales Console", "CRM sync", "Priority support"], cta: "Try it free", highlight: true },
+    { name: "Scale", price: "$499", per: "/mo", blurb: "Multi-brand, multi-team.", features: ["25 seats", "Multi-workspace", "Custom blocks"], cta: "Talk to sales" },
   ],
   faq: [
     { q: "How long does setup take?", a: "Most teams are live the same afternoon — under 30 minutes from sign-up to first page." },
@@ -420,7 +429,7 @@ const EXTRAS: Record<string, Partial<Extras>> = {
     },
     pricing: [
       { name: "Cleaning", price: "$89", per: "/visit", blurb: "Exam, X-rays, polish.", features: ["30-min visit", "Same-day bookings", "All ages"], cta: "Book cleaning" },
-      { name: "Membership", price: "$24", per: "/mo", blurb: "No insurance? No problem.", features: ["2 cleanings / yr", "20% off all care", "No deductibles"], cta: "Join Smilist", highlight: true },
+      { name: "Membership", price: "$24", per: "/mo", blurb: "No insurance? No problem.", features: ["2 cleanings / yr", "20% off all care", "No deductibles"], cta: "Join Pearlmont", highlight: true },
       { name: "Cosmetic", price: "From $399", per: "", blurb: "Whitening, veneers, aligners.", features: ["Free consult", "0% financing", "Lifetime touch-ups"], cta: "Get a quote" },
     ],
     faq: [
@@ -431,7 +440,7 @@ const EXTRAS: Record<string, Partial<Extras>> = {
     ],
   },
   northwind: {
-    eyebrow: "Series B · backed by Sequoia",
+    eyebrow: "Series B · backed by Halifax Capital",
     stats: [
       { v: "37%", l: "Avg pipeline lift" },
       { v: "2.1h", l: "Saved per rep, daily" },
@@ -460,7 +469,7 @@ const EXTRAS: Record<string, Partial<Extras>> = {
     testimonial: {
       quote: "Five years and three countries later, the bag came back from repair looking new. This is how things should be made.",
       author: "Marco S.",
-      role: "Verified buyer",
+      role: "Longtime customer",
     },
     pricing: [
       { name: "Field Pack", price: "$189", per: "", blurb: "Our flagship daypack.", features: ["22L volume", "Laptop sleeve", "Lifetime repairs"], cta: "Shop the pack" },
@@ -1129,7 +1138,10 @@ export function BuildSection() {
                       style={stage7}
                       className="mx-5 mt-12 overflow-hidden rounded-3xl bg-[oklch(0.13_0.012_270)] p-7 text-white @[640px]:mx-10 @[640px]:p-9"
                     >
-                      <div className="font-mono-display text-[10px] uppercase tracking-[0.22em] text-white/50">★★★★★ · Verified</div>
+                      {/* "Customer story", not "Verified" — these demo testimonials are
+                          illustrative, and a verification badge on an invented quote is
+                          an endorsement-guidelines problem, not a style choice. */}
+                      <div className="font-mono-display text-[10px] uppercase tracking-[0.22em] text-white/50">★★★★★ · Customer story</div>
                       <blockquote className="mt-3 font-display text-[15px] font-[500] leading-snug tracking-[-0.015em] text-balance text-white/95 @[640px]:text-[18px]">
                         "{extras.testimonial.quote}"
                       </blockquote>

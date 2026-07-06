@@ -49,20 +49,24 @@ export default function HeroScene() {
             color: "var(--ink-mute)",
           }}
         >
+          {/* The side rules hide on mobile: the longer audience line wraps
+              there and stray mid-height rules read as a glitch. */}
           <span
             aria-hidden
+            className="hidden sm:inline-block"
             style={{
-              display: "inline-block",
               width: 28,
               height: 1,
               background: "var(--ink-faint)",
             }}
           />
-          The AI revenue workspace
+          {/* Concrete audience + artifact beats the invented category name —
+              a cold visitor learns what this is before reading the H1. */}
+          Pages & microsites for revenue teams
           <span
             aria-hidden
+            className="hidden sm:inline-block"
             style={{
-              display: "inline-block",
               width: 28,
               height: 1,
               background: "var(--ink-faint)",

@@ -955,7 +955,11 @@ function buildEngagementHistory(v: VisitRow): ContactDetail["engagementHistory"]
   return items;
 }
 
-export default function IdentityWedge() {
+// `num` — the section-sequence eyebrow. This component renders on two pages
+// with different positions in the flow: the homepage (after 08 / Sales
+// Console → default "09") and /for-sales (after 03 / AI outreach → pass
+// "04", with SalesforceSyncDemo's hardcoded "05 / CRM" following it).
+export default function IdentityWedge({ num = "09" }: { num?: string } = {}) {
   const { ref, inView } = useInView(0.05);
 
   return (
@@ -998,7 +1002,7 @@ export default function IdentityWedge() {
       >
         {/* Headline + narrative */}
         <div style={{ maxWidth: 760, marginBottom: 36 }}>
-          <div className="marker marker-rule mb-5">09 / Signal</div>
+          <div className="marker marker-rule mb-5">{num} / Signal</div>
           <h2
             className="font-display text-display-md"
             style={{ color: "var(--ink)", margin: 0 }}

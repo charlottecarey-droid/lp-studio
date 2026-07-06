@@ -51,7 +51,7 @@ const seriousSubjects = [
   "vertical SaaS founders considering ABM",
 
   // Healthcare / dental / vet (6)
-  "the Smilist's 16-location rollout",
+  "Pearlmont Dental's 16-location rollout",
   "Bright Smile DSO's pilot",
   "Mercer Veterinary's Q4 growth plan",
   "Northwind Dental's renewal cycle",

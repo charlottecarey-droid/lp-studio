@@ -267,7 +267,7 @@ function CreateNewPageModal() {
               background: "#fff",
             }}
           >
-            https://stripe.com{"   "}— paste a URL and press Enter
+            https://ledgerline.com{"   "}— paste a URL and press Enter
           </div>
         </div>
       </div>

@@ -60,7 +60,7 @@ const VARIANTS: Variant[] = [
     eyebrow: "Q3 Customer Summit · 38 seats left",
     headline: "Where the best revenue teams compare notes.",
     subline:
-      "Working sessions with operators from Ramp, Vercel, and Linear — leave with the playbook, not a tote bag.",
+      "Working sessions with operators from Northwind, Brightwave, and Cobalt Systems — leave with the playbook, not a tote bag.",
     cta: "Save my seat",
     image:
       "https://images.unsplash.com/photo-1517048676732-d65bc937f952?q=80&w=900&h=520&fit=crop",
@@ -626,7 +626,7 @@ function TopLeftTintHero({ variant: v }: { variant: Variant }) {
                   fontWeight: 500,
                 }}
               >
-                — Jordan Maeda · VP RevOps · Plaid
+                — Jordan Maeda · VP RevOps · Brightwave
               </div>
             </div>
           </div>

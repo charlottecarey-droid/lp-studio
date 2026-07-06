@@ -1,7 +1,7 @@
 // BrandSettingsEmbed — the full Brand & Content UI ported from
 // design-preview/ui_kits/app/BrandContent.jsx into TSX. Lives inside a
 // BrowserFrame on the new homepage. Shows post-Brand-Import state: imported
-// from stripe.com, 31 fields applied, Strict AI facts ON, an Import source
+// from ledgerline.com (fictional demo brand), 31 fields applied, Strict AI facts ON, an Import source
 // input (URL or Guidelines), then the colors + typography cards. The purple
 // hero preview band that lived above the colors is intentionally removed
 // (Charlotte feedback: too much purple, lead with the colors).
@@ -105,7 +105,7 @@ const TYPE_ICON = "M4 7V4h16v3M9 20h6M12 4v16";
 const VOICE_ICON =
   "M21 11.5a8.4 8.4 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.4 8.4 0 01-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.4 8.4 0 013.8-.9h.5a8.5 8.5 0 018 8v.5z";
 
-// Stripe-style brand stand-in to demonstrate the imported token system
+// Ledgerline (fictional fintech) brand stand-in to demonstrate the imported token system
 const BRAND_PURPLE = "#6B3FBB";
 
 const CORE_COLORS = [
@@ -299,7 +299,7 @@ export default function BrandSettingsEmbed() {
             </svg>
             imported from{" "}
             <span style={{ color: "var(--indigo)", textDecoration: "underline" }}>
-              https://stripe.com/
+              https://ledgerline.com/
             </span>{" "}
             · 6/2/2026 · 31 fields applied
           </div>
@@ -567,7 +567,7 @@ export default function BrandSettingsEmbed() {
             </svg>
             <span style={{ flex: 1, color: "var(--ink-mute)" }}>https://</span>
             <span style={{ color: "var(--ink)", fontWeight: 500 }}>
-              stripe.com
+              ledgerline.com
             </span>
             <span
               style={{
@@ -887,12 +887,12 @@ export default function BrandSettingsEmbed() {
             <div>
               <div style={{ ...LABEL_STYLE, marginBottom: 14 }}>Voice</div>
 
-              <VMField label="Brand Name" value="Stripe" />
+              <VMField label="Brand Name" value="Ledgerline" />
 
               <VMField
                 label="Company description"
                 hint="1–2 sentences describing your company and what you sell."
-                value="Stripe is a financial-infrastructure platform that powers payments, billing, and money movement for businesses of every size."
+                value="Ledgerline is a financial-infrastructure platform that powers payments, billing, and money movement for businesses of every size."
                 multiline
               />
 
@@ -945,9 +945,9 @@ export default function BrandSettingsEmbed() {
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 18 }}>
                 {[
-                  "Financial infrastructure for the internet",
-                  "Increase revenue. Decrease costs.",
-                  "Built for builders",
+                  "Financial infrastructure for modern commerce",
+                  "Revenue in. Complexity out.",
+                  "Built for finance teams",
                 ].map((t) => (
                   <span
                     key={t}

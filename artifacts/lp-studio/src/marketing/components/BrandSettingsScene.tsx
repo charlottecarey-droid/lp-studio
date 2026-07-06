@@ -9,7 +9,7 @@ import { useInView } from "../hooks/useInView";
 // + role validator + facts-only mode).
 //
 // The "Brand preview" panel shows the imported tokens applied to a sample
-// hero (purple Stripe-style brand stand-in) so the section visually
+// hero (purple Ledgerline fictional-fintech stand-in) so the section visually
 // demonstrates the inheritance, not just describes it.
 
 interface Swatch {
@@ -166,7 +166,7 @@ export default function BrandSettingsScene() {
               </svg>
               imported from{" "}
               <span style={{ color: "var(--indigo)", textDecoration: "underline" }}>
-                stripe.com
+                ledgerline.com
               </span>{" "}
               · 31 fields applied
             </div>

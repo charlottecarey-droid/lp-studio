@@ -154,7 +154,7 @@ export default function PromptCard() {
                   onMouseEnter={(e) => (e.currentTarget.style.color = "var(--ink)")}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "var(--ink-2)")}
                 >
-                  Get started for free
+                  Start free
                 </a>
                 {/* Primary — flat ink, single sparkle, tight shadow */}
                 <button

@@ -286,9 +286,16 @@ interface PricingProps {
    * either way.
    */
   defaultCompareOpen?: boolean;
+  /**
+   * Render the headline as the page's <h1>. The standalone /pricing route
+   * passes true (it has no other h1 and the page is prerendered for SEO);
+   * embedded on the homepage it stays an <h2> under the hero's h1.
+   */
+  asPageHeading?: boolean;
 }
 
-export default function Pricing({ defaultCompareOpen = false }: PricingProps = {}) {
+export default function Pricing({ defaultCompareOpen = false, asPageHeading = false }: PricingProps = {}) {
+  const Heading = asPageHeading ? "h1" : "h2";
   const { ref, inView } = useInView();
   const [billing, setBilling] = useState<Billing>("annual");
   const [compareOpen, setCompareOpen] = useState(defaultCompareOpen);
@@ -327,9 +334,9 @@ export default function Pricing({ defaultCompareOpen = false }: PricingProps = {
         <div className="flex items-end justify-between flex-wrap gap-6 mb-10">
           <div className="max-w-2xl">
             <div className="marker marker-rule mb-6">Pricing</div>
-            <h2 className="font-display text-display-lg" style={{ color: "var(--ink)" }}>
+            <Heading className="font-display text-display-lg" style={{ color: "var(--ink)" }}>
               Pricing for teams who actually ship.
-            </h2>
+            </Heading>
             <p
               className="mt-6 text-[17px] leading-[1.55]"
               style={{ color: "var(--ink-soft)" }}

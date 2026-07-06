@@ -109,7 +109,7 @@ export default function Navbar() {
             <svg width="13" height="13" viewBox="0 0 16 16" fill="var(--coral)" aria-hidden="true">
               <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13 6.5 8.5 2 7l4.5-1.5L8 1z" />
             </svg>
-            Get started
+            Start free
           </a>
         </div>
 
@@ -157,7 +157,7 @@ export default function Navbar() {
             <svg width="13" height="13" viewBox="0 0 16 16" fill="var(--coral)" aria-hidden="true">
               <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13 6.5 8.5 2 7l4.5-1.5L8 1z" />
             </svg>
-            Get started
+            Start free
           </a>
         </div>
       )}

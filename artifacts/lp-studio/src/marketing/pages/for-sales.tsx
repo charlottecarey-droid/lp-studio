@@ -138,8 +138,10 @@ export default function ForSales() {
 
         {/* 4 — Per-recipient identity. Lifted from /new homepage per IA plan.
             Sales buyers care about identity more than marketing buyers; this
-            is the page that needs the full wedge framing. */}
-        <IdentityWedge />
+            is the page that needs the full wedge framing. num="04" keeps this
+            page's sequence continuous (01–03 above, 05 / CRM below); the
+            component's default "09" is its homepage position. */}
+        <IdentityWedge num="04" />
 
         {/* 5 — Salesforce sync. The "every signal lands on the right contact"
             story, with custom field mapping on Scale. New component. */}

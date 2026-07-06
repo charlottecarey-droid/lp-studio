@@ -43,7 +43,7 @@ export default function PricingPage() {
             + subhead + billing toggle — no page-wrapper header needed. The
             component's own py-28 md:py-36 section padding provides the
             navbar clearance. */}
-        <Pricing defaultCompareOpen />
+        <Pricing defaultCompareOpen asPageHeading />
         <FAQ />
         <FinalCta />
       </main>

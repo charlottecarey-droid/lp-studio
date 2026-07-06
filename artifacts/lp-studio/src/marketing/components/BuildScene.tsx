@@ -61,9 +61,11 @@ interface Preset {
 
 const PRESETS: Preset[] = [
   {
+    // Display brand is the fictional Pearlmont (the old name was a real
+    // DSO's); the internal id stays "smilist" — invisible plumbing.
     id: "smilist",
-    brand: "Smilist",
-    domain: "smilist.com",
+    brand: "Pearlmont",
+    domain: "pearlmont.com",
     category: "Dental · Local",
     nav: ["Locations", "Services", "Patients", "About"],
     headline1: "Modern dentistry,",

@@ -16,23 +16,22 @@ const productLinks = [
   { label: "Compare", href: "/compare" },
 ];
 
+// No mailto: links in the footer (Charlotte, 2026-07-05) — they exposed a
+// raw admin@ address and read as filler. Link real pages only; add entries
+// back when actual About/Careers/Security pages exist.
 const pricingLinks = [
   { label: "Plans & Pricing", href: "/pricing" },
   { label: "Start a workspace", href: "https://app.lpstudio.ai" },
-  { label: "Contact Sales", href: "mailto:admin@lpstudio.ai?subject=LP%20Studio%20-%20Sales%20inquiry" },
 ];
 
 const companyLinks = [
   { label: "Blog", href: "/blog" },
-  { label: "About", href: "mailto:admin@lpstudio.ai?subject=About%20LP%20Studio" },
   { label: "FAQ", href: "/#faq" },
-  { label: "Careers", href: "mailto:admin@lpstudio.ai?subject=Careers%20at%20LP%20Studio" },
 ];
 
 const legalLinks = [
   { label: "Privacy Policy", href: "/privacy" },
   { label: "Terms of Service", href: "/terms" },
-  { label: "Security", href: "mailto:admin@lpstudio.ai?subject=Security%20inquiry" },
 ];
 
 const LINK_BASE = { color: "var(--ink-soft)" } as const;
@@ -183,15 +182,6 @@ export default function Footer() {
               onMouseLeave={(e) => (e.currentTarget.style.color = "var(--ink-mute)")}
             >
               Terms
-            </a>
-            <a
-              href="mailto:admin@lpstudio.ai?subject=Security%20inquiry"
-              className="font-mono uppercase transition-colors"
-              style={{ color: "var(--ink-mute)", fontSize: 11, letterSpacing: "0.14em" }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--coral)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--ink-mute)")}
-            >
-              Security
             </a>
           </div>
         </div>
