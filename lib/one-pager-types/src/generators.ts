@@ -444,6 +444,35 @@ export function scrubBrandDeep<T>(value: T, b?: BrandContext): T {
 // ── Shared types ───────────────────────────────────────────────────────
 export type Audience = "executive" | "clinical" | "practice-manager";
 
+/**
+ * A rectangle in PDF page coordinates (pt, letter page: 612×792 portrait,
+ * y grows downward, x/y = top-left corner) recorded by a generator for a
+ * named layout region.
+ *
+ * Generators populate these at draw time when the caller passes a `regions`
+ * collector in opts, so consumers (the template editor's drag-on-preview
+ * handles) get the EXACT drawn position — including text-wrap-dependent
+ * anchors like the Agreement Summary subheadline — instead of re-deriving
+ * coordinates from duplicated constants that would drift. Recording is
+ * write-only and never changes rendering.
+ *
+ * Common keys: `page` (full page), `logoGroup` (brand-logo cluster →
+ * logoGroupOffsetX/Y), `headline` (header title → headingOffsetX, or
+ * headlineOffsetX/Y on the Agreement Summary), `subtitle`/`subheadline`
+ * (→ the subtitleOffset / subheadlineOffset knobs), `sections` (Agreement
+ * Summary row block → sectionsOffsetY).
+ */
+export interface LayoutRegion {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Mutable collector for named layout regions — pass `{}` and read it back
+ *  after the generator resolves. */
+export type OnePagerRegions = Record<string, LayoutRegion>;
+
 export interface TeamContact {
   name: string;
   title: string;
@@ -603,7 +632,7 @@ export const defaultAgreementSummaryContent: AgreementSummaryContent = {
 
 export const generateAgreementSummaryOnePager = async (
   rawContent: AgreementSummaryContent,
-  opts?: { logoPng?: string | null; scannerPng?: string | null; brand?: BrandContext },
+  opts?: { logoPng?: string | null; scannerPng?: string | null; brand?: BrandContext; regions?: OnePagerRegions },
 ): Promise<jsPDF> => {
   const b = resolveBrand(opts?.brand);
   const pal = resolvePalette(opts?.brand);
@@ -618,6 +647,8 @@ export const generateAgreementSummaryOnePager = async (
   const margin = 48;
   const logoPng = opts?.logoPng ?? null;
   const scannerPng = opts?.scannerPng ?? null;
+  const regions = opts?.regions;
+  if (regions) regions.page = { x: 0, y: 0, w, h };
 
   // Heading face resolution, matching the other generators: a registered
   // brand heading font (registerBrandFonts overrides the "Bagoss" face) wins;
@@ -695,6 +726,7 @@ export const generateAgreementSummaryOnePager = async (
     doc.setTextColor(...white);
     doc.text(b.wordmark, logoX, logoTopY + logoH * 0.78);
   }
+  if (regions) regions.logoGroup = { x: logoX, y: logoTopY, w: logoW, h: logoH };
 
   // Headline — large serif, wraps to multiple lines. Confine width to ~58%
   // of page so it doesn't run into the scanner image on the right.
@@ -715,6 +747,8 @@ export const generateAgreementSummaryOnePager = async (
   const headlineY = 130 + headlineOffsetY;
   doc.text(headlineLines, headlineX, headlineY);
   const headlineBottom = headlineY + (headlineLines.length - 1) * headlineLineH;
+  // y anchors are text baselines; subtract the font size to approximate the top.
+  if (regions) regions.headline = { x: headlineX, y: headlineY - headlinePt, w: headlineMaxW, h: headlineBottom - headlineY + headlinePt * 1.2 };
 
   // Subheadline — sans-serif, lighter, just below the headline.
   const subheadlinePt = clamp(content.subheadlineFontSize ?? 13, 8, 24);
@@ -727,6 +761,7 @@ export const generateAgreementSummaryOnePager = async (
   const subY = headlineBottom + 32 + subheadlineOffsetY;
   const subLines = doc.splitTextToSize(content.subheadline, headlineMaxW);
   doc.text(subLines, subX, subY, { lineHeightFactor: 1.35 });
+  if (regions) regions.subheadline = { x: subX, y: subY - subheadlinePt, w: headlineMaxW, h: subLines.length * subheadlinePt * 1.35 + 4 };
 
   // ── Footer geometry (computed up-front) ─────────────────────────────
   // The footer band can grow when the user adds contacts and/or bumps the
@@ -806,6 +841,7 @@ export const generateAgreementSummaryOnePager = async (
     ? rowsTop + (rowsAvailableH - naturalTotalH) / 2 + sectionsOffsetY
     : rowsTop;
   const stretchRowH = rowsAvailableH / rowCount;
+  if (regions) regions.sections = { x: margin, y: blockTop, w: w - margin * 2, h: fits ? naturalTotalH : rowsAvailableH };
 
   let cursorY = blockTop;
   measured.forEach((m, i) => {
@@ -1149,6 +1185,7 @@ export interface PilotOpts {
   headerImgData?: string | null;
   checkboxImgData?: string | null;
   brand?: BrandContext;
+  regions?: OnePagerRegions;
   layoutOverrides?: {
     headerCfg?: Record<string, unknown>;
     bodyCfg?: Record<string, unknown>;
@@ -1230,10 +1267,14 @@ export const generatePilotOnePager = async (
   const headingOffsetX = (hCfg.headingOffsetX as number | undefined) ?? 0;
   const logoGroupX = (hCfg.logoGroupOffsetX as number | undefined) ?? 0;
   const logoGroupY = (hCfg.logoGroupOffsetY as number | undefined) ?? 0;
+  const regions = opts?.regions;
+  if (regions) regions.page = { x: 0, y: 0, w, h };
 
   drawBrandLogo(doc, margin + logoGroupX, 50 + logoGroupY, logoPng, 80, 28, b.wordmark);
 
   const logoEndX = margin + 90 + logoGroupX;
+  // Cluster = brand logo + separator + prospect logo/name (widest case).
+  if (regions) regions.logoGroup = { x: margin + logoGroupX, y: 44 + logoGroupY, w: logoEndX + 150 - (margin + logoGroupX), h: 40 };
 
   if (prospectLogoData) {
     // Separator line only renders when an actual partner logo image is present.
@@ -1260,12 +1301,21 @@ export const generatePilotOnePager = async (
   doc.setTextColor(...white);
   const titleLines = doc.splitTextToSize(`${b.productName} x ${dsoName}\n90-Day Pilot`, splitX - margin - 20);
   doc.text(titleLines, margin + headingOffsetX, 120);
+  {
+    const titlePt = dsoName.length > 15 ? 22 : ((hCfg.titleFontSize as number | undefined) ?? 28);
+    if (regions) regions.headline = { x: margin + headingOffsetX, y: 120 - titlePt, w: splitX - margin - 20, h: titleLines.length * titlePt * 1.15 + 4 };
+  }
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 11);
   doc.setTextColor(...pal.onPrimaryMuted2);
   const subLines = doc.splitTextToSize(content.subtitle, splitX - margin - 20);
-  doc.text(subLines, margin, 220 + ((hCfg.subtitleOffsetY as number | undefined) ?? 0));
+  const pilotSubtitleY = 220 + ((hCfg.subtitleOffsetY as number | undefined) ?? 0);
+  doc.text(subLines, margin, pilotSubtitleY);
+  {
+    const subPt = (hCfg.subtitleFontSize as number | undefined) ?? 11;
+    if (regions) regions.subtitle = { x: margin, y: pilotSubtitleY - subPt, w: splitX - margin - 20, h: subLines.length * subPt * 1.3 + 4 };
+  }
 
   let y = headerH + 35;
   const offsetX = (bCfg.contentOffsetX as number | undefined) ?? 0;
@@ -1482,6 +1532,7 @@ export interface ComparisonOpts {
   logoPng?: string | null;
   headerImgData?: string | null;
   brand?: BrandContext;
+  regions?: OnePagerRegions;
   layoutOverrides?: {
     headerCfg?: Record<string, unknown>;
     bodyCfg?: Record<string, unknown>;
@@ -1569,6 +1620,12 @@ export const generateComparisonOnePager = async (
   const headingOffsetX = (hCfg.headingOffsetX as number | undefined) ?? 0;
   const logoGroupX = (hCfg.logoGroupOffsetX as number | undefined) ?? 0;
   const logoGroupY = (hCfg.logoGroupOffsetY as number | undefined) ?? 0;
+  const regions = opts?.regions;
+  if (regions) {
+    regions.page = { x: 0, y: 0, w, h };
+    // Cluster = brand logo + separator + prospect logo/name (widest case).
+    regions.logoGroup = { x: margin + logoGroupX, y: 18 + logoGroupY, w: 80 + 10 + 140, h: 34 };
+  }
 
   drawBrandLogo(doc, margin + logoGroupX, 22 + logoGroupY, logoPng, 70, 24, b.wordmark);
 
@@ -1599,6 +1656,7 @@ export const generateComparisonOnePager = async (
   doc.setFont(headerTitleFont, headerTitleStyle("normal")); doc.setFontSize(titleSize); doc.setTextColor(...white);
   doc.text("Stronger Systems.", margin + headingOffsetX, 90);
   doc.text("Better Outcomes.", margin + headingOffsetX, 90 + titleLineH);
+  if (regions) regions.headline = { x: margin + headingOffsetX, y: 90 - titleSize, w: splitX - margin - 20, h: titleLineH + titleSize * 1.2 };
   doc.setFont("helvetica", "normal"); doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 9.5); doc.setTextColor(...pal.onPrimaryMuted2);
   const subLines = doc.splitTextToSize(
     neutral
@@ -1606,7 +1664,12 @@ export const generateComparisonOnePager = async (
       : `See how ${b.productName} has matured to deliver more consistent clinical performance across practices.`,
     splitX - margin - 20,
   );
-  doc.text(subLines, margin, 90 + titleLineH * 2 + 8 + ((hCfg.subtitleOffsetY as number | undefined) ?? 0));
+  const compSubtitleY = 90 + titleLineH * 2 + 8 + ((hCfg.subtitleOffsetY as number | undefined) ?? 0);
+  doc.text(subLines, margin, compSubtitleY);
+  {
+    const subPt = (hCfg.subtitleFontSize as number | undefined) ?? 9.5;
+    if (regions) regions.subtitle = { x: margin, y: compSubtitleY - subPt, w: splitX - margin - 20, h: subLines.length * subPt * 1.3 + 4 };
+  }
 
   let y = headerH + ((bCfg.compTableAboveSpacing as number | undefined) ?? 20);
   const col1W = (bCfg.compTableCapColWidth as number | undefined) ?? 130;
@@ -1746,6 +1809,7 @@ export interface NewPartnerOpts {
   headerImgData?: string | null;
   content?: NewPartnerContent;
   brand?: BrandContext;
+  regions?: OnePagerRegions;
   teamContacts?: TeamContact[];
   phoneNumber?: string;
   customLinkText?: string;
@@ -1842,6 +1906,12 @@ export const generateNewPartnerOnePager = async (
   const headingOffsetX = (hCfg.headingOffsetX as number | undefined) ?? 0;
   const logoGroupX = (hCfg.logoGroupOffsetX as number | undefined) ?? 0;
   const logoGroupY = (hCfg.logoGroupOffsetY as number | undefined) ?? 0;
+  const regions = opts?.regions;
+  if (regions) {
+    regions.page = { x: 0, y: 0, w, h };
+    // Cluster = brand logo + separator + prospect logo/name (widest case).
+    regions.logoGroup = { x: margin + logoGroupX, y: 18 + logoGroupY, w: 78 + 10 + 140, h: 36 };
+  }
 
   drawBrandLogo(doc, margin + logoGroupX, 22 + logoGroupY, logoPng, 70, 24, b.wordmark);
 
@@ -1880,6 +1950,7 @@ export const generateNewPartnerOnePager = async (
   if (subtitleShow) {
     doc.setFont("helvetica", "italic"); doc.setFontSize(subtitleFontSize); doc.setTextColor(...pal.onPrimaryMuted2);
     doc.text(`${b.productName} & ${dsoName}:`, margin + subtitleOnlyX, 65 + subtitleOffY + subtitleOnlyY);
+    if (regions) regions.subtitle = { x: margin + subtitleOnlyX, y: 65 + subtitleOffY + subtitleOnlyY - subtitleFontSize, w: 220, h: subtitleFontSize * 1.4 + 4 };
   }
   const titleFontSz = (hCfg.titleFontSize as number | undefined) ?? 22;
   // Honor the editor's "Bold heading" toggle: when explicitly false, render the
@@ -1894,6 +1965,7 @@ export const generateNewPartnerOnePager = async (
     splitX - margin - 16,
   );
   doc.text(titleLines, margin + headingOffsetX, 65 + subtitleOffY + subtitleFontSize + 14);
+  if (regions) regions.headline = { x: margin + headingOffsetX, y: 65 + subtitleOffY + subtitleFontSize + 14 - titleFontSz, w: splitX - margin - 16, h: titleLines.length * titleFontSz * 1.15 + 4 };
 
   let y = headerH + 40;
 
@@ -2059,6 +2131,7 @@ export interface ROIOpts {
   logoPng?: string | null;
   headerImgData?: string | null;
   brand?: BrandContext;
+  regions?: OnePagerRegions;
   layoutOverrides?: {
     headerCfg?: Record<string, unknown>;
     footerCfg?: Record<string, unknown>;
@@ -2125,6 +2198,11 @@ export const generateROIOnePager = async (
   const headingOffsetX = (hCfg.headingOffsetX as number | undefined) ?? 0;
   const logoGroupX = (hCfg.logoGroupOffsetX as number | undefined) ?? 0;
   const logoGroupY = (hCfg.logoGroupOffsetY as number | undefined) ?? 0;
+  const regions = opts?.regions;
+  if (regions) {
+    regions.page = { x: 0, y: 0, w, h };
+    regions.logoGroup = { x: margin + logoGroupX, y: Math.round(headerH * 0.225) + logoGroupY, w: 80, h: 28 };
+  }
 
   drawBrandLogo(doc, margin + logoGroupX, Math.round(headerH * 0.225) + logoGroupY, logoPng, 80, 28, b.wordmark);
 
@@ -2135,6 +2213,7 @@ export const generateROIOnePager = async (
   doc.text("& ", margin + headingOffsetX, titleY);
   const ampWidth = doc.getTextWidth("& ");
   doc.text(dsoName, margin + headingOffsetX + ampWidth, titleY);
+  if (regions) regions.headline = { x: margin + headingOffsetX, y: titleY - roiNameSize, w: 260, h: roiNameSize * 1.3 + 4 };
   const subtitleText = (hCfg.subtitleText as string | undefined) ?? "Your custom partnership overview — built for scale, savings & growth";
   const subtitleY = Math.round(headerH * 0.8);
   doc.setFont("helvetica", "normal"); doc.setFontSize((hCfg.subtitleFontSize as number | undefined) ?? 11); doc.setTextColor(...pal.onPrimaryMuted);

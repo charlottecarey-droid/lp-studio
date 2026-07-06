@@ -4,8 +4,10 @@ import {
   ChevronDown, Upload, X, FileDown, Loader2, RotateCcw,
   Image as ImageIcon, Type, Ruler, Users, Eye, EyeOff,
   Save, Table, BarChart3, Palette, ArrowLeft, Check,
+  Copy, ExternalLink,
 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { SalesLayout } from "@/components/layout/sales-layout";
@@ -18,12 +20,18 @@ import {
   generateROIOnePager,
   generateAgreementSummaryOnePager,
   defaultAgreementSummaryContent,
+  type AgreementSummaryContent,
   type AgreementSection,
   type AgreementContact,
 } from "./sales-one-pager";
-import { TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY, visibleBuiltinOnePagers, builtinOnePagerLabel } from "./one-pager-custom-utils";
+import {
+  TEMPLATE_VISIBILITY_KEY, DELETED_BUILTINS_KEY, visibleBuiltinOnePagers, builtinOnePagerLabel,
+  BUILTIN_ONE_PAGERS, cloneFieldsForBuiltin, shiftClonedHeaderFields, rasterizeOnePagerDoc,
+  uploadTemplateBg, saveCustomTemplate,
+  type BuiltinOnePagerId,
+} from "./one-pager-custom-utils";
 import { fetchBrandConfig, saveBrandConfig, DEFAULT_BRAND, resolveOnePagerAssets, resolveOnePagerColors, resolveBrandPdfFonts, type BrandConfig } from "@/lib/brand-config";
-import { analyzePaletteContrast, type BrandPdfFonts } from "@workspace/one-pager-types/generators";
+import { analyzePaletteContrast, type BrandPdfFonts, type OnePagerRegions } from "@workspace/one-pager-types/generators";
 import {
   isDandyGatedBuiltin,
   neutralAudienceContent,
@@ -302,6 +310,124 @@ function ProspectLogoScaleRow({ value, onChange, defaultValue = 1.0, label = "Pr
 const inputCls = "w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30";
 const textareaCls = `${inputCls} resize-none`;
 
+// ── Drag-on-preview ──────────────────────────────────────────────────
+// The live preview renders the generated PDF to a canvas (pdfjs) instead of
+// an <iframe> so the key layout regions the generators report (logo group,
+// headline, subtitle…) can be overlaid as drag handles. Dragging a handle
+// translates the pointer delta from preview px to PDF pt and commits it to
+// the matching offset knob — the same values the sliders edit, clamped to the
+// same slider ranges. The PDF itself re-renders on the normal 500ms debounce,
+// so during a drag only the dashed handle moves; the content catches up on
+// release. True freeform drag of the imperative jsPDF layouts isn't possible;
+// this is the honest version.
+interface DragHandleSpec {
+  /** Region key reported by the generator (see OnePagerRegions). */
+  key: string;
+  label: string;
+  /** Which axes this region's knobs support. */
+  axis: "x" | "y" | "xy";
+  /** Apply a committed drag delta (pt) to the matching offset knob(s). */
+  commit: (dxPt: number, dyPt: number) => void;
+}
+
+function PdfPreviewCanvas({ blob, regions, handles }: {
+  blob: Blob;
+  regions: OnePagerRegions;
+  handles: DragHandleSpec[];
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  // pdfjs forbids two concurrent renders into one canvas — keep the active
+  // task so a fresh blob can cancel a still-running render.
+  const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
+  const [drag, setDrag] = useState<{ key: string; dxPx: number; dyPx: number } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const pdfjsLib = await import("pdfjs-dist");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+        const buf = await blob.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+        if (cancelled) return;
+        const page = await pdf.getPage(1);
+        const vp = page.getViewport({ scale: 2 });
+        const canvas = canvasRef.current;
+        if (!canvas || cancelled) return;
+        renderTaskRef.current?.cancel();
+        canvas.width = vp.width; canvas.height = vp.height;
+        const task = page.render({ canvas, canvasContext: canvas.getContext("2d")!, viewport: vp });
+        renderTaskRef.current = task;
+        // Cancellation rejects the promise — expected, not an error.
+        await task.promise.catch(() => {});
+      } catch (err) {
+        console.error("[PreviewCanvas]", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [blob]);
+
+  const page = regions.page ?? { x: 0, y: 0, w: 612, h: 792 };
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <canvas ref={canvasRef} className="block w-full h-auto" />
+      {handles.map(spec => {
+        const r = regions[spec.key];
+        if (!r) return null;
+        const dragging = drag?.key === spec.key;
+        return (
+          <div
+            key={spec.key}
+            role="slider"
+            aria-label={`Drag to nudge: ${spec.label}`}
+            className={`absolute group rounded-sm border border-dashed transition-colors ${dragging ? "border-fuchsia-500 bg-fuchsia-500/10 z-20" : "border-fuchsia-400/0 hover:border-fuchsia-400/80 hover:bg-fuchsia-400/5 z-10"}`}
+            style={{
+              left: `${(r.x / page.w) * 100}%`,
+              top: `${(r.y / page.h) * 100}%`,
+              width: `${(r.w / page.w) * 100}%`,
+              height: `${(r.h / page.h) * 100}%`,
+              cursor: spec.axis === "x" ? "ew-resize" : spec.axis === "y" ? "ns-resize" : "move",
+              touchAction: "none",
+              transform: dragging && drag ? `translate(${drag.dxPx}px, ${drag.dyPx}px)` : undefined,
+            }}
+            onPointerDown={e => {
+              e.preventDefault();
+              const el = e.currentTarget;
+              const startX = e.clientX, startY = e.clientY;
+              el.setPointerCapture(e.pointerId);
+              const deltas = (ev: PointerEvent) => ({
+                dxPx: spec.axis === "y" ? 0 : ev.clientX - startX,
+                dyPx: spec.axis === "x" ? 0 : ev.clientY - startY,
+              });
+              const onMove = (ev: PointerEvent) => setDrag({ key: spec.key, ...deltas(ev) });
+              const onUp = (ev: PointerEvent) => {
+                el.removeEventListener("pointermove", onMove);
+                el.removeEventListener("pointerup", onUp);
+                el.removeEventListener("pointercancel", onUp);
+                setDrag(null);
+                // px → pt via the rendered page width (CSS px per PDF pt).
+                const scale = (wrapRef.current?.clientWidth || 612) / page.w;
+                const { dxPx, dyPx } = deltas(ev);
+                const dxPt = dxPx / scale, dyPt = dyPx / scale;
+                if (Math.abs(dxPt) >= 1 || Math.abs(dyPt) >= 1) spec.commit(dxPt, dyPt);
+              };
+              el.addEventListener("pointermove", onMove);
+              el.addEventListener("pointerup", onUp);
+              el.addEventListener("pointercancel", onUp);
+            }}
+          >
+            <span className={`absolute -top-4 left-0 text-[9px] font-semibold text-fuchsia-700 bg-fuchsia-100 border border-fuchsia-200 px-1 rounded whitespace-nowrap pointer-events-none ${dragging ? "block" : "hidden group-hover:block"}`}>
+              {spec.label}{spec.axis === "x" ? " ⇄" : spec.axis === "y" ? " ⇅" : ""} — drag to nudge
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════════════
@@ -469,9 +595,16 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
   const [editorTemplate, setEditorTemplate] = useState<EditorTemplate>("pilot");
   const [audience, setAudience] = useState<Audience>("executive");
   const [previewVisible, setPreviewVisible] = useState(true);
+  // previewUrl feeds the "Open PDF" affordance; previewBlob + previewRegions
+  // feed the canvas preview with drag handles (see PdfPreviewCanvas).
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewRegions, setPreviewRegions] = useState<OnePagerRegions>({});
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
+  // "Save as Custom Template" fork in flight (tenant scope only).
+  const [forking, setForking] = useState(false);
+  const [, navigate] = useLocation();
   const [savedIndicator, setSavedIndicator] = useState(false);
   const [dsoName, setDsoName] = useState("Acme DSO");
   const [numPractices, setNumPractices] = useState(50);
@@ -891,6 +1024,39 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
     setAudience(a);
   };
 
+  // Current Agreement Summary content assembled from the individual states —
+  // one builder shared by the live preview, Download PDF, and the
+  // "Save as Custom Template" fork so the three can never drift.
+  const buildAgreementContent = (): AgreementSummaryContent => ({
+    headline: agreementHeadline,
+    subheadline: agreementSubheadline,
+    footer: agreementFooter,
+    headerImage: agreementHeaderImage,
+    sections: agreementSections,
+    footerContacts: agreementFooterContacts,
+    headlineFontSize: agreementHeadlineFontSize,
+    subheadlineFontSize: agreementSubheadlineFontSize,
+    sectionLabelFontSize: agreementSectionLabelFontSize,
+    sectionBodyFontSize: agreementSectionBodyFontSize,
+    footerFontSize: agreementFooterFontSize,
+    headerHeight: agreementHeaderHeight,
+    footerHeight: agreementFooterHeight,
+    headlineOffsetX: agreementHeadlineOffsetX,
+    headlineOffsetY: agreementHeadlineOffsetY,
+    subheadlineOffsetX: agreementSubheadlineOffsetX,
+    subheadlineOffsetY: agreementSubheadlineOffsetY,
+    sectionsOffsetY: agreementSectionsOffsetY,
+    sectionRowGap: agreementSectionRowGap,
+    headlineMaxWidthPct: agreementHeadlineMaxWidthPct,
+    logoWidth: agreementLogoWidth,
+    headingOffsetX: agreementHeadingOffsetX,
+    logoGroupOffsetX: agreementLogoGroupOffsetX,
+    logoGroupOffsetY: agreementLogoGroupOffsetY,
+    showSectionDividers: agreementShowDividers,
+    footerLinkText: agreementFooterLinkText,
+    footerLinkUrl: agreementFooterLinkUrl,
+  });
+
   // ── Live preview (debounced 500ms) ────────────────────────────────
   useEffect(() => {
     if (!previewVisible) return;
@@ -899,6 +1065,9 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
       try {
         let doc;
         const override: Record<string, any> = { headerCfg, bodyCfg, teamCfg, footerCfg };
+        // Collector the generators fill with the drawn positions of the
+        // draggable regions — drives the preview's drag handles.
+        const regions: OnePagerRegions = {};
         if (editorTemplate === "pilot") {
           const content = audienceContent[audience];
           doc = await generatePilotOnePager(
@@ -906,57 +1075,31 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
             prospectLogoData, prospectLogoDims,
             content,
             customLinkText, customLinkUrl, override,
-            undefined, brandContext, oneAssets,
+            undefined, brandContext, oneAssets, regions,
           );
         } else if (editorTemplate === "comparison") {
           doc = await generateComparisonOnePager(
             dsoName, teamContacts, phoneNumber, prospectLogoData, prospectLogoDims,
             customLinkText, customLinkUrl,
             { ...override, comparisonRows, stats: comparisonStats },
-            undefined, brandContext, oneAssets,
+            undefined, brandContext, oneAssets, regions,
           );
         } else if (editorTemplate === "partner") {
           doc = await generateNewPartnerOnePager(
             dsoName, prospectLogoData, prospectLogoDims, partnerQrUrl,
             teamContacts, phoneNumber, customLinkText, customLinkUrl,
             { ...override, partnerHeadline, partnerTestimonialsHeading, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl },
-            undefined, brandContext, oneAssets,
+            undefined, brandContext, oneAssets, regions,
           );
         } else if (editorTemplate === "agreement-summary") {
-          doc = await generateAgreementSummaryOnePager({
-            headline: agreementHeadline,
-            subheadline: agreementSubheadline,
-            footer: agreementFooter,
-            headerImage: agreementHeaderImage,
-            sections: agreementSections,
-            footerContacts: agreementFooterContacts,
-            headlineFontSize: agreementHeadlineFontSize,
-            subheadlineFontSize: agreementSubheadlineFontSize,
-            sectionLabelFontSize: agreementSectionLabelFontSize,
-            sectionBodyFontSize: agreementSectionBodyFontSize,
-            footerFontSize: agreementFooterFontSize,
-            headerHeight: agreementHeaderHeight,
-            footerHeight: agreementFooterHeight,
-            headlineOffsetX: agreementHeadlineOffsetX,
-            headlineOffsetY: agreementHeadlineOffsetY,
-            subheadlineOffsetX: agreementSubheadlineOffsetX,
-            subheadlineOffsetY: agreementSubheadlineOffsetY,
-            sectionsOffsetY: agreementSectionsOffsetY,
-            sectionRowGap: agreementSectionRowGap,
-            headlineMaxWidthPct: agreementHeadlineMaxWidthPct,
-            logoWidth: agreementLogoWidth,
-            headingOffsetX: agreementHeadingOffsetX,
-            logoGroupOffsetX: agreementLogoGroupOffsetX,
-            logoGroupOffsetY: agreementLogoGroupOffsetY,
-            showSectionDividers: agreementShowDividers,
-            footerLinkText: agreementFooterLinkText,
-            footerLinkUrl: agreementFooterLinkUrl,
-          }, brandContext, oneAssets);
+          doc = await generateAgreementSummaryOnePager(buildAgreementContent(), brandContext, oneAssets, regions);
         } else {
-          doc = await generateROIOnePager(dsoName, numPractices, { headerCfg }, brandContext, oneAssets);
+          doc = await generateROIOnePager(dsoName, numPractices, { headerCfg }, brandContext, oneAssets, regions);
         }
         const blob = doc.output("blob");
         const url = URL.createObjectURL(blob);
+        setPreviewBlob(blob);
+        setPreviewRegions(regions);
         setPreviewUrl(prev => { if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev); return url; });
       } catch (err) {
         console.error("[Preview]", err);
@@ -1134,35 +1277,7 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
         doc = await generateNewPartnerOnePager(dsoName, prospectLogoData, prospectLogoDims, partnerQrUrl, teamContacts, phoneNumber, customLinkText, customLinkUrl, { ...override, partnerHeadline, partnerTestimonialsHeading, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl }, undefined, brandContext, oneAssets);
         doc.save(`${brandSlug}_x_${dsoName.replace(/\s+/g, "_")}_Partner.pdf`);
       } else if (editorTemplate === "agreement-summary") {
-        doc = await generateAgreementSummaryOnePager({
-          headline: agreementHeadline,
-          subheadline: agreementSubheadline,
-          footer: agreementFooter,
-          headerImage: agreementHeaderImage,
-          sections: agreementSections,
-          footerContacts: agreementFooterContacts,
-          headlineFontSize: agreementHeadlineFontSize,
-          subheadlineFontSize: agreementSubheadlineFontSize,
-          sectionLabelFontSize: agreementSectionLabelFontSize,
-          sectionBodyFontSize: agreementSectionBodyFontSize,
-          footerFontSize: agreementFooterFontSize,
-          headerHeight: agreementHeaderHeight,
-          footerHeight: agreementFooterHeight,
-          headlineOffsetX: agreementHeadlineOffsetX,
-          headlineOffsetY: agreementHeadlineOffsetY,
-          subheadlineOffsetX: agreementSubheadlineOffsetX,
-          subheadlineOffsetY: agreementSubheadlineOffsetY,
-          sectionsOffsetY: agreementSectionsOffsetY,
-          sectionRowGap: agreementSectionRowGap,
-          headlineMaxWidthPct: agreementHeadlineMaxWidthPct,
-          logoWidth: agreementLogoWidth,
-          headingOffsetX: agreementHeadingOffsetX,
-          logoGroupOffsetX: agreementLogoGroupOffsetX,
-          logoGroupOffsetY: agreementLogoGroupOffsetY,
-          showSectionDividers: agreementShowDividers,
-          footerLinkText: agreementFooterLinkText,
-          footerLinkUrl: agreementFooterLinkUrl,
-        }, brandContext, oneAssets);
+        doc = await generateAgreementSummaryOnePager(buildAgreementContent(), brandContext, oneAssets);
         doc.save(isDandy ? "Summary_of_Dandy_Agreement.pdf" : `Summary_of_${brandSlug}_Agreement.pdf`);
       } else {
         doc = await generateROIOnePager(dsoName, numPractices, { headerCfg }, brandContext, oneAssets);
@@ -1170,6 +1285,85 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
       }
     } finally { setGenerating(false); }
   };
+
+  // ── Fork the built-in into a custom template (Phase 3) ─────────────
+  // Renders the CURRENT knob/content state — unlike the gallery's "Clone",
+  // which renders the defaults — with the per-prospect inputs blanked
+  // (dsoName " ", no prospect logo/team/phone) so the rasterized background
+  // stays reusable; the seeded overlay fields supply those at generation
+  // time. Tenant scope only: a global fork would rasterize the operator's
+  // brand into a background published to every tenant.
+  const handleSaveAsTemplate = async () => {
+    setForking(true);
+    try {
+      const override: Record<string, any> = { headerCfg, bodyCfg, teamCfg, footerCfg };
+      let doc;
+      if (editorTemplate === "pilot") {
+        doc = await generatePilotOnePager(" ", audience, [], "", null, { w: 0, h: 0 }, audienceContent[audience], "", "", override, undefined, brandContext, oneAssets);
+      } else if (editorTemplate === "comparison") {
+        doc = await generateComparisonOnePager(" ", [], "", null, { w: 0, h: 0 }, "", "", { ...override, comparisonRows, stats: comparisonStats }, undefined, brandContext, oneAssets);
+      } else if (editorTemplate === "partner") {
+        doc = await generateNewPartnerOnePager(" ", null, { w: 0, h: 0 }, partnerQrUrl || brandQrFallback, [], "", "", "", { ...override, partnerHeadline, partnerTestimonialsHeading, partnerIntro, partnerFeatures, partnerStats, partnerQrUrl }, undefined, brandContext, oneAssets);
+      } else if (editorTemplate === "agreement-summary") {
+        doc = await generateAgreementSummaryOnePager(buildAgreementContent(), brandContext, oneAssets);
+      } else {
+        doc = await generateROIOnePager(" ", numPractices, { headerCfg }, brandContext, oneAssets);
+      }
+
+      const builtinId = visibilityKeyFor(editorTemplate) as BuiltinOnePagerId;
+      const { imgBlob, dataUrl } = await rasterizeOnePagerDoc(doc);
+      const bgUrl = (await uploadTemplateBg(imgBlob, `${builtinId}-fork.png`)) ?? dataUrl;
+      // Seed the standard overlays, shifted by the current logo-group offsets
+      // so they land on the (possibly nudged) header cluster in the snapshot.
+      const fields = shiftClonedHeaderFields(
+        cloneFieldsForBuiltin(builtinId, {
+          brandLabel: isDandy ? "Dandy" : (brandLabel || "Brand"),
+          industryLabel: isDandy ? "DSO" : "Group",
+          ctaDefault: brandQrFallback,
+        }),
+        (editorTemplate === "agreement-summary" ? agreementLogoGroupOffsetX : headerCfg.logoGroupOffsetX) ?? 0,
+        (editorTemplate === "agreement-summary" ? agreementLogoGroupOffsetY : headerCfg.logoGroupOffsetY) ?? 0,
+      );
+      const builtin = BUILTIN_ONE_PAGERS.find(x => x.id === builtinId);
+      const label = builtin ? builtinOnePagerLabel(builtin, isDandy) : builtinId;
+      const saved = await saveCustomTemplate({
+        name: `${label} (Custom)`,
+        background_url: bgUrl,
+        orientation: "portrait",
+        fields,
+        headerHeight: 30,
+      });
+      toast({ title: `Saved "${saved.name}"`, description: "Opening it in the Templates gallery for drag-and-drop editing." });
+      navigate(`/sales/one-pager-templates?edit=${saved.id}`);
+    } catch (err) {
+      toast({ title: "Couldn't save as template", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setForking(false);
+    }
+  };
+
+  // ── Drag-on-preview handle specs (Phase 4) ──────────────────────────
+  // Maps each generator-reported region to its offset knob(s), clamped to the
+  // SAME ranges as the sliders so a drag can never exceed what the sliders
+  // allow. Commit uses functional updates, so specs can be rebuilt per render.
+  const clampPt = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(v)));
+  const dragHandles: DragHandleSpec[] = editorTemplate === "agreement-summary"
+    ? [
+        { key: "logoGroup", label: "Logo group", axis: "xy", commit: (dx, dy) => { setAgreementLogoGroupOffsetX(v => clampPt(v + dx, -80, 80)); setAgreementLogoGroupOffsetY(v => clampPt(v + dy, -60, 60)); } },
+        { key: "headline", label: "Headline", axis: "xy", commit: (dx, dy) => { setAgreementHeadlineOffsetX(v => clampPt(v + dx, -40, 200)); setAgreementHeadlineOffsetY(v => clampPt(v + dy, -100, 200)); } },
+        { key: "subheadline", label: "Subheadline", axis: "xy", commit: (dx, dy) => { setAgreementSubheadlineOffsetX(v => clampPt(v + dx, -40, 200)); setAgreementSubheadlineOffsetY(v => clampPt(v + dy, -100, 200)); } },
+        { key: "sections", label: "Sections", axis: "y", commit: (_dx, dy) => setAgreementSectionsOffsetY(v => clampPt(v + dy, -150, 150)) },
+      ]
+    : [
+        { key: "logoGroup", label: "Logo group", axis: "xy", commit: (dx, dy) => setHeaderCfg(p => ({ ...p, logoGroupOffsetX: clampPt((p.logoGroupOffsetX ?? 0) + dx, -80, 80), logoGroupOffsetY: clampPt((p.logoGroupOffsetY ?? 0) + dy, -60, 60) })) },
+        { key: "headline", label: "Heading", axis: "x", commit: (dx) => setHeaderCfg(p => ({ ...p, headingOffsetX: clampPt((p.headingOffsetX ?? 0) + dx, -80, 80) })) },
+        ...(editorTemplate === "pilot" || editorTemplate === "comparison"
+          ? [{ key: "subtitle", label: "Subtitle", axis: "y", commit: (_dx: number, dy: number) => setHeaderCfg(p => ({ ...p, subtitleOffsetY: clampPt(p.subtitleOffsetY + dy, -60, 60) })) } as DragHandleSpec]
+          : []),
+        ...(editorTemplate === "partner"
+          ? [{ key: "subtitle", label: "Subtitle", axis: "xy", commit: (dx: number, dy: number) => setHeaderCfg(p => ({ ...p, subtitleOffsetX: clampPt((p.subtitleOffsetX ?? 0) + dx, -80, 200), subtitleLineOffsetY: clampPt((p.subtitleLineOffsetY ?? 0) + dy, -60, 60) })) } as DragHandleSpec]
+          : []),
+      ];
 
   // ── Logo upload ───────────────────────────────────────────────────
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1328,6 +1522,14 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : savedIndicator ? <Check className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
               {saving ? "Saving…" : savedIndicator ? "Saved!" : "Save as Default"}
             </button>
+            {!isGlobalScope && (
+              <button onClick={handleSaveAsTemplate} disabled={forking}
+                title="Snapshot this design as a drag-and-drop custom template in the Templates gallery"
+                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-all border border-border rounded-lg px-3 py-1.5 bg-background hover:bg-muted/40 disabled:opacity-60">
+                {forking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
+                {forking ? "Snapshotting…" : "Save as Custom Template"}
+              </button>
+            )}
             <button onClick={handleDownload} disabled={generating}
               className="flex items-center gap-1.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all border border-primary/30 rounded-lg px-3 py-1.5 disabled:opacity-60">
               {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
@@ -2168,13 +2370,21 @@ export default function SalesOnePagerEditor({ scope = "tenant" }: { scope?: Layo
             {previewVisible && (
               <div className="flex-1 min-w-0">
                 <div className="sticky top-4">
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-2 gap-2">
                     <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Live Preview</span>
-                    <span className="text-[10px] text-muted-foreground">Updates automatically as you edit</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] text-muted-foreground">Hover the page and drag the highlighted regions to nudge layout</span>
+                      {previewUrl && (
+                        <a href={previewUrl} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                          <ExternalLink className="w-3 h-3" /> Open PDF
+                        </a>
+                      )}
+                    </div>
                   </div>
-                  <div className="rounded-xl border border-border overflow-hidden bg-muted/10" style={{ height: "calc(100vh - 100px)" }}>
-                    {previewUrl ? (
-                      <iframe src={previewUrl} className="w-full h-full" title="PDF Preview" />
+                  <div className="rounded-xl border border-border overflow-auto bg-muted/10" style={{ height: "calc(100vh - 100px)" }}>
+                    {previewBlob ? (
+                      <PdfPreviewCanvas blob={previewBlob} regions={previewRegions} handles={dragHandles} />
                     ) : (
                       <div className="flex items-center justify-center h-full">
                         <div className="text-center">

@@ -14,6 +14,10 @@ import {
   loadRememberedColorOverride,
   saveRememberedColorOverride,
   clearRememberedColorOverride,
+  cloneFieldsForBuiltin,
+  shiftClonedHeaderFields,
+  ONE_PAGER_PAGE_W_PT,
+  ONE_PAGER_PAGE_H_PT,
 } from "./one-pager-custom-utils";
 
 beforeEach(() => {
@@ -76,5 +80,58 @@ describe("remembered one-pager color override", () => {
   it("returns null for corrupt stored JSON", () => {
     localStorage.setItem("lp_studio_one_pager_color_override_t7", "{not json");
     expect(loadRememberedColorOverride(7)).toBeNull();
+  });
+});
+
+// ── Fork-a-built-in field seeding ─────────────────────────────────────
+// The editor's "Save as Custom Template" fork snapshots the CURRENT layout,
+// so the seeded header overlays (brand logo, DSO name, prospect logo) must
+// follow the logo-group offsets baked into the rasterized background —
+// otherwise a nudged header cluster gets overlays floating at the default
+// spot. Footer overlays (phone/QR) are anchored to the page, not the
+// cluster, and must NOT move.
+describe("shiftClonedHeaderFields", () => {
+  const brand = { brandLabel: "Royal", industryLabel: "Group", ctaDefault: "https://royal.example.com" };
+
+  it("shifts header-cluster fields by the pt offsets converted to page %", () => {
+    const fields = cloneFieldsForBuiltin("pilot", brand);
+    const shifted = shiftClonedHeaderFields(fields, 40, 20);
+    const dxPct = (40 / ONE_PAGER_PAGE_W_PT) * 100;
+    const dyPct = (20 / ONE_PAGER_PAGE_H_PT) * 100;
+    for (const [orig, moved] of fields.map((f, i) => [f, shifted[i]] as const)) {
+      if (orig.type === "dandy_logo" || orig.type === "dso_name" || orig.type === "logo") {
+        expect(moved.x).toBeCloseTo(orig.x + dxPct, 6);
+        expect(moved.y).toBeCloseTo(orig.y + dyPct, 6);
+      } else {
+        expect(moved).toBe(orig); // phone/QR untouched (same object)
+      }
+    }
+  });
+
+  it("is an identity when both offsets are 0", () => {
+    const fields = cloneFieldsForBuiltin("new-partner", brand);
+    expect(shiftClonedHeaderFields(fields, 0, 0)).toBe(fields);
+  });
+
+  it("clamps shifted positions to the page (0–100%)", () => {
+    const fields = cloneFieldsForBuiltin("comparison", brand);
+    const shifted = shiftClonedHeaderFields(fields, -10_000, 10_000);
+    for (const f of shifted) {
+      expect(f.x).toBeGreaterThanOrEqual(0);
+      expect(f.x).toBeLessThanOrEqual(100);
+      expect(f.y).toBeGreaterThanOrEqual(0);
+      expect(f.y).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it("never seeds Dandy defaults for a non-Dandy brand", () => {
+    // The factory moved from the templates gallery into this module; keep its
+    // brand-threading contract pinned — labels/prefixes/QR follow the tenant.
+    const fields = cloneFieldsForBuiltin("new-partner", brand);
+    const serialized = JSON.stringify(fields);
+    expect(serialized).not.toMatch(/meetdandy\.com/i);
+    expect(serialized).not.toMatch(/Dandy/);
+    const qr = fields.find(f => f.type === "qr_code");
+    expect(qr?.defaultValue).toBe("https://royal.example.com");
   });
 });

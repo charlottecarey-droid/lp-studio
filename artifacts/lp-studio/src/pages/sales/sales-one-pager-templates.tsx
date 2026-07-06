@@ -40,6 +40,9 @@ import {
   generateCustomTemplatePdf,
   buildCustomTemplateBrandOpts,
   customTemplatesBase,
+  cloneFieldsForBuiltin,
+  rasterizeOnePagerDoc,
+  uploadTemplateBg,
   type CustomTemplatePdfBrandOpts,
   type TemplateScope,
 } from "./one-pager-custom-utils";
@@ -167,55 +170,9 @@ const BUILTIN_TEMPLATES = [
 
 type BuiltinId = typeof BUILTIN_TEMPLATES[number]["id"];
 
-// Brand inputs for the field factories below. Threaded from the live tenant
-// brand so cloned overlays never hardcode "Dandy"/"DSO"/meetdandy.com for
-// non-Dandy tenants. Dandy passes its own values so its defaults are unchanged.
-interface BrandFieldDefaults {
-  /** Wordmark used in prefixes/labels (e.g. "Dandy" or the tenant brand). */
-  brandLabel: string;
-  /** Industry/segment label used in labels (e.g. "DSO" or "Group"). */
-  industryLabel: string;
-  /** Default URL for QR/link fields — the tenant CTA URL, or "" (never meetdandy.com). */
-  ctaDefault: string;
-}
-
-const cloneFieldsForBuiltin = (id: BuiltinId, brand: BrandFieldDefaults): OverlayField[] => {
-  const mk = (f: Omit<OverlayField, "id">): OverlayField => ({ ...f, id: crypto.randomUUID() });
-  const { brandLabel, industryLabel, ctaDefault } = brand;
-  // The logo field reads "Brand Logo" for every tenant (the enum value stays
-  // `dandy_logo` for backward compatibility).
-  const logoLabel = "Brand Logo";
-  const nameLabel = `${brandLabel} & ${industryLabel} Name`;
-  const namePrefix = `${brandLabel} & `;
-  const base: Omit<OverlayField, "id"> = { label: `${industryLabel} Name`, type: "dso_name", x: 10, y: 10, fontSize: 24, fontFamily: "helvetica", color: "#FFFFFF", bold: true, italic: false, defaultValue: "" };
-  if (id === "roi") return [
-    mk({ ...base, label: logoLabel, type: "dandy_logo", x: 7.8, y: 4.5, fontSize: 18, logoScale: 13 }),
-    mk({ ...base, label: `& ${industryLabel} Name`, type: "dso_name", x: 7.8, y: 11.6, fontSize: 22, bold: false, prefix: "& " }),
-  ];
-  if (id === "pilot") return [
-    mk({ ...base, label: logoLabel, type: "dandy_logo", x: 7.8, y: 6.3, fontSize: 18, logoScale: 13 }),
-    mk({ ...base, label: nameLabel, type: "dso_name", x: 24.5, y: 8.8, fontSize: 14, bold: false, italic: true, prefix: namePrefix, suffix: ":" }),
-    mk({ ...base, label: "Phone Number", type: "phone", x: 50, y: 96, fontSize: 10, bold: false }),
-    mk({ ...base, label: "Prospect Logo", type: "logo", x: 24.5, y: 7.6, fontSize: 12, bold: false, logoScale: 16, logoWidth: 135, logoHeight: 36 }),
-  ];
-  if (id === "comparison") return [
-    mk({ ...base, label: logoLabel, type: "dandy_logo", x: 7.8, y: 2.8, fontSize: 18, logoScale: 11.4 }),
-    mk({ ...base, label: nameLabel, type: "dso_name", x: 22.5, y: 5, fontSize: 12, bold: false, italic: true, prefix: namePrefix, suffix: ":" }),
-    mk({ ...base, label: "Phone Number", type: "phone", x: 50, y: 96, fontSize: 8, bold: false }),
-    mk({ ...base, label: "Prospect Logo", type: "logo", x: 22.5, y: 4.3, fontSize: 12, bold: false, logoScale: 14, logoWidth: 135, logoHeight: 30 }),
-  ];
-  // Agreement Summary is procedurally rendered (text edited in dialog), so a
-  // clone gets the rendered defaults as a background with no overlays — the
-  // user can then drop their own logo, name, etc. on top if they want.
-  if (id === "agreement-summary") return [];
-  return [
-    mk({ ...base, label: logoLabel, type: "dandy_logo", x: 7.8, y: 3.8, fontSize: 18, logoScale: 11.4 }),
-    mk({ ...base, label: nameLabel, type: "dso_name", x: 7.8, y: 12.6, fontSize: 16, bold: false, italic: true, prefix: namePrefix, suffix: ":" }),
-    mk({ ...base, label: "Phone Number", type: "phone", x: 66, y: 95.4, fontSize: 9, bold: false }),
-    mk({ ...base, label: "QR Code", type: "qr_code", x: 80.2, y: 66.5, fontSize: 12, color: "#000000", bold: false, defaultValue: ctaDefault, qrSize: 9.5 }),
-    mk({ ...base, label: "Prospect Logo", type: "logo", x: 88, y: 5.3, fontSize: 12, bold: false, logoScale: 11, logoWidth: 70, logoHeight: 26 }),
-  ];
-};
+// The clone field factory + BrandFieldDefaults moved to one-pager-custom-utils
+// so the template editor's "Save as Custom Template" fork seeds the exact same
+// overlays. Import them from there — do not re-add a local copy.
 
 // ── Font options ──────────────────────────────────────────────────────
 const FONT_OPTIONS = [
@@ -2170,6 +2127,26 @@ export default function SalesOnePagerTemplates({ scope = "tenant" }: { scope?: T
 
   useEffect(() => { load(); }, [load]);
 
+  // Deep link from the template editor's "Save as Custom Template" fork:
+  // /sales/one-pager-templates?edit=<id> opens that template in the editor
+  // once templates load. Handled a single time, then stripped from the URL so
+  // refresh/back doesn't re-open the editor.
+  const editParamHandled = useRef(false);
+  useEffect(() => {
+    if (loading || editParamHandled.current) return;
+    editParamHandled.current = true;
+    const id = Number(new URLSearchParams(window.location.search).get("edit"));
+    if (!id) return;
+    const tpl = templates.find(t => t.id === id && !t.isDeleted);
+    // Global rows are read-only for tenants — never auto-open those here.
+    if (tpl && (isGlobalScope || tpl.tenantId !== null)) setEditing(tpl);
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.delete("edit");
+      window.history.replaceState({}, "", u);
+    } catch { /* cosmetic only */ }
+  }, [loading, templates, isGlobalScope]);
+
   // Page-level access guard — rendered after hooks to comply with React rules.
   // `useAuth` returns `AuthUser | null` (never undefined), so we must wait until
   // the user is non-null before deciding to gate; otherwise the page flashes
@@ -2230,25 +2207,10 @@ export default function SalesOnePagerTemplates({ scope = "tenant" }: { scope?: T
       else if (builtinId === "agreement-summary") doc = await generateAgreementSummaryOnePager(defaultAgreementSummaryContent, previewBrandContextWithFonts, previewOneAssets);
       else doc = await generateNewPartnerOnePager(" ", null, { w: 0, h: 0 }, previewQrFallback, [], "", undefined, undefined, undefined, undefined, previewBrandContextWithFonts, previewOneAssets);
 
-      const pdfBlob = doc.output("blob");
-      const pdfjsLib = await import("pdfjs-dist");
-      pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
-      const buf = await pdfBlob.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-      const page = await pdf.getPage(1);
-      const scale = 2; const vp = page.getViewport({ scale });
-      const canvas = document.createElement("canvas"); canvas.width = vp.width; canvas.height = vp.height;
-      await page.render({ canvas, canvasContext: canvas.getContext("2d")!, viewport: vp }).promise;
-      const imgBlob: Blob = await new Promise((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error("toBlob failed")), "image/png"));
-
-      // Upload the snapshot to object storage for persistent URL
-      let bgUrl = canvas.toDataURL("image/png"); // fallback
-      try {
-        const fd = new FormData();
-        fd.append("file", new File([imgBlob], `${builtinId}-clone.png`, { type: "image/png" }));
-        const uploadRes = await fetch(`${API_BASE}/sales/one-pager-templates/upload-bg`, { method: "POST", body: fd });
-        if (uploadRes.ok) bgUrl = (await uploadRes.json()).url;
-      } catch { /* keep fallback data URL */ }
+      const { imgBlob, dataUrl } = await rasterizeOnePagerDoc(doc);
+      // Upload the snapshot to object storage for a persistent URL; fall back
+      // to the data URL if the upload fails.
+      const bgUrl = (await uploadTemplateBg(imgBlob, `${builtinId}-clone.png`)) ?? dataUrl;
 
       const label = BUILTIN_TEMPLATES.find(t => t.id === builtinId)?.label || builtinId;
       const newTpl: CustomTemplate = {

@@ -8,6 +8,8 @@ import type { CustomTemplatePdfBrandOpts } from "@workspace/one-pager-types/pdf"
 import type { BrandConfig } from "@/lib/brand-config";
 import { resolveOnePagerColors } from "@/lib/brand-config";
 import dandyLogoWhiteUrl from "@/assets/dandy-logo-white.svg?url";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import type jsPDF from "jspdf";
 
 const API_BASE = "/api";
 
@@ -69,6 +71,116 @@ export function visibleBuiltinOnePagers(opts: {
     if (!isDandy && isDandyGatedBuiltin(b.id)) return false;
     return !deletedBuiltins[b.id] && templateVisibility[b.id] !== false;
   });
+}
+
+// ── Forking a built-in into a custom template ──────────────────────────
+// Shared by the templates gallery ("Clone" on a built-in card — default
+// state) and the template editor's "Save as Custom Template" (current
+// knob/content state). Both render the built-in to PDF, rasterize page 1 as
+// the template background, and seed the standard overlay fields on top.
+
+/** Brand inputs for the seeded overlay fields, threaded from the live tenant
+ *  brand so cloned overlays never hardcode "Dandy"/"DSO"/meetdandy.com for
+ *  non-Dandy tenants. Dandy passes its own values so its defaults are
+ *  unchanged. */
+export interface BrandFieldDefaults {
+  /** Wordmark used in prefixes/labels (e.g. "Dandy" or the tenant brand). */
+  brandLabel: string;
+  /** Industry/segment label used in labels (e.g. "DSO" or "Group"). */
+  industryLabel: string;
+  /** Default URL for QR/link fields — the tenant CTA URL, or "" (never meetdandy.com). */
+  ctaDefault: string;
+}
+
+export const cloneFieldsForBuiltin = (id: BuiltinOnePagerId, brand: BrandFieldDefaults): OverlayField[] => {
+  const mk = (f: Omit<OverlayField, "id">): OverlayField => ({ ...f, id: crypto.randomUUID() });
+  const { brandLabel, industryLabel, ctaDefault } = brand;
+  // The logo field reads "Brand Logo" for every tenant (the enum value stays
+  // `dandy_logo` for backward compatibility).
+  const logoLabel = "Brand Logo";
+  const nameLabel = `${brandLabel} & ${industryLabel} Name`;
+  const namePrefix = `${brandLabel} & `;
+  const base: Omit<OverlayField, "id"> = { label: `${industryLabel} Name`, type: "dso_name", x: 10, y: 10, fontSize: 24, fontFamily: "helvetica", color: "#FFFFFF", bold: true, italic: false, defaultValue: "" };
+  if (id === "roi") return [
+    mk({ ...base, label: logoLabel, type: "dandy_logo", x: 7.8, y: 4.5, fontSize: 18, logoScale: 13 }),
+    mk({ ...base, label: `& ${industryLabel} Name`, type: "dso_name", x: 7.8, y: 11.6, fontSize: 22, bold: false, prefix: "& " }),
+  ];
+  if (id === "pilot") return [
+    mk({ ...base, label: logoLabel, type: "dandy_logo", x: 7.8, y: 6.3, fontSize: 18, logoScale: 13 }),
+    mk({ ...base, label: nameLabel, type: "dso_name", x: 24.5, y: 8.8, fontSize: 14, bold: false, italic: true, prefix: namePrefix, suffix: ":" }),
+    mk({ ...base, label: "Phone Number", type: "phone", x: 50, y: 96, fontSize: 10, bold: false }),
+    mk({ ...base, label: "Prospect Logo", type: "logo", x: 24.5, y: 7.6, fontSize: 12, bold: false, logoScale: 16, logoWidth: 135, logoHeight: 36 }),
+  ];
+  if (id === "comparison") return [
+    mk({ ...base, label: logoLabel, type: "dandy_logo", x: 7.8, y: 2.8, fontSize: 18, logoScale: 11.4 }),
+    mk({ ...base, label: nameLabel, type: "dso_name", x: 22.5, y: 5, fontSize: 12, bold: false, italic: true, prefix: namePrefix, suffix: ":" }),
+    mk({ ...base, label: "Phone Number", type: "phone", x: 50, y: 96, fontSize: 8, bold: false }),
+    mk({ ...base, label: "Prospect Logo", type: "logo", x: 22.5, y: 4.3, fontSize: 12, bold: false, logoScale: 14, logoWidth: 135, logoHeight: 30 }),
+  ];
+  // Agreement Summary is procedurally rendered (text edited in dialog), so a
+  // clone gets the rendered defaults as a background with no overlays — the
+  // user can then drop their own logo, name, etc. on top if they want.
+  if (id === "agreement-summary") return [];
+  return [
+    mk({ ...base, label: logoLabel, type: "dandy_logo", x: 7.8, y: 3.8, fontSize: 18, logoScale: 11.4 }),
+    mk({ ...base, label: nameLabel, type: "dso_name", x: 7.8, y: 12.6, fontSize: 16, bold: false, italic: true, prefix: namePrefix, suffix: ":" }),
+    mk({ ...base, label: "Phone Number", type: "phone", x: 66, y: 95.4, fontSize: 9, bold: false }),
+    mk({ ...base, label: "QR Code", type: "qr_code", x: 80.2, y: 66.5, fontSize: 12, color: "#000000", bold: false, defaultValue: ctaDefault, qrSize: 9.5 }),
+    mk({ ...base, label: "Prospect Logo", type: "logo", x: 88, y: 5.3, fontSize: 12, bold: false, logoScale: 11, logoWidth: 70, logoHeight: 26 }),
+  ];
+};
+
+// Letter-page pt dimensions the built-in generators render at.
+export const ONE_PAGER_PAGE_W_PT = 612;
+export const ONE_PAGER_PAGE_H_PT = 792;
+
+/** Shift the header-cluster overlay fields (brand logo, DSO name, prospect
+ *  logo) of a freshly seeded clone by the current logo-group offsets, so the
+ *  overlays land on the background's (possibly nudged) header cluster when a
+ *  built-in is forked from the editor. Field x/y are % of the page; the
+ *  offsets are pt. Footer fields (phone/QR) are untouched. Pure — returns new
+ *  field objects. */
+export function shiftClonedHeaderFields(
+  fields: OverlayField[],
+  logoGroupOffsetXPt: number,
+  logoGroupOffsetYPt: number,
+): OverlayField[] {
+  if (!logoGroupOffsetXPt && !logoGroupOffsetYPt) return fields;
+  const dxPct = (logoGroupOffsetXPt / ONE_PAGER_PAGE_W_PT) * 100;
+  const dyPct = (logoGroupOffsetYPt / ONE_PAGER_PAGE_H_PT) * 100;
+  const headerTypes = new Set<OverlayField["type"]>(["dandy_logo", "dso_name", "logo"]);
+  return fields.map(f => headerTypes.has(f.type)
+    ? { ...f, x: Math.max(0, Math.min(100, f.x + dxPct)), y: Math.max(0, Math.min(100, f.y + dyPct)) }
+    : f);
+}
+
+/** Rasterizes page 1 of a generated one-pager to a PNG blob (2× scale). */
+export async function rasterizeOnePagerDoc(doc: jsPDF): Promise<{ imgBlob: Blob; dataUrl: string }> {
+  const pdfBlob = doc.output("blob");
+  const pdfjsLib = await import("pdfjs-dist");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+  const buf = await pdfBlob.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const page = await pdf.getPage(1);
+  const vp = page.getViewport({ scale: 2 });
+  const canvas = document.createElement("canvas");
+  canvas.width = vp.width; canvas.height = vp.height;
+  await page.render({ canvas, canvasContext: canvas.getContext("2d")!, viewport: vp }).promise;
+  const imgBlob: Blob = await new Promise((res, rej) =>
+    canvas.toBlob(b => b ? res(b) : rej(new Error("toBlob failed")), "image/png"));
+  return { imgBlob, dataUrl: canvas.toDataURL("image/png") };
+}
+
+/** Uploads a template background image; returns its persistent URL, or null
+ *  on failure (caller falls back to the data URL). */
+export async function uploadTemplateBg(imgBlob: Blob, filename: string, scope: TemplateScope = "tenant"): Promise<string | null> {
+  try {
+    const fd = new FormData();
+    fd.append("file", new File([imgBlob], filename, { type: "image/png" }));
+    const res = await fetch(`${customTemplatesBase(scope)}/upload-bg`, { method: "POST", body: fd, credentials: "include" });
+    if (res.ok) return (await res.json()).url as string;
+  } catch { /* fall through */ }
+  return null;
 }
 
 // ── Per-one-pager brand color override ─────────────────────────────────

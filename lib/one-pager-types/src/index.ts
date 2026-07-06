@@ -105,4 +105,6 @@ export {
   neutralPartnerStats,
   neutralAgreementSummaryContent,
   type BrandContext,
+  type LayoutRegion,
+  type OnePagerRegions,
 } from "./generators";

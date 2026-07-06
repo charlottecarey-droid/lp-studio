@@ -28,6 +28,7 @@ import {
   type AgreementSection,
   type AgreementContact,
   type BrandContext,
+  type OnePagerRegions,
   analyzePaletteContrast,
 } from "@workspace/one-pager-types/generators";
 import { isDandyGatedBuiltin } from "@workspace/one-pager-types";
@@ -249,6 +250,7 @@ export const generatePilotOnePager = async (
   prospectLogoScale?: number,
   brand?: BrandContext,
   assets?: OnePagerAssets,
+  regions?: OnePagerRegions,
 ) => {
   // When no override is passed (normal generation), load both the shared config AND the
   // per-audience body config — the editor saves bodyCfg to separate audience-specific keys.
@@ -319,7 +321,7 @@ export const generatePilotOnePager = async (
     dsoName, audience, teamContacts, phoneNumber,
     prospectLogoData, prospectLogoDims, editedContent,
     customLinkText, customLinkUrl,
-    { logoPng, headerImgData, layoutOverrides, brand },
+    { logoPng, headerImgData, layoutOverrides, brand, regions },
   );
 };
 
@@ -335,6 +337,7 @@ export const generateComparisonOnePager = async (
   prospectLogoScale?: number,
   brand?: BrandContext,
   assets?: OnePagerAssets,
+  regions?: OnePagerRegions,
 ) => {
   let layoutOverrides = layoutOverride ?? await loadLayoutDefault("dandy_comparison_template_layout").catch(() => null) ?? {};
   if (typeof prospectLogoScale === "number") {
@@ -367,7 +370,7 @@ export const generateComparisonOnePager = async (
     dsoName, teamContacts, phoneNumber,
     prospectLogoData, prospectLogoDims,
     customLinkText, customLinkUrl,
-    { logoPng, headerImgData, layoutOverrides, brand },
+    { logoPng, headerImgData, layoutOverrides, brand, regions },
   );
 };
 
@@ -384,6 +387,7 @@ export const generateNewPartnerOnePager = async (
   prospectLogoScale?: number,
   brand?: BrandContext,
   assets?: OnePagerAssets,
+  regions?: OnePagerRegions,
 ) => {
   let saved = layoutOverride ?? await loadLayoutDefault("dandy_partner_template_layout").catch(() => null) ?? {};
   if (typeof prospectLogoScale === "number") {
@@ -422,7 +426,7 @@ export const generateNewPartnerOnePager = async (
   };
 
   const opts: NewPartnerOpts = {
-    logoPng, headerImgData, layoutOverrides: saved, content, brand,
+    logoPng, headerImgData, layoutOverrides: saved, content, brand, regions,
     teamContacts, phoneNumber, customLinkText, customLinkUrl,
   };
   return sharedGenerateNewPartnerOnePager(dsoName, prospectLogoData, prospectLogoDims, qrUrl, {}, opts);
@@ -434,6 +438,7 @@ export const generateROIOnePager = async (
   layoutOverride?: Record<string, unknown>,
   brand?: BrandContext,
   assets?: OnePagerAssets,
+  regions?: OnePagerRegions,
 ) => {
   const layoutOverrides = layoutOverride ?? await loadLayoutDefault("dandy_roi_template_layout").catch(() => null) ?? {};
   const hCfg = (layoutOverrides.headerCfg ?? {}) as { headerImage?: string };
@@ -453,13 +458,14 @@ export const generateROIOnePager = async (
   } catch { /* continue without assets */ }
   logOnePagerFallback("roi", "executive", headerPath, logoPath);
 
-  return sharedGenerateROIOnePager(dsoName, numPractices, { logoPng, headerImgData, layoutOverrides, brand });
+  return sharedGenerateROIOnePager(dsoName, numPractices, { logoPng, headerImgData, layoutOverrides, brand, regions });
 };
 
 export const generateAgreementSummaryOnePager = async (
   content: AgreementSummaryContent,
   brand?: BrandContext,
   assets?: OnePagerAssets,
+  regions?: OnePagerRegions,
 ) => {
   const { logoPng, logoPath } = await loadHeaderLogo(assets);
   // Header (scanner) image priority: editor-uploaded `content.headerImage`
@@ -476,7 +482,7 @@ export const generateAgreementSummaryOnePager = async (
     ? "neutral-generated"
     : (headerImage ? "tenant-uploaded" : "brand-config");
   logOnePagerFallback("agreement-summary", null, scannerPath, logoPath);
-  return sharedGenerateAgreementSummaryOnePager(restContent, { logoPng, scannerPng, brand });
+  return sharedGenerateAgreementSummaryOnePager(restContent, { logoPng, scannerPng, brand, regions });
 };
 
 export const defaultAgreementSummaryContent = sharedDefaultAgreementSummaryContent;
