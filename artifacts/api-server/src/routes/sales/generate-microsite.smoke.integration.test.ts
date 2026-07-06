@@ -27,13 +27,22 @@ const aiState = vi.hoisted(() => ({
   raw: null as string | null,
 }));
 
+// STREAM-AWARE (July 2026): streaming/job-mode generations run the model call
+// with `stream: true` (Watch It Build) — mirror the real client and return an
+// async-iterable of delta chunks there; plain calls keep the completion shape.
 vi.mock("openai", () => ({
   default: class {
     chat = {
       completions: {
-        create: async () => ({
-          choices: [{ message: { content: aiState.raw ?? JSON.stringify(aiState.response) } }],
-        }),
+        create: async (args?: { stream?: boolean }) => {
+          const text = aiState.raw ?? JSON.stringify(aiState.response);
+          if (args?.stream) {
+            return (async function* () {
+              yield { choices: [{ delta: { content: text }, finish_reason: "stop" }] };
+            })();
+          }
+          return { choices: [{ message: { content: text } }] };
+        },
       },
     };
   },

@@ -43,7 +43,15 @@ branches already name their recipe heroes (`dso-heartland-hero`/`dso-practice-he
 
 **Chosen behavior (user):** default to the recipe hero but keep flexibility — the
 `RECIPE_FREESTYLE_OVERRIDE_CLAUSE` still lets non-sales pages (about-us/contact/FAQ)
-ignore the flow and pick a simpler hero. This is a prompt-only nudge with no
-deterministic post-parse coercion; if plain-hero drift persists, the durable
-escalation is to coerce the first block to the resolved recipe hero post-parse,
-gated off when the freestyle/non-sales override applies.
+ignore the flow and pick a simpler hero.
+
+**Escalation implemented (July 2026):** plain-hero drift persisted after the
+prompt fix, so the durable post-parse coercion now exists:
+`enforceRecipeHeroFidelity` (generate-microsite.ts, unit-tested in
+generate-microsite.recipeHeroFidelity.test.ts) runs after the required-role
+backfill on recipe-driven paths and swaps a GENERIC lead `hero` to the recipe's
+resolved hero type, carrying the model's copy props. It never touches a
+specific hero the model chose (dso-heartland-hero, ai-scan-hero, …), so the
+freestyle/non-sales flexibility survives whenever the model picks any
+deliberate hero — only the plain-`hero` collapse case is corrected. Logged as
+`microsite_recipe_hero_enforced`.

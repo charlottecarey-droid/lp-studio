@@ -134,18 +134,27 @@ const generateOpenAISemaphore = makeSemaphore({
  * slot is held for the whole duration of the model stream. `signal` aborts
  * the OpenAI request when the SSE client disconnects (the throw propagates
  * out of the semaphore run, releasing the slot).
+ *
+ * Exported for the microsite generator (July 2026 "Watch It Build" streaming
+ * parity): its decoding contract differs (per-path temperature, 8192-token
+ * budget), so `model` / `temperature` / `maxCompletionTokens` are optional
+ * overrides that default to THIS route's constants — the landing-page call
+ * sites are byte-identical with them omitted.
  */
-async function runStreamedChatCompletion(opts: {
+export async function runStreamedChatCompletion(opts: {
   client: OpenAI;
   messages: ChatCompletionMessageParam[];
   signal?: AbortSignal;
   onDelta?: (delta: string) => void;
+  model?: string;
+  temperature?: number;
+  maxCompletionTokens?: number;
 }): Promise<{ text: string; finishReason: string | null }> {
   const stream = await opts.client.chat.completions.create(
     {
-      model: GENERATION_MODEL,
-      temperature: GENERATION_TEMPERATURE,
-      max_completion_tokens: 12288,
+      model: opts.model ?? GENERATION_MODEL,
+      temperature: opts.temperature ?? GENERATION_TEMPERATURE,
+      max_completion_tokens: opts.maxCompletionTokens ?? 12288,
       // The page-generation contract is a single JSON object; json_object mode
       // stops the model from wrapping it in prose / markdown fences so the
       // parse below can't trip over stray text (see parsePageCompletion).

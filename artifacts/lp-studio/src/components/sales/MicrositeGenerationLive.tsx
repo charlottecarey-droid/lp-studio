@@ -9,10 +9,11 @@
  * shared job stream (survives connection drops; July 2026).
  *
  * Differences from the marketing GenerationLiveView: the microsite generator
- * builds the page server-side in one shot (no per-block streaming and no copy
- * critique pass), so this view omits the "polish" stage, the layout receipt /
- * shuffle, and the auto-open countdown. Blocks appear when the server emits its
- * normalized/imaged snapshots; until then the canvas shows its shimmer.
+ * runs no copy critique pass, so this view omits the "polish" stage, the
+ * layout receipt / shuffle, and the auto-open countdown. Blocks stream in one
+ * by one as the model writes them (`block` events, July 2026 — previously the
+ * canvas showed nothing until the server's post-model snapshots), then the
+ * normalized/imaged snapshots reconcile the full page.
  *
  * On the terminal `result` event the page already exists (the endpoint created
  * it), so this view hands the new page id back to the modal via `onResult`,
@@ -33,12 +34,14 @@ import {
   GenerationStreamError,
   type GenerationStageId,
   type GenerationStageEvent,
+  type GenerationBlockEvent,
   type GenerationBlocksEvent,
 } from "@/lib/generationStream";
 import {
   DEFAULT_STAGE_DEFS,
   initialStageState,
   toEntries,
+  toEntry,
   type GenerationStageDef,
   type LiveEntry,
   type RefsMeta,
@@ -202,6 +205,28 @@ export function MicrositeGenerationLive({
                   : [],
               });
             }
+          },
+          // Per-block preview as the model writes (July 2026 — mirrors the
+          // marketing GenerationLiveView): each completed element of the
+          // model's blocks array lands on the canvas immediately; the later
+          // full-array snapshots below reconcile whatever the server-side
+          // passes changed.
+          onBlock: (e: GenerationBlockEvent) => {
+            if (cancelled) return;
+            setEntries((prev) => {
+              const entry = toEntry(e.block, e.index);
+              if (!entry) return prev;
+              const next = prev.slice(0, e.index);
+              // Pad in case an index was skipped (shouldn't happen, but a
+              // sparse array would crash React keys).
+              while (next.length < e.index) {
+                const filler = prev[next.length];
+                if (filler) next.push(filler);
+                else break;
+              }
+              next[e.index] = entry;
+              return next;
+            });
           },
           onBlocks: (e: GenerationBlocksEvent) => {
             if (cancelled) return;

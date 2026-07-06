@@ -4,7 +4,7 @@ import { db, pool } from "@workspace/db";
 import { salesAccountsTable, salesBriefingsTable, salesContactsTable, salesContactBriefingsTable, lpPagesTable, lpBrandSettingsTable, lpMediaTable, sfdcOpportunitiesTable } from "@workspace/db";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
 import OpenAI from "openai";
-import type { ChatCompletionContentPart } from "openai/resources/chat/completions";
+import type { ChatCompletionContentPart, ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import rateLimit from "express-rate-limit";
 import { pickExemplars, formatExemplarsSection, parseCustomExemplars } from "./microsite-exemplars";
 import { getSalesBrandContext, type SalesBrandContext } from "../../lib/salesBrandContext";
@@ -20,6 +20,11 @@ import {
   NOOP_GENERATION_EMITTER,
   type GenerationEmitter,
 } from "../../lib/generationEmitter";
+// Incremental blocks-array parser for the streamed model call: yields each
+// completed element of the top-level `blocks` array so the SSE channel can
+// emit `block` events while the model is still writing (same live "watch the
+// page build" preview as /lp/generate-page).
+import { StreamingBlockParser } from "../../lib/streamingBlockParser";
 // Async job queue shared with /lp/generation-jobs — the microsite submit
 // route lives on THIS router so the salesConsole plan gate + micrositeLimiter
 // apply; see the route registration at the bottom of the file.
@@ -43,6 +48,11 @@ import {
   // the template+replaceImagery path derives that opt-in from the authored
   // template photos (see the pre-restore fill below).
   ITEM_PHOTO_BLOCK_TYPES,
+  // Streamed model call shared with the marketing generator (July 2026,
+  // "Watch It Build" parity): accumulates the full completion text while
+  // forwarding deltas so the live canvas gets `block` events as the model
+  // writes, instead of a blank shimmer until the whole page lands at once.
+  runStreamedChatCompletion,
   // Reference-image fill helper shared with the marketing generator: order the
   // pool curated → current-reference scraped → other-host scraped, and rotate
   // within each bucket per generation so the same on-topic asset doesn't win the
@@ -952,6 +962,58 @@ export function upgradeMicrositeHero(
   upgraded[heroIdx] = { ...hero, props: nextProps };
   onEnforced?.({ upgraded: true, setBg: "dandy-green", attachedImageSlot });
   return upgraded;
+}
+
+/**
+ * RECIPE HERO FIDELITY (issue #1443, July 2026). The seeded recipe rotation
+ * resolves the page's hero slot to ONE specific type per account
+ * (resolveRecipeSkeletonSlots — e.g. "full-bleed-hero OR hero" → the seed's
+ * pick), but the recipe is prompt-level guidance ("a STARTING SUGGESTION"), so
+ * the model still sometimes opens with the generic `hero` — collapsing the
+ * per-account hero variety the rotation exists to protect, and letting a block
+ * no recipe selected override the recipe's choice. The required-role backfill
+ * can introduce the same generic hero when the model shipped none.
+ *
+ * When the resolved recipe hero is a SPECIFIC microsite hero type and the
+ * page's first content hero is the generic `hero`, swap that block to the
+ * recipe's type, carrying the model's copy props (the hero family shares the
+ * headline/subheadline/cta contract; type-specific slots start empty and the
+ * downstream imagery / legibility / rhythm passes treat the block exactly like
+ * a natively-emitted one). ONLY the generic `hero` is ever swapped: a premium
+ * hero the model deliberately chose (dso-heartland-hero, ai-scan-hero, …) is a
+ * judgment call this pass must not override. Pure + fail-open: an unknown /
+ * unresolved / non-hero slot type is a no-op.
+ */
+export function enforceRecipeHeroFidelity(
+  blocks: AiBlock[],
+  resolvedHeroSlot: string | null | undefined,
+  brand: FallbackBrand,
+  onEnforced?: (info: { swapped: boolean; to?: string }) => void,
+): AiBlock[] {
+  const resolved = canonicalizeBlockType(String(resolvedHeroSlot ?? "").trim());
+  if (
+    !resolved ||
+    resolved === "hero" ||
+    !MICROSITE_HERO_BLOCK_TYPES.has(resolved) ||
+    !Array.isArray(blocks) ||
+    blocks.length === 0
+  ) {
+    onEnforced?.({ swapped: false });
+    return blocks;
+  }
+  const heroIdx = blocks.findIndex((b) => MICROSITE_HERO_BLOCK_TYPES.has(blockTypeOf(b)));
+  if (heroIdx < 0 || blockTypeOf(blocks[heroIdx]) !== "hero") {
+    onEnforced?.({ swapped: false });
+    return blocks;
+  }
+  const next = blocks.slice();
+  next[heroIdx] = normalizeBlock(
+    { id: blocks[heroIdx].id, type: resolved, props: blockPropsOf(blocks[heroIdx]) } as AiBlock,
+    heroIdx,
+    brand,
+  );
+  onEnforced?.({ swapped: true, to: resolved });
+  return next;
 }
 
 /**
@@ -4435,26 +4497,52 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
     // Fixed-template and curated-list pages keep the lower temperature for tighter
     // copy fidelity to their authored layout.
     emitter.stage("model", "start", "Designing your page with AI");
-    const completion = await openai.chat.completions.create(
-      {
+    const modelTemperature = (useFreeform || useDsoFreeform || usePoolFreeform)
+      ? GENERATION_TEMPERATURE_FREEFORM
+      : GENERATION_TEMPERATURE_FIXED;
+    const modelMessages: ChatCompletionMessageParam[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userContent },
+    ];
+    // Streaming mode ("Watch It Build", July 2026): the single non-streaming
+    // completion was the one long dead window on this route — the live canvas
+    // sat on "Designing your page with AI…" for the whole model call and then
+    // rendered everything at once. Mirror /lp/generate-page: accumulate the
+    // FULL text (the parse/fallback pipeline below is unchanged) while an
+    // incremental parser emits each completed element of `blocks` as a
+    // `block` SSE event. Non-streaming requests keep the original single call.
+    let raw: string;
+    if (emitter.enabled) {
+      const liveParser = new StreamingBlockParser();
+      const streamed = await runStreamedChatCompletion({
+        client: openai,
+        messages: modelMessages,
+        // A client disconnect aborts the in-flight request (frees the slot).
+        signal: emitter.signal,
         model: GENERATION_MODEL,
-        temperature: (useFreeform || useDsoFreeform || usePoolFreeform)
-          ? GENERATION_TEMPERATURE_FREEFORM
-          : GENERATION_TEMPERATURE_FIXED,
-        max_completion_tokens: GENERATION_MAX_TOKENS,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userContent },
-        ],
-      },
-      // A client disconnect aborts the in-flight request (frees the slot).
-      { signal: emitter.signal },
-    );
+        temperature: modelTemperature,
+        maxCompletionTokens: GENERATION_MAX_TOKENS,
+        onDelta: (delta) => {
+          for (const e of liveParser.push(delta)) emitter.block(e.index, e.block);
+        },
+      });
+      raw = streamed.text.trim() || "{}";
+    } else {
+      const completion = await openai.chat.completions.create(
+        {
+          model: GENERATION_MODEL,
+          temperature: modelTemperature,
+          max_completion_tokens: GENERATION_MAX_TOKENS,
+          response_format: { type: "json_object" },
+          messages: modelMessages,
+        },
+        // A client disconnect aborts the in-flight request (frees the slot).
+        { signal: emitter.signal },
+      );
+      raw = completion.choices?.[0]?.message?.content ?? "{}";
+    }
     emitter.stage("model", "done", "Designing your page with AI");
     if (emitter.aborted) { emitter.close(); return; }
-
-    const raw = completion.choices?.[0]?.message?.content ?? "{}";
     // Quality ledger — every silent fallback taken below is recorded here and
     // returned on the result body so the rep sees WHAT degraded (see
     // GenerationDegradation in generate-page.ts).
@@ -4692,6 +4780,35 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
           ? segmentPoolAllowedSet(segmentApprovedTypes)
           : undefined,
       });
+    }
+
+    // Recipe hero fidelity (issue #1443) — the seeded recipe resolution picked
+    // a specific hero for this account; if the model (or the required-role
+    // backfill just above, which is why this runs AFTER it) opened the page
+    // with the generic `hero` instead, restore the recipe's choice. Runs
+    // before the imagery/legibility/rhythm passes so the swapped hero's slots
+    // are filled and styled exactly like a natively-emitted one.
+    if (micrositeRecipe && !templateBlocks && !outlineActive) {
+      const recipeId = micrositeRecipe.id;
+      normalizedBlocks = enforceRecipeHeroFidelity(
+        normalizedBlocks,
+        micrositeRecipe.skeleton[0],
+        fallbackBrand,
+        (info) => {
+          if (info.swapped) {
+            logger.info(
+              {
+                event: "microsite_recipe_hero_enforced",
+                tenantId,
+                accountId,
+                recipeId,
+                heroType: info.to,
+              },
+              "[generate-microsite] recipe hero fidelity: swapped the generic hero for the recipe's resolved hero",
+            );
+          }
+        },
+      );
     }
 
     // Hard-enforce that any case-study block (dso-success-stories,
