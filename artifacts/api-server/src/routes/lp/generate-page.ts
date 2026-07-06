@@ -2716,6 +2716,24 @@ export function validateAndDedupeAIImages(
       continue;
     }
 
+    // Starter-hero rule (issue #1443, July 2026 — hard gate, completing the
+    // pair above): this validation cleared scraped and product-detail hero
+    // picks but NOT generic starter seeds, so the hero was often the ONLY
+    // slot that kept its starter placeholder while the rest of the page was
+    // personalized — the starters were seeded en masse with the "lp-hero"
+    // purpose tag, so a model-kept starter scored the full purpose boost and
+    // sailed through the soft CLEAR_GAP check. Clear it unconditionally: the
+    // slot falls through to fillEmptyImages, where the tenant's REAL imagery
+    // wins whenever anything suitable exists, and starters remain that fill's
+    // own explicitly-tiered last resort (topicality-floored, so an off-topic
+    // starter leaves the hero on its designed empty/fallback treatment
+    // instead — "empty beats wrong").
+    if (purpose === "lp-hero" && isStarterImage(assigned)) {
+      slot.set("");
+      used.delete(identityForUrl(url, byUrl));
+      continue;
+    }
+
     const { score: assignedScore, sectionScore: assignedSectionScore } = scoreImage(assigned, sectionLower, sectionWords, pageLower, purpose);
 
     // Best free alternative for this slot (exclude every currently-used

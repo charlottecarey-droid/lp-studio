@@ -41,6 +41,16 @@ describe("buildSystemPrompt — pitch direction & seller identity", () => {
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
+  it("forbids 'Join {target company}' CTA phrasing and directs CTAs at the seller (issue #1443)", () => {
+    const prompt = buildPrompt({ brandName: "Royal Design" });
+
+    // The CTA rule lives inside PITCH DIRECTION so it carries hard-rule weight.
+    expect(prompt).toContain("CTA COPY: the reader ALREADY WORKS at the target account");
+    expect(prompt).toContain('NEVER invite them to "join" or "sign up for" the target account\'s own company');
+    // …and it names the seller as the destination of every CTA.
+    expect(prompt).toContain("Every CTA names the next step with Royal Design");
+  });
+
   it("keeps the seller framing when only companyDescription is set (no brandName)", () => {
     const prompt = buildPrompt({
       companyDescription: "an AI-powered logistics platform",

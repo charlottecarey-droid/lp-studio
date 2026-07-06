@@ -3216,6 +3216,11 @@ export function buildSystemPrompt(
     `- Write in ${sellerName}'s first-person voice ("we", "our"). Address the account as "you".`,
     "- NEVER write from the target account's point of view. NEVER produce generic \"why companies should use X\" copy — it must be specific to this account adopting " + sellerName + "'s product.",
     "- Any reference page, website, screenshot, or account context provided is the AUDIENCE you are pitching TO — it is NOT the voice to adopt and NOT the product to sell. Never flip the roles even when the account/reference context is richer than the seller's.",
+    // Issue #1443 — the "Join {target company}" CTA failure: CTA blocks kept
+    // inviting the reader to join the account's OWN company ("Join Salesforce
+    // and sign up for LP Studio"). The reader already works there; every CTA
+    // is a next step WITH the seller.
+    `- CTA COPY: the reader ALREADY WORKS at the target account, so NEVER invite them to \"join\" or \"sign up for\" the target account's own company (\"Join {account name}…\" is always wrong). Every CTA names the next step with ${sellerName}: book a demo, see the platform, talk to the team, start the pilot.`,
   ].join("\n");
 
   const header = [
@@ -5358,9 +5363,19 @@ export const generateMicrositeHandler = async (req: ExpressRequest, res: Express
     //    the brand voice and is a no-op when there are zero hits (corrective
     //    only — no tighten-anyway pass).
     try {
+      // Issue #1443 — the "Join {target company}" CTA failure: the model kept
+      // inviting the reader to join the account's OWN company ("Join
+      // Salesforce and sign up for LP Studio"). The prompt now forbids it
+      // (see PITCH DIRECTION), and this dynamic scan phrase is the
+      // enforcement: any surviving "join {account}" reads as a banned-phrase
+      // hit, so the critique pass rewrites that block in the brand voice with
+      // the phrase named in its DO-NOT-USE list. Boundary-matched + escaped
+      // by the validator, so arbitrary account names are safe.
+      const targetCompanyName = deriveCompanyName(account).trim().toLowerCase();
       const micrositeScanPhrases = [...new Set([
         ...getCoreForbiddenPhrases(),
         ...((brand.avoidPhrases as string[] | undefined) ?? []),
+        ...(targetCompanyName ? [`join ${targetCompanyName}`] : []),
       ])];
       // Safe deterministic swaps FIRST (instant, meaning-preserving) so the
       // critique model call only fixes what has no drop-in replacement.

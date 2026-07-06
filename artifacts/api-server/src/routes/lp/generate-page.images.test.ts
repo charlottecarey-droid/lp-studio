@@ -59,6 +59,81 @@ describe("validateAndDedupeAIImages", () => {
     expect((blocks[0].props as any).imageUrl).toBe("");
   });
 
+  // Starter-hero rule (issue #1443): the validation cleared scraped and
+  // product-detail hero picks but not generic starter seeds, so the hero was
+  // often the only slot that kept its starter placeholder while the rest of
+  // the page was personalized. Starters are purpose-tagged en masse at seed
+  // time, so a model-kept starter cleared the soft checks on its lp-hero tag.
+  it("clears a model-kept STARTER hero pick, even an on-topic purpose-tagged one (issue #1443)", () => {
+    const starterHero: MediaImage = {
+      url: "/objects/starter-dental-hero",
+      title: "Starter dental hero",
+      tags: ["starter", "lp-hero", "dental", "dentures"],
+    };
+    const blocks = [
+      { type: "hero", props: { headline: "Affordable dentures", imageUrl: "/objects/starter-dental-hero" } },
+    ];
+    validateAndDedupeAIImages(blocks, [...LIB, starterHero], PAGE_CTX);
+    expect((blocks[0].props as any).imageUrl).toBe("");
+  });
+
+  it("starter gate is hero-only: a starter kept in a FEATURE slot is not hard-cleared", () => {
+    const starterFeature: MediaImage = {
+      url: "/objects/starter-dental-feature",
+      title: "Starter denture fitting photo",
+      tags: ["starter", "lp-feature", "dentures", "fitting"],
+    };
+    const blocks = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Custom denture fitting", imageUrl: "/objects/starter-dental-feature" }] } },
+    ];
+    validateAndDedupeAIImages(blocks, [...LIB, starterFeature], PAGE_CTX);
+    expect((blocks[0].props as any).rows[0].imageUrl).toBe("/objects/starter-dental-feature");
+  });
+
+  it("end-to-end: a starter hero never ships when suitable tenant imagery exists — the fill swaps in the real hero", () => {
+    const starterHero: MediaImage = {
+      url: "/objects/starter-dental-hero",
+      title: "Starter dental hero",
+      tags: ["starter", "lp-hero", "dental", "dentures"],
+    };
+    let blocks: any[] = [
+      { type: "hero", props: { headline: "Affordable dentures", imageUrl: "/objects/starter-dental-hero" } },
+    ];
+    const lib = [...LIB, starterHero];
+    blocks = validateAndDedupeAIImages(blocks, lib, PAGE_CTX) as any[];
+    blocks = fillEmptyImages(blocks, lib, PAGE_CTX) as any[];
+    const hero = blocks[0].props.imageUrl as string;
+    expect(hero.startsWith("/objects/denture-hero")).toBe(true);
+  });
+
+  it("end-to-end: a cleared OFF-TOPIC starter hero is never re-placed by the fill when the tenant has a real library (issue #1443)", () => {
+    // Real (non-starter) library >= STARTER_FLOOR_MIN_LIBRARY so the fill's
+    // starter topicality floor is active; the only starter is off-topic for
+    // this page, so it must never come back — the hero either stays on its
+    // designed empty/fallback state or takes a REAL tenant photo, both of
+    // which beat the medical-scrubs starter on a fashion page.
+    const realFeatures: MediaImage[] = Array.from({ length: 12 }, (_, i) => ({
+      url: `/objects/real-feature-${i}`,
+      title: `Fashion lookbook photo ${i}`,
+      tags: ["lp-feature", "fashion", "apparel"],
+    }));
+    const offTopicStarter: MediaImage = {
+      url: "/objects/starter-scrubs-hero",
+      title: "Starter medical scrubs hero",
+      tags: ["starter", "lp-hero", "medical", "scrubs"],
+    };
+    const fashionCtx = "fashion apparel boutique lookbook landing page";
+    let blocks: any[] = [
+      { type: "hero", props: { headline: "The autumn lookbook", imageUrl: "/objects/starter-scrubs-hero" } },
+    ];
+    const lib = [...realFeatures, offTopicStarter];
+    blocks = validateAndDedupeAIImages(blocks, lib, fashionCtx) as any[];
+    expect(blocks[0].props.imageUrl).toBe("");
+    blocks = fillEmptyImages(blocks, lib, fashionCtx) as any[];
+    blocks = fillEmptyImages(blocks, lib, fashionCtx, true) as any[]; // relaxed last-resort pass
+    expect(blocks[0].props.imageUrl).not.toBe("/objects/starter-scrubs-hero");
+  });
+
   it("keeps a reasonable on-topic, correct-purpose pick", () => {
     const blocks = [
       { type: "hero", props: { headline: "Dentures", imageUrl: "/objects/denture-hero-1" } },

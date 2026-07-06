@@ -46,6 +46,33 @@ describe("findBannedPhrases", () => {
     expect(noHit.map((h) => h.phrase)).not.toContain("synergy");
   });
 
+  it("flags the dynamic 'join {target company}' CTA pattern the microsite route scans for (issue #1443)", () => {
+    // generate-microsite appends `join ${deriveCompanyName(account)}` to the
+    // scan list so a CTA like "Join Salesforce and sign up for LP Studio" is
+    // flagged and rewritten by the critique pass. Pin the matching shapes:
+    const scan = ["join salesforce"];
+    const hit = findBannedPhrases(
+      [{ id: "cta-1", type: "bottom-cta", props: { headline: "Join Salesforce and sign up for LP Studio" } }],
+      scan,
+    );
+    expect(hit).toHaveLength(1);
+    expect(hit[0]).toMatchObject({ phrase: "join salesforce", source: "brand", blockId: "cta-1" });
+
+    // Possessive form still matches (boundary is any non-alphanumeric)…
+    const possessive = findBannedPhrases(
+      [{ id: "cta-2", type: "bottom-cta", props: { headline: "Join Salesforce's journey today" } }],
+      scan,
+    );
+    expect(possessive.map((h) => h.phrase)).toContain("join salesforce");
+
+    // …while legitimate seller-directed copy mentioning the account does not.
+    const clean = findBannedPhrases(
+      [{ id: "cta-3", type: "bottom-cta", props: { headline: "Bring LP Studio to Salesforce", subheadline: "Join hundreds of teams already using LP Studio" } }],
+      scan,
+    );
+    expect(clean).toEqual([]);
+  });
+
   it("attributes a phrase present in both lists to the brand", () => {
     const blocks = [{ id: "b1", type: "x", props: { t: "truly cutting-edge" } }];
     const hits = findBannedPhrases(blocks, ["cutting-edge"]);
