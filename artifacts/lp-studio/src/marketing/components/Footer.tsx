@@ -94,13 +94,6 @@ export default function Footer() {
             >
               All systems normal
             </span>
-            <span style={{ color: "var(--ink-faint)" }}>·</span>
-            <span
-              className="text-[11.5px] uppercase"
-              style={{ color: "var(--ink-mute)", letterSpacing: "0.16em", fontWeight: 600 }}
-            >
-              99.99% · last 90 days
-            </span>
           </a>
         </div>
 
@@ -113,7 +106,7 @@ export default function Footer() {
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-10 mt-12 mb-14">
           <div className="col-span-2 md:col-span-1">
-            <a href="#" className="inline-flex mb-5" aria-label="LP Studio — home">
+            <a href="/" className="inline-flex mb-5" aria-label="LP Studio — home">
               <img
                 src={navyDepthIcon}
                 alt="LP Studio"

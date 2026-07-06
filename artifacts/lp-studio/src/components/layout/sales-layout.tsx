@@ -390,12 +390,21 @@ export function SalesTopNav() {
                   />
                 </span>
               )
-            ) : (
+            ) : isDandy ? (
+              // Dandy is the sole white-label exception — keep the Dandy
+              // mark when the tenant hasn't uploaded a custom logo.
               <img
                 src={dandyLogo}
                 alt={brandName || "Dandy"}
                 className="h-5 w-auto brightness-0 invert opacity-90 group-hover:opacity-100 transition-opacity"
               />
+            ) : (
+              // No uploaded logo (and not Dandy) → never borrow Dandy's
+              // mark. Show the tenant's own name as a wordmark, falling
+              // back to the neutral platform name when it isn't set yet.
+              <span className="text-[15px] font-semibold tracking-tight text-white/90 group-hover:text-white transition-colors whitespace-nowrap">
+                {brandName || "LP Studio"}
+              </span>
             )}
             <div className="hidden md:flex items-center gap-2">
               <div className="w-px h-4 bg-white/15" />
