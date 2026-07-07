@@ -573,6 +573,9 @@ function WhatsInsideRowEl({
               "0 1px 2px rgba(26, 24, 21, 0.10), 0 4px 12px -6px rgba(26, 24, 21, 0.25)";
           }}
         >
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="var(--coral)" aria-hidden="true">
+            <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13 6.5 8.5 2 7l4.5-1.5L8 1z" />
+          </svg>
           {row.cta.label}
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M5 12h14M13 5l7 7-7 7" />
