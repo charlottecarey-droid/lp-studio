@@ -2262,10 +2262,15 @@ describe("starter topicality floor + cross-vertical penalty", () => {
     expect(filled[0].props.imageUrl).toBe("");
   });
 
-  it("the same starter STILL fills a healthcare-context hero (topical overlap clears the floor)", () => {
+  it("even an ON-topic starter stays out when the tenant has ANY real imagery (July 2026 second hardening)", () => {
+    // The topicality floor alone let substring tag matches ("home" in "at
+    // home"/"homeowners") pull vertical stock into pages of tenants with real
+    // libraries — the reported "every hero is a house" symptom. With genuine
+    // imagery in the pool, starters are ineligible outright: the hero gets a
+    // real image or its designed fallback / AI fill, never stock.
     const blocks: any[] = [{ type: "hero", props: { headline: "Modern clinic staffing", imageUrl: "" } }];
     const filled = fillEmptyImages(blocks, [scrubsStarter, ...bigLibrary], HEALTH_CTX, true) as any[];
-    expect(filled[0].props.imageUrl).toBe("/objects/starter-scrubs");
+    expect(filled[0].props.imageUrl).toBe("");
   });
 
   it("small-library tenants get NO off-topic starter either — the hero stays on its fallback (July 2026)", () => {

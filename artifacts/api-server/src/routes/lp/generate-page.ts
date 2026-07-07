@@ -1646,8 +1646,18 @@ export async function fetchMediaCatalog(
     // reference URL was clay.com. They remain in the returned `images` pool so
     // the deterministic server-side fill (which prioritises the CURRENT
     // reference's host — see fillPool assembly) still places them.
+    // STARTER seeds are excluded from the model's menu for the same reason
+    // (July 2026): the shared pool is ~350 stock rows spanning every signup
+    // vertical, so it dominated the catalog and the model kept assigning
+    // arbitrary starters (a real-estate house as the hero of an unrelated
+    // tenant's page) — visible mid-stream in Watch It Build before the
+    // post-parse validation cleared them. Starters remain in the returned
+    // `images` pool, where fillEmptyImages treats them as the tiered,
+    // topicality-floored last resort for starter-only libraries.
     const catalogImages = images.filter(
-      i => !i.tags.some(t => typeof t === "string" && t.toLowerCase() === "scraped"),
+      i =>
+        !i.tags.some(t => typeof t === "string" && t.toLowerCase() === "scraped") &&
+        !isStarterImage(i),
     );
 
     // Separate into purpose buckets. Text-bearing images (promo graphics /
@@ -1897,6 +1907,17 @@ function findBestImage(
   // BEFORE importing any imagery, and an off-topic starter parade reads worse
   // than the blocks' designed no-image fallbacks. Empty beats wrong, for every
   // tenant and every slot; on-topic starters remain the tiered last resort.
+  //
+  // Starter eligibility (July 2026, second hardening): starters may fill ONLY
+  // when the pool contains no genuine imagery at all — they exist to rescue a
+  // brand-new tenant's first pages, nothing else. The topicality floor above
+  // was not enough: content tags are matched as substrings of ordinary copy,
+  // so a house photo tagged "home" cleared the floor on any page whose copy
+  // said "at home"/"homeowners", and its seed-time "lp-hero" purpose bypassed
+  // the hero relevance floor — a tenant with 10+ of their OWN images still got
+  // a stock house as every hero. A tenant with ANY real (non-starter) imagery
+  // gets their own images or the slot's designed empty fallback / AI fill —
+  // never stock.
 
   // Per-candidate acceptability gate. We pick the highest-scoring unused image
   // that PASSES its gate (not the global best then gate it once) — so when the
@@ -1946,6 +1967,10 @@ function findBestImage(
   // relevance floor (requirePurposeFloor). Logged when the floor is the reason
   // a high-visibility slot stays empty, so regressions are observable.
   let bestFloorRejectedScore = -Infinity;
+  // Starter eligibility (see the block comment above): any genuine (non-starter)
+  // candidate in the pool — curated, brand-import, AI, or scraped — disables
+  // starters entirely for this slot.
+  const poolHasGenuineImagery = images.some((img) => !isStarterImage(img));
   for (const img of images) {
     if (usedIds.has(imageIdentity(img))) continue;
     // Source-page hero rule: a SCRAPED image may fill a hero slot ONLY if it was
@@ -1966,6 +1991,7 @@ function findBestImage(
       continue;
     }
     const starter = isStarterImage(img);
+    if (starter && poolHasGenuineImagery) continue;
     // CURRENT-prompt reference scrapes (img.currentReference) are NOT deferred —
     // the user explicitly pointed us at that URL (or it's a new tenant whose only
     // library is their own website), so they compete in the strict pass alongside

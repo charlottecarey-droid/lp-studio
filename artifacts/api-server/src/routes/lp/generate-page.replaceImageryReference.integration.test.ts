@@ -16,9 +16,10 @@
  *     library fills the hero and the reference photos backfill the features.
  *   • trust-bar (numeric proof bar) stays value+label only in BOTH cases.
  *
- * Why feature slots (not the hero)? The shared starter library every tenant can
- * read contains `lp-hero`-purpose stock but ZERO `lp-feature` stock, so the hero
- * is always satisfied by purpose-tagged library/starter imagery while the
+ * Why feature slots (not the hero)? The hero slot's hard rules (source-page
+ * hero only for scrapes; starters ineligible whenever genuine imagery exists —
+ * July 2026) mean the hero is served by the tenant's own lp-hero image where
+ * one is seeded, and stays on its designed empty fallback otherwise, while the
  * feature slots are exactly where reference photos get pulled in. To make the
  * reference photos deterministically win those slots over the ~300 neutral
  * unclassified starters, the fixtures tag them with a coined topic token
@@ -349,10 +350,12 @@ describe.skipIf(!dbAvailable)("generate-page — Replace imagery from a referenc
     const hero = body.blocks.find(b => b.type === "hero")!;
     const zigzag = body.blocks.find(b => b.type === "zigzag-features")!;
 
-    // replaceImagery cleared the template hero and refilled it from the library
-    // pool (a purpose-tagged shared/starter hero, or a reference photo).
-    expect(hero.props.imageUrl).toBeTruthy();
-    expect(hero.props.imageUrl).not.toBe(TMPL_HERO_IMG);
+    // replaceImagery cleared the template hero. With no tenant library and no
+    // source-page-hero scrape (the mirror fixture grants no lp-hero purpose),
+    // the hero stays on its designed empty fallback: shared starter stock is
+    // ineligible whenever genuine imagery (here, the reference mirror) exists
+    // in the pool (July 2026 — "your imagery or nothing").
+    expect(hero.props.imageUrl).toBe("");
 
     // Every zigzag row photo came from the reference mirror.
     const rows = zigzag.props.rows as Array<Record<string, unknown>>;
