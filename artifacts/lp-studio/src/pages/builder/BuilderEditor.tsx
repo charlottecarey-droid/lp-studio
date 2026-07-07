@@ -2159,8 +2159,8 @@ export default function BuilderEditor() {
   };
 
   // ── Builder Copilot — apply a proposed action via the REAL builder mutations
-  //    (the panel never mutates blocks itself). Each of the 6 v1 action types
-  //    maps to an existing mutation; the bot proposes, this confirms-and-applies.
+  //    (the panel never mutates blocks itself). Each action type maps to an
+  //    existing mutation; the bot proposes, this confirms-and-applies.
   //    Optimistic + undoable: every mutation goes through `setBlocks`, which the
   //    existing 50-entry undo history snapshots, so Cmd-Z reverts an applied
   //    action. Top-level blocks only in v1 (matches the action arg shapes).
@@ -2270,16 +2270,51 @@ export default function BuilderEditor() {
             return { ok: true };
           }
           case "replace_image": {
-            // v1: select the block + slot and open the media library so the user
-            // picks the replacement (no autonomous image swap). Wires to the
-            // existing selection + media drawer flow.
             const id = str(a.blockId);
-            if (indexOfId(id) === -1) return { ok: false, message: "Block not found" };
+            const idx = indexOfId(id);
+            if (idx === -1) return { ok: false, message: "Block not found" };
+            // v2: when the bot picked a concrete library image (grounded on the
+            // tenant's media catalog server-side), apply the swap directly —
+            // undoable like any prop edit. Only http(s)/relative URLs; a
+            // hallucinated non-URL string falls back to the manual picker.
+            const slot = str(a.slot);
+            const imageUrl = str(a.imageUrl).trim();
+            if (slot && imageUrl && /^(https?:\/\/|\/)/.test(imageUrl)) {
+              const block = blocks[idx];
+              const props = block.props as Record<string, unknown>;
+              updateBlock({ ...block, props: { ...props, [slot]: imageUrl } } as PageBlock);
+              return { ok: true };
+            }
+            // No library match — select the block + slot and let the user pick
+            // from the media drawer (the v1 behavior).
             setSelectedBlockId(id);
             return {
               ok: true,
               message: "Selected the block — open its image field to pick a new image.",
             };
+          }
+          case "update_props": {
+            const id = str(a.blockId);
+            const idx = indexOfId(id);
+            if (idx === -1) return { ok: false, message: "Block not found" };
+            const raw = a.props;
+            if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+              return { ok: false, message: "No properties to update" };
+            }
+            // Shallow-merge the proposed props, refusing the structural keys a
+            // prop edit must never touch. Undo history covers a bad merge.
+            const next: Record<string, unknown> = {};
+            for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+              if (k === "id" || k === "type" || k === "children" || k === "props") continue;
+              next[k] = v;
+            }
+            if (Object.keys(next).length === 0) {
+              return { ok: false, message: "No applicable properties to update" };
+            }
+            const block = blocks[idx];
+            const props = block.props as Record<string, unknown>;
+            updateBlock({ ...block, props: { ...props, ...next } } as PageBlock);
+            return { ok: true };
           }
           default:
             return { ok: false, message: `Unsupported action "${action.type}"` };

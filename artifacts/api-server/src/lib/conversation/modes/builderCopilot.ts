@@ -17,8 +17,12 @@
  *   4. the page-recipe / quality heuristics the server normalizers already
  *      enforce, so the bot's advice matches what the system does.
  *
- * allowedActions (CONSTRAINED v1 set — the spec's fixed menu): insert_block,
- * rewrite_copy, replace_image, remove_block, reorder_block, fix_contrast.
+ * allowedActions (v2 menu — still a fixed, validated set): insert_block,
+ * rewrite_copy, replace_image (with optional one-click library imageUrl),
+ * remove_block, reorder_block, fix_contrast, update_props (generic prop edit).
+ * v2 also grounds the tenant's own media library (starters excluded) so image
+ * proposals reference real URLs, and the page summary lists each block's
+ * editable field names + image-slot state so proposals target real props.
  */
 import {
   buildBrandSystemPrompt,
@@ -36,11 +40,24 @@ export interface CopilotPageBlock {
   props?: Record<string, unknown>;
 }
 
+/** One image from the tenant's media library, surfaced to the model so
+ *  replace_image proposals can carry a REAL library URL instead of punting to
+ *  a manual picker. */
+export interface CopilotMediaImage {
+  url: string;
+  title: string;
+  tags: string[];
+}
+
 /** Runtime context for the copilot mode. */
 export interface BuilderCopilotContext extends ConversationContext {
   brand: BrandConfig;
   pageTitle: string;
   pageBlocks: CopilotPageBlock[];
+  /** Tenant-owned library images (starters excluded — stock never gets
+   *  recommended over a designed empty slot). Optional: the route may skip the
+   *  fetch on failure and the mode degrades to picker-only replace_image. */
+  mediaLibrary?: CopilotMediaImage[];
 }
 
 /** Well-known copy fields, in priority order, used to surface a one-line
@@ -73,6 +90,46 @@ function firstCopy(props: Record<string, unknown> | undefined): string {
   return "";
 }
 
+const MAX_DETAIL_FIELDS = 6;
+
+function truncate(value: string, max: number): string {
+  const t = value.trim().replace(/\s+/g, " ");
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+}
+
+function looksLikeUrl(v: string): boolean {
+  return /^(https?:)?\//.test(v.trim()) || v.trim().startsWith("data:");
+}
+
+function isImageSlotKey(key: string): boolean {
+  return /image|photo|logo|avatar|background|thumbnail/i.test(key);
+}
+
+/** Per-block detail lines: the editable copy fields (name: "value") and image
+ *  slots (with set/empty state) — so rewrite_copy / update_props /
+ *  replace_image proposals can reference REAL prop names instead of guessing.
+ *  Kept compact: at most MAX_DETAIL_FIELDS copy fields, values truncated. */
+function blockDetailLines(props: Record<string, unknown> | undefined): string[] {
+  if (!props) return [];
+  const copyParts: string[] = [];
+  const imageParts: string[] = [];
+  for (const [key, v] of Object.entries(props)) {
+    if (typeof v !== "string") continue;
+    if (isImageSlotKey(key)) {
+      imageParts.push(`${key}=${v.trim() ? "(set)" : "(empty)"}`);
+      continue;
+    }
+    if (!v.trim() || looksLikeUrl(v) || v.length > 400) continue;
+    if (copyParts.length < MAX_DETAIL_FIELDS) {
+      copyParts.push(`${key}: "${truncate(v, 70)}"`);
+    }
+  }
+  const lines: string[] = [];
+  if (copyParts.length > 0) lines.push(`   fields: ${copyParts.join(" | ")}`);
+  if (imageParts.length > 0) lines.push(`   image slots: ${imageParts.join(", ")}`);
+  return lines;
+}
+
 /** Build the compact page summary: numbered block sequence with type + key
  *  copy + id (the id is what the action args reference). PURE + exported for
  *  unit tests. */
@@ -81,12 +138,28 @@ export function buildPageSummary(title: string, blocks: CopilotPageBlock[]): str
   if (blocks.length === 0) {
     return `${header}\nThe page is empty — no blocks yet.`;
   }
-  const lines = blocks.map((b, i) => {
+  const lines = blocks.flatMap((b, i) => {
     const copy = firstCopy(b.props);
     const copyPart = copy ? ` — "${copy}"` : "";
-    return `${i + 1}. [${b.type}] (id: ${b.id})${copyPart}`;
+    return [`${i + 1}. [${b.type}] (id: ${b.id})${copyPart}`, ...blockDetailLines(b.props)];
   });
   return `${header}\nCurrent block sequence (top to bottom):\n${lines.join("\n")}`;
+}
+
+/** The tenant's own library images, numbered, so replace_image proposals can
+ *  carry an exact URL. Empty library → empty string (section omitted). PURE +
+ *  exported for unit tests. */
+export function buildImageLibrarySection(media: CopilotMediaImage[] | undefined): string {
+  if (!media || media.length === 0) return "";
+  const lines = media.slice(0, 40).map((m, i) => {
+    const tags = m.tags.slice(0, 6).join(", ");
+    const title = m.title ? ` — "${truncate(m.title, 60)}"` : "";
+    return `${i + 1}. ${m.url}${title}${tags ? ` [${tags}]` : ""}`;
+  });
+  return [
+    "IMAGE LIBRARY (the tenant's own uploaded images). When proposing replace_image, set `imageUrl` to a URL copied EXACTLY from this list — never invent or modify a URL. If nothing here fits the purpose, omit `imageUrl` and the user will pick manually.",
+    ...lines,
+  ].join("\n");
 }
 
 /** Compact block catalog: the families the copilot most often recommends, with
@@ -108,6 +181,9 @@ const BLOCK_CATALOG: ReadonlyArray<{ type: string; purpose: string }> = [
   { type: "dso-faq", purpose: "Frequently-asked-questions accordion; answers objections." },
   { type: "case-study-card-grid", purpose: "Grid of customer success stories with results." },
   { type: "form", purpose: "Lead-capture form." },
+  { type: "video-section", purpose: "Embedded video with supporting copy." },
+  { type: "before-after-gallery", purpose: "Before/after image pairs showing transformation." },
+  { type: "cta-button", purpose: "A standalone call-to-action button." },
   { type: "bottom-cta", purpose: "Closing call-to-action section." },
   { type: "footer", purpose: "Page footer with links." },
 ];
@@ -175,19 +251,40 @@ export const BUILDER_COPILOT_ACTIONS: AllowedActionDef[] = [
   },
   {
     type: "replace_image",
-    description: "Propose replacing an image slot on a block with one that better fits a stated purpose.",
+    description:
+      "Propose replacing an image slot on a block. When an IMAGE LIBRARY image fits, pass its exact URL as imageUrl so the swap applies in one click; otherwise omit imageUrl and the user picks manually.",
     properties: {
       blockId: { type: "string", description: "The id of the block whose image to replace." },
       slot: {
         type: "string",
-        description: "Which image slot (e.g. 'heroImage', 'backgroundImage', 'image').",
+        description:
+          "Which image slot — use a prop name from the block's 'image slots' line in the page summary (e.g. 'heroImage', 'backgroundImage', 'image').",
       },
       purpose: {
         type: "string",
         description: "What the replacement image should depict / convey.",
       },
+      imageUrl: {
+        type: "string",
+        description:
+          "The replacement image URL, copied EXACTLY from the IMAGE LIBRARY list. Omit when no library image fits — never invent a URL.",
+      },
     },
     required: ["blockId", "slot", "purpose"],
+  },
+  {
+    type: "update_props",
+    description:
+      "Propose setting one or more properties on an existing block — for edits the other tools don't cover (button labels, list items, layout/alignment options, colors). Only set props whose names appear for that block in the page summary, or that are clearly standard for its type.",
+    properties: {
+      blockId: { type: "string", description: "The id of the block to update." },
+      props: {
+        type: "object",
+        description:
+          "Prop name → new value. Values keep the prop's existing shape (string props stay strings, etc.). Never set 'id', 'type', or 'children'.",
+      },
+    },
+    required: ["blockId", "props"],
   },
   {
     type: "remove_block",
@@ -227,8 +324,12 @@ const PERSONA =
   "user improve the page they're editing: spot structural gaps (missing social " +
   "proof, weak hero, back-to-back CTAs), voice mismatches, and contrast issues, " +
   "and propose concrete fixes. Be concise, friendly, and specific — reference " +
-  "the actual blocks on their page by what they say. Prefer proposing one or two " +
-  "high-impact edits over listing everything at once.";
+  "the actual blocks on their page by what they say. For a focused question, " +
+  "prefer one or two high-impact edits. When the user asks for a REVIEW of the " +
+  "whole page, walk it top to bottom and propose your top 3–5 edits in priority " +
+  "order, each as its own action. Use rewrite_copy for single copy fields, " +
+  "update_props for other block settings, and replace_image with a library URL " +
+  "when one genuinely fits.";
 
 /** The Builder Copilot ConversationMode. */
 export const builderCopilotMode: ConversationMode = {
@@ -244,9 +345,10 @@ export const builderCopilotMode: ConversationMode = {
       buildPageSummary(c.pageTitle ?? "", c.pageBlocks ?? []),
       brandSection ? `Brand settings:\n${brandSection}` : "Brand settings: (none configured)",
       buildBlockCatalogSection(),
+      buildImageLibrarySection(c.mediaLibrary),
       buildRecipeHeuristics(),
     ];
-    return sections.join("\n\n");
+    return sections.filter(Boolean).join("\n\n");
   },
   allowedActions: BUILDER_COPILOT_ACTIONS,
 };

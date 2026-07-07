@@ -14,7 +14,7 @@
  * and controls are focus-visible; animations respect prefers-reduced-motion.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Sparkles, X, Send, Loader2, Check, Plus, Pencil, Image as ImageIcon, Trash2, ArrowUpDown, Contrast } from "lucide-react";
+import { Sparkles, X, Send, Loader2, Check, Plus, Pencil, Image as ImageIcon, Trash2, ArrowUpDown, Contrast, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { streamCopilotChat, CopilotStreamError, type CopilotAction } from "@/lib/copilotStream";
@@ -60,7 +60,17 @@ const ACTION_ICON: Record<string, typeof Plus> = {
   remove_block: Trash2,
   reorder_block: ArrowUpDown,
   fix_contrast: Contrast,
+  update_props: Settings2,
 };
+
+/** Canned prompts for the empty state — each exercises a capability users
+ *  rarely discover by typing. */
+const SUGGESTION_CHIPS = [
+  "Review my page and propose your top improvements",
+  "Strengthen my hero headline",
+  "Add social proof near the top",
+  "Tighten the copy across the page",
+];
 
 let msgSeq = 0;
 const nextId = () => `m${Date.now()}_${msgSeq++}`;
@@ -104,8 +114,8 @@ export default function CopilotPanel({
     };
   }, [open]);
 
-  const send = useCallback(async () => {
-    const text = input.trim();
+  const send = useCallback(async (textOverride?: string) => {
+    const text = (textOverride ?? input).trim();
     if (!text || busy) return;
     setError(null);
     setInput("");
@@ -207,6 +217,21 @@ export default function CopilotPanel({
     [messages, onApplyAction],
   );
 
+  // Apply every still-proposed card on a message, top to bottom. Sequential:
+  // later proposals may reference blocks earlier ones insert/remove.
+  const applyAll = useCallback(
+    async (messageId: string) => {
+      const msg = messages.find((m) => m.id === messageId);
+      if (!msg) return;
+      for (let i = 0; i < msg.actions.length; i++) {
+        if (msg.actions[i].status === "proposed") {
+          await applyCard(messageId, i);
+        }
+      }
+    },
+    [messages, applyCard],
+  );
+
   const dismissCard = useCallback((messageId: string, cardIndex: number) => {
     setMessages((prev) =>
       prev.map((m) =>
@@ -260,6 +285,18 @@ export default function CopilotPanel({
               Ask me to review your page, strengthen the hero, add social proof, fix a contrast
               issue, or tighten the copy. I&apos;ll propose edits you can apply with one click.
             </p>
+            <div className="flex flex-wrap justify-center gap-1.5 mt-4">
+              {SUGGESTION_CHIPS.map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => void send(chip)}
+                  disabled={busy}
+                  className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1.5 text-xs text-foreground hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring outline-none disabled:opacity-40"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -293,6 +330,17 @@ export default function CopilotPanel({
                 onDismiss={() => dismissCard(m.id, i)}
               />
             ))}
+            {!m.streaming && m.actions.filter((a) => a.status === "proposed").length >= 2 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => void applyAll(m.id)}
+              >
+                <Check className="w-3.5 h-3.5" aria-hidden />
+                Apply all {m.actions.filter((a) => a.status === "proposed").length}
+              </Button>
+            )}
           </div>
         ))}
 

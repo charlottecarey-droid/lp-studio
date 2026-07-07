@@ -23,6 +23,7 @@ export interface CopilotAction {
     | "remove_block"
     | "reorder_block"
     | "fix_contrast"
+    | "update_props"
     | string;
   label: string;
   args: Record<string, unknown>;
@@ -43,12 +44,25 @@ export interface CopilotStreamHandlers {
 
 export interface CopilotChatRequest {
   conversationId?: number;
-  pageId: number;
+  /** The builder page id (builder copilot only). */
+  pageId?: number;
   userMessage: string;
   /** Optional live (possibly-unsaved) page state so the bot reasons about
    *  exactly what the user sees. */
   blocks?: unknown[];
   title?: string;
+  /** The in-app route the user asked from (support chat only). */
+  currentPath?: string;
+  /** Published-page identity + visitor attribution (lead-capture chat only). */
+  slug?: string;
+  sessionId?: string;
+}
+
+export interface CopilotStreamOptions {
+  /** Chat endpoint — defaults to the builder copilot. The support widget and
+   *  the published-page lead-capture block point this at their own routes;
+   *  the SSE event contract (token/action/done/error) is identical. */
+  endpoint?: string;
 }
 
 export type CopilotStreamErrorKind = "http" | "server" | "transport" | "aborted";
@@ -78,13 +92,14 @@ export async function streamCopilotChat(
   body: CopilotChatRequest,
   handlers: CopilotStreamHandlers,
   signal?: AbortSignal,
+  options?: CopilotStreamOptions,
 ): Promise<CopilotDoneEvent> {
   const fail = (message: string, kind: CopilotStreamErrorKind, status?: number) =>
     new CopilotStreamError(message, { kind, status });
 
   let res: Response;
   try {
-    res = await fetch(`/api/lp/copilot/chat`, {
+    res = await fetch(options?.endpoint ?? `/api/lp/copilot/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

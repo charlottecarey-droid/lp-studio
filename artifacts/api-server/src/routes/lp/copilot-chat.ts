@@ -21,12 +21,8 @@
 import { Router } from "express";
 import OpenAI from "openai";
 import { db } from "@workspace/db";
-import {
-  conversationsTable,
-  conversationMessagesTable,
-  lpPagesTable,
-} from "@workspace/db";
-import { and, eq, asc } from "drizzle-orm";
+import { lpPagesTable } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
 import { getTenantId } from "../../middleware/requireAuth";
 import { rateLimit, envLimit } from "../../lib/rateLimit";
 import { fetchBrand } from "../../lib/ai-prompts/brand-and-brief";
@@ -35,8 +31,16 @@ import { runConversationTurn, type ConversationTurn } from "../../lib/conversati
 import {
   builderCopilotMode,
   type BuilderCopilotContext,
+  type CopilotMediaImage,
   type CopilotPageBlock,
 } from "../../lib/conversation/modes/builderCopilot";
+import { fetchMediaCatalog, isStarterImage } from "./generate-page";
+import {
+  resumeOrCreateConversation,
+  loadConversationHistory,
+  persistUserTurn,
+  persistAssistantTurn,
+} from "../../lib/conversation/store";
 import { logger } from "../../lib/logger";
 
 const router = Router();
@@ -113,6 +117,21 @@ router.post("/lp/copilot/chat", copilotChatLimiter, async (req, res): Promise<vo
   // ── Load grounding: brand (strict-facts) + the page being edited ─────────
   const brand = await fetchBrand(tenantId);
 
+  // Tenant media library for one-click replace_image proposals. Same ACL as
+  // the media drawer / generator (fetchMediaCatalog), minus starter stock —
+  // the copilot recommends the tenant's OWN imagery or nothing. Best-effort:
+  // on failure the mode degrades to picker-only image proposals.
+  let mediaLibrary: CopilotMediaImage[] = [];
+  try {
+    const catalog = await fetchMediaCatalog(tenantId);
+    mediaLibrary = catalog.images
+      .filter((img) => !isStarterImage(img))
+      .slice(0, 40)
+      .map((img) => ({ url: img.url, title: img.title, tags: img.tags.map(String) }));
+  } catch (err) {
+    logger.warn({ err: String(err), tenantId }, "[copilot] media catalog load failed — continuing without image library");
+  }
+
   let pageTitle = typeof body.title === "string" ? body.title : "";
   let pageBlocks: CopilotPageBlock[] = toCopilotBlocks(body.blocks);
 
@@ -135,60 +154,24 @@ router.post("/lp/copilot/chat", copilotChatLimiter, async (req, res): Promise<vo
   }
 
   // ── Resume or create the conversation; load prior turns ──────────────────
-  let conversationId: number | null = null;
-  if (typeof body.conversationId === "number" && Number.isFinite(body.conversationId)) {
-    const [conv] = await db
-      .select({ id: conversationsTable.id })
-      .from(conversationsTable)
-      .where(
-        and(
-          eq(conversationsTable.id, body.conversationId),
-          eq(conversationsTable.tenantId, tenantId),
-        ),
-      )
-      .limit(1);
-    if (conv) conversationId = conv.id;
-  }
-  if (conversationId == null) {
-    const [created] = await db
-      .insert(conversationsTable)
-      .values({
-        tenantId,
-        mode: builderCopilotMode.id,
-        pageId,
-        metadata: { surface: "builder" },
-      })
-      .returning({ id: conversationsTable.id });
-    conversationId = created?.id ?? null;
-  }
+  const conversationId = await resumeOrCreateConversation({
+    tenantId,
+    mode: builderCopilotMode.id,
+    requestedId: body.conversationId,
+    pageId,
+    metadata: { surface: "builder" },
+  });
   if (conversationId == null) {
     res.status(500).json({ error: "Could not start the conversation" });
     return;
   }
 
-  // Prior turns (oldest-first). System turns are persisted by neither party in
-  // v1, so we only fetch user/assistant content.
-  const priorRows = await db
-    .select({
-      role: conversationMessagesTable.role,
-      content: conversationMessagesTable.content,
-    })
-    .from(conversationMessagesTable)
-    .where(eq(conversationMessagesTable.conversationId, conversationId))
-    .orderBy(asc(conversationMessagesTable.createdAt), asc(conversationMessagesTable.id));
-
-  const history: ConversationTurn[] = priorRows
-    .filter((r) => r.role === "user" || r.role === "assistant")
-    .map((r) => ({ role: r.role as "user" | "assistant", content: r.content }));
+  const history: ConversationTurn[] = await loadConversationHistory(conversationId);
   history.push({ role: "user", content: userMessage });
 
   // Persist the user turn before streaming (so a mid-stream disconnect still
   // leaves a coherent transcript).
-  await db.insert(conversationMessagesTable).values({
-    conversationId,
-    role: "user",
-    content: userMessage,
-  });
+  await persistUserTurn(conversationId, userMessage);
 
   // ── Stream the assistant turn ────────────────────────────────────────────
   const emitter = createSseChatEmitter(req, res);
@@ -198,6 +181,7 @@ router.post("/lp/copilot/chat", copilotChatLimiter, async (req, res): Promise<vo
     brand,
     pageTitle,
     pageBlocks,
+    mediaLibrary,
   };
 
   try {
@@ -214,16 +198,7 @@ router.post("/lp/copilot/chat", copilotChatLimiter, async (req, res): Promise<vo
     // — they'll re-ask).
     let messageId: number | null = null;
     if (!emitter.aborted) {
-      const [msg] = await db
-        .insert(conversationMessagesTable)
-        .values({
-          conversationId,
-          role: "assistant",
-          content: result.text,
-          actions: result.actions.length > 0 ? result.actions : null,
-        })
-        .returning({ id: conversationMessagesTable.id });
-      messageId = msg?.id ?? null;
+      messageId = await persistAssistantTurn(conversationId, result.text, result.actions);
     }
 
     emitter.done({ conversationId, messageId });
