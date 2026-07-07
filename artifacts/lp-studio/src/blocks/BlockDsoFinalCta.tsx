@@ -4,6 +4,7 @@ import { ScanAcross, ScanDown, FlickerDot, PulseGlow } from "./SectionAmbient";
 import { ArrowRight } from "lucide-react";
 import type { DsoFinalCtaBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
+import { pickContrastingColor, contrastTextColor, isValidHex } from "@/lib/brand-config";
 import { getBgStyle, resolveSectionSurface, getImageBgSectionStyle } from "@/lib/bg-styles";
 import { safeNavigate } from "@/lib/safe-url";
 import { InlineText } from "@/components/InlineText";
@@ -49,8 +50,13 @@ export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, page
     backgroundOverlay,
     overlayColor = "#000000",
   } = props;
-  const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark || !!backgroundImage;
+  const surface = resolveSectionSurface({ backgroundStyle }, "#ffffff", brand);
+  const dark = surface.isDark || !!backgroundImage;
   const sectionBgStyle = backgroundImage ? { ...getImageBgSectionStyle(backgroundImage), overflow: "hidden" as const } : { position: "relative" as const, overflow: "hidden" as const, ...getBgStyle(backgroundStyle) };
+  const sectionBgHex = backgroundImage ? (isValidHex(overlayColor) ? overlayColor : "#000000") : surface.base;
+  const accentHex = brand?.accentColor && isValidHex(brand.accentColor) ? brand.accentColor : "#c7e738";
+  const primaryBtnBg = dark ? pickContrastingColor(accentHex, sectionBgHex, [brand?.primaryColor, "#ffffff"], 3.0) : accentHex;
+  const primaryBtnText = contrastTextColor(primaryBtnBg);
 
   const ctaRef = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ctaRef, offset: ["start end", "end start"] });
@@ -223,12 +229,12 @@ export function BlockDsoFinalCta({ props, onCtaClick, onFieldChange, brand, page
                 justifyContent: "center",
                 gap: 8,
                 borderRadius: 9999,
-                background: AW,
+                background: primaryBtnBg,
                 padding: "1rem 2.25rem",
                 fontSize: 14,
                 fontWeight: 700,
                 letterSpacing: "0.02em",
-                color: "hsl(152,40%,10%)",
+                color: primaryBtnText,
                 cursor: "pointer",
                 border: "none",
                 transition: "transform 0.25s ease, box-shadow 0.25s ease",

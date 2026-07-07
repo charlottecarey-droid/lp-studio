@@ -60,9 +60,7 @@ export default function HeroScene() {
               background: "var(--ink-faint)",
             }}
           />
-          {/* Concrete audience + artifact beats the invented category name —
-              a cold visitor learns what this is before reading the H1. */}
-          Pages & microsites for revenue teams
+          PROMPT TO PAGE PLATFORM
           <span
             aria-hidden
             className="hidden sm:inline-block"
