@@ -806,6 +806,13 @@
       "when": 1756800000000,
       "tag": "0114_sales_one_pager_templates_global_rows",
       "breakpoints": false
+    },
+    {
+      "idx": 115,
+      "version": "7",
+      "when": 1756900000000,
+      "tag": "0115_plan_config_feature_gates",
+      "breakpoints": false
     }
   ]
 }

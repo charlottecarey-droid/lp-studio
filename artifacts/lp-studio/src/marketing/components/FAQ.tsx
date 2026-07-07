@@ -42,12 +42,12 @@ const faqs: Faq[] = [
   },
   {
     q: "Can I cancel any time?",
-    a: "Yes. Month-to-month plans cancel from the billing settings page — no calls, no contract clauses. Annual plans pause at renewal. You can export your pages as HTML before you leave.",
+    a: "Yes. Month-to-month plans cancel from the billing settings page — no calls, no contract clauses. Annual plans pause at renewal.",
     cat: "Pricing",
   },
   {
     q: "Is there a free tier? Free trial?",
-    a: "Both. Free is forever — 1 page, 1 form, 1 seat, with a 'Built with LP Studio' badge. Starter ($49/mo annual) drops the badge, gives you a custom domain, and unlocks 10 pages. Every paid tier comes with a 14-day Growth trial — try the Sales Console, microsites, AI outreach, and Salesforce sync before you commit. No card required to start.",
+    a: "Both. Free is forever — 1 page, 1 form, 1 seat, with a 'Powered by LP Studio' badge. Starter ($49/mo annual) drops the badge, gives you a custom domain, and unlocks 10 pages. Every paid tier comes with a 14-day Growth trial — try the Sales Console, microsites, AI outreach, and Salesforce sync before you commit. No card required to start.",
     cat: "Pricing",
   },
 ];

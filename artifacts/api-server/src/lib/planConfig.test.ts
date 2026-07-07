@@ -117,6 +117,54 @@ function parseSeed(): Record<string, SeedRow> {
   return rows;
 }
 
+/**
+ * Same drift guard for feature-flag columns added AFTER the 0036 seed: the
+ * backfill migration's `UPDATE plan_config SET <col> = true WHERE tier IN
+ * (...)` list must enable exactly the tiers whose canonical config enables
+ * the flag (columns default false, so the IN-list is the complete on-set).
+ */
+const FLAG_BACKFILL_MIGRATIONS: Array<{
+  file: string;
+  flags: Array<{ column: string; feature: "brandedEmailSubdomain" | "customEmailDomain" | "smartTraffic" | "customBlocks" | "programmaticPages" | "multiWorkspace" }>;
+}> = [
+  {
+    file: "0065_plan_config_email_tiers.sql",
+    flags: [
+      { column: "branded_email_subdomain", feature: "brandedEmailSubdomain" },
+      { column: "custom_email_domain", feature: "customEmailDomain" },
+    ],
+  },
+  {
+    file: "0115_plan_config_feature_gates.sql",
+    flags: [
+      { column: "smart_traffic", feature: "smartTraffic" },
+      { column: "custom_blocks", feature: "customBlocks" },
+      { column: "programmatic_pages", feature: "programmaticPages" },
+      { column: "multi_workspace", feature: "multiWorkspace" },
+    ],
+  },
+];
+
+describe("plan_config flag backfills match canonical PLAN_CONFIG", () => {
+  for (const { file, flags } of FLAG_BACKFILL_MIGRATIONS) {
+    const sql = readFileSync(resolve(dirname(MIGRATION_PATH), file), "utf8");
+    for (const { column, feature } of flags) {
+      it(`${file}: '${column}' enables exactly the canonical tiers`, () => {
+        const m = sql.match(
+          new RegExp(`UPDATE plan_config SET ${column} = true\\s+WHERE tier IN \\(([^)]*)\\)`),
+        );
+        expect(m, `missing backfill UPDATE for ${column}`).toBeTruthy();
+        const enabled = m![1]
+          .split(",")
+          .map((s) => s.trim().replace(/'/g, ""))
+          .sort();
+        const canonical = PLANS.filter((p) => PLAN_CONFIG[p].features[feature]).sort();
+        expect(enabled).toEqual(canonical);
+      });
+    }
+  }
+});
+
 describe("plan_config seed matches canonical PLAN_CONFIG", () => {
   const seed = parseSeed();
 

@@ -41,6 +41,10 @@ export type GatedFeature =
   | "customDomain"
   | "customEmailDomain"
   | "brandedEmailSubdomain"
+  | "smartTraffic"
+  | "customBlocks"
+  | "programmaticPages"
+  | "multiWorkspace"
   | "pages"
   | "forms"
   | "userSeats"
@@ -48,7 +52,17 @@ export type GatedFeature =
   | "heatmapSessionsPerMonth";
 
 /** Gates whose value is a boolean feature flag rather than a numeric cap. */
-const BOOLEAN_GATES = new Set<string>(["salesConsole", "aiImageGen", "customDomain", "customEmailDomain", "brandedEmailSubdomain"]);
+const BOOLEAN_GATES = new Set<string>([
+  "salesConsole",
+  "aiImageGen",
+  "customDomain",
+  "customEmailDomain",
+  "brandedEmailSubdomain",
+  "smartTraffic",
+  "customBlocks",
+  "programmaticPages",
+  "multiWorkspace",
+]);
 
 export interface UpgradePromptCopy {
   /** Headline shown above the bullets. */
@@ -94,6 +108,30 @@ const BRANDED_EMAIL_SUBDOMAIN_BULLETS = [
   "A branded sending subdomain (mail.yourbrand.lpstudio.ai)",
   "One-click provisioning — no DNS setup required",
   "Better deliverability than the shared sending domain",
+  "Everything in lower tiers",
+];
+
+const SMART_TRAFFIC_BULLETS = [
+  "Smart Traffic — Thompson-sampling routing to the winning variant",
+  "Multivariate-style testing without manual traffic splits",
+  "Everything in lower tiers",
+];
+
+const CUSTOM_BLOCKS_BULLETS = [
+  "Author your own reusable blocks alongside the built-in library",
+  "AI-generate and compose custom sections from a prompt",
+  "Everything in lower tiers",
+];
+
+const PROGRAMMATIC_PAGES_BULLETS = [
+  "Programmatic pages — bulk-generate variants from a template",
+  "Dynamic text replacement rules per page",
+  "Everything in lower tiers",
+];
+
+const MULTI_WORKSPACE_BULLETS = [
+  "Create additional workspaces for every brand or client",
+  "One-click workspace switcher — same login, separate brands",
   "Everything in lower tiers",
 ];
 
@@ -165,6 +203,26 @@ const GATE_COPY: Record<GatedFeature, GateDescriptor> = {
     label: "Branded email subdomain",
     blurb: "send email from a branded subdomain with one-click setup",
     bullets: BRANDED_EMAIL_SUBDOMAIN_BULLETS,
+  },
+  smartTraffic: {
+    label: "Smart Traffic routing",
+    blurb: "route visitors to the winning variant automatically",
+    bullets: SMART_TRAFFIC_BULLETS,
+  },
+  customBlocks: {
+    label: "Custom blocks",
+    blurb: "author and AI-generate your own reusable blocks",
+    bullets: CUSTOM_BLOCKS_BULLETS,
+  },
+  programmaticPages: {
+    label: "Programmatic pages",
+    blurb: "bulk-generate page variants from a template",
+    bullets: PROGRAMMATIC_PAGES_BULLETS,
+  },
+  multiWorkspace: {
+    label: "Multi-workspace",
+    blurb: "create a separate workspace for every brand or client",
+    bullets: MULTI_WORKSPACE_BULLETS,
   },
   pages: {
     label: "landing pages",

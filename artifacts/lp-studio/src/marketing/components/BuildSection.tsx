@@ -381,13 +381,13 @@ const DEFAULT_EXTRAS: Extras = {
   pricing: [
     { name: "Starter", price: "$49", per: "/mo", blurb: "For small teams getting started.", features: ["3 seats", "Visual builder", "A/B testing"], cta: "Start free trial" },
     { name: "Growth", price: "$199", per: "/mo", blurb: "Most teams pick this.", features: ["10 seats", "Sales Console", "CRM sync", "Priority support"], cta: "Try it free", highlight: true },
-    { name: "Scale", price: "$499", per: "/mo", blurb: "Multi-brand, multi-team.", features: ["25 seats", "Multi-workspace", "Custom blocks"], cta: "Talk to sales" },
+    { name: "Scale", price: "$499", per: "/mo", blurb: "Multi-brand, multi-team.", features: ["25 seats", "Multi-workspace", "AI image generation"], cta: "Talk to sales" },
   ],
   faq: [
     { q: "How long does setup take?", a: "Most teams are live the same afternoon — under 30 minutes from sign-up to first page." },
     { q: "Can I bring my own brand kit?", a: "Yes. Drop in tokens, fonts, and logos once — every block inherits automatically." },
     { q: "Is there a free trial?", a: "Yes, 14 days. No credit card required. Cancel any time." },
-    { q: "Do you offer SSO and audit logs?", a: "On the Scale plan: SAML SSO, SCIM provisioning, and full audit trails." },
+    { q: "Can I use my own domain?", a: "Yes — every paid tier connects a custom domain with automatic SSL." },
   ],
   footer: [
     { title: "Product", links: ["Features", "Pricing", "Changelog", "Roadmap"] },

@@ -4,8 +4,14 @@ import { db } from "@workspace/db";
 import { lpPagesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { getTenantId } from "../../middleware/requireAuth";
+import { requirePlanFeature } from "../../middleware/requirePlanFeature";
 
 const router = Router();
+
+// Plan gate (Scale+) over the whole programmatic surface — list, DTR rules,
+// templates, bulk-generate, preview. Published clones themselves are ordinary
+// lp_pages and keep serving to visitors regardless of plan.
+router.use("/lp/programmatic", requirePlanFeature("programmaticPages"));
 
 // ─── DTR Rules ────────────────────────────────────────────────────
 // DTR rules are stored in each page's `pageVariables` jsonb field.

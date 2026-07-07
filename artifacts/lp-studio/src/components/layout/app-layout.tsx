@@ -50,6 +50,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ModeToggle } from "@/components/layout/mode-toggle";
+import { WorkspaceSwitcher } from "@/components/layout/workspace-switcher";
 import { useAuth } from "@/context/AuthContext";
 import { useBrandConfig } from "@/context/BrandConfigContext";
 import { CommandPalette, useCommandPalette } from "@/components/CommandPalette";
@@ -212,6 +213,9 @@ export function AppSidebar({ onOpenCommand }: { onOpenCommand: () => void }) {
               </span>
             </div>
           </Link>
+          {/* Multi-workspace switcher — renders only when the user can switch
+              (>1 membership) or create (workspace admin); see the component. */}
+          <WorkspaceSwitcher />
           <ModeToggle />
           {/* Global ⌘K search — single discoverable entry to every page. */}
           <button

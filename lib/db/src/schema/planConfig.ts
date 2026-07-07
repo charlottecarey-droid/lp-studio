@@ -32,6 +32,12 @@ export const planConfigTable = pgTable("plan_config", {
   // the custom domain isn't verified.
   brandedEmailSubdomain: boolean("branded_email_subdomain").notNull().default(false),
   customEmailDomain: boolean("custom_email_domain").notNull().default(false),
+  // July 2026 pricing-audit gates. Default off (fail closed); backfilled per
+  // the canonical @workspace/plan-config defaults in migration 0115.
+  smartTraffic: boolean("smart_traffic").notNull().default(false),
+  customBlocks: boolean("custom_blocks").notNull().default(false),
+  programmaticPages: boolean("programmatic_pages").notNull().default(false),
+  multiWorkspace: boolean("multi_workspace").notNull().default(false),
   // Numeric caps — null = unlimited
   capPages: integer("cap_pages"),
   capForms: integer("cap_forms"),

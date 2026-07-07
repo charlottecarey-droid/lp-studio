@@ -17,6 +17,7 @@ import { db, pool } from "@workspace/db";
 import { lpBrandSettingsTable, lpMediaTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, getTenantId } from "../../middleware/requireAuth";
+import { requirePlanFeature } from "../../middleware/requirePlanFeature";
 import { ObjectStorageService } from "../../lib/objectStorage";
 import { getAiImageGenStatus } from "../../lib/tenantSettings";
 import { normalizePlan } from "../../lib/planFeatures";
@@ -1046,7 +1047,7 @@ export async function loadBrandHints(tenantId: number): Promise<BrandHints | nul
 // imported above. Multi-page kicks in automatically when the user pastes
 // a bare root URL (homepage); deep links fall through to single-page.
 
-router.post("/lp/custom-blocks/generate", requireAuth, aiHeavyLimiter, aiHeavyHourlyLimiter, async (req, res): Promise<void> => {
+router.post("/lp/custom-blocks/generate", requireAuth, requirePlanFeature("customBlocks"), aiHeavyLimiter, aiHeavyHourlyLimiter, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res);
   if (tenantId === null) return;
 
@@ -1276,7 +1277,7 @@ router.post("/lp/custom-blocks/generate", requireAuth, aiHeavyLimiter, aiHeavyHo
 // Task #220 — Compose mode. One higher-level prompt → 2-5 ordered blocks,
 // each individually validated with the same validator the single-block flow
 // uses, so the dialog can preview the section in order before saving.
-router.post("/lp/custom-blocks/compose", requireAuth, aiHeavyLimiter, aiHeavyHourlyLimiter, async (req, res): Promise<void> => {
+router.post("/lp/custom-blocks/compose", requireAuth, requirePlanFeature("customBlocks"), aiHeavyLimiter, aiHeavyHourlyLimiter, async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res);
   if (tenantId === null) return;
 

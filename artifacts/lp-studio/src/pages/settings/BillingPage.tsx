@@ -969,8 +969,16 @@ function buildCompareGroups(cfgMap: Record<Plan, PlanConfigEntry>): CompareGroup
       const n = cfgMap[p].features.limits.heatmapSessionsPerMonth;
       return n === null ? "Unlimited" : `${n.toLocaleString()} sessions/mo`;
     });
-  const flag = (key: "salesConsole" | "aiImageGen" | "customDomain"): boolean[] =>
-    COMPARE_PLANS.map((p) => cfgMap[p].features[key]);
+  const flag = (
+    key:
+      | "salesConsole"
+      | "aiImageGen"
+      | "customDomain"
+      | "smartTraffic"
+      | "customBlocks"
+      | "programmaticPages"
+      | "multiWorkspace",
+  ): boolean[] => COMPARE_PLANS.map((p) => cfgMap[p].features[key]);
 
   return [
     {
@@ -979,10 +987,10 @@ function buildCompareGroups(cfgMap: Record<Plan, PlanConfigEntry>): CompareGroup
         { feature: "Active landing pages", values: cap("pages") },
         { feature: "Forms", values: cap("forms") },
         { feature: "User seats", values: cap("userSeats") },
-        { feature: "AI copy generations / month", values: cap("aiGenerationsPerMonth") },
-        { feature: "124-block library", values: [true, true, true, true] },
-        { feature: "Brand system & locked tokens", values: [false, true, true, true] },
-        { feature: "Custom blocks", values: [false, false, true, true] },
+        { feature: "AI page generations / month", values: cap("aiGenerationsPerMonth") },
+        { feature: "80+ block library", values: [true, true, true, true] },
+        { feature: "Brand system & locked tokens", values: [true, true, true, true] },
+        { feature: "Custom blocks", values: flag("customBlocks") },
         { feature: "AI image generation", values: flag("aiImageGen") },
       ],
     },
@@ -999,10 +1007,10 @@ function buildCompareGroups(cfgMap: Record<Plan, PlanConfigEntry>): CompareGroup
     {
       label: "Integrations",
       rows: [
-        { feature: "Salesforce sync", values: [false, false, true, "+ custom fields"] },
-        { feature: "Marketo bidirectional", values: [false, false, true, true] },
-        { feature: "Apollo signals + enrichment", values: [false, false, true, true] },
-        { feature: "Chili Piper handoff", values: [false, false, true, true] },
+        { feature: "Salesforce sync", values: flag("salesConsole") },
+        { feature: "Marketo bidirectional", values: flag("salesConsole") },
+        { feature: "Apollo signals + enrichment", values: flag("salesConsole") },
+        { feature: "Chili Piper handoff", values: flag("salesConsole") },
         { feature: "Google Analytics 4 + Webhooks", values: [true, true, true, true] },
       ],
     },
@@ -1010,17 +1018,17 @@ function buildCompareGroups(cfgMap: Record<Plan, PlanConfigEntry>): CompareGroup
       label: "Test & measure",
       rows: [
         { feature: "A/B testing", values: ["Unlimited", "Unlimited", "Unlimited", "Unlimited"] },
-        { feature: "Multivariate + Smart Traffic", values: [false, false, true, true] },
+        { feature: "Smart Traffic routing", values: flag("smartTraffic") },
         { feature: "Heatmaps & scroll depth", values: heat() },
-        { feature: "Programmatic pages + smart sections", values: [false, false, false, true] },
+        { feature: "Programmatic pages + smart sections", values: flag("programmaticPages") },
       ],
     },
     {
       label: "Distribution",
       rows: [
         { feature: "Custom domain (auto SSL)", values: flag("customDomain") },
-        { feature: 'No "Built with LP Studio" badge', values: [false, true, true, true] },
-        { feature: "Multi-workspace / multi-brand", values: [false, false, false, true] },
+        { feature: 'No "Powered by LP Studio" badge', values: [false, true, true, true] },
+        { feature: "Multi-workspace / multi-brand + switcher", values: flag("multiWorkspace") },
       ],
     },
     {

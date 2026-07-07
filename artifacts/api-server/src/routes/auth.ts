@@ -1,5 +1,6 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
+import type { PoolClient } from "pg";
 import { OAuth2Client } from "google-auth-library";
 import { pool, db, lpPageReviewsTable, lpPagesTable, tenantsTable, lpBrandSettingsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
@@ -43,9 +44,11 @@ import {
   effectivePlan,
   computeTrialState,
   isProtectedEnterpriseSlug,
+  getTenantPlan,
   type Plan,
 } from "../lib/planFeatures";
-import { getPlanFeaturesMap } from "../lib/planConfig";
+import { getPlanFeaturesMap, getPlanConfig } from "../lib/planConfig";
+import { featureUpgradeBody } from "../lib/planGate";
 import { isRootSuperadminEmail } from "../lib/rootSuperadmin";
 
 /**
@@ -290,6 +293,10 @@ async function establishSession(
       }
     }
   } else {
+    // Prefer the user's stored (last-active) tenant so a multi-workspace user
+    // logs back into the workspace they last switched to, not an arbitrary
+    // membership. `COALESCE(...)` because tenant_id may be NULL (never
+    // resolved), and `tm.tenant_id = NULL` would otherwise sort as NULL.
     const memberResult = await pool.query(
       `SELECT tm.id as member_id, tm.tenant_id, tm.user_id, tm.role_id,
               tr.name as role_name, tr.permissions, tr.is_admin, tm.accepted_at
@@ -298,9 +305,9 @@ async function establishSession(
        JOIN tenants t ON t.id = tm.tenant_id
        WHERE (tm.user_id = $1 OR (tm.user_id IS NULL AND LOWER(tm.email) = LOWER($2)))
          AND (t.domain IS NULL OR t.domain = '')
-       ORDER BY tm.user_id NULLS LAST
+       ORDER BY COALESCE(tm.tenant_id = $3, false) DESC, tm.user_id NULLS LAST
        LIMIT 1`,
-      [user.id, email]
+      [user.id, email, user.tenant_id ?? null]
     );
 
     if (memberResult.rows.length > 0) {
@@ -1765,6 +1772,142 @@ router.get("/auth/find-workspace", findWorkspaceLimiter, async (req, res): Promi
   }
 });
 
+// ── Workspace provisioning ──────────────────────────────────────────────────
+// Shared by POST /auth/signup (first workspace) and POST /auth/workspaces
+// (additional workspaces, multiWorkspace-gated). Role presets mirror admin.ts
+// exactly (task #108): pages.publish + pages.review are gating perms for the
+// page-review workflow. Admins/CMs can publish directly, Editors must
+// Submit-for-Review, Viewers can browse only.
+const WORKSPACE_ALL_PERMS = {
+  pages: true, "pages.publish": true, "pages.review": true,
+  tests: true, analytics: true, forms_leads: true, brand: true,
+  blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
+  sales_outreach: true, sales_campaigns: true, sales_signals: true, settings: true, team: true, roles: true,
+};
+const WORKSPACE_CONTENT_MANAGER_PERMS = {
+  pages: true, "pages.publish": true, "pages.review": true,
+  tests: true, analytics: true, forms_leads: true, brand: true,
+  blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
+  sales_outreach: true, sales_campaigns: false, sales_signals: true, settings: false, team: false, roles: false,
+};
+const WORKSPACE_EDITOR_PERMS = {
+  pages: true, "pages.publish": false, "pages.review": false,
+  tests: true, analytics: true, forms_leads: true, brand: true,
+  blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
+  sales_outreach: true, sales_campaigns: false, sales_signals: true, settings: false, team: false, roles: false,
+};
+const WORKSPACE_VIEWER_PERMS = {
+  pages: true, "pages.publish": false, "pages.review": false,
+  tests: false, analytics: true, forms_leads: false, brand: false,
+  blocks: false, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
+  sales_outreach: false, sales_campaigns: false, sales_signals: true, settings: false, team: false, roles: false,
+};
+
+/** Normalize a requested workspace slug; empty string = unusable input. */
+function cleanWorkspaceSlug(slug: string): string {
+  return slug
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+type TxClient = PoolClient;
+
+/**
+ * Provision a complete workspace inside the caller's open transaction:
+ * tenant row (with or without the 14-day Growth trial window), managed
+ * landing-page host, the four system roles, the creator's Admin membership,
+ * and the creator's `app_users.tenant_id` pointer (their last-active
+ * workspace). The caller COMMITs and refreshes the session.
+ *
+ * New tenants default to industry='generic' and requireReviewBeforePublish=
+ * false — see POST /auth/signup for the full history of both defaults.
+ */
+async function provisionWorkspaceTx(
+  client: TxClient,
+  opts: { name: string; slugClean: string; userId: number; email: string; grantTrial: boolean },
+): Promise<{ id: number; name: string; slug: string }> {
+  const { name, slugClean, userId, email, grantTrial } = opts;
+
+  const tenantResult = grantTrial
+    ? await client.query(
+        `INSERT INTO tenants (name, slug, plan, status, settings, trial_started_at, trial_expires_at)
+         VALUES ($1, $2, 'free', 'active',
+                 '{"industry":"generic","requireReviewBeforePublish":false}'::jsonb,
+                 now(), now() + make_interval(days => $3))
+         RETURNING id, name, slug`,
+        [name, slugClean, TRIAL_DURATION_DAYS]
+      )
+    : await client.query(
+        `INSERT INTO tenants (name, slug, plan, status, settings, trial_started_at, trial_expires_at)
+         VALUES ($1, $2, 'free', 'active',
+                 '{"industry":"generic","requireReviewBeforePublish":false}'::jsonb,
+                 NULL, NULL)
+         RETURNING id, name, slug`,
+        [name, slugClean]
+      );
+  const tenant = tenantResult.rows[0];
+
+  // Auto-assign a managed landing-page host (e.g. acme-lp.lpstudio.ai) so
+  // every new tenant has a clean public address from day one. Conflict-safe
+  // and guarded against shadowing another tenant's wildcard slug host — see
+  // tenantHosts.ts for the resolution order this protects.
+  const pageHost = defaultPageSubdomain(tenant.slug);
+  const pageHostLabel = extractWildcardSlug(pageHost);
+  await client.query(
+    `UPDATE tenants SET microsite_domain = $1, updated_at = now()
+       WHERE id = $2
+         AND microsite_domain IS NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM tenants o
+            WHERE o.id <> $2
+              AND (lower(o.domain) = $1 OR lower(o.microsite_domain) = $1)
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM tenants s
+            WHERE s.id <> $2 AND lower(s.slug) = $3
+         )`,
+    [pageHost, tenant.id, pageHostLabel],
+  );
+  invalidateTenantHostCache();
+
+  const adminRoleResult = await client.query(
+    `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
+     VALUES ($1, 'Admin', $2, true, true) RETURNING id`,
+    [tenant.id, JSON.stringify(WORKSPACE_ALL_PERMS)]
+  );
+  await client.query(
+    `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
+     VALUES ($1, 'Content Manager', $2, false, true)`,
+    [tenant.id, JSON.stringify(WORKSPACE_CONTENT_MANAGER_PERMS)]
+  );
+  await client.query(
+    `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
+     VALUES ($1, 'Editor', $2, false, true)`,
+    [tenant.id, JSON.stringify(WORKSPACE_EDITOR_PERMS)]
+  );
+  await client.query(
+    `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
+     VALUES ($1, 'Viewer', $2, false, true)`,
+    [tenant.id, JSON.stringify(WORKSPACE_VIEWER_PERMS)]
+  );
+  const adminRoleId = adminRoleResult.rows[0].id;
+
+  await client.query(
+    `INSERT INTO tenant_members (tenant_id, user_id, role_id, email, accepted_at)
+     VALUES ($1, $2, $3, $4, now())`,
+    [tenant.id, userId, adminRoleId, email]
+  );
+
+  await client.query(
+    `UPDATE app_users SET tenant_id = $1 WHERE id = $2`,
+    [tenant.id, userId]
+  );
+
+  return tenant;
+}
+
 // POST /api/auth/signup — create a new tenant workspace for an authenticated user who has no tenant yet
 router.post("/auth/signup", async (req, res): Promise<void> => {
   const sid = req.cookies?.[SESSION_COOKIE];
@@ -1800,11 +1943,7 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
     // skipped and the trial is granted as before (dev/e2e/pre-provisioning).
     const requirePhone = twilioConfigured();
 
-    const slugClean = slug
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "");
+    const slugClean = cleanWorkspaceSlug(slug);
 
     if (!slugClean) {
       res.status(400).json({ error: "Invalid slug — use letters, numbers, and hyphens only" });
@@ -1817,34 +1956,6 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
       res.status(409).json({ error: "That workspace URL was recently used by another workspace. Please choose another." });
       return;
     }
-
-    // Mirror admin.ts presets exactly (task #108): pages.publish + pages.review
-    // are gating perms for the page-review workflow. Admins/CMs can publish
-    // directly, Editors must Submit-for-Review, Viewers can browse only.
-    const ALL_PERMS = {
-      pages: true, "pages.publish": true, "pages.review": true,
-      tests: true, analytics: true, forms_leads: true, brand: true,
-      blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
-      sales_outreach: true, sales_campaigns: true, sales_signals: true, settings: true, team: true, roles: true,
-    };
-    const CONTENT_MANAGER_PERMS = {
-      pages: true, "pages.publish": true, "pages.review": true,
-      tests: true, analytics: true, forms_leads: true, brand: true,
-      blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
-      sales_outreach: true, sales_campaigns: false, sales_signals: true, settings: false, team: false, roles: false,
-    };
-    const EDITOR_PERMS = {
-      pages: true, "pages.publish": false, "pages.review": false,
-      tests: true, analytics: true, forms_leads: true, brand: true,
-      blocks: true, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
-      sales_outreach: true, sales_campaigns: false, sales_signals: true, settings: false, team: false, roles: false,
-    };
-    const VIEWER_PERMS = {
-      pages: true, "pages.publish": false, "pages.review": false,
-      tests: false, analytics: true, forms_leads: false, brand: false,
-      blocks: false, sales_dashboard: true, sales_contacts: true, sales_accounts: true,
-      sales_outreach: false, sales_campaigns: false, sales_signals: true, settings: false, team: false, roles: false,
-    };
 
     const client = await pool.connect();
     try {
@@ -1873,109 +1984,24 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
         grantTrial = !phoneAlreadyTrialed;
       }
 
-      // Default new tenants to industry='generic' so they immediately resolve
-      // to the generic block catalog with no manual settings patch required.
-      //
-      // Task #113: self-serve signups also opt OUT of the page-review workflow
-      // (requireReviewBeforePublish=false). Existing tenants are backfilled
-      // to TRUE on server boot so their #108 behaviour is preserved; this
-      // path mirrors the admin-create default so all "new" tenants — however
-      // they're created — start with the workflow off.
-      // Auto-enroll every self-serve signup in the uniform 14-day Growth trial.
-      // The stored plan is the FREE floor they fall back to after expiry; the
-      // trial window (trial_started_at / trial_expires_at) is what grants Growth
-      // features meanwhile via effectivePlan(). No card, no tier picker.
-      //
-      // Task #637: when the phone has already trialed (`grantTrial` false) the
-      // window columns stay NULL so the tenant lands on the free floor with no
-      // trial — billing/upgrade is unaffected and remains available.
-      const tenantResult = grantTrial
-        ? await client.query(
-            `INSERT INTO tenants (name, slug, plan, status, settings, trial_started_at, trial_expires_at)
-             VALUES ($1, $2, 'free', 'active',
-                     '{"industry":"generic","requireReviewBeforePublish":false}'::jsonb,
-                     now(), now() + make_interval(days => $3))
-             RETURNING id, name, slug`,
-            [name.trim(), slugClean, TRIAL_DURATION_DAYS]
-          )
-        : await client.query(
-            `INSERT INTO tenants (name, slug, plan, status, settings, trial_started_at, trial_expires_at)
-             VALUES ($1, $2, 'free', 'active',
-                     '{"industry":"generic","requireReviewBeforePublish":false}'::jsonb,
-                     NULL, NULL)
-             RETURNING id, name, slug`,
-            [name.trim(), slugClean]
-          );
-      const tenant = tenantResult.rows[0];
-
-      // Auto-assign a managed landing-page host (e.g. acme-lp.lpstudio.ai) so
-      // every new tenant has a clean public address for their pages from day
-      // one. Served off our wildcard cert + worker — no tenant DNS, no
-      // Cloudflare provisioning. Conflict-safe (only set when that exact host
-      // isn't already claimed by another tenant's domain/microsite_domain) and
-      // editable later in Settings → Domain. The legacy <slug>.lpstudio.ai/lp/…
-      // URLs keep working independently via wildcard slug resolution.
-      const pageHost = defaultPageSubdomain(tenant.slug);
-      // The wildcard label this host resolves through (e.g. "acme-lp"). Guard
-      // against claiming a host whose label is ALREADY another tenant's slug —
-      // findTenantByHost matches an exact microsite_domain before the wildcard
-      // slug, so without this we'd shadow that tenant's <slug>.lpstudio.ai host.
-      const pageHostLabel = extractWildcardSlug(pageHost);
-      await client.query(
-        `UPDATE tenants SET microsite_domain = $1, updated_at = now()
-           WHERE id = $2
-             AND microsite_domain IS NULL
-             AND NOT EXISTS (
-               SELECT 1 FROM tenants o
-                WHERE o.id <> $2
-                  AND (lower(o.domain) = $1 OR lower(o.microsite_domain) = $1)
-             )
-             AND NOT EXISTS (
-               SELECT 1 FROM tenants s
-                WHERE s.id <> $2 AND lower(s.slug) = $3
-             )`,
-        [pageHost, tenant.id, pageHostLabel],
-      );
-      invalidateTenantHostCache();
+      // Provision the workspace (tenant + host + roles + membership). The
+      // trial decision follows Task #637: when the phone has already trialed
+      // (`grantTrial` false) the window columns stay NULL so the tenant lands
+      // on the free floor with no trial. Otherwise every self-serve signup
+      // gets the uniform 14-day Growth trial — no card, no tier picker.
+      const tenant = await provisionWorkspaceTx(client, {
+        name: name.trim(),
+        slugClean,
+        userId: sess.userId,
+        email: sess.email,
+        grantTrial,
+      });
 
       // Record the number as having consumed its one free trial — only when a
       // trial was actually granted, and atomically with the tenant it unlocked.
       if (requirePhone && grantTrial && trialPhoneHash) {
         await recordPhoneTrial(client, trialPhoneHash, tenant.id);
       }
-
-      const adminRoleResult = await client.query(
-        `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
-         VALUES ($1, 'Admin', $2, true, true) RETURNING id`,
-        [tenant.id, JSON.stringify(ALL_PERMS)]
-      );
-      await client.query(
-        `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
-         VALUES ($1, 'Content Manager', $2, false, true)`,
-        [tenant.id, JSON.stringify(CONTENT_MANAGER_PERMS)]
-      );
-      await client.query(
-        `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
-         VALUES ($1, 'Editor', $2, false, true)`,
-        [tenant.id, JSON.stringify(EDITOR_PERMS)]
-      );
-      await client.query(
-        `INSERT INTO tenant_roles (tenant_id, name, permissions, is_admin, is_system)
-         VALUES ($1, 'Viewer', $2, false, true)`,
-        [tenant.id, JSON.stringify(VIEWER_PERMS)]
-      );
-      const adminRoleId = adminRoleResult.rows[0].id;
-
-      await client.query(
-        `INSERT INTO tenant_members (tenant_id, user_id, role_id, email, accepted_at)
-         VALUES ($1, $2, $3, $4, now())`,
-        [tenant.id, sess.userId, adminRoleId, sess.email]
-      );
-
-      await client.query(
-        `UPDATE app_users SET tenant_id = $1 WHERE id = $2`,
-        [tenant.id, sess.userId]
-      );
 
       await client.query("COMMIT");
 
@@ -1992,7 +2018,7 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
         ...sess,
         tenantId: tenant.id,
         role: "Admin",
-        permissions: ALL_PERMS,
+        permissions: WORKSPACE_ALL_PERMS,
         isAdmin: true,
       });
       const expire = new Date(Date.now() + SESSION_TTL_MS);
@@ -2014,6 +2040,255 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
       return;
     }
     console.error("[auth] signup error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Multi-workspace (July 2026 pricing-audit follow-up).
+//
+// Three endpoints power the in-app workspace switcher:
+//
+//   GET  /auth/workspaces         — the caller's accepted memberships +
+//                                   whether their CURRENT plan lets them
+//                                   create another workspace.
+//   POST /auth/workspaces/switch  — move the session into another workspace
+//                                   the caller is already a member of. NEVER
+//                                   plan-gated: invited collaborators keep
+//                                   access regardless of either workspace's
+//                                   plan; each workspace's own plan gates its
+//                                   features once you're inside.
+//   POST /auth/workspaces         — create an ADDITIONAL workspace. This is
+//                                   the multiWorkspace-gated (Scale+) action
+//                                   the pricing page sells as "Multi-workspace
+//                                   / multi-brand". New workspaces start on
+//                                   the free floor with NO trial window — the
+//                                   14-day Growth trial is a once-per-signup
+//                                   lever and granting it here would let one
+//                                   Scale seat farm trials indefinitely.
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Load the caller's session row or answer 401. Mirrors the signup pattern. */
+async function loadSessionOr401(
+  req: Request,
+  res: Response,
+): Promise<{ sid: string; sess: Record<string, any> } | null> {
+  const sid = req.cookies?.[SESSION_COOKIE];
+  if (!sid) {
+    res.status(401).json({ error: "Not authenticated" });
+    return null;
+  }
+  const r = await pool.query(
+    `SELECT sess FROM app_sessions WHERE sid = $1 AND expire > now()`,
+    [sid],
+  );
+  if (!r.rows.length) {
+    res.status(401).json({ error: "Session expired" });
+    return null;
+  }
+  return { sid, sess: JSON.parse(r.rows[0].sess) };
+}
+
+// GET /api/auth/workspaces — accepted memberships for the switcher dropdown.
+router.get("/auth/workspaces", async (req, res): Promise<void> => {
+  try {
+    const loaded = await loadSessionOr401(req, res);
+    if (!loaded) return;
+    const { sess } = loaded;
+
+    const r = await pool.query(
+      `SELECT t.id, t.name, t.slug, tr.name AS role_name, tr.is_admin
+         FROM tenant_members tm
+         JOIN tenants t ON t.id = tm.tenant_id
+         JOIN tenant_roles tr ON tr.id = tm.role_id
+        WHERE tm.user_id = $1
+          AND tm.accepted_at IS NOT NULL
+          AND t.status = 'active'
+        ORDER BY t.name ASC`,
+      [sess.userId],
+    );
+
+    // "New workspace" is offered when the caller admins their CURRENT
+    // workspace and its plan includes multiWorkspace (or they're a platform
+    // superadmin — same bypass as requirePlanFeature).
+    let canCreate = false;
+    if (sess.tenantId != null && sess.isAdmin) {
+      if (sess.appUserRole === "superadmin") {
+        canCreate = true;
+      } else {
+        const plan = await getTenantPlan(sess.tenantId);
+        const config = await getPlanConfig();
+        canCreate = config[plan].features.multiWorkspace;
+      }
+    }
+
+    res.json({
+      currentTenantId: sess.tenantId ?? null,
+      canCreate,
+      workspaces: r.rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        role: row.role_name,
+        isAdmin: !!row.is_admin,
+        current: row.id === sess.tenantId,
+      })),
+    });
+  } catch (err) {
+    console.error("[auth] GET /workspaces error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/auth/workspaces/switch — re-point the session at another
+// workspace the caller belongs to. Role/permissions are re-derived from the
+// TARGET membership so a user who is Admin in one workspace and Viewer in
+// another gets the right access on each side of the switch.
+router.post("/auth/workspaces/switch", async (req, res): Promise<void> => {
+  try {
+    const loaded = await loadSessionOr401(req, res);
+    if (!loaded) return;
+    const { sid, sess } = loaded;
+
+    const tenantId = (req.body ?? {}).tenantId;
+    if (typeof tenantId !== "number" || !Number.isInteger(tenantId)) {
+      res.status(400).json({ error: "tenantId is required" });
+      return;
+    }
+    if (tenantId === sess.tenantId) {
+      res.json({ ok: true, tenantId });
+      return;
+    }
+
+    const r = await pool.query(
+      `SELECT t.id, t.microsite_domain, tr.name AS role_name, tr.permissions, tr.is_admin
+         FROM tenant_members tm
+         JOIN tenants t ON t.id = tm.tenant_id
+         JOIN tenant_roles tr ON tr.id = tm.role_id
+        WHERE tm.tenant_id = $1
+          AND tm.user_id = $2
+          AND tm.accepted_at IS NOT NULL
+          AND t.status = 'active'
+        LIMIT 1`,
+      [tenantId, sess.userId],
+    );
+    if (!r.rows.length) {
+      res.status(403).json({ error: "You are not a member of that workspace" });
+      return;
+    }
+    const target = r.rows[0];
+
+    const newSess = JSON.stringify({
+      ...sess,
+      tenantId: target.id,
+      role: target.role_name,
+      permissions: (target.permissions as Record<string, boolean>) ?? {},
+      isAdmin: !!target.is_admin,
+      micrositeDomain: target.microsite_domain ?? null,
+    });
+    await pool.query(`UPDATE app_sessions SET sess = $1 WHERE sid = $2`, [newSess, sid]);
+
+    // Persist as the last-active workspace so the next login (open-mode
+    // establishSession) returns here instead of an arbitrary membership.
+    await pool.query(`UPDATE app_users SET tenant_id = $1 WHERE id = $2`, [
+      target.id,
+      sess.userId,
+    ]);
+
+    res.json({ ok: true, tenantId: target.id });
+  } catch (err) {
+    console.error("[auth] POST /workspaces/switch error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/auth/workspaces — create an ADDITIONAL workspace (Scale+).
+router.post("/auth/workspaces", async (req, res): Promise<void> => {
+  try {
+    const loaded = await loadSessionOr401(req, res);
+    if (!loaded) return;
+    const { sid, sess } = loaded;
+
+    if (sess.tenantId == null) {
+      // First workspace goes through /auth/signup (phone gate + trial).
+      res.status(400).json({ error: "Use signup to create your first workspace" });
+      return;
+    }
+    if (!sess.isAdmin) {
+      res.status(403).json({ error: "Only workspace admins can create workspaces" });
+      return;
+    }
+
+    // Plan gate — the enforceable half of the "Multi-workspace / multi-brand"
+    // pricing row. Superadmin bypass mirrors requirePlanFeature.
+    const config = await getPlanConfig();
+    if (sess.appUserRole !== "superadmin") {
+      const plan = await getTenantPlan(sess.tenantId);
+      if (!config[plan].features.multiWorkspace) {
+        res.status(402).json(featureUpgradeBody("multiWorkspace", plan, config));
+        return;
+      }
+    }
+
+    const { name, slug } = req.body ?? {};
+    if (!name || typeof name !== "string" || !slug || typeof slug !== "string") {
+      res.status(400).json({ error: "name and slug are required" });
+      return;
+    }
+    const slugClean = cleanWorkspaceSlug(slug);
+    if (!slugClean) {
+      res.status(400).json({ error: "Invalid slug — use letters, numbers, and hyphens only" });
+      return;
+    }
+    if (await isSlugRedirectReserved(slugClean, null)) {
+      res.status(409).json({ error: "That workspace URL was recently used by another workspace. Please choose another." });
+      return;
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const tenant = await provisionWorkspaceTx(client, {
+        name: name.trim(),
+        slugClean,
+        userId: sess.userId,
+        email: sess.email,
+        grantTrial: false,
+      });
+      await client.query("COMMIT");
+      invalidateTenantHostCache();
+
+      // The provision step claims a managed page host when available — read
+      // it back so the refreshed session carries the real value.
+      const md = await pool.query(
+        `SELECT microsite_domain FROM tenants WHERE id = $1`,
+        [tenant.id],
+      );
+
+      // Land the caller in the new workspace immediately (they're its Admin).
+      const newSess = JSON.stringify({
+        ...sess,
+        tenantId: tenant.id,
+        role: "Admin",
+        permissions: WORKSPACE_ALL_PERMS,
+        isAdmin: true,
+        micrositeDomain: md.rows[0]?.microsite_domain ?? null,
+      });
+      await pool.query(`UPDATE app_sessions SET sess = $1 WHERE sid = $2`, [newSess, sid]);
+
+      res.json({ ok: true, tenant });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err: any) {
+    if (err.code === "23505" && (err.constraint as string)?.includes("slug")) {
+      res.status(409).json({ error: "That workspace URL is already taken. Please choose another." });
+      return;
+    }
+    console.error("[auth] POST /workspaces error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

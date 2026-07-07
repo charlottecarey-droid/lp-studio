@@ -33,9 +33,29 @@ function heatmapRow(): string[] {
 }
 
 /** Build a boolean comparison row for a gated feature across COMPARE_PLANS. */
-function featRow(key: "salesConsole" | "aiImageGen" | "customDomain"): boolean[] {
+function featRow(
+  key:
+    | "salesConsole"
+    | "aiImageGen"
+    | "customDomain"
+    | "smartTraffic"
+    | "customBlocks"
+    | "programmaticPages"
+    | "multiWorkspace",
+): boolean[] {
   return COMPARE_PLANS.map((p) => PLAN_CONFIG[p].features[key]);
 }
+
+/** Annual-prepay savings vs monthly, in whole percent (null = sales-only). */
+function savingsPct(plan: Plan): number | null {
+  const { priceMonthly, priceAnnual } = PLAN_CONFIG[plan];
+  if (!priceMonthly || priceAnnual === null) return null;
+  return Math.round((1 - priceAnnual / priceMonthly) * 100);
+}
+
+// Headline savings figure for the billing toggle / footnote. Derived so the
+// badge can't overstate a tier's actual discount (they differ per tier).
+const MAX_SAVINGS_PCT = Math.max(...COMPARE_PLANS.map((p) => savingsPct(p) ?? 0));
 
 interface Tier {
   name: string;
@@ -51,10 +71,10 @@ interface Tier {
   badge?: string;
 }
 
-// Card tiers — kept in lockstep with the canonical PLAN_FEATURES matrix in
-// artifacts/api-server/src/lib/planFeatures.ts. If you change a cap here,
-// also change it there (and in artifacts/lp-studio/src/lib/plan-features.ts)
-// so marketing promises match what the 402 plan-gates actually enforce.
+// Card tiers — every price and cap is derived from PLAN_CONFIG above; only
+// the descriptive prose is authored here. When adding a feature bullet, make
+// sure the backend actually gates it at that tier (or nowhere) — the July
+// 2026 pricing audit is the cautionary tale.
 //
 // Free and Enterprise live OUTSIDE this array: Free is a callout above the
 // cards (it converts worse as a visible card — buyers anchor on it and never
@@ -74,8 +94,8 @@ const cardTiers: Tier[] = [
           `${fmtCap(PLAN_CONFIG.starter.features.limits.pages)} active landing pages`,
           `${fmtCap(PLAN_CONFIG.starter.features.limits.forms)} forms`,
           `Up to ${fmtCap(PLAN_CONFIG.starter.features.limits.userSeats)} seats`,
-          "Visual builder + 124-block library",
-          `AI copy · ${fmtCap(PLAN_CONFIG.starter.features.limits.aiGenerationsPerMonth)} generations/mo`,
+          "Visual builder + 80+ block library",
+          `AI page generation · ${fmtCap(PLAN_CONFIG.starter.features.limits.aiGenerationsPerMonth)}/mo`,
           "Your own custom domain",
           "No LP Studio badge",
         ],
@@ -111,8 +131,7 @@ const cardTiers: Tier[] = [
           "Salesforce + Marketo + HubSpot bidirectional sync",
           "Apollo signals · Chili Piper · Asana · GA4 · Webhooks",
           `Smart Traffic routing + heatmaps · ${fmtCap(PLAN_CONFIG.growth.features.limits.heatmapSessionsPerMonth)} sessions/mo`,
-          "Brand system & locked tokens",
-          "Token-based external review (no seat cost for legal/clients)",
+          "Custom blocks — author & AI-generate your own",
         ],
       },
       {
@@ -129,17 +148,16 @@ const cardTiers: Tier[] = [
     name: "Scale",
     monthly: PLAN_CONFIG.scale.priceMonthly ?? "Custom",
     annual: PLAN_CONFIG.scale.priceAnnual ?? "Custom",
-    desc: "Multi-brand, multi-team. The whole revenue org on one canvas.",
+    desc: "Multi-brand, multi-workspace. AI image generation and programmatic pages for the whole revenue org.",
     idealFor: "Multi-brand operations & agencies",
     groups: [
       {
         label: "Everything in Growth, plus",
         items: [
-          "Multi-workspace · multi-brand",
+          "AI image generation — on-brand imagery in the builder",
+          "Multi-workspace — a separate workspace per brand, one login",
           `Up to ${fmtCap(PLAN_CONFIG.scale.features.limits.userSeats)} seats`,
-          "Custom blocks + advanced template library",
           "Programmatic pages + smart sections",
-          "Salesforce custom field mapping",
           `Heatmaps · ${fmtCap(PLAN_CONFIG.scale.features.limits.heatmapSessionsPerMonth)} sessions/mo`,
         ],
       },
@@ -176,10 +194,10 @@ const FEATURE_MAP: FeatureGroup[] = [
       { feature: "Active landing pages", values: capRow("pages") },
       { feature: "Forms", values: capRow("forms") },
       { feature: "User seats", values: capRow("userSeats") },
-      { feature: "AI copy generations / month", values: capRow("aiGenerationsPerMonth") },
-      { feature: "124-block library", values: [true, true, true, true] },
-      { feature: "Brand system & locked tokens", values: [false, true, true, true] },
-      { feature: "Custom blocks", values: [false, false, true, true] },
+      { feature: "AI page generations / month", values: capRow("aiGenerationsPerMonth") },
+      { feature: "80+ block library", values: [true, true, true, true] },
+      { feature: "Brand system & locked tokens", values: [true, true, true, true] },
+      { feature: "Custom blocks", values: featRow("customBlocks") },
       { feature: "AI image generation", values: featRow("aiImageGen") },
     ],
   },
@@ -198,13 +216,13 @@ const FEATURE_MAP: FeatureGroup[] = [
   {
     label: "Integrations",
     rows: [
-      { feature: "Salesforce bidirectional sync", values: [false, false, true, "+ custom field mapping"] },
-      { feature: "Marketo bidirectional", values: [false, false, true, true] },
-      { feature: "HubSpot bidirectional", values: [false, false, true, true] },
-      { feature: "Apollo signals + enrichment", values: [false, false, true, true] },
-      { feature: "Chili Piper handoff", values: [false, false, true, true] },
-      { feature: "Asana review routing", values: [false, false, true, true] },
-      { feature: "Resend (email + DNS)", values: [false, false, true, true] },
+      { feature: "Salesforce bidirectional sync", values: featRow("salesConsole") },
+      { feature: "Marketo bidirectional", values: featRow("salesConsole") },
+      { feature: "HubSpot bidirectional", values: featRow("salesConsole") },
+      { feature: "Apollo signals + enrichment", values: featRow("salesConsole") },
+      { feature: "Chili Piper handoff", values: featRow("salesConsole") },
+      { feature: "Asana review routing", values: [true, true, true, true] },
+      { feature: "Resend (email + DNS)", values: featRow("salesConsole") },
       { feature: "Google Analytics 4 events", values: [true, true, true, true] },
       { feature: "Webhooks", values: [true, true, true, true] },
     ],
@@ -213,32 +231,30 @@ const FEATURE_MAP: FeatureGroup[] = [
     label: "Test & measure",
     rows: [
       { feature: "A/B testing", values: ["Unlimited", "Unlimited", "Unlimited", "Unlimited"] },
-      { feature: "Multivariate testing", values: [false, false, true, true] },
-      { feature: "Smart Traffic routing (Thompson sampling)", values: [false, false, true, true] },
+      { feature: "Smart Traffic routing (Thompson sampling)", values: featRow("smartTraffic") },
       { feature: "Heatmaps & scroll depth", values: heatmapRow() },
-      { feature: "Conversion scoring", values: [false, false, true, true] },
+      { feature: "Conversion scoring", values: [true, true, true, true] },
       { feature: "Page speed audit", values: [true, true, true, true] },
-      { feature: "Programmatic pages + smart sections", values: [false, false, false, true] },
+      { feature: "Programmatic pages + smart sections", values: featRow("programmaticPages") },
     ],
   },
   {
     label: "Distribution",
     rows: [
       { feature: "Custom domain (auto SSL)", values: featRow("customDomain") },
-      { feature: 'No "Built with LP Studio" badge', values: [false, true, true, true] },
+      { feature: 'No "Powered by LP Studio" badge', values: [false, true, true, true] },
       { feature: "Tenant subdomain (your-brand.lpstudio.ai)", values: [true, true, true, true] },
-      { feature: "Vanity short links", values: [false, false, true, true] },
-      { feature: "Partner microsites", values: [false, false, true, true] },
-      { feature: "Multi-workspace / multi-brand", values: [false, false, false, true] },
-      { feature: "Scheduled publish + expiry", values: [false, true, true, true] },
+      { feature: "Vanity short links", values: featRow("salesConsole") },
+      { feature: "Partner microsites", values: featRow("salesConsole") },
+      { feature: "Multi-workspace / multi-brand + switcher", values: featRow("multiWorkspace") },
     ],
   },
   {
     label: "Collaboration & review",
     rows: [
       { feature: "Inline comments + @mentions", values: [true, true, true, true] },
-      { feature: "Review workflow (approve / changes-requested)", values: [false, false, true, true] },
-      { feature: "Token-based external review (no seat cost)", values: [false, false, true, true] },
+      { feature: "Review workflow (approve / changes-requested)", values: [true, true, true, true] },
+      { feature: "Token-based external review (no seat cost)", values: [true, true, true, true] },
       { feature: "Live presence", values: [true, true, true, true] },
       { feature: "Version history + restore", values: [true, true, true, true] },
     ],
@@ -258,12 +274,10 @@ const FEATURE_MAP: FeatureGroup[] = [
 // "everything-on-one-page" sprawl.
 const ENTERPRISE_FEATURES = [
   "Everything in Scale",
-  "Unlimited seats & workspaces",
-  "AI image generation",
-  "SSO / SAML",
+  "Unlimited seats — no usage caps",
+  "Custom email sending domain",
   "99.9% uptime SLA",
   "DPA & MSA",
-  "Custom data residency",
   "Dedicated account manager",
   "Quarterly business reviews",
   "Custom integrations",
@@ -383,7 +397,7 @@ export default function Pricing({ defaultCompareOpen = false, asPageHeading = fa
                         fontWeight: 700,
                       }}
                     >
-                      Save 20%
+                      Save up to {MAX_SAVINGS_PCT}%
                     </span>
                   )}
                 </button>
@@ -416,7 +430,7 @@ export default function Pricing({ defaultCompareOpen = false, asPageHeading = fa
               Free forever
             </span>
             <span>
-              <strong style={{ color: "var(--ink)" }}>Just kicking the tires?</strong> Free gets you {fmtCap(PLAN_CONFIG.free.features.limits.pages)} page, {fmtCap(PLAN_CONFIG.free.features.limits.forms)} form, {fmtCap(PLAN_CONFIG.free.features.limits.aiGenerationsPerMonth)} AI generations/mo and a "Built with LP Studio" badge — no card required.
+              <strong style={{ color: "var(--ink)" }}>Just kicking the tires?</strong> Free gets you {fmtCap(PLAN_CONFIG.free.features.limits.pages)} page, {fmtCap(PLAN_CONFIG.free.features.limits.forms)} form, {fmtCap(PLAN_CONFIG.free.features.limits.aiGenerationsPerMonth)} AI page generations/mo and a "Powered by LP Studio" badge — no card required.
             </span>
           </div>
           <a
@@ -469,7 +483,7 @@ export default function Pricing({ defaultCompareOpen = false, asPageHeading = fa
               For procurement-driven deals.
             </div>
             <p style={{ color: "rgba(244,239,227,0.65)", fontSize: 14, lineHeight: 1.55, maxWidth: 480 }}>
-              SSO/SAML, MSA, custom DPA, dedicated CSM, AI image generation, custom integrations, and unlimited everything else. Custom pricing tied to seats and usage.
+              MSA, custom DPA, dedicated CSM, a custom email sending domain, custom integrations, and unlimited everything else. Custom pricing tied to seats and usage.
             </p>
           </div>
           <div style={{ flex: "1 1 320px" }}>
@@ -544,7 +558,7 @@ export default function Pricing({ defaultCompareOpen = false, asPageHeading = fa
               <strong style={{ color: "var(--ink)" }}>Every paid tier</strong> comes with a 14-day Growth trial. No card to start.
             </span>
             <span style={{ color: "var(--ink-faint)" }}>·</span>
-            <span>Annual prepay saves 20%. Month-to-month if you'd rather.</span>
+            <span>Annual prepay saves up to {MAX_SAVINGS_PCT}%. Month-to-month if you'd rather.</span>
           </div>
           <button
             type="button"
@@ -732,8 +746,8 @@ function FeatureMap() {
           }}
         >
           <div className="text-[13px]" style={{ color: "var(--ink-soft)" }}>
-            <strong style={{ color: "var(--ink)" }}>Need SSO, SOC 2, MSA, or unlimited seats?</strong>{" "}
-            Enterprise covers everything above plus AI image generation, dedicated CSM, custom integrations, and a 99.9% uptime SLA.
+            <strong style={{ color: "var(--ink)" }}>Need an MSA, a custom DPA, or unlimited seats?</strong>{" "}
+            Enterprise covers everything above plus a custom email sending domain, dedicated CSM, custom integrations, and a 99.9% uptime SLA.
           </div>
           <a
             href="mailto:admin@lpstudio.ai?subject=LP%20Studio%20Enterprise"
@@ -872,9 +886,10 @@ function PricingTier({ tier, billing }: { tier: Tier; billing: Billing }) {
             </span>
           )}
         </div>
-        {typeof tier.monthly === "number" && billing === "annual" && (
+        {typeof tier.monthly === "number" && typeof tier.annual === "number" && billing === "annual" && (
           <div className="text-[11.5px] mb-5" style={{ color: highlight ? "rgba(244,239,227,0.55)" : "var(--ink-mute)" }}>
-            <span style={{ textDecoration: "line-through" }}>${tier.monthly}/mo</span> · save 20% annually
+            <span style={{ textDecoration: "line-through" }}>${tier.monthly}/mo</span> · save{" "}
+            {Math.round((1 - tier.annual / tier.monthly) * 100)}% annually
           </div>
         )}
         {!(typeof tier.monthly === "number" && billing === "annual") && <div className="mb-5" />}

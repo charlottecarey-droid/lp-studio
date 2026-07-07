@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { lpTestsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getSmartTrafficStats, resetSmartTrafficStats } from "../../lib/smart-traffic";
+import { requirePlanFeature } from "../../middleware/requirePlanFeature";
 
 const router = Router();
 
@@ -33,9 +34,12 @@ router.get("/lp/tests/:testId/smart-traffic", async (req, res): Promise<void> =>
   });
 });
 
-// Toggle smart traffic on/off for a test
-router.put("/lp/tests/:testId/smart-traffic", async (req, res): Promise<void> => {
-  const testId = parseInt(req.params.testId, 10);
+// Toggle smart traffic on/off for a test. Plan-gated (Growth+): the CONFIG
+// surface is what the pricing page sells; visitor-side assignment in
+// tracking.ts is never gated so already-enabled tests keep routing after a
+// downgrade.
+router.put("/lp/tests/:testId/smart-traffic", requirePlanFeature("smartTraffic"), async (req, res): Promise<void> => {
+  const testId = parseInt(String(req.params.testId), 10);
   if (isNaN(testId)) {
     res.status(400).json({ error: "Invalid test ID" });
     return;
@@ -70,9 +74,9 @@ router.put("/lp/tests/:testId/smart-traffic", async (req, res): Promise<void> =>
   });
 });
 
-// Reset smart traffic stats for a test
-router.post("/lp/tests/:testId/smart-traffic/reset", async (req, res): Promise<void> => {
-  const testId = parseInt(req.params.testId, 10);
+// Reset smart traffic stats for a test (plan-gated like the toggle above)
+router.post("/lp/tests/:testId/smart-traffic/reset", requirePlanFeature("smartTraffic"), async (req, res): Promise<void> => {
+  const testId = parseInt(String(req.params.testId), 10);
   if (isNaN(testId)) {
     res.status(400).json({ error: "Invalid test ID" });
     return;

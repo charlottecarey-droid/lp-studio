@@ -4,6 +4,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 import { db, pool } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { splitIssues, validateRawSchemaBlock } from "./custom-blocks-validator";
+import { requirePlanFeature } from "../../middleware/requirePlanFeature";
 
 const router = Router();
 
@@ -76,7 +77,10 @@ router.get("/lp/custom-blocks", async (req, res): Promise<void> => {
   }
 });
 
-router.post("/lp/custom-blocks", requireManageBlocks(), async (req, res): Promise<void> => {
+// Plan gate (Growth+) on AUTHORING only — reads stay open so the palette and
+// existing pages keep rendering after a downgrade, and DELETE stays open so
+// downgraded tenants can clean up. Same split as the pricing feature map.
+router.post("/lp/custom-blocks", requirePlanFeature("customBlocks"), requireManageBlocks(), async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { name, block_type, props, block_settings, segment } = req.body as {
     name?: string;
@@ -108,7 +112,7 @@ router.post("/lp/custom-blocks", requireManageBlocks(), async (req, res): Promis
   }
 });
 
-router.put("/lp/custom-blocks/:id", requireManageBlocks(), async (req, res): Promise<void> => {
+router.put("/lp/custom-blocks/:id", requirePlanFeature("customBlocks"), requireManageBlocks(), async (req, res): Promise<void> => {
   const tenantId = getTenantId(req, res); if (tenantId === null) return;
   const { id } = req.params;
   const { name, block_type, props, block_settings, segment } = req.body as {

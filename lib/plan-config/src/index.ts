@@ -76,6 +76,20 @@ export interface PlanLimits {
  *   customEmailDomain — Tier 3 email sending: the tenant's own fully custom
  *                  sending domain via the self-serve wizard (separate task);
  *                  also fails closed to the Tier 1 shared default sender.
+ *   smartTraffic — Smart Traffic routing config (enabling/resetting the
+ *                  Thompson-sampling allocator on an A/B test). Visitor-side
+ *                  ASSIGNMENT on already-configured tests is never gated —
+ *                  published pages keep working after a downgrade; the gate
+ *                  is on the tenant-facing config surface.
+ *   customBlocks — authoring custom blocks (create / edit / AI generate /
+ *                  compose). Reads and deletes stay open so existing pages
+ *                  keep rendering and tenants can clean up after downgrade.
+ *   programmaticPages — the whole programmatic-pages + DTR-rules surface.
+ *   multiWorkspace — creating ADDITIONAL workspaces from an existing one
+ *                  (multi-brand). Gates workspace CREATION only; switching
+ *                  between workspaces a user is already a member of is never
+ *                  gated (invited collaborators keep access regardless of
+ *                  either workspace's plan).
  *   limits       — numeric caps (see PlanLimits)
  */
 export interface PlanFeatures {
@@ -84,6 +98,10 @@ export interface PlanFeatures {
   customDomain: boolean;
   brandedEmailSubdomain: boolean;
   customEmailDomain: boolean;
+  smartTraffic: boolean;
+  customBlocks: boolean;
+  programmaticPages: boolean;
+  multiWorkspace: boolean;
   limits: PlanLimits;
 }
 
@@ -121,6 +139,10 @@ export const PLAN_CONFIG: Record<Plan, PlanConfigEntry> = {
       customDomain: false,
       brandedEmailSubdomain: false,
       customEmailDomain: false,
+      smartTraffic: false,
+      customBlocks: false,
+      programmaticPages: false,
+      multiWorkspace: false,
       limits: {
         pages: 1,
         forms: 1,
@@ -143,6 +165,10 @@ export const PLAN_CONFIG: Record<Plan, PlanConfigEntry> = {
       customDomain: true,
       brandedEmailSubdomain: false,
       customEmailDomain: false,
+      smartTraffic: false,
+      customBlocks: false,
+      programmaticPages: false,
+      multiWorkspace: false,
       limits: {
         pages: 10,
         forms: 5,
@@ -165,6 +191,10 @@ export const PLAN_CONFIG: Record<Plan, PlanConfigEntry> = {
       customDomain: true,
       brandedEmailSubdomain: true,
       customEmailDomain: false,
+      smartTraffic: true,
+      customBlocks: true,
+      programmaticPages: false,
+      multiWorkspace: false,
       limits: {
         pages: null,
         forms: null,
@@ -187,6 +217,10 @@ export const PLAN_CONFIG: Record<Plan, PlanConfigEntry> = {
       customDomain: true,
       brandedEmailSubdomain: true,
       customEmailDomain: false,
+      smartTraffic: true,
+      customBlocks: true,
+      programmaticPages: true,
+      multiWorkspace: true,
       limits: {
         pages: null,
         forms: null,
@@ -209,6 +243,10 @@ export const PLAN_CONFIG: Record<Plan, PlanConfigEntry> = {
       customDomain: true,
       brandedEmailSubdomain: true,
       customEmailDomain: true,
+      smartTraffic: true,
+      customBlocks: true,
+      programmaticPages: true,
+      multiWorkspace: true,
       limits: {
         pages: null,
         forms: null,
