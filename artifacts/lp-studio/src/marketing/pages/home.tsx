@@ -551,28 +551,30 @@ function WhatsInsideRowEl({
       <div className="mt-8 md:pl-5 flex items-center gap-6 flex-wrap">
         <a
           href={row.cta.href}
-          className="inline-flex items-center gap-2 text-[15px] font-semibold transition-all"
+          className="px-4 py-2 text-[13px] font-medium transition-all inline-flex items-center gap-1.5"
           style={{
-            color: "#fff",
-            background: `linear-gradient(135deg, ${WHATS_INSIDE_INDIGO} 0%, #6C68F0 100%)`,
-            border: "1px solid transparent",
-            borderRadius: 10,
-            padding: "12px 20px",
+            background: "var(--navy)",
+            color: "var(--cream)",
+            borderRadius: 8,
             textDecoration: "none",
-            letterSpacing: "-0.005em",
-            boxShadow: `0 8px 20px -8px color-mix(in srgb, ${WHATS_INSIDE_INDIGO} 65%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
+            boxShadow:
+              "0 1px 2px rgba(26, 24, 21, 0.10), 0 4px 12px -6px rgba(26, 24, 21, 0.25)",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "translateY(-2px)";
-            e.currentTarget.style.boxShadow = `0 12px 26px -8px color-mix(in srgb, ${WHATS_INSIDE_INDIGO} 75%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`;
+            e.currentTarget.style.background = "var(--navy-2)";
+            e.currentTarget.style.transform = "translateY(-1px)";
+            e.currentTarget.style.boxShadow =
+              "0 1px 2px rgba(26, 24, 21, 0.10), 0 8px 18px -6px rgba(26, 24, 21, 0.32)";
           }}
           onMouseLeave={(e) => {
+            e.currentTarget.style.background = "var(--navy)";
             e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = `0 8px 20px -8px color-mix(in srgb, ${WHATS_INSIDE_INDIGO} 65%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`;
+            e.currentTarget.style.boxShadow =
+              "0 1px 2px rgba(26, 24, 21, 0.10), 0 4px 12px -6px rgba(26, 24, 21, 0.25)";
           }}
         >
           {row.cta.label}
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M5 12h14M13 5l7 7-7 7" />
           </svg>
         </a>
