@@ -79,6 +79,11 @@ export interface ConversationMode {
   /** One-line statement of what a successful turn achieves (folded into the
    *  system prompt). */
   goal: string;
+  /** How the surface treats proposed actions, folded into the system prompt
+   *  when allowedActions is non-empty. Defaults to the builder-copilot
+   *  contract (user reviews + applies each card); modes whose actions execute
+   *  differently (e.g. lead capture submits on call) override this. */
+  actionInstruction?: string;
 }
 
 /** Hard, mode-independent strict-facts rule appended to every system prompt. */
@@ -130,11 +135,12 @@ export function buildSystemMessage(mode: ConversationMode, ctx: ConversationCont
   ].filter(Boolean);
   if (mode.allowedActions.length > 0) {
     parts.push(
-      "When you recommend a concrete edit to the page, PROPOSE it by calling the " +
-        "matching tool — do not describe the JSON in prose. The user reviews and " +
-        "applies each proposal; nothing you propose is applied automatically. " +
-        "You may propose multiple edits in one reply. Keep your prose brief and " +
-        "conversational; let the action cards carry the specifics.",
+      mode.actionInstruction ??
+        "When you recommend a concrete edit to the page, PROPOSE it by calling the " +
+          "matching tool — do not describe the JSON in prose. The user reviews and " +
+          "applies each proposal; nothing you propose is applied automatically. " +
+          "You may propose multiple edits in one reply. Keep your prose brief and " +
+          "conversational; let the action cards carry the specifics.",
     );
   }
   return parts.join("\n\n");

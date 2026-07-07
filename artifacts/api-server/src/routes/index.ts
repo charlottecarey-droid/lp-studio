@@ -41,6 +41,7 @@ export const LP_PUBLIC: { method: string; pattern: RegExp }[] = [
   { method: "GET",  pattern: /^\/lp\/brand$/ },           // GET /lp/brand — brand for the published page (tenant resolved from host)
   { method: "POST", pattern: /^\/lp\/media\/shared\/upload$/ }, // POST /lp/media/shared/upload — superadmin only (requireSuperadmin)
   { method: "POST", pattern: /^\/lp\/leads$/ },           // POST /lp/leads (form submissions)
+  { method: "POST", pattern: /^\/lp\/chat-capture$/ },    // POST /lp/chat-capture — published-page lead-capture bot (fail-closed: page must be published AND contain a chat-capture block; per-IP rate limit + turn caps in the route)
   { method: "POST", pattern: /^\/lp\/heatmap$/ },         // POST /lp/heatmap — anonymous visitor click/scroll ingest from published pages. Aggregate GET /lp/pages/:id/heatmap stays auth-gated.
   { method: "GET",  pattern: /^\/lp\/forms\/\d+$/ },      // GET /lp/forms/:id — public form config for landing page rendering (writes still require auth)
   { method: "*",    pattern: /^\/lp\/review\// },         // GET/PATCH /lp/review/:token

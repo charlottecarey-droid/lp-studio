@@ -38,6 +38,7 @@ import type {
   CustomSchemaBlockProps,
   SpacerBlockProps,
   FormBlockProps,
+  ChatCaptureBlockProps,
   ZigzagFeaturesBlockProps,
   ProductShowcaseBlockProps,
   FooterBlockProps,
@@ -288,6 +289,7 @@ export type BlockVariant =
   | { type: "parallax-image-hero"; props: ParallaxImageHeroBlockProps }
   | { type: "footer"; props: FooterBlockProps }
   | { type: "form"; props: FormBlockProps }
+  | { type: "chat-capture"; props: ChatCaptureBlockProps }
   | { type: "popup"; props: PopupBlockProps }
   | { type: "sticky-bar"; props: StickyBarBlockProps }
   | { type: "sticky-header"; props: StickyHeaderBlockProps }

@@ -5004,3 +5004,35 @@ export interface VideoBackgroundFinalCtaBlockProps extends CtaModalConfig {
   /** Percent of section height each edge fade covers (0–60). Default 25. */
   edgeFadeSize?: number;
 }
+
+/** Lead-capture chat bot block ("chat-capture"). Renders a floating chat
+ *  launcher on the PUBLISHED page (portaled to <body>, so block order doesn't
+ *  matter) and a static preview card in the builder canvas. The server reads
+ *  this block's props off the persisted page as the bot's trusted config —
+ *  see api-server routes/lp/chat-capture.ts. */
+export interface ChatCaptureBlockProps {
+  /** The name the bot introduces itself with (e.g. "Maya"). */
+  botName: string;
+  /** First message shown when the visitor opens the chat. */
+  welcomeMessage: string;
+  /** Label under the launcher bubble (empty = icon only). */
+  launcherLabel?: string;
+  /** Which contact fields the bot works toward collecting (email is always collected). */
+  collectName?: boolean;
+  collectCompany?: boolean;
+  collectPhone?: boolean;
+  /** Questions the bot weaves in to qualify the visitor (one per turn). */
+  qualifyingQuestions?: string[];
+  /** Optional global form id — captured leads submit with this formId so the
+   *  form's notification/integration routing applies. */
+  formId?: number;
+  /** Small-print consent line shown at the bottom of the chat panel. */
+  consentText?: string;
+  /** Auto-open the panel after this many seconds (0/unset = never). Fires at
+   *  most once per browser session. */
+  autoOpenDelaySeconds?: number;
+  /** Corner the launcher docks to. Default "bottom-right". */
+  position?: "bottom-right" | "bottom-left";
+  /** Launcher/bubble accent color. Defaults to the brand primary. */
+  accentColor?: string;
+}

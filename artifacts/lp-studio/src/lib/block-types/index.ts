@@ -65,6 +65,7 @@ export type {
   CustomHtmlBlockProps,
   SpacerBlockProps,
   FormBlockProps,
+  ChatCaptureBlockProps,
   ZigzagFeaturesBlockProps,
   ProductShowcaseBlockProps,
   FooterBlockProps,

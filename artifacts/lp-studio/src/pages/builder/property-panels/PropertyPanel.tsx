@@ -159,6 +159,7 @@ import { ParallaxImageHeroPanel } from "./ParallaxImageHeroPanel";
 import { FooterPanel } from "./FooterPanel";
 import { ModalFormSourcePanel } from "./ModalFormSourcePanel";
 import { FormPanel } from "./FormPanel";
+import { ChatCapturePanel } from "./ChatCapturePanel";
 import { PopupPanel } from "./PopupPanel";
 import { StickyBarPanel } from "./StickyBarPanel";
 import { SpacerPanel } from "./SpacerPanel";
@@ -1826,6 +1827,13 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
             onChange={props => onChange({ ...block, props })}
             pageId={pageId}
             bgOptions={bgOptions}
+          />
+        );
+      case "chat-capture":
+        return (
+          <ChatCapturePanel
+            props={block.props}
+            onChange={props => onChange({ ...block, props })}
           />
         );
       case "popup":

@@ -171,6 +171,7 @@ import type {
   AccountMicrositeBlockProps,
   OnboardingHubBlockProps,
   ValueRenewalReviewBlockProps,
+  ChatCaptureBlockProps,
 } from "./generic-blocks";
 // June-2026 modern block wave: the builder agents export curated default props
 // from the component files (the blocks are self-contained registration
@@ -300,6 +301,7 @@ export const CHROME_BLOCK_TYPES = new Set<BlockType>([
   "sticky-header",
   "sticky-bar",
   "popup",
+  "chat-capture",
   "footer",
   "dandy-site-header",
   "dandy-site-footer",
@@ -1374,6 +1376,38 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
         <rect x="10" y="28" width="100" height="7" rx="2" fill="white" stroke="#e2e8f0" strokeWidth="1" />
         <rect x="10" y="38" width="100" height="12" rx="2" fill="white" stroke="#e2e8f0" strokeWidth="1" />
         <rect x="10" y="54" width="36" height="10" rx="5" fill="#C7E738" />
+      </svg>
+    ),
+  },
+  {
+    type: "chat-capture",
+    label: "Lead Capture Chat",
+    category: "Lead Capture",
+    // No DEFAULT_BLOCK_TAGS entry exists for this type yet, so hard-code the
+    // lead-capture role from the controlled vocabulary ("form" covers
+    // form/lead-capture blocks).
+    tags: ["form"],
+    defaultProps: (): ChatCaptureBlockProps => ({
+      botName: "Assistant",
+      welcomeMessage: "Hi! 👋 Ask me anything about what you see on this page.",
+      launcherLabel: "",
+      collectName: true,
+      collectCompany: false,
+      collectPhone: false,
+      qualifyingQuestions: [],
+      consentText: "We'll only use your details to follow up about your inquiry.",
+      autoOpenDelaySeconds: 0,
+      position: "bottom-right",
+    }),
+    thumbnail: () => (
+      <svg viewBox="0 0 120 70" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        <rect width="120" height="70" fill="#f8fafc" rx="4" />
+        <rect x="40" y="6" width="72" height="42" rx="5" fill="white" stroke="#e2e8f0" strokeWidth="1" />
+        <rect x="46" y="13" width="38" height="6" rx="3" fill="#e2e8f0" />
+        <rect x="46" y="23" width="52" height="6" rx="3" fill="#e2e8f0" />
+        <rect x="64" y="33" width="42" height="6" rx="3" fill="#003A30" opacity="0.7" />
+        <circle cx="100" cy="56" r="9" fill="#C7E738" />
+        <path d="M95 52.5h10a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 1-1.5 1.5h-5.5l-3 2.5v-2.5H95a1.5 1.5 0 0 1-1.5-1.5v-4a1.5 1.5 0 0 1 1.5-1.5z" fill="#003A30" />
       </svg>
     ),
   },
@@ -9255,6 +9289,7 @@ export function createBlock(type: "ai-scan-hero"): Extract<PageBlock, { type: "a
 export function createBlock(type: "parallax-image-hero"): Extract<PageBlock, { type: "parallax-image-hero" }>;
 export function createBlock(type: "footer"): Extract<PageBlock, { type: "footer" }>;
 export function createBlock(type: "form"): Extract<PageBlock, { type: "form" }>;
+export function createBlock(type: "chat-capture"): Extract<PageBlock, { type: "chat-capture" }>;
 export function createBlock(type: "popup"): Extract<PageBlock, { type: "popup" }>;
 export function createBlock(type: "sticky-bar"): Extract<PageBlock, { type: "sticky-bar" }>;
 export function createBlock(type: "sticky-header"): Extract<PageBlock, { type: "sticky-header" }>;
@@ -9389,6 +9424,7 @@ export function createBlock(type: BlockType): PageBlock {
     case "parallax-image-hero": return { id, type: "parallax-image-hero", props: props as ParallaxImageHeroBlockProps };
     case "footer": return { id, type: "footer", props: props as FooterBlockProps };
     case "form": return { id, type: "form", props: props as FormBlockProps };
+    case "chat-capture": return { id, type: "chat-capture", props: props as ChatCaptureBlockProps };
     case "popup": return { id, type: "popup", props: props as PopupBlockProps };
     case "sticky-bar": return { id, type: "sticky-bar", props: props as StickyBarBlockProps };
     case "sticky-header": return { id, type: "sticky-header", props: props as StickyHeaderBlockProps };

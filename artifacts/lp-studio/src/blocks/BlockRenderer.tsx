@@ -111,6 +111,7 @@ import { BlockAiScanHero } from "./BlockAiScanHero";
 import { BlockParallaxImageHero } from "./BlockParallaxImageHero";
 import { BlockFooter } from "./BlockFooter";
 import { BlockForm } from "./BlockForm";
+import { BlockChatCapture } from "./BlockChatCapture";
 import { BlockPopup } from "./BlockPopup";
 import { BlockStickyBar } from "./BlockStickyBar";
 import { BlockStickyHeader } from "./BlockStickyHeader";
@@ -944,6 +945,8 @@ function BlockRendererInner({ block: rawBlock, brand, onCtaClick, onBlockChange:
         return <BlockFooter props={block.props} brand={brand} onFieldChange={onBlockChange ? (updated) => onBlockChange({ ...block, props: updated }) : undefined} />;
       case "form":
         return <BlockForm props={block.props} brand={brand} pageId={pageId} testId={testId} variantId={variantId} sessionId={sessionId} />;
+      case "chat-capture":
+        return <BlockChatCapture props={block.props} brand={brand} pageId={pageId} testId={testId} variantId={variantId} sessionId={sessionId} isBuilder={isBuilder} />;
       case "popup":
         return (
           <BlockPopup
