@@ -506,16 +506,11 @@ function WhatsInsideRowEl({
           {row.eyebrow}
         </span>
       </div>
+      {/* Same display treatment as the Analytics h2 (text-display-md) so
+          the row headlines carry the same weight as sibling sections. */}
       <h3
-        className="font-display md:pl-5"
-        style={{
-          color: "var(--ink)",
-          fontSize: "clamp(28px, 3.4vw, 42px)",
-          lineHeight: 1.06,
-          fontWeight: 500,
-          letterSpacing: "-0.024em",
-          margin: 0,
-        }}
+        className="font-display text-display-md md:pl-5"
+        style={{ color: "var(--ink)", margin: 0 }}
       >
         {row.title}
       </h3>
