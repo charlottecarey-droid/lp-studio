@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Star, ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import type { BrandConfig } from "@/lib/brand-config";
-import { pickContrastingColor, isValidHex } from "@/lib/brand-config";
+import { pickContrastingColor, isValidHex, DEFAULT_BRAND } from "@/lib/brand-config";
 import type { QuoteCarouselBlockProps } from "@/lib/block-types";
 import { InlineText } from "@/components/InlineText";
 import { InlineImage } from "@/components/InlineImage";
@@ -41,7 +41,7 @@ export function BlockQuoteCarousel({ props, brand, onFieldChange }: Props) {
   const bgSurface = resolveSectionSurface(props, "#FAFAFA");
   const text = props.textColor ?? bgSurface.color ?? "#0F172A";
   // Brand-derived accent: panel override → brand accent → brand primary.
-  const accent = props.accentColor ?? brand.accentColor ?? brand.primaryColor ?? "#0F172A";
+  const accent = props.accentColor || brand.accentColor || brand.primaryColor || DEFAULT_BRAND.accentColor;
   const muted = pickContrastingColor(undefined, bgSurface.base, ["#64748B", "#94A3B8"]);
   const border = `color-mix(in srgb, ${text} 12%, transparent)`;
   const onAccent = pickContrastingColor(undefined, accent, ["#FFFFFF", "#0f172a"]);

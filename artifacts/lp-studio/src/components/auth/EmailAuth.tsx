@@ -309,11 +309,11 @@ export function EmailAuthForms({ mode, allowSignup }: { mode: "signup" | "signin
       <form onSubmit={handleSubmit} className="space-y-3">
         {isSignup && method === "password" && (
           <div className="space-y-1.5">
-            <Label htmlFor="auth-name">Name</Label>
+            <Label htmlFor="auth-name">Company name</Label>
             <Input
               id="auth-name"
               type="text"
-              autoComplete="name"
+              autoComplete="organization"
               value={name}
               onChange={(e) => {
                 setName(e.target.value);

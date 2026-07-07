@@ -21,6 +21,7 @@ interface Props {
 }
 
 export function BlockDandySwitchback({ props, brand, onFieldChange }: Props) {
+  const isBuilder = !!onFieldChange;
   const [activeIdx, setActiveIdx] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -51,11 +52,11 @@ export function BlockDandySwitchback({ props, brand, onFieldChange }: Props) {
   return (
     <div
       ref={containerRef}
-      style={{ height: `${items.length * 100}vh` }}
+      style={isBuilder ? undefined : { height: `${items.length * 100}vh` }}
       className="relative"
     >
       {/* sticky panel */}
-      <div className="sticky top-0 h-screen flex items-center overflow-hidden bg-[#FDFCFA]">
+      <div className={cn("flex items-center overflow-hidden bg-[#FDFCFA]", isBuilder ? "py-16 md:py-24" : "sticky top-0 h-screen")}>
         <div className="w-full max-w-7xl mx-auto px-6 md:px-10">
 
           {/* section header (shows above columns always) */}

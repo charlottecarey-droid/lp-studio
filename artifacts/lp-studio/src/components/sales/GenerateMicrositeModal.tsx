@@ -660,8 +660,8 @@ export function GenerateMicrositeModal({
           </>
         ) : (
           <>
-        <DialogHeader className="flex-shrink-0 text-left">
-          <DialogTitle className="font-display text-2xl font-normal tracking-tight text-foreground">
+        <DialogHeader className="flex-shrink-0 text-center">
+          <DialogTitle className="font-display text-2xl font-semibold tracking-tight text-foreground text-center">
             Generate a microsite
           </DialogTitle>
         </DialogHeader>

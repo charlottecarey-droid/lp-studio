@@ -83,7 +83,7 @@ export default function PagesGallery() {
     return Number.isInteger(num) && num > 0 ? num : null;
   });
   const showCreateModal = createModalMode !== null;
-  const setShowCreateModal = (v: boolean) => setCreateModalMode(v ? "template" : null);
+  const setShowCreateModal = (v: boolean) => setCreateModalMode(v ? "ai" : null);
   const [sharePageId, setSharePageId] = useState<{ id: number; title: string } | null>(null);
   const [abTestPage, setAbTestPage] = useState<{ id: number; title: string; slug: string } | null>(null);
   // Task #1345 — "Rewrite copy with AI": the existing page chosen as the layout
