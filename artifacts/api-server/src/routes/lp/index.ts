@@ -61,6 +61,7 @@ import emailDomainRouter from "./email-domain";
 import brandedEmailSubdomainRouter from "./branded-email-subdomain";
 import factFlagsRouter from "./fact-flags";
 import copilotChatRouter from "./copilot-chat";
+import supportChatRouter from "./support-chat";
 import blogRouter from "./blog";
 import blogAiRouter from "./blog-ai";
 import blogProgramRouter from "./blog-program";
@@ -153,6 +154,7 @@ router.use(podcastAvailabilityRouter);
 router.use(contentSeriesRouter);
 router.use(factFlagsRouter);
 router.use(copilotChatRouter);
+router.use(supportChatRouter);
 router.use(testSentryErrorRouter);
 
 export default router;

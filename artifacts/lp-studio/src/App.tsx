@@ -101,6 +101,7 @@ function RouteErrorBoundaryWithReset({ children, locationKey }: { children: Reac
 const Analytics = lazy(() => import("@/pages/analytics"));
 const PageDetail = lazy(() => import("@/pages/page-detail"));
 const NotFound = lazy(() => import("@/pages/not-found"));
+const SupportChatWidget = lazy(() => import("@/components/support/SupportChatWidget"));
 const PartnerHome = lazy(() => import("@/pages/partner-home"));
 const PersonalizedLinkResolver = lazy(() => import("@/pages/personalized-link-resolver"));
 const ThankYou = lazy(() => import("@/pages/thank-you"));
@@ -657,6 +658,11 @@ function AppShell() {
         </RoleGuard>
       </ModeProvider>
       <DevToolsPanel />
+      {/* In-app support bot — floating help launcher on every authed page
+          (hides itself in the builder, which has its own Ask AI panel). */}
+      <Suspense fallback={null}>
+        <SupportChatWidget />
+      </Suspense>
       <PlanUpgradeToastListener />
       <Toaster />
     </AuthGate>
