@@ -2423,9 +2423,16 @@ async function runMigrationsBody(): Promise<void> {
     // seed now also UPSERTS tags onto already-inserted seed rows. Tenant
     // library rows that predate synchronous auto-tagging are handled by
     // scripts/retag-media-library.ts instead.
+    //
+    // v3 (July 2026): vertical rebalance — the pool was dental/medical-heavy,
+    // and the starter topicality rule now requires a content-tag match for a
+    // starter to fill at all, so ~50 rows were added covering SaaS/dev,
+    // ecommerce, fitness, agency, finance, real estate, education, and local
+    // services. Marker bump re-runs the (idempotent, per-row upsert) seed so
+    // the new rows insert on deploy; existing rows just no-op.
     await runStep("starter_images seed", async () => {
     try {
-      const STARTER_MARKER = "starter_images_seed_v2";
+      const STARTER_MARKER = "starter_images_seed_v3";
       const marker = await db.execute<{ exists: number }>(
         sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = ${STARTER_MARKER}`
       );

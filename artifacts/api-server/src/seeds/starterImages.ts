@@ -324,4 +324,74 @@ export const STARTER_IMAGE_SEEDS: StarterImageSeed[] = [
   { url: "https://images.unsplash.com/photo-1631815587646-b85a1bb027e1?q=80&w=900&h=700&fit=crop", title: "Starter 16318155", tags: ["starter","industry","skin treatment","dermatology","skincare","lp-feature"] },
   { url: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1200&q=80", title: "Starter 16774421", tags: ["starter","flagship","artificial intelligence","technology","neural network","lp-hero"] },
   { url: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1920&q=80", title: "Starter 16774421", tags: ["starter","flagship","artificial intelligence","technology","neural network","lp-hero"] },
+
+  // ── Vertical rebalance (July 2026, seed marker v3) ─────────────────────────
+  // The pool above skews heavily dental/medical (Dandy-era). Since the starter
+  // topicality rule now requires a content-tag ↔ page-copy match for a starter
+  // to fill AT ALL, coverage below decides whether a fresh tenant's first page
+  // gets an on-topic image or the block's no-image fallback. These cover the
+  // verticals new signups actually bring (SaaS/dev, ecommerce, fitness,
+  // agency, finance, real estate, education, local services). Content tags are
+  // deliberately single common words a real page's copy would contain —
+  // matching is verbatim (plural/separator-normalized). Every photo was
+  // visually verified before seeding.
+  // SaaS / software / developer tools
+  { url: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=1200&h=630&fit=crop", title: "Starter 15176947", tags: ["starter","generic","software","code","laptop","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=1600&h=900&fit=crop", title: "Starter 15176947", tags: ["starter","generic","software","code","laptop","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=900&fit=crop", title: "Starter 15176947", tags: ["starter","generic","software","code","laptop","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?q=80&w=900&fit=crop", title: "Starter 14617492", tags: ["starter","generic","code","programming","developer","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?q=80&w=900&h=700&fit=crop", title: "Starter 14617492", tags: ["starter","generic","code","programming","developer","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1551434678-e076c223a692?q=80&w=1200&h=630&fit=crop", title: "Starter 15514346", tags: ["starter","generic","developer","engineering","team","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1551434678-e076c223a692?q=80&w=1600&h=900&fit=crop", title: "Starter 15514346", tags: ["starter","generic","developer","engineering","team","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1551434678-e076c223a692?q=80&w=900&fit=crop", title: "Starter 15514346", tags: ["starter","generic","developer","engineering","team","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1200&h=630&fit=crop", title: "Starter 15220718", tags: ["starter","generic","startup","team","collaboration","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1600&h=900&fit=crop", title: "Starter 15220718", tags: ["starter","generic","startup","team","collaboration","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=900&fit=crop", title: "Starter 15220718", tags: ["starter","generic","startup","team","collaboration","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1200&h=630&fit=crop", title: "Starter 15512880", tags: ["starter","generic","dashboard","analytics","data","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=900&fit=crop", title: "Starter 15512880", tags: ["starter","generic","dashboard","analytics","data","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=900&h=700&fit=crop", title: "Starter 15512880", tags: ["starter","generic","dashboard","analytics","data","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1573164713988-8665fc963095?q=80&w=900&fit=crop", title: "Starter 15731647", tags: ["starter","generic","cloud","infrastructure","server","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=900&fit=crop", title: "Starter 14980501", tags: ["starter","generic","software","development","workspace","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?q=80&w=600&fit=crop", title: "Starter 15129419", tags: ["starter","generic","mobile","app","phone","product-detail"] },
+  { url: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?q=80&w=900&fit=crop", title: "Starter 15129419", tags: ["starter","generic","mobile","app","phone","lp-feature"] },
+  // Marketing / agency / consulting
+  { url: "https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=1200&h=630&fit=crop", title: "Starter 15526647", tags: ["starter","generic","marketing","strategy","workshop","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=900&fit=crop", title: "Starter 15526647", tags: ["starter","generic","marketing","strategy","workshop","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=1200&h=630&fit=crop", title: "Starter 15578045", tags: ["starter","generic","agency","consulting","meeting","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=1600&h=900&fit=crop", title: "Starter 15578045", tags: ["starter","generic","agency","consulting","meeting","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=900&fit=crop", title: "Starter 15578045", tags: ["starter","generic","agency","consulting","meeting","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=600&fit=crop", title: "Starter 15602500", tags: ["starter","generic","professional","portrait","headshot","lp-feature"] },
+  // Ecommerce / retail / product
+  { url: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=1200&h=630&fit=crop", title: "Starter 14419863", tags: ["starter","industry","retail","store","shopping","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=1600&h=900&fit=crop", title: "Starter 14419863", tags: ["starter","industry","retail","store","shopping","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=900&fit=crop", title: "Starter 14419863", tags: ["starter","industry","retail","store","shopping","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?q=80&w=900&fit=crop", title: "Starter 15567420", tags: ["starter","industry","checkout","payments","customer","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=600&fit=crop", title: "Starter 15057404", tags: ["starter","generic","product","headphones","audio","product-detail"] },
+  { url: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=600&fit=crop", title: "Starter 15232753", tags: ["starter","generic","product","watch","design","product-detail"] },
+  { url: "https://images.unsplash.com/photo-1553413077-190dd305871c?q=80&w=900&fit=crop", title: "Starter 15534130", tags: ["starter","industry","warehouse","logistics","inventory","lp-feature"] },
+  // Fitness / wellness
+  { url: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1200&h=630&fit=crop", title: "Starter 15344383", tags: ["starter","industry","fitness","gym","training","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1600&h=900&fit=crop", title: "Starter 15344383", tags: ["starter","industry","fitness","gym","training","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=900&fit=crop", title: "Starter 15344383", tags: ["starter","industry","fitness","gym","training","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=900&fit=crop", title: "Starter 15710196", tags: ["starter","industry","workout","exercise","wellness","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=900&h=700&fit=crop", title: "Starter 15710196", tags: ["starter","industry","workout","exercise","wellness","lp-feature"] },
+  // Finance / accounting / legal
+  { url: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?q=80&w=900&fit=crop", title: "Starter 15542241", tags: ["starter","industry","accounting","tax","finance","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?q=80&w=900&fit=crop", title: "Starter 15898295", tags: ["starter","industry","legal","law","attorney","lp-feature"] },
+  // Real estate
+  { url: "https://images.unsplash.com/photo-1570129477492-45c003edd2be?q=80&w=1200&h=630&fit=crop", title: "Starter 15701294", tags: ["starter","industry","real estate","home","property","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1570129477492-45c003edd2be?q=80&w=1600&h=900&fit=crop", title: "Starter 15701294", tags: ["starter","industry","real estate","home","property","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1570129477492-45c003edd2be?q=80&w=900&fit=crop", title: "Starter 15701294", tags: ["starter","industry","real estate","home","property","lp-feature"] },
+  // Education / courses
+  { url: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=1200&h=630&fit=crop", title: "Starter 15232407", tags: ["starter","industry","education","students","learning","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=900&fit=crop", title: "Starter 15232407", tags: ["starter","industry","education","students","learning","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1513258496099-48168024aec0?q=80&w=900&fit=crop", title: "Starter 15132584", tags: ["starter","industry","course","learning","online","lp-feature"] },
+  // Local services (cafe, construction, salon, pets)
+  { url: "https://images.unsplash.com/photo-1521017432531-fbd92d768814?q=80&w=1200&h=630&fit=crop", title: "Starter 15210174", tags: ["starter","industry","cafe","coffee","restaurant","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1521017432531-fbd92d768814?q=80&w=900&fit=crop", title: "Starter 15210174", tags: ["starter","industry","cafe","coffee","restaurant","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?q=80&w=1200&h=630&fit=crop", title: "Starter 15043076", tags: ["starter","industry","construction","contractor","building","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?q=80&w=900&fit=crop", title: "Starter 15043076", tags: ["starter","industry","construction","contractor","building","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=1200&h=630&fit=crop", title: "Starter 15600669", tags: ["starter","industry","salon","beauty","studio","lp-hero"] },
+  { url: "https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=900&fit=crop", title: "Starter 15600669", tags: ["starter","industry","salon","beauty","studio","lp-feature"] },
+  { url: "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?q=80&w=900&fit=crop", title: "Starter 15481999", tags: ["starter","industry","pets","dog","grooming","lp-feature"] },
 ];
