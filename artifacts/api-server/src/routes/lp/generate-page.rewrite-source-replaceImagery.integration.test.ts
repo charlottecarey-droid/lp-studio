@@ -250,6 +250,12 @@ function statBarItemImages(blocks: Array<{ type: string; props: Record<string, u
 
 beforeAll(() => {
   process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || "test-key-not-used";
+  // getOpenAIClient() throws (→ 503) unless both vars are present. The OpenAI
+  // ctor is mocked above, so the actual values are never used.
+  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL =
+    process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "http://test.invalid/v1";
+  process.env.AI_INTEGRATIONS_OPENAI_API_KEY =
+    process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "test-key-not-used";
 
   app = express();
   app.set("trust proxy", 1);
