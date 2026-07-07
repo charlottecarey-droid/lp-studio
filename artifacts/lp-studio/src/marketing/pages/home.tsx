@@ -7,7 +7,6 @@ import { BuildSection } from "../components/BuildSection";
 import UseCases from "../components/UseCases";
 import FeatureRow from "../components/FeatureRow";
 import CreatePageOverlay from "../components/CreatePageOverlay";
-import BuilderEmbed from "../components/BuilderEmbed";
 import TemplatesEmbed from "../components/TemplatesEmbed";
 import SalesConsoleEmbed from "../components/SalesConsoleEmbed";
 import IdentityWedge from "../components/IdentityWedge";
@@ -117,7 +116,6 @@ function resolveHomepageOg(raw: Partial<HomepageOgConfig> | null | undefined): H
 //                                 brand-locked blocks · success page)
 //   4   WhatsInside            — "What's inside" zigzag: Brand →
 //                                 For Marketing → For Sales → Compare
-//   5   FeatureRow / Builder   — BuilderEmbed (prompt → page → editor)
 //   6   FeatureRow / Generate  — CreatePageOverlay (Prompt → page demo)
 //   7   FeatureRow / Templates — TemplatesEmbed (live previews + clone)
 //   8   FeatureRow / Sales     — SalesConsoleEmbed (AI Briefing dropdown)
@@ -225,41 +223,6 @@ export default function Home() {
             shared spine. The Brand row used to be a heavy standalone
             FeatureRow lower on the page; it's now a compact mock here. */}
         <WhatsInside />
-
-        {/* 5 — Builder: BuilderEmbed (prompt → page → visual editor).
-            Brand & Content (the old #5 BrandSettingsEmbed FeatureRow) is
-            now the lead row inside <WhatsInside> above — a smaller,
-            denser brand-tokens mock that doesn't drag the flow. */}
-        <FeatureRow
-          id="builder"
-          num="05"
-          label="Build"
-          // The page hero (HeroScene) already says "Describe a page.
-          // Watch it build." — using the same line here was a duplicate.
-          // Reframe the Builder row around the visual-editor / inline-
-          // editing value it actually demonstrates.
-          title="Edit any block. Never write from scratch."
-          body={
-            <>
-              Edit any block inline, ask AI to sharpen a line, or refresh a whole
-              block from the rest of the page, a researched contact or account
-              brief, and your brand settings —{" "}
-              <strong style={{ color: "var(--ink)", fontWeight: 600 }}>
-                the copy suggests itself.
-              </strong>
-            </>
-          }
-          bullets={[
-            "Edit any block, no code",
-            "AI copy suggestions on any line",
-            "Refresh a block from the whole page",
-            "Contact-, account- & brand-aware",
-          ]}
-          url="app.lpstudio.ai/builder/northwind-summit"
-          bodyHeight={620}
-          variant="cream-2"
-          frame={<BuilderEmbed />}
-        />
 
         {/* 6 — Generate: the prompt → page entry point, lifted from
             /for-marketing #01. Sits AFTER the Builder so the editor
