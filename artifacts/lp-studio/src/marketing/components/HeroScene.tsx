@@ -60,7 +60,7 @@ export default function HeroScene() {
               background: "var(--ink-faint)",
             }}
           />
-          PROMPT TO PAGE PLATFORM
+          SKIP THE BRIEF. SHIP THE PAGE
           <span
             aria-hidden
             className="hidden sm:inline-block"
