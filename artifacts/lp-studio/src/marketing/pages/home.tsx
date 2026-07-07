@@ -551,25 +551,28 @@ function WhatsInsideRowEl({
       <div className="mt-8 md:pl-5 flex items-center gap-6 flex-wrap">
         <a
           href={row.cta.href}
-          className="inline-flex items-center gap-1.5 text-[14px] font-medium transition-all"
+          className="inline-flex items-center gap-2 text-[15px] font-semibold transition-all"
           style={{
-            color: WHATS_INSIDE_INDIGO,
-            background: "rgba(75,71,229,0.08)",
-            border: "1px solid rgba(75,71,229,0.22)",
-            borderRadius: 8,
-            padding: "9px 14px",
+            color: "#fff",
+            background: `linear-gradient(135deg, ${WHATS_INSIDE_INDIGO} 0%, #6C68F0 100%)`,
+            border: "1px solid transparent",
+            borderRadius: 10,
+            padding: "12px 20px",
             textDecoration: "none",
             letterSpacing: "-0.005em",
+            boxShadow: `0 8px 20px -8px color-mix(in srgb, ${WHATS_INSIDE_INDIGO} 65%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`,
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(75,71,229,0.14)";
+            e.currentTarget.style.transform = "translateY(-2px)";
+            e.currentTarget.style.boxShadow = `0 12px 26px -8px color-mix(in srgb, ${WHATS_INSIDE_INDIGO} 75%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`;
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = "rgba(75,71,229,0.08)";
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = `0 8px 20px -8px color-mix(in srgb, ${WHATS_INSIDE_INDIGO} 65%, transparent), inset 0 1px 0 rgba(255,255,255,0.25)`;
           }}
         >
           {row.cta.label}
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M5 12h14M13 5l7 7-7 7" />
           </svg>
         </a>
