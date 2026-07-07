@@ -5,10 +5,6 @@ import HeroScene from "../components/HeroScene";
 import PromptCard from "../components/PromptCard";
 import { BuildSection } from "../components/BuildSection";
 import UseCases from "../components/UseCases";
-import FeatureRow from "../components/FeatureRow";
-import CreatePageOverlay from "../components/CreatePageOverlay";
-import TemplatesEmbed from "../components/TemplatesEmbed";
-import SalesConsoleEmbed from "../components/SalesConsoleEmbed";
 import IdentityWedge from "../components/IdentityWedge";
 import AnalyticsScene from "../components/AnalyticsScene";
 import Integrations from "../components/Integrations";
@@ -116,9 +112,6 @@ function resolveHomepageOg(raw: Partial<HomepageOgConfig> | null | undefined): H
 //                                 brand-locked blocks · success page)
 //   4   WhatsInside            — "What's inside" zigzag: Brand →
 //                                 For Marketing → For Sales → Compare
-//   6   FeatureRow / Generate  — CreatePageOverlay (Prompt → page demo)
-//   7   FeatureRow / Templates — TemplatesEmbed (live previews + clone)
-//   8   FeatureRow / Sales     — SalesConsoleEmbed (AI Briefing dropdown)
 //   9   IdentityWedge          — Analytics page mock; the deterministic-identity wedge
 //  10   AnalyticsScene         — Page Detail / Conversion Score + visit timeline
 //  11   Integrations           — Marketo / SF / HubSpot / Apollo / RB2B / etc.
@@ -132,10 +125,10 @@ function resolveHomepageOg(raw: Partial<HomepageOgConfig> | null | undefined): H
 // persona story, not a generic homepage story. IdentityWedge + Analytics
 // now carry the "reveal → optimize" arc by themselves on the homepage.
 //
-// The same FeatureRow embeds also live on /features (the depth page) — by
-// design. Visitors who scroll the homepage end-to-end see every surface;
-// visitors who click Features in the nav land on a tighter capability-
-// focused index of the same content.
+// The Generate / Templates / Sales Console FeatureRows that used to sit
+// between WhatsInside (#4) and IdentityWedge (#9) were removed to shorten
+// the homepage — WhatsInside already routes to those stories and the same
+// embeds still live on /features (the depth page) and the persona routes.
 
 export default function Home() {
   // Marketing homepage share card (Open Graph). The values are superadmin-
@@ -223,87 +216,6 @@ export default function Home() {
             shared spine. The Brand row used to be a heavy standalone
             FeatureRow lower on the page; it's now a compact mock here. */}
         <WhatsInside />
-
-        {/* 6 — Generate: the prompt → page entry point, lifted from
-            /for-marketing #01. Sits AFTER the Builder so the editor
-            grounds the surface first, then this row shows how a brief
-            kicks the whole thing off without staring at a blank canvas. */}
-        <FeatureRow
-          id="generate"
-          num="06"
-          label="Generate"
-          title="Prompt → page in under a minute."
-          body={
-            <>
-              Type a brief, paste a URL, or drop a screenshot. AI drafts an
-              on-brand page that obeys your fonts, colors, voice, and the
-              approved facts library — so generated copy stays{" "}
-              <strong style={{ color: "var(--ink)", fontWeight: 600 }}>
-                honest and on-message
-              </strong>{" "}
-              the first time.
-            </>
-          }
-          bullets={[
-            "Prompt, URL, or screenshot → page",
-            "Brand-locked blocks (colors, type, voice)",
-            "Strict AI facts mode",
-            "Inline copy editing after generation",
-          ]}
-          url="app.lpstudio.ai/pages?new=ai"
-          bodyHeight={720}
-          frame={<CreatePageOverlay />}
-        />
-
-        {/* 7 — Templates: live previews in modal */}
-        <FeatureRow
-          id="templates"
-          num="07"
-          label="Start"
-          title="Never start from a blank page."
-          body={
-            <>
-              Browse on-brand templates as live previews — by type and industry
-              — then clone one into the builder and make it yours.
-            </>
-          }
-          bullets={[
-            "100+ templates",
-            "Filter by industry & motion",
-            "Live preview thumbnails",
-            "Inherit your brand on clone",
-          ]}
-          url="app.lpstudio.ai/templates"
-          bodyHeight={620}
-          frame={<TemplatesEmbed />}
-        />
-
-        {/* 8 — Sales Console: AI Briefing default-open */}
-        <FeatureRow
-          id="sales-console"
-          num="08"
-          label="Sales Console"
-          title="An ABM command center for reps."
-          body={
-            <>
-              Hot accounts, live visitor signals, per-account microsites, and
-              AI-drafted outreach —{" "}
-              <strong style={{ color: "var(--ink)", fontWeight: 600 }}>
-                your whole book of business in one place.
-              </strong>
-            </>
-          }
-          bullets={[
-            "Hot accounts surface themselves",
-            "AI brief in one click",
-            "Per-contact engagement",
-            "Native draft email + microsite",
-          ]}
-          url="app.lpstudio.ai/sales"
-          bodyHeight={640}
-          variant="cream-2"
-          frame={<SalesConsoleEmbed />}
-        />
 
         {/* 9 — Identity wedge: the "know exactly who's on the page,
             not just which account" differentiator vs Mutiny. */}
