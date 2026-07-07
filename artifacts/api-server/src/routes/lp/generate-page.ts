@@ -1493,11 +1493,6 @@ function foldPlural(w: string): string {
 // (offices, teams, abstract) and generic copy are never penalized.
 const CROSS_VERTICAL_PENALTY = 8;
 
-/** Minimum number of NON-starter images in the fill pool before the relaxed
- *  hero/product floor stops accepting a generic starter on purpose-match
- *  alone (see findBestImage). Below this, the tenant is treated as tiny/new
- *  and keeps the starter fallback. */
-const STARTER_FLOOR_MIN_LIBRARY = 10;
 const VERTICAL_TAG_GROUPS: Record<string, readonly string[]> = {
   medical: [
     "medical", "scrubs", "clinic", "clinical", "healthcare", "doctor", "nurse",
@@ -1891,16 +1886,17 @@ function findBestImage(
   // logo protections are unchanged.)
   const heroSlot = preferredPurpose === "lp-hero";
 
-  // STARTER topicality rule (June 2026): for generic starter seeds, a purpose
-  // match ALONE must not clear the high-visibility floor. Starters are
-  // purpose-tagged en masse at seed time, so "lp-hero" says nothing about the
-  // subject — that's how a medical-scrubs starter became the hero of a fashion
-  // page. When the tenant has a real library (>= STARTER_FLOOR_MIN_LIBRARY
-  // non-starter images), a starter additionally needs SOME topical overlap
-  // with the section/page context (contentScore > 0) to clear the floor.
-  // Tiny/new tenants (small libraries) keep the old purpose-only starter
-  // fallback so their pages don't go bare.
-  const nonStarterPoolSize = images.reduce((n, i) => n + (isStarterImage(i) ? 0 : 1), 0);
+  // STARTER topicality rule (June 2026, hardened July 2026): a generic starter
+  // seed must carry SOME topical overlap with the section/page context to fill
+  // ANY slot. Starters are purpose-tagged en masse at seed time, so "lp-hero"/
+  // "lp-feature" says nothing about the subject — that's how a medical-scrubs
+  // starter became the hero (and dental starters the feature rows) of every
+  // fresh tenant's first page. The rule originally exempted tiny/new libraries
+  // (< 10 real images) "so their pages don't go bare" and only floored the
+  // hero/product slots — but a brand-new tenant is exactly who generates
+  // BEFORE importing any imagery, and an off-topic starter parade reads worse
+  // than the blocks' designed no-image fallbacks. Empty beats wrong, for every
+  // tenant and every slot; on-topic starters remain the tiered last resort.
 
   // Per-candidate acceptability gate. We pick the highest-scoring unused image
   // that PASSES its gate (not the global best then gate it once) — so when the
@@ -2028,18 +2024,11 @@ function findBestImage(
       if (score > bestFloorRejectedScore) bestFloorRejectedScore = score;
       continue;
     }
-    // Starter topicality rule (see nonStarterPoolSize above): a generic
-    // starter seed may NOT clear the hero/product floor on its purpose tag
-    // alone when the tenant has a real library — it must carry at least some
-    // topical overlap with the section/page context. The scrubs-as-fashion-hero
-    // guard: a real brand never sees an off-topic generic starter in a
-    // high-visibility slot; tiny/new tenants keep the starter fallback.
-    if (
-      requirePurposeFloor &&
-      starter &&
-      sectionScore + pageScore <= 0 &&
-      nonStarterPoolSize >= STARTER_FLOOR_MIN_LIBRARY
-    ) {
+    // Starter topicality rule (see the block comment above): an off-topic
+    // starter never fills — not heroes, not features, regardless of how small
+    // the tenant's library is. On-topic starters (some section/page content
+    // overlap) still serve as the tiered last resort.
+    if (starter && sectionScore + pageScore <= 0) {
       if (score > bestFloorRejectedScore) bestFloorRejectedScore = score;
       continue;
     }

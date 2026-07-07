@@ -107,11 +107,10 @@ describe("validateAndDedupeAIImages", () => {
   });
 
   it("end-to-end: a cleared OFF-TOPIC starter hero is never re-placed by the fill when the tenant has a real library (issue #1443)", () => {
-    // Real (non-starter) library >= STARTER_FLOOR_MIN_LIBRARY so the fill's
-    // starter topicality floor is active; the only starter is off-topic for
-    // this page, so it must never come back — the hero either stays on its
-    // designed empty/fallback state or takes a REAL tenant photo, both of
-    // which beat the medical-scrubs starter on a fashion page.
+    // The only starter is off-topic for this page, so it must never come
+    // back — the hero either stays on its designed empty/fallback state or
+    // takes a REAL tenant photo, both of which beat the medical-scrubs
+    // starter on a fashion page.
     const realFeatures: MediaImage[] = Array.from({ length: 12 }, (_, i) => ({
       url: `/objects/real-feature-${i}`,
       title: `Fashion lookbook photo ${i}`,
@@ -863,7 +862,9 @@ describe("buildReferenceFillPool — reference-image fidelity", () => {
   // pass; before the fix a score-0 starter filled the slot first (strict hero
   // branch / relaxed pre-AI pass), so tenants saw "random starter images instead
   // of their own / scraped images". These lock in: starters never fill in the
-  // strict pass, never beat a genuine asset, but still fill as a true last resort.
+  // strict pass and never beat a genuine asset; since July 2026 a zero-topical
+  // starter doesn't fill ANY slot (only starters with topical overlap remain
+  // the last resort — see the starter-topicality describe block).
   const starter: MediaImage = { url: "/objects/starter-1", title: "Starter 14142350", tags: ["starter", "generic"] };
 
   it("STRICT pass: a starter never fills a hero slot; relaxed pass holds the relevance floor (empty beats wrong)", () => {
@@ -877,11 +878,12 @@ describe("buildReferenceFillPool — reference-image fidelity", () => {
     // fallback state instead of shipping a wrong image.
     const relaxed = fillEmptyImages(structuredClone(blocks), [starter], "saas pipeline", true) as any[];
     expect(relaxed[0].props.imageUrl).toBe("");
-    // Minor (lp-feature) slots keep the old last-resort behavior: the starter
-    // still fills there.
+    // Minor (lp-feature) slots too (July 2026): an off-topic starter never
+    // fills any slot — the feature stays on its no-image fallback rather than
+    // shipping a random starter photo.
     const featureBlocks: any[] = [{ type: "feature", props: { headline: "Anything", imageUrl: "" } }];
     const relaxedFeature = fillEmptyImages(featureBlocks, [starter], "saas pipeline", true) as any[];
-    expect(relaxedFeature[0].props.imageUrl).toBe("/objects/starter-1");
+    expect(relaxedFeature[0].props.imageUrl).toBe("");
   });
 
   it("RELAXED pass: a score-0 scraped reference image beats a score-0 starter regardless of pool order", () => {
@@ -2232,11 +2234,13 @@ describe("isExcludedFromGenerationPool — smart og/promo exclusion", () => {
 
 // ── Starter topicality floor + cross-vertical penalty (scrubs-on-fashion) ───
 // A starter seed's purpose tag says nothing about its SUBJECT (starters are
-// purpose-tagged en masse at seed time), so purpose-match alone must not put a
-// medical-scrubs starter into the hero of a FASHION page when the tenant has a
-// real library. Tiny/new tenants keep the starter fallback. Separately, the
-// cross-vertical penalty drops clearly wrong-vertical candidates below the
-// non-negative floor in every pass.
+// purpose-tagged en masse at seed time), so purpose-match alone must never
+// place a starter — in ANY slot, for ANY library size (July 2026: the old
+// tiny-tenant purpose-only escape put a medical starter in the hero and dental
+// starters in the feature rows of every fresh tenant's first page). Off-topic
+// starters leave the slot on its designed no-image fallback; on-topic starters
+// remain the last resort. Separately, the cross-vertical penalty drops clearly
+// wrong-vertical candidates below the non-negative floor in every pass.
 describe("starter topicality floor + cross-vertical penalty", () => {
   const scrubsStarter: MediaImage = {
     url: "/objects/starter-scrubs",
@@ -2264,11 +2268,31 @@ describe("starter topicality floor + cross-vertical penalty", () => {
     expect(filled[0].props.imageUrl).toBe("/objects/starter-scrubs");
   });
 
-  it("small-library tenants keep the starter fallback (purpose-only floor escape)", () => {
-    // Library below the STARTER_FLOOR_MIN_LIBRARY threshold and a context with
-    // NO conflicting vertical vocabulary → the old purpose-match behavior holds.
+  it("small-library tenants get NO off-topic starter either — the hero stays on its fallback (July 2026)", () => {
+    // A starter-only library and a context sharing NO vocabulary with the
+    // starter's tags: the old purpose-only escape put the scrubs starter in
+    // this hero; now the slot stays empty for the block's designed fallback.
     const blocks: any[] = [{ type: "hero", props: { headline: "Grand opening", imageUrl: "" } }];
     const filled = fillEmptyImages(blocks, [scrubsStarter], "grand opening landing page", true) as any[];
+    expect(filled[0].props.imageUrl).toBe("");
+  });
+
+  it("an off-topic starter never fills a FEATURE slot either, regardless of library size", () => {
+    const dentalFeatureStarter: MediaImage = {
+      url: "/objects/starter-dental-feature",
+      title: "Starter 556",
+      tags: ["starter", "industry", "dental team", "clinic", "staff", "lp-feature"],
+    };
+    const blocks: any[] = [
+      { type: "zigzag-features", props: { rows: [{ headline: "Ship faster with CI previews", imageUrl: "" }] } },
+    ];
+    const filled = fillEmptyImages(blocks, [dentalFeatureStarter], "developer platform deployment tools", true) as any[];
+    expect(filled[0].props.rows[0].imageUrl).toBe("");
+  });
+
+  it("an ON-topic starter still rescues a tiny library (pages don't go bare when the starter fits)", () => {
+    const blocks: any[] = [{ type: "hero", props: { headline: "Modern clinic staffing", imageUrl: "" } }];
+    const filled = fillEmptyImages(blocks, [scrubsStarter], HEALTH_CTX, true) as any[];
     expect(filled[0].props.imageUrl).toBe("/objects/starter-scrubs");
   });
 
