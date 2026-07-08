@@ -14,7 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { toastUndoableDelete } from "@/lib/undo-delete";
 import { leadName, leadEmail } from "@workspace/lead-utils";
 import { useAuth } from "@/context/AuthContext";
-import { ArrowLeft, Download, Users, RefreshCw, Trash2, Search, FlaskConical } from "lucide-react";
+import { ArrowLeft, Download, Users, RefreshCw, Trash2, Search, FlaskConical, MessageSquareText } from "lucide-react";
+import { ChatTranscriptDialog, leadChatConversationId } from "@/components/ChatTranscriptDialog";
 
 const API_BASE = "/api";
 const LIMIT = 50;
@@ -137,6 +138,7 @@ function MasterLeadsView({ onBack, onChanged, initialPageId }: MasterLeadsViewPr
   const [showTest, setShowTest] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [transcriptId, setTranscriptId] = useState<number | null>(null);
   const [confirmTestOpen, setConfirmTestOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -305,6 +307,15 @@ function MasterLeadsView({ onBack, onChanged, initialPageId }: MasterLeadsViewPr
                       <span className="inline-flex items-center gap-2">
                         {name}
                         {lead.isTest && <Badge variant="outline" className="text-[10px] py-0 px-1.5 text-amber-600 border-amber-300">test</Badge>}
+                        {leadChatConversationId(lead.fields) != null && (
+                          <button
+                            onClick={() => setTranscriptId(leadChatConversationId(lead.fields))}
+                            className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline shrink-0"
+                            title="View chat transcript"
+                          >
+                            <MessageSquareText className="w-3.5 h-3.5" aria-hidden /> Chat
+                          </button>
+                        )}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 max-w-xs truncate text-muted-foreground">{email}</td>
@@ -331,6 +342,8 @@ function MasterLeadsView({ onBack, onChanged, initialPageId }: MasterLeadsViewPr
         onPage={setCurrentPage}
         label="leads"
       />
+
+      <ChatTranscriptDialog conversationId={transcriptId} onClose={() => setTranscriptId(null)} />
 
       <ConfirmDialog
         open={confirmOpen}
@@ -374,6 +387,7 @@ function PageLeadsView({ page, onBack, onChanged }: PageLeadsViewProps) {
   const [showTest, setShowTest] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [transcriptId, setTranscriptId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const load = () => {
@@ -529,6 +543,15 @@ function PageLeadsView({ page, onBack, onChanged }: PageLeadsViewProps) {
                     <span className="inline-flex items-center gap-2">
                       {new Date(lead.createdAt).toLocaleString()}
                       {lead.isTest && <Badge variant="outline" className="text-[10px] py-0 px-1.5 text-amber-600 border-amber-300">test</Badge>}
+                      {leadChatConversationId(lead.fields) != null && (
+                        <button
+                          onClick={() => setTranscriptId(leadChatConversationId(lead.fields))}
+                          className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline shrink-0"
+                          title="View chat transcript"
+                        >
+                          <MessageSquareText className="w-3.5 h-3.5" aria-hidden /> Chat
+                        </button>
+                      )}
                     </span>
                   </td>
                   {allFieldKeys.map(k => (
@@ -555,6 +578,8 @@ function PageLeadsView({ page, onBack, onChanged }: PageLeadsViewProps) {
         onPage={setCurrentPage}
         label="leads"
       />
+
+      <ChatTranscriptDialog conversationId={transcriptId} onClose={() => setTranscriptId(null)} />
 
       <ConfirmDialog
         open={confirmOpen}

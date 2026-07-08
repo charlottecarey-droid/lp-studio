@@ -63,6 +63,7 @@ import factFlagsRouter from "./fact-flags";
 import copilotChatRouter from "./copilot-chat";
 import supportChatRouter from "./support-chat";
 import chatCaptureRouter from "./chat-capture";
+import chatTranscriptsRouter from "./chat-transcripts";
 import blogRouter from "./blog";
 import blogAiRouter from "./blog-ai";
 import blogProgramRouter from "./blog-program";
@@ -157,6 +158,7 @@ router.use(factFlagsRouter);
 router.use(copilotChatRouter);
 router.use(supportChatRouter);
 router.use(chatCaptureRouter);
+router.use(chatTranscriptsRouter);
 router.use(testSentryErrorRouter);
 
 export default router;

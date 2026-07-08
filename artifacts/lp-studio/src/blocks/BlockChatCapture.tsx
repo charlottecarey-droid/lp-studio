@@ -232,6 +232,11 @@ function ChatCaptureLauncher({
       if (phone && !hasKeyLike(/phone|mobile/i)) fields["Phone"] = phone;
       if (notes) fields["Chat Summary"] = notes;
       fields["Source"] = "Page chat";
+      // Hidden linkage (underscore keys are excluded from lead-table columns
+      // and merge vars): lets the Leads UI open the full transcript via
+      // GET /lp/chat-transcripts/:id. Unset only if capture fires on the very
+      // first turn, before the first `done` frame delivered the id.
+      if (conversationId != null) fields["_chatConversationId"] = String(conversationId);
 
       // UTM params from the page URL, same keys BlockForm forwards; the server
       // additionally falls back to session/visit attribution.
@@ -285,7 +290,7 @@ function ChatCaptureLauncher({
         setCapture("failed");
       }
     },
-    [pageId, testId, variantId, sessionId, blockProps.formId],
+    [pageId, testId, variantId, sessionId, blockProps.formId, conversationId],
   );
 
   const send = useCallback(async () => {
