@@ -1781,12 +1781,11 @@ export default function SalesOutreach() {
         {/* Page Hint */}
         <PageHint
           id="sales-outreach"
-          title="Track All Outreach Activity"
-          description="See every email sent, opened, and clicked across all your campaigns. This is your single source of truth for what's been sent and how prospects are responding."
+          title="Outreach Activity"
+          description="Every campaign email — sent, opened, clicked — in one place."
           tips={[
-            "Green badges mean the email was opened — these contacts are warm",
-            "Click a campaign to see detailed per-recipient engagement",
-            "Use Personalized Pages to send a microsite to multiple accounts at once",
+            "Green badges mean opened — those contacts are warm.",
+            "Click a campaign for per-recipient engagement.",
           ]}
           color="rose"
           icon={<BarChart3 className="w-5 h-5" />}

@@ -880,12 +880,11 @@ export default function SalesPages() {
         {/* PageHint banner */}
         <PageHint
           id="sales-microsites"
-          title="Personalized Pages for Every Account"
-          description="Microsites are AI-generated landing pages tailored to each account. Each contact gets a unique tracked link so you can see exactly who visited and what they looked at."
+          title="Personalized Microsites"
+          description="AI-generated pages per account; each contact gets a tracked link so you know exactly who visited."
           tips={[
-            "Go to an account and tap 'Generate Microsite' to create a new page",
-            "Use 'Generate hotlinks' to create unique tracked URLs for each contact",
-            "'Clone for account' copies a general page and links it to a specific account"
+            "Generate from an account, or 'Clone for account' to copy a general page.",
+            "'Generate hotlinks' creates the tracked per-contact URLs.",
           ]}
           color="blue"
           icon={Globe}

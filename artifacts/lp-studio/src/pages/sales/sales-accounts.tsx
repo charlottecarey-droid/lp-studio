@@ -696,12 +696,11 @@ function AccountListView() {
         {/* PageHint Banner */}
         <PageHint
           id="sales-accounts"
-          title="Manage Your Target Accounts"
-          description="Each account represents a company you're selling to. Add contacts, generate personalized microsites, and track engagement — all from the account detail page."
+          title="Your Target Accounts"
+          description="Every company you're selling to — contacts, microsites, and engagement in one place."
           tips={[
-            "Click an account to see contacts, engagement signals, and microsites",
-            "Use 'Generate Microsite' on an account to create an AI-personalized landing page",
-            "The engagement score updates automatically as contacts interact with your content"
+            "Click an account for its contacts, signals, and microsites.",
+            "'Generate Microsite' builds an AI-personalized page for that account.",
           ]}
           color="emerald"
           icon={Target}

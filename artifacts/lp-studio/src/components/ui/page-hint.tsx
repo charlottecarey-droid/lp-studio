@@ -1,5 +1,10 @@
-import { useState, isValidElement, type ReactNode } from "react";
+import { useEffect, useState, isValidElement, type ReactNode } from "react";
 import { X, Lightbulb, type LucideIcon } from "lucide-react";
+
+/** Hints self-retire this many days after they were FIRST shown, even without
+ *  a manual dismiss — they're onboarding aids, not permanent chrome. The
+ *  first-seen timestamp is stamped per hint id in localStorage. */
+const HINT_EXPIRY_DAYS = 7;
 
 const HINT_COLORS = {
   blue:   { bg: "bg-blue-50 dark:bg-blue-950/30", border: "border-blue-200 dark:border-blue-800/40", icon: "text-blue-500", text: "text-blue-900 dark:text-blue-100", muted: "text-blue-700/70 dark:text-blue-300/70", dismiss: "text-blue-400 hover:text-blue-600 dark:hover:text-blue-200" },
@@ -28,9 +33,23 @@ interface PageHintProps {
 
 export function PageHint({ id, title, description, tips, color = "blue", icon = Lightbulb }: PageHintProps) {
   const storageKey = `hint-dismissed-${id}`;
+  const seenKey = `hint-first-seen-${id}`;
   const [dismissed, setDismissed] = useState(() => {
-    try { return localStorage.getItem(storageKey) === "1"; } catch { return false; }
+    try {
+      if (localStorage.getItem(storageKey) === "1") return true;
+      const firstSeen = Number(localStorage.getItem(seenKey));
+      return firstSeen > 0 && Date.now() - firstSeen > HINT_EXPIRY_DAYS * 86_400_000;
+    } catch { return false; }
   });
+
+  // Stamp first-seen on the first visible render so the expiry clock starts
+  // (an effect, not the state initializer — no side effects during render).
+  useEffect(() => {
+    if (dismissed) return;
+    try {
+      if (!localStorage.getItem(seenKey)) localStorage.setItem(seenKey, String(Date.now()));
+    } catch { /* noop */ }
+  }, [dismissed, seenKey]);
 
   if (dismissed) return null;
 

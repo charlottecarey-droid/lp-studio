@@ -460,12 +460,10 @@ export default function SalesDashboard() {
         <PageHint
           id="sales-dashboard"
           title="Your Sales Command Center"
-          description="This dashboard tracks real-time engagement across all your accounts. Metrics update as contacts open emails, visit microsites, and interact with your content."
+          description="Live engagement across all your accounts — opens, visits, and clicks as they happen."
           tips={[
-            <><strong>Filter by owner, ABM tier, stage, or segment</strong> — then save the view to return to that filtered view instantly on any page.</>,
-            "Hot Accounts show which prospects are actively engaging right now",
-            "The Signals feed shows every email open, page visit, and link click as it happens",
-            "Click any account to see their full engagement timeline"
+            <><strong>Filter</strong> by owner, tier, stage, or segment, then save the view to come back to it instantly.</>,
+            "Click any account for its full engagement timeline.",
           ]}
           color="violet"
           icon={<Zap className="w-4 h-4" />}

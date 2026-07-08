@@ -292,12 +292,10 @@ export default function SalesSignals() {
         {/* Page Hint */}
         <PageHint
           id="sales-signals"
-          title="Real-Time Engagement Signals"
-          description="Every time a contact opens an email, visits a microsite, or clicks a personalized link, it appears here. Use these signals to time your follow-ups when prospects are actively engaged."
+          title="Live Engagement Feed"
+          description="Email opens, page visits, and link clicks as they happen — follow up while prospects are engaged."
           tips={[
-            "Filter by signal type to focus on what matters — page visits show the strongest intent",
-            "Switch to 'By Account' view to see engagement grouped by company",
-            "Click any signal to jump to that account's full profile",
+            "Page visits show the strongest intent; filter by type or group by account.",
           ]}
           color="amber"
           icon={<TrendingUp className="w-5 h-5" />}
