@@ -664,6 +664,14 @@ export function GenerateMicrositeModal({
           <DialogTitle className="font-display text-2xl font-semibold tracking-tight text-foreground text-center">
             Generate a microsite
           </DialogTitle>
+          {/* Caller fixed the account (no picker rendered below) — say which
+              one, so the rep can see they're generating for the right company. */}
+          {accountProvided && accountName && (
+            <p className="text-sm text-muted-foreground text-center">
+              for <span className="font-medium text-foreground">{accountName}</span>
+              {contactName ? <> · personalised for <span className="font-medium text-foreground">{contactName}</span></> : null}
+            </p>
+          )}
         </DialogHeader>
 
         {step === "done" ? (
@@ -802,7 +810,7 @@ export function GenerateMicrositeModal({
                     aria-label="Use case template"
                     className="w-full appearance-none bg-transparent border-b border-input py-2 pr-6 text-[15px] focus:outline-none focus:border-foreground transition-colors disabled:opacity-50"
                   >
-                    <option value="">No use case</option>
+                    <option value="">Build from scratch (No template)</option>
                     {marketingTemplates.map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.templateLabel ?? t.title}
