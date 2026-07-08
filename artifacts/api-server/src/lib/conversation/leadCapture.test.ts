@@ -87,6 +87,20 @@ describe("buildLeadCapturePersona", () => {
     expect(persona).toContain("the assistant");
     expect(persona).toContain("email address");
   });
+
+  it("encodes the qualification playbook: always advance, qualify before contact, one reframed retry", () => {
+    const persona = buildLeadCapturePersona({}, "Acme");
+    // Every turn must end with a forward-moving question — no dead-ends.
+    expect(persona).toContain("exactly one question");
+    expect(persona.toLowerCase()).toContain("never re-ask");
+    // Qualifying questions come before the contact ask.
+    expect(persona).toContain("Qualify BEFORE asking for contact details");
+    // Graceful persistence: one differently-framed retry, then stop.
+    expect(persona).toContain("ONE more differently-framed offer");
+    expect(persona.toLowerCase()).toContain("decline twice, stop asking");
+    // Capture doesn't end qualification.
+    expect(persona.toLowerCase()).toContain("even after capture");
+  });
 });
 
 describe("leadCaptureMode", () => {
@@ -121,7 +135,22 @@ describe("leadCaptureMode", () => {
     const grounding = leadCaptureMode.groundingBuilder(ctx);
     expect(grounding).toContain("Hello world");
     expect(grounding).toContain("How many locations do you have?");
+    // The questions are framed as a numbered checklist to work through.
+    expect(grounding).toContain("QUALIFYING QUESTIONS");
+    expect(grounding).toContain("1. How many locations do you have?");
     expect(grounding).toContain("99%");
     expect(grounding).not.toContain("42%");
+  });
+
+  it("grounding still directs qualification when no questions are configured", () => {
+    const ctx: LeadCaptureContext = {
+      tenantId: 1,
+      pageId: 7,
+      pageTitle: "Demo",
+      pageBlocks: [],
+      config: {},
+      brand: {},
+    };
+    expect(leadCaptureMode.groundingBuilder(ctx)).toContain("No qualifying questions are configured");
   });
 });
