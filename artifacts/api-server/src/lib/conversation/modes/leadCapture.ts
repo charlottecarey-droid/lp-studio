@@ -214,7 +214,9 @@ export const leadCaptureMode: ConversationMode = {
     "marked (required), collect those answers too BEFORE capturing — only capture without a " +
     "required answer when the visitor has declined it twice (a partial lead beats a lost one; " +
     "note what's missing in `notes`). Put form answers in `formAnswers`, keyed exactly by the " +
-    "listed labels.",
+    "listed labels. Call capture_lead at most ONCE per conversation — after it succeeds, do NOT " +
+    "call it again for extra details the visitor shares (the team reads the full transcript); " +
+    "the only exception is the visitor correcting their email address.",
   systemPromptBuilder: (ctx: ConversationContext) => {
     const c = ctx as LeadCaptureContext;
     return buildLeadCapturePersona(c.config ?? {}, c.brand?.brandName ?? "");

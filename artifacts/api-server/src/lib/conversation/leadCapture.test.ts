@@ -162,6 +162,11 @@ describe("leadCaptureMode", () => {
     expect(leadCaptureMode.actionInstruction).toContain("capture_lead");
   });
 
+  it("capture fires at most once per conversation — no re-capture per tidbit", () => {
+    expect(leadCaptureMode.actionInstruction).toContain("ONCE per conversation");
+    expect(leadCaptureMode.actionInstruction?.toLowerCase()).toContain("correcting their email");
+  });
+
   it("grounding folds page digest + approved brand facts + qualifying questions", () => {
     const ctx: LeadCaptureContext = {
       tenantId: 1,
