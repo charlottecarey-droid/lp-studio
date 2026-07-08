@@ -483,12 +483,13 @@ export function SalesTopNav() {
         <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
           {/* Sales assistant — same engine as the dashboard prompt box, reachable
               from every console page. Panel below; closes on navigation. */}
+          {/* Solid violet so it reads on the dark green nav regardless of the
+              tenant's brand-accent color (a dark accent made the old
+              accent-tinted text illegible here). */}
           <button
             onClick={() => setAssistantOpen((v) => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all duration-200 whitespace-nowrap text-[13px] font-medium ${
-              assistantOpen
-                ? "text-white bg-white/10"
-                : "text-[var(--brand-accent)] hover:bg-white/8"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all duration-200 whitespace-nowrap text-[13px] font-medium text-white shadow-sm ${
+              assistantOpen ? "bg-violet-500" : "bg-violet-600 hover:bg-violet-500"
             }`}
             aria-expanded={assistantOpen}
             aria-label="Sales assistant"
