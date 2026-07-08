@@ -22,6 +22,7 @@ import {
   BookOpen,
   Slack,
   Plug,
+  Sparkles,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -32,6 +33,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { ModeToggle } from "@/components/layout/mode-toggle";
+import { SalesAssistantBar } from "@/components/sales/SalesAssistantBar";
 import dandyLogo from "@/assets/dandy-logo.svg";
 import { useAuth } from "@/context/AuthContext";
 import { useBrandConfig } from "@/context/BrandConfigContext";
@@ -272,6 +274,13 @@ export function SalesTopNav() {
   const [location] = useLocation();
   const { hasPerm } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+
+  // The assistant's action cards navigate — close the panel when they do.
+  useEffect(() => {
+    setAssistantOpen(false);
+    setMobileMenuOpen(false);
+  }, [location]);
 
   // Primary nav — always visible in the top bar
   const primaryNav: NavItem[] = [
@@ -470,8 +479,23 @@ export function SalesTopNav() {
           )}
         </div>
 
-        {/* Right: Settings, Mode Toggle, User Avatar, Mobile Menu */}
+        {/* Right: Assistant, Settings, Mode Toggle, User Avatar, Mobile Menu */}
         <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+          {/* Sales assistant — same engine as the dashboard prompt box, reachable
+              from every console page. Panel below; closes on navigation. */}
+          <button
+            onClick={() => setAssistantOpen((v) => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all duration-200 whitespace-nowrap text-[13px] font-medium ${
+              assistantOpen
+                ? "text-white bg-white/10"
+                : "text-[var(--brand-accent)] hover:bg-white/8"
+            }`}
+            aria-expanded={assistantOpen}
+            aria-label="Sales assistant"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Assistant</span>
+          </button>
           <SettingsDropdown />
           <div className="hidden md:block w-[200px]">
             <ModeToggle />
@@ -491,6 +515,22 @@ export function SalesTopNav() {
 
       {/* Bottom accent line */}
       <div className="h-px bg-gradient-to-r from-transparent via-[rgb(var(--brand-accent-rgb)/0.2)] to-transparent" />
+
+      {/* Assistant panel — anchored under the nav, right-aligned. The
+          transparent backdrop closes it on outside click; navigation from an
+          action card closes it via the location effect above. */}
+      {assistantOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            aria-hidden
+            onClick={() => setAssistantOpen(false)}
+          />
+          <div className="absolute right-4 top-full mt-2 z-50 w-[560px] max-w-[calc(100vw-2rem)] shadow-2xl rounded-2xl">
+            <SalesAssistantBar />
+          </div>
+        </>
+      )}
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (

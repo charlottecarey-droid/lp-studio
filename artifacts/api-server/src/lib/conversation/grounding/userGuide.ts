@@ -324,6 +324,8 @@ export const USER_GUIDE_SECTIONS: GuideSection[] = [
     title: "Sales Console: accounts, microsites, one-pagers, and signals",
     keywords: [
       "sales console",
+      "assistant",
+      "sales assistant",
       "accounts",
       "microsites",
       "one-pager",
@@ -339,7 +341,7 @@ export const USER_GUIDE_SECTIONS: GuideSection[] = [
       "rep",
     ],
     appPath: "/sales",
-    body: "The Sales Console is an ABM command center for reps, on plans that include it. The dashboard surfaces hot accounts and live visitor signals, with a one-click AI brief per account. From there:\n- Accounts and Contacts track your book of business with per-contact engagement.\n- Microsites are per-account pages reps spin up for their deals, served from your microsite domain.\n- Campaigns and the AI draft-email tool generate personalized outreach that carries tokenized links, so you know exactly who clicked and what they read.\n- Signals is the feed of visitor and engagement events across your pages.\n- One-pagers generate brand-styled PDF leave-behinds from templates, with an editor and template gallery.\n- An ROI calculator helps build the business case for a deal.\nCRM connections for the console (Salesforce, Marketo, HubSpot, Slack) are configured from the console's own integrations settings.",
+    body: "The Sales Console is an ABM command center for reps, on plans that include it. The fastest way around it is the Assistant — the \"What would you like to do today?\" prompt box on the dashboard, also behind the Assistant button in the console's top bar on every page. Tell it what you want in plain language (\"build a microsite for Aspen Dental\", \"draft an email to Dana\", \"where do I see who opened my emails?\") and it opens the right tool preset to the right account or contact. The dashboard surfaces hot accounts and live visitor signals, with a one-click AI brief per account. From there:\n- Accounts and Contacts track your book of business with per-contact engagement.\n- Microsites are per-account pages reps spin up for their deals, served from your microsite domain.\n- Campaigns and the AI draft-email tool generate personalized outreach that carries tokenized links, so you know exactly who clicked and what they read.\n- Signals is the feed of visitor and engagement events across your pages.\n- One-pagers generate brand-styled PDF leave-behinds from templates, with an editor and template gallery.\n- An ROI calculator helps build the business case for a deal.\nCRM connections for the console (Salesforce, Marketo, HubSpot, Slack) are configured from the console's own integrations settings.",
   },
   {
     slug: "templates",

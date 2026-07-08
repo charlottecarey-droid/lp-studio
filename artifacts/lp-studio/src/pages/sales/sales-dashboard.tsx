@@ -2,9 +2,9 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import {
-  Building2, Activity, FileText, Plus, ChevronRight,
-  Globe, Zap, Mail, PenTool, Send, Flame, Thermometer,
-  AlertCircle, ArrowUpRight, Contact, Sparkles, Calculator,
+  Building2, Activity, FileText, ChevronRight,
+  Globe, Zap, Mail, PenTool, Flame, Thermometer,
+  AlertCircle, ArrowUpRight, Contact, Sparkles,
   ChevronDown, SlidersHorizontal, Bookmark, BookmarkCheck, Trash2, X,
   Brain, Search,
 } from "lucide-react";
@@ -22,7 +22,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PageHint } from "@/components/ui/page-hint";
 import { SalesAssistantBar } from "@/components/sales/SalesAssistantBar";
 import { InfoTip } from "@/components/ui/info-tip";
 import { SalesLayout } from "@/components/layout/sales-layout";
@@ -438,40 +437,16 @@ export default function SalesDashboard() {
             <h1 className="text-2xl font-bold text-foreground">{getGreeting()}</h1>
             <p className="text-sm text-muted-foreground mt-1">Here's what needs your attention today.</p>
           </div>
-          {/* Primary action cluster — daily-driver CTAs */}
+          {/* Header actions — the assistant bar below covers new-microsite /
+              new-account / draft-email; only the briefing picker (no assistant
+              equivalent) keeps a dedicated button. */}
           <div className="hidden sm:flex items-center gap-2">
-            <Button
-              size="sm"
-              className="rounded-lg font-medium text-[13px] shadow-sm"
-              style={{ backgroundColor: "#1B4332", color: "#fff" }}
-              onClick={() => setShowNewMicrosite(true)}
-            >
-              <Plus className="w-3.5 h-3.5 mr-1.5" />New microsite
-            </Button>
             <BriefingPickerButton accounts={accounts} />
-            <Link href="/sales/accounts">
-              <Button size="sm" variant="outline" className="rounded-lg font-medium text-[13px]">
-                <Plus className="w-3.5 h-3.5 mr-1.5" />New account
-              </Button>
-            </Link>
           </div>
         </div>
 
         {/* ── Sales assistant — "what would you like to do today?" ────── */}
         <SalesAssistantBar />
-
-        {/* ── PageHint banner ────────────────────────────────────────── */}
-        <PageHint
-          id="sales-dashboard"
-          title="Your Sales Command Center"
-          description="Live engagement across all your accounts — opens, visits, and clicks as they happen."
-          tips={[
-            <><strong>Filter</strong> by owner, tier, stage, or segment, then save the view to come back to it instantly.</>,
-            "Click any account for its full engagement timeline.",
-          ]}
-          color="violet"
-          icon={<Zap className="w-4 h-4" />}
-        />
 
         {/* ── Stats strip ────────────────────────────────────────────── */}
         <div className="grid grid-cols-3 gap-4">
@@ -773,31 +748,6 @@ export default function SalesDashboard() {
             )}
           </div>
         )}
-
-        {/* ── Tool Cards ─────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Quick access</h2>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[
-              { id: "draft",      icon: <PenTool className="w-4 h-4" />,   title: "Draft Email",     href: "/sales/draft-email" },
-              { id: "campaigns",  icon: <Send className="w-4 h-4" />,      title: "Campaigns",       href: "/sales/campaigns" },
-              { id: "roi-calc",   icon: <Calculator className="w-4 h-4" />, title: "ROI Calculator", href: "/sales/roi-calculator" },
-              { id: "one-pager",  icon: <FileText className="w-4 h-4" />,  title: "One-Pager",       href: "/sales/one-pager" },
-            ].map(tool => (
-              <Link href={tool.href} key={tool.id}>
-                <div className="group flex items-center gap-3 px-4 py-3.5 bg-card border border-border/50 rounded-xl hover:border-border hover:shadow-sm transition-all duration-200 cursor-pointer">
-                  <div className="w-8 h-8 rounded-lg bg-muted/60 flex items-center justify-center text-muted-foreground group-hover:bg-[#1B4332]/10 group-hover:text-[#1B4332] dark:group-hover:bg-[rgb(var(--brand-accent-rgb)/0.1)] dark:group-hover:text-[var(--brand-accent)] transition-colors shrink-0">
-                    {tool.icon}
-                  </div>
-                  <span className="text-[13px] font-medium text-foreground">{tool.title}</span>
-                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 ml-auto opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
 
         {isEmpty ? (
           /* ── Onboarding ───────────────────────────────────────────── */
