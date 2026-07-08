@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PageHint } from "@/components/ui/page-hint";
+import { SalesAssistantBar } from "@/components/sales/SalesAssistantBar";
 import { InfoTip } from "@/components/ui/info-tip";
 import { SalesLayout } from "@/components/layout/sales-layout";
 import { getSignalIcon, getSignalLabel } from "@/lib/signal-types";
@@ -455,6 +456,9 @@ export default function SalesDashboard() {
             </Link>
           </div>
         </div>
+
+        {/* ── Sales assistant — "what would you like to do today?" ────── */}
+        <SalesAssistantBar />
 
         {/* ── PageHint banner ────────────────────────────────────────── */}
         <PageHint
