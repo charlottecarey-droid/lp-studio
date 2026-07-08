@@ -416,9 +416,15 @@ router.post("/lp/leads", leadSubmitLimiter, async (req, res): Promise<void> => {
 
   const utmFields = { utmSource, utmMedium, utmCampaign, utmTerm, utmContent };
 
-  // Check for idempotent resubmission if key is provided
+  // Check for idempotent resubmission if key is provided. GUARD: the schema
+  // has no idempotency_key column today — referencing it makes drizzle throw,
+  // which turned ANY submission carrying the header into a 500 (the
+  // chat-capture block hit this on launch day). Until a migration adds the
+  // column to lpLeads.ts, ignore the header and insert normally; callers must
+  // dedupe client-side.
+  const idempotencyColumn = (lpLeadsTable as unknown as Record<string, unknown>)["idempotencyKey"];
   let lead: LeadWithIdempotencyKey;
-  if (idempotencyKey) {
+  if (idempotencyKey && idempotencyColumn) {
     const [existing] = await db.select().from(lpLeadsTable).where(eq((lpLeadsTable as any).idempotencyKey, idempotencyKey));
     if (existing) {
       res.status(201).json({ success: true, leadId: existing.id, isRetry: true });

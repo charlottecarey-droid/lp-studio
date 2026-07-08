@@ -145,6 +145,11 @@ function ChatCaptureLauncher({
   const abortRef = useRef<AbortController | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Emails already submitted in this conversation — the bot may re-call
+  // capture_lead on later turns; identical resubmits show "sent" without
+  // posting a duplicate lead (client-side dedupe; POST /lp/leads has no
+  // idempotency column).
+  const submittedEmailsRef = useRef<Set<string>>(new Set());
   const side = blockProps.position === "bottom-left" ? "left" : "right";
 
   useEffect(() => {
@@ -194,6 +199,13 @@ function ChatCaptureLauncher({
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantId ? { ...m, captureState } : m)),
         );
+
+      // Same email already sent this conversation — confirm without a
+      // duplicate lead row.
+      if (submittedEmailsRef.current.has(email.toLowerCase())) {
+        setCapture("sent");
+        return;
+      }
       setCapture("sending");
 
       const fields: Record<string, string> = { Email: email, Source: "Page chat" };
@@ -230,14 +242,11 @@ function ChatCaptureLauncher({
       try {
         const resp = await fetch(`${API_BASE}/lp/leads`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            // One lead per conversation even if the bot re-calls capture_lead.
-            ...(conversationId ? { "x-idempotency-key": `chat-capture-${conversationId}` } : {}),
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
         if (!resp.ok) throw new Error("Submission failed");
+        submittedEmailsRef.current.add(email.toLowerCase());
         setCapture("sent");
 
         // Conversion tracking — mirrors BlockForm (null-safe test/variant).
@@ -261,7 +270,7 @@ function ChatCaptureLauncher({
         setCapture("failed");
       }
     },
-    [pageId, testId, variantId, sessionId, blockProps.formId, conversationId],
+    [pageId, testId, variantId, sessionId, blockProps.formId],
   );
 
   const send = useCallback(async () => {
@@ -297,8 +306,18 @@ function ChatCaptureLauncher({
         { endpoint: `${API_BASE}/lp/chat-capture` },
       );
       setConversationId(done.conversationId);
+      // The model sometimes emits ONLY the capture_lead tool call, no prose —
+      // an empty bubble reads as broken. Backfill a confirmation when a
+      // capture rode on this turn; drop the bubble entirely otherwise.
       setMessages((prev) =>
-        prev.map((m) => (m.id === assistantId ? { ...m, streaming: false } : m)),
+        prev.flatMap((m) => {
+          if (m.id !== assistantId) return [m];
+          if (m.content.trim() !== "") return [{ ...m, streaming: false }];
+          if (m.captureState) {
+            return [{ ...m, streaming: false, content: "Perfect — I've passed your details to the team. Anything else I can help with?" }];
+          }
+          return [];
+        }),
       );
     } catch (err) {
       const e = err as CopilotStreamError;
