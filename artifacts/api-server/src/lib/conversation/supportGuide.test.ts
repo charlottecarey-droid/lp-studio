@@ -2,6 +2,9 @@
  * Unit coverage for the Support Guide mode — corpus shape, keyword retrieval,
  * TOC, grounding assembly, and the action menu. No OpenAI, no DB.
  */
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
 import {
   supportGuideMode,
@@ -31,6 +34,21 @@ describe("USER_GUIDE_SECTIONS corpus", () => {
       expect(p).toMatch(/^\/[a-zA-Z0-9\-_/]*$/);
     }
   });
+
+  // Freshness guard: the corpus IS the support bot's knowledge, so a renamed
+  // or removed app route must fail here and force a guide update — otherwise
+  // the bot deep-links users to a 404. Reads the frontend's App.tsx source
+  // directly (cross-workspace, monorepo-relative).
+  it("every appPath in the corpus still exists in the frontend's routes", () => {
+    const appTsxPath = resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      "../../../../lp-studio/src/App.tsx",
+    );
+    const appTsx = readFileSync(appTsxPath, "utf8");
+    for (const p of guideAppPaths()) {
+      expect(appTsx, `guide appPath "${p}" no longer appears in App.tsx — update userGuide.ts`).toContain(`"${p}"`);
+    }
+  });
 });
 
 describe("selectGuideSections", () => {
@@ -42,6 +60,11 @@ describe("selectGuideSections", () => {
   it("retrieves the leads section for a form-leads question", () => {
     const picked = selectGuideSections("where do my form leads end up?");
     expect(picked.map((s) => s.slug)).toContain("forms-leads-and-notifications");
+  });
+
+  it("retrieves the chat-block section for a page-chatbot question", () => {
+    const picked = selectGuideSections("how do I add a chatbot to my landing page?");
+    expect(picked.map((s) => s.slug)).toContain("lead-capture-chat-block");
   });
 
   it("falls back to the intro sections when nothing matches", () => {

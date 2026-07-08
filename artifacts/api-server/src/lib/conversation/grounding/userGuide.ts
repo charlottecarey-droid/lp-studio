@@ -193,6 +193,26 @@ export const USER_GUIDE_SECTIONS: GuideSection[] = [
     body: "Forms & Leads is the home for lead capture, with three tabs: Forms, Submissions, and Integrations. Each form has its own settings, including a Notifications tab where you add email recipients who get an email for every new submission — add as many addresses as you need. Forms can also send a follow-up email to the person who submitted, using an email template you pick. After submitting, visitors land on a thank-you page. All submissions collect in the Submissions tab, and each form can additionally push its leads out via the Integrations tab — to your CRM, a Google Sheet, Slack, or any webhook URL. Workspace-level alert recipients (who gets collaboration and account emails) are managed separately under Settings, in the Email tab's Alert recipients section.",
   },
   {
+    slug: "lead-capture-chat-block",
+    title: "The Lead Capture Chat block (page chatbot)",
+    keywords: [
+      "chat",
+      "chatbot",
+      "chat bot",
+      "lead capture chat",
+      "chat widget",
+      "chat bubble",
+      "live chat",
+      "conversational",
+      "page assistant",
+      "visitor questions",
+      "capture leads",
+      "talk to visitors",
+      "ai chat on page",
+    ],
+    body: "The Lead Capture Chat block adds an AI chat bubble to a published landing page. Visitors can ask questions and the bot answers strictly from that page's own content and your approved brand facts — it never invents pricing, guarantees, or claims, and says so when it doesn't know. When a visitor shares their email (the bot works toward this naturally), the conversation is captured as a lead through the same pipeline as your forms, so notifications, CRM syncs, and attribution all apply. To use it: in the builder, add the \"Lead Capture Chat\" block from the Lead Capture category, then configure it in the properties panel — bot name, welcome message, which contact fields to collect (name, company, phone), qualifying questions it should weave in, an optional linked form (so that form's notification and integration routing applies), consent small-print, launcher position and color, and an optional auto-open delay. The bubble only goes live on the published page; in the builder you see a preview card. It answers only from page content, so make sure the page itself covers what visitors usually ask.",
+  },
+  {
     slug: "integrations",
     title: "Integrations: CRM, Slack, Sheets, Zapier, and webhooks",
     keywords: [
@@ -399,6 +419,6 @@ export const USER_GUIDE_SECTIONS: GuideSection[] = [
       "customer support",
       "bug report",
     ],
-    body: "If this guide doesn't cover your question, you can reach the LP Studio team by email at admin@lpstudio.ai — the same address handles product questions, integration requests, and privacy or account-data requests. For plan and billing questions, start at Settings → Billing, where any workspace member can see the current plan and renewal date and admins can manage the subscription; that page also has a talk-to-sales link for Enterprise conversations. If you spot something wrong on a specific page, remember the fastest fixes are often in-app: the Ask AI copilot in the builder can review your page and propose improvements, and the builder's undo history reverts any recent change.",
+    body: "The fastest way to get help is this assistant: click the ? bubble in the bottom-right of any app page and ask in plain language — it answers from this guide and can take you straight to the right page. If it can't resolve your question, it offers to hand off to the LP Studio team, or you can email admin@lpstudio.ai directly — the same address handles product questions, integration requests, and privacy or account-data requests. For plan and billing questions, start at Settings → Billing, where any workspace member can see the current plan and renewal date and admins can manage the subscription; that page also has a talk-to-sales link for Enterprise conversations. If you spot something wrong on a specific page, remember the fastest fixes are often in-app: the Ask AI copilot in the builder can review your page and propose improvements, and the builder's undo history reverts any recent change.",
   },
 ];
