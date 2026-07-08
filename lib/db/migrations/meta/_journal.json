@@ -813,6 +813,13 @@
       "when": 1756900000000,
       "tag": "0115_plan_config_feature_gates",
       "breakpoints": false
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1757000000000,
+      "tag": "0116_drop_orphan_brand_settings",
+      "breakpoints": false
     }
   ]
 }
