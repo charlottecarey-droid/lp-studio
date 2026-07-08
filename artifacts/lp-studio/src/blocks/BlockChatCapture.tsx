@@ -208,15 +208,30 @@ function ChatCaptureLauncher({
       }
       setCapture("sending");
 
-      const fields: Record<string, string> = { Email: email, Source: "Page chat" };
+      // When the block is linked to a global form, the bot answers arrive in
+      // formAnswers keyed by the form's OWN field labels — submit under those
+      // labels so the form's integration mappings (Marketo etc.) resolve. The
+      // generic Email/Name/... keys are only added when no form answer
+      // already covers that concept, to avoid duplicate columns on the lead.
+      const fields: Record<string, string> = {};
+      const rawAnswers = action.args?.formAnswers;
+      if (rawAnswers && typeof rawAnswers === "object" && !Array.isArray(rawAnswers)) {
+        for (const [k, v] of Object.entries(rawAnswers as Record<string, unknown>)) {
+          const val = str(v);
+          if (k.trim() && val) fields[k.trim()] = val;
+        }
+      }
+      const hasKeyLike = (needle: RegExp) => Object.keys(fields).some((k) => needle.test(k));
+      if (!hasKeyLike(/email/i)) fields["Email"] = email;
       const name = str(action.args?.name);
       const company = str(action.args?.company);
       const phone = str(action.args?.phone);
       const notes = str(action.args?.notes);
-      if (name) fields["Name"] = name;
-      if (company) fields["Company"] = company;
-      if (phone) fields["Phone"] = phone;
+      if (name && !hasKeyLike(/name/i)) fields["Name"] = name;
+      if (company && !hasKeyLike(/company|organization|practice/i)) fields["Company"] = company;
+      if (phone && !hasKeyLike(/phone|mobile/i)) fields["Phone"] = phone;
       if (notes) fields["Chat Summary"] = notes;
+      fields["Source"] = "Page chat";
 
       // UTM params from the page URL, same keys BlockForm forwards; the server
       // additionally falls back to session/visit attribution.

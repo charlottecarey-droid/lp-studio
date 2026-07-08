@@ -36,11 +36,48 @@ export interface ChatCaptureConfig {
   qualifyingQuestions?: string[];
 }
 
+/** One visitor-facing field of the linked global form. */
+export interface LinkedFormField {
+  label: string;
+  type: string;
+  required: boolean;
+}
+
 export interface LeadCaptureContext extends ConversationContext {
   brand: BrandConfig;
   pageTitle: string;
   pageBlocks: CopilotPageBlock[];
   config: ChatCaptureConfig;
+  /** Fields of the block's linked global form (props.formId), loaded by the
+   *  route from the persisted form row. The bot must collect the REQUIRED
+   *  ones before capturing. */
+  formFields?: LinkedFormField[];
+}
+
+/** Extract the visitor-facing fields from a form's persisted `steps` jsonb.
+ *  Hidden fields and fields with an auto-fill defaultValue are skipped — the
+ *  bot must never ask a visitor for a `{{utm_source}}` slot. Deduped by
+ *  label. PURE + exported for tests. */
+export function extractLinkedFormFields(steps: unknown): LinkedFormField[] {
+  if (!Array.isArray(steps)) return [];
+  const out: LinkedFormField[] = [];
+  const seen = new Set<string>();
+  for (const step of steps) {
+    const fields = (step as { fields?: unknown })?.fields;
+    if (!Array.isArray(fields)) continue;
+    for (const f of fields) {
+      const field = f as { label?: unknown; type?: unknown; required?: unknown; defaultValue?: unknown };
+      const label = typeof field.label === "string" ? field.label.trim() : "";
+      const type = typeof field.type === "string" ? field.type : "text";
+      if (!label || type === "hidden") continue;
+      if (typeof field.defaultValue === "string" && field.defaultValue.trim() !== "") continue;
+      const key = label.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ label, type, required: field.required === true });
+    }
+  }
+  return out;
 }
 
 const MAX_PAGE_CONTENT_CHARS = 4000;
@@ -118,6 +155,11 @@ export const LEAD_CAPTURE_ACTIONS: AllowedActionDef[] = [
         description:
           "A 1-3 sentence summary of what the visitor is looking for, their qualifying answers, and any objections — written for the sales team.",
       },
+      formAnswers: {
+        type: "object",
+        description:
+          "Answers to the LINKED FORM FIELDS from the context, keyed EXACTLY by those field labels (copy the labels verbatim). Include every required field you collected; never invent a value the visitor didn't give.",
+      },
     },
     required: ["email"],
   },
@@ -166,9 +208,13 @@ export const leadCaptureMode: ConversationMode = {
     "Answer the visitor's questions from the page content, qualify them, and capture their " +
     "contact details for the team via capture_lead.",
   actionInstruction:
-    "When you have the visitor's email, call the capture_lead tool with everything they shared — " +
-    "it submits to the team immediately (do not ask the visitor to confirm a form). Never call it " +
-    "without a real email address the visitor gave you in this conversation.",
+    "Call the capture_lead tool with everything the visitor shared — it submits to the team " +
+    "immediately (do not ask the visitor to confirm a form). Never call it without a real email " +
+    "address the visitor gave you in this conversation. When the context lists LINKED FORM FIELDS " +
+    "marked (required), collect those answers too BEFORE capturing — only capture without a " +
+    "required answer when the visitor has declined it twice (a partial lead beats a lost one; " +
+    "note what's missing in `notes`). Put form answers in `formAnswers`, keyed exactly by the " +
+    "listed labels.",
   systemPromptBuilder: (ctx: ConversationContext) => {
     const c = ctx as LeadCaptureContext;
     return buildLeadCapturePersona(c.config ?? {}, c.brand?.brandName ?? "");
@@ -179,9 +225,21 @@ export const leadCaptureMode: ConversationMode = {
     const questions = (c.config?.qualifyingQuestions ?? []).filter(
       (q): q is string => typeof q === "string" && q.trim() !== "",
     );
+    const formFields = c.formFields ?? [];
+    const formSection =
+      formFields.length > 0
+        ? "LINKED FORM FIELDS — this chat submits into a form, so collect these before calling " +
+          "capture_lead: every field marked (required) is a must-have alongside the email; " +
+          "(optional) fields only if they come up naturally. Pass the answers in `formAnswers`, " +
+          "keyed EXACTLY by these labels:\n" +
+          formFields
+            .map((f) => `- ${f.label} (${f.required ? "required" : "optional"})`)
+            .join("\n")
+        : "";
     const sections = [
       buildPageContentDigest(c.pageTitle ?? "", c.pageBlocks ?? []),
       brandSection ? `Brand facts (the only claims you may assert):\n${brandSection}` : "",
+      formSection,
       questions.length > 0
         ? "QUALIFYING QUESTIONS — your checklist. Work each one into the conversation naturally, " +
           "one per turn, until every question is either answered or the visitor has declined it. " +

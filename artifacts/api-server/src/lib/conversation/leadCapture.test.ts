@@ -9,6 +9,7 @@ import {
   buildPageContentDigest,
   buildLeadCapturePersona,
   findChatCaptureBlock,
+  extractLinkedFormFields,
   LEAD_CAPTURE_ACTIONS,
   type LeadCaptureContext,
 } from "./modes/leadCapture";
@@ -66,6 +67,51 @@ describe("findChatCaptureBlock", () => {
     expect(findChatCaptureBlock([{ id: "a", type: "hero" }])).toBeNull();
     expect(findChatCaptureBlock(null)).toBeNull();
     expect(findChatCaptureBlock("nope")).toBeNull();
+  });
+});
+
+describe("extractLinkedFormFields", () => {
+  it("flattens visible fields across steps with required flags, deduped by label", () => {
+    const fields = extractLinkedFormFields([
+      {
+        title: "Step 1",
+        fields: [
+          { id: "a", type: "text", label: "First name", required: true },
+          { id: "b", type: "email", label: "Work Email", required: true },
+        ],
+      },
+      {
+        title: "Step 2",
+        fields: [
+          { id: "c", type: "text", label: "Practice name", required: false },
+          { id: "d", type: "text", label: "first name", required: false }, // dupe (case-insensitive)
+        ],
+      },
+    ]);
+    expect(fields).toEqual([
+      { label: "First name", type: "text", required: true },
+      { label: "Work Email", type: "email", required: true },
+      { label: "Practice name", type: "text", required: false },
+    ]);
+  });
+
+  it("skips hidden fields and auto-filled defaults — never ask a visitor for {{utm_source}}", () => {
+    const fields = extractLinkedFormFields([
+      {
+        fields: [
+          { id: "a", type: "hidden", label: "UTM Source", required: false },
+          { id: "b", type: "text", label: "Lead Source", required: false, defaultValue: "Website" },
+          { id: "c", type: "text", label: "Role", required: true },
+        ],
+      },
+    ]);
+    expect(fields).toEqual([{ label: "Role", type: "text", required: true }]);
+  });
+
+  it("returns empty for malformed steps", () => {
+    expect(extractLinkedFormFields(null)).toEqual([]);
+    expect(extractLinkedFormFields("nope")).toEqual([]);
+    expect(extractLinkedFormFields([{ fields: "bad" }])).toEqual([]);
   });
 });
 
@@ -140,6 +186,42 @@ describe("leadCaptureMode", () => {
     expect(grounding).toContain("1. How many locations do you have?");
     expect(grounding).toContain("99%");
     expect(grounding).not.toContain("42%");
+  });
+
+  it("grounding lists linked-form fields with required flags, and capture rules reference them", () => {
+    const ctx: LeadCaptureContext = {
+      tenantId: 1,
+      pageId: 7,
+      pageTitle: "Demo",
+      pageBlocks: [],
+      config: {},
+      brand: {},
+      formFields: [
+        { label: "First name", type: "text", required: true },
+        { label: "Practice name", type: "text", required: false },
+      ],
+    };
+    const grounding = leadCaptureMode.groundingBuilder(ctx);
+    expect(grounding).toContain("LINKED FORM FIELDS");
+    expect(grounding).toContain("- First name (required)");
+    expect(grounding).toContain("- Practice name (optional)");
+    // The action contract carries the required-before-capture rule and the
+    // formAnswers arg the client submits under form labels.
+    expect(leadCaptureMode.actionInstruction).toContain("LINKED FORM FIELDS");
+    const captureDef = LEAD_CAPTURE_ACTIONS.find((a) => a.type === "capture_lead")!;
+    expect(Object.keys(captureDef.properties)).toContain("formAnswers");
+  });
+
+  it("grounding omits the form section when no form is linked", () => {
+    const ctx: LeadCaptureContext = {
+      tenantId: 1,
+      pageId: 7,
+      pageTitle: "Demo",
+      pageBlocks: [],
+      config: {},
+      brand: {},
+    };
+    expect(leadCaptureMode.groundingBuilder(ctx)).not.toContain("LINKED FORM FIELDS");
   });
 
   it("grounding still directs qualification when no questions are configured", () => {

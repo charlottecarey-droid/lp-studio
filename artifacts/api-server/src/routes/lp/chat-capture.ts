@@ -20,8 +20,8 @@
 import { Router } from "express";
 import OpenAI from "openai";
 import { db } from "@workspace/db";
-import { lpPagesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { lpPagesTable, lpFormsTable } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
 import { rateLimit, envLimit } from "../../lib/rateLimit";
 import { fetchBrand } from "../../lib/ai-prompts/brand-and-brief";
 import { createSseChatEmitter } from "../../lib/conversation/chatEmitter";
@@ -29,8 +29,10 @@ import { runConversationTurn, type ConversationTurn } from "../../lib/conversati
 import {
   leadCaptureMode,
   findChatCaptureBlock,
+  extractLinkedFormFields,
   type LeadCaptureContext,
   type ChatCaptureConfig,
+  type LinkedFormField,
   type RawPageBlock,
 } from "../../lib/conversation/modes/leadCapture";
 import type { CopilotPageBlock } from "../../lib/conversation/modes/builderCopilot";
@@ -151,6 +153,26 @@ router.post("/lp/chat-capture", chatCaptureLimiter, async (req, res): Promise<vo
   const tenantId = page.tenantId;
   const config = toChatCaptureConfig(chatBlock.props);
 
+  // Linked global form: its REQUIRED fields become part of the bot's capture
+  // checklist (grounding) so a chat lead satisfies the same contract as a
+  // form submission. Tenant-scoped read; a missing/foreign form just means
+  // no extra fields. Best-effort — a load failure never blocks the chat.
+  let formFields: LinkedFormField[] = [];
+  const rawFormId = (chatBlock.props as Record<string, unknown> | undefined)?.["formId"];
+  const formId = typeof rawFormId === "number" && Number.isFinite(rawFormId) ? rawFormId : null;
+  if (formId != null) {
+    try {
+      const [form] = await db
+        .select({ steps: lpFormsTable.steps })
+        .from(lpFormsTable)
+        .where(and(eq(lpFormsTable.id, formId), eq(lpFormsTable.tenantId, tenantId)))
+        .limit(1);
+      if (form) formFields = extractLinkedFormFields(form.steps);
+    } catch (err) {
+      logger.warn({ err: String(err), tenantId, formId }, "[chat-capture] linked form load failed — continuing without form fields");
+    }
+  }
+
   const sessionId = typeof body.sessionId === "string" ? body.sessionId.slice(0, 100) : undefined;
   const conversationId = await resumeOrCreateConversation({
     tenantId,
@@ -185,6 +207,7 @@ router.post("/lp/chat-capture", chatCaptureLimiter, async (req, res): Promise<vo
     pageTitle: page.title,
     pageBlocks: toCopilotBlocks(page.blocks),
     config,
+    formFields,
   };
 
   try {
