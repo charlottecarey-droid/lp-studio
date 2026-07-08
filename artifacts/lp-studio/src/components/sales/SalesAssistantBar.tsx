@@ -61,7 +61,7 @@ const CHIPS = [
   "Build a microsite for …",
   "Draft an email to …",
   "Start a one-pager for …",
-  "Where do I see who opened my emails?",
+  "Browse and clone a template",
 ];
 
 export function SalesAssistantBar() {
