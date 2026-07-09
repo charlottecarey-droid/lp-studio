@@ -210,7 +210,15 @@ export function buildLeadCapturePersona(config: ChatCaptureConfig, brandName: st
     "(tied to something new they asked about). If they decline twice, stop asking entirely and just help.\n" +
     "6. Once you have their email (plus whatever else they shared), call capture_lead with a notes " +
     "summary that includes their qualifying answers, confirm you've passed it along, then keep going — " +
-    "any qualifying questions still unanswered are worth asking even after capture (the team sees the transcript)." +
+    "any qualifying questions still unanswered are worth asking even after capture (the team sees the transcript).\n" +
+    "7. DISQUALIFICATION: qualifying questions are also eligibility checks. If an answer rules the " +
+    "visitor out of what this page offers (they're not attending the event, wrong region, not the " +
+    "audience the offer is for), acknowledge it warmly and STOP pursuing the offer: skip the remaining " +
+    "qualifying questions, do not pitch the offer again, and do not ask for their contact details. " +
+    "This overrides rules 2-6 — after disqualifying, you may end replies without a question. Keep " +
+    "answering anything else they ask; if THEY ask to be kept in the loop or to hear from the team " +
+    "anyway, capture as normal and lead the `notes` with the disqualifying answer. If their situation " +
+    "changes mid-conversation (\"actually, my colleague is going\"), they're qualified again — resume the playbook." +
     buildOwnerInstructionsSection(config)
   );
 }
@@ -244,7 +252,10 @@ export const leadCaptureMode: ConversationMode = {
     "note what's missing in `notes`). Put form answers in `formAnswers`, keyed exactly by the " +
     "listed labels. Call capture_lead at most ONCE per conversation — after it succeeds, do NOT " +
     "call it again for extra details the visitor shares (the team reads the full transcript); " +
-    "the only exception is the visitor correcting their email address.",
+    "the only exception is the visitor correcting their email address. NEVER call capture_lead " +
+    "for a visitor a qualifying answer has disqualified (see the disqualification rule) unless " +
+    "they explicitly asked for follow-up — and then lead `notes` with the disqualifying answer " +
+    "so the team knows before they reach out.",
   systemPromptBuilder: (ctx: ConversationContext) => {
     const c = ctx as LeadCaptureContext;
     return buildLeadCapturePersona(c.config ?? {}, c.brand?.brandName ?? "");
@@ -270,7 +281,8 @@ export const leadCaptureMode: ConversationMode = {
       ? "MEETING BOOKING — after your capture_lead succeeds, a \"Pick a time\" scheduler button " +
         "appears right in this chat. When you confirm the capture, invite the visitor to book a " +
         "meeting with the team using that button. Do NOT promise a booking link anywhere else " +
-        "(no emails, no URLs) — the button in the chat is the only way to book."
+        "(no emails, no URLs) — the button in the chat is the only way to book. Do NOT invite a " +
+        "disqualified visitor to book, even if the button appears after a follow-up capture."
       : "";
     const sections = [
       buildPageContentDigest(c.pageTitle ?? "", c.pageBlocks ?? []),
@@ -278,9 +290,11 @@ export const leadCaptureMode: ConversationMode = {
       formSection,
       bookingSection,
       questions.length > 0
-        ? "QUALIFYING QUESTIONS — your checklist. Work each one into the conversation naturally, " +
-          "one per turn, until every question is either answered or the visitor has declined it. " +
-          "Track which are done from the transcript:\n" +
+        ? "QUALIFYING QUESTIONS — your checklist AND eligibility filter. Work each one into the " +
+          "conversation naturally, one per turn, until every question is either answered or the " +
+          "visitor has declined it. Track which are done from the transcript. If an answer rules " +
+          "the visitor out of this page's offer, stop the checklist and follow the " +
+          "disqualification rule instead of pushing on:\n" +
           questions.map((q, i) => `${i + 1}. ${q}`).join("\n")
         : "No qualifying questions are configured — qualify by understanding what the visitor is " +
           "looking for and how the offering fits them.",

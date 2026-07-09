@@ -149,6 +149,40 @@ describe("buildLeadCapturePersona", () => {
   });
 });
 
+describe("buildLeadCapturePersona — disqualification", () => {
+  it("carries an imperative disqualification rule that overrides the capture push", () => {
+    const persona = buildLeadCapturePersona({}, "Acme");
+    expect(persona).toContain("DISQUALIFICATION");
+    // Stops the pursuit outright — no more pitching, no contact ask.
+    expect(persona).toContain("STOP pursuing the offer");
+    expect(persona).toContain("do not ask for their contact details");
+    // Explicitly outranks the always-end-with-a-question / capture rules.
+    expect(persona).toContain("overrides rules 2-6");
+    // Re-qualification path stays open.
+    expect(persona).toContain("resume the playbook");
+  });
+
+  it("gates capture_lead on disqualification in the action contract", () => {
+    expect(leadCaptureMode.actionInstruction).toContain("NEVER call capture_lead");
+    expect(leadCaptureMode.actionInstruction).toContain("disqualified");
+    expect(leadCaptureMode.actionInstruction).toContain("explicitly asked for follow-up");
+  });
+
+  it("frames the qualifying-question checklist as an eligibility filter", () => {
+    const ctx: LeadCaptureContext = {
+      tenantId: 1,
+      pageId: 7,
+      pageTitle: "Conference Dinner",
+      pageBlocks: [],
+      config: { qualifyingQuestions: ["Are you attending the conference?"] },
+      brand: {},
+    };
+    const grounding = leadCaptureMode.groundingBuilder(ctx);
+    expect(grounding).toContain("eligibility filter");
+    expect(grounding).toContain("disqualification rule");
+  });
+});
+
 describe("buildLeadCapturePersona — page owner instructions", () => {
   it("appends owner instructions below the playbook with rules-win framing", () => {
     const persona = buildLeadCapturePersona(
