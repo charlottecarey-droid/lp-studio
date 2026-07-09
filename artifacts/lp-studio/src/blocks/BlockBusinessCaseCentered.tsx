@@ -47,7 +47,7 @@ export function BlockBusinessCaseCentered({ props, brand }: Props) {
           {brand ? (
             <BrandLogo brand={brand} url={props.logoUrl} alt={logoAlt} tone="onDark" className="h-7 w-auto" />
           ) : (
-            <img src={props.logoUrl || "/dandy-logo-white.svg"} alt={logoAlt} className="h-7 w-auto" />
+            props.logoUrl ? <img src={props.logoUrl} alt={logoAlt} className="h-7 w-auto" /> : null
           )}
           <div
             className="text-xs uppercase tracking-widest bg-white/10 px-3 py-1 rounded-full"

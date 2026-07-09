@@ -842,7 +842,7 @@ function PlanCard({
     cta = (
       <Button asChild className="w-full" variant={isPopular ? "default" : "outline"}>
         <a
-          href="mailto:sales@meetdandy.com?subject=LP%20Studio%20Enterprise"
+          href="mailto:admin@lpstudio.ai?subject=LP%20Studio%20Enterprise"
           data-testid="contact-sales-enterprise"
         >
           Contact sales <ArrowRight className="w-4 h-4 ml-1" />
@@ -1117,7 +1117,7 @@ function CompareSection({
           </table>
           <div className="px-6 py-3 text-xs text-muted-foreground border-t">
             Enterprise adds SSO/SAML, SOC 2 Type II, a 99.9% uptime SLA, unlimited seats &amp; workspaces, and a dedicated CSM.{" "}
-            <a href="mailto:sales@meetdandy.com?subject=LP%20Studio%20Enterprise" className="text-primary underline">Talk to sales</a>.
+            <a href="mailto:admin@lpstudio.ai?subject=LP%20Studio%20Enterprise" className="text-primary underline">Talk to sales</a>.
           </div>
         </div>
       )}

@@ -12,9 +12,6 @@ import { useAuth } from "@/context/AuthContext";
 import { resolveFeatures } from "@/lib/plan-features";
 
 const API_BASE = "/api";
-// Built-in Dandy banner. Used only when the tenant has not set its own
-// `emailBannerUrl` in Brand Settings → Logo & Identity → Email banner.
-const DANDY_BANNER_URL = "https://jrvgnqdxmitmktyazyuq.supabase.co/storage/v1/object/public/skin-images/dandy-email-banner.png";
 
 interface SalesTemplate {
   id: number;
@@ -59,7 +56,9 @@ export function FollowUpEmailSection({
   // but the Sales → Outreach editor is behind the plan gate, so we
   // suppress the "manage in Sales → Outreach" link for them.
   const salesConsoleAvailable = resolveFeatures(user).salesConsole;
-  const bannerUrl = brand.emailBannerUrl?.trim() || DANDY_BANNER_URL;
+  // Tenant banner only — no built-in fallback (the editor hides its banner
+  // tool when unset). Set via Brand Settings → Logo & Identity → Email banner.
+  const bannerUrl = brand.emailBannerUrl?.trim() || "";
   const [templates, setTemplates] = useState<SalesTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);

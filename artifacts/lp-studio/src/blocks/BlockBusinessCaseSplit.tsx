@@ -49,7 +49,7 @@ export function BlockBusinessCaseSplit({ props, brand }: Props) {
             {brand ? (
               <BrandLogo brand={brand} url={props.logoUrl} alt={logoAlt} tone="onDark" className="h-7 w-auto" />
             ) : (
-              <img src={props.logoUrl || "/dandy-logo-white.svg"} alt={logoAlt} className="h-7 w-auto" />
+              props.logoUrl ? <img src={props.logoUrl} alt={logoAlt} className="h-7 w-auto" /> : null
             )}
             <div className="px-4 py-1.5 rounded-full border border-white/20 text-white/80 text-xs font-medium uppercase tracking-wider">
               {props.forCompanyLabel}

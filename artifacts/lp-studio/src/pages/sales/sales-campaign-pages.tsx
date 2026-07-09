@@ -123,6 +123,10 @@ function slugify(s: string) {
 
 function TemplatePicker({ onClose, micrositeDomain }: { onClose: () => void; micrositeDomain?: string | null }) {
   const [, navigate] = useLocation();
+  const { user } = useAuth();
+  // Built-in skins are Dandy sales decks (Dandy CTA URLs + dental copy) —
+  // dental tenants only, mirroring create-page-modal's gate on the same array.
+  const showBuiltinSkins = user?.tenantIndustry === "dental";
   const [marketingTemplates, setMarketingTemplates] = useState<MarketingTemplate[]>([]);
   const [selected, setSelected] = useState<{ type: "marketing"; id: number; label: string } | { type: "builtin"; id: string; label: string } | { type: "blank" } | null>(null);
   const [title, setTitle] = useState("");
@@ -277,17 +281,19 @@ function TemplatePicker({ onClose, micrositeDomain }: { onClose: () => void; mic
                     ))}
                   </SelectGroup>
                 )}
-                <SelectGroup>
-                  <SelectLabel className="flex items-center gap-1.5 text-xs">
-                    <Building2 className="w-3 h-3 text-primary" />
-                    Built-in skins
-                  </SelectLabel>
-                  {MICROSITE_TEMPLATES.map(t => (
-                    <SelectItem key={`b-${t.id}`} value={`builtin:${t.id}`}>
-                      {t.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
+                {showBuiltinSkins && (
+                  <SelectGroup>
+                    <SelectLabel className="flex items-center gap-1.5 text-xs">
+                      <Building2 className="w-3 h-3 text-primary" />
+                      Built-in skins
+                    </SelectLabel>
+                    {MICROSITE_TEMPLATES.map(t => (
+                      <SelectItem key={`b-${t.id}`} value={`builtin:${t.id}`}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
               </SelectContent>
             </Select>
             {selectedDescription && (

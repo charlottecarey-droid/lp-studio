@@ -70,7 +70,8 @@ interface MergeVar {
 interface EmailWYSIWYGEditorProps {
   initialContent?: string;
   onChange?: (html: string) => void;
-  /** Dandy banner image URL for the campaign banner button (campaign use only). */
+  /** Tenant email-banner URL for the banner buttons. Empty = the banner
+   *  affordances are hidden (no built-in fallback banner). */
   dandyBannerUrl?: string;
   /** Merge-variable chips to offer. Defaults to the Dandy campaign variables. */
   mergeVars?: MergeVar[];
@@ -243,21 +244,23 @@ const ImagePopover = ({
           >
             Insert
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              editor
-                .chain()
-                .focus()
-                .setImage({ src: dandyBannerUrl, alt: "Dandy" })
-                .run();
-              setOpen(false);
-            }}
-            className="flex-1 h-7 text-xs"
-          >
-            Dandy Banner
-          </Button>
+          {dandyBannerUrl && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                editor
+                  .chain()
+                  .focus()
+                  .setImage({ src: dandyBannerUrl, alt: "Banner" })
+                  .run();
+                setOpen(false);
+              }}
+              className="flex-1 h-7 text-xs"
+            >
+              Brand Banner
+            </Button>
+          )}
         </div>
       </PopoverContent>
     </Popover>
@@ -444,10 +447,11 @@ const EmailWYSIWYGEditor = forwardRef<EmailEditorHandle, EmailWYSIWYGEditorProps
     }, [editor]);
 
     const insertDandyBanner = useCallback(() => {
+      if (!dandyBannerUrl) return;
       editor
         ?.chain()
         .focus()
-        .setImage({ src: dandyBannerUrl, alt: "Dandy" })
+        .setImage({ src: dandyBannerUrl, alt: "Banner" })
         .run();
     }, [editor, dandyBannerUrl]);
 
@@ -612,15 +616,17 @@ const EmailWYSIWYGEditor = forwardRef<EmailEditorHandle, EmailWYSIWYGEditorProps
                     <Columns className="w-3.5 h-3.5" /> 2-Col
                   </button>
 
-                  <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={insertDandyBanner}
-                    title="Insert Dandy Banner"
-                    className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                  >
-                    <FileText className="w-3.5 h-3.5" /> Banner
-                  </button>
+                  {dandyBannerUrl && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={insertDandyBanner}
+                      title="Insert Brand Banner"
+                      className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    >
+                      <FileText className="w-3.5 h-3.5" /> Banner
+                    </button>
+                  )}
 
                   <button
                     type="button"

@@ -141,7 +141,7 @@ export function UpgradePrompt({
             // Enterprise is sales-assisted. No Stripe SKU for it; the mailto
             // stays.
             <Button asChild className="flex-1">
-              <a href="mailto:sales@meetdandy.com?subject=Upgrade%20my%20Landing%20Page%20Studio%20plan">
+              <a href="mailto:admin@lpstudio.ai?subject=Upgrade%20my%20Landing%20Page%20Studio%20plan">
                 Talk to sales
                 <ArrowRight className="w-4 h-4 ml-1" />
               </a>

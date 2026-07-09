@@ -159,7 +159,7 @@ export function BlockBusinessCasePremium({ props, brand, isBuilder }: Props) {
         {brand ? (
           <BrandLogo brand={brand} url={props.logoUrl} alt={logoAlt} tone="onDark" className="h-7 w-auto" />
         ) : (
-          <img src={props.logoUrl || "/dandy-logo-white.svg"} alt={logoAlt} className="h-7 w-auto" />
+          props.logoUrl ? <img src={props.logoUrl} alt={logoAlt} className="h-7 w-auto" /> : null
         )}
         {(props.volumeLabel || props.issueLabel) && (
           <div

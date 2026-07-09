@@ -133,10 +133,6 @@ const EDITOR_MERGE_VARS = [
   { label: "Microsite link", variable: "microsite_url" },
 ];
 
-// Built-in Dandy banner fallback for the styled editor's banner tool, mirroring
-// FollowUpEmailSection. Tenants override via Brand Settings → Email banner.
-const DANDY_BANNER_URL =
-  "https://jrvgnqdxmitmktyazyuq.supabase.co/storage/v1/object/public/skin-images/dandy-email-banner.png";
 
 // When a landing page is attached we default to a short, page-centric email so
 // the user isn't forced into a full template.
@@ -165,7 +161,9 @@ type Step = 1 | 2 | 3 | 4;
 export function QuickCampaignWizard({ open, onClose, onCreated, initialPage }: Props) {
   const { user } = useAuth();
   const { brand } = useBrandConfig();
-  const bannerUrl = brand.emailBannerUrl?.trim() || DANDY_BANNER_URL;
+  // Tenant banner only — no built-in fallback (the editor hides its banner
+  // tool when unset). Set via Brand Settings → Email banner.
+  const bannerUrl = brand.emailBannerUrl?.trim() || "";
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
