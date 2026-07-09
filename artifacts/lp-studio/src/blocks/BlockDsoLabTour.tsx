@@ -1,10 +1,10 @@
-// NOTE: This block is intentionally NOT exposed in the block catalog seed
-// (`scripts/seed-block-catalog.cjs`). It was authored as a Dandy lab/manufacturing
-// showcase and the registry default props still reference Dandy-specific copy
-// (e.g. "vertical integration", U.S. lab images). Hardcoded fallbacks inside
-// the component itself have been made neutral / prop-driven so that, if the
-// block is ever surfaced to non-Dandy tenants, no Dandy branding leaks through
-// when default_props are overridden.
+// NOTE: This block IS exposed in the generic block catalog seed
+// (`scripts/seed-block-catalog.cjs`, as "Facility Tour") with per-row neutral
+// overrides. It was authored as a Dandy lab/manufacturing showcase and the
+// registry default props still reference Dandy-specific copy (dental tenants
+// keep those via the dental-bypass path). Hardcoded fallbacks inside the
+// component itself are neutral / prop-driven so no Dandy branding leaks
+// through when default_props are overridden.
 import { useState, useRef } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { Play, X, Microscope, Cpu, Users, MapPin } from "lucide-react";
@@ -21,7 +21,8 @@ interface Props {
   onFieldChange?: (updated: DsoLabTourBlockProps) => void;
 }
 
-const P   = "var(--brand-primary, #003A30)";
+// Neutral slate fallback — Dandy tenants get forest green via --brand-primary.
+const P   = "var(--brand-primary, #0f172a)";
 const AW  = "var(--brand-accent, hsl(68,60%,52%))";
 const SEC = "hsl(42,18%,96%)";
 const FG  = "hsl(152,40%,13%)";

@@ -1,10 +1,10 @@
-// NOTE: This block is intentionally NOT exposed in the block catalog seed
-// (`scripts/seed-block-catalog.cjs`). It was authored as a Dandy Insights
-// dashboard simulation and the registry default props still reference Dandy
-// (e.g. eyebrow "Dandy Hub & Insights"). Hardcoded "Dandy Insights" iframe
-// title has been neutralized so that, if the block is ever surfaced to non-
-// Dandy tenants and an embedded video is used, no Dandy text leaks through
-// when default_props are overridden.
+// NOTE: This block IS exposed in the generic block catalog seed
+// (`scripts/seed-block-catalog.cjs`) with per-row neutral overrides. It was
+// authored as a Dandy Insights dashboard simulation and the registry default
+// props still reference Dandy (e.g. eyebrow "Dandy Hub & Insights" — dental
+// tenants keep those via the dental-bypass path). The hardcoded "Dandy
+// Insights" iframe title has been neutralized, so no Dandy text leaks when
+// default_props are overridden.
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { motion, AnimatePresence, useInView } from "framer-motion";

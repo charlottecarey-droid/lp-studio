@@ -54,11 +54,24 @@ export function BlockDandyVerticalTabs({ props, brand, onFieldChange }: Props) {
           {/* Tab list */}
           <div className="flex flex-col divide-y divide-slate-100">
             {tabs.map((tab, i) => (
-              <button
+              // div[role=button] rather than <button>: the expanded tab body
+              // renders a real "Learn more" <button>, and interactive content
+              // can't nest inside a <button> (invalid HTML — React logs a
+              // console error). Keyboard activation is preserved via
+              // tabIndex + Enter/Space.
+              <div
                 key={i}
+                role="button"
+                tabIndex={0}
                 onClick={() => setActive(i)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setActive(i);
+                  }
+                }}
                 className={cn(
-                  "text-left py-8 transition-all",
+                  "text-left py-8 transition-all cursor-pointer",
                   i === active ? "opacity-100" : "opacity-35 hover:opacity-60"
                 )}
               >
@@ -94,7 +107,7 @@ export function BlockDandyVerticalTabs({ props, brand, onFieldChange }: Props) {
                     )}
                   </div>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
 

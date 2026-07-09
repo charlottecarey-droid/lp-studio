@@ -1862,8 +1862,13 @@ async function runMigrationsBody(): Promise<void> {
       // branding when rendered with DEFAULT_BRAND — caught by no-dandy-leak
       // tests). Also cleans up 5 "neutral-sounding" rows whose component
       // code hardcodes Dandy colors/copy. Then runs the standard upsert.
+      // v5 (2026-07-08, public-instance prep): the seed now ships NEUTRAL
+      // generic rows for the whole dandy-*/dso-* premium family, so those
+      // types are again removed-then-reseeded (the insert below is
+      // ON CONFLICT DO NOTHING — a type must be in LEAKY_TYPES_TO_REMOVE for
+      // its refreshed seed row to land on an existing database).
       const marker = await db.execute<{ exists: number }>(
-        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'block_catalog_generic_seed_v4'`
+        sql`SELECT 1 AS exists FROM _schema_migration_markers WHERE key = 'block_catalog_generic_seed_v5'`
       );
       const alreadySeeded = marker.rows.length > 0;
       if (!alreadySeeded) {
@@ -1879,6 +1884,10 @@ async function runMigrationsBody(): Promise<void> {
           "dso-practice-nav",
           "horizontal-showcase", "bold-statement", "sticky-stack",
           "event-page", "spatial-tour",
+          // v5 additions — stale leaky rows found in prod (meetdandy URLs /
+          // Dandy hexes); each now has a neutral force row in the seed.
+          "dandy-columns-v2", "dandy-columns-v3", "dandy-hero-v7-s3",
+          "dandy-side-image-v6", "dandy-conversion-panel-1",
         ];
         let removed = 0;
         for (const badType of LEAKY_TYPES_TO_REMOVE) {
@@ -1903,7 +1912,7 @@ async function runMigrationsBody(): Promise<void> {
           if (result.rows.length > 0) inserted++;
         }
         await db.execute(sql`
-          INSERT INTO _schema_migration_markers (key) VALUES ('block_catalog_generic_seed_v4') ON CONFLICT DO NOTHING
+          INSERT INTO _schema_migration_markers (key) VALUES ('block_catalog_generic_seed_v5') ON CONFLICT DO NOTHING
         `);
         logger.info(
           { removed, inserted, total: GENERIC_BLOCK_CATALOG_SEED.length },

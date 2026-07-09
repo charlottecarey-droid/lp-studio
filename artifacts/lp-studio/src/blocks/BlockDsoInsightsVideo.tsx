@@ -1,12 +1,12 @@
-// NOTE: This block is intentionally NOT exposed in the block catalog seed
-// (`scripts/seed-block-catalog.cjs`). It was authored as a Dandy Insights
-// product showcase and includes Dandy-specific imagery (rotating dashboard
-// screenshots in @assets, the meetdandy.com scan GIF). Hardcoded "Dandy"
-// strings (eyebrow, alt text, iframe title, browser URL) have been made
-// prop-driven with neutral defaults so that, if the block is ever surfaced
-// to non-Dandy tenants, no Dandy text leaks. (Note: the dashboard imagery
-// itself is still Dandy-specific and would need to be replaced before
-// catalog-exposing this block.)
+// NOTE: This block IS exposed in the generic block catalog seed
+// (`scripts/seed-block-catalog.cjs`) with per-row neutral overrides. It was
+// authored as a Dandy Insights product showcase; hardcoded "Dandy" strings
+// (eyebrow, alt text, iframe title, browser URL) are prop-driven with neutral
+// defaults, and the meetdandy.com scan GIF is prop-driven via `mediaUrl`
+// (undefined → legacy GIF, "" → no media card — the generic seed uses "").
+// (Note: the rotating dashboard screenshots in @assets are still Dandy
+// dashboard imagery — visually Dandy-specific, though no Dandy text/URL
+// leaks into the DOM.)
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { motion, useInView } from "framer-motion";
@@ -86,6 +86,12 @@ interface Props {
 
 const CALLOUT_ICONS = [LineChart, DollarSign, Stethoscope, Activity];
 
+// Original Dandy scan-thickness GIF. Only used when props.mediaUrl is
+// undefined (legacy saved pages) — the generic catalog seed sets mediaUrl: ""
+// so non-Dandy tenants never render it.
+const LEGACY_SCAN_GIF_URL =
+  "https://www.meetdandy.com/wp-content/uploads/2025/07/careers-technology-DDP_Thickness.gif";
+
 const DEFAULT_CALLOUTS: Array<{ label: string; desc: string }> = [
   { label: "Remake Rates",         desc: "Track quality by provider, not just practice" },
   { label: "Spend Tracking",       desc: "Know where every dollar goes across all locations" },
@@ -163,6 +169,11 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
       v.pause();
     }
   }, [inView, props.videoPlayOnScroll]);
+
+  // Legacy-safe scan-media resolution: undefined → the original meetdandy.com
+  // GIF (existing saved Dandy pages keep rendering exactly as today), "" → no
+  // media card, non-empty → that URL. See DsoInsightsVideoBlockProps.mediaUrl.
+  const scanMediaUrl = props.mediaUrl === undefined ? LEGACY_SCAN_GIF_URL : props.mediaUrl;
 
   const bgStyle = getBgStyle(props.backgroundStyle ?? "dandy-green");
   const dark = resolveSectionSurface({ backgroundStyle: props.backgroundStyle ?? "dandy-green" }, "#ffffff", brand).isDark;
@@ -436,7 +447,10 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
         </div>
 
         {/* ── SCAN GIF FEATURE — styled as a callout card ── */}
-        {props.showScanGif !== false && <motion.div
+        {/* Legacy-safe media resolution (see DsoInsightsVideoBlockProps.mediaUrl):
+            undefined → original meetdandy.com GIF (existing saved Dandy pages
+            keep rendering as before); "" → no media card; non-empty → that URL. */}
+        {props.showScanGif !== false && scanMediaUrl !== "" && <motion.div
           className="w-full max-w-3xl mb-16 rounded-2xl overflow-hidden"
           style={{
             marginLeft: "8%",
@@ -472,7 +486,7 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
             <div className="absolute inset-x-0 top-0 h-8 z-10 pointer-events-none"
               style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.18), transparent)" }} />
             <img
-              src="https://www.meetdandy.com/wp-content/uploads/2025/07/careers-technology-DDP_Thickness.gif"
+              src={scanMediaUrl}
               alt={props.scanGifAlt || "Scan thickness visualization"}
               className="w-full h-auto block"
               draggable={false}

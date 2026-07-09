@@ -915,6 +915,13 @@ export interface DsoInsightsVideoBlockProps {
   screensAltPrefix?: string;
   /** Alt text for the scan-thickness GIF. Defaults to a neutral description. */
   scanGifAlt?: string;
+  /** Media (GIF/image) URL for the scan-feature card. Legacy-safe semantics:
+   *  - undefined → falls back to the original meetdandy.com scan GIF, so
+   *    already-saved Dandy pages keep rendering exactly as before;
+   *  - ""        → renders no scan-media card at all (used by the generic
+   *    block_catalog seed so non-Dandy tenants never see the Dandy GIF);
+   *  - non-empty → renders that URL. */
+  mediaUrl?: string;
   /** Title attribute for the embedded video iframe (accessibility). */
   videoTitle?: string;
   title?: string;

@@ -686,18 +686,309 @@ const GENERIC_SEED = [
       whyItMatters: { heading: "Why It Matters", body: "Tie the result back to a broader business outcome — revenue, capacity, or efficiency at scale." },
     } },
 
+  // ── Dandy-family blocks with per-row neutral overrides ─────────────────────
+  // These dandy-*/dso-* types were historically excluded because their
+  // BLOCK_REGISTRY defaults bake in meetdandy.com URLs, Dandy copy, phone
+  // numbers, and the forest/lime palette. Each row below COMPLETELY overrides
+  // every leaky registry field (same pattern as dso-case-flow / dso-case-study
+  // above), so generic tenants get the layout with neutral content. Dental
+  // tenants keep the Dandy-flavored BLOCK_REGISTRY defaults via the
+  // dental-bypass path. force: true — these types were part of the v2 leaky
+  // mis-seed, so corrected defaults must overwrite any previously-seeded rows.
+  { block_type: "dso-insights-dashboard", label: "Insights Dashboard", category: "Content", sort_order: 47, force: true,
+    default_props: {
+      eyebrow: "Insights",
+      headline: "One dashboard for every location.",
+      subheadline: "Give {{company_name}} leaders actionable data — not just reports. Know where to intervene before problems scale, manage by exception, and maintain control as complexity increases.",
+      practiceLabel: "locations",
+      backgroundStyle: "muted",
+      dashboardVariant: "light",
+    } },
+  { block_type: "dso-lab-tour", label: "Facility Tour", category: "Content", sort_order: 48, force: true,
+    default_props: {
+      eyebrow: "Behind the scenes",
+      headline: "See how the work gets done.",
+      body: "Unlike traditional vendors, we own the entire process — from intake to delivery. Modern facilities, AI quality control, and expert teams deliver consistent results at enterprise scale.",
+      // Placeholder quote per seed convention (see dso-case-study) — never
+      // ship an invented testimonial as a claim.
+      quote: "Replace this quote with a real customer testimonial.",
+      quoteAttribution: "Customer name, Role",
+      imageUrl: NEUTRAL_OFFICE_IMG_1,
+      imageAlt: "Inside our facility",
+      imageEyebrow: "Facility Tour",
+      imageCaption: "Inside our facility",
+      videoUrl: "",
+      ctaText: "Request a Tour",
+      ctaUrl: "#",
+      backgroundStyle: "white",
+    } },
+  { block_type: "dso-insights-video", label: "Insights Video", category: "Content", sort_order: 49, force: true,
+    default_props: {
+      eyebrow: "Insights",
+      title: "See everything.",
+      subtitle: "Before it becomes a problem.",
+      description: "The analytics platform purpose-built for multi-location operators.",
+      callout1Label: "Quality Rates", callout1Desc: "Track quality by team, not just location",
+      callout2Label: "Spend Tracking", callout2Desc: "Know where every dollar goes across all locations",
+      callout3Label: "Issue Detection", callout3Desc: "Catch problems before they become costly",
+      callout4Label: "Team Performance", callout4Desc: "Coach with data, not instinct",
+      quote: "Replace this quote with a real customer testimonial.",
+      quoteAttribution: "Customer name, Role",
+      ctaLabel: "Get a demo",
+      // Registry default points at meetdandy.chilipiper.com — neutralize.
+      ctaUrl: "#",
+      ctaMode: "link",
+      ctaVariant: "primary",
+      backgroundStyle: "dark",
+      // "" = render no scan-media card. Legacy Dandy pages leave mediaUrl
+      // undefined and keep the original meetdandy.com GIF (see
+      // DsoInsightsVideoBlockProps.mediaUrl).
+      mediaUrl: "",
+    } },
+  { block_type: "dso-heartland-hero", label: "Co-Brand Hero", category: "Hero", sort_order: 109, force: true,
+    default_props: {
+      headline: "Built for {company}.",
+      companyName: "{company}",
+      eyebrow: "A Better Way to Scale",
+      subheadline: "The partner built to match your scale — precise execution, AI quality control, and network-wide visibility.",
+      primaryCtaText: "Schedule a Conversation",
+      primaryCtaUrl: "#",
+      secondaryCtaText: "See the ROI",
+      secondaryCtaUrl: "#calculator",
+      backgroundImageUrl: "",
+      stats: [
+        { value: "500+", label: "Locations supported" },
+        { value: "98%",  label: "Customer retention" },
+        { value: "10x",  label: "Faster onboarding" },
+        { value: "$0",   label: "Upfront cost" },
+      ],
+      showScrollIndicator: true,
+    } },
+  { block_type: "dandy-product-hero", label: "Product Hero", category: "Hero", sort_order: 110, force: true,
+    default_props: {
+      eyebrow: "FLAGSHIP PRODUCT",
+      headline: "Premium Products\nDelivered in Days",
+      subheadline: "Best-in-class products with industry-leading turnaround. Backed by our multi-year warranty.",
+      emailPlaceholder: "Email address",
+      primaryCtaText: "Get Started",
+      primaryCtaUrl: "#",
+      primaryCtaMode: "link",
+      imageUrl: "",
+      imageAlt: "Product photo",
+      imageBleed: true,
+      imageAnchor: "top left",
+      imageScale: 1.35,
+      minHeight: 90,
+      // Neutral slate/blue in place of the registry's Dandy forest/lime.
+      backgroundColor: "#0f172a",
+      accentColor: "#3b82f6",
+      textColor: "#ffffff",
+      disclaimer: "By submitting, you agree to be contacted about our products and services.",
+      variant: "split",
+      inputStyle: "rounded",
+      buttonColor: "#3b82f6",
+      buttonHoverColor: "#2563eb",
+      buttonTextColor: "#ffffff",
+      leftColumnFr: 1.05,
+      rightColumnFr: 1,
+      cardColor: "#e2e8f0",
+      cardTextColor: "#0f172a",
+      imageBackgroundColor: "#ffffff",
+    } },
+  { block_type: "dandy-hero-v7-s3", label: "Premium: Hero 7 — Inline Form", category: "Hero", sort_order: 111, force: true,
+    default_props: {
+      eyebrow: "GET STARTED TODAY",
+      headline: "The future of your workflow is digital.",
+      subheadline: "Join thousands of teams that made the switch. Get premium services, modern tooling, and live support—all in one platform.",
+      inputPlaceholder: "Enter your work email",
+      ctaText: "Get a Free Demo",
+      formDisclaimer: "No commitment required. We'll reach out within one business day.",
+      bgColor: "#0f172a",
+      bgImageOpacity: 0.15,
+      trustItems: [
+        { value: "500+",  label: "Teams Onboarded" },
+        { value: "98%",   label: "Customer Retention" },
+        { value: "<1 hr", label: "Avg. Time to Value" },
+      ],
+    } },
+  { block_type: "dandy-versus", label: "Premium: 2 Column Comparison", category: "Content", sort_order: 50, force: true,
+    default_props: {
+      eyebrow: "WHY US",
+      headline: "2 column content boxes",
+      leftLabel: "OLD WAY",
+      leftTitle: "The Old Way",
+      leftDesc: "What work looks like on legacy tools and manual processes.",
+      leftBullets: ["Error-prone manual workflows", "Long waits for status updates", "Cross your fingers the result looks right", "Weeks of turnaround time"],
+      leftCtaText: "Make the switch",
+      leftCtaUrl: "#form",
+      rightLabel: "NEW WAY",
+      rightTitle: "Our Platform",
+      rightDesc: "What changes when everything runs through one connected system.",
+      rightBullets: ["Streamlined digital workflows", "Real-time review and feedback", "No surprises with built-in approvals", "Turnaround in days, not weeks"],
+      rightCtaText: "Make the switch",
+      rightCtaUrl: "#form",
+      bgColor: "#0f172a",
+    } },
+  { block_type: "dandy-columns-v2", label: "Premium: Columns Variant 2", category: "Content", sort_order: 51, force: true,
+    default_props: {
+      eyebrow: "GET STARTED",
+      headline: "Columns Variant 2",
+      subheadline: "Flexible plans and premium services tailored to teams of every size.",
+      // Explicit neutral images — an empty imageUrl falls back to the
+      // component's dental-flavored unsplash placeholder.
+      items: [
+        { imageUrl: NEUTRAL_OFFICE_IMG_1, title: "Small Teams", description: "Simplify your workflows, grow your volume, and elevate quality — with greater control and predictability.", bullets: ["Everything you need to get started"], ctaText: "GET STARTED", ctaUrl: "#" },
+        { imageUrl: NEUTRAL_OFFICE_IMG_2, title: "Growing Teams", description: "Standardize work across locations, improve operational efficiency, and support your team with scalable digital tools.", bullets: ["Onboarding support for every location"], ctaText: "GET STARTED", ctaUrl: "#" },
+        { imageUrl: NEUTRAL_OFFICE_IMG_3, title: "Enterprise", description: "Boost profitability, consolidate spend, and ensure consistent, high-quality output across every location.", bullets: ["Dedicated account team and rollout plan"], ctaText: "GET STARTED", ctaUrl: "#" },
+      ],
+    } },
+  { block_type: "dandy-columns-v3", label: "Premium: Columns Variant 3", category: "Content", sort_order: 52, force: true,
+    default_props: {
+      eyebrow: "GETTING STARTED",
+      headline: "Columns Variant 3",
+      subheadline: "Premium services backed by flexible plans tailored to your team.",
+      items: [
+        { imageUrl: "", title: "Choose your plan", description: "Talk with our team to determine the best plan for your business based on your needs and budget." },
+        { imageUrl: "", title: "Schedule free training", description: "Empower your staff with guided training to master the platform for any workflow." },
+        { imageUrl: "", title: "Place your first order", description: "Get high-quality results with industry-leading turnaround times from day one." },
+      ],
+    } },
+  { block_type: "dandy-vertical-tabs", label: "Premium: Vertical Tabs", category: "Content", sort_order: 53, force: true,
+    default_props: {
+      headline: "Vertical Tabs",
+      subheadline: "Deliver better results with a streamlined, quality-controlled workflow.",
+      // Explicit neutral images — an empty imageUrl falls back to the
+      // component's dental-flavored unsplash placeholder.
+      tabs: [
+        { title: "Move faster with quick turnaround.", description: "Slow handoffs hold you back. Get fast, reliable results every time.", ctaText: "Learn more", ctaUrl: "#", imageUrl: NEUTRAL_OFFICE_IMG_1 },
+        { title: "Flawless output — powered by AI.", description: "Deliver consistent quality with automated checks that spot and fix issues the human eye can't see.", ctaText: "Learn more", ctaUrl: "#", imageUrl: NEUTRAL_OFFICE_IMG_2 },
+        { title: "Save with transparent pricing.", description: "Feel confident in the quality you're delivering — without breaking the bank.", ctaText: "Learn more", ctaUrl: "#", imageUrl: NEUTRAL_OFFICE_IMG_3 },
+      ],
+    } },
+  { block_type: "dandy-switchback", label: "Premium: Switchback", category: "Content", sort_order: 54, force: true,
+    default_props: {
+      eyebrow: "WHY US",
+      headline: "Switchback",
+      subheadline: "The first platform to unite modern tooling, on-demand expertise, and advanced automation into one integrated system.",
+      // Explicit neutral images — an empty imageUrl falls back to the
+      // component's dental-flavored unsplash placeholder.
+      items: [
+        { title: "Innovative products", description: "Get quality and precision on every order with our advanced platform.", ctaText: "Learn more", ctaUrl: "#", imageUrl: NEUTRAL_OFFICE_IMG_4 },
+        { title: "One connected workflow", description: "No more fragmented systems. Your entire workflow from kickoff to final delivery lives in one connected platform.", ctaText: "Learn more", ctaUrl: "#", imageUrl: NEUTRAL_OFFICE_IMG_5 },
+        { title: "Live expert support", description: "Increase confidence on every project — chat with specialists, join video calls, and get answers in minutes.", ctaText: "Learn more", ctaUrl: "#", imageUrl: NEUTRAL_OFFICE_IMG_1 },
+      ],
+    } },
+  { block_type: "dandy-side-image-v6", label: "Premium: Side Image Variation 6", category: "Content", sort_order: 55, force: true,
+    default_props: {
+      eyebrow: "WHY US",
+      headline: "The complete platform for modern teams.",
+      subheadline: "We combine best-in-class services, modern tooling, and AI-powered software into one seamless experience.",
+      bullets: [
+        "Everything you need to get started, included",
+        "Fast turnaround with AI-powered quality control",
+        "Live support while you work",
+        "One platform — plan, order, track — all in one place",
+      ],
+      ctaText: "Get a Free Demo",
+      ctaUrl: "#",
+      secondaryCtaText: "See How It Works",
+      secondaryCtaUrl: "#",
+      imageUrl: NEUTRAL_OFFICE_IMG_2,
+      badgeText: "Trusted by 500+ teams",
+      imagePosition: "right",
+      bgColor: "#FDFCFA",
+    } },
+  { block_type: "dandy-site-header", label: "Premium: Site Header", category: "Layout", sort_order: 22, force: true,
+    default_props: {
+      logoUrl: "",
+      // No phone — tenants opt in (registry default is a Dandy sales number).
+      phoneNumber: "",
+      phoneLabel: "",
+      primaryCtaText: "GET PRICING",
+      primaryCtaUrl: "#",
+      secondaryCtaText: "GET STARTED",
+      secondaryCtaUrl: "#",
+      navLinks: [
+        { label: "Products",  url: "#" },
+        { label: "Solutions", url: "#" },
+        { label: "Support",   url: "#" },
+        { label: "Pricing",   url: "#" },
+        { label: "Resources", url: "#" },
+      ],
+    } },
+  { block_type: "dandy-site-footer", label: "Premium: Site Footer", category: "Layout", sort_order: 23, force: true,
+    default_props: {
+      logoUrl: "",
+      disclaimer: "",
+      copyrightText: "",
+      linkGroups: [
+        { heading: "Company",   links: [{ label: "Home", url: "#" }, { label: "Pricing", url: "#" }, { label: "About", url: "#" }, { label: "Careers", url: "#" }, { label: "Privacy Policy", url: "#" }, { label: "Terms of Use", url: "#" }] },
+        { heading: "Product",   links: [{ label: "Features", url: "#" }, { label: "Integrations", url: "#" }, { label: "Pricing", url: "#" }] },
+        { heading: "Resources", links: [{ label: "Blog", url: "#" }, { label: "Help Center", url: "#" }, { label: "Contact", url: "#" }] },
+      ],
+    } },
+  { block_type: "dandy-video-testimonials", label: "Premium: Video Testimonials", category: "Social Proof", sort_order: 54, force: true,
+    default_props: {
+      eyebrow: "OUR CUSTOMERS",
+      headline: "Don't just take our word for it.",
+      subheadline: "See why thousands of customers choose us.",
+      // Empty by design — the registry default carries real Dandy customer
+      // videos/photos. Tenants add their own testimonial videos.
+      items: [],
+    } },
+  { block_type: "dandy-form-right-alt", label: "Premium: Form — Right Align Alt", category: "Lead Capture", sort_order: 62, force: true,
+    default_props: {
+      eyebrow: "GET STARTED TODAY",
+      headline: "Schedule a free demo with our team.",
+      subheadline: "See how we can transform your workflow. We'll walk you through the full platform—no commitment required.",
+      bullets: [
+        "A guided tour of the full platform",
+        "Answers from a real product specialist",
+        "Pricing tailored to your team",
+        "Dedicated onboarding and support",
+      ],
+      trustNote: "🔒 Your information is safe with us. We never share your data.",
+      formHeadline: "Request a Free Demo",
+      formSubheadline: "Fill out the form and we'll be in touch within one business day.",
+      submitText: "Get a Free Demo",
+      formDisclaimer: "No commitment required.",
+      successMessage: "Thanks! Our team will reach out within one business day.",
+      bgColor: "#FDFCFA",
+    } },
+  { block_type: "dandy-conversion-panel-1", label: "Premium: Conversion Panel 1", category: "CTA", sort_order: 53, force: true,
+    default_props: {
+      eyebrow: "READY TO GET STARTED?",
+      headline: "Join thousands of teams already on board.",
+      subheadline: "Get premium services, modern tooling, and live support—all in one platform.",
+      primaryCtaText: "Get a Free Demo",
+      primaryCtaUrl: "#",
+      secondaryCtaText: "Talk to Sales",
+      secondaryCtaUrl: "#",
+      // "teal" resolves to the tenant's brand primary in the component.
+      style: "teal",
+      stats: [
+        { value: "500+",  label: "Teams Onboarded" },
+        { value: "98%",   label: "Customer Retention" },
+        { value: "<1 hr", label: "Avg. Time to Value" },
+      ],
+    } },
+  { block_type: "dandy-cta-block", label: "Premium: CTA Block", category: "CTA", sort_order: 54, force: true,
+    default_props: {
+      eyebrow: "GET STARTED",
+      headline: "Ready to transform your business?",
+      subheadline: "Schedule a free demo and see how our platform can help you deliver better outcomes—faster.",
+      primaryCtaText: "Get a Free Demo",
+      primaryCtaUrl: "#",
+      secondaryCtaText: "Learn More",
+      secondaryCtaUrl: "#",
+      alignment: "center",
+      bgColor: "#FDFCFA",
+    } },
+
   // ── Backfill: neutral, non-Dandy blocks that exist in BLOCK_REGISTRY but
   // were missing from the generic catalog, so non-Dandy tenants couldn't see
   // them in the builder palette. Empty default_props inherits BLOCK_REGISTRY
   // defaults — these blocks have neutral defaults safe for any tenant.
-  //
-  // Excluded intentionally: dandy-* and dso-* blocks. Their BLOCK_REGISTRY
-  // defaults bake in Dandy URLs/colors/copy, which would leak into generic
-  // tenants' builders. Dental-industry tenants already see them via the
-  // dental-bypass path (BLOCK_REGISTRY directly); generic tenants don't get
-  // them by design. Adding them here would require per-row neutral overrides
-  // (see existing dso-case-flow / dso-case-study entries above for the
-  // pattern) — out of scope for this backfill.
   //
   // force: false — never overwrite admin tweaks if these get curated later.
   // Verified clean against tests/no-dandy-leak.spec.ts (DEFAULT_BRAND render

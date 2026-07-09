@@ -1579,7 +1579,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-insights-dashboard" as const,
-    label: "DSO Insights Dashboard",
+    label: "Insights Dashboard",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoInsightsDashboardBlockProps => ({
       eyebrow: "Dandy Hub & Insights",
@@ -1616,7 +1616,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-lab-tour" as const,
-    label: "DSO Lab Tour",
+    label: "Lab Tour",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoLabTourBlockProps => ({
       eyebrow: "Built in the USA",
@@ -1652,7 +1652,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-stat-bar" as const,
-    label: "DSO Stats Bar",
+    label: "Stats Bar",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoStatBarBlockProps => ({
       stats: [
@@ -1677,7 +1677,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-success-stories" as const,
-    label: "DSO Success Stories",
+    label: "Success Stories",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoSuccessStoriesBlockProps => ({
       eyebrow: "Proven Results",
@@ -1708,7 +1708,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-challenges" as const,
-    label: "DSO Challenges",
+    label: "Challenges",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoChallengesBlockProps => ({
       eyebrow: "The Hidden Cost",
@@ -1742,7 +1742,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-pilot-steps" as const,
-    label: "DSO Pilot Steps",
+    label: "Pilot Steps",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoPilotStepsBlockProps => ({
       eyebrow: "How It Works",
@@ -1799,7 +1799,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-final-cta" as const,
-    label: "DSO Final CTA",
+    label: "Final CTA",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoFinalCtaBlockProps => ({
       eyebrow: "Next Steps",
@@ -1826,7 +1826,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-comparison" as const,
-    label: "DSO Comparison",
+    label: "Comparison Panel",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoComparisonBlockProps => ({
       eyebrow: "The Dandy Difference",
@@ -1913,7 +1913,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-heartland-hero" as const,
-    label: "DSO Co-Brand Hero",
+    label: "Co-Brand Hero",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoHeartlandHeroBlockProps => ({
       headline: "Built for {company}.",
@@ -1953,7 +1953,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-ai-feature" as const,
-    label: "DSO AI Feature (Scan Review)",
+    label: "AI Feature (Scan Review)",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoAiFeatureBlockProps => ({
       eyebrow: "Waste Prevention",
@@ -1991,7 +1991,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-problem" as const,
-    label: "DSO Problem (4-panel grid)",
+    label: "Problem Grid (4-Panel)",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoProblemBlockProps => ({
       eyebrow: "The Problem",
@@ -2028,7 +2028,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-stat-showcase" as const,
-    label: "DSO Stat Showcase",
+    label: "Stat Showcase",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoStatShowcaseBlockProps => ({
       eyebrow: "By the Numbers",
@@ -2059,7 +2059,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-scroll-story" as const,
-    label: "DSO Scroll Story",
+    label: "Scroll Story",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoScrollStoryBlockProps => ({
       eyebrow: "The Dandy Advantage",
@@ -2088,7 +2088,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-scroll-story-hero" as const,
-    label: "DSO Hero Story",
+    label: "Hero Story",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoScrollStoryHeroBlockProps => ({
       eyebrow: "The Dandy Advantage",
@@ -2120,7 +2120,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-network-map" as const,
-    label: "DSO Network Map",
+    label: "Network Map",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoNetworkMapBlockProps => ({
       eyebrow: "Dandy Network",
@@ -2159,7 +2159,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-case-flow" as const,
-    label: "DSO Case Flow",
+    label: "Case Flow",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoCaseFlowBlockProps => ({
       eyebrow: "How Dandy Works",
@@ -2204,7 +2204,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-live-feed" as const,
-    label: "DSO Live Feed",
+    label: "Live Feed",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoLiveFeedBlockProps => ({
       eyebrow: "Platform Intelligence",
@@ -2246,7 +2246,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-particle-mesh" as const,
-    label: "DSO Particle Mesh",
+    label: "Particle Mesh",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoParticleMeshBlockProps => ({
       eyebrow: "AI-Driven Intelligence",
@@ -2287,7 +2287,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-flow-canvas" as const,
-    label: "DSO Flow Canvas",
+    label: "Flow Canvas",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoFlowCanvasBlockProps => ({
       eyebrow: "The Dandy Standard",
@@ -2318,7 +2318,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-bento-outcomes" as const,
-    label: "DSO Bento Outcomes",
+    label: "Bento Outcomes",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoBentoOutcomesBlockProps => ({
       eyebrow: "Why Dandy",
@@ -2348,7 +2348,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-meet-team" as const,
-    label: "DSO Meet the Team",
+    label: "Meet the Team",
     category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoMeetTeamBlockProps => ({
       eyebrow: "Your Dedicated Team",
@@ -2383,7 +2383,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-paradigm-shift" as const,
-    label: "DSO Paradigm Shift",
+    label: "Paradigm Shift",
     category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoParadigmShiftBlockProps => ({
       eyebrow: "The New Standard",
@@ -2427,7 +2427,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-partnership-perks" as const,
-    label: "DSO Partnership Perks",
+    label: "Partnership Perks",
     category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoPartnershipPerksBlockProps => ({
       eyebrow: "Partnership Benefits",
@@ -2461,7 +2461,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-products-grid" as const,
-    label: "DSO Products Grid",
+    label: "Products Grid",
     category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoProductsGridBlockProps => ({
       eyebrow: "The Full Platform",
@@ -2498,7 +2498,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-promo-cards" as const,
-    label: "DSO Promo Cards",
+    label: "Promo Cards",
     category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoPromoCardsBlockProps => ({
       eyebrow: "Limited-Time Offers",
@@ -2531,7 +2531,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-activation-steps" as const,
-    label: "DSO Activation Steps",
+    label: "Activation Steps",
     category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoActivationStepsBlockProps => ({
       eyebrow: "Getting Started",
@@ -2568,7 +2568,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-promises" as const,
-    label: "DSO Promises",
+    label: "Promises",
     category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoPromisesBlockProps => ({
       eyebrow: "Our Guarantees",
@@ -2602,7 +2602,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-testimonials" as const,
-    label: "DSO Testimonials",
+    label: "Testimonials",
     category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoTestimonialsBlockProps => ({
       eyebrow: "What Our Partners Say",
@@ -2638,7 +2638,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-practice-nav" as const,
-    label: "DSO Practice Nav",
+    label: "Practice Nav",
     category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoPracticeNavBlockProps => ({
       dsoName: "",
@@ -2670,7 +2670,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-practice-hero" as const,
-    label: "DSO Practice Hero",
+    label: "Practice Hero",
     category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoPracticeHeroBlockProps => ({
       eyebrow: "{{company_name}} partnership",
@@ -2703,7 +2703,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-stat-row" as const,
-    label: "DSO Stat Row",
+    label: "Stat Row",
     category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoStatRowBlockProps => ({
       eyebrow: "By the numbers",
@@ -2734,7 +2734,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-faq" as const,
-    label: "DSO FAQ",
+    label: "FAQ Accordion",
     category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoFaqBlockProps => ({
       eyebrow: "Common questions",
@@ -2766,7 +2766,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-split-feature" as const,
-    label: "DSO Split Feature",
+    label: "Split Feature",
     category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoSplitFeatureBlockProps => ({
       eyebrow: "AI-powered quality control",
@@ -2806,7 +2806,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-software-showcase" as const,
-    label: "DSO Software Showcase",
+    label: "Software Showcase",
     category: "DSO Practices" as BlockCategory,
     defaultProps: (): DsoSoftwareShowcaseBlockProps => ({
       eyebrow: "Chairside Software",
@@ -2882,7 +2882,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-cta-capture" as const,
-    label: "DSO CTA Capture",
+    label: "CTA Capture",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoCtaCaptureBlockProps => ({
       eyebrow: "Get Started Today",
@@ -2929,7 +2929,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
   {
     type: "dso-case-study" as const,
-    label: "DSO Case Study",
+    label: "Case Study",
     category: "DSO" as BlockCategory,
     defaultProps: (): DsoCaseStudyBlockProps => ({
       eyebrow: "Customer Story",
