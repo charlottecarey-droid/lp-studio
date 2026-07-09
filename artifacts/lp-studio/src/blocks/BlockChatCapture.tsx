@@ -189,13 +189,27 @@ function ChatCaptureLauncher({
 
   // Records the chilipiper_booking conversion (+ best-effort booking lead)
   // when the embedded scheduler posts its booking-confirmed message. No-ops
-  // while no scheduler is open (empty url).
+  // while no scheduler is open (empty url). On confirmation, the scheduler
+  // closes and the tenant's confirmation message (or a default) lands in the
+  // thread — client-side only: no model call, and the booking isn't in the
+  // server-side transcript. Redirect-mode bookings (new tab) can't signal
+  // back, so they never reach this.
   useChiliPiperBookingTracking({
     url: schedulerUrl ?? "",
     pageId,
     testId,
     variantId,
     sessionId,
+    onBookingConfirmed: () => {
+      setSchedulerUrl(null);
+      const confirmation =
+        blockProps.bookingConfirmationMessage?.trim() ||
+        "🎉 You're all set — the meeting is booked and you'll get a calendar invite by email. Anything else I can help with?";
+      setMessages((prev) => [
+        ...prev,
+        { id: nextId(), role: "assistant", content: confirmation },
+      ]);
+    },
   });
 
   useEffect(() => {

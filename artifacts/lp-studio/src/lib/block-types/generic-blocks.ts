@@ -5023,9 +5023,19 @@ export interface ChatCaptureBlockProps {
   collectPhone?: boolean;
   /** Questions the bot weaves in to qualify the visitor (one per turn). */
   qualifyingQuestions?: string[];
+  /** Plain-English guidance for the bot ("Make sure you mention the free
+   *  trial when you ask for their email."). Folded into the bot's system
+   *  prompt AFTER the core guardrails — it can steer tone and emphasis but
+   *  can't override strict-facts or capture rules. */
+  customInstructions?: string;
   /** Optional global form id — captured leads submit with this formId so the
    *  form's notification/integration routing applies. */
   formId?: number;
+  /** Message posted in the chat when the visitor completes a booking in the
+   *  in-panel scheduler (linked form's Chili Piper/Calendly hand-off).
+   *  Empty = a friendly default. Redirect-mode bookings happen in a new tab
+   *  and can't signal back, so no message is shown for those. */
+  bookingConfirmationMessage?: string;
   /** Small-print consent line shown at the bottom of the chat panel. */
   consentText?: string;
   /** Auto-open the panel after this many seconds (0/unset = never). Fires at

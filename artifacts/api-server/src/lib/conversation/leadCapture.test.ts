@@ -149,6 +149,30 @@ describe("buildLeadCapturePersona", () => {
   });
 });
 
+describe("buildLeadCapturePersona — page owner instructions", () => {
+  it("appends owner instructions below the playbook with rules-win framing", () => {
+    const persona = buildLeadCapturePersona(
+      { customInstructions: "Mention the free trial when you ask for their email." },
+      "Acme",
+    );
+    expect(persona).toContain("PAGE OWNER INSTRUCTIONS");
+    expect(persona).toContain("Mention the free trial when you ask for their email.");
+    // The guardrails must outrank the owner's wishes.
+    expect(persona).toContain("the rules above win");
+    // Instructions ride BELOW the playbook, never before the guardrails.
+    expect(persona.indexOf("NEVER guess or invent")).toBeLessThan(
+      persona.indexOf("PAGE OWNER INSTRUCTIONS"),
+    );
+  });
+
+  it("omits the section when instructions are empty or whitespace", () => {
+    expect(buildLeadCapturePersona({}, "Acme")).not.toContain("PAGE OWNER INSTRUCTIONS");
+    expect(buildLeadCapturePersona({ customInstructions: "   " }, "Acme")).not.toContain(
+      "PAGE OWNER INSTRUCTIONS",
+    );
+  });
+});
+
 describe("leadCaptureMode", () => {
   it("is tagged lead_capture with a single capture_lead action requiring email", () => {
     expect(leadCaptureMode.id).toBe("lead_capture");

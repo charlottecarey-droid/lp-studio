@@ -34,6 +34,12 @@ export interface ChatCaptureConfig {
   collectCompany?: boolean;
   collectPhone?: boolean;
   qualifyingQuestions?: string[];
+  /** Tenant-authored plain-English guidance ("Make sure you mention the free
+   *  trial when you ask for their email."). Appended to the persona AFTER the
+   *  core rules with an explicit rules-win framing — it steers tone and
+   *  emphasis but must not be able to override strict-facts grounding, the
+   *  capture contract, or the booking rules. */
+  customInstructions?: string;
 }
 
 /** One visitor-facing field of the linked global form. */
@@ -204,7 +210,23 @@ export function buildLeadCapturePersona(config: ChatCaptureConfig, brandName: st
     "(tied to something new they asked about). If they decline twice, stop asking entirely and just help.\n" +
     "6. Once you have their email (plus whatever else they shared), call capture_lead with a notes " +
     "summary that includes their qualifying answers, confirm you've passed it along, then keep going — " +
-    "any qualifying questions still unanswered are worth asking even after capture (the team sees the transcript)."
+    "any qualifying questions still unanswered are worth asking even after capture (the team sees the transcript)." +
+    buildOwnerInstructionsSection(config)
+  );
+}
+
+/** Tenant-authored guidance rides BELOW the playbook with a rules-win framing:
+ *  it may steer tone/emphasis/what to highlight, but a page owner writing
+ *  "always say we're the cheapest" must not beat strict-facts, and "email
+ *  them a booking link" must not beat the booking rules. Exported for tests. */
+export function buildOwnerInstructionsSection(config: ChatCaptureConfig): string {
+  const custom = config.customInstructions?.trim();
+  if (!custom) return "";
+  return (
+    "\n\nPAGE OWNER INSTRUCTIONS — the page owner wrote these for you; follow them faithfully " +
+    "wherever they fit the conversation. If any of them conflicts with the rules above " +
+    "(approved facts only, never bluff, the capture and booking rules), the rules above win:\n" +
+    custom
   );
 }
 

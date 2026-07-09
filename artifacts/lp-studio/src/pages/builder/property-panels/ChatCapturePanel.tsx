@@ -100,6 +100,23 @@ export function ChatCapturePanel({ props, onChange }: Props) {
       </div>
 
       <div>
+        <Label className={LABEL_CLS}>Bot Instructions (optional)</Label>
+        <Textarea
+          value={props.customInstructions ?? ""}
+          onChange={e => set("customInstructions", e.target.value)}
+          className="text-sm"
+          rows={3}
+          maxLength={2000}
+          placeholder={"Mention the free trial when you ask for their email.\nIf they ask about pricing, point them to the ROI section."}
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Plain-English guidance the bot follows — what to emphasize, mention, or steer toward.
+          It can't override the safety rules: the bot still only states facts from this page and
+          your brand settings.
+        </p>
+      </div>
+
+      <div>
         <Label className={LABEL_CLS}>Global Form</Label>
         <p className="text-xs text-muted-foreground mb-2">
           Captured leads submit with this form's notification and integration routing. If the form
@@ -134,6 +151,21 @@ export function ChatCapturePanel({ props, onChange }: Props) {
             <Link2 className="w-3 h-3" /> Linked to "{linkedForm.name}" — notifications and integrations managed globally.
           </p>
         )}
+      </div>
+
+      <div>
+        <Label className={LABEL_CLS}>Booking Confirmation Message</Label>
+        <Textarea
+          value={props.bookingConfirmationMessage ?? ""}
+          onChange={e => set("bookingConfirmationMessage", e.target.value)}
+          className="text-sm"
+          rows={2}
+          placeholder="🎉 You're all set — the meeting is booked. Check your inbox for the invite!"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Posted in the chat when a visitor books a meeting through the linked form's scheduler.
+          Leave empty for a friendly default. Only applies to in-chat booking (not redirect mode).
+        </p>
       </div>
 
       <div>

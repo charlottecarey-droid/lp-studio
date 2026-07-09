@@ -68,6 +68,7 @@ export function useChiliPiperBookingTracking({
   testId,
   variantId,
   sessionId,
+  onBookingConfirmed,
 }: {
   url: string;
   pageId?: number;
@@ -79,9 +80,20 @@ export function useChiliPiperBookingTracking({
   testId?: number;
   variantId?: number;
   sessionId?: string;
+  /**
+   * Fires once per scheduler URL when the booking-confirmed message arrives,
+   * BEFORE the best-effort lead/conversion POSTs (UI feedback shouldn't wait
+   * on analytics). The chat block uses it to close the in-panel scheduler
+   * and post its booking-confirmation message.
+   */
+  onBookingConfirmed?: () => void;
 }) {
   const submittedRef = useRef(false);
   useEffect(() => { submittedRef.current = false; }, [url]);
+  // Held in a ref so a new callback identity each render doesn't tear down
+  // and re-attach the window listener.
+  const onConfirmedRef = useRef(onBookingConfirmed);
+  useEffect(() => { onConfirmedRef.current = onBookingConfirmed; });
 
   useEffect(() => {
     // Skip entirely when this instance has no configured scheduler URL —
@@ -116,6 +128,7 @@ export function useChiliPiperBookingTracking({
       // silently dropped the lead AND the conversion for every one of them.
       const lead = extractLeadFromEvent(data);
       submittedRef.current = true;
+      onConfirmedRef.current?.();
 
       const fields: Record<string, string> = {};
       if (lead?.firstName && lead?.lastName) {

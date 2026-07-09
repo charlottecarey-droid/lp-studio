@@ -77,6 +77,10 @@ function toChatCaptureConfig(props: unknown): ChatCaptureConfig {
     qualifyingQuestions: Array.isArray(p.qualifyingQuestions)
       ? p.qualifyingQuestions.filter((q): q is string => typeof q === "string")
       : undefined,
+    // Capped: tenant-authored and persisted, but it lands in the system
+    // prompt on every public turn — a pasted essay must not balloon costs.
+    customInstructions:
+      typeof p.customInstructions === "string" ? p.customInstructions.slice(0, 2000) : undefined,
   };
 }
 
