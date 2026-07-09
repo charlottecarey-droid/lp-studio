@@ -762,6 +762,14 @@ export interface DsoSplitFeatureBlockProps {
   ctaMode?: CtaMode;
   ctaVariant?: "primary" | "secondary" | "link";
   imageUrl?: string;
+  /** Any Wistia link (share, media page, embed URL, or bare hashed id).
+   *  When set, the image column becomes a video: imageUrl serves as the
+   *  thumbnail with a play button (falls back to the Wistia player's own
+   *  poster when no image is set). */
+  videoUrl?: string;
+  /** How the video plays when the thumbnail is clicked: swapped in place
+   *  ("inline", default) or in a full-screen overlay ("modal"). */
+  videoPlayMode?: "inline" | "modal";
   imagePosition?: "left" | "right";
   backgroundStyle?: BackgroundStyle;
 }

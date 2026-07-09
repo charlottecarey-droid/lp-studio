@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle2 } from "lucide-react";
 import type { DsoSplitFeatureBlockProps } from "@/lib/block-types";
@@ -6,6 +7,7 @@ import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
+import { extractWistiaId, wistiaIframeUrl } from "@/lib/wistia";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
@@ -31,9 +33,23 @@ export function BlockDsoSplitFeature({ props, brand, onFieldChange }: Props) {
     ctaUrl,
     ctaMode = "link",
     imageUrl,
+    videoUrl,
+    videoPlayMode = "inline",
     imagePosition = "right",
     backgroundStyle = "white",
   } = props;
+
+  const wistiaId = videoUrl ? extractWistiaId(videoUrl) : null;
+  // Inline playback: the thumbnail swaps to the autoplaying player in place.
+  const [playing, setPlaying] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") setModalOpen(false); };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [modalOpen]);
 
   const dark = resolveSectionSurface({ backgroundStyle: backgroundStyle }, "#ffffff", brand).isDark;
   const sectionBg = getBgStyle(backgroundStyle);
@@ -134,15 +150,68 @@ export function BlockDsoSplitFeature({ props, brand, onFieldChange }: Props) {
       style={{
         borderRadius: "1.25rem",
         overflow: "hidden",
-        background: imgBg,
+        background: wistiaId ? "#000" : imgBg,
         border: `1px solid ${imgBor}`,
-        aspectRatio: "4/3",
+        // 16/9 when a video rides the column so the thumbnail and the
+        // playing iframe share one footprint — no layout shift on play.
+        aspectRatio: wistiaId ? "16/9" : "4/3",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        position: "relative",
       }}
     >
-      {imageUrl ? (
+      {wistiaId && (playing || !imageUrl) ? (
+        // Playing inline, or no thumbnail image at all — embed the player
+        // directly (Wistia's own poster covers the no-image case).
+        <iframe
+          src={wistiaIframeUrl(wistiaId, { autoPlay: playing })}
+          allow="autoplay; fullscreen"
+          allowFullScreen
+          title={headline || "Video"}
+          style={{ width: "100%", height: "100%", border: 0, display: "block" }}
+        />
+      ) : wistiaId && imageUrl ? (
+        <button
+          type="button"
+          onClick={() => (videoPlayMode === "modal" ? setModalOpen(true) : setPlaying(true))}
+          aria-label="Play video"
+          style={{ all: "unset", cursor: "pointer", width: "100%", height: "100%", display: "block", position: "relative" }}
+        >
+          <img
+            src={imageUrl}
+            alt=""
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+          <span
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(0,0,0,0.18)",
+            }}
+          >
+            <span
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.92)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
+              }}
+            >
+              <svg width="26" height="26" viewBox="0 0 24 24" fill={BRAND} aria-hidden style={{ marginLeft: 3 }}>
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </span>
+          </span>
+        </button>
+      ) : imageUrl ? (
         <img
           src={imageUrl}
           alt=""
@@ -196,6 +265,38 @@ export function BlockDsoSplitFeature({ props, brand, onFieldChange }: Props) {
           )}
         </div>
       </div>
+
+      {modalOpen && wistiaId && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 md:p-8"
+          onClick={() => setModalOpen(false)}
+        >
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setModalOpen(false); }}
+            aria-label="Close video"
+            className="absolute top-4 right-4 md:top-6 md:right-6 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+          <div
+            className="relative bg-black rounded-2xl overflow-hidden shadow-2xl"
+            style={{ width: "min(92vw, 960px)", aspectRatio: "16/9", maxHeight: "82vh" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <iframe
+              src={wistiaIframeUrl(wistiaId, { autoPlay: true })}
+              allow="autoplay; fullscreen"
+              allowFullScreen
+              className="w-full h-full border-0"
+              title={headline || "Video"}
+            />
+          </div>
+        </div>
+      )}
     </section>
   );
 }
