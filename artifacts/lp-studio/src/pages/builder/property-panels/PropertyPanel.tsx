@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { PageBlock, BlockSettings, CtaMode, DsoCaseFlowStage, DsoCaseStudyExtraSection } from "@/lib/block-types";
 import { DSO_CASE_FLOW_DEFAULT_STAGES, createBlock } from "@/lib/block-types";
 import { getBgOptions, type BackgroundStyle } from "@/lib/bg-styles";
-import { extractWistiaId } from "@/lib/wistia";
+import { WistiaUrlField } from "./WistiaUrlField";
 import type { BrandConfig } from "@/lib/brand-config";
 import type { CtaConfig } from "@/lib/cta/ctaConfig";
 import { ctaConfigHasValue, blockHasPrimaryCta } from "@/lib/cta/ctaConfig";
@@ -6350,15 +6350,7 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
               </div>
             )}
             <ImagePicker label="Image" value={p.imageUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, imageUrl: v || undefined } })} />
-            <div className="space-y-1.5">
-              <Label className="text-xs">Wistia Video URL (optional)</Label>
-              <Input value={p.videoUrl ?? ""} onChange={e => onChange({ ...block, props: { ...p, videoUrl: e.target.value || undefined } })} placeholder="https://dandy.wistia.com/medias/…" className="h-8 text-xs" />
-              {p.videoUrl && !extractWistiaId(p.videoUrl) ? (
-                <p className="text-[11px] text-red-500">Doesn't look like a Wistia link — paste a share, media, or embed URL.</p>
-              ) : (
-                <p className="text-[11px] text-muted-foreground">Paste any Wistia link. The image becomes a thumbnail with a play button; with no image, the player embeds directly.</p>
-              )}
-            </div>
+            <WistiaUrlField value={p.videoUrl ?? ""} onChange={v => onChange({ ...block, props: { ...p, videoUrl: v } })} />
             {p.videoUrl && (
               <div className="space-y-1.5"><Label className="text-xs">Video Playback</Label><Select value={p.videoPlayMode ?? "inline"} onValueChange={v => onChange({ ...block, props: { ...p, videoPlayMode: v as "inline" | "modal" } })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="inline" className="text-xs">Play in place</SelectItem><SelectItem value="modal" className="text-xs">Open in modal</SelectItem></SelectContent></Select></div>
             )}

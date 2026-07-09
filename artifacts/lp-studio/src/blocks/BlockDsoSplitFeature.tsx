@@ -7,7 +7,7 @@ import { ChiliPiperButton } from "@/components/ChiliPiperButton";
 import type { BrandConfig } from "@/lib/brand-config";
 import { getButtonClasses } from "@/lib/brand-config";
 import { InlineText } from "@/components/InlineText";
-import { extractWistiaId, wistiaIframeUrl } from "@/lib/wistia";
+import { extractWistiaId, isWistiaShareLink, resolveWistiaShareLink, wistiaIframeUrl } from "@/lib/wistia";
 
 const SPRING = { type: "spring" as const, stiffness: 400, damping: 18 };
 
@@ -39,7 +39,21 @@ export function BlockDsoSplitFeature({ props, brand, onFieldChange }: Props) {
     backgroundStyle = "white",
   } = props;
 
-  const wistiaId = videoUrl ? extractWistiaId(videoUrl) : null;
+  const directId = videoUrl ? extractWistiaId(videoUrl) : null;
+  // wistia.com/s/<token> share links carry a token, not the media id — the
+  // panel normalises them on paste, but pages saved with a raw share link
+  // (or generator output) still resolve here at render time via oEmbed.
+  const [resolvedId, setResolvedId] = useState<string | null>(null);
+  useEffect(() => {
+    setResolvedId(null);
+    if (!videoUrl || directId || !isWistiaShareLink(videoUrl)) return;
+    let cancelled = false;
+    void resolveWistiaShareLink(videoUrl).then((id) => {
+      if (!cancelled && id) setResolvedId(id);
+    });
+    return () => { cancelled = true; };
+  }, [videoUrl, directId]);
+  const wistiaId = directId ?? resolvedId;
   // Inline playback: the thumbnail swaps to the autoplaying player in place.
   const [playing, setPlaying] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);

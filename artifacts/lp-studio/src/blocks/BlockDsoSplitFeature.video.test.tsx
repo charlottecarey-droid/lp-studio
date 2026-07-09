@@ -6,8 +6,8 @@
  * image the player embeds directly; without a video the plain image renders
  * as before.
  */
-import { describe, it, expect, afterEach } from "vitest";
-import { render, cleanup, fireEvent } from "@testing-library/react";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { render, cleanup, fireEvent, waitFor } from "@testing-library/react";
 
 // jsdom has no IntersectionObserver; framer-motion's whileInView needs one at
 // mount. Elements simply stay in their initial state, which is fine — these
@@ -26,17 +26,20 @@ import type { DsoSplitFeatureBlockProps } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 
 const BRAND = { primaryColor: "#0f172a", accentColor: "#d7f463" } as BrandConfig;
-const VIDEO = "https://dandy.wistia.com/s/r0zpnamhjfarc6a";
-const IFRAME_SRC = "fast.wistia.net/embed/iframe/r0zpnamhjfarc6a";
+const VIDEO = "https://dandy.wistia.com/medias/t7fcicxvhs";
+const IFRAME_SRC = "fast.wistia.net/embed/iframe/t7fcicxvhs";
 
 function props(overrides: Partial<DsoSplitFeatureBlockProps>): DsoSplitFeatureBlockProps {
   return { ...createBlock("dso-split-feature").props, ...overrides };
 }
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe("BlockDsoSplitFeature video", () => {
-  it("renders image + play button for a Wistia share link, swaps to autoplay iframe on click", () => {
+  it("renders image + play button for a Wistia media link, swaps to autoplay iframe on click", () => {
     const { container, getByLabelText } = render(
       <BlockDsoSplitFeature props={props({ imageUrl: "https://cdn.example.com/thumb.jpg", videoUrl: VIDEO })} brand={BRAND} />,
     );
@@ -82,6 +85,25 @@ describe("BlockDsoSplitFeature video", () => {
     expect(container.querySelector("img")?.getAttribute("src")).toContain("thumb.jpg");
     expect(container.querySelector("iframe")).toBeNull();
     expect(queryByLabelText("Play video")).toBeNull();
+  });
+
+  it("resolves a /s/ share link through oEmbed at render time (saved pages keep working)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ html: '<iframe src="https://fast.wistia.net/embed/iframe/t7fcicxvhs"></iframe>' }),
+    })));
+    const { container } = render(
+      <BlockDsoSplitFeature
+        props={props({ imageUrl: undefined, videoUrl: "https://dandy.wistia.com/s/r0zpnamhjfarc6a" })}
+        brand={BRAND}
+      />,
+    );
+    // Token is not embeddable — nothing renders until oEmbed resolves.
+    expect(container.querySelector("iframe")).toBeNull();
+    await waitFor(() => {
+      expect(container.querySelector("iframe")?.getAttribute("src")).toContain(IFRAME_SRC);
+    });
+    expect(vi.mocked(fetch).mock.calls[0]![0]).toContain("fast.wistia.com/oembed");
   });
 
   it("falls back to the plain image when the video URL isn't a Wistia link", () => {
