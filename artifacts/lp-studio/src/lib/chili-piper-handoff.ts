@@ -21,18 +21,28 @@ import type { ChiliPiperHandoffConfig } from "@/lib/block-types";
 // doesn't know) and means the prefill works regardless of the router's
 // internal config, so the visitor never sees an empty First/Last name
 // field on the scheduler page.
+//
+// The name/email fan-outs also include Calendly's snake_case prefill keys
+// (`first_name`, `last_name`, `name` — https://help.calendly.com URL
+// parameters), so a Calendly link dropped into chiliPiperConfig.url gets
+// prefill for free. Chili Piper routers just drop the extra keys.
 const DEFAULT_FIELD_MAP: Record<string, string | string[]> = {
   Email: "email",
   email: "email",
   EmailAddress: "email",
   // Native lp-studio forms label this field "Email Address" by default.
   "Email Address": "email",
-  FirstName: ["firstName", "firstname"],
-  firstName: ["firstName", "firstname"],
-  "First Name": ["firstName", "firstname"],
-  LastName: ["lastName", "lastname"],
-  lastName: ["lastName", "lastname"],
-  "Last Name": ["lastName", "lastname"],
+  FirstName: ["firstName", "firstname", "first_name"],
+  firstName: ["firstName", "firstname", "first_name"],
+  "First Name": ["firstName", "firstname", "first_name"],
+  LastName: ["lastName", "lastname", "last_name"],
+  lastName: ["lastName", "lastname", "last_name"],
+  "Last Name": ["lastName", "lastname", "last_name"],
+  // Full-name sources (the chat bot captures a single name field; Calendly
+  // prefills its Name input from `name`).
+  Name: "name",
+  name: "name",
+  "Full Name": "name",
   Phone: "phone",
   phone: "phone",
   PhoneNumber: "phone",

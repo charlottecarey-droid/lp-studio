@@ -95,7 +95,12 @@ export function useChiliPiperBookingTracking({
       if (!data || typeof data !== "object") return;
 
       const d = data as Record<string, unknown>;
+      // Calendly embeds broadcast `{event: "calendly.event_scheduled"}` on
+      // booking; treat it as booking-confirmed so a Calendly URL in
+      // chiliPiperConfig.url records the same conversion + lead.
+      const isCalendly = d.event === "calendly.event_scheduled";
       const isBookingConfirmed =
+        isCalendly ||
         d.action === "booking-confirmed" ||
         d.type === "booking-confirmed" ||
         d.event === "booking-confirmed" ||
@@ -120,7 +125,7 @@ export function useChiliPiperBookingTracking({
       }
       if (lead?.email) fields["Email"] = lead.email;
       if (lead?.phone) fields["Phone"] = lead.phone;
-      fields["Booking Source"] = "Chili Piper";
+      fields["Booking Source"] = isCalendly ? "Calendly" : "Chili Piper";
       fields["Chili Piper URL"] = url;
 
       if (pageId != null && Object.keys(fields).length > 0) {

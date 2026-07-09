@@ -11,15 +11,26 @@
  * (formId routing, notifications, integrations, UTM/session attribution all
  * apply unchanged) and confirms in-thread.
  *
+ * Meeting booking: when the linked global form (props.formId) carries a
+ * chiliPiperConfig, a successful capture also offers a "Pick a time" button
+ * that opens the scheduler INSIDE the chat panel (the standalone
+ * ChiliPiperModal portals at a lower z-index than this launcher, so it would
+ * render behind the panel). Works with any embeddable scheduler URL — Chili
+ * Piper or Calendly — and records the same `chilipiper_booking` conversion
+ * via the shared tracking hook.
+ *
  * In the BUILDER canvas: renders a static, selectable preview card instead —
  * no live model calls, no portal (the server would refuse anyway: the public
  * endpoint only serves published pages).
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { ChatCaptureBlockProps } from "@/lib/block-types";
+import type { ChatCaptureBlockProps, ChiliPiperHandoffConfig } from "@/lib/block-types";
 import type { BrandConfig } from "@/lib/brand-config";
 import { contrastTextColor, isValidHex } from "@/lib/brand-config";
+import { ChiliPiperIframe, useChiliPiperBookingTracking } from "@/blocks/ChiliPiperModal";
+import { buildChiliPiperHandoffUrl } from "@/lib/chili-piper-handoff";
+import { safeNavigate } from "@/lib/safe-url";
 import {
   streamCopilotChat,
   CopilotStreamError,
@@ -44,6 +55,9 @@ interface ChatMessage {
   content: string;
   /** Set on the assistant message that triggered a lead submission. */
   captureState?: "sending" | "sent" | "failed";
+  /** Prefilled scheduler URL, set alongside `sent` when the linked form has
+   *  a Chili Piper / Calendly hand-off — renders a "Pick a time" button. */
+  bookingUrl?: string;
   streaming?: boolean;
 }
 
@@ -150,7 +164,39 @@ function ChatCaptureLauncher({
   // posting a duplicate lead (client-side dedupe; POST /lp/leads has no
   // idempotency column).
   const submittedEmailsRef = useRef<Set<string>>(new Set());
+  // Scheduler hand-off config of the linked global form, from the same
+  // public GET /lp/forms/:id BlockForm uses (already sanitised tenant-side).
+  // Fetched lazily on first panel open; null = none configured.
+  const [cpConfig, setCpConfig] = useState<ChiliPiperHandoffConfig | null>(null);
+  const cpFetchedRef = useRef(false);
+  // Scheduler currently shown inside the panel (replaces the thread).
+  const [schedulerUrl, setSchedulerUrl] = useState<string | null>(null);
   const side = blockProps.position === "bottom-left" ? "left" : "right";
+
+  useEffect(() => {
+    if (!open || blockProps.formId == null || cpFetchedRef.current) return;
+    cpFetchedRef.current = true;
+    fetch(`${API_BASE}/lp/forms/${blockProps.formId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((form: { chiliPiperConfig?: ChiliPiperHandoffConfig | null } | null) => {
+        const cp = form?.chiliPiperConfig;
+        if (cp && typeof cp.url === "string" && cp.url.trim() !== "") setCpConfig(cp);
+      })
+      .catch(() => {
+        /* no scheduler — capture still works */
+      });
+  }, [open, blockProps.formId]);
+
+  // Records the chilipiper_booking conversion (+ best-effort booking lead)
+  // when the embedded scheduler posts its booking-confirmed message. No-ops
+  // while no scheduler is open (empty url).
+  useChiliPiperBookingTracking({
+    url: schedulerUrl ?? "",
+    pageId,
+    testId,
+    variantId,
+    sessionId,
+  });
 
   useEffect(() => {
     const el = threadRef.current;
@@ -195,9 +241,13 @@ function ChatCaptureLauncher({
       const email = str(action.args?.email);
       if (!email || !email.includes("@")) return;
 
-      const setCapture = (captureState: ChatMessage["captureState"]) =>
+      const setCapture = (captureState: ChatMessage["captureState"], bookingUrl?: string) =>
         setMessages((prev) =>
-          prev.map((m) => (m.id === assistantId ? { ...m, captureState } : m)),
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, captureState, ...(bookingUrl ? { bookingUrl } : {}) }
+              : m,
+          ),
         );
 
       // Same email already sent this conversation — confirm without a
@@ -267,7 +317,26 @@ function ChatCaptureLauncher({
         });
         if (!resp.ok) throw new Error("Submission failed");
         submittedEmailsRef.current.add(email.toLowerCase());
-        setCapture("sent");
+
+        // Scheduler hand-off: prefill from the submitted fields (form labels
+        // resolve through the shared default/tenant fieldMap) plus the bot's
+        // dedicated args, with a first/last split of the full name for Chili
+        // Piper routers that don't accept a single `name` param.
+        let bookingUrl: string | undefined;
+        if (cpConfig) {
+          const prefill: Record<string, string> = { ...fields };
+          if (email && !prefill["Email"]) prefill["Email"] = email;
+          if (phone && !prefill["Phone"]) prefill["Phone"] = phone;
+          if (company && !prefill["Company"]) prefill["Company"] = company;
+          if (name) {
+            if (!prefill["Name"]) prefill["Name"] = name;
+            const [first, ...rest] = name.split(/\s+/);
+            if (first && !hasKeyLike(/first\s*name/i)) prefill["First Name"] = first;
+            if (rest.length > 0 && !hasKeyLike(/last\s*name/i)) prefill["Last Name"] = rest.join(" ");
+          }
+          bookingUrl = buildChiliPiperHandoffUrl(cpConfig, prefill);
+        }
+        setCapture("sent", bookingUrl);
 
         // Conversion tracking — mirrors BlockForm (null-safe test/variant).
         try {
@@ -290,7 +359,7 @@ function ChatCaptureLauncher({
         setCapture("failed");
       }
     },
-    [pageId, testId, variantId, sessionId, blockProps.formId, conversationId],
+    [pageId, testId, variantId, sessionId, blockProps.formId, conversationId, cpConfig],
   );
 
   const send = useCallback(async () => {
@@ -438,6 +507,38 @@ function ChatCaptureLauncher({
             </button>
           </div>
 
+          {schedulerUrl ? (
+            /* Scheduler — replaces the thread while open. The standalone
+               ChiliPiperModal can't be used here (it portals below this
+               launcher's z-index), so the iframe embeds in the panel. */
+            <>
+              <div style={{ borderBottom: "1px solid #e5e7eb", padding: "6px 10px" }}>
+                <button
+                  onClick={() => setSchedulerUrl(null)}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    color: "#4b5563",
+                    cursor: "pointer",
+                    font: "600 12px/1.4 Inter, system-ui, sans-serif",
+                    padding: 4,
+                  }}
+                >
+                  ← Back to chat
+                </button>
+              </div>
+              <ChiliPiperIframe
+                url={schedulerUrl}
+                onUnavailable={() => {
+                  // Iframe blocked (CSP/ad-blocker/network) — open the
+                  // scheduler in a new tab instead, same as BlockForm.
+                  safeNavigate(schedulerUrl, "_blank");
+                  setSchedulerUrl(null);
+                }}
+              />
+            </>
+          ) : (
+          <>
           {/* Thread */}
           <div
             ref={threadRef}
@@ -464,6 +565,33 @@ function ChatCaptureLauncher({
                 </div>
                 {m.captureState === "sent" && (
                   <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 600 }}>✓ Sent to the team</span>
+                )}
+                {m.captureState === "sent" && m.bookingUrl && (
+                  <button
+                    onClick={() => {
+                      if (cpConfig?.mode === "redirect") {
+                        safeNavigate(m.bookingUrl!, "_blank");
+                      } else {
+                        setSchedulerUrl(m.bookingUrl!);
+                      }
+                    }}
+                    style={{
+                      marginTop: 2,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      border: `1.5px solid ${accent}`,
+                      borderRadius: 999,
+                      padding: "7px 14px",
+                      backgroundColor: "#ffffff",
+                      color: accent,
+                      cursor: "pointer",
+                      font: "600 13px/1 Inter, system-ui, sans-serif",
+                    }}
+                  >
+                    <CalendarIcon />
+                    Pick a time
+                  </button>
                 )}
                 {m.captureState === "failed" && (
                   <span style={{ fontSize: 11, color: "#dc2626" }}>
@@ -532,6 +660,8 @@ function ChatCaptureLauncher({
               </p>
             ) : null}
           </div>
+          </>
+          )}
         </div>
       )}
     </div>,
@@ -543,6 +673,17 @@ function ChatIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
     </svg>
   );
 }

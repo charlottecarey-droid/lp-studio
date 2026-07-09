@@ -155,19 +155,28 @@ router.post("/lp/chat-capture", chatCaptureLimiter, async (req, res): Promise<vo
 
   // Linked global form: its REQUIRED fields become part of the bot's capture
   // checklist (grounding) so a chat lead satisfies the same contract as a
-  // form submission. Tenant-scoped read; a missing/foreign form just means
-  // no extra fields. Best-effort — a load failure never blocks the chat.
+  // form submission, and its Chili Piper config (if any) tells the bot a
+  // scheduler hand-off follows a successful capture — the BLOCK renders the
+  // actual booking UI, the bot only needs to know it exists so it can invite
+  // the visitor to pick a time. Tenant-scoped read; a missing/foreign form
+  // just means no extra fields. Best-effort — a load failure never blocks
+  // the chat.
   let formFields: LinkedFormField[] = [];
+  let bookingAvailable = false;
   const rawFormId = (chatBlock.props as Record<string, unknown> | undefined)?.["formId"];
   const formId = typeof rawFormId === "number" && Number.isFinite(rawFormId) ? rawFormId : null;
   if (formId != null) {
     try {
       const [form] = await db
-        .select({ steps: lpFormsTable.steps })
+        .select({ steps: lpFormsTable.steps, chiliPiperConfig: lpFormsTable.chiliPiperConfig })
         .from(lpFormsTable)
         .where(and(eq(lpFormsTable.id, formId), eq(lpFormsTable.tenantId, tenantId)))
         .limit(1);
-      if (form) formFields = extractLinkedFormFields(form.steps);
+      if (form) {
+        formFields = extractLinkedFormFields(form.steps);
+        const cpUrl = (form.chiliPiperConfig as { url?: unknown } | null)?.url;
+        bookingAvailable = typeof cpUrl === "string" && cpUrl.trim() !== "";
+      }
     } catch (err) {
       logger.warn({ err: String(err), tenantId, formId }, "[chat-capture] linked form load failed — continuing without form fields");
     }
@@ -208,6 +217,7 @@ router.post("/lp/chat-capture", chatCaptureLimiter, async (req, res): Promise<vo
     pageBlocks: toCopilotBlocks(page.blocks),
     config,
     formFields,
+    bookingAvailable,
   };
 
   try {

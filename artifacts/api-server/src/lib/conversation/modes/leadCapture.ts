@@ -52,6 +52,12 @@ export interface LeadCaptureContext extends ConversationContext {
    *  route from the persisted form row. The bot must collect the REQUIRED
    *  ones before capturing. */
   formFields?: LinkedFormField[];
+  /** True when the linked form has a scheduler hand-off configured
+   *  (chili_piper_config with a URL — Chili Piper or any embeddable
+   *  scheduler like Calendly). The BLOCK renders the actual "Pick a time"
+   *  booking UI after a successful capture; this flag only tells the bot to
+   *  invite the visitor to book. */
+  bookingAvailable?: boolean;
 }
 
 /** Extract the visitor-facing fields from a form's persisted `steps` jsonb.
@@ -238,10 +244,17 @@ export const leadCaptureMode: ConversationMode = {
             .map((f) => `- ${f.label} (${f.required ? "required" : "optional"})`)
             .join("\n")
         : "";
+    const bookingSection = c.bookingAvailable
+      ? "MEETING BOOKING — after your capture_lead succeeds, a \"Pick a time\" scheduler button " +
+        "appears right in this chat. When you confirm the capture, invite the visitor to book a " +
+        "meeting with the team using that button. Do NOT promise a booking link anywhere else " +
+        "(no emails, no URLs) — the button in the chat is the only way to book."
+      : "";
     const sections = [
       buildPageContentDigest(c.pageTitle ?? "", c.pageBlocks ?? []),
       brandSection ? `Brand facts (the only claims you may assert):\n${brandSection}` : "",
       formSection,
+      bookingSection,
       questions.length > 0
         ? "QUALIFYING QUESTIONS — your checklist. Work each one into the conversation naturally, " +
           "one per turn, until every question is either answered or the visitor has declined it. " +

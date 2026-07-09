@@ -229,6 +229,35 @@ describe("leadCaptureMode", () => {
     expect(leadCaptureMode.groundingBuilder(ctx)).not.toContain("LINKED FORM FIELDS");
   });
 
+  it("grounding invites booking when the linked form has a scheduler hand-off", () => {
+    const ctx: LeadCaptureContext = {
+      tenantId: 1,
+      pageId: 7,
+      pageTitle: "Demo",
+      pageBlocks: [],
+      config: {},
+      brand: {},
+      bookingAvailable: true,
+    };
+    const grounding = leadCaptureMode.groundingBuilder(ctx);
+    expect(grounding).toContain("MEETING BOOKING");
+    expect(grounding).toContain("Pick a time");
+    // The bot must never invent a booking channel of its own.
+    expect(grounding).toContain("Do NOT promise a booking link anywhere else");
+  });
+
+  it("grounding omits the booking section when no scheduler is configured", () => {
+    const ctx: LeadCaptureContext = {
+      tenantId: 1,
+      pageId: 7,
+      pageTitle: "Demo",
+      pageBlocks: [],
+      config: {},
+      brand: {},
+    };
+    expect(leadCaptureMode.groundingBuilder(ctx)).not.toContain("MEETING BOOKING");
+  });
+
   it("grounding still directs qualification when no questions are configured", () => {
     const ctx: LeadCaptureContext = {
       tenantId: 1,

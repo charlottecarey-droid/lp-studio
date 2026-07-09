@@ -102,7 +102,9 @@ export function ChatCapturePanel({ props, onChange }: Props) {
       <div>
         <Label className={LABEL_CLS}>Global Form</Label>
         <p className="text-xs text-muted-foreground mb-2">
-          Captured leads submit with this form's notification and integration routing.
+          Captured leads submit with this form's notification and integration routing. If the form
+          has a meeting scheduler configured (Chili Piper or Calendly URL), the bot offers a
+          "Pick a time" booking step right after capturing the lead.
         </p>
         <div className="flex gap-2">
           <Select
