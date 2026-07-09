@@ -743,6 +743,12 @@ const GENERIC_SEED = [
       // "" = render no scan-media card. Legacy Dandy pages leave mediaUrl
       // undefined and keep the original meetdandy.com GIF (see
       // DsoInsightsVideoBlockProps.mediaUrl).
+      // Same legacy-safe pattern for the bundled Dandy demo imagery: an empty
+      // screens list renders a neutral panel in the browser frame, and ""
+      // card-image slots keep the callout cards text-only. Tenants add their
+      // own imagery from the block's property panel.
+      screens: [],
+      cardImages: ["", "", "", ""],
       mediaUrl: "",
     } },
   { block_type: "dso-heartland-hero", label: "Co-Brand Hero", category: "Hero", sort_order: 109, force: true,

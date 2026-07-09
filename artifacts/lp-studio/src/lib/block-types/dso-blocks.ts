@@ -922,6 +922,16 @@ export interface DsoInsightsVideoBlockProps {
    *    block_catalog seed so non-Dandy tenants never see the Dandy GIF);
    *  - non-empty → renders that URL. */
   mediaUrl?: string;
+  /** Rotating dashboard screenshots inside the simulated browser frame.
+   *  Legacy-safe: undefined → the built-in demo screenshot set (existing
+   *  saved pages render exactly as before); [] / all-empty srcs → the frame
+   *  shows a neutral panel with no screenshots. `label` feeds the alt text. */
+  screens?: Array<{ src: string; label?: string }>;
+  /** Images for the four detail-callout cards, in display order (top →
+   *  bottom). Legacy-safe PER SLOT: undefined/null → that card keeps its
+   *  built-in demo image; "" → that card renders with no image (the callout
+   *  text stays); non-empty → that URL. */
+  cardImages?: Array<string | null>;
   /** Title attribute for the embedded video iframe (accessibility). */
   videoTitle?: string;
   title?: string;

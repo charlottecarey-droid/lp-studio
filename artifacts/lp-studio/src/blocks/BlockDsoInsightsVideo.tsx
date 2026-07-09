@@ -4,9 +4,10 @@
 // (eyebrow, alt text, iframe title, browser URL) are prop-driven with neutral
 // defaults, and the meetdandy.com scan GIF is prop-driven via `mediaUrl`
 // (undefined → legacy GIF, "" → no media card — the generic seed uses "").
-// (Note: the rotating dashboard screenshots in @assets are still Dandy
-// dashboard imagery — visually Dandy-specific, though no Dandy text/URL
-// leaks into the DOM.)
+// The rotating screenshots and the four detail-card images are prop-driven
+// too (`screens`, `cardImages`) with legacy-safe fallbacks to the bundled
+// Dandy demo assets — see the prop docs in dso-blocks.ts. Editable from the
+// block's property panel.
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import { MuteToggleButton } from "@/components/MuteToggleButton";
 import { motion, useInView } from "framer-motion";
@@ -89,7 +90,7 @@ const CALLOUT_ICONS = [LineChart, DollarSign, Stethoscope, Activity];
 // Original Dandy scan-thickness GIF. Only used when props.mediaUrl is
 // undefined (legacy saved pages) — the generic catalog seed sets mediaUrl: ""
 // so non-Dandy tenants never render it.
-const LEGACY_SCAN_GIF_URL =
+export const LEGACY_SCAN_GIF_URL =
   "https://www.meetdandy.com/wp-content/uploads/2025/07/careers-technology-DDP_Thickness.gif";
 
 const DEFAULT_CALLOUTS: Array<{ label: string; desc: string }> = [
@@ -174,6 +175,26 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
   // GIF (existing saved Dandy pages keep rendering exactly as today), "" → no
   // media card, non-empty → that URL. See DsoInsightsVideoBlockProps.mediaUrl.
   const scanMediaUrl = props.mediaUrl === undefined ? LEGACY_SCAN_GIF_URL : props.mediaUrl;
+
+  // Rotating screenshots — legacy-safe (see DsoInsightsVideoBlockProps.screens):
+  // undefined → built-in demo set; provided → only non-empty srcs; empty
+  // result → the browser frame renders a neutral panel instead of the reel.
+  const screenItems: ScreenItem[] =
+    props.screens === undefined
+      ? SCREENS
+      : props.screens
+          .filter((s): s is { src: string; label?: string } => !!s && typeof s.src === "string" && s.src.trim() !== "")
+          .map((s) => ({ src: s.src, label: s.label ?? "Dashboard" }));
+  // The 110s reel is tuned for the 21-image demo set; scale for shorter lists.
+  const reelDuration = Math.max(15, Math.round((110 / SCREENS.length) * screenItems.length));
+
+  // Detail-card images — legacy-safe PER SLOT (cardImages doc): null/missing
+  // → built-in demo image; "" → card renders without an image; url → url.
+  const defaultCardImages = [closeUpRemakeRates, provPerf, closeUpSpend, scanQuality];
+  const resolvedCardImages = defaultCardImages.map((demo, k) => {
+    const v = props.cardImages?.[k];
+    return v === undefined || v === null ? demo : v.trim();
+  });
 
   const bgStyle = getBgStyle(props.backgroundStyle ?? "dandy-green");
   const dark = resolveSectionSurface({ backgroundStyle: props.backgroundStyle ?? "dandy-green" }, "#ffffff", brand).isDark;
@@ -360,26 +381,32 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
               </div>
             ) : (
               <div className="relative w-full aspect-[16/9] bg-[#f0f2f5] overflow-hidden">
-                <motion.div
-                  className="flex flex-col"
-                  animate={{ y: ["0%", "-50%"] }}
-                  transition={{ duration: 110, ease: "linear", repeat: Infinity }}
-                >
-                  {[...SCREENS, ...SCREENS].map((s, i) => (
-                    <div
-                      key={i}
-                      className="w-full shrink-0 overflow-hidden"
-                      style={s.clipRatio ? { aspectRatio: s.clipRatio } : undefined}
-                    >
-                      <img
-                        src={s.src}
-                        alt={`${props.screensAltPrefix || "Insights"} — ${s.label}`}
-                        className="w-full h-auto block"
-                        draggable={false}
-                      />
-                    </div>
-                  ))}
-                </motion.div>
+                {screenItems.length > 0 ? (
+                  <motion.div
+                    className="flex flex-col"
+                    animate={{ y: ["0%", "-50%"] }}
+                    transition={{ duration: reelDuration, ease: "linear", repeat: Infinity }}
+                  >
+                    {[...screenItems, ...screenItems].map((s, i) => (
+                      <div
+                        key={i}
+                        className="w-full shrink-0 overflow-hidden"
+                        style={s.clipRatio ? { aspectRatio: s.clipRatio } : undefined}
+                      >
+                        <img
+                          src={s.src}
+                          alt={`${props.screensAltPrefix || "Insights"} — ${s.label}`}
+                          className="w-full h-auto block"
+                          draggable={false}
+                        />
+                      </div>
+                    ))}
+                  </motion.div>
+                ) : (
+                  // No screenshots configured — a quiet dashboard-ish panel so
+                  // the browser frame never renders an empty white void.
+                  <div className="absolute inset-0" style={{ background: "linear-gradient(160deg, #eef1f5 0%, #e2e7ee 55%, #d8dee8 100%)" }} />
+                )}
 
                 <div className="absolute inset-x-0 top-0 h-16 pointer-events-none z-10"
                   style={{ background: "linear-gradient(to bottom, #f0f2f5, transparent)" }} />
@@ -393,10 +420,10 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
         {/* ── ALL FOUR IMAGE CARDS ── */}
         <div className="w-full max-w-3xl flex flex-col gap-6 mb-16">
           {[
-            { img: closeUpRemakeRates, alt: "Remake rates detail",        calloutIndex: 0, callout: callouts[0], delay: 2.0, offsetX: "0%"  },
-            { img: provPerf,           alt: "Provider performance detail", calloutIndex: 3, callout: callouts[3], delay: 2.2, offsetX: "8%"  },
-            { img: closeUpSpend,       alt: "Spend tracking detail",       calloutIndex: 1, callout: callouts[1], delay: 2.4, offsetX: "8%"  },
-            { img: scanQuality,        alt: "Scan quality detail",         calloutIndex: 2, callout: callouts[2], delay: 2.6, offsetX: "16%" },
+            { img: resolvedCardImages[0], alt: "Remake rates detail",         calloutIndex: 0, callout: callouts[0], delay: 2.0, offsetX: "0%"  },
+            { img: resolvedCardImages[1], alt: "Provider performance detail", calloutIndex: 3, callout: callouts[3], delay: 2.2, offsetX: "8%"  },
+            { img: resolvedCardImages[2], alt: "Spend tracking detail",       calloutIndex: 1, callout: callouts[1], delay: 2.4, offsetX: "8%"  },
+            { img: resolvedCardImages[3], alt: "Scan quality detail",         calloutIndex: 2, callout: callouts[2], delay: 2.6, offsetX: "16%" },
           ].map(({ img, alt, calloutIndex, callout, delay, offsetX }, i) => (
             <motion.div
               key={i}
@@ -437,11 +464,13 @@ export function BlockDsoInsightsVideo({ props, brand, onCtaClick, onFieldChange 
                 </div>
               </div>
 
-              <div className="w-full relative overflow-hidden">
-                <div className="absolute inset-x-0 top-0 h-8 z-10 pointer-events-none"
-                  style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.18), transparent)" }} />
-                <img src={img} alt={alt} className="w-full h-auto block" />
-              </div>
+              {img !== "" && (
+                <div className="w-full relative overflow-hidden">
+                  <div className="absolute inset-x-0 top-0 h-8 z-10 pointer-events-none"
+                    style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.18), transparent)" }} />
+                  <img src={img} alt={alt} className="w-full h-auto block" />
+                </div>
+              )}
             </motion.div>
           ))}
         </div>

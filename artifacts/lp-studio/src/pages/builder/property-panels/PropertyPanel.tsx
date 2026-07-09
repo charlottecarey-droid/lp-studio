@@ -246,6 +246,7 @@ import { DtrTokenInserter } from "@/components/DtrTokenInserter";
 import { CampaignVarInserter } from "@/components/CampaignVarInserter";
 import { getBlockDef } from "@/lib/block-types";
 import { ImagePicker } from "@/components/ImagePicker";
+import { LEGACY_SCAN_GIF_URL } from "@/blocks/BlockDsoInsightsVideo";
 import { IconPicker } from "@/components/IconPicker";
 import { FocalPointPicker } from "@/components/FocalPointPicker";
 import { VideoPicker } from "@/components/VideoPicker";
@@ -2148,6 +2149,92 @@ export function PropertyPanel({ block, onChange, onDelete, hideBlockSettings = f
                   <Switch checked={p.showScanGif !== false} onCheckedChange={v => onChange({ ...block, props: { ...p, showScanGif: v } })} />
                 </div>
               </div>
+            </div>
+
+            {/* Imagery — legacy-safe overrides for the bundled demo assets
+                (see DsoInsightsVideoBlockProps.screens / cardImages docs). */}
+            <div className="border-t pt-3 space-y-3">
+              <Label className="text-xs font-semibold">Screenshot Reel</Label>
+              <p className="text-[11px] text-muted-foreground -mt-1">The scrolling screenshots inside the browser frame (shown when no video is set).</p>
+              {p.screens === undefined ? (
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] text-muted-foreground">Using the built-in demo reel.</p>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onChange({ ...block, props: { ...p, screens: [] } })}>Customize</Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {(p.screens ?? []).map((s, i) => (
+                    <div key={i} className="rounded-lg border border-border p-2 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={s.label ?? ""}
+                          placeholder={`Screenshot ${i + 1} label (alt text)`}
+                          className="h-7 text-xs"
+                          onChange={e => {
+                            const next = (p.screens ?? []).map((row, idx) => idx === i ? { ...row, label: e.target.value } : row);
+                            onChange({ ...block, props: { ...p, screens: next } });
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => onChange({ ...block, props: { ...p, screens: (p.screens ?? []).filter((_, idx) => idx !== i) } })}
+                          className="text-slate-400 hover:text-red-500 transition-colors"
+                          title="Remove screenshot"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <ImagePicker
+                        value={s.src}
+                        onChange={v => {
+                          const next = (p.screens ?? []).map((row, idx) => idx === i ? { ...row, src: v } : row);
+                          onChange({ ...block, props: { ...p, screens: next } });
+                        }}
+                      />
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => onChange({ ...block, props: { ...p, screens: [...(p.screens ?? []), { src: "", label: "" }] } })}>
+                      <Plus className="w-3 h-3" />Add screenshot
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => onChange({ ...block, props: { ...p, screens: undefined } })}>Use demo reel</Button>
+                  </div>
+                  {(p.screens ?? []).filter(s => s.src.trim() !== "").length === 0 && (
+                    <p className="text-[11px] text-muted-foreground">No screenshots — the frame shows a plain panel.</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t pt-3 space-y-3">
+              <Label className="text-xs font-semibold">Detail Card Images</Label>
+              <p className="text-[11px] text-muted-foreground -mt-1">The image on each callout card below the frame. An untouched slot keeps its built-in demo image; clearing a picked image shows that card with text only.</p>
+              {[0, 1, 2, 3].map(k => {
+                // Cards render callouts in display order [0, 3, 1, 2].
+                const calloutIdx = [0, 3, 1, 2][k];
+                const calloutLabel = calloutsArr[calloutIdx]?.label;
+                return (
+                  <div key={k} className="space-y-1">
+                    <Label className="text-xs">Card {k + 1}{calloutLabel ? ` — ${calloutLabel}` : ""}</Label>
+                    <ImagePicker
+                      value={p.cardImages?.[k] ?? ""}
+                      onChange={v => {
+                        const next = [0, 1, 2, 3].map(i => (i === k ? v : (p.cardImages?.[i] ?? null)));
+                        onChange({ ...block, props: { ...p, cardImages: next } });
+                      }}
+                    />
+                  </div>
+                );
+              })}
+              {p.cardImages !== undefined && (
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => onChange({ ...block, props: { ...p, cardImages: undefined } })}>Use demo images</Button>
+              )}
+            </div>
+
+            <div className="border-t pt-3 space-y-1.5">
+              <Label className="text-xs">Scan Feature Media</Label>
+              <p className="text-[11px] text-muted-foreground">The animated image on the scan visualization card (toggle above). Clear it to show the card without media.</p>
+              <ImagePicker value={p.mediaUrl ?? LEGACY_SCAN_GIF_URL} onChange={v => onChange({ ...block, props: { ...p, mediaUrl: v } })} />
             </div>
 
             {/* AI refresh */}
