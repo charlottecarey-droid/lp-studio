@@ -224,6 +224,9 @@ async function enrichVariantWithPage(variant: LpVariant) {
           // Page-level default CTA, so the viewer's variant render can drive each
           // block's PRIMARY button from the Page CTA (matching the main path).
           ctaDefault: linkedPage.ctaDefault ?? null,
+          // "Match style from URL" overrides — the viewer's variant branch
+          // merges these into the brand (mergePageStyleOverrides).
+          styleOverrides: linkedPage.styleOverrides ?? null,
           // Page-record variables flow to the viewer so per-page settings
           // (e.g. linked-form colour overrides under the reserved
           // `__linkedFormStyle` key) take effect at runtime.
@@ -267,6 +270,8 @@ async function enrichVariantWithBlockOverrides(variant: LpVariant, basePageId?: 
       // Page-level default CTA, so AB-test variant renders also drive each
       // block's PRIMARY button from the Page CTA (matching the main path).
       ctaDefault: page.ctaDefault ?? null,
+      // "Match style from URL" overrides ride along for the same reason.
+      styleOverrides: page.styleOverrides ?? null,
       pageVariables: (page.pageVariables && typeof page.pageVariables === "object" && !Array.isArray(page.pageVariables))
         ? page.pageVariables as Record<string, string>
         : {},
@@ -685,6 +690,12 @@ router.get("/lp/page/:slug", async (req, res): Promise<void> => {
         robots,
         provenance,
         accountNameApollo,
+        // Page-level default CTA + "Match style from URL" overrides. The
+        // viewer applies both (pageCta prop / mergePageStyleOverrides) but
+        // they were omitted here, so published pages silently rendered
+        // without them while the builder canvas showed them.
+        ctaDefault: builderPage.ctaDefault ?? null,
+        styleOverrides: builderPage.styleOverrides ?? null,
         pageVariables: (builderPage.pageVariables && typeof builderPage.pageVariables === "object" && !Array.isArray(builderPage.pageVariables))
           ? builderPage.pageVariables as Record<string, string>
           : {},
@@ -975,6 +986,11 @@ router.get("/lp/preview/:slug", async (req, res): Promise<void> => {
     robots,
     provenance,
     accountNameApollo: "",
+    // Same fields the public route sends — the preview (and the prerender
+    // snapshot, which renders through this route) must match the published
+    // page's Page CTA + style-from-URL rendering.
+    ctaDefault: page.ctaDefault ?? null,
+    styleOverrides: page.styleOverrides ?? null,
     pageVariables: (page.pageVariables && typeof page.pageVariables === "object" && !Array.isArray(page.pageVariables))
       ? page.pageVariables as Record<string, string>
       : {},
