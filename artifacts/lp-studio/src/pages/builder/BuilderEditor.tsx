@@ -20,7 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   GripVertical, Trash2, Plus, FlaskConical, Loader2, TestTube2, Layers, Code2, Type, Sparkles, BookmarkPlus, ArrowLeft,
-  Search, CheckCircle2, Lock, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star, MessageSquare, Palette, Eye, Monitor,
+  Search, CheckCircle2, Lock, XCircle, ChevronDown, ChevronUp, Wand2, Camera, ImageIcon, Flame, BookOpen, Variable, Mail, X, Star, MessageSquare, Palette, Eye, Monitor, Tablet, Smartphone,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -968,6 +968,38 @@ function InsertionBar({ onClick }: { onClick: () => void }) {
   );
 }
 
+/** Tablet/phone canvas preview. An iframe (not a narrowed div) because the
+ *  blocks' responsive styles key off VIEWPORT media queries — only an iframe
+ *  gives the page its own viewport at the device width. Renders the
+ *  session-authed /preview/:slug draft route (same origin, so the editor's
+ *  cookie rides along); the caller saves pending edits before mounting this. */
+const DEVICE_PREVIEW_SIZES = {
+  tablet: { width: 768, height: 1024, label: "Tablet" },
+  mobile: { width: 375, height: 812, label: "Phone" },
+} as const;
+
+function DevicePreviewFrame({ slug, device }: { slug: string; device: "tablet" | "mobile" }) {
+  const { width, height, label } = DEVICE_PREVIEW_SIZES[device];
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <p className="text-xs text-muted-foreground">
+        {label} preview of the saved draft at {width}px — switch to desktop to edit.
+      </p>
+      <div
+        className="shrink-0 overflow-hidden rounded-[1.75rem] border-8 border-slate-800 bg-slate-800 shadow-2xl"
+        style={{ maxWidth: "100%" }}
+      >
+        <iframe
+          key={device}
+          src={getLpPreviewUrl(slug)}
+          title={`${label} preview`}
+          style={{ width, maxWidth: "100%", height: `min(${height}px, calc(100vh - 220px))`, border: 0, display: "block", background: "#ffffff" }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function highlightCss(css: string): string {
   if (!css) return "";
   const slots: string[] = [];
@@ -1391,6 +1423,12 @@ export default function BuilderEditor() {
   const [strictBannerDismissed, setStrictBannerDismissed] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  // Device preview: tablet/mobile swap the editable canvas for a same-origin
+  // iframe of /preview/:slug — blocks respond to VIEWPORT media queries, so a
+  // width-constrained div would keep desktop styles; only an iframe gives the
+  // page its own viewport. The iframe shows the SAVED draft, so switching
+  // devices saves first when dirty (see switchPreviewDevice).
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   // Snapshot of the last saved page payload (JSON string). Used to derive a
   // dirty flag so the Save button can dim and show "Saved" when nothing has
   // changed (task #266 — make autosave/save behaviour clearer).
@@ -2574,6 +2612,14 @@ export default function BuilderEditor() {
     }
   };
 
+  // Tablet/mobile preview shows the SAVED draft (the iframe can't see local
+  // state), so entering a device saves pending edits first — otherwise the
+  // preview silently lies about what the visitor gets.
+  const switchPreviewDevice = async (device: "desktop" | "tablet" | "mobile") => {
+    if (device !== "desktop" && isDirty) await handleSave();
+    setPreviewDevice(device);
+  };
+
   // Editor reassigned (or cleared) the page's segment from the top-bar
   // popover (task #250). We update local state immediately so the badge
   // reflects the change without a reload, then persist via PUT
@@ -3540,7 +3586,34 @@ export default function BuilderEditor() {
         {/* Center: Canvas */}
         <main className="flex-1 min-w-0 overflow-y-auto bg-muted/50" onClick={() => { if (!catalogMode) setSelectedBlockId(null); }}>
           <div className="min-h-full flex flex-col items-center py-6 px-4">
-            {blocks.length === 0 ? (
+            {!catalogMode && blocks.length > 0 && (
+              <div className="max-md:hidden sticky top-2 z-40 mb-4 flex items-center gap-0.5 rounded-full border border-border bg-background/95 backdrop-blur p-0.5 shadow-sm" onClick={(e) => e.stopPropagation()}>
+                {([
+                  ["desktop", Monitor, "Desktop — edit"],
+                  ["tablet", Tablet, "Tablet preview — 768px"],
+                  ["mobile", Smartphone, "Phone preview — 375px"],
+                ] as const).map(([device, Icon, label]) => (
+                  <button
+                    key={device}
+                    type="button"
+                    title={label}
+                    aria-label={label}
+                    aria-pressed={previewDevice === device}
+                    disabled={device !== "desktop" && !slug}
+                    onClick={() => void switchPreviewDevice(device)}
+                    className={cn(
+                      "px-2.5 py-1.5 rounded-full transition-colors disabled:opacity-40",
+                      previewDevice === device ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent",
+                    )}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </button>
+                ))}
+              </div>
+            )}
+            {!catalogMode && previewDevice !== "desktop" && blocks.length > 0 ? (
+              <DevicePreviewFrame slug={slug} device={previewDevice} />
+            ) : blocks.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-12">
                 <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
                   <Plus className="w-8 h-8 text-primary" />
